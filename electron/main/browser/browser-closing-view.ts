@@ -21,11 +21,23 @@ export interface BrowserViewToClose extends BrowserViewToRetain {
 const retainedBrowserViews = new Set<BrowserViewToRetain>();
 const reportedBrowserViews = new WeakSet<BrowserViewToRetain>();
 const RETENTION_OBSERVER_RETRY_DELAYS_MS = [0, 10, 50, 250, 1_000] as const;
+const DESTROYED_VIEW_QUARANTINE_MS = 30_000;
 
-function releaseBrowserViewOnNextTick(view: BrowserViewToRetain): void {
-  setImmediate(() => {
+function releaseBrowserViewAfterQuarantine(
+  view: BrowserViewToRetain,
+  quarantineMs: number,
+): void {
+  if (quarantineMs <= 0) {
+    setImmediate(() => {
+      retainedBrowserViews.delete(view);
+    });
+    return;
+  }
+
+  const timer = setTimeout(() => {
     retainedBrowserViews.delete(view);
-  });
+  }, quarantineMs);
+  timer.unref?.();
 }
 
 function reportQuarantinedBrowserView(
@@ -42,6 +54,7 @@ function reportQuarantinedBrowserView(
 function scheduleRetentionObserverRetry(
   view: BrowserViewToRetain,
   attempt: number,
+  quarantineMs: number,
 ): void {
   const delay = RETENTION_OBSERVER_RETRY_DELAYS_MS[attempt];
   if (delay === undefined) {
@@ -55,7 +68,7 @@ function scheduleRetentionObserverRetry(
     return;
   }
   const timer = setTimeout(
-    () => observeRetainedBrowserView(view, attempt + 1),
+    () => observeRetainedBrowserView(view, attempt + 1, quarantineMs),
     delay,
   );
   timer.unref?.();
@@ -64,6 +77,7 @@ function scheduleRetentionObserverRetry(
 function observeRetainedBrowserView(
   view: BrowserViewToRetain,
   attempt: number,
+  quarantineMs: number,
 ): void {
   if (!retainedBrowserViews.has(view)) {
     return;
@@ -71,37 +85,44 @@ function observeRetainedBrowserView(
 
   try {
     if (view.webContents.isDestroyed()) {
-      releaseBrowserViewOnNextTick(view);
+      releaseBrowserViewAfterQuarantine(view, quarantineMs);
       return;
     }
   } catch {
-    scheduleRetentionObserverRetry(view, attempt);
+    scheduleRetentionObserverRetry(view, attempt, quarantineMs);
     return;
   }
 
   try {
     view.webContents.once("destroyed", () => {
-      releaseBrowserViewOnNextTick(view);
+      releaseBrowserViewAfterQuarantine(view, quarantineMs);
     });
   } catch {
-    scheduleRetentionObserverRetry(view, attempt);
+    scheduleRetentionObserverRetry(view, attempt, quarantineMs);
   }
 }
 
 export function retainBrowserViewUntilDestroyed(
   view: BrowserViewToRetain,
+  options?: { quarantineMs?: number },
 ): void {
   if (retainedBrowserViews.has(view)) {
     return;
   }
 
   retainedBrowserViews.add(view);
-  observeRetainedBrowserView(view, 0);
+  observeRetainedBrowserView(
+    view,
+    0,
+    options?.quarantineMs ?? DESTROYED_VIEW_QUARANTINE_MS,
+  );
 }
 
-export function getRetainedBrowserViewCountForTests(): number {
+export function getRetainedBrowserViewCount(): number {
   return retainedBrowserViews.size;
 }
+
+export const getRetainedBrowserViewCountForTests = getRetainedBrowserViewCount;
 
 /**
  * Remove a native browser surface before doing any potentially slow teardown,
@@ -111,9 +132,12 @@ export function getRetainedBrowserViewCountForTests(): number {
 export function closeRetainedBrowserView(args: {
   view: BrowserViewToClose;
   removeFromParent: () => void;
-  beforeClose?: () => void;
-}): void {
-  retainBrowserViewUntilDestroyed(args.view);
+  beforeClose?: () => void | Promise<void>;
+  quarantineMs?: number;
+}): Promise<void> {
+  retainBrowserViewUntilDestroyed(args.view, {
+    quarantineMs: args.quarantineMs,
+  });
 
   try {
     args.view.setVisible(false);
@@ -130,28 +154,41 @@ export function closeRetainedBrowserView(args: {
   } catch {
     // The owning window may already be destroyed.
   }
-  try {
-    args.beforeClose?.();
-  } catch {
-    // Cleanup must not prevent the WebContents close attempt.
-  }
-
-  const attemptClose = (retry: boolean) => {
+  const attemptClose = (retry: boolean): Promise<void> => {
     try {
       if (!args.view.webContents.isDestroyed()) {
         args.view.webContents.close();
       }
+      return Promise.resolve();
     } catch {
       if (retry) {
-        setImmediate(() => attemptClose(false));
-      } else {
-        reportQuarantinedBrowserView(
-          args.view,
-          "WebContents close failed after retry",
-        );
+        return new Promise((resolve) => {
+          setImmediate(() => {
+            void attemptClose(false).then(resolve);
+          });
+        });
       }
-      // Keep the strong reference when close fails while the target is alive.
+      reportQuarantinedBrowserView(
+        args.view,
+        "WebContents close failed after retry",
+      );
+      return Promise.resolve();
     }
   };
-  attemptClose(true);
+
+  return Promise.resolve()
+    .then(() => args.beforeClose?.())
+    .catch(() => {
+      // Cleanup must not prevent the WebContents close attempt.
+    })
+    .then(
+      () =>
+        new Promise<void>((resolve) => {
+          // Native detach, debugger disposal, and WebContents destruction must
+          // not all run in the same main-thread callback stack.
+          setImmediate(() => {
+            void attemptClose(true).then(resolve);
+          });
+        }),
+    );
 }

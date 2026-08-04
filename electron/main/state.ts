@@ -12,6 +12,7 @@ import {
   unbindTerminalSessionSlotBySlotKey,
 } from "./terminal-session-slot-registry";
 import { SqliteStore } from "../persistence/sqlite-store";
+import type { SqliteStorageMetrics } from "../persistence/sqlite-maintenance-policy";
 import type { TerminalSession } from "./types";
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
@@ -124,6 +125,10 @@ export function getPersistenceBootstrapStatus() {
   return persistenceBootstrapStatus;
 }
 
+export function getPersistenceStorageMetrics(): SqliteStorageMetrics | null {
+  return sqliteStore?.getStorageMetrics() ?? null;
+}
+
 function setPersistenceBootstrapStatus(status: PersistenceBootstrapStatus) {
   persistenceBootstrapStatus = status;
   const window = getMainWindow();
@@ -133,12 +138,16 @@ function setPersistenceBootstrapStatus(status: PersistenceBootstrapStatus) {
   window.webContents.send("persistence:bootstrap-status", status);
 }
 
-export function resetMainProcessState() {
+export async function resetMainProcessState(options?: {
+  compactPersistence?: boolean;
+}) {
   terminalSessions.clear();
   clearTerminalSessionSlotRegistry({ registry: terminalSessionSlotRegistry });
-  void disposeAllLspSessions();
-  destroyAllBrowserSessions();
-  sqliteStore?.close();
+  await Promise.allSettled([
+    disposeAllLspSessions(),
+    destroyAllBrowserSessions(),
+  ]);
+  sqliteStore?.close({ compactStorage: options?.compactPersistence });
   sqliteStore = null;
   persistenceBootstrapStatus = IDLE_PERSISTENCE_BOOTSTRAP_STATUS;
 }

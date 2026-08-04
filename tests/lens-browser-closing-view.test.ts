@@ -37,7 +37,7 @@ describe("browser closing view retention", () => {
     const webContents = new FakeWebContents();
     const view = { webContents };
 
-    retainBrowserViewUntilDestroyed(view);
+    retainBrowserViewUntilDestroyed(view, { quarantineMs: 0 });
     await waitForImmediate();
 
     expect(getRetainedBrowserViewCountForTests()).toBe(1);
@@ -56,7 +56,7 @@ describe("browser closing view retention", () => {
     const view = { webContents };
     webContents.destroy();
 
-    retainBrowserViewUntilDestroyed(view);
+    retainBrowserViewUntilDestroyed(view, { quarantineMs: 0 });
 
     expect(getRetainedBrowserViewCountForTests()).toBe(1);
 
@@ -69,8 +69,8 @@ describe("browser closing view retention", () => {
     const webContents = new FakeWebContents();
     const view = { webContents };
 
-    retainBrowserViewUntilDestroyed(view);
-    retainBrowserViewUntilDestroyed(view);
+    retainBrowserViewUntilDestroyed(view, { quarantineMs: 0 });
+    retainBrowserViewUntilDestroyed(view, { quarantineMs: 0 });
 
     expect(getRetainedBrowserViewCountForTests()).toBe(1);
     expect(webContents.listenerCount("destroyed")).toBe(1);
@@ -87,8 +87,8 @@ describe("browser closing view retention", () => {
     const firstView = { webContents: firstWebContents };
     const secondView = { webContents: secondWebContents };
 
-    retainBrowserViewUntilDestroyed(firstView);
-    retainBrowserViewUntilDestroyed(secondView);
+    retainBrowserViewUntilDestroyed(firstView, { quarantineMs: 0 });
+    retainBrowserViewUntilDestroyed(secondView, { quarantineMs: 0 });
 
     expect(getRetainedBrowserViewCountForTests()).toBe(2);
 
@@ -119,7 +119,7 @@ describe("browser closing view retention", () => {
       },
     };
 
-    retainBrowserViewUntilDestroyed(view);
+    retainBrowserViewUntilDestroyed(view, { quarantineMs: 0 });
     await waitForTimeout(10);
     webContents.destroy();
     await waitForImmediate();
@@ -144,7 +144,7 @@ describe("browser closing view retention", () => {
       },
     };
 
-    retainBrowserViewUntilDestroyed(view);
+    retainBrowserViewUntilDestroyed(view, { quarantineMs: 0 });
     await waitForTimeout(10);
     webContents.destroy();
     await waitForImmediate();
@@ -168,12 +168,15 @@ describe("browser closing view retention", () => {
         calls.push(`bounds:${bounds.width}x${bounds.height}`),
     };
 
-    closeRetainedBrowserView({
+    const closePromise = closeRetainedBrowserView({
       view,
       removeFromParent: () => calls.push("remove"),
       beforeClose: () => calls.push("cleanup"),
+      quarantineMs: 0,
     });
 
+    expect(calls).toEqual(["visible:false", "bounds:0x0", "remove"]);
+    await closePromise;
     expect(calls).toEqual([
       "visible:false",
       "bounds:0x0",
@@ -204,8 +207,11 @@ describe("browser closing view retention", () => {
     };
 
     try {
-      closeRetainedBrowserView({ view, removeFromParent: () => {} });
-      await waitForImmediate();
+      await closeRetainedBrowserView({
+        view,
+        removeFromParent: () => {},
+        quarantineMs: 0,
+      });
       expect(closeAttempts).toBe(2);
       expect(warnings).toEqual([
         "[lens:lifecycle] WebContents close failed after retry; keeping browser view quarantined",

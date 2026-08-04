@@ -1,6 +1,15 @@
 import { BrowserWindow } from "electron";
-import { hideAllBrowserSessions } from "./browser/browser-manager";
+import {
+  hideAllBrowserSessions,
+  restoreSuspendedBrowserSessions,
+  suspendVisibleBrowserSessions,
+} from "./browser/browser-manager";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
+import {
+  recordRendererProcessGone,
+  recordRendererResponsive,
+  recordRendererUnresponsive,
+} from "./runtime-health-metrics";
 import { openExternalWithFallback } from "./utils/external-url";
 import {
   resolvePreloadScriptPath,
@@ -85,6 +94,18 @@ export function createMainWindow() {
   // UI until their panel remounts. Hide them here so a reload can never leave a
   // stuck Lens overlay; sessions survive and each panel restores its own view.
   window.webContents.on("did-start-loading", () => {
+    hideAllBrowserSessions();
+  });
+  window.on("unresponsive", () => {
+    recordRendererUnresponsive();
+    suspendVisibleBrowserSessions();
+  });
+  window.on("responsive", () => {
+    recordRendererResponsive();
+    restoreSuspendedBrowserSessions();
+  });
+  window.webContents.on("render-process-gone", (_event, details) => {
+    recordRendererProcessGone(details.reason);
     hideAllBrowserSessions();
   });
 

@@ -18,6 +18,10 @@ import {
   ensureCdpAttached,
   sendCdpCommand,
 } from "./browser-cdp-controller";
+import {
+  assertLensScreenshotRect,
+  withLensScreenshotTimeout,
+} from "./browser-screenshot-guard";
 
 export async function assertCdpAllowedForWebContentsId(
   webContentsId: number,
@@ -98,12 +102,15 @@ export async function captureScreenshot(
 
   if (options?.fullPage) {
     // Get full-page metrics first
-    const metrics = (await sendCommand(
-      webContentsId,
-      "Page.getLayoutMetrics",
+    const metrics = (await withLensScreenshotTimeout(
+      sendCommand(webContentsId, "Page.getLayoutMetrics"),
     )) as {
       contentSize: { width: number; height: number };
     };
+    assertLensScreenshotRect(
+      { x: 0, y: 0, ...metrics.contentSize },
+      "full-page",
+    );
     params.clip = {
       x: 0,
       y: 0,
@@ -113,13 +120,12 @@ export async function captureScreenshot(
     };
     params.captureBeyondViewport = true;
   } else if (options?.clip) {
+    assertLensScreenshotRect(options.clip, "selected-area");
     params.clip = { ...options.clip, scale: 1 };
   }
 
-  const result = (await sendCommand(
-    webContentsId,
-    "Page.captureScreenshot",
-    params,
+  const result = (await withLensScreenshotTimeout(
+    sendCommand(webContentsId, "Page.captureScreenshot", params),
   )) as { data: string };
 
   return `data:image/png;base64,${result.data}`;

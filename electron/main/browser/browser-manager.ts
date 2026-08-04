@@ -52,11 +52,14 @@ import {
   disposeLensCdpDiagnostics,
   getLensCdpDiagnosticsState,
 } from "./browser-cdp-diagnostics";
+import { getCdpControllerResourceMetrics } from "./browser-cdp-controller";
 import {
   closeRetainedBrowserView,
+  getRetainedBrowserViewCount,
   retainBrowserViewUntilDestroyed,
 } from "./browser-closing-view";
 import { isLiveBrowserSessionForWebContents } from "./browser-session-identity";
+import { appendRuntimeDiagnostic } from "../runtime-diagnostic-log";
 
 export { DEFAULT_LENS_SESSION_ID };
 
@@ -158,6 +161,7 @@ let lensVisibilitySequence = 0;
 
 /** Registry keyed by sessionKey(workspaceId, lensSessionId). */
 const sessions = new Map<string, BrowserSessionState>();
+const suspendedVisibleSessionBounds = new Map<string, LensBounds>();
 
 /**
  * webContents id → owning session, covering both the lens view itself and
@@ -1003,6 +1007,60 @@ export function listBrowserSessions(
     }));
 }
 
+export interface BrowserResourceMetrics {
+  sessions: number;
+  visibleSessions: number;
+  managedByMcpSessions: number;
+  diagnosticsSessions: number;
+  authPopups: number;
+  consoleEntries: number;
+  networkEntries: number;
+  downloadEntries: number;
+  retainedViews: number;
+  cdpControllers: number;
+  cdpClosingControllers: number;
+  cdpInFlightCommands: number;
+  cdpCloseDrainTimeouts: number;
+}
+
+/** Bounded lifecycle/log cardinalities used by the in-app resource monitor. */
+export function getBrowserResourceMetrics(): BrowserResourceMetrics {
+  const liveSessions = [...sessions.values()].filter(
+    (session) => !session.closing,
+  );
+  const cdp = getCdpControllerResourceMetrics();
+  return {
+    sessions: liveSessions.length,
+    visibleSessions: liveSessions.filter((session) => session.visible).length,
+    managedByMcpSessions: liveSessions.filter((session) => session.managedByMcp)
+      .length,
+    diagnosticsSessions: liveSessions.filter(
+      (session) => getLensCdpDiagnosticsState(session.webContentsId).enabled,
+    ).length,
+    authPopups: liveSessions.reduce(
+      (total, session) => total + session.authPopups.size,
+      0,
+    ),
+    consoleEntries: liveSessions.reduce(
+      (total, session) => total + session.consoleLog.length,
+      0,
+    ),
+    networkEntries: liveSessions.reduce(
+      (total, session) => total + session.networkLog.length,
+      0,
+    ),
+    downloadEntries: liveSessions.reduce(
+      (total, session) => total + session.downloadLog.length,
+      0,
+    ),
+    retainedViews: getRetainedBrowserViewCount(),
+    cdpControllers: cdp.controllers,
+    cdpClosingControllers: cdp.closingControllers,
+    cdpInFlightCommands: cdp.inFlightCommands,
+    cdpCloseDrainTimeouts: cdp.closeDrainTimeouts,
+  };
+}
+
 export function getWebContentsForSession(
   workspaceId: string,
   lensSessionId?: string,
@@ -1042,9 +1100,9 @@ export function getSessionIdentityForWebContentsId(
 export function destroyBrowserSession(
   workspaceId: string,
   lensSessionId?: string,
-): void {
+): Promise<void> {
   const session = getBrowserSession(workspaceId, lensSessionId);
-  if (!session || session.closing) return;
+  if (!session || session.closing) return Promise.resolve();
 
   session.closing = true;
 
@@ -1060,7 +1118,9 @@ export function destroyBrowserSession(
 
   // Tombstone routing before any teardown work so late console/network events
   // cannot enqueue more renderer IPC while the view is closing.
-  sessions.delete(sessionKey(session.workspaceId, session.lensSessionId));
+  const key = sessionKey(session.workspaceId, session.lensSessionId);
+  sessions.delete(key);
+  suspendedVisibleSessionBounds.delete(key);
   clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
   if (webContentsSessionIndex.get(session.webContentsId) === session) {
     webContentsSessionIndex.delete(session.webContentsId);
@@ -1070,7 +1130,7 @@ export function destroyBrowserSession(
 
   session.visible = false;
   session.lastAppliedBounds = { x: 0, y: 0, width: 0, height: 0 };
-  closeRetainedBrowserView({
+  const closePromise = closeRetainedBrowserView({
     view: session.view,
     removeFromParent: () => {
       const win = getMainWindow();
@@ -1078,11 +1138,23 @@ export function destroyBrowserSession(
         win.contentView.removeChildView(session.view);
       }
     },
-    beforeClose: () => {
+    beforeClose: async () => {
       // The target owns its remote objects, so dispose local CDP state without
       // issuing cleanup commands that would race with WebContents.close().
       try {
-        disposeLensCdpDiagnostics(session.webContentsId);
+        const drainResult = await disposeLensCdpDiagnostics(
+          session.webContentsId,
+        );
+        if (drainResult === "timed-out") {
+          await appendRuntimeDiagnostic({
+            scope: "lens",
+            context: "cdp-close-drain",
+            message: "Closing Lens with native CDP commands still in flight",
+            metadata: {
+              webContentsId: String(session.webContentsId),
+            },
+          }).catch(() => undefined);
+        }
       } catch {
         // Continue with popup teardown even if debugger state is already stale.
       }
@@ -1119,19 +1191,26 @@ export function destroyBrowserSession(
   } catch {
     // A closing window must not block session teardown.
   }
+  return closePromise;
 }
 
 /** Destroy every lens session belonging to a workspace (dispose path). */
-export function destroyWorkspaceBrowserSessions(workspaceId: string): void {
-  for (const session of getWorkspaceBrowserSessions(workspaceId)) {
-    destroyBrowserSession(session.workspaceId, session.lensSessionId);
-  }
+export async function destroyWorkspaceBrowserSessions(
+  workspaceId: string,
+): Promise<void> {
+  await Promise.allSettled(
+    getWorkspaceBrowserSessions(workspaceId).map((session) =>
+      destroyBrowserSession(session.workspaceId, session.lensSessionId),
+    ),
+  );
 }
 
-export function destroyAllBrowserSessions(): void {
-  for (const session of [...sessions.values()]) {
-    destroyBrowserSession(session.workspaceId, session.lensSessionId);
-  }
+export async function destroyAllBrowserSessions(): Promise<void> {
+  await Promise.allSettled(
+    [...sessions.values()].map((session) =>
+      destroyBrowserSession(session.workspaceId, session.lensSessionId),
+    ),
+  );
 }
 
 /**
@@ -1147,6 +1226,7 @@ export function destroyAllBrowserSessions(): void {
  * panel's normal mount path restores visibility in whichever workspace needs it.
  */
 export function hideAllBrowserSessions(): void {
+  suspendedVisibleSessionBounds.clear();
   for (const session of [...sessions.values()]) {
     if (session.closing) continue;
     setViewVisible(session.workspaceId, false, session.lensSessionId);
@@ -1155,6 +1235,40 @@ export function hideAllBrowserSessions(): void {
       { x: 0, y: 0, width: 0, height: 0 },
       session.lensSessionId,
     );
+  }
+}
+
+/**
+ * Temporarily hide native Lens surfaces while the React renderer is
+ * unresponsive. Their page processes stay alive and the exact bounds are
+ * restored once Electron reports that the renderer is responsive again.
+ */
+export function suspendVisibleBrowserSessions(): void {
+  for (const session of [...sessions.values()]) {
+    if (session.closing || !session.visible) continue;
+    const key = sessionKey(session.workspaceId, session.lensSessionId);
+    if (!suspendedVisibleSessionBounds.has(key)) {
+      suspendedVisibleSessionBounds.set(
+        key,
+        session.lastAppliedBounds ?? { x: 0, y: 0, width: 0, height: 0 },
+      );
+    }
+    setViewVisible(session.workspaceId, false, session.lensSessionId);
+    setViewBounds(
+      session.workspaceId,
+      { x: 0, y: 0, width: 0, height: 0 },
+      session.lensSessionId,
+    );
+  }
+}
+
+export function restoreSuspendedBrowserSessions(): void {
+  for (const [key, bounds] of [...suspendedVisibleSessionBounds]) {
+    suspendedVisibleSessionBounds.delete(key);
+    const session = sessions.get(key);
+    if (!session || session.closing) continue;
+    setViewBounds(session.workspaceId, bounds, session.lensSessionId);
+    setViewVisible(session.workspaceId, true, session.lensSessionId);
   }
 }
 

@@ -16,6 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
+import { getLatestWorkspaceSwitchPerformance } from "@/lib/performance/workspace-switch-metrics";
 import { cn } from "@/lib/utils";
 
 interface ProcessMetric {
@@ -34,6 +35,35 @@ interface AppMetrics {
     external: number;
     arrayBuffers: number;
   };
+  lens: {
+    sessions: number;
+    visibleSessions: number;
+    managedByMcpSessions: number;
+    diagnosticsSessions: number;
+    authPopups: number;
+    consoleEntries: number;
+    networkEntries: number;
+    downloadEntries: number;
+    retainedViews: number;
+    cdpControllers: number;
+    cdpClosingControllers: number;
+    cdpInFlightCommands: number;
+    cdpCloseDrainTimeouts: number;
+  };
+  renderer: {
+    currentlyUnresponsive: boolean;
+    unresponsiveEvents: number;
+    renderProcessGoneEvents: number;
+    lastRenderProcessGoneReason?: string;
+  };
+  persistence: {
+    pageSizeBytes: number;
+    pageCount: number;
+    freePages: number;
+    usedBytes: number;
+    fileBytes: number;
+    autoVacuum: number;
+  } | null;
   uptimeSeconds: number;
 }
 
@@ -73,6 +103,12 @@ function formatUptime(seconds: number): string {
   if (h > 0) return `${h}h ${m}m`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
+}
+
+function formatDuration(milliseconds: number | undefined): string {
+  if (milliseconds === undefined) return "—";
+  if (milliseconds < 1_000) return `${Math.round(milliseconds)} ms`;
+  return `${(milliseconds / 1_000).toFixed(2)} s`;
 }
 
 function barColor(ratio: number): string {
@@ -163,6 +199,7 @@ export function MemoryUsagePopover({
     0;
   const totalCpu =
     metrics?.processes.reduce((sum, p) => sum + p.cpu.percentCPUUsage, 0) ?? 0;
+  const latestWorkspaceSwitch = getLatestWorkspaceSwitchPerformance();
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -241,7 +278,9 @@ export function MemoryUsagePopover({
                   <div className="mt-1 font-mono text-sm font-semibold text-foreground">
                     {formatKB(totalWorkingSetKB)}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">Total</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Electron
+                  </div>
                 </div>
                 <div className="rounded-md border border-border/50 bg-secondary/30 px-2.5 py-2 text-center">
                   <div className="flex items-center justify-center gap-1">
@@ -280,6 +319,170 @@ export function MemoryUsagePopover({
                 total={metrics.mainProcess.rss * 1.25}
                 detail={formatBytes(metrics.mainProcess.rss)}
               />
+
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                <span className="text-muted-foreground/70">
+                  Renderer stalls
+                </span>
+                <span
+                  className={cn(
+                    "text-right font-mono",
+                    metrics.renderer.currentlyUnresponsive
+                      ? "text-red-500"
+                      : "text-muted-foreground/80",
+                  )}
+                >
+                  {metrics.renderer.unresponsiveEvents}
+                  {metrics.renderer.currentlyUnresponsive ? " active" : ""}
+                </span>
+                <span className="text-muted-foreground/70">Renderer exits</span>
+                <span className="truncate text-right font-mono text-muted-foreground/80">
+                  {metrics.renderer.renderProcessGoneEvents}
+                  {metrics.renderer.lastRenderProcessGoneReason
+                    ? ` · ${metrics.renderer.lastRenderProcessGoneReason}`
+                    : ""}
+                </span>
+              </div>
+
+              {/* Lens lifecycle and bounded-log cardinalities */}
+              <div className="border-t border-border/50 pt-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Lens resources
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground/70">
+                    {metrics.lens.sessions} sessions ·{" "}
+                    {metrics.lens.visibleSessions} visible
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  <span className="text-muted-foreground/70">Diagnostics</span>
+                  <span className="text-right font-mono text-muted-foreground/80">
+                    {metrics.lens.diagnosticsSessions} active
+                  </span>
+                  <span className="text-muted-foreground/70">MCP sessions</span>
+                  <span className="text-right font-mono text-muted-foreground/80">
+                    {metrics.lens.managedByMcpSessions}
+                  </span>
+                  <span className="text-muted-foreground/70">
+                    Buffered logs
+                  </span>
+                  <span className="text-right font-mono text-muted-foreground/80">
+                    {metrics.lens.consoleEntries} C ·{" "}
+                    {metrics.lens.networkEntries} N ·{" "}
+                    {metrics.lens.downloadEntries} D
+                  </span>
+                  <span className="text-muted-foreground/70">
+                    Popups / closing
+                  </span>
+                  <span
+                    className={cn(
+                      "text-right font-mono",
+                      metrics.lens.retainedViews > 0
+                        ? "text-amber-500"
+                        : "text-muted-foreground/80",
+                    )}
+                  >
+                    {metrics.lens.authPopups} / {metrics.lens.retainedViews}
+                  </span>
+                  <span className="text-muted-foreground/70">
+                    CDP active / closing
+                  </span>
+                  <span className="text-right font-mono text-muted-foreground/80">
+                    {metrics.lens.cdpControllers} /{" "}
+                    {metrics.lens.cdpClosingControllers}
+                  </span>
+                  <span className="text-muted-foreground/70">
+                    CDP in-flight / timeouts
+                  </span>
+                  <span
+                    className={cn(
+                      "text-right font-mono",
+                      metrics.lens.cdpCloseDrainTimeouts > 0
+                        ? "text-amber-500"
+                        : "text-muted-foreground/80",
+                    )}
+                  >
+                    {metrics.lens.cdpInFlightCommands} /{" "}
+                    {metrics.lens.cdpCloseDrainTimeouts}
+                  </span>
+                </div>
+              </div>
+
+              {metrics.persistence ? (
+                <div className="border-t border-border/50 pt-3">
+                  <div className="mb-2 text-xs font-medium text-muted-foreground">
+                    Persistence
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <span className="text-muted-foreground/70">
+                      SQLite used
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatBytes(metrics.persistence.usedBytes)}
+                    </span>
+                    <span className="text-muted-foreground/70">
+                      File / reclaimable
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatBytes(metrics.persistence.fileBytes)} /{" "}
+                      {formatBytes(
+                        metrics.persistence.freePages *
+                          metrics.persistence.pageSizeBytes,
+                      )}
+                    </span>
+                    <span className="text-muted-foreground/70">
+                      Incremental vacuum
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {metrics.persistence.autoVacuum === 2 ? "on" : "pending"}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
+              {latestWorkspaceSwitch ? (
+                <div className="border-t border-border/50 pt-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Last workspace switch
+                    </span>
+                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                      {latestWorkspaceSwitch.cacheHit ? "cache" : "storage"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <span className="text-muted-foreground/70">
+                      Interactive
+                    </span>
+                    <span className="text-right font-mono text-foreground/80">
+                      {formatDuration(latestWorkspaceSwitch.totalMs)}
+                    </span>
+                    <span className="text-muted-foreground/70">
+                      Outgoing save
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatDuration(latestWorkspaceSwitch.flushMs)}
+                    </span>
+                    <span className="text-muted-foreground/70">Shell load</span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatDuration(latestWorkspaceSwitch.shellMs)}
+                    </span>
+                    <span className="text-muted-foreground/70">
+                      Files ready
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatDuration(latestWorkspaceSwitch.filesMs)}
+                    </span>
+                    <span className="text-muted-foreground/70">
+                      Messages ready
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatDuration(latestWorkspaceSwitch.messagesMs)}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Process breakdown */}
               <div>

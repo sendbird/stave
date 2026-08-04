@@ -250,9 +250,9 @@ export function registerBrowserHandlers() {
     "lens:destroy-view",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       if (args.lensSessionId) {
-        destroyBrowserSession(args.workspaceId, args.lensSessionId);
+        await destroyBrowserSession(args.workspaceId, args.lensSessionId);
       } else {
-        destroyWorkspaceBrowserSessions(args.workspaceId);
+        await destroyWorkspaceBrowserSessions(args.workspaceId);
       }
       return { ok: true };
     },
@@ -314,7 +314,7 @@ export function registerBrowserHandlers() {
       const existed = Boolean(
         getBrowserSession(args.workspaceId, args.lensSessionId),
       );
-      destroyBrowserSession(args.workspaceId, args.lensSessionId);
+      await destroyBrowserSession(args.workspaceId, args.lensSessionId);
       return { ok: true, closed: existed };
     },
   );

@@ -128,6 +128,7 @@ interface DiagnosticsCapture {
   consoleDetails: Map<string, BrowserConsoleEntryDetail>;
   networkDetails: Map<string, BrowserNetworkEntryDetail>;
   objectHandles: Map<string, RemoteObjectHandle>;
+  objectHandlePruneTimer: ReturnType<typeof setTimeout> | null;
   bodyStore: BoundedBodyStore;
   recentConsole: Map<string, number>;
   executionContexts: Map<number, ExecutionContextDetail>;
@@ -345,6 +346,30 @@ function releaseDescriptorRemoteObjects(
   }
 }
 
+function clearObjectHandlePruneTimer(capture: DiagnosticsCapture) {
+  if (capture.objectHandlePruneTimer) {
+    clearTimeout(capture.objectHandlePruneTimer);
+    capture.objectHandlePruneTimer = null;
+  }
+}
+
+function scheduleObjectHandlePrune(capture: DiagnosticsCapture) {
+  clearObjectHandlePruneTimer(capture);
+  let nextExpiry = Number.POSITIVE_INFINITY;
+  for (const remote of capture.objectHandles.values()) {
+    nextExpiry = Math.min(nextExpiry, remote.expiresAt);
+  }
+  if (!Number.isFinite(nextExpiry)) return;
+  capture.objectHandlePruneTimer = setTimeout(
+    () => {
+      capture.objectHandlePruneTimer = null;
+      pruneObjectHandles(capture);
+    },
+    Math.max(0, nextExpiry - Date.now()),
+  );
+  capture.objectHandlePruneTimer.unref?.();
+}
+
 function pruneObjectHandles(capture: DiagnosticsCapture) {
   const now = Date.now();
   for (const [handle, remote] of capture.objectHandles) {
@@ -359,6 +384,7 @@ function pruneObjectHandles(capture: DiagnosticsCapture) {
     capture.objectHandles.delete(oldest[0]);
     releaseObject(oldest[1].objectId, capture.webContentsId);
   }
+  scheduleObjectHandlePrune(capture);
 }
 
 function registerObjectHandle(
@@ -437,6 +463,7 @@ function releaseEntryHandles(capture: DiagnosticsCapture, entryId: string) {
     capture.objectHandles.delete(handle);
     releaseObject(remote.objectId, capture.webContentsId);
   }
+  scheduleObjectHandlePrune(capture);
 }
 
 function isDuplicateConsole(
@@ -1249,6 +1276,7 @@ function handleCdpMessage(
 }
 
 function releaseAllHandles(capture: DiagnosticsCapture) {
+  clearObjectHandlePruneTimer(capture);
   for (const remote of capture.objectHandles.values()) {
     releaseObject(remote.objectId, capture.webContentsId);
   }
@@ -1264,6 +1292,7 @@ function clearCaptureData(
     if (releaseRemoteObjects) {
       releaseAllHandles(capture);
     } else {
+      clearObjectHandlePruneTimer(capture);
       capture.objectHandles.clear();
     }
     capture.consoleDetails.clear();
@@ -1290,6 +1319,7 @@ function archiveCaptureData(
   if (releaseRemoteObjects) {
     releaseAllHandles(capture);
   } else {
+    clearObjectHandlePruneTimer(capture);
     capture.objectHandles.clear();
   }
   for (const [entryId, detail] of capture.consoleDetails) {
@@ -1327,9 +1357,9 @@ function stopCaptureForConsoleOverload(capture: DiagnosticsCapture): void {
     capture.webContentsId,
     "Runtime.discardConsoleEntries",
   ).catch(() => undefined);
-  // Console overload is the fail-safe path: do not let a stalled renderer
-  // hold the debugger open while this best-effort discard command is pending.
-  detachCdpController(capture.webContentsId, { force: true });
+  // Let the discard command release its native lease before detaching. The
+  // capture is already disabled, so waiting does not admit more diagnostics.
+  detachCdpController(capture.webContentsId);
   const message =
     "Lens full diagnostics stopped because the page emitted excessive console logs.";
   try {
@@ -1411,6 +1441,7 @@ export async function startLensCdpDiagnostics(args: {
   capture.consoleDetails = new Map();
   capture.networkDetails = new Map();
   capture.objectHandles = new Map();
+  capture.objectHandlePruneTimer = null;
   capture.bodyStore = new BoundedBodyStore();
   capture.recentConsole = new Map();
   capture.executionContexts = new Map();
@@ -1498,7 +1529,9 @@ export function stopLensCdpDiagnostics(
  * Remote object handles die with the target, so issuing Runtime.releaseObject
  * here only creates CDP work that races with WebContents teardown.
  */
-export function disposeLensCdpDiagnostics(webContentsId: number): void {
+export async function disposeLensCdpDiagnostics(
+  webContentsId: number,
+): Promise<"drained" | "timed-out"> {
   const capture = captures.get(webContentsId);
   if (capture) {
     capture.enabled = false;
@@ -1508,7 +1541,7 @@ export function disposeLensCdpDiagnostics(webContentsId: number): void {
     clearCaptureData(capture, undefined, false);
     captures.delete(webContentsId);
   }
-  disposeCdpController(webContentsId);
+  return disposeCdpController(webContentsId);
 }
 
 export function getLensCdpDiagnosticsState(
@@ -1619,9 +1652,11 @@ export async function getLensConsoleObjectProperties(args: {
   if (remote.expiresAt <= Date.now()) {
     capture.objectHandles.delete(args.objectHandle);
     releaseObject(remote.objectId, args.webContentsId);
+    scheduleObjectHandlePrune(capture);
     return undefined;
   }
   remote.expiresAt = Date.now() + REMOTE_OBJECT_HANDLE_TTL_MS;
+  scheduleObjectHandlePrune(capture);
   const generation = capture.generation;
   const result = asRecord(
     await sendCdpCommand(args.webContentsId, "Runtime.getProperties", {

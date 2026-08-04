@@ -1,4 +1,8 @@
 import { webContents } from "electron";
+import {
+  createCdpCommandBarrier,
+  type CdpCommandBarrier,
+} from "./browser-cdp-close-barrier";
 
 export type CdpMessageListener = (
   method: string,
@@ -11,7 +15,7 @@ export type CdpDetachListener = (reason: string) => void;
 interface CdpControllerState {
   webContentsId: number;
   attachedByController: boolean;
-  inFlightCommands: number;
+  commandBarrier: CdpCommandBarrier;
   detachRequested: boolean;
   messageListeners: Set<CdpMessageListener>;
   detachListeners: Set<CdpDetachListener>;
@@ -27,6 +31,8 @@ interface CdpControllerState {
 
 const controllers = new Map<number, CdpControllerState>();
 const disposedWebContentsIds = new Set<number>();
+const CDP_CLOSE_DRAIN_TIMEOUT_MS = 1_000;
+let closeDrainTimeouts = 0;
 
 function assertControllerNotDisposed(webContentsId: number): void {
   if (disposedWebContentsIds.has(webContentsId)) {
@@ -83,7 +89,7 @@ function getOrCreateController(webContentsId: number): CdpControllerState {
   const state = {} as CdpControllerState;
   state.webContentsId = webContentsId;
   state.attachedByController = false;
-  state.inFlightCommands = 0;
+  state.commandBarrier = createCdpCommandBarrier();
   state.detachRequested = false;
   state.messageListeners = new Set();
   state.detachListeners = new Set();
@@ -97,10 +103,12 @@ function getOrCreateController(webContentsId: number): CdpControllerState {
     }
   };
   state.onDetach = (_event, reason) => {
+    state.commandBarrier.finishClose();
     notifyDetachListeners(state, reason);
     clearController(state, true);
   };
   state.onDestroyed = () => {
+    state.commandBarrier.finishClose();
     notifyDetachListeners(state, "web-contents-destroyed");
     clearController(state, false);
   };
@@ -131,8 +139,10 @@ function finalizeControllerDetach(state: CdpControllerState): void {
 }
 
 function releaseCommandLease(state: CdpControllerState): void {
-  state.inFlightCommands = Math.max(0, state.inFlightCommands - 1);
-  if (state.detachRequested && state.inFlightCommands === 0) {
+  if (
+    state.detachRequested &&
+    state.commandBarrier.snapshot().inFlightCommands === 0
+  ) {
     finalizeControllerDetach(state);
   }
 }
@@ -158,13 +168,14 @@ export async function sendCdpCommand(
 ): Promise<unknown> {
   ensureCdpAttached(webContentsId);
   const controller = getOrCreateController(webContentsId);
-  controller.inFlightCommands += 1;
+  const release = controller.commandBarrier.acquire();
   try {
     return await requireWebContents(webContentsId).debugger.sendCommand(
       method,
       params,
     );
   } finally {
+    release();
     releaseCommandLease(controller);
   }
 }
@@ -189,10 +200,11 @@ export async function sendCdpCommandIfAttached(
   if (!controller) {
     return wc.debugger.sendCommand(method, params);
   }
-  controller.inFlightCommands += 1;
+  const release = controller.commandBarrier.acquire();
   try {
     return await wc.debugger.sendCommand(method, params);
   } finally {
+    release();
     releaseCommandLease(controller);
   }
 }
@@ -228,7 +240,7 @@ export function detachCdpController(
     if (
       !options?.force &&
       controller.attachedByController &&
-      controller.inFlightCommands > 0
+      controller.commandBarrier.snapshot().inFlightCommands > 0
     ) {
       controller.detachRequested = true;
       return;
@@ -238,7 +250,9 @@ export function detachCdpController(
 }
 
 /** Permanently reject new CDP work while a WebContents is closing. */
-export function disposeCdpController(webContentsId: number): void {
+export async function disposeCdpController(
+  webContentsId: number,
+): Promise<"drained" | "timed-out"> {
   const wc = webContents.fromId(webContentsId);
   let isAlive = false;
   try {
@@ -261,7 +275,42 @@ export function disposeCdpController(webContentsId: number): void {
   } else {
     disposedWebContentsIds.delete(webContentsId);
   }
-  detachCdpController(webContentsId, { force: true });
+  const controller = controllers.get(webContentsId);
+  if (!controller) {
+    return "drained";
+  }
+
+  // Do not explicitly detach the debugger during WebContents teardown. A
+  // timed-out caller can leave a native CDP command alive after its JS promise
+  // is abandoned; detach + close in the same stack is a known crash shape.
+  controller.detachRequested = false;
+  const result = await controller.commandBarrier.beginClose(
+    CDP_CLOSE_DRAIN_TIMEOUT_MS,
+  );
+  if (result === "timed-out") {
+    closeDrainTimeouts += 1;
+  }
+  return result;
+}
+
+export function getCdpControllerResourceMetrics(): {
+  controllers: number;
+  closingControllers: number;
+  inFlightCommands: number;
+  closeDrainTimeouts: number;
+} {
+  const snapshots = [...controllers.values()].map((controller) =>
+    controller.commandBarrier.snapshot(),
+  );
+  return {
+    controllers: snapshots.length,
+    closingControllers: snapshots.filter((snapshot) => snapshot.closing).length,
+    inFlightCommands: snapshots.reduce(
+      (total, snapshot) => total + snapshot.inFlightCommands,
+      0,
+    ),
+    closeDrainTimeouts,
+  };
 }
 
 export function isCdpAttached(webContentsId: number): boolean {

@@ -3,6 +3,11 @@ import { loadWorkspaceShell } from "@/lib/db/workspaces.db";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
+import {
+  getWorkspaceSwitchMetricNow,
+  recordWorkspaceSwitchPhase,
+  registerWorkspaceSwitchMetric,
+} from "@/lib/performance/workspace-switch-metrics";
 import { WORKSPACE_APP_SURFACE } from "@/store/app-surface";
 import type { AppState } from "@/store/app-store.types";
 import type {
@@ -47,35 +52,9 @@ import {
   shouldReloadWorkspaceShellFromPersistence,
 } from "@/store/workspace-shell-summary";
 
-interface WorkspaceSwitchMetric {
-  token: number;
-  startedAt: number;
-  cacheHit: boolean;
-  shellResolvedAt?: number;
-  setRootResolvedAt?: number;
-}
-
-const workspaceSwitchMetricsByWorkspaceId = new Map<
-  string,
-  WorkspaceSwitchMetric
->();
 let workspaceSwitchMetricTokenCounter = 0;
 let workspaceIdentityRequestTokenCounter = 0;
 let activeWorkspaceIdentityRequestToken = 0;
-
-function isWorkspaceSwitchMetricLoggingEnabled() {
-  return (
-    typeof import.meta !== "undefined" &&
-    Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV)
-  );
-}
-
-function getWorkspaceSwitchMetricNow() {
-  return typeof performance !== "undefined" &&
-    typeof performance.now === "function"
-    ? performance.now()
-    : Date.now();
-}
 
 export function beginWorkspaceIdentityRequest() {
   workspaceIdentityRequestTokenCounter += 1;
@@ -87,55 +66,13 @@ export function isCurrentWorkspaceIdentityRequest(token: number) {
   return token === activeWorkspaceIdentityRequestToken;
 }
 
-function roundWorkspaceSwitchDuration(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
-function registerWorkspaceSwitchMetric(args: {
-  workspaceId: string;
-  metric: WorkspaceSwitchMetric;
-}) {
-  if (!isWorkspaceSwitchMetricLoggingEnabled()) {
-    return;
-  }
-  workspaceSwitchMetricsByWorkspaceId.set(args.workspaceId, args.metric);
-}
-
 export function logWorkspaceSwitchMetric(args: {
   workspaceId: string;
   token?: number;
   phase: "active" | "files" | "messages";
   extra?: Record<string, unknown>;
 }) {
-  if (!isWorkspaceSwitchMetricLoggingEnabled()) {
-    return;
-  }
-  const metric = workspaceSwitchMetricsByWorkspaceId.get(args.workspaceId);
-  if (!metric || (args.token !== undefined && metric.token !== args.token)) {
-    return;
-  }
-  const now = getWorkspaceSwitchMetricNow();
-  console.info("[workspace-switch]", {
-    workspaceId: args.workspaceId,
-    phase: args.phase,
-    cacheHit: metric.cacheHit,
-    totalMs: roundWorkspaceSwitchDuration(now - metric.startedAt),
-    ...(metric.shellResolvedAt !== undefined
-      ? {
-          shellMs: roundWorkspaceSwitchDuration(
-            metric.shellResolvedAt - metric.startedAt,
-          ),
-        }
-      : {}),
-    ...(metric.setRootResolvedAt !== undefined
-      ? {
-          setRootMs: roundWorkspaceSwitchDuration(
-            metric.setRootResolvedAt - metric.startedAt,
-          ),
-        }
-      : {}),
-    ...(args.extra ?? {}),
-  });
+  recordWorkspaceSwitchPhase(args);
 }
 
 type StoreSet = StoreApi<AppState>["setState"];
@@ -452,6 +389,9 @@ export function createWorkspaceManagementActions(args: {
         return;
       }
       const workspaceIdentityRequestToken = beginWorkspaceIdentityRequest();
+      const switchMetricToken = ++workspaceSwitchMetricTokenCounter;
+      const switchStartedAt = getWorkspaceSwitchMetricNow();
+      let flushResolvedAt: number | undefined;
       // Persist the outgoing workspace before its state is swapped out.
       // Snapshot writes are otherwise driven by a single app-level trailing
       // debounce that always targets whichever workspace is active when it
@@ -460,13 +400,15 @@ export function createWorkspaceManagementActions(args: {
       // correct for the rest of the session, which is why the loss only
       // surfaces after a restart (e.g. an archived task coming back alive).
       // `activateProject` already flushes for the same reason.
-      await get().flushActiveWorkspaceSnapshot();
+      const flushWorkspacePromise = get()
+        .flushActiveWorkspaceSnapshot()
+        .then(() => {
+          flushResolvedAt = getWorkspaceSwitchMetricNow();
+        });
       const cachedFiles = getCachedWorkspaceFiles({
         workspacePath,
         workspaceFileCacheByPath: current.workspaceFileCacheByPath,
       });
-      const switchMetricToken = ++workspaceSwitchMetricTokenCounter;
-      const switchStartedAt = getWorkspaceSwitchMetricNow();
       const cachedWorkspaceState =
         current.workspaceRuntimeCacheById[workspaceId];
       const shouldLoadWorkspaceShellState =
@@ -476,14 +418,18 @@ export function createWorkspaceManagementActions(args: {
         ? switchStartedAt
         : undefined;
       let setRootResolvedAt = switchStartedAt;
-      const resolvedWorkspaceShellState = !shouldLoadWorkspaceShellState
-        ? null
-        : await loadWorkspaceShellStateFromPersistence({
-            workspaceId,
-          }).then((result) => {
-            shellResolvedAt = getWorkspaceSwitchMetricNow();
-            return result;
-          });
+      const workspaceShellPromise = !shouldLoadWorkspaceShellState
+        ? Promise.resolve(null)
+        : loadWorkspaceShellStateFromPersistence({ workspaceId }).then(
+            (result) => {
+              shellResolvedAt = getWorkspaceSwitchMetricNow();
+              return result;
+            },
+          );
+      const [, resolvedWorkspaceShellState] = await Promise.all([
+        flushWorkspacePromise,
+        workspaceShellPromise,
+      ]);
       if (
         !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
         !isWorkspaceTargetCurrent({
@@ -582,14 +528,12 @@ export function createWorkspaceManagementActions(args: {
       }
       registerWorkspaceSwitchMetric({
         workspaceId,
-        metric: {
-          token: switchMetricToken,
-          startedAt: switchStartedAt,
-          cacheHit:
-            Boolean(cachedWorkspaceState) && !preferLoadedWorkspaceState,
-          ...(shellResolvedAt !== undefined ? { shellResolvedAt } : {}),
-          setRootResolvedAt,
-        },
+        token: switchMetricToken,
+        startedAt: switchStartedAt,
+        cacheHit: Boolean(cachedWorkspaceState) && !preferLoadedWorkspaceState,
+        ...(flushResolvedAt !== undefined ? { flushResolvedAt } : {}),
+        ...(shellResolvedAt !== undefined ? { shellResolvedAt } : {}),
+        setRootResolvedAt,
       });
       logWorkspaceSwitchMetric({
         workspaceId,

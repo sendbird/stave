@@ -1831,6 +1831,35 @@ interface AppMetricsResult {
     external: number;
     arrayBuffers: number;
   };
+  lens: {
+    sessions: number;
+    visibleSessions: number;
+    managedByMcpSessions: number;
+    diagnosticsSessions: number;
+    authPopups: number;
+    consoleEntries: number;
+    networkEntries: number;
+    downloadEntries: number;
+    retainedViews: number;
+    cdpControllers: number;
+    cdpClosingControllers: number;
+    cdpInFlightCommands: number;
+    cdpCloseDrainTimeouts: number;
+  };
+  renderer: {
+    currentlyUnresponsive: boolean;
+    unresponsiveEvents: number;
+    renderProcessGoneEvents: number;
+    lastRenderProcessGoneReason?: string;
+  };
+  persistence: {
+    pageSizeBytes: number;
+    pageCount: number;
+    freePages: number;
+    usedBytes: number;
+    fileBytes: number;
+    autoVacuum: number;
+  } | null;
   uptimeSeconds: number;
 }
 
