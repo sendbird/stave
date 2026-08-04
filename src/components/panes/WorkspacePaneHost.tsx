@@ -965,20 +965,20 @@ export function WorkspacePaneHost() {
           // selectTask both ensures tab membership and focuses the surface;
           // an inactive task open is not part of wave-1 semantics.
           store.selectTask({ taskId: surface.taskId });
-          return;
+          return true;
         }
         if (surface.kind === "compare-run") {
           store.openCompareRun({ compareRunId: surface.compareRunId });
-          return;
+          return true;
         }
         if (!api) {
-          return;
+          return false;
         }
         const panelId = buildPanePanelId(surface);
         let panel = api.getPanel(panelId);
         if (!panel) {
           if (!surfaceExistsInStore(surface, store)) {
-            return;
+            return false;
           }
           panel = options?.position
             ? addSurfacePanel(api, surface, {
@@ -989,9 +989,13 @@ export function WorkspacePaneHost() {
                 inactive: options?.activate === false,
               });
         }
+        if (!panel) {
+          return false;
+        }
         if (options?.activate !== false) {
           panel.api.setActive();
         }
+        return true;
       },
       closeSurface: (surface) => {
         closePaneSurface(surface);

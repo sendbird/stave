@@ -20,6 +20,7 @@ describe("Lens session presentation", () => {
           focused.push(
             `${lensSessionId}:${options.activate}:${options.splitRight}`,
           );
+          return true;
         },
       },
     );
@@ -50,6 +51,7 @@ describe("Lens session presentation", () => {
           steps.push(
             `surface:${lensSessionId}:${options.activate}:${options.splitRight}`,
           );
+          return true;
         },
       },
     );
@@ -86,6 +88,7 @@ describe("Lens session presentation", () => {
           steps.push(
             `surface:${lensSessionId}:${options.activate}:${options.splitRight}`,
           );
+          return true;
         },
       },
       {
@@ -123,6 +126,7 @@ describe("Lens session presentation", () => {
           steps.push(
             `surface:${lensSessionId}:${options.activate}:${options.splitRight}`,
           );
+          return true;
         },
       },
       {
@@ -160,6 +164,7 @@ describe("Lens session presentation", () => {
         },
         openLensSurface: () => {
           mutated = true;
+          return true;
         },
       },
       {
@@ -170,6 +175,24 @@ describe("Lens session presentation", () => {
 
     expect(presented).toBe(false);
     expect(mutated).toBe(false);
+  });
+
+  test("reports failure when the pane host cannot open the surface", async () => {
+    // The pane host drops/queues the open when no Dockview api is mounted yet.
+    // Reporting success there made callers discard their pending request, so
+    // the session was never revealed and never retried.
+    const presented = await presentLensSessionInWorkspace(
+      { workspaceId: "ws-a", lensSessionId: "lens-a" },
+      {
+        hasWorkspace: () => true,
+        getActiveWorkspaceId: () => "ws-a",
+        switchWorkspace: async () => {},
+        openLensTab: (lensSessionId) => lensSessionId,
+        openLensSurface: () => false,
+      },
+    );
+
+    expect(presented).toBe(false);
   });
 
   test("does not present a session for an unknown workspace", async () => {
@@ -189,6 +212,7 @@ describe("Lens session presentation", () => {
         },
         openLensSurface: () => {
           mutated = true;
+          return true;
         },
       },
     );

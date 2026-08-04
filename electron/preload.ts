@@ -119,6 +119,7 @@ import type {
   LensSecurityConfig,
   LensDiagnosticsCaptureState,
   LensSessionDescriptor,
+  LensSessionClosedPayload,
   LensSessionPresentationRequestPayload,
   LensSessionProfileArgs,
   LensStateChangedPayload,
@@ -399,6 +400,18 @@ ipcRenderer.on(
   "lens:state-changed",
   (_event, payload: LensStateChangedPayload) => {
     for (const subscriber of lensStateChangedSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const lensSessionClosedSubscribers = new Set<
+  (payload: LensSessionClosedPayload) => void
+>();
+ipcRenderer.on(
+  "lens:session-closed",
+  (_event, payload: LensSessionClosedPayload) => {
+    for (const subscriber of lensSessionClosedSubscribers) {
       subscriber(payload);
     }
   },
@@ -2421,6 +2434,14 @@ contextBridge.exposeInMainWorld("api", {
       lensStateChangedSubscribers.add(listener);
       return () => {
         lensStateChangedSubscribers.delete(listener);
+      };
+    },
+    subscribeSessionClosed: (
+      listener: (payload: LensSessionClosedPayload) => void,
+    ) => {
+      lensSessionClosedSubscribers.add(listener);
+      return () => {
+        lensSessionClosedSubscribers.delete(listener);
       };
     },
     subscribePresentationRequests: (
