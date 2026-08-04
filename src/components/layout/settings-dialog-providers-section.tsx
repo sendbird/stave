@@ -88,6 +88,7 @@ import {
   ClaudeRuntimeToolsCard,
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
+import { SettingsWorkerSection } from "./settings-dialog-worker-section";
 type ExplainedSelectOption<T extends string> = {
   value: T;
   label: string;
@@ -634,6 +635,8 @@ export function ProvidersSection() {
     claudeSandboxCredentialEnvVars,
     claudeTaskBudgetTokens,
     advisorTarget,
+    workerEnabled,
+    workerConfigByProvider,
     claudeSettingSources,
     claudeEffort,
     claudeThinkingMode,
@@ -680,6 +683,8 @@ export function ProvidersSection() {
           state.settings.claudeSandboxCredentialEnvVars,
           state.settings.claudeTaskBudgetTokens,
           state.settings.advisorTarget,
+          state.settings.workerEnabled,
+          state.settings.workerConfigByProvider,
           state.settings.claudeSettingSources,
           state.settings.claudeEffort,
           state.settings.claudeThinkingMode,
@@ -1009,6 +1014,11 @@ export function ProvidersSection() {
           </p>
         </div>
       </SettingsCard>
+      <SettingsWorkerSection
+        workerEnabled={workerEnabled}
+        workerConfigByProvider={workerConfigByProvider}
+        onChange={(patch) => updateSettings({ patch })}
+      />
       <SettingsCard
         title="Trusted Approvals"
         description="Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command."

@@ -5,6 +5,7 @@ import type {
 } from "@/types/chat";
 import { inferProviderIdFromModel } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 
 export interface ResolvedPromptDraftRuntimeState {
   claudePermissionMode: ClaudePermissionMode;
@@ -165,6 +166,38 @@ function areStringArraysEqual(left?: string[], right?: string[]) {
   return left.every((value, index) => value === right[index]);
 }
 
+function areWorkerProviderConfigsEqual(
+  left?: WorkerProviderConfig,
+  right?: WorkerProviderConfig,
+) {
+  return (
+    left?.presetId === right?.presetId &&
+    left?.model === right?.model &&
+    left?.effort === right?.effort &&
+    left?.description === right?.description &&
+    left?.instructions === right?.instructions &&
+    left?.maxTurns === right?.maxTurns &&
+    areStringArraysEqual(left?.tools, right?.tools)
+  );
+}
+
+/**
+ * Compared per provider rather than by reference: the composer edits one
+ * provider's entry at a time, and a reference check would report every such
+ * edit as unchanged, making the Worker control silently do nothing.
+ */
+function areWorkerConfigsByProviderEqual(
+  left?: PromptDraftRuntimeOverrides["workerConfigByProvider"],
+  right?: PromptDraftRuntimeOverrides["workerConfigByProvider"],
+) {
+  if (left === right) {
+    return true;
+  }
+  return (["claude-code", "codex"] as const).every((providerId) =>
+    areWorkerProviderConfigsEqual(left?.[providerId], right?.[providerId]),
+  );
+}
+
 export function arePromptDraftRuntimeOverridesEqual(
   left?: PromptDraftRuntimeOverrides,
   right?: PromptDraftRuntimeOverrides,
@@ -180,6 +213,11 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.autoRouting === right?.autoRouting &&
     left?.advisorEnabled === right?.advisorEnabled &&
     areAdvisorTargetsEqual(left?.advisorTarget, right?.advisorTarget) &&
+    left?.workerEnabled === right?.workerEnabled &&
+    areWorkerConfigsByProviderEqual(
+      left?.workerConfigByProvider,
+      right?.workerConfigByProvider,
+    ) &&
     areStringArraysEqual(left?.boundSecretIds, right?.boundSecretIds)
   );
 }

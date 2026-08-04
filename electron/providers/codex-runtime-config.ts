@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  buildWorkerPrimaryInstructions,
+  resolveWorkerProfile,
+} from "../../src/lib/providers/worker-mode";
 import type { StreamTurnArgs } from "./types";
 
 // ChatGPT desktop installs bundled Codex plugins into the shared CODEX_HOME.
@@ -30,8 +34,66 @@ export function buildCodexPluginConfigOverrides() {
   return config;
 }
 
+/**
+ * Resolves Worker mode for a Codex turn.
+ *
+ * Codex has no per-spawn model override reachable from the App Server, so the
+ * worker is pinned through `[agents]` defaults instead and the primary is told
+ * to delegate through developer instructions. Both halves resolve from this one
+ * function so the config and the prose can never describe different workers.
+ */
+export function resolveCodexWorkerProfile(args: {
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}) {
+  const intent = args.runtimeOptions?.workerIntent;
+  if (!intent) {
+    return null;
+  }
+  const resolution = resolveWorkerProfile({
+    providerId: "codex",
+    primaryModel: args.runtimeOptions?.model ?? "",
+    intent,
+  });
+  return resolution.status === "ready" ? resolution.profile : null;
+}
+
+/**
+ * Config overrides that pin the Codex worker.
+ *
+ * Verified against codex-cli 0.145.0's `AgentsToml`. `default_subagent_model`
+ * is the documented way to pin a spawned agent's model — `spawn_agent`'s own
+ * tool description states that spawned agents inherit the preferred default
+ * unless an explicit override is given, and the App Server exposes no way to
+ * give that override.
+ */
+export function buildCodexWorkerConfigOverrides(args: {
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Record<string, string | boolean | number> {
+  const profile = resolveCodexWorkerProfile(args);
+  if (!profile) {
+    return {};
+  }
+  return {
+    "agents.default_subagent_model": profile.resolvedWorkerModel,
+    ...(profile.resolvedWorkerEffort
+      ? {
+          "agents.default_subagent_reasoning_effort":
+            profile.resolvedWorkerEffort,
+        }
+      : {}),
+    // MVP ceiling. One foreground worker keeps Stop coherent: there is exactly
+    // one child to cancel before the parent is considered stopped.
+    "agents.max_concurrent_threads_per_session": profile.maxConcurrency,
+    // Depth 1 stops a worker from spawning its own workers, which would escape
+    // the concurrency cap and make attribution meaningless.
+    "agents.max_depth": 1,
+  };
+}
+
 export function buildCodexDeveloperInstructions(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  /** See `buildCodexConfigOverrides`: a secondary read-only run never delegates. */
+  secondaryReadOnly?: boolean;
 }) {
   const parts: string[] = [];
   const baseSystemPrompt = args.runtimeOptions?.claudeSystemPrompt?.trim();
@@ -43,6 +105,23 @@ export function buildCodexDeveloperInstructions(args: {
     parts.push(responseStyle);
   }
   parts.push(CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS);
+  const workerProfile = args.secondaryReadOnly
+    ? null
+    : resolveCodexWorkerProfile(args);
+  if (workerProfile) {
+    parts.push(buildWorkerPrimaryInstructions(workerProfile));
+    // Codex cannot enforce a per-worker tool allowlist, so the preset's brief
+    // has to travel as prose the primary passes on.
+    parts.push(
+      [
+        "### Worker brief",
+        "",
+        `When you delegate, hand the worker this contract verbatim as part of its task:`,
+        "",
+        workerProfile.instructions,
+      ].join("\n"),
+    );
+  }
   const combined = parts.join("\n\n").trim();
   return combined.length > 0 ? combined : undefined;
 }

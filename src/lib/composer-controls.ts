@@ -14,6 +14,7 @@ export const COMPOSER_CONTROL_IDS = [
   "thinking",
   "fast",
   "advisor",
+  "worker",
   "review",
   "secrets",
   "compare",
@@ -49,6 +50,7 @@ export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
   thinking: "Thinking",
   fast: "Fast mode",
   advisor: "Advisor",
+  worker: "Worker",
   review: "Review",
   secrets: "Secrets",
   compare: "Compare",
@@ -62,6 +64,7 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
     thinking: "Cycle extended thinking. Claude only.",
     fast: "Fast toggle inside the model picker. Codex only.",
     advisor: "Arm a second model to review the prompt before it runs.",
+    worker: "Delegate bounded implementation work to a cheaper same-provider model.",
     review: "Review uncommitted local changes.",
     secrets: "Bind secrets into this run's environment.",
     compare: "Run the prompt in two candidate workspaces.",
@@ -144,6 +147,7 @@ export function collectActiveComposerControls(args: {
   thinkingMode?: "adaptive" | "enabled" | "disabled" | null;
   fastMode?: boolean;
   advisorArmed?: boolean;
+  workerArmed?: boolean;
   runtimeTone?: "default" | "custom" | "warning";
   boundSecretCount?: number;
 }): ComposerControlId[] {
@@ -160,6 +164,9 @@ export function collectActiveComposerControls(args: {
   }
   if (args.advisorArmed) {
     active.push("advisor");
+  }
+  if (args.workerArmed) {
+    active.push("worker");
   }
   if ((args.boundSecretCount ?? 0) > 0) {
     active.push("secrets");

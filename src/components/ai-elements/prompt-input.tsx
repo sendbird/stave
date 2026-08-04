@@ -282,6 +282,17 @@ interface PromptInputProps {
    */
   advisorActive?: boolean;
   /**
+   * Worker mode control. Same slot rationale as the Advisor: task-scoped store
+   * state, and it must stay readable during an active turn so a running worker
+   * is always attributable.
+   */
+  workerControl?: ReactNode;
+  /**
+   * Whether Worker mode is armed. Placement has to know, or a demoted Worker
+   * pill would spend a second model with nothing on screen saying so.
+   */
+  workerActive?: boolean;
+  /**
    * Secrets and Compare are separate slots rather than one fragment: placement
    * is per-control, and a fragment cannot be routed to two different
    * containers.
@@ -652,6 +663,8 @@ export function PromptInput(args: PromptInputProps) {
     onUserInputDeny,
     advisorControl,
     advisorActive,
+    workerControl,
+    workerActive,
     secretsControl,
     secretsActive,
     compareControl,
@@ -1860,6 +1873,7 @@ export function PromptInput(args: PromptInputProps) {
   if (!providerModeStatus) unavailableComposerControls.push("providerMode");
   if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
   if (!advisorControl) unavailableComposerControls.push("advisor");
+  if (!workerControl) unavailableComposerControls.push("worker");
   if (!hasReviewControl) unavailableComposerControls.push("review");
   if (!secretsControl) unavailableComposerControls.push("secrets");
   if (!compareControl) unavailableComposerControls.push("compare");
@@ -1872,6 +1886,7 @@ export function PromptInput(args: PromptInputProps) {
       thinkingMode,
       fastMode,
       advisorArmed: advisorActive,
+      workerArmed: workerActive,
       runtimeTone: runtimeProfile.tone,
       boundSecretCount: secretsActive ? 1 : 0,
     }),
@@ -1947,6 +1962,7 @@ export function PromptInput(args: PromptInputProps) {
       </Tooltip>
     ) : null,
     advisor: advisorControl,
+    worker: workerControl,
     review: hasReviewControl ? (
       <LocalChangeReviewDialog
         workspaceCwd={workspaceCwd}

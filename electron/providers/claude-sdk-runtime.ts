@@ -35,7 +35,13 @@ import type {
   ClaudeSessionForkResponse,
   ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
+import {
+  buildWorkerPrimaryInstructions,
+  resolveWorkerProfile,
+  toClaudeWorkerEffort,
+} from "../../src/lib/providers/worker-mode";
 import type {
+  AgentDefinition,
   CanUseTool,
   HookCallback,
   McpServerConfig,
@@ -671,6 +677,59 @@ export function resolveClaudeDisallowedTools(args: {
   return [...merged];
 }
 
+/**
+ * Builds the single named worker registered for Worker mode.
+ *
+ * Returns `undefined` whenever the intent is absent or fails semantic
+ * resolution, so an unsupported primary/model combination degrades to the
+ * normal solo path rather than silently spawning a different tier.
+ *
+ * Three guarantees are load-bearing here:
+ *
+ * - `background` is never set. Stave's turn loop cannot deliver a background
+ *   completion notification, and the SDK strips most tools from background
+ *   subagents anyway, so the worker must stay foreground.
+ * - `permissionMode` mirrors the parent turn, so a plan/read-only turn cannot
+ *   gain write capability by delegating.
+ * - `effort` is omitted when the resolver reports `null`, because Haiku-class
+ *   models reject the field outright.
+ */
+export function buildClaudeWorkerAgents(args: {
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  permissionMode: ClaudePermissionMode;
+}): Record<string, AgentDefinition> | undefined {
+  const intent = args.runtimeOptions?.workerIntent;
+  if (!intent) {
+    return undefined;
+  }
+  const resolution = resolveWorkerProfile({
+    providerId: "claude-code",
+    primaryModel: args.runtimeOptions?.model ?? "",
+    intent,
+  });
+  if (resolution.status !== "ready") {
+    return undefined;
+  }
+  const { profile } = resolution;
+  // `AgentDefinition.effort` has no `ultra` tier, so narrow before assigning.
+  const effort = toClaudeWorkerEffort(profile.resolvedWorkerEffort);
+  return {
+    [profile.workerName]: {
+      description: profile.description,
+      prompt: profile.instructions,
+      model: profile.resolvedWorkerModel,
+      ...(effort ? { effort } : {}),
+      ...(profile.tools && profile.tools.length > 0
+        ? { tools: [...profile.tools] }
+        : {}),
+      ...(profile.maxTurns !== null ? { maxTurns: profile.maxTurns } : {}),
+      // Inherit rather than widen: the worker runs under the parent's policy so
+      // approvals and denials keep attributing to the same turn.
+      permissionMode: args.permissionMode,
+    },
+  };
+}
+
 export function shouldDenyClaudeToolInPlanMode(args: {
   toolName: string;
   input: Record<string, unknown>;
@@ -1059,6 +1118,11 @@ export function buildClaudeSystemPrompt(args: {
   cwd: string;
   baseSystemPrompt?: string;
   responseStylePrompt?: string;
+  /**
+   * Primary-facing Worker mode brief. Registering the agent only makes it
+   * available; without this the primary has no reason to delegate to it.
+   */
+  workerInstructions?: string;
 }): string[] {
   const workspacePrompt = [
     "Stave workspace context:",
@@ -1079,8 +1143,14 @@ export function buildClaudeSystemPrompt(args: {
     staticParts.push(responseStyle);
   }
 
-  // Dynamic suffix — session-specific, not globally cached.
+  // Dynamic suffix — session-specific, not globally cached. Worker mode belongs
+  // here rather than in the cached prefix: it is a per-turn choice, so caching
+  // it would leak one turn's execution shape into the next.
   const dynamicParts: string[] = [workspacePrompt];
+  const workerInstructions = args.workerInstructions?.trim();
+  if (workerInstructions) {
+    dynamicParts.push(workerInstructions);
+  }
 
   return [
     staticParts.join("\n\n"),
@@ -1850,6 +1920,11 @@ export function buildClaudeQueryOptions(args: {
   systemPrompt?: string | string[];
   includePartialMessages?: boolean;
   promptSuggestions?: boolean;
+  /**
+   * Set only by the conversation turn. Gates Worker-mode agent registration so
+   * utility and control queries sharing these runtime options never spend one.
+   */
+  workerModeEligible?: boolean;
   canUseTool?: CanUseTool;
   mcpServers?: Record<string, McpServerConfig>;
   onElicitation?: OnElicitation;
@@ -1942,6 +2017,19 @@ export function buildClaudeQueryOptions(args: {
   const pluginConfigs = resolveClaudePluginConfigs(
     args.runtimeOptions?.claudePluginPaths,
   );
+  // Opt-in rather than inferred. Most callers of this builder are utility and
+  // control queries (command catalog, context usage, plugin reload, MCP
+  // control) which share the caller's runtime options but must never spend a
+  // worker; only the conversation turn sets `workerModeEligible`. Secondary
+  // read-only turns stay excluded even when they ask, since a worker would be a
+  // second write-capable actor inside a turn that exists only to observe.
+  const workerAgents =
+    args.workerModeEligible && !args.secondaryReadOnly
+      ? buildClaudeWorkerAgents({
+          runtimeOptions: args.runtimeOptions,
+          permissionMode,
+        })
+      : undefined;
   const fallbackModel = resolveClaudeFallbackModel({
     model: args.runtimeOptions?.model,
     fallbackModel: args.runtimeOptions?.claudeFallbackModel,
@@ -2039,6 +2127,10 @@ export function buildClaudeQueryOptions(args: {
     ...(args.runtimeOptions?.claudeAgentName
       ? { agent: args.runtimeOptions.claudeAgentName }
       : {}),
+    // Registers the Worker-mode task executor. Deliberately `agents` (available
+    // to delegate to) and not `agent` (replaces the main loop) — the primary has
+    // to stay in charge of planning and integration.
+    ...(workerAgents ? { agents: workerAgents } : {}),
     ...(settingSources !== undefined ? { settingSources } : {}),
     ...(args.runtimeOptions?.claudeFastMode
       ? { settings: { fastMode: true } }
@@ -4217,10 +4309,27 @@ export async function streamClaudeWithSdk(
                 fallbackResumeId: args.runtimeOptions?.claudeResumeSessionId,
               }),
         });
+    // Resolved once and reused for both the system prompt and the agent
+    // registration, so the brief can never describe a worker the query did not
+    // actually register.
+    const workerResolution = secondaryReadOnly
+      ? { status: "off" as const }
+      : resolveWorkerProfile({
+          providerId: "claude-code",
+          primaryModel: args.runtimeOptions?.model ?? "",
+          intent: args.runtimeOptions?.workerIntent,
+        });
     const claudeSystemPrompt = buildClaudeSystemPrompt({
       cwd: runtimeCwd,
       baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
       responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
+      ...(workerResolution.status === "ready"
+        ? {
+            workerInstructions: buildWorkerPrimaryInstructions(
+              workerResolution.profile,
+            ),
+          }
+        : {}),
     });
     const resolvedMcpServers = secondaryReadOnly
       ? { mcpServers: undefined, hasStaveLocalMcp: false }
@@ -4298,6 +4407,7 @@ export async function streamClaudeWithSdk(
         systemPrompt: claudeSystemPrompt,
         includePartialMessages: true,
         promptSuggestions: true,
+        workerModeEligible: true,
         mcpServers: resolvedMcpServers.mcpServers,
         secondaryReadOnly,
         secretEnv: boundSecretEnv,

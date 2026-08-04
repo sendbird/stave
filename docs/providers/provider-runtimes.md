@@ -158,6 +158,119 @@ host-service starts a fresh read-only turn, and provider-specific restrictions
 are selected by an internal execution policy. See
 [Run Core And Secondary Execution](../architecture/run-core.md).
 
+## Worker mode
+
+Worker mode has a high-capability primary orchestrate one provider-native
+task-executor subagent: the primary plans, delegates a bounded brief, then
+reviews the diff and integrates. It is off by default and is armed per task from
+the composer (`Alt+W`, picker on `Alt+Shift+W`), with a global default under
+Settings → Providers → Worker mode.
+
+The provider-neutral core is `src/lib/providers/worker-mode.ts`. It owns the
+preset catalog, the capability table, and `resolveWorkerProfile` — the single
+semantic gate that both the renderer (for labels and availability) and the main
+process (for the native call) resolve through. Zod proves payload *shape* at the
+IPC boundary; this resolver proves the payload makes sense for the provider,
+primary model, and installed runtime.
+
+The renderer sends only an intent (`ProviderRuntimeOptions.workerIntent`), never
+a resolved profile. Renderer-supplied model ids are not trusted: the main
+process re-resolves against the real primary model before building the call.
+
+### Supported combinations
+
+| | Claude | Codex |
+| --- | --- | --- |
+| orchestrating primaries | Fable 5, Opus 5 (+1M), Sonnet 5 (+1M) | GPT-5.6 Sol, GPT-5.6 Terra |
+| worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5 | Luna, Terra, Sol |
+| worker registration | `Options.agents["stave-task-executor"]` | `agents.default_subagent_model` |
+| worker model pinning | `AgentDefinition.model` | `agents.default_subagent_model` |
+| worker effort pinning | `AgentDefinition.effort` | `agents.default_subagent_reasoning_effort` |
+| description / instructions | `description` + `prompt` | `developer_instructions` |
+| tool bounding | `tools` — hard-enforced | not expressible; passed as guidance |
+
+Codex primaries are limited to Sol and Terra because they are the only models
+whose live catalog advertises the `ultra` tier, described by that catalog as
+"Maximum reasoning with automatic task delegation" — i.e. the only Codex models
+that delegate natively. `ThreadStartParams.multiAgentMode` is deprecated and
+ignored on the supported baseline, and the App Server exposes no subagent RPC,
+so Stave pins the worker through `[agents]` config instead. That is the
+documented path: `spawn_agent`'s own tool description states that spawned agents
+inherit the preferred default unless given an explicit override.
+
+Worker config travels on both `thread/start` and `thread/resume`, and the worker
+model and effort are part of the developer instructions that feed
+`buildCodexInstructionProfileKey`, so changing the worker rotates the thread key
+and cannot resume a thread configured for a different worker.
+
+### Auto resolution and explicit failures
+
+`Auto` is a deterministic per-preset, per-provider default — not a difficulty
+classifier. The composer and the runtime bar always report the model `Auto`
+resolved to, so it is never a black box.
+
+An explicit choice that is no longer valid returns an `unavailable` reason code
+and disables execution. It is never silently replaced, because a swap would bill
+a different tier than the one on screen:
+
+- `primary_not_supported` — the active primary cannot orchestrate.
+- `worker_model_not_found` — not a known model for this provider.
+- `worker_model_not_supported` — known, but not worker-capable, or absent from
+  the installed runtime.
+- `provider_capability_unavailable` — the provider has no Worker-mode support.
+
+Effort is clamped, not rejected, when a model's ceiling is lower than the
+request (Codex `ultra` → `max` on Luna). It is dropped entirely for models that
+reject the field — Claude's API errors on `effort` for Haiku-class models, so a
+Haiku worker runs at its own default and the UI says so rather than showing a
+dead select.
+
+### Presets
+
+Presets bundle a role, a tool bound, and per-provider model/effort defaults.
+Each one's description is written as a delegation trigger, because on Claude that
+string is what the primary reads to decide whether to delegate.
+
+| preset | intent |
+| --- | --- |
+| Patch hand | Applies a decided edit exactly. No verification. |
+| Verified patch (default) | Applies the edit, then runs typecheck/tests until green. |
+| Sweep | One mechanical transformation across many files. |
+| Scout | Read-only investigation returning a conclusion. |
+| Deep packet | Owns one bounded unit of real work at maximum effort. |
+| Second pair of eyes | Reviews a diff for correctness; never edits. |
+
+Description, instructions, tool list, and max turns are editable per provider in
+Settings. An empty field means "use the preset", which is what stops a preset
+improvement from being shadowed by a stale copy of its previous text; switching
+preset therefore clears hand-edited copy rather than carrying it over.
+
+Note the deliberately counterintuitive defaults: cheap worker models are paired
+with *high* effort. On bounded work a cheap model at high effort outperforms a
+mid-tier model at its default, which is the pattern the community Codex
+`luna_worker` configuration popularised.
+
+### Safety
+
+- One foreground worker at a time (`maxConcurrency: 1`, plus Codex
+  `agents.max_concurrent_threads_per_session = 1` and `agents.max_depth = 1`).
+- The worker inherits the parent turn's permission mode and sandbox, so a plan
+  or read-only turn cannot gain write access by delegating. On Claude the nested
+  subagent's tool calls still pass through the same `canUseTool` gate.
+- `background` is never set on the Claude worker: Stave's turn loop cannot
+  deliver a background-completion notification, and background subagents lose
+  most tools anyway.
+- Utility, control, and secondary read-only turns never register a worker.
+  Registration is opt-in via `workerModeEligible` on the conversation turn only,
+  and each runtime additionally refuses on a `secondary-read-only` policy: Claude
+  gates `buildClaudeWorkerAgents` behind `!secondaryReadOnly`, and Codex threads
+  a `secondaryReadOnly` flag into `buildCodexConfigOverrides` so neither the
+  `agents.*` overrides nor the worker brief in `developer_instructions` are sent.
+  A secondary run is a bounded analysis pass; delegating would escape both its
+  turn budget and its read-only contract.
+- Only per-turn and per-thread runtime configuration is used. No provider config
+  file in the user's home is written.
+
 ## Claude runtime
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.

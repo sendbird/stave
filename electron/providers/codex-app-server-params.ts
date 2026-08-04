@@ -8,6 +8,7 @@ import {
 import {
   buildCodexDeveloperInstructions,
   buildCodexPluginConfigOverrides,
+  buildCodexWorkerConfigOverrides,
 } from "./codex-runtime-config";
 import { buildExecutableLookupEnv } from "./executable-path";
 import { parseBooleanEnv } from "./runtime-shared";
@@ -62,9 +63,19 @@ function resolveApprovalPolicy(args: {
 export function buildCodexConfigOverrides(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  configOverrides?: Record<string, string | boolean>;
+  configOverrides?: Record<string, string | boolean | number>;
+  /**
+   * Set for `secondary-read-only` turns. A secondary run must not delegate: it
+   * is a bounded read-only analysis pass, and a worker would both escape that
+   * budget and bill a second model. The Claude adapter gates Worker mode the
+   * same way, so keep the two in step.
+   */
+  secondaryReadOnly?: boolean;
 }) {
-  const config: Record<string, string | boolean> = {
+  const workerRuntimeOptions = args.secondaryReadOnly
+    ? undefined
+    : args.runtimeOptions;
+  const config: Record<string, string | boolean | number> = {
     ...buildCodexPluginConfigOverrides(),
     ...(args.cwd
       ? buildProjectNvmShellConfigOverrides({
@@ -72,6 +83,11 @@ export function buildCodexConfigOverrides(args: {
           baseEnv: buildExecutableLookupEnv(),
         })
       : {}),
+    // Pins the Worker-mode subagent. Empty when Worker mode is off or fails
+    // semantic resolution, so the solo path stays byte-identical.
+    ...buildCodexWorkerConfigOverrides({
+      runtimeOptions: workerRuntimeOptions,
+    }),
   };
   const planModeEnabled = args.runtimeOptions?.codexPlanMode === true;
   const reasoningEffort = resolveCodexAppServerReasoningEffort({
@@ -79,6 +95,7 @@ export function buildCodexConfigOverrides(args: {
   });
   const developerInstructions = buildCodexDeveloperInstructions({
     runtimeOptions: args.runtimeOptions,
+    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
   });
   const summaryMode = args.runtimeOptions?.codexReasoningSummary;
   const supportsSummaries = args.runtimeOptions?.codexReasoningSummarySupport;
@@ -214,6 +231,7 @@ export function buildCodexThreadStartParams(args: {
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
   configOverrides?: Record<string, string | boolean>;
   isolated?: boolean;
+  secondaryReadOnly?: boolean;
 }) {
   const config = args.isolated
     ? {
@@ -226,6 +244,7 @@ export function buildCodexThreadStartParams(args: {
         cwd: args.cwd,
         runtimeOptions: args.runtimeOptions,
         configOverrides: args.configOverrides,
+        ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
       });
 
   return {
@@ -281,11 +300,13 @@ export function buildCodexThreadResumeParams(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   configOverrides?: Record<string, string | boolean>;
+  secondaryReadOnly?: boolean;
 }) {
   const config = buildCodexConfigOverrides({
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
     configOverrides: args.configOverrides,
+    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
   });
 
   return {

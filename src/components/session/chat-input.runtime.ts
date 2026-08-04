@@ -32,6 +32,7 @@ interface ChatInputRuntimeArgs {
    * Advisor can be either provider regardless of which one runs the turn.
    */
   advisorSummary: string;
+  workerSummary: string;
   providerTimeoutMs: number;
   claudePermissionMode: AppSettings["claudePermissionMode"];
   claudePermissionModeBeforePlan: AppSettings["claudePermissionModeBeforePlan"];
@@ -236,6 +237,16 @@ function buildAdvisorRuntimeStatusItem(
   };
 }
 
+function buildWorkerRuntimeStatusItem(
+  workerSummary: string,
+): PromptInputRuntimeStatusItem {
+  return {
+    id: "worker",
+    label: "Worker",
+    value: workerSummary,
+  };
+}
+
 export function buildChatInputRuntimeStatusItems(
   args: ChatInputRuntimeArgs,
 ): PromptInputRuntimeStatusItem[] {
@@ -310,6 +321,8 @@ export function buildChatInputRuntimeStatusItems(
         value: args.claudeAgentProgressSummaries ? "On" : "Off",
       },
       buildAdvisorRuntimeStatusItem(args.advisorSummary),
+    buildWorkerRuntimeStatusItem(args.workerSummary),
+      buildWorkerRuntimeStatusItem(args.workerSummary),
       ...(args.claudeBinaryPath.trim()
         ? [
             {

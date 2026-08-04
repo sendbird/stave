@@ -15,6 +15,7 @@ import type {
   ClaudeSettingSource,
   ProviderId,
 } from "@/lib/providers/provider.types";
+import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import type { PrMergeMethod } from "@/lib/pr-status";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
 import type { ModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
@@ -265,6 +266,17 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeTaskBudgetTokens: number;
   /** Optional isolated read-only preflight used before normal user turns. */
   advisorTarget: AdvisorTarget | null;
+  /**
+   * Whether new tasks arm Worker mode by default. Tasks may override in either
+   * direction from the composer.
+   */
+  workerEnabled: boolean;
+  /**
+   * Default worker configuration per provider: preset, model, effort, and any
+   * user-edited description/instructions/tools. Keyed by provider because the
+   * two providers have different worker models and effort scales.
+   */
+  workerConfigByProvider: Partial<Record<ProviderId, WorkerProviderConfig>>;
   /** Optional outbound-only Crane dispatch connector. Secrets stay in Electron main. */
   craneConnector: CraneConnectorSettings;
   claudeSettingSources: ClaudeSettingSource[];
@@ -483,6 +495,10 @@ export const defaultSettings: AppSettings = {
   claudeSandboxCredentialEnvVars: "",
   claudeTaskBudgetTokens: 0,
   advisorTarget: null,
+  // Off by default: Worker mode changes how a turn spends tokens, so it must be
+  // an explicit opt-in rather than something a user discovers on their bill.
+  workerEnabled: false,
+  workerConfigByProvider: {},
   craneConnector: {
     ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
     projectMappings: [],
