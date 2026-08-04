@@ -55,17 +55,40 @@ function safeRealpath(target: string): string | null {
   }
 }
 
-function parseOAuthAccessToken(raw: string): string | null {
+export interface ClaudeOAuthCredentials {
+  accessToken: string | null;
+  /**
+   * A refresh token is present, so the CLI can rotate the access token on its
+   * own. Lets the usage fetcher distinguish "never logged in" (nothing to
+   * repair) from "logged in but the access token is stale" (running the CLI
+   * once will refresh it).
+   */
+  hasRefreshableCredentials: boolean;
+}
+
+const EMPTY_CREDENTIALS: ClaudeOAuthCredentials = {
+  accessToken: null,
+  hasRefreshableCredentials: false,
+};
+
+export function parseOAuthCredentials(raw: string): ClaudeOAuthCredentials {
   try {
     const parsed = JSON.parse(raw) as {
-      claudeAiOauth?: { accessToken?: string };
+      claudeAiOauth?: { accessToken?: string; refreshToken?: string };
     };
-    const accessToken = parsed?.claudeAiOauth?.accessToken;
-    return typeof accessToken === "string" && accessToken.trim()
-      ? accessToken
-      : null;
+    const oauth = parsed?.claudeAiOauth;
+    const accessToken = oauth?.accessToken;
+    const refreshToken = oauth?.refreshToken;
+    return {
+      accessToken:
+        typeof accessToken === "string" && accessToken.trim()
+          ? accessToken
+          : null,
+      hasRefreshableCredentials:
+        typeof refreshToken === "string" && refreshToken.trim() !== "",
+    };
   } catch {
-    return null;
+    return EMPTY_CREDENTIALS;
   }
 }
 
@@ -94,60 +117,81 @@ function listKeychainServiceCandidates(configDirs: string[]): string[] {
   return [...services];
 }
 
-function readMacKeychainAccessToken(configDirs: string[]): string | null {
-  if (process.platform !== "darwin") {
-    return null;
-  }
-  for (const service of listKeychainServiceCandidates(configDirs)) {
-    try {
-      const raw = execFileSync(
-        "security",
-        ["find-generic-password", "-s", service, "-w"],
-        { encoding: "utf8", timeout: 5_000 },
-      );
-      const accessToken = parseOAuthAccessToken(raw);
-      if (accessToken) {
-        return accessToken;
-      }
-    } catch {
-      // Keychain entry missing, access denied, or `security` unavailable —
-      // try the next candidate, then the credentials file, then the CLI.
+/**
+ * Merges candidate reads: the first usable access token wins, but a
+ * refresh-token-only hit is remembered so the caller still knows the user is
+ * logged in and the CLI can rotate the token.
+ */
+function pickCredentials(
+  reads: Iterable<ClaudeOAuthCredentials>,
+): ClaudeOAuthCredentials {
+  let hasRefreshableCredentials = false;
+  for (const read of reads) {
+    if (read.accessToken) {
+      return read;
     }
+    hasRefreshableCredentials ||= read.hasRefreshableCredentials;
   }
-  return null;
+  return { accessToken: null, hasRefreshableCredentials };
 }
 
-function readCredentialsFileAccessToken(configDirs: string[]): string | null {
-  for (const configDir of configDirs) {
-    try {
-      const raw = readFileSync(
-        path.join(configDir, ".credentials.json"),
-        "utf8",
-      );
-      const accessToken = parseOAuthAccessToken(raw);
-      if (accessToken) {
-        return accessToken;
-      }
-    } catch {
-      // Missing/unreadable in this candidate dir — try the next one.
-    }
+function readMacKeychainCredentials(
+  configDirs: string[],
+): ClaudeOAuthCredentials {
+  if (process.platform !== "darwin") {
+    return EMPTY_CREDENTIALS;
   }
-  return null;
+  return pickCredentials(
+    (function* () {
+      for (const service of listKeychainServiceCandidates(configDirs)) {
+        try {
+          yield parseOAuthCredentials(
+            execFileSync(
+              "security",
+              ["find-generic-password", "-s", service, "-w"],
+              { encoding: "utf8", timeout: 5_000 },
+            ),
+          );
+        } catch {
+          // Keychain entry missing, access denied, or `security` unavailable —
+          // try the next candidate, then the credentials file, then the CLI.
+        }
+      }
+    })(),
+  );
+}
+
+function readCredentialsFileCredentials(
+  configDirs: string[],
+): ClaudeOAuthCredentials {
+  return pickCredentials(
+    (function* () {
+      for (const configDir of configDirs) {
+        try {
+          yield parseOAuthCredentials(
+            readFileSync(path.join(configDir, ".credentials.json"), "utf8"),
+          );
+        } catch {
+          // Missing/unreadable in this candidate dir — try the next one.
+        }
+      }
+    })(),
+  );
 }
 
 /**
- * Read-only lookup of the Claude Code CLI's own OAuth access token.
+ * Read-only lookup of the Claude Code CLI's own OAuth credentials.
  *
  * Deliberately does not refresh or write back credentials — Stave has no
  * business owning the CLI's login state, and the CLI itself (or a live
- * `claude` terminal) may be rotating these tokens concurrently. If the
- * token is missing, stale, or rejected by the server, the caller falls back
- * to parsing the CLI's own `/usage` panel instead of trying to repair auth.
+ * `claude` terminal) may be rotating these tokens concurrently. When the token
+ * is stale the caller instead runs the CLI (which rotates its own credentials
+ * as a side effect) and re-reads them here.
  */
-export function readClaudeOAuthAccessToken(): string | null {
+export function readClaudeOAuthCredentials(): ClaudeOAuthCredentials {
   const configDirs = listClaudeConfigDirCandidates();
-  return (
-    readMacKeychainAccessToken(configDirs) ??
-    readCredentialsFileAccessToken(configDirs)
-  );
+  return pickCredentials([
+    readMacKeychainCredentials(configDirs),
+    readCredentialsFileCredentials(configDirs),
+  ]);
 }
