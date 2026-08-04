@@ -32,10 +32,11 @@ export interface OpenSurfaceOptions {
 }
 
 export interface PaneHostController {
+  /** Returns false when the surface could not be opened (no store entry / no api). */
   openSurface: (
     surface: PaneSurfaceDescriptor,
     options?: OpenSurfaceOptions,
-  ) => void;
+  ) => boolean;
   closeSurface: (surface: PaneSurfaceDescriptor) => void;
   focusSurface: (surface: PaneSurfaceDescriptor) => void;
   /** Split the active group, moving the selected panel when siblings remain. */
@@ -73,12 +74,20 @@ export function getPaneHostController(): PaneHostController | null {
 }
 
 export const paneHost = {
-  openSurface(surface: PaneSurfaceDescriptor, options?: OpenSurfaceOptions) {
+  /**
+   * Returns true only when the surface is actually on screen. A queued open
+   * (no host mounted yet) reports false so callers can retry instead of
+   * assuming success — see `presentLensSessionInWorkspace`.
+   */
+  openSurface(
+    surface: PaneSurfaceDescriptor,
+    options?: OpenSurfaceOptions,
+  ): boolean {
     if (activeController) {
-      activeController.openSurface(surface, options);
-      return;
+      return activeController.openSurface(surface, options);
     }
     queuedOpens.push({ surface, options });
+    return false;
   },
   closeSurface(surface: PaneSurfaceDescriptor) {
     activeController?.closeSurface(surface);
@@ -154,7 +163,7 @@ export async function presentLensSession(
           lensSessionId,
           activate: openOptions.activate,
         }),
-      openLensSurface: (lensSessionId, openOptions) => {
+      openLensSurface: (lensSessionId, openOptions) =>
         paneHost.openSurface(
           { kind: "lens", lensSessionId },
           {
@@ -163,8 +172,7 @@ export async function presentLensSession(
               ? { position: { direction: "right" as const } }
               : {}),
           },
-        );
-      },
+        ),
     },
     options,
   );

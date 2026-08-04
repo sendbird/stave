@@ -77,6 +77,17 @@ export interface LensSessionPresentationRequestPayload {
   toolName?: string;
 }
 
+/**
+ * Main-to-renderer notification that a session's native view has been torn
+ * down. Without it, a session destroyed outside the pane UI (`force`-closed via
+ * MCP, workspace dispose) leaves its tab and Dockview panel behind as a shell
+ * whose visibility calls silently no-op.
+ */
+export interface LensSessionClosedPayload {
+  workspaceId: string;
+  lensSessionId: string;
+}
+
 export interface ElementPickerResult {
   selector: string;
   tagName: string;

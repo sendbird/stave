@@ -1,4 +1,5 @@
 import { BrowserWindow } from "electron";
+import { hideAllBrowserSessions } from "./browser/browser-manager";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
 import { openExternalWithFallback } from "./utils/external-url";
 import {
@@ -77,6 +78,14 @@ export function createMainWindow() {
     }
     event.preventDefault();
     void openExternalWithFallback({ url });
+  });
+
+  // A renderer reload does not tear down Lens `WebContentsView`s: they stay
+  // attached with their last bounds and `visible: true`, painting over the new
+  // UI until their panel remounts. Hide them here so a reload can never leave a
+  // stuck Lens overlay; sessions survive and each panel restores its own view.
+  window.webContents.on("did-start-loading", () => {
+    hideAllBrowserSessions();
   });
 
   window.webContents.session.setPermissionRequestHandler(

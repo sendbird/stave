@@ -18,13 +18,14 @@ export interface LensSessionPresentationHost {
     lensSessionId: string,
     options: { activate: boolean },
   ) => string | null;
+  /** Returns false when the pane could not actually be opened. */
   openLensSurface: (
     lensSessionId: string,
     options: {
       activate: boolean;
       splitRight: boolean;
     },
-  ) => void;
+  ) => boolean;
 }
 
 /**
@@ -58,9 +59,11 @@ export async function presentLensSessionInWorkspace(
   if (!lensSessionId) {
     return false;
   }
-  host.openLensSurface(lensSessionId, {
+  // Report the pane host's real outcome. Returning true unconditionally made
+  // callers drop their pending request even when the open was queued or
+  // dropped, so the session was never revealed and never retried.
+  return host.openLensSurface(lensSessionId, {
     activate,
     splitRight: placement === "split-right",
   });
-  return true;
 }

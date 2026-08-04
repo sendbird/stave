@@ -35,6 +35,7 @@ import {
   type BrowserNetworkEntry,
   type BrowserNetworkEventPayload,
   type LensBounds,
+  type LensSessionClosedPayload,
   type LensSessionDescriptor,
   type LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
@@ -1104,6 +1105,20 @@ export function destroyBrowserSession(
   session.networkLog.clear();
   session.downloadLog.clear();
   releasePartitionHandlersIfUnused(session.sessionProfile.partition);
+
+  // Tell the renderer the view is gone so it can drop the matching tab/panel.
+  // Emitted last so no renderer reaction can observe a half-torn-down session.
+  try {
+    const renderer = getMainWindow()?.webContents;
+    if (renderer && !renderer.isDestroyed()) {
+      renderer.send("lens:session-closed", {
+        workspaceId: session.workspaceId,
+        lensSessionId: session.lensSessionId,
+      } satisfies LensSessionClosedPayload);
+    }
+  } catch {
+    // A closing window must not block session teardown.
+  }
 }
 
 /** Destroy every lens session belonging to a workspace (dispose path). */
@@ -1116,6 +1131,30 @@ export function destroyWorkspaceBrowserSessions(workspaceId: string): void {
 export function destroyAllBrowserSessions(): void {
   for (const session of [...sessions.values()]) {
     destroyBrowserSession(session.workspaceId, session.lensSessionId);
+  }
+}
+
+/**
+ * Hide every live Lens view without destroying it.
+ *
+ * Used when the renderer reloads. Native views stay children of the window with
+ * their last non-zero bounds, so they keep painting over the freshly mounted UI
+ * until a `LensSurfacePanel` for that exact session remounts and re-issues
+ * `setVisible`/`setBounds` — which looks like a Lens overlay that "won't go
+ * away". Hiding rather than detaching is deliberate: `setViewVisible` does not
+ * re-`addChildView`, so a detached view could never be shown again, and keeping
+ * the view attached preserves webContents, cookies, and scroll position. The
+ * panel's normal mount path restores visibility in whichever workspace needs it.
+ */
+export function hideAllBrowserSessions(): void {
+  for (const session of [...sessions.values()]) {
+    if (session.closing) continue;
+    setViewVisible(session.workspaceId, false, session.lensSessionId);
+    setViewBounds(
+      session.workspaceId,
+      { x: 0, y: 0, width: 0, height: 0 },
+      session.lensSessionId,
+    );
   }
 }
 

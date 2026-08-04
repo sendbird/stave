@@ -5,6 +5,9 @@ import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.type
 import { useAppStore } from "@/store/app.store";
 import { presentLensSession } from "@/components/panes/pane-host-controller";
 
+/** Give a queued pane host a few chances to mount before giving up. */
+const MAX_PRESENTATION_ATTEMPTS = 5;
+
 function presentationKey(
   payload: LensSessionPresentationRequestPayload,
 ): string {
@@ -24,6 +27,15 @@ export function useLensSessionPresentationRequests(): void {
       string,
       LensSessionPresentationRequestPayload
     >();
+    // A pending request is re-flushed on every workspace/settings change. Cap
+    // the attempts so a request that can never present (workspace gone, host
+    // never mounts) is abandoned instead of retried for the whole app session.
+    const attemptsBySession = new Map<string, number>();
+
+    const forget = (key: string) => {
+      pendingBySession.delete(key);
+      attemptsBySession.delete(key);
+    };
 
     const presentRequest = async (
       payload: LensSessionPresentationRequestPayload,
@@ -34,6 +46,18 @@ export function useLensSessionPresentationRequests(): void {
       }
       const key = presentationKey(payload);
       const state = useAppStore.getState();
+
+      // The workspace can be closed or disposed between the request and the
+      // flush; without this the entry would be retried on every store change.
+      if (
+        !state.workspaces.some(
+          (workspace) => workspace.id === payload.workspaceId,
+        )
+      ) {
+        forget(key);
+        return;
+      }
+
       const policy = resolveLensPresentationRequestPolicy({
         payload,
         activeWorkspaceId: state.activeWorkspaceId,
@@ -41,7 +65,7 @@ export function useLensSessionPresentationRequests(): void {
       });
 
       if (!policy) {
-        pendingBySession.delete(key);
+        forget(key);
         return;
       }
       if (policy.deferUntilWorkspaceActive) {
@@ -66,7 +90,7 @@ export function useLensSessionPresentationRequests(): void {
                 session.lensSessionId === payload.lensSessionId,
             );
             if (!sessionStillExists) {
-              pendingBySession.delete(key);
+              forget(key);
               return;
             }
           } catch (error) {
@@ -88,7 +112,14 @@ export function useLensSessionPresentationRequests(): void {
           return;
         }
         if (presented) {
-          pendingBySession.delete(key);
+          forget(key);
+        } else if (pendingBySession.has(key)) {
+          const attempts = (attemptsBySession.get(key) ?? 0) + 1;
+          if (attempts >= MAX_PRESENTATION_ATTEMPTS) {
+            forget(key);
+          } else {
+            attemptsBySession.set(key, attempts);
+          }
         }
         const reason = payload.reason?.trim();
         if (
@@ -143,6 +174,7 @@ export function useLensSessionPresentationRequests(): void {
         window.clearTimeout(pendingFlushTimer);
       }
       pendingBySession.clear();
+      attemptsBySession.clear();
       unsubscribe?.();
       unsubscribeStore();
     };

@@ -126,7 +126,10 @@ import type {
   GraphFileChange,
   GraphResult,
 } from "@/lib/git-graph/types";
-import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
+import type {
+  LensSessionClosedPayload,
+  LensSessionPresentationRequestPayload,
+} from "@/lib/lens/lens.types";
 import type {
   SecondaryRunAggregate,
   SecondaryRunCancelArgs,
@@ -2375,6 +2378,9 @@ interface WindowLensApi {
   ) => () => void;
   subscribeStateChangedEvents?: (
     listener: (payload: LensStateChangedPayload) => void,
+  ) => () => void;
+  subscribeSessionClosed?: (
+    listener: (payload: LensSessionClosedPayload) => void,
   ) => () => void;
   subscribePresentationRequests?: (
     listener: (payload: LensSessionPresentationRequestPayload) => void,

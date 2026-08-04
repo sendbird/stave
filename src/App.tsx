@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
 import { CraneDispatchApprovalDialog } from "@/components/layout/CraneDispatchApprovalDialog";
+import { useLensSessionClosedEvents } from "@/components/panes/useLensSessionClosedEvents";
 import { useLensSessionPresentationRequests } from "@/components/panes/useLensSessionPresentationRequests";
 import { TooltipProvider } from "@/components/ui";
 import type { LensSecurityConfig } from "@/lib/lens/lens.types";
@@ -30,6 +31,7 @@ function pushLensSecurityConfig(): void {
 
 export default function App() {
   useLensSessionPresentationRequests();
+  useLensSessionClosedEvents();
 
   useEffect(() => {
     const subscribeTaskTurnUpdates =
