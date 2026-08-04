@@ -596,6 +596,7 @@ function ChatPanelMessageList(props: {
   const [
     activeTurnId,
     chatStreamingEnabled,
+    showConversationTurnRail,
     showInterimMessages,
     reasoningExpansionMode,
     loadTaskMessages,
@@ -605,6 +606,7 @@ function ChatPanelMessageList(props: {
         [
           state.activeTurnIdsByTask[taskId],
           state.settings.chatStreamingEnabled,
+          state.settings.showConversationTurnRail,
           state.settings.showInterimMessages,
           state.settings.reasoningExpansionMode,
           state.loadTaskMessages,
@@ -929,32 +931,34 @@ function ChatPanelMessageList(props: {
           />
         )}
       </ConversationContent>
-      <ConversationTurnRail
-        ref={turnRailRef}
-        taskId={taskId}
-        items={turnRailItems}
-        hasEarlierMessages={hasOlderMessages}
-        onNavigate={(item) => {
-          manualScrollIntentRef.current?.markManualScrollIntent();
-          if (turnRailNavigationFrameRef.current !== null) {
-            window.cancelAnimationFrame(turnRailNavigationFrameRef.current);
-          }
-          turnRailNavigationFrameRef.current = window.requestAnimationFrame(
-            () => {
-              turnRailNavigationFrameRef.current = null;
-              virtuosoRef.current?.scrollToIndex({
-                index: item.messageIndex,
-                align: "center",
-                behavior: "auto",
-              });
-              // Virtuoso may synchronously report the pre-settled viewport
-              // while it measures the target row. Preserve the user's explicit
-              // choice until stable row geometry drives the next report.
-              turnRailRef.current?.setActiveMessageId(item.messageId);
-            },
-          );
-        }}
-      />
+      {showConversationTurnRail ? (
+        <ConversationTurnRail
+          ref={turnRailRef}
+          taskId={taskId}
+          items={turnRailItems}
+          hasEarlierMessages={hasOlderMessages}
+          onNavigate={(item) => {
+            manualScrollIntentRef.current?.markManualScrollIntent();
+            if (turnRailNavigationFrameRef.current !== null) {
+              window.cancelAnimationFrame(turnRailNavigationFrameRef.current);
+            }
+            turnRailNavigationFrameRef.current = window.requestAnimationFrame(
+              () => {
+                turnRailNavigationFrameRef.current = null;
+                virtuosoRef.current?.scrollToIndex({
+                  index: item.messageIndex,
+                  align: "center",
+                  behavior: "auto",
+                });
+                // Virtuoso may synchronously report the pre-settled viewport
+                // while it measures the target row. Preserve the user's explicit
+                // choice until stable row geometry drives the next report.
+                turnRailRef.current?.setActiveMessageId(item.messageId);
+              },
+            );
+          }}
+        />
+      ) : null}
     </>
   );
 }

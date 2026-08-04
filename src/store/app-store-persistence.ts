@@ -158,6 +158,10 @@ export function createAppStorePersistenceOptions() {
         typeof raw.showPresetBar === "boolean"
           ? raw.showPresetBar
           : defaultSettings.showPresetBar;
+      state.settings.showConversationTurnRail =
+        typeof raw.showConversationTurnRail === "boolean"
+          ? raw.showConversationTurnRail
+          : defaultSettings.showConversationTurnRail;
       state.settings.borderBeamSize = normalizeBorderBeamSize(
         raw.borderBeamSize,
       );
