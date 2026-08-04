@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
 import path from "node:path";
 import { resolveLoginShellEnvVarValue } from "../executable-path";
 
@@ -10,6 +10,18 @@ import { resolveLoginShellEnvVarValue } from "../executable-path";
 // call Anthropic's usage endpoint with the CLI's own OAuth session instead
 // of asking for a separate API key.
 const MACOS_KEYCHAIN_SERVICE = "Claude Code-credentials";
+
+// Why: the CLI keys its keychain entry by *account* as well as service —
+// the account is `$USER` (or `os.userInfo().username`) when it matches
+// this pattern, else the literal fallback below. Older CLI builds wrote
+// under the fallback account, so a machine can hold BOTH a stale
+// `claude-code-user` entry and a fresh `<username>` entry for the same
+// service. A service-only `security find-generic-password -s` returns
+// whichever entry comes first (often the stale one), so Stave must query
+// account-qualified candidates first, in the same order the CLI resolves
+// them, before falling back to a service-only match.
+const MACOS_KEYCHAIN_FALLBACK_ACCOUNT = "claude-code-user";
+const MACOS_KEYCHAIN_ACCOUNT_PATTERN = /^[a-zA-Z0-9._-]+$/;
 
 const DEFAULT_CLAUDE_CONFIG_DIR = path.join(homedir(), ".claude");
 
@@ -135,26 +147,58 @@ function pickCredentials(
   return { accessToken: null, hasRefreshableCredentials };
 }
 
+/**
+ * Keychain account-name candidates, matching the CLI's own resolution:
+ * `$USER` (or `os.userInfo().username`) when it passes the CLI's
+ * validation pattern, then the CLI's literal fallback account, then
+ * `null` for a service-only lookup that still matches entries written
+ * under any other account name.
+ */
+function listKeychainAccountCandidates(): (string | null)[] {
+  const candidates: (string | null)[] = [];
+  let osUser: string | undefined;
+  try {
+    osUser = process.env.USER || userInfo().username;
+  } catch {
+    osUser = undefined;
+  }
+  if (
+    osUser &&
+    MACOS_KEYCHAIN_ACCOUNT_PATTERN.test(osUser) &&
+    osUser !== MACOS_KEYCHAIN_FALLBACK_ACCOUNT
+  ) {
+    candidates.push(osUser);
+  }
+  candidates.push(MACOS_KEYCHAIN_FALLBACK_ACCOUNT);
+  candidates.push(null);
+  return candidates;
+}
+
 function readMacKeychainCredentials(
   configDirs: string[],
 ): ClaudeOAuthCredentials {
   if (process.platform !== "darwin") {
     return EMPTY_CREDENTIALS;
   }
+  const accounts = listKeychainAccountCandidates();
   return pickCredentials(
     (function* () {
       for (const service of listKeychainServiceCandidates(configDirs)) {
-        try {
-          yield parseOAuthCredentials(
-            execFileSync(
-              "security",
-              ["find-generic-password", "-s", service, "-w"],
-              { encoding: "utf8", timeout: 5_000 },
-            ),
-          );
-        } catch {
-          // Keychain entry missing, access denied, or `security` unavailable —
-          // try the next candidate, then the credentials file, then the CLI.
+        for (const account of accounts) {
+          try {
+            yield parseOAuthCredentials(
+              execFileSync(
+                "security",
+                account === null
+                  ? ["find-generic-password", "-s", service, "-w"]
+                  : ["find-generic-password", "-s", service, "-a", account, "-w"],
+                { encoding: "utf8", timeout: 5_000 },
+              ),
+            );
+          } catch {
+            // Keychain entry missing, access denied, or `security` unavailable —
+            // try the next candidate, then the credentials file, then the CLI.
+          }
         }
       }
     })(),
