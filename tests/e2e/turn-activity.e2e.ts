@@ -173,6 +173,10 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await expect(activity).toBeVisible();
   await expect(activity).toHaveAccessibleName("Turn activity");
   await expect(activity.getByTestId("turn-activity-orb")).toBeVisible();
+  await expect(activity.getByTestId("turn-activity-orb")).toHaveAttribute(
+    "data-orb-state",
+    "searching",
+  );
   const executionSummary = activity.getByRole("region", {
     name: "Task execution summary",
   });

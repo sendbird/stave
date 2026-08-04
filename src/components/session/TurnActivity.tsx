@@ -13,7 +13,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { ThinkingOrb, type OrbState } from "thinking-orbs";
+import { ThinkingOrb } from "thinking-orbs";
 import { deriveTodoTraceItems } from "@/components/session/message/assistant-trace.utils";
 import { resolvePlanViewerState } from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
@@ -26,6 +26,7 @@ import {
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
+  resolveTurnActivityOrbState,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
   type TurnActivityIconKey,
@@ -473,6 +474,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const hiddenSeverity = resolveTurnActivityHiddenSeverity(hiddenItems);
   const orbState = resolveTurnActivityOrbState({
     activity: props.activity,
+    isStalled,
     isPlanPreparing: props.isPlanPreparing,
     workItems: props.workItems,
   });
@@ -540,6 +542,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         >
           <span
             data-testid="turn-activity-orb"
+            data-orb-state={orbState}
             className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/55"
           >
             <ThinkingOrb
@@ -650,27 +653,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     </div>
   );
 });
-
-function resolveTurnActivityOrbState(args: {
-  activity: ProviderTurnActivitySnapshot | null;
-  isPlanPreparing: boolean;
-  workItems: ProviderTurnWorkItem[];
-}): OrbState {
-  if (args.activity?.pendingInteraction) {
-    return "listening";
-  }
-  if (args.isPlanPreparing) {
-    return "shaping";
-  }
-  if (
-    args.workItems.some(
-      (item) => item.kind === "subagent" && item.status === "running",
-    )
-  ) {
-    return "searching";
-  }
-  return "working";
-}
 
 // Memoized so the shelf's per-second clock tick and the surrounding 60fps store
 // churn do not re-render every row. Row objects are rebuilt only when their

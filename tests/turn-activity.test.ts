@@ -8,6 +8,7 @@ import {
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
+  resolveTurnActivityOrbState,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
   type TurnActivityRowStatus,
@@ -29,6 +30,73 @@ function buildWorkItem(
 }
 
 describe("turn activity presentation", () => {
+  test("uses the connecting orb until the provider activity snapshot arrives", () => {
+    expect(
+      resolveTurnActivityOrbState({
+        activity: null,
+        isPlanPreparing: false,
+        isStalled: false,
+        workItems: [],
+      }),
+    ).toBe("connecting");
+  });
+
+  test("uses distinct orb states for waiting, planning, parallel, and agent work", () => {
+    const activity = { pendingInteraction: null };
+
+    expect(
+      resolveTurnActivityOrbState({
+        activity: { pendingInteraction: "approval" },
+        isPlanPreparing: false,
+        isStalled: false,
+        workItems: [],
+      }),
+    ).toBe("listening");
+    expect(
+      resolveTurnActivityOrbState({
+        activity,
+        isPlanPreparing: false,
+        isStalled: true,
+        workItems: [],
+      }),
+    ).toBe("breathing");
+    expect(
+      resolveTurnActivityOrbState({
+        activity,
+        isPlanPreparing: true,
+        isStalled: false,
+        workItems: [],
+      }),
+    ).toBe("shaping");
+    expect(
+      resolveTurnActivityOrbState({
+        activity,
+        isPlanPreparing: false,
+        isStalled: false,
+        workItems: [
+          { kind: "subagent", status: "running" },
+          { kind: "tool", status: "running" },
+        ],
+      }),
+    ).toBe("weaving");
+    expect(
+      resolveTurnActivityOrbState({
+        activity,
+        isPlanPreparing: false,
+        isStalled: false,
+        workItems: [{ kind: "subagent", status: "running" }],
+      }),
+    ).toBe("searching");
+    expect(
+      resolveTurnActivityOrbState({
+        activity,
+        isPlanPreparing: false,
+        isStalled: false,
+        workItems: [{ kind: "tool", status: "running" }],
+      }),
+    ).toBe("working");
+  });
+
   test("shows the activity shelf only while a turn is active and no plan review is open", () => {
     expect(
       resolveTurnActivityVisibility({

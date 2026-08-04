@@ -92,6 +92,7 @@ describe("TurnActivity", () => {
     expect(html).toContain('data-testid="turn-activity-stack"');
     expect(html).toContain('data-testid="turn-activity"');
     expect(html).toContain('data-testid="turn-activity-orb"');
+    expect(html).toContain('data-orb-state="searching"');
     expect(html).toContain("Turn activity");
     expect(html).toContain("Review Lens diagnostics");
     expect(html).toContain("Inspecting CDP object lifecycle");
