@@ -265,6 +265,62 @@ const PromptDraftRuntimeOverridesSchema = z
       })
       .optional()
       .catch(undefined),
+    // Per-task Worker mode arming, stored separately from the per-provider
+    // config for the same reason as the Advisor: turning Worker mode off must
+    // keep the remembered preset/model/effort. Same `.catch(undefined)`
+    // discipline — a malformed worker config degrades to "unset" instead of
+    // rejecting the whole workspace snapshot.
+    workerEnabled: z.boolean().optional().catch(undefined),
+    workerConfigByProvider: z
+      .record(
+        z.union([z.literal("claude-code"), z.literal("codex")]),
+        // Every field catches independently: a corrupt tool list must not
+        // discard a good model choice sitting beside it.
+        z
+          .object({
+            presetId: z.string().trim().min(1).max(64).optional().catch(undefined),
+            model: z.string().trim().min(1).max(200).optional().catch(undefined),
+            effort: z
+              .union([
+                z.literal("auto"),
+                z.literal("low"),
+                z.literal("medium"),
+                z.literal("high"),
+                z.literal("xhigh"),
+                z.literal("max"),
+                z.literal("ultra"),
+              ])
+              .optional()
+              .catch(undefined),
+            description: z
+              .string()
+              .trim()
+              .max(600)
+              .optional()
+              .catch(undefined),
+            instructions: z
+              .string()
+              .trim()
+              .max(8_000)
+              .optional()
+              .catch(undefined),
+            tools: z
+              .array(z.string().trim().min(1).max(120))
+              .max(40)
+              .optional()
+              .catch(undefined),
+            maxTurns: z
+              .number()
+              .int()
+              .min(1)
+              .max(200)
+              .optional()
+              .catch(undefined),
+          })
+          .catch({}),
+      )
+      .optional()
+      .catch(undefined),
   });
 // NOTE: deliberately NOT `.strict()`. `parseWorkspaceSnapshot` is all-or-nothing,
 // so one unrecognized key here rejects the ENTIRE workspace snapshot — every task,

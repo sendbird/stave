@@ -858,6 +858,31 @@ export const RuntimeOptionsObjectSchema = z
       })
       .strict()
       .optional(),
+    // Worker mode intent, already narrowed to the active provider. Shape only:
+    // whether this model may actually run as a worker on this primary is
+    // semantic and is re-proved by `resolveWorkerProfile` in the main process.
+    workerIntent: z
+      .object({
+        mode: z.literal("task-executor"),
+        presetId: z.string().trim().min(1).max(64),
+        // "auto" defers to the preset's per-provider recommendation.
+        workerModel: z.string().trim().min(1).max(200),
+        workerEffort: z.union([
+          z.literal("auto"),
+          z.literal("low"),
+          z.literal("medium"),
+          z.literal("high"),
+          z.literal("xhigh"),
+          z.literal("max"),
+          z.literal("ultra"),
+        ]),
+        description: z.string().trim().max(600).optional(),
+        instructions: z.string().trim().max(8_000).optional(),
+        tools: z.array(z.string().trim().min(1).max(120)).max(40).optional(),
+        maxTurns: z.number().int().min(1).max(200).optional(),
+      })
+      .strict()
+      .optional(),
     responseStylePrompt: z.string().max(10_000).optional(),
     promptPrDescription: z.string().max(10_000).optional(),
     promptInlineCompletion: z.string().max(10_000).optional(),

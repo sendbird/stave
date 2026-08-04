@@ -1190,6 +1190,12 @@ async function ensureCodexThread(args: {
   ephemeral?: boolean;
   configOverrides?: Record<string, string | boolean>;
   boundSecretFingerprint?: string;
+  /**
+   * A secondary read-only run must not delegate to a Worker-mode subagent: it is
+   * a bounded analysis pass, and a worker would escape both its turn budget and
+   * its read-only contract. Mirrors the Claude adapter's gate.
+   */
+  secondaryReadOnly?: boolean;
 }) {
   const threadKey = buildThreadKey({
     taskId: args.taskId,
@@ -1220,6 +1226,7 @@ async function ensureCodexThread(args: {
           // here, which silently discarded MCP-isolation and injected-secret
           // shell env whenever a thread resumed instead of starting fresh.
           configOverrides: args.configOverrides,
+          ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
         }),
       })
     : await args.client.request<{ thread: { id: string } }>(
@@ -1235,6 +1242,7 @@ async function ensureCodexThread(args: {
               }
             : {}),
           configOverrides: args.configOverrides,
+          ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
         }),
       );
   const threadId = response.thread.id;
@@ -2459,6 +2467,7 @@ export async function streamCodexWithAppServer(
       ephemeral: secondaryReadOnly,
       configOverrides: mergedConfigOverrides,
       boundSecretFingerprint,
+      secondaryReadOnly,
     }));
   } catch (error) {
     const events: BridgeEvent[] = [

@@ -2580,6 +2580,7 @@ export const useAppStore = create<AppState>()(
             model: activeModel,
             includeAdvisor: turnOrigin === "conversation",
             advisorRuntimeOverrides: promptDraft.runtimeOverrides,
+            workerRuntimeOverrides: promptDraft.runtimeOverrides,
             settings: {
               ...modelRuntimeSettings,
               ...resolvedPromptDraftRuntimeState,

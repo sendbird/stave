@@ -8,6 +8,9 @@ import type {
   UserInputQuestion,
 } from "@/types/chat";
 import type { SkillPromptContext } from "@/lib/skills/types";
+// Type-only, matching the `@/types/chat` cycle above: `worker-mode` imports
+// `ProviderId` from here, so the cycle is erased at compile time.
+import type { WorkerRuntimeIntent } from "@/lib/providers/worker-mode";
 
 export type ProviderId = "claude-code" | "codex";
 export type ClaudeSettingSource = "user" | "project" | "local";
@@ -946,6 +949,15 @@ export interface ProviderRuntimeOptions {
    * Advisor can never recursively launch another Advisor.
    */
   advisorTarget?: AdvisorTarget;
+  /**
+   * Worker mode intent for this turn, already narrowed to the active provider.
+   *
+   * Deliberately the *intent* rather than a resolved profile: the renderer must
+   * not be trusted to decide which model may run as a worker, so the main
+   * process re-resolves this through `resolveWorkerProfile` against the real
+   * primary model and installed runtime before building the native call.
+   */
+  workerIntent?: WorkerRuntimeIntent;
   // ---- Customisable AI prompt overrides ----
   /** Response formatting guidance injected into both Claude and Codex. */
   responseStylePrompt?: string;

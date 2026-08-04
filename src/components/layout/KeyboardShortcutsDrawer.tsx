@@ -435,6 +435,18 @@ export function KeyboardShortcutsDrawer({
             sequences: [["Alt", "Shift", "A"]],
           },
           {
+            label: "Toggle Worker mode",
+            description:
+              "Arm or disarm this task's worker. The primary keeps planning and reviewing; the worker implements.",
+            sequences: [["Alt", "W"]],
+          },
+          {
+            label: "Open Worker picker",
+            description:
+              "Choose the worker preset, model, and reasoning effort for this task.",
+            sequences: [["Alt", "Shift", "W"]],
+          },
+          {
             label: "Dialog primary action",
             description:
               "Run Save/Create/Open/Confirm in the active dialog. Use modifier+Enter in multiline fields.",

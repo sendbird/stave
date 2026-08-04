@@ -17,6 +17,20 @@ import {
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
+import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
+import {
+  buildWorkerEffortPatch,
+  buildWorkerModelPatch,
+  buildWorkerPresetPatch,
+  buildWorkerTogglePatch,
+} from "@/components/ai-elements/prompt-input-worker-mode.utils";
+import {
+  buildWorkerRuntimeIntent,
+  formatWorkerRuntimeStatusValue,
+  resolveWorkerArmState,
+  resolveWorkerProfile,
+} from "@/lib/providers/worker-mode";
+import { resolveWorkerShortcutAction } from "@/lib/worker-shortcuts";
 import {
   buildAdvisorArmPatch,
   buildAdvisorEffortPatch,
@@ -290,6 +304,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     settingsCodexBinaryPath,
     skipTaskAdvisor,
     composerControlPlacements,
+    settingsWorkerEnabled,
+    settingsWorkerConfigByProvider,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -315,6 +331,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.settings.codexBinaryPath,
           state.skipTaskAdvisor,
           state.settings.composerControlPlacements,
+          state.settings.workerEnabled,
+          state.settings.workerConfigByProvider,
         ] as const,
     ),
   );
@@ -385,7 +403,37 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       : [...catalog];
   }, [advisorArm.target, advisorCodexCatalog.models]);
 
-  function applyAdvisorOverrides(runtimeOverrides: PromptDraftRuntimeOverrides) {
+  const workerArm = useMemo(
+    () =>
+      resolveWorkerArmState({
+        providerId: args.activeProvider,
+        overrides: promptDraft.runtimeOverrides,
+        settingsConfig: settingsWorkerConfigByProvider?.[args.activeProvider],
+        settingsEnabled: settingsWorkerEnabled,
+      }),
+    [
+      args.activeProvider,
+      promptDraft.runtimeOverrides,
+      settingsWorkerConfigByProvider,
+      settingsWorkerEnabled,
+    ],
+  );
+  // Resolved here rather than inside the pill so the composer shows exactly what
+  // the turn would send — including "unavailable" for an ineligible primary.
+  const workerResolution = useMemo(
+    () =>
+      resolveWorkerProfile({
+        providerId: args.activeProvider,
+        primaryModel: args.selectedModelOption.model,
+        intent: buildWorkerRuntimeIntent(workerArm),
+      }),
+    [args.activeProvider, args.selectedModelOption.model, workerArm],
+  );
+  const [workerPickerOpen, setWorkerPickerOpen] = useState(false);
+
+  // Shared by the Advisor and Worker controls: both write task-local runtime
+  // overrides through the same merge, so they must share the commit-first fix.
+  function applyRuntimeOverrides(runtimeOverrides: PromptDraftRuntimeOverrides) {
     // Commit first: `updatePromptDraft` merges onto the stored draft, so an
     // uncommitted composer edit would otherwise be dropped by the patch.
     commitCurrentDraftText();
@@ -426,7 +474,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       setAdvisorPickerOpen(true);
       return;
     }
-    applyAdvisorOverrides(patch);
+    applyRuntimeOverrides(patch);
     // Turning the Advisor off while it is holding the turn has to release the
     // turn too, otherwise the control silently means "next time" at the one
     // moment the user wants it to mean now.
@@ -434,6 +482,17 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       skipTaskAdvisor({ taskId: args.activeTaskId });
     }
   }
+  function handleWorkerToggle() {
+    applyRuntimeOverrides(
+      buildWorkerTogglePatch({
+        overrides: promptDraft.runtimeOverrides,
+        arm: workerArm,
+      }),
+    );
+  }
+  const workerToggleRef = useRef(handleWorkerToggle);
+  workerToggleRef.current = handleWorkerToggle;
+
   const advisorToggleRef = useRef(handleAdvisorToggle);
   advisorToggleRef.current = handleAdvisorToggle;
   const advisorShortcutsEnabled = args.windowShortcutsEnabled && !isInputBlocked;
@@ -457,6 +516,32 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         return;
       }
       advisorToggleRef.current();
+    };
+    window.addEventListener("keydown", onWindowKeyDown);
+    return () => window.removeEventListener("keydown", onWindowKeyDown);
+  }, [advisorShortcutsEnabled]);
+  // Shares the Advisor's enable gate: both are composer chords that must go
+  // quiet while the input is blocked on an approval or a question.
+  useEffect(() => {
+    if (!advisorShortcutsEnabled) {
+      return;
+    }
+    const onWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+      const action = resolveWorkerShortcutAction(event);
+      if (!action) {
+        return;
+      }
+      // Same reason as the Advisor chord: claim it before the composer inserts
+      // the Option-composed character macOS produces for Alt+W.
+      event.preventDefault();
+      if (action === "picker") {
+        setWorkerPickerOpen(true);
+        return;
+      }
+      workerToggleRef.current();
     };
     window.addEventListener("keydown", onWindowKeyDown);
     return () => window.removeEventListener("keydown", onWindowKeyDown);
@@ -1155,6 +1240,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             updateSettings({ patch: { composerControlPlacements: next } })
           }
           advisorActive={advisorArm.enabled || advisorPickerOpen}
+          workerActive={workerArm.enabled || workerPickerOpen}
           secretsActive={
             (promptDraft.runtimeOverrides?.boundSecretIds?.length ?? 0) > 0
           }
@@ -1170,7 +1256,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               onOpenChange={setAdvisorPickerOpen}
               onToggle={handleAdvisorToggle}
               onSelectProvider={(optionId) => {
-                applyAdvisorOverrides(
+                applyRuntimeOverrides(
                   buildAdvisorArmPatch({
                     overrides: promptDraft.runtimeOverrides,
                     arm: advisorArm,
@@ -1188,7 +1274,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   model,
                 });
                 if (patch) {
-                  applyAdvisorOverrides(patch);
+                  applyRuntimeOverrides(patch);
                 }
               }}
               onSelectEffort={(effort) => {
@@ -1198,8 +1284,47 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   effort,
                 });
                 if (patch) {
-                  applyAdvisorOverrides(patch);
+                  applyRuntimeOverrides(patch);
                 }
+              }}
+            />
+          }
+          workerControl={
+            <PromptInputWorkerPill
+              arm={workerArm}
+              resolution={workerResolution}
+              primaryProviderId={args.activeProvider}
+              primaryModel={args.selectedModelOption.model}
+              disabled={isInputBlocked}
+              open={workerPickerOpen}
+              onOpenChange={setWorkerPickerOpen}
+              onToggle={handleWorkerToggle}
+              onSelectPreset={(presetId) => {
+                applyRuntimeOverrides(
+                  buildWorkerPresetPatch({
+                    overrides: promptDraft.runtimeOverrides,
+                    providerId: args.activeProvider,
+                    presetId,
+                  }),
+                );
+              }}
+              onSelectModel={(model) => {
+                applyRuntimeOverrides(
+                  buildWorkerModelPatch({
+                    overrides: promptDraft.runtimeOverrides,
+                    providerId: args.activeProvider,
+                    model,
+                  }),
+                );
+              }}
+              onSelectEffort={(effort) => {
+                applyRuntimeOverrides(
+                  buildWorkerEffortPatch({
+                    overrides: promptDraft.runtimeOverrides,
+                    providerId: args.activeProvider,
+                    effort,
+                  }),
+                );
               }}
             />
           }
@@ -1695,6 +1820,12 @@ function BaseChatInput() {
   const settingsAdvisorTarget = useAppStore(
     (state) => state.settings.advisorTarget,
   );
+  const settingsWorkerEnabled = useAppStore(
+    (state) => state.settings.workerEnabled,
+  );
+  const settingsWorkerConfigByProvider = useAppStore(
+    (state) => state.settings.workerConfigByProvider,
+  );
   const workspaceCwd = useAppStore(
     (state) =>
       state.workspacePathById[state.activeWorkspaceId] ??
@@ -1975,10 +2106,38 @@ function BaseChatInput() {
       ),
     [promptDraftRuntimeOverrides, settingsAdvisorTarget],
   );
+  // Resolved separately from the composer's copy: the runtime bar lives in a
+  // different component, and reporting a stale shape here would contradict the
+  // pill sitting a few pixels away.
+  const workerRuntimeSummary = useMemo(
+    () =>
+      formatWorkerRuntimeStatusValue(
+        resolveWorkerProfile({
+          providerId: activeProvider,
+          primaryModel: activeModel,
+          intent: buildWorkerRuntimeIntent(
+            resolveWorkerArmState({
+              providerId: activeProvider,
+              overrides: promptDraftRuntimeOverrides,
+              settingsConfig: settingsWorkerConfigByProvider?.[activeProvider],
+              settingsEnabled: settingsWorkerEnabled,
+            }),
+          ),
+        }),
+      ),
+    [
+      activeProvider,
+      activeModel,
+      promptDraftRuntimeOverrides,
+      settingsWorkerConfigByProvider,
+      settingsWorkerEnabled,
+    ],
+  );
   const runtimeStatusItems = useMemo(() => {
     return buildChatInputRuntimeStatusItems({
       activeProvider,
       advisorSummary: advisorRuntimeSummary,
+      workerSummary: workerRuntimeSummary,
       providerTimeoutMs,
       claudePermissionMode: effectiveClaudePermissionMode,
       claudeAllowDangerouslySkipPermissions,
@@ -2006,6 +2165,7 @@ function BaseChatInput() {
   }, [
     activeProvider,
     advisorRuntimeSummary,
+    workerRuntimeSummary,
     claudeAllowDangerouslySkipPermissions,
     claudeAgentProgressSummaries,
     claudeAllowUnsandboxedCommands,

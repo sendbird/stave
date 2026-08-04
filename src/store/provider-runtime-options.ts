@@ -8,6 +8,11 @@ import {
   type AdvisorArmOverrides,
   resolveAdvisorArmState,
 } from "@/lib/providers/advisor";
+import {
+  type WorkerArmOverrides,
+  buildWorkerRuntimeIntent,
+  resolveWorkerArmState,
+} from "@/lib/providers/worker-mode";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import {
   normalizeTrustedToolEntries,
@@ -44,6 +49,8 @@ type RuntimeSettings = Pick<
   | "claudeSandboxCredentialEnvVars"
   | "claudeTaskBudgetTokens"
   | "advisorTarget"
+  | "workerEnabled"
+  | "workerConfigByProvider"
   | "claudeSettingSources"
   | "claudeEffort"
   | "claudeThinkingMode"
@@ -166,6 +173,11 @@ export function buildProviderRuntimeOptions(args: {
    */
   advisorRuntimeOverrides?: AdvisorArmOverrides | null;
   /**
+   * The task's per-turn Worker mode arming. Same shape/scope rules as the
+   * Advisor overrides above.
+   */
+  workerRuntimeOverrides?: WorkerArmOverrides | null;
+  /**
    * Ids of vault secrets the user bound to this task. Carried through to the
    * runtime so the main process can resolve them to env vars. Ids only.
    */
@@ -184,6 +196,18 @@ export function buildProviderRuntimeOptions(args: {
         overrides: args.advisorRuntimeOverrides,
         settingsTarget: settings.advisorTarget,
       }).effectiveTarget
+    : null;
+  // Gated on the same `includeAdvisor` flag: it marks a real conversation turn,
+  // and utility/secondary turns must never spend a worker either.
+  const workerIntent = args.includeAdvisor
+    ? buildWorkerRuntimeIntent(
+        resolveWorkerArmState({
+          providerId: args.provider,
+          overrides: args.workerRuntimeOverrides,
+          settingsConfig: settings.workerConfigByProvider?.[args.provider],
+          settingsEnabled: settings.workerEnabled,
+        }),
+      )
     : null;
   const trustedTools = normalizeTrustedToolEntries(settings.trustedTools);
   const claudeAllowedTools =
@@ -249,6 +273,7 @@ export function buildProviderRuntimeOptions(args: {
         }
       : {}),
     ...(advisorTarget ? { advisorTarget } : {}),
+    ...(workerIntent ? { workerIntent } : {}),
     claudeEffort: settings.claudeEffort,
     claudeThinkingMode: settings.claudeThinkingMode,
     claudeAgentProgressSummaries: settings.claudeAgentProgressSummaries,

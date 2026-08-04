@@ -1,7 +1,8 @@
 import type { LensAnnotation } from "@/lib/lens/lens.types";
 // Type-only, and `provider.types` imports this module the same way, so the
 // cycle is erased at compile time rather than existing at runtime.
-import type { AdvisorTarget } from "@/lib/providers/provider.types";
+import type { AdvisorTarget, ProviderId } from "@/lib/providers/provider.types";
+import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
 export type MessageRole = "user" | "assistant";
@@ -100,6 +101,18 @@ export interface PromptDraftRuntimeOverrides {
    * which model advises another task.
    */
   advisorTarget?: AdvisorTarget;
+  /**
+   * Per-task Worker mode arming. Absent inherits the Settings default. `false`
+   * disarms only this task and deliberately keeps `workerConfigByProvider`, so
+   * re-arming restores the previous preset/model/effort rather than resetting.
+   */
+  workerEnabled?: boolean;
+  /**
+   * Per-task worker configuration, keyed by provider. Keyed rather than flat so
+   * switching Codex↔Claude and back never overwrites the other provider's
+   * choice — the two have different worker models and different effort scales.
+   */
+  workerConfigByProvider?: Partial<Record<ProviderId, WorkerProviderConfig>>;
   /**
    * Ids of vault secrets bound to this task for env injection. Persists in the
    * workspace snapshot so a binding survives restart. Ids only — never values.
