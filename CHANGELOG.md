@@ -1,3 +1,18 @@
+## [0.14.0](https://github.com/sendbird/stave/compare/v0.13.7...v0.14.0) (2026-08-04)
+
+### Features
+
+* Add configurable Worker mode with composer controls, Settings, keyboard shortcuts, per-task persistence, and provider-specific profiles for Claude and Codex.
+* Route Worker intents through strict IPC/runtime contracts and provider-native execution, with semantic re-resolution against the active primary model and installed runtime.
+
+### Bug Fixes
+
+* Improve Claude usage tracking for current limits responses, absolute and relative reset times, usage percentages, and stale OAuth credentials repaired through the CLI fallback.
+* Prevent duplicate system trace headings by rendering only the remaining lines in expanded generic system-event details while preserving the specialized compaction surface.
+
+### References
+
+* [#316](https://github.com/sendbird/stave/pull/316), [#317](https://github.com/sendbird/stave/pull/317), [#318](https://github.com/sendbird/stave/pull/318)
 ## [0.13.7](https://github.com/sendbird/stave/compare/v0.13.6...v0.13.7) (2026-08-03)
 
 ### Features
