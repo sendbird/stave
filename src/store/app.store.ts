@@ -139,6 +139,7 @@ import {
 import { createWorkspaceKickoffResolver } from "@/store/workspace-kickoff-actions";
 import type { Attachment, ChatMessage, PromptDraft, Task } from "@/types/chat";
 import {
+  buildCodexGoalQueuedTurns,
   buildQueuedTurnFromDraft,
   getDraftFileContexts,
   getDraftImageContexts,
@@ -151,8 +152,8 @@ import {
   buildPromptDraftDisplayPartsForSend,
 } from "@/store/prompt-draft-message-content";
 import {
-  resolvePromptDraftModelForProvider,
   resolvePromptDraftRuntimeState,
+  resolveTurnModelForSend,
 } from "@/store/prompt-draft-runtime";
 import {
   buildPreservedQueuedDraft,
@@ -306,29 +307,6 @@ function buildWorkspaceInformationReferencesRetrievedContext(args: {
       content,
     ].join("\n"),
   };
-}
-
-function parseCodexGoalSetObjective(content: string): string | null {
-  const match = content.trim().match(/^\/goal(?:\s+([\s\S]*))?$/i);
-  if (!match) {
-    return null;
-  }
-
-  const argument = (match[1] ?? "").trim();
-  if (!argument) {
-    return null;
-  }
-
-  const normalizedArgument = argument.toLowerCase();
-  if (
-    normalizedArgument === "clear" ||
-    normalizedArgument === "pause" ||
-    normalizedArgument === "resume"
-  ) {
-    return null;
-  }
-
-  return argument;
 }
 
 function resolveTaskRuntimeTarget(args: {
@@ -1879,21 +1857,6 @@ export const useAppStore = create<AppState>()(
           task?.provider ??
           state.draftProvider ??
           "claude-code";
-        const codexGoalObjective =
-          provider === "codex" ? parseCodexGoalSetObjective(content) : null;
-        const codexGoalQueuedTurns: PromptDraft["queuedTurns"] =
-          codexGoalObjective
-            ? [
-                {
-                  id: `codex-goal-${turnId}`,
-                  queuedAt: buildRecentTimestamp(),
-                  sourceTurnId: turnId,
-                  content: codexGoalObjective,
-                  attachedFilePaths: [],
-                  attachments: [],
-                },
-              ]
-            : undefined;
         const { workspaceId: taskWorkspaceId, cwd: workspaceCwd } =
           resolveTaskWorkspaceContext({
             taskId: resolvedTaskId,
@@ -1957,6 +1920,18 @@ export const useAppStore = create<AppState>()(
         }
         const { promptDraft, queuedTurnToSend, remainingQueuedTurns } =
           promptDraftSendState;
+        // A queued turn dispatches on the provider captured when it was
+        // queued (auto and manual dispatch alike); the composer's current
+        // selection only applies to new sends. Legacy queue items without a
+        // stored provider keep following the task's current provider.
+        if (queuedTurnToSend?.providerId) {
+          provider = queuedTurnToSend.providerId;
+        }
+        const codexGoalQueuedTurns = buildCodexGoalQueuedTurns({
+          provider,
+          content,
+          turnId,
+        });
         const promptContent = buildPromptDraftContentForSend(promptDraft);
         const promptDisplayContent =
           buildPromptDraftDisplayContentForSend(promptDraft);
@@ -2147,6 +2122,14 @@ export const useAppStore = create<AppState>()(
             draft: promptDraft,
             sourceTurnId: activeTurnId,
             content: promptContent,
+            // Pin the selection at queue time so switching provider/model
+            // while the current turn streams never retargets queued turns.
+            providerId: provider,
+            model: resolveTurnModelForSend({
+              providerId: provider,
+              runtimeOverrides: promptDraft.runtimeOverrides,
+              settings: state.settings,
+            }),
           });
           const storedDraft =
             taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
@@ -2307,18 +2290,14 @@ export const useAppStore = create<AppState>()(
         clearSubmittedPromptDraft();
 
         try {
-          let activeModel =
-            provider === "claude-code"
-              ? resolvePromptDraftModelForProvider({
-                  providerId: provider,
-                  runtimeOverrides: promptDraft.runtimeOverrides,
-                  fallbackModel: state.settings.modelClaude,
-                })
-              : resolvePromptDraftModelForProvider({
-                  providerId: provider,
-                  runtimeOverrides: promptDraft.runtimeOverrides,
-                  fallbackModel: state.settings.modelCodex,
-                });
+          // A queued turn's stored model (queue-time selection) wins over the
+          // composer's current override; see resolveTurnModelForSend.
+          let activeModel = resolveTurnModelForSend({
+            providerId: provider,
+            queuedTurnModel: queuedTurnToSend?.model,
+            runtimeOverrides: promptDraft.runtimeOverrides,
+            settings: state.settings,
+          });
 
           const resolvedFileContexts = await getDraftFileContexts({
             promptDraft,

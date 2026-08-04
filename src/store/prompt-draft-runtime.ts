@@ -55,6 +55,31 @@ export function resolvePromptDraftModelForProvider(args: {
     : args.fallbackModel;
 }
 
+/**
+ * Resolve the model a turn should run on. A queued turn's stored model (its
+ * queue-time selection) wins over the composer's current override; both go
+ * through the same provider-mismatch guard, so a model that does not belong
+ * to `providerId` falls back to that provider's settings model instead of
+ * being sent cross-provider.
+ */
+export function resolveTurnModelForSend(args: {
+  providerId: ProviderId;
+  queuedTurnModel?: string;
+  runtimeOverrides?: PromptDraftRuntimeOverrides;
+  settings: { modelClaude: string; modelCodex: string };
+}) {
+  return resolvePromptDraftModelForProvider({
+    providerId: args.providerId,
+    runtimeOverrides: args.queuedTurnModel
+      ? { model: args.queuedTurnModel }
+      : args.runtimeOverrides,
+    fallbackModel:
+      args.providerId === "claude-code"
+        ? args.settings.modelClaude
+        : args.settings.modelCodex,
+  });
+}
+
 export function transitionClaudePromptDraftPermissionMode(args: {
   nextMode: ClaudePermissionMode;
   currentMode: ClaudePermissionMode;

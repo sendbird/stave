@@ -1,19 +1,12 @@
-import { hasPromptDraftPayload } from "@/store/prompt-draft-state";
-import { normalizePromptDraftForStorage } from "@/store/prompt-draft-state";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
-import type { PromptDraft } from "@/types/chat";
 
 interface QueuedTaskTurnActions {
-  updatePromptDraft: (args: {
-    taskId: string;
-    patch: Partial<PromptDraft>;
-  }) => void;
   sendUserMessage: (args: {
     taskId: string;
     content: string;
     turnOrigin: "conversation" | "utility";
+    queuedTurnId: string;
   }) => unknown;
-  clearPromptDraft: (args: { taskId: string }) => void;
 }
 
 export function createQueuedTaskTurnDispatcher(args: {
@@ -23,42 +16,23 @@ export function createQueuedTaskTurnDispatcher(args: {
   return (target: { workspaceId: string; taskId: string }) => {
     const queuedPromptDraft =
       args.getSession(target.workspaceId)?.promptDraftByTask[target.taskId];
-    const [nextQueuedTurn, ...remainingQueuedTurns] =
-      queuedPromptDraft?.queuedTurns ?? [];
+    const [nextQueuedTurn] = queuedPromptDraft?.queuedTurns ?? [];
     if (!nextQueuedTurn) {
       return;
     }
 
-    const autoDispatchDraft = normalizePromptDraftForStorage({
-      ...queuedPromptDraft,
-      text: nextQueuedTurn.content,
-      attachedFilePaths: nextQueuedTurn.attachedFilePaths,
-      attachments: nextQueuedTurn.attachments,
-      promptBatch: undefined,
-      queuedTurns: remainingQueuedTurns,
-    });
-    const actions = args.getActions();
-    actions.updatePromptDraft({
+    // Auto-dispatch routes through the same queued-turn path as a manual
+    // "send now" (`queuedTurnId`): the send uses the provider/model stored on
+    // the queued item at queue time, and only that item leaves the queue —
+    // the composer draft, including text typed while the previous turn
+    // streamed, stays untouched.
+    void args.getActions().sendUserMessage({
       taskId: target.taskId,
-      patch: {
-        text: autoDispatchDraft.text,
-        attachedFilePaths: autoDispatchDraft.attachedFilePaths,
-        attachments: autoDispatchDraft.attachments,
-        promptBatch: undefined,
-        queuedTurns:
-          remainingQueuedTurns.length > 0 ? remainingQueuedTurns : undefined,
-      },
+      content: nextQueuedTurn.content,
+      // The user typed and queued this follow-up themselves; it is the task's
+      // own dialogue, just delivered on turn completion instead of on Enter.
+      turnOrigin: "conversation",
+      queuedTurnId: nextQueuedTurn.id,
     });
-    if (hasPromptDraftPayload(autoDispatchDraft)) {
-      void actions.sendUserMessage({
-        taskId: target.taskId,
-        content: autoDispatchDraft.text,
-        // The user typed and queued this follow-up themselves; it is the task's
-        // own dialogue, just delivered on turn completion instead of on Enter.
-        turnOrigin: "conversation",
-      });
-    } else {
-      actions.clearPromptDraft({ taskId: target.taskId });
-    }
   };
 }

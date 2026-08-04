@@ -143,6 +143,19 @@ export interface PromptDraftQueuedTurn {
   content: string;
   attachedFilePaths: string[];
   attachments: Attachment[];
+  /**
+   * Provider selected in the composer at the moment this turn was queued.
+   * Auto and manual dispatch run the turn on this provider, so changing the
+   * selector while another turn streams never retargets already-queued turns.
+   * Absent on legacy queue items, which keep following the task's provider.
+   */
+  providerId?: ProviderId;
+  /**
+   * Model selected at the moment this turn was queued, applied together with
+   * {@link providerId} at dispatch. Falls back to the provider's settings
+   * model when absent or when it no longer belongs to that provider.
+   */
+  model?: string;
 }
 
 export interface PromptDraftBatchItem {

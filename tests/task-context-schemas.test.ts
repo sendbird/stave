@@ -345,6 +345,20 @@ describe("task-context workspace schemas", () => {
                 content: "follow-up prompt",
                 attachedFilePaths: ["src/app.tsx"],
                 attachments: [],
+                providerId: "claude-code",
+                model: "claude-opus-4-6",
+              },
+              {
+                id: "queue-2",
+                queuedAt: "2026-04-11T00:00:03.000Z",
+                sourceTurnId: "turn-1",
+                content: "second follow-up",
+                attachedFilePaths: [],
+                attachments: [],
+                // Unknown provider ids (e.g. written by a newer build) must
+                // degrade to "follow the task provider", not reject the
+                // whole workspace snapshot.
+                providerId: "future-provider",
               },
             ],
             runtimeOverrides: {
@@ -400,6 +414,16 @@ describe("task-context workspace schemas", () => {
           sourceTurnId: "turn-1",
           content: "follow-up prompt",
           attachedFilePaths: ["src/app.tsx"],
+          attachments: [],
+          providerId: "claude-code",
+          model: "claude-opus-4-6",
+        },
+        {
+          id: "queue-2",
+          queuedAt: "2026-04-11T00:00:03.000Z",
+          sourceTurnId: "turn-1",
+          content: "second follow-up",
+          attachedFilePaths: [],
           attachments: [],
         },
       ],
