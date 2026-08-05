@@ -942,6 +942,20 @@ const UserInputQuestionSchema = z
   })
   .strict();
 
+const WorkerExecutionMetadataSchema = z.object({
+  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  primaryModel: z.string().max(200),
+  presetId: z.union([
+    z.literal("patch-hand"), z.literal("verified-patch"), z.literal("sweep"),
+    z.literal("scout"), z.literal("deep-packet"), z.literal("second-pair"),
+  ]),
+  workerModel: z.string().max(200),
+  workerEffort: z.union([
+    z.literal("low"), z.literal("medium"), z.literal("high"),
+    z.literal("xhigh"), z.literal("max"), z.literal("ultra"), z.null(),
+  ]),
+}).strict();
+
 const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
   z
     .object({
@@ -970,6 +984,7 @@ const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
         z.literal("output-available"),
         z.literal("output-error"),
       ]),
+      workerExecution: WorkerExecutionMetadataSchema.optional(),
     })
     .strict(),
   z

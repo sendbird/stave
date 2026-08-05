@@ -9,6 +9,7 @@ import type {
   ProviderSteerTurnResponse,
 } from "../../src/lib/providers/provider.types";
 import type { UserInputQuestion } from "../../src/types/chat";
+import type { WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
 import type {
   ConnectedToolStatusRequest,
   ConnectedToolStatusResponse,
@@ -153,6 +154,7 @@ export type BridgeEvent =
         | "input-available"
         | "output-available"
         | "output-error";
+      workerExecution?: WorkerExecutionMetadata;
     }
   | {
       type: "tool_result";

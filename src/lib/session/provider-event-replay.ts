@@ -92,6 +92,7 @@ function createToolPart(args: {
   input: string;
   output?: string;
   state: ToolUsePart["state"];
+  workerExecution?: ToolUsePart["workerExecution"];
 }): ToolUsePart {
   return sanitizeMessagePartPayload({
     type: "tool_use",
@@ -100,6 +101,7 @@ function createToolPart(args: {
     input: args.input,
     output: args.output,
     state: args.state,
+    workerExecution: args.workerExecution,
   });
 }
 
@@ -326,6 +328,7 @@ function normalizeEventToPart(args: {
         input: event.input,
         output: event.output,
         state: event.state,
+        workerExecution: event.workerExecution,
       });
     case "diff":
       return createDiffPart({

@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { applyProviderTurnActivityEvents } from "@/lib/providers/turn-status";
+import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 
 const actualChildProcess = await import("node:child_process");
 
@@ -11,7 +12,7 @@ class FakeStream extends EventEmitter {
   setEncoding(_encoding: string) {}
 }
 
-type FakeScenario = "full-lifecycle" | "completed-only";
+type FakeScenario = "full-lifecycle" | "completed-only" | "native-collab";
 
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
@@ -98,7 +99,11 @@ class FakeChild extends EventEmitter {
         }
         if (message.method === "turn/start" && message.id != null) {
           this.emitResponse(message.id, { turn: { id: "turn-1" } });
-          queueMicrotask(() => this.emitMcpLifecycle());
+          queueMicrotask(() =>
+            this.scenario === "native-collab"
+              ? this.emitCollabLifecycle()
+              : this.emitMcpLifecycle(),
+          );
         }
       }
 
@@ -178,6 +183,63 @@ class FakeChild extends EventEmitter {
     });
   }
 
+  private emitCollabLifecycle() {
+    const envelope = { threadId: "thread-1", turnId: "turn-1" };
+    const item = {
+      id: "collab-item-1",
+      type: "subAgentActivity",
+      kind: "started",
+      agentThreadId: "thread-worker-1",
+      agentPath: "/root/terra_ack",
+    };
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/started",
+      params: { ...envelope, item, startedAtMs: 1 },
+    });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/completed",
+      params: { ...envelope, item, completedAtMs: 2 },
+    });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/completed",
+      params: {
+        threadId: "thread-worker-1",
+        turnId: "turn-worker-1",
+        item: {
+          id: "worker-progress-1",
+          type: "agentMessage",
+          phase: "commentary",
+          text: "Checking the requested result",
+        },
+      },
+    });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/completed",
+      params: {
+        threadId: "thread-worker-1",
+        turnId: "turn-worker-1",
+        item: {
+          id: "worker-message-1",
+          type: "agentMessage",
+          phase: "final_answer",
+          text: "WORKER_TERRA_OK",
+        },
+      },
+    });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "turn/completed",
+      params: {
+        ...envelope,
+        turn: { id: "turn-1", status: "completed" },
+      },
+    });
+  }
+
   private emitJson(message: unknown) {
     this.stdout.emit("data", `${JSON.stringify(message)}\n`);
   }
@@ -225,7 +287,10 @@ afterEach(async () => {
   );
 });
 
-async function streamScenario(scenario: FakeScenario) {
+async function streamScenario(
+  scenario: FakeScenario,
+  runtimeOptions: ProviderRuntimeOptions = {},
+) {
   nextScenario = scenario;
   const runtime = await import(
     `../electron/providers/codex-app-server-runtime?mcp-lifecycle-test=${Date.now()}-${Math.random()}`
@@ -237,6 +302,7 @@ async function streamScenario(scenario: FakeScenario) {
     cwd: process.cwd(),
     runtimeOptions: {
       codexBinaryPath: `/tmp/fake-codex-${scenario}`,
+      ...runtimeOptions,
     },
   });
   return (events ?? []).filter((event) =>
@@ -296,6 +362,88 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       toolUseId: "mcp-item-1",
       toolName: "functions:collaboration.spawn_agent",
       state: "input-available",
+    });
+  });
+
+  test("records a Sol medium to Terra max Worker execution receipt", async () => {
+    const events = await streamScenario("native-collab", {
+      model: "gpt-5.6-sol",
+      codexReasoningEffort: "medium",
+      workerIntent: {
+        mode: "task-executor",
+        presetId: "verified-patch",
+        workerModel: "gpt-5.6-terra",
+        workerEffort: "max",
+      },
+    });
+
+    expect(events).toEqual([
+      {
+        type: "tool",
+        toolUseId: "collab-item-1",
+        toolName: "collaboration:spawn_agent",
+        input: '{"task_name":"terra_ack","agentThreadId":"thread-worker-1"}',
+        state: "input-available",
+        workerExecution: {
+          providerId: "codex",
+          primaryModel: "gpt-5.6-sol",
+          presetId: "verified-patch",
+          workerModel: "gpt-5.6-terra",
+          workerEffort: "max",
+        },
+      },
+      {
+        type: "subagent_progress",
+        toolUseId: "collab-item-1",
+        content: "Checking the requested result",
+      },
+      {
+        type: "tool_result",
+        tool_use_id: "collab-item-1",
+        output: "WORKER_TERRA_OK",
+      },
+    ]);
+
+    const child = fakeChildren[0]!;
+    const threadStart = child.receivedMessages.find(
+      (message) => message.method === "thread/start",
+    );
+    const turnStart = child.receivedMessages.find(
+      (message) => message.method === "turn/start",
+    );
+    expect(threadStart?.params).toMatchObject({
+      model: "gpt-5.6-sol",
+      config: {
+        "agents.default_subagent_model": "gpt-5.6-terra",
+        "agents.default_subagent_reasoning_effort": "max",
+        "agents.max_concurrent_threads_per_session": 2,
+        "agents.max_depth": 1,
+      },
+    });
+    expect(turnStart?.params).toMatchObject({
+      model: "gpt-5.6-sol",
+      effort: "medium",
+    });
+
+    const activity = applyProviderTurnActivityEvents({
+      activityByTask: {},
+      taskId: "task-native-collab",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 1_000,
+      events,
+    });
+    expect(
+      activity["task-native-collab"]?.workItemsById["collab-item-1"],
+    ).toMatchObject({
+      kind: "subagent",
+      title: "Worker · terra_ack",
+      badge: "Verified patch · GPT-5.6 Terra · max",
+      status: "completed",
+      workerExecution: {
+        workerModel: "gpt-5.6-terra",
+        workerEffort: "max",
+      },
     });
   });
 

@@ -10,7 +10,7 @@ import type {
 import type { SkillPromptContext } from "@/lib/skills/types";
 // Type-only, matching the `@/types/chat` cycle above: `worker-mode` imports
 // `ProviderId` from here, so the cycle is erased at compile time.
-import type { WorkerRuntimeIntent } from "@/lib/providers/worker-mode";
+import type { WorkerExecutionMetadata, WorkerRuntimeIntent } from "@/lib/providers/worker-mode";
 
 export type ProviderId = "claude-code" | "codex";
 export type ClaudeSettingSource = "user" | "project" | "local";
@@ -809,6 +809,7 @@ export type NormalizedProviderEvent =
       input: string;
       output?: string;
       state: ToolUsePart["state"];
+      workerExecution?: WorkerExecutionMetadata;
     }
   | {
       type: "tool_progress";

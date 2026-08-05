@@ -23,6 +23,34 @@ function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 }
 
 describe("appendProviderEventToAssistant", () => {
+  test("persists Worker execution metadata on the spawned tool part", () => {
+    const message = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: {
+        type: "tool",
+        toolUseId: "worker-1",
+        toolName: "collaboration:spawn_agent",
+        input: '{"task_name":"review"}',
+        state: "input-available",
+        workerExecution: {
+          providerId: "codex",
+          primaryModel: "gpt-5.6-sol",
+          presetId: "verified-patch",
+          workerModel: "gpt-5.6-terra",
+          workerEffort: "max",
+        },
+      },
+    });
+
+    expect(message.parts[0]).toMatchObject({
+      type: "tool_use",
+      workerExecution: {
+        workerModel: "gpt-5.6-terra",
+        workerEffort: "max",
+      },
+    });
+  });
+
   test("stores native provider turn metadata on the assistant message", () => {
     const message = appendProviderEventToAssistant({
       message: createMessage(),

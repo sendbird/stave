@@ -182,7 +182,7 @@ process re-resolves against the real primary model before building the call.
 | | Claude | Codex |
 | --- | --- | --- |
 | orchestrating primaries | Fable 5, Opus 5 (+1M), Sonnet 5 (+1M) | GPT-5.6 Sol, GPT-5.6 Terra |
-| worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5 | Luna, Terra, Sol |
+| worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5 | Terra, Sol |
 | worker registration | `Options.agents["stave-task-executor"]` | `agents.default_subagent_model` |
 | worker model pinning | `AgentDefinition.model` | `agents.default_subagent_model` |
 | worker effort pinning | `AgentDefinition.effort` | `agents.default_subagent_reasoning_effort` |
@@ -198,10 +198,25 @@ so Stave pins the worker through `[agents]` config instead. That is the
 documented path: `spawn_agent`'s own tool description states that spawned agents
 inherit the preferred default unless given an explicit override.
 
+Luna remains available as a top-level Codex model, but codex-cli 0.145/0.146
+rejects it in the V2 `spawn_agent` pool, which currently accepts only Sol and
+Terra. Stave blocks Luna as a Worker before dispatch instead of promising a
+worker the runtime will fail to create.
+
 Worker config travels on both `thread/start` and `thread/resume`, and the worker
 model and effort are part of the developer instructions that feed
 `buildCodexInstructionProfileKey`, so changing the worker rotates the thread key
 and cannot resume a thread configured for a different worker.
+Codex counts the primary in its session concurrency limit, so Stave configures
+two total slots: one primary plus the single foreground Worker.
+
+Arming Worker mode does not prove delegation. When a native worker is actually
+spawned, Stave persists an immutable receipt on that tool event and shows the
+preset, resolved worker model, and effort in the conversation trace and live
+activity shelf. Child-thread output is correlated back to the receipt, so a
+completed card means the worker returned control to the primary. It does not
+claim that the primary reviewed the result, because provider events cannot
+prove that semantic step.
 
 ### Auto resolution and explicit failures
 
@@ -220,7 +235,7 @@ a different tier than the one on screen:
 - `provider_capability_unavailable` — the provider has no Worker-mode support.
 
 Effort is clamped, not rejected, when a model's ceiling is lower than the
-request (Codex `ultra` → `max` on Luna). It is dropped entirely for models that
+request. It is dropped entirely for models that
 reject the field — Claude's API errors on `effort` for Haiku-class models, so a
 Haiku worker runs at its own default and the UI says so rather than showing a
 dead select.
@@ -245,6 +260,15 @@ Settings. An empty field means "use the preset", which is what stops a preset
 improvement from being shadowed by a stale copy of its previous text; switching
 preset therefore clears hand-edited copy rather than carrying it over.
 
+When Worker mode is armed, delegation is the default for repository
+investigation, implementation, verification, and review. Conversation-only
+requests and truly atomic one-step actions may remain on the primary. A worker
+that returns no output or stops before required verification is continued once
+when the provider exposes a continuation handle; otherwise the primary finishes
+the missing verification in the same turn rather than ending with a promise to
+resume later. The default Verified patch budget is 60 agentic turns so ordinary
+edit-and-test loops do not commonly exhaust the worker before verification.
+
 Note the deliberately counterintuitive defaults: cheap worker models are paired
 with *high* effort. On bounded work a cheap model at high effort outperforms a
 mid-tier model at its default, which is the pattern the community Codex
@@ -253,7 +277,8 @@ mid-tier model at its default, which is the pattern the community Codex
 ### Safety
 
 - One foreground worker at a time (`maxConcurrency: 1`, plus Codex
-  `agents.max_concurrent_threads_per_session = 1` and `agents.max_depth = 1`).
+  `agents.max_concurrent_threads_per_session = 2` — parent plus worker — and
+  `agents.max_depth = 1`).
 - The worker inherits the parent turn's permission mode and sandbox, so a plan
   or read-only turn cannot gain write access by delegating. On Claude the nested
   subagent's tool calls still pass through the same `canUseTool` gate.

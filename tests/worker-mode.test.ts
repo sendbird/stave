@@ -110,10 +110,11 @@ describe("worker capability table", () => {
     ).not.toContain("ultra");
   });
 
-  test("Codex Luna effort scale excludes ultra", () => {
+  test("Codex Luna remains a model but is not worker-capable", () => {
+    expect(listWorkerModelOptions("codex")).toEqual(["gpt-5.6-terra", "gpt-5.6-sol"]);
     expect(
-      listWorkerEffortsForModel({ providerId: "codex", model: "gpt-5.6-luna" }),
-    ).not.toContain("ultra");
+      isWorkerCapableModel({ providerId: "codex", model: "gpt-5.6-luna" }),
+    ).toBe(false);
   });
 });
 
@@ -136,14 +137,14 @@ describe("resolveWorkerProfile", () => {
     expect(resolution.status).toBe("ready");
     if (resolution.status !== "ready") return;
     expect(resolution.profile.requestedWorkerModel).toBe(WORKER_AUTO_VALUE);
-    expect(resolution.profile.resolvedWorkerModel).toBe("gpt-5.6-luna");
+    expect(resolution.profile.resolvedWorkerModel).toBe("gpt-5.6-terra");
     expect(resolution.profile.workerName).toBe(WORKER_AGENT_NAME);
     expect(resolution.profile.maxConcurrency).toBe(1);
     expect(resolution.profile.foreground).toBe(true);
   });
 
-  test("explicit Luna and Terra selections are honoured on Codex", () => {
-    for (const model of ["gpt-5.6-luna", "gpt-5.6-terra"] as const) {
+  test("explicit Terra and Sol selections are honoured on Codex", () => {
+    for (const model of ["gpt-5.6-terra", "gpt-5.6-sol"] as const) {
       const resolution = resolveWorkerProfile({
         providerId: "codex",
         primaryModel: "gpt-5.6-sol",
@@ -154,6 +155,15 @@ describe("resolveWorkerProfile", () => {
         expect(resolution.profile.resolvedWorkerModel).toBe(model);
       }
     }
+  });
+
+  test("Luna is rejected before spawn_agent", () => {
+    const resolution = resolveWorkerProfile({
+      providerId: "codex", primaryModel: "gpt-5.6-sol",
+      intent: intent({ workerModel: "gpt-5.6-luna" }),
+    });
+    expect(resolution.status).toBe("unavailable");
+    if (resolution.status === "unavailable") expect(resolution.reason).toBe("worker_model_not_supported");
   });
 
   test("an ineligible primary is unavailable, not silently solo", () => {
@@ -194,17 +204,16 @@ describe("resolveWorkerProfile", () => {
     }
   });
 
-  test("effort above the model's ceiling clamps down instead of failing", () => {
+  test("supported worker effort is preserved", () => {
     const resolution = resolveWorkerProfile({
       providerId: "codex",
       primaryModel: "gpt-5.6-sol",
-      // Luna has no `ultra`.
-      intent: intent({ workerModel: "gpt-5.6-luna", workerEffort: "ultra" }),
+      intent: intent({ workerModel: "gpt-5.6-terra", workerEffort: "ultra" }),
     });
     expect(resolution.status).toBe("ready");
     if (resolution.status === "ready") {
       expect(resolution.profile.requestedWorkerEffort).toBe("ultra");
-      expect(resolution.profile.resolvedWorkerEffort).toBe("max");
+      expect(resolution.profile.resolvedWorkerEffort).toBe("ultra");
     }
   });
 
@@ -249,7 +258,7 @@ describe("resolveWorkerProfile", () => {
     const resolution = resolveWorkerProfile({
       providerId: "codex",
       primaryModel: "gpt-5.6-sol",
-      intent: intent({ workerModel: "gpt-5.6-luna" }),
+      intent: intent({ workerModel: "gpt-5.6-terra" }),
     });
     expect(resolution.status).toBe("ready");
     if (resolution.status === "ready") {
@@ -394,10 +403,10 @@ describe("worker presentation", () => {
     const resolution = resolveWorkerProfile({
       providerId: "codex",
       primaryModel: "gpt-5.6-sol",
-      intent: intent({ workerModel: "gpt-5.6-luna", workerEffort: "max" }),
+      intent: intent({ workerModel: "gpt-5.6-terra", workerEffort: "max" }),
     });
     expect(formatWorkerRuntimeStatusValue(resolution)).toBe(
-      "Verified patch · GPT-5.6 Luna · max",
+      "Verified patch · GPT-5.6 Terra · max",
     );
   });
 
@@ -424,6 +433,13 @@ describe("worker presentation", () => {
     expect(text).toContain(WORKER_AGENT_NAME);
     expect(text).toContain("review its diff");
     expect(text).toContain("at most 1 worker");
+    expect(text).toContain("Delegation is the default");
+    expect(text).toContain("continuation mechanism once");
+    expect(text).toContain("Never end the turn merely announcing");
+  });
+
+  test("default verified patch leaves enough turns for implementation and verification", () => {
+    expect(getWorkerPreset(DEFAULT_WORKER_PRESET_ID).maxTurns).toBe(60);
   });
 
   test("Codex instructions carry the tool list as prose since it is unenforced", () => {

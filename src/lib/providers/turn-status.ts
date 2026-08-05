@@ -3,6 +3,7 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
+import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 
 /**
  * How long a turn can be silent (no events) before it is marked stalled in the
@@ -53,6 +54,7 @@ export interface ProviderTurnWorkItem {
   startedAt: number;
   updatedAt: number;
   elapsedSeconds?: number;
+  workerExecution?: WorkerExecutionMetadata;
 }
 
 export const PROVIDER_TURN_WORK_ITEM_LIMIT = 12;
@@ -627,6 +629,8 @@ function applyTurnWorkEvents(args: {
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
         elapsedSeconds: currentItem?.elapsedSeconds,
+        ...(currentItem?.badge ? { badge: currentItem.badge } : {}),
+        ...(currentItem?.workerExecution ? { workerExecution: currentItem.workerExecution } : {}),
       });
       continue;
     }
@@ -640,16 +644,16 @@ function applyTurnWorkEvents(args: {
           ? resolveToolDetail(event.input)
           : resolveGeneralToolDetail(event.input)) ??
         truncateWorkText(event.output);
-      const badge = resolveSubagentBadge(event.input) ?? currentItem?.badge;
+      const workerExecution = event.workerExecution ?? currentItem?.workerExecution;
+      const badge = workerExecution
+        ? formatWorkerExecutionMetadata(workerExecution)
+        : resolveSubagentBadge(event.input) ?? currentItem?.badge;
+      const resolvedTitle = resolveToolTitle(event.toolName, event.input, currentItem?.title);
       upsertItem({
         id: event.toolUseId,
         kind,
         status: resolveToolStatus(event.state),
-        title: resolveToolTitle(
-          event.toolName,
-          event.input,
-          currentItem?.title,
-        ),
+        title: workerExecution ? `Worker · ${resolvedTitle}` : resolvedTitle,
         detail: eventDetail ?? currentItem?.detail,
         ...(badge ? { badge } : {}),
         toolUseId: event.toolUseId,
@@ -657,6 +661,7 @@ function applyTurnWorkEvents(args: {
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
         elapsedSeconds: currentItem?.elapsedSeconds,
+        ...(workerExecution ? { workerExecution } : {}),
       });
       continue;
     }
@@ -679,6 +684,7 @@ function applyTurnWorkEvents(args: {
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
         elapsedSeconds: event.elapsedSeconds,
+        ...(currentItem?.workerExecution ? { workerExecution: currentItem.workerExecution } : {}),
       });
       continue;
     }

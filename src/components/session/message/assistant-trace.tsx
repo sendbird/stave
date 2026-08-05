@@ -50,6 +50,7 @@ import { MessagePartRenderer } from "@/components/session/chat-panel-message-par
 import { parseFileChangeToolInput, summarizeDiffLineChanges } from "@/components/session/chat-panel.utils";
 import { cn } from "@/lib/utils";
 import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
+import { formatWorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import type { ChatMessage, CodeDiffPart, MessagePart, ThinkingPart } from "@/types/chat";
 import {
   deriveTodoTraceItems,
@@ -649,7 +650,8 @@ function AssistantTraceEntryView(args: {
 
     case "subagent": {
       const parsed = parseSubagentToolInput({ input: entry.part.input });
-      const resolvedTitle = parsed.description ?? parsed.subagentType ?? "Subagent";
+      const baseTitle = parsed.description ?? parsed.subagentType ?? "Subagent";
+      const resolvedTitle = entry.part.workerExecution ? `Worker · ${baseTitle}` : baseTitle;
       const titleContent = status === "active" ? (
         <Shimmer
           as="span"
@@ -666,7 +668,16 @@ function AssistantTraceEntryView(args: {
           kind="agent"
           icon={icon}
           summary={summary}
-          trailing={<ToolStepMeta part={entry.part} />}
+          trailing={(
+            <span className="inline-flex items-center gap-2">
+              {entry.part.workerExecution ? (
+                <span className="rounded-full border border-primary/25 bg-primary/5 px-2 py-0.5 text-[0.6875rem] text-muted-foreground">
+                  {formatWorkerExecutionMetadata(entry.part.workerExecution)}
+                </span>
+              ) : null}
+              <ToolStepMeta part={entry.part} />
+            </span>
+          )}
           defaultOpen={entry.part.state === "input-streaming"}
           openWhen={entry.part.state === "input-streaming"}
           collapseWhen={entry.part.state === "output-available"}

@@ -36,9 +36,11 @@ import type {
   ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
 import {
+  buildWorkerExecutionMetadata,
   buildWorkerPrimaryInstructions,
   resolveWorkerProfile,
   toClaudeWorkerEffort,
+  type ResolvedWorkerProfile,
 } from "../../src/lib/providers/worker-mode";
 import type {
   AgentDefinition,
@@ -1014,6 +1016,7 @@ export const STAVE_TURN_BEHAVIOR_DIRECTIVE = [
   '- You run inside Stave, which drives you one turn at a time. After a turn ends you CANNOT send an unprompted follow-up message, and there is no channel to autonomously notify the user later. Never promise things like "I\'ll let you know when this finishes" or "I\'ll continue automatically once the background task completes."',
   "- Do not end a turn while expecting to resume on your own. If work must continue, either keep doing it within the current turn or finish with a concrete recommendation the user can act on.",
   "- Background completion notifications (from background subagents, background shell tasks, or workflows) can only reach you while the current turn is still running. Never end a turn waiting to be notified about background work. Stave forces Agent tool calls to run in the foreground (run_in_background: false), so a subagent's result is always returned directly by its tool call — do not narrate plans like \"I'll proceed once the subagent notifies me\".",
+  "- If a foreground subagent returns no output or stops before completing its brief, continue that same agent once when its result provides a continuation handle. If it still cannot finish, complete the remaining verification yourself before ending this turn. Never end merely by announcing that the worker stopped.",
   "- To ask a question that must block on the user's decision, use the AskUserQuestion tool so Stave can render a real answer control. A plain-text question at the end of a turn cannot receive an inline answer and will strand the user in a waiting state.",
 ].join("\n");
 
@@ -3240,6 +3243,29 @@ export function mapClaudeMessageToEvents(args: {
   return [];
 }
 
+export function attachClaudeWorkerExecutionMetadata(args: {
+  events: BridgeEvent[];
+  profile: ResolvedWorkerProfile | null;
+}): BridgeEvent[] {
+  const profile = args.profile;
+  if (!profile) return args.events;
+  const workerExecution = buildWorkerExecutionMetadata(profile);
+  return args.events.map((event) => {
+    if (event.type !== "tool" || !["agent", "task"].includes(event.toolName.toLowerCase())) {
+      return event;
+    }
+    try {
+      const input = JSON.parse(event.input) as Record<string, unknown>;
+      const subagentType = input.subagent_type ?? input.subagentType;
+      return subagentType === profile.workerName
+        ? { ...event, workerExecution }
+        : event;
+    } catch {
+      return event;
+    }
+  });
+}
+
 export function resolveClaudeTurnStopReason(args: {
   message: SDKMessage;
   currentStopReason?: string;
@@ -4931,6 +4957,11 @@ export async function streamClaudeWithSdk(
         claudeDebugStream,
         cwd: runtimeCwd,
         planState: planStreamState,
+      });
+      normalizedEvents = attachClaudeWorkerExecutionMetadata({
+        events: normalizedEvents,
+        profile:
+          workerResolution.status === "ready" ? workerResolution.profile : null,
       });
       // Deduplicate: if text/thinking already came through stream_event deltas, skip the
       // full assistant message duplicates (they contain the same content assembled).

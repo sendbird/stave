@@ -83,7 +83,8 @@ export function buildCodexWorkerConfigOverrides(args: {
       : {}),
     // MVP ceiling. One foreground worker keeps Stop coherent: there is exactly
     // one child to cancel before the parent is considered stopped.
-    "agents.max_concurrent_threads_per_session": profile.maxConcurrency,
+    // Codex counts the primary thread in this limit.
+    "agents.max_concurrent_threads_per_session": profile.maxConcurrency + 1,
     // Depth 1 stops a worker from spawning its own workers, which would escape
     // the concurrency cap and make attribution meaningless.
     "agents.max_depth": 1,

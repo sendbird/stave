@@ -4,6 +4,7 @@ import { Bot, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import { cn } from "@/lib/utils";
+import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import { ToolInput, ToolOutput, getStatusBadge } from "./tool";
 
 type ToolState = "input-streaming" | "input-available" | "output-available" | "output-error";
@@ -22,20 +23,24 @@ interface SubagentCardProps extends HTMLAttributes<HTMLDivElement> {
   defaultOpen?: boolean;
   /** Live progress messages streamed from the running subagent. */
   progressMessages?: string[];
+  workerExecution?: WorkerExecutionMetadata;
 }
 
 export function parseSubagentToolInput(args: { input: string }): ParsedSubagentToolInput {
   const raw = args.input;
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const subagentType = typeof parsed.subagent_type === "string" && parsed.subagent_type.trim()
-      ? parsed.subagent_type.trim()
+    const subagentTypeValue = parsed.subagent_type ?? parsed.task_name;
+    const subagentType = typeof subagentTypeValue === "string" && subagentTypeValue.trim()
+      ? subagentTypeValue.trim()
       : null;
-    const description = typeof parsed.description === "string" && parsed.description.trim()
-      ? parsed.description.trim()
+    const descriptionValue = parsed.description ?? parsed.task_name;
+    const description = typeof descriptionValue === "string" && descriptionValue.trim()
+      ? descriptionValue.trim()
       : null;
-    const prompt = typeof parsed.prompt === "string" && parsed.prompt.trim()
-      ? parsed.prompt.trim()
+    const promptValue = parsed.prompt ?? parsed.message;
+    const prompt = typeof promptValue === "string" && promptValue.trim()
+      ? promptValue.trim()
       : null;
     return { subagentType, description, prompt, raw };
   } catch {
@@ -68,7 +73,7 @@ function firstLine(text: string): string {
   return idx === -1 ? text : text.slice(0, idx);
 }
 
-export function SubagentCard({ className, input, output, state, defaultOpen = false, progressMessages, ...props }: SubagentCardProps) {
+export function SubagentCard({ className, input, output, state, defaultOpen = false, progressMessages, workerExecution, ...props }: SubagentCardProps) {
   const [open, setOpen] = useState(defaultOpen);
   const details = useMemo(() => parseSubagentToolInput({ input }), [input]);
   const title = details.description ?? details.subagentType ?? "Subagent activity";
@@ -95,8 +100,9 @@ export function SubagentCard({ className, input, output, state, defaultOpen = fa
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 text-[0.875em] font-semibold text-foreground">
               <Bot className="size-3.5 text-primary" />
-              Subagent
+              {workerExecution ? "Worker" : "Subagent"}
             </span>
+            {workerExecution ? <Badge variant="outline">{formatWorkerExecutionMetadata(workerExecution)}</Badge> : null}
             {details.subagentType ? <Badge variant="secondary">{details.subagentType}</Badge> : null}
           </div>
           <p className="text-[0.875em] font-medium text-foreground">{title}</p>
