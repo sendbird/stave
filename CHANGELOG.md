@@ -1,3 +1,19 @@
+## [0.14.1](https://github.com/sendbird/stave/compare/v0.14.0...v0.14.1) (2026-08-05)
+
+### Features
+
+* Add a persisted Chat setting to show or hide the conversation Turn Rail while preserving the existing visible default.
+* Upgrade turn activity presentation with the `thinking-orbs` 0.2.0 lifecycle states for clearer connection, planning, agent, and work progress.
+
+### Bug Fixes
+
+* Snapshot the provider and model for each queued turn so changing the composer selection cannot retarget prompts already waiting to run.
+* Harden Lens teardown across renderer reloads and session disposal by reconciling stale overlays, draining CDP work, bounding diagnostics and screenshots, and maintaining SQLite storage safely.
+* Restore Claude usage reporting with account-aware keychain lookup, system CA support, a non-interactive CLI fallback, and parsers for current usage and reset formats.
+
+### References
+
+* [#320](https://github.com/sendbird/stave/pull/320), [#321](https://github.com/sendbird/stave/pull/321), [#322](https://github.com/sendbird/stave/pull/322), [#323](https://github.com/sendbird/stave/pull/323), [#324](https://github.com/sendbird/stave/pull/324), [#325](https://github.com/sendbird/stave/pull/325), [#326](https://github.com/sendbird/stave/pull/326)
 ## [0.14.0](https://github.com/sendbird/stave/compare/v0.13.7...v0.14.0) (2026-08-04)
 
 ### Features
