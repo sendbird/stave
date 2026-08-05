@@ -3,6 +3,9 @@ import {
   formatLensNetworkBytes,
   formatLensNetworkStatus,
   isLensTextMimeType,
+  LensNetworkRateLimiter,
+  LENS_NETWORK_RATE_LIMIT,
+  LENS_NETWORK_RATE_WINDOW_MS,
   MAX_LENS_NETWORK_BODY_BYTES,
   sanitizeLensNetworkBody,
   sanitizeLensNetworkHeaders,
@@ -14,6 +17,17 @@ import {
 } from "../electron/main/ipc/schemas";
 
 describe("Lens network metadata", () => {
+  test("bounds network requests per window and reports dropped requests", () => {
+    const limiter = new LensNetworkRateLimiter(2, 1_000);
+
+    expect(limiter.accept(1_000)).toEqual({ accepted: true, droppedCount: 0 });
+    expect(limiter.accept(1_001)).toEqual({ accepted: true, droppedCount: 0 });
+    expect(limiter.accept(1_002)).toEqual({ accepted: false, droppedCount: 0 });
+    expect(limiter.accept(2_000)).toEqual({ accepted: true, droppedCount: 1 });
+    expect(LENS_NETWORK_RATE_LIMIT).toBeGreaterThan(0);
+    expect(LENS_NETWORK_RATE_WINDOW_MS).toBe(1_000);
+  });
+
   test("preserves useful headers while redacting credentials", () => {
     expect(
       sanitizeLensNetworkHeaders({
