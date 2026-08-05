@@ -3,6 +3,19 @@ import type {
   BrowserNetworkEntry,
   BrowserNetworkHeaders,
 } from "@/lib/lens/lens.types";
+import { LensFixedWindowRateLimiter } from "@/lib/lens/lens-rate-limit";
+
+export const LENS_NETWORK_RATE_LIMIT = 200;
+export const LENS_NETWORK_RATE_WINDOW_MS = 1_000;
+
+export class LensNetworkRateLimiter extends LensFixedWindowRateLimiter {
+  constructor(
+    limit = LENS_NETWORK_RATE_LIMIT,
+    windowMs = LENS_NETWORK_RATE_WINDOW_MS,
+  ) {
+    super(limit, windowMs, "Lens network");
+  }
+}
 
 const MAX_HEADER_COUNT = 100;
 const MAX_HEADER_NAME_BYTES = 256;

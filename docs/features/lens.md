@@ -251,7 +251,8 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 - Hidden MCP sessions are attached automatically only for inherently visual or interactive operations. Navigation events do not decide presentation, so click-driven navigation, redirects, and SPA route changes stay in the already selected session without reopening or refocusing Lens.
 - `stave_lens_present_session` asks the renderer to open the same session for user interaction instead of creating another browser.
 - `React _debugSource` only works in React dev builds. Production builds fall back to heuristic source hints.
-- Console and network logs are buffered, not infinite. Lens keeps the most recent entries only.
+- Console and network logs are buffered and rate-limited, not infinite. Lens keeps the most recent entries only. Page console forwarding is capped at 100 messages per second and 50,000 messages per document; network recording is capped at 200 requests per second per Lens session.
+- Full diagnostics stops automatically when console or network traffic exceeds its capture budget. The page keeps running and Lens reports one warning instead of continuing an overloaded CDP stream.
 - Download history is buffered in memory, while saved files remain on disk until the user removes them.
 - Lens console messages are shown in the Lens Console tab and mirrored into the Stave window DevTools console with a `[Lens:<workspaceId>]` prefix.
 - Annotation events use a per-session nonce and a 256,000-byte event cap. Current, stale, and malformed Lens beacons are filtered out of both the user-visible Lens console and full diagnostics.

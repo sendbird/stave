@@ -100,6 +100,10 @@ function createHarness() {
       },
       onConsoleEntry: (entry: BrowserConsoleEntry) => void = (entry) =>
         consoleEntries.push(entry),
+      acceptNetworkRequest?: () => {
+        accepted: boolean;
+        droppedCount: number;
+      },
     ) {
       return diagnostics.startLensCdpDiagnostics({
         webContentsId,
@@ -107,6 +111,7 @@ function createHarness() {
         lensSessionId: "lens-fixture",
         url,
         acceptConsoleEntry,
+        acceptNetworkRequest,
         onConsoleEntry,
         onNetworkEntry: (entry) => networkEntries.push(entry),
       });
@@ -405,6 +410,46 @@ describe("Lens CDP diagnostics", () => {
         ({ method }) => method === "Runtime.discardConsoleEntries",
       ),
     ).toHaveLength(1);
+    expect(
+      diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
+    ).toEqual({ enabled: false });
+  });
+
+  test("stops full diagnostics when network traffic exceeds backpressure", async () => {
+    const harness = createHarness();
+    let accepted = 0;
+    await harness.start(
+      "https://app.example.test/dashboard",
+      undefined,
+      undefined,
+      () => ({ accepted: accepted++ < 2, droppedCount: 0 }),
+    );
+
+    for (let index = 0; index < 3; index += 1) {
+      harness.webContents.debugger.emitMessage("Network.requestWillBeSent", {
+        requestId: `request-${index}`,
+        timestamp: index + 1,
+        wallTime: 1_700_000_000 + index,
+        type: "Fetch",
+        request: {
+          url: `https://app.example.test/api/${index}`,
+          method: "GET",
+          headers: {},
+        },
+      });
+    }
+
+    await waitFor(() => !harness.webContents.debugger.isAttached());
+    expect(harness.networkEntries).toHaveLength(2);
+    expect(harness.consoleEntries.at(-1)).toMatchObject({
+      level: "warn",
+      text: "Lens full diagnostics stopped because the page emitted excessive network traffic.",
+      diagnosticsCaptureState: {
+        enabled: false,
+        message:
+          "Lens full diagnostics stopped because the page emitted excessive network traffic.",
+      },
+    });
     expect(
       diagnostics.getLensCdpDiagnosticsState(harness.webContentsId),
     ).toEqual({ enabled: false });

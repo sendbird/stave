@@ -943,6 +943,10 @@ export function registerBrowserHandlers() {
             isCurrentSession()
               ? session.consoleRateLimiter.accept()
               : { accepted: false, droppedCount: 0 },
+          acceptNetworkRequest: () =>
+            isCurrentSession()
+              ? session.networkRateLimiter.accept()
+              : { accepted: false, droppedCount: 0 },
           onConsoleEntry: (entry) => {
             if (isCurrentSession()) {
               pushConsoleEntry(

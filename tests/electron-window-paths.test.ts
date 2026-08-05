@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import {
+  resolveLensGuestPreloadScriptPath,
   resolvePreloadScriptPath,
   resolveRendererEntryPath,
 } from "../electron/main/window-paths";
@@ -12,6 +13,9 @@ describe("Electron main window asset paths", () => {
     expect(resolvePreloadScriptPath(runtimeDirectory)).toBe(
       path.join("repo", "out", "preload", "index.js"),
     );
+    expect(resolveLensGuestPreloadScriptPath(runtimeDirectory)).toBe(
+      path.join("repo", "out", "preload", "lens-guest.js"),
+    );
     expect(resolveRendererEntryPath(runtimeDirectory)).toBe(
       path.join("repo", "out", "renderer", "index.html"),
     );
@@ -22,6 +26,9 @@ describe("Electron main window asset paths", () => {
 
     expect(resolvePreloadScriptPath(runtimeDirectory)).toBe(
       path.join("repo", "out", "preload", "index.js"),
+    );
+    expect(resolveLensGuestPreloadScriptPath(runtimeDirectory)).toBe(
+      path.join("repo", "out", "preload", "lens-guest.js"),
     );
     expect(resolveRendererEntryPath(runtimeDirectory)).toBe(
       path.join("repo", "out", "renderer", "index.html"),

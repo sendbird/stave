@@ -15,6 +15,13 @@ export function resolvePreloadScriptPath(runtimeDirectory: string) {
   );
 }
 
+export function resolveLensGuestPreloadScriptPath(runtimeDirectory: string) {
+  return path.join(
+    resolveMainOutputDirectory(runtimeDirectory),
+    "../preload/lens-guest.js",
+  );
+}
+
 export function resolveRendererEntryPath(runtimeDirectory: string) {
   return path.join(
     resolveMainOutputDirectory(runtimeDirectory),

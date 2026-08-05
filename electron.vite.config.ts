@@ -57,10 +57,11 @@ export default defineConfig({
         external: preloadExternalDeps,
         input: {
           index: path.resolve(__dirname, "electron/preload.ts"),
+          "lens-guest": path.resolve(__dirname, "electron/lens-guest-preload.ts"),
         },
         output: {
           format: "cjs",
-          entryFileNames: "index.js",
+          entryFileNames: "[name].js",
         },
       },
     },

@@ -40,6 +40,7 @@ import {
   type LensSessionProfileArgs,
 } from "../../../src/lib/lens/lens.types";
 import {
+  LensNetworkRateLimiter,
   sanitizeLensNetworkHeaders,
   sanitizeLensNetworkUrl,
 } from "../../../src/lib/lens/lens-network";
@@ -60,6 +61,7 @@ import {
 } from "./browser-closing-view";
 import { isLiveBrowserSessionForWebContents } from "./browser-session-identity";
 import { appendRuntimeDiagnostic } from "../runtime-diagnostic-log";
+import { resolveLensGuestPreloadScriptPath } from "../window-paths";
 
 export { DEFAULT_LENS_SESSION_ID };
 
@@ -126,6 +128,7 @@ export interface BrowserSessionState {
   authPopups: Set<BrowserWindow>;
   consoleLog: RingBuffer<BrowserConsoleEntry>;
   consoleRateLimiter: LensConsoleRateLimiter;
+  networkRateLimiter: LensNetworkRateLimiter;
   networkLog: RingBuffer<BrowserNetworkEntry>;
   downloadLog: RingBuffer<LensDownloadEntry>;
   annotationOverlayActive: boolean;
@@ -157,6 +160,9 @@ const CONSOLE_BUFFER_SIZE = 200;
 const NETWORK_BUFFER_SIZE = 200;
 const DOWNLOAD_BUFFER_SIZE = 200;
 const MAX_LENS_AUTH_POPUPS = 3;
+const lensGuestPreloadPath = resolveLensGuestPreloadScriptPath(
+  import.meta.dirname,
+);
 let lensVisibilitySequence = 0;
 
 /** Registry keyed by sessionKey(workspaceId, lensSessionId). */
@@ -175,6 +181,7 @@ const partitionDownloadCleanups = new Map<string, () => void>();
 const networkRequestMetadata = new Map<
   string,
   {
+    capture: boolean;
     startedAt: string;
     startedAtMs: number;
     requestHeaders?: ReturnType<typeof sanitizeLensNetworkHeaders>;
@@ -369,6 +376,7 @@ function formatNetworkTimestamp(timestamp: number) {
 function rememberNetworkRequest(
   key: string,
   metadata: {
+    capture: boolean;
     startedAt: string;
     startedAtMs: number;
     requestHeaders?: ReturnType<typeof sanitizeLensNetworkHeaders>;
@@ -465,6 +473,7 @@ function openLensAuthPopup(args: {
     title: "Lens Sign-in",
     autoHideMenuBar: true,
     webPreferences: {
+      preload: lensGuestPreloadPath,
       session: args.session,
       contextIsolation: true,
       nodeIntegration: false,
@@ -619,10 +628,26 @@ function registerPartitionNetworkDispatch(
           callback({ requestHeaders: details.requestHeaders });
           return;
         }
+        const decision = target.networkRateLimiter.accept();
+        if (decision.droppedCount > 0) {
+          pushConsoleEntry(
+            target.workspaceId,
+            {
+              level: "warn",
+              text: `Lens network dropped ${decision.droppedCount} excessive requests.`,
+              timestamp: new Date().toISOString(),
+              source: "lens",
+            },
+            target.lensSessionId,
+          );
+        }
         rememberNetworkRequest(networkRequestKey(partition, details.id), {
+          capture: decision.accepted,
           startedAt: formatNetworkTimestamp(details.timestamp),
           startedAtMs: details.timestamp,
-          requestHeaders: sanitizeLensNetworkHeaders(details.requestHeaders),
+          requestHeaders: decision.accepted
+            ? sanitizeLensNetworkHeaders(details.requestHeaders)
+            : undefined,
         });
       }
       callback({ requestHeaders: details.requestHeaders });
@@ -631,6 +656,9 @@ function registerPartitionNetworkDispatch(
 
   ses.webRequest.onCompleted({ urls: ["<all_urls>"] }, (details) => {
     const requestMetadata = takeNetworkRequest(partition, details.id);
+    if (!requestMetadata?.capture) {
+      return;
+    }
     const target = resolvePartitionTrafficTarget(
       partition,
       details.webContentsId,
@@ -673,6 +701,9 @@ function registerPartitionNetworkDispatch(
 
   ses.webRequest.onErrorOccurred({ urls: ["<all_urls>"] }, (details) => {
     const requestMetadata = takeNetworkRequest(partition, details.id);
+    if (!requestMetadata?.capture) {
+      return;
+    }
     const target = resolvePartitionTrafficTarget(
       partition,
       details.webContentsId,
@@ -776,6 +807,7 @@ export function createBrowserSession(
 
   const view = new WebContentsView({
     webPreferences: {
+      preload: lensGuestPreloadPath,
       session: ses,
       contextIsolation: true,
       nodeIntegration: false,
@@ -860,6 +892,7 @@ export function createBrowserSession(
     authPopups: new Set(),
     consoleLog: new RingBuffer<BrowserConsoleEntry>(CONSOLE_BUFFER_SIZE),
     consoleRateLimiter: new LensConsoleRateLimiter(),
+    networkRateLimiter: new LensNetworkRateLimiter(),
     networkLog: new RingBuffer<BrowserNetworkEntry>(NETWORK_BUFFER_SIZE),
     downloadLog: new RingBuffer<LensDownloadEntry>(DOWNLOAD_BUFFER_SIZE),
     annotationOverlayActive: false,

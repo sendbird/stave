@@ -25,6 +25,7 @@ import {
 } from "../../../src/lib/lens/lens-network";
 import { normalizeLensHostEntry } from "../../../src/lib/lens/lens-security";
 import type { LensConsoleRateLimitDecision } from "../../../src/lib/lens/lens-console";
+import type { LensRateLimitDecision } from "../../../src/lib/lens/lens-rate-limit";
 import {
   detachCdpController,
   disposeCdpController,
@@ -116,6 +117,7 @@ interface DiagnosticsCapture {
   generation: number;
   onConsoleEntry: (entry: BrowserConsoleEntry) => void;
   acceptConsoleEntry?: () => LensConsoleRateLimitDecision;
+  acceptNetworkRequest?: () => LensRateLimitDecision;
   onNetworkEntry: (entry: BrowserNetworkEntry) => void;
   shouldIgnoreConsoleText?: (text: string) => boolean;
   unsubscribeMessage: () => void;
@@ -950,6 +952,22 @@ function requestWillBeSent(capture: DiagnosticsCapture, params: JsonRecord) {
     }
   }
 
+  const rateLimit = capture.acceptNetworkRequest?.();
+  if (rateLimit && !rateLimit.accepted) {
+    stopCaptureForNetworkOverload(capture);
+    return;
+  }
+  if (rateLimit && rateLimit.droppedCount > 0) {
+    capture.onConsoleEntry({
+      id: randomUUID(),
+      level: "warn",
+      text: `Lens network dropped ${rateLimit.droppedCount} excessive requests.`,
+      timestamp: new Date().toISOString(),
+      source: "lens",
+      captureSource: "cdp",
+    });
+  }
+
   const requestHeaders = mapResponseHeaders(rawRequest.headers);
   const hasQueuedRequestExtra =
     (capture.pendingRequestExtraInfo.get(requestId)?.length ?? 0) > 0;
@@ -1377,6 +1395,34 @@ function stopCaptureForConsoleOverload(capture: DiagnosticsCapture): void {
   }
 }
 
+function stopCaptureForNetworkOverload(capture: DiagnosticsCapture): void {
+  if (!capture.enabled || captures.get(capture.webContentsId) !== capture) {
+    return;
+  }
+
+  capture.enabled = false;
+  capture.generation += 1;
+  capture.unsubscribeMessage();
+  capture.unsubscribeDetach();
+  archiveCaptureData(capture);
+  detachCdpController(capture.webContentsId);
+  const message =
+    "Lens full diagnostics stopped because the page emitted excessive network traffic.";
+  try {
+    capture.onConsoleEntry({
+      id: randomUUID(),
+      level: "warn",
+      text: message,
+      timestamp: new Date().toISOString(),
+      source: "lens",
+      captureSource: "cdp",
+      diagnosticsCaptureState: { enabled: false, message },
+    });
+  } catch {
+    // Cleanup above must remain authoritative if a consumer is already gone.
+  }
+}
+
 export async function startLensCdpDiagnostics(args: {
   webContentsId: number;
   workspaceId: string;
@@ -1384,6 +1430,7 @@ export async function startLensCdpDiagnostics(args: {
   url: string;
   onConsoleEntry: (entry: BrowserConsoleEntry) => void;
   acceptConsoleEntry?: () => LensConsoleRateLimitDecision;
+  acceptNetworkRequest?: () => LensRateLimitDecision;
   onNetworkEntry: (entry: BrowserNetworkEntry) => void;
   shouldIgnoreConsoleText?: (text: string) => boolean;
 }): Promise<LensDiagnosticsCaptureState> {
@@ -1431,6 +1478,7 @@ export async function startLensCdpDiagnostics(args: {
   capture.generation = 0;
   capture.onConsoleEntry = args.onConsoleEntry;
   capture.acceptConsoleEntry = args.acceptConsoleEntry;
+  capture.acceptNetworkRequest = args.acceptNetworkRequest;
   capture.onNetworkEntry = args.onNetworkEntry;
   capture.shouldIgnoreConsoleText = args.shouldIgnoreConsoleText;
   capture.pendingNetwork = new Map();

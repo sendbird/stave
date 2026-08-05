@@ -1,4 +1,8 @@
 import type { BrowserConsoleEntry } from "@/lib/lens/lens.types";
+import {
+  LensFixedWindowRateLimiter,
+  type LensRateLimitDecision,
+} from "@/lib/lens/lens-rate-limit";
 
 export const MAX_LENS_CONSOLE_TEXT_CHARS = 32_768;
 export const MAX_LENS_CONSOLE_SOURCE_CHARS = 2_048;
@@ -44,59 +48,18 @@ export function truncateLensConsoleEntry(
   };
 }
 
-export interface LensConsoleRateLimitDecision {
-  accepted: boolean;
-  /** Drops from the completed window, reported once on its successor. */
-  droppedCount: number;
-}
+export type LensConsoleRateLimitDecision = LensRateLimitDecision;
 
 /**
  * A fixed-window limiter for high-volume console events. Rejected decisions
  * accumulate silently; the first accepted decision in the next window
  * reports the previous window's total so callers can emit one bounded summary.
  */
-export class LensConsoleRateLimiter {
-  private windowStartedAt: number | undefined;
-  private acceptedCount = 0;
-  private droppedCount = 0;
-
+export class LensConsoleRateLimiter extends LensFixedWindowRateLimiter {
   constructor(
-    private readonly limit = LENS_CONSOLE_RATE_LIMIT,
-    private readonly windowMs = LENS_CONSOLE_RATE_WINDOW_MS,
+    limit = LENS_CONSOLE_RATE_LIMIT,
+    windowMs = LENS_CONSOLE_RATE_WINDOW_MS,
   ) {
-    if (!Number.isInteger(limit) || limit <= 0) {
-      throw new RangeError(
-        "Lens console rate limit must be a positive integer",
-      );
-    }
-    if (!Number.isFinite(windowMs) || windowMs <= 0) {
-      throw new RangeError("Lens console rate window must be positive");
-    }
-  }
-
-  accept(now = Date.now()): LensConsoleRateLimitDecision {
-    const startsNewWindow =
-      this.windowStartedAt === undefined ||
-      now < this.windowStartedAt ||
-      now - this.windowStartedAt >= this.windowMs;
-
-    let completedWindowDrops = 0;
-    if (startsNewWindow) {
-      completedWindowDrops = this.droppedCount;
-      this.windowStartedAt = now;
-      this.acceptedCount = 0;
-      this.droppedCount = 0;
-    }
-
-    if (this.acceptedCount < this.limit) {
-      this.acceptedCount += 1;
-      return {
-        accepted: true,
-        droppedCount: completedWindowDrops,
-      };
-    }
-
-    this.droppedCount += 1;
-    return { accepted: false, droppedCount: 0 };
+    super(limit, windowMs, "Lens console");
   }
 }
