@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildClaudeWorkerAgents } from "../electron/providers/claude-sdk-runtime";
+import { attachClaudeWorkerExecutionMetadata, buildClaudeWorkerAgents } from "../electron/providers/claude-sdk-runtime";
 import {
   buildCodexWorkerConfigOverrides,
   buildCodexDeveloperInstructions,
@@ -12,6 +12,7 @@ import {
   WORKER_AUTO_VALUE,
   DEFAULT_WORKER_PRESET_ID,
   getWorkerPreset,
+  resolveWorkerProfile,
   type WorkerRuntimeIntent,
 } from "@/lib/providers/worker-mode";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
@@ -108,6 +109,22 @@ describe("Claude worker agent registration", () => {
       }),
     ).toBeUndefined();
   });
+
+  test("attributes only the registered worker tool call", () => {
+    const resolution = resolveWorkerProfile({
+      providerId: "claude-code", primaryModel: "claude-opus-5", intent: intent(),
+    });
+    if (resolution.status !== "ready") throw new Error("expected worker profile");
+    const events = attachClaudeWorkerExecutionMetadata({
+      profile: resolution.profile,
+      events: [
+        { type: "tool", toolUseId: "worker", toolName: "Agent", input: JSON.stringify({ subagent_type: WORKER_AGENT_NAME }), state: "input-available" },
+        { type: "tool", toolUseId: "explore", toolName: "Agent", input: JSON.stringify({ subagent_type: "Explore" }), state: "input-available" },
+      ],
+    });
+    expect(events[0]).toHaveProperty("workerExecution.workerModel", "claude-sonnet-5");
+    expect(events[1]).not.toHaveProperty("workerExecution");
+  });
 });
 
 describe("Codex worker config overrides", () => {
@@ -116,33 +133,31 @@ describe("Codex worker config overrides", () => {
       runtimeOptions: {
         model: "gpt-5.6-sol",
         workerIntent: intent({
-          workerModel: "gpt-5.6-luna",
+          workerModel: "gpt-5.6-terra",
           workerEffort: "max",
         }),
       },
     });
     // Exact key names verified against codex-cli 0.145.0's `AgentsToml`.
     expect(config).toEqual({
-      "agents.default_subagent_model": "gpt-5.6-luna",
+      "agents.default_subagent_model": "gpt-5.6-terra",
       "agents.default_subagent_reasoning_effort": "max",
-      "agents.max_concurrent_threads_per_session": 1,
+      "agents.max_concurrent_threads_per_session": 2,
       "agents.max_depth": 1,
     });
   });
 
-  test("clamps an unsupported effort instead of sending it through", () => {
+  test("passes through an effort supported by the worker model", () => {
     const config = buildCodexWorkerConfigOverrides({
       runtimeOptions: {
         model: "gpt-5.6-sol",
-        // Luna has no `ultra`, and Codex silently accepts a bogus value, so the
-        // clamp has to happen here.
         workerIntent: intent({
-          workerModel: "gpt-5.6-luna",
+          workerModel: "gpt-5.6-terra",
           workerEffort: "ultra",
         }),
       },
     });
-    expect(config["agents.default_subagent_reasoning_effort"]).toBe("max");
+    expect(config["agents.default_subagent_reasoning_effort"]).toBe("ultra");
   });
 
   test("emits nothing when Worker mode is off", () => {
@@ -170,7 +185,7 @@ describe("Codex worker config overrides", () => {
 describe("Codex worker is suppressed on secondary read-only runs", () => {
   const runtimeOptions = {
     model: "gpt-5.6-sol",
-    workerIntent: intent({ workerModel: "gpt-5.6-luna" }),
+    workerIntent: intent({ workerModel: "gpt-5.6-terra" }),
   } satisfies ProviderRuntimeOptions;
 
   test("thread/resume omits the agents overrides", () => {
@@ -199,7 +214,7 @@ describe("Codex worker developer instructions", () => {
     const text = buildCodexDeveloperInstructions({
       runtimeOptions: {
         model: "gpt-5.6-sol",
-        workerIntent: intent({ workerModel: "gpt-5.6-luna" }),
+        workerIntent: intent({ workerModel: "gpt-5.6-terra" }),
       },
     });
     expect(text).toContain("Worker mode");
@@ -218,20 +233,20 @@ describe("Codex worker developer instructions", () => {
     const base = buildCodexInstructionProfileKey({
       runtimeOptions: { model: "gpt-5.6-sol" },
     });
-    const withLuna = buildCodexInstructionProfileKey({
-      runtimeOptions: {
-        model: "gpt-5.6-sol",
-        workerIntent: intent({ workerModel: "gpt-5.6-luna" }),
-      },
-    });
     const withTerra = buildCodexInstructionProfileKey({
       runtimeOptions: {
         model: "gpt-5.6-sol",
         workerIntent: intent({ workerModel: "gpt-5.6-terra" }),
       },
     });
-    expect(withLuna).not.toBe(base);
-    expect(withTerra).not.toBe(withLuna);
+    const withSol = buildCodexInstructionProfileKey({
+      runtimeOptions: {
+        model: "gpt-5.6-sol",
+        workerIntent: intent({ workerModel: "gpt-5.6-sol" }),
+      },
+    });
+    expect(withTerra).not.toBe(base);
+    expect(withSol).not.toBe(withTerra);
   });
 });
 
@@ -243,13 +258,13 @@ describe("Codex worker config survives resume", () => {
       runtimeOptions: {
         model: "gpt-5.6-sol",
         workerIntent: intent({
-          workerModel: "gpt-5.6-luna",
+          workerModel: "gpt-5.6-terra",
           workerEffort: "max",
         }),
       },
     });
     expect(params.config?.["agents.default_subagent_model"]).toBe(
-      "gpt-5.6-luna",
+      "gpt-5.6-terra",
     );
     expect(params.config?.["agents.default_subagent_reasoning_effort"]).toBe(
       "max",

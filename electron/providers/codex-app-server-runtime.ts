@@ -60,7 +60,8 @@ import {
 import { getCodexMcpRegistrationStatus } from "../main/codex-mcp";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
-import { buildCodexInstructionProfileKey } from "./codex-runtime-config";
+import { buildCodexInstructionProfileKey, resolveCodexWorkerProfile } from "./codex-runtime-config";
+import { buildWorkerExecutionMetadata, type WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
 import {
   getCodexMcpConfigPathGroups,
   McpConfigRefreshTracker,
@@ -133,6 +134,7 @@ import {
 } from "./codex-runtime-capabilities";
 import { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
+import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -476,8 +478,11 @@ function serializeCodexMcpToolCallArguments(value: unknown) {
 
 function buildCodexMcpToolCallInputEvent(
   item: CodexMcpToolCallItem,
+  workerExecution?: WorkerExecutionMetadata | null,
 ): Extract<BridgeEvent, { type: "tool" }> {
   const itemId = typeof item.id === "string" ? item.id : "";
+  const normalizedToolName = `${item.server ?? "mcp"}:${item.tool ?? "tool"}`
+    .toLowerCase().replace(/[^a-z0-9]+/g, "");
   return {
     type: "tool",
     ...(itemId ? { toolUseId: itemId } : {}),
@@ -487,6 +492,9 @@ function buildCodexMcpToolCallInputEvent(
       maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
     }),
     state: "input-available",
+    ...(workerExecution && normalizedToolName.endsWith("spawnagent")
+      ? { workerExecution }
+      : {}),
   };
 }
 
@@ -2336,6 +2344,8 @@ export async function streamCodexWithAppServer(
     executablePath: codexExecutablePath,
     runtimeOptions: requestedRuntimeOptions,
   });
+  const workerProfile = secondaryReadOnly ? null : resolveCodexWorkerProfile({ runtimeOptions });
+  const workerExecution = workerProfile ? buildWorkerExecutionMetadata(workerProfile) : null;
   const codexCapabilities = getCodexVersionCapabilities(codexExecutablePath);
 
   // A per-turn process lets Codex resolve MCP bearer_token_env_var settings
@@ -2589,6 +2599,11 @@ export async function streamCodexWithAppServer(
     const planBuffers = new Map<string, string>();
     const planLastEmitAt = new Map<string, number>();
     const startedMcpToolCallIds = new Set<string>();
+    const workerActivity = createCodexWorkerActivityMapper({
+      workerExecution,
+      inputMaxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
+      outputMaxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
+    });
     const pendingApprovalRequests = new Map<string, PendingApprovalRequest>();
     const pendingUserInputRequests = new Map<string, PendingUserInputRequest>();
     let latestUsage: {
@@ -2947,7 +2962,7 @@ export async function streamCodexWithAppServer(
         // not: with the App Server client shared process-wide, a request raised
         // on another thread (an isolated Advisor thread, or another task's turn)
         // surfaced in *this* turn's UI and was answered on its behalf.
-        if (requestThreadId && threadId && requestThreadId !== threadId) {
+        if (requestThreadId && threadId && requestThreadId !== threadId && !workerActivity.ownsChildThread(requestThreadId)) {
           return;
         }
         const requestId = String(message.id);
@@ -3218,6 +3233,16 @@ export async function streamCodexWithAppServer(
         }
         return;
       }
+      const eventThreadId = typeof params.threadId === "string" ? params.threadId : "";
+      if (eventThreadId && eventThreadId !== threadId) {
+        const mapped = workerActivity.mapForeignNotification({
+          method: message.method,
+          threadId: eventThreadId,
+          params,
+        });
+        emitBridgeEvents(mapped.events);
+        return;
+      }
       if (
         typeof params.turnId === "string" &&
         appServerTurnId &&
@@ -3225,10 +3250,6 @@ export async function streamCodexWithAppServer(
       ) {
         return;
       }
-      if (typeof params.threadId === "string" && params.threadId !== threadId) {
-        return;
-      }
-
       switch (message.method) {
         case "hook/started":
         case "hook/completed": {
@@ -3242,6 +3263,11 @@ export async function streamCodexWithAppServer(
           return;
         }
         case "item/started": {
+          const workerMapping = workerActivity.mapStarted(params.item);
+          if (workerMapping.handled) {
+            emitBridgeEvents(workerMapping.events);
+            return;
+          }
           const item = params.item as CodexMcpToolCallItem | undefined;
           if (item?.type !== "mcpToolCall") {
             return;
@@ -3251,7 +3277,7 @@ export async function streamCodexWithAppServer(
             return;
           }
           startedMcpToolCallIds.add(itemId);
-          emitBridgeEvent(buildCodexMcpToolCallInputEvent(item));
+          emitBridgeEvent(buildCodexMcpToolCallInputEvent(item, workerExecution));
           return;
         }
         case "item/agentMessage/delta": {
@@ -3421,6 +3447,11 @@ export async function streamCodexWithAppServer(
           return;
         }
         case "item/completed": {
+          const workerMapping = workerActivity.mapCompleted(params.item);
+          if (workerMapping.handled) {
+            emitBridgeEvents(workerMapping.events);
+            return;
+          }
           const item = params.item as
             { type?: string; id?: string } | undefined;
           if (!item?.type) {
@@ -3560,7 +3591,7 @@ export async function streamCodexWithAppServer(
               const mcpItem = item as CodexMcpToolCallItem;
               const completedEvents: BridgeEvent[] = [];
               if (!itemId || !startedMcpToolCallIds.delete(itemId)) {
-                completedEvents.push(buildCodexMcpToolCallInputEvent(mcpItem));
+                completedEvents.push(buildCodexMcpToolCallInputEvent(mcpItem, workerExecution));
               }
               completedEvents.push({
                 type: "tool_result",

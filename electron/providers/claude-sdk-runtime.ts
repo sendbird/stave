@@ -36,9 +36,11 @@ import type {
   ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
 import {
+  buildWorkerExecutionMetadata,
   buildWorkerPrimaryInstructions,
   resolveWorkerProfile,
   toClaudeWorkerEffort,
+  type ResolvedWorkerProfile,
 } from "../../src/lib/providers/worker-mode";
 import type {
   AgentDefinition,
@@ -3240,6 +3242,29 @@ export function mapClaudeMessageToEvents(args: {
   return [];
 }
 
+export function attachClaudeWorkerExecutionMetadata(args: {
+  events: BridgeEvent[];
+  profile: ResolvedWorkerProfile | null;
+}): BridgeEvent[] {
+  const profile = args.profile;
+  if (!profile) return args.events;
+  const workerExecution = buildWorkerExecutionMetadata(profile);
+  return args.events.map((event) => {
+    if (event.type !== "tool" || !["agent", "task"].includes(event.toolName.toLowerCase())) {
+      return event;
+    }
+    try {
+      const input = JSON.parse(event.input) as Record<string, unknown>;
+      const subagentType = input.subagent_type ?? input.subagentType;
+      return subagentType === profile.workerName
+        ? { ...event, workerExecution }
+        : event;
+    } catch {
+      return event;
+    }
+  });
+}
+
 export function resolveClaudeTurnStopReason(args: {
   message: SDKMessage;
   currentStopReason?: string;
@@ -4931,6 +4956,11 @@ export async function streamClaudeWithSdk(
         claudeDebugStream,
         cwd: runtimeCwd,
         planState: planStreamState,
+      });
+      normalizedEvents = attachClaudeWorkerExecutionMetadata({
+        events: normalizedEvents,
+        profile:
+          workerResolution.status === "ready" ? workerResolution.profile : null,
       });
       // Deduplicate: if text/thinking already came through stream_event deltas, skip the
       // full assistant message duplicates (they contain the same content assembled).

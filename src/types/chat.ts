@@ -2,7 +2,7 @@ import type { LensAnnotation } from "@/lib/lens/lens.types";
 // Type-only, and `provider.types` imports this module the same way, so the
 // cycle is erased at compile time rather than existing at runtime.
 import type { AdvisorTarget, ProviderId } from "@/lib/providers/provider.types";
-import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
+import type { WorkerExecutionMetadata, WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
 export type MessageRole = "user" | "assistant";
@@ -207,6 +207,7 @@ export interface ToolUsePart extends MessagePartBase {
   elapsedSeconds?: number;
   /** Progress messages streamed from a running subagent (Agent tool only). */
   progressMessages?: string[];
+  workerExecution?: WorkerExecutionMetadata;
 }
 
 export interface CodeDiffPart extends MessagePartBase {

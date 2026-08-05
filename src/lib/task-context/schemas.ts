@@ -18,6 +18,20 @@ const ThinkingPartSchema = z.object({
   completedAt: z.string().optional(),
 });
 
+const WorkerExecutionMetadataSchema = z.object({
+  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  primaryModel: z.string(),
+  presetId: z.union([
+    z.literal("patch-hand"), z.literal("verified-patch"), z.literal("sweep"),
+    z.literal("scout"), z.literal("deep-packet"), z.literal("second-pair"),
+  ]),
+  workerModel: z.string(),
+  workerEffort: z.union([
+    z.literal("low"), z.literal("medium"), z.literal("high"),
+    z.literal("xhigh"), z.literal("max"), z.literal("ultra"), z.null(),
+  ]),
+});
+
 const ToolUsePartSchema = z.object({
   type: z.literal("tool_use"),
   toolUseId: z.string().optional(),
@@ -26,6 +40,7 @@ const ToolUsePartSchema = z.object({
   output: z.string().optional(),
   elapsedSeconds: z.number().optional(),
   progressMessages: z.array(z.string()).optional(),
+  workerExecution: WorkerExecutionMetadataSchema.optional(),
   state: z.union([
     z.literal("input-streaming"),
     z.literal("input-available"),

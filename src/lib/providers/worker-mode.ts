@@ -137,6 +137,39 @@ export interface ResolvedWorkerProfile {
   costWarning: string | null;
 }
 
+/** Immutable provider-call configuration attached to a native Worker spawn. */
+export interface WorkerExecutionMetadata {
+  providerId: ProviderId;
+  primaryModel: string;
+  presetId: WorkerPresetId;
+  workerModel: string;
+  workerEffort: WorkerEffort | null;
+}
+
+export function buildWorkerExecutionMetadata(
+  profile: ResolvedWorkerProfile,
+): WorkerExecutionMetadata {
+  return {
+    providerId: profile.provider,
+    primaryModel: profile.primaryModel,
+    presetId: profile.presetId,
+    workerModel: profile.resolvedWorkerModel,
+    workerEffort: profile.resolvedWorkerEffort,
+  };
+}
+
+export function formatWorkerExecutionMetadata(
+  execution: WorkerExecutionMetadata,
+): string {
+  return [
+    getWorkerPreset(execution.presetId).label,
+    toHumanModelName({ model: execution.workerModel }),
+    execution.workerEffort,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" · ");
+}
+
 export type WorkerUnavailableReason =
   | "primary_not_supported"
   | "worker_model_not_found"
@@ -175,9 +208,9 @@ interface WorkerProviderCapability {
  * Verified against `@anthropic-ai/claude-agent-sdk` 0.3.179 and codex-cli
  * 0.145.0. See `.stave/context/plans/handoff_20260804-094957_capability-spike.md`.
  *
- * Codex primaries are limited to Sol and Terra because they are the only models
- * whose live catalog advertises the `ultra` tier ("Maximum reasoning with
- * automatic task delegation") — i.e. the only ones that delegate natively.
+ * Codex primaries and workers are limited to Sol and Terra. On codex-cli
+ * 0.145/0.146, `spawn_agent` uses the V2 subagent pool and rejects Luna even
+ * though Luna remains a valid top-level model.
  */
 const WORKER_CAPABILITIES: Readonly<
   Record<ProviderId, WorkerProviderCapability>
@@ -202,7 +235,7 @@ const WORKER_CAPABILITIES: Readonly<
   },
   codex: {
     primaries: ["gpt-5.6-sol", "gpt-5.6-terra"],
-    workers: ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"],
+    workers: ["gpt-5.6-terra", "gpt-5.6-sol"],
     // Codex carries worker copy through developer instructions; there is no
     // per-subagent tool allowlist, so a preset's tool list is advisory prose.
     toolsEnforced: false,
@@ -213,7 +246,7 @@ const WORKER_CAPABILITIES: Readonly<
 /** Deterministic `auto` worker per provider, used when a preset has no opinion. */
 const DEFAULT_WORKER_MODEL: Readonly<Record<ProviderId, string>> = {
   "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
-  codex: "gpt-5.6-luna",
+  codex: "gpt-5.6-terra",
 };
 
 export function listWorkerPrimaryModels(providerId: ProviderId) {
@@ -329,9 +362,9 @@ const EDIT_TOOLS = [...READ_ONLY_TOOLS, "Edit", "Write"] as const;
  *   repo map, no shell suggestions) rather than with "do not redesign" prose.
  * - Roo Code's orchestrator contract contributes the "only this work, and these
  *   instructions supersede conflicting general guidance" clause.
- * - The community `luna_worker` pattern (Codex `gpt-5.6-luna` pinned at `max`)
- *   contributes the counterintuitive default: a cheap model at *high* effort
- *   beats a mid model at its default effort on bounded work.
+ * - The community `luna_worker` pattern contributes the heuristic that a
+ *   cheaper model at high effort can beat a mid model at its default effort.
+ *   Codex presets use Terra because the V2 subagent pool rejects Luna.
  */
 export const WORKER_PRESETS: readonly WorkerPreset[] = [
   {
@@ -351,7 +384,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     maxTurns: 20,
     autoModel: {
       "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
-      codex: "gpt-5.6-luna",
+      codex: "gpt-5.6-terra",
     },
     autoEffort: { "claude-code": "medium", codex: "high" },
   },
@@ -373,7 +406,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     maxTurns: 30,
     autoModel: {
       "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
-      codex: "gpt-5.6-luna",
+      codex: "gpt-5.6-terra",
     },
     autoEffort: { "claude-code": "high", codex: "max" },
   },
@@ -394,7 +427,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     maxTurns: 40,
     autoModel: {
       "claude-code": "claude-haiku-4-5",
-      codex: "gpt-5.6-luna",
+      codex: "gpt-5.6-terra",
     },
     autoEffort: { "claude-code": "medium", codex: "xhigh" },
   },
@@ -415,7 +448,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     maxTurns: 25,
     autoModel: {
       "claude-code": "claude-haiku-4-5",
-      codex: "gpt-5.6-luna",
+      codex: "gpt-5.6-terra",
     },
     autoEffort: { "claude-code": "medium", codex: "high" },
   },
@@ -436,7 +469,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     maxTurns: 60,
     autoModel: {
       "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
-      codex: "gpt-5.6-luna",
+      codex: "gpt-5.6-terra",
     },
     autoEffort: { "claude-code": "max", codex: "max" },
   },

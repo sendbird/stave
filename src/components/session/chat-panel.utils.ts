@@ -36,7 +36,8 @@ export type MessagePartSegment =
   | { kind: "other"; part: MessagePart; index: number };
 
 export function isSubagentToolPart(args: { toolName: string }) {
-  return args.toolName.trim().toLowerCase() === "agent";
+  const normalized = args.toolName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return normalized === "agent" || normalized === "task" || normalized.endsWith("spawnagent");
 }
 
 export function isTodoToolPart(args: { toolName: string }) {

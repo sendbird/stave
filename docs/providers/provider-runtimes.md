@@ -182,7 +182,7 @@ process re-resolves against the real primary model before building the call.
 | | Claude | Codex |
 | --- | --- | --- |
 | orchestrating primaries | Fable 5, Opus 5 (+1M), Sonnet 5 (+1M) | GPT-5.6 Sol, GPT-5.6 Terra |
-| worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5 | Luna, Terra, Sol |
+| worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5 | Terra, Sol |
 | worker registration | `Options.agents["stave-task-executor"]` | `agents.default_subagent_model` |
 | worker model pinning | `AgentDefinition.model` | `agents.default_subagent_model` |
 | worker effort pinning | `AgentDefinition.effort` | `agents.default_subagent_reasoning_effort` |
@@ -198,10 +198,25 @@ so Stave pins the worker through `[agents]` config instead. That is the
 documented path: `spawn_agent`'s own tool description states that spawned agents
 inherit the preferred default unless given an explicit override.
 
+Luna remains available as a top-level Codex model, but codex-cli 0.145/0.146
+rejects it in the V2 `spawn_agent` pool, which currently accepts only Sol and
+Terra. Stave blocks Luna as a Worker before dispatch instead of promising a
+worker the runtime will fail to create.
+
 Worker config travels on both `thread/start` and `thread/resume`, and the worker
 model and effort are part of the developer instructions that feed
 `buildCodexInstructionProfileKey`, so changing the worker rotates the thread key
 and cannot resume a thread configured for a different worker.
+Codex counts the primary in its session concurrency limit, so Stave configures
+two total slots: one primary plus the single foreground Worker.
+
+Arming Worker mode does not prove delegation. When a native worker is actually
+spawned, Stave persists an immutable receipt on that tool event and shows the
+preset, resolved worker model, and effort in the conversation trace and live
+activity shelf. Child-thread output is correlated back to the receipt, so a
+completed card means the worker returned control to the primary. It does not
+claim that the primary reviewed the result, because provider events cannot
+prove that semantic step.
 
 ### Auto resolution and explicit failures
 
@@ -220,7 +235,7 @@ a different tier than the one on screen:
 - `provider_capability_unavailable` — the provider has no Worker-mode support.
 
 Effort is clamped, not rejected, when a model's ceiling is lower than the
-request (Codex `ultra` → `max` on Luna). It is dropped entirely for models that
+request. It is dropped entirely for models that
 reject the field — Claude's API errors on `effort` for Haiku-class models, so a
 Haiku worker runs at its own default and the UI says so rather than showing a
 dead select.

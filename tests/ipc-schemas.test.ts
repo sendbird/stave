@@ -331,6 +331,13 @@ describe("provider IPC schemas", () => {
                   state: "output-available",
                   elapsedSeconds: 19,
                   progressMessages: ["Reading schemas", "Checking snapshots"],
+                  workerExecution: {
+                    providerId: "codex",
+                    primaryModel: "gpt-5.6-sol",
+                    presetId: "verified-patch",
+                    workerModel: "gpt-5.6-terra",
+                    workerEffort: "max",
+                  },
                 },
               ],
             },
@@ -357,6 +364,13 @@ describe("provider IPC schemas", () => {
       state: "output-available",
       elapsedSeconds: 19,
       progressMessages: ["Reading schemas", "Checking snapshots"],
+      workerExecution: {
+        providerId: "codex",
+        primaryModel: "gpt-5.6-sol",
+        presetId: "verified-patch",
+        workerModel: "gpt-5.6-terra",
+        workerEffort: "max",
+      },
     });
   });
 
