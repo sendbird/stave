@@ -260,6 +260,15 @@ Settings. An empty field means "use the preset", which is what stops a preset
 improvement from being shadowed by a stale copy of its previous text; switching
 preset therefore clears hand-edited copy rather than carrying it over.
 
+When Worker mode is armed, delegation is the default for repository
+investigation, implementation, verification, and review. Conversation-only
+requests and truly atomic one-step actions may remain on the primary. A worker
+that returns no output or stops before required verification is continued once
+when the provider exposes a continuation handle; otherwise the primary finishes
+the missing verification in the same turn rather than ending with a promise to
+resume later. The default Verified patch budget is 60 agentic turns so ordinary
+edit-and-test loops do not commonly exhaust the worker before verification.
+
 Note the deliberately counterintuitive defaults: cheap worker models are paired
 with *high* effort. On bounded work a cheap model at high effort outperforms a
 mid-tier model at its default, which is the pattern the community Codex
@@ -268,7 +277,8 @@ mid-tier model at its default, which is the pattern the community Codex
 ### Safety
 
 - One foreground worker at a time (`maxConcurrency: 1`, plus Codex
-  `agents.max_concurrent_threads_per_session = 1` and `agents.max_depth = 1`).
+  `agents.max_concurrent_threads_per_session = 2` — parent plus worker — and
+  `agents.max_depth = 1`).
 - The worker inherits the parent turn's permission mode and sandbox, so a plan
   or read-only turn cannot gain write access by delegating. On Claude the nested
   subagent's tool calls still pass through the same `canUseTool` gate.

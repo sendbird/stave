@@ -403,7 +403,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
       "Report the exact command you ran and its final status. Include failure output only for failures your change caused.",
     ].join("\n\n"),
     tools: [...EDIT_TOOLS, "Bash"],
-    maxTurns: 30,
+    maxTurns: 60,
     autoModel: {
       "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
       codex: "gpt-5.6-terra",
@@ -919,7 +919,8 @@ export function buildWorkerPrimaryInstructions(
         : ""
     }) is available to do bounded implementation work for you.`,
     "",
-    "You remain responsible for the result. Your job is to plan, delegate, then verify and integrate:",
+    "You remain responsible for the result. Delegation is the default, not an optional fallback. For any request involving repository investigation, code changes, verification, or review, make at least one worker call before doing the delegated portion yourself. Skip delegation only for conversation-only requests or a truly atomic one-step action with no useful bounded handoff.",
+    "Your job is to plan, delegate, then verify and integrate:",
     "",
     "1. Decide what needs to happen and which part is bounded enough to hand off.",
     `2. Delegate that part to ${
@@ -929,9 +930,10 @@ export function buildWorkerPrimaryInstructions(
     } as a single, complete, unambiguous brief. Name the files it may touch and how to verify the result. The worker starts with no view of this conversation, so the brief must stand alone.`,
     `3. Run at most ${profile.maxConcurrency} worker at a time, and do not edit the files it is working on while it runs.`,
     "4. When it returns, review its diff and its verification evidence yourself. Do not forward its claims to the user unchecked.",
-    "5. Integrate, fix anything it got wrong, and write the final response.",
+    "5. If it returns incomplete, without output, or before required verification, use the provider's continuation mechanism once when available to give the same worker the precise remaining work. If continuation is unavailable or still incomplete, immediately finish the verification yourself in this turn.",
+    "6. Integrate, fix anything it got wrong, and write the final response. Never end the turn merely announcing that the worker stopped.",
     "",
-    "Keep work you can finish faster yourself. Delegating a one-line edit costs more than doing it.",
+    "Do not duplicate the worker's in-flight work. Once its result returns, independently inspect only what is necessary to verify and integrate it.",
   ];
   if (!profile.toolsEnforced && profile.tools && profile.tools.length > 0) {
     lines.push(

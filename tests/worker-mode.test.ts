@@ -433,6 +433,13 @@ describe("worker presentation", () => {
     expect(text).toContain(WORKER_AGENT_NAME);
     expect(text).toContain("review its diff");
     expect(text).toContain("at most 1 worker");
+    expect(text).toContain("Delegation is the default");
+    expect(text).toContain("continuation mechanism once");
+    expect(text).toContain("Never end the turn merely announcing");
+  });
+
+  test("default verified patch leaves enough turns for implementation and verification", () => {
+    expect(getWorkerPreset(DEFAULT_WORKER_PRESET_ID).maxTurns).toBe(60);
   });
 
   test("Codex instructions carry the tool list as prose since it is unenforced", () => {

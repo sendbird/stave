@@ -1226,6 +1226,8 @@ describe("buildClaudeSystemPrompt", () => {
     // Background-notification guardrail: turns must not end waiting on
     // background subagent / task completion notifications.
     expect(parts[0]).toContain("run_in_background: false");
+    expect(parts[0]).toContain("continue that same agent once");
+    expect(parts[0]).toContain("Never end merely by announcing");
   });
 });
 
