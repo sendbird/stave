@@ -78,6 +78,16 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       state: "output-available",
     },
     {
+      /* A similarly named third-party server must retain the generic tool icon
+         and raw identity rather than inheriting Stave branding. */
+      type: "tool_use",
+      toolUseId: "tool-external-stave-docs",
+      toolName: "mcp__stave-docs__search",
+      input: JSON.stringify({ query: "agent messages" }),
+      output: "3 external documentation results.",
+      state: "output-available",
+    },
+    {
       type: "tool_use",
       toolUseId: "tool-bash",
       toolName: "Bash",

@@ -220,6 +220,13 @@ describe("AssistantMessageBody", () => {
             output: "file contents",
             state: "output-available",
           },
+          {
+            type: "tool_use",
+            toolName: "mcp__stave-docs__search",
+            input: JSON.stringify({ query: "agent messages" }),
+            output: "external search results",
+            state: "output-available",
+          },
         ],
       }),
       taskId: "task-1",
@@ -230,8 +237,11 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain("Check page state");
     expect(html).not.toContain("stave-local:stave_lens_evaluate");
     expect(html).toContain("stave-logo.svg");
+    expect(html.match(/stave-logo\.svg/g)).toHaveLength(1);
     expect(html).toContain("mcp__github__get_file_contents");
     expect(html).not.toContain("Get file contents");
+    expect(html).toContain("mcp__stave-docs__search");
+    expect(html).not.toContain(">Search<");
   });
 
   test("keeps streaming reasoning text plain for hot-path performance", async () => {

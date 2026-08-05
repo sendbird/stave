@@ -61,6 +61,8 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_respond_user_input: "Respond to question",
 };
 
+const KNOWN_STAVE_TOOL_NAMES = new Set(Object.keys(FRIENDLY_TOOL_DISPLAY_NAMES));
+
 function getToolLeafName(toolName: string): string {
   const normalized = toolName.trim().toLowerCase();
   const withoutGenericPrefix = normalized.replace(/^tool[-_:]?/, "");
@@ -80,19 +82,24 @@ function getToolNameSegments(toolName: string): string[] {
 }
 
 function isStaveNamespaceSegment(segment: string | undefined): boolean {
-  return Boolean(
-    segment && /^(?:stave|stave[-_ ]local(?:[-_ ]mcp)?)(?:$|[-_ ])/.test(segment),
-  );
+  const normalized = segment?.trim().toLowerCase().replaceAll(/[_ ]+/g, "-");
+  return normalized === "stave-local" || normalized === "stave-local-mcp";
 }
 
 /** Returns true only for tools owned by Stave's managed MCP surface. */
 export function isStaveToolName(toolName: string): boolean {
-  const [first, second] = getToolNameSegments(toolName);
-  return (
+  const segments = getToolNameSegments(toolName);
+  const [first, second] = segments;
+  const hasManagedNamespace =
     isStaveNamespaceSegment(first) ||
     (first === "mcp" && isStaveNamespaceSegment(second)) ||
-    (first === "tool" && isStaveNamespaceSegment(second))
-  );
+    (first === "tool" && isStaveNamespaceSegment(second));
+
+  if (hasManagedNamespace) {
+    return true;
+  }
+
+  return segments.length === 1 && KNOWN_STAVE_TOOL_NAMES.has(getToolLeafName(toolName));
 }
 
 function capitalizeFirst(value: string): string {
