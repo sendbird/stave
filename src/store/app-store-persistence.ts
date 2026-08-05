@@ -1,3 +1,4 @@
+import { normalizeSidebarActiveWorkspaceDismissals } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
@@ -110,6 +111,8 @@ export function createAppStorePersistenceOptions() {
       workspacePathById: state.workspacePathById,
       workspaceDefaultById: state.workspaceDefaultById,
       workspaceLastActiveAtById: state.workspaceLastActiveAtById,
+      sidebarActiveWorkspaceDismissedAtById:
+        state.sidebarActiveWorkspaceDismissedAtById,
       taskCheckpointById: state.taskCheckpointById,
       compareRunsById: state.compareRunsById,
       isDarkMode: state.isDarkMode,
@@ -519,6 +522,12 @@ export function createAppStorePersistenceOptions() {
       // Then drop stamps for workspaces nothing remembers any more: workspace
       // ids are derived from paths, so a project removed and later re-added
       // would otherwise inherit its own year-old activity and look current.
+      const knownWorkspaceIds = new Set([
+        ...state.workspaces.map((workspace) => workspace.id),
+        ...state.recentProjects.flatMap((project) =>
+          project.workspaces.map((workspace) => workspace.id),
+        ),
+      ]);
       state.workspaceLastActiveAtById = pruneWorkspaceActivityStamps({
         current: mergeWorkspaceActivityStamps(
           state.workspaceLastActiveAtById,
@@ -526,13 +535,18 @@ export function createAppStorePersistenceOptions() {
             (project) => project.workspaceLastActiveAtById,
           ),
         ),
-        knownWorkspaceIds: new Set([
-          ...state.workspaces.map((workspace) => workspace.id),
-          ...state.recentProjects.flatMap((project) =>
-            project.workspaces.map((workspace) => workspace.id),
-          ),
-        ]),
+        knownWorkspaceIds,
       });
+      // Active Workspaces dismissals share the id-derived-from-path hazard, so
+      // they get the same pruning; the map is also normalized because it may
+      // predate this field or arrive corrupted from storage.
+      state.sidebarActiveWorkspaceDismissedAtById =
+        pruneWorkspaceActivityStamps({
+          current: normalizeSidebarActiveWorkspaceDismissals(
+            state.sidebarActiveWorkspaceDismissedAtById,
+          ),
+          knownWorkspaceIds,
+        });
       if (legacyProjectInitCommand) {
         state.recentProjects = state.recentProjects.map((project) => ({
           ...cloneRecentProjectState(project),

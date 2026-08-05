@@ -287,6 +287,11 @@ function WorkspaceHoverPreviewTooltip(args: {
   projectName?: string;
   shortcutLabel?: string | null;
   side: "top" | "right";
+  /**
+   * Extra anchor gap for rows that render in-flow controls beside the
+   * trigger: the popup must clear them or it swallows their clicks.
+   */
+  sideOffset?: number;
   children: ReactElement;
 }) {
   const { tasks, messageCountByTask, activeTurnIdsByTask, hasRuntimeState } =
@@ -364,6 +369,7 @@ function WorkspaceHoverPreviewTooltip(args: {
       <TooltipTrigger render={args.children} />
       <TooltipContent
         side={args.side}
+        sideOffset={args.sideOffset}
         align="start"
         className="max-w-[260px] break-words px-3 py-2"
       >
@@ -1033,6 +1039,8 @@ export function ProjectWorkspaceSidebar(args: {
     sidebarShowFleetView,
     sidebarShowActiveWorkspaces,
     sidebarActiveWorkspaceLimit,
+    sidebarActiveWorkspaceDismissedAtById,
+    workspaceLastActiveAtById,
     defaultBranch,
     projectWorkspaceInitCommand,
     projectUseRootNodeModulesSymlink,
@@ -1046,6 +1054,7 @@ export function ProjectWorkspaceSidebar(args: {
     importWorkspaceFromWorktree,
     closeWorkspace,
     renameWorkspace,
+    dismissSidebarActiveWorkspace,
     setLayout,
     fetchAllWorkspacePrStatuses,
     hydrateWorkspaces,
@@ -1075,6 +1084,8 @@ export function ProjectWorkspaceSidebar(args: {
         state.settings.sidebarShowFleetView,
         state.settings.sidebarShowActiveWorkspaces,
         state.settings.sidebarActiveWorkspaceLimit,
+        state.sidebarActiveWorkspaceDismissedAtById,
+        state.workspaceLastActiveAtById,
         state.defaultBranch,
         (state.projectPath
           ? state.recentProjects.find(
@@ -1096,6 +1107,7 @@ export function ProjectWorkspaceSidebar(args: {
         state.importWorkspaceFromWorktree,
         state.closeWorkspace,
         state.renameWorkspace,
+        state.dismissSidebarActiveWorkspace,
         state.setLayout,
         state.fetchAllWorkspacePrStatuses,
         state.hydrateWorkspaces,
@@ -1287,6 +1299,10 @@ export function ProjectWorkspaceSidebar(args: {
                     : [],
               ),
             ),
+            // User-issued removals. They hide only low-urgency entries and
+            // lapse once the workspace is deliberately activated again.
+            dismissedAtByWorkspaceId: sidebarActiveWorkspaceDismissedAtById,
+            lastActiveAtByWorkspaceId: workspaceLastActiveAtById,
             activeWorkspaceId,
             limit: sidebarActiveWorkspaceLimit,
           })
@@ -1295,10 +1311,12 @@ export function ProjectWorkspaceSidebar(args: {
       activeWorkspaceId,
       projects,
       recentProjectLastOpenedAtByPath,
+      sidebarActiveWorkspaceDismissedAtById,
       sidebarActiveWorkspaceLimit,
       sidebarShowActiveWorkspaces,
       highestNeedByWorkspaceId,
       workspaceFleetStatusById,
+      workspaceLastActiveAtById,
     ],
   );
   // Collapsing a project hides its workspace rows, so the project row carries
@@ -1730,47 +1748,85 @@ export function ProjectWorkspaceSidebar(args: {
                       Active workspaces
                     </div>
                     {activeWorkspaceEntries.map((entry) => (
-                      <WorkspaceHoverPreviewTooltip
+                      <div
                         key={entry.workspaceId}
-                        workspaceId={entry.workspaceId}
-                        workspaceName={entry.workspaceName}
-                        branch={entry.branch}
-                        projectName={entry.projectName}
-                        side="right"
+                        className="group/workspace-row flex items-center gap-1"
                       >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleProjectWorkspaceOpen({
-                              projectPath: entry.projectPath,
-                              workspaceId: entry.workspaceId,
-                            })
-                          }
-                          aria-label={`active-workspace-${entry.workspaceId}`}
-                          className={cn(
-                            "flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-sm transition-colors",
-                            entry.isActive
-                              ? "bg-primary/12 text-foreground"
-                              : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                          )}
+                        <WorkspaceHoverPreviewTooltip
+                          workspaceId={entry.workspaceId}
+                          workspaceName={entry.workspaceName}
+                          branch={entry.branch}
+                          projectName={entry.projectName}
+                          side="right"
+                          // Clear the in-flow remove button (gap + 24px) so
+                          // the preview popup cannot sit on top of it and
+                          // absorb its clicks.
+                          sideOffset={entry.isActive ? undefined : 36}
                         >
-                          <WorkspaceLeadingStatusIcon
-                            workspaceId={entry.workspaceId}
-                            workspaceName={entry.workspaceName}
-                            isDefault={entry.isDefault}
-                            busy={false}
-                            needKind={
-                              highestNeedByWorkspaceId[entry.workspaceId]?.kind
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleProjectWorkspaceOpen({
+                                projectPath: entry.projectPath,
+                                workspaceId: entry.workspaceId,
+                              })
                             }
-                          />
-                          <span className="min-w-0 flex-1 truncate text-left">
-                            {entry.workspaceName}
-                          </span>
-                          <span className="shrink-0 truncate text-xs text-muted-foreground">
-                            {entry.projectName}
-                          </span>
-                        </button>
-                      </WorkspaceHoverPreviewTooltip>
+                            aria-label={`active-workspace-${entry.workspaceId}`}
+                            className={cn(
+                              "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-sm transition-colors",
+                              entry.isActive
+                                ? "bg-primary/12 text-foreground"
+                                : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                            )}
+                          >
+                            <WorkspaceLeadingStatusIcon
+                              workspaceId={entry.workspaceId}
+                              workspaceName={entry.workspaceName}
+                              isDefault={entry.isDefault}
+                              busy={false}
+                              needKind={
+                                highestNeedByWorkspaceId[entry.workspaceId]
+                                  ?.kind
+                              }
+                            />
+                            <span className="min-w-0 flex-1 truncate text-left">
+                              {entry.workspaceName}
+                            </span>
+                            <span className="shrink-0 truncate text-xs text-muted-foreground">
+                              {entry.projectName}
+                            </span>
+                          </button>
+                        </WorkspaceHoverPreviewTooltip>
+                        {/* The remove button is an in-flow sibling rather than
+                            an overlay: the hover-preview tooltip trigger
+                            re-hit-tests mid-click, so anything stacked on top
+                            of the row button loses its mouseup. The current
+                            workspace is the "you are here" marker and never
+                            offers removal. */}
+                        {!entry.isActive ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                              "h-6 w-6 shrink-0 rounded-md p-0 text-muted-foreground transition-opacity hover:text-foreground",
+                              getWorkspaceHoverActionVisibilityClasses({
+                                isClosing: false,
+                              }),
+                            )}
+                            aria-label={`dismiss-active-workspace-${entry.workspaceId}`}
+                            title="Hide from Active Workspaces"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              dismissSidebarActiveWorkspace({
+                                workspaceId: entry.workspaceId,
+                              });
+                            }}
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        ) : null}
+                      </div>
                     ))}
                   </>
                 ) : null}

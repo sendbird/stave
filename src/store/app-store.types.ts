@@ -120,6 +120,14 @@ export interface AppState
    * flush and so cannot tell a live workspace from a merely remembered one.
    */
   workspaceLastActiveAtById: Record<string, string>;
+  /**
+   * When the user removed each workspace from the sidebar Active Workspaces
+   * list, keyed by workspace id. Persisted. A stamp only suppresses the
+   * low-urgency listing reasons (project representative, error/running
+   * status) and expires once `workspaceLastActiveAtById` moves past it, so
+   * deliberately re-opening a hidden workspace restores it.
+   */
+  sidebarActiveWorkspaceDismissedAtById: Record<string, string>;
   /** PR info cache per workspace – transient, not persisted across sessions. */
   workspacePrInfoById: Record<string, WorkspacePrInfo>;
   /** Claude/Codex usage for the bottom status bar – transient, not persisted. */
@@ -272,6 +280,10 @@ export interface AppState
     workspaceId: string;
     direction: "up" | "down";
   }) => void;
+  /** Remove a workspace from the sidebar Active Workspaces list. */
+  dismissSidebarActiveWorkspace: (args: { workspaceId: string }) => void;
+  /** Clear every Active Workspaces dismissal (Settings recovery hatch). */
+  restoreSidebarActiveWorkspaces: () => void;
   setProjectBasePrompt: (args: {
     projectPath?: string;
     prompt: string;

@@ -131,6 +131,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         description:
           "Work through questions, approvals, failed runs, results, and pull request blockers across every workspace.",
       },
+      {
+        routePath: "sidebar-active-workspaces",
+        sourcePath: "docs/features/sidebar-active-workspaces.md",
+        title: "Sidebar Active Workspaces",
+        description:
+          "Keep a ranked shortlist of the workspaces that matter now, and remove rows you consider unimportant.",
+      },
     ],
   },
   {
