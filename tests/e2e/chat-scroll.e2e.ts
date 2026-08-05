@@ -309,6 +309,25 @@ test("conversation turn rail previews, navigates, and explains provider capabili
   );
 
   await expect(rail).toBeVisible();
+  await expect
+    .poll(() =>
+      rail.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const middle = rect.top + rect.height / 2;
+        const hitsRail = (x: number, y: number) =>
+          Boolean(
+            document
+              .elementFromPoint(x, y)
+              ?.closest('[data-testid="conversation-turn-rail"]'),
+          );
+        return {
+          gutter: hitsRail(rect.left + 4, middle),
+          tick: hitsRail(rect.right - 4, middle),
+        };
+      }),
+    )
+    .toEqual({ gutter: false, tick: true });
+
   await firstTick.hover();
   await expect(preview).toHaveAttribute("data-state", "open");
   await expect(preview).toContainText("task-alpha message 11");

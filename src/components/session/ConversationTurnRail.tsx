@@ -39,6 +39,7 @@ export const ConversationTurnRail = forwardRef<
   const previewRef = useRef<HTMLElement>(null);
   const triggerRefs = useRef(new Map<string, HTMLButtonElement>());
   const suppressNextFocusPreviewRef = useRef(false);
+  const [railHovered, setRailHovered] = useState(false);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [focusedMessageId, setFocusedMessageId] = useState<string | null>(null);
   const [pinnedMessageId, setPinnedMessageId] = useState<string | null>(null);
@@ -71,6 +72,7 @@ export const ConversationTurnRail = forwardRef<
   const displayedIndex = displayedMessageId
     ? props.items.findIndex((item) => item.messageId === displayedMessageId)
     : -1;
+  const surfaceVisible = railHovered || Boolean(displayedMessageId);
 
   useImperativeHandle(forwardedRef, () => ({ setActiveMessageId }), []);
 
@@ -251,9 +253,20 @@ export const ConversationTurnRail = forwardRef<
       aria-label="Conversation turn navigator"
       className={cn(
         UI_LAYER_CLASS.sessionFloater,
-        "absolute right-2 top-1/2 h-[min(22.5rem,calc(100%-4rem))] min-h-40 w-12 -translate-y-1/2",
+        // The rail floats over the conversation, so only its own affordances
+        // (tick hit strips and the open preview) may capture pointer events.
+        // Everything else stays transparent to clicks, drags, and wheel.
+        "pointer-events-none absolute right-2 top-1/2 h-[min(22.5rem,calc(100%-4rem))] min-h-40 w-12 -translate-y-1/2",
       )}
-      onPointerLeave={() => setHoveredMessageId(null)}
+      onPointerEnter={(event) => {
+        if (event.pointerType !== "touch") {
+          setRailHovered(true);
+        }
+      }}
+      onPointerLeave={() => {
+        setRailHovered(false);
+        setHoveredMessageId(null);
+      }}
       onBlur={(event) => {
         const nextFocused = event.relatedTarget;
         if (
@@ -277,8 +290,12 @@ export const ConversationTurnRail = forwardRef<
         role="toolbar"
         aria-label="Conversation turns"
         aria-orientation="vertical"
+        data-surface={surfaceVisible ? "visible" : "hidden"}
         className={cn(
-          "h-full overflow-y-auto overscroll-contain rounded-full bg-background/60 py-2 backdrop-blur-md [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "h-full overflow-y-auto overscroll-contain rounded-full py-2 transition-[background-color,backdrop-filter] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          surfaceVisible
+            ? "bg-background/60 backdrop-blur-md"
+            : "bg-transparent backdrop-blur-none",
         )}
         onScroll={updatePreviewPosition}
       >
@@ -314,7 +331,7 @@ export const ConversationTurnRail = forwardRef<
                 aria-controls={displayed ? previewId : undefined}
                 data-turn-rail-message-id={item.messageId}
                 data-active={active ? "true" : undefined}
-                className="group/turn-tick flex h-6 w-12 shrink-0 items-center justify-end rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45"
+                className="group/turn-tick pointer-events-auto flex h-6 w-8 shrink-0 items-center justify-end rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45"
                 onPointerEnter={(event) => {
                   if (event.pointerType !== "touch") {
                     setHoveredMessageId(item.messageId);
