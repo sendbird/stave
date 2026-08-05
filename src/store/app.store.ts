@@ -1559,6 +1559,7 @@ export const useAppStore = create<AppState>()(
       workspacePathById: {},
       workspaceDefaultById: {},
       workspaceLastActiveAtById: {},
+      sidebarActiveWorkspaceDismissedAtById: {},
       workspacePrInfoById: {},
       rateLimitsSnapshot: null,
       rateLimitsLoading: false,

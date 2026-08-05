@@ -35,6 +35,7 @@ import {
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { countSidebarActiveWorkspaceDismissals } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
 import {
   COMMAND_PALETTE_GROUP_LABELS,
@@ -1316,6 +1317,23 @@ function ThemeSection() {
   const sidebarActiveWorkspaceLimit = useAppStore(
     (state) => state.settings.sidebarActiveWorkspaceLimit,
   );
+  const sidebarActiveWorkspaceDismissedAtById = useAppStore(
+    (state) => state.sidebarActiveWorkspaceDismissedAtById,
+  );
+  const workspaceLastActiveAtById = useAppStore(
+    (state) => state.workspaceLastActiveAtById,
+  );
+  const restoreSidebarActiveWorkspaces = useAppStore(
+    (state) => state.restoreSidebarActiveWorkspaces,
+  );
+  const hiddenActiveWorkspaceCount = useMemo(
+    () =>
+      countSidebarActiveWorkspaceDismissals({
+        dismissedAtByWorkspaceId: sidebarActiveWorkspaceDismissedAtById,
+        lastActiveAtByWorkspaceId: workspaceLastActiveAtById,
+      }),
+    [sidebarActiveWorkspaceDismissedAtById, workspaceLastActiveAtById],
+  );
   const borderBeamEnabled = useAppStore(
     (state) => state.settings.borderBeamEnabled,
   );
@@ -1435,6 +1453,22 @@ function ThemeSection() {
                   {sidebarActiveWorkspaceLimit}
                 </Badge>
               </div>
+            </LabeledField>
+          ) : null}
+          {sidebarShowActiveWorkspaces && hiddenActiveWorkspaceCount > 0 ? (
+            <LabeledField
+              title="Hidden Workspaces"
+              description="Workspaces you removed from the Active Workspaces list. Hidden workspaces return automatically when they need your attention or when you open them."
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => restoreSidebarActiveWorkspaces()}
+              >
+                Restore {hiddenActiveWorkspaceCount} hidden workspace
+                {hiddenActiveWorkspaceCount === 1 ? "" : "s"}
+              </Button>
             </LabeledField>
           ) : null}
         </SettingsCard>

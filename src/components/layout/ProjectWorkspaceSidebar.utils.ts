@@ -368,15 +368,105 @@ const SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK: Record<FleetTaskStatus, number> = {
 };
 
 /**
+ * Whether a user-issued "remove from Active Workspaces" stamp still applies.
+ *
+ * A dismissal is not a tombstone: it expires the moment the user deliberately
+ * activates the workspace again (`lastActiveAt` moves past `dismissedAt`), so
+ * re-opening a hidden workspace restores it without any extra ceremony, and
+ * the activation paths themselves never need to know dismissals exist.
+ */
+export function isSidebarActiveWorkspaceDismissalInEffect(args: {
+  dismissedAt?: string;
+  lastActiveAt?: string;
+}) {
+  if (!args.dismissedAt) {
+    return false;
+  }
+  if (!args.lastActiveAt) {
+    return true;
+  }
+  return args.lastActiveAt.localeCompare(args.dismissedAt) <= 0;
+}
+
+/**
+ * Stamp a workspace as removed from the sidebar Active Workspaces list.
+ * Returns the same reference when nothing changes so Zustand subscribers do
+ * not re-render.
+ */
+export function stampSidebarActiveWorkspaceDismissal(args: {
+  current: Record<string, string>;
+  workspaceId?: string | null;
+  at?: string;
+}): Record<string, string> {
+  const workspaceId = args.workspaceId?.trim();
+  if (!workspaceId) {
+    return args.current;
+  }
+  const at = args.at ?? new Date().toISOString();
+  if (args.current[workspaceId] === at) {
+    return args.current;
+  }
+  return { ...args.current, [workspaceId]: at };
+}
+
+/**
+ * Persisted dismissals arrive from storage untyped; keep only plausible
+ * `workspaceId -> ISO timestamp` entries so a corrupted cache cannot poison
+ * the Active Workspaces filter.
+ */
+export function normalizeSidebarActiveWorkspaceDismissals(
+  raw: unknown,
+): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return {};
+  }
+  const normalized: Record<string, string> = {};
+  for (const [workspaceId, at] of Object.entries(
+    raw as Record<string, unknown>,
+  )) {
+    if (
+      !workspaceId.trim() ||
+      typeof at !== "string" ||
+      !Number.isFinite(Date.parse(at))
+    ) {
+      continue;
+    }
+    normalized[workspaceId] = at;
+  }
+  return normalized;
+}
+
+/** How many dismissal stamps still actively hide a workspace. */
+export function countSidebarActiveWorkspaceDismissals(args: {
+  dismissedAtByWorkspaceId: Record<string, string>;
+  lastActiveAtByWorkspaceId: Record<string, string>;
+}) {
+  return Object.entries(args.dismissedAtByWorkspaceId).filter(
+    ([workspaceId, dismissedAt]) =>
+      isSidebarActiveWorkspaceDismissalInEffect({
+        dismissedAt,
+        lastActiveAt: args.lastActiveAtByWorkspaceId[workspaceId],
+      }),
+  ).length;
+}
+
+/**
  * Ranks and caps a sidebar "Active workspaces" list: attention (waiting on
  * the user) and error/running workspaces surface first, the remainder is
  * filled out with the most recently opened workspace per project.
+ *
+ * A user-dismissed workspace stays out of the list until the user opens it
+ * again — but never while they are standing in it, and never while an agent
+ * is waiting on them: hiding a stalled agent would bury the very signal this
+ * list exists to surface.
  */
 export function buildSidebarActiveWorkspaceEntries(args: {
   projects: ProjectSidebarCollapsedProjectView[];
   recentProjectLastOpenedAtByPath: Record<string, string>;
   statusByWorkspaceId: Record<string, FleetTaskStatus>;
   attentionPriorityByWorkspaceId?: Record<string, number | undefined>;
+  dismissedAtByWorkspaceId?: Record<string, string | undefined>;
+  lastActiveAtByWorkspaceId?: Record<string, string | undefined>;
   activeWorkspaceId: string;
   limit?: number;
 }): SidebarActiveWorkspaceEntry[] {
@@ -406,6 +496,22 @@ export function buildSidebarActiveWorkspaceEntries(args: {
         status === "running";
 
       if (!isActive && !isRepresentativeWorkspace && !isNoteworthy) {
+        continue;
+      }
+
+      // Needs-user reasons (a visible attention need, a waiting status) are
+      // exempt from dismissal; representative, error, and running reasons are
+      // the "unimportant to me" clutter a dismissal is allowed to remove.
+      const needsUser =
+        attentionPriority !== undefined || hasFleetTaskAttentionStatus(status);
+      if (
+        !isActive &&
+        !needsUser &&
+        isSidebarActiveWorkspaceDismissalInEffect({
+          dismissedAt: args.dismissedAtByWorkspaceId?.[workspace.id],
+          lastActiveAt: args.lastActiveAtByWorkspaceId?.[workspace.id],
+        })
+      ) {
         continue;
       }
 
