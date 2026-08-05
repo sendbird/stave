@@ -702,6 +702,7 @@ export function createSupportActions(args: {
             comment,
           ],
         },
+        workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
       }));
 
       return comment;
@@ -725,7 +726,10 @@ export function createSupportActions(args: {
         } else {
           delete nextByTask[normalizedTaskId];
         }
-        return { reviewCommentsByTask: nextByTask };
+        return {
+          reviewCommentsByTask: nextByTask,
+          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+        };
       });
     },
     clearReviewComments: ({ taskId }) => {
@@ -739,7 +743,10 @@ export function createSupportActions(args: {
         }
         const nextByTask = { ...state.reviewCommentsByTask };
         delete nextByTask[normalizedTaskId];
-        return { reviewCommentsByTask: nextByTask };
+        return {
+          reviewCommentsByTask: nextByTask,
+          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+        };
       });
     },
     submitReviewFeedback: async ({ taskId }) => {

@@ -863,6 +863,7 @@ export class SqliteStore {
       activeTaskId: args.snapshot.activeTaskId,
       tasks: args.snapshot.tasks,
       promptDraftByTask: args.snapshot.promptDraftByTask ?? {},
+      reviewCommentsByTask: args.snapshot.reviewCommentsByTask ?? {},
       providerSessionByTask: args.snapshot.providerSessionByTask ?? {},
       editorTabs: args.snapshot.editorTabs ?? [],
       activeEditorTabId: args.snapshot.activeEditorTabId ?? null,
@@ -953,6 +954,7 @@ export class SqliteStore {
       | "activeTaskId"
       | "tasks"
       | "promptDraftByTask"
+      | "reviewCommentsByTask"
       | "providerSessionByTask"
       | "messageCountByTask"
     >;
@@ -961,6 +963,7 @@ export class SqliteStore {
       activeTaskId: args.shell.activeTaskId,
       tasks: args.shell.tasks,
       promptDraftByTask: args.shell.promptDraftByTask ?? {},
+      reviewCommentsByTask: args.shell.reviewCommentsByTask ?? {},
       providerSessionByTask: args.shell.providerSessionByTask ?? {},
       messageCountByTask: args.shell.messageCountByTask ?? {},
     };
@@ -1013,6 +1016,7 @@ export class SqliteStore {
     } = args.payload;
     return {
       promptDraftByTask: {},
+      reviewCommentsByTask: {},
       providerSessionByTask: {},
       editorTabs,
       activeEditorTabId: null,
@@ -1047,6 +1051,7 @@ export class SqliteStore {
     } = args.payload;
     return {
       promptDraftByTask: {},
+      reviewCommentsByTask: {},
       providerSessionByTask: {},
       editorTabs,
       activeEditorTabId: null,

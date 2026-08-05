@@ -17,12 +17,16 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import {
-  EditorReviewPanel,
-  type EditorReviewDraft,
-} from "@/components/layout/EditorReviewPanel";
+  createDiffReviewController,
+  type DiffReviewController,
+  type DiffReviewControllerUpdate,
+} from "@/components/layout/editor-diff-review-controller";
 import {
+  collectModifiedDiffCommentableLines,
   getModifiedDiffEditorLine,
-  registerDiffReviewCommentAction,
+  resolveTaskReviewDraft,
+  shouldRenderDiffEditorSurface,
+  type TaskReviewDraftState,
 } from "@/components/layout/editor-diff-review";
 import { EditorImagePreviewOverlay } from "@/components/layout/editor-image-preview-overlay";
 import {
@@ -49,7 +53,6 @@ import {
   toMonacoModelPath,
   toMonacoSelection,
   toWorkspaceFilePath,
-  type MonacoDisposable,
   type PendingEditorNavigation,
 } from "@/components/layout/editor-monaco-workspace-support";
 import { GitGraphView } from "@/components/git-graph/GitGraphView";
@@ -79,7 +82,7 @@ import { resolvePathBaseName } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
 import { canSendEditorContextToTask } from "@/store/editor.utils";
 import { isDiffEditorTab } from "@/store/layout.utils";
-import type { ReviewComment } from "@/types/review";
+import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
 
 const EMPTY_REVIEW_COMMENTS: ReviewComment[] = [];
 
@@ -328,16 +331,15 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [bulkClosePlan, setBulkClosePlan] =
     useState<EditorBulkClosePlan | null>(null);
-  const [reviewDraft, setReviewDraft] = useState<EditorReviewDraft | null>(
-    null,
-  );
+  const [reviewDraftState, setReviewDraftState] =
+    useState<TaskReviewDraftState | null>(null);
 
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
   const diffEditorRef = useRef<MonacoEditorApi.IStandaloneDiffEditor | null>(
     null,
   );
-  const diffReviewActionDisposableRef = useRef<MonacoDisposable | null>(null);
+  const diffReviewControllerRef = useRef<DiffReviewController | null>(null);
 
   const isActiveEditorTab = activeEditorTabId === editorTabId;
   const tabContentTooLarge = tab?.contentState === "too-large";
@@ -363,15 +365,16 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   );
   const monacoTheme = isDarkMode ? "vs-dark" : "vs";
   const modelPath = tab ? toMonacoModelPath(tab.filePath) : undefined;
-  const showDiffDisplayControls = Boolean(
-    diffMode && tab?.originalContent != null && !tabIsImage,
-  );
+  const renderDiffEditor = shouldRenderDiffEditorSurface({
+    diffMode,
+    originalContent: tab?.originalContent,
+  });
+  const showDiffDisplayControls = Boolean(renderDiffEditor && !tabIsImage);
   const diffSessionKey = showDiffDisplayControls && tab ? tab.id : null;
   // A snapshot diff shows two frozen sides, so there is nothing to edit or
   // save. Keeping it writable would let Cmd+S drop a stale snapshot on top of
-  // the working tree file. This has to hold in the single-editor branch too: an
-  // added file has an empty original side and renders there, and "Back to Edit"
-  // leaves the diff for it as well.
+  // the working tree file. Added files still use the diff editor: their empty
+  // original side is meaningful, and line review controls belong to that diff.
   const tabIsReadOnly = isSnapshotDiffEditorTab(tab);
   const showCodeEditor = Boolean(
     tab &&
@@ -379,7 +382,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     !tabContentUnavailable &&
     !tabIsImage &&
     !showMarkdownPreview &&
-    !(diffMode && tab.originalContent),
+    !renderDiffEditor,
   );
   const absolutePath = tab
     ? resolveEditorTabAbsolutePath({
@@ -395,6 +398,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
       (comment) => comment.filePath === tab.filePath,
     );
   }, [tab?.filePath, reviewCommentsForActiveTask]);
+  const reviewDraft = resolveTaskReviewDraft(reviewDraftState, activeTaskId);
   const canAddReviewComment = Boolean(
     activeTaskId && tab && diffSessionKey && !tabContentUnavailable,
   );
@@ -491,19 +495,37 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     closeEditorTabs({ tabIds: plan.tabIds });
   }
 
-  function startReviewCommentDraft(args: { line?: number } = {}) {
-    if (!tab || !diffSessionKey) {
-      return;
-    }
-    setReviewDraft({
-      filePath: tab.filePath,
-      line: args.line ?? getModifiedDiffEditorLine(diffEditorRef.current),
-      side: "modified",
-      body: "",
-    });
-  }
+  const startReviewCommentDraft = useCallback(
+    (args: { line?: number } = {}) => {
+      if (!activeTaskId || !tab || !diffSessionKey) {
+        return;
+      }
+      const diffEditor = diffEditorRef.current;
+      const firstChangedLine = collectModifiedDiffCommentableLines(
+        diffEditor?.getLineChanges() ?? null,
+      )[0];
+      const line =
+        args.line ??
+        getModifiedDiffEditorLine(diffEditor) ??
+        firstChangedLine ??
+        (diffEditor?.getModifiedEditor().getModel()?.getLineCount() ? 1 : null);
+      if (!line) {
+        return;
+      }
+      setReviewDraftState({
+        taskId: activeTaskId,
+        draft: {
+          filePath: tab.filePath,
+          line,
+          side: "modified",
+          body: "",
+        },
+      });
+    },
+    [activeTaskId, diffSessionKey, tab],
+  );
 
-  function submitReviewCommentDraft() {
+  const submitReviewCommentDraft = useCallback(() => {
     if (!reviewDraft || !activeTaskId) {
       return;
     }
@@ -515,9 +537,9 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
       body: reviewDraft.body,
     });
     if (comment) {
-      setReviewDraft(null);
+      setReviewDraftState(null);
     }
-  }
+  }, [activeTaskId, reviewDraft]);
 
   function submitActiveTaskReviewFeedback() {
     if (!activeTaskId || reviewCommentsForActiveTask.length === 0) {
@@ -525,6 +547,38 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     }
     void useAppStore.getState().submitReviewFeedback({ taskId: activeTaskId });
   }
+
+  const buildDiffReviewControllerUpdate = useCallback(
+    (): DiffReviewControllerUpdate => ({
+      comments: activeFileReviewComments,
+      draft: reviewDraft,
+      onStartDraft: (line) => startReviewCommentDraft({ line }),
+      onDraftBodyChange: (body) =>
+        setReviewDraftState((current) =>
+          current?.taskId === activeTaskId
+            ? { ...current, draft: { ...current.draft, body } }
+            : current,
+        ),
+      onCancelDraft: () => setReviewDraftState(null),
+      onSubmitDraft: submitReviewCommentDraft,
+      onRemoveComment: (commentId) =>
+        useAppStore.getState().removeReviewComment({
+          taskId: activeTaskId,
+          commentId,
+        }),
+    }),
+    [
+      activeFileReviewComments,
+      activeTaskId,
+      reviewDraft,
+      startReviewCommentDraft,
+      submitReviewCommentDraft,
+    ],
+  );
+
+  useLayoutEffect(() => {
+    diffReviewControllerRef.current?.update(buildDiffReviewControllerUpdate());
+  }, [buildDiffReviewControllerUpdate]);
 
   function applyPendingNavigation(
     editor: MonacoEditorApi.IStandaloneCodeEditor,
@@ -758,8 +812,6 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
       return;
     }
     return () => {
-      diffReviewActionDisposableRef.current?.dispose();
-      diffReviewActionDisposableRef.current = null;
       const diffEditor = diffEditorRef.current;
       if (diffEditor) {
         try {
@@ -771,6 +823,8 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
           // The diff editor may already be disposed during teardown races.
         }
       }
+      diffReviewControllerRef.current?.dispose();
+      diffReviewControllerRef.current = null;
       releaseDiffEditorModels(diffEditorRef.current);
       diffEditorRef.current = null;
     };
@@ -791,17 +845,18 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   );
 
   useEffect(() => {
-    if (!reviewDraft) {
+    if (!reviewDraftState) {
       return;
     }
     if (
+      reviewDraftState.taskId !== activeTaskId ||
       !tab?.filePath ||
       !diffSessionKey ||
-      reviewDraft.filePath !== tab.filePath
+      reviewDraftState.draft.filePath !== tab.filePath
     ) {
-      setReviewDraft(null);
+      setReviewDraftState(null);
     }
-  }, [diffSessionKey, tab?.filePath, reviewDraft]);
+  }, [activeTaskId, diffSessionKey, tab?.filePath, reviewDraftState]);
 
   if (!tab) {
     // The panel is about to be reconciled away (tab closed in the store).
@@ -855,29 +910,6 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-editor-foreground">
-        {showDiffDisplayControls ? (
-          <EditorReviewPanel
-            draft={reviewDraft}
-            comments={activeFileReviewComments}
-            totalCount={reviewCommentsForActiveTask.length}
-            submitDisabled={!canSubmitReviewFeedback}
-            onDraftBodyChange={(body) =>
-              setReviewDraft((current) =>
-                current ? { ...current, body } : current,
-              )
-            }
-            onCancelDraft={() => setReviewDraft(null)}
-            onSubmitDraft={submitReviewCommentDraft}
-            onRemoveComment={(commentId) =>
-              useAppStore.getState().removeReviewComment({
-                taskId: activeTaskId,
-                commentId,
-              })
-            }
-            onSendReview={submitActiveTaskReviewFeedback}
-          />
-        ) : null}
-
         <div className="min-h-0 flex-1 overflow-hidden">
           {tab.kind === "git-graph" ? (
             <GitGraphView
@@ -955,7 +987,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
               content={tab.content}
               fontSize={editorFontSize}
             />
-          ) : diffMode && tab.originalContent ? (
+          ) : renderDiffEditor ? (
             <DiffEditor
               key={diffSessionKey ?? "diff-editor"}
               height="100%"
@@ -978,6 +1010,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                 readOnly: tabIsReadOnly,
                 renderSideBySide: diffViewMode === "split",
                 fixedOverflowWidgets: true,
+                glyphMargin: true,
                 minimap: { enabled: editorMinimap },
                 fontSize: editorFontSize,
                 fontFamily: editorFontFamily,
@@ -992,13 +1025,14 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                 if (savedViewState) {
                   editor.restoreViewState(savedViewState);
                 }
-                diffReviewActionDisposableRef.current?.dispose();
-                diffReviewActionDisposableRef.current =
-                  registerDiffReviewCommentAction({
-                    editor: editor.getModifiedEditor(),
-                    onAddComment: (target) =>
-                      startReviewCommentDraft({ line: target.line }),
-                  });
+                diffReviewControllerRef.current?.dispose();
+                diffReviewControllerRef.current = createDiffReviewController({
+                  diffEditor: editor,
+                  monaco,
+                });
+                diffReviewControllerRef.current.update(
+                  buildDiffReviewControllerUpdate(),
+                );
                 editor
                   .getOriginalEditor()
                   .updateOptions({ tabSize: editorTabSize });

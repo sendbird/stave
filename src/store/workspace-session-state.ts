@@ -22,17 +22,23 @@ import type {
 } from "@/lib/terminal/types";
 import { isTaskArchived, normalizeTaskControl } from "@/lib/tasks";
 import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
-import { createEmptyWorkspaceInformation, type WorkspaceInformationState } from "@/lib/workspace-information";
+import {
+  createEmptyWorkspaceInformation,
+  type WorkspaceInformationState,
+} from "@/lib/workspace-information";
 import type { ProviderGoalSnapshot } from "@/lib/providers/provider.types";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import { normalizeGitGraphEditorTabs } from "@/lib/git-graph/presentation";
 import { interruptPendingToolInteractionsInMessages } from "@/store/provider-message.utils";
 import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
+import type { ReviewComment } from "@/types/review";
 
 export const starterWorkspaceId = "base";
 export const defaultWorkspaceName = "Default Workspace";
-export const INTERRUPTED_TURN_NOTICE = "Generation interrupted because Stave was closed before this turn completed.";
-export const WORKSPACE_SWITCH_TURN_NOTICE = "Generation interrupted because you switched workspaces before this turn completed.";
+export const INTERRUPTED_TURN_NOTICE =
+  "Generation interrupted because Stave was closed before this turn completed.";
+export const WORKSPACE_SWITCH_TURN_NOTICE =
+  "Generation interrupted because you switched workspaces before this turn completed.";
 
 export interface WorkspaceSessionState {
   activeTaskId: string;
@@ -40,6 +46,7 @@ export interface WorkspaceSessionState {
   messagesByTask: Record<string, ChatMessage[]>;
   messageCountByTask: Record<string, number>;
   promptDraftByTask: Record<string, PromptDraft>;
+  reviewCommentsByTask: Record<string, ReviewComment[] | undefined>;
   workspaceInformation: WorkspaceInformationState;
   editorTabs: EditorTab[];
   activeEditorTabId: string | null;
@@ -66,6 +73,7 @@ export function createEmptyWorkspaceState() {
     messagesByTask: {} as Record<string, ChatMessage[]>,
     messageCountByTask: {} as Record<string, number>,
     promptDraftByTask: {} as Record<string, PromptDraft>,
+    reviewCommentsByTask: {} as Record<string, ReviewComment[] | undefined>,
     workspaceInformation: createEmptyWorkspaceInformation(),
     editorTabs: [] as EditorTab[],
     activeEditorTabId: null as string | null,
@@ -80,7 +88,10 @@ export function createEmptyWorkspaceState() {
     paneTabMeta: {} as Record<string, PaneTabMeta>,
     dockLayout: null as PaneDockLayout | null,
     providerSessionByTask: {} as Record<string, TaskProviderSessionState>,
-    providerGoalByTask: {} as Record<string, ProviderGoalSnapshot | null | undefined>,
+    providerGoalByTask: {} as Record<
+      string,
+      ProviderGoalSnapshot | null | undefined
+    >,
   };
 }
 
@@ -90,24 +101,27 @@ function normalizeTerminalState(args: {
   activeTerminalTabId: string | null;
 }) {
   const activeTaskIds = new Set(
-    args.tasks
-      .filter((task) => !isTaskArchived(task))
-      .map((task) => task.id),
+    args.tasks.filter((task) => !isTaskArchived(task)).map((task) => task.id),
   );
   const seenTabIds = new Set<string>();
-  const terminalTabs = args.terminalTabs.filter((tab) => {
-    if (seenTabIds.has(tab.id)) {
-      return false;
-    }
-    seenTabIds.add(tab.id);
-    return true;
-  }).map((tab) => ({
-    ...tab,
-    linkedTaskId: tab.linkedTaskId && activeTaskIds.has(tab.linkedTaskId)
-      ? tab.linkedTaskId
-      : null,
-  }));
-  const activeTerminalTabId = terminalTabs.some((tab) => tab.id === args.activeTerminalTabId)
+  const terminalTabs = args.terminalTabs
+    .filter((tab) => {
+      if (seenTabIds.has(tab.id)) {
+        return false;
+      }
+      seenTabIds.add(tab.id);
+      return true;
+    })
+    .map((tab) => ({
+      ...tab,
+      linkedTaskId:
+        tab.linkedTaskId && activeTaskIds.has(tab.linkedTaskId)
+          ? tab.linkedTaskId
+          : null,
+    }));
+  const activeTerminalTabId = terminalTabs.some(
+    (tab) => tab.id === args.activeTerminalTabId,
+  )
     ? args.activeTerminalTabId
     : null;
 
@@ -123,24 +137,27 @@ function normalizeCliSessionState(args: {
   activeCliSessionTabId: string | null;
 }) {
   const activeTaskIds = new Set(
-    args.tasks
-      .filter((task) => !isTaskArchived(task))
-      .map((task) => task.id),
+    args.tasks.filter((task) => !isTaskArchived(task)).map((task) => task.id),
   );
   const seenTabIds = new Set<string>();
-  const cliSessionTabs = args.cliSessionTabs.filter((tab) => {
-    if (seenTabIds.has(tab.id)) {
-      return false;
-    }
-    seenTabIds.add(tab.id);
-    return true;
-  }).map((tab) => ({
-    ...tab,
-    linkedTaskId: tab.linkedTaskId && activeTaskIds.has(tab.linkedTaskId)
-      ? tab.linkedTaskId
-      : null,
-  }));
-  const activeCliSessionTabId = cliSessionTabs.some((tab) => tab.id === args.activeCliSessionTabId)
+  const cliSessionTabs = args.cliSessionTabs
+    .filter((tab) => {
+      if (seenTabIds.has(tab.id)) {
+        return false;
+      }
+      seenTabIds.add(tab.id);
+      return true;
+    })
+    .map((tab) => ({
+      ...tab,
+      linkedTaskId:
+        tab.linkedTaskId && activeTaskIds.has(tab.linkedTaskId)
+          ? tab.linkedTaskId
+          : null,
+    }));
+  const activeCliSessionTabId = cliSessionTabs.some(
+    (tab) => tab.id === args.activeCliSessionTabId,
+  )
     ? args.activeCliSessionTabId
     : null;
 
@@ -207,15 +224,21 @@ function resolveActiveSurface(args: {
   // `activeTaskId`), so an explicitly empty tab set must not be repaired by
   // reopening an arbitrary task on the next load.
   const hasTask = (taskId: string) =>
-    args.openTaskTabIds.includes(taskId)
-    && args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
+    args.openTaskTabIds.includes(taskId) &&
+    args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
   const hasCliSession = (cliSessionTabId: string) =>
     args.cliSessionTabs.some((tab) => tab.id === cliSessionTabId);
 
-  if (args.activeSurface.kind === "task" && hasTask(args.activeSurface.taskId)) {
+  if (
+    args.activeSurface.kind === "task" &&
+    hasTask(args.activeSurface.taskId)
+  ) {
     return args.activeSurface;
   }
-  if (args.activeSurface.kind === "cli-session" && hasCliSession(args.activeSurface.cliSessionTabId)) {
+  if (
+    args.activeSurface.kind === "cli-session" &&
+    hasCliSession(args.activeSurface.cliSessionTabId)
+  ) {
     return args.activeSurface;
   }
   if (args.activeSurface.kind === "compare-run") {
@@ -241,21 +264,34 @@ function resolveActiveSurface(args: {
   }
 
   if (hasTask(args.activeTaskId)) {
-    return { kind: "task", taskId: args.activeTaskId } satisfies WorkspaceActiveSurface;
+    return {
+      kind: "task",
+      taskId: args.activeTaskId,
+    } satisfies WorkspaceActiveSurface;
   }
 
   if (args.activeCliSessionTabId && hasCliSession(args.activeCliSessionTabId)) {
-    return { kind: "cli-session", cliSessionTabId: args.activeCliSessionTabId } satisfies WorkspaceActiveSurface;
+    return {
+      kind: "cli-session",
+      cliSessionTabId: args.activeCliSessionTabId,
+    } satisfies WorkspaceActiveSurface;
   }
 
-  const fallbackTaskId = args.openTaskTabIds.find((taskId) => hasTask(taskId)) ?? "";
+  const fallbackTaskId =
+    args.openTaskTabIds.find((taskId) => hasTask(taskId)) ?? "";
   if (fallbackTaskId) {
-    return { kind: "task", taskId: fallbackTaskId } satisfies WorkspaceActiveSurface;
+    return {
+      kind: "task",
+      taskId: fallbackTaskId,
+    } satisfies WorkspaceActiveSurface;
   }
 
   const fallbackCliSessionId = args.cliSessionTabs[0]?.id ?? "";
   if (fallbackCliSessionId) {
-    return { kind: "cli-session", cliSessionTabId: fallbackCliSessionId } satisfies WorkspaceActiveSurface;
+    return {
+      kind: "cli-session",
+      cliSessionTabId: fallbackCliSessionId,
+    } satisfies WorkspaceActiveSurface;
   }
 
   return { kind: "task", taskId: "" } satisfies WorkspaceActiveSurface;
@@ -267,8 +303,8 @@ function resolveActiveTaskId(args: {
   openTaskTabIds: string[];
 }) {
   const isOpenLiveTask = (taskId: string) =>
-    args.openTaskTabIds.includes(taskId)
-    && args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
+    args.openTaskTabIds.includes(taskId) &&
+    args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
   if (isOpenLiveTask(args.activeTaskId)) {
     return args.activeTaskId;
   }
@@ -326,13 +362,21 @@ function buildRecentTimestamp() {
 }
 
 function hasInterruptedTurnNotice(messages: ChatMessage[]) {
-  return messages.some((message) =>
-    message.role === "assistant"
-    && message.parts.some((part) => part.type === "system_event" && part.content === INTERRUPTED_TURN_NOTICE)
+  return messages.some(
+    (message) =>
+      message.role === "assistant" &&
+      message.parts.some(
+        (part) =>
+          part.type === "system_event" &&
+          part.content === INTERRUPTED_TURN_NOTICE,
+      ),
   );
 }
 
-function createInterruptedTurnNoticeMessage(args: { taskId: string; count: number }): ChatMessage {
+function createInterruptedTurnNoticeMessage(args: {
+  taskId: string;
+  count: number;
+}): ChatMessage {
   const timestamp = buildRecentTimestamp();
   return {
     id: buildMessageId({ taskId: args.taskId, count: args.count }),
@@ -343,10 +387,12 @@ function createInterruptedTurnNoticeMessage(args: { taskId: string; count: numbe
     startedAt: timestamp,
     completedAt: timestamp,
     isStreaming: false,
-    parts: [{
-      type: "system_event",
-      content: INTERRUPTED_TURN_NOTICE,
-    }],
+    parts: [
+      {
+        type: "system_event",
+        content: INTERRUPTED_TURN_NOTICE,
+      },
+    ],
   };
 }
 
@@ -397,13 +443,20 @@ export function appendInterruptedTurnNotices(args: {
 }
 
 function hasSystemNotice(args: { messages: ChatMessage[]; notice: string }) {
-  return args.messages.some((message) =>
-    message.role === "assistant"
-    && message.parts.some((part) => part.type === "system_event" && part.content === args.notice)
+  return args.messages.some(
+    (message) =>
+      message.role === "assistant" &&
+      message.parts.some(
+        (part) => part.type === "system_event" && part.content === args.notice,
+      ),
   );
 }
 
-function createSystemNoticeMessage(args: { taskId: string; count: number; notice: string }): ChatMessage {
+function createSystemNoticeMessage(args: {
+  taskId: string;
+  count: number;
+  notice: string;
+}): ChatMessage {
   return {
     id: buildMessageId({ taskId: args.taskId, count: args.count }),
     role: "assistant",
@@ -411,10 +464,12 @@ function createSystemNoticeMessage(args: { taskId: string; count: number; notice
     providerId: "user",
     content: args.notice,
     isStreaming: false,
-    parts: [{
-      type: "system_event",
-      content: args.notice,
-    }],
+    parts: [
+      {
+        type: "system_event",
+        content: args.notice,
+      },
+    ],
   };
 }
 
@@ -447,16 +502,27 @@ export function interruptActiveTaskTurns(args: {
       messages: currentMessages,
     });
     let taskMessagesChanged = interruptedMessages !== currentMessages;
-    const finalizedMessages = interruptedMessages.map((message) => (
-        message.isStreaming
-          ? { ...message, completedAt: message.completedAt ?? buildRecentTimestamp(), isStreaming: false }
-          : message
-      ));
-    if (finalizedMessages.some((message, index) => message !== interruptedMessages[index])) {
+    const finalizedMessages = interruptedMessages.map((message) =>
+      message.isStreaming
+        ? {
+            ...message,
+            completedAt: message.completedAt ?? buildRecentTimestamp(),
+            isStreaming: false,
+          }
+        : message,
+    );
+    if (
+      finalizedMessages.some(
+        (message, index) => message !== interruptedMessages[index],
+      )
+    ) {
       taskMessagesChanged = true;
     }
 
-    const hasNotice = hasSystemNotice({ messages: finalizedMessages, notice: args.notice });
+    const hasNotice = hasSystemNotice({
+      messages: finalizedMessages,
+      notice: args.notice,
+    });
     const nextMessages = hasNotice
       ? finalizedMessages
       : [
@@ -481,7 +547,9 @@ export function interruptActiveTaskTurns(args: {
   return {
     interruptedTaskIds,
     messagesByTask: messagesChanged ? nextMessagesByTask : args.messagesByTask,
-    activeTurnIdsByTask: turnsChanged ? nextActiveTurnIdsByTask : args.activeTurnIdsByTask,
+    activeTurnIdsByTask: turnsChanged
+      ? nextActiveTurnIdsByTask
+      : args.activeTurnIdsByTask,
   };
 }
 
@@ -491,7 +559,9 @@ export function buildWorkspaceSessionState(args: {
   appendInterruptedNotices?: boolean;
 }): WorkspaceSessionState {
   const empty = createEmptyWorkspaceState();
-  const rawTasks = (args.snapshot?.tasks ?? empty.tasks).map(normalizeTaskControl);
+  const rawTasks = (args.snapshot?.tasks ?? empty.tasks).map(
+    normalizeTaskControl,
+  );
   const orphanedBranchTaskIds = collectLegacyBranchTaskIds(rawTasks);
   const tasks = rawTasks.filter((task) => !task.coliseumParentTaskId);
   const rawProviderSessionByTask =
@@ -511,29 +581,36 @@ export function buildWorkspaceSessionState(args: {
     orphanedBranchTaskIds,
   );
   const messageCountByTask = Object.fromEntries(
-    Object.entries(messagesByTask).map(([taskId, messages]) => [taskId, messages.length] as const),
+    Object.entries(messagesByTask).map(
+      ([taskId, messages]) => [taskId, messages.length] as const,
+    ),
   ) as Record<string, number>;
   const editorTabs = normalizeGitGraphEditorTabs(
     args.snapshot?.editorTabs ?? empty.editorTabs,
   );
-  const requestedActiveEditorTabId = args.snapshot?.activeEditorTabId ?? empty.activeEditorTabId;
-  const activeEditorTabId = editorTabs.some((tab) => tab.id === requestedActiveEditorTabId)
+  const requestedActiveEditorTabId =
+    args.snapshot?.activeEditorTabId ?? empty.activeEditorTabId;
+  const activeEditorTabId = editorTabs.some(
+    (tab) => tab.id === requestedActiveEditorTabId,
+  )
     ? requestedActiveEditorTabId
     : (editorTabs[0]?.id ?? null);
   const normalizedTerminalState = normalizeTerminalState({
     tasks,
     terminalTabs: args.snapshot?.terminalTabs ?? empty.terminalTabs,
-    activeTerminalTabId: args.snapshot?.activeTerminalTabId ?? empty.activeTerminalTabId,
+    activeTerminalTabId:
+      args.snapshot?.activeTerminalTabId ?? empty.activeTerminalTabId,
   });
   const normalizedCliSessionState = normalizeCliSessionState({
     tasks,
     cliSessionTabs: args.snapshot?.cliSessionTabs ?? empty.cliSessionTabs,
-    activeCliSessionTabId: args.snapshot?.activeCliSessionTabId ?? empty.activeCliSessionTabId,
+    activeCliSessionTabId:
+      args.snapshot?.activeCliSessionTabId ?? empty.activeCliSessionTabId,
   });
   const activeTurnIdsByTask = Object.fromEntries(
     (args.latestTurns ?? [])
       .filter((turn) => !turn.completedAt)
-      .map((turn) => [turn.taskId, turn.id] as const)
+      .map((turn) => [turn.taskId, turn.id] as const),
   ) as Record<string, string | undefined>;
   const paneState = normalizePaneState({
     tasks,
@@ -553,7 +630,10 @@ export function buildWorkspaceSessionState(args: {
     openTaskTabIds: paneState.openTaskTabIds,
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
-    activeSurface: args.snapshot?.activeSurface ?? { kind: "task", taskId: activeTaskId },
+    activeSurface: args.snapshot?.activeSurface ?? {
+      kind: "task",
+      taskId: activeTaskId,
+    },
     lensTabs: paneState.lensTabs,
     terminalTabs: normalizedTerminalState.terminalTabs,
     editorTabs,
@@ -568,7 +648,12 @@ export function buildWorkspaceSessionState(args: {
       args.snapshot?.promptDraftByTask ?? empty.promptDraftByTask,
       orphanedBranchTaskIds,
     ),
-    workspaceInformation: args.snapshot?.workspaceInformation ?? empty.workspaceInformation,
+    reviewCommentsByTask: stripRecordsByIds(
+      args.snapshot?.reviewCommentsByTask ?? empty.reviewCommentsByTask,
+      orphanedBranchTaskIds,
+    ),
+    workspaceInformation:
+      args.snapshot?.workspaceInformation ?? empty.workspaceInformation,
     editorTabs,
     activeEditorTabId,
     terminalTabs: normalizedTerminalState.terminalTabs,
@@ -633,29 +718,37 @@ export function buildWorkspaceSessionStateFromShell(args: {
     orphanedBranchTaskIds,
   );
   for (const [taskId, messages] of Object.entries(messagesByTask)) {
-    messageCountByTask[taskId] = Math.max(messageCountByTask[taskId] ?? 0, messages.length);
+    messageCountByTask[taskId] = Math.max(
+      messageCountByTask[taskId] ?? 0,
+      messages.length,
+    );
   }
   const editorTabs = normalizeGitGraphEditorTabs(
     args.shell?.editorTabs ?? empty.editorTabs,
   );
-  const requestedActiveEditorTabId = args.shell?.activeEditorTabId ?? empty.activeEditorTabId;
-  const activeEditorTabId = editorTabs.some((tab) => tab.id === requestedActiveEditorTabId)
+  const requestedActiveEditorTabId =
+    args.shell?.activeEditorTabId ?? empty.activeEditorTabId;
+  const activeEditorTabId = editorTabs.some(
+    (tab) => tab.id === requestedActiveEditorTabId,
+  )
     ? requestedActiveEditorTabId
     : (editorTabs[0]?.id ?? null);
   const normalizedTerminalState = normalizeTerminalState({
     tasks,
     terminalTabs: args.shell?.terminalTabs ?? empty.terminalTabs,
-    activeTerminalTabId: args.shell?.activeTerminalTabId ?? empty.activeTerminalTabId,
+    activeTerminalTabId:
+      args.shell?.activeTerminalTabId ?? empty.activeTerminalTabId,
   });
   const normalizedCliSessionState = normalizeCliSessionState({
     tasks,
     cliSessionTabs: args.shell?.cliSessionTabs ?? empty.cliSessionTabs,
-    activeCliSessionTabId: args.shell?.activeCliSessionTabId ?? empty.activeCliSessionTabId,
+    activeCliSessionTabId:
+      args.shell?.activeCliSessionTabId ?? empty.activeCliSessionTabId,
   });
   const activeTurnIdsByTask = Object.fromEntries(
     (args.latestTurns ?? [])
       .filter((turn) => !turn.completedAt)
-      .map((turn) => [turn.taskId, turn.id] as const)
+      .map((turn) => [turn.taskId, turn.id] as const),
   ) as Record<string, string | undefined>;
   const paneState = normalizePaneState({
     tasks,
@@ -675,7 +768,10 @@ export function buildWorkspaceSessionStateFromShell(args: {
     openTaskTabIds: paneState.openTaskTabIds,
     cliSessionTabs: normalizedCliSessionState.cliSessionTabs,
     activeCliSessionTabId: normalizedCliSessionState.activeCliSessionTabId,
-    activeSurface: args.shell?.activeSurface ?? { kind: "task", taskId: activeTaskId },
+    activeSurface: args.shell?.activeSurface ?? {
+      kind: "task",
+      taskId: activeTaskId,
+    },
     lensTabs: paneState.lensTabs,
     terminalTabs: normalizedTerminalState.terminalTabs,
     editorTabs,
@@ -690,7 +786,12 @@ export function buildWorkspaceSessionStateFromShell(args: {
       args.shell?.promptDraftByTask ?? empty.promptDraftByTask,
       orphanedBranchTaskIds,
     ),
-    workspaceInformation: args.shell?.workspaceInformation ?? empty.workspaceInformation,
+    reviewCommentsByTask: stripRecordsByIds(
+      args.shell?.reviewCommentsByTask ?? empty.reviewCommentsByTask,
+      orphanedBranchTaskIds,
+    ),
+    workspaceInformation:
+      args.shell?.workspaceInformation ?? empty.workspaceInformation,
     editorTabs,
     activeEditorTabId,
     terminalTabs: normalizedTerminalState.terminalTabs,
@@ -724,6 +825,7 @@ export function createWorkspaceSnapshot(args: {
   tasks: Task[];
   messagesByTask: Record<string, ChatMessage[]>;
   promptDraftByTask: Record<string, PromptDraft>;
+  reviewCommentsByTask?: Record<string, ReviewComment[] | undefined>;
   workspaceInformation?: WorkspaceInformationState;
   editorTabs: EditorTab[];
   activeEditorTabId: string | null;
@@ -747,9 +849,15 @@ export function createWorkspaceSnapshot(args: {
   return {
     activeTaskId: args.activeTaskId,
     tasks: args.tasks,
-    messagesByTask: normalizeMessagesForSnapshot({ messagesByTask: args.messagesByTask }),
+    messagesByTask: normalizeMessagesForSnapshot({
+      messagesByTask: args.messagesByTask,
+    }),
     promptDraftByTask: args.promptDraftByTask,
-    workspaceInformation: args.workspaceInformation ?? createEmptyWorkspaceInformation(),
+    ...(args.reviewCommentsByTask !== undefined
+      ? { reviewCommentsByTask: args.reviewCommentsByTask }
+      : {}),
+    workspaceInformation:
+      args.workspaceInformation ?? createEmptyWorkspaceInformation(),
     editorTabs: args.editorTabs,
     activeEditorTabId: args.activeEditorTabId,
     terminalTabs: args.terminalTabs,
@@ -777,6 +885,7 @@ export async function persistWorkspaceSnapshot(args: {
   tasks: Task[];
   messagesByTask: Record<string, ChatMessage[]>;
   promptDraftByTask: Record<string, PromptDraft>;
+  reviewCommentsByTask?: Record<string, ReviewComment[] | undefined>;
   workspaceInformation?: WorkspaceInformationState;
   editorTabs: EditorTab[];
   activeEditorTabId: string | null;
@@ -792,34 +901,52 @@ export async function persistWorkspaceSnapshot(args: {
   dockLayout?: PaneDockLayout | null;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
 }) {
-  const persistedShell = await loadWorkspaceShellLite({ workspaceId: args.workspaceId });
+  const persistedShell = await loadWorkspaceShellLite({
+    workspaceId: args.workspaceId,
+  });
   const nextTaskIds = new Set(args.tasks.map((task) => task.id));
-  const preservedTasks = (persistedShell?.tasks ?? []).filter((task) => !nextTaskIds.has(task.id));
-  const mergedTasks = preservedTasks.length > 0
-    ? [...args.tasks, ...preservedTasks]
-    : args.tasks;
+  const preservedTasks = (persistedShell?.tasks ?? []).filter(
+    (task) => !nextTaskIds.has(task.id),
+  );
+  const mergedTasks =
+    preservedTasks.length > 0 ? [...args.tasks, ...preservedTasks] : args.tasks;
   const mergedTaskIds = new Set(mergedTasks.map((task) => task.id));
   const mergedActiveTaskId = mergedTaskIds.has(args.activeTaskId)
     ? args.activeTaskId
-    : (
-      persistedShell?.activeTaskId && mergedTaskIds.has(persistedShell.activeTaskId)
-        ? persistedShell.activeTaskId
-        : (mergedTasks[0]?.id ?? "")
-    );
+    : persistedShell?.activeTaskId &&
+        mergedTaskIds.has(persistedShell.activeTaskId)
+      ? persistedShell.activeTaskId
+      : (mergedTasks[0]?.id ?? "");
   const mergedPromptDraftByTask = {
     ...(persistedShell?.promptDraftByTask ?? {}),
     ...args.promptDraftByTask,
   };
+  const currentTaskIds = new Set(args.tasks.map((task) => task.id));
+  const preservedReviewCommentsByTask = Object.fromEntries(
+    Object.entries(persistedShell?.reviewCommentsByTask ?? {}).filter(
+      ([taskId]) => !currentTaskIds.has(taskId),
+    ),
+  );
+  const mergedReviewCommentsByTask =
+    args.reviewCommentsByTask === undefined
+      ? (persistedShell?.reviewCommentsByTask ?? {})
+      : {
+          ...preservedReviewCommentsByTask,
+          ...args.reviewCommentsByTask,
+        };
   const mergedProviderSessionByTask = {
     ...(persistedShell?.providerSessionByTask ?? {}),
     ...args.providerSessionByTask,
   };
 
   if (preservedTasks.length > 0) {
-    console.warn("[persistence] shrink guard preserved missing tasks during workspace snapshot persist", {
-      workspaceId: args.workspaceId,
-      taskIds: preservedTasks.map((task) => task.id),
-    });
+    console.warn(
+      "[persistence] shrink guard preserved missing tasks during workspace snapshot persist",
+      {
+        workspaceId: args.workspaceId,
+        taskIds: preservedTasks.map((task) => task.id),
+      },
+    );
   }
 
   await upsertWorkspace({
@@ -830,6 +957,7 @@ export async function persistWorkspaceSnapshot(args: {
       tasks: mergedTasks,
       messagesByTask: args.messagesByTask,
       promptDraftByTask: mergedPromptDraftByTask,
+      reviewCommentsByTask: mergedReviewCommentsByTask,
       workspaceInformation: args.workspaceInformation,
       editorTabs: args.editorTabs,
       activeEditorTabId: args.activeEditorTabId,

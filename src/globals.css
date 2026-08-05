@@ -66,6 +66,51 @@
     -10px 0 28px -24px color-mix(in oklch, var(--foreground) 34%, transparent);
 }
 
+.stave-diff-review-zone {
+  box-sizing: border-box;
+  overflow: hidden;
+  width: 100%;
+}
+
+.stave-diff-comment-hover-menu-host {
+  pointer-events: auto;
+  transform: translate(calc(-100% - 8px), -4px);
+  z-index: 40;
+}
+
+.monaco-editor .stave-diff-comment-glyph {
+  align-items: center;
+  cursor: pointer;
+  display: flex !important;
+  justify-content: center;
+}
+
+.monaco-editor .stave-diff-comment-glyph::before {
+  align-items: center;
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 18%, transparent);
+  color: var(--primary-foreground);
+  content: "•";
+  display: flex;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  height: 14px;
+  justify-content: center;
+  line-height: 1;
+  opacity: 1;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+  width: 14px;
+}
+
+.monaco-editor .stave-diff-comment-glyph:hover::before {
+  transform: scale(1.06);
+}
+
 :root {
   --background: oklch(0.985 0.006 75);
   --foreground: oklch(0.225 0.028 255);
