@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import type { FleetNeedItem } from "../src/lib/fleet/attention-projection";
+import { FLEET_NEED_PRIORITY } from "../src/lib/fleet/attention-projection";
 import {
   buildCollapsedWorkspaceEntries,
+  buildProjectSidebarAttentionAlert,
   buildSidebarActiveWorkspaceEntries,
   buildWorkspaceArchiveDialogCopy,
   buildWorkspaceHoverPreview,
@@ -509,5 +512,212 @@ describe("buildWorkspaceArchiveDialogCopy", () => {
     expect(copy.description).toBe(
       'Archive workspace "imported"? It is a linked worktree owned outside this project, so Stave only removes its shortcut — the worktree and its git branch stay untouched.',
     );
+  });
+});
+
+describe("buildProjectSidebarAttentionAlert", () => {
+  function buildNeed(overrides: Partial<FleetNeedItem>): FleetNeedItem {
+    return {
+      id: overrides.id ?? "need-1",
+      kind: overrides.kind ?? "user-input",
+      priority: overrides.priority ?? FLEET_NEED_PRIORITY[
+        overrides.kind ?? "user-input"
+      ],
+      projectPath: "/tmp/project-a",
+      projectName: "project-a",
+      workspaceId: overrides.workspaceId ?? "ws-1",
+      workspaceName: "ws-1",
+      createdAt: overrides.createdAt ?? "2026-01-01T00:00:00.000Z",
+      source: overrides.source ?? "live",
+      ...overrides,
+    } as FleetNeedItem;
+  }
+
+  test("returns no alert when the project has no needs at all", () => {
+    expect(
+      buildProjectSidebarAttentionAlert({
+        workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
+        needsByWorkspaceId: {},
+      }),
+    ).toBeNull();
+  });
+
+  test("raises an answer-needed alert when the AI is waiting on user input", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }],
+      needsByWorkspaceId: {
+        "ws-1": [buildNeed({ kind: "user-input" })],
+      },
+    });
+
+    expect(alert?.kind).toBe("user-input");
+    expect(alert?.needCount).toBe(1);
+    expect(alert?.workspaceCount).toBe(1);
+    expect(alert?.label).toBe("1 item needs attention: answer needed");
+  });
+
+  test("raises an approval alert when the AI is waiting on a tool approval", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }],
+      needsByWorkspaceId: {
+        "ws-1": [buildNeed({ kind: "approval" })],
+      },
+    });
+
+    expect(alert?.kind).toBe("approval");
+    expect(alert?.label).toBe("1 item needs attention: approval needed");
+  });
+
+  test("marks a finished-but-unconfirmed result as a review-tier alert", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }],
+      needsByWorkspaceId: {
+        "ws-1": [buildNeed({ kind: "result-ready" })],
+      },
+    });
+
+    expect(alert?.tier).toBe("review");
+    expect(alert?.kind).toBe("result-ready");
+    expect(alert?.needCount).toBe(1);
+    expect(alert?.label).toBe("1 item to review: result ready");
+  });
+
+  test("labels several review needs without claiming they need attention", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
+      needsByWorkspaceId: {
+        "ws-1": [buildNeed({ kind: "result-ready" })],
+        "ws-2": [
+          buildNeed({
+            id: "need-merge",
+            kind: "pr-ready-to-merge",
+            workspaceId: "ws-2",
+          }),
+        ],
+      },
+    });
+
+    expect(alert?.tier).toBe("review");
+    expect(alert?.needCount).toBe(2);
+    expect(alert?.label).toBe(
+      "2 items to review across 2 workspaces, latest: result ready",
+    );
+  });
+
+  test("keeps a blocking need visible even when review needs sit alongside it", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }],
+      needsByWorkspaceId: {
+        "ws-1": [
+          buildNeed({ id: "need-review", kind: "result-ready" }),
+          buildNeed({ id: "need-blocking", kind: "approval" }),
+        ],
+      },
+    });
+
+    expect(alert?.kind).toBe("approval");
+    expect(alert?.tier).toBe("blocking");
+    expect(alert?.needCount).toBe(1);
+  });
+
+  test("excludes review needs from the blocking count so the badge stays truthful", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
+      needsByWorkspaceId: {
+        "ws-1": [
+          buildNeed({ id: "need-blocking", kind: "approval" }),
+          buildNeed({ id: "need-review-a", kind: "result-ready" }),
+        ],
+        "ws-2": [
+          buildNeed({
+            id: "need-review-b",
+            kind: "result-ready",
+            workspaceId: "ws-2",
+          }),
+        ],
+      },
+    });
+
+    expect(alert?.tier).toBe("blocking");
+    expect(alert?.needCount).toBe(1);
+    // The review-only workspace must not inflate the blocking scope either.
+    expect(alert?.workspaceCount).toBe(1);
+    expect(alert?.label).toBe("1 item needs attention: approval needed");
+  });
+
+  test("tags every blocking alert with the blocking tier", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }],
+      needsByWorkspaceId: {
+        "ws-1": [buildNeed({ kind: "user-input" })],
+      },
+    });
+
+    expect(alert?.tier).toBe("blocking");
+  });
+
+  test("surfaces the most urgent need when a project blocks in several ways", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
+      needsByWorkspaceId: {
+        "ws-1": [buildNeed({ id: "need-failed", kind: "run-failed" })],
+        "ws-2": [
+          buildNeed({
+            id: "need-input",
+            kind: "user-input",
+            workspaceId: "ws-2",
+          }),
+        ],
+      },
+    });
+
+    expect(alert?.kind).toBe("user-input");
+    expect(alert?.needCount).toBe(2);
+    expect(alert?.workspaceCount).toBe(2);
+    expect(alert?.label).toBe(
+      "2 items need attention across 2 workspaces, most urgent: answer needed",
+    );
+  });
+
+  test("breaks priority ties with the older need so the label stays stable", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }],
+      needsByWorkspaceId: {
+        "ws-1": [
+          buildNeed({
+            id: "need-newer",
+            kind: "pr-checks-failed",
+            createdAt: "2026-02-01T00:00:00.000Z",
+          }),
+          buildNeed({
+            id: "need-older",
+            kind: "pr-merge-conflict",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          }),
+        ],
+      },
+    });
+
+    expect(alert?.kind).toBe("pr-merge-conflict");
+  });
+
+  test("counts only needs belonging to the project's own workspaces", () => {
+    const alert = buildProjectSidebarAttentionAlert({
+      workspaces: [{ id: "ws-1" }],
+      needsByWorkspaceId: {
+        "ws-1": [buildNeed({ kind: "approval" })],
+        "ws-other": [
+          buildNeed({
+            id: "need-other",
+            kind: "user-input",
+            workspaceId: "ws-other",
+          }),
+        ],
+      },
+    });
+
+    expect(alert?.kind).toBe("approval");
+    expect(alert?.needCount).toBe(1);
+    expect(alert?.workspaceCount).toBe(1);
   });
 });

@@ -1,4 +1,9 @@
-import type { FleetNeedKind } from "@/lib/fleet/attention-projection";
+import type {
+  FleetNeedItem,
+  FleetNeedKind,
+  FleetNeedTier,
+} from "@/lib/fleet/attention-projection";
+import { getFleetNeedTier } from "@/lib/fleet/attention-projection";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { hasFleetTaskAttentionStatus } from "@/lib/fleet/task-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
@@ -41,6 +46,131 @@ const WORKSPACE_ROW_ACTION_REVEAL_CLASSES =
 
 export function getWorkspaceLeadingNeedKind(needKind?: FleetNeedKind) {
   return needKind === "result-ready" ? undefined : needKind;
+}
+
+/**
+ * The project row's attention alert. A collapsed project hides its workspace
+ * rows, so a pending question inside one of them would otherwise be invisible
+ * until the user expands the project and finds the stalled agent by hand.
+ *
+ * Blocking needs always win. Review-tier needs (a finished result, a PR that is
+ * merely ready) are work you have not confirmed yet rather than work that is
+ * stalled, so they surface only when nothing is blocking, and they render as a
+ * muted dot rather than a warning glyph. Letting them light the full icon would
+ * leave it lit almost permanently and stop it reading as "an agent is waiting
+ * on you".
+ */
+export interface ProjectSidebarAttentionAlert {
+  kind: FleetNeedKind;
+  tier: FleetNeedTier;
+  needCount: number;
+  workspaceCount: number;
+  label: string;
+}
+
+const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetNeedKind, string> = {
+  "user-input": "answer needed",
+  approval: "approval needed",
+  "run-failed": "run failed",
+  "pr-changes-requested": "PR changes requested",
+  "pr-checks-failed": "PR checks failed",
+  "pr-merge-conflict": "PR merge conflict",
+  "pr-behind-base": "PR behind base",
+  "result-ready": "result ready",
+  "pr-ready-to-merge": "PR ready to merge",
+};
+
+function formatProjectAttentionAlertLabel(args: {
+  kind: FleetNeedKind;
+  needCount: number;
+  workspaceCount: number;
+}) {
+  const reason = PROJECT_ATTENTION_ALERT_LABEL[args.kind];
+  const scope =
+    args.workspaceCount > 1
+      ? ` across ${formatCountLabel(args.workspaceCount, "workspace")}`
+      : "";
+  // Review-tier needs are finished work nobody has confirmed yet, so claiming
+  // they "need attention" would overstate them next to a genuinely blocked agent.
+  if (getFleetNeedTier(args.kind) === "review") {
+    if (args.needCount <= 1) {
+      return `1 item to review${scope}: ${reason}`;
+    }
+    return `${formatCountLabel(args.needCount, "item")} to review${scope}, latest: ${reason}`;
+  }
+  if (args.needCount <= 1) {
+    return `1 item needs attention${scope}: ${reason}`;
+  }
+  return `${formatCountLabel(args.needCount, "item")} need attention${scope}, most urgent: ${reason}`;
+}
+
+function formatCountLabel(count: number, singular: string) {
+  return `${count} ${count === 1 ? singular : `${singular}s`}`;
+}
+
+interface ProjectAttentionTierAccumulator {
+  topNeed?: FleetNeedItem;
+  needCount: number;
+  workspaceIds: Set<string>;
+}
+
+function createTierAccumulator(): ProjectAttentionTierAccumulator {
+  return { needCount: 0, workspaceIds: new Set<string>() };
+}
+
+/**
+ * Rolls a project's workspaces up into a single alert so the collapsed project
+ * row can show one indicator instead of a pile of badges.
+ *
+ * Blocking and review needs are accumulated separately and blocking is returned
+ * whenever it exists, so an unconfirmed result never masks or inflates the
+ * count of an agent that is actually waiting on the user.
+ */
+export function buildProjectSidebarAttentionAlert(args: {
+  workspaces: readonly Pick<ProjectSidebarWorkspaceView, "id">[];
+  needsByWorkspaceId: Record<string, FleetNeedItem[] | undefined>;
+}): ProjectSidebarAttentionAlert | null {
+  const blocking = createTierAccumulator();
+  const review = createTierAccumulator();
+
+  for (const workspace of args.workspaces) {
+    for (const need of args.needsByWorkspaceId[workspace.id] ?? []) {
+      const target =
+        getFleetNeedTier(need.kind) === "blocking" ? blocking : review;
+      target.needCount += 1;
+      target.workspaceIds.add(workspace.id);
+      // Lower priority number wins; ties fall back to the older need so the
+      // label stays stable while a project keeps accruing requests.
+      const { topNeed } = target;
+      if (
+        !topNeed ||
+        need.priority < topNeed.priority ||
+        (need.priority === topNeed.priority &&
+          need.createdAt.localeCompare(topNeed.createdAt) < 0)
+      ) {
+        target.topNeed = need;
+      }
+    }
+  }
+
+  const selected = blocking.topNeed ? blocking : review;
+  const topNeed = selected.topNeed;
+  if (!topNeed) {
+    return null;
+  }
+
+  const workspaceCount = selected.workspaceIds.size;
+  return {
+    kind: topNeed.kind,
+    tier: getFleetNeedTier(topNeed.kind),
+    needCount: selected.needCount,
+    workspaceCount,
+    label: formatProjectAttentionAlertLabel({
+      kind: topNeed.kind,
+      needCount: selected.needCount,
+      workspaceCount,
+    }),
+  };
 }
 
 export function getWorkspaceHoverActionVisibilityClasses(args: {

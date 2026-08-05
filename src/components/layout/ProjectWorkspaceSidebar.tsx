@@ -37,6 +37,7 @@ import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { PANEL_BAR_HEIGHT_CLASS } from "@/components/layout/panel-bar.constants";
 import {
   buildCollapsedWorkspaceEntries,
+  buildProjectSidebarAttentionAlert,
   buildSidebarActiveWorkspaceEntries,
   buildWorkspaceArchiveDialogCopy,
   filterProjectSidebarProjects,
@@ -48,6 +49,7 @@ import {
   getWorkspaceLeadingNeedKind,
   getWorkspaceRespondingCountVisibilityClasses,
   WORKSPACE_SHORTCUT_COUNT,
+  type ProjectSidebarAttentionAlert,
   type ProjectSidebarCollapsedProjectView,
   type SidebarActiveWorkspaceEntry,
 } from "@/components/layout/ProjectWorkspaceSidebar.utils";
@@ -495,6 +497,60 @@ const WorkspaceLeadingStatusIcon = memo(
     );
   },
 );
+
+/**
+ * Project-level attention alert. Mirrors the per-workspace icon vocabulary in
+ * `WorkspaceLeadingStatusIcon` so the same need reads the same way whether the
+ * project is expanded or collapsed.
+ */
+const ProjectAttentionAlertIcon = memo(function ProjectAttentionAlertIcon(args: {
+  alert: ProjectSidebarAttentionAlert;
+  projectName: string;
+}) {
+  const { alert } = args;
+  // Review-tier needs are finished work awaiting confirmation, not a stalled
+  // agent. They get a muted dot so the warning glyphs keep meaning "blocked".
+  const icon =
+    alert.tier === "review" ? (
+      <span
+        className="size-1.5 rounded-full bg-muted-foreground/70"
+        aria-hidden="true"
+      />
+    ) : alert.kind === "user-input" ? (
+      <UserRound className="size-3.5 text-warning" aria-hidden="true" />
+    ) : alert.kind === "approval" ? (
+      <ShieldCheck className="size-3.5 text-warning" aria-hidden="true" />
+    ) : (
+      <AlertTriangle className="size-3.5 text-destructive" aria-hidden="true" />
+    );
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className="ml-auto inline-flex h-5 shrink-0 items-center justify-center gap-0.5 px-0.5"
+            role="status"
+            aria-label={`project-attention-${args.projectName}`}
+          />
+        }
+      >
+        {icon}
+        {alert.needCount > 1 ? (
+          <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
+            {alert.needCount}
+          </span>
+        ) : null}
+      </TooltipTrigger>
+      {/*
+        The tooltip is portaled, so opening to the right escapes the sidebar
+        instead of being clamped back over the glyph. `tests/e2e` asserts the
+        bubble's rect stays clear of the icon it describes.
+      */}
+      <TooltipContent side="right">{alert.label}</TooltipContent>
+    </Tooltip>
+  );
+});
 
 const WorkspaceRespondingCountBadge = memo(
   function WorkspaceRespondingCountBadge(args: {
@@ -1053,7 +1109,8 @@ export function ProjectWorkspaceSidebar(args: {
       ] as const;
     }),
   );
-  const { highestNeedByWorkspaceId } = useFleetAttentionProjection();
+  const { highestNeedByWorkspaceId, needsByWorkspaceId } =
+    useFleetAttentionProjection();
 
   const projects = useMemo(() => {
     const rememberedCurrentProject = currentProjectPath
@@ -1244,6 +1301,21 @@ export function ProjectWorkspaceSidebar(args: {
       workspaceFleetStatusById,
     ],
   );
+  // Collapsing a project hides its workspace rows, so the project row carries
+  // the rolled-up alert for anything blocking inside it.
+  const attentionAlertByProjectPath = useMemo(() => {
+    const alertByPath: Record<string, ProjectSidebarAttentionAlert> = {};
+    for (const project of projects) {
+      const alert = buildProjectSidebarAttentionAlert({
+        workspaces: project.workspaces,
+        needsByWorkspaceId,
+      });
+      if (alert) {
+        alertByPath[project.projectPath] = alert;
+      }
+    }
+    return alertByPath;
+  }, [needsByWorkspaceId, projects]);
   const workspaceShortcutTargets = useMemo(
     () =>
       buildVisibleWorkspaceShortcutTargets({
@@ -1817,6 +1889,13 @@ export function ProjectWorkspaceSidebar(args: {
                         busyProjectPath === project.projectPath;
                       const projectReorderingDisabled =
                         projectBusy || projects.length < 2;
+                      const projectAttentionAlert =
+                        attentionAlertByProjectPath[project.projectPath];
+                      // Only a blocking alert earns a reserved slot through
+                      // hover. A review dot is a passive marker, so it yields to
+                      // the row actions the way the workspace count does.
+                      const projectAlertPinnedOnHover =
+                        projectAttentionAlert?.tier === "blocking";
 
                       return (
                         <SortableSidebarItem
@@ -1975,20 +2054,52 @@ export function ProjectWorkspaceSidebar(args: {
                                         : "Collapse project"}
                                     </TooltipContent>
                                   </Tooltip>
-                                  <div className="relative flex min-w-0 flex-1 items-center gap-2 transition-[padding] duration-200 group-hover/project-row:pr-[5.75rem] group-focus-within/project-row:pr-[5.75rem]">
+                                  <div
+                                    className={cn(
+                                      "relative flex min-w-0 flex-1 items-center gap-2 transition-[padding] duration-200",
+                                      // The row actions are absolutely positioned at `right-0`, so
+                                      // hovering reserves room for them. An attention alert stays
+                                      // visible through that hover (unlike the count badge it
+                                      // replaces), so it needs its own slot reserved beyond the
+                                      // actions or the two would overlap.
+                                      projectAlertPinnedOnHover
+                                        ? "group-hover/project-row:pr-[7.75rem] group-focus-within/project-row:pr-[7.75rem]"
+                                        : "group-hover/project-row:pr-[5.75rem] group-focus-within/project-row:pr-[5.75rem]",
+                                    )}
+                                  >
                                     <span className="min-w-0 flex-1 truncate font-medium">
                                       {project.projectName}
                                     </span>
-                                    <span
+                                    <div
                                       className={cn(
-                                        "ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm border border-sidebar-border/60 bg-sidebar-accent/45 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground transition-all duration-200",
-                                        "group-hover/project-row:pointer-events-none group-hover/project-row:translate-x-1 group-hover/project-row:opacity-0",
-                                        "group-focus-within/project-row:pointer-events-none group-focus-within/project-row:translate-x-1 group-focus-within/project-row:opacity-0",
+                                        "ml-auto flex shrink-0 items-center transition-all duration-200",
+                                        // The workspace count is decorative, so it yields to the
+                                        // row actions on hover. An attention alert must not: the
+                                        // moment you reach for the row is exactly when you need to
+                                        // see that something inside it is blocked, and fading the
+                                        // slot would also make its tooltip unreachable. The row
+                                        // reserves `pr-[5.75rem]` on hover, so the alert stays
+                                        // clear of the absolutely positioned actions.
+                                        !projectAlertPinnedOnHover && [
+                                          "group-hover/project-row:pointer-events-none group-hover/project-row:translate-x-1 group-hover/project-row:opacity-0",
+                                          "group-focus-within/project-row:pointer-events-none group-focus-within/project-row:translate-x-1 group-focus-within/project-row:opacity-0",
+                                        ],
                                       )}
-                                      aria-label={`${project.workspaces.length} workspaces`}
                                     >
-                                      {project.workspaces.length}
-                                    </span>
+                                      {projectAttentionAlert ? (
+                                        <ProjectAttentionAlertIcon
+                                          alert={projectAttentionAlert}
+                                          projectName={project.projectName}
+                                        />
+                                      ) : (
+                                        <span
+                                          className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-sidebar-border/60 bg-sidebar-accent/45 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground"
+                                          aria-label={`${project.workspaces.length} workspaces`}
+                                        >
+                                          {project.workspaces.length}
+                                        </span>
+                                      )}
+                                    </div>
                                     <div
                                       className={cn(
                                         "absolute right-0 top-1/2 flex shrink-0 -translate-y-1/2 items-center gap-0.5 transition-all duration-200",
