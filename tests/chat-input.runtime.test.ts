@@ -162,24 +162,31 @@ describe("chat-input runtime helpers", () => {
   });
 
   test("only forwards command-catalog runtime options for Claude", () => {
-    expect(
-      buildCommandCatalogRuntimeOptions({
-        ...baseArgs,
-        model: "claude-sonnet-4-6",
-      }),
-    ).toBeUndefined();
+    expect(buildCommandCatalogRuntimeOptions(baseArgs)).toBeUndefined();
 
     expect(
       buildCommandCatalogRuntimeOptions({
         ...baseArgs,
         activeProvider: "claude-code",
-        model: "claude-sonnet-4-6",
       }),
     ).toMatchObject({
-      model: "claude-sonnet-4-6",
       claudeBinaryPath: "/opt/homebrew/bin/claude",
-      claudePermissionMode: "acceptEdits",
-      claudeThinkingMode: "adaptive",
+    });
+  });
+
+  test("omits runtime options that cannot change the command catalog", () => {
+    // Each extra option here would widen the ChatInput effect's dep set, and
+    // every re-run spawns a `claude` subprocess that reconnects every MCP
+    // server — duplicating remote connector handshakes (Figma, Slack).
+    const options = buildCommandCatalogRuntimeOptions({
+      ...baseArgs,
+      activeProvider: "claude-code",
+      claudeSettingSources: ["user", "project"],
+    });
+
+    expect(options).toEqual({
+      claudeBinaryPath: "/opt/homebrew/bin/claude",
+      claudeSettingSources: ["user", "project"],
     });
   });
 });

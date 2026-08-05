@@ -56,6 +56,7 @@ import { Utf8LineBuffer } from "../shared/utf8-line-buffer";
 import {
   getConnectedToolLabel,
   normalizeConnectedToolIds,
+  pickConnectedToolServer,
 } from "../../src/lib/providers/connected-tool-status";
 import { getCodexMcpRegistrationStatus } from "../main/codex-mcp";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
@@ -731,23 +732,24 @@ function extractCodexAppServerErrorMessage(
   return toTrimmedString(nestedError?.message);
 }
 
+/** Lower is better — see `pickConnectedToolServer`. */
+const CODEX_MCP_AUTH_STATUS_RANK: Record<string, number> = {
+  oAuth: 0,
+  bearerToken: 0,
+  notLoggedIn: 1,
+  unsupported: 2,
+};
+
 function mapCodexMcpServerStatus(args: {
   toolId: ConnectedToolId;
   servers: CodexMcpServerStatus[];
 }) {
-  if (args.toolId === "github") {
-    return createCodexConnectedToolStatusEntry({
-      id: "github",
-      state: "unknown",
-      available: true,
-      detail: "GitHub app status is not exposed by mcpServerStatus/list.",
-    });
-  }
-
-  const serverName = args.toolId === "atlassian" ? "atlassian" : args.toolId;
-  const server = args.servers.find(
-    (candidate) => candidate.name.trim().toLowerCase() === serverName,
-  );
+  const server = pickConnectedToolServer({
+    toolId: args.toolId,
+    servers: args.servers,
+    rank: (candidate) =>
+      CODEX_MCP_AUTH_STATUS_RANK[candidate.authStatus ?? ""] ?? 99,
+  });
   if (!server) {
     return createCodexConnectedToolStatusEntry({
       id: args.toolId,
@@ -764,7 +766,7 @@ function mapCodexMcpServerStatus(args: {
         id: args.toolId,
         state: "ready",
         available: true,
-        detail: `${getConnectedToolLabel(args.toolId)} is ready for Codex.`,
+        detail: `${getConnectedToolLabel(args.toolId)} is ready for Codex via "${server.name}".`,
       });
     case "notLoggedIn":
       return createCodexConnectedToolStatusEntry({

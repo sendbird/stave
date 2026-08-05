@@ -489,27 +489,6 @@ function describeCodexAvailability(
   };
 }
 
-async function withTimeout<T>(args: {
-  task: Promise<T>;
-  timeoutMs: number;
-  onTimeout?: () => void;
-}): Promise<T | null> {
-  let timeoutHandle: NodeJS.Timeout | null = null;
-  const timeoutPromise = new Promise<null>((resolve) => {
-    timeoutHandle = setTimeout(() => {
-      args.onTimeout?.();
-      resolve(null);
-    }, args.timeoutMs);
-  });
-  try {
-    return await Promise.race([args.task, timeoutPromise]);
-  } finally {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-    }
-  }
-}
-
 /**
  * Turn-level timeout that can be paused while the UI is waiting on a user
  * decision (approval / user_input elicitation).
@@ -1350,18 +1329,10 @@ export const providerRuntime: ProviderRuntime = {
   },
   getCommandCatalog: async ({ providerId, cwd, runtimeOptions }) => {
     if (providerId === "claude-code") {
-      const result = await withTimeout({
-        task: getClaudeCommandCatalog({ cwd, runtimeOptions }),
-        timeoutMs: 15_000,
-      });
-      return (
-        result ?? {
-          ok: false,
-          supported: false,
-          commands: [],
-          detail: "Timed out loading the Claude command catalog.",
-        }
-      );
+      // Timeout and in-flight de-duplication live inside the runtime so a
+      // timed-out probe actually tears down its `claude` subprocess instead of
+      // leaking one that still holds MCP connector sessions.
+      return await getClaudeCommandCatalog({ cwd, runtimeOptions });
     }
 
     return {

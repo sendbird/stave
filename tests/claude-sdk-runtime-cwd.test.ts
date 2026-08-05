@@ -68,4 +68,58 @@ describe("getClaudeCommandCatalog", () => {
     expect(queryCalls[0]?.options.cwd).toBe(process.cwd());
     expect(closeCalls).toEqual(["close"]);
   });
+
+  test("collapses concurrent probes for the same target onto one subprocess", async () => {
+    // Each probe subprocess reconnects every configured MCP server, so
+    // overlapping probes duplicate remote connector handshakes (Figma, Slack)
+    // and compete with the real turn's.
+    const [first, second] = await Promise.all([
+      getClaudeCommandCatalog({
+        cwd: "/tmp/workspace",
+        runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude" },
+      }),
+      getClaudeCommandCatalog({
+        cwd: "/tmp/workspace",
+        runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude" },
+      }),
+    ]);
+
+    expect(queryCalls).toHaveLength(1);
+    expect(first).toEqual(second);
+  });
+
+  test("does not share a probe across different targets", async () => {
+    await Promise.all([
+      getClaudeCommandCatalog({
+        cwd: "/tmp/workspace-a",
+        runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude" },
+      }),
+      getClaudeCommandCatalog({
+        cwd: "/tmp/workspace-b",
+        runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude" },
+      }),
+      getClaudeCommandCatalog({
+        cwd: "/tmp/workspace-a",
+        runtimeOptions: {
+          claudeBinaryPath: "/tmp/bin/claude",
+          claudeSettingSources: ["user"],
+        },
+      }),
+    ]);
+
+    expect(queryCalls).toHaveLength(3);
+  });
+
+  test("releases the in-flight slot so later probes still run", async () => {
+    await getClaudeCommandCatalog({
+      cwd: "/tmp/workspace",
+      runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude" },
+    });
+    await getClaudeCommandCatalog({
+      cwd: "/tmp/workspace",
+      runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude" },
+    });
+
+    expect(queryCalls).toHaveLength(2);
+  });
 });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Button } from "@/components/ui";
 import {
+  buildConnectedToolOverviews,
   buildMcpServerOverviews,
   formatMcpTransportLabel,
   type McpConnectionState,
@@ -417,6 +418,11 @@ function McpServerConnectionsCard() {
     ],
   );
 
+  const connectedTools = useMemo(
+    () => buildConnectedToolOverviews({ servers }),
+    [servers],
+  );
+
   const configsByName = useMemo(() => {
     const byName = new Map<string, McpServerConfigSnapshot[]>();
     for (const config of state.configs?.servers ?? []) {
@@ -606,6 +612,34 @@ function McpServerConnectionsCard() {
           </div>
         ))}
       </div>
+
+      {servers.length > 0 ? (
+        <div
+          className="rounded-md border border-border/70 bg-muted/20 px-3 py-2"
+          role="group"
+          aria-label="Connector availability"
+        >
+          <p className="text-xs text-muted-foreground">
+            Connectors — whether these capabilities are reachable right now,
+            across every server that provides them.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {connectedTools.map((tool) => (
+              <Badge
+                key={tool.id}
+                variant={getConnectionBadgeVariant(tool.state)}
+                title={
+                  tool.serverNames.length > 0
+                    ? `${tool.stateLabel} · ${tool.serverNames.join(", ")}`
+                    : tool.stateLabel
+                }
+              >
+                {tool.label}: {tool.stateLabel}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {state.busy && servers.length === 0 ? (
         <p className="text-sm text-muted-foreground">

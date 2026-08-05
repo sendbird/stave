@@ -3569,10 +3569,60 @@ const activeRunByTask = new Map<string, Promise<void>>();
 const claudeMcpConfigRefreshTracker = new McpConfigRefreshTracker();
 const freshClaudeSessionScopes = new Set<string>();
 
-export async function getClaudeCommandCatalog(args: {
+const CLAUDE_COMMAND_CATALOG_TIMEOUT_MS = 15_000;
+
+/**
+ * In-flight catalog probes, keyed by the inputs that can change the result.
+ *
+ * The probe spawns a `claude` subprocess that connects every configured MCP
+ * server, so overlapping probes mean duplicated remote connector handshakes
+ * (Figma, Slack) competing with the real turn's. Collapsing concurrent callers
+ * onto one promise keeps that to a single subprocess.
+ */
+const claudeCommandCatalogInFlight = new Map<
+  string,
+  Promise<ClaudeCommandCatalogResult>
+>();
+
+interface ClaudeCommandCatalogResult {
+  ok: boolean;
+  supported: boolean;
+  commands: ReturnType<typeof toProviderSlashCommand>[];
+  detail: string;
+}
+
+function toClaudeCommandCatalogKey(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
+  const settingSources = args.runtimeOptions?.claudeSettingSources;
+  return JSON.stringify([
+    args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd(),
+    args.runtimeOptions?.claudeBinaryPath ?? "",
+    Array.isArray(settingSources) ? [...settingSources].sort() : null,
+  ]);
+}
+
+export async function getClaudeCommandCatalog(args: {
+  cwd?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<ClaudeCommandCatalogResult> {
+  const key = toClaudeCommandCatalogKey(args);
+  const inFlight = claudeCommandCatalogInFlight.get(key);
+  if (inFlight) {
+    return inFlight;
+  }
+  const run = runClaudeCommandCatalogQuery(args).finally(() => {
+    claudeCommandCatalogInFlight.delete(key);
+  });
+  claudeCommandCatalogInFlight.set(key, run);
+  return run;
+}
+
+async function runClaudeCommandCatalogQuery(args: {
+  cwd?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<ClaudeCommandCatalogResult> {
   let stream: Query | null = null;
   try {
     const runtimeCwd =
@@ -3613,7 +3663,33 @@ export async function getClaudeCommandCatalog(args: {
       }),
     }) as Query;
 
-    const commands = await stream.supportedCommands();
+    // Timed out here rather than in the caller so the `finally` below still
+    // runs and closes the subprocess. A caller-side `Promise.race` left the
+    // abandoned `claude` process alive, still holding MCP connector sessions.
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    const commands = await Promise.race([
+      stream.supportedCommands(),
+      new Promise<null>((resolve) => {
+        timeoutHandle = setTimeout(
+          () => resolve(null),
+          CLAUDE_COMMAND_CATALOG_TIMEOUT_MS,
+        );
+      }),
+    ]).finally(() => {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    });
+
+    if (!commands) {
+      return {
+        ok: false,
+        supported: false,
+        commands: [],
+        detail: "Timed out loading the Claude command catalog.",
+      };
+    }
+
     return {
       ok: true,
       supported: true,
@@ -3900,6 +3976,173 @@ class SteerableUserMessageQueue implements AsyncIterable<SDKUserMessage> {
       },
     };
   }
+}
+
+/**
+ * How long a turn waits for MCP servers to leave `pending` before giving up.
+ *
+ * Remote connectors (Figma, Slack, …) handshake asynchronously after the CLI
+ * reports `system:init`. Without this gate the model's first response is
+ * generated from a tool list that does not yet contain those connectors, so it
+ * reports them as disconnected — then a retry, hitting the same servers a
+ * moment later, reports them as connected.
+ */
+const CLAUDE_MCP_READINESS_TIMEOUT_MS = (() => {
+  const raw = Number.parseInt(
+    process.env.STAVE_CLAUDE_MCP_READINESS_TIMEOUT_MS ?? "",
+    10,
+  );
+  // 0 is a legitimate value: it disables the gate.
+  return Number.isFinite(raw) && raw >= 0 ? raw : 8_000;
+})();
+const CLAUDE_MCP_READINESS_POLL_MS = 200;
+
+export interface ClaudeMcpReadinessResult {
+  /** Servers still handshaking when the wait ended. */
+  pending: string[];
+  /** Servers that reached a terminal state without becoming usable. */
+  unavailable: Array<{ name: string; status: string; error?: string }>;
+  waitedMs: number;
+  timedOut: boolean;
+}
+
+export function summarizeClaudeMcpReadiness(
+  servers: readonly McpServerStatus[],
+): Pick<ClaudeMcpReadinessResult, "pending" | "unavailable"> {
+  const pending: string[] = [];
+  const unavailable: ClaudeMcpReadinessResult["unavailable"] = [];
+  for (const server of servers) {
+    if (server.status === "pending") {
+      pending.push(server.name);
+      continue;
+    }
+    // `disabled` is a deliberate user choice, not a failure to report.
+    if (server.status === "failed" || server.status === "needs-auth") {
+      unavailable.push({
+        name: server.name,
+        status: server.status,
+        ...(server.error ? { error: server.error } : {}),
+      });
+    }
+  }
+  return { pending, unavailable };
+}
+
+const CLAUDE_MCP_READINESS_NOTICE_NAME_LIMIT = 5;
+
+function formatClaudeMcpReadinessNames(names: readonly string[]) {
+  const shown = names.slice(0, CLAUDE_MCP_READINESS_NOTICE_NAME_LIMIT);
+  const hidden = names.length - shown.length;
+  return hidden > 0 ? `${shown.join(", ")} (+${hidden} more)` : shown.join(", ");
+}
+
+/**
+ * Describes only what went wrong *on this turn*.
+ *
+ * `needs-auth` is deliberately excluded: it is a standing configuration state —
+ * an account can easily carry dozens of unauthorized connectors — so including
+ * it would attach a long, identical notice to every single turn. That state
+ * belongs in the MCP settings pane, which reports it per connector.
+ */
+export function buildClaudeMcpReadinessNotice(
+  readiness: ClaudeMcpReadinessResult,
+): string | undefined {
+  const parts: string[] = [];
+  if (readiness.timedOut && readiness.pending.length > 0) {
+    parts.push(
+      `still connecting after ${Math.round(readiness.waitedMs / 1000)}s: ${formatClaudeMcpReadinessNames(readiness.pending)}`,
+    );
+  }
+  const failed = readiness.unavailable.filter(
+    (server) => server.status === "failed",
+  );
+  if (failed.length > 0) {
+    const error = failed.find((server) => server.error)?.error;
+    parts.push(
+      `failed to connect: ${formatClaudeMcpReadinessNames(failed.map((server) => server.name))}${error ? ` (${error})` : ""}`,
+    );
+  }
+  if (parts.length === 0) {
+    return undefined;
+  }
+  return `MCP connectors unavailable for this turn — ${parts.join("; ")}. Tools from these servers are missing, so treat them as unavailable rather than reporting them as working.`;
+}
+
+/**
+ * Blocks until no MCP server is `pending`, so the turn's prompt is only sent
+ * once the tool list the model sees is complete.
+ *
+ * Returns `null` when readiness could not be determined (old CLI without the
+ * control request, or a transport error) — callers then proceed unguarded
+ * rather than stalling the turn.
+ */
+export async function waitForClaudeMcpReadiness(args: {
+  stream: Pick<Query, "mcpServerStatus">;
+  timeoutMs: number;
+  signal?: AbortSignal;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+  /**
+   * Resolves `null` once a single probe has outlived the remaining budget.
+   * Separate from `sleep` so tests can drive polling on a fake clock without
+   * that fake clock also winning every probe race.
+   */
+  probeDeadline?: (ms: number) => Promise<null>;
+}): Promise<ClaudeMcpReadinessResult | null> {
+  if (typeof args.stream.mcpServerStatus !== "function") {
+    return null;
+  }
+  const now = args.now ?? (() => Date.now());
+  const sleep =
+    args.sleep ??
+    ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const probeDeadline =
+    args.probeDeadline ??
+    ((ms: number) =>
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)));
+  const startedAt = now();
+  const deadline = startedAt + args.timeoutMs;
+
+  let summary: Pick<ClaudeMcpReadinessResult, "pending" | "unavailable"> | null =
+    null;
+  for (;;) {
+    if (args.signal?.aborted) {
+      break;
+    }
+    let servers: McpServerStatus[] | null;
+    try {
+      // The probe is raced against the remaining budget, not just checked after
+      // it resolves: a control channel that accepts the request and never
+      // answers would otherwise hold the turn open forever.
+      servers = await Promise.race([
+        args.stream.mcpServerStatus(),
+        probeDeadline(Math.max(0, deadline - now())),
+      ]);
+    } catch (error) {
+      console.warn("[claude-sdk-runtime] MCP readiness probe failed", {
+        detail: toText(error),
+      });
+      return summary
+        ? { ...summary, waitedMs: now() - startedAt, timedOut: false }
+        : null;
+    }
+    if (!servers) {
+      break;
+    }
+    summary = summarizeClaudeMcpReadiness(servers);
+    if (summary.pending.length === 0) {
+      return { ...summary, waitedMs: now() - startedAt, timedOut: false };
+    }
+    const remaining = deadline - now();
+    if (remaining <= 0) {
+      break;
+    }
+    await sleep(Math.min(CLAUDE_MCP_READINESS_POLL_MS, remaining));
+  }
+
+  return summary
+    ? { ...summary, waitedMs: now() - startedAt, timedOut: true }
+    : null;
 }
 
 type ClaudeMcpAuthenticateResult = {
@@ -4440,21 +4683,12 @@ export async function streamClaudeWithSdk(
     // Always run in streaming-input mode so a follow-up can be steered into the
     // live turn. The SDK requires an AsyncIterable prompt from the start for
     // this to be legal — a plain string prompt cannot be upgraded mid-turn.
+    // The prompt is intentionally NOT pushed yet. The queue stays empty until
+    // the MCP readiness gate below clears, so the CLI only receives the user
+    // message once the tool list it will show the model is complete. The steer
+    // responder is registered after that push for the same reason — a steer
+    // arriving during the gate must not jump ahead of the primary message.
     inputQueue = new SteerableUserMessageQueue();
-    inputQueue.push(buildClaudeSDKUserMessage({ text: providerPrompt }));
-    args.registerSteerResponder?.(async ({ text }) => {
-      if (
-        !inputQueue ||
-        !inputQueue.push(buildClaudeSDKUserMessage({ text }))
-      ) {
-        return {
-          ok: false,
-          reason: "turn-not-steerable",
-          pendingRequestIds: [],
-        };
-      }
-      return { ok: true };
-    });
     const queryResult = queryFn({
       prompt: inputQueue,
       options: buildClaudeQueryOptions({
@@ -4857,9 +5091,56 @@ export async function streamClaudeWithSdk(
     stream = queryResult;
 
     // Register abort handler using the official Query.close() method
+    const gateAbort = new AbortController();
     args.registerAbort?.(() => {
+      gateAbort.abort();
       inputQueue?.close();
       stream?.close();
+    });
+
+    // MCP readiness gate. Remote connectors handshake asynchronously after the
+    // CLI reports `system:init`, so sending the prompt immediately makes the
+    // model answer from an incomplete tool list — the cause of "Figma/Slack are
+    // disconnected" on one turn and "connected" on the retry. Holding the
+    // prompt back costs nothing when every server is already up: the probe
+    // returns on its first round trip.
+    if (!secondaryReadOnly && CLAUDE_MCP_READINESS_TIMEOUT_MS > 0) {
+      const readiness = await waitForClaudeMcpReadiness({
+        stream: queryResult,
+        timeoutMs: CLAUDE_MCP_READINESS_TIMEOUT_MS,
+        signal: gateAbort.signal,
+      });
+      // Surfaced as a turn event rather than folded into the prompt: the user
+      // needs to know a capability is missing, and the model must not be told a
+      // connector is fine when it is not.
+      const notice = readiness
+        ? buildClaudeMcpReadinessNotice(readiness)
+        : undefined;
+      if (readiness && notice) {
+        console.warn("[claude-sdk-runtime] MCP connectors not ready", {
+          pending: readiness.pending,
+          unavailable: readiness.unavailable,
+          waitedMs: readiness.waitedMs,
+        });
+        args.onEvent?.({ type: "system", content: notice });
+      }
+    }
+
+    if (!gateAbort.signal.aborted) {
+      inputQueue.push(buildClaudeSDKUserMessage({ text: providerPrompt }));
+    }
+    args.registerSteerResponder?.(async ({ text }) => {
+      if (
+        !inputQueue ||
+        !inputQueue.push(buildClaudeSDKUserMessage({ text }))
+      ) {
+        return {
+          ok: false,
+          reason: "turn-not-steerable",
+          pendingRequestIds: [],
+        };
+      }
+      return { ok: true };
     });
 
     // Intentional provider asymmetry (see `the-provider-runtime-symmetry`):
