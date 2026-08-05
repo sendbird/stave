@@ -68,11 +68,30 @@ const BATCH_TURN_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const DEFAULT_PROVIDER_TASK_KEY = "default";
 type TurnTimeoutController = {
   promise: Promise<null>;
-  pauseForDecision: () => void;
-  resumeAfterDecision: () => void;
+  /**
+   * Suspend the turn clock while the UI waits on one user decision. Pass the
+   * decision's `requestId` as `key`: pauses are tracked per decision, so a
+   * re-emitted approval can't leave a phantom pause behind and an unrelated
+   * signal can't release a decision that is still waiting. Keyless calls get an
+   * anonymous per-call pause (legacy refcount behaviour).
+   */
+  pauseForDecision: (args?: { key?: string }) => void;
+  resumeAfterDecision: (args?: { key?: string }) => void;
+  /** Release every outstanding decision pause (terminal stream signals). */
+  resumeAllDecisions: () => void;
+  /** Suspend the clock for a named runtime phase (e.g. the advisor preflight). */
+  pausePhase: (args: { phase: string }) => void;
+  resumePhase: (args: { phase: string }) => void;
   dispose: () => void;
   readonly timedOut: boolean;
+  /** Diagnostics: which decision pauses are still outstanding. */
+  readonly pausedDecisionKeys: string[];
 };
+
+/** Phase key for the advisor preflight pause (see `runProviderTurn`). */
+export const ADVISOR_PREFLIGHT_PAUSE_PHASE = "advisor-preflight";
+
+const ANONYMOUS_DECISION_PAUSE_PREFIX = "anonymous:";
 
 type ActiveRuntimeSession = {
   turnId: string;
@@ -307,9 +326,10 @@ async function deliverResponderResult<
   if (result.ok) {
     // The user has made their decision — resume the turn-level timeout so
     // the provider's generation budget resumes from the full allowance.
-    // Steering is additive (it does not answer a paused decision), but the
-    // controller ignores a resume when nothing is paused, so this is safe.
-    session.timeoutController?.resumeAfterDecision();
+    // Keyed by `requestId` so this releases exactly the decision that was just
+    // answered: steering is additive (it answers no pending decision) and its
+    // own request id is never in the paused set, so it stays a no-op.
+    session.timeoutController?.resumeAfterDecision({ key: args.requestId });
     return {
       ok: true,
       message: `${successLabel} response delivered to turn ${args.turnId}. requestId=${args.requestId}`,
@@ -501,14 +521,38 @@ async function withTimeout<T>(args: {
  *
  * Semantics:
  * - The timer starts when the turn is created.
- * - `pauseForDecision()` is called each time the bridge emits `approval` or
- *   `user_input`. Multiple simultaneous decisions are refcounted.
- * - `resumeAfterDecision()` is called when a responder fires successfully
- *   (via respondApproval/respondUserInput) OR on a matching tool_result event.
+ * - `pauseForDecision({ key })` is called each time the bridge emits `approval`
+ *   or `user_input`, keyed by the decision's `requestId`.
+ * - `resumeAfterDecision({ key })` is called when a responder fires
+ *   successfully (via respondApproval/respondUserInput) OR on a `tool_result`
+ *   whose `tool_use_id` matches the request.
  * - On resume we deliberately **reset** the remaining budget to the full
  *   `timeoutMs` rather than continue where we paused: the user's
  *   deliberation latency should never eat the provider's generation budget.
  * - `dispose()` is called from the finally block regardless of outcome.
+ *
+ * Why pauses are keyed instead of refcounted: a bare counter has to be
+ * perfectly balanced or it desynchronises in one of two ways, both observed as
+ * "the turn hangs forever."
+ * - Over-pausing: the same decision pausing twice (a replayed/re-emitted
+ *   approval event) leaves the count above zero after the single matching
+ *   resume, so the clock never restarts and the turn sits paused for good.
+ * - Over-resuming: any `tool_result` decremented the count, so an unrelated
+ *   tool finishing while an approval was still on screen restarted the clock
+ *   and could abort the turn mid-deliberation — the exact failure the pause
+ *   exists to prevent.
+ * Keying by `requestId` makes both impossible: a duplicate pause for a known
+ * decision is a no-op, and a resume for an unknown key never releases someone
+ * else's pause. Runtime phases that are not user decisions (the advisor
+ * preflight) use `pausePhase`/`resumePhase` so a terminal
+ * `resumeAllDecisions()` cannot unpause them behind their own `finally`.
+ *
+ * Deliberately *not* capped: an approval may legitimately sit unanswered for
+ * hours while the user is away, so there is no wall-clock ceiling on a pause
+ * here. Reclaiming a turn nobody will ever answer is the renderer's job — see
+ * `createStalledProviderTurnAborter` in `src/store/provider-turn-stall-abort.ts`,
+ * which force-aborts through this runtime once the prompt is gone and the
+ * stream has been silent past its grace window.
  */
 export function createTurnTimeoutController(args: {
   timeoutMs: number;
@@ -518,7 +562,9 @@ export function createTurnTimeoutController(args: {
   let handle: NodeJS.Timeout | null = null;
   let disposed = false;
   let timedOut = false;
-  let pendingDecisionCount = 0;
+  const pausedDecisionKeys = new Set<string>();
+  const pausedPhases = new Set<string>();
+  let anonymousDecisionSeq = 0;
 
   let resolvePromise: (value: null) => void = () => {};
   const promise = new Promise<null>((resolve) => {
@@ -547,25 +593,93 @@ export function createTurnTimeoutController(args: {
     }, remainingMs);
   };
 
-  const pauseForDecision = () => {
+  const isPaused = () => pausedDecisionKeys.size > 0 || pausedPhases.size > 0;
+
+  /**
+   * Apply the timer side effect for a pause-set transition. Called after every
+   * mutation so a nested pause (two decisions at once, or a decision arriving
+   * during the advisor preflight) neither restarts the clock early nor stops an
+   * already-stopped one.
+   */
+  const syncTimerToPauseState = (wasPaused: boolean) => {
+    const paused = isPaused();
+    if (paused === wasPaused) {
+      return;
+    }
+    if (paused) {
+      stopTimer();
+      return;
+    }
+    remainingMs = args.timeoutMs;
+    start();
+  };
+
+  const pauseForDecision = (options?: { key?: string }) => {
     if (disposed || timedOut) {
       return;
     }
-    pendingDecisionCount += 1;
-    if (pendingDecisionCount === 1) {
-      stopTimer();
-    }
-  };
-
-  const resumeAfterDecision = () => {
-    if (pendingDecisionCount === 0 || disposed || timedOut) {
+    const key =
+      options?.key ??
+      `${ANONYMOUS_DECISION_PAUSE_PREFIX}${(anonymousDecisionSeq += 1)}`;
+    if (pausedDecisionKeys.has(key)) {
+      // Same decision paused twice (re-emitted approval / replayed event).
       return;
     }
-    pendingDecisionCount -= 1;
-    if (pendingDecisionCount === 0) {
-      remainingMs = args.timeoutMs;
-      start();
+    const wasPaused = isPaused();
+    pausedDecisionKeys.add(key);
+    syncTimerToPauseState(wasPaused);
+  };
+
+  const resumeAfterDecision = (options?: { key?: string }) => {
+    if (disposed || timedOut) {
+      return;
     }
+    const wasPaused = isPaused();
+    if (options?.key !== undefined) {
+      if (!pausedDecisionKeys.delete(options.key)) {
+        // Unknown or already-resumed decision: never release a pause that
+        // belongs to a decision still waiting on the user.
+        return;
+      }
+    } else {
+      const anonymousKey = [...pausedDecisionKeys].find((candidate) =>
+        candidate.startsWith(ANONYMOUS_DECISION_PAUSE_PREFIX),
+      );
+      if (anonymousKey === undefined) {
+        return;
+      }
+      pausedDecisionKeys.delete(anonymousKey);
+    }
+    syncTimerToPauseState(wasPaused);
+  };
+
+  const resumeAllDecisions = () => {
+    if (disposed || timedOut || pausedDecisionKeys.size === 0) {
+      return;
+    }
+    const wasPaused = isPaused();
+    pausedDecisionKeys.clear();
+    syncTimerToPauseState(wasPaused);
+  };
+
+  const pausePhase = (options: { phase: string }) => {
+    if (disposed || timedOut || pausedPhases.has(options.phase)) {
+      return;
+    }
+    const wasPaused = isPaused();
+    pausedPhases.add(options.phase);
+    syncTimerToPauseState(wasPaused);
+  };
+
+  const resumePhase = (options: { phase: string }) => {
+    if (disposed || timedOut) {
+      return;
+    }
+    const wasPaused = isPaused();
+    if (!pausedPhases.delete(options.phase)) {
+      return;
+    }
+    syncTimerToPauseState(wasPaused);
   };
 
   const dispose = () => {
@@ -579,9 +693,15 @@ export function createTurnTimeoutController(args: {
     promise,
     pauseForDecision,
     resumeAfterDecision,
+    resumeAllDecisions,
+    pausePhase,
+    resumePhase,
     dispose,
     get timedOut() {
       return timedOut;
+    },
+    get pausedDecisionKeys() {
+      return [...pausedDecisionKeys];
     },
   };
 }
@@ -710,17 +830,21 @@ async function runProviderTurn(
       if (timeoutController.timedOut) {
         return;
       }
-      // Pause the turn clock the moment we ask the user to decide. Resume is
-      // driven by the responder delivery in `deliverResponderResult`, with a
-      // defensive fallback on `tool_result` / `error` events so a crashed
+      // Pause the turn clock the moment we ask the user to decide, keyed by the
+      // decision's request id. Resume is driven by the responder delivery in
+      // `deliverResponderResult`, with defensive fallbacks below so a crashed
       // adapter can't leave the controller paused forever.
       if (event.type === "approval" || event.type === "user_input") {
-        timeoutController.pauseForDecision();
-      } else if (event.type === "tool_result" || event.type === "error") {
-        // These are the observable "decision processed" / "stream failed"
-        // signals. If we're still paused, resume so the remaining turn time
-        // still applies.
-        timeoutController.resumeAfterDecision();
+        timeoutController.pauseForDecision({ key: event.requestId });
+      } else if (event.type === "tool_result") {
+        // "Decision processed" fallback: Claude's approval `requestId` *is* the
+        // tool use id, so a tool finishing releases its own approval pause and
+        // nobody else's. A `tool_use_id` that matches no pause is ignored.
+        timeoutController.resumeAfterDecision({ key: event.tool_use_id });
+      } else if (event.type === "error") {
+        // The stream failed: no outstanding decision will ever be answered, so
+        // holding their pauses would strand the turn with a stopped clock.
+        timeoutController.resumeAllDecisions();
       }
       downstream?.(event);
     };
@@ -752,7 +876,9 @@ async function runProviderTurn(
     // The advisor is another model's latency, not the primary provider's
     // generation budget. Without this pause a 90s advisor could consume the
     // whole `providerTimeoutMs` and kill the turn before the primary ever ran.
-    timeoutController.pauseForDecision();
+    // A phase pause (not a decision pause) so a terminal `resumeAllDecisions()`
+    // can never unpause the preflight behind the `finally` below.
+    timeoutController.pausePhase({ phase: ADVISOR_PREFLIGHT_PAUSE_PHASE });
     let advisorResult: Awaited<ReturnType<typeof runAdvisorPreflight>>;
     try {
       advisorResult = await runAdvisorPreflight({
@@ -765,7 +891,7 @@ async function runProviderTurn(
       });
     } finally {
       advisorPhaseActive = false;
-      timeoutController.resumeAfterDecision();
+      timeoutController.resumePhase({ phase: ADVISOR_PREFLIGHT_PAUSE_PHASE });
     }
     lifecycle.emit(
       buildAdvisorOutcomeEvent({
