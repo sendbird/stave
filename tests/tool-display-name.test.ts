@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { toToolDisplayName } from "@/lib/tool-display-name";
+import { isStaveToolName, toToolDisplayName } from "@/lib/tool-display-name";
 
 describe("toToolDisplayName", () => {
   test("turns Stave Lens identifiers into action-oriented labels", () => {
@@ -28,6 +28,20 @@ describe("toToolDisplayName", () => {
     expect(toToolDisplayName("collaboration.spawn_agent")).toBe(
       "collaboration.spawn_agent",
     );
+
+    for (const toolName of [
+      "mcp__stave-docs__search",
+      "stave-tools:lookup",
+      "stave_build",
+    ]) {
+      expect(isStaveToolName(toolName)).toBe(false);
+      expect(toToolDisplayName(toolName)).toBe(toolName);
+    }
+  });
+
+  test("recognizes known bare Stave tools without widening the namespace", () => {
+    expect(isStaveToolName("stave_run_task")).toBe(true);
+    expect(toToolDisplayName("stave_run_task")).toBe("Run task");
   });
 
   test("keeps empty and ordinary tool names readable", () => {

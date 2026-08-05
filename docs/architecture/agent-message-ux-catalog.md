@@ -34,7 +34,8 @@ The current column exercises these visible cases in one trace:
 - thinking orb and streaming reasoning viewport
 - Read, Grep, Bash, Edit, and Stave-owned MCP rows
 - human-readable Stave tool titles and Stave identity, while third-party MCP
-  identity remains unchanged
+  identity remains unchanged, including servers whose names merely begin with
+  `stave-`
 - successful output, live input, elapsed time, and a failed tool result
 - subagent progress and nested output
 - Todo progress
@@ -120,8 +121,10 @@ construction even though they are not separate `NormalizedProviderEvent` types.
   compact checkpoints keep their specialized recovery surface.
 - Tool results update the existing tool row by id. A result must never create a
   second row that repeats the header or input.
-- Stave-owned MCP tools use the Stave icon and an action-oriented title. Other
-  MCP servers retain their existing identity and naming treatment.
+- Stave-owned MCP tools use the Stave icon and an action-oriented title. Only
+  the exact managed `stave-local` / `stave-local-mcp` namespaces and known bare
+  Stave tool names qualify; other MCP servers retain their existing identity
+  and naming treatment even when their names begin with `stave-`.
 - The Thinking label and orb share a baseline across `cascade`, `swap`, and
   `scramble`; label animation must not move the title upward relative to the
   icon.
