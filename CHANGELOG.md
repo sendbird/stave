@@ -1,3 +1,13 @@
+## [0.14.2](https://github.com/sendbird/stave/compare/v0.14.1...v0.14.2) (2026-08-05)
+
+### Bug Fixes
+
+* Restore startup for packaged desktop builds by avoiding a duplicate `require` declaration in the ESM main-process bundle.
+
+### References
+
+* [#328](https://github.com/sendbird/stave/pull/328)
+
 ## [0.14.1](https://github.com/sendbird/stave/compare/v0.14.0...v0.14.1) (2026-08-05)
 
 ### Features
