@@ -11,7 +11,7 @@ import type {
 const DOWNLOAD_TIMEOUT_MS = 60_000;
 const MAX_PAGE_ASSETS = 50;
 
-const require = createRequire(import.meta.url);
+const requireElectron = createRequire(import.meta.url);
 let downloadSequence = 0;
 
 const pendingDownloadRequestsByWebContentsId = new Map<
@@ -25,7 +25,7 @@ const pendingDownloadRequestsByWebContentsId = new Map<
 >();
 
 function getElectron() {
-  return require("electron") as typeof import("electron");
+  return requireElectron("electron") as typeof import("electron");
 }
 
 function sanitizePathSegment(value: string): string {
