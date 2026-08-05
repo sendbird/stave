@@ -48,6 +48,13 @@ costs latency, losing the target would silently disarm an Advisor the user
 believes is on. Codex's legacy `minimal` is not selectable and collapses to
 `low` before the call, so it never appears as a pin or in a reported event.
 
+The Advisor deadline follows the resolved effort rather than sharing the
+primary provider timeout: `low` gets 2 minutes, `medium` 3 minutes, `high` 5
+minutes, and `xhigh`/`max`/`ultra` 10 minutes. The lifecycle `started` event
+reports that same resolved deadline, so the exchange monitor countdown and the
+runtime enforcement cannot drift. The existing Skip Advisor control remains
+available throughout the wait.
+
 ### Per-task arming
 
 The Settings target is the **default**, not the whole story. Each task can arm
@@ -112,6 +119,9 @@ provider dispatch:
 - An unavailable, invalid, failed, or timed-out Advisor does not trigger a
   fallback and does not block the primary turn. A user abort during preflight
   aborts the whole turn.
+- Claude timeout diagnostics retain content-free SDK progress metadata: whether
+  the runtime was still loading or the last SDK event type seen while waiting
+  for the final result. Partial model text is never applied as advice.
 - The preflight pauses the primary provider's generation timeout while it runs,
   so another model's latency cannot consume the primary turn's budget.
 

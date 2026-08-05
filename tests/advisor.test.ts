@@ -14,6 +14,7 @@ import {
   normalizePersistedAdvisorTarget,
   resolveAdvisorArmState,
   resolveAdvisorEffort,
+  resolveAdvisorTimeoutMs,
   shouldRunAdvisor,
   withoutAdvisorTarget,
 } from "@/lib/providers/advisor";
@@ -379,6 +380,22 @@ describe("advisor effort", () => {
     expect(
       resolveAdvisorEffort({ providerId: "codex", model: "gpt-5.6-sol" }),
     ).toBe("xhigh");
+  });
+
+  test("gives high-effort Advisors a longer deadline", () => {
+    expect(
+      resolveAdvisorTimeoutMs({
+        providerId: "claude-code",
+        model: "claude-opus-5",
+      }),
+    ).toBe(10 * 60_000);
+    expect(
+      resolveAdvisorTimeoutMs({
+        providerId: "claude-code",
+        model: "claude-opus-5",
+        effort: "low",
+      }),
+    ).toBe(2 * 60_000);
   });
 
   test("a pinned tier the model accepts is used verbatim", () => {

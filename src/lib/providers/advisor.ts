@@ -24,7 +24,22 @@ export const ADVISOR_CONTEXT_SOURCE_ID = "stave:advisor";
 export const ADVISOR_SETTING_FIELD_ID = "settings-field-advisor";
 export const ADVISOR_PROMPT_MAX_CHARS = 120_000;
 export const ADVISOR_ADVICE_MAX_CHARS = 12_000;
-export const DEFAULT_ADVISOR_TIMEOUT_MS = 90_000;
+/**
+ * Fallback deadline for an Advisor target whose effort cannot be resolved.
+ * Normal calls use `resolveAdvisorTimeoutMs`, which gives higher-effort models
+ * enough time to finish while keeping low-effort preflights deliberately
+ * bounded.
+ */
+export const DEFAULT_ADVISOR_TIMEOUT_MS = 5 * 60_000;
+
+const ADVISOR_TIMEOUT_MS_BY_EFFORT: Readonly<Record<AdvisorEffort, number>> = {
+  low: 2 * 60_000,
+  medium: 3 * 60_000,
+  high: 5 * 60_000,
+  xhigh: 10 * 60_000,
+  max: 10 * 60_000,
+  ultra: 10 * 60_000,
+};
 
 const PROVIDER_IDS = new Set<ProviderId>(["claude-code", "codex"]);
 const LEGACY_CLAUDE_ADVISOR_TARGET_BY_SOURCE = new Map<string, string>([
@@ -208,6 +223,19 @@ export function resolveAdvisorEffort(target: AdvisorTarget): AdvisorEffort {
   // here exactly as `resolveCodexAppServerReasoningEffort` does downstream —
   // reporting "minimal" would name a tier the call never used.
   return codexEffort === "minimal" ? "low" : codexEffort;
+}
+
+/**
+ * Resolves the deadline from the effort the provider will actually receive.
+ * This must be shared by the lifecycle event and preflight runner so the UI's
+ * countdown never advertises a different deadline from the enforced one.
+ */
+export function resolveAdvisorTimeoutMs(
+  target: AdvisorTarget | null | undefined,
+) {
+  return target
+    ? ADVISOR_TIMEOUT_MS_BY_EFFORT[resolveAdvisorEffort(target)]
+    : DEFAULT_ADVISOR_TIMEOUT_MS;
 }
 
 /** True when the pinned tier had to be clamped down to run on this model. */

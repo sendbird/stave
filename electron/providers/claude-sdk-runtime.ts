@@ -3328,6 +3328,66 @@ export function buildClaudeReadOnlyPromptOptions(args: {
   };
 }
 
+export type ClaudeReadOnlyPromptProgress = {
+  stage: "loading_runtime" | "waiting_for_result";
+  lastMessageType?: string;
+};
+
+type ClaudeReadOnlyPromptResult = {
+  ok: boolean;
+  text?: string;
+  usage?: Extract<BridgeEvent, { type: "usage" }>;
+  aborted?: boolean;
+  detail?: string;
+};
+
+/**
+ * Consumes the real SDK async iterator without treating an intermediate
+ * assistant message as complete advice. Keeping this loop independently
+ * testable covers delayed final results while exposing content-free progress
+ * metadata to timeout diagnostics.
+ */
+export async function consumeClaudeReadOnlyPromptStream(args: {
+  stream: AsyncIterable<SDKMessage>;
+  label: string;
+  onProgress?: (progress: ClaudeReadOnlyPromptProgress) => void;
+}): Promise<ClaudeReadOnlyPromptResult> {
+  for await (const message of args.stream) {
+    args.onProgress?.({
+      stage: "waiting_for_result",
+      lastMessageType: message.type,
+    });
+    if (message.type !== "result") {
+      continue;
+    }
+    const result = message as SDKResultMessage;
+    const usage = buildClaudeUsageEvent(result) as Extract<
+      BridgeEvent,
+      { type: "usage" }
+    >;
+    if (result.subtype !== "success" || result.is_error) {
+      return {
+        ok: false,
+        usage,
+        detail:
+          result.subtype === "success"
+            ? `Claude ${args.label} returned an error result.`
+            : result.errors.join("\n") ||
+              `Claude ${args.label} failed during execution.`,
+      };
+    }
+    return {
+      ok: true,
+      text: result.result,
+      usage,
+    };
+  }
+  return {
+    ok: false,
+    detail: `Claude ${args.label} ended without a result.`,
+  };
+}
+
 export async function runClaudeReadOnlyPrompt(args: {
   cwd?: string;
   prompt: string;
@@ -3343,13 +3403,9 @@ export async function runClaudeReadOnlyPrompt(args: {
    * so hardcoding "Advisor" leaked advisor wording into unrelated toasts.
    */
   label?: string;
-}): Promise<{
-  ok: boolean;
-  text?: string;
-  usage?: Extract<BridgeEvent, { type: "usage" }>;
-  aborted?: boolean;
-  detail?: string;
-}> {
+  /** Provider-safe progress metadata used by bounded callers for diagnostics. */
+  onProgress?: (progress: ClaudeReadOnlyPromptProgress) => void;
+}): Promise<ClaudeReadOnlyPromptResult> {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
   const label = args.label?.trim() || DEFAULT_READ_ONLY_PROMPT_LABEL;
@@ -3362,6 +3418,7 @@ export async function runClaudeReadOnlyPrompt(args: {
 
   let stream: Query | null = null;
   try {
+    args.onProgress?.({ stage: "loading_runtime" });
     const mod = await getPrewarmedSdkModule();
     const queryFn = (
       mod as { query?: typeof import("@anthropic-ai/claude-agent-sdk").query }
@@ -3384,37 +3441,13 @@ export async function runClaudeReadOnlyPrompt(args: {
       claudeExecutablePath,
     });
     stream = queryFn({ prompt: args.prompt, options }) as Query;
+    args.onProgress?.({ stage: "waiting_for_result" });
 
-    for await (const message of stream) {
-      if (message.type !== "result") {
-        continue;
-      }
-      const result = message as SDKResultMessage;
-      const usage = buildClaudeUsageEvent(result) as Extract<
-        BridgeEvent,
-        { type: "usage" }
-      >;
-      if (result.subtype !== "success" || result.is_error) {
-        return {
-          ok: false,
-          usage,
-          detail:
-            result.subtype === "success"
-              ? `Claude ${label} returned an error result.`
-              : result.errors.join("\n") ||
-                `Claude ${label} failed during execution.`,
-        };
-      }
-      return {
-        ok: true,
-        text: result.result,
-        usage,
-      };
-    }
-    return {
-      ok: false,
-      detail: `Claude ${label} ended without a result.`,
-    };
+    return consumeClaudeReadOnlyPromptStream({
+      stream,
+      label,
+      onProgress: args.onProgress,
+    });
   } catch (error) {
     if (
       abortController.signal.aborted ||

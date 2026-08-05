@@ -297,6 +297,7 @@ describe("provider runtime Advisor integration", () => {
         advisorProviderId: advisorTarget.providerId,
         advisorModel: advisorTarget.model,
         isolation,
+        timeoutMs: 10 * 60_000,
       });
       expect(advisorPhases(events)).toEqual([
         "started",

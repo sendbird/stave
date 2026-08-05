@@ -4,6 +4,7 @@ import {
   buildClaudeApprovalTimeoutBridgeEvent,
   buildClaudeQueryOptions,
   buildClaudeReadOnlyPromptOptions,
+  consumeClaudeReadOnlyPromptStream,
   CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
   claudeAskUserQuestionPreToolUseHook,
   claudeForegroundSubagentPreToolUseHook,
@@ -32,6 +33,7 @@ import {
   SubagentProgressTracker,
   waitForClaudeToolDecision,
 } from "../electron/providers/claude-sdk-runtime";
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
 const workspaceRoot = "/workspace/stave";
 
@@ -1562,6 +1564,60 @@ describe("buildClaudeReadOnlyPromptOptions", () => {
     expect(options).not.toHaveProperty("plugins");
     expect(options).not.toHaveProperty("agent");
     expect(options).not.toHaveProperty("fallbackModel");
+  });
+});
+
+describe("consumeClaudeReadOnlyPromptStream", () => {
+  test("waits through intermediate SDK events for a delayed final result", async () => {
+    async function* messages(): AsyncGenerator<SDKMessage> {
+      yield { type: "assistant" } as SDKMessage;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      yield {
+        type: "result",
+        subtype: "success",
+        is_error: false,
+        result: "Use a longer effort-aware deadline.",
+        usage: { input_tokens: 12, output_tokens: 4 },
+      } as SDKMessage;
+    }
+    const progress: string[] = [];
+
+    const result = await consumeClaudeReadOnlyPromptStream({
+      stream: messages(),
+      label: "Advisor",
+      onProgress: (event) => {
+        progress.push(event.lastMessageType ?? event.stage);
+      },
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      text: "Use a longer effort-aware deadline.",
+      usage: { type: "usage", inputTokens: 12, outputTokens: 4 },
+    });
+    expect(progress).toEqual(["assistant", "result"]);
+  });
+
+  test("retains the provider failure reason from a result event", async () => {
+    async function* messages(): AsyncGenerator<SDKMessage> {
+      yield {
+        type: "result",
+        subtype: "error_during_execution",
+        is_error: true,
+        errors: ["model unavailable"],
+        usage: { input_tokens: 3, output_tokens: 0 },
+      } as SDKMessage;
+    }
+
+    expect(
+      await consumeClaudeReadOnlyPromptStream({
+        stream: messages(),
+        label: "Advisor",
+      }),
+    ).toMatchObject({
+      ok: false,
+      detail: "model unavailable",
+    });
   });
 });
 

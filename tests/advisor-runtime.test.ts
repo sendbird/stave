@@ -150,6 +150,39 @@ describe("runAdvisorPreflight", () => {
     });
   });
 
+  test("preserves Claude progress metadata in timeout diagnostics", async () => {
+    const runners = {
+      runClaude: async (args) => {
+        args.onProgress?.({
+          stage: "waiting_for_result",
+          lastMessageType: "assistant",
+        });
+        return new Promise<{
+          ok: boolean;
+          aborted: boolean;
+          detail: string;
+        }>(() => {});
+      },
+      runCodex: createUnusedRunner("Codex runner must not be called."),
+    } satisfies AdvisorRunnerDependencies;
+
+    const result = await runAdvisorPreflight({
+      turn: createTurn({
+        providerId: "claude-code",
+        model: "claude-opus-5",
+      }),
+      registerAbort: () => {},
+      runners,
+      timeoutMs: 5,
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      failureKind: "timeout",
+      detail: expect.stringContaining("last SDK event: assistant"),
+    });
+  });
+
   test("does not call a provider runner for an invalid target", async () => {
     const runners = {
       runClaude: createUnusedRunner("Claude runner must not be called."),
@@ -377,6 +410,7 @@ describe("advisor lifecycle events report the effort that ran", () => {
     };
     expect(buildAdvisorStartedEvent({ ...primary, target })).toMatchObject({
       advisorEffort: "low",
+      timeoutMs: 2 * 60_000,
     });
     expect(
       buildAdvisorOutcomeEvent({
