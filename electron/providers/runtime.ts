@@ -42,6 +42,7 @@ import {
 import {
   appendAdvisorAdvice,
   normalizeAdvisorTarget,
+  resolveAdvisorTimeoutMs,
   withoutAdvisorTarget,
 } from "../../src/lib/providers/advisor";
 import {
@@ -739,12 +740,14 @@ async function runProviderTurn(
     const advisorTarget = normalizeAdvisorTarget(
       args.runtimeOptions.advisorTarget,
     );
+    const advisorTimeoutMs = resolveAdvisorTimeoutMs(advisorTarget);
     lifecycle.emit(
       buildAdvisorStartedEvent({
         primaryProviderId: args.providerId,
         primaryModel: args.runtimeOptions?.model,
         target: advisorTarget,
         at: Date.now(),
+        timeoutMs: advisorTimeoutMs,
       }),
     );
     advisorPhaseActive = true;
@@ -762,6 +765,7 @@ async function runProviderTurn(
         reportLateUsage: (usage) => {
           lateAdvisorUsage = usage;
         },
+        timeoutMs: advisorTimeoutMs,
       });
     } finally {
       advisorPhaseActive = false;

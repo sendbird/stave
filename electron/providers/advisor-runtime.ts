@@ -1,11 +1,11 @@
 import {
-  DEFAULT_ADVISOR_TIMEOUT_MS,
   boundAdvisorAdvice,
   buildAdvisorPrompt,
   isStaticAdvisorTarget,
   isSupportedAdvisorTarget,
   normalizeAdvisorTarget,
   resolveAdvisorEffort,
+  resolveAdvisorTimeoutMs,
   shouldRunAdvisor,
 } from "../../src/lib/providers/advisor";
 import { getProviderLabel } from "../../src/lib/providers/model-catalog";
@@ -15,7 +15,10 @@ import type {
   ProviderId,
 } from "../../src/lib/providers/provider.types";
 import { formatAdvisorDuration } from "../../src/lib/providers/advisor-activity";
-import { runClaudeReadOnlyPrompt } from "./claude-sdk-runtime";
+import {
+  runClaudeReadOnlyPrompt,
+  type ClaudeReadOnlyPromptProgress,
+} from "./claude-sdk-runtime";
 import {
   getCodexModelCatalog,
   runCodexReadOnlyPrompt,
@@ -256,7 +259,7 @@ export function buildAdvisorStartedEvent(args: {
     at: args.at,
     timeoutMs: Math.max(
       1,
-      args.timeoutMs ?? DEFAULT_ADVISOR_TIMEOUT_MS,
+      args.timeoutMs ?? resolveAdvisorTimeoutMs(args.target),
     ),
   };
 }
@@ -334,9 +337,12 @@ export async function runAdvisorPreflight(args: {
 }): Promise<AdvisorPreflightResult> {
   const startedAt = Date.now();
   const runners = args.runners ?? DEFAULT_ADVISOR_RUNNERS;
-  const timeoutMs = Math.max(1, args.timeoutMs ?? DEFAULT_ADVISOR_TIMEOUT_MS);
   const target = normalizeAdvisorTarget(
     args.turn.runtimeOptions?.advisorTarget,
+  );
+  const timeoutMs = Math.max(
+    1,
+    args.timeoutMs ?? resolveAdvisorTimeoutMs(target),
   );
   if (!target) {
     return {
@@ -378,6 +384,7 @@ export async function runAdvisorPreflight(args: {
   }
 
   type CancellationReason = "user" | "timeout" | "skip";
+  let providerProgress: ClaudeReadOnlyPromptProgress | undefined;
   const controller = new AbortController();
   let resolveCancellation = (_reason: CancellationReason) => {};
   const cancellation = new Promise<CancellationReason>((resolve) => {
@@ -436,13 +443,21 @@ export async function runAdvisorPreflight(args: {
         shouldTrace: true,
       };
     }
+    const progressDetail =
+      target.providerId === "claude-code" && providerProgress
+        ? providerProgress.stage === "loading_runtime"
+          ? " while loading the Claude runtime"
+          : providerProgress.lastMessageType
+            ? ` while waiting for Claude's final result (last SDK event: ${providerProgress.lastMessageType})`
+            : " while waiting for Claude's final result"
+        : "";
     return {
       status: "failed",
       target,
       detail: `timed out after ${Math.max(
         1,
         Math.round(timeoutMs / 1_000),
-      )} seconds.`,
+      )} seconds${progressDetail}.`,
       failureKind: "timeout",
       durationMs,
       usage,
@@ -518,6 +533,9 @@ export async function runAdvisorPreflight(args: {
             },
             signal: controller.signal,
             label: ADVISOR_READ_ONLY_PROMPT_LABEL,
+            onProgress: (progress) => {
+              providerProgress = progress;
+            },
           })
         : runners.runCodex({
             cwd: args.turn.cwd,
