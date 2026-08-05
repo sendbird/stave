@@ -1,5 +1,5 @@
+import { spawn } from "node:child_process";
 import { homedir } from "node:os";
-import * as pty from "node-pty";
 import type {
   ClaudeUsageSnapshot,
   ClaudeUsageWindow,
@@ -9,44 +9,46 @@ import {
   resolveClaudeCliExecutablePath,
 } from "../cli-path-env";
 
-const USAGE_SLASH_COMMAND = "/usage\r";
-// Send the slash command once startup output has been quiet for this long —
-// the prompt is ready. A fixed delay raced the CLI's (often multi-second)
-// startup and could land the command inside the banner instead.
-const PROMPT_SETTLE_DELAY_MS = 1_000;
-// If the CLI keeps streaming output (e.g. an update check spinner), force
-// the command out after this long rather than waiting for quiet forever.
-const MAX_STARTUP_WAIT_MS = 6_000;
-// Once output stops changing for this long after the command was sent,
-// check whether the /usage panel has rendered something parseable.
-const OUTPUT_SETTLE_DELAY_MS = 1_500;
-// Hard cap so a hung/unexpected CLI prompt can't block the status bar
-// refresh indefinitely. Generous because CLI startup plus the /usage
-// panel's own network fetch routinely exceeds 6s.
-const CAPTURE_TIMEOUT_MS = 20_000;
+/**
+ * `-p` (print mode) is what makes this fallback viable at all: it renders the
+ * usage report as plain text and skips the workspace-trust dialog. The previous
+ * implementation drove an interactive PTY and typed `/usage` into it, which
+ * broke in three independent ways — the trust prompt swallowed the keystrokes
+ * and its `\r` confirmed the dialog instead, the Ink panel positions text with
+ * cursor-movement escapes so stripping ANSI glued words together, and partial
+ * repaints left stale percentages in the buffer that won over the final ones.
+ *
+ * `--strict-mcp-config` keeps a background status-bar poll from booting every
+ * MCP server the user has configured just to read two percentages.
+ */
+const USAGE_COMMAND_ARGS = ["--strict-mcp-config", "-p", "/usage"] as const;
 
-// Matches CSI/OSC escape sequences plus lone ESC-char controls so the
-// interactive panel's colors/cursor-movement don't break text parsing.
-// eslint-disable-next-line no-control-regex
-const ANSI_ESCAPE_RE =
-  /\x1b\[[0-9;?]*[ -\/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?|\x1b[@-_]/g;
+// Generous: the CLI has to start up and hit its own usage endpoint. Still a
+// hard cap so a wedged CLI can't pin the status-bar refresh open forever.
+const CAPTURE_TIMEOUT_MS = 30_000;
 
-/** Strip ANSI escape sequences from raw PTY output before text parsing. */
-export function stripAnsiEscapes(text: string): string {
-  return text.replace(ANSI_ESCAPE_RE, "");
-}
-
-const PERCENT_RE = /(\d{1,3})%\s*(remaining|left|used|consumed)/i;
-// Older CLI builds rendered a relative "resets in 2h 30m"; current builds
-// render an absolute "Resets Aug 10, 12:00pm" (or "Resets 5:20pm"). Parse both
-// so the popover stops showing a permanent "resets unknown".
+const PERCENT_RE = /(\d{1,3})%\s*(remaining|left|used|consumed)\b/i;
 const RELATIVE_RESET_RE = /resets?\s+in\s+([0-9dhm\s]+)/i;
-const ABSOLUTE_RESET_RE = /resets?\s+([^\r\n│┃|]+)/i;
-const SESSION_LABEL_RE = /current session/i;
+const ABSOLUTE_RESET_RE = /resets?\s+(?!in\b)([^\r\n│┃|]+)/i;
+
+/**
+ * Window labels are matched at the start of a line and each window is read from
+ * that same line, because the report puts label, percent, and reset together:
+ *
+ *   Current week (all models): 33% used · resets Aug 7 at 7:59am (Asia/Seoul)
+ *
+ * Anchoring this way also skips the report's trailing behavior breakdown
+ * ("16% of your usage came from subagent-heavy sessions"), which a
+ * percent-anywhere scan would happily misread as a limit.
+ *
+ * The Fable pattern is tested before the general weekly one: `Current week
+ * (Fable)` satisfies both, and the model-scoped number must never land in the
+ * account-wide weekly slot.
+ */
+const SESSION_LABEL_RE = /^\s*current session\b/i;
+const FABLE_WEEKLY_LABEL_RE = /^\s*current week\s*\(\s*fable\b/i;
 const WEEKLY_LABEL_RE =
-  /(current week|weekly limits|weekly usage|weekly rate limit|7-day)/i;
-const FABLE_WEEKLY_LABEL_RE =
-  /current week\s*\(\s*fable(?:\s+\d+)?\s+only\s*\)|fable(?:\s+\d+)?\s+weekly(?:\s+(?:usage|rate))?\s+limits?/i;
+  /^\s*(?:current week\b|weekly (?:limits|usage|rate limit)\b|7-day\b)/i;
 
 function parseRelativeDurationToSeconds(text: string): number | null {
   const days = text.match(/(\d+)\s*d/)?.[1];
@@ -78,7 +80,7 @@ const MONTH_NAMES = [
 ];
 
 /**
- * `Date.parse` can't handle the panel's compact "Dec 31, 12:00pm" wording, so
+ * `Date.parse` can't handle the report's compact "Dec 31, 12:00pm" wording, so
  * the clock time is destructured explicitly rather than handed to the engine.
  */
 function parseClockTime(
@@ -106,10 +108,28 @@ function parseClockTime(
 }
 
 /**
- * Parses the absolute reset label the current CLI panel renders — e.g.
- * "Resets Aug 10, 12:00pm", "Resets Mon 9:00am", or a time-only
- * "Resets 5:20pm" (today, or tomorrow if that time already passed).
+ * Reset labels arrive as "Aug 7 at 7:59am (Asia/Seoul)" or a time-only
+ * "9:10am (Asia/Seoul)".
  *
+ * The parenthesised zone is dropped rather than honoured: the CLI formats these
+ * in the host's own zone, so reading the clock time as local reproduces the
+ * same instant. It has to be removed explicitly though — left in place it
+ * defeated the clock-time matcher, and a dated label then silently degraded to
+ * midnight, reporting a reset up to a day early.
+ *
+ * The `at` separator is likewise elided so "Aug 7 at 7:59am" reduces to the
+ * "<month> <day> <time>" shape the date matcher below expects.
+ */
+function normalizeResetLabel(label: string): string {
+  return label
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[.,]$/, "")
+    .replace(/\bat\s+(?=\d)/i, "");
+}
+
+/**
  * Labels omit the year, so a month/day in the past is rolled to next year
  * rather than reported as a reset that already happened.
  */
@@ -117,7 +137,7 @@ export function parseAbsoluteResetToEpochSeconds(
   label: string,
   now: number = Date.now(),
 ): number | null {
-  const trimmed = label.trim().replace(/\s+/g, " ").replace(/[.,]$/, "");
+  const trimmed = normalizeResetLabel(label);
   if (!trimmed) {
     return null;
   }
@@ -159,22 +179,22 @@ export function parseAbsoluteResetToEpochSeconds(
   );
 }
 
-function parseResetsAt(block: string, now: number): number | null {
-  const relativeMatch = block.match(RELATIVE_RESET_RE);
+function parseResetsAt(line: string, now: number): number | null {
+  const relativeMatch = line.match(RELATIVE_RESET_RE);
   if (relativeMatch) {
     const deltaSeconds = parseRelativeDurationToSeconds(relativeMatch[1]);
     if (deltaSeconds !== null) {
       return Math.floor(now / 1000) + deltaSeconds;
     }
   }
-  const absoluteMatch = block.match(ABSOLUTE_RESET_RE);
+  const absoluteMatch = line.match(ABSOLUTE_RESET_RE);
   return absoluteMatch
     ? parseAbsoluteResetToEpochSeconds(absoluteMatch[1], now)
     : null;
 }
 
-function parseUsageWindow(block: string): ClaudeUsageWindow | null {
-  const percentMatch = block.match(PERCENT_RE);
+function parseUsageWindow(line: string, now: number): ClaudeUsageWindow | null {
+  const percentMatch = line.match(PERCENT_RE);
   if (!percentMatch) {
     return null;
   }
@@ -187,25 +207,11 @@ function parseUsageWindow(block: string): ClaudeUsageWindow | null {
 
   return {
     usedPercent: Math.min(100, Math.max(0, usedPercent)),
-    resetsAt: parseResetsAt(block, Date.now()),
+    resetsAt: parseResetsAt(line, now),
   };
 }
 
-/**
- * Splits `/usage` panel text into blank-line-separated sections so
- * session/weekly windows are read from the right labeled block instead of
- * the first percentage found anywhere in the terminal output. Lines that
- * contain only whitespace or box-drawing borders count as blank so the
- * panel's framed sections still separate after ANSI stripping.
- */
-function splitUsageSections(rawText: string): string[] {
-  return rawText
-    .split(/\r?\n(?:[\s│┃|]*\r?\n)+/)
-    .map((section) => section.trim())
-    .filter(Boolean);
-}
-
-export function parseClaudeUsagePanelText(rawText: string): {
+export function parseClaudeUsageReportText(rawText: string): {
   session: ClaudeUsageWindow | null;
   weekly: ClaudeUsageWindow | null;
   fableWeekly: ClaudeUsageWindow | null;
@@ -213,25 +219,42 @@ export function parseClaudeUsagePanelText(rawText: string): {
   let session: ClaudeUsageWindow | null = null;
   let weekly: ClaudeUsageWindow | null = null;
   let fableWeekly: ClaudeUsageWindow | null = null;
+  const now = Date.now();
 
-  for (const section of splitUsageSections(stripAnsiEscapes(rawText))) {
-    if (!fableWeekly && FABLE_WEEKLY_LABEL_RE.test(section)) {
-      fableWeekly = parseUsageWindow(section);
+  for (const line of rawText.split(/\r?\n/)) {
+    if (FABLE_WEEKLY_LABEL_RE.test(line)) {
+      fableWeekly ??= parseUsageWindow(line, now);
       continue;
     }
-    if (!session && SESSION_LABEL_RE.test(section)) {
-      session = parseUsageWindow(section);
+    if (SESSION_LABEL_RE.test(line)) {
+      session ??= parseUsageWindow(line, now);
       continue;
     }
-    if (!weekly && WEEKLY_LABEL_RE.test(section)) {
-      weekly = parseUsageWindow(section);
+    if (WEEKLY_LABEL_RE.test(line)) {
+      weekly ??= parseUsageWindow(line, now);
     }
   }
 
   return { session, weekly, fableWeekly };
 }
 
-function toPtyEnv(
+export interface UsageReportCommand {
+  executablePath: string;
+  commandArgs: string[];
+  cwd: string;
+  env: Record<string, string>;
+  timeoutMs: number;
+}
+
+/**
+ * Injectable so the command shape and the snapshot mapping can be unit-tested
+ * without spawning a real CLI. Production always uses the default runner.
+ */
+export type UsageReportRunner = (
+  command: UsageReportCommand,
+) => Promise<string>;
+
+function toProcessEnv(
   env: Record<string, string | undefined>,
 ): Record<string, string> {
   const result: Record<string, string> = {};
@@ -243,198 +266,129 @@ function toPtyEnv(
   return result;
 }
 
-/**
- * Spawns the hidden usage CLI PTY. Injectable so the capture lifecycle
- * (subscription disposal + PTY teardown) can be unit-tested with a fake PTY,
- * without a real node-pty spawn (which needs the Electron ABI to succeed).
- */
-export type UsagePtySpawner = (
-  executablePath: string,
-  options: pty.IPtyForkOptions,
-) => pty.IPty;
-
-const defaultUsagePtySpawner: UsagePtySpawner = (executablePath, options) =>
-  pty.spawn(executablePath, [], options);
-
-/**
- * PTY-capture timing knobs. Overridable so lifecycle tests can drive the
- * settle/timeout state machine with zero-delay timers instead of racing the
- * real multi-second waits. Production always uses the module defaults.
- */
-export interface UsageCaptureTiming {
-  promptSettleDelayMs: number;
-  maxStartupWaitMs: number;
-  outputSettleDelayMs: number;
-  captureTimeoutMs: number;
-}
-
-const DEFAULT_USAGE_CAPTURE_TIMING: UsageCaptureTiming = {
-  promptSettleDelayMs: PROMPT_SETTLE_DELAY_MS,
-  maxStartupWaitMs: MAX_STARTUP_WAIT_MS,
-  outputSettleDelayMs: OUTPUT_SETTLE_DELAY_MS,
-  captureTimeoutMs: CAPTURE_TIMEOUT_MS,
-};
-
-export function captureClaudeUsagePanelText(
-  executablePath: string,
-  spawnPty: UsagePtySpawner = defaultUsagePtySpawner,
-  timing: UsageCaptureTiming = DEFAULT_USAGE_CAPTURE_TIMING,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let ptyProcess: pty.IPty;
+const defaultUsageReportRunner: UsageReportRunner = (command) =>
+  new Promise((resolve, reject) => {
+    let child: ReturnType<typeof spawn>;
     try {
-      ptyProcess = spawnPty(executablePath, {
-        name: "xterm-256color",
-        cols: 120,
-        rows: 40,
-        // Home instead of the Electron app's cwd — an unknown/untrusted
-        // directory can make the CLI block on a trust prompt before the
-        // slash prompt ever appears.
-        cwd: homedir(),
-        env: toPtyEnv(buildClaudeCliEnv({ executablePath })),
+      child = spawn(command.executablePath, command.commandArgs, {
+        cwd: command.cwd,
+        env: command.env,
+        // stdin is explicitly /dev/null: print mode waits on it, so an open
+        // pipe stalls the read until the CLI's own idle warning fires.
+        stdio: ["ignore", "pipe", "pipe"],
       });
     } catch (error) {
       reject(error);
       return;
     }
 
-    let buffer = "";
+    let stdout = "";
+    let stderr = "";
     let settled = false;
-    let commandSent = false;
-    let settleTimer: ReturnType<typeof setTimeout> | null = null;
-    let dataSubscription: pty.IDisposable | null = null;
-    let exitSubscription: pty.IDisposable | null = null;
 
-    // On macOS node-pty only releases the PTY master fd on destroy() (or a
-    // socket 'close'), never on kill() alone. This fallback spawns a hidden
-    // CLI PTY on every poll where the OAuth usage endpoint is unavailable, so
-    // terminating with kill() here orphaned one master fd per call. Always
-    // destroy() the process and dispose its subscriptions so nothing leaks.
-    const teardownPty = () => {
-      dataSubscription?.dispose();
-      exitSubscription?.dispose();
-      dataSubscription = null;
-      exitSubscription = null;
-      const closablePty = ptyProcess as pty.IPty & { destroy?: () => void };
-      try {
-        if (typeof closablePty.destroy === "function") {
-          closablePty.destroy();
-        } else {
-          ptyProcess.kill();
-        }
-      } catch {
-        // already exited
-      }
-    };
-
-    const finish = () => {
+    const settle = (finish: () => void) => {
       if (settled) {
         return;
       }
       settled = true;
-      clearTimeout(hardTimer);
-      clearTimeout(forceSendTimer);
-      if (settleTimer) {
-        clearTimeout(settleTimer);
-      }
-      teardownPty();
-      resolve(buffer);
+      clearTimeout(timer);
+      finish();
     };
 
-    const sendCommand = () => {
-      if (settled || commandSent) {
-        return;
-      }
-      commandSent = true;
-      try {
-        ptyProcess.write(USAGE_SLASH_COMMAND);
-      } catch (error) {
-        settled = true;
-        clearTimeout(hardTimer);
-        clearTimeout(forceSendTimer);
-        if (settleTimer) {
-          clearTimeout(settleTimer);
-        }
-        teardownPty();
-        reject(error);
-      }
-    };
+    const timer = setTimeout(() => {
+      settle(() => {
+        child.kill("SIGKILL");
+        reject(
+          new Error(
+            `Claude CLI /usage timed out after ${command.timeoutMs}ms.`,
+          ),
+        );
+      });
+    }, command.timeoutMs);
 
-    const onOutputSettled = () => {
-      if (!commandSent) {
-        // Startup output went quiet — the prompt should be ready now.
-        sendCommand();
-        return;
-      }
-      // Only stop once the settled output actually contains a parseable
-      // usage panel; otherwise keep waiting (the panel may still be
-      // loading) until the hard timeout fires.
-      const { session, weekly, fableWeekly } =
-        parseClaudeUsagePanelText(buffer);
-      if (session || weekly || fableWeekly) {
-        finish();
-      }
-    };
-
-    const hardTimer = setTimeout(finish, timing.captureTimeoutMs);
-    // If startup output never goes quiet (spinners), send the command
-    // anyway after a grace period.
-    const forceSendTimer = setTimeout(sendCommand, timing.maxStartupWaitMs);
-
-    dataSubscription = ptyProcess.onData((chunk) => {
-      buffer += chunk;
-      if (settleTimer) {
-        clearTimeout(settleTimer);
-      }
-      settleTimer = setTimeout(
-        onOutputSettled,
-        commandSent ? timing.outputSettleDelayMs : timing.promptSettleDelayMs,
-      );
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    child.stderr?.setEncoding("utf8");
+    child.stderr?.on("data", (chunk: string) => {
+      stderr += chunk;
     });
 
-    exitSubscription = ptyProcess.onExit(() => finish());
+    child.on("error", (error) => settle(() => reject(error)));
+    child.on("close", (code) => {
+      settle(() => {
+        if (code === 0) {
+          resolve(stdout);
+          return;
+        }
+        const detail = stderr.trim();
+        reject(
+          new Error(
+            `Claude CLI /usage exited with code ${code}${
+              detail ? `: ${detail}` : ""
+            }.`,
+          ),
+        );
+      });
+    });
+  });
+
+export function captureClaudeUsageReportText(
+  executablePath: string,
+  run: UsageReportRunner = defaultUsageReportRunner,
+): Promise<string> {
+  return run({
+    executablePath,
+    commandArgs: [...USAGE_COMMAND_ARGS],
+    // Home rather than the Electron app's cwd, so a background poll never
+    // adopts a project directory's settings or CLAUDE.md.
+    cwd: homedir(),
+    env: toProcessEnv(buildClaudeCliEnv({ executablePath })),
+    timeoutMs: CAPTURE_TIMEOUT_MS,
   });
 }
 
+function unavailable(error: string): ClaudeUsageSnapshot {
+  return {
+    source: "unavailable",
+    session: null,
+    weekly: null,
+    fableWeekly: null,
+    error,
+  };
+}
+
 /**
- * Fallback path for when the Claude OAuth usage endpoint is unavailable:
- * spawn a hidden `claude` CLI PTY, send `/usage`, and parse the interactive
- * panel text it renders. This mirrors what the CLI itself shows, so it
- * degrades gracefully — if the CLI's wording changes or nothing readable
- * comes back, this returns `source: "unavailable"` instead of throwing.
+ * Fallback path for when the Claude OAuth usage endpoint is unavailable: run
+ * `claude -p /usage` and parse the plain-text report. This mirrors what the CLI
+ * itself reports, so it degrades gracefully — if the wording changes or nothing
+ * readable comes back, this returns `source: "unavailable"` instead of throwing.
  */
-export async function fetchClaudeUsageViaCli(): Promise<ClaudeUsageSnapshot> {
-  const executablePath = resolveClaudeCliExecutablePath();
+export async function fetchClaudeUsageViaCli(options?: {
+  resolveExecutablePath?: () => string | null;
+  run?: UsageReportRunner;
+}): Promise<ClaudeUsageSnapshot> {
+  const resolvePath =
+    options?.resolveExecutablePath ??
+    (() => resolveClaudeCliExecutablePath() ?? null);
+  const executablePath = resolvePath();
   if (!executablePath) {
-    return {
-      source: "unavailable",
-      session: null,
-      weekly: null,
-      fableWeekly: null,
-      error: "Claude CLI executable not found.",
-    };
+    return unavailable("Claude CLI executable not found.");
   }
 
   try {
-    const rawText = await captureClaudeUsagePanelText(executablePath);
-    const { session, weekly, fableWeekly } = parseClaudeUsagePanelText(rawText);
+    const rawText = await captureClaudeUsageReportText(
+      executablePath,
+      options?.run,
+    );
+    const { session, weekly, fableWeekly } =
+      parseClaudeUsageReportText(rawText);
     if (!session && !weekly && !fableWeekly) {
-      return {
-        source: "unavailable",
-        session: null,
-        weekly: null,
-        fableWeekly: null,
-        error: "Could not parse the Claude CLI /usage panel output.",
-      };
+      return unavailable("Could not parse the Claude CLI /usage report.");
     }
     return { source: "cli", session, weekly, fableWeekly, error: null };
   } catch (error) {
-    return {
-      source: "unavailable",
-      session: null,
-      weekly: null,
-      fableWeekly: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return unavailable(error instanceof Error ? error.message : String(error));
   }
 }

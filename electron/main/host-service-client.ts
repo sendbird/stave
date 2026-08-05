@@ -91,6 +91,22 @@ export function resolveHostServiceScriptPath(args: {
   return siblingCandidate;
 }
 
+/**
+ * The host-service child runs as plain Node (`ELECTRON_RUN_AS_NODE`), so its
+ * `fetch` uses Node's bundled Mozilla root list and never consults the OS trust
+ * store the way Chromium's network stack does. Behind a TLS-intercepting
+ * corporate proxy that means every outbound HTTPS call fails with
+ * `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` even though the proxy's root is installed
+ * and trusted machine-wide — which silently reduced the Claude usage meter to a
+ * permanent "—" while `curl` and the Claude CLI worked fine.
+ *
+ * `--use-system-ca` adds the OS store on top of the bundled roots, so public
+ * CAs keep working unchanged.
+ */
+export function buildHostServiceSpawnArgs(args: { scriptPath: string }) {
+  return ["--use-system-ca", args.scriptPath];
+}
+
 export function measureSerializedHostServiceRequestBytes(args: {
   method: HostServiceMethod;
   params: HostServiceRequestMap[HostServiceMethod];
@@ -303,14 +319,18 @@ class HostServiceClient {
     // the child dies while no caller happens to be waiting on startup.
     void startupPromise.catch(() => {});
 
-    const child = spawn(process.execPath, [this.getScriptPath()], {
-      env: {
-        ...process.env,
-        ELECTRON_RUN_AS_NODE: "1",
-        STAVE_HOST_PARENT_PID: String(process.pid),
+    const child = spawn(
+      process.execPath,
+      buildHostServiceSpawnArgs({ scriptPath: this.getScriptPath() }),
+      {
+        env: {
+          ...process.env,
+          ELECTRON_RUN_AS_NODE: "1",
+          STAVE_HOST_PARENT_PID: String(process.pid),
+        },
+        stdio: ["pipe", "pipe", "pipe"],
       },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    );
 
     this.startupTimer = setTimeout(() => {
       this.startupTimer = null;
