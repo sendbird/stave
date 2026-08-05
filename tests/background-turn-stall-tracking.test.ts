@@ -160,42 +160,86 @@ async function setupBackgroundTurn() {
   return { useAppStore, startPushTurnCalls, emit };
 }
 
+/**
+ * Compress the multi-minute stall-mark / auto-abort-grace timers
+ * (`PROVIDER_TURN_STALL_THRESHOLD_MS`, `PROVIDER_TURN_AUTO_ABORT_GRACE_MS` in
+ * src/lib/providers/turn-status.ts) down to near-instant so these tests do not
+ * need to wait 20 real minutes. Anything scheduled with a much shorter delay
+ * (debounces, etc.) is left untouched. Callers restore `globalThis.setTimeout`.
+ */
+function installCompressedStallTimers() {
+  const originalSetTimeout = globalThis.setTimeout;
+  (globalThis as { setTimeout: typeof setTimeout }).setTimeout = ((
+    fn: (...callbackArgs: unknown[]) => void,
+    delay?: number,
+    ...rest: unknown[]
+  ) => {
+    const compressed =
+      typeof delay === "number" && delay >= 60_000 ? 30 : delay;
+    return originalSetTimeout(fn as never, compressed, ...rest);
+  }) as typeof setTimeout;
+}
+
+function stubTurnTeardown(args: {
+  abortTurnCalls: Array<{ turnId: string }>;
+  cleanupTaskCalls?: Array<{ taskId: string }>;
+}) {
+  const api = (
+    globalThis as {
+      window: { api: { provider: Record<string, unknown> } };
+    }
+  ).window.api;
+  api.provider.abortTurn = async (target: { turnId: string }) => {
+    args.abortTurnCalls.push(target);
+    return { ok: true, message: "aborted" };
+  };
+  api.provider.cleanupTask = async (target: { taskId: string }) => {
+    args.cleanupTaskCalls?.push(target);
+    return { ok: true, message: "cleaned" };
+  };
+}
+
+/**
+ * Mark every waiting approval part as answered *without* going through
+ * `respondToApproval`, mimicking the resolution paths that bypass the store:
+ * a managed host answering for the agent, a runtime auto-decline, or a replay
+ * that rewrites the message parts.
+ */
+function resolvePendingApprovalPartsOutsideStore(args: {
+  useAppStore: {
+    getState: () => {
+      messagesByTask: Record<string, Array<{ parts: Array<{ type: string }> }>>;
+    };
+    setState: (patch: Record<string, unknown>) => void;
+  };
+}) {
+  const { messagesByTask } = args.useAppStore.getState();
+  args.useAppStore.setState({
+    messagesByTask: {
+      ...messagesByTask,
+      "task-a": (messagesByTask["task-a"] ?? []).map((message) => ({
+        ...message,
+        parts: message.parts.map((part) =>
+          part.type === "approval"
+            ? { ...part, state: "approval-responded" }
+            : part,
+        ),
+      })),
+    },
+  });
+}
+
 describe("background workspace turn activity tracking", () => {
   test("auto-aborts a background task turn that never resumes after the stall grace window", async () => {
     const originalSetTimeout = globalThis.setTimeout;
     const abortTurnCalls: Array<{ turnId: string }> = [];
     const cleanupTaskCalls: Array<{ taskId: string }> = [];
 
-    // Compress the multi-minute stall-mark / auto-abort-grace timers
-    // (`PROVIDER_TURN_STALL_THRESHOLD_MS`, `PROVIDER_TURN_AUTO_ABORT_GRACE_MS`
-    // in src/lib/providers/turn-status.ts) down to near-instant so this test
-    // does not need to wait 20 real minutes. Anything scheduled with a much
-    // shorter delay (debounces, etc.) is left untouched.
-    (globalThis as { setTimeout: typeof setTimeout }).setTimeout = ((
-      fn: (...callbackArgs: unknown[]) => void,
-      delay?: number,
-      ...rest: unknown[]
-    ) => {
-      const compressed =
-        typeof delay === "number" && delay >= 60_000 ? 30 : delay;
-      return originalSetTimeout(fn as never, compressed, ...rest);
-    }) as typeof setTimeout;
+    installCompressedStallTimers();
 
     try {
       const { useAppStore, emit } = await setupBackgroundTurn();
-      const api = (
-        globalThis as {
-          window: { api: { provider: Record<string, unknown> } };
-        }
-      ).window.api;
-      api.provider.abortTurn = async (args: { turnId: string }) => {
-        abortTurnCalls.push(args);
-        return { ok: true, message: "aborted" };
-      };
-      api.provider.cleanupTask = async (args: { taskId: string }) => {
-        cleanupTaskCalls.push(args);
-        return { ok: true, message: "cleaned" };
-      };
+      stubTurnTeardown({ abortTurnCalls, cleanupTaskCalls });
 
       await useAppStore.getState().switchWorkspace({ workspaceId: "ws-b" });
       // One more event to anchor `lastEventAt`, then go silent — the
@@ -222,6 +266,102 @@ describe("background workspace turn activity tracking", () => {
       expect(notice?.parts.some((part) => part.type === "system_event")).toBe(
         true,
       );
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
+  test("reclaims a silent turn whose prompt was resolved without clearing the interaction hint", async () => {
+    // Regression: `providerTurnActivityByTask.pendingInteraction` exempts a turn
+    // from the stall net, and it is only cleared when the user answers through
+    // the store. A prompt resolved any other way (the managed host answering for
+    // the agent, a runtime auto-decline, a replay rewriting the parts) left the
+    // hint set forever, so a turn that then went silent had nothing left to
+    // reclaim it and the task stayed "active" for good.
+    const originalSetTimeout = globalThis.setTimeout;
+    const abortTurnCalls: Array<{ turnId: string }> = [];
+    installCompressedStallTimers();
+
+    try {
+      const { useAppStore, emit } = await setupBackgroundTurn();
+      stubTurnTeardown({ abortTurnCalls });
+
+      emit(
+        {
+          type: "approval",
+          toolName: "bash",
+          requestId: "req-1",
+          description: "Run command",
+        },
+        { sequence: 1, done: false },
+      );
+      await Bun.sleep(20);
+      const activeTurnId =
+        useAppStore.getState().activeTurnIdsByTask["task-a"];
+      expect(activeTurnId).toBeString();
+      expect(
+        useAppStore.getState().providerTurnActivityByTask["task-a"]
+          ?.pendingInteraction,
+      ).toBe("approval");
+
+      // The prompt gets resolved behind the store's back: the transcript no
+      // longer shows it waiting, but the cached hint still says it does.
+      resolvePendingApprovalPartsOutsideStore({ useAppStore });
+      expect(
+        useAppStore.getState().providerTurnActivityByTask["task-a"]
+          ?.pendingInteraction,
+      ).toBe("approval");
+
+      // Stay silent through the compressed stall-mark and auto-abort grace.
+      await Bun.sleep(200);
+
+      expect(abortTurnCalls).toEqual([{ turnId: activeTurnId }]);
+      expect(
+        useAppStore.getState().activeTurnIdsByTask["task-a"],
+      ).toBeUndefined();
+      expect(
+        useAppStore.getState().providerTurnActivityByTask["task-a"],
+      ).toBeUndefined();
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
+  test("never auto-aborts a silent turn whose approval is still unanswered", async () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    const abortTurnCalls: Array<{ turnId: string }> = [];
+    installCompressedStallTimers();
+
+    try {
+      const { useAppStore, emit } = await setupBackgroundTurn();
+      stubTurnTeardown({ abortTurnCalls });
+
+      emit(
+        {
+          type: "approval",
+          toolName: "bash",
+          requestId: "req-1",
+          description: "Run command",
+        },
+        { sequence: 1, done: false },
+      );
+      await Bun.sleep(20);
+      const activeTurnId =
+        useAppStore.getState().activeTurnIdsByTask["task-a"];
+      expect(activeTurnId).toBeString();
+
+      // The user is simply still deciding — silence here is expected and must
+      // never cost them the turn.
+      await Bun.sleep(200);
+
+      expect(abortTurnCalls).toEqual([]);
+      expect(useAppStore.getState().activeTurnIdsByTask["task-a"]).toBe(
+        activeTurnId,
+      );
+      expect(
+        useAppStore.getState().providerTurnActivityByTask["task-a"]
+          ?.pendingInteraction,
+      ).toBe("approval");
     } finally {
       globalThis.setTimeout = originalSetTimeout;
     }

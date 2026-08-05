@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { createTurnTimeoutController } from "../electron/providers/runtime";
+import {
+  ADVISOR_PREFLIGHT_PAUSE_PHASE,
+  createTurnTimeoutController,
+} from "../electron/providers/runtime";
 
 // Task B regression: the turn-level timeout must pause while the UI is
 // waiting on a user decision so an idle approval prompt doesn't silently
@@ -88,6 +91,99 @@ describe("createTurnTimeoutController", () => {
     await sleep(50);
     expect(fired).toBe(false);
     expect(controller.timedOut).toBe(false);
+  });
+
+  test("a decision that pauses twice does not strand the clock", async () => {
+    // Regression: with a plain refcount, a re-emitted approval event for the
+    // same request pushed the count to 2 while the single responder delivery
+    // only decremented it once — the clock never restarted and the turn hung
+    // paused forever.
+    let fired = false;
+    const controller = createTurnTimeoutController({
+      timeoutMs: 40,
+      onTimeout: () => {
+        fired = true;
+      },
+    });
+
+    controller.pauseForDecision({ key: "req-1" });
+    controller.pauseForDecision({ key: "req-1" });
+    expect(controller.pausedDecisionKeys).toEqual(["req-1"]);
+
+    await sleep(80);
+    expect(fired).toBe(false);
+
+    controller.resumeAfterDecision({ key: "req-1" });
+    expect(controller.pausedDecisionKeys).toEqual([]);
+    await sleep(80);
+    expect(fired).toBe(true);
+    controller.dispose();
+  });
+
+  test("an unrelated resume never releases a decision that is still waiting", async () => {
+    // Regression: every `tool_result` used to decrement the refcount, so a
+    // background tool finishing while an approval was still on screen restarted
+    // the clock and could abort the turn mid-deliberation.
+    let fired = false;
+    const controller = createTurnTimeoutController({
+      timeoutMs: 40,
+      onTimeout: () => {
+        fired = true;
+      },
+    });
+
+    controller.pauseForDecision({ key: "req-1" });
+    controller.resumeAfterDecision({ key: "unrelated-tool-use" });
+    expect(controller.pausedDecisionKeys).toEqual(["req-1"]);
+    await sleep(80);
+    expect(fired).toBe(false);
+
+    controller.resumeAfterDecision({ key: "req-1" });
+    await sleep(80);
+    expect(fired).toBe(true);
+    controller.dispose();
+  });
+
+  test("resumeAllDecisions releases every outstanding decision", async () => {
+    let fired = false;
+    const controller = createTurnTimeoutController({
+      timeoutMs: 40,
+      onTimeout: () => {
+        fired = true;
+      },
+    });
+
+    controller.pauseForDecision({ key: "req-1" });
+    controller.pauseForDecision({ key: "req-2" });
+    controller.resumeAllDecisions();
+    expect(controller.pausedDecisionKeys).toEqual([]);
+    await sleep(80);
+    expect(fired).toBe(true);
+    controller.dispose();
+  });
+
+  test("a phase pause survives resumeAllDecisions and holds the clock alone", async () => {
+    // The advisor preflight owns its pause through a `finally`, so a terminal
+    // stream signal clearing decision pauses must not restart the clock under
+    // it — that would bill advisor latency to the provider's budget.
+    let fired = false;
+    const controller = createTurnTimeoutController({
+      timeoutMs: 40,
+      onTimeout: () => {
+        fired = true;
+      },
+    });
+
+    controller.pausePhase({ phase: ADVISOR_PREFLIGHT_PAUSE_PHASE });
+    controller.pauseForDecision({ key: "req-1" });
+    controller.resumeAllDecisions();
+    await sleep(80);
+    expect(fired).toBe(false);
+
+    controller.resumePhase({ phase: ADVISOR_PREFLIGHT_PAUSE_PHASE });
+    await sleep(80);
+    expect(fired).toBe(true);
+    controller.dispose();
   });
 
   test("resumeAfterDecision is a no-op when no decision is pending", async () => {

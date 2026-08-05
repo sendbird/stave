@@ -189,8 +189,9 @@ const CODEX_CONFIG_READ_TIMEOUT_MS = 5_000;
  * approval/user-input prompt (renderer never rendered it, IPC glitch, user
  * simply never responds) leaves the per-turn timeout controller paused
  * indefinitely (see `createTurnTimeoutController` in `runtime.ts`, which only
- * resumes on a responder delivery or a `tool_result`/`error` bridge event) —
- * the turn, and its task/workspace, would then show "active" forever.
+ * releases a decision's pause on that request's responder delivery, a
+ * `tool_result` matching its id, or an `error` bridge event) — the turn, and
+ * its task/workspace, would then show "active" forever.
  */
 export const CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS = 45 * 60 * 1000;
 

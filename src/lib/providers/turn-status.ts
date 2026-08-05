@@ -26,7 +26,9 @@ export const PROVIDER_TURN_STALL_THRESHOLD_MS = 5 * 60 * 1000; // 5 min
  * marker alone only changes the display state and never clears the active
  * turn id. Turns waiting on an approval / user-input prompt are exempt (see
  * `markProviderTurnStalled`'s `pendingInteraction` guard below) — those have
- * their own dedicated timeout paths per provider.
+ * their own dedicated timeout paths per provider. That exemption is verified
+ * against the task's message parts rather than trusted outright, so a prompt
+ * that was resolved without the store noticing cannot exempt the turn forever.
  */
 export const PROVIDER_TURN_AUTO_ABORT_GRACE_MS = 15 * 60 * 1000; // 15 min
 
@@ -163,14 +165,36 @@ export function markProviderTurnStalled(args: {
   taskId: string;
   turnId: string;
   now?: number;
+  /**
+   * Whether the task *still* has an unanswered approval / user-input prompt in
+   * its message history.
+   *
+   * `pendingInteraction` on the snapshot is only a cached hint: it is set from
+   * the provider event and cleared when the user answers through the store. Any
+   * other resolution path — the managed host answering on the agent's behalf, an
+   * auto-decline in the runtime, a replay that rewrites the message parts — can
+   * resolve the prompt without that clear ever running. The hint then sticks
+   * forever and silently exempts the turn from the stall net, which is how a
+   * task ends up pinned to "active" with nothing left to reclaim it.
+   *
+   * The message parts are the source of truth, so callers pass what they can
+   * actually see: `false` drops a stale hint and lets the turn be marked
+   * stalled. Omitting it (or `true`) keeps the exemption, since a caller that
+   * cannot check must not guess a prompt away.
+   */
+  hasPendingPrompt?: boolean;
 }) {
   const current = args.activityByTask[args.taskId];
   if (
     !current ||
     current.turnId !== args.turnId ||
-    current.stalledAt != null ||
-    current.pendingInteraction != null
+    current.stalledAt != null
   ) {
+    return args.activityByTask;
+  }
+  const hasStalePendingInteraction =
+    current.pendingInteraction != null && args.hasPendingPrompt === false;
+  if (current.pendingInteraction != null && !hasStalePendingInteraction) {
     return args.activityByTask;
   }
 
@@ -179,6 +203,7 @@ export function markProviderTurnStalled(args: {
     [args.taskId]: {
       ...current,
       stalledAt: args.now ?? Date.now(),
+      ...(hasStalePendingInteraction ? { pendingInteraction: null } : {}),
     },
   };
 }

@@ -190,6 +190,91 @@ describe("provider turn status helpers", () => {
     ).toBe("1m 1s");
   });
 
+  test("drops a pending-interaction hint the transcript no longer backs", () => {
+    // Regression: `pendingInteraction` is a cached hint, cleared only when the
+    // user answers through the store. A prompt resolved any other way (managed
+    // host answering for the agent, runtime auto-decline, message replay) left
+    // the hint set, which exempted the turn from the stall net for good and
+    // pinned the task to "active" with nothing left to reclaim it.
+    const pending = applyProviderTurnActivityEvents({
+      activityByTask: startProviderTurnActivity({
+        activityByTask: {},
+        taskId: "task-1",
+        turnId: "turn-1",
+        providerId: "claude-code",
+        now: 1000,
+      }),
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+      events: [
+        {
+          type: "approval",
+          toolName: "Bash",
+          requestId: "req-1",
+          description: "Run command",
+        },
+      ],
+    });
+    expect(pending["task-1"]?.pendingInteraction).toBe("approval");
+
+    // The prompt is gone from the transcript → the hint is stale.
+    const stalled = markProviderTurnStalled({
+      activityByTask: pending,
+      taskId: "task-1",
+      turnId: "turn-1",
+      now: 60_000,
+      hasPendingPrompt: false,
+    });
+    expect(stalled["task-1"]?.stalledAt).toBe(60_000);
+    expect(stalled["task-1"]?.pendingInteraction).toBeNull();
+    expect(
+      resolveProviderTurnDisplayState({
+        activeTurnId: "turn-1",
+        activity: stalled["task-1"],
+      }),
+    ).toBe("stalled");
+  });
+
+  test("keeps exempting a turn whose prompt is still unanswered", () => {
+    const pending = applyProviderTurnActivityEvents({
+      activityByTask: startProviderTurnActivity({
+        activityByTask: {},
+        taskId: "task-1",
+        turnId: "turn-1",
+        providerId: "claude-code",
+        now: 1000,
+      }),
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+      events: [
+        {
+          type: "user_input",
+          toolName: "AskUserQuestion",
+          requestId: "req-1",
+          questions: [],
+        },
+      ],
+    });
+
+    // A caller that sees the prompt still waiting, and a caller that cannot
+    // check at all, must both leave the exemption in place.
+    for (const hasPendingPrompt of [true, undefined]) {
+      const stalled = markProviderTurnStalled({
+        activityByTask: pending,
+        taskId: "task-1",
+        turnId: "turn-1",
+        now: 60_000,
+        hasPendingPrompt,
+      });
+      expect(stalled).toBe(pending);
+      expect(stalled["task-1"]?.pendingInteraction).toBe("user_input");
+    }
+  });
+
   test("resumes activity after approval resolution", () => {
     const pending = {
       "task-1": {

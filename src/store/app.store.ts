@@ -76,9 +76,7 @@ import {
 } from "@/lib/providers/advisor-activity";
 import {
   applyProviderTurnActivityEvents,
-  markProviderTurnStalled,
   resolveProviderTurnDisplayState,
-  resolveProviderTurnStallThresholdMs,
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
 import {
@@ -127,9 +125,13 @@ import {
 } from "@/store/host-task-turn-sync";
 import { createQueuedTaskTurnDispatcher } from "@/store/queued-task-turn-dispatch";
 import {
+  createProviderTurnStallTimerScheduler,
   createStalledProviderTurnAborter,
-  scheduleStalledTurnAutoAbort,
 } from "@/store/provider-turn-stall-abort";
+import {
+  adoptRestoredTurnsIntoStallNet,
+  createProviderTurnLivenessReporter,
+} from "@/store/provider-turn-stall-rearm";
 import { submitSteerWithDeadline } from "@/store/steer-submit";
 import {
   applyPendingProviderEventsToStoreState,
@@ -713,67 +715,22 @@ export const useAppStore = create<AppState>()(
       providerTurnStallTimerByTask.delete(taskId);
     };
 
-    const scheduleProviderTurnStallTimer = (args: {
-      taskId: string;
-      turnId: string;
-      lastEventAt: number;
-    }) => {
-      clearProviderTurnStallTimer(args.taskId);
-      const providerId =
-        get().providerTurnActivityByTask[args.taskId]?.providerId;
-      const delayMs = Math.max(
-        0,
-        resolveProviderTurnStallThresholdMs({ providerId }) -
-          (Date.now() - args.lastEventAt),
-      );
-      const handle = globalThis.setTimeout(() => {
-        providerTurnStallTimerByTask.delete(args.taskId);
-        let markedStalled = false;
-        set((state) => {
-          // `state.activeTurnIdsByTask` only covers the active workspace;
-          // resolve the owning workspace session so turns running in a
-          // backgrounded workspace can still be marked stalled.
-          const owningWorkspaceId =
-            state.taskWorkspaceIdById[args.taskId] ?? state.activeWorkspaceId;
-          const owningSession = owningWorkspaceId
-            ? getWorkspaceSessionForState({
-                state,
-                workspaceId: owningWorkspaceId,
-              })
-            : null;
-          if (owningSession?.activeTurnIdsByTask[args.taskId] !== args.turnId) {
-            return state;
-          }
-          const nextActivityByTask = markProviderTurnStalled({
-            activityByTask: state.providerTurnActivityByTask,
-            taskId: args.taskId,
-            turnId: args.turnId,
-          });
-          if (nextActivityByTask === state.providerTurnActivityByTask) {
-            return state;
-          }
-          markedStalled = true;
-          return {
-            providerTurnActivityByTask: nextActivityByTask,
-          };
-        });
+    const scheduleProviderTurnStallTimer =
+      createProviderTurnStallTimerScheduler({
+        getState: get,
+        applyPatch: (updater) => set(updater),
+        getWorkspaceSession: getWorkspaceSessionForState,
+        timerByTask: providerTurnStallTimerByTask,
+        clearStallTimer: clearProviderTurnStallTimer,
+        // Lazy: the aborter is built below and needs this scheduler.
+        autoAbort: (target) => autoAbortStalledTaskTurn(target),
+      });
 
-        if (!markedStalled) {
-          // Turn already ended, moved on, or is waiting on an approval /
-          // user-input prompt (`markProviderTurnStalled` excludes those) —
-          // no follow-up needed.
-          return;
-        }
-
-        scheduleStalledTurnAutoAbort({
-          taskId: args.taskId,
-          turnId: args.turnId,
-          timerByTask: providerTurnStallTimerByTask,
-          autoAbort: autoAbortStalledTaskTurn,
-        });
-      }, delayMs);
-      providerTurnStallTimerByTask.set(args.taskId, handle);
-    };
+    /** Disarms the stall net from IPC arrival — see the factory's rationale. */
+    const reportProviderTurnLiveness = createProviderTurnLivenessReporter({
+      getActivityByTask: () => get().providerTurnActivityByTask,
+      scheduleStallTimer: scheduleProviderTurnStallTimer,
+    });
 
     const autoAbortStalledTaskTurn = createStalledProviderTurnAborter({
       getState: get,
@@ -1690,6 +1647,18 @@ export const useAppStore = create<AppState>()(
             }),
           };
         });
+        if (get().activeWorkspaceId === workspaceId) {
+          // This refresh adopts in-flight turns straight from the database, so
+          // nothing is watching them yet.
+          adoptRestoredTurnsIntoStallNet({
+            tasks: refreshedSession.tasks,
+            activeTurnIdsByTask: refreshedSession.activeTurnIdsByTask,
+            getActivityByTask: () => get().providerTurnActivityByTask,
+            applyActivityPatch: (updater) =>
+              set((state) => updater(state.providerTurnActivityByTask)),
+            scheduleStallTimer: scheduleProviderTurnStallTimer,
+          });
+        }
         // A managed host can answer requests on its own (agent-driven MCP
         // responses), so re-align the durable needs with the refreshed session.
         for (const task of refreshedSession.tasks) {
@@ -2770,6 +2739,11 @@ export const useAppStore = create<AppState>()(
           let lastPersistedPlanTextForTurn: string | null = null;
           const providerTurnEventController = createProviderTurnEventController(
             {
+              onEventArrived: () =>
+                reportProviderTurnLiveness({
+                  taskId: resolvedTaskId,
+                  turnId,
+                }),
               flushEvents: (pendingEvents) => {
                 let persistInactiveWorkspaceSession: {
                   workspaceId: string;

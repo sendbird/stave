@@ -69,6 +69,19 @@ export function runProviderTurn(
 
 export function createProviderTurnEventController(args: {
   flushEvents: (events: NormalizedProviderEvent[]) => void;
+  /**
+   * Called synchronously the moment an event is delivered over IPC, before the
+   * rAF-batched visual flush below. Liveness (the "provider is still streaming"
+   * signal that keeps the stall / auto-abort net disarmed) MUST be tracked here
+   * rather than inside `flushEvents`: the flush is gated on
+   * `requestAnimationFrame`, which the Electron renderer throttles or fully
+   * pauses while the window is hidden, minimized, or occluded. If liveness were
+   * derived from the flush, a backgrounded window receiving a perfectly healthy
+   * stream would stop resetting the wall-clock stall timer and get
+   * force-aborted with "provider went silent for too long". Arrival, unlike the
+   * flush, is driven by the IPC callback and is not throttled.
+   */
+  onEventArrived?: (event: NormalizedProviderEvent) => void;
 }) {
   const queuedEvents: NormalizedProviderEvent[] = [];
   let flushHandle: number | null = null;
@@ -119,10 +132,14 @@ export function createProviderTurnEventController(args: {
     handleEvent(event: NormalizedProviderEvent) {
       queuedEvents.push(event);
       if (event.type === "done") {
+        // `done` flushes synchronously below, which clears the stall timer, so
+        // it needs no separate liveness poke.
         cancelScheduledFlush();
         flushNow();
         return;
       }
+      // Reset the stall clock on arrival, independent of the throttleable flush.
+      args.onEventArrived?.(event);
       scheduleFlush();
     },
   };
