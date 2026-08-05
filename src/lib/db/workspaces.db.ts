@@ -1,4 +1,5 @@
 import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
+import type { ReviewComment } from "@/types/review";
 import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
 import {
   parseWorkspaceShell,
@@ -39,6 +40,7 @@ export interface WorkspaceSnapshot {
   tasks: Task[];
   messagesByTask: Record<string, ChatMessage[]>;
   promptDraftByTask: Record<string, PromptDraft>;
+  reviewCommentsByTask?: Record<string, ReviewComment[] | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   editorTabs?: EditorTab[];
   activeEditorTabId?: string | null;
@@ -60,6 +62,7 @@ export interface WorkspaceShell {
   activeTaskId: string;
   tasks: Task[];
   promptDraftByTask: Record<string, PromptDraft>;
+  reviewCommentsByTask?: Record<string, ReviewComment[] | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   editorTabs?: EditorTab[];
   activeEditorTabId?: string | null;
@@ -95,6 +98,7 @@ export interface WorkspaceShellLite {
   activeTaskId: string;
   tasks: Task[];
   promptDraftByTask: Record<string, PromptDraft>;
+  reviewCommentsByTask?: Record<string, ReviewComment[] | undefined>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   messageCountByTask: Record<string, number>;
 }
@@ -276,6 +280,7 @@ function buildShellFromSnapshot(snapshot: WorkspaceSnapshot): WorkspaceShell {
     activeTaskId: snapshot.activeTaskId,
     tasks: snapshot.tasks,
     promptDraftByTask: snapshot.promptDraftByTask,
+    reviewCommentsByTask: snapshot.reviewCommentsByTask,
     providerSessionByTask: snapshot.providerSessionByTask,
     editorTabs: snapshot.editorTabs,
     activeEditorTabId: snapshot.activeEditorTabId,
@@ -320,6 +325,7 @@ function buildShellLiteFromShell(shell: WorkspaceShell): WorkspaceShellLite {
     activeTaskId: shell.activeTaskId,
     tasks: shell.tasks,
     promptDraftByTask: shell.promptDraftByTask,
+    reviewCommentsByTask: shell.reviewCommentsByTask,
     providerSessionByTask: shell.providerSessionByTask,
     messageCountByTask: shell.messageCountByTask,
   };

@@ -320,6 +320,7 @@ function resolveTaskRuntimeTarget(args: {
     | "messagesByTask"
     | "messageCountByTask"
     | "promptDraftByTask"
+    | "reviewCommentsByTask"
     | "workspaceInformation"
     | "editorTabs"
     | "activeEditorTabId"
@@ -836,6 +837,7 @@ export const useAppStore = create<AppState>()(
         tasks: args.session.tasks,
         messagesByTask: args.session.messagesByTask,
         promptDraftByTask: args.session.promptDraftByTask,
+        reviewCommentsByTask: args.session.reviewCommentsByTask,
         workspaceInformation: args.session.workspaceInformation,
         editorTabs: args.session.editorTabs,
         activeEditorTabId: args.session.activeEditorTabId,
@@ -2724,6 +2726,8 @@ export const useAppStore = create<AppState>()(
                 tasks: inactiveWorkspaceSession.tasks,
                 messagesByTask: inactiveWorkspaceSession.messagesByTask,
                 promptDraftByTask: inactiveWorkspaceSession.promptDraftByTask,
+                reviewCommentsByTask:
+                  inactiveWorkspaceSession.reviewCommentsByTask,
                 workspaceInformation:
                   inactiveWorkspaceSession.workspaceInformation,
                 editorTabs: inactiveWorkspaceSession.editorTabs,
@@ -2865,6 +2869,9 @@ export const useAppStore = create<AppState>()(
                     promptDraftByTask:
                       persistedInactiveWorkspaceSession.session
                         .promptDraftByTask,
+                    reviewCommentsByTask:
+                      persistedInactiveWorkspaceSession.session
+                        .reviewCommentsByTask,
                     workspaceInformation:
                       persistedInactiveWorkspaceSession.session
                         .workspaceInformation,

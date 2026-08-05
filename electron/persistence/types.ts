@@ -1,4 +1,5 @@
 import type { ChatMessage, PromptDraft } from "../../src/types/chat";
+import type { ReviewComment } from "../../src/types/review";
 import type { TaskProviderSessionState } from "../../src/lib/db/workspaces.db";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
 import type {
@@ -49,6 +50,7 @@ export interface PersistenceWorkspaceSnapshot {
   tasks: PersistenceTaskRow[];
   messagesByTask: Record<string, PersistenceChatMessageRow[]>;
   promptDraftByTask?: Record<string, PromptDraft>;
+  reviewCommentsByTask?: Record<string, ReviewComment[] | undefined>;
   providerSessionByTask?: Record<string, TaskProviderSessionState>;
   editorTabs?: Array<{
     id: string;
@@ -88,6 +90,7 @@ export interface PersistenceWorkspaceShell {
   activeTaskId: string;
   tasks: PersistenceTaskRow[];
   promptDraftByTask?: Record<string, PromptDraft>;
+  reviewCommentsByTask?: Record<string, ReviewComment[] | undefined>;
   providerSessionByTask?: Record<string, TaskProviderSessionState>;
   editorTabs?: Array<{
     id: string;
@@ -128,6 +131,7 @@ export interface PersistenceWorkspaceShellLite {
   activeTaskId: string;
   tasks: PersistenceTaskRow[];
   promptDraftByTask?: Record<string, PromptDraft>;
+  reviewCommentsByTask?: Record<string, ReviewComment[] | undefined>;
   providerSessionByTask?: Record<string, TaskProviderSessionState>;
   messageCountByTask?: Record<string, number>;
 }

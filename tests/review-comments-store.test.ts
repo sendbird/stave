@@ -1,4 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
+import {
+  buildWorkspaceSessionState,
+  createWorkspaceSnapshot,
+} from "@/store/workspace-session-state";
 
 type UseAppStore = typeof import("../src/store/app.store").useAppStore;
 type SendUserMessageArgs = Parameters<
@@ -61,16 +66,80 @@ describe("review comment store actions", () => {
     });
 
     expect(comment?.filePath).toBe("src/a.ts");
+    expect(comment?.line).toBe(8);
+    expect(comment?.side).toBe("modified");
     expect(useAppStore.getState().reviewCommentsByTask["task-1"]).toHaveLength(
       1,
     );
+    expect(useAppStore.getState().workspaceSnapshotVersion).toBe(1);
 
     useAppStore.getState().removeReviewComment({
       taskId: "task-1",
       commentId: comment?.id ?? "",
     });
 
-    expect(useAppStore.getState().reviewCommentsByTask["task-1"]).toBeUndefined();
+    expect(
+      useAppStore.getState().reviewCommentsByTask["task-1"],
+    ).toBeUndefined();
+    expect(useAppStore.getState().workspaceSnapshotVersion).toBe(2);
+  });
+
+  test("round-trips pending comments through snapshot and shell persistence", async () => {
+    const snapshot = createWorkspaceSnapshot({
+      activeTaskId: "",
+      tasks: [],
+      messagesByTask: {},
+      promptDraftByTask: {},
+      reviewCommentsByTask: {
+        "task-1": [
+          {
+            id: "comment-1",
+            filePath: "src/a.ts",
+            line: 8,
+            side: "modified",
+            body: "Keep this across restarts.",
+            createdAt: "2026-08-05T00:00:00.000Z",
+          },
+        ],
+      },
+      editorTabs: [],
+      activeEditorTabId: null,
+      terminalTabs: [],
+      activeTerminalTabId: null,
+      terminalDocked: false,
+      cliSessionTabs: [],
+      activeCliSessionTabId: null,
+      activeSurface: { kind: "task", taskId: "" },
+      providerSessionByTask: {},
+    });
+    const parsed = parseWorkspaceSnapshot({ payload: snapshot });
+    const restored = buildWorkspaceSessionState({ snapshot: parsed });
+
+    expect(restored.reviewCommentsByTask["task-1"]).toEqual(
+      snapshot.reviewCommentsByTask?.["task-1"],
+    );
+    expect(restored.reviewCommentsByTask["task-1"]?.[0]?.line).toBe(8);
+
+    const { loadWorkspaceShell, loadWorkspaceShellLite, upsertWorkspace } =
+      await import("@/lib/db/workspaces.db");
+    await upsertWorkspace({
+      id: "workspace-1",
+      name: "Workspace 1",
+      snapshot,
+    });
+    const shell = await loadWorkspaceShell({ workspaceId: "workspace-1" });
+    const shellLite = await loadWorkspaceShellLite({
+      workspaceId: "workspace-1",
+    });
+
+    expect(shell?.reviewCommentsByTask?.["task-1"]).toEqual(
+      snapshot.reviewCommentsByTask?.["task-1"],
+    );
+    expect(shell?.reviewCommentsByTask?.["task-1"]?.[0]?.line).toBe(8);
+    expect(shellLite?.reviewCommentsByTask?.["task-1"]).toEqual(
+      snapshot.reviewCommentsByTask?.["task-1"],
+    );
+    expect(shellLite?.reviewCommentsByTask?.["task-1"]?.[0]?.line).toBe(8);
   });
 
   test("submits formatted feedback through sendUserMessage and clears on queue", async () => {
@@ -124,7 +193,9 @@ describe("review comment store actions", () => {
           "Review comments for this file:\n- modified line 5: Please cover the null case.",
       },
     ]);
-    expect(useAppStore.getState().reviewCommentsByTask["task-1"]).toBeUndefined();
+    expect(
+      useAppStore.getState().reviewCommentsByTask["task-1"],
+    ).toBeUndefined();
   });
 
   test("keeps comments when feedback dispatch is blocked", async () => {

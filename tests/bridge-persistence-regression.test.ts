@@ -738,6 +738,18 @@ describe("workspace persistence fallback", () => {
           },
         ],
       },
+      reviewCommentsByTask: {
+        "task-1": [
+          {
+            id: "comment-1",
+            filePath: "src/app.ts",
+            line: 3,
+            side: "modified" as const,
+            body: "Persist this review.",
+            createdAt: "2026-08-05T00:00:00.000Z",
+          },
+        ],
+      },
     };
 
     await upsertWorkspace({ id: "ws-dev", name: "Dev Workspace", snapshot });
@@ -748,6 +760,9 @@ describe("workspace persistence fallback", () => {
     expect(loaded?.activeTaskId).toBe("task-1");
     expect(loaded?.tasks).toHaveLength(1);
     expect(loaded?.promptDraftByTask).toEqual({});
+    expect(loaded?.reviewCommentsByTask?.["task-1"]?.[0]?.body).toBe(
+      "Persist this review.",
+    );
     expect(loaded?.providerSessionByTask).toEqual({});
   });
 
@@ -6066,9 +6081,29 @@ describe("workspace store hydration ordering", () => {
           name: "alpha",
           updatedAt: "2026-03-10T00:00:00.000Z",
           snapshot: {
-            activeTaskId: "",
-            tasks: [],
-            messagesByTask: {},
+            activeTaskId: "task-alpha",
+            tasks: [
+              {
+                id: "task-alpha",
+                title: "Alpha review task",
+                provider: "codex",
+                updatedAt: "2026-08-05T00:00:00.000Z",
+                unread: false,
+              },
+            ],
+            messagesByTask: { "task-alpha": [] },
+            reviewCommentsByTask: {
+              "task-alpha": [
+                {
+                  id: "comment-alpha",
+                  filePath: "src/alpha.ts",
+                  line: 1,
+                  side: "modified",
+                  body: "Alpha review",
+                  createdAt: "2026-08-05T00:00:00.000Z",
+                },
+              ],
+            },
             editorTabs: [
               {
                 id: "file:src/alpha.ts",
@@ -6091,9 +6126,29 @@ describe("workspace store hydration ordering", () => {
           name: "beta",
           updatedAt: "2026-03-10T00:01:00.000Z",
           snapshot: {
-            activeTaskId: "",
-            tasks: [],
-            messagesByTask: {},
+            activeTaskId: "task-beta",
+            tasks: [
+              {
+                id: "task-beta",
+                title: "Beta review task",
+                provider: "codex",
+                updatedAt: "2026-08-05T00:00:01.000Z",
+                unread: false,
+              },
+            ],
+            messagesByTask: { "task-beta": [] },
+            reviewCommentsByTask: {
+              "task-beta": [
+                {
+                  id: "comment-beta",
+                  filePath: "src/beta.ts",
+                  line: 1,
+                  side: "modified",
+                  body: "Beta review",
+                  createdAt: "2026-08-05T00:00:01.000Z",
+                },
+              ],
+            },
             editorTabs: [
               {
                 id: "file:src/beta.ts",
@@ -6161,6 +6216,9 @@ describe("workspace store hydration ordering", () => {
       "src/alpha.ts",
     ]);
     expect(nextState.activeEditorTabId).toBe("file:src/alpha.ts");
+    expect(nextState.reviewCommentsByTask["task-alpha"]?.[0]?.body).toBe(
+      "Alpha review",
+    );
 
     await useAppStore.getState().switchWorkspace({ workspaceId: "ws-beta" });
 
@@ -6170,6 +6228,10 @@ describe("workspace store hydration ordering", () => {
       "src/beta.ts",
     ]);
     expect(nextState.activeEditorTabId).toBe("file:src/beta.ts");
+    expect(nextState.reviewCommentsByTask["task-beta"]?.[0]?.body).toBe(
+      "Beta review",
+    );
+    expect(nextState.reviewCommentsByTask["task-alpha"]).toBeUndefined();
 
     await useAppStore.getState().switchWorkspace({ workspaceId: "ws-alpha" });
 
@@ -6179,6 +6241,10 @@ describe("workspace store hydration ordering", () => {
       "src/alpha.ts",
     ]);
     expect(nextState.activeEditorTabId).toBe("file:src/alpha.ts");
+    expect(nextState.reviewCommentsByTask["task-alpha"]?.[0]?.body).toBe(
+      "Alpha review",
+    );
+    expect(nextState.reviewCommentsByTask["task-beta"]).toBeUndefined();
   });
 
   test("switchWorkspace restores cached CLI session surfaces for the returning workspace", async () => {

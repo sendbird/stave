@@ -9,3 +9,9 @@ export interface ReviewComment {
   createdAt: string;
 }
 
+export interface ReviewCommentDraft {
+  filePath: string;
+  line: number;
+  side: ReviewCommentSide;
+  body: string;
+}

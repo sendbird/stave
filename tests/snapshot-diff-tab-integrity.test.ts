@@ -167,9 +167,8 @@ describe("commit graph diff tabs and the open-tab conflict poll", () => {
     );
 
     const { useAppStore } = await setupStore({ rootPath, filePath });
-    const { commitGraphDiffTabId } = await import(
-      "../src/lib/git-graph/presentation"
-    );
+    const { commitGraphDiffTabId } =
+      await import("../src/lib/git-graph/presentation");
     const tabId = commitGraphDiffTabId({ revision: "abc1234", filePath });
     expect(tabId).toBe(`git-graph-diff:abc1234:${filePath}`);
     await useAppStore.getState().openDiffInEditor({
@@ -233,9 +232,8 @@ describe("chat diff tabs and the open-tab conflict poll", () => {
     await writeFile(fullPath, "after the agent edit\n", "utf8");
 
     const { useAppStore } = await setupStore({ rootPath, filePath });
-    const { chatDiffTabId } = await import(
-      "../src/lib/editor/snapshot-diff-tabs"
-    );
+    const { chatDiffTabId } =
+      await import("../src/lib/editor/snapshot-diff-tabs");
     const tabId = chatDiffTabId({ messageId: "msg-1", index: 0, filePath });
     expect(tabId).toBe(`chat-diff:msg-1:0:${filePath}`);
     await useAppStore.getState().openDiffInEditor({
@@ -268,9 +266,8 @@ describe("saving a chat diff tab", () => {
     await writeFile(fullPath, "current working tree\n", "utf8");
 
     const { useAppStore } = await setupStore({ rootPath, filePath });
-    const { chatDiffTabId } = await import(
-      "../src/lib/editor/snapshot-diff-tabs"
-    );
+    const { chatDiffTabId } =
+      await import("../src/lib/editor/snapshot-diff-tabs");
     const tabId = chatDiffTabId({ messageId: "msg-1", index: 0, filePath });
     // The snapshot is as old as the message. Saving it would silently revert
     // every change made to the file since that turn.
@@ -296,9 +293,8 @@ describe("saving a commit graph diff tab", () => {
     await writeFile(fullPath, "working tree content\n", "utf8");
 
     const { useAppStore } = await setupStore({ rootPath, filePath });
-    const { commitGraphDiffTabId } = await import(
-      "../src/lib/git-graph/presentation"
-    );
+    const { commitGraphDiffTabId } =
+      await import("../src/lib/git-graph/presentation");
     const tabId = commitGraphDiffTabId({ revision: "abc1234", filePath });
     await useAppStore.getState().openDiffInEditor({
       editorTabId: tabId,
@@ -425,14 +421,12 @@ describe("editing a snapshot diff tab", () => {
     await writeFile(fullPath, "current working tree\n", "utf8");
 
     const { useAppStore } = await setupStore({ rootPath, filePath });
-    const { chatDiffTabId } = await import(
-      "../src/lib/editor/snapshot-diff-tabs"
-    );
+    const { chatDiffTabId } =
+      await import("../src/lib/editor/snapshot-diff-tabs");
     const tabId = chatDiffTabId({ messageId: "msg-1", index: 0, filePath });
-    // An added file has an empty original side, which renders as a single
-    // editor rather than a diff. A save is refused there, so accepting edits
-    // would strand the user with a dirty tab they cannot write or close
-    // cleanly.
+    // An added snapshot has an empty original side. The renderer now keeps it
+    // on the diff surface for line review, while this store guard ensures its
+    // modified side cannot become dirty or writable.
     await useAppStore.getState().openDiffInEditor({
       editorTabId: tabId,
       filePath,

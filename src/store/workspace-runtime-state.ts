@@ -16,12 +16,8 @@ import type {
 } from "@/lib/providers/provider.types";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
 import type { LayoutState } from "@/store/layout.utils";
-import type {
-  ChatMessage,
-  EditorTab,
-  PromptDraft,
-  Task,
-} from "@/types/chat";
+import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
+import type { ReviewComment } from "@/types/review";
 import { applyProviderEventsToWorkspaceSession } from "@/store/workspace-turn-replay";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 
@@ -33,6 +29,7 @@ type ActiveWorkspaceProjectionState = {
   messagesByTask: Record<string, ChatMessage[]>;
   messageCountByTask: Record<string, number>;
   promptDraftByTask: PromptDraftByTask;
+  reviewCommentsByTask: Record<string, ReviewComment[] | undefined>;
   workspaceInformation: WorkspaceInformationState;
   editorTabs: EditorTab[];
   activeEditorTabId: string | null;
@@ -65,6 +62,7 @@ export type ActiveWorkspaceStatePatch = Pick<
   | "messagesByTask"
   | "messageCountByTask"
   | "promptDraftByTask"
+  | "reviewCommentsByTask"
   | "workspaceInformation"
   | "editorTabs"
   | "activeEditorTabId"
@@ -99,6 +97,7 @@ export function createWorkspaceSessionStateFromAppState(
     messagesByTask: state.messagesByTask,
     messageCountByTask: state.messageCountByTask,
     promptDraftByTask: state.promptDraftByTask,
+    reviewCommentsByTask: state.reviewCommentsByTask,
     workspaceInformation: state.workspaceInformation,
     editorTabs: state.editorTabs,
     activeEditorTabId: state.activeEditorTabId,
@@ -128,6 +127,7 @@ export function createActiveWorkspaceStatePatch(
     messagesByTask: session.messagesByTask,
     messageCountByTask: session.messageCountByTask,
     promptDraftByTask: session.promptDraftByTask,
+    reviewCommentsByTask: session.reviewCommentsByTask,
     workspaceInformation: session.workspaceInformation,
     editorTabs: session.editorTabs,
     activeEditorTabId: session.activeEditorTabId,
@@ -202,6 +202,7 @@ export function saveActiveWorkspaceRuntimeCache(args: {
     | "messagesByTask"
     | "messageCountByTask"
     | "promptDraftByTask"
+    | "reviewCommentsByTask"
     | "workspaceInformation"
     | "editorTabs"
     | "activeEditorTabId"
