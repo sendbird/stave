@@ -151,7 +151,9 @@ describe("codex app server stdout overflow handling", () => {
         label: "Slack",
         state: "ready",
         available: true,
-        detail: "Slack is ready for Codex.",
+        // Names the backing server, since a connector is matched by keyword and
+        // can be provided under several names (`slack@openai-curated`, …).
+        detail: 'Slack is ready for Codex via "slack".',
       },
     ]);
     expect(fakeChildren[0]?.killed).toBe(false);

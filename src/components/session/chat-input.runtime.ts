@@ -62,21 +62,22 @@ interface ChatInputGoalStatusArgs {
   providerGoal?: ProviderGoalSnapshot | null;
 }
 
+/**
+ * Deliberately narrow: only options that can actually change the native
+ * slash-command catalog belong here.
+ *
+ * The catalog probe spawns a real `claude` subprocess, which connects every
+ * configured MCP server — including remote OAuth connectors like Figma/Slack
+ * that take seconds to handshake. Model, effort, thinking mode, permission
+ * mode and the sandbox flags cannot change `supportedCommands()`, so including
+ * them only caused that subprocess (and every connector handshake) to be
+ * respawned on unrelated runtime toggles, competing with the real turn's
+ * connector handshakes right around the first message of a session.
+ */
 type CommandCatalogRuntimeArgs = Pick<
   ChatInputRuntimeArgs,
-  | "activeProvider"
-  | "claudePermissionMode"
-  | "claudeAllowDangerouslySkipPermissions"
-  | "claudeSandboxEnabled"
-  | "claudeAllowUnsandboxedCommands"
-  | "claudeSettingSources"
-  | "claudeEffort"
-  | "claudeThinkingMode"
-  | "claudeAgentProgressSummaries"
-  | "claudeBinaryPath"
-> & {
-  model: string;
-};
+  "activeProvider" | "claudeSettingSources" | "claudeBinaryPath"
+>;
 
 const CLAUDE_EFFORT_CYCLE_ORDER = CLAUDE_EFFORT_OPTIONS.map(
   (option) => option.value,
@@ -436,16 +437,7 @@ export function buildCommandCatalogRuntimeOptions(
   }
 
   return {
-    model: args.model,
-    claudePermissionMode: args.claudePermissionMode,
-    claudeAllowDangerouslySkipPermissions:
-      args.claudeAllowDangerouslySkipPermissions,
-    claudeSandboxEnabled: args.claudeSandboxEnabled,
-    claudeAllowUnsandboxedCommands: args.claudeAllowUnsandboxedCommands,
     claudeSettingSources: args.claudeSettingSources,
-    claudeEffort: args.claudeEffort,
-    claudeThinkingMode: args.claudeThinkingMode,
-    claudeAgentProgressSummaries: args.claudeAgentProgressSummaries,
     claudeBinaryPath: args.claudeBinaryPath || undefined,
   };
 }

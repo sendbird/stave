@@ -4,6 +4,12 @@ import type {
   McpDiscoveredServer,
 } from "./provider.types";
 import type { McpServerConfigSnapshot } from "./mcp-config.types";
+import {
+  CONNECTED_TOOL_IDS,
+  getConnectedToolLabel,
+  matchesConnectedTool,
+  type ConnectedToolId,
+} from "./connected-tool-status";
 
 export type McpConnectionState =
   | "connected"
@@ -314,4 +320,73 @@ export function buildMcpServerOverviews(args: {
         getMcpOverviewPriority(left) - getMcpOverviewPriority(right) ||
         left.name.localeCompare(right.name),
     );
+}
+
+export type ConnectedToolOverview = {
+  id: ConnectedToolId;
+  label: string;
+  state: McpConnectionState;
+  stateLabel: string;
+  /** Server names backing this connector, best-first. */
+  serverNames: string[];
+};
+
+/** Index = preference. The first state found across candidates wins. */
+const CONNECTED_TOOL_STATE_PREFERENCE: McpConnectionState[] = [
+  "connected",
+  "starting",
+  "needs-auth",
+  "failed",
+  "disabled",
+  "configured",
+  "unknown",
+  "not-configured",
+];
+
+function rankConnectedToolState(state: McpConnectionState) {
+  const index = CONNECTED_TOOL_STATE_PREFERENCE.indexOf(state);
+  return index === -1 ? CONNECTED_TOOL_STATE_PREFERENCE.length : index;
+}
+
+/**
+ * Rolls the per-server MCP status up to the connector level (Slack, Atlassian,
+ * Figma, GitHub).
+ *
+ * Deliberately a pure function over overviews the caller already fetched. The
+ * equivalent main-process preflight (`provider.get-connected-tool-status`)
+ * spawns a fresh `claude` subprocess that reconnects every MCP server, so
+ * calling it from the UI would duplicate exactly the remote connector
+ * handshakes that make connectors look intermittently disconnected.
+ */
+export function buildConnectedToolOverviews(args: {
+  servers: readonly McpServerOverview[];
+}): ConnectedToolOverview[] {
+  return CONNECTED_TOOL_IDS.map((id): ConnectedToolOverview => {
+    const matches = args.servers
+      .filter((server) => matchesConnectedTool({ toolId: id, serverName: server.name }))
+      .map((server) => {
+        // A connector is usable if either provider has it up, so the server's
+        // effective state is the better of its two provider states.
+        const state =
+          rankConnectedToolState(server.claude.state) <=
+          rankConnectedToolState(server.codex.state)
+            ? server.claude.state
+            : server.codex.state;
+        return { name: server.name, state };
+      })
+      .sort(
+        (left, right) =>
+          rankConnectedToolState(left.state) - rankConnectedToolState(right.state) ||
+          left.name.localeCompare(right.name),
+      );
+
+    const state = matches[0]?.state ?? "not-configured";
+    return {
+      id,
+      label: getConnectedToolLabel(id),
+      state,
+      stateLabel: getMcpConnectionLabel(state),
+      serverNames: matches.map((match) => match.name),
+    };
+  });
 }

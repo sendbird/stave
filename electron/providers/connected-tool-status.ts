@@ -1,6 +1,7 @@
 import {
   getConnectedToolLabel,
   normalizeConnectedToolIds,
+  pickConnectedToolServer,
   type ConnectedToolId,
   type ConnectedToolStatusEntry,
   type ConnectedToolStatusRequest,
@@ -25,22 +26,25 @@ function createStatusEntry(args: {
   } satisfies ConnectedToolStatusEntry;
 }
 
+/** Lower is better — see `pickConnectedToolServer`. */
+const CLAUDE_MCP_STATUS_RANK: Record<string, number> = {
+  connected: 0,
+  pending: 1,
+  "needs-auth": 2,
+  failed: 3,
+  disabled: 4,
+};
+
 function mapClaudeMcpStatus(args: {
   toolId: ConnectedToolId;
   providerId: ProviderId;
   reload: NonNullable<Awaited<ReturnType<typeof reloadClaudePlugins>>["reload"]>;
 }) {
-  if (args.toolId === "github") {
-    return createStatusEntry({
-      id: "github",
-      state: "unknown",
-      available: true,
-      detail: "GitHub tool status is not exposed by the Claude plugin reload snapshot.",
-    });
-  }
-
-  const serverName = args.toolId === "atlassian" ? "atlassian" : args.toolId;
-  const server = args.reload.mcpServers.find((candidate) => candidate.name.trim().toLowerCase() === serverName);
+  const server = pickConnectedToolServer({
+    toolId: args.toolId,
+    servers: args.reload.mcpServers,
+    rank: (candidate) => CLAUDE_MCP_STATUS_RANK[candidate.status] ?? 99,
+  });
   if (!server) {
     return createStatusEntry({
       id: args.toolId,
@@ -56,7 +60,7 @@ function mapClaudeMcpStatus(args: {
         id: args.toolId,
         state: "ready",
         available: true,
-        detail: `${getConnectedToolLabel(args.toolId)} is connected for Claude.`,
+        detail: `${getConnectedToolLabel(args.toolId)} is connected for Claude via "${server.name}".`,
       });
     case "needs-auth":
       return createStatusEntry({
@@ -84,8 +88,11 @@ function mapClaudeMcpStatus(args: {
       return createStatusEntry({
         id: args.toolId,
         state: "unknown",
-        available: true,
-        detail: `${getConnectedToolLabel(args.toolId)} is still pending in Claude.`,
+        // Not `available`: a pending connector's tools are genuinely absent
+        // right now, which is exactly the window this preflight exists to warn
+        // about.
+        available: false,
+        detail: `${getConnectedToolLabel(args.toolId)} ("${server.name}") is still connecting in Claude, so its tools are not available yet.`,
       });
   }
 }

@@ -2353,15 +2353,7 @@ function BaseChatInput() {
 
     const runtimeOptions = buildCommandCatalogRuntimeOptions({
       activeProvider,
-      model: activeModel,
-      claudePermissionMode: effectiveClaudePermissionMode,
-      claudeAllowDangerouslySkipPermissions,
-      claudeSandboxEnabled,
-      claudeAllowUnsandboxedCommands,
       claudeSettingSources,
-      claudeEffort,
-      claudeThinkingMode,
-      claudeAgentProgressSummaries,
       claudeBinaryPath,
     });
 
@@ -2404,18 +2396,16 @@ function BaseChatInput() {
     return () => {
       cancelled = true;
     };
+    // Deps are deliberately limited to inputs that can change the native
+    // command catalog. Every re-run spawns a `claude` subprocess that
+    // reconnects all MCP servers, so re-running on model / effort / thinking /
+    // permission / sandbox changes used to duplicate remote connector
+    // handshakes (Figma, Slack) around the first message of a session.
   }, [
     activeProvider,
-    claudeAllowDangerouslySkipPermissions,
-    claudeAgentProgressSummaries,
-    claudeAllowUnsandboxedCommands,
-    claudeEffort,
-    effectiveClaudePermissionMode,
-    claudeSandboxEnabled,
+    claudeBinaryPath,
     claudeSettingSources,
     providerCommandCatalogRefreshNonce,
-    claudeThinkingMode,
-    activeModel,
     workspaceCwd,
   ]);
 
