@@ -1,3 +1,25 @@
+## [0.14.3](https://github.com/sendbird/stave/compare/v0.14.2...v0.14.3) (2026-08-05)
+
+### Features
+
+* Add line-anchored inline diff comments with hover actions, persistent task-scoped threads, and support for added-file review surfaces.
+* Let users hide low-urgency rows from the active workspaces list, persist those dismissals, and restore them from Settings.
+* Surface project-level attention alerts for blocked or unreviewed workspace activity in the sidebar.
+* Make Worker mode observable and recoverable with receipts for actual native delegation, resolved model and effort metadata, Codex child-thread activity, and one-time continuation for incomplete foreground workers.
+
+### Bug Fixes
+
+* Keep the conversation turn rail from intercepting text selection, links, and scrolling except on its visible tick controls, while revealing its backdrop only on hover or preview.
+* Restrict Stave tool branding to managed namespaces and known bare tools so similarly named third-party tools retain their own identity.
+* Bound Lens console and network event floods, summarize dropped traffic, and stop full CDP diagnostics when capture budgets are exceeded.
+* Extend Advisor deadlines according to resolved effort and preserve Claude runtime diagnostics until a final SDK result is available.
+* Restore provider turn liveness and stall recovery when renderer scheduling, interaction state, or persisted managed turns diverge from runtime activity.
+* Deduplicate Claude MCP connector probes, wait for connector readiness before primary turns, and roll up connector status across providers.
+
+### References
+
+* [#330](https://github.com/sendbird/stave/pull/330), [#331](https://github.com/sendbird/stave/pull/331), [#332](https://github.com/sendbird/stave/pull/332), [#333](https://github.com/sendbird/stave/pull/333), [#334](https://github.com/sendbird/stave/pull/334), [#335](https://github.com/sendbird/stave/pull/335), [#336](https://github.com/sendbird/stave/pull/336), [#337](https://github.com/sendbird/stave/pull/337), [#338](https://github.com/sendbird/stave/pull/338), [#339](https://github.com/sendbird/stave/pull/339)
+
 ## [0.14.2](https://github.com/sendbird/stave/compare/v0.14.1...v0.14.2) (2026-08-05)
 
 ### Bug Fixes
