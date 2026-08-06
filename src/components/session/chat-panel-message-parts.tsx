@@ -226,6 +226,7 @@ export function MessagePartRenderer(args: {
       const compactBoundaryTrigger =
         part.compactBoundary?.trigger ?? compactedMatch?.[1];
       const compactBoundaryGitRef = part.compactBoundary?.gitRef;
+      const isTurnStartCheckpoint = compactBoundaryTrigger === "turn_start";
       const handleRestoreCompactBoundary = () => {
         if (!compactBoundaryGitRef || isRestoringCompactBoundary) {
           return;
@@ -241,10 +242,11 @@ export function MessagePartRenderer(args: {
           setIsRestoringCompactBoundary(false);
         });
       };
-      if (compactedMatch) {
+      if (part.compactBoundary != null || compactedMatch) {
         return (
           <ContextCompactedCheckpoint
-            trigger={compactBoundaryTrigger}
+            label={isTurnStartCheckpoint ? "Workspace checkpoint" : undefined}
+            trigger={isTurnStartCheckpoint ? undefined : compactBoundaryTrigger}
             onRestore={handleRestoreCompactBoundary}
             restorePending={isRestoringCompactBoundary}
             restoreDisabled={!compactBoundaryGitRef}

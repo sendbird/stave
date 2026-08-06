@@ -40,6 +40,8 @@ The current column exercises these visible cases in one trace:
 - subagent progress and nested output
 - Todo progress
 - changed-file diff summary
+- a Codex turn-start checkpoint whose expanded recovery control does not repeat
+  the accordion title
 - single-line system notices, rate-limit guidance, plugin installation, and a
   multi-line provider warning whose expanded body contains detail without
   repeating the row title
@@ -118,7 +120,8 @@ construction even though they are not separate `NormalizedProviderEvent` types.
   such as `Context window at 62%` must not repeat the same sentence inside a
   nested body. For a multi-line generic system notice, the first non-empty line
   is the title and only the remaining lines belong in the expanded body;
-  compact checkpoints keep their specialized recovery surface.
+  compact and turn-start checkpoints keep their specialized recovery surface,
+  without repeating the title inside it.
 - Tool results update the existing tool row by id. A result must never create a
   second row that repeats the header or input.
 - Stave-owned MCP tools use the Stave icon and an action-oriented title. Only

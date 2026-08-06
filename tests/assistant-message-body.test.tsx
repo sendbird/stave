@@ -200,6 +200,28 @@ describe("AssistantMessageBody", () => {
     });
   });
 
+  test("does not repeat a Codex turn checkpoint inside its accordion", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const checkpointNotice = "Checkpoint captured before Codex turn.";
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        isStreaming: true,
+        parts: [{
+          type: "system_event",
+          content: checkpointNotice,
+          compactBoundary: { trigger: "turn_start", gitRef: "abc123" },
+        }],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html.split(checkpointNotice).length - 1).toBe(1);
+    expect(html).toContain("Workspace checkpoint");
+    expect(html).toContain("Restore");
+  });
+
   test("uses Stave-specific copy and icon without rewriting external MCP names", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {

@@ -149,6 +149,11 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
     },
     {
       type: "system_event",
+      content: "Checkpoint captured before Codex turn.",
+      compactBoundary: { trigger: "turn_start", gitRef: "preview-checkpoint" },
+    },
+    {
+      type: "system_event",
       content: "Approaching rate limit (72% used). Consider pacing requests.",
     },
     {
