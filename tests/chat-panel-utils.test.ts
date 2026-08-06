@@ -14,6 +14,7 @@ import {
   isCodeDiffSummarySystemEvent,
   parseFileChangeToolInput,
   isPendingDiffStatus,
+  resolvePlanMessagePresentation,
   isSubagentProgressSystemEvent,
   shouldRenderInlineToolPart,
   shouldRenderInlineSystemEvent,
@@ -446,6 +447,61 @@ describe("tool visibility", () => {
         { toolName: "Read", count: 2 },
         { toolName: "Bash", count: 1 },
       ],
+    });
+  });
+});
+
+describe("resolvePlanMessagePresentation", () => {
+  test("renders a freshly captured plan as the card alone", () => {
+    expect(resolvePlanMessagePresentation({
+      isPlanResponse: true,
+      planText: "## Plan\n- Inspect\n- Patch",
+      content: "## Plan\n- Inspect\n- Patch",
+      parts: [],
+    })).toEqual({
+      planText: "## Plan\n- Inspect\n- Patch",
+      showPlanCard: true,
+      showAssistantBody: false,
+    });
+  });
+
+  test("keeps legacy post-plan parts visible below the card", () => {
+    // Older records folded the rest of the turn into the plan message; the
+    // whole message used to be dropped from the transcript.
+    expect(resolvePlanMessagePresentation({
+      isPlanResponse: true,
+      planText: "## Plan\n- Inspect",
+      content: "## Plan\n- Inspect",
+      parts: [{ type: "text", text: "Shall I proceed with the plan above?" }],
+    })).toEqual({
+      planText: "## Plan\n- Inspect",
+      showPlanCard: true,
+      showAssistantBody: true,
+    });
+  });
+
+  test("leaves non-plan messages untouched", () => {
+    expect(resolvePlanMessagePresentation({
+      isPlanResponse: false,
+      content: "Regular answer.",
+      parts: [],
+    })).toEqual({
+      planText: "",
+      showPlanCard: false,
+      showAssistantBody: true,
+    });
+  });
+
+  test("falls back to the regular body when the plan text is empty", () => {
+    expect(resolvePlanMessagePresentation({
+      isPlanResponse: true,
+      planText: "   ",
+      content: "   ",
+      parts: [{ type: "text", text: "Something else." }],
+    })).toEqual({
+      planText: "",
+      showPlanCard: false,
+      showAssistantBody: true,
     });
   });
 });

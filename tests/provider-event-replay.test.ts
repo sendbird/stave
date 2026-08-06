@@ -814,6 +814,86 @@ describe("plan response replay", () => {
     });
   });
 
+  test("moves post-plan assistant text into its own message", () => {
+    // Regression: a plan message renders as a dedicated plan card, so anything
+    // appended to it after the plan (the agent's "shall I proceed?" question,
+    // follow-up tool work) used to be swallowed with the card and never
+    // reached the transcript.
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        { type: "text", text: "Shall I proceed with the plan above?" },
+        { type: "done" },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages).toHaveLength(2);
+    expect(replayed.messages[0]).toMatchObject({
+      content: "1. Inspect\n2. Patch",
+      isPlanResponse: true,
+      planText: "1. Inspect\n2. Patch",
+      isStreaming: false,
+    });
+    expect(replayed.messages[0]?.parts).toEqual([]);
+    expect(typeof replayed.messages[0]?.completedAt).toBe("string");
+    expect(replayed.messages[1]?.isPlanResponse).not.toBe(true);
+    expect(replayed.messages[1]).toMatchObject({
+      content: "Shall I proceed with the plan above?",
+      isStreaming: false,
+    });
+  });
+
+  test("keeps post-plan tool work out of the plan message", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        {
+          type: "tool",
+          toolUseId: "write-1",
+          toolName: "Write",
+          input: '{"file_path":"a.ts"}',
+          state: "input-available",
+        },
+        { type: "done" },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages).toHaveLength(2);
+    expect(replayed.messages[0]?.parts).toEqual([]);
+    expect(replayed.messages[1]?.isPlanResponse).not.toBe(true);
+    expect(
+      replayed.messages[1]?.parts.some((part) => part.type === "tool_use"),
+    ).toBe(true);
+  });
+
+  test("updates a re-presented plan in place instead of forking a message", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        { type: "plan_ready", planText: "1. Inspect" },
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        { type: "done" },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages).toHaveLength(1);
+    expect(replayed.messages[0]).toMatchObject({
+      isPlanResponse: true,
+      planText: "1. Inspect\n2. Patch",
+    });
+  });
+
   test("normalizes commentary out of plan_ready content", () => {
     const replayed = replayProviderEventsToTaskState({
       taskId: "task-1",

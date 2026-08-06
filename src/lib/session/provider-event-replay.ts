@@ -386,6 +386,19 @@ function normalizeEventToPart(args: {
   }
 }
 
+/**
+ * True when an event contributes a renderable part, meaning it needs a message
+ * of its own once the current target is already a plan response. `plan_ready`
+ * is excluded on purpose: re-presenting an updated plan replaces the existing
+ * plan message rather than starting a new one.
+ */
+function startsMessageAfterPlan(event: NormalizedProviderEvent): boolean {
+  if (event.type === "plan_ready") {
+    return false;
+  }
+  return normalizeEventToPart({ event }) !== null;
+}
+
 function createStreamingAssistantMessage(args: {
   taskId: string;
   count: number;
@@ -1037,6 +1050,26 @@ export function replayProviderEventsToTaskState(args: {
       // response) — let appendProviderEventToAssistant replace it below.
       target = cleanedTarget;
       current = [...current.slice(0, -1), cleanedTarget];
+    }
+
+    // A plan response renders as a dedicated plan card whose body is the plan
+    // text alone, so anything the agent produces afterwards has no place in it.
+    // Appending it here used to hide the rest of the turn — the "shall I
+    // proceed?" question, follow-up tool calls, even pending approvals — behind
+    // the card. Start a fresh assistant message instead.
+    if (target.isPlanResponse === true && startsMessageAfterPlan(event)) {
+      current = [
+        ...current.slice(0, -1),
+        finalizeAssistantMessage({ message: target }),
+      ];
+      target = createStreamingAssistantMessage({
+        taskId: args.taskId,
+        count: current.length + messageIndexOffset,
+        provider: args.provider,
+        model: args.model,
+      });
+      current = [...current, target];
+      changed = true;
     }
 
     const updated = appendProviderEventToAssistant({
