@@ -1,3 +1,15 @@
+## [0.14.4](https://github.com/sendbird/stave/compare/v0.14.3...v0.14.4) (2026-08-06)
+
+### Features
+
+* Allow the active Lens page to play audio, capture microphone input, and select an audio output device, while continuing to reject camera, popup, unrelated, and stale-view permission requests.
+* Add the macOS microphone usage description and audio-input entitlements so packaged builds can prompt for and use the microphone.
+* Document the Lens media-permission behavior and cover it with focused policy and packaging tests.
+
+### References
+
+* [#341](https://github.com/sendbird/stave/pull/341)
+
 ## [0.14.3](https://github.com/sendbird/stave/compare/v0.14.2...v0.14.3) (2026-08-05)
 
 ### Features
