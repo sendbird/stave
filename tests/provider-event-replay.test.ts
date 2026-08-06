@@ -874,6 +874,207 @@ describe("plan response replay", () => {
     ).toBe(true);
   });
 
+  test("keeps the plan row on its own native turn when a follow-up turn starts", () => {
+    // Regression: `provider_turn` for the post-approval turn used to land on the
+    // sealed plan row, so the plan row advertised the follow-up turn while the
+    // follow-up row carried no native turn at all — which disables its
+    // fork/rollback actions ("predates native turn tracking").
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "provider_turn",
+          providerId: "claude-code",
+          nativeSessionId: "sess-1",
+          nativeTurnId: "turn-a",
+        },
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        {
+          type: "provider_turn",
+          providerId: "claude-code",
+          nativeSessionId: "sess-1",
+          nativeTurnId: "turn-b",
+        },
+        { type: "text", text: "Plan approved. Implementing…" },
+        { type: "done" },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages).toHaveLength(2);
+    expect(replayed.messages[0]).toMatchObject({
+      isPlanResponse: true,
+      nativeProviderSessionId: "sess-1",
+      nativeProviderTurnId: "turn-a",
+    });
+    expect(replayed.messages[1]).toMatchObject({
+      content: "Plan approved. Implementing…",
+      nativeProviderSessionId: "sess-1",
+      nativeProviderTurnId: "turn-b",
+    });
+  });
+
+  test("routes a follow-up history boundary to the follow-up response", () => {
+    // Claude emits `history_boundary` ahead of `provider_turn`; Codex emits it
+    // after. Either order must leave the plan row on its own boundary.
+    const claudeOrder = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "history_boundary",
+          providerId: "claude-code",
+          boundaryKind: "message",
+          nativeId: "turn-a",
+          targetRole: "assistant",
+        },
+        {
+          type: "provider_turn",
+          providerId: "claude-code",
+          nativeSessionId: "sess-1",
+          nativeTurnId: "turn-a",
+        },
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        {
+          type: "history_boundary",
+          providerId: "claude-code",
+          boundaryKind: "message",
+          nativeId: "turn-b",
+          targetRole: "assistant",
+        },
+        {
+          type: "provider_turn",
+          providerId: "claude-code",
+          nativeSessionId: "sess-1",
+          nativeTurnId: "turn-b",
+        },
+        { type: "text", text: "Plan approved. Implementing…" },
+        { type: "done" },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(claudeOrder.messages).toHaveLength(2);
+    expect(claudeOrder.messages[0]?.providerBoundary).toMatchObject({
+      nativeId: "turn-a",
+    });
+    expect(claudeOrder.messages[0]?.nativeProviderTurnId).toBe("turn-a");
+    expect(claudeOrder.messages[1]?.providerBoundary).toMatchObject({
+      nativeId: "turn-b",
+    });
+    expect(claudeOrder.messages[1]?.nativeProviderTurnId).toBe("turn-b");
+
+    const codexOrder = replayProviderEventsToTaskState({
+      taskId: "task-2",
+      messages: [],
+      events: [
+        {
+          type: "provider_turn",
+          providerId: "codex",
+          nativeSessionId: "thread-1",
+          nativeTurnId: "turn-1",
+        },
+        {
+          type: "history_boundary",
+          providerId: "codex",
+          boundaryKind: "turn",
+          nativeId: "turn-1",
+          targetRole: "assistant",
+        },
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        {
+          type: "provider_turn",
+          providerId: "codex",
+          nativeSessionId: "thread-1",
+          nativeTurnId: "turn-2",
+        },
+        {
+          type: "history_boundary",
+          providerId: "codex",
+          boundaryKind: "turn",
+          nativeId: "turn-2",
+          targetRole: "assistant",
+        },
+        { type: "text", text: "Plan approved. Implementing…" },
+        { type: "done" },
+      ],
+      provider: "codex",
+      model: "gpt-5.4",
+    });
+
+    expect(codexOrder.messages).toHaveLength(2);
+    expect(codexOrder.messages[0]?.providerBoundary).toMatchObject({
+      nativeId: "turn-1",
+    });
+    expect(codexOrder.messages[0]?.nativeProviderTurnId).toBe("turn-1");
+    expect(codexOrder.messages[1]?.providerBoundary).toMatchObject({
+      nativeId: "turn-2",
+    });
+    expect(codexOrder.messages[1]?.nativeProviderTurnId).toBe("turn-2");
+  });
+
+  test("carries the plan row's native turn onto same-turn follow-up content", () => {
+    // No new `provider_turn` arrived, so the text belongs to the very turn that
+    // produced the plan. The split row must inherit that turn instead of
+    // reporting itself as untracked.
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "provider_turn",
+          providerId: "claude-code",
+          nativeSessionId: "sess-1",
+          nativeTurnId: "turn-a",
+        },
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        { type: "text", text: "Shall I proceed?" },
+        { type: "done" },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+    });
+
+    expect(replayed.messages).toHaveLength(2);
+    expect(replayed.messages[0]?.nativeProviderTurnId).toBe("turn-a");
+    expect(replayed.messages[1]).toMatchObject({
+      content: "Shall I proceed?",
+      nativeProviderSessionId: "sess-1",
+      nativeProviderTurnId: "turn-a",
+    });
+  });
+
+  test("carries the native turn onto a plan split off from streamed commentary", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "provider_turn",
+          providerId: "codex",
+          nativeSessionId: "thread-1",
+          nativeTurnId: "turn-1",
+        },
+        { type: "text", text: "Analyzing the codebase.\n\n" },
+        { type: "plan_ready", planText: "## Plan\n- Step 1" },
+        { type: "done" },
+      ],
+      provider: "codex",
+      model: "gpt-5.4",
+    });
+
+    expect(replayed.messages).toHaveLength(2);
+    expect(replayed.messages[0]?.nativeProviderTurnId).toBe("turn-1");
+    expect(replayed.messages[1]).toMatchObject({
+      isPlanResponse: true,
+      nativeProviderSessionId: "thread-1",
+      nativeProviderTurnId: "turn-1",
+    });
+  });
+
   test("updates a re-presented plan in place instead of forking a message", () => {
     const replayed = replayProviderEventsToTaskState({
       taskId: "task-1",
