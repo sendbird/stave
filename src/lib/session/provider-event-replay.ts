@@ -386,11 +386,110 @@ function normalizeEventToPart(args: {
   }
 }
 
+/**
+ * True when an event belongs to a message of its own because the current target
+ * is already a plan response.
+ *
+ * `plan_ready` is excluded on purpose: re-presenting an updated plan replaces
+ * the existing plan message rather than starting a new one. `provider_turn`
+ * only qualifies when it announces a *different* native turn — the plan's own
+ * turn still belongs to the plan row.
+ */
+function startsMessageAfterPlan(args: {
+  target: ChatMessage;
+  event: NormalizedProviderEvent;
+}): boolean {
+  const { target, event } = args;
+  if (event.type === "plan_ready") {
+    return false;
+  }
+  if (event.type === "provider_turn") {
+    return (
+      target.nativeProviderTurnId != null &&
+      target.nativeProviderTurnId !== event.nativeTurnId
+    );
+  }
+  return normalizeEventToPart({ event }) !== null;
+}
+
+function providerBoundariesEqual(
+  left: ChatMessage["providerBoundary"],
+  right: ChatMessage["providerBoundary"],
+): boolean {
+  return (
+    left?.providerId === right?.providerId &&
+    left?.kind === right?.kind &&
+    left?.nativeId === right?.nativeId
+  );
+}
+
+/**
+ * Copy the native turn identity of `from` onto `message`.
+ *
+ * Splitting one provider turn across several rows must not strand a row without
+ * that identity: `buildConversationTurnActionStateByMessageId` disables
+ * fork/rollback on any assistant row missing `nativeProviderTurnId` ("this
+ * response predates native turn tracking").
+ */
+function inheritNativeTurnIdentity(args: {
+  message: ChatMessage;
+  from: ChatMessage;
+}): ChatMessage {
+  const { from } = args;
+  return {
+    ...args.message,
+    ...(from.nativeProviderSessionId
+      ? { nativeProviderSessionId: from.nativeProviderSessionId }
+      : {}),
+    ...(from.nativeProviderTurnId
+      ? { nativeProviderTurnId: from.nativeProviderTurnId }
+      : {}),
+    ...(from.providerBoundary
+      ? { providerBoundary: from.providerBoundary }
+      : {}),
+  };
+}
+
+/**
+ * Seal the trailing plan row and open the assistant message that carries the
+ * rest of the turn. The new row inherits the plan's native turn identity; a
+ * later `provider_turn`/`history_boundary` for a genuinely new turn overwrites
+ * it in place.
+ */
+function openMessageAfterPlan(args: {
+  messages: ChatMessage[];
+  plan: ChatMessage;
+  taskId: string;
+  messageIndexOffset: number;
+  provider: ProviderId;
+  model: string;
+}): { messages: ChatMessage[]; target: ChatMessage } {
+  const target = inheritNativeTurnIdentity({
+    message: createStreamingAssistantMessage({
+      taskId: args.taskId,
+      count: args.messages.length + args.messageIndexOffset,
+      provider: args.provider,
+      model: args.model,
+      ...(args.plan.modelInfo ? { modelInfo: args.plan.modelInfo } : {}),
+    }),
+    from: args.plan,
+  });
+  return {
+    messages: [
+      ...args.messages.slice(0, -1),
+      finalizeAssistantMessage({ message: args.plan }),
+      target,
+    ],
+    target,
+  };
+}
+
 function createStreamingAssistantMessage(args: {
   taskId: string;
   count: number;
   provider: ProviderId;
   model: string;
+  modelInfo?: TurnModelInfo;
 }): ChatMessage {
   const startedAt = buildRecentTimestamp();
   return {
@@ -398,6 +497,7 @@ function createStreamingAssistantMessage(args: {
     role: "assistant",
     model: args.model,
     providerId: args.provider,
+    ...(args.modelInfo ? { modelInfo: args.modelInfo } : {}),
     content: "",
     startedAt,
     isStreaming: true,
@@ -962,18 +1062,43 @@ export function replayProviderEventsToTaskState(args: {
         current = [...current, assistant];
         targetIndex = current.length - 1;
       }
-      const boundaryTarget = current[targetIndex];
+      let boundaryTarget = current[targetIndex];
       if (boundaryTarget) {
         const nextBoundary = {
           providerId: event.providerId,
           kind: event.boundaryKind,
           nativeId: event.nativeId,
         } as const;
+        // A boundary for a different native turn cannot belong to a sealed plan
+        // row — it belongs to the response that follows the plan. Claude emits
+        // this ahead of `provider_turn`, so the split has to start here too.
         if (
-          boundaryTarget.providerBoundary?.providerId !==
-            nextBoundary.providerId ||
-          boundaryTarget.providerBoundary.kind !== nextBoundary.kind ||
-          boundaryTarget.providerBoundary.nativeId !== nextBoundary.nativeId
+          boundaryTarget.isPlanResponse === true &&
+          targetIndex === current.length - 1 &&
+          boundaryTarget.providerBoundary != null &&
+          !providerBoundariesEqual(
+            boundaryTarget.providerBoundary,
+            nextBoundary,
+          )
+        ) {
+          const opened = openMessageAfterPlan({
+            messages: current,
+            plan: boundaryTarget,
+            taskId: args.taskId,
+            messageIndexOffset,
+            provider: args.provider,
+            model: args.model,
+          });
+          current = opened.messages;
+          targetIndex = current.length - 1;
+          boundaryTarget = opened.target;
+          changed = true;
+        }
+        if (
+          !providerBoundariesEqual(
+            boundaryTarget.providerBoundary,
+            nextBoundary,
+          )
         ) {
           current = current.map((message, index) =>
             index === targetIndex
@@ -1019,13 +1144,16 @@ export function replayProviderEventsToTaskState(args: {
         const finalizedTarget = finalizeAssistantMessage({
           message: cleanedTarget,
         });
-        const planMessage = createPlanAssistantMessage({
-          taskId: args.taskId,
-          count: current.length + messageIndexOffset,
-          provider: args.provider,
-          model: args.model,
-          modelInfo: target.modelInfo,
-          planText: event.planText,
+        const planMessage = inheritNativeTurnIdentity({
+          message: createPlanAssistantMessage({
+            taskId: args.taskId,
+            count: current.length + messageIndexOffset,
+            provider: args.provider,
+            model: args.model,
+            modelInfo: target.modelInfo,
+            planText: event.planText,
+          }),
+          from: finalizedTarget,
         });
 
         current = [...current.slice(0, -1), finalizedTarget, planMessage];
@@ -1037,6 +1165,28 @@ export function replayProviderEventsToTaskState(args: {
       // response) — let appendProviderEventToAssistant replace it below.
       target = cleanedTarget;
       current = [...current.slice(0, -1), cleanedTarget];
+    }
+
+    // A plan response renders as a dedicated plan card whose body is the plan
+    // text alone, so anything the agent produces afterwards has no place in it.
+    // Appending it here used to hide the rest of the turn — the "shall I
+    // proceed?" question, follow-up tool calls, even pending approvals — behind
+    // the card. Start a fresh assistant message instead.
+    if (
+      target.isPlanResponse === true &&
+      startsMessageAfterPlan({ target, event })
+    ) {
+      const opened = openMessageAfterPlan({
+        messages: current,
+        plan: target,
+        taskId: args.taskId,
+        messageIndexOffset,
+        provider: args.provider,
+        model: args.model,
+      });
+      current = opened.messages;
+      target = opened.target;
+      changed = true;
     }
 
     const updated = appendProviderEventToAssistant({

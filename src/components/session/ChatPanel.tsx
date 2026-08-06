@@ -52,8 +52,10 @@ import {
 import {
   getReasoningTraceExpansionMode,
   getMessageScrollFingerprint,
+  resolvePlanMessagePresentation,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
+import { ConversationPlanCard } from "@/components/session/ConversationPlanCard";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import { getTurnModelInfoLabel } from "@/lib/providers/turn-model-info";
 import { cn } from "@/lib/utils";
@@ -165,6 +167,8 @@ interface MessageRowProps {
     completedAt?: string;
     parts: MessagePart[];
     displayParts?: MessagePart[];
+    isPlanResponse?: boolean;
+    planText?: string;
     isStreaming?: boolean;
     steerDeliveryState?: ChatMessage["steerDeliveryState"];
     providerBoundary?: ChatMessage["providerBoundary"];
@@ -216,6 +220,10 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   const elapsedLabel = useMemo(
     () => getMessageElapsedLabel({ message, nowMs: elapsedAnchorMs }),
     [elapsedAnchorMs, message],
+  );
+  const planPresentation = useMemo(
+    () => resolvePlanMessagePresentation(message),
+    [message],
   );
   const userMessageSourceText = message.displayContent ?? message.content;
   const turnModelInfoLabel = getTurnModelInfoLabel(message);
@@ -319,14 +327,19 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
             className={message.role === "assistant" ? "pb-1" : undefined}
             onCopy={handleUserMessageCopy}
           >
-            <MemoizedAssistantMessageBody
-              message={message}
-              taskId={taskId}
-              messageId={message.id}
-              streamingEnabled={chatStreamingEnabled}
-              traceExpansionMode={traceExpansionMode}
-              showInterimMessages={showInterimMessages}
-            />
+            {planPresentation.showPlanCard ? (
+              <ConversationPlanCard planText={planPresentation.planText} />
+            ) : null}
+            {planPresentation.showAssistantBody ? (
+              <MemoizedAssistantMessageBody
+                message={message}
+                taskId={taskId}
+                messageId={message.id}
+                streamingEnabled={chatStreamingEnabled}
+                traceExpansionMode={traceExpansionMode}
+                showInterimMessages={showInterimMessages}
+              />
+            ) : null}
           </MessageContent>
           {message.role === "user" && steerDeliveryLabel ? (
             <span className="self-end px-1 text-[11px] text-muted-foreground">
@@ -653,10 +666,12 @@ function ChatPanelMessageList(props: {
   const [turnCompletionScrollTick, setTurnCompletionScrollTick] = useState(0);
   const previousActiveTurnIdRef = useRef<string | undefined>(activeTurnId);
 
-  const visibleMessages = useMemo(
-    () => messages.filter((message) => !message.isPlanResponse),
-    [messages],
-  );
+  // Plan responses stay in the transcript and render as a dedicated plan card
+  // (see `resolvePlanMessagePresentation`). They used to be filtered out here,
+  // which left the floating `PlanViewer` as their only renderer — so the plan
+  // vanished as soon as the task moved past plan review, and any follow-up
+  // content sharing the message was dropped with it.
+  const visibleMessages = messages;
   const threadActionStateByMessageId = useMemo(
     () =>
       buildConversationTurnActionStateByMessageId({
