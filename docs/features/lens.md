@@ -62,6 +62,13 @@
 
 OAuth and SSO popup windows opened from a page use the same Lens browser profile as the page, so sign-in cookies land in the selected project or workspace profile.
 
+### Use Page Audio And A Microphone
+
+- Lens plays page audio through the current system output and lets the active Lens page enumerate or select an audio output device.
+- When an active Lens page requests microphone access, Stave grants only the audio portion of the media request. Camera, screen capture, notifications, and unrelated permissions remain blocked.
+- On macOS, the first microphone request also shows the system permission prompt for Stave. If access was denied, enable Stave under `System Settings > Privacy & Security > Microphone`, then restart Stave before retrying.
+- Permission requests from stale Lens views, cross-origin frames without an owned Lens page, and sign-in popups are rejected.
+
 ### Save An Account For Lens
 
 1. Open `Settings > Lens`.

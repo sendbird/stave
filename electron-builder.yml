@@ -34,5 +34,8 @@ win:
 mac:
   target:
     - dmg
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
   extendInfo:
     LSExtensionIsHidden: true
+    NSMicrophoneUsageDescription: Stave uses the microphone when a page in Lens requests audio input.

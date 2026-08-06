@@ -62,6 +62,10 @@ import {
 import { isLiveBrowserSessionForWebContents } from "./browser-session-identity";
 import { appendRuntimeDiagnostic } from "../runtime-diagnostic-log";
 import { resolveLensGuestPreloadScriptPath } from "../window-paths";
+import {
+  enableLensPageAudioOutput,
+  installLensAudioPermissionHandlers,
+} from "./browser-media-permissions";
 
 export { DEFAULT_LENS_SESSION_ID };
 
@@ -854,16 +858,26 @@ export function createBrowserSession(
   // Add to the main window's content view
   win.contentView.addChildView(view);
 
-  // Mute audio from browsed pages
-  view.webContents.setAudioMuted(true);
+  // Lens is a browser surface, so pages must be able to play through the
+  // selected system output device.
+  enableLensPageAudioOutput(view.webContents);
 
   // Throttle background rendering when the view is not visible to reduce CPU
   // usage when the Lens panel is closed or another panel is active.
   view.webContents.setBackgroundThrottling(true);
 
-  // Deny all permission requests from the browsed page
-  ses.setPermissionRequestHandler((_wc, _permission, callback) => {
-    callback(false);
+  // Grant only microphone and audio-output selection to a live Lens page.
+  // Auth popups, stale views, camera, display capture, and every unrelated
+  // permission continue to fail closed.
+  installLensAudioPermissionHandlers(ses, (permissionWebContents) => {
+    if (!permissionWebContents) {
+      return false;
+    }
+    const owner = getSessionForWebContentsId(permissionWebContents.id);
+    return (
+      owner?.webContentsId === permissionWebContents.id &&
+      isCurrentBrowserSession(owner)
+    );
   });
 
   // Partition-level dispatchers route traffic back to the owning session.
