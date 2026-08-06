@@ -1094,7 +1094,12 @@ export function replayProviderEventsToTaskState(args: {
           boundaryTarget = opened.target;
           changed = true;
         }
-        if (!providerBoundariesEqual(boundaryTarget.providerBoundary, nextBoundary)) {
+        if (
+          !providerBoundariesEqual(
+            boundaryTarget.providerBoundary,
+            nextBoundary,
+          )
+        ) {
           current = current.map((message, index) =>
             index === targetIndex
               ? { ...message, providerBoundary: nextBoundary }
