@@ -21,6 +21,10 @@ Stave is an installable product. Do not bake author-specific machine state into 
 
 - Use Conventional Commits for every commit.
 - Keep PR titles in Conventional Commits form and keep the subject lowercase.
+- Do not name competing or reference products as design or implementation inspiration in tracked files, code comments, tests, fixtures, commit messages, PR titles or bodies, issues, changelogs, or release notes.
+- Describe requirements and behavior independently. Avoid wording such as "copied from," "inspired by," "parity with," or "<product>-style."
+- Before publishing, review the diff and GitHub metadata for direct references to products used during research or comparison.
+- Do not suppress attribution required by a license, dependency notice, security disclosure, or other legal obligation. Stop and request maintainer or legal review when required attribution would conflict with these rules.
 - For explicit PR requests, use `skills/stave-worktree-pr-flow/SKILL.md` when the runtime supports repo-local skills.
 - For explicit release requests, use `skills/stave-release/SKILL.md` when the runtime supports repo-local skills.
 - Ordinary commit or push requests must not change `package.json`, `CHANGELOG.md`, or semver tags unless the user explicitly asks for release work.
