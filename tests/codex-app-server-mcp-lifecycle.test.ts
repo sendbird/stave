@@ -612,4 +612,44 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       ),
     ).toBe(false);
   });
+
+  test("restarts a prestarted App Server when MCP config changes before the first turn", async () => {
+    const cwd = await mkdtemp(
+      path.join(tmpdir(), "stave-codex-prestarted-mcp-refresh-"),
+    );
+    tempDirectories.push(cwd);
+    const binaryPath = "/tmp/fake-codex-prestarted-mcp-refresh";
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?prestarted-mcp-refresh-test=${Date.now()}-${Math.random()}`
+    );
+
+    await runtime.getCodexMcpRuntimeStatus({
+      runtimeOptions: { codexBinaryPath: binaryPath },
+    });
+    expect(fakeChildren).toHaveLength(1);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const dotCodexFolder = path.join(cwd, ".codex");
+    await mkdir(dotCodexFolder, { recursive: true });
+    await writeFile(
+      path.join(dotCodexFolder, "config.toml"),
+      "[mcp_servers.crane]\nurl = 'http://one'\n",
+    );
+
+    await runtime.streamCodexWithAppServer({
+      providerId: "codex",
+      taskId: "task-prestarted-mcp-refresh",
+      prompt: "Inspect the runtime",
+      cwd,
+      runtimeOptions: { codexBinaryPath: binaryPath },
+    });
+
+    expect(fakeChildren).toHaveLength(2);
+    expect(fakeChildren[0]?.killed).toBe(true);
+    expect(
+      fakeChildren[1]?.receivedMessages.some(
+        (message) => message.method === "thread/start",
+      ),
+    ).toBe(true);
+  });
 });

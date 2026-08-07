@@ -803,6 +803,7 @@ function createCodexConnectedToolStatusEntry(args: {
 
 class CodexAppServerClient {
   private process: ChildProcessWithoutNullStreams | null = null;
+  private processStartedAt: number | null = null;
   private startupPromise: Promise<void> | null = null;
   private nextRequestId = 1;
   private pendingResponses = new Map<
@@ -885,6 +886,10 @@ class CodexAppServerClient {
     return this.lastErrorMessage;
   }
 
+  getProcessStartedAt() {
+    return this.processStartedAt;
+  }
+
   dispose(message = "Codex App Server closed.") {
     if (!this.process) {
       this.lastErrorMessage = message;
@@ -898,6 +903,7 @@ class CodexAppServerClient {
       this.teardownProcess("Restarting Codex App Server.");
     }
 
+    const processStartedAt = Date.now();
     const child = spawn(
       this.executablePath,
       ["app-server", "--listen", "stdio://"],
@@ -911,6 +917,7 @@ class CodexAppServerClient {
       },
     );
     this.process = child;
+    this.processStartedAt = processStartedAt;
     this.initialized = false;
     const stdoutLineBuffer = new Utf8LineBuffer({
       label: "codex-app-server stdout",
@@ -1101,6 +1108,7 @@ class CodexAppServerClient {
   private teardownProcess(message: string) {
     const current = this.process;
     this.process = null;
+    this.processStartedAt = null;
     this.initialized = false;
     this.lastErrorMessage = message;
     if (current && !current.killed) {
@@ -2375,10 +2383,12 @@ export async function streamCodexWithAppServer(
     codexGlobalMcpConfigRefreshTracker.check({
       scopeKey: codexMcpScope,
       paths: codexMcpConfigPaths.globalPaths,
+      processStartedAt: client.getProcessStartedAt() ?? undefined,
     }),
     codexProjectMcpConfigRefreshTracker.check({
       scopeKey: `${codexMcpScope}:${runtimeCwd}`,
       paths: codexMcpConfigPaths.projectPaths,
+      processStartedAt: client.getProcessStartedAt() ?? undefined,
     }),
   ]);
   if (globalMcpRefresh.changed || projectMcpRefresh.changed) {
