@@ -166,6 +166,34 @@ describe("MCP config refresh tracking", () => {
     expect((await tracker.check(args)).changed).toBe(true);
   });
 
+  test("detects a config newer than a provider process on the first check", async () => {
+    const directory = await makeTempDirectory();
+    const configPath = path.join(directory, "config.toml");
+    const processStartedAt = Date.now();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await writeFile(configPath, "[mcp_servers.crane]\nurl = 'http://one'\n");
+
+    const tracker = new McpConfigRefreshTracker();
+    expect(
+      (
+        await tracker.check({
+          scopeKey: "codex:prestarted",
+          paths: [configPath],
+          processStartedAt,
+        })
+      ).changed,
+    ).toBe(true);
+    expect(
+      (
+        await tracker.check({
+          scopeKey: "codex:prestarted",
+          paths: [configPath],
+          processStartedAt,
+        })
+      ).changed,
+    ).toBe(false);
+  });
+
   test("keeps workspace scopes independent and deduplicates concurrent checks", async () => {
     const directory = await makeTempDirectory();
     const first = path.join(directory, "first.json");

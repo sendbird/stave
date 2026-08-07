@@ -147,22 +147,28 @@ export function getCodexMcpConfigPaths(args: CodexMcpConfigPathOptions) {
 }
 
 async function getMcpConfigFingerprint(paths: readonly string[]) {
-  const entries = await Promise.all(
+  const metadata = await Promise.all(
     paths.map(async (filePath) => {
       try {
-        const metadata = await stat(filePath);
-        return `${filePath}:${metadata.mtimeMs}:${metadata.size}`;
+        const fileMetadata = await stat(filePath);
+        return {
+          fingerprint: `${filePath}:${fileMetadata.mtimeMs}:${fileMetadata.size}`,
+          modifiedAt: fileMetadata.mtimeMs,
+        };
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-          return `${filePath}:missing`;
+          return { fingerprint: `${filePath}:missing`, modifiedAt: 0 };
         }
         // The provider will surface a native config error when it loads an
         // unreadable file. Do not reset a healthy session for a stat failure.
-        return `${filePath}:unavailable`;
+        return { fingerprint: `${filePath}:unavailable`, modifiedAt: 0 };
       }
     }),
   );
-  return entries.join("|");
+  return {
+    fingerprint: metadata.map((entry) => entry.fingerprint).join("|"),
+    latestModifiedAt: Math.max(0, ...metadata.map((entry) => entry.modifiedAt)),
+  };
 }
 
 /**
@@ -193,6 +199,11 @@ export class McpConfigRefreshTracker {
   check(args: {
     scopeKey: string;
     paths: readonly string[];
+    /**
+     * When the provider process predates this tracker's first check, detect a
+     * config edit that happened after the process took its native snapshot.
+     */
+    processStartedAt?: number;
     force?: boolean;
     minIntervalMs?: number;
   }): Promise<McpConfigRefreshResult> {
@@ -221,9 +232,12 @@ export class McpConfigRefreshTracker {
     }
 
     scope.pendingCheck = getMcpConfigFingerprint(args.paths).then(
-      (fingerprint) => {
+      ({ fingerprint, latestModifiedAt }) => {
         const changed =
-          scope.fingerprint !== null && scope.fingerprint !== fingerprint;
+          (scope.fingerprint !== null && scope.fingerprint !== fingerprint) ||
+          (scope.fingerprint === null &&
+            typeof args.processStartedAt === "number" &&
+            latestModifiedAt > args.processStartedAt);
         scope.fingerprint = fingerprint;
         if (changed) {
           scope.generation += 1;
