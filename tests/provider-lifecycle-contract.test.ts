@@ -50,7 +50,9 @@ async function runMockAdapter(args: AdapterArgs) {
       args.registerAbort?.(resolve);
     });
     adapterState.pendingDecisionCount = 0;
-    return [];
+    const doneEvent = { type: "done", stop_reason: "user_abort" } as const;
+    args.onEvent?.(doneEvent);
+    return [doneEvent];
   }
 
   const textEvent = { type: "text", text: "working" } as const;
@@ -175,6 +177,10 @@ for (const providerId of ["claude-code", "codex"] as const) {
       expect(turn.events.filter((event) => event.type === "done")).toHaveLength(
         1,
       );
+      expect(turn.events.at(-1)).toEqual({
+        type: "done",
+        stop_reason: "runtime_failure",
+      });
       expect(getProviderRuntimeLifecycleSnapshot()).toMatchObject({
         activeSessionCount: 0,
         activeStreamCount: 0,
@@ -211,6 +217,10 @@ for (const providerId of ["claude-code", "codex"] as const) {
       expect(turn.events.filter((event) => event.type === "done")).toHaveLength(
         1,
       );
+      expect(turn.events.at(-1)).toEqual({
+        type: "done",
+        stop_reason: "runtime_failure",
+      });
       expect(getProviderRuntimeLifecycleSnapshot()).toMatchObject({
         activeSessionCount: 0,
         activeStreamCount: 0,

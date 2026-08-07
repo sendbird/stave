@@ -979,6 +979,13 @@ async function runProviderTurn(
       emittedCounts.set(key, (emittedCounts.get(key) ?? 0) + 1);
     }
     for (const event of events) {
+      // The shared lifecycle owns the final abort classification. A timed-out
+      // adapter can return its locally collected user-abort terminal after the
+      // live callback was correctly suppressed; replaying it here would hide
+      // the outer runtime_failure terminal.
+      if (abortRequested && event.type === "done") {
+        continue;
+      }
       const key = JSON.stringify(event);
       const remaining = emittedCounts.get(key) ?? 0;
       if (remaining > 0) {

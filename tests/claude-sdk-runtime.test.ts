@@ -20,6 +20,8 @@ import {
   mapClaudeMessageToEvents,
   parseClaudeQuestionList,
   parseClaudeRouteClassificationJson,
+  recoverClaudeStreamBeforeInitialTurnWork,
+  resolveClaudeStreamTerminalStopReason,
   resolveClaudeTurnStopReason,
   resolveClaudeDisallowedTools,
   resolveClaudePlanModeApprovalScope,
@@ -584,6 +586,99 @@ describe("resolveClaudeTurnStopReason", () => {
         } as never,
       }),
     ).toBe("max_tokens");
+  });
+});
+
+describe("resolveClaudeStreamTerminalStopReason", () => {
+  test("preserves an abort when the SDK iterator closes without a result", () => {
+    expect(
+      resolveClaudeStreamTerminalStopReason({
+        abortRequested: true,
+        currentStopReason: undefined,
+      }),
+    ).toBe("user_abort");
+  });
+
+  test("keeps the SDK stop reason when the turn was not aborted", () => {
+    expect(
+      resolveClaudeStreamTerminalStopReason({
+        abortRequested: false,
+        currentStopReason: "max_tokens",
+      }),
+    ).toBe("max_tokens");
+  });
+});
+
+describe("recoverClaudeStreamBeforeInitialTurnWork", () => {
+  test("retries when the readiness query ends after init but before turn work", async () => {
+    async function* initialStream() {
+      yield { type: "system", subtype: "init", session_id: "cold-start" };
+    }
+    async function* recoveryStream() {
+      yield { type: "assistant", message: { content: [] } };
+      yield { type: "result", subtype: "success" };
+    }
+
+    let recoveryCount = 0;
+    const messages: Array<{ type: string }> = [];
+    for await (const message of recoverClaudeStreamBeforeInitialTurnWork({
+      initialStream: initialStream() as AsyncIterable<SDKMessage>,
+      createRecoveryStream: () => {
+        recoveryCount += 1;
+        return recoveryStream() as AsyncIterable<SDKMessage>;
+      },
+      isAbortRequested: () => false,
+    })) {
+      messages.push(message);
+    }
+
+    expect(recoveryCount).toBe(1);
+    expect(messages.map((message) => message.type)).toEqual([
+      "system",
+      "assistant",
+      "result",
+    ]);
+  });
+
+  test("does not retry after the provider begins turn work", async () => {
+    async function* initialStream() {
+      yield { type: "system", subtype: "init", session_id: "started" };
+      yield { type: "assistant", message: { content: [] } };
+    }
+
+    let recoveryCount = 0;
+    for await (const _message of recoverClaudeStreamBeforeInitialTurnWork({
+      initialStream: initialStream() as AsyncIterable<SDKMessage>,
+      createRecoveryStream: () => {
+        recoveryCount += 1;
+        return initialStream() as AsyncIterable<SDKMessage>;
+      },
+      isAbortRequested: () => false,
+    })) {
+      // Consume the public stream boundary.
+    }
+
+    expect(recoveryCount).toBe(0);
+  });
+
+  test("does not retry a user-aborted startup", async () => {
+    async function* initialStream() {
+      yield { type: "system", subtype: "init", session_id: "aborted" };
+    }
+
+    let recoveryCount = 0;
+    for await (const _message of recoverClaudeStreamBeforeInitialTurnWork({
+      initialStream: initialStream() as AsyncIterable<SDKMessage>,
+      createRecoveryStream: () => {
+        recoveryCount += 1;
+        return initialStream() as AsyncIterable<SDKMessage>;
+      },
+      isAbortRequested: () => true,
+    })) {
+      // Consume the public stream boundary.
+    }
+
+    expect(recoveryCount).toBe(0);
   });
 });
 
