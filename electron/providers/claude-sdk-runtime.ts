@@ -3292,6 +3292,13 @@ export function resolveClaudeTurnStopReason(args: {
   return args.currentStopReason;
 }
 
+export function resolveClaudeStreamTerminalStopReason(args: {
+  abortRequested: boolean;
+  currentStopReason?: string;
+}): string | undefined {
+  return args.abortRequested ? "user_abort" : args.currentStopReason;
+}
+
 export function buildClaudeReadOnlyPromptOptions(args: {
   cwd: string;
   model: string;
@@ -4145,6 +4152,42 @@ export async function waitForClaudeMcpReadiness(args: {
     : null;
 }
 
+function isClaudeInitialStartupMessage(message: SDKMessage) {
+  return (
+    message.type === "system" &&
+    (message as SDKSystemMessage).subtype === "init"
+  );
+}
+
+/**
+ * A streaming-input query can finish after SDK initialization but before it
+ * consumes the first queued user message. That startup-only close is safe to
+ * retry because the model has not produced output or invoked a tool yet.
+ */
+export async function* recoverClaudeStreamBeforeInitialTurnWork(args: {
+  initialStream: AsyncIterable<SDKMessage>;
+  createRecoveryStream: () => AsyncIterable<SDKMessage>;
+  isAbortRequested: () => boolean;
+  onRecovery?: () => void;
+}): AsyncGenerator<SDKMessage> {
+  let startupOnly = true;
+  for await (const message of args.initialStream) {
+    if (!isClaudeInitialStartupMessage(message)) {
+      startupOnly = false;
+    }
+    yield message;
+  }
+
+  if (!startupOnly || args.isAbortRequested()) {
+    return;
+  }
+
+  args.onRecovery?.();
+  for await (const message of args.createRecoveryStream()) {
+    yield message;
+  }
+}
+
 type ClaudeMcpAuthenticateResult = {
   authUrl?: unknown;
   authorizationUrl?: unknown;
@@ -4689,9 +4732,10 @@ export async function streamClaudeWithSdk(
     // responder is registered after that push for the same reason — a steer
     // arriving during the gate must not jump ahead of the primary message.
     inputQueue = new SteerableUserMessageQueue();
+    let queryOptions: Options | null = null;
     const queryResult = queryFn({
       prompt: inputQueue,
-      options: buildClaudeQueryOptions({
+      options: (queryOptions = buildClaudeQueryOptions({
         cwd: runtimeCwd,
         claudeExecutablePath,
         runtimeOptions: args.runtimeOptions,
@@ -5086,13 +5130,15 @@ export async function streamClaudeWithSdk(
             throw error;
           }
         },
-      }),
+      })),
     }) as Query;
     stream = queryResult;
 
     // Register abort handler using the official Query.close() method
     const gateAbort = new AbortController();
+    let abortRequested = false;
     args.registerAbort?.(() => {
+      abortRequested = true;
       gateAbort.abort();
       inputQueue?.close();
       stream?.close();
@@ -5126,8 +5172,16 @@ export async function streamClaudeWithSdk(
       }
     }
 
+    const initialPromptMessage = buildClaudeSDKUserMessage({
+      text: providerPrompt,
+    });
     if (!gateAbort.signal.aborted) {
-      inputQueue.push(buildClaudeSDKUserMessage({ text: providerPrompt }));
+      const accepted = inputQueue.push(initialPromptMessage);
+      if (!accepted && !abortRequested) {
+        throw new Error(
+          "Claude input queue closed before the initial prompt was accepted.",
+        );
+      }
     }
     args.registerSteerResponder?.(async ({ text }) => {
       if (
@@ -5164,8 +5218,39 @@ export async function streamClaudeWithSdk(
     const claudeDebugStream =
       args.runtimeOptions?.debug ?? process.env.STAVE_CLAUDE_DEBUG === "1";
     const subagentTracker = new SubagentProgressTracker();
+    const recoverableStream = recoverClaudeStreamBeforeInitialTurnWork({
+      initialStream: queryResult,
+      isAbortRequested: () => abortRequested,
+      onRecovery: () => {
+        console.warn(
+          "[claude-sdk-runtime] Claude query closed before initial turn work; retrying with the prompt preloaded",
+          { taskId: args.taskId },
+        );
+      },
+      createRecoveryStream: () => {
+        inputQueue?.close();
+        queryResult.close();
 
-    for await (const message of stream) {
+        const recoveryInputQueue = new SteerableUserMessageQueue();
+        if (!recoveryInputQueue.push(initialPromptMessage)) {
+          throw new Error(
+            "Claude recovery input queue closed before the initial prompt was accepted.",
+          );
+        }
+        if (!queryOptions) {
+          throw new Error("Claude query options were unavailable for recovery.");
+        }
+        inputQueue = recoveryInputQueue;
+        const recoveryQuery = queryFn({
+          prompt: recoveryInputQueue,
+          options: queryOptions,
+        }) as Query;
+        stream = recoveryQuery;
+        return recoveryQuery;
+      },
+    });
+
+    for await (const message of recoverableStream) {
       if (
         message.type === "system" &&
         (message as SDKSystemMessage).subtype === "init"
@@ -5310,8 +5395,12 @@ export async function streamClaudeWithSdk(
       }
     }
 
-    const done: BridgeEvent = finalStopReason
-      ? { type: "done", stop_reason: finalStopReason }
+    const terminalStopReason = resolveClaudeStreamTerminalStopReason({
+      abortRequested,
+      currentStopReason: finalStopReason,
+    });
+    const done: BridgeEvent = terminalStopReason
+      ? { type: "done", stop_reason: terminalStopReason }
       : { type: "done" };
     if (eventCollector.overflowed) {
       for (const overflowEvent of CLAUDE_OVERFLOW_TAIL_EVENTS) {
