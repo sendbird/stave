@@ -6,6 +6,10 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { AppSettings } from "@/store/app-settings";
 import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
+import {
+  DEFAULT_HIRONDELLE_SYNC_SETTINGS,
+  HirondelleSyncSettingsSchema,
+} from "@/lib/hirondelle-sync/types";
 import type { SectionId } from "./settings-dialog.schema";
 
 export interface SettingDefinition<
@@ -157,6 +161,30 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "exclude",
   } satisfies SettingDefinition<"craneConnector">,
+  {
+    key: "hirondelleSync",
+    sectionId: "integrations",
+    fieldId: "settings-field-hirondelle-sync",
+    title: "Hirondelle sync",
+    description:
+      "Push workspace events and resource links to a linked Hirondelle project and pull its context snapshot.",
+    keywords: [
+      "hirondelle",
+      "atelier",
+      "sync",
+      "project",
+      "events",
+      "links",
+      "outbox",
+      "connector",
+    ],
+    schema: HirondelleSyncSettingsSchema,
+    defaultValue: { ...DEFAULT_HIRONDELLE_SYNC_SETTINGS },
+    scope: "app",
+    sensitivity: "sensitive",
+    applyMode: "immediate",
+    importExport: "exclude",
+  } satisfies SettingDefinition<"hirondelleSync">,
 ] as const;
 
 export function getSettingsFieldSearchText<Key extends keyof AppSettings>(

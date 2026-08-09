@@ -78,6 +78,10 @@ import {
   type CraneConnectorSettings,
 } from "@/lib/crane-connector/types";
 import {
+  DEFAULT_HIRONDELLE_SYNC_SETTINGS,
+  type HirondelleSyncSettings,
+} from "@/lib/hirondelle-sync/types";
+import {
   DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
   type WorkspaceKickoffSettings,
 } from "@/store/workspace-kickoff-actions";
@@ -281,6 +285,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   workerConfigByProvider: Partial<Record<ProviderId, WorkerProviderConfig>>;
   /** Optional outbound-only Crane dispatch connector. Secrets stay in Electron main. */
   craneConnector: CraneConnectorSettings;
+  /** Hirondelle workspace sync toggles. Secrets stay in Electron main. */
+  hirondelleSync: HirondelleSyncSettings;
   claudeSettingSources: ClaudeSettingSource[];
   claudeEffort: "low" | "medium" | "high" | "xhigh" | "max";
   claudeThinkingMode: "adaptive" | "enabled" | "disabled";
@@ -506,6 +512,7 @@ export const defaultSettings: AppSettings = {
     ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
     projectMappings: [],
   },
+  hirondelleSync: { ...DEFAULT_HIRONDELLE_SYNC_SETTINGS },
   claudeSettingSources: ["project"],
   claudeEffort: "high",
   claudeThinkingMode: "adaptive",
