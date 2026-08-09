@@ -249,6 +249,15 @@ export class HirondelleSyncRuntime {
     this.setStatus(this.getCountsPatch());
   }
 
+  resumeWorkspace(workspaceId: string): void {
+    this.dependencies.persistence.setHirondelleOutboxWorkspaceHeld(
+      workspaceId,
+      false,
+    );
+    this.setStatus(this.getCountsPatch());
+    this.schedule(0);
+  }
+
   shutdown(): void {
     this.stopPendingWork();
   }

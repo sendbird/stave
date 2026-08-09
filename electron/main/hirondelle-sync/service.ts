@@ -5,6 +5,12 @@ import type {
   StaveSyncLinkV1,
 } from "../../../src/lib/hirondelle-sync/contract";
 import type { HirondelleSyncSettings } from "../../../src/lib/hirondelle-sync/types";
+import { buildHirondelleSyncLinks } from "../../../src/lib/hirondelle-sync/links";
+import { onHostServiceEvent } from "../host-service-client";
+import {
+  getWorkspaceInformation,
+  setWorkspaceHirondelleProject,
+} from "../stave-mcp-service";
 import { AtelierConnectorHttpClient } from "../atelier-connector/http-client";
 import { getAtelierConnectorCredentialVault } from "../atelier-connector/credential-service";
 import { ensurePersistenceReadySync } from "../state";
@@ -18,11 +24,65 @@ const STATUS_EVENT = "hirondelle-sync:status";
 const MAPPING_STALE_EVENT = "hirondelle-sync:mapping-stale";
 
 let runtime: HirondelleSyncRuntime | null = null;
+let stopWorkspaceInformationSubscription: (() => void) | null = null;
+const linksFingerprintByWorkspace = new Map<string, string>();
 
 function sendToRenderer(channel: string, payload: unknown) {
   const renderer = getMainWindow()?.webContents;
   if (!renderer || renderer.isDestroyed()) return;
   renderer.send(channel, payload);
+}
+
+async function markWorkspaceMappingStale(args: {
+  workspaceId: string;
+  projectRef: string;
+}) {
+  const result = await getWorkspaceInformation({
+    workspaceId: args.workspaceId,
+  });
+  const project = result.workspaceInformation.hirondelleProject;
+  if (!project || project.ref !== args.projectRef || project.stale) return;
+  await setWorkspaceHirondelleProject({
+    workspaceId: args.workspaceId,
+    project: { ...project, stale: true },
+  });
+}
+
+function ensureWorkspaceInformationSubscription() {
+  if (stopWorkspaceInformationSubscription) return;
+  stopWorkspaceInformationSubscription = onHostServiceEvent(
+    "local-mcp.workspace-information-updated",
+    (payload) => {
+      const project = payload.workspaceInformation.hirondelleProject;
+      const settings = getHirondelleSyncRuntime().getSettings();
+      if (
+        !project ||
+        project.stale ||
+        !settings.enabled ||
+        !settings.resourceLinks
+      ) {
+        linksFingerprintByWorkspace.delete(payload.workspaceId);
+        return;
+      }
+      const links = buildHirondelleSyncLinks(payload.workspaceInformation);
+      const fingerprint = JSON.stringify({ projectRef: project.ref, links });
+      if (
+        linksFingerprintByWorkspace.get(payload.workspaceId) === fingerprint
+      ) {
+        return;
+      }
+      linksFingerprintByWorkspace.set(payload.workspaceId, fingerprint);
+      getHirondelleSyncRuntime().noteLinksChanged({
+        workspaceId: payload.workspaceId,
+        projectRef: project.ref,
+        links,
+      });
+    },
+  );
+}
+
+export function getHirondelleSyncCredential() {
+  return getAtelierConnectorCredentialVault().getCredential();
 }
 
 export function getHirondelleSyncRuntime() {
@@ -39,9 +99,17 @@ export function getHirondelleSyncRuntime() {
         allowInsecureLocalhost,
       }),
     emitStatus: (status) => sendToRenderer(STATUS_EVENT, status),
-    emitMappingStale: (payload) =>
-      sendToRenderer(MAPPING_STALE_EVENT, payload),
+    emitMappingStale: (payload) => {
+      sendToRenderer(MAPPING_STALE_EVENT, payload);
+      void markWorkspaceMappingStale(payload).catch((error) => {
+        console.error(
+          "[hirondelle-sync] failed to mark a stale workspace mapping",
+          error,
+        );
+      });
+    },
   });
+  ensureWorkspaceInformationSubscription();
   return runtime;
 }
 
@@ -84,4 +152,7 @@ export function stopHirondelleSyncRuntime(): void {
 export function resetHirondelleSyncRuntimeForTests(): void {
   runtime?.shutdown();
   runtime = null;
+  stopWorkspaceInformationSubscription?.();
+  stopWorkspaceInformationSubscription = null;
+  linksFingerprintByWorkspace.clear();
 }
