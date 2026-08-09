@@ -87,6 +87,11 @@ import {
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import {
+  collectHirondelleTriggerContext,
+  notifyHirondelleTaskArchived,
+  notifyHirondelleTurnSummary,
+} from "@/lib/hirondelle-sync/renderer-triggers";
+import {
   buildWorkspaceTurnSummaryPrompt,
   createWorkspaceTurnSummary,
   parseWorkspaceTurnSummaryResponse,
@@ -633,6 +638,15 @@ export const useAppStore = create<AppState>()(
       const runScriptHook = window.api?.scripts?.runHook;
       const context = resolveScriptHookWorkspaceContext(args.workspaceId);
 
+      if (args.trigger === "task.archiving" && args.taskTitle) {
+        const state = get();
+        notifyHirondelleTaskArchived({
+          context: collectHirondelleTriggerContext(state, args.workspaceId),
+          settings: state.settings.hirondelleSync,
+          taskTitle: args.taskTitle,
+        });
+      }
+
       // Intent guard runs independently of verify hooks; it only needs the
       // resolved workspace context (path) to diff against.
       if (args.trigger === "turn.completed" && context) {
@@ -879,8 +893,15 @@ export const useAppStore = create<AppState>()(
         return;
       }
 
+      const state = get();
+      notifyHirondelleTurnSummary({
+        context: collectHirondelleTriggerContext(state, args.workspaceId),
+        settings: state.settings.hirondelleSync,
+        workSummary: args.summary.workSummary,
+      });
+
       const latestSession = getWorkspaceSessionForState({
-        state: get(),
+        state,
         workspaceId: args.workspaceId,
       });
       if (latestSession) {

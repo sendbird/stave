@@ -5,6 +5,10 @@ import {
   type TaskProviderSessionState,
 } from "@/lib/db/workspaces.db";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
+import {
+  collectHirondelleTriggerContext,
+  notifyHirondelleInformationEdited,
+} from "@/lib/hirondelle-sync/renderer-triggers";
 import { toProviderSessionTitle } from "@/lib/providers/thread-actions";
 import {
   isTaskArchived,
@@ -412,16 +416,38 @@ export function createTaskCoreActions(args: {
       });
     },
     updateWorkspaceInformation: ({ updater }) => {
+      let change:
+        | {
+            previous: AppState["workspaceInformation"];
+            next: AppState["workspaceInformation"];
+          }
+        | undefined;
       set((state) => {
         const nextWorkspaceInformation = updater(state.workspaceInformation);
         if (nextWorkspaceInformation === state.workspaceInformation) {
           return state;
         }
+        change = {
+          previous: state.workspaceInformation,
+          next: nextWorkspaceInformation,
+        };
         return {
           workspaceInformation: nextWorkspaceInformation,
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
+      if (change) {
+        const state = get();
+        notifyHirondelleInformationEdited({
+          context: collectHirondelleTriggerContext(
+            state,
+            state.activeWorkspaceId,
+          ),
+          settings: state.settings.hirondelleSync,
+          previous: change.previous,
+          next: change.next,
+        });
+      }
     },
     applyExternalWorkspaceInformationUpdate: ({
       workspaceId,

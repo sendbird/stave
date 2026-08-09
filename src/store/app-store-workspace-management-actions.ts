@@ -1,6 +1,7 @@
 import type { StoreApi } from "zustand";
 import { loadWorkspaceShell } from "@/lib/db/workspaces.db";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
+import { maybeRefreshHirondelleContext } from "@/lib/hirondelle-sync/renderer-triggers";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import {
@@ -570,6 +571,10 @@ export function createWorkspaceManagementActions(args: {
           switchMetricToken,
         });
       }
+      maybeRefreshHirondelleContext({
+        workspaceId,
+        hirondelleProject: get().workspaceInformation.hirondelleProject,
+      });
     },
     moveWorkspaceInProjectList: ({ projectPath, workspaceId, direction }) => {
       const normalizedProjectPath = projectPath.trim();
