@@ -146,4 +146,4 @@ optional shortcuts on top of that.
 
 - [Notifications](notifications.md)
 - [Latest Turn Summary](workspace-latest-turn-summary.md)
-- [Sidebar Active Workspaces](sidebar-active-workspaces.md)
+- [Sidebar Views](sidebar-views.md)

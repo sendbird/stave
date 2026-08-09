@@ -95,10 +95,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   customThemeId: string | null;
   /** Show the Fleet View shortcut in the left workspace sidebar. */
   sidebarShowFleetView: boolean;
-  /** Show the ranked Active workspaces section in the left workspace sidebar. */
-  sidebarShowActiveWorkspaces: boolean;
-  /** Maximum number of rows shown in the Active workspaces section. */
-  sidebarActiveWorkspaceLimit: number;
+  /**
+   * Which of the two sidebar views is showing. The header toggle writes this
+   * same key, so "the view you mostly use" and "the view you are in" are one
+   * value — the sidebar reopens in whatever you last switched to.
+   */
+  sidebarNavView: SidebarNavView;
   /**
    * When `true`, an animated "border beam" highlight travels around the
    * prompt input and active-workspace rows while a task is streaming. Purely
@@ -345,9 +347,22 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   lensCdpApprovedHosts: string[];
 }
 
-export const SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN = 1;
-export const SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX = 9;
-export const DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT = 5;
+/**
+ * The two exclusive left-sidebar views.
+ *
+ * - `projects` — the project → workspace tree: "where do I want to go?"
+ * - `work-queue` — every workspace grouped into attention lanes: "what is
+ *   waiting on me?"
+ *
+ * Both list the same workspaces, so either one on its own is a complete way to
+ * navigate; they differ only in the axis they sort by.
+ */
+export type SidebarNavView = "projects" | "work-queue";
+
+export const SIDEBAR_NAV_VIEWS: readonly SidebarNavView[] = [
+  "projects",
+  "work-queue",
+] as const;
 
 export function normalizeReasoningExpansionMode(
   value: unknown,
@@ -379,14 +394,8 @@ export function normalizeBorderBeamStrength(value: unknown): number {
   return Math.min(1, Math.max(0, value));
 }
 
-export function normalizeSidebarActiveWorkspaceLimit(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT;
-  }
-  return Math.min(
-    SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
-    Math.max(SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN, Math.round(value)),
-  );
+export function normalizeSidebarNavView(value: unknown): SidebarNavView {
+  return value === "work-queue" ? "work-queue" : "projects";
 }
 
 export const defaultSettings: AppSettings = {
@@ -394,8 +403,7 @@ export const defaultSettings: AppSettings = {
   themeMode: "dark",
   customThemeId: null,
   sidebarShowFleetView: true,
-  sidebarShowActiveWorkspaces: true,
-  sidebarActiveWorkspaceLimit: DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
+  sidebarNavView: "projects",
   borderBeamEnabled: false,
   borderBeamSize: "md",
   borderBeamVariant: "colorful",

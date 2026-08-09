@@ -8,7 +8,6 @@ import {
   recordWorkspaceSwitchPhase,
   registerWorkspaceSwitchMetric,
 } from "@/lib/performance/workspace-switch-metrics";
-import { stampSidebarActiveWorkspaceDismissal } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { WORKSPACE_APP_SURFACE } from "@/store/app-surface";
 import type { AppState } from "@/store/app-store.types";
 import type {
@@ -166,8 +165,6 @@ type WorkspaceManagementActionKey =
   | "closeWorkspace"
   | "switchWorkspace"
   | "moveWorkspaceInProjectList"
-  | "dismissSidebarActiveWorkspace"
-  | "restoreSidebarActiveWorkspaces"
   | "renameWorkspace";
 
 type WorkspaceManagementActions = Pick<AppState, WorkspaceManagementActionKey>;
@@ -654,24 +651,6 @@ export function createWorkspaceManagementActions(args: {
           ),
         };
       });
-    },
-    dismissSidebarActiveWorkspace: ({ workspaceId }) => {
-      set((state) => {
-        const next = stampSidebarActiveWorkspaceDismissal({
-          current: state.sidebarActiveWorkspaceDismissedAtById,
-          workspaceId,
-        });
-        return next === state.sidebarActiveWorkspaceDismissedAtById
-          ? state
-          : { sidebarActiveWorkspaceDismissedAtById: next };
-      });
-    },
-    restoreSidebarActiveWorkspaces: () => {
-      set((state) =>
-        Object.keys(state.sidebarActiveWorkspaceDismissedAtById).length === 0
-          ? state
-          : { sidebarActiveWorkspaceDismissedAtById: {} },
-      );
     },
     renameWorkspace: async ({ projectPath, workspaceId, name }) => {
       const normalizedWorkspaceId = workspaceId.trim();

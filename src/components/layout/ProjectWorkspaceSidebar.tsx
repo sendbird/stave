@@ -4,9 +4,11 @@ import {
   ChevronDown,
   ChevronRight,
   FolderOpen,
+  FolderTree,
   GitBranch,
   GitMerge,
   LayoutGrid,
+  ListChecks,
   LoaderCircle,
   MoreVertical,
   PanelLeft,
@@ -38,7 +40,7 @@ import { PANEL_BAR_HEIGHT_CLASS } from "@/components/layout/panel-bar.constants"
 import {
   buildCollapsedWorkspaceEntries,
   buildProjectSidebarAttentionAlert,
-  buildSidebarActiveWorkspaceEntries,
+  buildSidebarWorkQueueEntries,
   buildWorkspaceArchiveDialogCopy,
   filterProjectSidebarProjects,
   formatWorkspaceDisplayName,
@@ -51,7 +53,7 @@ import {
   WORKSPACE_SHORTCUT_COUNT,
   type ProjectSidebarAttentionAlert,
   type ProjectSidebarCollapsedProjectView,
-  type SidebarActiveWorkspaceEntry,
+  type SidebarWorkQueueEntry,
 } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog";
@@ -102,6 +104,7 @@ import {
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import {
   buildSidebarWorkQueueLanes,
+  type SidebarWorkQueueLane,
   type SidebarWorkQueueSignals,
 } from "@/lib/fleet/sidebar-work-queue";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
@@ -111,12 +114,27 @@ import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import type { SidebarNavView } from "@/store/app-settings";
 import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
 import { isDefaultWorkspaceName } from "@/store/project.utils";
 import { getLinkedWorktreePathSetForProject } from "@/store/workspace-archive-cleanup";
 import type { ChatMessage, Task } from "@/types/chat";
 
 type ProjectSidebarView = ProjectSidebarCollapsedProjectView;
+
+/**
+ * The two sidebar views, in toggle order. Both list the same workspaces, so
+ * either is a complete way to navigate — `projects` sorts by where a workspace
+ * lives, `work-queue` sorts by what it wants from you.
+ */
+const SIDEBAR_NAV_VIEW_OPTIONS: readonly {
+  value: SidebarNavView;
+  label: string;
+  Icon: typeof FolderTree;
+}[] = [
+  { value: "projects", label: "Projects", Icon: FolderTree },
+  { value: "work-queue", label: "Work queue", Icon: ListChecks },
+] as const;
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const EMPTY_TASKS: Task[] = [];
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};
@@ -509,87 +527,62 @@ const WorkspaceLeadingStatusIcon = memo(
 );
 
 /**
- * One workspace row in the sidebar work queue. Extracted so the lane grouping
- * that renders it stays readable. It holds no store subscription of its own —
- * the nested `WorkspaceLeadingStatusIcon` and `WorkspaceHoverPreviewTooltip`
- * keep their row-local subscriptions, which is what stops a single busy
- * workspace from re-rendering the whole sidebar.
+ * One workspace row in the sidebar Work queue view. Extracted so the lane
+ * grouping that renders it stays readable. It holds no store subscription of
+ * its own — the nested `WorkspaceLeadingStatusIcon` and
+ * `WorkspaceHoverPreviewTooltip` keep their row-local subscriptions, which is
+ * what stops a single busy workspace from re-rendering the whole sidebar.
+ *
+ * The trailing text is the project name rather than the branch: the queue is
+ * the one view that interleaves projects, so "which project is this?" is the
+ * question the row has to answer that the tree answers by position.
  */
 function WorkQueueRow(args: {
-  entry: SidebarActiveWorkspaceEntry;
+  entry: SidebarWorkQueueEntry;
   attentionKind?: FleetAttentionKind;
   onOpen: (target: { projectPath: string; workspaceId: string }) => void;
-  onDismiss: (target: { workspaceId: string }) => void;
 }) {
   const { entry } = args;
 
   return (
-    <div className="group/workspace-row flex items-center gap-1">
-      <WorkspaceHoverPreviewTooltip
-        workspaceId={entry.workspaceId}
-        workspaceName={entry.workspaceName}
-        branch={entry.branch}
-        projectName={entry.projectName}
-        side="right"
-        // Clear the in-flow remove button (gap + 24px) so the preview popup
-        // cannot sit on top of it and absorb its clicks.
-        sideOffset={entry.isActive ? undefined : 36}
+    <WorkspaceHoverPreviewTooltip
+      workspaceId={entry.workspaceId}
+      workspaceName={entry.workspaceName}
+      branch={entry.branch}
+      projectName={entry.projectName}
+      side="right"
+    >
+      <button
+        type="button"
+        onClick={() =>
+          args.onOpen({
+            projectPath: entry.projectPath,
+            workspaceId: entry.workspaceId,
+          })
+        }
+        aria-label={`active-workspace-${entry.workspaceId}`}
+        className={cn(
+          "flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-sm transition-colors",
+          entry.isActive
+            ? "bg-primary/12 text-foreground"
+            : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        )}
       >
-        <button
-          type="button"
-          onClick={() =>
-            args.onOpen({
-              projectPath: entry.projectPath,
-              workspaceId: entry.workspaceId,
-            })
-          }
-          aria-label={`active-workspace-${entry.workspaceId}`}
-          className={cn(
-            "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-sm transition-colors",
-            entry.isActive
-              ? "bg-primary/12 text-foreground"
-              : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-          )}
-        >
-          <WorkspaceLeadingStatusIcon
-            workspaceId={entry.workspaceId}
-            workspaceName={entry.workspaceName}
-            isDefault={entry.isDefault}
-            busy={false}
-            attentionKind={args.attentionKind}
-          />
-          <span className="min-w-0 flex-1 truncate text-left">
-            {entry.workspaceName}
-          </span>
-          <span className="shrink-0 truncate text-xs text-muted-foreground">
-            {entry.projectName}
-          </span>
-        </button>
-      </WorkspaceHoverPreviewTooltip>
-      {/* The remove button is an in-flow sibling rather than an overlay: the
-          hover-preview tooltip trigger re-hit-tests mid-click, so anything
-          stacked on top of the row button loses its mouseup. The current
-          workspace is the "you are here" marker and never offers removal. */}
-      {!entry.isActive ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "h-6 w-6 shrink-0 rounded-md p-0 text-muted-foreground transition-opacity hover:text-foreground",
-            getWorkspaceHoverActionVisibilityClasses({ isClosing: false }),
-          )}
-          aria-label={`dismiss-active-workspace-${entry.workspaceId}`}
-          title="Hide from the work queue"
-          onClick={(event) => {
-            event.stopPropagation();
-            args.onDismiss({ workspaceId: entry.workspaceId });
-          }}
-        >
-          <X className="size-3.5" />
-        </Button>
-      ) : null}
-    </div>
+        <WorkspaceLeadingStatusIcon
+          workspaceId={entry.workspaceId}
+          workspaceName={entry.workspaceName}
+          isDefault={entry.isDefault}
+          busy={false}
+          attentionKind={args.attentionKind}
+        />
+        <span className="min-w-0 flex-1 truncate text-left">
+          {entry.workspaceName}
+        </span>
+        <span className="shrink-0 truncate text-xs text-muted-foreground">
+          {entry.projectName}
+        </span>
+      </button>
+    </WorkspaceHoverPreviewTooltip>
   );
 }
 
@@ -1099,6 +1092,11 @@ export function ProjectWorkspaceSidebar(args: {
   const [collapsedByProjectPath, setCollapsedByProjectPath] = useState<
     Record<string, boolean>
   >({});
+  // Lane collapse is deliberately session-local, matching `collapsedByProjectPath`:
+  // both answer "what am I ignoring right now", not "how do I like my sidebar".
+  const [collapsedWorkQueueLanes, setCollapsedWorkQueueLanes] = useState<
+    Partial<Record<SidebarWorkQueueLane, boolean>>
+  >({});
   const [busyProjectPath, setBusyProjectPath] = useState<string | null>(null);
   const [busyWorkspaceKey, setBusyWorkspaceKey] = useState<string | null>(null);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
@@ -1126,10 +1124,7 @@ export function ProjectWorkspaceSidebar(args: {
     activeWorkspaceCwd,
     workspaceSidebarItemDisplayMode,
     sidebarShowFleetView,
-    sidebarShowActiveWorkspaces,
-    sidebarActiveWorkspaceLimit,
-    sidebarActiveWorkspaceDismissedAtById,
-    workspaceLastActiveAtById,
+    sidebarNavView,
     defaultBranch,
     projectWorkspaceInitCommand,
     projectUseRootNodeModulesSymlink,
@@ -1143,8 +1138,8 @@ export function ProjectWorkspaceSidebar(args: {
     importWorkspaceFromWorktree,
     closeWorkspace,
     renameWorkspace,
-    dismissSidebarActiveWorkspace,
     setLayout,
+    updateSettings,
     fetchAllWorkspacePrStatuses,
     hydrateWorkspaces,
     activeAppSurface,
@@ -1171,10 +1166,7 @@ export function ProjectWorkspaceSidebar(args: {
           undefined,
         state.layout.workspaceSidebarItemDisplayMode,
         state.settings.sidebarShowFleetView,
-        state.settings.sidebarShowActiveWorkspaces,
-        state.settings.sidebarActiveWorkspaceLimit,
-        state.sidebarActiveWorkspaceDismissedAtById,
-        state.workspaceLastActiveAtById,
+        state.settings.sidebarNavView,
         state.defaultBranch,
         (state.projectPath
           ? state.recentProjects.find(
@@ -1196,8 +1188,8 @@ export function ProjectWorkspaceSidebar(args: {
         state.importWorkspaceFromWorktree,
         state.closeWorkspace,
         state.renameWorkspace,
-        state.dismissSidebarActiveWorkspace,
         state.setLayout,
+        state.updateSettings,
         state.fetchAllWorkspacePrStatuses,
         state.hydrateWorkspaces,
         state.activeAppSurface,
@@ -1212,6 +1204,7 @@ export function ProjectWorkspaceSidebar(args: {
   );
   const { highestAttentionByWorkspaceId, attentionItemsByWorkspaceId } =
     useFleetAttentionProjection();
+  const isWorkQueueView = sidebarNavView === "work-queue";
 
   const projects = useMemo(() => {
     const rememberedCurrentProject = currentProjectPath
@@ -1325,9 +1318,9 @@ export function ProjectWorkspaceSidebar(args: {
   }, [recentProjects]);
   const workspaceFleetStatusById = useMemo(() => {
     const statusById: Record<string, FleetTaskStatus> = {};
-    if (!sidebarShowActiveWorkspaces) {
-      // Nothing downstream reads this when the Active Workspaces section is
-      // hidden — skip the per-task classification pass entirely.
+    if (!isWorkQueueView) {
+      // Only the Work queue view reads this — skip the per-task classification
+      // pass entirely while the Projects tree is showing.
       return statusById;
     }
     for (const project of projects) {
@@ -1367,18 +1360,21 @@ export function ProjectWorkspaceSidebar(args: {
     messagesByTask,
     projects,
     providerTurnActivityByTask,
-    sidebarShowActiveWorkspaces,
+    isWorkQueueView,
     workspaceRuntimeCacheById,
   ]);
-  const activeWorkspaceEntries = useMemo(
+  const workQueueEntries = useMemo(
     () =>
-      sidebarShowActiveWorkspaces
-        ? buildSidebarActiveWorkspaceEntries({
-            projects,
+      isWorkQueueView
+        ? buildSidebarWorkQueueEntries({
+            // `visibleProjects`, not `projects`: the search box filters both
+            // views through the same predicate, so a query narrows the queue
+            // exactly the way it narrows the tree.
+            projects: visibleProjects,
             recentProjectLastOpenedAtByPath,
             statusByWorkspaceId: workspaceFleetStatusById,
-            // Only needs that show a leading icon may pull a workspace into
-            // this list. A reviewed-later result must not pin a workspace with
+            // Only needs that show a leading icon may pull a workspace up the
+            // order. A reviewed-later result must not outrank a live one with
             // no visible reason for it.
             attentionPriorityByWorkspaceId: Object.fromEntries(
               Object.entries(highestAttentionByWorkspaceId).flatMap(
@@ -1388,24 +1384,16 @@ export function ProjectWorkspaceSidebar(args: {
                     : [],
               ),
             ),
-            // User-issued removals. They hide only low-urgency entries and
-            // lapse once the workspace is deliberately activated again.
-            dismissedAtByWorkspaceId: sidebarActiveWorkspaceDismissedAtById,
-            lastActiveAtByWorkspaceId: workspaceLastActiveAtById,
             activeWorkspaceId,
-            limit: sidebarActiveWorkspaceLimit,
           })
         : [],
     [
       activeWorkspaceId,
-      projects,
+      isWorkQueueView,
+      visibleProjects,
       recentProjectLastOpenedAtByPath,
-      sidebarActiveWorkspaceDismissedAtById,
-      sidebarActiveWorkspaceLimit,
-      sidebarShowActiveWorkspaces,
       highestAttentionByWorkspaceId,
       workspaceFleetStatusById,
-      workspaceLastActiveAtById,
     ],
   );
   // Lane grouping runs here, outside the Zustand selector, so the store never
@@ -1415,17 +1403,17 @@ export function ProjectWorkspaceSidebar(args: {
   // no PR subscription is needed at this level.
   const workQueueGroups = useMemo(() => {
     const signalsByWorkspaceId: Record<string, SidebarWorkQueueSignals> = {};
-    for (const entry of activeWorkspaceEntries) {
+    for (const entry of workQueueEntries) {
       signalsByWorkspaceId[entry.workspaceId] = {
         attentionKind: highestAttentionByWorkspaceId[entry.workspaceId]?.kind,
         status: entry.status,
       };
     }
     return buildSidebarWorkQueueLanes({
-      entries: activeWorkspaceEntries,
+      entries: workQueueEntries,
       signalsByWorkspaceId,
     });
-  }, [activeWorkspaceEntries, highestAttentionByWorkspaceId]);
+  }, [workQueueEntries, highestAttentionByWorkspaceId]);
   // Collapsing a project hides its workspace rows, so the project row carries
   // the rolled-up alert for anything blocking inside it.
   const attentionAlertByProjectPath = useMemo(() => {
@@ -1848,28 +1836,6 @@ export function ProjectWorkspaceSidebar(args: {
                     Fleet View
                   </button>
                 ) : null}
-                {sidebarShowActiveWorkspaces && workQueueGroups.length > 0
-                  ? workQueueGroups.map((group) => (
-                      <div key={group.lane} className="space-y-0.5">
-                        <div className="px-2 pt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                          {group.label}
-                        </div>
-                        {group.entries.map((entry) => (
-                          <WorkQueueRow
-                            key={entry.workspaceId}
-                            entry={entry}
-                            attentionKind={
-                              highestAttentionByWorkspaceId[entry.workspaceId]?.kind
-                            }
-                            onOpen={(target) =>
-                              void handleProjectWorkspaceOpen(target)
-                            }
-                            onDismiss={dismissSidebarActiveWorkspace}
-                          />
-                        ))}
-                      </div>
-                    ))
-                  : null}
               </div>
               <div
                 className={cn(
@@ -1877,9 +1843,43 @@ export function ProjectWorkspaceSidebar(args: {
                   PANEL_BAR_HEIGHT_CLASS,
                 )}
               >
-                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Projects
-                </span>
+                {/* The toggle replaces the old static "Projects" heading: it
+                    names the view you are in *and* is the control that leaves
+                    it, so the bar never claims one thing while showing another. */}
+                <div className="flex items-center gap-0.5 rounded-md border border-sidebar-border/50 p-0.5">
+                  {SIDEBAR_NAV_VIEW_OPTIONS.map((option) => {
+                    const isSelected = sidebarNavView === option.value;
+                    return (
+                      <Tooltip key={option.value}>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-6 w-7 rounded-[5px] p-0",
+                                isSelected
+                                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                              )}
+                              aria-label={`sidebar-view-${option.value}`}
+                              aria-pressed={isSelected}
+                              onClick={() =>
+                                updateSettings({
+                                  patch: { sidebarNavView: option.value },
+                                })
+                              }
+                            />
+                          }
+                        >
+                          <option.Icon className="size-3.5" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">{option.label}</TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
                 <div className="flex items-center gap-1">
                   <Tooltip>
                     <TooltipTrigger
@@ -1898,49 +1898,52 @@ export function ProjectWorkspaceSidebar(args: {
                     </TooltipTrigger>
                     <TooltipContent side="top">Open Project</TooltipContent>
                   </Tooltip>
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger render={<span className="inline-flex" />}>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                              aria-label="workspace-item-display-mode"
-                            />
-                          }
+                  {/* Row density is a tree-only concern; the queue has one row shape. */}
+                  {isWorkQueueView ? null : (
+                    <DropdownMenu>
+                      <Tooltip>
+                        <TooltipTrigger render={<span className="inline-flex" />}>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                aria-label="workspace-item-display-mode"
+                              />
+                            }
+                          >
+                            {workspaceSidebarItemDisplayMode === "expanded" ? (
+                              <Rows3 className="size-4" />
+                            ) : (
+                              <Rows2 className="size-4" />
+                            )}
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          Workspace row display
+                        </TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuLabel>Workspace rows</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup
+                          value={workspaceSidebarItemDisplayMode}
+                          onValueChange={handleWorkspaceItemDisplayModeChange}
                         >
-                          {workspaceSidebarItemDisplayMode === "expanded" ? (
+                          <DropdownMenuRadioItem value="expanded">
                             <Rows3 className="size-4" />
-                          ) : (
+                            Expanded
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuRadioItem value="compact">
                             <Rows2 className="size-4" />
-                          )}
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        Workspace row display
-                      </TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuLabel>Workspace rows</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuRadioGroup
-                        value={workspaceSidebarItemDisplayMode}
-                        onValueChange={handleWorkspaceItemDisplayModeChange}
-                      >
-                        <DropdownMenuRadioItem value="expanded">
-                          <Rows3 className="size-4" />
-                          Expanded
-                        </DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="compact">
-                          <Rows2 className="size-4" />
-                          Compact
-                        </DropdownMenuRadioItem>
-                      </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                            Compact
+                          </DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
               <div className="relative mb-2 px-2">
@@ -1974,6 +1977,63 @@ export function ProjectWorkspaceSidebar(args: {
               ) : visibleProjects.length === 0 ? (
                 <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
                   No matching workspaces.
+                </div>
+              ) : isWorkQueueView ? (
+                <div className="space-y-0.5">
+                  {workQueueGroups.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                      No workspaces yet.
+                    </div>
+                  ) : (
+                    workQueueGroups.map((group) => {
+                      const laneCollapsed =
+                        collapsedWorkQueueLanes[group.lane] === true;
+                      return (
+                        <div key={group.lane} className="space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCollapsedWorkQueueLanes((previous) => ({
+                                ...previous,
+                                [group.lane]: !laneCollapsed,
+                              }))
+                            }
+                            aria-label={`work-queue-lane-${group.lane}`}
+                            aria-expanded={!laneCollapsed}
+                            className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          >
+                            {laneCollapsed ? (
+                              <ChevronRight className="size-3 shrink-0" />
+                            ) : (
+                              <ChevronDown className="size-3 shrink-0" />
+                            )}
+                            <span className="min-w-0 flex-1 truncate text-left">
+                              {group.label}
+                            </span>
+                            <span className="shrink-0 tabular-nums">
+                              {group.entries.length}
+                            </span>
+                          </button>
+                          {laneCollapsed
+                            ? null
+                            : group.entries.map((entry) => (
+                                <WorkQueueRow
+                                  key={entry.workspaceId}
+                                  entry={entry}
+                                  attentionKind={
+                                    highestAttentionByWorkspaceId[
+                                      entry.workspaceId
+                                    ]?.kind
+                                  }
+                                  onOpen={(target) =>
+                                    void handleProjectWorkspaceOpen(target)
+                                  }
+                                />
+                              ))}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               ) : (
                 <>

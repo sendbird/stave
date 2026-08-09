@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Browser-visible confirmation that the sidebar work queue groups workspaces by
- * what they need instead of listing them flat: a workspace holding a pending
- * approval renders under "Action required" above the untouched workspace under
- * "Idle", and each row still opens its workspace.
+ * Browser-visible confirmation of the two sidebar views: the sidebar opens on
+ * the Projects tree, the header toggle swaps it for the Work queue, and the
+ * queue groups workspaces by what they need — a pending approval under "Action
+ * required" above an untouched workspace under "Idle".
  */
-test("Work queue groups workspaces into lanes in priority order", async ({
+test("the sidebar header toggle swaps the Projects tree for lane-grouped Work queue", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -115,7 +115,25 @@ test("Work queue groups workspaces into lanes in priority order", async ({
   const sidebar = page.getByTestId("project-workspace-sidebar");
   await expect(sidebar).toBeVisible();
 
-  const actionRequiredHeader = sidebar.getByText("Action required", { exact: true });
+  // The sidebar opens on Projects, and the two views are exclusive: while the
+  // tree is showing there is no lane header anywhere in the sidebar.
+  await expect(
+    sidebar.getByLabel("toggle-project-/tmp/stave-work-queue-lanes"),
+  ).toBeVisible();
+  await expect(sidebar.getByText("Action required", { exact: true })).toHaveCount(
+    0,
+  );
+
+  await sidebar.getByLabel("sidebar-view-work-queue", { exact: true }).click();
+
+  // ...and the swap is total: the tree's project rows are gone, not pushed down.
+  await expect(
+    sidebar.getByLabel("toggle-project-/tmp/stave-work-queue-lanes"),
+  ).toHaveCount(0);
+
+  const actionRequiredHeader = sidebar.getByText("Action required", {
+    exact: true,
+  });
   const idleHeader = sidebar.getByText("Idle", { exact: true });
   await expect(actionRequiredHeader).toBeVisible();
   await expect(idleHeader).toBeVisible();
@@ -145,4 +163,20 @@ test("Work queue groups workspaces into lanes in priority order", async ({
   expect(actionRequiredTop).toBeLessThan(blockedTop);
   expect(blockedTop).toBeLessThan(idleTop);
   expect(idleTop).toBeLessThan(idleRowTop);
+
+  // Collapsing a lane hides its rows but keeps the header, so a long Idle lane
+  // can be folded away without losing the count that says how much is there.
+  await sidebar.getByLabel("work-queue-lane-idle", { exact: true }).click();
+  await expect(idleRow).toHaveCount(0);
+  await expect(idleHeader).toBeVisible();
+  await expect(blockedRow).toBeVisible();
+
+  // Back to the tree: every workspace the queue listed is reachable again.
+  await sidebar.getByLabel("sidebar-view-projects", { exact: true }).click();
+  await expect(
+    sidebar.getByLabel("toggle-project-/tmp/stave-work-queue-lanes"),
+  ).toBeVisible();
+  await expect(sidebar.getByText("Action required", { exact: true })).toHaveCount(
+    0,
+  );
 });

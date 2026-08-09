@@ -4,17 +4,18 @@ import type { FleetTaskStatus } from "./task-status";
 import { hasFleetTaskAttentionStatus } from "./task-status";
 
 /**
- * Sidebar work queue: the lane model behind the workspace list at the top of
- * the left sidebar.
+ * Sidebar work queue: the lane model behind the left sidebar's `Work queue`
+ * view.
  *
- * used by: `src/components/layout/ProjectWorkspaceSidebar.tsx` (replaces the
- * flat "Active workspaces" list), `tests/fleet-sidebar-work-queue.test.ts`.
+ * used by: `src/components/layout/ProjectWorkspaceSidebar.tsx` (Work queue
+ * view), `tests/fleet-sidebar-work-queue.test.ts`.
  *
- * The flat list ranked workspaces but never said *why* one outranked another,
- * so a stalled agent and a workspace you merely visited yesterday looked the
- * same. Lanes name the reason. This module is pure: it takes per-workspace
- * signals that the sidebar already computes and returns grouped entries, so it
- * adds no store subscription, no persistence, and no IPC.
+ * The sidebar's other view, the project tree, sorts workspaces by where they
+ * live and so cannot say why one deserves attention before another — a stalled
+ * agent and a workspace you merely visited yesterday look the same. Lanes name
+ * the reason. This module is pure: it takes per-workspace signals that the
+ * sidebar already computes and returns grouped entries, so it adds no store
+ * subscription, no persistence, and no IPC.
  */
 export type SidebarWorkQueueLane =
   | "action-required"
@@ -107,12 +108,11 @@ export interface SidebarWorkQueueGroup<T> {
 /**
  * Groups already-ranked entries into lanes.
  *
- * Entry selection, dismissal, and capping stay upstream in
- * `buildSidebarActiveWorkspaceEntries` — this only adds the lane axis, so the
- * two concerns can be tested and changed independently. Input order is
- * preserved inside each lane (callers pass a ranked list), a workspace can
- * appear in exactly one lane, and empty lanes are dropped so the sidebar never
- * renders a bare header.
+ * Entry selection and ranking stay upstream in `buildSidebarWorkQueueEntries` —
+ * this only adds the lane axis, so the two concerns can be tested and changed
+ * independently. Input order is preserved inside each lane (callers pass a
+ * ranked list), a workspace can appear in exactly one lane, and empty lanes are
+ * dropped so the sidebar never renders a bare header.
  */
 export function buildSidebarWorkQueueLanes<T extends { workspaceId: string }>(args: {
   entries: readonly T[];
