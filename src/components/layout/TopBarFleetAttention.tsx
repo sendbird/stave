@@ -63,7 +63,7 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
         {isFleetViewActive
           ? "Close Fleet View"
           : attentionCount > 0
-            ? `Fleet View · ${attentionCount} need${attentionCount === 1 ? "" : "s"} you`
+            ? `Fleet View · ${attentionCount} action${attentionCount === 1 ? "" : "s"} required`
             : "Fleet View"}
       </TooltipContent>
     </Tooltip>

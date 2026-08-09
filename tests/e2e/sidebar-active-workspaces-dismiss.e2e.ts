@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Browser-visible confirmation for removing rows from the sidebar
- * "Active workspaces" list: the hover `×` hides a row the user considers
- * unimportant, the removal survives a reload, the current workspace never
- * offers removal, and Settings can restore every hidden row.
+ * Browser-visible confirmation for removing rows from the sidebar work queue:
+ * the hover `×` hides a row the user considers unimportant, the removal
+ * survives a reload, the current workspace never offers removal, and Settings
+ * can restore every hidden row.
  */
-test("Active workspaces rows can be dismissed, persist, and be restored", async ({
+test("Work queue rows can be dismissed, persist, and be restored", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -84,7 +84,9 @@ test("Active workspaces rows can be dismissed, persist, and be restored", async 
 
   const sidebar = page.getByTestId("project-workspace-sidebar");
   await expect(sidebar).toBeVisible();
-  await expect(sidebar.getByText("Active workspaces")).toBeVisible();
+  // Both workspaces are idle with nothing pending, so the work queue renders
+  // exactly one lane header for them.
+  await expect(sidebar.getByText("Idle", { exact: true })).toBeVisible();
 
   const currentRow = sidebar.getByLabel("active-workspace-ws-current", { exact: true });
   const otherRow = sidebar.getByLabel("active-workspace-ws-other", { exact: true });

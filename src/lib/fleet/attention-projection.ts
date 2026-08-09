@@ -15,7 +15,7 @@ import {
 import type { ChatMessage, Task } from "@/types/chat";
 import { classifyTaskStatus } from "./task-status";
 
-export type FleetNeedKind =
+export type FleetAttentionKind =
   | "user-input"
   | "approval"
   | "run-failed"
@@ -26,16 +26,16 @@ export type FleetNeedKind =
   | "pr-behind-base"
   | "pr-ready-to-merge";
 
-export type FleetNeedSource = "live" | "notification" | "pr";
+export type FleetAttentionSource = "live" | "notification" | "pr";
 
 /**
- * `blocking` needs hold work up until the user acts. `review` needs are worth
+ * `blocking` items hold work up until the user acts. `review` items are worth
  * seeing but nothing is stalled on them, so the rail can fold them away by
  * default instead of burying the items that actually block an agent.
  */
-export type FleetNeedTier = "blocking" | "review";
+export type FleetAttentionTier = "blocking" | "review";
 
-export const FLEET_NEED_TIER: Record<FleetNeedKind, FleetNeedTier> = {
+export const FLEET_ATTENTION_TIER: Record<FleetAttentionKind, FleetAttentionTier> = {
   "user-input": "blocking",
   approval: "blocking",
   "run-failed": "blocking",
@@ -47,13 +47,13 @@ export const FLEET_NEED_TIER: Record<FleetNeedKind, FleetNeedTier> = {
   "pr-ready-to-merge": "review",
 };
 
-export function getFleetNeedTier(kind: FleetNeedKind) {
-  return FLEET_NEED_TIER[kind];
+export function getFleetAttentionTier(kind: FleetAttentionKind) {
+  return FLEET_ATTENTION_TIER[kind];
 }
 
-export interface FleetNeedItem {
+export interface FleetAttentionItem {
   id: string;
-  kind: FleetNeedKind;
+  kind: FleetAttentionKind;
   priority: number;
   projectPath: string;
   projectName: string;
@@ -66,7 +66,7 @@ export interface FleetNeedItem {
   notificationId?: string;
   providerId?: ProviderId;
   createdAt: string;
-  source: FleetNeedSource;
+  source: FleetAttentionSource;
   detail?: string;
   prStatus?: WorkspacePrStatus;
   prUrl?: string;
@@ -97,15 +97,15 @@ export interface FleetPrWorkspaceInput {
 }
 
 export interface FleetAttentionProjection {
-  items: FleetNeedItem[];
+  items: FleetAttentionItem[];
   count: number;
-  blockingItems: FleetNeedItem[];
-  reviewItems: FleetNeedItem[];
-  highestNeedByWorkspaceId: Record<string, FleetNeedItem | undefined>;
-  needsByWorkspaceId: Record<string, FleetNeedItem[] | undefined>;
+  blockingItems: FleetAttentionItem[];
+  reviewItems: FleetAttentionItem[];
+  highestAttentionByWorkspaceId: Record<string, FleetAttentionItem | undefined>;
+  attentionItemsByWorkspaceId: Record<string, FleetAttentionItem[] | undefined>;
 }
 
-export const FLEET_NEED_PRIORITY: Record<FleetNeedKind, number> = {
+export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
   "user-input": 0,
   approval: 1,
   "run-failed": 2,
@@ -117,7 +117,7 @@ export const FLEET_NEED_PRIORITY: Record<FleetNeedKind, number> = {
   "pr-ready-to-merge": 5,
 };
 
-const SOURCE_PRIORITY: Record<FleetNeedSource, number> = {
+const SOURCE_PRIORITY: Record<FleetAttentionSource, number> = {
   live: 0,
   notification: 1,
   pr: 2,
@@ -137,7 +137,7 @@ function normalizeRequired(value: string | null | undefined) {
   return normalized || null;
 }
 
-function buildInteractionNeedId(args: {
+function buildInteractionAttentionId(args: {
   kind: "user-input" | "approval";
   workspaceId: string;
   taskId: string;
@@ -152,7 +152,7 @@ function buildInteractionNeedId(args: {
   ].join(":");
 }
 
-function buildTurnNeedId(args: {
+function buildTurnAttentionId(args: {
   kind: "run-failed" | "result-ready";
   workspaceId: string;
   taskId: string;
@@ -168,7 +168,7 @@ export function getFleetAttentionTaskKey(workspaceId: string, taskId: string) {
 }
 
 function buildPrNeedId(args: {
-  kind: Extract<FleetNeedKind, `pr-${string}`>;
+  kind: Extract<FleetAttentionKind, `pr-${string}`>;
   workspaceId: string;
 }) {
   return ["pr", args.kind, args.workspaceId].join(":");
@@ -191,10 +191,10 @@ function buildLiveBase(args: {
   };
 }
 
-export function collectFleetLiveNeeds(
+export function collectFleetLiveAttentionItems(
   workspaces: readonly FleetLiveWorkspaceInput[],
 ) {
-  const needs: FleetNeedItem[] = [];
+  const attentionItems: FleetAttentionItem[] = [];
 
   for (const workspace of workspaces) {
     for (const task of workspace.tasks) {
@@ -206,7 +206,7 @@ export function collectFleetLiveNeeds(
         continue;
       }
 
-      // A locally driven need belongs to a running turn. Without one the task is
+      // A locally driven item belongs to a running turn. Without one the task is
       // done and any leftover pending part is history, not an open request.
       // Managed tasks are the exception: their requests are answered through the
       // host, so they stay actionable without a renderer turn.
@@ -221,16 +221,16 @@ export function collectFleetLiveNeeds(
         const requestId = normalizeRequired(pendingInput.part.requestId);
         if (requestId) {
           const kind = "user-input" as const;
-          needs.push({
+          attentionItems.push({
             ...buildLiveBase({ workspace, task }),
-            id: buildInteractionNeedId({
+            id: buildInteractionAttentionId({
               kind,
               workspaceId: workspace.workspaceId,
               taskId: task.id,
               requestId,
             }),
             kind,
-            priority: FLEET_NEED_PRIORITY[kind],
+            priority: FLEET_ATTENTION_PRIORITY[kind],
             requestId,
             turnId: activeTurnId,
           });
@@ -243,16 +243,16 @@ export function collectFleetLiveNeeds(
         const requestId = normalizeRequired(pendingApproval.part.requestId);
         if (requestId) {
           const kind = "approval" as const;
-          needs.push({
+          attentionItems.push({
             ...buildLiveBase({ workspace, task }),
-            id: buildInteractionNeedId({
+            id: buildInteractionAttentionId({
               kind,
               workspaceId: workspace.workspaceId,
               taskId: task.id,
               requestId,
             }),
             kind,
-            priority: FLEET_NEED_PRIORITY[kind],
+            priority: FLEET_ATTENTION_PRIORITY[kind],
             requestId,
             turnId: activeTurnId,
             detail: `${pendingApproval.part.toolName}: ${pendingApproval.part.description}`,
@@ -271,16 +271,16 @@ export function collectFleetLiveNeeds(
         }) === "error"
       ) {
         const kind = "run-failed" as const;
-        needs.push({
+        attentionItems.push({
           ...buildLiveBase({ workspace, task }),
-          id: buildTurnNeedId({
+          id: buildTurnAttentionId({
             kind,
             workspaceId: workspace.workspaceId,
             taskId: task.id,
             turnId: activeTurnId,
           }),
           kind,
-          priority: FLEET_NEED_PRIORITY[kind],
+          priority: FLEET_ATTENTION_PRIORITY[kind],
           turnId: activeTurnId,
           detail: "The active provider turn needs review.",
         });
@@ -288,7 +288,7 @@ export function collectFleetLiveNeeds(
     }
   }
 
-  return needs;
+  return attentionItems;
 }
 
 function getNotificationRequestId(notification: AppNotification) {
@@ -302,10 +302,10 @@ function getNotificationRequestId(notification: AppNotification) {
   return null;
 }
 
-export function collectFleetNotificationNeeds(
+export function collectFleetNotificationAttentionItems(
   notifications: readonly AppNotification[],
 ) {
-  const needs: FleetNeedItem[] = [];
+  const attentionItems: FleetAttentionItem[] = [];
 
   for (const notification of notifications) {
     const projectPath = normalizeRequired(notification.projectPath);
@@ -354,16 +354,16 @@ export function collectFleetNotificationNeeds(
         notification.kind === "task.approval_requested"
           ? ("approval" as const)
           : ("user-input" as const);
-      needs.push({
+      attentionItems.push({
         ...base,
-        id: buildInteractionNeedId({
+        id: buildInteractionAttentionId({
           kind,
           workspaceId,
           taskId,
           requestId,
         }),
         kind,
-        priority: FLEET_NEED_PRIORITY[kind],
+        priority: FLEET_ATTENTION_PRIORITY[kind],
         requestId,
         turnId: notification.turnId ?? undefined,
       });
@@ -381,21 +381,21 @@ export function collectFleetNotificationNeeds(
       notification.kind === "task.turn_failed"
         ? ("run-failed" as const)
         : ("result-ready" as const);
-    needs.push({
+    attentionItems.push({
       ...base,
-      id: buildTurnNeedId({ kind, workspaceId, taskId, turnId }),
+      id: buildTurnAttentionId({ kind, workspaceId, taskId, turnId }),
       kind,
-      priority: FLEET_NEED_PRIORITY[kind],
+      priority: FLEET_ATTENTION_PRIORITY[kind],
       turnId,
     });
   }
 
-  return needs;
+  return attentionItems;
 }
 
-export function mapFleetPrNeedKind(
+export function mapFleetPrAttentionKind(
   status: WorkspacePrStatus,
-): Extract<FleetNeedKind, `pr-${string}`> | null {
+): Extract<FleetAttentionKind, `pr-${string}`> | null {
   switch (status) {
     case "changes_requested":
       return "pr-changes-requested";
@@ -417,11 +417,11 @@ export function mapFleetPrNeedKind(
   }
 }
 
-export function collectFleetPrNeeds(
+export function collectFleetPrAttentionItems(
   workspaces: readonly FleetPrWorkspaceInput[],
 ) {
-  return workspaces.flatMap((workspace): FleetNeedItem[] => {
-    const kind = mapFleetPrNeedKind(workspace.status);
+  return workspaces.flatMap((workspace): FleetAttentionItem[] => {
+    const kind = mapFleetPrAttentionKind(workspace.status);
     if (!kind) {
       return [];
     }
@@ -432,7 +432,7 @@ export function collectFleetPrNeeds(
           workspaceId: workspace.workspaceId,
         }),
         kind,
-        priority: FLEET_NEED_PRIORITY[kind],
+        priority: FLEET_ATTENTION_PRIORITY[kind],
         projectPath: workspace.projectPath,
         projectName: workspace.projectName,
         workspaceId: workspace.workspaceId,
@@ -446,7 +446,7 @@ export function collectFleetPrNeeds(
   });
 }
 
-function choosePreferredNeed(current: FleetNeedItem, candidate: FleetNeedItem) {
+function choosePreferredNeed(current: FleetAttentionItem, candidate: FleetAttentionItem) {
   const preferred =
     SOURCE_PRIORITY[candidate.source] < SOURCE_PRIORITY[current.source]
       ? candidate
@@ -464,7 +464,7 @@ function choosePreferredNeed(current: FleetNeedItem, candidate: FleetNeedItem) {
   };
 }
 
-export function compareFleetNeeds(left: FleetNeedItem, right: FleetNeedItem) {
+export function compareFleetAttentionItems(left: FleetAttentionItem, right: FleetAttentionItem) {
   if (left.priority !== right.priority) {
     return left.priority - right.priority;
   }
@@ -481,14 +481,14 @@ export function buildFleetAttentionProjection(args: {
   /**
    * Every workspace the app currently knows about. Notification rows outlive the
    * workspace they belong to, so without this guard an archived workspace keeps
-   * contributing needs that nobody can ever open or answer. Omit it when the
+   * contributing items that nobody can ever open or answer. Omit it when the
    * caller has no workspace inventory to compare against.
    */
   knownWorkspaceIds?: ReadonlySet<string>;
   /** Closed tasks resolved from cold workspace shells outside live state. */
   closedTaskKeys?: ReadonlySet<string>;
 }): FleetAttentionProjection {
-  const byId = new Map<string, FleetNeedItem>();
+  const byId = new Map<string, FleetAttentionItem>();
   const externalTaskKeys = new Set(
     args.liveWorkspaces.flatMap((workspace) =>
       workspace.tasks
@@ -513,7 +513,7 @@ export function buildFleetAttentionProjection(args: {
   }
   const knownWorkspaceIds = args.knownWorkspaceIds;
   const candidates = [
-    ...collectFleetNotificationNeeds(args.notifications)
+    ...collectFleetNotificationAttentionItems(args.notifications)
       .filter(
         (item) => !knownWorkspaceIds || knownWorkspaceIds.has(item.workspaceId),
       )
@@ -532,8 +532,8 @@ export function buildFleetAttentionProjection(args: {
             getFleetAttentionTaskKey(item.workspaceId, item.taskId),
           ),
       ),
-    ...collectFleetPrNeeds(args.prWorkspaces),
-    ...collectFleetLiveNeeds(args.liveWorkspaces),
+    ...collectFleetPrAttentionItems(args.prWorkspaces),
+    ...collectFleetLiveAttentionItems(args.liveWorkspaces),
   ];
 
   for (const candidate of candidates) {
@@ -544,31 +544,31 @@ export function buildFleetAttentionProjection(args: {
     );
   }
 
-  const items = Array.from(byId.values()).sort(compareFleetNeeds);
-  const highestNeedByWorkspaceId: Record<string, FleetNeedItem | undefined> =
+  const items = Array.from(byId.values()).sort(compareFleetAttentionItems);
+  const highestAttentionByWorkspaceId: Record<string, FleetAttentionItem | undefined> =
     {};
-  const needsByWorkspaceId: Record<string, FleetNeedItem[] | undefined> = {};
+  const attentionItemsByWorkspaceId: Record<string, FleetAttentionItem[] | undefined> = {};
 
   for (const item of items) {
-    const existing = needsByWorkspaceId[item.workspaceId];
+    const existing = attentionItemsByWorkspaceId[item.workspaceId];
     if (existing) {
       existing.push(item);
     } else {
-      needsByWorkspaceId[item.workspaceId] = [item];
+      attentionItemsByWorkspaceId[item.workspaceId] = [item];
     }
-    highestNeedByWorkspaceId[item.workspaceId] ??= item;
+    highestAttentionByWorkspaceId[item.workspaceId] ??= item;
   }
 
   return {
     items,
     count: items.length,
     blockingItems: items.filter(
-      (item) => FLEET_NEED_TIER[item.kind] === "blocking",
+      (item) => FLEET_ATTENTION_TIER[item.kind] === "blocking",
     ),
     reviewItems: items.filter(
-      (item) => FLEET_NEED_TIER[item.kind] === "review",
+      (item) => FLEET_ATTENTION_TIER[item.kind] === "review",
     ),
-    highestNeedByWorkspaceId,
-    needsByWorkspaceId,
+    highestAttentionByWorkspaceId,
+    attentionItemsByWorkspaceId,
   };
 }

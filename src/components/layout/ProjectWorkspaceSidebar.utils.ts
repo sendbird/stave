@@ -1,9 +1,9 @@
 import type {
-  FleetNeedItem,
-  FleetNeedKind,
-  FleetNeedTier,
+  FleetAttentionItem,
+  FleetAttentionKind,
+  FleetAttentionTier,
 } from "@/lib/fleet/attention-projection";
-import { getFleetNeedTier } from "@/lib/fleet/attention-projection";
+import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { hasFleetTaskAttentionStatus } from "@/lib/fleet/task-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
@@ -44,8 +44,8 @@ const UNTITLED_TASK_FALLBACK = "Untitled task";
 const WORKSPACE_ROW_ACTION_REVEAL_CLASSES =
   "group-hover/workspace-row:pointer-events-auto group-hover/workspace-row:opacity-100 group-has-[:focus-visible]/workspace-row:pointer-events-auto group-has-[:focus-visible]/workspace-row:opacity-100";
 
-export function getWorkspaceLeadingNeedKind(needKind?: FleetNeedKind) {
-  return needKind === "result-ready" ? undefined : needKind;
+export function getWorkspaceLeadingAttentionKind(attentionKind?: FleetAttentionKind) {
+  return attentionKind === "result-ready" ? undefined : attentionKind;
 }
 
 /**
@@ -53,7 +53,7 @@ export function getWorkspaceLeadingNeedKind(needKind?: FleetNeedKind) {
  * rows, so a pending question inside one of them would otherwise be invisible
  * until the user expands the project and finds the stalled agent by hand.
  *
- * Blocking needs always win. Review-tier needs (a finished result, a PR that is
+ * Blocking items always win. Review-tier items (a finished result, a PR that is
  * merely ready) are work you have not confirmed yet rather than work that is
  * stalled, so they surface only when nothing is blocking, and they render as a
  * muted dot rather than a warning glyph. Letting them light the full icon would
@@ -61,14 +61,14 @@ export function getWorkspaceLeadingNeedKind(needKind?: FleetNeedKind) {
  * on you".
  */
 export interface ProjectSidebarAttentionAlert {
-  kind: FleetNeedKind;
-  tier: FleetNeedTier;
-  needCount: number;
+  kind: FleetAttentionKind;
+  tier: FleetAttentionTier;
+  attentionItemCount: number;
   workspaceCount: number;
   label: string;
 }
 
-const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetNeedKind, string> = {
+const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
   "user-input": "answer needed",
   approval: "approval needed",
   "run-failed": "run failed",
@@ -81,8 +81,8 @@ const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetNeedKind, string> = {
 };
 
 function formatProjectAttentionAlertLabel(args: {
-  kind: FleetNeedKind;
-  needCount: number;
+  kind: FleetAttentionKind;
+  attentionItemCount: number;
   workspaceCount: number;
 }) {
   const reason = PROJECT_ATTENTION_ALERT_LABEL[args.kind];
@@ -90,18 +90,18 @@ function formatProjectAttentionAlertLabel(args: {
     args.workspaceCount > 1
       ? ` across ${formatCountLabel(args.workspaceCount, "workspace")}`
       : "";
-  // Review-tier needs are finished work nobody has confirmed yet, so claiming
+  // Review-tier items are finished work nobody has confirmed yet, so claiming
   // they "need attention" would overstate them next to a genuinely blocked agent.
-  if (getFleetNeedTier(args.kind) === "review") {
-    if (args.needCount <= 1) {
+  if (getFleetAttentionTier(args.kind) === "review") {
+    if (args.attentionItemCount <= 1) {
       return `1 item to review${scope}: ${reason}`;
     }
-    return `${formatCountLabel(args.needCount, "item")} to review${scope}, latest: ${reason}`;
+    return `${formatCountLabel(args.attentionItemCount, "item")} to review${scope}, latest: ${reason}`;
   }
-  if (args.needCount <= 1) {
+  if (args.attentionItemCount <= 1) {
     return `1 item needs attention${scope}: ${reason}`;
   }
-  return `${formatCountLabel(args.needCount, "item")} need attention${scope}, most urgent: ${reason}`;
+  return `${formatCountLabel(args.attentionItemCount, "item")} need attention${scope}, most urgent: ${reason}`;
 }
 
 function formatCountLabel(count: number, singular: string) {
@@ -109,65 +109,65 @@ function formatCountLabel(count: number, singular: string) {
 }
 
 interface ProjectAttentionTierAccumulator {
-  topNeed?: FleetNeedItem;
-  needCount: number;
+  topAttentionItem?: FleetAttentionItem;
+  attentionItemCount: number;
   workspaceIds: Set<string>;
 }
 
 function createTierAccumulator(): ProjectAttentionTierAccumulator {
-  return { needCount: 0, workspaceIds: new Set<string>() };
+  return { attentionItemCount: 0, workspaceIds: new Set<string>() };
 }
 
 /**
  * Rolls a project's workspaces up into a single alert so the collapsed project
  * row can show one indicator instead of a pile of badges.
  *
- * Blocking and review needs are accumulated separately and blocking is returned
+ * Blocking and review items are accumulated separately and blocking is returned
  * whenever it exists, so an unconfirmed result never masks or inflates the
  * count of an agent that is actually waiting on the user.
  */
 export function buildProjectSidebarAttentionAlert(args: {
   workspaces: readonly Pick<ProjectSidebarWorkspaceView, "id">[];
-  needsByWorkspaceId: Record<string, FleetNeedItem[] | undefined>;
+  attentionItemsByWorkspaceId: Record<string, FleetAttentionItem[] | undefined>;
 }): ProjectSidebarAttentionAlert | null {
   const blocking = createTierAccumulator();
   const review = createTierAccumulator();
 
   for (const workspace of args.workspaces) {
-    for (const need of args.needsByWorkspaceId[workspace.id] ?? []) {
+    for (const attentionItem of args.attentionItemsByWorkspaceId[workspace.id] ?? []) {
       const target =
-        getFleetNeedTier(need.kind) === "blocking" ? blocking : review;
-      target.needCount += 1;
+        getFleetAttentionTier(attentionItem.kind) === "blocking" ? blocking : review;
+      target.attentionItemCount += 1;
       target.workspaceIds.add(workspace.id);
-      // Lower priority number wins; ties fall back to the older need so the
+      // Lower priority number wins; ties fall back to the older item so the
       // label stays stable while a project keeps accruing requests.
-      const { topNeed } = target;
+      const { topAttentionItem } = target;
       if (
-        !topNeed ||
-        need.priority < topNeed.priority ||
-        (need.priority === topNeed.priority &&
-          need.createdAt.localeCompare(topNeed.createdAt) < 0)
+        !topAttentionItem ||
+        attentionItem.priority < topAttentionItem.priority ||
+        (attentionItem.priority === topAttentionItem.priority &&
+          attentionItem.createdAt.localeCompare(topAttentionItem.createdAt) < 0)
       ) {
-        target.topNeed = need;
+        target.topAttentionItem = attentionItem;
       }
     }
   }
 
-  const selected = blocking.topNeed ? blocking : review;
-  const topNeed = selected.topNeed;
-  if (!topNeed) {
+  const selected = blocking.topAttentionItem ? blocking : review;
+  const topAttentionItem = selected.topAttentionItem;
+  if (!topAttentionItem) {
     return null;
   }
 
   const workspaceCount = selected.workspaceIds.size;
   return {
-    kind: topNeed.kind,
-    tier: getFleetNeedTier(topNeed.kind),
-    needCount: selected.needCount,
+    kind: topAttentionItem.kind,
+    tier: getFleetAttentionTier(topAttentionItem.kind),
+    attentionItemCount: selected.attentionItemCount,
     workspaceCount,
     label: formatProjectAttentionAlertLabel({
-      kind: topNeed.kind,
-      needCount: selected.needCount,
+      kind: topAttentionItem.kind,
+      attentionItemCount: selected.attentionItemCount,
       workspaceCount,
     }),
   };
@@ -499,7 +499,7 @@ export function buildSidebarActiveWorkspaceEntries(args: {
         continue;
       }
 
-      // Needs-user reasons (a visible attention need, a waiting status) are
+      // Action-required reasons (a visible attention item, a waiting status) are
       // exempt from dismissal; representative, error, and running reasons are
       // the "unimportant to me" clutter a dismissal is allowed to remove.
       const needsUser =

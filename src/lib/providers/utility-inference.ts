@@ -1,8 +1,18 @@
 import type { ProviderId, ProviderRuntimeOptions } from "./provider.types";
 
 export type UtilityInferenceProvider = "auto" | ProviderId;
-export type UtilityInferenceFeature =
-  "task-name" | "route-classification" | "commit-message";
+/**
+ * The mechanical meta calls. Advisory work belongs to Advisor, not here — the
+ * boundary is asserted in `tests/agent-platform-boundaries.test.ts`, which is
+ * why this list exists as a value and not only as a type.
+ */
+export const UTILITY_INFERENCE_FEATURES = [
+  "task-name",
+  "route-classification",
+  "commit-message",
+] as const;
+
+export type UtilityInferenceFeature = (typeof UTILITY_INFERENCE_FEATURES)[number];
 export type UtilityInferenceSelectionReason =
   "explicit" | "active-task" | "fallback";
 

@@ -7,7 +7,7 @@ const panelSource = await Bun.file(
   ),
 ).text();
 const inboxSource = await Bun.file(
-  new URL("../src/components/layout/FleetNeedsInbox.tsx", import.meta.url),
+  new URL("../src/components/layout/FleetAttentionInbox.tsx", import.meta.url),
 ).text();
 const workspaceCardSource = await Bun.file(
   new URL("../src/components/layout/FleetWorkspaceCard.tsx", import.meta.url),

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FleetNeedsInbox } from "@/components/layout/FleetNeedsInbox";
-import type { FleetNeedItem } from "@/lib/fleet/attention-projection";
+import { FleetAttentionInbox } from "@/components/layout/FleetAttentionInbox";
+import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 
-function buildNeed(overrides: Partial<FleetNeedItem> = {}): FleetNeedItem {
+function buildAttentionItem(overrides: Partial<FleetAttentionItem> = {}): FleetAttentionItem {
   return {
     id: "interaction:user-input:workspace-1:task-1:request-1",
     kind: "user-input",
@@ -23,12 +23,12 @@ function buildNeed(overrides: Partial<FleetNeedItem> = {}): FleetNeedItem {
   };
 }
 
-function renderInbox(items: FleetNeedItem[]) {
+function renderInbox(items: FleetAttentionItem[]) {
   return renderToStaticMarkup(
-    createElement(FleetNeedsInbox, {
+    createElement(FleetAttentionInbox, {
       items,
-      selectedNeedId: null,
-      busyNeedId: null,
+      selectedAttentionId: null,
+      busyAttentionId: null,
       onOpen: () => {},
       onOpenTask: () => {},
       onMarkRead: () => {},
@@ -38,15 +38,15 @@ function renderInbox(items: FleetNeedItem[]) {
   );
 }
 
-describe("FleetNeedsInbox", () => {
+describe("FleetAttentionInbox", () => {
   test("offers a dismiss action for notification-backed questions", () => {
-    expect(renderInbox([buildNeed()])).toContain("Dismiss");
+    expect(renderInbox([buildAttentionItem()])).toContain("Dismiss");
   });
 
   test("offers a dismiss action for notification-backed approvals", () => {
     expect(
       renderInbox([
-        buildNeed({
+        buildAttentionItem({
           id: "interaction:approval:workspace-1:task-1:request-1",
           kind: "approval",
         }),
@@ -56,7 +56,7 @@ describe("FleetNeedsInbox", () => {
 
   test("omits the dismiss action when the need has no notification", () => {
     expect(
-      renderInbox([buildNeed({ notificationId: undefined, source: "live" })]),
+      renderInbox([buildAttentionItem({ notificationId: undefined, source: "live" })]),
     ).not.toContain("Dismiss");
   });
 
@@ -65,7 +65,7 @@ describe("FleetNeedsInbox", () => {
     // notification id. Resolving the notification does not retract the live
     // request, so the item would come straight back with the count unchanged.
     expect(
-      renderInbox([buildNeed({ source: "live" })]),
+      renderInbox([buildAttentionItem({ source: "live" })]),
     ).not.toContain("Dismiss");
   });
 });

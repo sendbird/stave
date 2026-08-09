@@ -1421,8 +1421,8 @@ function ThemeSection() {
             }
           />
           <SwitchField
-            title="Active Workspaces"
-            description="Show a ranked list of active, attention, and recently used workspaces."
+            title="Work Queue"
+            description="Group workspaces above the project list by state: Action required, In progress, In review, Idle."
             checked={sidebarShowActiveWorkspaces}
             onCheckedChange={(checked) =>
               updateSettings({
@@ -1432,12 +1432,12 @@ function ThemeSection() {
           />
           {sidebarShowActiveWorkspaces ? (
             <LabeledField
-              title="Active Workspace Rows"
+              title="Work Queue Rows"
               description="Maximum number of rows shown before the project list."
             >
               <div className="flex items-center gap-3">
                 <Slider
-                  aria-label="Active workspace rows"
+                  aria-label="Work queue rows"
                   className="flex-1"
                   value={sidebarActiveWorkspaceLimit}
                   min={SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN}
@@ -1458,7 +1458,7 @@ function ThemeSection() {
           {sidebarShowActiveWorkspaces && hiddenActiveWorkspaceCount > 0 ? (
             <LabeledField
               title="Hidden Workspaces"
-              description="Workspaces you removed from the Active Workspaces list. Hidden workspaces return automatically when they need your attention or when you open them."
+              description="Workspaces you removed from the work queue. Hidden workspaces return automatically when they need your attention or when you open them."
             >
               <Button
                 type="button"

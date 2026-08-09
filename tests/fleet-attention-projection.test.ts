@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildFleetAttentionProjection,
-  collectFleetNotificationNeeds,
+  collectFleetNotificationAttentionItems,
   getFleetAttentionTaskKey,
-  mapFleetPrNeedKind,
+  mapFleetPrAttentionKind,
   type FleetLiveWorkspaceInput,
 } from "../src/lib/fleet/attention-projection";
 import type { AppNotification } from "../src/lib/notifications/notification.types";
@@ -186,7 +186,7 @@ describe("Fleet attention projection", () => {
   });
 
   test("drops resolved interactions and read terminal notifications", () => {
-    const needs = collectFleetNotificationNeeds([
+    const attentionItems = collectFleetNotificationAttentionItems([
       buildNotification({
         id: "resolved",
         resolvedAt: "2026-07-26T01:00:00.000Z",
@@ -205,8 +205,8 @@ describe("Fleet attention projection", () => {
       }),
     ]);
 
-    expect(needs).toHaveLength(1);
-    expect(needs[0]).toMatchObject({
+    expect(attentionItems).toHaveLength(1);
+    expect(attentionItems[0]).toMatchObject({
       kind: "result-ready",
       notificationId: "unread-result",
       turnId: "turn-result",
@@ -305,13 +305,13 @@ describe("Fleet attention projection", () => {
   });
 
   test("maps only actionable PR states", () => {
-    expect(mapFleetPrNeedKind("changes_requested")).toBe(
+    expect(mapFleetPrAttentionKind("changes_requested")).toBe(
       "pr-changes-requested",
     );
-    expect(mapFleetPrNeedKind("checks_failed")).toBe("pr-checks-failed");
-    expect(mapFleetPrNeedKind("merge_conflict")).toBe("pr-merge-conflict");
-    expect(mapFleetPrNeedKind("behind_base")).toBe("pr-behind-base");
-    expect(mapFleetPrNeedKind("ready_to_merge")).toBe("pr-ready-to-merge");
+    expect(mapFleetPrAttentionKind("checks_failed")).toBe("pr-checks-failed");
+    expect(mapFleetPrAttentionKind("merge_conflict")).toBe("pr-merge-conflict");
+    expect(mapFleetPrAttentionKind("behind_base")).toBe("pr-behind-base");
+    expect(mapFleetPrAttentionKind("ready_to_merge")).toBe("pr-ready-to-merge");
 
     for (const status of [
       "no_pr",
@@ -321,7 +321,7 @@ describe("Fleet attention projection", () => {
       "merged",
       "closed_unmerged",
     ] as const) {
-      expect(mapFleetPrNeedKind(status)).toBeNull();
+      expect(mapFleetPrAttentionKind(status)).toBeNull();
     }
   });
 
@@ -421,7 +421,7 @@ describe("Fleet attention projection", () => {
 
   test("omits notifications without an exact navigation target", () => {
     expect(
-      collectFleetNotificationNeeds([
+      collectFleetNotificationAttentionItems([
         buildNotification({ projectPath: null }),
         buildNotification({ workspaceId: null }),
         buildNotification({ taskId: null }),
