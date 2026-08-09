@@ -242,6 +242,17 @@ export type WorkspaceInfoCustomField =
   | WorkspaceUrlField
   | WorkspaceSingleSelectField;
 
+export interface WorkspaceHirondelleProjectLink {
+  ref: string;
+  slug: string;
+  name: string;
+  url: string;
+  linkedAt: string;
+  lastPulledAt: string | null;
+  /** Set when the server reported the project deleted or archived. */
+  stale?: boolean;
+}
+
 export interface WorkspaceInformationState {
   jiraIssues: WorkspaceJiraIssue[];
   confluencePages: WorkspaceConfluencePage[];
@@ -250,6 +261,7 @@ export interface WorkspaceInformationState {
   linkedPullRequests: WorkspaceLinkedPullRequest[];
   amplifyLinks: WorkspaceAmplifyLink[];
   slackThreads: WorkspaceSlackThread[];
+  hirondelleProject?: WorkspaceHirondelleProjectLink | null;
   turnSummary?: WorkspaceTurnSummary | null;
   notes: string;
   todos: WorkspaceTodoItem[];
@@ -1510,6 +1522,7 @@ export function createEmptyWorkspaceInformation(): WorkspaceInformationState {
     linkedPullRequests: [],
     amplifyLinks: [],
     slackThreads: [],
+    hirondelleProject: null,
     notes: "",
     todos: [],
     customFields: [],

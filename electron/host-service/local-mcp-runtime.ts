@@ -34,6 +34,7 @@ import {
   shouldAutoFillWorkspaceInformation,
   upsertWorkspaceResourceInState,
   type WorkspaceInfoCustomField,
+  type WorkspaceHirondelleProjectLink,
   type WorkspaceInformationState,
   type WorkspaceInfoFieldType,
   type WorkspaceResourceUpsertResult,
@@ -770,6 +771,19 @@ export async function getWorkspaceInformation(args: { workspaceId: string }) {
     workspaceId: args.workspaceId,
     workspaceInformation: session.workspaceInformation,
   };
+}
+
+export async function setWorkspaceHirondelleProject(args: {
+  workspaceId: string;
+  project: WorkspaceHirondelleProjectLink | null;
+}) {
+  return updateWorkspaceInformationState({
+    workspaceId: args.workspaceId,
+    updater: (current) => ({
+      ...current,
+      hirondelleProject: args.project,
+    }),
+  });
 }
 
 export async function replaceWorkspaceNotes(args: {

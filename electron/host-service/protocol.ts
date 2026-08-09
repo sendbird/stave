@@ -423,6 +423,7 @@ export type HostLocalMcpAction =
   | "respond-approval"
   | "respond-user-input"
   | "get-workspace-information"
+  | "set-workspace-hirondelle-project"
   | "replace-workspace-notes"
   | "append-workspace-notes"
   | "clear-workspace-notes"
