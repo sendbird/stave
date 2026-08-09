@@ -80,6 +80,12 @@ import {
   syncCodexMcpRegistration,
 } from "./codex-mcp";
 import { sanitizeMcpLogValue } from "./stave-mcp-log-sanitizer";
+import {
+  linkHirondelleProject,
+  listHirondelleProjects,
+  refreshHirondelleContext,
+  unlinkHirondelleProject,
+} from "./hirondelle-sync/project-link";
 
 let httpServer: Server | null = null;
 let manifestPaths: string[] = [];
@@ -285,6 +291,70 @@ function createToolServer() {
       toStructuredResult({
         projects: await listKnownProjects(),
       }),
+  );
+
+  server.registerTool(
+    "stave_hirondelle_list_projects",
+    {
+      description:
+        "Search Hirondelle projects reachable through the paired Atelier connector.",
+      inputSchema: {
+        query: z
+          .string()
+          .max(200)
+          .optional()
+          .describe("Optional name or slug filter."),
+        limit: z.number().int().min(1).max(50).optional(),
+      },
+    },
+    async ({ query, limit }) =>
+      toStructuredResult({
+        projects: await listHirondelleProjects({ query, limit }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_hirondelle_link_project",
+    {
+      description:
+        "Link a Stave workspace to a Hirondelle project and pull its context snapshot.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Target workspace id."),
+        projectRef: z
+          .string()
+          .min(1)
+          .describe("Hirondelle project slug or id."),
+      },
+    },
+    async ({ workspaceId, projectRef }) =>
+      toStructuredResult(
+        await linkHirondelleProject({ workspaceId, projectRef }),
+      ),
+  );
+
+  server.registerTool(
+    "stave_hirondelle_unlink_project",
+    {
+      description: "Unlink a Stave workspace from its Hirondelle project.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Target workspace id."),
+      },
+    },
+    async ({ workspaceId }) =>
+      toStructuredResult(await unlinkHirondelleProject({ workspaceId })),
+  );
+
+  server.registerTool(
+    "stave_hirondelle_get_context",
+    {
+      description:
+        "Fetch the latest Hirondelle project context bundle for a linked workspace and refresh the local snapshot file.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Target workspace id."),
+      },
+    },
+    async ({ workspaceId }) =>
+      toStructuredResult(await refreshHirondelleContext({ workspaceId })),
   );
 
   server.registerTool(
