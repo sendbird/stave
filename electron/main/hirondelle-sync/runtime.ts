@@ -11,6 +11,8 @@ import {
 import {
   DEFAULT_HIRONDELLE_SYNC_SETTINGS,
   HirondelleSyncSettingsSchema,
+  type HirondelleSyncMappingStalePayload,
+  type HirondelleSyncPublicStatus,
   type HirondelleSyncSettings,
 } from "../../../src/lib/hirondelle-sync/types";
 import type { HirondelleOutboxEntry } from "../../persistence/hirondelle-sync-outbox-store";
@@ -33,20 +35,7 @@ const LinksMergePayloadSchema = z
   })
   .strict();
 
-export interface HirondelleSyncPublicStatus {
-  runtimeState:
-    | "disabled"
-    | "unpaired"
-    | "idle"
-    | "syncing"
-    | "offline"
-    | "unauthorized"
-    | "error";
-  lastErrorCode: string | null;
-  pendingCount: number;
-  failedCount: number;
-  lastDeliveredAt: string | null;
-}
+export type { HirondelleSyncPublicStatus };
 
 export interface HirondelleSyncOutboxPersistence {
   enqueueHirondelleOutboxEntry(input: {
@@ -93,11 +82,7 @@ interface HirondelleSyncRuntimeDependencies {
   getCredential: () => Promise<HirondelleSyncCredential | null>;
   createHttpClient: (baseUrl: string) => AtelierConnectorHttpClient;
   emitStatus: (status: HirondelleSyncPublicStatus) => void;
-  emitMappingStale: (args: {
-    workspaceId: string;
-    projectRef: string;
-    code: "project_not_found" | "project_archived";
-  }) => void;
+  emitMappingStale: (args: HirondelleSyncMappingStalePayload) => void;
   now?: () => Date;
   random?: () => number;
   setTimer?: (

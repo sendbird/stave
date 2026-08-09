@@ -57,6 +57,21 @@ import type {
   CraneDispatchApprovalResponse,
   CraneDispatchJobUpdate,
 } from "@/lib/crane-connector/types";
+import type {
+  AtelierConnectorPairInput,
+  AtelierConnectorPublicStatus,
+} from "@/lib/atelier-connector/types";
+import type { HirondelleProjectSummary } from "@/lib/hirondelle-sync/contract";
+import type {
+  HirondelleLinkProjectArgs,
+  HirondelleListProjectsArgs,
+  HirondelleSyncEnqueueArgs,
+  HirondelleSyncLinksChangedArgs,
+  HirondelleSyncMappingStalePayload,
+  HirondelleSyncPublicStatus,
+  HirondelleSyncSettings,
+  HirondelleWorkspaceArgs,
+} from "@/lib/hirondelle-sync/types";
 import type { RepoMapResponse } from "@/lib/fs/repo-map.types";
 import type {
   AppNotification,
@@ -76,7 +91,10 @@ import type {
   TerminalCreateSessionArgs,
   WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
-import type { WorkspaceInformationState } from "@/lib/workspace-information";
+import type {
+  WorkspaceHirondelleProjectLink,
+  WorkspaceInformationState,
+} from "@/lib/workspace-information";
 import type {
   RoutineInformationResourceCreateInput,
   RoutineRun,
@@ -696,6 +714,75 @@ interface WindowLocalMcpApi {
   ) => () => void;
   subscribeTaskTurnUpdates?: (
     listener: (payload: LocalMcpTaskTurnUpdate) => void,
+  ) => () => void;
+}
+
+interface WindowAtelierConnectorApi {
+  getStatus?: () => Promise<{
+    ok: boolean;
+    status: AtelierConnectorPublicStatus;
+    message?: string;
+  }>;
+  pair?: (args: AtelierConnectorPairInput) => Promise<{
+    ok: boolean;
+    status: AtelierConnectorPublicStatus;
+    message?: string;
+  }>;
+}
+
+interface WindowHirondelleSyncApi {
+  getStatus?: () => Promise<{
+    ok: boolean;
+    status: HirondelleSyncPublicStatus;
+    message?: string;
+  }>;
+  configure?: (args: HirondelleSyncSettings) => Promise<{
+    ok: boolean;
+    status: HirondelleSyncPublicStatus;
+    message?: string;
+  }>;
+  enqueue?: (args: HirondelleSyncEnqueueArgs) => Promise<{
+    ok: boolean;
+    status?: HirondelleSyncPublicStatus;
+    message?: string;
+  }>;
+  notifyLinksChanged?: (args: HirondelleSyncLinksChangedArgs) => Promise<{
+    ok: boolean;
+    status?: HirondelleSyncPublicStatus;
+    message?: string;
+  }>;
+  retryFailed?: () => Promise<{
+    ok: boolean;
+    status: HirondelleSyncPublicStatus;
+    message?: string;
+  }>;
+  listProjects?: (args?: HirondelleListProjectsArgs) => Promise<{
+    ok: boolean;
+    projects: HirondelleProjectSummary[];
+    message?: string;
+  }>;
+  linkProject?: (args: HirondelleLinkProjectArgs) => Promise<{
+    ok: boolean;
+    project?: WorkspaceHirondelleProjectLink;
+    snapshotRelativePath?: string;
+    message?: string;
+  }>;
+  unlinkProject?: (args: HirondelleWorkspaceArgs) => Promise<{
+    ok: boolean;
+    message?: string;
+  }>;
+  refreshContext?: (args: HirondelleWorkspaceArgs) => Promise<{
+    ok: boolean;
+    project?: WorkspaceHirondelleProjectLink;
+    snapshotRelativePath?: string;
+    markdown?: string;
+    message?: string;
+  }>;
+  subscribeStatus?: (
+    listener: (payload: HirondelleSyncPublicStatus) => void,
+  ) => () => void;
+  subscribeMappingStale?: (
+    listener: (payload: HirondelleSyncMappingStalePayload) => void,
   ) => () => void;
 }
 
@@ -2465,6 +2552,8 @@ interface WindowApi {
   fs?: WindowFsApi;
   skills?: WindowSkillsApi;
   localMcp?: WindowLocalMcpApi;
+  atelierConnector?: WindowAtelierConnectorApi;
+  hirondelleSync?: WindowHirondelleSyncApi;
   craneConnector?: WindowCraneConnectorApi;
   taskControl?: WindowTaskControlApi;
   routines?: WindowRoutinesApi;

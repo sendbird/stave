@@ -24,6 +24,17 @@ export {
   CraneDispatchApprovalResponseSchema as CraneDispatchApproveArgsSchema,
   CraneDispatchDeclineResponseSchema as CraneDispatchDeclineArgsSchema,
 } from "../../../src/lib/crane-connector/types";
+export {
+  AtelierConnectorPairArgsSchema,
+} from "../../../src/lib/atelier-connector/types";
+export {
+  HirondelleLinkProjectArgsSchema,
+  HirondelleListProjectsArgsSchema,
+  HirondelleSyncConfigureArgsSchema,
+  HirondelleSyncEnqueueArgsSchema,
+  HirondelleSyncLinksChangedArgsSchema,
+  HirondelleWorkspaceArgsSchema,
+} from "../../../src/lib/hirondelle-sync/types";
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 

@@ -20,6 +20,27 @@ export type HirondelleSyncSettings = z.infer<
   typeof HirondelleSyncSettingsSchema
 >;
 
+export interface HirondelleSyncPublicStatus {
+  runtimeState:
+    | "disabled"
+    | "unpaired"
+    | "idle"
+    | "syncing"
+    | "offline"
+    | "unauthorized"
+    | "error";
+  lastErrorCode: string | null;
+  pendingCount: number;
+  failedCount: number;
+  lastDeliveredAt: string | null;
+}
+
+export interface HirondelleSyncMappingStalePayload {
+  workspaceId: string;
+  projectRef: string;
+  code: "project_not_found" | "project_archived";
+}
+
 export const DEFAULT_HIRONDELLE_SYNC_SETTINGS: HirondelleSyncSettings =
   Object.freeze({
     enabled: false,
@@ -106,3 +127,19 @@ export const HirondelleSyncLinksChangedArgsSchema = z
       .max(STAVE_SYNC_LIMITS.linksPerMerge),
   })
   .strict();
+
+export type HirondelleListProjectsArgs = z.infer<
+  typeof HirondelleListProjectsArgsSchema
+>;
+export type HirondelleWorkspaceArgs = z.infer<
+  typeof HirondelleWorkspaceArgsSchema
+>;
+export type HirondelleLinkProjectArgs = z.infer<
+  typeof HirondelleLinkProjectArgsSchema
+>;
+export type HirondelleSyncEnqueueArgs = z.infer<
+  typeof HirondelleSyncEnqueueArgsSchema
+>;
+export type HirondelleSyncLinksChangedArgs = z.infer<
+  typeof HirondelleSyncLinksChangedArgsSchema
+>;

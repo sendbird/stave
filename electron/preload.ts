@@ -59,7 +59,25 @@ import type {
   CraneDispatchApprovalResponse,
   CraneDispatchJobUpdate,
 } from "../src/lib/crane-connector/types";
-import type { WorkspaceInformationState } from "../src/lib/workspace-information";
+import type {
+  AtelierConnectorPairInput,
+  AtelierConnectorPublicStatus,
+} from "../src/lib/atelier-connector/types";
+import type { HirondelleProjectSummary } from "../src/lib/hirondelle-sync/contract";
+import type {
+  HirondelleLinkProjectArgs,
+  HirondelleListProjectsArgs,
+  HirondelleSyncEnqueueArgs,
+  HirondelleSyncLinksChangedArgs,
+  HirondelleSyncMappingStalePayload,
+  HirondelleSyncPublicStatus,
+  HirondelleSyncSettings,
+  HirondelleWorkspaceArgs,
+} from "../src/lib/hirondelle-sync/types";
+import type {
+  WorkspaceHirondelleProjectLink,
+  WorkspaceInformationState,
+} from "../src/lib/workspace-information";
 import type {
   RoutineInformationResourceCreateInput,
   RoutineRun,
@@ -220,6 +238,12 @@ interface WorkspaceInformationUpdatePayload {
 const craneConnectorStatusSubscribers = new Set<
   (payload: CraneConnectorPublicStatus) => void
 >();
+const hirondelleSyncStatusSubscribers = new Set<
+  (payload: HirondelleSyncPublicStatus) => void
+>();
+const hirondelleMappingStaleSubscribers = new Set<
+  (payload: HirondelleSyncMappingStalePayload) => void
+>();
 const craneDispatchApprovalSubscribers = new Set<
   (payload: CraneDispatchApprovalRequest) => void
 >();
@@ -235,6 +259,22 @@ ipcRenderer.on(
   "crane-connector:status",
   (_event, payload: CraneConnectorPublicStatus) => {
     for (const subscriber of craneConnectorStatusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "hirondelle-sync:status",
+  (_event, payload: HirondelleSyncPublicStatus) => {
+    for (const subscriber of hirondelleSyncStatusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "hirondelle-sync:mapping-stale",
+  (_event, payload: HirondelleSyncMappingStalePayload) => {
+    for (const subscriber of hirondelleMappingStaleSubscribers) {
       subscriber(payload);
     }
   },
@@ -1460,6 +1500,94 @@ contextBridge.exposeInMainWorld("api", {
       localMcpTaskTurnUpdateSubscribers.add(listener);
       return () => {
         localMcpTaskTurnUpdateSubscribers.delete(listener);
+      };
+    },
+  },
+  atelierConnector: {
+    getStatus: () =>
+      ipcRenderer.invoke("atelier-connector:get-status") as Promise<{
+        ok: boolean;
+        status: AtelierConnectorPublicStatus;
+        message?: string;
+      }>,
+    pair: (args: AtelierConnectorPairInput) =>
+      ipcRenderer.invoke("atelier-connector:pair", args) as Promise<{
+        ok: boolean;
+        status: AtelierConnectorPublicStatus;
+        message?: string;
+      }>,
+  },
+  hirondelleSync: {
+    getStatus: () =>
+      ipcRenderer.invoke("hirondelle-sync:get-status") as Promise<{
+        ok: boolean;
+        status: HirondelleSyncPublicStatus;
+        message?: string;
+      }>,
+    configure: (args: HirondelleSyncSettings) =>
+      ipcRenderer.invoke("hirondelle-sync:configure", args) as Promise<{
+        ok: boolean;
+        status: HirondelleSyncPublicStatus;
+        message?: string;
+      }>,
+    enqueue: (args: HirondelleSyncEnqueueArgs) =>
+      ipcRenderer.invoke("hirondelle-sync:enqueue", args) as Promise<{
+        ok: boolean;
+        status?: HirondelleSyncPublicStatus;
+        message?: string;
+      }>,
+    notifyLinksChanged: (args: HirondelleSyncLinksChangedArgs) =>
+      ipcRenderer.invoke("hirondelle-sync:links-changed", args) as Promise<{
+        ok: boolean;
+        status?: HirondelleSyncPublicStatus;
+        message?: string;
+      }>,
+    retryFailed: () =>
+      ipcRenderer.invoke("hirondelle-sync:retry-failed") as Promise<{
+        ok: boolean;
+        status: HirondelleSyncPublicStatus;
+        message?: string;
+      }>,
+    listProjects: (args: HirondelleListProjectsArgs = {}) =>
+      ipcRenderer.invoke("hirondelle-sync:list-projects", args) as Promise<{
+        ok: boolean;
+        projects: HirondelleProjectSummary[];
+        message?: string;
+      }>,
+    linkProject: (args: HirondelleLinkProjectArgs) =>
+      ipcRenderer.invoke("hirondelle-sync:link-project", args) as Promise<{
+        ok: boolean;
+        project?: WorkspaceHirondelleProjectLink;
+        snapshotRelativePath?: string;
+        message?: string;
+      }>,
+    unlinkProject: (args: HirondelleWorkspaceArgs) =>
+      ipcRenderer.invoke("hirondelle-sync:unlink-project", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    refreshContext: (args: HirondelleWorkspaceArgs) =>
+      ipcRenderer.invoke("hirondelle-sync:refresh-context", args) as Promise<{
+        ok: boolean;
+        project?: WorkspaceHirondelleProjectLink;
+        snapshotRelativePath?: string;
+        markdown?: string;
+        message?: string;
+      }>,
+    subscribeStatus: (
+      listener: (payload: HirondelleSyncPublicStatus) => void,
+    ) => {
+      hirondelleSyncStatusSubscribers.add(listener);
+      return () => {
+        hirondelleSyncStatusSubscribers.delete(listener);
+      };
+    },
+    subscribeMappingStale: (
+      listener: (payload: HirondelleSyncMappingStalePayload) => void,
+    ) => {
+      hirondelleMappingStaleSubscribers.add(listener);
+      return () => {
+        hirondelleMappingStaleSubscribers.delete(listener);
       };
     },
   },

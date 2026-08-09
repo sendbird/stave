@@ -1,10 +1,12 @@
 import { registerFilesystemHandlers } from "./filesystem";
 import { registerInlineCompletionHandlers } from "./inline-completion";
+import { registerAtelierConnectorHandlers } from "./atelier-connector";
 import { registerBrowserHandlers } from "./browser";
 import { registerCraneConnectorHandlers } from "./crane-connector";
 import { registerDiagnosticsHandlers } from "./diagnostics";
 import { registerLocalMcpHandlers } from "./local-mcp";
 import { registerEslintHandlers } from "./eslint";
+import { registerHirondelleSyncHandlers } from "./hirondelle-sync";
 import { registerLspHandlers } from "./lsp";
 import { registerMetricsHandlers } from "./metrics";
 import { registerNotificationHandlers } from "./notifications";
@@ -41,7 +43,9 @@ export function registerHandlers() {
   registerMetricsHandlers();
   registerNotificationHandlers();
   registerLocalMcpHandlers();
+  registerAtelierConnectorHandlers();
   registerCraneConnectorHandlers();
+  registerHirondelleSyncHandlers();
   registerBrowserHandlers();
   registerSecretHandlers();
 }

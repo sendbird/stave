@@ -10,6 +10,10 @@ import {
 } from "../src/lib/hirondelle-sync/contract";
 import { buildHirondelleSyncLinks } from "../src/lib/hirondelle-sync/links";
 import { createEmptyWorkspaceInformation } from "../src/lib/workspace-information";
+import {
+  AtelierConnectorPairArgsSchema,
+  HirondelleSyncEnqueueArgsSchema,
+} from "../electron/main/ipc/schemas";
 
 const fixtureDirectory = new URL("./fixtures/stave-sync-v1/", import.meta.url);
 
@@ -20,6 +24,31 @@ async function readFixture(name: string) {
 describe("stave-sync-v1 contract", () => {
   test("exposes the pinned contract version", () => {
     expect(STAVE_SYNC_CONTRACT_VERSION).toBe("stave-sync-v1");
+  });
+
+  test("validates pairing and enqueue IPC arguments", () => {
+    expect(
+      AtelierConnectorPairArgsSchema.safeParse({
+        baseUrl: "https://atelier.example.com",
+        code: "stp_abc",
+        name: "My Stave",
+        requestedScopes: ["crane", "hirondelle"],
+      }).success,
+    ).toBe(true);
+    expect(
+      HirondelleSyncEnqueueArgsSchema.safeParse({
+        workspaceId: "worktree:abc",
+        projectRef: "checkout-v2",
+        kind: "pr_opened",
+        summary: "PR #12: Add sync",
+        sourceUrl: "https://github.com/acme/repo/pull/12",
+        workspaceName: "feat/sync",
+        branch: "feat/sync",
+      }).success,
+    ).toBe(true);
+    expect(
+      HirondelleSyncEnqueueArgsSchema.safeParse({ kind: "nope" }).success,
+    ).toBe(false);
   });
 
   test("accepts the shared valid fixtures", async () => {
