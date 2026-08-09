@@ -1,0 +1,155 @@
+import { describe, expect, test } from "bun:test";
+
+import {
+  HirondelleContextBundleV1Schema,
+  HirondelleProjectListResponseV1Schema,
+  STAVE_SYNC_CONTRACT_VERSION,
+  StaveSyncEventsRequestV1Schema,
+  StaveSyncEventsResponseV1Schema,
+  StaveSyncLinksMergeRequestV1Schema,
+} from "../src/lib/hirondelle-sync/contract";
+import { buildHirondelleSyncLinks } from "../src/lib/hirondelle-sync/links";
+import { createEmptyWorkspaceInformation } from "../src/lib/workspace-information";
+
+const fixtureDirectory = new URL("./fixtures/stave-sync-v1/", import.meta.url);
+
+async function readFixture(name: string) {
+  return Bun.file(new URL(name, fixtureDirectory)).json();
+}
+
+describe("stave-sync-v1 contract", () => {
+  test("exposes the pinned contract version", () => {
+    expect(STAVE_SYNC_CONTRACT_VERSION).toBe("stave-sync-v1");
+  });
+
+  test("accepts the shared valid fixtures", async () => {
+    expect(
+      StaveSyncEventsRequestV1Schema.safeParse(
+        await readFixture("valid-events-request.json"),
+      ).success,
+    ).toBe(true);
+    expect(
+      StaveSyncEventsResponseV1Schema.safeParse(
+        await readFixture("valid-events-response.json"),
+      ).success,
+    ).toBe(true);
+    expect(
+      StaveSyncLinksMergeRequestV1Schema.safeParse(
+        await readFixture("valid-links-merge-request.json"),
+      ).success,
+    ).toBe(true);
+    expect(
+      HirondelleProjectListResponseV1Schema.safeParse(
+        await readFixture("valid-project-list.json"),
+      ).success,
+    ).toBe(true);
+    expect(
+      HirondelleContextBundleV1Schema.safeParse(
+        await readFixture("valid-context-bundle.json"),
+      ).success,
+    ).toBe(true);
+  });
+
+  test("rejects invalid fixtures", async () => {
+    expect(
+      StaveSyncEventsRequestV1Schema.safeParse(
+        await readFixture("invalid-event-kind.json"),
+      ).success,
+    ).toBe(false);
+    expect(
+      StaveSyncEventsRequestV1Schema.safeParse(
+        await readFixture("invalid-event-forbidden-property.json"),
+      ).success,
+    ).toBe(false);
+    expect(
+      StaveSyncLinksMergeRequestV1Schema.safeParse(
+        await readFixture("invalid-links-non-https.json"),
+      ).success,
+    ).toBe(false);
+  });
+
+  test("rejects event batches above 20 entries", async () => {
+    const payload = await readFixture("valid-events-request.json");
+    const oversized = Array.from({ length: 21 }, (_, index) => ({
+      ...payload.events[0],
+      staveEventId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    }));
+    expect(
+      StaveSyncEventsRequestV1Schema.safeParse({
+        ...payload,
+        events: oversized,
+      }).success,
+    ).toBe(false);
+  });
+
+  test("maps workspace information resources to hirondelle links", () => {
+    const info = createEmptyWorkspaceInformation();
+    info.linkedPullRequests.push({
+      id: "pr-1",
+      title: "Add sync",
+      url: "https://github.com/acme/repo/pull/12",
+      status: "open",
+      note: "",
+    });
+    info.figmaResources.push({
+      id: "figma-1",
+      title: "Sync flows",
+      url: "https://www.figma.com/design/abc",
+      nodeId: "",
+      note: "",
+    });
+    info.jiraIssues.push({
+      id: "jira-1",
+      issueKey: "ACME-7",
+      title: "Sync epic",
+      url: "https://acme.atlassian.net/browse/ACME-7",
+      status: "",
+      note: "",
+    });
+    info.slackThreads.push({
+      id: "slack-1",
+      url: "https://acme.slack.com/archives/C1/p1",
+      channelName: "#eng",
+      note: "",
+    });
+    expect(buildHirondelleSyncLinks(info)).toEqual([
+      {
+        kind: "github",
+        url: "https://github.com/acme/repo/pull/12",
+        label: "Add sync",
+        note: "",
+      },
+      {
+        kind: "figma",
+        url: "https://www.figma.com/design/abc",
+        label: "Sync flows",
+        note: "",
+      },
+      {
+        kind: "slack",
+        url: "https://acme.slack.com/archives/C1/p1",
+        label: "#eng",
+        note: "",
+      },
+      {
+        kind: "other",
+        url: "https://acme.atlassian.net/browse/ACME-7",
+        label: "ACME-7: Sync epic",
+        note: "",
+      },
+    ]);
+  });
+
+  test("skips resources without an https url", () => {
+    const info = createEmptyWorkspaceInformation();
+    info.jiraIssues.push({
+      id: "jira-2",
+      issueKey: "ACME-8",
+      title: "Draft",
+      url: "",
+      status: "",
+      note: "",
+    });
+    expect(buildHirondelleSyncLinks(info)).toEqual([]);
+  });
+});

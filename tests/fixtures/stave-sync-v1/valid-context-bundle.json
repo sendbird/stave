@@ -1,0 +1,92 @@
+{
+  "contract": "stave-sync-v1",
+  "project": {
+    "id": "project-sync",
+    "slug": "sync-outbox",
+    "name": "Sync Outbox",
+    "summary": "Durable workspace synchronization.",
+    "status": "active",
+    "visibility": "shared",
+    "syncIntervalMinutes": 60,
+    "lastSyncedAt": "2026-08-09T12:00:00.000Z",
+    "archivedAt": null,
+    "archiveReason": null,
+    "createdBy": "user-stave",
+    "createdAt": "2026-08-09T10:00:00.000Z",
+    "updatedAt": "2026-08-09T12:00:00.000Z"
+  },
+  "sections": {
+    "members": [
+      {
+        "id": "member-1",
+        "role": "Owner",
+        "name": "Stave User",
+        "userId": "user-stave",
+        "scope": "Workspace sync",
+        "position": 0
+      }
+    ],
+    "links": [
+      {
+        "id": "link-1",
+        "kind": "github",
+        "label": "PR #12",
+        "url": "https://github.com/sendbird/stave/pull/12",
+        "note": "",
+        "origin": "stave",
+        "position": 0
+      }
+    ],
+    "properties": [
+      {
+        "id": "property-1",
+        "group": "github",
+        "label": "Repository",
+        "value": "sendbird/stave",
+        "position": 0
+      }
+    ],
+    "stages": [
+      {
+        "id": "stage-1",
+        "name": "Implementation",
+        "plannedDate": "2026-08-12",
+        "actualDate": "",
+        "status": "진행중",
+        "note": "",
+        "position": 0
+      }
+    ],
+    "memory": [
+      {
+        "id": "memory-1",
+        "kind": "decision",
+        "body": "Use a durable outbox.",
+        "sourceUrl": "https://github.com/sendbird/stave/pull/12",
+        "sourceLabel": "PR #12",
+        "autoExtracted": false,
+        "changeEventId": "event-1",
+        "position": 0
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "event-1",
+      "projectId": "project-sync",
+      "source": "stave",
+      "kind": "pr_opened",
+      "summary": "PR #12: Harden the sync outbox",
+      "sourceUrl": "https://github.com/sendbird/stave/pull/12",
+      "tier": "factual",
+      "metadata": {
+        "staveEventId": "0d5a9b3e-7c41-4f2a-9a67-2f8a1c3db901",
+        "workspaceName": "sync-outbox",
+        "branch": "feat/sync-outbox",
+        "contract": "stave-sync-v1"
+      },
+      "detectedAt": "2026-08-09T12:00:00.000Z"
+    }
+  ],
+  "markdown": "# Sync Outbox\n\nDurable workspace synchronization.\n"
+}
