@@ -50,6 +50,10 @@ import {
   type LocalCraneJobBinding,
 } from "./crane-job-binding-store";
 import {
+  HirondelleSyncOutboxStore,
+  type HirondelleOutboxEntry,
+} from "./hirondelle-sync-outbox-store";
+import {
   shouldRunFullVacuumMigration,
   type SqliteStorageMetrics,
 } from "./sqlite-maintenance-policy";
@@ -187,6 +191,7 @@ export class SqliteStore {
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
+  private hirondelleSyncOutbox: HirondelleSyncOutboxStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -227,6 +232,7 @@ export class SqliteStore {
     this.bootstrap();
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
+    this.hirondelleSyncOutbox = new HirondelleSyncOutboxStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;
@@ -2856,6 +2862,65 @@ export class SqliteStore {
 
   pruneCraneJobBindings(cutoff: string) {
     return this.craneJobBindings.pruneTerminalBefore(cutoff);
+  }
+
+  enqueueHirondelleOutboxEntry(input: {
+    workspaceId: string;
+    projectRef: string;
+    kind: "event";
+    payloadJson: string;
+    now: string;
+  }) {
+    return this.hirondelleSyncOutbox.enqueue(input);
+  }
+
+  upsertHirondelleLinksMergeEntry(input: {
+    workspaceId: string;
+    projectRef: string;
+    payloadJson: string;
+    nextAttemptAt: string;
+    now: string;
+  }) {
+    return this.hirondelleSyncOutbox.upsertLinksMerge(input);
+  }
+
+  listDueHirondelleOutboxEntries(args: {
+    now: string;
+    limit: number;
+  }): HirondelleOutboxEntry[] {
+    return this.hirondelleSyncOutbox.listDue(args);
+  }
+
+  markHirondelleOutboxDelivered(id: string, deliveredAt: string) {
+    this.hirondelleSyncOutbox.markDelivered(id, deliveredAt);
+  }
+
+  markHirondelleOutboxRetry(
+    id: string,
+    attempts: number,
+    nextAttemptAt: string,
+  ) {
+    this.hirondelleSyncOutbox.markRetry(id, attempts, nextAttemptAt);
+  }
+
+  markHirondelleOutboxFailed(id: string) {
+    this.hirondelleSyncOutbox.markFailed(id);
+  }
+
+  setHirondelleOutboxWorkspaceHeld(workspaceId: string, held: boolean) {
+    return this.hirondelleSyncOutbox.setWorkspaceHeld(workspaceId, held);
+  }
+
+  retryFailedHirondelleOutboxEntries() {
+    return this.hirondelleSyncOutbox.retryFailed();
+  }
+
+  countHirondelleOutbox() {
+    return this.hirondelleSyncOutbox.counts();
+  }
+
+  pruneHirondelleOutboxDeliveredBefore(cutoff: string) {
+    return this.hirondelleSyncOutbox.pruneDeliveredBefore(cutoff);
   }
 
   getStorageMetrics(): SqliteStorageMetrics {
