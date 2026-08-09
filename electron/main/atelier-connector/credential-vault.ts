@@ -2,20 +2,33 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+
+import {
+  AtelierConnectorScopeSchema,
+  type AtelierConnectorScope,
+} from "../../../src/lib/atelier-connector/types";
 import {
   CraneConnectorMetadataSchema,
   type CraneConnectorMetadata,
 } from "../../../src/lib/crane-connector/types";
+import type {
+  CraneConnectorLease,
+  CraneCredentialVaultCrypto,
+} from "../crane-connector/credential-vault";
 
 const VAULT_VERSION = 1;
 
-const StoredConnectorSchema = z
+const LegacyStoredConnectorSchema = z
   .object({
     baseUrl: z.string().url().max(2_048),
     metadata: CraneConnectorMetadataSchema,
     secretCiphertext: z.string().min(1),
   })
   .strict();
+
+const StoredConnectorSchema = LegacyStoredConnectorSchema.extend({
+  scopes: z.array(AtelierConnectorScopeSchema).min(1).max(2),
+}).strict();
 
 const StoredLeaseSchema = z
   .object({
@@ -26,7 +39,15 @@ const StoredLeaseSchema = z
   })
   .strict();
 
-const VaultDocumentSchema = z
+const LegacyCraneVaultDocumentSchema = z
+  .object({
+    version: z.literal(VAULT_VERSION),
+    connector: LegacyStoredConnectorSchema.nullable(),
+    leases: z.array(StoredLeaseSchema).max(100),
+  })
+  .strict();
+
+const AtelierVaultDocumentSchema = z
   .object({
     version: z.literal(VAULT_VERSION),
     connector: StoredConnectorSchema.nullable(),
@@ -34,43 +55,37 @@ const VaultDocumentSchema = z
   })
   .strict();
 
-export interface CraneCredentialVaultCrypto {
-  isEncryptionAvailable(): boolean;
-  isInsecureBackend(): boolean;
-  encryptString(value: string): Buffer;
-  decryptString(value: Buffer): string;
-}
+type LegacyCraneVaultDocument = z.infer<
+  typeof LegacyCraneVaultDocumentSchema
+>;
+type AtelierVaultDocument = z.infer<typeof AtelierVaultDocumentSchema>;
 
-export interface CraneConnectorCredential {
+export interface AtelierConnectorCredential {
   baseUrl: string;
   connector: CraneConnectorMetadata;
+  scopes: AtelierConnectorScope[];
   secret: string;
 }
 
-export interface CraneConnectorLease {
-  jobId: string;
-  connectorId: string;
-  leaseId: string;
-  expiresAt: string;
+export function migrateCraneVaultDocument(
+  legacy: LegacyCraneVaultDocument,
+): AtelierVaultDocument {
+  return {
+    version: VAULT_VERSION,
+    connector: legacy.connector
+      ? { ...legacy.connector, scopes: ["crane"] }
+      : null,
+    leases: legacy.leases,
+  };
 }
 
-export interface CraneCredentialStore {
-  isSecureStorageAvailable(): boolean;
-  getMetadata(): Promise<Omit<CraneConnectorCredential, "secret"> | null>;
-  getCredential(): Promise<CraneConnectorCredential | null>;
-  saveCredential(input: CraneConnectorCredential): Promise<void>;
-  clear(): Promise<boolean>;
-  putLease(input: CraneConnectorLease): Promise<void>;
-  getLease(jobId: string): Promise<CraneConnectorLease | null>;
-  deleteLease(jobId: string): Promise<boolean>;
-}
-
-export class CraneConnectorCredentialVault {
+export class AtelierConnectorCredentialVault {
   private mutationQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly args: {
       filePath: string;
+      legacyCraneFilePath?: string;
       crypto: CraneCredentialVaultCrypto;
     },
   ) {}
@@ -83,7 +98,7 @@ export class CraneConnectorCredentialVault {
   }
 
   async getMetadata(): Promise<
-    Omit<CraneConnectorCredential, "secret"> | null
+    Omit<AtelierConnectorCredential, "secret"> | null
   > {
     this.assertSecureEncryption();
     const document = await this.readDocument();
@@ -91,43 +106,53 @@ export class CraneConnectorCredentialVault {
       ? {
           baseUrl: document.connector.baseUrl,
           connector: document.connector.metadata,
+          scopes: document.connector.scopes,
         }
       : null;
   }
 
-  async getCredential(): Promise<CraneConnectorCredential | null> {
+  async getCredential(): Promise<AtelierConnectorCredential | null> {
     this.assertSecureEncryption();
     const document = await this.readDocument();
-    if (!document.connector) {
-      return null;
-    }
+    if (!document.connector) return null;
     const secret = this.decryptValue(
       document.connector.secretCiphertext,
       "connector credential",
     );
     if (!secret.startsWith("stc_") || secret.length > 128) {
-      throw new Error("The saved Crane connector credential is invalid.");
+      throw new Error("The saved Atelier connector credential is invalid.");
     }
     return {
       baseUrl: document.connector.baseUrl,
       connector: document.connector.metadata,
+      scopes: document.connector.scopes,
       secret,
     };
   }
 
-  async saveCredential(input: CraneConnectorCredential): Promise<void> {
+  async saveCredential(
+    input: Omit<AtelierConnectorCredential, "scopes"> & {
+      scopes?: AtelierConnectorScope[];
+    },
+  ): Promise<void> {
     await this.enqueueMutation(async () => {
       this.assertSecureEncryption();
       if (!input.secret.startsWith("stc_") || input.secret.length > 128) {
-        throw new Error("The Crane connector credential is invalid.");
+        throw new Error("The Atelier connector credential is invalid.");
       }
       const metadata = CraneConnectorMetadataSchema.parse(input.connector);
+      const scopes = z
+        .array(AtelierConnectorScopeSchema)
+        .min(1)
+        .max(2)
+        .parse(input.scopes ?? ["crane"]);
       const document = await this.readDocument();
       await this.writeDocument({
         version: VAULT_VERSION,
         connector: {
           baseUrl: input.baseUrl.replace(/\/+$/, ""),
           metadata,
+          scopes,
           secretCiphertext: this.encryptValue(input.secret),
         },
         leases: document.leases.filter(
@@ -140,9 +165,7 @@ export class CraneConnectorCredentialVault {
   async clear(): Promise<boolean> {
     return this.enqueueMutation(async () => {
       const document = await this.readDocument();
-      if (!document.connector && document.leases.length === 0) {
-        return false;
-      }
+      if (!document.connector && document.leases.length === 0) return false;
       await this.writeDocument({
         version: VAULT_VERSION,
         connector: null,
@@ -174,9 +197,7 @@ export class CraneConnectorCredentialVault {
       await this.writeDocument({
         ...document,
         leases: [
-          ...document.leases.filter(
-            (lease) => lease.jobId !== input.jobId,
-          ),
+          ...document.leases.filter((lease) => lease.jobId !== input.jobId),
           nextLease,
         ],
       });
@@ -187,15 +208,9 @@ export class CraneConnectorCredentialVault {
     this.assertSecureEncryption();
     const document = await this.readDocument();
     const lease =
-      document.leases.find((candidate) => candidate.jobId === jobId) ??
-      null;
-    if (!lease) {
-      return null;
-    }
-    const leaseId = this.decryptValue(
-      lease.leaseCiphertext,
-      "job lease",
-    );
+      document.leases.find((candidate) => candidate.jobId === jobId) ?? null;
+    if (!lease) return null;
+    const leaseId = this.decryptValue(lease.leaseCiphertext, "job lease");
     if (!leaseId.startsWith("stl_") || leaseId.length > 128) {
       throw new Error("The saved Crane job lease is invalid.");
     }
@@ -213,15 +228,13 @@ export class CraneConnectorCredentialVault {
       const nextLeases = document.leases.filter(
         (lease) => lease.jobId !== jobId,
       );
-      if (nextLeases.length === document.leases.length) {
-        return false;
-      }
+      if (nextLeases.length === document.leases.length) return false;
       await this.writeDocument({ ...document, leases: nextLeases });
       return true;
     });
   }
 
-  private assertSecureEncryption(): void {
+  private assertSecureEncryption() {
     if (!this.args.crypto.isEncryptionAvailable()) {
       throw new Error(
         "OS credential encryption is unavailable. Unlock the system credential store and retry.",
@@ -229,7 +242,7 @@ export class CraneConnectorCredentialVault {
     }
     if (this.args.crypto.isInsecureBackend()) {
       throw new Error(
-        "Crane connector storage requires an OS credential store; Electron basic_text encryption is not accepted.",
+        "Atelier connector storage requires an OS credential store; Electron basic_text encryption is not accepted.",
       );
     }
   }
@@ -240,58 +253,54 @@ export class CraneConnectorCredentialVault {
 
   private decryptValue(ciphertext: string, label: string) {
     try {
-      return this.args.crypto.decryptString(
-        Buffer.from(ciphertext, "base64"),
-      );
+      return this.args.crypto.decryptString(Buffer.from(ciphertext, "base64"));
     } catch {
-      throw new Error(`The saved Crane ${label} cannot be decrypted.`);
+      throw new Error(`The saved Atelier ${label} cannot be decrypted.`);
     }
   }
 
-  private async readDocument(): Promise<
-    z.infer<typeof VaultDocumentSchema>
-  > {
-    let raw: string;
+  private async readDocument(): Promise<AtelierVaultDocument> {
     try {
-      raw = await fs.readFile(this.args.filePath, "utf8");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return { version: VAULT_VERSION, connector: null, leases: [] };
+      const raw = await fs.readFile(this.args.filePath, "utf8");
+      const parsed = AtelierVaultDocumentSchema.safeParse(JSON.parse(raw));
+      if (!parsed.success) {
+        throw new Error("The Atelier connector vault has an unsupported format.");
       }
-      throw error;
+      return parsed.data;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new Error("The Crane connector vault is not valid JSON.");
+    const migrated = await this.readLegacyDocument();
+    if (!migrated) {
+      return { version: VAULT_VERSION, connector: null, leases: [] };
     }
-    const result = VaultDocumentSchema.safeParse(parsed);
-    if (!result.success) {
-      throw new Error(
-        "The Crane connector vault has an unsupported format.",
-      );
-    }
-    return result.data;
+    await this.writeDocument(migrated);
+    await fs.rm(this.args.legacyCraneFilePath as string);
+    return migrated;
   }
 
-  private async writeDocument(
-    document: z.infer<typeof VaultDocumentSchema>,
-  ): Promise<void> {
-    const validated = VaultDocumentSchema.parse(document);
+  private async readLegacyDocument(): Promise<AtelierVaultDocument | null> {
+    if (!this.args.legacyCraneFilePath) return null;
+    try {
+      const raw = await fs.readFile(this.args.legacyCraneFilePath, "utf8");
+      const parsed = LegacyCraneVaultDocumentSchema.safeParse(JSON.parse(raw));
+      return parsed.success ? migrateCraneVaultDocument(parsed.data) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeDocument(document: AtelierVaultDocument): Promise<void> {
+    const validated = AtelierVaultDocumentSchema.parse(document);
     const directory = path.dirname(this.args.filePath);
     await fs.mkdir(directory, { recursive: true });
     const tempPath = `${this.args.filePath}.${process.pid}.${randomUUID()}.tmp`;
     try {
-      await fs.writeFile(
-        tempPath,
-        `${JSON.stringify(validated, null, 2)}\n`,
-        {
-          encoding: "utf8",
-          mode: 0o600,
-        },
-      );
+      await fs.writeFile(tempPath, `${JSON.stringify(validated, null, 2)}\n`, {
+        encoding: "utf8",
+        mode: 0o600,
+      });
       await fs.rename(tempPath, this.args.filePath);
       await fs.chmod(this.args.filePath, 0o600);
     } finally {
