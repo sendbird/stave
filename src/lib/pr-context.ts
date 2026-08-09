@@ -8,9 +8,10 @@
 // - `electron/main/ipc/schemas.ts` — IPC argument bounds for the two channels
 //   `scm:fetch-pr-context-index` and `scm:fetch-pr-check-logs`.
 // - `src/components/layout/PrContextDialog.tsx` — the selection UI.
-// - `src/store/app-store-support-actions.ts` — attaches/removes the built
-//   retrieved-context part on the active task.
-// - `src/store/app.store.ts` — drops stale attachments from the turn.
+// - `src/store/app-store-task-core-actions.ts` — `attachTaskSourceContext` /
+//   `removeTaskSourceContext` put the built retrieved-context part on the task.
+// - `src/store/app.store.ts` — `partitionStalePrContexts` drops stale
+//   attachments from the turn.
 // - `src/components/session/TaskSourceContextNotice.tsx` — renders the
 //   attachment and its stale banner.
 //
