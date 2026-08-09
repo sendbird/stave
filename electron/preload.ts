@@ -52,6 +52,10 @@ import type {
 } from "../src/lib/local-mcp";
 import type { LocalMcpTaskTurnUpdate } from "../src/lib/local-mcp/task-turn-update";
 import type {
+  PrCheckLogExcerpt,
+  PrContextIndex,
+} from "../src/lib/pr-context";
+import type {
   CraneConnectorConfigInput,
   CraneConnectorPairInput,
   CraneConnectorPublicStatus,
@@ -1907,6 +1911,7 @@ contextBridge.exposeInMainWorld("api", {
           mergedAt: string | null;
           baseRefName: string;
           headRefName: string;
+          headRefOid?: string | null;
         } | null;
         stderr?: string;
       }>,
@@ -1926,8 +1931,26 @@ contextBridge.exposeInMainWorld("api", {
           mergedAt: string | null;
           baseRefName: string;
           headRefName: string;
+          headRefOid?: string | null;
         } | null;
         stderr?: string;
+      }>,
+    fetchPrContextIndex: (args: { prUrl: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:fetch-pr-context-index", args) as Promise<{
+        ok: boolean;
+        index: PrContextIndex | null;
+        stderr: string;
+      }>,
+    fetchPrCheckLogs: (args: {
+      prUrl: string;
+      headSha: string;
+      checkIds: number[];
+      cwd?: string;
+    }) =>
+      ipcRenderer.invoke("scm:fetch-pr-check-logs", args) as Promise<{
+        ok: boolean;
+        excerpts: PrCheckLogExcerpt[];
+        stderr: string;
       }>,
     setPrReady: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:set-pr-ready", args) as Promise<{

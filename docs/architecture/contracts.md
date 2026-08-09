@@ -111,6 +111,23 @@ When changing PR status fetching, derivation, or UI rendering:
 
 See `docs/features/workspace-pr-status.md` for the full architecture reference.
 
+## PR Context Contract
+
+When changing how PR review threads or failed-CI evidence are attached to a task:
+
+- `src/lib/pr-context.ts` — bounds, sanitization, schemas, attachment assembly, staleness
+- `electron/host-service/pr-context-runtime.ts` — the `gh` fetch; metadata first, logs only for selected checks
+- `electron/host-service/protocol.ts` — `scm.fetch-pr-context-index`, `scm.fetch-pr-check-logs` (request **and** result maps)
+- `electron/host-service.ts` — the two dispatch arms
+- `electron/main/ipc/schemas.ts` — `FetchPrContextIndexArgsSchema`, `FetchPrCheckLogsArgsSchema`
+- `electron/main/ipc/scm.ts` — `scm:fetch-pr-context-index`, `scm:fetch-pr-check-logs`
+- `electron/preload.ts` / `src/types/window-api.d.ts` — `fetchPrContextIndex`, `fetchPrCheckLogs`
+- `src/components/layout/PrContextDialog.tsx` — the selection UI
+- `src/components/session/TaskSourceContextNotice.tsx` — attachment read-out, stale banner, remove
+- `src/store/app.store.ts` — withholds stale PR context from the turn
+
+See `docs/features/pr-context-attachment.md` for the full architecture reference.
+
 ## Project / Workspace Integrity Contract
 
 When changing project selection, workspace hydration, worktree import, notification deep-linking, or task ownership:

@@ -68,6 +68,7 @@ import type {
 } from "@/lib/source-control-review";
 import type { ProviderSlashCommand } from "@/lib/providers/provider-command-catalog";
 import type { GitHubPrPayload } from "@/lib/pr-status";
+import type { PrCheckLogExcerpt, PrContextIndex } from "@/lib/pr-context";
 import type { SkillCatalogResponse } from "@/lib/skills/types";
 import type {
   CliSessionCreateSessionArgs,
@@ -1331,6 +1332,25 @@ interface WindowSourceControlApi {
     ok: boolean;
     pr: GitHubPrPayload | null;
     stderr?: string;
+  }>;
+  /**
+   * Metadata only: review threads plus failed checks for a PR. Never fetches a
+   * log — see `fetchPrCheckLogs` for explicitly selected failed checks.
+   */
+  fetchPrContextIndex?: (args: { prUrl: string; cwd?: string }) => Promise<{
+    ok: boolean;
+    index: PrContextIndex | null;
+    stderr: string;
+  }>;
+  fetchPrCheckLogs?: (args: {
+    prUrl: string;
+    headSha: string;
+    checkIds: number[];
+    cwd?: string;
+  }) => Promise<{
+    ok: boolean;
+    excerpts: PrCheckLogExcerpt[];
+    stderr: string;
   }>;
   setPrReady?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
   mergePr?: (args: {

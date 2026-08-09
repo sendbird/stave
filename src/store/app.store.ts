@@ -67,6 +67,7 @@ import {
   normalizePrePrReviewProvider,
   type TurnIntentComplianceResult,
 } from "@/lib/source-control-review";
+import { partitionStalePrContexts } from "@/lib/pr-context";
 import { isTaskManaged } from "@/lib/tasks";
 import { resolveWorkspacePathForId } from "@/store/workspace-file-cache";
 import { resolveSkillSelections } from "@/lib/skills/catalog";
@@ -2434,6 +2435,19 @@ export const useAppStore = create<AppState>()(
             }
           }
 
+          // ── PR context staleness gate ──────────────────────────────────────────
+          // A PR-context attachment is evidence about one commit. Once the PR
+          // head moves, that evidence is withheld from the turn until the user
+          // refreshes it in the PR context dialog — an agent acting on a CI log
+          // from a superseded commit is worse than one with no log at all.
+          const currentWorkspacePr =
+            state.workspacePrInfoById[taskWorkspaceId]?.pr ?? null;
+          const { fresh: freshSourceContexts } = partitionStalePrContexts({
+            parts: task.sourceContexts ?? [],
+            currentPrUrl: currentWorkspacePr?.url ?? null,
+            currentHeadSha: currentWorkspacePr?.headRefOid ?? null,
+          });
+
           // ── Repo-map context injection ─────────────────────────────────────────
           // On the first turn of a task, inject the pre-generated repo-map summary
           // as retrieved context so the AI immediately knows the codebase structure
@@ -2457,7 +2471,7 @@ export const useAppStore = create<AppState>()(
               // afterwards to keep the recurring prompt small.
               includeStaticGuidance: existingHistory.length === 0,
             }),
-            ...(task.sourceContexts ?? []),
+            ...freshSourceContexts,
           ];
           // `@lens` references resolve against the live Lens browser state.
           let lensReferenceState: LensReferenceState | null = null;

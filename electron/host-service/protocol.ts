@@ -3,6 +3,10 @@ import type {
   TerminalCreateSessionArgs,
 } from "../../src/lib/terminal/types";
 import type {
+  PrCheckLogExcerpt,
+  PrContextIndex,
+} from "../../src/lib/pr-context";
+import type {
   CanonicalRetrievedContextPart,
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
@@ -852,6 +856,16 @@ export interface HostServiceRequestMap {
     url: string;
     cwd?: string;
   };
+  "scm.fetch-pr-context-index": {
+    prUrl: string;
+    cwd?: string;
+  };
+  "scm.fetch-pr-check-logs": {
+    prUrl: string;
+    headSha: string;
+    checkIds: number[];
+    cwd?: string;
+  };
   "scm.set-pr-ready": {
     cwd?: string;
   };
@@ -1026,6 +1040,16 @@ export interface HostServiceResponseMap {
   "scm.get-pr-status": HostScmPrStatusResult;
   "scm.get-repo-merge-settings": HostScmRepoMergeSettingsResult;
   "scm.get-pr-status-for-url": HostScmPrStatusResult;
+  "scm.fetch-pr-context-index": {
+    ok: boolean;
+    index: PrContextIndex | null;
+    stderr: string;
+  };
+  "scm.fetch-pr-check-logs": {
+    ok: boolean;
+    excerpts: PrCheckLogExcerpt[];
+    stderr: string;
+  };
   "scm.set-pr-ready":
     | CommandResult
     | {

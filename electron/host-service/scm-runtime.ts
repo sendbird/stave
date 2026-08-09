@@ -54,6 +54,9 @@ const GITHUB_PR_JSON_FIELDS = [
   "mergedAt",
   "baseRefName",
   "headRefName",
+  // Head commit, so an attached PR-context excerpt can tell when the PR moved
+  // under it (`src/lib/pr-context.ts#isPrContextAttachmentStale`).
+  "headRefOid",
 ].join(",");
 
 function invalidateCachedGhAuthOnFailure(
@@ -260,6 +263,10 @@ export async function fetchGitHubPrStatus(args: {
         mergedAt: raw.mergedAt ?? null,
         baseRefName: raw.baseRefName ?? "",
         headRefName: raw.headRefName ?? "",
+        headRefOid:
+          typeof raw.headRefOid === "string" && raw.headRefOid
+            ? raw.headRefOid
+            : null,
       },
       stderr: "",
     };

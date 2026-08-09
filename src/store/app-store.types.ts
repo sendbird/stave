@@ -51,6 +51,7 @@ import type {
   PromptDraft,
   PromptDraftRuntimeOverrides,
   Task,
+  TaskSourceContext,
   TaskTakeoverResult,
 } from "@/types/chat";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
@@ -362,6 +363,20 @@ export interface AppState
      * is ignored once the title has been set manually.
      */
     source?: "manual" | "auto";
+  }) => void;
+  /**
+   * Attach one bounded, untrusted retrieved-context part to a task, replacing
+   * any part that already carries the same `sourceId`. Used by the PR context
+   * dialog (`src/components/layout/PrContextDialog.tsx`); the same `sourceId`
+   * per PR is what makes re-attaching a replacement rather than a leak.
+   */
+  attachTaskSourceContext: (args: {
+    taskId: string;
+    sourceContext: TaskSourceContext;
+  }) => void;
+  removeTaskSourceContext: (args: {
+    taskId: string;
+    sourceId: string;
   }) => void;
   restoreTask: (args: { taskId: string }) => void;
   duplicateTask: (args: { taskId: string }) => Promise<void>;

@@ -144,6 +144,7 @@ import {
   shouldIncludeImageAttachmentAsProviderContext,
 } from "@/lib/lens/lens-annotation-attachment";
 import { buildWorkspaceInformationReferenceOptions } from "@/lib/workspace-information-references";
+import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
   resolvePromptDraftPlanModeChange,
@@ -241,6 +242,10 @@ interface ChatInputComposerProps {
   isTurnActive: boolean;
   managedTaskOwner: TaskControlOwner | null;
   sourceContexts: readonly TaskSourceContext[];
+  currentPrUrl: string | null;
+  currentPrHeadSha: string | null;
+  onRemoveSourceContext: (sourceId: string) => void;
+  onRefreshPrContext: () => void;
   canTakeOverManagedTask: boolean;
   onTakeOverManagedTask: () => void;
   selectedModelOption: ModelSelectorOption;
@@ -1133,7 +1138,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         />
       ) : null}
       <div className="mx-auto max-w-6xl">
-        <TaskSourceContextNotice sourceContexts={args.sourceContexts} />
+        <TaskSourceContextNotice
+          sourceContexts={args.sourceContexts}
+          currentPrUrl={args.currentPrUrl}
+          currentPrHeadSha={args.currentPrHeadSha}
+          onRemove={args.onRemoveSourceContext}
+          onRefreshPrContext={args.onRefreshPrContext}
+        />
         {args.managedTaskOwner ? (
           <ManagedTaskTakeoverNotice
             owner={args.managedTaskOwner}
@@ -1831,6 +1842,17 @@ function BaseChatInput() {
       state.workspacePathById[state.activeWorkspaceId] ??
       state.projectPath ??
       undefined,
+  );
+  // Current-branch PR identity, so an attached PR-context part can be shown as
+  // stale once the PR head moves (`src/lib/pr-context.ts`).
+  const currentPrUrl = useAppStore(
+    (state) =>
+      state.workspacePrInfoById[state.activeWorkspaceId]?.pr?.url ?? null,
+  );
+  const currentPrHeadSha = useAppStore(
+    (state) =>
+      state.workspacePrInfoById[state.activeWorkspaceId]?.pr?.headRefOid ??
+      null,
   );
   const activeMessageCount = useAppStore(
     (state) =>
@@ -2562,6 +2584,14 @@ function BaseChatInput() {
       isTurnActive={isTurnActive}
       managedTaskOwner={managedTaskOwner}
       sourceContexts={activeTask?.sourceContexts ?? []}
+      currentPrUrl={currentPrUrl}
+      currentPrHeadSha={currentPrHeadSha}
+      onRemoveSourceContext={(sourceId) => {
+        useAppStore
+          .getState()
+          .removeTaskSourceContext({ taskId: activeTaskId, sourceId });
+      }}
+      onRefreshPrContext={() => dispatchTopBarPrAction("attach-context")}
       canTakeOverManagedTask={canTakeOverManagedTask}
       onTakeOverManagedTask={() => {
         void useAppStore

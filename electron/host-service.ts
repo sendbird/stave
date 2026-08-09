@@ -59,6 +59,10 @@ import {
   unstageSourceControlFile,
   updateScmPrBranch,
 } from "./host-service/scm-runtime";
+import {
+  fetchPrCheckLogs,
+  fetchPrContextIndex,
+} from "./host-service/pr-context-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createRoutineRuntime } from "./host-service/routine-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
@@ -1605,6 +1609,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
           target: request.params.url,
         }),
       );
+      return;
+    case "scm.fetch-pr-context-index":
+      await respond(request.id, await fetchPrContextIndex(request.params));
+      return;
+    case "scm.fetch-pr-check-logs":
+      await respond(request.id, await fetchPrCheckLogs(request.params));
       return;
     case "scm.set-pr-ready":
       await respond(request.id, await setScmPrReady(request.params));

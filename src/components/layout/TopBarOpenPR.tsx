@@ -17,10 +17,12 @@ import {
   GitPullRequest,
   Info,
   LoaderCircle,
+  MessageSquare,
   RefreshCw,
   TriangleAlert,
 } from "lucide-react";
 import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDialog";
+import { PrContextDialog } from "@/components/layout/PrContextDialog";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
 import {
   Button,
@@ -431,6 +433,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     useState<CreatePrSubmitAction | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [continueDialogOpen, setContinueDialogOpen] = useState(false);
+  const [prContextDialogOpen, setPrContextDialogOpen] = useState(false);
   const [continuingWorkspace, setContinuingWorkspace] = useState(false);
   const [targetBranch, setTargetBranch] = useState("");
   const [targetBranchOptions, setTargetBranchOptions] = useState<string[]>([]);
@@ -1756,6 +1759,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         return;
       }
 
+      if (detail.action === "attach-context") {
+        if (!prInfo?.pr?.url) {
+          toast.warning("No pull request to attach context from", {
+            description: "Create a pull request for this branch first.",
+          });
+          return;
+        }
+        setPrContextDialogOpen(true);
+        return;
+      }
+
       if (detail.action === "create-pr") {
         if (isCreateDisabled) {
           toast.warning("Create PR is unavailable", {
@@ -1790,6 +1804,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     createPrTooltip,
     handleCreateClick,
     hasWorkspaceContext,
+    prInfo?.pr?.url,
     isContinueDisabled,
     isCreateDisabled,
     isDefaultWorkspace,
@@ -1911,6 +1926,21 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   )}
                 </DropdownMenuItem>
               ))}
+
+              {/* Attach review threads / failed-check evidence to the task. */}
+              {prInfo?.pr?.url && activeTask ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => setPrContextDialogOpen(true)}
+                  >
+                    <span className="flex items-center gap-2">
+                      <MessageSquare className="size-3.5 text-muted-foreground" />
+                      Attach PR context&hellip;
+                    </span>
+                  </DropdownMenuItem>
+                </>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -2318,6 +2348,14 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         prTitle={prInfo?.pr?.title}
         onOpenChange={setContinueDialogOpen}
         onContinue={handleContinueWorkspace}
+      />
+
+      <PrContextDialog
+        open={prContextDialogOpen}
+        onOpenChange={setPrContextDialogOpen}
+        prUrl={prInfo?.pr?.url ?? null}
+        cwd={workspaceCwd}
+        taskId={activeTask?.id ?? null}
       />
     </>
   );
