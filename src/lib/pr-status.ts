@@ -41,6 +41,13 @@ export interface GitHubPrPayload {
   mergedAt: string | null;
   baseRefName: string;
   headRefName: string;
+  /**
+   * Head commit of the PR. Optional because payloads cached before this field
+   * existed are still valid; attached PR context treats "unknown" as fresh
+   * rather than inventing staleness. Read by
+   * `src/lib/pr-context.ts#isPrContextAttachmentStale`.
+   */
+  headRefOid?: string | null;
 }
 
 /** Cached PR info stored per workspace. */

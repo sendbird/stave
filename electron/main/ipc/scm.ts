@@ -2,6 +2,8 @@ import { ipcMain } from "electron";
 import { invokeHostService } from "../host-service-client";
 import {
   CreatePRArgsSchema,
+  FetchPrCheckLogsArgsSchema,
+  FetchPrContextIndexArgsSchema,
   GetPrStatusByUrlArgsSchema,
   ScmCommitDetailsArgsSchema,
   ScmCommitDiffArgsSchema,
@@ -258,6 +260,22 @@ export function registerScmHandlers() {
       return { ok: false, pr: null, stderr: "Invalid PR lookup request." };
     }
     return invokeHostService("scm.get-pr-status-for-url", parsed.data);
+  });
+
+  ipcMain.handle("scm:fetch-pr-context-index", (_event, args: unknown) => {
+    const parsed = FetchPrContextIndexArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, index: null, stderr: "Invalid PR context request." };
+    }
+    return invokeHostService("scm.fetch-pr-context-index", parsed.data);
+  });
+
+  ipcMain.handle("scm:fetch-pr-check-logs", (_event, args: unknown) => {
+    const parsed = FetchPrCheckLogsArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, excerpts: [], stderr: "Invalid check log request." };
+    }
+    return invokeHostService("scm.fetch-pr-check-logs", parsed.data);
   });
 
   ipcMain.handle("scm:set-pr-ready", (_event, args: { cwd?: string }) =>

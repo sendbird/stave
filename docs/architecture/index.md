@@ -47,6 +47,9 @@ This file is the fast entrypoint for codebase orientation.
 - `src/lib/pr-status.ts`
   - PR status enum, derivation, icon/color/action config
   - see [Workspace PR Status](../features/workspace-pr-status.md)
+- `src/lib/pr-context.ts`
+  - bounds, sanitization, and provenance for PR review / failed-CI evidence attached to a task
+  - see [PR Context Attachment](../features/pr-context-attachment.md)
 
 ## High-Risk Boundaries
 
