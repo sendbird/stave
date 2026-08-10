@@ -186,11 +186,16 @@ export function isFleetAttentionSuppressedTask(
 }
 
 /**
- * The notification-payload equivalent of `isFleetAttentionSuppressedTask`. A
- * notification outlives the live task state it was raised from, so it carries
- * its own copy of the control fields and of the delegation link. Rows written
- * before the link existed simply have no `parentTaskId` and keep the old
- * suppressed behavior.
+ * The notification-payload equivalent of `isFleetAttentionSuppressedTask`, kept
+ * so the two paths state the same rule in the same vocabulary.
+ *
+ * This is only a cheap early-out, not the enforcement point: interaction
+ * payloads are not currently written with the control fields, so in practice it
+ * declines to suppress and the decision falls to `externalTaskKeys` in
+ * `buildFleetAttentionProjection`, which reads live task state. That is the
+ * load-bearing filter, and it is where the child-task carve-out actually takes
+ * effect. If a payload ever does carry the control fields, a delegated child is
+ * still exempted here rather than silently suppressed.
  */
 function isSuppressedInteractionNotification(notification: AppNotification) {
   if (
