@@ -9,6 +9,7 @@ import type {
   NormalizedProviderEvent,
 } from "@/lib/providers/provider.types";
 import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
+import { buildChildTaskReceiptsRetrievedContext } from "@/lib/task-context/child-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContext } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import {
@@ -2473,6 +2474,20 @@ export const useAppStore = create<AppState>()(
             }),
             ...freshSourceContexts,
           ];
+          // ── Child task receipts ────────────────────────────────────────────
+          // A parent that delegated work sees where its children stand before
+          // its next turn, whether that turn came from the UI or from an agent.
+          // Identity, phase and reason only — never a child's transcript.
+          const childTaskSummaries = await (window.api?.runs?.listChildTasks?.({
+            parentTaskId: resolvedTaskId,
+            includeFinished: true,
+          }) ?? Promise.resolve([]));
+          const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
+            children: childTaskSummaries,
+          });
+          if (childTaskReceiptsPart) {
+            retrievedContextParts.push(childTaskReceiptsPart);
+          }
           // `@lens` references resolve against the live Lens browser state.
           let lensReferenceState: LensReferenceState | null = null;
           if (promptDraftReferencesLens(promptDraft)) {

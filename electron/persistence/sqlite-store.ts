@@ -2100,6 +2100,26 @@ export class SqliteStore {
     return this.runLedger.listReceipts(args);
   }
 
+  listRunAggregatesByOrigin(
+    args: Parameters<RunLedgerStore["listAggregatesByOrigin"]>[0],
+  ) {
+    return this.runLedger.listAggregatesByOrigin(args);
+  }
+
+  listActiveRunAggregatesByStepKind(
+    args: Parameters<RunLedgerStore["listActiveAggregatesByStepKind"]>[0],
+  ) {
+    return this.runLedger.listActiveAggregatesByStepKind(args);
+  }
+
+  setRunStepTarget(args: Parameters<RunLedgerStore["setStepTarget"]>[0]) {
+    return this.runLedger.setStepTarget(args);
+  }
+
+  interruptRunStep(args: Parameters<RunLedgerStore["interruptStep"]>[0]) {
+    return this.runLedger.interruptStep(args);
+  }
+
   reconcileInterruptedRuns(
     args: Parameters<RunLedgerStore["reconcileInterruptedRuns"]>[0],
   ) {

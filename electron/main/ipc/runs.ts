@@ -3,7 +3,12 @@ import {
   SecondaryRunExecuteResponseSchema,
   SecondaryRunTransitionResponseSchema,
 } from "../../../src/lib/runs/secondary-run";
+import { ChildTaskListArgsSchema } from "../../../src/lib/runs/child-task";
 import { invokeHostService } from "../host-service-client";
+import {
+  getChildTaskCoordinator,
+  reconcileChildTasks,
+} from "../runs/child-task-coordinator-instance";
 import { createSecondaryRunCoordinator } from "../runs/secondary-run-coordinator";
 import { ensurePersistenceReady } from "../state";
 import {
@@ -43,6 +48,12 @@ function invalidExecuteResponse() {
 }
 
 export function registerRunHandlers() {
+  // Child tasks outlive the app, so restart recovery has to ask the live task
+  // what happened instead of assuming the delegation died with the process.
+  // Deliberately not awaited: handler registration must not wait on the host
+  // service, and an unreconciled row stays visible as `running` until it is.
+  void reconcileChildTasks();
+
   ipcMain.handle("runs:claim-secondary", async (_event, rawArgs: unknown) => {
     const args = SecondaryRunClaimArgsSchema.safeParse(rawArgs);
     return args.success
@@ -89,5 +100,13 @@ export function registerRunHandlers() {
   ipcMain.handle("runs:list-receipts", async (_event, rawArgs: unknown) => {
     const args = SecondaryRunReceiptListArgsSchema.safeParse(rawArgs);
     return args.success ? await coordinator.listReceipts(args.data) : [];
+  });
+
+  // The renderer reads child summaries when it assembles a parent turn, so a
+  // parent driven from the UI sees its children's lifecycle without having to
+  // ask for it.
+  ipcMain.handle("runs:list-child-tasks", async (_event, rawArgs: unknown) => {
+    const args = ChildTaskListArgsSchema.safeParse(rawArgs);
+    return args.success ? await getChildTaskCoordinator().list(args.data) : [];
   });
 }

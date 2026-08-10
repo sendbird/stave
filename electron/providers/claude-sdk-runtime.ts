@@ -194,6 +194,10 @@ const CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES = new Set([
   "stave_set_routine_enabled",
   "stave_list_routine_information_references",
   "stave_create_routine_information_resource",
+  // Reading delegation state is safe. Creating a child task and stopping one
+  // are not, so `stave_delegate_task` and `stave_stop_child_task` stay on the
+  // approval path alongside `stave_run_task`.
+  "stave_list_child_tasks",
 ]);
 const STAVE_LOCAL_MCP_TOOL_PREFIX = "mcp__stave-local-mcp__";
 /**

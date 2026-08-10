@@ -109,6 +109,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Schedule recurring Claude or Codex tasks with their own environment, model, permissions, and Information resources.",
       },
       {
+        routePath: "child-tasks",
+        sourcePath: "docs/features/child-tasks.md",
+        title: "Child Tasks",
+        description:
+          "Delegate work from one task to a durable child task, optionally on the other provider or in its own worktree.",
+      },
+      {
         routePath: "latest-turn-summary",
         sourcePath: "docs/features/workspace-latest-turn-summary.md",
         title: "Latest Turn Summary",
