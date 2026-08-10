@@ -4,6 +4,7 @@ import {
   RoutineUpsertInputSchema,
 } from "../../../src/lib/routines";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
+import { PR_CONTEXT_LIMITS } from "../../../src/lib/pr-context";
 import {
   ENV_VAR_NAME_MAX_LENGTH,
   ENV_VAR_NAME_PATTERN,
@@ -649,6 +650,33 @@ export const GetPrStatusByUrlArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
     url: z.string().url().max(4096),
+  })
+  .strict();
+
+/**
+ * PR review + failed-CI context. Both channels take a PR URL rather than a
+ * caller-chosen owner/repo pair so the host service can re-derive the target
+ * itself; the renderer never gets to shape a `gh` argument list.
+ */
+export const FetchPrContextIndexArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    prUrl: z.string().url().max(PR_CONTEXT_LIMITS.maxUrlChars),
+  })
+  .strict();
+
+export const FetchPrCheckLogsArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    prUrl: z.string().url().max(PR_CONTEXT_LIMITS.maxUrlChars),
+    headSha: z
+      .string()
+      .min(7)
+      .max(64)
+      .regex(/^[0-9a-fA-F]+$/, "headSha must be a hex commit id"),
+    checkIds: z
+      .array(z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER))
+      .max(PR_CONTEXT_LIMITS.maxSelectedChecks),
   })
   .strict();
 

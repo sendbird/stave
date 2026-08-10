@@ -35,7 +35,7 @@ import {
   normalizeLensAgentPresentationMode,
   normalizeLensSessionScope,
   normalizeReasoningExpansionMode,
-  normalizeSidebarActiveWorkspaceLimit,
+  normalizeSidebarNavView,
   type AppSettings,
 } from "@/store/app-settings";
 import type { AppState } from "@/store/app-store.types";
@@ -354,12 +354,10 @@ export function createSettingsActions(args: {
                 patch.reasoningExpansionMode,
               ),
             }),
-        ...(patch.sidebarActiveWorkspaceLimit === undefined
+        ...(patch.sidebarNavView === undefined
           ? {}
           : {
-              sidebarActiveWorkspaceLimit: normalizeSidebarActiveWorkspaceLimit(
-                patch.sidebarActiveWorkspaceLimit,
-              ),
+              sidebarNavView: normalizeSidebarNavView(patch.sidebarNavView),
             }),
         ...(patch.infoPanelSectionVisibility === undefined
           ? {}

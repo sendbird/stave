@@ -9,6 +9,7 @@ import type {
   NormalizedProviderEvent,
 } from "@/lib/providers/provider.types";
 import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
+import { buildChildTaskReceiptsRetrievedContext } from "@/lib/task-context/child-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContext } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import {
@@ -67,6 +68,7 @@ import {
   normalizePrePrReviewProvider,
   type TurnIntentComplianceResult,
 } from "@/lib/source-control-review";
+import { partitionStalePrContexts } from "@/lib/pr-context";
 import { isTaskManaged } from "@/lib/tasks";
 import { resolveWorkspacePathForId } from "@/store/workspace-file-cache";
 import { resolveSkillSelections } from "@/lib/skills/catalog";
@@ -236,11 +238,8 @@ export type { RecentProjectState } from "@/store/project.utils";
 // This module stays the public entry point for the app store, so settings and
 // archive-cleanup names that moved into sibling modules are re-exported here.
 export type { AppSettings } from "@/store/app-settings";
-export {
-  DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
-  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
-  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
-} from "@/store/app-settings";
+export { SIDEBAR_NAV_VIEWS } from "@/store/app-settings";
+export type { SidebarNavView } from "@/store/app-settings";
 export { waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
 
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
@@ -1537,7 +1536,6 @@ export const useAppStore = create<AppState>()(
       workspacePathById: {},
       workspaceDefaultById: {},
       workspaceLastActiveAtById: {},
-      sidebarActiveWorkspaceDismissedAtById: {},
       workspacePrInfoById: {},
       rateLimitsSnapshot: null,
       rateLimitsLoading: false,
@@ -2459,6 +2457,19 @@ export const useAppStore = create<AppState>()(
             }
           }
 
+          // ── PR context staleness gate ──────────────────────────────────────────
+          // A PR-context attachment is evidence about one commit. Once the PR
+          // head moves, that evidence is withheld from the turn until the user
+          // refreshes it in the PR context dialog — an agent acting on a CI log
+          // from a superseded commit is worse than one with no log at all.
+          const currentWorkspacePr =
+            state.workspacePrInfoById[taskWorkspaceId]?.pr ?? null;
+          const { fresh: freshSourceContexts } = partitionStalePrContexts({
+            parts: task.sourceContexts ?? [],
+            currentPrUrl: currentWorkspacePr?.url ?? null,
+            currentHeadSha: currentWorkspacePr?.headRefOid ?? null,
+          });
+
           // ── Repo-map context injection ─────────────────────────────────────────
           // On the first turn of a task, inject the pre-generated repo-map summary
           // as retrieved context so the AI immediately knows the codebase structure
@@ -2482,8 +2493,22 @@ export const useAppStore = create<AppState>()(
               // afterwards to keep the recurring prompt small.
               includeStaticGuidance: existingHistory.length === 0,
             }),
-            ...(task.sourceContexts ?? []),
+            ...freshSourceContexts,
           ];
+          // ── Child task receipts ────────────────────────────────────────────
+          // A parent that delegated work sees where its children stand before
+          // its next turn, whether that turn came from the UI or from an agent.
+          // Identity, phase and reason only — never a child's transcript.
+          const childTaskSummaries = await (window.api?.runs?.listChildTasks?.({
+            parentTaskId: resolvedTaskId,
+            includeFinished: true,
+          }) ?? Promise.resolve([]));
+          const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
+            children: childTaskSummaries,
+          });
+          if (childTaskReceiptsPart) {
+            retrievedContextParts.push(childTaskReceiptsPart);
+          }
           // `@lens` references resolve against the live Lens browser state.
           let lensReferenceState: LensReferenceState | null = null;
           if (promptDraftReferencesLens(promptDraft)) {

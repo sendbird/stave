@@ -16,15 +16,15 @@ import {
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { Badge, Button } from "@/components/ui";
 import {
-  getFleetNeedTier,
-  type FleetNeedItem,
-  type FleetNeedKind,
+  getFleetAttentionTier,
+  type FleetAttentionItem,
+  type FleetAttentionKind,
 } from "@/lib/fleet/attention-projection";
 import { PR_STATUS_VISUAL } from "@/lib/pr-status";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
-const FLEET_NEED_LABEL: Record<FleetNeedKind, string> = {
+const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
   "user-input": "Question",
   approval: "Approval",
   "run-failed": "Run failed",
@@ -36,7 +36,7 @@ const FLEET_NEED_LABEL: Record<FleetNeedKind, string> = {
   "pr-ready-to-merge": "Ready to merge",
 };
 
-const FLEET_NEED_BADGE_CLASS: Record<FleetNeedKind, string> = {
+const FLEET_NEED_BADGE_CLASS: Record<FleetAttentionKind, string> = {
   "user-input": "border-warning/40 bg-warning/10 text-warning",
   approval: "border-warning/40 bg-warning/10 text-warning",
   "run-failed": "border-destructive/30 bg-destructive/10 text-destructive",
@@ -51,7 +51,7 @@ const FLEET_NEED_BADGE_CLASS: Record<FleetNeedKind, string> = {
   "pr-ready-to-merge": "border-success/35 bg-success/10 text-success",
 };
 
-function getFleetNeedIcon(item: FleetNeedItem): ReactNode {
+function getFleetNeedIcon(item: FleetAttentionItem): ReactNode {
   switch (item.kind) {
     case "user-input":
       return <MessageCircleQuestion className="size-3" aria-hidden="true" />;
@@ -75,11 +75,11 @@ function getFleetNeedIcon(item: FleetNeedItem): ReactNode {
   }
 }
 
-function getFleetNeedTitle(item: FleetNeedItem) {
+function getFleetNeedTitle(item: FleetAttentionItem) {
   return item.taskTitle?.trim() || item.workspaceName;
 }
 
-function getFleetNeedPrimaryAction(item: FleetNeedItem) {
+function getFleetNeedPrimaryAction(item: FleetAttentionItem) {
   switch (item.kind) {
     case "user-input":
       return "Open question";
@@ -99,7 +99,7 @@ function getFleetNeedPrimaryAction(item: FleetNeedItem) {
   }
 }
 
-function getFleetNeedDetail(item: FleetNeedItem) {
+function getFleetNeedDetail(item: FleetAttentionItem) {
   if (item.prStatus) {
     return PR_STATUS_VISUAL[item.prStatus].label;
   }
@@ -107,14 +107,14 @@ function getFleetNeedDetail(item: FleetNeedItem) {
 }
 
 function FleetNeedRow(args: {
-  item: FleetNeedItem;
+  item: FleetAttentionItem;
   selected: boolean;
   busy: boolean;
-  onOpen: (item: FleetNeedItem) => void;
+  onOpen: (item: FleetAttentionItem) => void;
   onOpenTask: (target: FleetTaskControlTarget) => void;
-  onMarkRead: (item: FleetNeedItem) => void;
-  onDismiss: (item: FleetNeedItem) => void;
-  onOpenPr: (item: FleetNeedItem) => void;
+  onMarkRead: (item: FleetAttentionItem) => void;
+  onDismiss: (item: FleetAttentionItem) => void;
+  onOpenPr: (item: FleetAttentionItem) => void;
 }) {
   const { item, selected, busy } = args;
   const detail = getFleetNeedDetail(item);
@@ -124,14 +124,14 @@ function FleetNeedRow(args: {
     (item.kind === "run-failed" || item.kind === "result-ready");
   // An interaction can outlive the turn that asked it. Without an explicit
   // dismiss there is no way to clear it from the attention count. Live-sourced
-  // needs are excluded: dismissing resolves the notification, but the pending
-  // request behind a live need would rebuild the same item on the next
+  // attention items are excluded: dismissing resolves the notification, but
+  // the pending request behind a live item would rebuild it on the next
   // projection, leaving the count unchanged and the button gone.
   const canDismiss =
     item.source === "notification" &&
     Boolean(item.notificationId) &&
     (item.kind === "approval" || item.kind === "user-input");
-  const triggerId = `fleet-need-trigger-${item.id}`;
+  const triggerId = `fleet-attention-trigger-${item.id}`;
   const controlTarget = item.taskId
     ? {
         projectPath: item.projectPath,
@@ -157,7 +157,7 @@ function FleetNeedRow(args: {
         aria-expanded={controlTarget ? selected : undefined}
         aria-controls={
           controlTarget && selected
-            ? `fleet-need-controls-${item.id}`
+            ? `fleet-attention-controls-${item.id}`
             : undefined
         }
         disabled={busy}
@@ -235,7 +235,7 @@ function FleetNeedRow(args: {
       ) : null}
       {selected && controlTarget ? (
         <div
-          id={`fleet-need-controls-${item.id}`}
+          id={`fleet-attention-controls-${item.id}`}
           className="border-t border-border/40 bg-background/60"
         >
           <FleetTaskControlPanel
@@ -261,35 +261,35 @@ function FleetNeedRow(args: {
  * above the board so it stays put no matter which board filter is active, and
  * so an urgent item never scrolls out of view behind workspace content.
  */
-export function FleetNeedsInbox(args: {
-  items: FleetNeedItem[];
-  selectedNeedId: string | null;
-  busyNeedId: string | null;
-  onOpen: (item: FleetNeedItem) => void;
+export function FleetAttentionInbox(args: {
+  items: FleetAttentionItem[];
+  selectedAttentionId: string | null;
+  busyAttentionId: string | null;
+  onOpen: (item: FleetAttentionItem) => void;
   onOpenTask: (target: FleetTaskControlTarget) => void;
-  onMarkRead: (item: FleetNeedItem) => void;
-  onDismiss: (item: FleetNeedItem) => void;
-  onOpenPr: (item: FleetNeedItem) => void;
+  onMarkRead: (item: FleetAttentionItem) => void;
+  onDismiss: (item: FleetAttentionItem) => void;
+  onOpenPr: (item: FleetAttentionItem) => void;
   onClearSelection: () => void;
 }) {
   const [showReview, setShowReview] = useState(false);
 
   const blocking = args.items.filter(
-    (item) => getFleetNeedTier(item.kind) === "blocking",
+    (item) => getFleetAttentionTier(item.kind) === "blocking",
   );
   // Nothing is stalled on these, so they stay folded until asked for. That is
   // the difference between "an agent is waiting on you" and "worth a look".
   const review = args.items.filter(
-    (item) => getFleetNeedTier(item.kind) === "review",
+    (item) => getFleetAttentionTier(item.kind) === "review",
   );
-  // "Open next item" and the N shortcut can land on a review-tier need. Without
+  // "Open next item" and the N shortcut can land on a review-tier item. Without
   // this the group stays folded and the selection has no visible effect.
   const showReviewGroup =
-    showReview || review.some((item) => item.id === args.selectedNeedId);
+    showReview || review.some((item) => item.id === args.selectedAttentionId);
   const toggleReviewGroup = () => {
     if (showReviewGroup) {
       setShowReview(false);
-      if (review.some((item) => item.id === args.selectedNeedId)) {
+      if (review.some((item) => item.id === args.selectedAttentionId)) {
         args.onClearSelection();
       }
       return;
@@ -297,12 +297,12 @@ export function FleetNeedsInbox(args: {
     setShowReview(true);
   };
 
-  const renderRow = (item: FleetNeedItem) => (
+  const renderRow = (item: FleetAttentionItem) => (
     <FleetNeedRow
       key={item.id}
       item={item}
-      selected={args.selectedNeedId === item.id}
-      busy={args.busyNeedId === item.id}
+      selected={args.selectedAttentionId === item.id}
+      busy={args.busyAttentionId === item.id}
       onOpen={args.onOpen}
       onOpenTask={args.onOpenTask}
       onMarkRead={args.onMarkRead}
@@ -314,14 +314,14 @@ export function FleetNeedsInbox(args: {
   return (
     <section
       className="flex h-full min-h-0 w-full flex-col border-border/65 bg-surface/25 sm:border-r"
-      aria-labelledby="fleet-needs-heading"
+      aria-labelledby="fleet-attention-heading"
     >
       <div className="flex shrink-0 items-baseline justify-between gap-2 border-b border-border/55 px-3 py-2">
         <h2
-          id="fleet-needs-heading"
+          id="fleet-attention-heading"
           className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
         >
-          Needs me
+          Action required
         </h2>
         <span
           className={cn(

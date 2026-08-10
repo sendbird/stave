@@ -10,11 +10,12 @@ This file is the fast entrypoint for codebase orientation.
 4. `docs/providers/provider-runtimes.md` for provider-specific paths
 5. `docs/architecture/entrypoints.md` for task-to-file routing
 6. `docs/architecture/contracts.md` for multi-file contract checklists
-7. `docs/architecture/run-core.md` before adding durable secondary execution consumers
-8. `docs/architecture/workspace-integrity.md` before changing project/workspace/task ownership or hydration logic
-9. `docs/architecture/chat-message-rendering.md` before changing assistant message UI semantics
-10. `docs/architecture/agent-message-ux-catalog.md` for the provider-event-to-UX matrix and Preview baseline
-11. `docs/architecture/session-cursor.md` for provider switch-back delta history and safe fresh-session fallback
+7. `docs/architecture/agent-platform-taxonomy.md` before adding anything that runs, schedules, delegates, or displays work
+8. `docs/architecture/run-core.md` before adding durable secondary execution consumers
+9. `docs/architecture/workspace-integrity.md` before changing project/workspace/task ownership or hydration logic
+10. `docs/architecture/chat-message-rendering.md` before changing assistant message UI semantics
+11. `docs/architecture/agent-message-ux-catalog.md` for the provider-event-to-UX matrix and Preview baseline
+12. `docs/architecture/session-cursor.md` for provider switch-back delta history and safe fresh-session fallback
 
 ## Top-Level Layout
 
@@ -46,6 +47,12 @@ This file is the fast entrypoint for codebase orientation.
 - `src/lib/pr-status.ts`
   - PR status enum, derivation, icon/color/action config
   - see [Workspace PR Status](../features/workspace-pr-status.md)
+- `src/lib/pr-context.ts`
+  - bounds, sanitization, and provenance for PR review / failed-CI evidence attached to a task
+  - see [PR Context Attachment](../features/pr-context-attachment.md)
+- `src/lib/automation/task-supervisor.ts`
+  - heartbeat policy: defer to the user, pause with a reason, stop terminally, catch up once
+  - see [Task Heartbeats](../features/task-heartbeats.md)
 
 ## High-Risk Boundaries
 

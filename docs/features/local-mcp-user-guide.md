@@ -116,6 +116,14 @@ If `Codex` auto-registration is enabled, Stave also keeps the current loopback U
    - `stave_get_task`
    - `stave_respond_approval` or `stave_respond_user_input` when needed
 
+To delegate work from a task to a durable child task, use:
+
+- `stave_delegate_task`
+- `stave_list_child_tasks`
+- `stave_stop_child_task`
+
+See [`docs/features/child-tasks.md`](child-tasks.md).
+
 For workspace Information panel management, also use:
 
 - `stave_get_workspace_information`
@@ -181,11 +189,19 @@ This keeps one clear control owner at a time and avoids mixed local/external edi
 
 ## Approval And User Input
 
-If the running task asks for confirmation or structured answers:
+Managed tasks use their own unattended runtime defaults: Claude runs with
+`bypassPermissions` when `claudePermissionMode` is omitted or set to `auto`,
+and Codex uses `never` approval policy unless the caller supplies an explicit
+override. This lets the task finish and report its result to the originating
+client without a Bash approval for every command.
+
+If the caller explicitly selects a permission or approval mode that can pause
+for confirmation, or if the running task asks a structured question:
 
 - poll task state with `stave_get_task`
 - answer using `stave_respond_approval` or `stave_respond_user_input`
-- Stave shows these requests for visibility, but managed tasks expect the originating client to answer them
+- Stave shows these requests for visibility, and the originating client can answer them
+- unanswered managed-task approvals are automatically denied after five minutes so the caller receives a failure instead of waiting forever
 
 Use `Local MCP Request Log` in `Settings → Providers → Stave` when you need transport-level request visibility. The latest page auto-refreshes while older pages stay stable for pagination.
 

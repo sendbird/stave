@@ -119,7 +119,7 @@ describe("classifyFleetWorkspaceActivity", () => {
   const base = {
     nowMs: NOW,
     hasLiveTask: false,
-    hasNeeds: false,
+    hasAttentionItems: false,
     isActiveWorkspace: false,
   };
 
@@ -138,7 +138,7 @@ describe("classifyFleetWorkspaceActivity", () => {
       classifyFleetWorkspaceActivity({
         ...base,
         activityAt: "2020-01-01T00:00:00.000Z",
-        hasNeeds: true,
+        hasAttentionItems: true,
       }),
     ).toBe("recent");
   });
@@ -181,7 +181,7 @@ describe("isPhantomDefaultWorkspace", () => {
     isActiveWorkspace: false,
     openTaskCount: 0,
     messageCount: 0,
-    hasNeeds: false,
+    hasAttentionItems: false,
     lastActiveAt: null,
     hasResolvedState: true,
   };
@@ -209,7 +209,7 @@ describe("isPhantomDefaultWorkspace", () => {
     ["the current project", { isCurrentProject: true }],
     ["the active workspace", { isActiveWorkspace: true }],
     ["open tasks", { openTaskCount: 2 }],
-    ["pending needs", { hasNeeds: true }],
+    ["pending needs", { hasAttentionItems: true }],
   ])("keeps a default backed by %s", (_label, overrides) => {
     expect(isPhantomDefaultWorkspace({ ...phantom, ...overrides })).toBe(false);
   });
@@ -237,7 +237,7 @@ describe("isPhantomDefaultWorkspace", () => {
 describe("matchesFleetBoardFilter", () => {
   const base = {
     activity: "recent" as const,
-    hasBlockingNeed: false,
+    hasBlockingAttention: false,
     searchableText: ["checkout", "Project", "fix/checkout"],
   };
 
@@ -271,7 +271,7 @@ describe("matchesFleetBoardFilter", () => {
       matchesFleetBoardFilter({
         ...base,
         filter: "blocked",
-        hasBlockingNeed: true,
+        hasBlockingAttention: true,
       }),
     ).toBe(true);
   });

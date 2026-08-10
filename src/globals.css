@@ -488,18 +488,6 @@
 }
 
 /*
- * A Lens group uses the adjacent Dockview sash as its resize affordance. Its
- * one-pixel split separator otherwise continues through the address bar and
- * competes with the wider sash hover treatment.
- */
-.dockview-theme-stave
-  .dv-split-view-container.dv-separator-border
-  > .dv-view-container
-  > .dv-view[data-lens-split-boundary]::before {
-  background-color: transparent;
-}
-
-/*
  * Keep the task rail itself borderless and attach the primary indicator to the
  * selected tab. The inset line follows the tab bounds without drawing a
  * separator beneath unrelated rail actions.

@@ -44,6 +44,8 @@ type TaskCoreActionKey =
   | "clearPromptDraft"
   | "createTask"
   | "renameTask"
+  | "attachTaskSourceContext"
+  | "removeTaskSourceContext"
   | "restoreTask"
   | "duplicateTask"
   | "rewindClaudeFilesFromMessage"
@@ -689,6 +691,56 @@ export function createTaskCoreActions(args: {
             });
           });
       }
+    },
+    attachTaskSourceContext: ({ taskId, sourceContext }) => {
+      set((state) => {
+        const target = state.tasks.find((task) => task.id === taskId);
+        if (!target) {
+          return state;
+        }
+        // One part per sourceId: re-attaching the same PR replaces its
+        // evidence instead of stacking a second copy against the 20-part cap.
+        const existing = target.sourceContexts ?? [];
+        const nextContexts = [
+          ...existing.filter((part) => part.sourceId !== sourceContext.sourceId),
+          sourceContext,
+        ];
+        return {
+          tasks: state.tasks.map((task) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  sourceContexts: nextContexts,
+                  updatedAt: buildRecentTimestamp(),
+                }
+              : task,
+          ),
+          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+        };
+      });
+    },
+    removeTaskSourceContext: ({ taskId, sourceId }) => {
+      set((state) => {
+        const target = state.tasks.find((task) => task.id === taskId);
+        if (!target?.sourceContexts?.some((part) => part.sourceId === sourceId)) {
+          return state;
+        }
+        const nextContexts = target.sourceContexts.filter(
+          (part) => part.sourceId !== sourceId,
+        );
+        return {
+          tasks: state.tasks.map((task) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  sourceContexts: nextContexts,
+                  updatedAt: buildRecentTimestamp(),
+                }
+              : task,
+          ),
+          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+        };
+      });
     },
     restoreTask: ({ taskId }) => {
       const stateBefore = get();

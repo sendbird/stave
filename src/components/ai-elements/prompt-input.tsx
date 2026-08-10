@@ -1150,6 +1150,60 @@ export function PromptInput(args: PromptInputProps) {
     [onPlanModeChange, planMode],
   );
 
+  const handleModelShortcut = useCallback(
+    (event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) => {
+      if (
+        event.defaultPrevented ||
+        interactionsDisabled ||
+        !windowShortcutsEnabled
+      ) {
+        return false;
+      }
+
+      const modelShortcutSlot = resolveModelShortcutSlot({
+        key: event.key,
+        code: event.code,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+      });
+      if (modelShortcutSlot === null) {
+        return false;
+      }
+
+      const shortcutOption = findModelShortcutOption({
+        slotIndex: modelShortcutSlot,
+        shortcutKeys: modelShortcutKeys,
+        options: modelOptions,
+      });
+      if (!shortcutOption) {
+        return false;
+      }
+
+      event.preventDefault();
+      onModelSelect({
+        selection: shortcutOption,
+        effort: findModelShortcutEffort({
+          slotIndex: modelShortcutSlot,
+          shortcutKeys: modelShortcutKeys,
+          shortcutEfforts: modelShortcutEfforts,
+        }),
+      });
+      window.requestAnimationFrame(() => focusComposer());
+      return true;
+    },
+    [
+      focusComposer,
+      interactionsDisabled,
+      modelOptions,
+      modelShortcutEfforts,
+      modelShortcutKeys,
+      onModelSelect,
+      windowShortcutsEnabled,
+    ],
+  );
+
   useEffect(() => {
     if (interactionsDisabled || !windowShortcutsEnabled) {
       return;
@@ -1196,49 +1250,16 @@ export function PromptInput(args: PromptInputProps) {
         return;
       }
 
-      const modelShortcutSlot = resolveModelShortcutSlot({
-        key: event.key,
-        code: event.code,
-        altKey: event.altKey,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey,
-      });
-      if (modelShortcutSlot === null) {
-        return;
-      }
-
-      const shortcutOption = findModelShortcutOption({
-        slotIndex: modelShortcutSlot,
-        shortcutKeys: modelShortcutKeys,
-        options: modelOptions,
-      });
-      if (!shortcutOption) {
-        return;
-      }
-
-      event.preventDefault();
-      onModelSelect({
-        selection: shortcutOption,
-        effort: findModelShortcutEffort({
-          slotIndex: modelShortcutSlot,
-          shortcutKeys: modelShortcutKeys,
-          shortcutEfforts: modelShortcutEfforts,
-        }),
-      });
-      window.requestAnimationFrame(() => focusComposer());
+      handleModelShortcut(event);
     };
 
     window.addEventListener("keydown", onWindowKeyDown);
     return () => window.removeEventListener("keydown", onWindowKeyDown);
   }, [
     focusComposer,
+    handleModelShortcut,
     handleShiftTabShortcut,
     interactionsDisabled,
-    modelOptions,
-    modelShortcutEfforts,
-    modelShortcutKeys,
-    onModelSelect,
     windowShortcutsEnabled,
   ]);
 
@@ -2475,6 +2496,9 @@ export function PromptInput(args: PromptInputProps) {
                         }
                       }}
                       onKeyDown={(event) => {
+                        if (handleModelShortcut(event)) {
+                          return;
+                        }
                         if (
                           activePalette === "info" &&
                           filteredWorkspaceInformationItems.length > 0 &&

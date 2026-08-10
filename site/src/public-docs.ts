@@ -109,6 +109,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Schedule recurring Claude or Codex tasks with their own environment, model, permissions, and Information resources.",
       },
       {
+        routePath: "child-tasks",
+        sourcePath: "docs/features/child-tasks.md",
+        title: "Child Tasks",
+        description:
+          "Delegate work from one task to a durable child task, optionally on the other provider or in its own worktree.",
+      },
+      {
         routePath: "latest-turn-summary",
         sourcePath: "docs/features/workspace-latest-turn-summary.md",
         title: "Latest Turn Summary",
@@ -132,11 +139,11 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Work through questions, approvals, failed runs, results, and pull request blockers across every workspace.",
       },
       {
-        routePath: "sidebar-active-workspaces",
-        sourcePath: "docs/features/sidebar-active-workspaces.md",
-        title: "Sidebar Active Workspaces",
+        routePath: "sidebar-views",
+        sourcePath: "docs/features/sidebar-views.md",
+        title: "Sidebar Views",
         description:
-          "Keep a ranked shortlist of the workspaces that matter now, and remove rows you consider unimportant.",
+          "Switch the left sidebar between the Projects tree and the Work queue, which groups every workspace by what it needs from you.",
       },
     ],
   },

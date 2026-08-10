@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Contrast,
   FileAudio,
+  FolderTree,
   Globe,
+  ListChecks,
   Loader2,
   Monitor,
   Moon,
@@ -35,7 +37,6 @@ import {
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
-import { countSidebarActiveWorkspaceDismissals } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
 import { MartinSyncSettingsSection } from "@/components/layout/settings-dialog-martin-sync";
 import {
@@ -130,8 +131,6 @@ import {
   BUILTIN_CUSTOM_THEMES,
   MAX_USER_THEMES,
   PRESET_THEME_TOKENS,
-  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
-  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
   THEME_TOKEN_NAMES,
   exportCustomThemeJson,
   listAllCustomThemes,
@@ -139,6 +138,7 @@ import {
   type CustomThemeDefinition,
   type ThemeModeName,
   type ThemeTokenName,
+  type SidebarNavView,
   useAppStore,
 } from "@/store/app.store";
 import {
@@ -1304,6 +1304,20 @@ function GeneralSection() {
   );
 }
 
+/**
+ * Mirrors `SIDEBAR_NAV_VIEW_OPTIONS` in the sidebar itself. Same two values and
+ * the same labels, so the settings row and the header toggle cannot drift into
+ * describing the views differently.
+ */
+const SIDEBAR_NAV_VIEW_FIELDS: readonly {
+  value: SidebarNavView;
+  label: string;
+  Icon: typeof FolderTree;
+}[] = [
+  { value: "projects", label: "Projects", Icon: FolderTree },
+  { value: "work-queue", label: "Work queue", Icon: ListChecks },
+] as const;
+
 function ThemeSection() {
   const [themeEditorMode, setThemeEditorMode] =
     useState<ThemeModeName>("light");
@@ -1312,29 +1326,7 @@ function ThemeSection() {
   const sidebarShowFleetView = useAppStore(
     (state) => state.settings.sidebarShowFleetView,
   );
-  const sidebarShowActiveWorkspaces = useAppStore(
-    (state) => state.settings.sidebarShowActiveWorkspaces,
-  );
-  const sidebarActiveWorkspaceLimit = useAppStore(
-    (state) => state.settings.sidebarActiveWorkspaceLimit,
-  );
-  const sidebarActiveWorkspaceDismissedAtById = useAppStore(
-    (state) => state.sidebarActiveWorkspaceDismissedAtById,
-  );
-  const workspaceLastActiveAtById = useAppStore(
-    (state) => state.workspaceLastActiveAtById,
-  );
-  const restoreSidebarActiveWorkspaces = useAppStore(
-    (state) => state.restoreSidebarActiveWorkspaces,
-  );
-  const hiddenActiveWorkspaceCount = useMemo(
-    () =>
-      countSidebarActiveWorkspaceDismissals({
-        dismissedAtByWorkspaceId: sidebarActiveWorkspaceDismissedAtById,
-        lastActiveAtByWorkspaceId: workspaceLastActiveAtById,
-      }),
-    [sidebarActiveWorkspaceDismissedAtById, workspaceLastActiveAtById],
-  );
+  const sidebarNavView = useAppStore((state) => state.settings.sidebarNavView);
   const borderBeamEnabled = useAppStore(
     (state) => state.settings.borderBeamEnabled,
   );
@@ -1421,57 +1413,30 @@ function ThemeSection() {
               updateSettings({ patch: { sidebarShowFleetView: checked } })
             }
           />
-          <SwitchField
-            title="Active Workspaces"
-            description="Show a ranked list of active, attention, and recently used workspaces."
-            checked={sidebarShowActiveWorkspaces}
-            onCheckedChange={(checked) =>
-              updateSettings({
-                patch: { sidebarShowActiveWorkspaces: checked },
-              })
-            }
-          />
-          {sidebarShowActiveWorkspaces ? (
-            <LabeledField
-              title="Active Workspace Rows"
-              description="Maximum number of rows shown before the project list."
-            >
-              <div className="flex items-center gap-3">
-                <Slider
-                  aria-label="Active workspace rows"
-                  className="flex-1"
-                  value={sidebarActiveWorkspaceLimit}
-                  min={SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN}
-                  max={SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX}
-                  step={1}
-                  onValueChange={(nextValue) => {
-                    updateSettings({
-                      patch: { sidebarActiveWorkspaceLimit: nextValue },
-                    });
-                  }}
-                />
-                <Badge variant="outline" className="min-w-12 justify-center">
-                  {sidebarActiveWorkspaceLimit}
-                </Badge>
-              </div>
-            </LabeledField>
-          ) : null}
-          {sidebarShowActiveWorkspaces && hiddenActiveWorkspaceCount > 0 ? (
-            <LabeledField
-              title="Hidden Workspaces"
-              description="Workspaces you removed from the Active Workspaces list. Hidden workspaces return automatically when they need your attention or when you open them."
-            >
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => restoreSidebarActiveWorkspaces()}
-              >
-                Restore {hiddenActiveWorkspaceCount} hidden workspace
-                {hiddenActiveWorkspaceCount === 1 ? "" : "s"}
-              </Button>
-            </LabeledField>
-          ) : null}
+          <LabeledField
+            title="Sidebar View"
+            description="Projects lists workspaces by where they live; Work queue groups every workspace by what it wants from you. The toggle in the sidebar header changes this too, so the sidebar reopens in whichever view you used last."
+          >
+            <div className="flex flex-wrap gap-2">
+              {SIDEBAR_NAV_VIEW_FIELDS.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={
+                    sidebarNavView === option.value ? "default" : "outline"
+                  }
+                  size="sm"
+                  aria-pressed={sidebarNavView === option.value}
+                  onClick={() =>
+                    updateSettings({ patch: { sidebarNavView: option.value } })
+                  }
+                >
+                  <option.Icon className="size-4" />
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+          </LabeledField>
         </SettingsCard>
 
         <SettingsCard

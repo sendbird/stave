@@ -19,6 +19,11 @@ Stave is an installable product. Do not bake author-specific machine state into 
 
 ## Git, PR, And Release Rules
 
+- Before the first edit in a task, establish three facts and report them: where `main` is (`git fetch origin && git rev-list --left-right --count origin/main...HEAD`), which PR already owns the current branch (`gh pr list --head "$(git branch --show-current)"`), and whether that PR is green (`gh pr view <n> --json mergeable,mergeStateStatus,statusCheckRollup`).
+- Rebase onto a moved `main` before doing substantial work, not after. A late rebase invalidates every verification already run, so the test suite gets paid for twice.
+- When an open PR already owns the branch, everything committed joins that PR. Unrelated work must not join it: create a new workspace and branch before the first edit.
+- Do not stack commits onto a red or conflicted PR. Fix it or branch away from it first.
+- Re-check `main` and the PR's checks immediately before pushing.
 - Use Conventional Commits for every commit.
 - Keep PR titles in Conventional Commits form and keep the subject lowercase.
 - Do not name competing or reference products as design or implementation inspiration in tracked files, code comments, tests, fixtures, commit messages, PR titles or bodies, issues, changelogs, or release notes.

@@ -59,8 +59,13 @@ import {
   unstageSourceControlFile,
   updateScmPrBranch,
 } from "./host-service/scm-runtime";
+import {
+  fetchPrCheckLogs,
+  fetchPrContextIndex,
+} from "./host-service/pr-context-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createRoutineRuntime } from "./host-service/routine-runtime";
+import { createTaskSupervisorRuntime } from "./host-service/task-supervisor-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import {
   parseExpectedHostParentPid,
@@ -73,6 +78,7 @@ import type {
   HostServiceEventName,
   HostLocalMcpAction,
   HostRoutineAction,
+  HostTaskSupervisorAction,
   HostServiceMethod,
   HostServiceResponseMap,
 } from "./host-service/protocol";
@@ -493,6 +499,11 @@ const routineRuntime = createRoutineRuntime({
     emitEvent("routine.unattended-automations-changed", payload);
   },
 });
+const taskSupervisorRuntime = createTaskSupervisorRuntime({
+  persistence: ensureHostServicePersistenceReady(),
+  getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
+  runHeartbeatTurn: localMcpRuntime.runHeartbeatTurn,
+});
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
 });
@@ -663,6 +674,45 @@ async function invokeRoutineAction(action: HostRoutineAction, args: unknown) {
     default:
       action satisfies never;
       throw new Error(`Unsupported routine action: ${String(action)}`);
+  }
+}
+
+async function invokeTaskSupervisorAction(
+  action: HostTaskSupervisorAction,
+  args: unknown,
+) {
+  switch (action) {
+    case "list":
+      return taskSupervisorRuntime.list(
+        args as Parameters<typeof taskSupervisorRuntime.list>[0],
+      );
+    case "get":
+      return taskSupervisorRuntime.get(
+        args as Parameters<typeof taskSupervisorRuntime.get>[0],
+      );
+    case "create":
+      return taskSupervisorRuntime.create(
+        args as Parameters<typeof taskSupervisorRuntime.create>[0],
+      );
+    case "update":
+      return taskSupervisorRuntime.update(
+        args as Parameters<typeof taskSupervisorRuntime.update>[0],
+      );
+    case "pause":
+      return taskSupervisorRuntime.pause(
+        args as Parameters<typeof taskSupervisorRuntime.pause>[0],
+      );
+    case "resume":
+      return taskSupervisorRuntime.resume(
+        args as Parameters<typeof taskSupervisorRuntime.resume>[0],
+      );
+    case "remove":
+      return taskSupervisorRuntime.remove(
+        args as Parameters<typeof taskSupervisorRuntime.remove>[0],
+      );
+    default:
+      action satisfies never;
+      throw new Error(`Unsupported task supervisor action: ${String(action)}`);
   }
 }
 
@@ -1101,6 +1151,7 @@ async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
   routineRuntime.stop();
+  taskSupervisorRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -1612,6 +1663,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         }),
       );
       return;
+    case "scm.fetch-pr-context-index":
+      await respond(request.id, await fetchPrContextIndex(request.params));
+      return;
+    case "scm.fetch-pr-check-logs":
+      await respond(request.id, await fetchPrCheckLogs(request.params));
+      return;
     case "scm.set-pr-ready":
       await respond(request.id, await setScmPrReady(request.params));
       return;
@@ -1660,6 +1717,15 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         await invokeRoutineAction(request.params.action, request.params.args),
       );
       return;
+    case "task-supervisor.invoke":
+      await respond(
+        request.id,
+        await invokeTaskSupervisorAction(
+          request.params.action,
+          request.params.args,
+        ),
+      );
+      return;
     default:
       request satisfies never;
   }
@@ -1678,6 +1744,7 @@ async function main() {
   });
   prewarmClaudeSdk();
   routineRuntime.start();
+  taskSupervisorRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

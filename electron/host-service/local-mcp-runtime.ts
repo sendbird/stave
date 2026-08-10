@@ -10,6 +10,12 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
+import {
+  CHILD_TASK_LIST_LIMIT,
+  toChildTaskSummary,
+  type ChildTaskSummary,
+} from "../../src/lib/runs/child-task";
+import { buildChildTaskReceiptsRetrievedContext } from "../../src/lib/task-context/child-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-context/current-task-awareness";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
 import {
@@ -104,6 +110,10 @@ import {
   MANAGED_TASK_STOP_NOTICE,
   reconcileTasksWithPersistedArchival,
 } from "../../src/lib/tasks";
+import {
+  MANAGED_TASK_APPROVAL_TIMEOUT_MS,
+  resolveManagedTaskRuntimeOptions,
+} from "../../src/lib/providers/managed-task-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
@@ -176,6 +186,20 @@ export interface TaskStatusResult {
     toolName: string;
     questionCount: number;
   }>;
+}
+
+/** The task supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
+export interface TaskSupervisionSnapshot {
+  workspaceId: string;
+  taskId: string;
+  projectPath: string | null;
+  exists: boolean;
+  archived: boolean;
+  providerId: ProviderId | null;
+  model: string | null;
+  activeTurnId: string | null;
+  pendingApprovalCount: number;
+  pendingUserInputCount: number;
 }
 
 export interface WorkspaceInformationMutationResult {
@@ -1547,6 +1571,98 @@ async function persistApprovalNotification(args: {
   });
 }
 
+/**
+ * Pending auto-deny deadlines for approvals raised inside a managed task,
+ * keyed by `${turnId}:${requestId}`.
+ */
+const managedApprovalAutoDenyTimers = new Map<string, NodeJS.Timeout>();
+
+function managedApprovalAutoDenyKey(args: {
+  turnId: string;
+  requestId: string;
+}) {
+  return `${args.turnId}:${args.requestId}`;
+}
+
+function clearManagedApprovalAutoDeny(args: {
+  turnId: string;
+  requestId?: string;
+}) {
+  if (args.requestId) {
+    const key = managedApprovalAutoDenyKey({
+      turnId: args.turnId,
+      requestId: args.requestId,
+    });
+    const timer = managedApprovalAutoDenyTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      managedApprovalAutoDenyTimers.delete(key);
+    }
+    return;
+  }
+  const prefix = `${args.turnId}:`;
+  for (const [key, timer] of managedApprovalAutoDenyTimers) {
+    if (key.startsWith(prefix)) {
+      clearTimeout(timer);
+      managedApprovalAutoDenyTimers.delete(key);
+    }
+  }
+}
+
+/**
+ * Arms the deadlock guard for a managed task's approval.
+ *
+ * Managed tasks intentionally raise no approval notification, so a prompt-mode
+ * approval can sit unanswered forever and the summoning agent never hears back.
+ * Denying after the deadline turns that silent hang into a tool error the
+ * running agent can report on.
+ */
+function scheduleManagedApprovalAutoDeny(args: {
+  workspaceId: string;
+  taskId: string;
+  turnId: string;
+  event: Extract<NormalizedProviderEvent, { type: "approval" }>;
+  session: WorkspaceSessionState;
+}) {
+  const task =
+    args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
+    null;
+  if (!task || !isExternallyManagedTask(task)) {
+    return;
+  }
+  const key = managedApprovalAutoDenyKey({
+    turnId: args.turnId,
+    requestId: args.event.requestId,
+  });
+  if (managedApprovalAutoDenyTimers.has(key)) {
+    return;
+  }
+  const timer = setTimeout(() => {
+    managedApprovalAutoDenyTimers.delete(key);
+    console.warn("[stave-mcp] auto-denying unanswered managed approval", {
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      turnId: args.turnId,
+      requestId: args.event.requestId,
+      toolName: args.event.toolName,
+    });
+    void respondApproval({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      requestId: args.event.requestId,
+      approved: false,
+    }).catch((error) => {
+      console.warn("[stave-mcp] managed approval auto-deny failed", error, {
+        workspaceId: args.workspaceId,
+        taskId: args.taskId,
+        requestId: args.event.requestId,
+      });
+    });
+  }, MANAGED_TASK_APPROVAL_TIMEOUT_MS);
+  timer.unref?.();
+  managedApprovalAutoDenyTimers.set(key, timer);
+}
+
 async function persistUserInputNotification(args: {
   workspaceId: string;
   taskId: string;
@@ -1708,6 +1824,13 @@ async function handleProviderEvent(args: {
   });
 
   if (args.event.type === "approval") {
+    scheduleManagedApprovalAutoDeny({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      turnId: args.turnId,
+      event: args.event,
+      session: applied.session,
+    });
     await persistApprovalNotification({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
@@ -1728,6 +1851,7 @@ async function handleProviderEvent(args: {
     });
   }
   if (args.event.type === "done") {
+    clearManagedApprovalAutoDeny({ turnId: args.turnId });
     await persistTurnCompletedNotification({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
@@ -2023,6 +2147,33 @@ export async function createWorkspace(args: {
   } satisfies CreatedWorkspaceInfo;
 }
 
+/**
+ * Child-task receipts for one parent, read straight from the ledger. Returns an
+ * empty list rather than throwing: a parent's turn must never fail because its
+ * delegation bookkeeping could not be read.
+ */
+function listChildTaskSummaries(args: {
+  parentTaskId: string;
+}): ChildTaskSummary[] {
+  try {
+    return ensureHostServicePersistenceReady()
+      .listRunAggregatesByOrigin({
+        originKind: "task",
+        originId: args.parentTaskId,
+        limit: CHILD_TASK_LIST_LIMIT,
+      })
+      .flatMap((aggregate) => {
+        const summary = toChildTaskSummary(aggregate);
+        return summary ? [summary] : [];
+      });
+  } catch (error) {
+    console.warn(
+      `[stave-mcp] failed to read child task receipts: ${String(error)}`,
+    );
+    return [];
+  }
+}
+
 export async function runTask(args: {
   workspaceId: string;
   prompt: string;
@@ -2199,6 +2350,11 @@ export async function runTask(args: {
           ].join("\n"),
         }
       : null;
+  // A parent that delegated work sees where its children stand before it takes
+  // its next turn — identity, phase and reason, never the child's transcript.
+  const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
+    children: listChildTaskSummaries({ parentTaskId: task.id }),
+  });
   const conversation = buildCanonicalConversationRequest({
     turnId,
     taskId: task.id,
@@ -2223,6 +2379,7 @@ export async function runTask(args: {
         tasks: session.tasks,
         workspaceInformation: session.workspaceInformation,
       }),
+      ...(childTaskReceiptsPart ? [childTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),
     ],
@@ -2276,7 +2433,14 @@ export async function runTask(args: {
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
       runtimeOptions: {
-        ...args.runtimeOptions,
+        ...(isExternallyManagedTask(task)
+          ? resolveManagedTaskRuntimeOptions({
+              providerId: provider,
+              ...(args.runtimeOptions
+                ? { runtimeOptions: args.runtimeOptions }
+                : {}),
+            })
+          : args.runtimeOptions),
         model,
       },
     },
@@ -2418,6 +2582,104 @@ export async function getTaskStatus(args: {
     pendingApprovals: findPendingApprovals(messages),
     pendingUserInputs: findPendingUserInputs(messages),
   } satisfies TaskStatusResult;
+}
+
+/**
+ * Everything the task supervisor needs to decide whether a heartbeat may fire.
+ *
+ * Deliberately separate from `getTaskStatus`: that shape is a routine's view of
+ * a run it started, while this one answers "is this pre-existing task still the
+ * same task, still free, and still on the runtime the heartbeat agreed to".
+ * Unlike `getTaskStatus` it reports a missing workspace or task as `exists:
+ * false` rather than throwing, because a deleted task is a normal terminal
+ * outcome for a heartbeat, not an error.
+ *
+ * Used by: `electron/host-service/task-supervisor-runtime.ts`.
+ */
+export async function getTaskSupervisionSnapshot(args: {
+  workspaceId: string;
+  taskId: string;
+}): Promise<TaskSupervisionSnapshot> {
+  const missing: TaskSupervisionSnapshot = {
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    projectPath: null,
+    exists: false,
+    archived: false,
+    providerId: null,
+    model: null,
+    activeTurnId: null,
+    pendingApprovalCount: 0,
+    pendingUserInputCount: 0,
+  };
+
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({
+    projects,
+    workspaceId: args.workspaceId,
+  });
+  if (!registration) {
+    return missing;
+  }
+
+  const session = await loadWorkspaceSession(args.workspaceId);
+  const task = session.tasks.find((item) => item.id === args.taskId);
+  if (!task) {
+    return { ...missing, projectPath: registration.project.projectPath };
+  }
+
+  const store = ensureHostServicePersistenceReady();
+  const messages =
+    store.loadTaskMessagesPage({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      limit: 40,
+    })?.messages ?? [];
+  // The model a task actually runs on is only recorded per message. Fall back
+  // to the provider default, which is what `runTask` itself would resolve.
+  const latestModel = [...messages]
+    .reverse()
+    .find((message) => Boolean(message.model))?.model;
+
+  return {
+    workspaceId: args.workspaceId,
+    taskId: task.id,
+    projectPath: registration.project.projectPath,
+    exists: true,
+    archived: Boolean(task.archivedAt),
+    providerId: task.provider,
+    model:
+      latestModel?.trim() ||
+      getDefaultModelForProvider({ providerId: task.provider }),
+    activeTurnId: session.activeTurnIdsByTask[task.id] ?? null,
+    pendingApprovalCount: findPendingApprovals(messages).length,
+    pendingUserInputCount: findPendingUserInputs(messages).length,
+  };
+}
+
+/**
+ * A heartbeat turn. Identical to a user turn except that it always targets an
+ * existing task and always keeps the task interactive and Stave-owned — waking
+ * a task must never quietly hand its control to an external owner.
+ *
+ * Used by: `electron/host-service/task-supervisor-runtime.ts`.
+ */
+export async function runHeartbeatTurn(args: {
+  workspaceId: string;
+  taskId: string;
+  prompt: string;
+  retrievedContextParts?: CanonicalRetrievedContextPart[];
+}) {
+  return runTask({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    prompt: args.prompt,
+    controlMode: "interactive",
+    controlOwner: "stave",
+    ...(args.retrievedContextParts
+      ? { retrievedContextParts: args.retrievedContextParts }
+      : {}),
+  });
 }
 
 async function releaseManagedTaskControl(args: {
@@ -2654,6 +2916,10 @@ export async function respondApproval(args: {
       throw new Error(`Pending approval not found: ${args.requestId}`);
     }
 
+    clearManagedApprovalAutoDeny({
+      turnId: activeTurnId,
+      requestId: args.requestId,
+    });
     const result = await providerRuntime.respondApproval({
       turnId: activeTurnId,
       requestId: args.requestId,

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { FleetNeedsInbox } from "@/components/layout/FleetNeedsInbox";
+import { FleetAttentionInbox } from "@/components/layout/FleetAttentionInbox";
 import type { FleetTaskControlTarget } from "@/components/layout/FleetTaskControlPanel";
 import {
   getFleetTaskKey,
@@ -30,7 +30,7 @@ import {
   EmptyTitle,
   Input,
 } from "@/components/ui";
-import type { FleetNeedItem } from "@/lib/fleet/attention-projection";
+import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
   compareFleetWorkspaceActivity,
   FLEET_BOARD_FILTER_OPTIONS,
@@ -47,7 +47,7 @@ type FleetProjectView = {
   workspaces: FleetWorkspaceCardView[];
 };
 
-const EMPTY_NEEDS: FleetNeedItem[] = [];
+const EMPTY_NEEDS: FleetAttentionItem[] = [];
 const EMPTY_VISIBILITY: Record<string, FleetWorkspaceCardVisibility> = {};
 
 /** How often dormancy is re-evaluated against the wall clock. */
@@ -193,7 +193,7 @@ export function FleetView() {
   const {
     items: attentionTargets,
     blockingItems,
-    needsByWorkspaceId,
+    attentionItemsByWorkspaceId,
   } = useFleetAttentionProjection();
 
   const nowMs = useCoarseClock();
@@ -205,8 +205,8 @@ export function FleetView() {
   const [boardFilter, setBoardFilter] = useState<FleetBoardFilter>("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTaskKey, setExpandedTaskKey] = useState<string | null>(null);
-  const [selectedNeedId, setSelectedNeedId] = useState<string | null>(null);
-  const [busyNeedId, setBusyNeedId] = useState<string | null>(null);
+  const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(null);
+  const [busyAttentionId, setBusyAttentionId] = useState<string | null>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
 
   const allCardKeys = useMemo(
@@ -233,12 +233,12 @@ export function FleetView() {
 
   useEffect(() => {
     if (
-      selectedNeedId &&
-      !attentionTargets.some((target) => target.id === selectedNeedId)
+      selectedAttentionId &&
+      !attentionTargets.some((target) => target.id === selectedAttentionId)
     ) {
-      setSelectedNeedId(null);
+      setSelectedAttentionId(null);
     }
-  }, [attentionTargets, selectedNeedId]);
+  }, [attentionTargets, selectedAttentionId]);
 
   const handleVisibilityChange = useCallback(
     (cardKey: string, visibility: FleetWorkspaceCardVisibility) => {
@@ -267,7 +267,7 @@ export function FleetView() {
   const handleOpenTask = useCallback(
     (target: { projectPath: string; workspaceId: string; taskId: string }) => {
       setExpandedTaskKey(null);
-      setSelectedNeedId(null);
+      setSelectedAttentionId(null);
       void focusTaskAttention(target);
     },
     [focusTaskAttention],
@@ -294,26 +294,26 @@ export function FleetView() {
         target.workspaceId,
         target.taskId,
       );
-      setSelectedNeedId(null);
+      setSelectedAttentionId(null);
       setExpandedTaskKey((current) => (current === taskKey ? null : taskKey));
     },
     [],
   );
 
-  const openNeed = useCallback(
-    (target: FleetNeedItem) => {
+  const openAttentionItem = useCallback(
+    (target: FleetAttentionItem) => {
       if (target.taskId) {
         setExpandedTaskKey(null);
-        setSelectedNeedId((current) =>
+        setSelectedAttentionId((current) =>
           current === target.id ? null : target.id,
         );
         return;
       }
-      // PR-only needs navigate directly and have no inline control panel. Do
+      // PR-only attention items navigate directly and have no inline control panel. Do
       // not select them: selection widens the rail, which would otherwise stay
       // expanded with no control surface to justify the extra space.
-      setSelectedNeedId(null);
-      setBusyNeedId(target.id);
+      setSelectedAttentionId(null);
+      setBusyAttentionId(target.id);
       void (async () => {
         if (target.notificationId) {
           await openNotificationContext({
@@ -329,64 +329,64 @@ export function FleetView() {
           await switchWorkspace({ workspaceId: target.workspaceId });
         }
       })().finally(() => {
-        setBusyNeedId((current) => (current === target.id ? null : current));
+        setBusyAttentionId((current) => (current === target.id ? null : current));
       });
     },
     [openNotificationContext, openProject, switchWorkspace],
   );
 
   const markNeedRead = useCallback(
-    (target: FleetNeedItem) => {
+    (target: FleetAttentionItem) => {
       if (!target.notificationId) {
         return;
       }
-      setBusyNeedId(target.id);
+      setBusyAttentionId(target.id);
       void markNotificationRead({ id: target.notificationId }).finally(() => {
-        setBusyNeedId((current) => (current === target.id ? null : current));
+        setBusyAttentionId((current) => (current === target.id ? null : current));
       });
     },
     [markNotificationRead],
   );
 
   const dismissNeed = useCallback(
-    (target: FleetNeedItem) => {
+    (target: FleetAttentionItem) => {
       if (!target.notificationId) {
         return;
       }
-      setBusyNeedId(target.id);
+      setBusyAttentionId(target.id);
       // Resolving (not just reading) is what makes the notification eligible
       // for expiry-based pruning and removes it from the attention projection.
       void markNotificationRead({
         id: target.notificationId,
         resolvedAt: new Date().toISOString(),
       }).finally(() => {
-        setBusyNeedId((current) => (current === target.id ? null : current));
+        setBusyAttentionId((current) => (current === target.id ? null : current));
       });
     },
     [markNotificationRead],
   );
 
-  const openNeedPr = useCallback((target: FleetNeedItem) => {
+  const openAttentionItemPr = useCallback((target: FleetAttentionItem) => {
     if (!target.prUrl) {
       return;
     }
     void window.api?.shell?.openExternal?.({ url: target.prUrl });
   }, []);
 
-  const openNextNeed = useCallback(() => {
+  const openNextAttentionItem = useCallback(() => {
     const queue = blockingItems.length > 0 ? blockingItems : attentionTargets;
     if (queue.length === 0) {
       return;
     }
     const selectedIndex = queue.findIndex(
-      (target) => target.id === selectedNeedId,
+      (target) => target.id === selectedAttentionId,
     );
     const nextTarget =
       queue[selectedIndex >= 0 ? (selectedIndex + 1) % queue.length : 0];
     if (nextTarget) {
-      openNeed(nextTarget);
+      openAttentionItem(nextTarget);
     }
-  }, [attentionTargets, blockingItems, openNeed, selectedNeedId]);
+  }, [attentionTargets, blockingItems, openAttentionItem, selectedAttentionId]);
 
   const clearFilters = useCallback(() => {
     setBoardFilter("active");
@@ -423,12 +423,12 @@ export function FleetView() {
         (target instanceof HTMLElement && target.isContentEditable);
       if (!isTyping && event.key.toLowerCase() === "n") {
         event.preventDefault();
-        openNextNeed();
+        openNextAttentionItem();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeFleetView, openNextNeed]);
+  }, [closeFleetView, openNextAttentionItem]);
 
   const isFilterActive = isFleetBoardFilterActive({
     filter: boardFilter,
@@ -487,7 +487,7 @@ export function FleetView() {
             variant={blockingItems.length > 0 ? "default" : "ghost"}
             className="h-7"
             disabled={attentionTargets.length === 0}
-            onClick={openNextNeed}
+            onClick={openNextAttentionItem}
           >
             {blockingItems.length > 0 ? (
               <ArrowRight className="size-3.5" aria-hidden="true" />
@@ -529,19 +529,19 @@ export function FleetView() {
         <aside
           className={cn(
             "h-40 min-h-0 w-full shrink-0 border-b border-border/65 sm:h-full sm:border-b-0",
-            selectedNeedId ? "sm:w-80 lg:w-112" : "sm:w-64 lg:w-80",
+            selectedAttentionId ? "sm:w-80 lg:w-112" : "sm:w-64 lg:w-80",
           )}
         >
-          <FleetNeedsInbox
+          <FleetAttentionInbox
             items={attentionTargets}
-            selectedNeedId={selectedNeedId}
-            busyNeedId={busyNeedId}
-            onOpen={openNeed}
+            selectedAttentionId={selectedAttentionId}
+            busyAttentionId={busyAttentionId}
+            onOpen={openAttentionItem}
             onOpenTask={handleOpenTask}
             onMarkRead={markNeedRead}
             onDismiss={dismissNeed}
-            onOpenPr={openNeedPr}
-            onClearSelection={() => setSelectedNeedId(null)}
+            onOpenPr={openAttentionItemPr}
+            onClearSelection={() => setSelectedAttentionId(null)}
           />
         </aside>
 
@@ -728,8 +728,8 @@ export function FleetView() {
                               filter={boardFilter}
                               searchQuery={searchQuery}
                               nowMs={nowMs}
-                              needs={
-                                needsByWorkspaceId[workspace.id] ?? EMPTY_NEEDS
+                              attentionItems={
+                                attentionItemsByWorkspaceId[workspace.id] ?? EMPTY_NEEDS
                               }
                               expandedTaskKey={expandedTaskKey}
                               onOpenTask={handleOpenTask}

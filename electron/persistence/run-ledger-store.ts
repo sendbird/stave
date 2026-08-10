@@ -5,12 +5,16 @@ import {
   failRunStep,
   interruptRunStep,
   markRunStepWaiting,
+  refineRunStepTarget,
   RunReceiptRecordSchema,
   RunRecordSchema,
   RunStepRecordSchema,
+  RunStepTargetSchema,
   type RunReceiptRecord,
   type RunRecord,
+  type RunStepKind,
   type RunStepRecord,
+  type RunStepTarget,
   type RunStepTransition,
 } from "../../src/lib/runs/run-domain";
 
@@ -47,6 +51,7 @@ interface RunStepRow {
   id: string;
   run_id: string;
   kind: string;
+  target_json: string | null;
   dependency_ids_json: string;
   status: string;
   attempt: number;
@@ -71,6 +76,42 @@ interface RunReceiptRow {
   created_at: string;
   detail_json: string | null;
 }
+
+const RUN_COLUMNS = `
+  id,
+  kind,
+  origin_kind,
+  origin_id,
+  project_path,
+  workspace_id,
+  task_id,
+  status,
+  policy_json,
+  provenance_json,
+  created_at,
+  updated_at,
+  completed_at,
+  error
+`;
+
+const RUN_STEP_COLUMNS = `
+  id,
+  run_id,
+  kind,
+  target_json,
+  dependency_ids_json,
+  status,
+  attempt,
+  execution_id,
+  claim_idempotency_key,
+  input_hash,
+  result_artifact_ref,
+  created_at,
+  updated_at,
+  started_at,
+  completed_at,
+  error
+`;
 
 type RunLedgerPersistenceRejectionReason =
   | "input-mismatch"
@@ -120,6 +161,7 @@ function mapRunStepRow(row: RunStepRow): RunStepRecord {
     id: row.id,
     runId: row.run_id,
     kind: row.kind,
+    target: row.target_json ? parseJson(row.target_json) : null,
     dependencyIds: parseJson(row.dependency_ids_json),
     status: row.status,
     attempt: row.attempt,
@@ -169,7 +211,27 @@ function hasStepIdentityConflict(
   return (
     existing.runId !== incoming.runId ||
     existing.kind !== incoming.kind ||
+    hasStepTargetConflict(existing.target, incoming.target) ||
     !sameJson(existing.dependencyIds, incoming.dependencyIds)
+  );
+}
+
+/**
+ * A step's delegation target is its anchor to a real task. Re-claiming a step
+ * that already points at a different task is the failure mode that would create
+ * a second child behind the same idempotency key, so it is a conflict rather
+ * than an overwrite. Filling in a target that was not there yet is allowed.
+ */
+function hasStepTargetConflict(
+  existing: RunStepTarget | null,
+  incoming: RunStepTarget | null,
+) {
+  if (!existing || !incoming) {
+    return false;
+  }
+  return (
+    existing.taskId !== incoming.taskId ||
+    existing.workspaceId !== incoming.workspaceId
   );
 }
 
@@ -207,6 +269,7 @@ export class RunLedgerStore {
         id TEXT PRIMARY KEY,
         run_id TEXT NOT NULL,
         kind TEXT NOT NULL,
+        target_json TEXT,
         dependency_ids_json TEXT NOT NULL,
         status TEXT NOT NULL,
         attempt INTEGER NOT NULL DEFAULT 0,
@@ -247,60 +310,43 @@ export class RunLedgerStore {
 
       CREATE INDEX IF NOT EXISTS idx_run_receipts_step_sequence
         ON run_receipts (step_id, sequence);
+
+      CREATE INDEX IF NOT EXISTS idx_runs_origin_updated
+        ON runs (origin_kind, origin_id, updated_at DESC);
+
+      CREATE INDEX IF NOT EXISTS idx_run_steps_kind_status
+        ON run_steps (kind, status, updated_at DESC);
     `);
+    this.migrate();
+  }
+
+  /**
+   * Schema version 2 adds `run_steps.target_json`. `CREATE TABLE IF NOT EXISTS`
+   * leaves an already-created table alone, so a database written by version 1
+   * needs the column added explicitly. Existing rows keep a null target, which
+   * is exactly what a `secondary-provider-turn` step means, so no Compare Judge
+   * row is rewritten.
+   */
+  private migrate() {
+    const columns = this.db
+      .prepare(`PRAGMA table_info(run_steps)`)
+      .all() as Array<{ name: string }>;
+    if (columns.some((column) => column.name === "target_json")) {
+      return;
+    }
+    this.db.exec(`ALTER TABLE run_steps ADD COLUMN target_json TEXT`);
   }
 
   private getRun(runId: string): RunRecord | null {
     const row = this.db
-      .prepare(
-        `
-        SELECT
-          id,
-          kind,
-          origin_kind,
-          origin_id,
-          project_path,
-          workspace_id,
-          task_id,
-          status,
-          policy_json,
-          provenance_json,
-          created_at,
-          updated_at,
-          completed_at,
-          error
-        FROM runs
-        WHERE id = ?
-      `,
-      )
+      .prepare(`SELECT ${RUN_COLUMNS} FROM runs WHERE id = ?`)
       .get(runId) as RunRow | undefined;
     return row ? mapRunRow(row) : null;
   }
 
   private getStep(stepId: string): RunStepRecord | null {
     const row = this.db
-      .prepare(
-        `
-        SELECT
-          id,
-          run_id,
-          kind,
-          dependency_ids_json,
-          status,
-          attempt,
-          execution_id,
-          claim_idempotency_key,
-          input_hash,
-          result_artifact_ref,
-          created_at,
-          updated_at,
-          started_at,
-          completed_at,
-          error
-        FROM run_steps
-        WHERE id = ?
-      `,
-      )
+      .prepare(`SELECT ${RUN_STEP_COLUMNS} FROM run_steps WHERE id = ?`)
       .get(stepId) as RunStepRow | undefined;
     return row ? mapRunStepRow(row) : null;
   }
@@ -315,22 +361,7 @@ export class RunLedgerStore {
     this.db
       .prepare(
         `
-        INSERT INTO runs (
-          id,
-          kind,
-          origin_kind,
-          origin_id,
-          project_path,
-          workspace_id,
-          task_id,
-          status,
-          policy_json,
-          provenance_json,
-          created_at,
-          updated_at,
-          completed_at,
-          error
-        )
+        INSERT INTO runs (${RUN_COLUMNS})
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       )
@@ -356,30 +387,15 @@ export class RunLedgerStore {
     this.db
       .prepare(
         `
-        INSERT INTO run_steps (
-          id,
-          run_id,
-          kind,
-          dependency_ids_json,
-          status,
-          attempt,
-          execution_id,
-          claim_idempotency_key,
-          input_hash,
-          result_artifact_ref,
-          created_at,
-          updated_at,
-          started_at,
-          completed_at,
-          error
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO run_steps (${RUN_STEP_COLUMNS})
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       )
       .run(
         step.id,
         step.runId,
         step.kind,
+        step.target ? JSON.stringify(step.target) : null,
         JSON.stringify(step.dependencyIds),
         step.status,
         step.attempt,
@@ -691,6 +707,109 @@ export class RunLedgerStore {
     return rows.map(mapRunReceiptRow);
   }
 
+  /**
+   * Aggregates for one origin, newest first. Child-task listings read the
+   * ledger by parent task rather than by ownership, because a child may live in
+   * a different workspace than the parent that delegated it.
+   */
+  listAggregatesByOrigin(args: {
+    originKind: string;
+    originId: string;
+    limit: number;
+  }) {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT step.*
+        FROM run_steps AS step
+        JOIN runs AS run ON run.id = step.run_id
+        WHERE run.origin_kind = ? AND run.origin_id = ?
+        ORDER BY step.updated_at DESC, step.id ASC
+        LIMIT ?
+      `,
+      )
+      .all(args.originKind, args.originId, args.limit) as RunStepRow[];
+    return rows.flatMap((row) => {
+      const step = mapRunStepRow(row);
+      const run = this.getRun(step.runId);
+      return run ? [{ run, step }] : [];
+    });
+  }
+
+  /** Active aggregates of one step kind, used to reconcile against reality. */
+  listActiveAggregatesByStepKind(args: { kind: RunStepKind }) {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT ${RUN_STEP_COLUMNS}
+        FROM run_steps
+        WHERE kind = ? AND status IN ('pending', 'running', 'waiting')
+        ORDER BY run_id, id
+      `,
+      )
+      .all(args.kind) as RunStepRow[];
+    return rows.flatMap((row) => {
+      const step = mapRunStepRow(row);
+      const run = this.getRun(step.runId);
+      return run ? [{ run, step }] : [];
+    });
+  }
+
+  /**
+   * Elaborate a step's delegation target once the delegated work reports its
+   * own identity. Repointing at a different task is refused, so a stale
+   * callback can never rewrite which child a delegation owns.
+   */
+  setStepTarget(args: {
+    runId: string;
+    stepId: string;
+    target: RunStepTarget;
+  }): boolean {
+    const target = RunStepTargetSchema.parse(args.target);
+    const tx = this.db.transaction(() => {
+      const aggregate = this.getAggregate({
+        runId: args.runId,
+        stepId: args.stepId,
+      });
+      if (!aggregate) {
+        return false;
+      }
+      const refined = refineRunStepTarget({ step: aggregate.step, target });
+      if (!refined.changed) {
+        return false;
+      }
+      this.db
+        .prepare(`UPDATE run_steps SET target_json = ? WHERE id = ?`)
+        .run(JSON.stringify(refined.step.target), refined.step.id);
+      return true;
+    });
+    return tx();
+  }
+
+  interruptStep(args: {
+    runId: string;
+    stepId: string;
+    idempotencyKey: string;
+    error: string;
+    now: string;
+  }) {
+    return this.transitionExisting(args, ({ run, step }) =>
+      interruptRunStep({
+        run,
+        step,
+        idempotencyKey: args.idempotencyKey,
+        error: args.error,
+        now: args.now,
+      }),
+    );
+  }
+
+  /**
+   * Restart recovery for step kinds whose execution cannot outlive the app. A
+   * `child-task-turn` is deliberately excluded: a child is a real task that may
+   * still be running after a restart, so it is reconciled against the live task
+   * by `child-task-coordinator`, not blanket-interrupted here.
+   */
   reconcileInterruptedRuns(args: { now: string }) {
     const tx = this.db.transaction(() => {
       const rows = this.db
@@ -698,7 +817,7 @@ export class RunLedgerStore {
           `
           SELECT id, run_id
           FROM run_steps
-          WHERE status IN ('running', 'waiting')
+          WHERE status IN ('running', 'waiting') AND kind != 'child-task-turn'
           ORDER BY run_id, id
         `,
         )

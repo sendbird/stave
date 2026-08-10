@@ -43,7 +43,7 @@ export function selectFleetOpenTasks(tasks: readonly Task[]) {
  * A workspace is live only while one of its open tasks still owns an active
  * provider turn. Historical error messages and leftover interaction parts can
  * classify a task as error/waiting after its turn has ended; those states stay
- * visible through needs/recent activity, but must not make the Running filter
+ * visible through attention items/recent activity, but must not make the Running filter
  * claim that an agent is still in flight.
  */
 export function hasFleetLiveTask(args: {
@@ -94,7 +94,7 @@ export function classifyFleetWorkspaceActivity(args: {
   /** An open task still owns an active provider turn. */
   hasLiveTask: boolean;
   /** The workspace contributes at least one item to the attention rail. */
-  hasNeeds: boolean;
+  hasAttentionItems: boolean;
   isActiveWorkspace: boolean;
   dormantAfterMs?: number;
 }): FleetWorkspaceActivity {
@@ -103,7 +103,7 @@ export function classifyFleetWorkspaceActivity(args: {
   }
   // Something asking for the user, or the workspace they are standing in, stays
   // in the working set no matter how stale its timestamps look.
-  if (args.hasNeeds || args.isActiveWorkspace) {
+  if (args.hasAttentionItems || args.isActiveWorkspace) {
     return "recent";
   }
 
@@ -123,7 +123,7 @@ export function classifyFleetWorkspaceActivity(args: {
  * recorded activity, and no worktree work behind it.
  *
  * Fleet hides those rows rather than implying idle agent work. A default that
- * is current, active, holds open tasks or messages, has needs, or carries a
+ * is current, active, holds open tasks or messages, has attention items, or carries a
  * real `lastActiveAt` is genuine and always survives.
  */
 export function isPhantomDefaultWorkspace(args: {
@@ -133,7 +133,7 @@ export function isPhantomDefaultWorkspace(args: {
   openTaskCount: number;
   /** Across every task, archived included — history counts as evidence. */
   messageCount: number;
-  hasNeeds: boolean;
+  hasAttentionItems: boolean;
   lastActiveAt?: string | null;
   /**
    * Whether the workspace's stored state was actually resolved. Suppressing on
@@ -145,7 +145,7 @@ export function isPhantomDefaultWorkspace(args: {
   if (!args.isDefault || !args.hasResolvedState) {
     return false;
   }
-  if (args.isCurrentProject || args.isActiveWorkspace || args.hasNeeds) {
+  if (args.isCurrentProject || args.isActiveWorkspace || args.hasAttentionItems) {
     return false;
   }
   if (args.openTaskCount > 0 || args.messageCount > 0) {
@@ -156,7 +156,7 @@ export function isPhantomDefaultWorkspace(args: {
 
 /**
  * Board-level filters operate on workspaces, not individual tasks: the board is
- * a view of agent workspaces, and "needs me" already has its own permanent rail.
+ * a view of agent workspaces, and "action required" already has its own rail.
  */
 export type FleetBoardFilter = "active" | "running" | "blocked" | "all";
 
@@ -174,7 +174,7 @@ export const FLEET_BOARD_FILTER_OPTIONS: ReadonlyArray<{
 export function matchesFleetBoardFilter(args: {
   filter: FleetBoardFilter;
   activity: FleetWorkspaceActivity;
-  hasBlockingNeed: boolean;
+  hasBlockingAttention: boolean;
   query?: string;
   searchableText: readonly string[];
 }) {
@@ -182,7 +182,7 @@ export function matchesFleetBoardFilter(args: {
     args.filter === "all" ||
     (args.filter === "active" && args.activity !== "dormant") ||
     (args.filter === "running" && args.activity === "live") ||
-    (args.filter === "blocked" && args.hasBlockingNeed);
+    (args.filter === "blocked" && args.hasBlockingAttention);
   if (!filterMatches) {
     return false;
   }

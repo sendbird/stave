@@ -195,7 +195,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
     .getByRole("button", { name: "open-fleet-view" })
     .click();
 
-  const needs = page.getByRole("region", { name: "Needs me" });
+  const needs = page.getByRole("region", { name: "Action required" });
   // The rail is layout-level, so it stays mounted regardless of board filter.
   await expect(needs).toBeVisible();
   // Blocking needs lead; a completed-turn result is only "worth a look" and
@@ -290,7 +290,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   );
   await expect(controls.getByRole("button", { name: "Reject" })).toHaveCount(0);
   await page.screenshot({
-    path: testInfo.outputPath("fleet-needs-me.png"),
+    path: testInfo.outputPath("fleet-action-required.png"),
     fullPage: true,
   });
   await page.keyboard.press("Escape");

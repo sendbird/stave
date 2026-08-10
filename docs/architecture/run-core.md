@@ -5,6 +5,11 @@ read-only background provider execution. Its first and current consumer is
 Compare Judge. It is not a generic workflow engine or a prerequisite for
 Fleet, Advisor, or Crane.
 
+The read-only limit belongs to the executor, not to the ledger: the ledger is
+shared bookkeeping and is meant to gain further clients rather than be copied.
+See `docs/architecture/agent-platform-taxonomy.md` for where it sits among the
+other layers.
+
 ## Ownership
 
 - The renderer owns user intent, presentation, and consumer-specific result
@@ -23,13 +28,22 @@ matching execution identity and persists the transition.
 `src/lib/runs/run-domain.ts` defines the shared Zod schemas and pure
 transitions:
 
-- `Run` records the `secondary-provider` kind, origin, project/workspace/task
-  ownership, bounded policy, provenance, status, and timestamps.
-- `Step` records the `secondary-provider-turn` kind, dependency ids, attempt,
-  execution identity, claim idempotency key, SHA-256 input hash, and a bounded
-  result artifact reference.
+- `Run` records its kind (`secondary-provider` or `child-task`), origin,
+  project/workspace/task ownership, bounded policy, provenance, status, and
+  timestamps. A `child-task` run carries a `task` origin whose id is the parent
+  task.
+- `Step` records its kind (`secondary-provider-turn` or `child-task-turn`),
+  dependency ids, attempt, execution identity, claim idempotency key, SHA-256
+  input hash, a bounded result artifact reference, and an optional delegation
+  `target` (the child task/workspace/turn identity a step points at).
 - `Receipt` records a monotonic per-run sequence, transition type, execution
   identity, idempotency key, timestamp, and sanitized diagnostic detail.
+  Receipts are unchanged by the child-task client.
+
+Ledger schema version 2 added the child-task kinds and `Step.target`. Version 1
+rows stay valid and are never rewritten: a `secondary-provider-turn` step simply
+has a null target, and existing Compare Judge runs keep
+`provenance.schemaVersion: 1`.
 
 Prompts and raw provider event streams are not written to the ledger. The
 ledger stores the deterministic input hash and a consumer-owned artifact
@@ -83,7 +97,50 @@ identity and state.
 
 At main persistence startup, `running` and `waiting` steps become
 `interrupted` with an ordered receipt. The current substrate intentionally has
-no resumable provider session path.
+no resumable provider session path. `child-task-turn` steps are excluded from
+that sweep — see below.
+
+## Child Tasks
+
+The ledger's second client delegates from a parent task to a real, durable Stave
+task rather than to a headless executor. The read-only limit belongs to the
+secondary executor, not to the ledger, so a child runs its turns through the
+normal task runtime with its own explicit provider, model and permission
+profile.
+
+```text
+parent agent
+  -> stave_delegate_task (Local MCP, electron/main/stave-mcp-server.ts)
+  -> electron/main/runs/child-task-coordinator.ts
+  -> SQLite ledger (claim + receipts)
+  -> host-service local-mcp run-task
+  -> normal task machinery -> Claude or Codex provider adapter
+```
+
+`electron/providers/secondary-run-executor.ts` is not involved, and
+`secondary-run-coordinator.ts` is untouched beyond the widened domain types.
+Receipts derive from the provider turn's terminal event, delivered by the normal
+turn lifecycle rather than by a bespoke collector.
+
+Delegation identity is derived, not allocated: run id
+`child-task:<parentTaskId>:<delegationKey>`, step id `<runId>:turn`, and a child
+task id hashed from the run id. The ledger's primary key is therefore the
+duplicate-suppression mechanism, and the child's task id is written to the ledger
+*before* the task is created, so a crash in between leaves a recorded child
+rather than an orphan.
+
+Restart reconciliation is the reason `child-task-turn` steps are excluded from
+the blanket interrupt sweep: a child may still be running after Stave restarts.
+`child-task-coordinator.reconcile()` compares every active delegation against
+the live task and settles it to what actually happened — still running, completed
+while Stave was down, failed, or interrupted.
+
+The parent's view of a child is `src/lib/runs/child-task.ts`'s
+`ChildTaskSummary`: identity, phase and terminal reason. It is exposed through
+`stave_list_child_tasks` and injected into the parent's next turn as a retrieved
+context part by `src/lib/task-context/child-task-receipts.ts`, on both the
+host-driven and renderer-driven turn paths. A child's transcript never crosses
+that boundary.
 
 ## Secondary Provider Policy
 

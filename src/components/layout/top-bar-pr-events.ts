@@ -1,6 +1,6 @@
 export const TOP_BAR_PR_ACTION_EVENT = "stave:top-bar-pr-action";
 
-export type TopBarPrAction = "continue" | "create-pr";
+export type TopBarPrAction = "continue" | "create-pr" | "attach-context";
 
 export interface TopBarPrActionDetail {
   action: TopBarPrAction;

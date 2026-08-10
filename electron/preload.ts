@@ -52,6 +52,10 @@ import type {
 } from "../src/lib/local-mcp";
 import type { LocalMcpTaskTurnUpdate } from "../src/lib/local-mcp/task-turn-update";
 import type {
+  PrCheckLogExcerpt,
+  PrContextIndex,
+} from "../src/lib/pr-context";
+import type {
   CraneConnectorConfigInput,
   CraneConnectorPairInput,
   CraneConnectorPublicStatus,
@@ -167,6 +171,10 @@ import type {
   SecondaryRunReceiptListArgs,
   SecondaryRunTransitionResponse,
 } from "../src/lib/runs/secondary-run";
+import type {
+  ChildTaskList,
+  ChildTaskListArgs,
+} from "../src/lib/runs/child-task";
 
 interface ProviderSlashCommand {
   name: string;
@@ -806,6 +814,8 @@ contextBridge.exposeInMainWorld("api", {
       args: SecondaryRunReceiptListArgs,
     ): Promise<SecondaryRunReceiptList> =>
       ipcRenderer.invoke("runs:list-receipts", args),
+    listChildTasks: (args: ChildTaskListArgs): Promise<ChildTaskList> =>
+      ipcRenderer.invoke("runs:list-child-tasks", args),
   },
   provider: {
     streamTurn: (args: StreamTurnArgs) =>
@@ -2035,6 +2045,7 @@ contextBridge.exposeInMainWorld("api", {
           mergedAt: string | null;
           baseRefName: string;
           headRefName: string;
+          headRefOid?: string | null;
         } | null;
         stderr?: string;
       }>,
@@ -2054,8 +2065,26 @@ contextBridge.exposeInMainWorld("api", {
           mergedAt: string | null;
           baseRefName: string;
           headRefName: string;
+          headRefOid?: string | null;
         } | null;
         stderr?: string;
+      }>,
+    fetchPrContextIndex: (args: { prUrl: string; cwd?: string }) =>
+      ipcRenderer.invoke("scm:fetch-pr-context-index", args) as Promise<{
+        ok: boolean;
+        index: PrContextIndex | null;
+        stderr: string;
+      }>,
+    fetchPrCheckLogs: (args: {
+      prUrl: string;
+      headSha: string;
+      checkIds: number[];
+      cwd?: string;
+    }) =>
+      ipcRenderer.invoke("scm:fetch-pr-check-logs", args) as Promise<{
+        ok: boolean;
+        excerpts: PrCheckLogExcerpt[];
+        stderr: string;
       }>,
     setPrReady: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:set-pr-ready", args) as Promise<{

@@ -82,7 +82,7 @@ describe("fleet attention projection ignores archived workspaces", () => {
     expect(projection.items.map((item) => item.workspaceId)).toEqual([
       "workspace-live",
     ]);
-    expect(projection.needsByWorkspaceId["workspace-archived"]).toBeUndefined();
+    expect(projection.attentionItemsByWorkspaceId["workspace-archived"]).toBeUndefined();
   });
 
   test("keeps every notification need when the known workspace set is omitted", () => {
