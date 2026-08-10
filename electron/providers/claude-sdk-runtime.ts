@@ -194,6 +194,14 @@ const CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES = new Set([
   "stave_set_routine_enabled",
   "stave_list_routine_information_references",
   "stave_create_routine_information_resource",
+  // Same policy line as routines: defining scheduled work auto-allows, while
+  // anything that starts a turn right now (`stave_run_routine_now`) prompts.
+  "stave_list_task_heartbeats",
+  "stave_get_task_heartbeat",
+  "stave_create_task_heartbeat",
+  "stave_update_task_heartbeat",
+  "stave_set_task_heartbeat_paused",
+  "stave_remove_task_heartbeat",
 ]);
 const STAVE_LOCAL_MCP_TOOL_PREFIX = "mcp__stave-local-mcp__";
 /**

@@ -49,6 +49,11 @@ import {
   CraneJobBindingStore,
   type LocalCraneJobBinding,
 } from "./crane-job-binding-store";
+import { TaskHeartbeatStore } from "./task-heartbeat-store";
+import type {
+  TaskHeartbeat,
+  TaskHeartbeatOccurrence,
+} from "../../src/lib/automation/task-supervisor";
 import {
   shouldRunFullVacuumMigration,
   type SqliteStorageMetrics,
@@ -187,6 +192,7 @@ export class SqliteStore {
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
+  private taskHeartbeats: TaskHeartbeatStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -227,6 +233,7 @@ export class SqliteStore {
     this.bootstrap();
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
+    this.taskHeartbeats = new TaskHeartbeatStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;
@@ -2543,6 +2550,39 @@ export class SqliteStore {
     tx();
   }
 
+  /**
+   * Closes a turn only when it is still open, reporting whether it did.
+   *
+   * The task supervisor's boot sweep needs this: a turn a heartbeat started
+   * before Stave was killed stays `completed_at IS NULL` forever, and every
+   * later occurrence would defer behind it. Unlike `completeTurn` this never
+   * rewrites the timestamp of a turn that really did finish.
+   */
+  completeInterruptedTurn(args: { id: string; completedAt?: string }) {
+    if (this._closed) {
+      return false;
+    }
+    const completedAt = args.completedAt ?? new Date().toISOString();
+    let closed = false;
+    const tx = this.db.transaction(() => {
+      const result = this.db
+        .prepare(
+          `
+        UPDATE turns
+        SET completed_at = ?
+        WHERE id = ? AND completed_at IS NULL
+      `,
+        )
+        .run(completedAt, args.id);
+      closed = Number(result.changes ?? 0) > 0;
+      if (closed) {
+        this.compactCompletedTurnEvents(args.id);
+      }
+    });
+    tx();
+    return closed;
+  }
+
   private compactCompletedTurnEvents(turnId: string) {
     this.db
       .prepare(
@@ -2856,6 +2896,50 @@ export class SqliteStore {
 
   pruneCraneJobBindings(cutoff: string) {
     return this.craneJobBindings.pruneTerminalBefore(cutoff);
+  }
+
+  listTaskHeartbeats() {
+    return this.taskHeartbeats.list();
+  }
+
+  listActiveTaskHeartbeats() {
+    return this.taskHeartbeats.listActive();
+  }
+
+  listTaskHeartbeatsForWorkspace(workspaceId: string) {
+    return this.taskHeartbeats.listForWorkspace(workspaceId);
+  }
+
+  getTaskHeartbeat(id: string) {
+    return this.taskHeartbeats.get(id);
+  }
+
+  getTaskHeartbeatByTaskId(taskId: string) {
+    return this.taskHeartbeats.getByTaskId(taskId);
+  }
+
+  upsertTaskHeartbeat(heartbeat: TaskHeartbeat) {
+    return this.taskHeartbeats.upsert(heartbeat);
+  }
+
+  removeTaskHeartbeat(id: string) {
+    return this.taskHeartbeats.remove(id);
+  }
+
+  recordTaskHeartbeatOccurrence(occurrence: TaskHeartbeatOccurrence) {
+    return this.taskHeartbeats.recordOccurrence(occurrence);
+  }
+
+  attachTaskHeartbeatOccurrenceTurn(args: { id: string; turnId: string }) {
+    return this.taskHeartbeats.attachOccurrenceTurn(args);
+  }
+
+  listTaskHeartbeatOccurrences(args: { heartbeatId: string; limit?: number }) {
+    return this.taskHeartbeats.listOccurrences(args);
+  }
+
+  pruneTaskHeartbeatOccurrences(args: { heartbeatId: string; keep?: number }) {
+    return this.taskHeartbeats.pruneOccurrences(args);
   }
 
   getStorageMetrics(): SqliteStorageMetrics {

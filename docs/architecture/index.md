@@ -50,6 +50,9 @@ This file is the fast entrypoint for codebase orientation.
 - `src/lib/pr-context.ts`
   - bounds, sanitization, and provenance for PR review / failed-CI evidence attached to a task
   - see [PR Context Attachment](../features/pr-context-attachment.md)
+- `src/lib/automation/task-supervisor.ts`
+  - heartbeat policy: defer to the user, pause with a reason, stop terminally, catch up once
+  - see [Task Heartbeats](../features/task-heartbeats.md)
 
 ## High-Risk Boundaries
 

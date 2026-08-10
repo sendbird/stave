@@ -64,13 +64,19 @@ client instead of building a second ledger beside it.
 Durable (SQLite), reconciled on restart, always carrying an explicit terminal
 reason. Two axes:
 
-| | Ephemeral (exists) | Durable (planned) |
+| | Ephemeral | Durable |
 | --- | --- | --- |
 | Time — run again | — | Routine (new task per occurrence) / Heartbeat (same task, same session) |
-| Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts) |
+| Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts) — planned |
 
 Routine is the only concept that lives outside a task: it mints tasks.
 Everything else in this layer attaches to one existing task.
+
+A heartbeat is a task supervisor entry: `src/lib/automation/task-supervisor.ts`
+holds the policy, `electron/host-service/task-supervisor-runtime.ts` executes
+it, and `task_heartbeats` / `task_heartbeat_occurrences` store it. Those are
+deliberately not ledger tables — the ledger records delegated execution, a
+heartbeat records wake-ups on a task the user already owns.
 
 ## Boundary Statements
 
@@ -87,10 +93,13 @@ whose name repeats it.
 6. The work queue assigns a workspace to exactly one lane, in fixed priority
    order.
 
-Statements 2 and 3 are partly forward-looking: heartbeats and child tasks are
-not built yet. They are recorded here so the capability lands inside the
-boundary rather than beside it, and the gate test asserts the half that exists
-today.
+Statement 3 is partly forward-looking: child tasks are not built yet. It is
+recorded here so the capability lands inside the boundary rather than beside it,
+and the gate test asserts the half that exists today.
+
+Statement 2 is now asserted from both sides: a routine definition cannot name a
+task, and a heartbeat definition must name one and cannot carry the fields that
+would let it mint a task.
 
 ## Adding Something New
 

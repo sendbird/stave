@@ -446,6 +446,15 @@ export type HostLocalMcpAction =
   | "add-workspace-slack-thread"
   | "add-workspace-amplify-link";
 
+export type HostTaskSupervisorAction =
+  | "list"
+  | "get"
+  | "create"
+  | "update"
+  | "pause"
+  | "resume"
+  | "remove";
+
 export type HostRoutineAction =
   | "list"
   | "create"
@@ -897,6 +906,10 @@ export interface HostServiceRequestMap {
     action: HostRoutineAction;
     args: unknown;
   };
+  "task-supervisor.invoke": {
+    action: HostTaskSupervisorAction;
+    args: unknown;
+  };
 }
 
 export interface HostServiceResponseMap {
@@ -1070,6 +1083,7 @@ export interface HostServiceResponseMap {
   "task.take-over": HostTaskTakeOverResult;
   "task.stop": HostTaskStopResult;
   "routine.invoke": unknown;
+  "task-supervisor.invoke": unknown;
 }
 
 export interface HostServiceEventMap {

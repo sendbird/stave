@@ -128,6 +128,26 @@ When changing how PR review threads or failed-CI evidence are attached to a task
 
 See `docs/features/pr-context-attachment.md` for the full architecture reference.
 
+## Task Supervisor Contract
+
+When changing how a heartbeat wakes an existing task:
+
+- `src/lib/automation/task-supervisor.ts` — schemas, catch-up walk, decision priority, transitions (pure; no clock, no I/O)
+- `electron/persistence/task-heartbeat-store.ts` — `task_heartbeats`, `task_heartbeat_occurrences`, the idempotency index
+- `electron/host-service/task-supervisor-runtime.ts` — the tick, the serialized operation chain, the boot sweep
+- `electron/host-service/local-mcp-runtime.ts` — `getTaskSupervisionSnapshot` (the observation) and `runHeartbeatTurn` (the only executor)
+- `electron/host-service/protocol.ts` — `task-supervisor.invoke` (request **and** result maps)
+- `electron/host-service.ts` — construction, `start`/`stop`, the dispatch arm
+- `electron/main/task-supervisor-service.ts` — the main-process bridge
+- `electron/main/stave-mcp-server.ts` — the `stave_*_task_heartbeat` tools
+
+A change to the defer / pause / stop priority order is a change to the
+`task-supervisor-safety` gate, and a change to what a heartbeat definition may
+contain is a change to the `agent-platform-boundaries` gate. Both are asserted
+by name in their tests.
+
+See `docs/features/task-heartbeats.md` for the full architecture reference.
+
 ## Project / Workspace Integrity Contract
 
 When changing project selection, workspace hydration, worktree import, notification deep-linking, or task ownership:
