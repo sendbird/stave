@@ -1,3 +1,5 @@
+<!-- doc-path-check: external-repository -->
+
 # Hirondelle Stave Sync (Atelier) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -10,8 +12,8 @@
 
 ## Global Constraints
 
-- Repo: `/Users/heath.sinn/Workspace/Atelier`, branch `feat/heath/hirondelle-stave-sync` (branch format `<type>/<person>/<work-summary>` per AGENTS.md).
-- Toolchain: Bun; run all commands from the repo root (`cd /Users/heath.sinn/Workspace/Atelier` first, since agent cwd resets).
+- Repo: `<atelier-repo>`, branch `feat/heath/hirondelle-stave-sync` (branch format `<type>/<person>/<work-summary>` per AGENTS.md).
+- Toolchain: Bun; run all commands from the repo root (`cd <atelier-repo>` first, since agent cwd resets).
 - Feature flag: `HIRONDELLE_STAVE_SYNC_ENABLED` — absent/off ⇒ every `/api/hirondelle/stave/*` route returns 404 (same `envValue` on/true/1 pattern as `CRANE_STAVE_DISPATCH_ENABLED`).
 - Contract version: `stave-sync-v1`; fixtures live in `apps/hirondelle/tests/fixtures/stave-sync-v1/*.json`.
 - Body limits (crane `readBoundedJson` pattern): events POST 100_000 bytes, links/merge POST 160_000 bytes; GET routes take no body.
@@ -99,7 +101,7 @@ describe("migration 0025: stave connector scopes", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/crane/tests/stave-connector-scopes.test.ts
+cd <atelier-repo> && bun test apps/crane/tests/stave-connector-scopes.test.ts
 ```
 
 Expected failure: `SQLiteError: no such column: scopes` on the `select scopes` query (and second insert fails with `table crane_stave_connectors has no column named scopes`).
@@ -123,13 +125,13 @@ alter table crane_stave_connectors
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/crane/tests/stave-connector-scopes.test.ts
+cd <atelier-repo> && bun test apps/crane/tests/stave-connector-scopes.test.ts
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && git add migrations/d1/0025_stave_connector_scopes.sql apps/crane/tests/stave-connector-scopes.test.ts && git commit -m "feat(crane): add scopes column to stave connectors
+cd <atelier-repo> && git add migrations/d1/0025_stave_connector_scopes.sql apps/crane/tests/stave-connector-scopes.test.ts && git commit -m "feat(crane): add scopes column to stave connectors
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -268,7 +270,7 @@ describe("migration 0026: hirondelle stave sync schema", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-migration.test.ts
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-migration.test.ts
 ```
 
 Expected failures: `CHECK constraint failed` on `source = 'stave'` insert (first test), `table hirondelle_links has no column named origin` / missing `origin` in `linkRow` (second test), and the preservation test fails because no file `>= "0026"` exists so the `stave` source is still rejected — plus `origin` assertions fail.
@@ -391,7 +393,7 @@ and the `links` spec `build` (lines 99–121), so a full-replace section edit ro
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-migration.test.ts && bun run --filter @sendbird/hirondelle test
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-migration.test.ts && bun run --filter @sendbird/hirondelle test
 ```
 
 (The second command proves existing section/route tests still pass with the rebuilt table and the extra `origin` field.)
@@ -399,7 +401,7 @@ cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-s
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && git add migrations/d1/0026_hirondelle_stave_sync.sql apps/hirondelle/src/server/sections-data.mjs apps/hirondelle/tests/stave-sync-migration.test.ts && git commit -m "feat(hirondelle): allow stave change events and link origins
+cd <atelier-repo> && git add migrations/d1/0026_hirondelle_stave_sync.sql apps/hirondelle/src/server/sections-data.mjs apps/hirondelle/tests/stave-sync-migration.test.ts && git commit -m "feat(hirondelle): allow stave change events and link origins
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -522,7 +524,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/crane/tests/stave-dispatch-auth.test.ts
+cd <atelier-repo> && bun test apps/crane/tests/stave-dispatch-auth.test.ts
 ```
 
 Expected failures: `requestedScopes` rejected by the `.strict()` exchange schema → `{ error: "invalid_request", status: 400 }` instead of a connector; `connector.scopes` is `undefined`; scope option ignored so the last test resolves successfully instead of 403.
@@ -692,7 +694,7 @@ export { resolveStaveConnectorCaller } from "../../../../src/stave-connector/aut
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun run --filter @sendbird/crane check
+cd <atelier-repo> && bun run --filter @sendbird/crane check
 ```
 
 All existing crane dispatch tests (auth, routes, data, contract) must stay green — the defaults reproduce the old behavior.
@@ -700,7 +702,7 @@ All existing crane dispatch tests (auth, routes, data, contract) must stay green
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && git add src/stave-connector/auth.mjs apps/crane/src/server/stave-dispatch-auth.mjs apps/crane/tests/stave-dispatch-auth.test.ts && git commit -m "feat(platform): extract shared stave connector auth with scopes
+cd <atelier-repo> && git add src/stave-connector/auth.mjs apps/crane/src/server/stave-dispatch-auth.mjs apps/crane/tests/stave-dispatch-auth.test.ts && git commit -m "feat(platform): extract shared stave connector auth with scopes
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -791,7 +793,7 @@ describe("Hirondelle Stave sync V1 contract", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-contract.test.ts
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-contract.test.ts
 ```
 
 Expected failure: `Cannot find module '../src/server/stave-sync-contract.mjs'`.
@@ -1045,13 +1047,13 @@ Fixtures — `valid-events.json`:
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun install && bun test apps/hirondelle/tests/stave-sync-contract.test.ts
+cd <atelier-repo> && bun install && bun test apps/hirondelle/tests/stave-sync-contract.test.ts
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && git add apps/hirondelle/src/server/stave-sync-contract.mjs apps/hirondelle/tests/fixtures/stave-sync-v1 apps/hirondelle/tests/stave-sync-contract.test.ts apps/hirondelle/package.json bun.lock && git commit -m "feat(hirondelle): add stave-sync-v1 contract and fixtures
+cd <atelier-repo> && git add apps/hirondelle/src/server/stave-sync-contract.mjs apps/hirondelle/tests/fixtures/stave-sync-v1 apps/hirondelle/tests/stave-sync-contract.test.ts apps/hirondelle/package.json bun.lock && git commit -m "feat(hirondelle): add stave-sync-v1 contract and fixtures
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -1246,7 +1248,7 @@ describe("Hirondelle Stave sync routes", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-routes.test.ts
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-routes.test.ts
 ```
 
 Expected failure: every request 404s (routes not registered) — the flag-off test passes by accident but all others fail on status assertions.
@@ -1391,13 +1393,13 @@ and as the first statement of `registerHirondelleRoutes` (line 41):
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-routes.test.ts && bun test apps/hirondelle/tests/routes.test.ts
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-routes.test.ts && bun test apps/hirondelle/tests/routes.test.ts
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && git add apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/src/server/routes.mjs apps/hirondelle/tests/stave-sync-test-db.ts apps/hirondelle/tests/stave-sync-routes.test.ts && git commit -m "feat(hirondelle): add stave sync read routes behind flag
+cd <atelier-repo> && git add apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/src/server/routes.mjs apps/hirondelle/tests/stave-sync-test-db.ts apps/hirondelle/tests/stave-sync-routes.test.ts && git commit -m "feat(hirondelle): add stave sync read routes behind flag
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -1558,7 +1560,7 @@ describe("Hirondelle Stave events push", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-events.test.ts
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-events.test.ts
 ```
 
 Expected failure: `404` on every POST (route not registered).
@@ -1668,13 +1670,13 @@ In `events-data.mjs`, extend `CHANGE_EVENT_SOURCES` (lines 8–15) with `"stave"
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-events.test.ts && bun run --filter @sendbird/hirondelle test
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-events.test.ts && bun run --filter @sendbird/hirondelle test
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && git add apps/hirondelle/src/server/stave-sync-data.mjs apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/src/server/events-data.mjs apps/hirondelle/src/server/route-errors.mjs apps/hirondelle/tests/stave-sync-events.test.ts && git commit -m "feat(hirondelle): accept idempotent stave change event batches
+cd <atelier-repo> && git add apps/hirondelle/src/server/stave-sync-data.mjs apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/src/server/events-data.mjs apps/hirondelle/src/server/route-errors.mjs apps/hirondelle/tests/stave-sync-events.test.ts && git commit -m "feat(hirondelle): accept idempotent stave change event batches
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -1826,7 +1828,7 @@ describe("Hirondelle Stave links merge", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-links.test.ts
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-links.test.ts
 ```
 
 Expected failure: `mergeStaveLinks` is not exported from `stave-sync-data.mjs` (SyntaxError/undefined), and the route requests 404.
@@ -1963,13 +1965,13 @@ Add the route to `stave-sync-routes.mjs`:
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun test apps/hirondelle/tests/stave-sync-links.test.ts && bun run --filter @sendbird/hirondelle test
+cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-links.test.ts && bun run --filter @sendbird/hirondelle test
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && git add apps/hirondelle/src/server/stave-sync-data.mjs apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/tests/stave-sync-links.test.ts && git commit -m "feat(hirondelle): merge stave resource links server-side
+cd <atelier-repo> && git add apps/hirondelle/src/server/stave-sync-data.mjs apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/tests/stave-sync-links.test.ts && git commit -m "feat(hirondelle): merge stave resource links server-side
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -2026,7 +2028,7 @@ In the "Change events and delivery" section, note the new source: `stave` events
 - [ ] **Step 2: Run the full verification gates**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && bun run --filter @sendbird/hirondelle check && bun run --filter @sendbird/crane check && bun run check:structure && bun run check:server
+cd <atelier-repo> && bun run --filter @sendbird/hirondelle check && bun run --filter @sendbird/crane check && bun run check:structure && bun run check:server
 ```
 
 Expected: all green. `check:structure` confirms every new file (`stave-sync-routes.mjs`, `stave-sync-data.mjs`, `stave-sync-contract.mjs`, `src/stave-connector/auth.mjs`, migrations, tests) is under the 500-line cap and no dependency cycle was added; `check:server` re-parses the worker with the new registrations.
@@ -2038,7 +2040,7 @@ Expected: all green. `check:structure` confirms every new file (`stave-sync-rout
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/heath.sinn/Workspace/Atelier && git add docs/apps/hirondelle.md docs/apps/crane-stave-connector.md .env.example && git commit -m "docs(hirondelle): document stave sync surface and connector scopes
+cd <atelier-repo> && git add docs/apps/hirondelle.md docs/apps/crane-stave-connector.md .env.example && git commit -m "docs(hirondelle): document stave sync surface and connector scopes
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -2057,8 +2059,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ### Critical Files for Implementation
 
-- /Users/heath.sinn/Workspace/Atelier/apps/crane/src/server/stave-dispatch-auth.mjs
-- /Users/heath.sinn/Workspace/Atelier/apps/hirondelle/src/server/routes.mjs
-- /Users/heath.sinn/Workspace/Atelier/apps/hirondelle/src/server/sections-data.mjs
-- /Users/heath.sinn/Workspace/Atelier/apps/hirondelle/tests/test-db.ts
-- /Users/heath.sinn/Workspace/Atelier/migrations/d1/0022_hirondelle.sql
+- <atelier-repo>/apps/crane/src/server/stave-dispatch-auth.mjs
+- <atelier-repo>/apps/hirondelle/src/server/routes.mjs
+- <atelier-repo>/apps/hirondelle/src/server/sections-data.mjs
+- <atelier-repo>/apps/hirondelle/tests/test-db.ts
+- <atelier-repo>/migrations/d1/0022_hirondelle.sql

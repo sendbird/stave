@@ -43,6 +43,19 @@ afterEach(async () => {
 });
 
 describe("check-doc-paths", () => {
+  test("allows explicitly marked cross-repository design artifacts", async () => {
+    const root = await createFixture({
+      "docs/external-plan.md": [
+        "<!-- doc-path-check: external-repository -->",
+        "The sibling repository owns `src/external-runtime.ts`.",
+      ].join("\n"),
+    });
+
+    const result = runChecker(root);
+
+    expect(result.status).toBe(0);
+  });
+
   test("checks bare repository paths inside fenced diagrams", async () => {
     const root = await createFixture({
       "docs/architecture.md": ["```text", "src/missing-runtime.ts", "```"].join(

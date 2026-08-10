@@ -1,3 +1,5 @@
+<!-- doc-path-check: external-repository -->
+
 # Hirondelle ↔ Stave Workspace Sync — 설계 문서
 
 - 날짜: 2026-08-09
