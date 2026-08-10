@@ -1,11 +1,10 @@
 import type {
-  FleetNeedItem,
-  FleetNeedKind,
-  FleetNeedTier,
+  FleetAttentionItem,
+  FleetAttentionKind,
+  FleetAttentionTier,
 } from "@/lib/fleet/attention-projection";
-import { getFleetNeedTier } from "@/lib/fleet/attention-projection";
+import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
-import { hasFleetTaskAttentionStatus } from "@/lib/fleet/task-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
@@ -44,8 +43,8 @@ const UNTITLED_TASK_FALLBACK = "Untitled task";
 const WORKSPACE_ROW_ACTION_REVEAL_CLASSES =
   "group-hover/workspace-row:pointer-events-auto group-hover/workspace-row:opacity-100 group-has-[:focus-visible]/workspace-row:pointer-events-auto group-has-[:focus-visible]/workspace-row:opacity-100";
 
-export function getWorkspaceLeadingNeedKind(needKind?: FleetNeedKind) {
-  return needKind === "result-ready" ? undefined : needKind;
+export function getWorkspaceLeadingAttentionKind(attentionKind?: FleetAttentionKind) {
+  return attentionKind === "result-ready" ? undefined : attentionKind;
 }
 
 /**
@@ -53,7 +52,7 @@ export function getWorkspaceLeadingNeedKind(needKind?: FleetNeedKind) {
  * rows, so a pending question inside one of them would otherwise be invisible
  * until the user expands the project and finds the stalled agent by hand.
  *
- * Blocking needs always win. Review-tier needs (a finished result, a PR that is
+ * Blocking items always win. Review-tier items (a finished result, a PR that is
  * merely ready) are work you have not confirmed yet rather than work that is
  * stalled, so they surface only when nothing is blocking, and they render as a
  * muted dot rather than a warning glyph. Letting them light the full icon would
@@ -61,14 +60,14 @@ export function getWorkspaceLeadingNeedKind(needKind?: FleetNeedKind) {
  * on you".
  */
 export interface ProjectSidebarAttentionAlert {
-  kind: FleetNeedKind;
-  tier: FleetNeedTier;
-  needCount: number;
+  kind: FleetAttentionKind;
+  tier: FleetAttentionTier;
+  attentionItemCount: number;
   workspaceCount: number;
   label: string;
 }
 
-const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetNeedKind, string> = {
+const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
   "user-input": "answer needed",
   approval: "approval needed",
   "run-failed": "run failed",
@@ -81,8 +80,8 @@ const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetNeedKind, string> = {
 };
 
 function formatProjectAttentionAlertLabel(args: {
-  kind: FleetNeedKind;
-  needCount: number;
+  kind: FleetAttentionKind;
+  attentionItemCount: number;
   workspaceCount: number;
 }) {
   const reason = PROJECT_ATTENTION_ALERT_LABEL[args.kind];
@@ -90,18 +89,18 @@ function formatProjectAttentionAlertLabel(args: {
     args.workspaceCount > 1
       ? ` across ${formatCountLabel(args.workspaceCount, "workspace")}`
       : "";
-  // Review-tier needs are finished work nobody has confirmed yet, so claiming
+  // Review-tier items are finished work nobody has confirmed yet, so claiming
   // they "need attention" would overstate them next to a genuinely blocked agent.
-  if (getFleetNeedTier(args.kind) === "review") {
-    if (args.needCount <= 1) {
+  if (getFleetAttentionTier(args.kind) === "review") {
+    if (args.attentionItemCount <= 1) {
       return `1 item to review${scope}: ${reason}`;
     }
-    return `${formatCountLabel(args.needCount, "item")} to review${scope}, latest: ${reason}`;
+    return `${formatCountLabel(args.attentionItemCount, "item")} to review${scope}, latest: ${reason}`;
   }
-  if (args.needCount <= 1) {
+  if (args.attentionItemCount <= 1) {
     return `1 item needs attention${scope}: ${reason}`;
   }
-  return `${formatCountLabel(args.needCount, "item")} need attention${scope}, most urgent: ${reason}`;
+  return `${formatCountLabel(args.attentionItemCount, "item")} need attention${scope}, most urgent: ${reason}`;
 }
 
 function formatCountLabel(count: number, singular: string) {
@@ -109,65 +108,65 @@ function formatCountLabel(count: number, singular: string) {
 }
 
 interface ProjectAttentionTierAccumulator {
-  topNeed?: FleetNeedItem;
-  needCount: number;
+  topAttentionItem?: FleetAttentionItem;
+  attentionItemCount: number;
   workspaceIds: Set<string>;
 }
 
 function createTierAccumulator(): ProjectAttentionTierAccumulator {
-  return { needCount: 0, workspaceIds: new Set<string>() };
+  return { attentionItemCount: 0, workspaceIds: new Set<string>() };
 }
 
 /**
  * Rolls a project's workspaces up into a single alert so the collapsed project
  * row can show one indicator instead of a pile of badges.
  *
- * Blocking and review needs are accumulated separately and blocking is returned
+ * Blocking and review items are accumulated separately and blocking is returned
  * whenever it exists, so an unconfirmed result never masks or inflates the
  * count of an agent that is actually waiting on the user.
  */
 export function buildProjectSidebarAttentionAlert(args: {
   workspaces: readonly Pick<ProjectSidebarWorkspaceView, "id">[];
-  needsByWorkspaceId: Record<string, FleetNeedItem[] | undefined>;
+  attentionItemsByWorkspaceId: Record<string, FleetAttentionItem[] | undefined>;
 }): ProjectSidebarAttentionAlert | null {
   const blocking = createTierAccumulator();
   const review = createTierAccumulator();
 
   for (const workspace of args.workspaces) {
-    for (const need of args.needsByWorkspaceId[workspace.id] ?? []) {
+    for (const attentionItem of args.attentionItemsByWorkspaceId[workspace.id] ?? []) {
       const target =
-        getFleetNeedTier(need.kind) === "blocking" ? blocking : review;
-      target.needCount += 1;
+        getFleetAttentionTier(attentionItem.kind) === "blocking" ? blocking : review;
+      target.attentionItemCount += 1;
       target.workspaceIds.add(workspace.id);
-      // Lower priority number wins; ties fall back to the older need so the
+      // Lower priority number wins; ties fall back to the older item so the
       // label stays stable while a project keeps accruing requests.
-      const { topNeed } = target;
+      const { topAttentionItem } = target;
       if (
-        !topNeed ||
-        need.priority < topNeed.priority ||
-        (need.priority === topNeed.priority &&
-          need.createdAt.localeCompare(topNeed.createdAt) < 0)
+        !topAttentionItem ||
+        attentionItem.priority < topAttentionItem.priority ||
+        (attentionItem.priority === topAttentionItem.priority &&
+          attentionItem.createdAt.localeCompare(topAttentionItem.createdAt) < 0)
       ) {
-        target.topNeed = need;
+        target.topAttentionItem = attentionItem;
       }
     }
   }
 
-  const selected = blocking.topNeed ? blocking : review;
-  const topNeed = selected.topNeed;
-  if (!topNeed) {
+  const selected = blocking.topAttentionItem ? blocking : review;
+  const topAttentionItem = selected.topAttentionItem;
+  if (!topAttentionItem) {
     return null;
   }
 
   const workspaceCount = selected.workspaceIds.size;
   return {
-    kind: topNeed.kind,
-    tier: getFleetNeedTier(topNeed.kind),
-    needCount: selected.needCount,
+    kind: topAttentionItem.kind,
+    tier: getFleetAttentionTier(topAttentionItem.kind),
+    attentionItemCount: selected.attentionItemCount,
     workspaceCount,
     label: formatProjectAttentionAlertLabel({
-      kind: topNeed.kind,
-      needCount: selected.needCount,
+      kind: topAttentionItem.kind,
+      attentionItemCount: selected.attentionItemCount,
       workspaceCount,
     }),
   };
@@ -348,7 +347,7 @@ export function buildCollapsedWorkspaceEntries(args: {
   }, []);
 }
 
-export interface SidebarActiveWorkspaceEntry {
+export interface SidebarWorkQueueEntry {
   projectPath: string;
   projectName: string;
   workspaceId: string;
@@ -359,7 +358,7 @@ export interface SidebarActiveWorkspaceEntry {
   status: FleetTaskStatus;
 }
 
-const SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK: Record<FleetTaskStatus, number> = {
+const SIDEBAR_WORK_QUEUE_STATUS_RANK: Record<FleetTaskStatus, number> = {
   "waiting-input": 0,
   "waiting-approval": 0,
   error: 1,
@@ -368,111 +367,27 @@ const SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK: Record<FleetTaskStatus, number> = {
 };
 
 /**
- * Whether a user-issued "remove from Active Workspaces" stamp still applies.
+ * Ranks every workspace for the sidebar Work queue view.
  *
- * A dismissal is not a tombstone: it expires the moment the user deliberately
- * activates the workspace again (`lastActiveAt` moves past `dismissedAt`), so
- * re-opening a hidden workspace restores it without any extra ceremony, and
- * the activation paths themselves never need to know dismissals exist.
- */
-export function isSidebarActiveWorkspaceDismissalInEffect(args: {
-  dismissedAt?: string;
-  lastActiveAt?: string;
-}) {
-  if (!args.dismissedAt) {
-    return false;
-  }
-  if (!args.lastActiveAt) {
-    return true;
-  }
-  return args.lastActiveAt.localeCompare(args.dismissedAt) <= 0;
-}
-
-/**
- * Stamp a workspace as removed from the sidebar Active Workspaces list.
- * Returns the same reference when nothing changes so Zustand subscribers do
- * not re-render.
- */
-export function stampSidebarActiveWorkspaceDismissal(args: {
-  current: Record<string, string>;
-  workspaceId?: string | null;
-  at?: string;
-}): Record<string, string> {
-  const workspaceId = args.workspaceId?.trim();
-  if (!workspaceId) {
-    return args.current;
-  }
-  const at = args.at ?? new Date().toISOString();
-  if (args.current[workspaceId] === at) {
-    return args.current;
-  }
-  return { ...args.current, [workspaceId]: at };
-}
-
-/**
- * Persisted dismissals arrive from storage untyped; keep only plausible
- * `workspaceId -> ISO timestamp` entries so a corrupted cache cannot poison
- * the Active Workspaces filter.
- */
-export function normalizeSidebarActiveWorkspaceDismissals(
-  raw: unknown,
-): Record<string, string> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return {};
-  }
-  const normalized: Record<string, string> = {};
-  for (const [workspaceId, at] of Object.entries(
-    raw as Record<string, unknown>,
-  )) {
-    if (
-      !workspaceId.trim() ||
-      typeof at !== "string" ||
-      !Number.isFinite(Date.parse(at))
-    ) {
-      continue;
-    }
-    normalized[workspaceId] = at;
-  }
-  return normalized;
-}
-
-/** How many dismissal stamps still actively hide a workspace. */
-export function countSidebarActiveWorkspaceDismissals(args: {
-  dismissedAtByWorkspaceId: Record<string, string>;
-  lastActiveAtByWorkspaceId: Record<string, string>;
-}) {
-  return Object.entries(args.dismissedAtByWorkspaceId).filter(
-    ([workspaceId, dismissedAt]) =>
-      isSidebarActiveWorkspaceDismissalInEffect({
-        dismissedAt,
-        lastActiveAt: args.lastActiveAtByWorkspaceId[workspaceId],
-      }),
-  ).length;
-}
-
-/**
- * Ranks and caps a sidebar "Active workspaces" list: attention (waiting on
- * the user) and error/running workspaces surface first, the remainder is
- * filled out with the most recently opened workspace per project.
+ * used by: `src/components/layout/ProjectWorkspaceSidebar.tsx` (Work queue
+ * view), `tests/project-workspace-sidebar.test.ts`.
  *
- * A user-dismissed workspace stays out of the list until the user opens it
- * again — but never while they are standing in it, and never while an agent
- * is waiting on them: hiding a stalled agent would bury the very signal this
- * list exists to surface.
+ * Every workspace is returned, uncapped. The Work queue is one of the two
+ * sidebar views rather than a strip above the tree, so it has to be able to
+ * reach anything the tree can reach — a filtered or capped queue would strand
+ * the user in a view they cannot navigate out of. Lane grouping
+ * (`buildSidebarWorkQueueLanes`) names *why* a row sits where it does; this
+ * function only decides the order inside a lane.
  */
-export function buildSidebarActiveWorkspaceEntries(args: {
+export function buildSidebarWorkQueueEntries(args: {
   projects: ProjectSidebarCollapsedProjectView[];
   recentProjectLastOpenedAtByPath: Record<string, string>;
   statusByWorkspaceId: Record<string, FleetTaskStatus>;
   attentionPriorityByWorkspaceId?: Record<string, number | undefined>;
-  dismissedAtByWorkspaceId?: Record<string, string | undefined>;
-  lastActiveAtByWorkspaceId?: Record<string, string | undefined>;
   activeWorkspaceId: string;
-  limit?: number;
-}): SidebarActiveWorkspaceEntry[] {
-  const limit = args.limit ?? 5;
+}): SidebarWorkQueueEntry[] {
   const seen = new Set<string>();
-  const entries: (SidebarActiveWorkspaceEntry & {
+  const entries: (SidebarWorkQueueEntry & {
     attentionPriority?: number;
     lastOpenedAt: string;
   })[] = [];
@@ -482,39 +397,6 @@ export function buildSidebarActiveWorkspaceEntries(args: {
       if (seen.has(workspace.id)) {
         continue;
       }
-      const isActive =
-        project.isCurrent && workspace.id === args.activeWorkspaceId;
-      const isRepresentativeWorkspace =
-        workspace.id === project.activeWorkspaceId;
-      const status = args.statusByWorkspaceId[workspace.id] ?? "idle";
-      const attentionPriority =
-        args.attentionPriorityByWorkspaceId?.[workspace.id];
-      const isNoteworthy =
-        attentionPriority !== undefined ||
-        hasFleetTaskAttentionStatus(status) ||
-        status === "error" ||
-        status === "running";
-
-      if (!isActive && !isRepresentativeWorkspace && !isNoteworthy) {
-        continue;
-      }
-
-      // Needs-user reasons (a visible attention need, a waiting status) are
-      // exempt from dismissal; representative, error, and running reasons are
-      // the "unimportant to me" clutter a dismissal is allowed to remove.
-      const needsUser =
-        attentionPriority !== undefined || hasFleetTaskAttentionStatus(status);
-      if (
-        !isActive &&
-        !needsUser &&
-        isSidebarActiveWorkspaceDismissalInEffect({
-          dismissedAt: args.dismissedAtByWorkspaceId?.[workspace.id],
-          lastActiveAt: args.lastActiveAtByWorkspaceId?.[workspace.id],
-        })
-      ) {
-        continue;
-      }
-
       seen.add(workspace.id);
       entries.push({
         projectPath: project.projectPath,
@@ -523,9 +405,9 @@ export function buildSidebarActiveWorkspaceEntries(args: {
         workspaceName: workspace.name,
         branch: workspace.branch,
         isDefault: workspace.isDefault,
-        isActive,
-        status,
-        attentionPriority,
+        isActive: project.isCurrent && workspace.id === args.activeWorkspaceId,
+        status: args.statusByWorkspaceId[workspace.id] ?? "idle",
+        attentionPriority: args.attentionPriorityByWorkspaceId?.[workspace.id],
         lastOpenedAt:
           args.recentProjectLastOpenedAtByPath[project.projectPath] ?? "",
       });
@@ -536,30 +418,30 @@ export function buildSidebarActiveWorkspaceEntries(args: {
     if (left.isActive !== right.isActive) {
       return left.isActive ? -1 : 1;
     }
-    const attentionDelta =
-      (left.attentionPriority ?? Number.POSITIVE_INFINITY) -
-      (right.attentionPriority ?? Number.POSITIVE_INFINITY);
-    if (attentionDelta !== 0) {
-      return attentionDelta;
+    // Compared, not subtracted: two workspaces with no attention item are both
+    // `Infinity`, and `Infinity - Infinity` is NaN — a NaN comparator result
+    // silently voids every tiebreak below it.
+    const leftAttention = left.attentionPriority ?? Number.POSITIVE_INFINITY;
+    const rightAttention = right.attentionPriority ?? Number.POSITIVE_INFINITY;
+    if (leftAttention !== rightAttention) {
+      return leftAttention < rightAttention ? -1 : 1;
     }
     const statusDelta =
-      SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK[left.status] -
-      SIDEBAR_ACTIVE_WORKSPACE_STATUS_RANK[right.status];
+      SIDEBAR_WORK_QUEUE_STATUS_RANK[left.status] -
+      SIDEBAR_WORK_QUEUE_STATUS_RANK[right.status];
     if (statusDelta !== 0) {
       return statusDelta;
     }
     return right.lastOpenedAt.localeCompare(left.lastOpenedAt);
   });
 
-  return entries
-    .slice(0, limit)
-    .map(
-      ({
-        attentionPriority: _attentionPriority,
-        lastOpenedAt: _lastOpenedAt,
-        ...entry
-      }) => entry,
-    );
+  return entries.map(
+    ({
+      attentionPriority: _attentionPriority,
+      lastOpenedAt: _lastOpenedAt,
+      ...entry
+    }) => entry,
+  );
 }
 
 export function buildVisibleWorkspaceShortcutTargets(args: {

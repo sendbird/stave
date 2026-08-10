@@ -231,11 +231,8 @@ export type { RecentProjectState } from "@/store/project.utils";
 // This module stays the public entry point for the app store, so settings and
 // archive-cleanup names that moved into sibling modules are re-exported here.
 export type { AppSettings } from "@/store/app-settings";
-export {
-  DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
-  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
-  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
-} from "@/store/app-settings";
+export { SIDEBAR_NAV_VIEWS } from "@/store/app-settings";
+export type { SidebarNavView } from "@/store/app-settings";
 export { waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
 
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
@@ -1516,7 +1513,6 @@ export const useAppStore = create<AppState>()(
       workspacePathById: {},
       workspaceDefaultById: {},
       workspaceLastActiveAtById: {},
-      sidebarActiveWorkspaceDismissedAtById: {},
       workspacePrInfoById: {},
       rateLimitsSnapshot: null,
       rateLimitsLoading: false,

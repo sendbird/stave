@@ -31,14 +31,20 @@
       "id": "terminal-font-and-unicode",
       "title": "Terminal glyph and renderer addons are defensive",
       "invariant": "Unicode, link, search, and WebGL addons cannot prevent the DOM renderer from booting.",
-      "testFiles": ["tests/terminal-instance.test.ts"],
-      "assertionRefs": ["src/components/layout/useTerminalInstance.ts"]
+      "testFiles": [
+        "tests/terminal-instance.test.ts"
+      ],
+      "assertionRefs": [
+        "src/components/layout/useTerminalInstance.ts"
+      ]
     },
     {
       "id": "lens-component-capture",
       "title": "Lens keeps component context with element picks",
       "invariant": "A Lens element selection may include a parent-to-leaf React component chain without requiring it for non-React pages.",
-      "testFiles": ["tests/lens-element-message.test.ts"],
+      "testFiles": [
+        "tests/lens-element-message.test.ts"
+      ],
       "assertionRefs": [
         "electron/main/browser/browser-element-picker.ts",
         "src/lib/lens/lens-element-message.ts"
@@ -48,7 +54,9 @@
       "id": "review-feedback-to-agent",
       "title": "Diff comments can return to the active agent",
       "invariant": "A review comment retains its diff line anchor and can be submitted as the next agent prompt.",
-      "testFiles": ["tests/review-feedback.test.ts"],
+      "testFiles": [
+        "tests/review-feedback.test.ts"
+      ],
       "assertionRefs": [
         "src/lib/review-feedback.ts",
         "src/components/panes/surfaces/EditorSurfacePanel.tsx"
@@ -58,7 +66,9 @@
       "id": "codex-checkpoint-provenance",
       "title": "Codex turns expose checkpoint provenance",
       "invariant": "A normal Codex turn emits a checkpoint boundary with the current Git ref when available.",
-      "testFiles": ["tests/codex-app-server-runtime.test.ts"],
+      "testFiles": [
+        "tests/codex-app-server-runtime.test.ts"
+      ],
       "assertionRefs": [
         "electron/providers/codex-app-server-runtime.ts",
         "docs/providers/provider-runtimes.md"
@@ -99,7 +109,9 @@
       "id": "provider-utility-inference",
       "title": "Utility inference remains provider neutral",
       "invariant": "Task naming, route classification, and commit suggestions choose an explicit or active provider deterministically and degrade without blocking the primary task.",
-      "testFiles": ["tests/utility-inference.test.ts"],
+      "testFiles": [
+        "tests/utility-inference.test.ts"
+      ],
       "assertionRefs": [
         "electron/providers/utility-inference.ts",
         "src/lib/providers/utility-inference.ts",
@@ -134,6 +146,21 @@
         "src/lib/fleet/task-execution-summary.ts",
         "src/components/layout/TaskExecutionSummarySurface.tsx",
         "src/store/app-notification-builders.ts"
+      ]
+    },
+    {
+      "id": "agent-platform-boundaries",
+      "title": "Agent platform layers stay distinct",
+      "invariant": "A routine cannot target an existing task, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
+      "testFiles": [
+        "tests/agent-platform-boundaries.test.ts",
+        "tests/fleet-sidebar-work-queue.test.ts"
+      ],
+      "assertionRefs": [
+        "docs/architecture/agent-platform-taxonomy.md",
+        "src/lib/fleet/sidebar-work-queue.ts",
+        "src/lib/providers/utility-inference.ts",
+        "src/lib/routines.ts"
       ]
     }
   ]

@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createJSONStorage } from "zustand/middleware";
-import {
-  DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
-  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
-  SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
-  useAppStore,
-} from "@/store/app.store";
+import { useAppStore } from "@/store/app.store";
 import {
   DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
   normalizeLayoutState,
@@ -46,17 +41,14 @@ describe("layout settings", () => {
 });
 
 describe("sidebar settings", () => {
-  test("defaults sidebar navigation controls to the existing visible state", () => {
+  test("defaults the sidebar to the Projects view", () => {
     const settings = useAppStore.getInitialState().settings;
 
     expect(settings.sidebarShowFleetView).toBe(true);
-    expect(settings.sidebarShowActiveWorkspaces).toBe(true);
-    expect(settings.sidebarActiveWorkspaceLimit).toBe(
-      DEFAULT_SIDEBAR_ACTIVE_WORKSPACE_LIMIT,
-    );
+    expect(settings.sidebarNavView).toBe("projects");
   });
 
-  test("normalizes sidebar active workspace row limit updates", () => {
+  test("normalizes sidebar view updates and keeps the last choice", () => {
     (
       useAppStore as typeof useAppStore & {
         persist?: {
@@ -65,23 +57,17 @@ describe("sidebar settings", () => {
       }
     ).persist?.setOptions({ storage: noopStorage });
 
+    // The header toggle and the settings row write this same key, so switching
+    // views IS the preference change — the sidebar reopens where you left it.
     useAppStore.getState().updateSettings({
-      patch: {
-        sidebarActiveWorkspaceLimit: SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX + 10,
-      },
+      patch: { sidebarNavView: "work-queue" },
     });
-    expect(useAppStore.getState().settings.sidebarActiveWorkspaceLimit).toBe(
-      SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MAX,
-    );
+    expect(useAppStore.getState().settings.sidebarNavView).toBe("work-queue");
 
     useAppStore.getState().updateSettings({
-      patch: {
-        sidebarActiveWorkspaceLimit: SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN - 10,
-      },
+      patch: { sidebarNavView: "tree" as never },
     });
-    expect(useAppStore.getState().settings.sidebarActiveWorkspaceLimit).toBe(
-      SIDEBAR_ACTIVE_WORKSPACE_LIMIT_MIN,
-    );
+    expect(useAppStore.getState().settings.sidebarNavView).toBe("projects");
   });
 });
 

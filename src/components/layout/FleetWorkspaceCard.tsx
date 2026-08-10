@@ -23,8 +23,8 @@ import {
   type WorkspaceShellSummary,
 } from "@/lib/db/workspaces.db";
 import {
-  getFleetNeedTier,
-  type FleetNeedItem,
+  getFleetAttentionTier,
+  type FleetAttentionItem,
 } from "@/lib/fleet/attention-projection";
 import {
   classifyTaskStatus,
@@ -122,13 +122,13 @@ const FLEET_STATUS_VISUAL: Record<
   { label: string; icon: ReactNode; text: string; rail: string }
 > = {
   "waiting-input": {
-    label: "Needs input",
+    label: "Awaiting input",
     icon: <UserRound className="size-3" aria-hidden="true" />,
     text: "text-warning",
     rail: "before:bg-warning",
   },
   "waiting-approval": {
-    label: "Needs approval",
+    label: "Awaiting approval",
     icon: <ShieldCheck className="size-3" aria-hidden="true" />,
     text: "text-warning",
     rail: "before:bg-warning",
@@ -203,7 +203,7 @@ export function FleetWorkspaceCard(args: {
   filter: FleetBoardFilter;
   searchQuery: string;
   nowMs: number;
-  needs: FleetNeedItem[];
+  attentionItems: FleetAttentionItem[];
   expandedTaskKey: string | null;
   cardKey: string;
   onOpenTask: (target: {
@@ -375,8 +375,8 @@ export function FleetWorkspaceCard(args: {
     rows: rows.map((row) => ({ taskId: row.task.id, status: row.status })),
     activeTurnIdsByTask: taskState.activeTurnIdsByTask,
   });
-  const hasBlockingNeed = args.needs.some(
-    (need) => getFleetNeedTier(need.kind) === "blocking",
+  const hasBlockingAttention = args.attentionItems.some(
+    (attentionItem) => getFleetAttentionTier(attentionItem.kind) === "blocking",
   );
 
   const activityAt = useMemo(
@@ -387,7 +387,7 @@ export function FleetWorkspaceCard(args: {
     activityAt,
     nowMs: args.nowMs,
     hasLiveTask,
-    hasNeeds: args.needs.length > 0,
+    hasAttentionItems: args.attentionItems.length > 0,
     isActiveWorkspace,
   });
 
@@ -402,7 +402,7 @@ export function FleetWorkspaceCard(args: {
     isActiveWorkspace,
     openTaskCount: openTasks.length,
     messageCount,
-    hasNeeds: args.needs.length > 0,
+    hasAttentionItems: args.attentionItems.length > 0,
     lastActiveAt,
     // `loadedShell === null` is a resolved answer ("no stored workspace"), which
     // is exactly the fabricated-row case. `undefined` (still loading) and a
@@ -415,7 +415,7 @@ export function FleetWorkspaceCard(args: {
   const matchesFilter = matchesFleetBoardFilter({
     filter: args.filter,
     activity,
-    hasBlockingNeed,
+    hasBlockingAttention,
     query: args.searchQuery,
     searchableText: [
       displayName,
@@ -495,7 +495,7 @@ export function FleetWorkspaceCard(args: {
   const accent =
     activity === "live"
       ? "before:bg-primary"
-      : hasBlockingNeed
+      : hasBlockingAttention
         ? "before:bg-warning"
         : activity === "dormant"
           ? "before:bg-border"

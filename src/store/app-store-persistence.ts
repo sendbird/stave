@@ -1,4 +1,3 @@
-import { normalizeSidebarActiveWorkspaceDismissals } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
@@ -56,7 +55,7 @@ import {
   normalizeBorderBeamVariant,
   normalizePersistedLensSettings,
   normalizeReasoningExpansionMode,
-  normalizeSidebarActiveWorkspaceLimit,
+  normalizeSidebarNavView,
   type AppSettings,
 } from "@/store/app-settings";
 import { normalizeAppActiveSurface } from "@/store/app-surface";
@@ -111,8 +110,6 @@ export function createAppStorePersistenceOptions() {
       workspacePathById: state.workspacePathById,
       workspaceDefaultById: state.workspaceDefaultById,
       workspaceLastActiveAtById: state.workspaceLastActiveAtById,
-      sidebarActiveWorkspaceDismissedAtById:
-        state.sidebarActiveWorkspaceDismissedAtById,
       taskCheckpointById: state.taskCheckpointById,
       compareRunsById: state.compareRunsById,
       isDarkMode: state.isDarkMode,
@@ -178,12 +175,9 @@ export function createAppStorePersistenceOptions() {
         typeof raw.sidebarShowFleetView === "boolean"
           ? raw.sidebarShowFleetView
           : defaultSettings.sidebarShowFleetView;
-      state.settings.sidebarShowActiveWorkspaces =
-        typeof raw.sidebarShowActiveWorkspaces === "boolean"
-          ? raw.sidebarShowActiveWorkspaces
-          : defaultSettings.sidebarShowActiveWorkspaces;
-      state.settings.sidebarActiveWorkspaceLimit =
-        normalizeSidebarActiveWorkspaceLimit(raw.sidebarActiveWorkspaceLimit);
+      state.settings.sidebarNavView = normalizeSidebarNavView(
+        raw.sidebarNavView,
+      );
       if (
         typeof persistedSettings?.terminalFontFamily === "string" &&
         persistedSettings.terminalFontFamily.trim() ===
@@ -537,16 +531,6 @@ export function createAppStorePersistenceOptions() {
         ),
         knownWorkspaceIds,
       });
-      // Active Workspaces dismissals share the id-derived-from-path hazard, so
-      // they get the same pruning; the map is also normalized because it may
-      // predate this field or arrive corrupted from storage.
-      state.sidebarActiveWorkspaceDismissedAtById =
-        pruneWorkspaceActivityStamps({
-          current: normalizeSidebarActiveWorkspaceDismissals(
-            state.sidebarActiveWorkspaceDismissedAtById,
-          ),
-          knownWorkspaceIds,
-        });
       if (legacyProjectInitCommand) {
         state.recentProjects = state.recentProjects.map((project) => ({
           ...cloneRecentProjectState(project),

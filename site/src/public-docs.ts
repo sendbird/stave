@@ -132,11 +132,11 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Work through questions, approvals, failed runs, results, and pull request blockers across every workspace.",
       },
       {
-        routePath: "sidebar-active-workspaces",
-        sourcePath: "docs/features/sidebar-active-workspaces.md",
-        title: "Sidebar Active Workspaces",
+        routePath: "sidebar-views",
+        sourcePath: "docs/features/sidebar-views.md",
+        title: "Sidebar Views",
         description:
-          "Keep a ranked shortlist of the workspaces that matter now, and remove rows you consider unimportant.",
+          "Switch the left sidebar between the Projects tree and the Work queue, which groups every workspace by what it needs from you.",
       },
     ],
   },

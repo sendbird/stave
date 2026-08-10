@@ -5,6 +5,11 @@ read-only background provider execution. Its first and current consumer is
 Compare Judge. It is not a generic workflow engine or a prerequisite for
 Fleet, Advisor, or Crane.
 
+The read-only limit belongs to the executor, not to the ledger: the ledger is
+shared bookkeeping and is meant to gain further clients rather than be copied.
+See `docs/architecture/agent-platform-taxonomy.md` for where it sits among the
+other layers.
+
 ## Ownership
 
 - The renderer owns user intent, presentation, and consumer-specific result

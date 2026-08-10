@@ -1,34 +1,30 @@
 import { describe, expect, test } from "bun:test";
-import type { FleetNeedItem } from "../src/lib/fleet/attention-projection";
-import { FLEET_NEED_PRIORITY } from "../src/lib/fleet/attention-projection";
+import type { FleetAttentionItem } from "../src/lib/fleet/attention-projection";
+import { FLEET_ATTENTION_PRIORITY } from "../src/lib/fleet/attention-projection";
 import {
   buildCollapsedWorkspaceEntries,
   buildProjectSidebarAttentionAlert,
-  buildSidebarActiveWorkspaceEntries,
+  buildSidebarWorkQueueEntries,
   buildWorkspaceArchiveDialogCopy,
   buildWorkspaceHoverPreview,
   buildVisibleWorkspaceShortcutTargets,
-  countSidebarActiveWorkspaceDismissals,
   getWorkspaceHoverActionVisibilityClasses,
-  getWorkspaceLeadingNeedKind,
+  getWorkspaceLeadingAttentionKind,
   getWorkspaceShortcutLabel,
   getWorkspaceRespondingCountVisibilityClasses,
-  isSidebarActiveWorkspaceDismissalInEffect,
-  normalizeSidebarActiveWorkspaceDismissals,
-  stampSidebarActiveWorkspaceDismissal,
   WORKSPACE_SHORTCUT_COUNT,
 } from "../src/components/layout/ProjectWorkspaceSidebar.utils";
 
-describe("getWorkspaceLeadingNeedKind", () => {
+describe("getWorkspaceLeadingAttentionKind", () => {
   test("keeps completed results from replacing the workspace identity icon", () => {
-    expect(getWorkspaceLeadingNeedKind("result-ready")).toBeUndefined();
+    expect(getWorkspaceLeadingAttentionKind("result-ready")).toBeUndefined();
   });
 
   test("preserves actionable and failure attention states", () => {
-    expect(getWorkspaceLeadingNeedKind("user-input")).toBe("user-input");
-    expect(getWorkspaceLeadingNeedKind("approval")).toBe("approval");
-    expect(getWorkspaceLeadingNeedKind("run-failed")).toBe("run-failed");
-    expect(getWorkspaceLeadingNeedKind("pr-ready-to-merge")).toBe(
+    expect(getWorkspaceLeadingAttentionKind("user-input")).toBe("user-input");
+    expect(getWorkspaceLeadingAttentionKind("approval")).toBe("approval");
+    expect(getWorkspaceLeadingAttentionKind("run-failed")).toBe("run-failed");
+    expect(getWorkspaceLeadingAttentionKind("pr-ready-to-merge")).toBe(
       "pr-ready-to-merge",
     );
   });
@@ -409,7 +405,7 @@ describe("workspace shortcut targets", () => {
   });
 });
 
-describe("buildSidebarActiveWorkspaceEntries", () => {
+describe("buildSidebarWorkQueueEntries", () => {
   const baseProjects = [
     {
       projectPath: "/tmp/project-a",
@@ -434,7 +430,7 @@ describe("buildSidebarActiveWorkspaceEntries", () => {
   ];
 
   test("ranks the current workspace first, then attention/error/running, then recency", () => {
-    const entries = buildSidebarActiveWorkspaceEntries({
+    const entries = buildSidebarWorkQueueEntries({
       projects: baseProjects,
       recentProjectLastOpenedAtByPath: {
         "/tmp/project-a": "2026-07-01T00:00:00.000Z",
@@ -452,28 +448,33 @@ describe("buildSidebarActiveWorkspaceEntries", () => {
       "ws-active",
       "ws-attention",
       "ws-b-recent",
+      "ws-idle",
     ]);
     expect(entries[0]?.isActive).toBe(true);
     expect(entries[1]?.status).toBe("waiting-input");
   });
 
-  test("excludes idle, non-representative workspaces and caps the result", () => {
-    const entries = buildSidebarActiveWorkspaceEntries({
+  test("returns every workspace so the queue view can navigate anywhere", () => {
+    // The queue is a whole sidebar view, not a strip above the tree. If a quiet
+    // workspace were filtered out the user could not reach it without leaving
+    // the view, which is the one thing a navigation surface may not do.
+    const entries = buildSidebarWorkQueueEntries({
       projects: baseProjects,
       recentProjectLastOpenedAtByPath: {},
       statusByWorkspaceId: {},
       activeWorkspaceId: "ws-active",
-      limit: 2,
     });
 
-    // ws-idle is neither active, nor a project's representative workspace,
-    // nor noteworthy — it should never surface.
-    expect(entries.some((entry) => entry.workspaceId === "ws-idle")).toBe(false);
-    expect(entries.length).toBeLessThanOrEqual(2);
+    expect(entries.map((entry) => entry.workspaceId).sort()).toEqual([
+      "ws-active",
+      "ws-attention",
+      "ws-b-recent",
+      "ws-idle",
+    ]);
   });
 
-  test("surfaces cold workspaces with durable Fleet needs", () => {
-    const entries = buildSidebarActiveWorkspaceEntries({
+  test("orders cold workspaces with durable Fleet attention above quiet ones", () => {
+    const entries = buildSidebarWorkQueueEntries({
       projects: baseProjects,
       recentProjectLastOpenedAtByPath: {},
       statusByWorkspaceId: {},
@@ -492,178 +493,45 @@ describe("buildSidebarActiveWorkspaceEntries", () => {
     ]);
   });
 
-  test("a dismissal removes a representative workspace the user considers unimportant", () => {
-    const entries = buildSidebarActiveWorkspaceEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {},
-      statusByWorkspaceId: {},
-      dismissedAtByWorkspaceId: {
-        "ws-b-recent": "2026-08-01T00:00:00.000Z",
-      },
-      activeWorkspaceId: "ws-active",
-    });
-
-    expect(entries.some((entry) => entry.workspaceId === "ws-b-recent")).toBe(
-      false,
-    );
-  });
-
-  test("a dismissal also hides error and running workspaces", () => {
-    const entries = buildSidebarActiveWorkspaceEntries({
+  test("running and error workspaces outrank idle ones", () => {
+    const entries = buildSidebarWorkQueueEntries({
       projects: baseProjects,
       recentProjectLastOpenedAtByPath: {},
       statusByWorkspaceId: {
-        "ws-attention": "running",
         "ws-idle": "error",
-      },
-      dismissedAtByWorkspaceId: {
-        "ws-attention": "2026-08-01T00:00:00.000Z",
-        "ws-idle": "2026-08-01T00:00:00.000Z",
+        "ws-attention": "running",
       },
       activeWorkspaceId: "ws-active",
     });
 
     expect(entries.map((entry) => entry.workspaceId)).toEqual([
       "ws-active",
+      "ws-idle",
+      "ws-attention",
       "ws-b-recent",
     ]);
   });
 
-  test("a dismissal never hides a workspace that is waiting on the user", () => {
-    const waitingEntries = buildSidebarActiveWorkspaceEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {},
-      statusByWorkspaceId: { "ws-attention": "waiting-input" },
-      dismissedAtByWorkspaceId: {
-        "ws-attention": "2026-08-01T00:00:00.000Z",
-      },
-      activeWorkspaceId: "ws-active",
-    });
-    expect(
-      waitingEntries.some((entry) => entry.workspaceId === "ws-attention"),
-    ).toBe(true);
-
-    const needEntries = buildSidebarActiveWorkspaceEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {},
-      statusByWorkspaceId: {},
-      attentionPriorityByWorkspaceId: { "ws-idle": 1 },
-      dismissedAtByWorkspaceId: { "ws-idle": "2026-08-01T00:00:00.000Z" },
-      activeWorkspaceId: "ws-active",
-    });
-    expect(needEntries.some((entry) => entry.workspaceId === "ws-idle")).toBe(
-      true,
-    );
-  });
-
-  test("a dismissal never hides the workspace the user is standing in", () => {
-    const entries = buildSidebarActiveWorkspaceEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {},
-      statusByWorkspaceId: {},
-      dismissedAtByWorkspaceId: {
-        "ws-active": "2026-08-01T00:00:00.000Z",
-      },
-      activeWorkspaceId: "ws-active",
-    });
-
-    expect(entries.some((entry) => entry.workspaceId === "ws-active")).toBe(
-      true,
-    );
-  });
-
-  test("re-activating a workspace after dismissal restores it", () => {
-    const entries = buildSidebarActiveWorkspaceEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {},
-      statusByWorkspaceId: {},
-      dismissedAtByWorkspaceId: {
-        "ws-b-recent": "2026-08-01T00:00:00.000Z",
-      },
-      lastActiveAtByWorkspaceId: {
-        "ws-b-recent": "2026-08-02T00:00:00.000Z",
-      },
-      activeWorkspaceId: "ws-active",
-    });
-
-    expect(entries.some((entry) => entry.workspaceId === "ws-b-recent")).toBe(
-      true,
-    );
-  });
-});
-
-describe("sidebar active workspace dismissal helpers", () => {
-  test("a dismissal applies until the workspace is activated again", () => {
-    expect(isSidebarActiveWorkspaceDismissalInEffect({})).toBe(false);
-    expect(
-      isSidebarActiveWorkspaceDismissalInEffect({
-        dismissedAt: "2026-08-01T00:00:00.000Z",
-      }),
-    ).toBe(true);
-    expect(
-      isSidebarActiveWorkspaceDismissalInEffect({
-        dismissedAt: "2026-08-01T00:00:00.000Z",
-        lastActiveAt: "2026-07-31T00:00:00.000Z",
-      }),
-    ).toBe(true);
-    expect(
-      isSidebarActiveWorkspaceDismissalInEffect({
-        dismissedAt: "2026-08-01T00:00:00.000Z",
-        lastActiveAt: "2026-08-01T00:00:01.000Z",
-      }),
-    ).toBe(false);
-  });
-
-  test("stamping is a same-reference no-op for blank ids and identical stamps", () => {
-    const current = { "ws-1": "2026-08-01T00:00:00.000Z" };
-    expect(
-      stampSidebarActiveWorkspaceDismissal({ current, workspaceId: "  " }),
-    ).toBe(current);
-    expect(
-      stampSidebarActiveWorkspaceDismissal({
-        current,
-        workspaceId: "ws-1",
-        at: "2026-08-01T00:00:00.000Z",
-      }),
-    ).toBe(current);
-    expect(
-      stampSidebarActiveWorkspaceDismissal({
-        current,
-        workspaceId: "ws-2",
-        at: "2026-08-02T00:00:00.000Z",
-      }),
-    ).toEqual({
-      "ws-1": "2026-08-01T00:00:00.000Z",
-      "ws-2": "2026-08-02T00:00:00.000Z",
-    });
-  });
-
-  test("normalization drops corrupted persisted entries", () => {
-    expect(normalizeSidebarActiveWorkspaceDismissals(undefined)).toEqual({});
-    expect(normalizeSidebarActiveWorkspaceDismissals(null)).toEqual({});
-    expect(normalizeSidebarActiveWorkspaceDismissals([])).toEqual({});
-    expect(
-      normalizeSidebarActiveWorkspaceDismissals({
-        "ws-ok": "2026-08-01T00:00:00.000Z",
-        "ws-number": 42,
-        "ws-garbage": "not-a-date",
-        "  ": "2026-08-01T00:00:00.000Z",
-      }),
-    ).toEqual({ "ws-ok": "2026-08-01T00:00:00.000Z" });
-  });
-
-  test("counting ignores dismissals that already lapsed", () => {
-    expect(
-      countSidebarActiveWorkspaceDismissals({
-        dismissedAtByWorkspaceId: {
-          "ws-hidden": "2026-08-01T00:00:00.000Z",
-          "ws-reopened": "2026-08-01T00:00:00.000Z",
+  test("lists a workspace once even when two projects claim it", () => {
+    const entries = buildSidebarWorkQueueEntries({
+      projects: [
+        baseProjects[0]!,
+        {
+          ...baseProjects[1]!,
+          workspaces: [
+            ...baseProjects[1]!.workspaces,
+            { id: "ws-idle", name: "idle-ws", isDefault: false },
+          ],
         },
-        lastActiveAtByWorkspaceId: {
-          "ws-reopened": "2026-08-03T00:00:00.000Z",
-        },
-      }),
-    ).toBe(1);
+      ],
+      recentProjectLastOpenedAtByPath: {},
+      statusByWorkspaceId: {},
+      activeWorkspaceId: "ws-active",
+    });
+
+    expect(
+      entries.filter((entry) => entry.workspaceId === "ws-idle"),
+    ).toHaveLength(1);
   });
 });
 
@@ -694,11 +562,11 @@ describe("buildWorkspaceArchiveDialogCopy", () => {
 });
 
 describe("buildProjectSidebarAttentionAlert", () => {
-  function buildNeed(overrides: Partial<FleetNeedItem>): FleetNeedItem {
+  function buildAttentionItem(overrides: Partial<FleetAttentionItem>): FleetAttentionItem {
     return {
       id: overrides.id ?? "need-1",
       kind: overrides.kind ?? "user-input",
-      priority: overrides.priority ?? FLEET_NEED_PRIORITY[
+      priority: overrides.priority ?? FLEET_ATTENTION_PRIORITY[
         overrides.kind ?? "user-input"
       ],
       projectPath: "/tmp/project-a",
@@ -708,14 +576,14 @@ describe("buildProjectSidebarAttentionAlert", () => {
       createdAt: overrides.createdAt ?? "2026-01-01T00:00:00.000Z",
       source: overrides.source ?? "live",
       ...overrides,
-    } as FleetNeedItem;
+    } as FleetAttentionItem;
   }
 
   test("returns no alert when the project has no needs at all", () => {
     expect(
       buildProjectSidebarAttentionAlert({
         workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
-        needsByWorkspaceId: {},
+        attentionItemsByWorkspaceId: {},
       }),
     ).toBeNull();
   });
@@ -723,13 +591,13 @@ describe("buildProjectSidebarAttentionAlert", () => {
   test("raises an answer-needed alert when the AI is waiting on user input", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
-      needsByWorkspaceId: {
-        "ws-1": [buildNeed({ kind: "user-input" })],
+      attentionItemsByWorkspaceId: {
+        "ws-1": [buildAttentionItem({ kind: "user-input" })],
       },
     });
 
     expect(alert?.kind).toBe("user-input");
-    expect(alert?.needCount).toBe(1);
+    expect(alert?.attentionItemCount).toBe(1);
     expect(alert?.workspaceCount).toBe(1);
     expect(alert?.label).toBe("1 item needs attention: answer needed");
   });
@@ -737,8 +605,8 @@ describe("buildProjectSidebarAttentionAlert", () => {
   test("raises an approval alert when the AI is waiting on a tool approval", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
-      needsByWorkspaceId: {
-        "ws-1": [buildNeed({ kind: "approval" })],
+      attentionItemsByWorkspaceId: {
+        "ws-1": [buildAttentionItem({ kind: "approval" })],
       },
     });
 
@@ -749,24 +617,24 @@ describe("buildProjectSidebarAttentionAlert", () => {
   test("marks a finished-but-unconfirmed result as a review-tier alert", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
-      needsByWorkspaceId: {
-        "ws-1": [buildNeed({ kind: "result-ready" })],
+      attentionItemsByWorkspaceId: {
+        "ws-1": [buildAttentionItem({ kind: "result-ready" })],
       },
     });
 
     expect(alert?.tier).toBe("review");
     expect(alert?.kind).toBe("result-ready");
-    expect(alert?.needCount).toBe(1);
+    expect(alert?.attentionItemCount).toBe(1);
     expect(alert?.label).toBe("1 item to review: result ready");
   });
 
   test("labels several review needs without claiming they need attention", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
-      needsByWorkspaceId: {
-        "ws-1": [buildNeed({ kind: "result-ready" })],
+      attentionItemsByWorkspaceId: {
+        "ws-1": [buildAttentionItem({ kind: "result-ready" })],
         "ws-2": [
-          buildNeed({
+          buildAttentionItem({
             id: "need-merge",
             kind: "pr-ready-to-merge",
             workspaceId: "ws-2",
@@ -776,7 +644,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
     });
 
     expect(alert?.tier).toBe("review");
-    expect(alert?.needCount).toBe(2);
+    expect(alert?.attentionItemCount).toBe(2);
     expect(alert?.label).toBe(
       "2 items to review across 2 workspaces, latest: result ready",
     );
@@ -785,29 +653,29 @@ describe("buildProjectSidebarAttentionAlert", () => {
   test("keeps a blocking need visible even when review needs sit alongside it", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
-      needsByWorkspaceId: {
+      attentionItemsByWorkspaceId: {
         "ws-1": [
-          buildNeed({ id: "need-review", kind: "result-ready" }),
-          buildNeed({ id: "need-blocking", kind: "approval" }),
+          buildAttentionItem({ id: "need-review", kind: "result-ready" }),
+          buildAttentionItem({ id: "need-blocking", kind: "approval" }),
         ],
       },
     });
 
     expect(alert?.kind).toBe("approval");
     expect(alert?.tier).toBe("blocking");
-    expect(alert?.needCount).toBe(1);
+    expect(alert?.attentionItemCount).toBe(1);
   });
 
   test("excludes review needs from the blocking count so the badge stays truthful", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
-      needsByWorkspaceId: {
+      attentionItemsByWorkspaceId: {
         "ws-1": [
-          buildNeed({ id: "need-blocking", kind: "approval" }),
-          buildNeed({ id: "need-review-a", kind: "result-ready" }),
+          buildAttentionItem({ id: "need-blocking", kind: "approval" }),
+          buildAttentionItem({ id: "need-review-a", kind: "result-ready" }),
         ],
         "ws-2": [
-          buildNeed({
+          buildAttentionItem({
             id: "need-review-b",
             kind: "result-ready",
             workspaceId: "ws-2",
@@ -817,7 +685,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
     });
 
     expect(alert?.tier).toBe("blocking");
-    expect(alert?.needCount).toBe(1);
+    expect(alert?.attentionItemCount).toBe(1);
     // The review-only workspace must not inflate the blocking scope either.
     expect(alert?.workspaceCount).toBe(1);
     expect(alert?.label).toBe("1 item needs attention: approval needed");
@@ -826,8 +694,8 @@ describe("buildProjectSidebarAttentionAlert", () => {
   test("tags every blocking alert with the blocking tier", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
-      needsByWorkspaceId: {
-        "ws-1": [buildNeed({ kind: "user-input" })],
+      attentionItemsByWorkspaceId: {
+        "ws-1": [buildAttentionItem({ kind: "user-input" })],
       },
     });
 
@@ -837,10 +705,10 @@ describe("buildProjectSidebarAttentionAlert", () => {
   test("surfaces the most urgent need when a project blocks in several ways", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
-      needsByWorkspaceId: {
-        "ws-1": [buildNeed({ id: "need-failed", kind: "run-failed" })],
+      attentionItemsByWorkspaceId: {
+        "ws-1": [buildAttentionItem({ id: "need-failed", kind: "run-failed" })],
         "ws-2": [
-          buildNeed({
+          buildAttentionItem({
             id: "need-input",
             kind: "user-input",
             workspaceId: "ws-2",
@@ -850,7 +718,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
     });
 
     expect(alert?.kind).toBe("user-input");
-    expect(alert?.needCount).toBe(2);
+    expect(alert?.attentionItemCount).toBe(2);
     expect(alert?.workspaceCount).toBe(2);
     expect(alert?.label).toBe(
       "2 items need attention across 2 workspaces, most urgent: answer needed",
@@ -860,14 +728,14 @@ describe("buildProjectSidebarAttentionAlert", () => {
   test("breaks priority ties with the older need so the label stays stable", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
-      needsByWorkspaceId: {
+      attentionItemsByWorkspaceId: {
         "ws-1": [
-          buildNeed({
+          buildAttentionItem({
             id: "need-newer",
             kind: "pr-checks-failed",
             createdAt: "2026-02-01T00:00:00.000Z",
           }),
-          buildNeed({
+          buildAttentionItem({
             id: "need-older",
             kind: "pr-merge-conflict",
             createdAt: "2026-01-01T00:00:00.000Z",
@@ -882,10 +750,10 @@ describe("buildProjectSidebarAttentionAlert", () => {
   test("counts only needs belonging to the project's own workspaces", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
-      needsByWorkspaceId: {
-        "ws-1": [buildNeed({ kind: "approval" })],
+      attentionItemsByWorkspaceId: {
+        "ws-1": [buildAttentionItem({ kind: "approval" })],
         "ws-other": [
-          buildNeed({
+          buildAttentionItem({
             id: "need-other",
             kind: "user-input",
             workspaceId: "ws-other",
@@ -895,7 +763,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
     });
 
     expect(alert?.kind).toBe("approval");
-    expect(alert?.needCount).toBe(1);
+    expect(alert?.attentionItemCount).toBe(1);
     expect(alert?.workspaceCount).toBe(1);
   });
 });
