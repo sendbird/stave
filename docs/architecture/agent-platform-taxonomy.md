@@ -66,8 +66,8 @@ reason. Two axes:
 
 | | Ephemeral | Durable |
 | --- | --- | --- |
-| Time — run again | — | Routine (new task per occurrence, exists) / Heartbeat (same task, same session, planned) |
-| Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts, exists) |
+| Time — run again | — | Routine (new task per occurrence) / Heartbeat (same task, same session) |
+| Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts) |
 
 Routine is the only concept that lives outside a task: it mints tasks.
 Everything else in this layer attaches to one existing task.
@@ -79,6 +79,14 @@ identity, phase, receipts, idempotency — while the normal task machinery creat
 the task and runs its turns. The parent's context receives identity, phase and
 reason; never the child's transcript. See
 `docs/features/child-tasks.md`.
+
+A heartbeat is a task supervisor entry: `src/lib/automation/task-supervisor.ts`
+holds the policy, `electron/host-service/task-supervisor-runtime.ts` executes
+it, and `task_heartbeats` / `task_heartbeat_occurrences` store it. Those are
+deliberately not ledger tables, and the contrast with child tasks above is the
+reason: the ledger records delegated execution, while a heartbeat records
+wake-ups on a task the user already owns — no claim, no lease, no receipts.
+See `docs/features/task-heartbeats.md`.
 
 ## Boundary Statements
 
@@ -95,11 +103,16 @@ whose name repeats it.
 6. The work queue assigns a workspace to exactly one lane, in fixed priority
    order.
 
-Statement 2 is still forward-looking: heartbeats are not built yet. It is
-recorded here so the capability lands inside the boundary rather than beside it,
-and the gate test asserts the half that exists today. Statement 3 is now fully
-asserted: a child task is reconciled against the live task after a restart
-rather than closed with the process.
+Every statement is now fully asserted; none is forward-looking any more. The two
+that were written ahead of their capability landed inside the boundary rather
+than beside it, which is what recording them early was for:
+
+- Statement 2 is asserted from both sides: a routine definition cannot name a
+  task, and a heartbeat definition must name one and cannot carry the fields
+  that would let it mint a task.
+- Statement 3 is asserted by recovery: a child task is reconciled against the
+  live task after a restart rather than closed with the process, while a worker
+  has no durable record to reconcile at all.
 
 ## Adding Something New
 

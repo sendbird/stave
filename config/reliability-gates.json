@@ -151,7 +151,7 @@
     {
       "id": "agent-platform-boundaries",
       "title": "Agent platform layers stay distinct",
-      "invariant": "A routine cannot target an existing task, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
+      "invariant": "A routine cannot target an existing task, a heartbeat must target one and cannot mint one, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
         "tests/child-task-coordinator.test.ts",
@@ -164,7 +164,22 @@
         "src/lib/fleet/sidebar-work-queue.ts",
         "src/lib/providers/utility-inference.ts",
         "src/lib/routines.ts",
-        "src/lib/runs/child-task.ts"
+        "src/lib/runs/child-task.ts",
+        "src/lib/automation/task-supervisor.ts"
+      ]
+    },
+    {
+      "id": "task-supervisor-safety",
+      "title": "A heartbeat never overrides the user",
+      "invariant": "A due heartbeat occurrence defers to an active turn without being consumed, pauses while an approval or question is pending or the task's provider runtime changed, stops with an explicit reason on archive, expiry, or the occurrence cap, catches up at most once after a restart, and records every occurrence idempotently.",
+      "testFiles": [
+        "tests/task-supervisor.test.ts",
+        "tests/task-supervisor-runtime.test.ts"
+      ],
+      "assertionRefs": [
+        "src/lib/automation/task-supervisor.ts",
+        "electron/host-service/task-supervisor-runtime.ts",
+        "electron/persistence/task-heartbeat-store.ts"
       ]
     }
   ]
