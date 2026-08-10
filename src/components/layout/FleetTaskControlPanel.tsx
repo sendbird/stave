@@ -18,6 +18,10 @@ import { useShallow } from "zustand/react/shallow";
 import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
+import {
+  ChildTaskParentBacklink,
+  ChildTaskRows,
+} from "@/components/session/ChildTaskRows";
 import { Button, Textarea } from "@/components/ui";
 import {
   resolveFleetCurrentTaskControlState,
@@ -443,6 +447,18 @@ export function FleetTaskControlPanel(args: {
       </div>
 
       <TaskExecutionSummarySurface summary={summary} className="mt-3" />
+
+      <ChildTaskParentBacklink
+        taskId={args.target.taskId}
+        projectPath={args.target.projectPath}
+        className="mt-3"
+      />
+      <ChildTaskRows
+        parentTaskId={args.target.taskId}
+        parentWorkspaceId={args.target.workspaceId}
+        projectPath={args.target.projectPath}
+        className="mt-3"
+      />
 
       {hasStaleExpectedInteraction ? (
         <div

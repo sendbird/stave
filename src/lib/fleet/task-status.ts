@@ -4,11 +4,7 @@ import {
 } from "@/lib/providers/turn-status";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import {
-  getRespondingProviderId,
-  isLegacyBranchTask,
-  isTaskArchived,
-} from "@/lib/tasks";
+import { getRespondingProviderId, isTaskArchived } from "@/lib/tasks";
 import {
   findLatestPendingApproval,
   findLatestPendingUserInput,
@@ -31,10 +27,7 @@ export const FLEET_TASK_STATUS_PRIORITY: Record<FleetTaskStatus, number> = {
   idle: 4,
 };
 
-type FleetTaskStatusTask = Pick<
-  Task,
-  "id" | "archivedAt" | "coliseumParentTaskId" | "updatedAt"
->;
+type FleetTaskStatusTask = Pick<Task, "id" | "archivedAt" | "updatedAt">;
 
 type FleetRespondingTask = FleetTaskStatusTask & Pick<Task, "provider">;
 
@@ -80,7 +73,7 @@ export function classifyTaskStatus(args: {
   activeTurnId?: string | null;
   activity?: ProviderTurnActivitySnapshot | null;
 }): FleetTaskStatus {
-  if (isTaskArchived(args.task) || isLegacyBranchTask(args.task)) {
+  if (isTaskArchived(args.task)) {
     return "idle";
   }
 

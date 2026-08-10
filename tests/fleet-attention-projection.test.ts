@@ -458,20 +458,6 @@ describe("Fleet attention projection", () => {
     expect(projection.count).toBe(0);
   });
 
-  test("drops notification needs whose task is a legacy branch task", () => {
-    const projection = buildFleetAttentionProjection({
-      notifications: [buildNotification()],
-      liveWorkspaces: [
-        buildLiveWorkspace({
-          tasks: [buildTask({ coliseumParentTaskId: "parent-1" })],
-        }),
-      ],
-      prWorkspaces: [],
-    });
-
-    expect(projection.items).toEqual([]);
-  });
-
   test("keeps a notification need when a same-id task is archived elsewhere", () => {
     const projection = buildFleetAttentionProjection({
       notifications: [buildNotification()],

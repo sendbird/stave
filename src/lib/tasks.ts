@@ -45,6 +45,21 @@ export function isTaskArchived(task: Pick<Task, "archivedAt">) {
 }
 
 /**
+ * A task created by another task's delegation. Its own surfaces are the child
+ * rows under the parent (and the task itself once opened), so it must not also
+ * appear as a peer in workspace-level task listings, counts, or roll-ups —
+ * otherwise one delegated unit of work is counted twice and a workspace looks
+ * busier than it is.
+ *
+ * This is a *listing* predicate only. Paths that deliberately walk every task
+ * (aborting turns on workspace switch, orphan reaping, persistence
+ * reconciliation) must keep seeing child tasks and must not call it.
+ */
+export function isDelegatedChildTask(task: Pick<Task, "parentTaskId">) {
+  return Boolean(task.parentTaskId);
+}
+
+/**
  * Reconcile a task list against the archived state that persistence currently
  * holds as authoritative.
  *
@@ -87,17 +102,6 @@ export function reconcileTasksWithPersistedArchival(args: {
     return { ...task, archivedAt: persistedArchivedAt };
   });
   return changed ? reconciled : args.tasks;
-}
-
-/**
- * True when the task is an ephemeral legacy branch. Branch tasks are hidden
- * from every task-tree surface (sidebar, tabs, counts, search, archive fallback,
- * responding-task hover preview) by default. Callers that need to iterate every
- * task in the workspace (abort-all on switch, orphan reaper) can opt in via
- * `includeLegacyBranchTasks`.
- */
-export function isLegacyBranchTask(task: Pick<Task, "coliseumParentTaskId">) {
-  return Boolean(task.coliseumParentTaskId);
 }
 
 export function getTaskControlMode(
@@ -157,9 +161,15 @@ export function canTakeOverTask(args: {
 }
 
 function matchesTaskFilter(args: {
-  task: Pick<Task, "archivedAt">;
+  task: Pick<Task, "archivedAt" | "parentTaskId">;
   filter: TaskFilter;
 }) {
+  // Not filter-dependent: a delegated child is never a peer in this listing,
+  // not even under "all". `reorderTasksWithinFilter` shares this predicate, so
+  // the reorder mapping stays aligned with what the list actually renders.
+  if (isDelegatedChildTask(args.task)) {
+    return false;
+  }
   if (args.filter === "all") {
     return true;
   }
@@ -171,19 +181,10 @@ function matchesTaskFilter(args: {
 export function getVisibleTasks(args: {
   tasks: Task[];
   filter: TaskFilter;
-  /**
-   * When true, include legacy branch children. Branches are hidden by default
-   * from all standard task-tree surfaces; callers that need to iterate every
-   * task (e.g. abort-all, orphan reaper) can opt in.
-   */
-  includeLegacyBranchTasks?: boolean;
 }) {
-  return args.tasks.filter((task) => {
-    if (!args.includeLegacyBranchTasks && isLegacyBranchTask(task)) {
-      return false;
-    }
-    return matchesTaskFilter({ task, filter: args.filter });
-  });
+  return args.tasks.filter((task) =>
+    matchesTaskFilter({ task, filter: args.filter }),
+  );
 }
 
 function moveArrayItem<T>(items: T[], fromIndex: number, toIndex: number) {
@@ -240,14 +241,14 @@ export function reorderTasksWithinFilter(args: {
 }
 
 export function getTaskCounts(args: {
-  tasks: Array<Pick<Task, "archivedAt" | "coliseumParentTaskId">>;
+  tasks: Array<Pick<Task, "archivedAt" | "parentTaskId">>;
 }) {
-  const visible = args.tasks.filter((task) => !isLegacyBranchTask(task));
-  const archived = visible.filter((task) => isTaskArchived(task)).length;
+  const tasks = args.tasks.filter((task) => !isDelegatedChildTask(task));
+  const archived = tasks.filter((task) => isTaskArchived(task)).length;
   return {
-    active: visible.length - archived,
+    active: tasks.length - archived,
     archived,
-    all: visible.length,
+    all: tasks.length,
   };
 }
 
@@ -271,32 +272,29 @@ export function selectTaskHistoryEntries(args: {
   tasks: Task[];
   openTaskTabIds: readonly string[] | null;
 }): Task[] {
+  const tasks = args.tasks.filter((task) => !isDelegatedChildTask(task));
   const openTaskIds = args.openTaskTabIds
     ? new Set(args.openTaskTabIds)
     : new Set(
-        args.tasks
-          .filter((task) => !isTaskArchived(task))
-          .map((task) => task.id),
+        tasks.filter((task) => !isTaskArchived(task)).map((task) => task.id),
       );
-  return args.tasks
-    .filter(
-      (task) =>
-        !isLegacyBranchTask(task) &&
-        (isTaskArchived(task) || !openTaskIds.has(task.id)),
-    )
+  return tasks
+    .filter((task) => isTaskArchived(task) || !openTaskIds.has(task.id))
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
 export function filterTasksByName(args: { tasks: Task[]; query: string }) {
-  const visibleTasks = args.tasks.filter((task) => !isLegacyBranchTask(task));
+  // Only reallocate when a child is actually present, so the common case keeps
+  // returning the caller's own array reference.
+  const tasks = args.tasks.some((task) => isDelegatedChildTask(task))
+    ? args.tasks.filter((task) => !isDelegatedChildTask(task))
+    : args.tasks;
   const trimmed = args.query.trim();
   if (!trimmed) {
-    return visibleTasks;
+    return tasks;
   }
   const lower = trimmed.toLowerCase();
-  return visibleTasks.filter((task) =>
-    task.title.toLowerCase().includes(lower),
-  );
+  return tasks.filter((task) => task.title.toLowerCase().includes(lower));
 }
 
 export function normalizeSuggestedTaskTitle(args: { title: string }) {
@@ -380,25 +378,18 @@ export function getArchiveFallbackTaskId(args: {
   archivedTaskId: string;
 }) {
   const activeFallback = args.tasks.find(
-    (task) =>
-      task.id !== args.archivedTaskId &&
-      !isTaskArchived(task) &&
-      !isLegacyBranchTask(task),
+    (task) => task.id !== args.archivedTaskId && !isTaskArchived(task),
   );
   return activeFallback?.id ?? "";
 }
 
-export function getRespondingTasks<
-  T extends Pick<Task, "id" | "archivedAt" | "coliseumParentTaskId">,
->(args: {
+export function getRespondingTasks<T extends Pick<Task, "id" | "archivedAt">>(args: {
   tasks: T[];
   activeTurnIdsByTask: Record<string, string | undefined>;
 }) {
   return args.tasks.filter(
     (task) =>
-      !isTaskArchived(task) &&
-      !isLegacyBranchTask(task) &&
-      Boolean(args.activeTurnIdsByTask[task.id]),
+      !isTaskArchived(task) && Boolean(args.activeTurnIdsByTask[task.id]),
   );
 }
 

@@ -105,14 +105,91 @@ export const ChildTaskListArgsSchema = z
   .strict();
 export type ChildTaskListArgs = z.infer<typeof ChildTaskListArgsSchema>;
 
+/**
+ * The identity a control was rendered against. Every child-task control the
+ * parent surface offers is prepared from a summary the user was looking at, so
+ * the action carries that identity back and is refused when the delegation has
+ * moved on in between — a stale click never lands on a child it did not mean.
+ */
+export const ChildTaskExpectedIdentitySchema = z
+  .object({
+    childTaskId: RunIdSchema,
+    childWorkspaceId: RunIdSchema,
+    attempt: z.number().int().min(0).max(10),
+    phase: RunStatusSchema.optional(),
+    childTurnId: RunIdSchema.nullable().optional(),
+  })
+  .strict();
+export type ChildTaskExpectedIdentity = z.infer<
+  typeof ChildTaskExpectedIdentitySchema
+>;
+
 export const ChildTaskStopArgsSchema = z
   .object({
     parentTaskId: z.string().trim().min(1).max(150),
     delegationKey: ChildTaskDelegationKeySchema,
     reason: z.string().trim().min(1).max(500).optional(),
+    expected: ChildTaskExpectedIdentitySchema.optional(),
   })
   .strict();
 export type ChildTaskStopArgs = z.infer<typeof ChildTaskStopArgsSchema>;
+
+/**
+ * One more turn on a child that is still open. A follow-up never inherits the
+ * parent's permissions, so the posture is chosen by whoever sends it rather
+ * than carried over from the original delegation.
+ */
+export const ChildTaskFollowUpArgsSchema = z
+  .object({
+    parentTaskId: z.string().trim().min(1).max(150),
+    delegationKey: ChildTaskDelegationKeySchema,
+    prompt: z.string().trim().min(1).max(100_000),
+    permissionProfile: ChildTaskPermissionProfileSchema.default("guided"),
+    expected: ChildTaskExpectedIdentitySchema,
+  })
+  .strict();
+export type ChildTaskFollowUpArgs = z.infer<typeof ChildTaskFollowUpArgsSchema>;
+
+/**
+ * Release the delegation while leaving the child task alive. Stopping ends the
+ * child's work; detaching only ends the parent's claim on it, so the child
+ * carries on as an ordinary task nobody is delegating to any more.
+ */
+export const ChildTaskDetachArgsSchema = z
+  .object({
+    parentTaskId: z.string().trim().min(1).max(150),
+    delegationKey: ChildTaskDelegationKeySchema,
+    expected: ChildTaskExpectedIdentitySchema,
+  })
+  .strict();
+export type ChildTaskDetachArgs = z.infer<typeof ChildTaskDetachArgsSchema>;
+
+/**
+ * A fresh attempt on a delegation that ended without succeeding. Provider,
+ * lifecycle and workspace are read back from the delegation itself, so a retry
+ * cannot quietly become a different delegation wearing the same key.
+ */
+export const ChildTaskRetryArgsSchema = z
+  .object({
+    projectPath: z.string().trim().min(1).max(4096),
+    parentWorkspaceId: RunIdSchema,
+    parentTaskId: z.string().trim().min(1).max(150),
+    delegationKey: ChildTaskDelegationKeySchema,
+    prompt: z.string().trim().min(1).max(100_000),
+    permissionProfile: ChildTaskPermissionProfileSchema.default("guided"),
+    expected: ChildTaskExpectedIdentitySchema,
+  })
+  .strict();
+export type ChildTaskRetryArgs = z.infer<typeof ChildTaskRetryArgsSchema>;
+
+export const ChildTaskLinkArgsSchema = z
+  .object({ childTaskId: RunIdSchema })
+  .strict();
+export type ChildTaskLinkArgs = z.infer<typeof ChildTaskLinkArgsSchema>;
+
+export const CHILD_TASK_DETACHED_REASON =
+  "Detached from the parent task; the child task keeps running on its own.";
+export const CHILD_TASK_STOPPED_REASON = "Stopped from the parent task.";
 
 /**
  * What the parent is allowed to learn about a child: who it is, what phase it
@@ -151,6 +228,8 @@ export const ChildTaskRejectionReasonSchema = z.enum([
   "invalid-state",
   "not-found",
   "run-conflict",
+  "stale-execution",
+  "stale-identity",
   "step-conflict",
   "workspace-unavailable",
 ]);
@@ -158,27 +237,29 @@ export type ChildTaskRejectionReason = z.infer<
   typeof ChildTaskRejectionReasonSchema
 >;
 
-export const ChildTaskDelegateResponseSchema = z
+/**
+ * Every child-task action answers in the same shape, and a refusal always
+ * carries a sentence the surface can show as-is. A control that fails silently
+ * is indistinguishable from one that worked.
+ */
+export const ChildTaskActionResponseSchema = z
   .object({
     accepted: z.boolean(),
     duplicate: z.boolean(),
     reason: ChildTaskRejectionReasonSchema.nullable(),
+    message: z.string().max(500).nullable().default(null),
     child: ChildTaskSummarySchema.nullable(),
   })
   .strict();
-export type ChildTaskDelegateResponse = z.infer<
-  typeof ChildTaskDelegateResponseSchema
+export type ChildTaskActionResponse = z.infer<
+  typeof ChildTaskActionResponseSchema
 >;
 
-export const ChildTaskStopResponseSchema = z
-  .object({
-    accepted: z.boolean(),
-    duplicate: z.boolean(),
-    reason: ChildTaskRejectionReasonSchema.nullable(),
-    child: ChildTaskSummarySchema.nullable(),
-  })
-  .strict();
-export type ChildTaskStopResponse = z.infer<typeof ChildTaskStopResponseSchema>;
+export const ChildTaskDelegateResponseSchema = ChildTaskActionResponseSchema;
+export type ChildTaskDelegateResponse = ChildTaskActionResponse;
+
+export const ChildTaskStopResponseSchema = ChildTaskActionResponseSchema;
+export type ChildTaskStopResponse = ChildTaskActionResponse;
 
 export const ChildTaskListSchema = z.array(ChildTaskSummarySchema);
 export type ChildTaskList = z.infer<typeof ChildTaskListSchema>;
@@ -231,9 +312,7 @@ export function buildChildTaskArtifactRef(args: {
   return args.turnId ? `${base}/turn/${args.turnId}` : base;
 }
 
-export function buildChildTaskPolicy(
-  lifecycle: ChildTaskLifecycle,
-): RunPolicy {
+export function buildChildTaskPolicy(lifecycle: ChildTaskLifecycle): RunPolicy {
   return {
     maxAttempts: 3,
     timeoutMs: 86_400_000,
@@ -243,7 +322,9 @@ export function buildChildTaskPolicy(
   };
 }
 
-export function resolveChildTaskLifecycle(policy: RunPolicy): ChildTaskLifecycle {
+export function resolveChildTaskLifecycle(
+  policy: RunPolicy,
+): ChildTaskLifecycle {
   return policy.maxTurns > 1 ? "detached" : "one-turn";
 }
 
@@ -304,4 +385,118 @@ export function toChildTaskSummary(args: {
     completedAt: step.completedAt,
   });
   return parsed.success ? parsed.data : null;
+}
+
+export type ChildTaskIdentityValidation =
+  | { ok: true }
+  | { ok: false; reason: ChildTaskRejectionReason; message: string };
+
+/**
+ * Compare the identity a control was rendered against with the delegation as it
+ * stands now. This is the same contract the Fleet control plane applies to
+ * remote task actions: an action prepared against an identity that has since
+ * moved is refused with a reason, never applied to whatever is there instead.
+ */
+export function validateChildTaskIdentity(args: {
+  expected: ChildTaskExpectedIdentity;
+  child: ChildTaskSummary | null;
+}): ChildTaskIdentityValidation {
+  if (!args.child) {
+    return {
+      ok: false,
+      reason: "not-found",
+      message:
+        "This delegation is no longer on the run ledger. Refresh the parent task.",
+    };
+  }
+  if (
+    args.child.childTaskId !== args.expected.childTaskId ||
+    args.child.childWorkspaceId !== args.expected.childWorkspaceId
+  ) {
+    return {
+      ok: false,
+      reason: "stale-identity",
+      message:
+        "This delegation now points at a different child task. Refresh the parent task.",
+    };
+  }
+  if (args.child.attempt !== args.expected.attempt) {
+    return {
+      ok: false,
+      reason: "stale-identity",
+      message:
+        "The child was retried after this control was shown. Review the latest attempt.",
+    };
+  }
+  if (args.expected.phase && args.child.phase !== args.expected.phase) {
+    return {
+      ok: false,
+      reason: "stale-identity",
+      message:
+        "The child changed state before this action was sent. Review the latest child state.",
+    };
+  }
+  if (
+    args.expected.childTurnId !== undefined &&
+    args.child.childTurnId !== args.expected.childTurnId
+  ) {
+    return {
+      ok: false,
+      reason: "stale-identity",
+      message:
+        "The child's turn changed before this action was sent. Review the latest child state.",
+    };
+  }
+  return { ok: true };
+}
+
+const CHILD_TASK_REJECTION_MESSAGES: Record<ChildTaskRejectionReason, string> =
+  {
+    "already-active": "This child is already running.",
+    "already-completed": "This delegation already finished.",
+    "attempt-limit-reached":
+      "This delegation has used every attempt it is allowed.",
+    cancelled: "A stopped delegation cannot be started again.",
+    "concurrency-limit-reached":
+      "This task already has as many live children as it may run.",
+    "input-mismatch":
+      "This delegation key already names a child started from different instructions.",
+    "invalid-ownership":
+      "This task does not own the delegation it tried to act on.",
+    "invalid-request": "This action was not understood.",
+    "invalid-state": "The child is not in a state where this action applies.",
+    "not-found":
+      "This delegation is no longer on the run ledger. Refresh the parent task.",
+    "run-conflict":
+      "The delegation changed while this action was being applied.",
+    "stale-execution":
+      "The child moved on to another execution before this action was sent. Review the latest child state.",
+    "stale-identity":
+      "The child's identity changed before this action was sent. Review the latest child state.",
+    "step-conflict":
+      "The delegation changed while this action was being applied.",
+    "workspace-unavailable":
+      "The child's workspace could not be reached. Try again once it is available.",
+  };
+
+export function describeChildTaskRejection(reason: ChildTaskRejectionReason) {
+  return CHILD_TASK_REJECTION_MESSAGES[reason];
+}
+
+/**
+ * Which controls a child row may offer, derived from the delegation alone so
+ * the parent surface and the coordinator never disagree about what is possible.
+ */
+export function resolveChildTaskControls(child: ChildTaskSummary) {
+  const active = isActiveChildTaskPhase(child.phase);
+  return {
+    canFollowUp: child.lifecycle === "detached" && child.phase === "waiting",
+    canStop: active,
+    canDetach: active,
+    canRetry:
+      !active &&
+      child.phase !== "completed" &&
+      child.phase !== "cancelled" &&
+      child.attempt < buildChildTaskPolicy(child.lifecycle).maxAttempts,
+  };
 }

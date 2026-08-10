@@ -169,6 +169,25 @@
       ]
     },
     {
+      "id": "child-task-identity",
+      "title": "A child-task control never lands on the wrong child",
+      "invariant": "The delegation link is the only source of child parentage, so a child stays out of workspace-level listings while remaining fully hydrated and openable; every mutating control carries the identity its row was rendered against and is refused with a reason when the child task, workspace, attempt, phase, or turn has moved on; a follow-up never inherits permissions; and every refusal carries a sentence the surface can show as-is.",
+      "testFiles": [
+        "tests/child-task-identity-validation.test.ts",
+        "tests/child-task-ipc-contract.test.ts",
+        "tests/child-task-workspace-listing.test.ts",
+        "tests/child-task-rows.test.tsx"
+      ],
+      "assertionRefs": [
+        "src/lib/runs/child-task.ts",
+        "src/lib/tasks.ts",
+        "src/components/session/ChildTaskRows.tsx",
+        "electron/main/runs/child-task-coordinator.ts",
+        "electron/main/ipc/runs.ts",
+        "docs/features/child-tasks.md"
+      ]
+    },
+    {
       "id": "task-supervisor-safety",
       "title": "A heartbeat never overrides the user",
       "invariant": "A due heartbeat occurrence defers to an active turn without being consumed, pauses while an approval or question is pending or the task's provider runtime changed, stops with an explicit reason on archive, expiry, or the occurrence cap, catches up at most once after a restart, and records every occurrence idempotently.",

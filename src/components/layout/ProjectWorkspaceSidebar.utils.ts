@@ -6,7 +6,7 @@ import type {
 import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
-import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
+import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
 import type {
   ProjectAppearanceColorId,
@@ -217,15 +217,13 @@ function getPreviewTaskTitle(title: string) {
 
 export function buildWorkspaceHoverPreview(args: {
   tasks: Array<
-    Pick<Task, "id" | "title" | "updatedAt" | "archivedAt"> &
-      Partial<Pick<Task, "coliseumParentTaskId">>
+    Pick<Task, "id" | "title" | "updatedAt" | "archivedAt" | "parentTaskId">
   >;
   messageCountByTask?: Record<string, number>;
   activeTurnIdsByTask?: Record<string, string | undefined>;
 }): WorkspaceHoverPreview {
-  // Legacy branches are ephemeral fan-out children — hide from hover previews.
   const visibleTasks = [...args.tasks]
-    .filter((task) => !isLegacyBranchTask(task) && !isTaskArchived(task))
+    .filter((task) => !isTaskArchived(task) && !isDelegatedChildTask(task))
     .sort(
       (left, right) =>
         parseTaskUpdatedAt(right.updatedAt) -

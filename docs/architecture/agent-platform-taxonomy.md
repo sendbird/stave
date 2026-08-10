@@ -80,6 +80,18 @@ the task and runs its turns. The parent's context receives identity, phase and
 reason; never the child's transcript. See
 `docs/features/child-tasks.md`.
 
+Child identity is the delegation link, and it is frozen: a child task carries
+`parentTaskId`, and a delegation is named by `parentTaskId + delegationKey`. That
+link is the single source of truth for both directions — the parent's child rows
+and the child's backlink — and for keeping a child out of workspace-level
+listings (`isDelegatedChildTask` in `src/lib/tasks.ts`). Anything built on top of
+delegation keys off that link rather than re-deriving parentage its own way.
+
+Because identity is frozen, it is also enforceable: every control the parent
+offers on a child carries the identity its row was rendered against, and the
+coordinator refuses the action with `stale-identity` when the delegation has
+moved on. A control is never applied to whatever replaced the child it meant.
+
 A heartbeat is a task supervisor entry: `src/lib/automation/task-supervisor.ts`
 holds the policy, `electron/host-service/task-supervisor-runtime.ts` executes
 it, and `task_heartbeats` / `task_heartbeat_occurrences` store it. Those are

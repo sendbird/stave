@@ -7,7 +7,7 @@ import {
   type FleetPrWorkspaceInput,
 } from "@/lib/fleet/attention-projection";
 import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
-import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
+import { isTaskArchived } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import type { Task } from "@/types/chat";
 
@@ -126,7 +126,7 @@ export function useFleetAttentionProjection() {
       const closedTaskKeys = new Set<string>();
       for (const { workspaceId, tasks } of workspacesWithTasks) {
         for (const task of tasks ?? []) {
-          if (isTaskArchived(task) || isLegacyBranchTask(task)) {
+          if (isTaskArchived(task)) {
             closedTaskKeys.add(getFleetAttentionTaskKey(workspaceId, task.id));
           }
         }

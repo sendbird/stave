@@ -1552,6 +1552,9 @@ async function persistApprovalNotification(args: {
       description: args.event.description,
       controlMode: getTaskControlMode(task),
       controlOwner: getTaskControlOwner(task),
+      // Lets Fleet keep a delegated child's request visible even though the
+      // task is externally managed. Carries only the parent's task id.
+      parentTaskId: task.parentTaskId ?? null,
     },
     dedupeKey: `task.approval_requested:${args.turnId}:${args.event.requestId}`,
   });
@@ -1705,6 +1708,9 @@ async function persistUserInputNotification(args: {
       messageId: location.messageId,
       controlMode: getTaskControlMode(task),
       controlOwner: getTaskControlOwner(task),
+      // Lets Fleet keep a delegated child's request visible even though the
+      // task is externally managed. Carries only the parent's task id.
+      parentTaskId: task.parentTaskId ?? null,
     },
     dedupeKey: `task.user_input_requested:${args.turnId}:${args.event.requestId}`,
   });
@@ -2165,6 +2171,13 @@ export async function runTask(args: {
   prompt: string;
   taskId?: string;
   title?: string;
+  /**
+   * Set only by the child-task coordinator. Denormalizes the run-ledger
+   * delegation link onto the child task row so listing surfaces can tell a
+   * child from a peer task. Ignored when continuing an existing task: the link
+   * is frozen at creation.
+   */
+  parentTaskId?: string;
   provider?: ProviderId;
   runtimeOptions?: ProviderRuntimeOptions;
   unattendedAutomation?: {
@@ -2247,6 +2260,9 @@ export async function runTask(args: {
       archivedAt: null,
       controlMode: requestedControlMode,
       controlOwner: requestedControlOwner,
+      ...(args.parentTaskId?.trim()
+        ? { parentTaskId: args.parentTaskId.trim() }
+        : {}),
       ...(requestedSourceContexts.length > 0
         ? { sourceContexts: requestedSourceContexts }
         : {}),

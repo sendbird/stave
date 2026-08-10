@@ -345,6 +345,8 @@ export async function runTask(args: {
   prompt: string;
   taskId?: string;
   title?: string;
+  /** Delegation link stamped on a child task row at creation. */
+  parentTaskId?: string;
   provider?: import("../../src/lib/providers/provider.types").ProviderId;
   runtimeOptions?: import("../../src/lib/providers/provider.types").ProviderRuntimeOptions;
 }) {

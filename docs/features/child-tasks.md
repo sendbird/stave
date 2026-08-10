@@ -49,10 +49,39 @@ Three Local MCP tools, all called by the agent in the parent task:
 - `stave_list_child_tasks` — list what this task delegated.
 - `stave_stop_child_task` — stop one delegation.
 
-The child itself is an ordinary task: it shows up in its workspace's task list,
-in Fleet, and in the sidebar work queue like any other.
+Delegating is agent-driven, but watching and steering is not: once a turn has
+delegated, the parent's conversation shows a **child task row** per delegation,
+directly in the turn activity. The child is also a task in its own right, so it
+opens as a normal task and carries a backlink to the parent it was delegated
+from.
+
+A child does not appear as a peer in workspace task lists, counts, or Fleet
+roll-ups — it is shown under its parent instead, so one delegated unit of work is
+never counted twice.
 
 ### Key Controls
+
+Each child row carries the controls the delegation's current phase actually
+allows:
+
+| Control | Available when |
+| --- | --- |
+| Open | Always. Navigates to the child task, across workspaces if needed. |
+| Follow-up | The delegation is `detached` and waiting. Sends one more turn. |
+| Stop | The child is still active. Ends the child's work. |
+| Detach | The child is still active. Releases the parent's claim and leaves the child running as an ordinary task. |
+| Retry | The delegation ended without succeeding and has attempts left. Starts a new attempt on the same child. |
+
+A follow-up chooses its own permission profile rather than inheriting the
+parent's or the original delegation's — the same rule that applies when the child
+is first created.
+
+Every control is prepared against the identity the row was rendered from (child
+task, workspace, attempt, phase, turn) and is re-validated in the main process
+before it lands. If the delegation moved on in between — a retry bumped the
+attempt, the phase changed, the child's turn ended — the action is refused with a
+`stale-identity` reason and a sentence explaining it, instead of applying to
+whatever replaced it.
 
 `stave_delegate_task` requires the choices that must never be inherited:
 
@@ -79,18 +108,35 @@ in Fleet, and in the sidebar work queue like any other.
 
 ### Check On A Child
 
-Call `stave_list_child_tasks`. Each entry carries the child's task and workspace
-id, provider, lifecycle, phase and terminal reason.
+Read the child rows in the parent's turn activity. Each row shows the child's
+provider, lifecycle, phase, attempt and terminal reason, and refreshes when the
+delegation changes phase — including phase changes driven by the child's own
+turns, which are pushed rather than polled.
 
-The same summary is injected into the parent's context automatically before each
-of its turns, so an agent that delegated work sees where its children stand
-without asking.
+The agent can call `stave_list_child_tasks` for the same summary. It is also
+injected into the parent's context automatically before each of its turns, so an
+agent that delegated work sees where its children stand without asking.
 
-### Stop A Child
+### Answer A Child's Question
 
-Call `stave_stop_child_task` with the parent task id and the delegation key. The
-ledger row is cancelled durably; the child task is asked to stop as a best
-effort, because a child that already ended is a successful stop.
+A child that needs an approval or an answer raises it as an ordinary interaction
+request, attributed to the child task and routed to the workspace the child runs
+in. It appears in Fleet and in the sidebar like any other request.
+
+This matters because nothing outside Stave is watching a child: the person who
+owns the parent is the only one who can answer, and an unanswered approval
+auto-denies after a few minutes.
+
+### Stop, Detach, Or Retry A Child
+
+Use the child row's controls, or have the agent call `stave_stop_child_task`.
+
+Stopping cancels the ledger row durably and asks the child task to stop as a best
+effort, because a child that already ended is a successful stop. Detaching is the
+narrower action: it ends only the parent's claim, leaving the child alive as an
+ordinary task nobody is delegating to. Retrying starts a fresh attempt on the
+same child, reading provider, lifecycle and workspace back from the delegation so
+a retry cannot quietly become a different delegation reusing the key.
 
 ## Files And Data
 
@@ -117,8 +163,11 @@ may have running at once (default 3, maximum 16).
 - A parent never receives the child's transcript. Receipts carry identity, phase
   and terminal reason only; open the child task to read the conversation.
 - A cancelled delegation is not restarted by `retry`. Use a new delegation key.
-- Delegation is driven by MCP tools; there is no dedicated UI for creating a
-  child task.
+- Watching and steering a child is available in the UI, but *creating* one is
+  not: delegation is driven by the MCP tools, so a child is always started by an
+  agent rather than by a button.
+- Detaching is one-way. A released delegation cannot be re-claimed; the child
+  continues as an ordinary task.
 - Creating a `new-worktree` child leaves the worktree in place when the child
   ends. Remove it through the normal workspace controls.
 
@@ -139,6 +188,23 @@ may have running at once (default 3, maximum 16).
 - Cause: the parent already has the maximum number of live children.
 - Fix: stop a child, wait for one to finish, or raise
   `STAVE_CHILD_TASK_CONCURRENCY`.
+
+### A control was refused with `stale-identity`
+
+- Symptom: Stop, Retry, Follow-up or Detach reports that the delegation moved on.
+- Cause: the row the control was prepared from no longer describes the
+  delegation — the attempt was bumped, the phase changed, or the child's turn
+  ended between rendering and clicking.
+- Fix: none needed; the refusal is the safe outcome. The rows refresh on their
+  own, so act on the updated row.
+
+### A child's approval was auto-denied before it was noticed
+
+- Symptom: a child task reports a denied action nobody answered.
+- Cause: child interaction requests expire like any other; an unanswered
+  approval auto-denies after a few minutes.
+- Fix: delegate with `permissionProfile: "auto"` for work that should run
+  unattended, and reserve `guided` for children being watched.
 
 ### A child shows `interrupted` after a restart
 

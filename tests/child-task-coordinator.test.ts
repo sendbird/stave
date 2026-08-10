@@ -174,6 +174,9 @@ describe("child task coordinator", () => {
         permissionProfile: "guided",
         workspaceId: PARENT_WORKSPACE,
         taskId: response.child?.childTaskId,
+        // Denormalized onto the child task row so listing surfaces can tell a
+        // delegated child from a peer task without reading the ledger.
+        parentTaskId: PARENT_TASK,
       });
       const settled = await harness.coordinator.get({
         parentTaskId: PARENT_TASK,
@@ -293,6 +296,80 @@ describe("child task coordinator", () => {
     expect(harness.stopTaskCalls).toEqual([
       { workspaceId: PARENT_WORKSPACE, taskId: started.child?.childTaskId },
     ]);
+  });
+
+  /**
+   * The controls the parent renders carry the identity they were drawn against.
+   * These cases pin that the coordinator actually applies that check before it
+   * acts, so a control prepared against a delegation that has since moved is
+   * refused with a reason instead of hitting whatever now holds the key.
+   */
+  test("a control carrying a stale expected identity is refused with a reason", async () => {
+    const harness = createHarness();
+    const started = await harness.coordinator.delegate(
+      delegateArgs({ lifecycle: "detached" }),
+    );
+    await harness.coordinator.waitForInFlight();
+    const child = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    if (!child) {
+      throw new Error("expected a delegated child");
+    }
+
+    const stopped = await harness.coordinator.stop({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      expected: {
+        childTaskId: child.childTaskId,
+        childWorkspaceId: child.childWorkspaceId,
+        // The control was drawn before a retry bumped the attempt.
+        attempt: child.attempt + 1,
+      },
+    });
+
+    expect(started.accepted).toBe(true);
+    expect(stopped.accepted).toBe(false);
+    expect(stopped.reason).toBe("stale-identity");
+    expect(stopped.message?.length ?? 0).toBeGreaterThan(0);
+    // The refusal must leave the live child untouched, not stop it anyway.
+    expect(harness.stopTaskCalls).toEqual([]);
+    expect(
+      (
+        await harness.coordinator.get({
+          parentTaskId: PARENT_TASK,
+          delegationKey: "review-docs",
+        })
+      )?.phase,
+    ).toBe(child.phase);
+  });
+
+  test("a control carrying the live identity is accepted", async () => {
+    const harness = createHarness();
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const child = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    if (!child) {
+      throw new Error("expected a delegated child");
+    }
+
+    const stopped = await harness.coordinator.stop({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      expected: {
+        childTaskId: child.childTaskId,
+        childWorkspaceId: child.childWorkspaceId,
+        attempt: child.attempt,
+        phase: child.phase,
+      },
+    });
+
+    expect(stopped.accepted).toBe(true);
+    expect(stopped.child?.phase).toBe("cancelled");
   });
 
   test("stopping an unknown delegation reports not-found instead of inventing one", async () => {

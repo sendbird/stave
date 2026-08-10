@@ -3,8 +3,8 @@ import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import {
+  isDelegatedChildTask,
   isExternallyManagedTask,
-  isLegacyBranchTask,
   isTaskArchived,
   isTaskManaged,
 } from "@/lib/tasks";
@@ -167,6 +167,42 @@ export function getFleetAttentionTaskKey(workspaceId: string, taskId: string) {
   return JSON.stringify([workspaceId, taskId]);
 }
 
+/**
+ * Externally managed tasks are deliberately kept out of Fleet attention: their
+ * interaction requests are answered by whoever drives them from outside Stave,
+ * so showing them here would ask the user for something the app cannot route.
+ *
+ * Delegated child tasks are the one carve-out. They are externally managed only
+ * because the child-task coordinator creates them that way — nothing outside
+ * Stave is watching them, the person who owns the parent task is the only one
+ * who can answer, and an unanswered child approval auto-denies after a few
+ * minutes. So a child's request stays visible, attributed to the child task
+ * itself and routed to the workspace the child actually runs in.
+ */
+export function isFleetAttentionSuppressedTask(
+  task: Pick<Task, "controlMode" | "controlOwner" | "parentTaskId">,
+) {
+  return isExternallyManagedTask(task) && !isDelegatedChildTask(task);
+}
+
+/**
+ * The notification-payload equivalent of `isFleetAttentionSuppressedTask`. A
+ * notification outlives the live task state it was raised from, so it carries
+ * its own copy of the control fields and of the delegation link. Rows written
+ * before the link existed simply have no `parentTaskId` and keep the old
+ * suppressed behavior.
+ */
+function isSuppressedInteractionNotification(notification: AppNotification) {
+  if (
+    notification.payload.controlMode !== "managed" ||
+    notification.payload.controlOwner !== "external"
+  ) {
+    return false;
+  }
+  const parentTaskId = notification.payload.parentTaskId;
+  return !(typeof parentTaskId === "string" && normalizeRequired(parentTaskId));
+}
+
 function buildPrNeedId(args: {
   kind: Extract<FleetAttentionKind, `pr-${string}`>;
   workspaceId: string;
@@ -198,11 +234,7 @@ export function collectFleetLiveAttentionItems(
 
   for (const workspace of workspaces) {
     for (const task of workspace.tasks) {
-      if (
-        isTaskArchived(task) ||
-        isLegacyBranchTask(task) ||
-        isExternallyManagedTask(task)
-      ) {
+      if (isTaskArchived(task) || isFleetAttentionSuppressedTask(task)) {
         continue;
       }
 
@@ -337,10 +369,7 @@ export function collectFleetNotificationAttentionItems(
       notification.kind === "task.approval_requested" ||
       notification.kind === "task.user_input_requested"
     ) {
-      if (
-        notification.payload.controlMode === "managed" &&
-        notification.payload.controlOwner === "external"
-      ) {
+      if (isSuppressedInteractionNotification(notification)) {
         continue;
       }
       if (notification.resolvedAt) {
@@ -492,7 +521,7 @@ export function buildFleetAttentionProjection(args: {
   const externalTaskKeys = new Set(
     args.liveWorkspaces.flatMap((workspace) =>
       workspace.tasks
-        .filter(isExternallyManagedTask)
+        .filter(isFleetAttentionSuppressedTask)
         .map((task) =>
           getFleetAttentionTaskKey(workspace.workspaceId, task.id),
         ),
@@ -504,7 +533,7 @@ export function buildFleetAttentionProjection(args: {
   const closedTaskKeys = new Set(args.closedTaskKeys ?? []);
   for (const workspace of args.liveWorkspaces) {
     for (const task of workspace.tasks) {
-      if (isTaskArchived(task) || isLegacyBranchTask(task)) {
+      if (isTaskArchived(task)) {
         closedTaskKeys.add(
           getFleetAttentionTaskKey(workspace.workspaceId, task.id),
         );

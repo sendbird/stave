@@ -5,23 +5,31 @@ import {
   buildChildTaskPolicy,
   buildChildTaskRunId,
   buildChildTaskStepId,
+  ChildTaskActionResponseSchema,
   ChildTaskDelegateArgsSchema,
-  ChildTaskDelegateResponseSchema,
+  ChildTaskDetachArgsSchema,
+  ChildTaskFollowUpArgsSchema,
   ChildTaskListArgsSchema,
   ChildTaskListSchema,
+  ChildTaskRetryArgsSchema,
   ChildTaskStopArgsSchema,
-  ChildTaskStopResponseSchema,
   ChildTaskSummarySchema,
+  CHILD_TASK_DETACHED_REASON,
   CHILD_TASK_LIST_LIMIT,
   CHILD_TASK_RUN_KIND,
   CHILD_TASK_STEP_KIND,
+  CHILD_TASK_STOPPED_REASON,
+  describeChildTaskRejection,
   isActiveChildTaskPhase,
+  resolveChildTaskControls,
   toChildTaskSummary,
+  validateChildTaskIdentity,
+  type ChildTaskActionResponse,
   type ChildTaskDelegateArgs,
-  type ChildTaskDelegateResponse,
+  type ChildTaskExpectedIdentity,
   type ChildTaskLifecycle,
+  type ChildTaskPermissionProfile,
   type ChildTaskRejectionReason,
-  type ChildTaskStopResponse,
   type ChildTaskSummary,
 } from "../../../src/lib/runs/child-task";
 import {
@@ -84,6 +92,7 @@ export interface ChildTaskLedgerPort {
     idempotencyKey: string;
     expectedExecutionId?: string;
     detail?: unknown;
+    error?: string;
     now: string;
   }): RunLedgerTransitionResult;
   interruptRunStep(args: {
@@ -107,6 +116,10 @@ export interface ChildTaskLedgerPort {
     run: RunRecord;
     step: RunStepRecord;
   }>;
+  listRunAggregatesByOwnedTask(args: {
+    taskId: string;
+    limit: number;
+  }): Array<{ run: RunRecord; step: RunStepRecord }>;
 }
 
 export interface ChildTaskWorkspaceLocation {
@@ -148,6 +161,12 @@ export interface ChildTaskHostPort {
     providerId: "claude-code" | "codex";
     model?: string;
     permissionProfile: ChildTaskDelegateArgs["permissionProfile"];
+    /**
+     * Stamped onto the child task row when the row is first created, so the
+     * renderer can tell a delegated child from a peer task without reading the
+     * ledger. The ledger remains the source of truth for the delegation itself.
+     */
+    parentTaskId: string;
   }): Promise<{ turnId: string }>;
   stopTask(args: { workspaceId: string; taskId: string }): Promise<unknown>;
 }
@@ -159,6 +178,7 @@ interface ChildTaskCoordinatorDependencies {
   now?: () => string;
   createExecutionId?: () => string;
   onError?: (error: unknown, context: { scope: string; runId: string }) => void;
+  onChange?: (args: { parentTaskId: string }) => void;
 }
 
 function hashChildTaskInput(args: ChildTaskDelegateArgs) {
@@ -230,6 +250,9 @@ const TRANSITION_REASONS: ReadonlySet<string> = new Set([
   "invalid-state",
   "not-found",
   "run-conflict",
+  // A step whose execution moved on is a stale caller, not an unknown state:
+  // the distinction is what lets a refused control say why it was refused.
+  "stale-execution",
   "step-conflict",
 ]);
 
@@ -248,27 +271,30 @@ function summaryFromTransition(
   return toChildTaskSummary({ run: transition.run, step: transition.step });
 }
 
-function rejectedDelegate(
+function rejected(
   reason: ChildTaskRejectionReason,
   child: ChildTaskSummary | null = null,
-): ChildTaskDelegateResponse {
-  return ChildTaskDelegateResponseSchema.parse({
+  message?: string,
+): ChildTaskActionResponse {
+  return ChildTaskActionResponseSchema.parse({
     accepted: false,
     duplicate: false,
     reason,
+    message: message ?? describeChildTaskRejection(reason),
     child,
   });
 }
 
-function rejectedStop(
-  reason: ChildTaskRejectionReason,
-  child: ChildTaskSummary | null = null,
-): ChildTaskStopResponse {
-  return ChildTaskStopResponseSchema.parse({
-    accepted: false,
-    duplicate: false,
-    reason,
-    child,
+function accepted(args: {
+  duplicate: boolean;
+  child: ChildTaskSummary | null;
+}): ChildTaskActionResponse {
+  return ChildTaskActionResponseSchema.parse({
+    accepted: true,
+    duplicate: args.duplicate,
+    reason: null,
+    message: null,
+    child: args.child,
   });
 }
 
@@ -286,6 +312,18 @@ export function createChildTaskCoordinator(
     context: { scope: string; runId: string },
   ) => {
     dependencies.onError?.(error, context);
+  };
+
+  /**
+   * A delegation changes phase on its own schedule — a turn ends, a restart
+   * reconciles — so the parent surface is told rather than left to poll for it.
+   */
+  const notifyChanged = (parentTaskId: string) => {
+    try {
+      dependencies.onChange?.({ parentTaskId });
+    } catch (error) {
+      reportError(error, { scope: "notify-change", runId: parentTaskId });
+    }
   };
 
   /**
@@ -333,34 +371,48 @@ export function createChildTaskCoordinator(
     });
   };
 
-  const startChild = (args: {
+  /**
+   * Run one turn of a delegation and record what it did. The first turn of a
+   * delegation and a later follow-up turn differ only in which execution owns
+   * the step, so both go through here and settle the same way.
+   */
+  const runChildTurn = (args: {
     ledger: ChildTaskLedgerPort;
-    delegate: ChildTaskDelegateArgs;
     runId: string;
     stepId: string;
+    parentTaskId: string;
     executionId: string;
     target: RunStepTarget;
+    scope: "start-child" | "follow-up-child";
+    turn: {
+      prompt: string;
+      title?: string;
+      model?: string;
+      permissionProfile: ChildTaskPermissionProfile;
+      lifecycle: ChildTaskLifecycle;
+    };
   }) => {
     const started = (async () => {
       try {
         const result = await dependencies.host.runTask({
           workspaceId: args.target.workspaceId,
           taskId: args.target.taskId,
-          title: args.delegate.title,
-          prompt: args.delegate.prompt,
-          providerId: args.delegate.providerId,
-          model: args.delegate.model,
-          permissionProfile: args.delegate.permissionProfile,
+          parentTaskId: args.parentTaskId,
+          title: args.turn.title,
+          prompt: args.turn.prompt,
+          providerId: args.target.providerId,
+          model: args.turn.model,
+          permissionProfile: args.turn.permissionProfile,
         });
         settleAfterTurn({
           ledger: args.ledger,
           runId: args.runId,
           stepId: args.stepId,
           executionId: args.executionId,
-          lifecycle: args.delegate.lifecycle,
+          lifecycle: args.turn.lifecycle,
           target: args.target,
           turnId: result.turnId,
-          providerId: args.delegate.providerId,
+          providerId: args.target.providerId,
         });
       } catch (error) {
         const current = args.ledger.getRunAggregate({
@@ -378,19 +430,20 @@ export function createChildTaskCoordinator(
           error: sanitizeChildError(error),
           detail: {
             code: "child-task-failure",
-            providerId: args.delegate.providerId,
+            providerId: args.target.providerId,
           },
           now: now(),
         });
       }
     })()
       .catch((error) => {
-        reportError(error, { scope: "start-child", runId: args.runId });
+        reportError(error, { scope: args.scope, runId: args.runId });
       })
       .finally(() => {
         if (inFlightByStepId.get(args.stepId) === started) {
           inFlightByStepId.delete(args.stepId);
         }
+        notifyChanged(args.parentTaskId);
       });
     inFlightByStepId.set(args.stepId, started);
   };
@@ -498,6 +551,13 @@ export function createChildTaskCoordinator(
       });
       reconciled += transition.accepted ? 1 : 0;
     }
+    if (reconciled > 0) {
+      for (const parentTaskId of new Set(
+        aggregates.map((aggregate) => aggregate.run.origin.id),
+      )) {
+        notifyChanged(parentTaskId);
+      }
+    }
     return { reconciled, deferred };
   };
 
@@ -539,172 +599,340 @@ export function createChildTaskCoordinator(
     });
   };
 
+  /**
+   * Read one delegation back from the ledger and check it still is what the
+   * caller thinks it is. Every control the parent surface offers goes through
+   * here first, so a control prepared against an identity that has since moved
+   * is refused with a reason instead of landing on the delegation that replaced
+   * it.
+   */
+  const resolveForAction = async (args: {
+    parentTaskId: string;
+    delegationKey: string;
+    expected?: ChildTaskExpectedIdentity;
+  }) => {
+    const runId = buildChildTaskRunId({
+      parentTaskId: args.parentTaskId,
+      delegationKey: args.delegationKey,
+    });
+    const stepId = buildChildTaskStepId(runId);
+    const ledger = await getLedger();
+    await ensureReconciled();
+    const aggregate = ledger.getRunAggregate({ runId, stepId });
+    const child = aggregate ? toChildTaskSummary(aggregate) : null;
+    if (!child) {
+      return { ok: false as const, rejection: rejected("not-found") };
+    }
+    if (args.expected) {
+      const identity = validateChildTaskIdentity({
+        expected: args.expected,
+        child,
+      });
+      if (!identity.ok) {
+        return {
+          ok: false as const,
+          rejection: rejected(identity.reason, child, identity.message),
+        };
+      }
+    }
+    return {
+      ok: true as const,
+      ledger,
+      runId,
+      stepId,
+      child,
+      step: aggregate!.step,
+    };
+  };
+
+  const delegateChild = async (
+    rawArgs: unknown,
+  ): Promise<ChildTaskActionResponse> => {
+    const parsed = ChildTaskDelegateArgsSchema.safeParse(rawArgs);
+    if (!parsed.success) {
+      return rejected("invalid-request");
+    }
+    const args = parsed.data;
+    const runId = buildChildTaskRunId({
+      parentTaskId: args.parentTaskId,
+      delegationKey: args.delegationKey,
+    });
+    const stepId = buildChildTaskStepId(runId);
+    const ledger = await getLedger();
+
+    // ── Parent ownership ────────────────────────────────────────────────
+    // A delegation is only legitimate if the caller's parent task really
+    // lives in the workspace it names, and that workspace really belongs to
+    // the project path the run will be recorded under.
+    const parentWorkspace = await dependencies.host.resolveWorkspace({
+      workspaceId: args.parentWorkspaceId,
+    });
+    if (
+      !parentWorkspace ||
+      !isPathOwnedByProject({
+        projectPath: args.projectPath,
+        cwd: parentWorkspace.workspacePath,
+      })
+    ) {
+      return rejected("invalid-ownership");
+    }
+    const parentStatus = await dependencies.host
+      .getTaskStatus({
+        workspaceId: args.parentWorkspaceId,
+        taskId: args.parentTaskId,
+      })
+      .catch(() => ({ ok: false, reason: "unavailable" }) as const);
+    if (!parentStatus.ok) {
+      return rejected(
+        parentStatus.reason === "missing"
+          ? "invalid-ownership"
+          : "workspace-unavailable",
+      );
+    }
+    await ensureReconciled();
+
+    const existing = ledger.getRunAggregate({ runId, stepId });
+    const existingSummary = existing ? toChildTaskSummary(existing) : null;
+
+    // ── Concurrency ─────────────────────────────────────────────────────
+    // Counted per parent task over live children only, and never against the
+    // delegation being re-sent, so a retry of a finished child cannot be
+    // blocked by its own row.
+    const activeOthers = ledger
+      .listRunAggregatesByOrigin({
+        originKind: "task",
+        originId: args.parentTaskId,
+        limit: CHILD_TASK_LIST_LIMIT,
+      })
+      .flatMap((aggregate) => {
+        const summary = toChildTaskSummary(aggregate);
+        return summary && summary.runId !== runId ? [summary] : [];
+      })
+      .filter((summary) => isActiveChildTaskPhase(summary.phase));
+    if (activeOthers.length >= dependencies.concurrencyLimit) {
+      return rejected("concurrency-limit-reached", existingSummary);
+    }
+
+    if (existingSummary && !args.retry) {
+      // The same key always names the same child. Re-sending it reports the
+      // child that exists instead of starting a second one.
+      if (isActiveChildTaskPhase(existingSummary.phase)) {
+        return accepted({ duplicate: true, child: existingSummary });
+      }
+    }
+
+    // A retry reuses the workspace the delegation already owns; only a first
+    // attempt may cut a new worktree.
+    const childWorkspaceId =
+      existingSummary?.childWorkspaceId ??
+      (
+        await resolveChildWorkspace({ delegate: args, parentWorkspace }).catch(
+          () => null,
+        )
+      )?.workspaceId;
+    if (!childWorkspaceId) {
+      return rejected("workspace-unavailable", existingSummary);
+    }
+
+    const childTaskId =
+      existingSummary?.childTaskId ?? deriveChildTaskId(runId);
+    const target: RunStepTarget = {
+      taskId: childTaskId,
+      workspaceId: childWorkspaceId,
+      turnId: existingSummary?.childTurnId ?? null,
+      providerId: args.providerId,
+    };
+    const timestamp = now();
+    const executionId = createExecutionId();
+    const attempt = existing ? existing.step.attempt : 0;
+    const transition = ledger.claimRunStep({
+      run: createPendingRun({
+        id: runId,
+        kind: CHILD_TASK_RUN_KIND,
+        origin: { kind: "task", id: args.parentTaskId },
+        ownership: {
+          projectPath: args.projectPath,
+          workspaceId: childWorkspaceId,
+          taskId: childTaskId,
+        },
+        policy: buildChildTaskPolicy(args.lifecycle),
+        provenance: {
+          createdBy: "child-task-coordinator",
+          schemaVersion: RUN_LEDGER_SCHEMA_VERSION,
+        },
+        now: timestamp,
+      }),
+      step: createPendingRunStep({
+        id: stepId,
+        runId,
+        kind: CHILD_TASK_STEP_KIND,
+        target,
+        dependencyIds: [],
+        inputHash: hashChildTaskInput(args),
+        now: timestamp,
+      }),
+      executionId,
+      idempotencyKey: args.retry
+        ? `${args.delegationKey}:attempt-${attempt + 1}`
+        : args.delegationKey,
+      now: timestamp,
+    });
+
+    if (!transition.accepted) {
+      return rejected(
+        toRejectionReason(transition.reason),
+        summaryFromTransition(transition) ?? existingSummary,
+      );
+    }
+    const child = summaryFromTransition(transition);
+    if (transition.duplicate || !child) {
+      return accepted({
+        duplicate: true,
+        child: child ?? existingSummary,
+      });
+    }
+
+    runChildTurn({
+      ledger,
+      runId,
+      stepId,
+      parentTaskId: args.parentTaskId,
+      executionId,
+      target,
+      scope: "start-child",
+      turn: {
+        prompt: args.prompt,
+        title: args.title,
+        model: args.model,
+        permissionProfile: args.permissionProfile,
+        lifecycle: args.lifecycle,
+      },
+    });
+    notifyChanged(args.parentTaskId);
+    return accepted({ duplicate: false, child });
+  };
+
   return {
-    async delegate(rawArgs: unknown): Promise<ChildTaskDelegateResponse> {
-      const parsed = ChildTaskDelegateArgsSchema.safeParse(rawArgs);
+    delegate: delegateChild,
+
+    /**
+     * A fresh attempt on a delegation that ended without succeeding. Provider,
+     * lifecycle and workspace come from the delegation the ledger already
+     * holds, so the retry stays the same delegation rather than a new one
+     * borrowing its key.
+     */
+    async retry(rawArgs: unknown): Promise<ChildTaskActionResponse> {
+      const parsed = ChildTaskRetryArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return rejectedDelegate("invalid-request");
+        return rejected("invalid-request");
       }
       const args = parsed.data;
-      const runId = buildChildTaskRunId({
+      const resolved = await resolveForAction(args);
+      if (!resolved.ok) {
+        return resolved.rejection;
+      }
+      if (!resolveChildTaskControls(resolved.child).canRetry) {
+        return rejected("invalid-state", resolved.child);
+      }
+      return delegateChild({
+        projectPath: args.projectPath,
+        parentWorkspaceId: args.parentWorkspaceId,
         parentTaskId: args.parentTaskId,
         delegationKey: args.delegationKey,
+        prompt: args.prompt,
+        providerId: resolved.child.providerId,
+        permissionProfile: args.permissionProfile,
+        lifecycle: resolved.child.lifecycle,
+        // Ignored on a retry: the delegation keeps the workspace it owns.
+        workspace: { mode: "same-workspace" },
+        retry: true,
       });
-      const stepId = buildChildTaskStepId(runId);
-      const ledger = await getLedger();
+    },
 
-      // ── Parent ownership ────────────────────────────────────────────────
-      // A delegation is only legitimate if the caller's parent task really
-      // lives in the workspace it names, and that workspace really belongs to
-      // the project path the run will be recorded under.
-      const parentWorkspace = await dependencies.host.resolveWorkspace({
-        workspaceId: args.parentWorkspaceId,
-      });
+    /**
+     * One more turn on a child that is parked open. The delegation stays in
+     * `waiting` for the whole follow-up — the ledger records the delegation's
+     * lifecycle, and the child's own task surface is where its turn-by-turn
+     * state lives.
+     */
+    async followUp(rawArgs: unknown): Promise<ChildTaskActionResponse> {
+      const parsed = ChildTaskFollowUpArgsSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return rejected("invalid-request");
+      }
+      const args = parsed.data;
+      const resolved = await resolveForAction(args);
+      if (!resolved.ok) {
+        return resolved.rejection;
+      }
+      const target = resolved.step.target;
+      const executionId = resolved.step.executionId;
       if (
-        !parentWorkspace ||
-        !isPathOwnedByProject({
-          projectPath: args.projectPath,
-          cwd: parentWorkspace.workspacePath,
-        })
+        !resolveChildTaskControls(resolved.child).canFollowUp ||
+        !target ||
+        !executionId
       ) {
-        return rejectedDelegate("invalid-ownership");
+        return rejected("invalid-state", resolved.child);
       }
-      const parentStatus = await dependencies.host
-        .getTaskStatus({
-          workspaceId: args.parentWorkspaceId,
-          taskId: args.parentTaskId,
-        })
-        .catch(() => ({ ok: false, reason: "unavailable" }) as const);
-      if (!parentStatus.ok) {
-        return rejectedDelegate(
-          parentStatus.reason === "missing"
-            ? "invalid-ownership"
-            : "workspace-unavailable",
-        );
+      if (inFlightByStepId.has(resolved.stepId)) {
+        return rejected("already-active", resolved.child);
       }
-      await ensureReconciled();
-
-      const existing = ledger.getRunAggregate({ runId, stepId });
-      const existingSummary = existing ? toChildTaskSummary(existing) : null;
-
-      // ── Concurrency ─────────────────────────────────────────────────────
-      // Counted per parent task over live children only, and never against the
-      // delegation being re-sent, so a retry of a finished child cannot be
-      // blocked by its own row.
-      const activeOthers = ledger
-        .listRunAggregatesByOrigin({
-          originKind: "task",
-          originId: args.parentTaskId,
-          limit: CHILD_TASK_LIST_LIMIT,
-        })
-        .flatMap((aggregate) => {
-          const summary = toChildTaskSummary(aggregate);
-          return summary && summary.runId !== runId ? [summary] : [];
-        })
-        .filter((summary) => isActiveChildTaskPhase(summary.phase));
-      if (activeOthers.length >= dependencies.concurrencyLimit) {
-        return rejectedDelegate("concurrency-limit-reached", existingSummary);
-      }
-
-      if (existingSummary && !args.retry) {
-        // The same key always names the same child. Re-sending it reports the
-        // child that exists instead of starting a second one.
-        if (isActiveChildTaskPhase(existingSummary.phase)) {
-          return ChildTaskDelegateResponseSchema.parse({
-            accepted: true,
-            duplicate: true,
-            reason: null,
-            child: existingSummary,
-          });
-        }
-      }
-
-      // A retry reuses the workspace the delegation already owns; only a first
-      // attempt may cut a new worktree.
-      const childWorkspaceId =
-        existingSummary?.childWorkspaceId ??
-        (
-          await resolveChildWorkspace({ delegate: args, parentWorkspace }).catch(
-            () => null,
-          )
-        )?.workspaceId;
-      if (!childWorkspaceId) {
-        return rejectedDelegate("workspace-unavailable", existingSummary);
-      }
-
-      const childTaskId =
-        existingSummary?.childTaskId ?? deriveChildTaskId(runId);
-      const target: RunStepTarget = {
-        taskId: childTaskId,
-        workspaceId: childWorkspaceId,
-        turnId: existingSummary?.childTurnId ?? null,
-        providerId: args.providerId,
-      };
-      const timestamp = now();
-      const executionId = createExecutionId();
-      const attempt = existing ? existing.step.attempt : 0;
-      const transition = ledger.claimRunStep({
-        run: createPendingRun({
-          id: runId,
-          kind: CHILD_TASK_RUN_KIND,
-          origin: { kind: "task", id: args.parentTaskId },
-          ownership: {
-            projectPath: args.projectPath,
-            workspaceId: childWorkspaceId,
-            taskId: childTaskId,
-          },
-          policy: buildChildTaskPolicy(args.lifecycle),
-          provenance: {
-            createdBy: "child-task-coordinator",
-            schemaVersion: RUN_LEDGER_SCHEMA_VERSION,
-          },
-          now: timestamp,
-        }),
-        step: createPendingRunStep({
-          id: stepId,
-          runId,
-          kind: CHILD_TASK_STEP_KIND,
-          target,
-          dependencyIds: [],
-          inputHash: hashChildTaskInput(args),
-          now: timestamp,
-        }),
-        executionId,
-        idempotencyKey: args.retry
-          ? `${args.delegationKey}:attempt-${attempt + 1}`
-          : args.delegationKey,
-        now: timestamp,
-      });
-
-      if (!transition.accepted) {
-        return rejectedDelegate(
-          toRejectionReason(transition.reason),
-          summaryFromTransition(transition) ?? existingSummary,
-        );
-      }
-      const child = summaryFromTransition(transition);
-      if (transition.duplicate || !child) {
-        return ChildTaskDelegateResponseSchema.parse({
-          accepted: true,
-          duplicate: true,
-          reason: null,
-          child: child ?? existingSummary,
-        });
-      }
-
-      startChild({
-        ledger,
-        delegate: args,
-        runId,
-        stepId,
+      runChildTurn({
+        ledger: resolved.ledger,
+        runId: resolved.runId,
+        stepId: resolved.stepId,
+        parentTaskId: args.parentTaskId,
         executionId,
         target,
+        scope: "follow-up-child",
+        turn: {
+          prompt: args.prompt,
+          permissionProfile: args.permissionProfile,
+          lifecycle: resolved.child.lifecycle,
+        },
       });
-      return ChildTaskDelegateResponseSchema.parse({
-        accepted: true,
-        duplicate: false,
-        reason: null,
-        child,
+      return accepted({ duplicate: false, child: resolved.child });
+    },
+
+    /**
+     * Release the delegation and leave the child running. Only the parent's
+     * claim ends here: the child task is never asked to stop, which is the one
+     * thing that separates this from `stop`.
+     */
+    async detach(rawArgs: unknown): Promise<ChildTaskActionResponse> {
+      const parsed = ChildTaskDetachArgsSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return rejected("invalid-request");
+      }
+      const args = parsed.data;
+      const resolved = await resolveForAction(args);
+      if (!resolved.ok) {
+        return resolved.rejection;
+      }
+      if (!resolveChildTaskControls(resolved.child).canDetach) {
+        return rejected("invalid-state", resolved.child);
+      }
+      const transition = resolved.ledger.cancelRunStep({
+        runId: resolved.runId,
+        stepId: resolved.stepId,
+        idempotencyKey: `detach:${args.delegationKey}`,
+        detail: {
+          code: "child-task-detached",
+          providerId: resolved.child.providerId,
+        },
+        error: CHILD_TASK_DETACHED_REASON,
+        now: now(),
+      });
+      if (!transition.accepted) {
+        return rejected(
+          toRejectionReason(transition.reason),
+          summaryFromTransition(transition) ?? resolved.child,
+        );
+      }
+      notifyChanged(args.parentTaskId);
+      return accepted({
+        duplicate: transition.duplicate,
+        child: summaryFromTransition(transition),
       });
     },
 
@@ -727,29 +955,24 @@ export function createChildTaskCoordinator(
         })
         .filter(
           (summary) =>
-            parsed.data.includeFinished || isActiveChildTaskPhase(summary.phase),
+            parsed.data.includeFinished ||
+            isActiveChildTaskPhase(summary.phase),
         );
       return ChildTaskListSchema.parse(summaries);
     },
 
-    async stop(rawArgs: unknown): Promise<ChildTaskStopResponse> {
+    async stop(rawArgs: unknown): Promise<ChildTaskActionResponse> {
       const parsed = ChildTaskStopArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return rejectedStop("invalid-request");
+        return rejected("invalid-request");
       }
       const args = parsed.data;
-      const runId = buildChildTaskRunId({
-        parentTaskId: args.parentTaskId,
-        delegationKey: args.delegationKey,
-      });
-      const stepId = buildChildTaskStepId(runId);
-      const ledger = await getLedger();
-      await ensureReconciled();
-      const aggregate = ledger.getRunAggregate({ runId, stepId });
-      if (!aggregate || !toChildTaskSummary(aggregate)) {
-        return rejectedStop("not-found");
+      const resolved = await resolveForAction(args);
+      if (!resolved.ok) {
+        return resolved.rejection;
       }
-      const target = aggregate.step.target;
+      const { ledger, runId, stepId } = resolved;
+      const target = resolved.step.target;
       const transition = ledger.cancelRunStep({
         runId,
         stepId,
@@ -759,10 +982,11 @@ export function createChildTaskCoordinator(
           message: args.reason,
           providerId: target?.providerId,
         },
+        error: args.reason ?? CHILD_TASK_STOPPED_REASON,
         now: now(),
       });
       if (!transition.accepted) {
-        return rejectedStop(
+        return rejected(
           toRejectionReason(transition.reason),
           summaryFromTransition(transition),
         );
@@ -780,10 +1004,9 @@ export function createChildTaskCoordinator(
             reportError(error, { scope: "stop-child", runId });
           });
       }
-      return ChildTaskStopResponseSchema.parse({
-        accepted: true,
+      notifyChanged(args.parentTaskId);
+      return accepted({
         duplicate: transition.duplicate,
-        reason: null,
         child: summaryFromTransition(transition),
       });
     },
@@ -797,6 +1020,27 @@ export function createChildTaskCoordinator(
      */
     async waitForInFlight() {
       await Promise.all([...inFlightByStepId.values()]);
+    },
+
+    /**
+     * The delegation that owns a task, seen from the child's side. A child task
+     * is an ordinary task, so the only way its own surface can show who
+     * delegated it is to ask the ledger.
+     */
+    async getParentLink(args: { childTaskId: string }) {
+      const ledger = await getLedger();
+      const summaries = ledger
+        .listRunAggregatesByOwnedTask({
+          taskId: args.childTaskId,
+          limit: CHILD_TASK_LIST_LIMIT,
+        })
+        .flatMap((aggregate) => {
+          const summary = toChildTaskSummary(aggregate);
+          return summary && summary.childTaskId === args.childTaskId
+            ? [summary]
+            : [];
+        });
+      return summaries[0] ?? null;
     },
 
     async get(args: { parentTaskId: string; delegationKey: string }) {
