@@ -47,6 +47,16 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // are not, so `stave_delegate_task` and `stave_stop_child_task` stay on the
   // approval path alongside `stave_run_task`.
   "stave_list_child_tasks",
+  // Same line the routine tools sit on: defining or pausing scheduled work only
+  // edits a definition, so it belongs here, while anything that starts a turn
+  // right now (`stave_run_routine_now`) does not. A heartbeat has no immediate
+  // trigger at all, so all six of its tools are definition edits.
+  "stave_list_task_heartbeats",
+  "stave_get_task_heartbeat",
+  "stave_create_task_heartbeat",
+  "stave_update_task_heartbeat",
+  "stave_set_task_heartbeat_paused",
+  "stave_remove_task_heartbeat",
 ]);
 
 /**

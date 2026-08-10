@@ -5,6 +5,7 @@ import path from "node:path";
 import { createChildTaskCoordinator } from "../electron/main/runs/child-task-coordinator";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { RoutineUpsertInputSchema } from "../src/lib/routines";
+import { TaskHeartbeatUpsertInputSchema } from "../src/lib/automation/task-supervisor";
 import { UTILITY_INFERENCE_FEATURES } from "../src/lib/providers/utility-inference";
 import {
   SIDEBAR_WORK_QUEUE_LANE_ORDER,
@@ -100,6 +101,28 @@ describe("Agent platform boundaries", () => {
         /run-ledger-store|runs\/child-task|persistence\//.test(specifier),
       ),
     ).toEqual([]);
+  });
+
+  test("a heartbeat never creates a task: it only adds a turn to one that exists", () => {
+    // The mirror of the routine boundary above. A heartbeat definition must
+    // name the task it wakes, and must not carry the fields that would let it
+    // mint one — the moment it grows a name/title/environment it has become a
+    // routine with different safety rules.
+    const definitionKeys = Object.keys(TaskHeartbeatUpsertInputSchema.shape);
+
+    expect(definitionKeys).toContain("taskId");
+    expect(
+      definitionKeys.filter((key) => /^(name|title|environment)$/.test(key)),
+    ).toEqual([]);
+    // A blank taskId would make it mint a task through `runTask`'s create path.
+    expect(
+      TaskHeartbeatUpsertInputSchema.safeParse({
+        workspaceId: "ws-1",
+        taskId: "",
+        prompt: "Re-check CI.",
+        trigger: { kind: "schedule", schedule: { every: 1, unit: "hours" } },
+      }).success,
+    ).toBe(false);
   });
 
   test("the ledger records and never executes: run domain and store import no provider runtime", () => {

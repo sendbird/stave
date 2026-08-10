@@ -187,6 +187,20 @@ export interface TaskStatusResult {
   }>;
 }
 
+/** The task supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
+export interface TaskSupervisionSnapshot {
+  workspaceId: string;
+  taskId: string;
+  projectPath: string | null;
+  exists: boolean;
+  archived: boolean;
+  providerId: ProviderId | null;
+  model: string | null;
+  activeTurnId: string | null;
+  pendingApprovalCount: number;
+  pendingUserInputCount: number;
+}
+
 export interface WorkspaceInformationMutationResult {
   workspaceId: string;
   workspaceInformation: WorkspaceInformationState;
@@ -2554,6 +2568,104 @@ export async function getTaskStatus(args: {
     pendingApprovals: findPendingApprovals(messages),
     pendingUserInputs: findPendingUserInputs(messages),
   } satisfies TaskStatusResult;
+}
+
+/**
+ * Everything the task supervisor needs to decide whether a heartbeat may fire.
+ *
+ * Deliberately separate from `getTaskStatus`: that shape is a routine's view of
+ * a run it started, while this one answers "is this pre-existing task still the
+ * same task, still free, and still on the runtime the heartbeat agreed to".
+ * Unlike `getTaskStatus` it reports a missing workspace or task as `exists:
+ * false` rather than throwing, because a deleted task is a normal terminal
+ * outcome for a heartbeat, not an error.
+ *
+ * Used by: `electron/host-service/task-supervisor-runtime.ts`.
+ */
+export async function getTaskSupervisionSnapshot(args: {
+  workspaceId: string;
+  taskId: string;
+}): Promise<TaskSupervisionSnapshot> {
+  const missing: TaskSupervisionSnapshot = {
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    projectPath: null,
+    exists: false,
+    archived: false,
+    providerId: null,
+    model: null,
+    activeTurnId: null,
+    pendingApprovalCount: 0,
+    pendingUserInputCount: 0,
+  };
+
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({
+    projects,
+    workspaceId: args.workspaceId,
+  });
+  if (!registration) {
+    return missing;
+  }
+
+  const session = await loadWorkspaceSession(args.workspaceId);
+  const task = session.tasks.find((item) => item.id === args.taskId);
+  if (!task) {
+    return { ...missing, projectPath: registration.project.projectPath };
+  }
+
+  const store = ensureHostServicePersistenceReady();
+  const messages =
+    store.loadTaskMessagesPage({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      limit: 40,
+    })?.messages ?? [];
+  // The model a task actually runs on is only recorded per message. Fall back
+  // to the provider default, which is what `runTask` itself would resolve.
+  const latestModel = [...messages]
+    .reverse()
+    .find((message) => Boolean(message.model))?.model;
+
+  return {
+    workspaceId: args.workspaceId,
+    taskId: task.id,
+    projectPath: registration.project.projectPath,
+    exists: true,
+    archived: Boolean(task.archivedAt),
+    providerId: task.provider,
+    model:
+      latestModel?.trim() ||
+      getDefaultModelForProvider({ providerId: task.provider }),
+    activeTurnId: session.activeTurnIdsByTask[task.id] ?? null,
+    pendingApprovalCount: findPendingApprovals(messages).length,
+    pendingUserInputCount: findPendingUserInputs(messages).length,
+  };
+}
+
+/**
+ * A heartbeat turn. Identical to a user turn except that it always targets an
+ * existing task and always keeps the task interactive and Stave-owned — waking
+ * a task must never quietly hand its control to an external owner.
+ *
+ * Used by: `electron/host-service/task-supervisor-runtime.ts`.
+ */
+export async function runHeartbeatTurn(args: {
+  workspaceId: string;
+  taskId: string;
+  prompt: string;
+  retrievedContextParts?: CanonicalRetrievedContextPart[];
+}) {
+  return runTask({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    prompt: args.prompt,
+    controlMode: "interactive",
+    controlOwner: "stave",
+    ...(args.retrievedContextParts
+      ? { retrievedContextParts: args.retrievedContextParts }
+      : {}),
+  });
 }
 
 async function releaseManagedTaskControl(args: {
