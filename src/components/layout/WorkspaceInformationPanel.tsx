@@ -130,6 +130,7 @@ import {
 } from "@/hooks/use-sortable-list";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
+import { WorkspaceInformationHirondelleCard } from "./WorkspaceInformationHirondelleCard";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 
 // ---------------------------------------------------------------------------
@@ -1655,6 +1656,9 @@ export function WorkspaceInformationPanel() {
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
       <div className="px-3 py-2">
+        <div className="mb-2">
+          <WorkspaceInformationHirondelleCard />
+        </div>
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>
             <SectionVisibilityContext.Provider value={visibleSections}>
