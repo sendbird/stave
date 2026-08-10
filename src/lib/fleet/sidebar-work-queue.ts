@@ -2,6 +2,7 @@ import type { FleetAttentionKind } from "./attention-projection";
 import { getFleetAttentionTier } from "./attention-projection";
 import type { FleetTaskStatus } from "./task-status";
 import { hasFleetTaskAttentionStatus } from "./task-status";
+import type { TaskHeartbeatState } from "@/lib/automation/task-supervisor";
 
 /**
  * Sidebar work queue: the lane model behind the left sidebar's `Work queue`
@@ -57,6 +58,12 @@ export const SIDEBAR_WORK_QUEUE_LANE_LABEL: Record<
 export interface SidebarWorkQueueSignals {
   attentionKind?: FleetAttentionKind;
   status?: FleetTaskStatus;
+  /**
+   * The most demanding heartbeat state across the workspace's tasks. A signal,
+   * never a lane: a supervised workspace still belongs to exactly one of the
+   * four lanes.
+   */
+  heartbeatState?: TaskHeartbeatState;
 }
 
 /**
@@ -74,6 +81,14 @@ export interface SidebarWorkQueueSignals {
  * 3. `in-review` — finished work nobody has looked at (a completed run, a PR
  *    that is merely ready or behind base). Nothing is stalled.
  * 4. `idle` — nothing pending.
+ *
+ * A heartbeat contributes at two of those points. A paused one is stalled work
+ * that only a human can restart, so it joins `action-required`. A scheduled one
+ * means the workspace is still being worked, just between occurrences, so it
+ * reads `in-progress` rather than sinking to `idle` where it would be
+ * indistinguishable from a workspace nobody has touched. A stopped heartbeat
+ * contributes nothing: it already ran its course and the reason lives in the
+ * execution summary.
  */
 export function classifySidebarWorkQueueLane(
   signals: SidebarWorkQueueSignals,
@@ -86,7 +101,8 @@ export function classifySidebarWorkQueueLane(
   if (
     attentionTier === "blocking" ||
     hasFleetTaskAttentionStatus(status) ||
-    status === "error"
+    status === "error" ||
+    signals.heartbeatState === "paused"
   ) {
     return "action-required";
   }
@@ -95,6 +111,9 @@ export function classifySidebarWorkQueueLane(
   }
   if (attentionTier === "review") {
     return "in-review";
+  }
+  if (signals.heartbeatState === "scheduled") {
+    return "in-progress";
   }
   return "idle";
 }

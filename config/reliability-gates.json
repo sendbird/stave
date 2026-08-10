@@ -170,12 +170,16 @@
       "invariant": "A due heartbeat occurrence defers to an active turn without being consumed, pauses while an approval or question is pending or the task's provider runtime changed, stops with an explicit reason on archive, expiry, or the occurrence cap, catches up at most once after a restart, and records every occurrence idempotently.",
       "testFiles": [
         "tests/task-supervisor.test.ts",
-        "tests/task-supervisor-runtime.test.ts"
+        "tests/task-supervisor-runtime.test.ts",
+        "tests/task-heartbeats-ipc-contract.test.ts",
+        "tests/task-heartbeat-store-actions.test.ts"
       ],
       "assertionRefs": [
         "src/lib/automation/task-supervisor.ts",
         "electron/host-service/task-supervisor-runtime.ts",
-        "electron/persistence/task-heartbeat-store.ts"
+        "electron/persistence/task-heartbeat-store.ts",
+        "electron/main/ipc/task-heartbeats.ts",
+        "src/store/app-store-task-heartbeat-actions.ts"
       ]
     }
   ]

@@ -3,6 +3,10 @@ import {
   RoutineInformationResourceCreateInputSchema,
   RoutineUpsertInputSchema,
 } from "../../../src/lib/routines";
+import {
+  TaskHeartbeatUpsertInputSchema,
+  TASK_HEARTBEAT_LIMITS,
+} from "../../../src/lib/automation/task-supervisor";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
 import { PR_CONTEXT_LIMITS } from "../../../src/lib/pr-context";
 import {
@@ -1862,3 +1866,45 @@ export const RoutineInformationReferencesArgsSchema = z
 
 export const RoutineInformationResourceCreateArgsSchema =
   RoutineInformationResourceCreateInputSchema;
+
+/**
+ * Task heartbeats. The definition body is the domain schema itself — the IPC
+ * boundary adds only the addressing (`id`) and the workspace filter, so the
+ * renderer and the supervisor can never disagree about what a heartbeat is.
+ */
+const TaskHeartbeatWorkspaceIdSchema = z
+  .string()
+  .min(1)
+  .max(TASK_HEARTBEAT_LIMITS.maxIdChars);
+
+export const TaskHeartbeatListArgsSchema = z
+  .object({
+    workspaceId: TaskHeartbeatWorkspaceIdSchema.optional(),
+  })
+  .strict();
+
+export const TaskHeartbeatCreateArgsSchema = z
+  .object({
+    input: TaskHeartbeatUpsertInputSchema,
+  })
+  .strict();
+
+export const TaskHeartbeatUpdateArgsSchema = z
+  .object({
+    id: z.string().uuid(),
+    input: TaskHeartbeatUpsertInputSchema,
+  })
+  .strict();
+
+export const TaskHeartbeatSetPausedArgsSchema = z
+  .object({
+    id: z.string().uuid(),
+    paused: z.boolean(),
+  })
+  .strict();
+
+export const TaskHeartbeatIdArgsSchema = z
+  .object({
+    id: z.string().uuid(),
+  })
+  .strict();

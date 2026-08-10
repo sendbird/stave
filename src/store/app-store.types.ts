@@ -46,6 +46,10 @@ import type {
 } from "@/store/workspace-pane-state";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import type {
+  TaskHeartbeatSummary,
+  TaskHeartbeatUpsertInput,
+} from "@/lib/automation/task-supervisor";
+import type {
   ChatMessage,
   EditorTab,
   PromptDraft,
@@ -94,6 +98,15 @@ export type SendUserMessageResult =
 
 export type ConversationThreadActionResult =
   { ok: true; detail: string; taskId?: string } | { ok: false; detail: string };
+
+/**
+ * Every task heartbeat gesture answers with this instead of throwing, so the
+ * control that triggered it can render the reason inline.
+ */
+export interface TaskHeartbeatActionResult {
+  ok: boolean;
+  message?: string;
+}
 
 export interface AppState
   extends
@@ -200,6 +213,13 @@ export interface AppState
   >;
   workspaceRuntimeCacheById: Record<string, WorkspaceSessionState>;
   taskWorkspaceIdById: Record<string, string>;
+  /**
+   * Host-reported heartbeat summaries, keyed by the task each one watches (a
+   * task carries at most one). Transient, never persisted: the host store is
+   * the only source of truth, and this record is replaced only when the
+   * snapshot actually differs so selectors stay reference-stable.
+   */
+  taskHeartbeatSummariesByTaskId: Record<string, TaskHeartbeatSummary>;
   persistenceBootstrapPhase: PersistenceBootstrapPhase;
   persistenceBootstrapMessage: string;
   hydrateProjectRegistry: () => Promise<void>;
@@ -453,6 +473,18 @@ export interface AppState
   openWorkspacePicker: () => Promise<void>;
   refreshProjectFiles: () => Promise<void>;
   refreshRateLimits: () => Promise<void>;
+  /** Re-reads the full heartbeat snapshot from the host. */
+  refreshTaskHeartbeats: () => Promise<TaskHeartbeatActionResult>;
+  createTaskHeartbeat: (args: {
+    input: TaskHeartbeatUpsertInput;
+  }) => Promise<TaskHeartbeatActionResult>;
+  setTaskHeartbeatPaused: (args: {
+    id: string;
+    paused: boolean;
+  }) => Promise<TaskHeartbeatActionResult>;
+  removeTaskHeartbeat: (args: {
+    id: string;
+  }) => Promise<TaskHeartbeatActionResult>;
   refreshProviderAvailability: () => Promise<void>;
   refreshSkillCatalog: (args?: {
     workspacePath?: string | null;

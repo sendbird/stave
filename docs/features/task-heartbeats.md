@@ -84,6 +84,32 @@ Occurrence history is pruned to the most recent 100 per heartbeat.
 - `stave_set_task_heartbeat_paused` — pause or resume
 - `stave_remove_task_heartbeat` — deletes the heartbeat and its history
 
+## Surfaces
+
+State reaches the UI through the **shared task execution summary**, not a card
+model of its own. `TaskExecutionSummary` carries a `supervision` metric —
+`{ state, reason, nextRunAt, occurrenceCount, skippedCount }`, or `unavailable`
+when no heartbeat is attached, never a zero and never a fake "idle". Because it
+is one more metric, it reaches Fleet, the in-task Turn Activity shelf, and
+completion-notification provenance without any of them being taught about
+heartbeats.
+
+The sidebar work queue reads it as a **signal**, not a lane: a paused heartbeat
+joins `action-required` (only a human can restart it), and a scheduled one reads
+`in-progress` rather than sinking to `idle`, where a supervised task would look
+identical to a workspace nobody has touched. A stopped heartbeat contributes
+nothing — it already ran its course, and its reason lives in the summary. The
+four lanes and their order are unchanged.
+
+Controls live in the per-task control panel, beside the existing approve /
+steer / queue / stop gestures: add (a standing instruction plus a cadence drawn
+from the routine presets), pause, resume, and remove. When a heartbeat is
+paused or stopped, its reason is shown — that sentence is the point of the
+feature.
+
+Summaries are polled once at app level on the same 15s period as the host tick
+and shared by both surfaces, rather than fetched per component.
+
 ## Storage
 
 Two tables, not ledger tables. The run ledger records delegated execution; a

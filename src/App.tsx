@@ -15,6 +15,9 @@ import {
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
 
+/** Matches the host supervisor's tick; polling faster only re-reads it. */
+const TASK_HEARTBEAT_REFRESH_INTERVAL_MS = 15_000;
+
 function buildLensSecurityConfig(): LensSecurityConfig {
   const settings = useAppStore.getState().settings;
   return {
@@ -268,6 +271,10 @@ export default function App() {
         return;
       }
       void useAppStore.getState().refreshProviderAvailability();
+      if (cancelled) {
+        return;
+      }
+      void useAppStore.getState().refreshTaskHeartbeats();
     })();
     const providerTimer = window.setInterval(() => {
       void useAppStore.getState().refreshProviderAvailability();
@@ -275,11 +282,20 @@ export default function App() {
     const workspaceTimer = window.setInterval(() => {
       void useAppStore.getState().refreshWorkspaces();
     }, 30000);
+    // Heartbeat summaries feed both Fleet and the sidebar work queue, so they
+    // are polled once here rather than per surface. The host supervisor ticks
+    // on the same period; polling faster would only re-read an unchanged
+    // snapshot. Read through `getState()` so the timer never closes over a
+    // stale action reference.
+    const heartbeatTimer = window.setInterval(() => {
+      void useAppStore.getState().refreshTaskHeartbeats();
+    }, TASK_HEARTBEAT_REFRESH_INTERVAL_MS);
     return () => {
       cancelled = true;
       unsubscribeBootstrapStatus?.();
       window.clearInterval(providerTimer);
       window.clearInterval(workspaceTimer);
+      window.clearInterval(heartbeatTimer);
     };
   }, []);
 

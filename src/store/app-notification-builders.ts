@@ -9,6 +9,7 @@
  */
 import { createElement } from "react";
 import { toast, type ExternalToast } from "sonner";
+import type { TaskHeartbeatSummary } from "@/lib/automation/task-supervisor";
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import type {
   AppNotification,
@@ -47,6 +48,12 @@ export interface NotificationProjectScopeState {
   workspaces: WorkspaceSummary[];
   recentProjects: RecentProjectState[];
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
+  /**
+   * Optional so the existing structural call sites (which pass the whole store
+   * state) keep type-checking, and so tests can omit it. A turn-completed
+   * notification that came from a heartbeat should say the run was supervised.
+   */
+  taskHeartbeatSummariesByTaskId?: Record<string, TaskHeartbeatSummary>;
 }
 
 const OPEN_NOTIFICATION_ACTION_BUTTON_STYLE = {
@@ -120,6 +127,7 @@ export function buildTaskTurnCompletedNotificationInput(args: {
     providerId: args.provider,
     messages: args.session.messagesByTask[args.taskId] ?? [],
     rateLimits: args.state.rateLimitsSnapshot,
+    heartbeat: args.state.taskHeartbeatSummariesByTaskId?.[args.taskId] ?? null,
   });
   const reviewArtifact = buildTaskReviewArtifact(executionSummary);
   const reviewFacts = reviewArtifact.facts.slice(0, 2);

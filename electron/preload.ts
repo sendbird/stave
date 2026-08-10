@@ -71,6 +71,11 @@ import type {
   RoutineSpec,
   RoutineUpsertInput,
 } from "../src/lib/routines";
+import type {
+  TaskHeartbeat,
+  TaskHeartbeatUpsertInput,
+} from "../src/lib/automation/task-supervisor";
+import type { TaskHeartbeatSnapshot } from "./host-service/task-supervisor-runtime";
 import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
 import type { RepoMapResponse } from "../src/lib/fs/repo-map.types";
 import type {
@@ -1612,6 +1617,38 @@ contextBridge.exposeInMainWorld("api", {
       ) as Promise<{
         ok: boolean;
         options: WorkspaceInformationReferenceOption[];
+        message?: string;
+      }>,
+  },
+  taskHeartbeats: {
+    list: (args: { workspaceId?: string } = {}) =>
+      ipcRenderer.invoke("task-heartbeats:list", args) as Promise<{
+        ok: boolean;
+        snapshot: TaskHeartbeatSnapshot;
+        message?: string;
+      }>,
+    create: (args: { input: TaskHeartbeatUpsertInput }) =>
+      ipcRenderer.invoke("task-heartbeats:create", args) as Promise<{
+        ok: boolean;
+        heartbeat: TaskHeartbeat | null;
+        message?: string;
+      }>,
+    update: (args: { id: string; input: TaskHeartbeatUpsertInput }) =>
+      ipcRenderer.invoke("task-heartbeats:update", args) as Promise<{
+        ok: boolean;
+        heartbeat: TaskHeartbeat | null;
+        message?: string;
+      }>,
+    setPaused: (args: { id: string; paused: boolean }) =>
+      ipcRenderer.invoke("task-heartbeats:set-paused", args) as Promise<{
+        ok: boolean;
+        heartbeat: TaskHeartbeat | null;
+        message?: string;
+      }>,
+    remove: (args: { id: string }) =>
+      ipcRenderer.invoke("task-heartbeats:remove", args) as Promise<{
+        ok: boolean;
+        id?: string;
         message?: string;
       }>,
   },

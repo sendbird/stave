@@ -144,6 +144,7 @@ export function TurnActivity() {
     expandedByDefault,
     verification,
     rateLimits,
+    heartbeat,
   ] = useAppStore(
     useShallow((state) => [
       state.tasks.find((task) => task.id === taskId) ?? null,
@@ -158,6 +159,7 @@ export function TurnActivity() {
       state.settings.turnActivityExpandedByDefault,
       state.turnVerificationByWorkspace[state.activeWorkspaceId] ?? null,
       state.rateLimitsSnapshot,
+      state.taskHeartbeatSummariesByTaskId[taskId] ?? null,
     ]),
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
@@ -222,10 +224,12 @@ export function TurnActivity() {
         activity: currentActivity,
         verification,
         rateLimits,
+        heartbeat,
       }),
     [
       activeProvider,
       currentActivity,
+      heartbeat,
       messages,
       rateLimits,
       taskId,

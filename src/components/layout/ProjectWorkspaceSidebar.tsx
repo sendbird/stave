@@ -107,6 +107,7 @@ import {
   type SidebarWorkQueueLane,
   type SidebarWorkQueueSignals,
 } from "@/lib/fleet/sidebar-work-queue";
+import type { TaskHeartbeatState } from "@/lib/automation/task-supervisor";
 import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
@@ -140,6 +141,20 @@ const EMPTY_TASKS: Task[] = [];
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};
 const EMPTY_MESSAGE_COUNT_BY_TASK: Record<string, number> = {};
 const EMPTY_ACTIVE_TURN_IDS_BY_TASK: Record<string, string | undefined> = {};
+
+/**
+ * Work-queue signals are workspace-scoped, heartbeats are task-scoped, so a
+ * workspace reports the most demanding state across its tasks. Lower ranks
+ * first: a paused heartbeat needs a human, a scheduled one is merely running
+ * between occurrences, and a stopped one already ran its course — it is folded
+ * out entirely (see `classifySidebarWorkQueueLane`), so it can never outrank a
+ * live sibling.
+ */
+const TASK_HEARTBEAT_STATE_DEMAND: Record<TaskHeartbeatState, number> = {
+  paused: 0,
+  scheduled: 1,
+  stopped: 2,
+};
 
 function resolveRespondingToneClass(args: {
   tasks: ReturnType<typeof useAppStore.getState>["tasks"];
@@ -1149,6 +1164,7 @@ export function ProjectWorkspaceSidebar(args: {
     activeTurnIdsByTask,
     providerTurnActivityByTask,
     workspaceRuntimeCacheById,
+    taskHeartbeatSummariesByTaskId,
   ] = useAppStore(
     useShallow((state) => {
       return [
@@ -1199,6 +1215,7 @@ export function ProjectWorkspaceSidebar(args: {
         state.activeTurnIdsByTask,
         state.providerTurnActivityByTask,
         state.workspaceRuntimeCacheById,
+        state.taskHeartbeatSummariesByTaskId,
       ] as const;
     }),
   );
@@ -1316,12 +1333,16 @@ export function ProjectWorkspaceSidebar(args: {
     }
     return map;
   }, [recentProjects]);
-  const workspaceFleetStatusById = useMemo(() => {
+  const {
+    statusById: workspaceFleetStatusById,
+    heartbeatStateById: workspaceHeartbeatStateById,
+  } = useMemo(() => {
     const statusById: Record<string, FleetTaskStatus> = {};
+    const heartbeatStateById: Record<string, TaskHeartbeatState> = {};
     if (!isWorkQueueView) {
       // Only the Work queue view reads this — skip the per-task classification
       // pass entirely while the Projects tree is showing.
-      return statusById;
+      return { statusById, heartbeatStateById };
     }
     for (const project of projects) {
       for (const workspace of project.workspaces) {
@@ -1335,6 +1356,7 @@ export function ProjectWorkspaceSidebar(args: {
         }
 
         let bestStatus: FleetTaskStatus = "idle";
+        let bestHeartbeatState: TaskHeartbeatState | null = null;
         for (const task of runtimeState.tasks) {
           if (isTaskArchived(task) || isLegacyBranchTask(task)) {
             continue;
@@ -1348,11 +1370,24 @@ export function ProjectWorkspaceSidebar(args: {
           if (compareFleetTaskStatus(status, bestStatus) < 0) {
             bestStatus = status;
           }
+          const heartbeatState =
+            taskHeartbeatSummariesByTaskId[task.id]?.state ?? null;
+          if (
+            heartbeatState &&
+            (bestHeartbeatState === null ||
+              TASK_HEARTBEAT_STATE_DEMAND[heartbeatState] <
+                TASK_HEARTBEAT_STATE_DEMAND[bestHeartbeatState])
+          ) {
+            bestHeartbeatState = heartbeatState;
+          }
         }
         statusById[workspace.id] = bestStatus;
+        if (bestHeartbeatState) {
+          heartbeatStateById[workspace.id] = bestHeartbeatState;
+        }
       }
     }
-    return statusById;
+    return { statusById, heartbeatStateById };
   }, [
     activeTasks,
     activeTurnIdsByTask,
@@ -1361,6 +1396,7 @@ export function ProjectWorkspaceSidebar(args: {
     projects,
     providerTurnActivityByTask,
     isWorkQueueView,
+    taskHeartbeatSummariesByTaskId,
     workspaceRuntimeCacheById,
   ]);
   const workQueueEntries = useMemo(
@@ -1407,13 +1443,18 @@ export function ProjectWorkspaceSidebar(args: {
       signalsByWorkspaceId[entry.workspaceId] = {
         attentionKind: highestAttentionByWorkspaceId[entry.workspaceId]?.kind,
         status: entry.status,
+        heartbeatState: workspaceHeartbeatStateById[entry.workspaceId],
       };
     }
     return buildSidebarWorkQueueLanes({
       entries: workQueueEntries,
       signalsByWorkspaceId,
     });
-  }, [workQueueEntries, highestAttentionByWorkspaceId]);
+  }, [
+    workQueueEntries,
+    highestAttentionByWorkspaceId,
+    workspaceHeartbeatStateById,
+  ]);
   // Collapsing a project hides its workspace rows, so the project row carries
   // the rolled-up alert for anything blocking inside it.
   const attentionAlertByProjectPath = useMemo(() => {

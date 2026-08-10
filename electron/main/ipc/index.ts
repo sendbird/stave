@@ -17,6 +17,7 @@ import { registerSecretHandlers } from "./secrets";
 import { registerSkillsHandlers } from "./skills";
 import { registerTerminalHandlers } from "./terminal";
 import { registerTaskControlHandlers } from "./task-control";
+import { registerTaskHeartbeatHandlers } from "./task-heartbeats";
 import { registerToolingHandlers } from "./tooling";
 import { registerWindowHandlers } from "./window";
 import { registerWorkspaceScriptHandlers } from "./workspace-scripts";
@@ -27,6 +28,7 @@ export function registerHandlers() {
   registerProviderHandlers();
   registerRunHandlers();
   registerRoutineHandlers();
+  registerTaskHeartbeatHandlers();
   registerPersistenceHandlers();
   registerTerminalHandlers();
   registerTaskControlHandlers();

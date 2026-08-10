@@ -85,6 +85,11 @@ import type {
   RoutineSpec,
   RoutineUpsertInput,
 } from "@/lib/routines";
+import type {
+  TaskHeartbeat,
+  TaskHeartbeatSummary,
+  TaskHeartbeatUpsertInput,
+} from "@/lib/automation/task-supervisor";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import type { PromptDraft } from "@/types/chat";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
@@ -808,6 +813,45 @@ interface WindowRoutinesApi {
   listInformationReferences?: (args: { workspaceId: string }) => Promise<{
     ok: boolean;
     options: WorkspaceInformationReferenceOption[];
+    message?: string;
+  }>;
+}
+
+/**
+ * Structural mirror of `TaskHeartbeatSnapshot` in
+ * `electron/host-service/task-supervisor-runtime.ts`. Declared here because the
+ * renderer program only compiles `src/`, and both sides are built from the same
+ * two domain types, so a drift in either one is a type error.
+ */
+interface TaskHeartbeatSnapshotPayload {
+  heartbeats: TaskHeartbeat[];
+  summaries: TaskHeartbeatSummary[];
+}
+
+interface WindowTaskHeartbeatsApi {
+  list?: (args?: { workspaceId?: string }) => Promise<{
+    ok: boolean;
+    snapshot: TaskHeartbeatSnapshotPayload;
+    message?: string;
+  }>;
+  create?: (args: { input: TaskHeartbeatUpsertInput }) => Promise<{
+    ok: boolean;
+    heartbeat: TaskHeartbeat | null;
+    message?: string;
+  }>;
+  update?: (args: { id: string; input: TaskHeartbeatUpsertInput }) => Promise<{
+    ok: boolean;
+    heartbeat: TaskHeartbeat | null;
+    message?: string;
+  }>;
+  setPaused?: (args: { id: string; paused: boolean }) => Promise<{
+    ok: boolean;
+    heartbeat: TaskHeartbeat | null;
+    message?: string;
+  }>;
+  remove?: (args: { id: string }) => Promise<{
+    ok: boolean;
+    id?: string;
     message?: string;
   }>;
 }
@@ -2488,6 +2532,7 @@ interface WindowApi {
   craneConnector?: WindowCraneConnectorApi;
   taskControl?: WindowTaskControlApi;
   routines?: WindowRoutinesApi;
+  taskHeartbeats?: WindowTaskHeartbeatsApi;
   lsp?: WindowLspApi;
   eslint?: WindowEslintApi;
   diagnostics?: WindowDiagnosticsApi;

@@ -5,11 +5,13 @@ import {
   Coins,
   FileDiff,
   Gauge,
+  HeartPulse,
   type LucideIcon,
 } from "lucide-react";
 import type {
   TaskExecutionMetric,
   TaskExecutionSummary,
+  TaskExecutionSupervision,
 } from "@/lib/fleet/task-execution-summary";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,43 @@ function formatCount(value: number) {
   }).format(value);
 }
 
+/**
+ * A heartbeat's headline fact is different per state: a scheduled one is only
+ * interesting for when it wakes next, while a paused or stopped one is only
+ * interesting for why it is not running.
+ */
+function formatSupervision(
+  supervision: TaskExecutionSupervision,
+  now: number,
+) {
+  if (supervision.state === "scheduled") {
+    if (supervision.nextRunAt == null) {
+      return "Scheduled";
+    }
+    const remaining = supervision.nextRunAt - now;
+    return remaining > 0
+      ? `Next wake in ${formatDuration(remaining)}`
+      : "Next wake due";
+  }
+  const state = supervision.state === "paused" ? "Paused" : "Stopped";
+  return supervision.reason ? `${state} · ${supervision.reason}` : state;
+}
+
+/** The counts and the full reason, which the truncated cell cannot show. */
+function supervisionHint(supervision: TaskExecutionSupervision) {
+  const parts = [
+    `Heartbeat ${supervision.state}`,
+    `${supervision.occurrenceCount} occurrence${supervision.occurrenceCount === 1 ? "" : "s"}`,
+  ];
+  if (supervision.skippedCount > 0) {
+    parts.push(`${supervision.skippedCount} skipped`);
+  }
+  if (supervision.reason) {
+    parts.push(supervision.reason);
+  }
+  return parts.join(" · ");
+}
+
 function provenanceLabel(metric: TaskExecutionMetric<unknown>) {
   switch (metric.provenance) {
     case "reported":
@@ -47,6 +86,8 @@ function SummaryMetric(args: {
   value: string;
   metric: TaskExecutionMetric<unknown>;
   tone?: "default" | "success" | "warning" | "danger";
+  /** Overrides the metric's own detail as the cell tooltip. */
+  hint?: string;
   compact?: boolean;
 }) {
   const Icon = args.icon;
@@ -56,7 +97,7 @@ function SummaryMetric(args: {
         "min-w-0 rounded-md border border-border/60 bg-background/55",
         args.compact ? "px-2.5 py-2" : "px-3 py-2.5",
       )}
-      title={args.metric.detail}
+      title={args.hint ?? args.metric.detail}
     >
       <div className="flex min-w-0 items-center gap-1.5">
         <Icon
@@ -99,6 +140,8 @@ export function TaskExecutionSummarySurface(args: {
   summary: TaskExecutionSummary;
   compact?: boolean;
   showLatestActivity?: boolean;
+  /** Injectable clock for the heartbeat's countdown; tests pass a fixed one. */
+  now?: number;
   className?: string;
 }) {
   const { summary } = args;
@@ -108,7 +151,9 @@ export function TaskExecutionSummarySurface(args: {
   const usage = summary.usage.value;
   const accountLimit = summary.accountLimit.value;
   const contextHeadroom = summary.contextHeadroom.value;
+  const supervision = summary.supervision.value;
   const latest = summary.latestActivity.value;
+  const now = args.now ?? Date.now();
   const verificationTone =
     verification?.status === "pass"
       ? "success"
@@ -161,7 +206,7 @@ export function TaskExecutionSummarySurface(args: {
           "grid gap-2",
           showLatestActivity && "mt-2",
           args.compact
-            ? "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+            ? "grid-cols-2 sm:grid-cols-3 xl:grid-cols-7"
             : "grid-cols-2 sm:grid-cols-3",
         )}
       >
@@ -245,6 +290,20 @@ export function TaskExecutionSummarySurface(args: {
             contextHeadroom
               ? `${formatCount(contextHeadroom.remainingTokens)} tokens`
               : "Not supported"
+          }
+        />
+        <SummaryMetric
+          compact={args.compact}
+          icon={HeartPulse}
+          label="Heartbeat"
+          metric={summary.supervision}
+          // A paused heartbeat is stalled work only a human can restart, which
+          // is the same claim the work queue's `action-required` lane makes. A
+          // stopped one already ran its course, so it stays neutral.
+          tone={supervision?.state === "paused" ? "warning" : "default"}
+          hint={supervision ? supervisionHint(supervision) : undefined}
+          value={
+            supervision ? formatSupervision(supervision, now) : "Not attached"
           }
         />
       </dl>

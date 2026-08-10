@@ -1,9 +1,13 @@
 import {
   ArrowRight,
   CornerDownRight,
+  HeartPulse,
   ListPlus,
   LoaderCircle,
+  Pause,
+  Play,
   Square,
+  Trash2,
   X,
 } from "lucide-react";
 import {
@@ -18,7 +22,15 @@ import { useShallow } from "zustand/react/shallow";
 import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
-import { Button, Textarea } from "@/components/ui";
+import {
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from "@/components/ui";
 import {
   resolveFleetCurrentTaskControlState,
   validateFleetInteractionAction,
@@ -29,6 +41,13 @@ import {
 } from "@/lib/fleet/control-plane";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
+import {
+  applyRoutineCadencePreset,
+  formatRoutineSchedule,
+  ROUTINE_CADENCE_PRESENTATION,
+  type RoutineCadencePreset,
+  type RoutineSchedule,
+} from "@/lib/routines";
 import { isTaskManaged } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
@@ -56,7 +75,35 @@ type FleetControlAction =
   | "user-input"
   | "steer"
   | "queue"
-  | "stop";
+  | "stop"
+  | "heartbeat";
+
+/**
+ * The cadence choices a heartbeat offers, drawn from the routine presets so the
+ * two automation surfaces stay one vocabulary. `manual` is excluded because a
+ * heartbeat has no Run now — a schedule is the whole trigger — and `custom` is
+ * excluded because the raw every/unit/weekday editor belongs to the routine
+ * form, not to a per-task control strip.
+ */
+const HEARTBEAT_CADENCE_PRESETS = [
+  "every-15-minutes",
+  "hourly",
+  "daily",
+  "weekdays",
+] as const satisfies readonly RoutineCadencePreset[];
+
+type HeartbeatCadencePreset = (typeof HEARTBEAT_CADENCE_PRESETS)[number];
+
+/** Seed the preset resolver; every preset above replaces it outright. */
+const HEARTBEAT_BASE_SCHEDULE: RoutineSchedule = { every: 1, unit: "hours" };
+
+function resolveHeartbeatSchedule(preset: HeartbeatCadencePreset) {
+  return applyRoutineCadencePreset({
+    preset,
+    schedule: HEARTBEAT_BASE_SCHEDULE,
+    enabled: true,
+  }).schedule;
+}
 
 function restoreTriggerFocus(elementId?: string) {
   if (!elementId) {
@@ -115,6 +162,10 @@ export function FleetTaskControlPanel(args: {
     resolveUserInput,
     sendUserMessage,
     abortTaskTurn,
+    heartbeat,
+    createTaskHeartbeat,
+    setTaskHeartbeatPaused,
+    removeTaskHeartbeat,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -142,10 +193,18 @@ export function FleetTaskControlPanel(args: {
           state.resolveUserInput,
           state.sendUserMessage,
           state.abortTaskTurn,
+          state.taskHeartbeatSummariesByTaskId[args.target.taskId] ?? null,
+          state.createTaskHeartbeat,
+          state.setTaskHeartbeatPaused,
+          state.removeTaskHeartbeat,
         ] as const,
     ),
   );
   const [reply, setReply] = useState("");
+  const [heartbeatFormOpen, setHeartbeatFormOpen] = useState(false);
+  const [heartbeatPrompt, setHeartbeatPrompt] = useState("");
+  const [heartbeatCadence, setHeartbeatCadence] =
+    useState<HeartbeatCadencePreset>("hourly");
   const [busyAction, setBusyAction] = useState<FleetControlAction | null>(null);
   const [status, setStatus] = useState<{
     tone: "neutral" | "success" | "error";
@@ -203,10 +262,12 @@ export function FleetTaskControlPanel(args: {
         activity,
         verification,
         rateLimits,
+        heartbeat,
       }),
     [
       activity,
       args.target.taskId,
+      heartbeat,
       messages,
       rateLimits,
       task?.provider,
@@ -400,6 +461,92 @@ export function FleetTaskControlPanel(args: {
     setBusyAction(null);
   };
 
+  /**
+   * Every heartbeat gesture goes through here: the store actions answer with
+   * `{ ok, message }` rather than throwing, so a refused pause or a host that
+   * never loaded the supervisor reports itself in the same status line the
+   * turn controls above already use.
+   */
+  const runHeartbeatAction = async (input: {
+    run: () => Promise<{ ok: boolean; message?: string }>;
+    pending: string;
+    success: string;
+    onSuccess?: () => void;
+  }) => {
+    if (busyAction) {
+      return;
+    }
+    setBusyAction("heartbeat");
+    setStatus({ tone: "neutral", text: input.pending });
+    const result = await input.run();
+    setBusyAction(null);
+    if (!result.ok) {
+      setStatus({
+        tone: "error",
+        text: result.message ?? "The heartbeat could not be updated.",
+      });
+      return;
+    }
+    input.onSuccess?.();
+    setStatus({ tone: "success", text: input.success });
+  };
+
+  const addHeartbeat = () => {
+    const prompt = heartbeatPrompt.trim();
+    if (!prompt) {
+      return;
+    }
+    void runHeartbeatAction({
+      pending: "Adding heartbeat…",
+      success: "Heartbeat added.",
+      onSuccess: () => {
+        setHeartbeatFormOpen(false);
+        setHeartbeatPrompt("");
+      },
+      run: () =>
+        createTaskHeartbeat({
+          input: {
+            workspaceId: args.target.workspaceId,
+            taskId: args.target.taskId,
+            prompt,
+            trigger: {
+              kind: "schedule",
+              schedule: resolveHeartbeatSchedule(heartbeatCadence),
+            },
+            // No cap and no expiry from this control: both are limits the user
+            // would have to be able to see and edit later, and this strip only
+            // adds, pauses, and removes.
+            maxOccurrences: null,
+            expiresAt: null,
+          },
+        }),
+    });
+  };
+
+  const toggleHeartbeatPaused = () => {
+    if (!heartbeat) {
+      return;
+    }
+    const paused = heartbeat.state !== "paused";
+    void runHeartbeatAction({
+      pending: paused ? "Pausing heartbeat…" : "Resuming heartbeat…",
+      success: paused ? "Heartbeat paused." : "Heartbeat resumed.",
+      run: () =>
+        setTaskHeartbeatPaused({ id: heartbeat.heartbeatId, paused }),
+    });
+  };
+
+  const dropHeartbeat = () => {
+    if (!heartbeat) {
+      return;
+    }
+    void runHeartbeatAction({
+      pending: "Removing heartbeat…",
+      success: "Heartbeat removed.",
+      run: () => removeTaskHeartbeat({ id: heartbeat.heartbeatId }),
+    });
+  };
+
   return (
     <section
       ref={panelRef}
@@ -443,6 +590,157 @@ export function FleetTaskControlPanel(args: {
       </div>
 
       <TaskExecutionSummarySurface summary={summary} className="mt-3" />
+
+      <div className="mt-3 rounded-md border border-border/60 bg-background/55 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+              <HeartPulse className="size-3.5 shrink-0" aria-hidden="true" />
+              Heartbeat
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {heartbeat
+                ? heartbeat.state === "scheduled"
+                  ? `Wakes this task on its own · ${heartbeat.occurrenceCount} occurrence${heartbeat.occurrenceCount === 1 ? "" : "s"}`
+                  : `Not running · ${heartbeat.occurrenceCount} occurrence${heartbeat.occurrenceCount === 1 ? "" : "s"} so far`
+                : "Wake this task on a schedule without opening it."}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {heartbeat ? (
+              <>
+                {/* A stopped heartbeat is terminal — the host refuses to resume
+                    it — so only Remove is offered once it has ended. */}
+                {heartbeat.state === "stopped" ? null : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="min-h-9"
+                    disabled={busyAction != null}
+                    onClick={toggleHeartbeatPaused}
+                  >
+                    {busyAction === "heartbeat" ? (
+                      <LoaderCircle
+                        className="size-3.5 animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : heartbeat.state === "paused" ? (
+                      <Play className="size-3.5" aria-hidden="true" />
+                    ) : (
+                      <Pause className="size-3.5" aria-hidden="true" />
+                    )}
+                    {heartbeat.state === "paused" ? "Resume" : "Pause"}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  className="min-h-9 min-w-9"
+                  aria-label="Remove heartbeat"
+                  title="Remove heartbeat"
+                  disabled={busyAction != null}
+                  onClick={dropHeartbeat}
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="min-h-9"
+                disabled={busyAction != null}
+                onClick={() => setHeartbeatFormOpen((open) => !open)}
+              >
+                {heartbeatFormOpen ? "Cancel" : "Add heartbeat"}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* The reason sentence is the point of a non-running heartbeat: it is
+            the only place the supervisor explains why it stopped waking. */}
+        {heartbeat && heartbeat.state !== "scheduled" ? (
+          <p
+            className="mt-2 rounded-md border border-warning/35 bg-warning/8 px-3 py-2 text-[11px] text-warning"
+            role="status"
+          >
+            {heartbeat.state === "paused" ? "Paused" : "Stopped"}
+            {heartbeat.reason ? ` · ${heartbeat.reason}` : ""}
+          </p>
+        ) : null}
+
+        {!heartbeat && heartbeatFormOpen ? (
+          <div className="mt-3 border-t border-border/55 pt-3">
+            <label
+              htmlFor={`${panelId}-heartbeat-prompt`}
+              className="text-xs font-medium text-foreground"
+            >
+              Standing instruction
+            </label>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Sent to this task on every wake, in the same session.
+            </p>
+            <Textarea
+              id={`${panelId}-heartbeat-prompt`}
+              value={heartbeatPrompt}
+              disabled={busyAction != null}
+              className="mt-2 min-h-16 resize-y bg-background"
+              placeholder="Re-check CI and report only on a change…"
+              onChange={(event) => setHeartbeatPrompt(event.target.value)}
+            />
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Select
+                value={heartbeatCadence}
+                disabled={busyAction != null}
+                onValueChange={(value) =>
+                  setHeartbeatCadence(value as HeartbeatCadencePreset)
+                }
+              >
+                <SelectTrigger
+                  id={`${panelId}-heartbeat-cadence`}
+                  aria-label="Heartbeat cadence"
+                  className="h-9 w-44"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HEARTBEAT_CADENCE_PRESETS.map((preset) => (
+                    <SelectItem key={preset} value={preset}>
+                      {ROUTINE_CADENCE_PRESENTATION[preset].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                className="min-h-9"
+                disabled={!heartbeatPrompt.trim() || busyAction != null}
+                onClick={addHeartbeat}
+              >
+                {busyAction === "heartbeat" ? (
+                  <LoaderCircle
+                    className="size-3.5 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <HeartPulse className="size-3.5" aria-hidden="true" />
+                )}
+                Add
+              </Button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              {formatRoutineSchedule(resolveHeartbeatSchedule(heartbeatCadence))}
+              {" · "}
+              {ROUTINE_CADENCE_PRESENTATION[heartbeatCadence].detail}
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       {hasStaleExpectedInteraction ? (
         <div

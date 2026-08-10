@@ -74,6 +74,79 @@ describe("Sidebar work queue lane classification", () => {
     expect(classifySidebarWorkQueueLane({ status: "idle" })).toBe("idle");
   });
 
+  test("a paused heartbeat is stalled work only a human can restart", () => {
+    expect(classifySidebarWorkQueueLane({ heartbeatState: "paused" })).toBe(
+      "action-required",
+    );
+    expect(
+      classifySidebarWorkQueueLane({ status: "idle", heartbeatState: "paused" }),
+    ).toBe("action-required");
+  });
+
+  test("a scheduled heartbeat keeps a between-occurrences workspace out of idle", () => {
+    // Otherwise a supervised workspace would be indistinguishable from one
+    // nobody has touched.
+    expect(classifySidebarWorkQueueLane({ heartbeatState: "scheduled" })).toBe(
+      "in-progress",
+    );
+    expect(
+      classifySidebarWorkQueueLane({
+        status: "idle",
+        heartbeatState: "scheduled",
+      }),
+    ).toBe("in-progress");
+  });
+
+  test("a scheduled heartbeat never outranks a blocking signal or live work", () => {
+    expect(
+      classifySidebarWorkQueueLane({
+        attentionKind: "approval",
+        status: "idle",
+        heartbeatState: "scheduled",
+      }),
+    ).toBe("action-required");
+    expect(
+      classifySidebarWorkQueueLane({
+        status: "waiting-input",
+        heartbeatState: "scheduled",
+      }),
+    ).toBe("action-required");
+    // A running turn is the live fact; the heartbeat only describes the gap
+    // between occurrences.
+    expect(
+      classifySidebarWorkQueueLane({
+        status: "running",
+        heartbeatState: "scheduled",
+      }),
+    ).toBe("in-progress");
+    // Finished work waiting for a human still reads as review.
+    expect(
+      classifySidebarWorkQueueLane({
+        attentionKind: "result-ready",
+        status: "idle",
+        heartbeatState: "scheduled",
+      }),
+    ).toBe("in-review");
+  });
+
+  test("a stopped heartbeat leaves the lane exactly as it would have been", () => {
+    // It already ran its course; the reason lives in the execution summary.
+    for (const signals of [
+      {},
+      { status: "idle" },
+      { attentionKind: "result-ready", status: "idle" },
+      { status: "running" },
+      { attentionKind: "approval", status: "idle" },
+    ] as const satisfies readonly SidebarWorkQueueSignals[]) {
+      expect(
+        classifySidebarWorkQueueLane({ ...signals, heartbeatState: "stopped" }),
+      ).toBe(classifySidebarWorkQueueLane(signals));
+    }
+    expect(classifySidebarWorkQueueLane({ heartbeatState: "stopped" })).toBe(
+      "idle",
+    );
+  });
+
   test("the last lane is labelled Idle because merged and untouched are indistinguishable here", () => {
     expect(SIDEBAR_WORK_QUEUE_LANE_LABEL.idle).toBe("Idle");
   });

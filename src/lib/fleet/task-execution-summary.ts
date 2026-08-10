@@ -4,6 +4,10 @@ import type {
 } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { TurnVerificationResult } from "@/lib/workspace-scripts";
+import type {
+  TaskHeartbeatState,
+  TaskHeartbeatSummary,
+} from "@/lib/automation/task-supervisor";
 import type { ChatMessage, CodeDiffPart } from "@/types/chat";
 
 export type TaskExecutionMetricProvenance =
@@ -56,6 +60,20 @@ export interface TaskExecutionContextHeadroom {
   totalTokens?: number;
 }
 
+/**
+ * The heartbeat attached to this task, if any. Machine-readable on purpose:
+ * the sidebar work queue keys a lane off `state`, so this cannot collapse into
+ * a display string.
+ */
+export interface TaskExecutionSupervision {
+  heartbeatId: string;
+  state: TaskHeartbeatState;
+  reason: string | null;
+  nextRunAt: number | null;
+  occurrenceCount: number;
+  skippedCount: number;
+}
+
 export interface TaskExecutionSummary {
   elapsed: TaskExecutionMetric<TaskExecutionElapsed>;
   latestActivity: TaskExecutionMetric<TaskExecutionLatestActivity>;
@@ -64,6 +82,7 @@ export interface TaskExecutionSummary {
   usage: TaskExecutionMetric<TaskExecutionUsage>;
   accountLimit: TaskExecutionMetric<TaskExecutionAccountLimit>;
   contextHeadroom: TaskExecutionMetric<TaskExecutionContextHeadroom>;
+  supervision: TaskExecutionMetric<TaskExecutionSupervision>;
 }
 
 export interface TaskReviewArtifact {
@@ -537,6 +556,27 @@ function buildAccountLimitMetric(args: {
       );
 }
 
+function buildSupervisionMetric(
+  heartbeat?: TaskHeartbeatSummary | null,
+): TaskExecutionMetric<TaskExecutionSupervision> {
+  if (!heartbeat) {
+    // No heartbeat is genuinely absent data, not a zero or an "idle" state.
+    return unavailableMetric("No heartbeat is attached to this task.");
+  }
+  return {
+    value: {
+      heartbeatId: heartbeat.heartbeatId,
+      state: heartbeat.state,
+      reason: heartbeat.reason,
+      nextRunAt: parseTimestamp(heartbeat.nextRunAt ?? undefined),
+      occurrenceCount: heartbeat.occurrenceCount,
+      skippedCount: heartbeat.skippedCount,
+    },
+    provenance: "reported",
+    sourceRefs: [`heartbeat:${heartbeat.heartbeatId}`],
+  };
+}
+
 export function buildTaskExecutionSummary(args: {
   taskId?: string;
   providerId: ProviderId;
@@ -545,6 +585,7 @@ export function buildTaskExecutionSummary(args: {
   verification?: TurnVerificationResult | null;
   rateLimits?: RateLimitsSnapshotResponse | null;
   contextHeadroom?: TaskExecutionContextHeadroom | null;
+  heartbeat?: TaskHeartbeatSummary | null;
   now?: number;
 }): TaskExecutionSummary {
   const verification =
@@ -588,6 +629,7 @@ export function buildTaskExecutionSummary(args: {
       : unavailableMetric(
           "Live context headroom is not reliably reported for this provider turn.",
         ),
+    supervision: buildSupervisionMetric(args.heartbeat),
   };
 }
 
@@ -634,6 +676,19 @@ export function buildTaskReviewArtifact(
   }
   if (!summary.contextHeadroom.value) {
     cautions.push("Live context headroom is unavailable.");
+  }
+  const supervision = summary.supervision.value;
+  if (supervision && supervision.state !== "scheduled") {
+    // A heartbeat that stopped watching is exactly what a reader of this
+    // artifact must not have to discover for themselves.
+    cautions.push(
+      `Heartbeat ${supervision.state}${supervision.reason ? `: ${supervision.reason}` : "."}`,
+    );
+  }
+  if (supervision?.skippedCount) {
+    cautions.push(
+      `${supervision.skippedCount} heartbeat occurrence${supervision.skippedCount === 1 ? " was" : "s were"} skipped.`,
+    );
   }
   const latest = summary.latestActivity.value?.label;
   return {

@@ -140,6 +140,12 @@ When changing how a heartbeat wakes an existing task:
 - `electron/host-service.ts` — construction, `start`/`stop`, the dispatch arm
 - `electron/main/task-supervisor-service.ts` — the main-process bridge
 - `electron/main/stave-mcp-server.ts` — the `stave_*_task_heartbeat` tools
+- `electron/main/ipc/schemas.ts` / `electron/main/ipc/task-heartbeats.ts` — the five `task-heartbeats:*` channels
+- `electron/preload.ts` / `src/types/window-api.d.ts` — `window.api.taskHeartbeats`
+- `src/store/app-store-task-heartbeat-actions.ts` — the renderer read model and the four gestures
+- `src/lib/fleet/task-execution-summary.ts` — the `supervision` metric, the only channel to the fleet surfaces
+- `src/lib/fleet/sidebar-work-queue.ts` — the `heartbeatState` lane signal
+- `src/components/layout/FleetTaskControlPanel.tsx` — add / pause / resume / remove
 
 A change to the defer / pause / stop priority order is a change to the
 `task-supervisor-safety` gate, and a change to what a heartbeat definition may

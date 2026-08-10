@@ -25,6 +25,7 @@ import { createEditorActions } from "@/store/app-store-editor-actions";
 import { createPaneActions } from "@/store/app-store-pane-actions";
 import { createTerminalActions } from "@/store/app-store-terminal-actions";
 import { createSettingsActions } from "@/store/app-store-settings-actions";
+import { createTaskHeartbeatActions } from "@/store/app-store-task-heartbeat-actions";
 import { createCompareActions } from "@/store/app-store-compare-actions";
 import { createTaskCoreActions } from "@/store/app-store-task-core-actions";
 import { createConversationThreadActions } from "@/store/app-store-conversation-thread-actions";
@@ -1414,6 +1415,7 @@ export const useAppStore = create<AppState>()(
       get,
       normalizeSharedSkillsHomeSetting,
     });
+    const taskHeartbeatActions = createTaskHeartbeatActions({ set });
     const compareActions = createCompareActions({
       set,
       get,
@@ -1589,6 +1591,7 @@ export const useAppStore = create<AppState>()(
       turnIntentComplianceByWorkspace: {},
       workspaceRuntimeCacheById: {},
       taskWorkspaceIdById: {},
+      taskHeartbeatSummariesByTaskId: {},
       persistenceBootstrapPhase: "idle",
       persistenceBootstrapMessage: "",
       ...workspaceHydrationActions,
@@ -1711,6 +1714,7 @@ export const useAppStore = create<AppState>()(
       ...workspaceCreateActions,
       ...workspaceManagementActions,
       ...settingsActions,
+      ...taskHeartbeatActions,
       ...createAppSurfaceActions<AppState>(set),
       ...compareActions,
       ...taskCoreActions,

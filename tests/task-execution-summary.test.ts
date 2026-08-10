@@ -3,6 +3,7 @@ import {
   buildTaskExecutionSummary,
   buildTaskReviewArtifact,
 } from "@/lib/fleet/task-execution-summary";
+import type { TaskHeartbeatSummary } from "@/lib/automation/task-supervisor";
 import type { RateLimitsSnapshotResponse } from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
 
@@ -46,6 +47,21 @@ const rateLimits: RateLimitsSnapshotResponse = {
     error: null,
   },
 };
+
+function heartbeatSummary(
+  overrides: Partial<TaskHeartbeatSummary> = {},
+): TaskHeartbeatSummary {
+  return {
+    heartbeatId: "heartbeat-1",
+    taskId: "task-1",
+    state: "scheduled",
+    reason: null,
+    nextRunAt: "2026-07-31T00:05:00.000Z",
+    occurrenceCount: 3,
+    skippedCount: 0,
+    ...overrides,
+  };
+}
 
 describe("task execution summary", () => {
   it("aggregates persisted usage and the first-to-latest diff per file", () => {
@@ -277,6 +293,84 @@ describe("task execution summary", () => {
       deletions: 0,
       partial: false,
     });
+  });
+
+  it("reports the attached heartbeat against its own source ref", () => {
+    const summary = buildTaskExecutionSummary({
+      taskId: "task-1",
+      providerId: "codex",
+      messages: [assistantMessage()],
+      heartbeat: heartbeatSummary({ skippedCount: 2 }),
+    });
+
+    expect(summary.supervision).toMatchObject({
+      provenance: "reported",
+      value: {
+        heartbeatId: "heartbeat-1",
+        state: "scheduled",
+        reason: null,
+        nextRunAt: Date.parse("2026-07-31T00:05:00.000Z"),
+        occurrenceCount: 3,
+        skippedCount: 2,
+      },
+    });
+    // The ref names the heartbeat, not the task: a reader has to be able to
+    // walk back to the row that made the claim.
+    expect(summary.supervision.sourceRefs).toEqual(["heartbeat:heartbeat-1"]);
+  });
+
+  it("keeps an unsupervised task unavailable instead of reporting a zeroed heartbeat", () => {
+    const summary = buildTaskExecutionSummary({
+      taskId: "task-1",
+      providerId: "codex",
+      messages: [assistantMessage()],
+    });
+
+    expect(summary.supervision.provenance).toBe("unavailable");
+    // Explicitly null, never 0: "no heartbeat" and "a heartbeat that has never
+    // fired" are different facts and must not render the same.
+    expect(summary.supervision.value).toBeNull();
+    expect(summary.supervision.value).not.toBe(0);
+    expect(summary.supervision.sourceRefs).toEqual([]);
+  });
+
+  it("cautions on a paused heartbeat and on skipped occurrences", () => {
+    const artifact = buildTaskReviewArtifact(
+      buildTaskExecutionSummary({
+        taskId: "task-1",
+        providerId: "codex",
+        messages: [assistantMessage()],
+        heartbeat: heartbeatSummary({
+          state: "paused",
+          reason: "The task is waiting on an approval.",
+          nextRunAt: null,
+          skippedCount: 2,
+        }),
+      }),
+    );
+
+    expect(artifact.cautions).toContain(
+      "Heartbeat paused: The task is waiting on an approval.",
+    );
+    expect(artifact.cautions).toContain(
+      "2 heartbeat occurrences were skipped.",
+    );
+    expect(artifact.sourceRefs).toContain("heartbeat:heartbeat-1");
+  });
+
+  it("leaves a healthy heartbeat out of the cautions", () => {
+    const artifact = buildTaskReviewArtifact(
+      buildTaskExecutionSummary({
+        taskId: "task-1",
+        providerId: "codex",
+        messages: [assistantMessage()],
+        heartbeat: heartbeatSummary(),
+      }),
+    );
+
+    expect(artifact.cautions.some((caution) => /heartbeat/i.test(caution))).toBe(
+      false,
+    );
   });
 
   it("builds a compact review artifact without claiming unreported checks", () => {
