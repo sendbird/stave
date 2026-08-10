@@ -14,9 +14,9 @@ import {
 } from "@/lib/atelier-connector/types";
 import { DEFAULT_CRANE_CONNECTOR_BASE_URL } from "@/lib/crane-connector/types";
 import {
-  type HirondelleSyncPublicStatus,
-  type HirondelleSyncSettings,
-} from "@/lib/hirondelle-sync/types";
+  type MartinSyncPublicStatus,
+  type MartinSyncSettings,
+} from "@/lib/martin-sync/types";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -31,8 +31,8 @@ const CONNECTOR_SCOPE_OPTIONS: ReadonlyArray<{
   description: string;
 }> = [
   {
-    value: "hirondelle",
-    label: "Hirondelle",
+    value: "martin",
+    label: "Martin",
     description: "Sync linked workspace activity and project context.",
   },
   {
@@ -43,7 +43,7 @@ const CONNECTOR_SCOPE_OPTIONS: ReadonlyArray<{
 ];
 
 function runtimeLabel(
-  state: HirondelleSyncPublicStatus["runtimeState"] | undefined,
+  state: MartinSyncPublicStatus["runtimeState"] | undefined,
 ) {
   switch (state) {
     case "idle":
@@ -64,7 +64,7 @@ function runtimeLabel(
 }
 
 function runtimeBadgeClass(
-  state: HirondelleSyncPublicStatus["runtimeState"] | undefined,
+  state: MartinSyncPublicStatus["runtimeState"] | undefined,
 ) {
   if (state === "idle" || state === "syncing") {
     return "border-success/30 bg-success/10 text-success";
@@ -75,10 +75,10 @@ function runtimeBadgeClass(
   return "border-destructive/30 bg-destructive/10 text-destructive";
 }
 
-export function HirondelleSyncSettingsSection() {
-  const hirondelleSync = useAppStore((state) => state.settings.hirondelleSync);
+export function MartinSyncSettingsSection() {
+  const martinSync = useAppStore((state) => state.settings.martinSync);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const [status, setStatus] = useState<HirondelleSyncPublicStatus | null>(null);
+  const [status, setStatus] = useState<MartinSyncPublicStatus | null>(null);
   const [connector, setConnector] =
     useState<AtelierConnectorPublicStatus | null>(null);
   const [baseUrl, setBaseUrl] = useState(DEFAULT_CRANE_CONNECTOR_BASE_URL);
@@ -86,13 +86,13 @@ export function HirondelleSyncSettingsSection() {
   const [connectorName, setConnectorName] = useState("Stave Desktop");
   const [requestedScopes, setRequestedScopes] = useState<
     AtelierConnectorScope[]
-  >(["hirondelle", "crane"]);
+  >(["martin", "crane"]);
   const [busy, setBusy] = useState<"pair" | "refresh" | "retry" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    void window.api?.hirondelleSync
+    void window.api?.martinSync
       ?.getStatus?.()
       .then((result) => {
         if (!cancelled && result) setStatus(result.status);
@@ -108,7 +108,7 @@ export function HirondelleSyncSettingsSection() {
             Array.from(
               new Set<AtelierConnectorScope>([
                 ...result.status.scopes,
-                "hirondelle",
+                "martin",
               ]),
             ),
           );
@@ -117,17 +117,17 @@ export function HirondelleSyncSettingsSection() {
       .catch(() => undefined);
 
     const unsubscribe =
-      window.api?.hirondelleSync?.subscribeStatus?.(setStatus);
+      window.api?.martinSync?.subscribeStatus?.(setStatus);
     return () => {
       cancelled = true;
       unsubscribe?.();
     };
   }, []);
 
-  const patch = (partial: Partial<HirondelleSyncSettings>) => {
+  const patch = (partial: Partial<MartinSyncSettings>) => {
     updateSettings({
       patch: {
-        hirondelleSync: { ...hirondelleSync, ...partial },
+        martinSync: { ...martinSync, ...partial },
       },
     });
   };
@@ -136,13 +136,13 @@ export function HirondelleSyncSettingsSection() {
     setBusy("refresh");
     try {
       const [syncResult, connectorResult] = await Promise.all([
-        window.api?.hirondelleSync?.getStatus?.(),
+        window.api?.martinSync?.getStatus?.(),
         window.api?.atelierConnector?.getStatus?.(),
       ]);
       if (syncResult) setStatus(syncResult.status);
       if (connectorResult) setConnector(connectorResult.status);
     } catch {
-      toast.error("Could not refresh Hirondelle sync status.");
+      toast.error("Could not refresh Martin sync status.");
     } finally {
       setBusy(null);
     }
@@ -190,8 +190,8 @@ export function HirondelleSyncSettingsSection() {
         return;
       }
       setPairingCode("");
-      toast.success("Atelier is paired for Hirondelle sync.");
-      const syncResult = await window.api?.hirondelleSync?.getStatus?.();
+      toast.success("Atelier is paired for Martin sync.");
+      const syncResult = await window.api?.martinSync?.getStatus?.();
       if (syncResult) setStatus(syncResult.status);
     } catch {
       toast.error("Could not pair with Atelier.");
@@ -201,9 +201,9 @@ export function HirondelleSyncSettingsSection() {
   };
 
   const retryFailed = async () => {
-    const retry = window.api?.hirondelleSync?.retryFailed;
+    const retry = window.api?.martinSync?.retryFailed;
     if (!retry) {
-      toast.error("Hirondelle sync controls are unavailable.");
+      toast.error("Martin sync controls are unavailable.");
       return;
     }
     setBusy("retry");
@@ -216,7 +216,7 @@ export function HirondelleSyncSettingsSection() {
         });
         return;
       }
-      toast.success("Failed Hirondelle sync events are queued again.");
+      toast.success("Failed Martin sync events are queued again.");
     } catch {
       toast.error("Could not retry failed sync events.");
     } finally {
@@ -224,15 +224,15 @@ export function HirondelleSyncSettingsSection() {
     }
   };
 
-  const hasHirondelleScope = connector?.scopes.includes("hirondelle") === true;
+  const hasMartinScope = connector?.scopes.includes("martin") === true;
   const paired = connector?.paired === true;
 
   return (
     <SettingsCard
-      id="settings-field-hirondelle-sync"
+      id="settings-field-martin-sync"
       tabIndex={-1}
-      title="Hirondelle sync"
-      description="Push selected workspace events and resource links to a linked Hirondelle project, and pull its current context back into the workspace."
+      title="Martin sync"
+      description="Push selected workspace events and resource links to a linked Martin project, and pull its current context back into the workspace."
       titleAccessory={
         <Badge
           variant="outline"
@@ -273,7 +273,7 @@ export function HirondelleSyncSettingsSection() {
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label="Refresh Hirondelle sync status"
+            aria-label="Refresh Martin sync status"
             disabled={busy !== null}
             onClick={() => void refreshStatus()}
           >
@@ -297,13 +297,13 @@ export function HirondelleSyncSettingsSection() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-2">
               <label
-                htmlFor="settings-hirondelle-base-url"
+                htmlFor="settings-martin-base-url"
                 className="text-xs font-medium text-muted-foreground"
               >
                 Atelier URL
               </label>
               <Input
-                id="settings-hirondelle-base-url"
+                id="settings-martin-base-url"
                 value={baseUrl}
                 disabled={busy !== null}
                 onChange={(event) => setBaseUrl(event.target.value)}
@@ -313,13 +313,13 @@ export function HirondelleSyncSettingsSection() {
             </div>
             <div className="grid gap-2">
               <label
-                htmlFor="settings-hirondelle-connector-name"
+                htmlFor="settings-martin-connector-name"
                 className="text-xs font-medium text-muted-foreground"
               >
                 Connector name
               </label>
               <Input
-                id="settings-hirondelle-connector-name"
+                id="settings-martin-connector-name"
                 value={connectorName}
                 disabled={busy !== null}
                 onChange={(event) => setConnectorName(event.target.value)}
@@ -379,10 +379,10 @@ export function HirondelleSyncSettingsSection() {
             </p>
           ) : null}
 
-          {paired && !hasHirondelleScope ? (
+          {paired && !hasMartinScope ? (
             <p className="rounded-lg border border-warning/35 bg-warning/10 px-3 py-2 text-xs leading-5 text-warning">
-              This connector does not have Hirondelle access. Pair again with
-              the Hirondelle scope selected before enabling sync.
+              This connector does not have Martin access. Pair again with
+              the Martin scope selected before enabling sync.
             </p>
           ) : null}
         </div>
@@ -390,33 +390,33 @@ export function HirondelleSyncSettingsSection() {
 
       <div className="space-y-5 border-t border-border/65 pt-5">
         <SwitchField
-          title="Enable Hirondelle sync"
+          title="Enable Martin sync"
           description="Off keeps queued events on this device and stops outbound delivery."
-          checked={hirondelleSync.enabled}
+          checked={martinSync.enabled}
           onCheckedChange={(enabled) => patch({ enabled })}
         />
         <SwitchField
           title="PR opened events"
           description="Send a factual event when a pull request is opened."
-          checked={hirondelleSync.prOpened}
+          checked={martinSync.prOpened}
           onCheckedChange={(prOpened) => patch({ prOpened })}
         />
         <SwitchField
           title="Task completed events"
           description="Send a factual event when a task is archived as completed."
-          checked={hirondelleSync.taskCompleted}
+          checked={martinSync.taskCompleted}
           onCheckedChange={(taskCompleted) => patch({ taskCompleted })}
         />
         <SwitchField
           title="Resource link mirroring"
           description="Mirror workspace links after changes settle."
-          checked={hirondelleSync.resourceLinks}
+          checked={martinSync.resourceLinks}
           onCheckedChange={(resourceLinks) => patch({ resourceLinks })}
         />
         <SwitchField
           title="Turn summaries"
           description="Send model-written work summaries. This interpretive data is off by default."
-          checked={hirondelleSync.turnSummaries}
+          checked={martinSync.turnSummaries}
           onCheckedChange={(turnSummaries) => patch({ turnSummaries })}
         />
       </div>

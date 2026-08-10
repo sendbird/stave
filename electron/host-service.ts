@@ -536,10 +536,10 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.getWorkspaceInformation(
         args as Parameters<typeof localMcpRuntime.getWorkspaceInformation>[0],
       );
-    case "set-workspace-hirondelle-project":
-      return localMcpRuntime.setWorkspaceHirondelleProject(
+    case "set-workspace-martin-project":
+      return localMcpRuntime.setWorkspaceMartinProject(
         args as Parameters<
-          typeof localMcpRuntime.setWorkspaceHirondelleProject
+          typeof localMcpRuntime.setWorkspaceMartinProject
         >[0],
       );
     case "replace-workspace-notes":

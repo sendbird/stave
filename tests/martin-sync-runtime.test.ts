@@ -2,16 +2,16 @@ import { describe, expect, test } from "bun:test";
 
 import { AtelierConnectorHttpError } from "../electron/main/atelier-connector/http-client";
 import {
-  HIRONDELLE_LINKS_MERGE_DEBOUNCE_MS,
-  HirondelleSyncRuntime,
-  MAX_HIRONDELLE_SYNC_ATTEMPTS,
-} from "../electron/main/hirondelle-sync/runtime";
-import type { HirondelleOutboxEntry } from "../electron/persistence/hirondelle-sync-outbox-store";
+  MARTIN_LINKS_MERGE_DEBOUNCE_MS,
+  MartinSyncRuntime,
+  MAX_MARTIN_SYNC_ATTEMPTS,
+} from "../electron/main/martin-sync/runtime";
+import type { MartinOutboxEntry } from "../electron/persistence/martin-sync-outbox-store";
 import type {
   StaveSyncEventV1,
   StaveSyncLinkV1,
-} from "../src/lib/hirondelle-sync/contract";
-import { DEFAULT_HIRONDELLE_SYNC_SETTINGS } from "../src/lib/hirondelle-sync/types";
+} from "../src/lib/martin-sync/contract";
+import { DEFAULT_MARTIN_SYNC_SETTINGS } from "../src/lib/martin-sync/types";
 
 const START_MS = Date.parse("2026-08-09T12:00:00.000Z");
 
@@ -37,14 +37,14 @@ function createLink(label: string): StaveSyncLinkV1 {
 }
 
 function createHarness(options?: {
-  credential?: null | { scopes: Array<"crane" | "hirondelle"> };
+  credential?: null | { scopes: Array<"crane" | "martin"> };
   postEvents?: (
     events: StaveSyncEventV1[],
   ) => Promise<Array<{ staveEventId: string; status: "inserted" | "duplicate" }>>;
 }) {
   let nowMs = START_MS;
   let sequence = 0;
-  const rows = new Map<string, HirondelleOutboxEntry>();
+  const rows = new Map<string, MartinOutboxEntry>();
   const statuses: unknown[] = [];
   const mappingStale: unknown[] = [];
   const postCalls: StaveSyncEventV1[][] = [];
@@ -52,7 +52,7 @@ function createHarness(options?: {
   const timers: Array<{ callback: () => void; delayMs: number }> = [];
 
   const persistence = {
-    enqueueHirondelleOutboxEntry(input: {
+    enqueueMartinOutboxEntry(input: {
       workspaceId: string;
       projectRef: string;
       kind: "event";
@@ -60,7 +60,7 @@ function createHarness(options?: {
       now: string;
     }) {
       sequence += 1;
-      const entry: HirondelleOutboxEntry = {
+      const entry: MartinOutboxEntry = {
         id: `10000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`,
         workspaceId: input.workspaceId,
         projectRef: input.projectRef,
@@ -75,7 +75,7 @@ function createHarness(options?: {
       rows.set(entry.id, entry);
       return structuredClone(entry);
     },
-    upsertHirondelleLinksMergeEntry(input: {
+    upsertMartinLinksMergeEntry(input: {
       workspaceId: string;
       projectRef: string;
       payloadJson: string;
@@ -99,7 +99,7 @@ function createHarness(options?: {
         return structuredClone(existing);
       }
       sequence += 1;
-      const entry: HirondelleOutboxEntry = {
+      const entry: MartinOutboxEntry = {
         id: `20000000-0000-4000-8000-${String(sequence).padStart(12, "0")}`,
         workspaceId: input.workspaceId,
         projectRef: input.projectRef,
@@ -114,7 +114,7 @@ function createHarness(options?: {
       rows.set(entry.id, entry);
       return structuredClone(entry);
     },
-    listDueHirondelleOutboxEntries(args: { now: string; limit: number }) {
+    listDueMartinOutboxEntries(args: { now: string; limit: number }) {
       return [...rows.values()]
         .filter(
           (row) =>
@@ -128,13 +128,13 @@ function createHarness(options?: {
         .slice(0, args.limit)
         .map((row) => structuredClone(row));
     },
-    markHirondelleOutboxDelivered(id: string, deliveredAt: string) {
+    markMartinOutboxDelivered(id: string, deliveredAt: string) {
       Object.assign(rows.get(id)!, {
         status: "delivered" as const,
         deliveredAt,
       });
     },
-    markHirondelleOutboxRetry(
+    markMartinOutboxRetry(
       id: string,
       attempts: number,
       nextAttemptAt: string,
@@ -145,10 +145,10 @@ function createHarness(options?: {
         nextAttemptAt,
       });
     },
-    markHirondelleOutboxFailed(id: string) {
+    markMartinOutboxFailed(id: string) {
       Object.assign(rows.get(id)!, { status: "failed" as const });
     },
-    setHirondelleOutboxWorkspaceHeld(workspaceId: string, held: boolean) {
+    setMartinOutboxWorkspaceHeld(workspaceId: string, held: boolean) {
       let changed = 0;
       for (const row of rows.values()) {
         const source = held ? "pending" : "held";
@@ -159,7 +159,7 @@ function createHarness(options?: {
       }
       return changed;
     },
-    retryFailedHirondelleOutboxEntries() {
+    retryFailedMartinOutboxEntries() {
       let changed = 0;
       for (const row of rows.values()) {
         if (row.status !== "failed") continue;
@@ -171,7 +171,7 @@ function createHarness(options?: {
       }
       return changed;
     },
-    countHirondelleOutbox() {
+    countMartinOutbox() {
       let pending = 0;
       let failed = 0;
       for (const row of rows.values()) {
@@ -190,19 +190,19 @@ function createHarness(options?: {
         status: "duplicate" as const,
       })));
   const http = {
-    postHirondelleEvents: async (args: { events: StaveSyncEventV1[] }) => {
+    postMartinEvents: async (args: { events: StaveSyncEventV1[] }) => {
       postCalls.push(structuredClone(args.events));
       return postEvents(args.events);
     },
-    mergeHirondelleLinks: async (args: { links: StaveSyncLinkV1[] }) => {
+    mergeMartinLinks: async (args: { links: StaveSyncLinkV1[] }) => {
       mergeCalls.push(structuredClone(args.links));
       return { ok: true as const, inserted: 0, updated: 1, skipped: 0 };
     },
   };
   const credentialOption = options && "credential" in options
     ? options.credential
-    : { scopes: ["hirondelle" as const] };
-  const runtime = new HirondelleSyncRuntime({
+    : { scopes: ["martin" as const] };
+  const runtime = new MartinSyncRuntime({
     persistence,
     getCredential: async () =>
       credentialOption
@@ -228,7 +228,7 @@ function createHarness(options?: {
       );
       if (index >= 0) timers.splice(index, 1);
     },
-  } as ConstructorParameters<typeof HirondelleSyncRuntime>[0]);
+  } as ConstructorParameters<typeof MartinSyncRuntime>[0]);
 
   async function flush() {
     for (let index = 0; index < 10; index += 1) {
@@ -262,11 +262,11 @@ function createHarness(options?: {
 }
 
 const ENABLED_SETTINGS = {
-  ...DEFAULT_HIRONDELLE_SYNC_SETTINGS,
+  ...DEFAULT_MARTIN_SYNC_SETTINGS,
   enabled: true,
 };
 
-describe("HirondelleSyncRuntime", () => {
+describe("MartinSyncRuntime", () => {
   test("durably queues while disabled and drains duplicate events once enabled", async () => {
     const harness = createHarness();
 
@@ -350,7 +350,7 @@ describe("HirondelleSyncRuntime", () => {
       event: createEvent(),
     });
     [...harness.rows.values()][0].attempts =
-      MAX_HIRONDELLE_SYNC_ATTEMPTS - 1;
+      MAX_MARTIN_SYNC_ATTEMPTS - 1;
     harness.runtime.configure(ENABLED_SETTINGS);
 
     await harness.runNextTimer();
@@ -438,14 +438,14 @@ describe("HirondelleSyncRuntime", () => {
     expect([...harness.rows.values()][0]).toMatchObject({
       payloadJson: JSON.stringify({ links: [createLink("Second")] }),
       nextAttemptAt: new Date(
-        START_MS + 5_000 + HIRONDELLE_LINKS_MERGE_DEBOUNCE_MS,
+        START_MS + 5_000 + MARTIN_LINKS_MERGE_DEBOUNCE_MS,
       ).toISOString(),
     });
     expect(harness.timers).toMatchObject([
-      { delayMs: HIRONDELLE_LINKS_MERGE_DEBOUNCE_MS },
+      { delayMs: MARTIN_LINKS_MERGE_DEBOUNCE_MS },
     ]);
 
-    harness.advance(HIRONDELLE_LINKS_MERGE_DEBOUNCE_MS);
+    harness.advance(MARTIN_LINKS_MERGE_DEBOUNCE_MS);
     await harness.runNextTimer();
     expect(harness.mergeCalls).toEqual([[createLink("Second")]]);
   });
@@ -469,7 +469,7 @@ describe("HirondelleSyncRuntime", () => {
     expect(harness.runtime.getStatus()).toMatchObject({ pendingCount: 0 });
   });
 
-  test("stays unpaired when the credential lacks the Hirondelle scope", async () => {
+  test("stays unpaired when the credential lacks the Martin scope", async () => {
     const harness = createHarness({ credential: { scopes: ["crane"] } });
     harness.runtime.configure(ENABLED_SETTINGS);
 

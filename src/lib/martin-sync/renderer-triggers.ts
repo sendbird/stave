@@ -1,20 +1,20 @@
 import type { StaveSyncEventKind } from "./contract";
-import { buildHirondelleSyncLinks } from "./links";
-import { isHirondelleContextStale } from "./staleness";
-import type { HirondelleSyncSettings } from "./types";
+import { buildMartinSyncLinks } from "./links";
+import { isMartinContextStale } from "./staleness";
+import type { MartinSyncSettings } from "./types";
 import type {
-  WorkspaceHirondelleProjectLink,
+  WorkspaceMartinProjectLink,
   WorkspaceInformationState,
 } from "../workspace-information";
 
-export interface HirondelleTriggerWorkspaceContext {
+export interface MartinTriggerWorkspaceContext {
   workspaceId: string;
   workspaceName: string;
   branch: string;
-  hirondelleProject: WorkspaceHirondelleProjectLink | null | undefined;
+  martinProject: WorkspaceMartinProjectLink | null | undefined;
 }
 
-interface HirondelleTriggerState {
+interface MartinTriggerState {
   workspaces: ReadonlyArray<{ id: string; name: string }>;
   workspaceBranchById: Record<string, string | undefined>;
   activeWorkspaceId: string;
@@ -25,10 +25,10 @@ interface HirondelleTriggerState {
   >;
 }
 
-export function collectHirondelleTriggerContext(
-  state: HirondelleTriggerState,
+export function collectMartinTriggerContext(
+  state: MartinTriggerState,
   workspaceId: string,
-): HirondelleTriggerWorkspaceContext {
+): MartinTriggerWorkspaceContext {
   const branch = state.workspaceBranchById[workspaceId] ?? "";
   const workspaceName =
     state.workspaces.find((workspace) => workspace.id === workspaceId)?.name ??
@@ -41,12 +41,12 @@ export function collectHirondelleTriggerContext(
     workspaceId,
     workspaceName,
     branch,
-    hirondelleProject: workspaceInformation?.hirondelleProject,
+    martinProject: workspaceInformation?.martinProject,
   };
 }
 
-export function shouldPushHirondelleEvent(args: {
-  settings: HirondelleSyncSettings;
+export function shouldPushMartinEvent(args: {
+  settings: MartinSyncSettings;
   kind: StaveSyncEventKind;
 }): boolean {
   if (!args.settings.enabled) return false;
@@ -66,20 +66,20 @@ export function shouldPushHirondelleEvent(args: {
   }
 }
 
-function notifyHirondelleEvent(args: {
-  context: HirondelleTriggerWorkspaceContext;
-  settings: HirondelleSyncSettings;
+function notifyMartinEvent(args: {
+  context: MartinTriggerWorkspaceContext;
+  settings: MartinSyncSettings;
   kind: StaveSyncEventKind;
   summary: string;
   sourceUrl?: string;
 }) {
-  const project = args.context.hirondelleProject;
+  const project = args.context.martinProject;
   const summary = args.summary.trim();
   if (
     !project ||
     project.stale ||
     !summary ||
-    !shouldPushHirondelleEvent({
+    !shouldPushMartinEvent({
       settings: args.settings,
       kind: args.kind,
     }) ||
@@ -87,7 +87,7 @@ function notifyHirondelleEvent(args: {
   ) {
     return;
   }
-  void window.api?.hirondelleSync
+  void window.api?.martinSync
     ?.enqueue?.({
       workspaceId: args.context.workspaceId,
       projectRef: project.ref,
@@ -100,12 +100,12 @@ function notifyHirondelleEvent(args: {
     .catch(() => undefined);
 }
 
-export function notifyHirondelleTaskArchived(args: {
-  context: HirondelleTriggerWorkspaceContext;
-  settings: HirondelleSyncSettings;
+export function notifyMartinTaskArchived(args: {
+  context: MartinTriggerWorkspaceContext;
+  settings: MartinSyncSettings;
   taskTitle: string;
 }): void {
-  notifyHirondelleEvent({
+  notifyMartinEvent({
     context: args.context,
     settings: args.settings,
     kind: "task_completed",
@@ -113,13 +113,13 @@ export function notifyHirondelleTaskArchived(args: {
   });
 }
 
-export function notifyHirondellePrOpened(args: {
-  context: HirondelleTriggerWorkspaceContext;
-  settings: HirondelleSyncSettings;
+export function notifyMartinPrOpened(args: {
+  context: MartinTriggerWorkspaceContext;
+  settings: MartinSyncSettings;
   prUrl: string;
   prTitle: string;
 }): void {
-  notifyHirondelleEvent({
+  notifyMartinEvent({
     context: args.context,
     settings: args.settings,
     kind: "pr_opened",
@@ -128,12 +128,12 @@ export function notifyHirondellePrOpened(args: {
   });
 }
 
-export function notifyHirondelleTurnSummary(args: {
-  context: HirondelleTriggerWorkspaceContext;
-  settings: HirondelleSyncSettings;
+export function notifyMartinTurnSummary(args: {
+  context: MartinTriggerWorkspaceContext;
+  settings: MartinSyncSettings;
   workSummary: string;
 }): void {
-  notifyHirondelleEvent({
+  notifyMartinEvent({
     context: args.context,
     settings: args.settings,
     kind: "work_update",
@@ -141,13 +141,13 @@ export function notifyHirondelleTurnSummary(args: {
   });
 }
 
-export function notifyHirondelleInformationEdited(args: {
-  context: HirondelleTriggerWorkspaceContext;
-  settings: HirondelleSyncSettings;
+export function notifyMartinInformationEdited(args: {
+  context: MartinTriggerWorkspaceContext;
+  settings: MartinSyncSettings;
   previous: WorkspaceInformationState;
   next: WorkspaceInformationState;
 }): void {
-  const project = args.context.hirondelleProject;
+  const project = args.context.martinProject;
   if (
     !project ||
     project.stale ||
@@ -157,10 +157,10 @@ export function notifyHirondelleInformationEdited(args: {
   ) {
     return;
   }
-  const previousLinks = buildHirondelleSyncLinks(args.previous);
-  const nextLinks = buildHirondelleSyncLinks(args.next);
+  const previousLinks = buildMartinSyncLinks(args.previous);
+  const nextLinks = buildMartinSyncLinks(args.next);
   if (JSON.stringify(previousLinks) === JSON.stringify(nextLinks)) return;
-  void window.api?.hirondelleSync
+  void window.api?.martinSync
     ?.notifyLinksChanged?.({
       workspaceId: args.context.workspaceId,
       projectRef: project.ref,
@@ -169,21 +169,21 @@ export function notifyHirondelleInformationEdited(args: {
     .catch(() => undefined);
 }
 
-export function maybeRefreshHirondelleContext(args: {
+export function maybeRefreshMartinContext(args: {
   workspaceId: string;
-  hirondelleProject: WorkspaceHirondelleProjectLink | null | undefined;
+  martinProject: WorkspaceMartinProjectLink | null | undefined;
 }): void {
   if (
-    !args.hirondelleProject ||
-    args.hirondelleProject.stale ||
-    !isHirondelleContextStale({
-      lastPulledAt: args.hirondelleProject.lastPulledAt,
+    !args.martinProject ||
+    args.martinProject.stale ||
+    !isMartinContextStale({
+      lastPulledAt: args.martinProject.lastPulledAt,
     }) ||
     typeof window === "undefined"
   ) {
     return;
   }
-  void window.api?.hirondelleSync
+  void window.api?.martinSync
     ?.refreshContext?.({ workspaceId: args.workspaceId })
     .catch(() => undefined);
 }

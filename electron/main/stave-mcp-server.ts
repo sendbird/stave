@@ -81,11 +81,11 @@ import {
 } from "./codex-mcp";
 import { sanitizeMcpLogValue } from "./stave-mcp-log-sanitizer";
 import {
-  linkHirondelleProject,
-  listHirondelleProjects,
-  refreshHirondelleContext,
-  unlinkHirondelleProject,
-} from "./hirondelle-sync/project-link";
+  linkMartinProject,
+  listMartinProjects,
+  refreshMartinContext,
+  unlinkMartinProject,
+} from "./martin-sync/project-link";
 
 let httpServer: Server | null = null;
 let manifestPaths: string[] = [];
@@ -294,10 +294,10 @@ function createToolServer() {
   );
 
   server.registerTool(
-    "stave_hirondelle_list_projects",
+    "stave_martin_list_projects",
     {
       description:
-        "Search Hirondelle projects reachable through the paired Atelier connector.",
+        "Search Martin projects reachable through the paired Atelier connector.",
       inputSchema: {
         query: z
           .string()
@@ -309,52 +309,52 @@ function createToolServer() {
     },
     async ({ query, limit }) =>
       toStructuredResult({
-        projects: await listHirondelleProjects({ query, limit }),
+        projects: await listMartinProjects({ query, limit }),
       }),
   );
 
   server.registerTool(
-    "stave_hirondelle_link_project",
+    "stave_martin_link_project",
     {
       description:
-        "Link a Stave workspace to a Hirondelle project and pull its context snapshot.",
+        "Link a Stave workspace to a Martin project and pull its context snapshot.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Target workspace id."),
         projectRef: z
           .string()
           .min(1)
-          .describe("Hirondelle project slug or id."),
+          .describe("Martin project slug or id."),
       },
     },
     async ({ workspaceId, projectRef }) =>
       toStructuredResult(
-        await linkHirondelleProject({ workspaceId, projectRef }),
+        await linkMartinProject({ workspaceId, projectRef }),
       ),
   );
 
   server.registerTool(
-    "stave_hirondelle_unlink_project",
+    "stave_martin_unlink_project",
     {
-      description: "Unlink a Stave workspace from its Hirondelle project.",
+      description: "Unlink a Stave workspace from its Martin project.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Target workspace id."),
       },
     },
     async ({ workspaceId }) =>
-      toStructuredResult(await unlinkHirondelleProject({ workspaceId })),
+      toStructuredResult(await unlinkMartinProject({ workspaceId })),
   );
 
   server.registerTool(
-    "stave_hirondelle_get_context",
+    "stave_martin_get_context",
     {
       description:
-        "Fetch the latest Hirondelle project context bundle for a linked workspace and refresh the local snapshot file.",
+        "Fetch the latest Martin project context bundle for a linked workspace and refresh the local snapshot file.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Target workspace id."),
       },
     },
     async ({ workspaceId }) =>
-      toStructuredResult(await refreshHirondelleContext({ workspaceId })),
+      toStructuredResult(await refreshMartinContext({ workspaceId })),
   );
 
   server.registerTool(

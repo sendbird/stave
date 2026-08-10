@@ -7,9 +7,9 @@ import {
 import type { AppSettings } from "@/store/app-settings";
 import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
 import {
-  DEFAULT_HIRONDELLE_SYNC_SETTINGS,
-  HirondelleSyncSettingsSchema,
-} from "@/lib/hirondelle-sync/types";
+  DEFAULT_MARTIN_SYNC_SETTINGS,
+  MartinSyncSettingsSchema,
+} from "@/lib/martin-sync/types";
 import type { SectionId } from "./settings-dialog.schema";
 
 export interface SettingDefinition<
@@ -162,14 +162,14 @@ export const settingDefinitions = [
     importExport: "exclude",
   } satisfies SettingDefinition<"craneConnector">,
   {
-    key: "hirondelleSync",
+    key: "martinSync",
     sectionId: "integrations",
-    fieldId: "settings-field-hirondelle-sync",
-    title: "Hirondelle sync",
+    fieldId: "settings-field-martin-sync",
+    title: "Martin sync",
     description:
-      "Push workspace events and resource links to a linked Hirondelle project and pull its context snapshot.",
+      "Push workspace events and resource links to a linked Martin project and pull its context snapshot.",
     keywords: [
-      "hirondelle",
+      "martin",
       "atelier",
       "sync",
       "project",
@@ -178,13 +178,13 @@ export const settingDefinitions = [
       "outbox",
       "connector",
     ],
-    schema: HirondelleSyncSettingsSchema,
-    defaultValue: { ...DEFAULT_HIRONDELLE_SYNC_SETTINGS },
+    schema: MartinSyncSettingsSchema,
+    defaultValue: { ...DEFAULT_MARTIN_SYNC_SETTINGS },
     scope: "app",
     sensitivity: "sensitive",
     applyMode: "immediate",
     importExport: "exclude",
-  } satisfies SettingDefinition<"hirondelleSync">,
+  } satisfies SettingDefinition<"martinSync">,
 ] as const;
 
 export function getSettingsFieldSearchText<Key extends keyof AppSettings>(

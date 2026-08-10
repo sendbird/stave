@@ -7,25 +7,25 @@ import {
   StaveSyncLinkV1Schema,
   type StaveSyncEventV1,
   type StaveSyncLinkV1,
-} from "../../../src/lib/hirondelle-sync/contract";
+} from "../../../src/lib/martin-sync/contract";
 import {
-  DEFAULT_HIRONDELLE_SYNC_SETTINGS,
-  HirondelleSyncSettingsSchema,
-  type HirondelleSyncMappingStalePayload,
-  type HirondelleSyncPublicStatus,
-  type HirondelleSyncSettings,
-} from "../../../src/lib/hirondelle-sync/types";
-import type { HirondelleOutboxEntry } from "../../persistence/hirondelle-sync-outbox-store";
+  DEFAULT_MARTIN_SYNC_SETTINGS,
+  MartinSyncSettingsSchema,
+  type MartinSyncMappingStalePayload,
+  type MartinSyncPublicStatus,
+  type MartinSyncSettings,
+} from "../../../src/lib/martin-sync/types";
+import type { MartinOutboxEntry } from "../../persistence/martin-sync-outbox-store";
 import type { AtelierConnectorHttpClient } from "../atelier-connector/http-client";
 import { AtelierConnectorHttpError } from "../atelier-connector/http-client";
 import { computeCraneConnectorRetryDelay } from "../crane-connector/runtime";
 
-export const MAX_HIRONDELLE_SYNC_ATTEMPTS = 8;
-export const HIRONDELLE_LINKS_MERGE_DEBOUNCE_MS = 30_000;
+export const MAX_MARTIN_SYNC_ATTEMPTS = 8;
+export const MARTIN_LINKS_MERGE_DEBOUNCE_MS = 30_000;
 
-const HIRONDELLE_SYNC_RETRY_BASE_MS = 5_000;
-const HIRONDELLE_SYNC_IDLE_POLL_MS = 5_000;
-const HIRONDELLE_SYNC_DRAIN_LIMIT = 50;
+const MARTIN_SYNC_RETRY_BASE_MS = 5_000;
+const MARTIN_SYNC_IDLE_POLL_MS = 5_000;
+const MARTIN_SYNC_DRAIN_LIMIT = 50;
 
 const LinksMergePayloadSchema = z
   .object({
@@ -35,54 +35,54 @@ const LinksMergePayloadSchema = z
   })
   .strict();
 
-export type { HirondelleSyncPublicStatus };
+export type { MartinSyncPublicStatus };
 
-export interface HirondelleSyncOutboxPersistence {
-  enqueueHirondelleOutboxEntry(input: {
+export interface MartinSyncOutboxPersistence {
+  enqueueMartinOutboxEntry(input: {
     workspaceId: string;
     projectRef: string;
     kind: "event";
     payloadJson: string;
     now: string;
-  }): HirondelleOutboxEntry;
-  upsertHirondelleLinksMergeEntry(input: {
+  }): MartinOutboxEntry;
+  upsertMartinLinksMergeEntry(input: {
     workspaceId: string;
     projectRef: string;
     payloadJson: string;
     nextAttemptAt: string;
     now: string;
-  }): HirondelleOutboxEntry;
-  listDueHirondelleOutboxEntries(args: {
+  }): MartinOutboxEntry;
+  listDueMartinOutboxEntries(args: {
     now: string;
     limit: number;
-  }): HirondelleOutboxEntry[];
-  markHirondelleOutboxDelivered(id: string, deliveredAt: string): void;
-  markHirondelleOutboxRetry(
+  }): MartinOutboxEntry[];
+  markMartinOutboxDelivered(id: string, deliveredAt: string): void;
+  markMartinOutboxRetry(
     id: string,
     attempts: number,
     nextAttemptAt: string,
   ): void;
-  markHirondelleOutboxFailed(id: string): void;
-  setHirondelleOutboxWorkspaceHeld(
+  markMartinOutboxFailed(id: string): void;
+  setMartinOutboxWorkspaceHeld(
     workspaceId: string,
     held: boolean,
   ): number;
-  retryFailedHirondelleOutboxEntries(): number;
-  countHirondelleOutbox(): { pending: number; failed: number };
+  retryFailedMartinOutboxEntries(): number;
+  countMartinOutbox(): { pending: number; failed: number };
 }
 
-interface HirondelleSyncCredential {
+interface MartinSyncCredential {
   baseUrl: string;
   secret: string;
   scopes: AtelierConnectorScope[];
 }
 
-interface HirondelleSyncRuntimeDependencies {
-  persistence: HirondelleSyncOutboxPersistence;
-  getCredential: () => Promise<HirondelleSyncCredential | null>;
+interface MartinSyncRuntimeDependencies {
+  persistence: MartinSyncOutboxPersistence;
+  getCredential: () => Promise<MartinSyncCredential | null>;
   createHttpClient: (baseUrl: string) => AtelierConnectorHttpClient;
-  emitStatus: (status: HirondelleSyncPublicStatus) => void;
-  emitMappingStale: (args: HirondelleSyncMappingStalePayload) => void;
+  emitStatus: (status: MartinSyncPublicStatus) => void;
+  emitMappingStale: (args: MartinSyncMappingStalePayload) => void;
   now?: () => Date;
   random?: () => number;
   setTimer?: (
@@ -95,7 +95,7 @@ interface HirondelleSyncRuntimeDependencies {
 interface EventBatch {
   workspaceId: string;
   projectRef: string;
-  rows: HirondelleOutboxEntry[];
+  rows: MartinOutboxEntry[];
 }
 
 interface DrainFailure {
@@ -122,20 +122,20 @@ function splitIntoBatches<T>(values: T[], size: number): T[][] {
   return batches;
 }
 
-export class HirondelleSyncRuntime {
-  private settings: HirondelleSyncSettings = {
-    ...DEFAULT_HIRONDELLE_SYNC_SETTINGS,
+export class MartinSyncRuntime {
+  private settings: MartinSyncSettings = {
+    ...DEFAULT_MARTIN_SYNC_SETTINGS,
   };
-  private status: HirondelleSyncPublicStatus;
+  private status: MartinSyncPublicStatus;
   private timer: NodeJS.Timeout | null = null;
   private abortController: AbortController | null = null;
   private generation = 0;
   private operationQueue: Promise<void> = Promise.resolve();
 
   constructor(
-    private readonly dependencies: HirondelleSyncRuntimeDependencies,
+    private readonly dependencies: MartinSyncRuntimeDependencies,
   ) {
-    const counts = dependencies.persistence.countHirondelleOutbox();
+    const counts = dependencies.persistence.countMartinOutbox();
     this.status = {
       runtimeState: "disabled",
       lastErrorCode: null,
@@ -145,9 +145,9 @@ export class HirondelleSyncRuntime {
     };
   }
 
-  configure(settings: HirondelleSyncSettings): HirondelleSyncPublicStatus {
+  configure(settings: MartinSyncSettings): MartinSyncPublicStatus {
     this.stopPendingWork();
-    this.settings = HirondelleSyncSettingsSchema.parse(settings);
+    this.settings = MartinSyncSettingsSchema.parse(settings);
     if (!this.settings.enabled) {
       this.setStatus({
         runtimeState: "disabled",
@@ -166,11 +166,11 @@ export class HirondelleSyncRuntime {
     return this.getStatus();
   }
 
-  getStatus(): HirondelleSyncPublicStatus {
+  getStatus(): MartinSyncPublicStatus {
     return { ...this.status };
   }
 
-  getSettings(): HirondelleSyncSettings {
+  getSettings(): MartinSyncSettings {
     return { ...this.settings };
   }
 
@@ -181,7 +181,7 @@ export class HirondelleSyncRuntime {
   }): void {
     const event = StaveSyncEventV1Schema.parse(args.event);
     const now = this.nowIso();
-    this.dependencies.persistence.enqueueHirondelleOutboxEntry({
+    this.dependencies.persistence.enqueueMartinOutboxEntry({
       workspaceId: args.workspaceId,
       projectRef: args.projectRef,
       kind: "event",
@@ -201,24 +201,24 @@ export class HirondelleSyncRuntime {
       StaveSyncLinkV1Schema.parse(link),
     );
     if (links.length > STAVE_SYNC_LIMITS.linksPerMerge) {
-      throw new Error("too_many_hirondelle_links");
+      throw new Error("too_many_martin_links");
     }
     const now = this.now();
-    this.dependencies.persistence.upsertHirondelleLinksMergeEntry({
+    this.dependencies.persistence.upsertMartinLinksMergeEntry({
       workspaceId: args.workspaceId,
       projectRef: args.projectRef,
       payloadJson: JSON.stringify({ links }),
       nextAttemptAt: new Date(
-        now.getTime() + HIRONDELLE_LINKS_MERGE_DEBOUNCE_MS,
+        now.getTime() + MARTIN_LINKS_MERGE_DEBOUNCE_MS,
       ).toISOString(),
       now: now.toISOString(),
     });
     this.setStatus(this.getCountsPatch());
-    this.schedule(HIRONDELLE_LINKS_MERGE_DEBOUNCE_MS);
+    this.schedule(MARTIN_LINKS_MERGE_DEBOUNCE_MS);
   }
 
   retryFailed(): void {
-    this.dependencies.persistence.retryFailedHirondelleOutboxEntries();
+    this.dependencies.persistence.retryFailedMartinOutboxEntries();
     this.setStatus({
       lastErrorCode: null,
       ...this.getCountsPatch(),
@@ -227,7 +227,7 @@ export class HirondelleSyncRuntime {
   }
 
   holdWorkspace(workspaceId: string): void {
-    this.dependencies.persistence.setHirondelleOutboxWorkspaceHeld(
+    this.dependencies.persistence.setMartinOutboxWorkspaceHeld(
       workspaceId,
       true,
     );
@@ -235,7 +235,7 @@ export class HirondelleSyncRuntime {
   }
 
   resumeWorkspace(workspaceId: string): void {
-    this.dependencies.persistence.setHirondelleOutboxWorkspaceHeld(
+    this.dependencies.persistence.setMartinOutboxWorkspaceHeld(
       workspaceId,
       false,
     );
@@ -258,7 +258,7 @@ export class HirondelleSyncRuntime {
       return;
     }
 
-    let credential: HirondelleSyncCredential | null;
+    let credential: MartinSyncCredential | null;
     try {
       credential = await this.dependencies.getCredential();
     } catch (error) {
@@ -271,7 +271,7 @@ export class HirondelleSyncRuntime {
       return;
     }
     if (generation !== this.generation) return;
-    if (!credential || !credential.scopes.includes("hirondelle")) {
+    if (!credential || !credential.scopes.includes("martin")) {
       this.setStatus({
         runtimeState: "unpaired",
         lastErrorCode: null,
@@ -282,12 +282,12 @@ export class HirondelleSyncRuntime {
 
     const now = this.now();
     const due =
-      this.dependencies.persistence.listDueHirondelleOutboxEntries({
+      this.dependencies.persistence.listDueMartinOutboxEntries({
         now: now.toISOString(),
-        limit: HIRONDELLE_SYNC_DRAIN_LIMIT,
+        limit: MARTIN_SYNC_DRAIN_LIMIT,
       });
     if (due.length === 0) {
-      const counts = this.dependencies.persistence.countHirondelleOutbox();
+      const counts = this.dependencies.persistence.countMartinOutbox();
       this.setStatus({
         runtimeState: "idle",
         lastErrorCode: null,
@@ -295,7 +295,7 @@ export class HirondelleSyncRuntime {
         failedCount: counts.failed,
       });
       if (counts.pending > 0) {
-        this.schedule(HIRONDELLE_SYNC_IDLE_POLL_MS);
+        this.schedule(MARTIN_SYNC_IDLE_POLL_MS);
       }
       return;
     }
@@ -320,7 +320,7 @@ export class HirondelleSyncRuntime {
         const events = batch.rows.map((row) =>
           StaveSyncEventV1Schema.parse(JSON.parse(row.payloadJson)),
         );
-        await client.postHirondelleEvents({
+        await client.postMartinEvents({
           secret: credential.secret,
           projectRef: batch.projectRef,
           events,
@@ -329,7 +329,7 @@ export class HirondelleSyncRuntime {
         if (generation !== this.generation) return;
         const deliveredAt = this.nowIso();
         for (const row of batch.rows) {
-          this.dependencies.persistence.markHirondelleOutboxDelivered(
+          this.dependencies.persistence.markMartinOutboxDelivered(
             row.id,
             deliveredAt,
           );
@@ -359,7 +359,7 @@ export class HirondelleSyncRuntime {
           JSON.parse(row.payloadJson),
         );
         if (payload.links.length > 0) {
-          await client.mergeHirondelleLinks({
+          await client.mergeMartinLinks({
             secret: credential.secret,
             projectRef: row.projectRef,
             links: payload.links,
@@ -368,7 +368,7 @@ export class HirondelleSyncRuntime {
         }
         if (generation !== this.generation) return;
         const deliveredAt = this.nowIso();
-        this.dependencies.persistence.markHirondelleOutboxDelivered(
+        this.dependencies.persistence.markMartinOutboxDelivered(
           row.id,
           deliveredAt,
         );
@@ -390,7 +390,7 @@ export class HirondelleSyncRuntime {
     if (this.abortController === controller) {
       this.abortController = null;
     }
-    const counts = this.dependencies.persistence.countHirondelleOutbox();
+    const counts = this.dependencies.persistence.countMartinOutbox();
     this.setStatus({
       runtimeState: failure?.runtimeState ?? "idle",
       lastErrorCode: failure?.code ?? null,
@@ -405,23 +405,23 @@ export class HirondelleSyncRuntime {
     }
     if (counts.pending > 0) {
       const moreDue =
-        this.dependencies.persistence.listDueHirondelleOutboxEntries({
+        this.dependencies.persistence.listDueMartinOutboxEntries({
           now: this.nowIso(),
           limit: 1,
         }).length > 0;
-      this.schedule(moreDue ? 0 : HIRONDELLE_SYNC_IDLE_POLL_MS);
+      this.schedule(moreDue ? 0 : MARTIN_SYNC_IDLE_POLL_MS);
     }
   }
 
   private buildEventBatches(
-    entries: HirondelleOutboxEntry[],
+    entries: MartinOutboxEntry[],
   ): EventBatch[] {
     const groups = new Map<
       string,
       {
         workspaceId: string;
         projectRef: string;
-        rows: HirondelleOutboxEntry[];
+        rows: MartinOutboxEntry[];
       }
     >();
     for (const entry of entries) {
@@ -462,7 +462,7 @@ export class HirondelleSyncRuntime {
 
   private handleDeliveryError(
     error: unknown,
-    rows: HirondelleOutboxEntry[],
+    rows: MartinOutboxEntry[],
   ): {
     stop: boolean;
     mappingStale: boolean;
@@ -499,7 +499,7 @@ export class HirondelleSyncRuntime {
         ]),
       );
       for (const { workspaceId, projectRef } of workspaces.values()) {
-        this.dependencies.persistence.setHirondelleOutboxWorkspaceHeld(
+        this.dependencies.persistence.setMartinOutboxWorkspaceHeld(
           workspaceId,
           true,
         );
@@ -521,16 +521,16 @@ export class HirondelleSyncRuntime {
     let minimumRetryDelay: number | null = null;
     for (const row of rows) {
       const attempts = row.attempts + 1;
-      if (attempts >= MAX_HIRONDELLE_SYNC_ATTEMPTS) {
-        this.dependencies.persistence.markHirondelleOutboxFailed(row.id);
+      if (attempts >= MAX_MARTIN_SYNC_ATTEMPTS) {
+        this.dependencies.persistence.markMartinOutboxFailed(row.id);
         continue;
       }
       const delay = computeCraneConnectorRetryDelay({
-        baseDelayMs: HIRONDELLE_SYNC_RETRY_BASE_MS,
+        baseDelayMs: MARTIN_SYNC_RETRY_BASE_MS,
         failureCount: attempts,
         random: this.dependencies.random,
       });
-      this.dependencies.persistence.markHirondelleOutboxRetry(
+      this.dependencies.persistence.markMartinOutboxRetry(
         row.id,
         attempts,
         new Date(this.now().getTime() + delay).toISOString(),
@@ -551,13 +551,13 @@ export class HirondelleSyncRuntime {
     };
   }
 
-  private setStatus(patch: Partial<HirondelleSyncPublicStatus>) {
+  private setStatus(patch: Partial<MartinSyncPublicStatus>) {
     this.status = { ...this.status, ...patch };
     this.dependencies.emitStatus(this.getStatus());
   }
 
   private getCountsPatch() {
-    const counts = this.dependencies.persistence.countHirondelleOutbox();
+    const counts = this.dependencies.persistence.countMartinOutbox();
     return {
       pendingCount: counts.pending,
       failedCount: counts.failed,

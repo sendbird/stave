@@ -2,29 +2,29 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-const HIRONDELLE_PROJECT_SLUG_PATTERN =
+const MARTIN_PROJECT_SLUG_PATTERN =
   /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export function buildHirondelleContextSnapshotRelativePath(
+export function buildMartinContextSnapshotRelativePath(
   slug: string,
 ): string {
-  if (!HIRONDELLE_PROJECT_SLUG_PATTERN.test(slug)) {
-    throw new Error("invalid_hirondelle_project_slug");
+  if (!MARTIN_PROJECT_SLUG_PATTERN.test(slug)) {
+    throw new Error("invalid_martin_project_slug");
   }
   return path.posix.join(
     ".stave",
     "context",
-    "hirondelle",
+    "martin",
     `${slug}.md`,
   );
 }
 
-export async function writeHirondelleContextSnapshot(args: {
+export async function writeMartinContextSnapshot(args: {
   workspacePath: string;
   slug: string;
   markdown: string;
 }): Promise<{ absolutePath: string; relativePath: string }> {
-  const relativePath = buildHirondelleContextSnapshotRelativePath(args.slug);
+  const relativePath = buildMartinContextSnapshotRelativePath(args.slug);
   const absolutePath = path.resolve(
     args.workspacePath,
     ...relativePath.split("/"),

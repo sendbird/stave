@@ -43,7 +43,7 @@ test("createEmptyWorkspaceInformation returns empty defaults", () => {
     linkedPullRequests: [],
     amplifyLinks: [],
     slackThreads: [],
-    hirondelleProject: null,
+    martinProject: null,
     notes: "",
     todos: [],
     customFields: [],

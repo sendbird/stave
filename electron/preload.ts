@@ -63,19 +63,19 @@ import type {
   AtelierConnectorPairInput,
   AtelierConnectorPublicStatus,
 } from "../src/lib/atelier-connector/types";
-import type { HirondelleProjectSummary } from "../src/lib/hirondelle-sync/contract";
+import type { MartinProjectSummary } from "../src/lib/martin-sync/contract";
 import type {
-  HirondelleLinkProjectArgs,
-  HirondelleListProjectsArgs,
-  HirondelleSyncEnqueueArgs,
-  HirondelleSyncLinksChangedArgs,
-  HirondelleSyncMappingStalePayload,
-  HirondelleSyncPublicStatus,
-  HirondelleSyncSettings,
-  HirondelleWorkspaceArgs,
-} from "../src/lib/hirondelle-sync/types";
+  MartinLinkProjectArgs,
+  MartinListProjectsArgs,
+  MartinSyncEnqueueArgs,
+  MartinSyncLinksChangedArgs,
+  MartinSyncMappingStalePayload,
+  MartinSyncPublicStatus,
+  MartinSyncSettings,
+  MartinWorkspaceArgs,
+} from "../src/lib/martin-sync/types";
 import type {
-  WorkspaceHirondelleProjectLink,
+  WorkspaceMartinProjectLink,
   WorkspaceInformationState,
 } from "../src/lib/workspace-information";
 import type {
@@ -238,11 +238,11 @@ interface WorkspaceInformationUpdatePayload {
 const craneConnectorStatusSubscribers = new Set<
   (payload: CraneConnectorPublicStatus) => void
 >();
-const hirondelleSyncStatusSubscribers = new Set<
-  (payload: HirondelleSyncPublicStatus) => void
+const martinSyncStatusSubscribers = new Set<
+  (payload: MartinSyncPublicStatus) => void
 >();
-const hirondelleMappingStaleSubscribers = new Set<
-  (payload: HirondelleSyncMappingStalePayload) => void
+const martinMappingStaleSubscribers = new Set<
+  (payload: MartinSyncMappingStalePayload) => void
 >();
 const craneDispatchApprovalSubscribers = new Set<
   (payload: CraneDispatchApprovalRequest) => void
@@ -264,17 +264,17 @@ ipcRenderer.on(
   },
 );
 ipcRenderer.on(
-  "hirondelle-sync:status",
-  (_event, payload: HirondelleSyncPublicStatus) => {
-    for (const subscriber of hirondelleSyncStatusSubscribers) {
+  "martin-sync:status",
+  (_event, payload: MartinSyncPublicStatus) => {
+    for (const subscriber of martinSyncStatusSubscribers) {
       subscriber(payload);
     }
   },
 );
 ipcRenderer.on(
-  "hirondelle-sync:mapping-stale",
-  (_event, payload: HirondelleSyncMappingStalePayload) => {
-    for (const subscriber of hirondelleMappingStaleSubscribers) {
+  "martin-sync:mapping-stale",
+  (_event, payload: MartinSyncMappingStalePayload) => {
+    for (const subscriber of martinMappingStaleSubscribers) {
       subscriber(payload);
     }
   },
@@ -1517,77 +1517,77 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
-  hirondelleSync: {
+  martinSync: {
     getStatus: () =>
-      ipcRenderer.invoke("hirondelle-sync:get-status") as Promise<{
+      ipcRenderer.invoke("martin-sync:get-status") as Promise<{
         ok: boolean;
-        status: HirondelleSyncPublicStatus;
+        status: MartinSyncPublicStatus;
         message?: string;
       }>,
-    configure: (args: HirondelleSyncSettings) =>
-      ipcRenderer.invoke("hirondelle-sync:configure", args) as Promise<{
+    configure: (args: MartinSyncSettings) =>
+      ipcRenderer.invoke("martin-sync:configure", args) as Promise<{
         ok: boolean;
-        status: HirondelleSyncPublicStatus;
+        status: MartinSyncPublicStatus;
         message?: string;
       }>,
-    enqueue: (args: HirondelleSyncEnqueueArgs) =>
-      ipcRenderer.invoke("hirondelle-sync:enqueue", args) as Promise<{
+    enqueue: (args: MartinSyncEnqueueArgs) =>
+      ipcRenderer.invoke("martin-sync:enqueue", args) as Promise<{
         ok: boolean;
-        status?: HirondelleSyncPublicStatus;
+        status?: MartinSyncPublicStatus;
         message?: string;
       }>,
-    notifyLinksChanged: (args: HirondelleSyncLinksChangedArgs) =>
-      ipcRenderer.invoke("hirondelle-sync:links-changed", args) as Promise<{
+    notifyLinksChanged: (args: MartinSyncLinksChangedArgs) =>
+      ipcRenderer.invoke("martin-sync:links-changed", args) as Promise<{
         ok: boolean;
-        status?: HirondelleSyncPublicStatus;
+        status?: MartinSyncPublicStatus;
         message?: string;
       }>,
     retryFailed: () =>
-      ipcRenderer.invoke("hirondelle-sync:retry-failed") as Promise<{
+      ipcRenderer.invoke("martin-sync:retry-failed") as Promise<{
         ok: boolean;
-        status: HirondelleSyncPublicStatus;
+        status: MartinSyncPublicStatus;
         message?: string;
       }>,
-    listProjects: (args: HirondelleListProjectsArgs = {}) =>
-      ipcRenderer.invoke("hirondelle-sync:list-projects", args) as Promise<{
+    listProjects: (args: MartinListProjectsArgs = {}) =>
+      ipcRenderer.invoke("martin-sync:list-projects", args) as Promise<{
         ok: boolean;
-        projects: HirondelleProjectSummary[];
+        projects: MartinProjectSummary[];
         message?: string;
       }>,
-    linkProject: (args: HirondelleLinkProjectArgs) =>
-      ipcRenderer.invoke("hirondelle-sync:link-project", args) as Promise<{
+    linkProject: (args: MartinLinkProjectArgs) =>
+      ipcRenderer.invoke("martin-sync:link-project", args) as Promise<{
         ok: boolean;
-        project?: WorkspaceHirondelleProjectLink;
+        project?: WorkspaceMartinProjectLink;
         snapshotRelativePath?: string;
         message?: string;
       }>,
-    unlinkProject: (args: HirondelleWorkspaceArgs) =>
-      ipcRenderer.invoke("hirondelle-sync:unlink-project", args) as Promise<{
+    unlinkProject: (args: MartinWorkspaceArgs) =>
+      ipcRenderer.invoke("martin-sync:unlink-project", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    refreshContext: (args: HirondelleWorkspaceArgs) =>
-      ipcRenderer.invoke("hirondelle-sync:refresh-context", args) as Promise<{
+    refreshContext: (args: MartinWorkspaceArgs) =>
+      ipcRenderer.invoke("martin-sync:refresh-context", args) as Promise<{
         ok: boolean;
-        project?: WorkspaceHirondelleProjectLink;
+        project?: WorkspaceMartinProjectLink;
         snapshotRelativePath?: string;
         markdown?: string;
         message?: string;
       }>,
     subscribeStatus: (
-      listener: (payload: HirondelleSyncPublicStatus) => void,
+      listener: (payload: MartinSyncPublicStatus) => void,
     ) => {
-      hirondelleSyncStatusSubscribers.add(listener);
+      martinSyncStatusSubscribers.add(listener);
       return () => {
-        hirondelleSyncStatusSubscribers.delete(listener);
+        martinSyncStatusSubscribers.delete(listener);
       };
     },
     subscribeMappingStale: (
-      listener: (payload: HirondelleSyncMappingStalePayload) => void,
+      listener: (payload: MartinSyncMappingStalePayload) => void,
     ) => {
-      hirondelleMappingStaleSubscribers.add(listener);
+      martinMappingStaleSubscribers.add(listener);
       return () => {
-        hirondelleMappingStaleSubscribers.delete(listener);
+        martinMappingStaleSubscribers.delete(listener);
       };
     },
   },

@@ -1,6 +1,6 @@
-export const HIRONDELLE_CONTEXT_MAX_AGE_MS = 60 * 60 * 1_000;
+export const MARTIN_CONTEXT_MAX_AGE_MS = 60 * 60 * 1_000;
 
-export function isHirondelleContextStale(args: {
+export function isMartinContextStale(args: {
   lastPulledAt: string | null;
   now?: Date;
   maxAgeMs?: number;
@@ -11,7 +11,7 @@ export function isHirondelleContextStale(args: {
   const nowMs = (args.now ?? new Date()).getTime();
   const maxAgeMs = Math.max(
     0,
-    args.maxAgeMs ?? HIRONDELLE_CONTEXT_MAX_AGE_MS,
+    args.maxAgeMs ?? MARTIN_CONTEXT_MAX_AGE_MS,
   );
   return nowMs - pulledAtMs > maxAgeMs;
 }

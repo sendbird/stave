@@ -42,7 +42,7 @@ describe("AtelierConnectorHttpClient", () => {
         return jsonResponse({
           connector: {
             ...SERVER_CONNECTOR,
-            ...(includeScopes ? { scopes: ["crane", "hirondelle"] } : {}),
+            ...(includeScopes ? { scopes: ["crane", "martin"] } : {}),
           },
           secret: "stc_test-only-secret",
           pollRetryMs: 15_000,
@@ -54,11 +54,11 @@ describe("AtelierConnectorHttpClient", () => {
       code: "stp_test-only-code",
       name: "Personal Stave",
       appVersion: "1.0.0",
-      requestedScopes: ["crane", "hirondelle"],
+      requestedScopes: ["crane", "martin"],
     });
-    expect(paired.scopes).toEqual(["crane", "hirondelle"]);
+    expect(paired.scopes).toEqual(["crane", "martin"]);
     expect(await requests[0]?.json()).toMatchObject({
-      requestedScopes: ["crane", "hirondelle"],
+      requestedScopes: ["crane", "martin"],
     });
 
     includeScopes = false;
@@ -68,7 +68,7 @@ describe("AtelierConnectorHttpClient", () => {
           code: "stp_legacy-code",
           name: "Personal Stave",
           appVersion: "1.0.0",
-          requestedScopes: ["crane", "hirondelle"],
+          requestedScopes: ["crane", "martin"],
         })
       ).scopes,
     ).toEqual(["crane"]);
@@ -86,20 +86,20 @@ describe("AtelierConnectorHttpClient", () => {
       }) as typeof fetch,
     });
 
-    const projects = await client.listHirondelleProjects({
+    const projects = await client.listMartinProjects({
       secret: "stc_test-only-secret",
       query: "alpha",
       limit: 10,
     });
     expect(requests[0]?.url).toBe(
-      "https://atelier.example.test/api/hirondelle/stave/projects?query=alpha&limit=10",
+      "https://atelier.example.test/api/martin/stave/projects?query=alpha&limit=10",
     );
     expect(requests[0]?.headers.get("authorization")).toBe(
       "Bearer stc_test-only-secret",
     );
     expect(projects[0]).toMatchObject({
       ref: "sync-outbox",
-      url: "https://atelier.example.test/apps/hirondelle/p/sync-outbox",
+      url: "https://atelier.example.test/apps/martin/p/sync-outbox",
     });
 
     response = {
@@ -107,7 +107,7 @@ describe("AtelierConnectorHttpClient", () => {
       projects: [{ ...fixture.projects[0], futureField: true }],
     };
     await expect(
-      client.listHirondelleProjects({ secret: "stc_test-only-secret" }),
+      client.listMartinProjects({ secret: "stc_test-only-secret" }),
     ).rejects.toMatchObject({ code: "invalid_response" });
   });
 
@@ -120,7 +120,7 @@ describe("AtelierConnectorHttpClient", () => {
     });
     expect(
       (
-        await client.getHirondelleContextBundle({
+        await client.getMartinContextBundle({
           secret: "stc_test-only-secret",
           projectRef: "sync-outbox",
         })
@@ -132,7 +132,7 @@ describe("AtelierConnectorHttpClient", () => {
       headers: { "Content-Length": "600000" },
     });
     await expect(
-      client.getHirondelleContextBundle({
+      client.getMartinContextBundle({
         secret: "stc_test-only-secret",
         projectRef: "sync-outbox",
       }),
@@ -152,7 +152,7 @@ describe("AtelierConnectorHttpClient", () => {
     });
 
     expect(
-      await client.postHirondelleEvents({
+      await client.postMartinEvents({
         secret: "stc_test-only-secret",
         projectRef: "sync-outbox",
         events: requestFixture.events,
@@ -161,7 +161,7 @@ describe("AtelierConnectorHttpClient", () => {
     expect(await requests[0]?.json()).toEqual(requestFixture);
 
     await expect(
-      client.postHirondelleEvents({
+      client.postMartinEvents({
         secret: "stc_test-only-secret",
         projectRef: "sync-outbox",
         events: Array.from({ length: 21 }, (_, index) => ({
@@ -191,7 +191,7 @@ describe("AtelierConnectorHttpClient", () => {
       }) as typeof fetch,
     });
     expect(
-      await client.mergeHirondelleLinks({
+      await client.mergeMartinLinks({
         secret: "stc_test-only-secret",
         projectRef: "sync-outbox",
         links: requestFixture.links,
@@ -216,11 +216,11 @@ describe("AtelierConnectorHttpClient", () => {
       }) as typeof fetch,
     });
     await expect(
-      client.listHirondelleProjects({ secret: "stc_test-only-secret" }),
+      client.listMartinProjects({ secret: "stc_test-only-secret" }),
     ).rejects.toMatchObject({ code: "forbidden", status: 403 });
     rejectNetwork = true;
     await expect(
-      client.listHirondelleProjects({ secret: "stc_test-only-secret" }),
+      client.listMartinProjects({ secret: "stc_test-only-secret" }),
     ).rejects.toMatchObject({ code: "network_unavailable", status: 0 });
   });
 

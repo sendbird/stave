@@ -28,13 +28,13 @@ export {
   AtelierConnectorPairArgsSchema,
 } from "../../../src/lib/atelier-connector/types";
 export {
-  HirondelleLinkProjectArgsSchema,
-  HirondelleListProjectsArgsSchema,
-  HirondelleSyncConfigureArgsSchema,
-  HirondelleSyncEnqueueArgsSchema,
-  HirondelleSyncLinksChangedArgsSchema,
-  HirondelleWorkspaceArgsSchema,
-} from "../../../src/lib/hirondelle-sync/types";
+  MartinLinkProjectArgsSchema,
+  MartinListProjectsArgsSchema,
+  MartinSyncConfigureArgsSchema,
+  MartinSyncEnqueueArgsSchema,
+  MartinSyncLinksChangedArgsSchema,
+  MartinWorkspaceArgsSchema,
+} from "../../../src/lib/martin-sync/types";
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 

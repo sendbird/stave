@@ -61,17 +61,17 @@ import type {
   AtelierConnectorPairInput,
   AtelierConnectorPublicStatus,
 } from "@/lib/atelier-connector/types";
-import type { HirondelleProjectSummary } from "@/lib/hirondelle-sync/contract";
+import type { MartinProjectSummary } from "@/lib/martin-sync/contract";
 import type {
-  HirondelleLinkProjectArgs,
-  HirondelleListProjectsArgs,
-  HirondelleSyncEnqueueArgs,
-  HirondelleSyncLinksChangedArgs,
-  HirondelleSyncMappingStalePayload,
-  HirondelleSyncPublicStatus,
-  HirondelleSyncSettings,
-  HirondelleWorkspaceArgs,
-} from "@/lib/hirondelle-sync/types";
+  MartinLinkProjectArgs,
+  MartinListProjectsArgs,
+  MartinSyncEnqueueArgs,
+  MartinSyncLinksChangedArgs,
+  MartinSyncMappingStalePayload,
+  MartinSyncPublicStatus,
+  MartinSyncSettings,
+  MartinWorkspaceArgs,
+} from "@/lib/martin-sync/types";
 import type { RepoMapResponse } from "@/lib/fs/repo-map.types";
 import type {
   AppNotification,
@@ -92,7 +92,7 @@ import type {
   WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
 import type {
-  WorkspaceHirondelleProjectLink,
+  WorkspaceMartinProjectLink,
   WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import type {
@@ -730,59 +730,59 @@ interface WindowAtelierConnectorApi {
   }>;
 }
 
-interface WindowHirondelleSyncApi {
+interface WindowMartinSyncApi {
   getStatus?: () => Promise<{
     ok: boolean;
-    status: HirondelleSyncPublicStatus;
+    status: MartinSyncPublicStatus;
     message?: string;
   }>;
-  configure?: (args: HirondelleSyncSettings) => Promise<{
+  configure?: (args: MartinSyncSettings) => Promise<{
     ok: boolean;
-    status: HirondelleSyncPublicStatus;
+    status: MartinSyncPublicStatus;
     message?: string;
   }>;
-  enqueue?: (args: HirondelleSyncEnqueueArgs) => Promise<{
+  enqueue?: (args: MartinSyncEnqueueArgs) => Promise<{
     ok: boolean;
-    status?: HirondelleSyncPublicStatus;
+    status?: MartinSyncPublicStatus;
     message?: string;
   }>;
-  notifyLinksChanged?: (args: HirondelleSyncLinksChangedArgs) => Promise<{
+  notifyLinksChanged?: (args: MartinSyncLinksChangedArgs) => Promise<{
     ok: boolean;
-    status?: HirondelleSyncPublicStatus;
+    status?: MartinSyncPublicStatus;
     message?: string;
   }>;
   retryFailed?: () => Promise<{
     ok: boolean;
-    status: HirondelleSyncPublicStatus;
+    status: MartinSyncPublicStatus;
     message?: string;
   }>;
-  listProjects?: (args?: HirondelleListProjectsArgs) => Promise<{
+  listProjects?: (args?: MartinListProjectsArgs) => Promise<{
     ok: boolean;
-    projects: HirondelleProjectSummary[];
+    projects: MartinProjectSummary[];
     message?: string;
   }>;
-  linkProject?: (args: HirondelleLinkProjectArgs) => Promise<{
+  linkProject?: (args: MartinLinkProjectArgs) => Promise<{
     ok: boolean;
-    project?: WorkspaceHirondelleProjectLink;
+    project?: WorkspaceMartinProjectLink;
     snapshotRelativePath?: string;
     message?: string;
   }>;
-  unlinkProject?: (args: HirondelleWorkspaceArgs) => Promise<{
+  unlinkProject?: (args: MartinWorkspaceArgs) => Promise<{
     ok: boolean;
     message?: string;
   }>;
-  refreshContext?: (args: HirondelleWorkspaceArgs) => Promise<{
+  refreshContext?: (args: MartinWorkspaceArgs) => Promise<{
     ok: boolean;
-    project?: WorkspaceHirondelleProjectLink;
+    project?: WorkspaceMartinProjectLink;
     snapshotRelativePath?: string;
     markdown?: string;
     message?: string;
   }>;
   subscribeStatus?: (
-    listener: (payload: HirondelleSyncPublicStatus) => void,
+    listener: (payload: MartinSyncPublicStatus) => void,
   ) => () => void;
   subscribeMappingStale?: (
-    listener: (payload: HirondelleSyncMappingStalePayload) => void,
+    listener: (payload: MartinSyncMappingStalePayload) => void,
   ) => () => void;
 }
 
@@ -2553,7 +2553,7 @@ interface WindowApi {
   skills?: WindowSkillsApi;
   localMcp?: WindowLocalMcpApi;
   atelierConnector?: WindowAtelierConnectorApi;
-  hirondelleSync?: WindowHirondelleSyncApi;
+  martinSync?: WindowMartinSyncApi;
   craneConnector?: WindowCraneConnectorApi;
   taskControl?: WindowTaskControlApi;
   routines?: WindowRoutinesApi;

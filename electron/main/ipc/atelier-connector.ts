@@ -9,7 +9,7 @@ import {
   AtelierConnectorHttpClient,
   AtelierConnectorHttpError,
 } from "../atelier-connector/http-client";
-import { getHirondelleSyncRuntime } from "../hirondelle-sync/service";
+import { getMartinSyncRuntime } from "../martin-sync/service";
 import { AtelierConnectorPairArgsSchema } from "./schemas";
 
 function connectorErrorCode(error: unknown) {
@@ -100,7 +100,7 @@ async function pairAtelierConnector(
     scopes: exchanged.scopes,
     secret: exchanged.secret,
   });
-  const syncRuntime = getHirondelleSyncRuntime();
+  const syncRuntime = getMartinSyncRuntime();
   syncRuntime.configure(syncRuntime.getSettings());
   return getAtelierConnectorStatus();
 }

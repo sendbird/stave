@@ -6,7 +6,7 @@ import { registerCraneConnectorHandlers } from "./crane-connector";
 import { registerDiagnosticsHandlers } from "./diagnostics";
 import { registerLocalMcpHandlers } from "./local-mcp";
 import { registerEslintHandlers } from "./eslint";
-import { registerHirondelleSyncHandlers } from "./hirondelle-sync";
+import { registerMartinSyncHandlers } from "./martin-sync";
 import { registerLspHandlers } from "./lsp";
 import { registerMetricsHandlers } from "./metrics";
 import { registerNotificationHandlers } from "./notifications";
@@ -45,7 +45,7 @@ export function registerHandlers() {
   registerLocalMcpHandlers();
   registerAtelierConnectorHandlers();
   registerCraneConnectorHandlers();
-  registerHirondelleSyncHandlers();
+  registerMartinSyncHandlers();
   registerBrowserHandlers();
   registerSecretHandlers();
 }

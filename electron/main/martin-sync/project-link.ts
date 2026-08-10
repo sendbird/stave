@@ -2,29 +2,29 @@ import { randomUUID } from "node:crypto";
 import { app } from "electron";
 
 import {
-  toHirondelleProjectSummary,
-  type HirondelleProjectSummary,
-} from "../../../src/lib/hirondelle-sync/contract";
-import { buildHirondelleSyncLinks } from "../../../src/lib/hirondelle-sync/links";
-import type { WorkspaceHirondelleProjectLink } from "../../../src/lib/workspace-information";
+  toMartinProjectSummary,
+  type MartinProjectSummary,
+} from "../../../src/lib/martin-sync/contract";
+import { buildMartinSyncLinks } from "../../../src/lib/martin-sync/links";
+import type { WorkspaceMartinProjectLink } from "../../../src/lib/workspace-information";
 import { AtelierConnectorHttpClient } from "../atelier-connector/http-client";
 import {
   getWorkspaceInformation,
   listKnownProjects,
-  setWorkspaceHirondelleProject,
+  setWorkspaceMartinProject,
 } from "../stave-mcp-service";
-import { writeHirondelleContextSnapshot } from "./context-snapshot";
+import { writeMartinContextSnapshot } from "./context-snapshot";
 import {
-  enqueueHirondelleSyncEvent,
-  getHirondelleSyncCredential,
-  getHirondelleSyncRuntime,
-  noteHirondelleWorkspaceLinksChanged,
+  enqueueMartinSyncEvent,
+  getMartinSyncCredential,
+  getMartinSyncRuntime,
+  noteMartinWorkspaceLinksChanged,
 } from "./service";
 
-async function requireHirondelleClient() {
-  const credential = await getHirondelleSyncCredential();
+async function requireMartinClient() {
+  const credential = await getMartinSyncCredential();
   if (!credential) throw new Error("connector_unpaired");
-  if (!credential.scopes.includes("hirondelle")) {
+  if (!credential.scopes.includes("martin")) {
     throw new Error("scope_missing");
   }
   return {
@@ -56,7 +56,7 @@ function createProjectLink(args: {
   url: string;
   now: string;
   linkedAt?: string;
-}): WorkspaceHirondelleProjectLink {
+}): WorkspaceMartinProjectLink {
   return {
     ref: args.projectRef,
     slug: args.slug,
@@ -67,38 +67,38 @@ function createProjectLink(args: {
   };
 }
 
-export async function listHirondelleProjects(args: {
+export async function listMartinProjects(args: {
   query?: string;
   limit?: number;
-}): Promise<HirondelleProjectSummary[]> {
-  const { client, secret } = await requireHirondelleClient();
-  return client.listHirondelleProjects({
+}): Promise<MartinProjectSummary[]> {
+  const { client, secret } = await requireMartinClient();
+  return client.listMartinProjects({
     secret,
     query: args.query,
     limit: args.limit,
   });
 }
 
-export async function linkHirondelleProject(args: {
+export async function linkMartinProject(args: {
   workspaceId: string;
   projectRef: string;
 }): Promise<{
-  project: WorkspaceHirondelleProjectLink;
+  project: WorkspaceMartinProjectLink;
   snapshotRelativePath: string;
 }> {
   const [{ baseUrl, client, secret }, workspace] = await Promise.all([
-    requireHirondelleClient(),
+    requireMartinClient(),
     requireWorkspace(args.workspaceId),
   ]);
-  const bundle = await client.getHirondelleContextBundle({
+  const bundle = await client.getMartinContextBundle({
     secret,
     projectRef: args.projectRef,
   });
-  const projectSummary = toHirondelleProjectSummary(
+  const projectSummary = toMartinProjectSummary(
     bundle.project,
     baseUrl,
   );
-  const snapshot = await writeHirondelleContextSnapshot({
+  const snapshot = await writeMartinContextSnapshot({
     workspacePath: workspace.path,
     slug: bundle.project.slug,
     markdown: bundle.markdown,
@@ -111,16 +111,16 @@ export async function linkHirondelleProject(args: {
     url: projectSummary.url,
     now,
   });
-  const result = await setWorkspaceHirondelleProject({
+  const result = await setWorkspaceMartinProject({
     workspaceId: args.workspaceId,
     project,
   });
 
-  const runtime = getHirondelleSyncRuntime();
+  const runtime = getMartinSyncRuntime();
   runtime.resumeWorkspace(args.workspaceId);
   const settings = runtime.getSettings();
   if (settings.enabled) {
-    enqueueHirondelleSyncEvent({
+    enqueueMartinSyncEvent({
       workspaceId: args.workspaceId,
       projectRef: project.ref,
       event: {
@@ -134,25 +134,25 @@ export async function linkHirondelleProject(args: {
       },
     });
     if (settings.resourceLinks) {
-      noteHirondelleWorkspaceLinksChanged({
+      noteMartinWorkspaceLinksChanged({
         workspaceId: args.workspaceId,
         projectRef: project.ref,
-        links: buildHirondelleSyncLinks(result.workspaceInformation),
+        links: buildMartinSyncLinks(result.workspaceInformation),
       });
     }
   }
   return { project, snapshotRelativePath: snapshot.relativePath };
 }
 
-export async function unlinkHirondelleProject(args: {
+export async function unlinkMartinProject(args: {
   workspaceId: string;
 }): Promise<{ ok: true }> {
   const [{ workspaceInformation }, workspace] = await Promise.all([
     getWorkspaceInformation(args),
     requireWorkspace(args.workspaceId),
   ]);
-  const project = workspaceInformation.hirondelleProject ?? null;
-  await setWorkspaceHirondelleProject({
+  const project = workspaceInformation.martinProject ?? null;
+  await setWorkspaceMartinProject({
     workspaceId: args.workspaceId,
     project: null,
   });
@@ -160,9 +160,9 @@ export async function unlinkHirondelleProject(args: {
   if (
     project &&
     !project.stale &&
-    getHirondelleSyncRuntime().getSettings().enabled
+    getMartinSyncRuntime().getSettings().enabled
   ) {
-    enqueueHirondelleSyncEvent({
+    enqueueMartinSyncEvent({
       workspaceId: args.workspaceId,
       projectRef: project.ref,
       event: {
@@ -179,26 +179,26 @@ export async function unlinkHirondelleProject(args: {
   return { ok: true };
 }
 
-export async function refreshHirondelleContext(args: {
+export async function refreshMartinContext(args: {
   workspaceId: string;
 }): Promise<{
-  project: WorkspaceHirondelleProjectLink;
+  project: WorkspaceMartinProjectLink;
   snapshotRelativePath: string;
   markdown: string;
 }> {
   const [{ workspaceInformation }, workspace, connection] = await Promise.all([
     getWorkspaceInformation(args),
     requireWorkspace(args.workspaceId),
-    requireHirondelleClient(),
+    requireMartinClient(),
   ]);
-  const current = workspaceInformation.hirondelleProject ?? null;
-  if (!current) throw new Error("hirondelle_project_not_linked");
+  const current = workspaceInformation.martinProject ?? null;
+  if (!current) throw new Error("martin_project_not_linked");
 
-  const bundle = await connection.client.getHirondelleContextBundle({
+  const bundle = await connection.client.getMartinContextBundle({
     secret: connection.secret,
     projectRef: current.ref,
   });
-  const snapshot = await writeHirondelleContextSnapshot({
+  const snapshot = await writeMartinContextSnapshot({
     workspacePath: workspace.path,
     slug: bundle.project.slug,
     markdown: bundle.markdown,
@@ -208,15 +208,15 @@ export async function refreshHirondelleContext(args: {
     projectRef: bundle.project.slug,
     slug: bundle.project.slug,
     name: bundle.project.name,
-    url: toHirondelleProjectSummary(bundle.project, connection.baseUrl).url,
+    url: toMartinProjectSummary(bundle.project, connection.baseUrl).url,
     now,
     linkedAt: current.linkedAt,
   });
-  await setWorkspaceHirondelleProject({
+  await setWorkspaceMartinProject({
     workspaceId: args.workspaceId,
     project,
   });
-  getHirondelleSyncRuntime().resumeWorkspace(args.workspaceId);
+  getMartinSyncRuntime().resumeWorkspace(args.workspaceId);
   return {
     project,
     snapshotRelativePath: snapshot.relativePath,

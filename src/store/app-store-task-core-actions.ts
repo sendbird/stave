@@ -6,9 +6,9 @@ import {
 } from "@/lib/db/workspaces.db";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import {
-  collectHirondelleTriggerContext,
-  notifyHirondelleInformationEdited,
-} from "@/lib/hirondelle-sync/renderer-triggers";
+  collectMartinTriggerContext,
+  notifyMartinInformationEdited,
+} from "@/lib/martin-sync/renderer-triggers";
 import { toProviderSessionTitle } from "@/lib/providers/thread-actions";
 import {
   isTaskArchived,
@@ -438,12 +438,12 @@ export function createTaskCoreActions(args: {
       });
       if (change) {
         const state = get();
-        notifyHirondelleInformationEdited({
-          context: collectHirondelleTriggerContext(
+        notifyMartinInformationEdited({
+          context: collectMartinTriggerContext(
             state,
             state.activeWorkspaceId,
           ),
-          settings: state.settings.hirondelleSync,
+          settings: state.settings.martinSync,
           previous: change.previous,
           next: change.next,
         });

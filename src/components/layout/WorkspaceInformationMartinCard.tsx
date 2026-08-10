@@ -9,17 +9,17 @@ import {
   Unlink,
 } from "lucide-react";
 import { Badge, Button, Input, toast } from "@/components/ui";
-import type { HirondelleProjectSummary } from "@/lib/hirondelle-sync/contract";
+import type { MartinProjectSummary } from "@/lib/martin-sync/contract";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 
-export function WorkspaceInformationHirondelleCard() {
+export function WorkspaceInformationMartinCard() {
   const project = useAppStore(
-    (state) => state.workspaceInformation.hirondelleProject ?? null,
+    (state) => state.workspaceInformation.martinProject ?? null,
   );
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<HirondelleProjectSummary[]>([]);
+  const [results, setResults] = useState<MartinProjectSummary[]>([]);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -36,9 +36,9 @@ export function WorkspaceInformationHirondelleCard() {
 
   const searchProjects = async (event?: FormEvent) => {
     event?.preventDefault();
-    const listProjects = window.api?.hirondelleSync?.listProjects;
+    const listProjects = window.api?.martinSync?.listProjects;
     if (!listProjects) {
-      setError("Hirondelle project controls are unavailable.");
+      setError("Martin project controls are unavailable.");
       return;
     }
 
@@ -55,12 +55,12 @@ export function WorkspaceInformationHirondelleCard() {
       setSearched(true);
       setResults(result.projects);
       if (!result.ok) {
-        setError(result.message ?? "Could not load Hirondelle projects.");
+        setError(result.message ?? "Could not load Martin projects.");
       }
     } catch {
       if (searchGenerationRef.current === generation) {
         setSearched(true);
-        setError("Could not load Hirondelle projects.");
+        setError("Could not load Martin projects.");
       }
     } finally {
       if (searchGenerationRef.current === generation) setBusy(null);
@@ -68,7 +68,7 @@ export function WorkspaceInformationHirondelleCard() {
   };
 
   const linkProject = async (projectRef: string) => {
-    const link = window.api?.hirondelleSync?.linkProject;
+    const link = window.api?.martinSync?.linkProject;
     const workspaceId = activeWorkspaceId;
     if (!link || !workspaceId) return;
 
@@ -76,21 +76,21 @@ export function WorkspaceInformationHirondelleCard() {
     try {
       const result = await link({ workspaceId, projectRef });
       if (!result.ok) {
-        toast.error("Could not link the Hirondelle project", {
+        toast.error("Could not link the Martin project", {
           description: result.message,
         });
         return;
       }
-      toast.success("Hirondelle project linked.");
+      toast.success("Martin project linked.");
     } catch {
-      toast.error("Could not link the Hirondelle project.");
+      toast.error("Could not link the Martin project.");
     } finally {
       setBusy(null);
     }
   };
 
   const refreshContext = async () => {
-    const refresh = window.api?.hirondelleSync?.refreshContext;
+    const refresh = window.api?.martinSync?.refreshContext;
     const workspaceId = activeWorkspaceId;
     if (!refresh || !workspaceId) return;
 
@@ -98,14 +98,14 @@ export function WorkspaceInformationHirondelleCard() {
     try {
       const result = await refresh({ workspaceId });
       if (!result.ok) {
-        toast.error("Could not refresh Hirondelle context", {
+        toast.error("Could not refresh Martin context", {
           description: result.message,
         });
         return;
       }
-      toast.success("Hirondelle context refreshed.");
+      toast.success("Martin context refreshed.");
     } catch {
-      toast.error("Could not refresh Hirondelle context.");
+      toast.error("Could not refresh Martin context.");
     } finally {
       setBusy(null);
     }
@@ -113,7 +113,7 @@ export function WorkspaceInformationHirondelleCard() {
 
   const unlinkProject = async () => {
     const unlinkProjectFromWorkspace =
-      window.api?.hirondelleSync?.unlinkProject;
+      window.api?.martinSync?.unlinkProject;
     const workspaceId = activeWorkspaceId;
     if (!unlinkProjectFromWorkspace || !workspaceId) return;
 
@@ -121,14 +121,14 @@ export function WorkspaceInformationHirondelleCard() {
     try {
       const result = await unlinkProjectFromWorkspace({ workspaceId });
       if (!result.ok) {
-        toast.error("Could not unlink the Hirondelle project", {
+        toast.error("Could not unlink the Martin project", {
           description: result.message,
         });
         return;
       }
-      toast.success("Hirondelle project unlinked.");
+      toast.success("Martin project unlinked.");
     } catch {
-      toast.error("Could not unlink the Hirondelle project.");
+      toast.error("Could not unlink the Martin project.");
     } finally {
       setBusy(null);
     }
@@ -139,13 +139,13 @@ export function WorkspaceInformationHirondelleCard() {
     const openExternal = window.api?.shell?.openExternal;
     if (!openExternal) return;
     void openExternal({ url: project.url }).catch(() => {
-      toast.error("Could not open the Hirondelle project.");
+      toast.error("Could not open the Martin project.");
     });
   };
 
   return (
     <section
-      aria-label="Hirondelle project"
+      aria-label="Martin project"
       className="rounded-lg border border-border/70 bg-card/60 p-3"
     >
       <div className="flex items-start gap-2.5">
@@ -155,7 +155,7 @@ export function WorkspaceInformationHirondelleCard() {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-medium text-foreground">
-              Hirondelle project
+              Martin project
             </h3>
             {project?.stale ? (
               <Badge
@@ -235,7 +235,7 @@ export function WorkspaceInformationHirondelleCard() {
               disabled={busy !== null || !activeWorkspaceId}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search projects"
-              aria-label="Search Hirondelle projects"
+              aria-label="Search Martin projects"
               className="h-8"
             />
             <Button

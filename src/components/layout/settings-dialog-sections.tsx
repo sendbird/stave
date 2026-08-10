@@ -37,7 +37,7 @@ import {
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { countSidebarActiveWorkspaceDismissals } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
-import { HirondelleSyncSettingsSection } from "@/components/layout/settings-dialog-hirondelle-sync";
+import { MartinSyncSettingsSection } from "@/components/layout/settings-dialog-martin-sync";
 import {
   COMMAND_PALETTE_GROUP_LABELS,
   getCommandPaletteCoreCommands,
@@ -3995,7 +3995,7 @@ export function SettingsDialogSectionContent(args: {
       return (
         <div className="space-y-8">
           <CraneConnectorSettingsSection />
-          <HirondelleSyncSettingsSection />
+          <MartinSyncSettingsSection />
         </div>
       );
     case "kickoff":

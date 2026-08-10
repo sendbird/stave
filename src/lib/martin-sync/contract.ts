@@ -20,7 +20,7 @@ const httpsUrlSchema = z
   .max(STAVE_SYNC_LIMITS.url)
   .url()
   .refine((value) => value.startsWith("https://"), {
-    message: "Hirondelle sync links must use HTTPS.",
+    message: "Martin sync links must use HTTPS.",
   });
 
 export const STAVE_SYNC_EVENT_KINDS = [
@@ -110,7 +110,7 @@ export const StaveSyncLinksMergeResponseV1Schema = z
   })
   .strict();
 
-export const HirondelleProjectRowV1Schema = z
+export const MartinProjectRowV1Schema = z
   .object({
     id: z.string(),
     slug: z.string(),
@@ -128,7 +128,7 @@ export const HirondelleProjectRowV1Schema = z
   })
   .strict();
 
-export const HirondelleProjectListItemV1Schema = HirondelleProjectRowV1Schema.pick(
+export const MartinProjectListItemV1Schema = MartinProjectRowV1Schema.pick(
   {
     id: true,
     slug: true,
@@ -140,10 +140,10 @@ export const HirondelleProjectListItemV1Schema = HirondelleProjectRowV1Schema.pi
   },
 );
 
-export const HirondelleProjectListResponseV1Schema = z
+export const MartinProjectListResponseV1Schema = z
   .object({
     contract: z.literal(STAVE_SYNC_CONTRACT_VERSION),
-    projects: z.array(HirondelleProjectListItemV1Schema),
+    projects: z.array(MartinProjectListItemV1Schema),
     total: z.number().int().nonnegative(),
   })
   .strict();
@@ -216,10 +216,10 @@ const bundleSectionsSchema = z
   })
   .strict();
 
-export const HirondelleContextBundleV1Schema = z
+export const MartinContextBundleV1Schema = z
   .object({
     contract: z.literal(STAVE_SYNC_CONTRACT_VERSION),
-    project: HirondelleProjectRowV1Schema,
+    project: MartinProjectRowV1Schema,
     sections: bundleSectionsSchema,
     events: z.array(
       z
@@ -240,7 +240,7 @@ export const HirondelleContextBundleV1Schema = z
   })
   .strict();
 
-export type HirondelleProjectSummary = {
+export type MartinProjectSummary = {
   ref: string;
   slug: string;
   name: string;
@@ -250,21 +250,21 @@ export type HirondelleProjectSummary = {
   updatedAt: string;
 };
 
-type HirondelleProjectSummarySource = z.infer<
-  typeof HirondelleProjectListItemV1Schema
+type MartinProjectSummarySource = z.infer<
+  typeof MartinProjectListItemV1Schema
 >;
 
-export function toHirondelleProjectSummary(
-  row: HirondelleProjectSummarySource,
+export function toMartinProjectSummary(
+  row: MartinProjectSummarySource,
   baseUrl: string,
-): HirondelleProjectSummary {
+): MartinProjectSummary {
   return {
     ref: row.slug,
     slug: row.slug,
     name: row.name,
     status: row.status,
     summary: row.summary,
-    url: `${baseUrl.replace(/\/+$/, "")}/apps/hirondelle/p/${row.slug}`,
+    url: `${baseUrl.replace(/\/+$/, "")}/apps/martin/p/${row.slug}`,
     updatedAt: row.updatedAt,
   };
 }
@@ -272,9 +272,9 @@ export function toHirondelleProjectSummary(
 export type StaveSyncEventKind = (typeof STAVE_SYNC_EVENT_KINDS)[number];
 export type StaveSyncEventV1 = z.infer<typeof StaveSyncEventV1Schema>;
 export type StaveSyncLinkV1 = z.infer<typeof StaveSyncLinkV1Schema>;
-export type HirondelleProjectRowV1 = z.infer<
-  typeof HirondelleProjectRowV1Schema
+export type MartinProjectRowV1 = z.infer<
+  typeof MartinProjectRowV1Schema
 >;
-export type HirondelleContextBundleV1 = z.infer<
-  typeof HirondelleContextBundleV1Schema
+export type MartinContextBundleV1 = z.infer<
+  typeof MartinContextBundleV1Schema
 >;

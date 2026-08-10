@@ -2,18 +2,18 @@ import { describe, expect, test } from "bun:test";
 
 import {
   createEmptyWorkspaceInformation,
-  type WorkspaceHirondelleProjectLink,
+  type WorkspaceMartinProjectLink,
 } from "../src/lib/workspace-information";
 import {
   buildWorkspaceInformationSeed,
   type KickoffProposalDraft,
 } from "../src/lib/workspace-kickoff";
 
-const PROJECT_LINK: WorkspaceHirondelleProjectLink = {
+const PROJECT_LINK: WorkspaceMartinProjectLink = {
   ref: "project-1",
   slug: "checkout-v2",
   name: "Checkout v2",
-  url: "https://atelier.example.com/apps/hirondelle/projects/checkout-v2",
+  url: "https://atelier.example.com/apps/martin/projects/checkout-v2",
   linkedAt: "2026-08-09T12:00:00.000Z",
   lastPulledAt: "2026-08-09T12:00:00.000Z",
 };
@@ -37,19 +37,19 @@ function createDraft(
   };
 }
 
-describe("workspace Hirondelle project information", () => {
-  test("starts with no linked Hirondelle project", () => {
-    expect(createEmptyWorkspaceInformation().hirondelleProject).toBeNull();
+describe("workspace Martin project information", () => {
+  test("starts with no linked Martin project", () => {
+    expect(createEmptyWorkspaceInformation().martinProject).toBeNull();
   });
 
   test("copies an optional kickoff project link into the information seed", () => {
     expect(
       buildWorkspaceInformationSeed(
-        createDraft({ hirondelleProject: PROJECT_LINK }),
-      ).hirondelleProject,
+        createDraft({ martinProject: PROJECT_LINK }),
+      ).martinProject,
     ).toEqual(PROJECT_LINK);
     expect(
-      buildWorkspaceInformationSeed(createDraft()).hirondelleProject,
+      buildWorkspaceInformationSeed(createDraft()).martinProject,
     ).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import { normalizeSidebarActiveWorkspaceDismissals } from "@/components/layout/P
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
-import { normalizeHirondelleSyncSettings } from "@/lib/hirondelle-sync/types";
+import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import {
   mergeWorkspaceActivityStamps,
   pruneWorkspaceActivityStamps,
@@ -144,8 +144,8 @@ export function createAppStorePersistenceOptions() {
       state.settings.craneConnector = normalizeCraneConnectorSettings(
         raw.craneConnector,
       );
-      state.settings.hirondelleSync = normalizeHirondelleSyncSettings(
-        raw.hirondelleSync,
+      state.settings.martinSync = normalizeMartinSyncSettings(
+        raw.martinSync,
       );
       state.compareRunsById = normalizePersistedCompareRuns({
         runsById: state.compareRunsById,

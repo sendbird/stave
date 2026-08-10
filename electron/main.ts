@@ -19,7 +19,7 @@ import {
   shouldSkipQuitConfirmation,
 } from "./main/quit-state";
 import { stopCraneConnectorRuntime } from "./main/crane-connector/service";
-import { stopHirondelleSyncRuntime } from "./main/hirondelle-sync/service";
+import { stopMartinSyncRuntime } from "./main/martin-sync/service";
 
 const persistenceRuntime = configurePersistenceUserDataPath(app);
 process.env.STAVE_USER_DATA_PATH = persistenceRuntime.userDataPath;
@@ -39,7 +39,7 @@ function runBeforeQuitCleanup() {
   beforeQuitCleanupPromise = (async () => {
     const results = await Promise.allSettled([
       Promise.resolve(stopCraneConnectorRuntime()),
-      Promise.resolve(stopHirondelleSyncRuntime()),
+      Promise.resolve(stopMartinSyncRuntime()),
       stopStaveMcpServer(),
       stopHostService(),
     ]);

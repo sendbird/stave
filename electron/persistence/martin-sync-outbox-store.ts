@@ -12,36 +12,36 @@ interface OutboxDatabase {
   prepare: (sql: string) => OutboxStatement;
 }
 
-export const HIRONDELLE_OUTBOX_KINDS = ["event", "links_merge"] as const;
-export const HIRONDELLE_OUTBOX_STATUSES = [
+export const MARTIN_OUTBOX_KINDS = ["event", "links_merge"] as const;
+export const MARTIN_OUTBOX_STATUSES = [
   "pending",
   "delivered",
   "failed",
   "held",
 ] as const;
 
-export type HirondelleOutboxKind =
-  (typeof HIRONDELLE_OUTBOX_KINDS)[number];
-export type HirondelleOutboxStatus =
-  (typeof HIRONDELLE_OUTBOX_STATUSES)[number];
+export type MartinOutboxKind =
+  (typeof MARTIN_OUTBOX_KINDS)[number];
+export type MartinOutboxStatus =
+  (typeof MARTIN_OUTBOX_STATUSES)[number];
 
-export const HirondelleOutboxEntrySchema = z
+export const MartinOutboxEntrySchema = z
   .object({
     id: z.string().uuid(),
     workspaceId: z.string().trim().min(1).max(256),
     projectRef: z.string().trim().min(1).max(128),
-    kind: z.enum(HIRONDELLE_OUTBOX_KINDS),
+    kind: z.enum(MARTIN_OUTBOX_KINDS),
     payloadJson: z.string().min(1),
     attempts: z.number().int().nonnegative(),
     nextAttemptAt: z.string().datetime({ offset: true }),
     createdAt: z.string().datetime({ offset: true }),
     deliveredAt: z.string().datetime({ offset: true }).nullable(),
-    status: z.enum(HIRONDELLE_OUTBOX_STATUSES),
+    status: z.enum(MARTIN_OUTBOX_STATUSES),
   })
   .strict();
 
-export type HirondelleOutboxEntry = z.infer<
-  typeof HirondelleOutboxEntrySchema
+export type MartinOutboxEntry = z.infer<
+  typeof MartinOutboxEntrySchema
 >;
 
 interface OutboxRow {
@@ -70,8 +70,8 @@ const SELECT_COLUMNS = `
   status
 `;
 
-function parseEntry(row: OutboxRow): HirondelleOutboxEntry {
-  return HirondelleOutboxEntrySchema.parse({
+function parseEntry(row: OutboxRow): MartinOutboxEntry {
+  return MartinOutboxEntrySchema.parse({
     id: row.id,
     workspaceId: row.workspace_id,
     projectRef: row.project_ref,
@@ -85,7 +85,7 @@ function parseEntry(row: OutboxRow): HirondelleOutboxEntry {
   });
 }
 
-export class HirondelleSyncOutboxStore {
+export class MartinSyncOutboxStore {
   private readonly db: OutboxDatabase;
 
   constructor(database: unknown) {
@@ -95,7 +95,7 @@ export class HirondelleSyncOutboxStore {
 
   private bootstrap() {
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS hirondelle_sync_outbox (
+      CREATE TABLE IF NOT EXISTS martin_sync_outbox (
         id TEXT PRIMARY KEY,
         workspace_id TEXT NOT NULL,
         project_ref TEXT NOT NULL,
@@ -110,18 +110,18 @@ export class HirondelleSyncOutboxStore {
         )
       );
 
-      CREATE INDEX IF NOT EXISTS idx_hirondelle_outbox_due
-        ON hirondelle_sync_outbox (status, next_attempt_at);
-      CREATE INDEX IF NOT EXISTS idx_hirondelle_outbox_workspace
-        ON hirondelle_sync_outbox (workspace_id, status);
+      CREATE INDEX IF NOT EXISTS idx_martin_outbox_due
+        ON martin_sync_outbox (status, next_attempt_at);
+      CREATE INDEX IF NOT EXISTS idx_martin_outbox_workspace
+        ON martin_sync_outbox (workspace_id, status);
     `);
   }
 
-  private get(id: string): HirondelleOutboxEntry | null {
+  private get(id: string): MartinOutboxEntry | null {
     const row = this.db
       .prepare(
         `SELECT ${SELECT_COLUMNS}
-         FROM hirondelle_sync_outbox
+         FROM martin_sync_outbox
          WHERE id = ?`,
       )
       .get(id) as OutboxRow | undefined;
@@ -134,11 +134,11 @@ export class HirondelleSyncOutboxStore {
     kind: "event";
     payloadJson: string;
     now: string;
-  }): HirondelleOutboxEntry {
+  }): MartinOutboxEntry {
     const id = randomUUID();
     this.db
       .prepare(
-        `INSERT INTO hirondelle_sync_outbox (
+        `INSERT INTO martin_sync_outbox (
            id, workspace_id, project_ref, kind, payload_json, attempts,
            next_attempt_at, created_at, delivered_at, status
          ) VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, 'pending')`,
@@ -161,10 +161,10 @@ export class HirondelleSyncOutboxStore {
     payloadJson: string;
     nextAttemptAt: string;
     now: string;
-  }): HirondelleOutboxEntry {
+  }): MartinOutboxEntry {
     const updated = this.db
       .prepare(
-        `UPDATE hirondelle_sync_outbox
+        `UPDATE martin_sync_outbox
          SET project_ref = ?, payload_json = ?, attempts = 0,
              next_attempt_at = ?, delivered_at = NULL
          WHERE workspace_id = ? AND kind = 'links_merge'
@@ -180,7 +180,7 @@ export class HirondelleSyncOutboxStore {
       const row = this.db
         .prepare(
           `SELECT ${SELECT_COLUMNS}
-           FROM hirondelle_sync_outbox
+           FROM martin_sync_outbox
            WHERE workspace_id = ? AND kind = 'links_merge'
              AND status IN ('pending', 'held')
            ORDER BY created_at ASC, id ASC
@@ -193,7 +193,7 @@ export class HirondelleSyncOutboxStore {
     const id = randomUUID();
     this.db
       .prepare(
-        `INSERT INTO hirondelle_sync_outbox (
+        `INSERT INTO martin_sync_outbox (
            id, workspace_id, project_ref, kind, payload_json, attempts,
            next_attempt_at, created_at, delivered_at, status
          ) VALUES (?, ?, ?, 'links_merge', ?, 0, ?, ?, NULL, 'pending')`,
@@ -209,12 +209,12 @@ export class HirondelleSyncOutboxStore {
     return this.get(id)!;
   }
 
-  listDue(args: { now: string; limit: number }): HirondelleOutboxEntry[] {
+  listDue(args: { now: string; limit: number }): MartinOutboxEntry[] {
     const limit = Math.max(1, Math.min(100, Math.trunc(args.limit)));
     const rows = this.db
       .prepare(
         `SELECT ${SELECT_COLUMNS}
-         FROM hirondelle_sync_outbox
+         FROM martin_sync_outbox
          WHERE status = 'pending' AND next_attempt_at <= ?
          ORDER BY created_at ASC, id ASC
          LIMIT ?`,
@@ -226,7 +226,7 @@ export class HirondelleSyncOutboxStore {
   markDelivered(id: string, deliveredAt: string): void {
     this.db
       .prepare(
-        `UPDATE hirondelle_sync_outbox
+        `UPDATE martin_sync_outbox
          SET status = 'delivered', delivered_at = ?
          WHERE id = ?`,
       )
@@ -236,7 +236,7 @@ export class HirondelleSyncOutboxStore {
   markRetry(id: string, attempts: number, nextAttemptAt: string): void {
     this.db
       .prepare(
-        `UPDATE hirondelle_sync_outbox
+        `UPDATE martin_sync_outbox
          SET status = 'pending', attempts = ?, next_attempt_at = ?
          WHERE id = ?`,
       )
@@ -246,7 +246,7 @@ export class HirondelleSyncOutboxStore {
   markFailed(id: string): void {
     this.db
       .prepare(
-        `UPDATE hirondelle_sync_outbox SET status = 'failed' WHERE id = ?`,
+        `UPDATE martin_sync_outbox SET status = 'failed' WHERE id = ?`,
       )
       .run(id);
   }
@@ -254,7 +254,7 @@ export class HirondelleSyncOutboxStore {
   setWorkspaceHeld(workspaceId: string, held: boolean): number {
     const result = this.db
       .prepare(
-        `UPDATE hirondelle_sync_outbox
+        `UPDATE martin_sync_outbox
          SET status = ?
          WHERE workspace_id = ? AND status = ?`,
       )
@@ -269,7 +269,7 @@ export class HirondelleSyncOutboxStore {
   retryFailed(): number {
     const result = this.db
       .prepare(
-        `UPDATE hirondelle_sync_outbox
+        `UPDATE martin_sync_outbox
          SET status = 'pending', attempts = 0, delivered_at = NULL,
              next_attempt_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE status = 'failed'`,
@@ -284,7 +284,7 @@ export class HirondelleSyncOutboxStore {
         `SELECT
            SUM(CASE WHEN status IN ('pending', 'held') THEN 1 ELSE 0 END) AS pending,
            SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed
-         FROM hirondelle_sync_outbox`,
+         FROM martin_sync_outbox`,
       )
       .get() as { pending: number | null; failed: number | null };
     return {
@@ -296,7 +296,7 @@ export class HirondelleSyncOutboxStore {
   pruneDeliveredBefore(cutoff: string): number {
     const result = this.db
       .prepare(
-        `DELETE FROM hirondelle_sync_outbox
+        `DELETE FROM martin_sync_outbox
          WHERE status = 'delivered' AND delivered_at < ?`,
       )
       .run(cutoff);

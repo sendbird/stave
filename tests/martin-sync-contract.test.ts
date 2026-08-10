@@ -1,18 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  HirondelleContextBundleV1Schema,
-  HirondelleProjectListResponseV1Schema,
+  MartinContextBundleV1Schema,
+  MartinProjectListResponseV1Schema,
   STAVE_SYNC_CONTRACT_VERSION,
   StaveSyncEventsRequestV1Schema,
   StaveSyncEventsResponseV1Schema,
   StaveSyncLinksMergeRequestV1Schema,
-} from "../src/lib/hirondelle-sync/contract";
-import { buildHirondelleSyncLinks } from "../src/lib/hirondelle-sync/links";
+} from "../src/lib/martin-sync/contract";
+import { buildMartinSyncLinks } from "../src/lib/martin-sync/links";
 import { createEmptyWorkspaceInformation } from "../src/lib/workspace-information";
 import {
   AtelierConnectorPairArgsSchema,
-  HirondelleSyncEnqueueArgsSchema,
+  MartinSyncEnqueueArgsSchema,
 } from "../electron/main/ipc/schemas";
 
 const fixtureDirectory = new URL("./fixtures/stave-sync-v1/", import.meta.url);
@@ -32,11 +32,11 @@ describe("stave-sync-v1 contract", () => {
         baseUrl: "https://atelier.example.com",
         code: "stp_abc",
         name: "My Stave",
-        requestedScopes: ["crane", "hirondelle"],
+        requestedScopes: ["crane", "martin"],
       }).success,
     ).toBe(true);
     expect(
-      HirondelleSyncEnqueueArgsSchema.safeParse({
+      MartinSyncEnqueueArgsSchema.safeParse({
         workspaceId: "worktree:abc",
         projectRef: "checkout-v2",
         kind: "pr_opened",
@@ -47,7 +47,7 @@ describe("stave-sync-v1 contract", () => {
       }).success,
     ).toBe(true);
     expect(
-      HirondelleSyncEnqueueArgsSchema.safeParse({ kind: "nope" }).success,
+      MartinSyncEnqueueArgsSchema.safeParse({ kind: "nope" }).success,
     ).toBe(false);
   });
 
@@ -68,12 +68,12 @@ describe("stave-sync-v1 contract", () => {
       ).success,
     ).toBe(true);
     expect(
-      HirondelleProjectListResponseV1Schema.safeParse(
+      MartinProjectListResponseV1Schema.safeParse(
         await readFixture("valid-project-list.json"),
       ).success,
     ).toBe(true);
     expect(
-      HirondelleContextBundleV1Schema.safeParse(
+      MartinContextBundleV1Schema.safeParse(
         await readFixture("valid-context-bundle.json"),
       ).success,
     ).toBe(true);
@@ -111,7 +111,7 @@ describe("stave-sync-v1 contract", () => {
     ).toBe(false);
   });
 
-  test("maps workspace information resources to hirondelle links", () => {
+  test("maps workspace information resources to martin links", () => {
     const info = createEmptyWorkspaceInformation();
     info.linkedPullRequests.push({
       id: "pr-1",
@@ -141,7 +141,7 @@ describe("stave-sync-v1 contract", () => {
       channelName: "#eng",
       note: "",
     });
-    expect(buildHirondelleSyncLinks(info)).toEqual([
+    expect(buildMartinSyncLinks(info)).toEqual([
       {
         kind: "github",
         url: "https://github.com/acme/repo/pull/12",
@@ -179,6 +179,6 @@ describe("stave-sync-v1 contract", () => {
       status: "",
       note: "",
     });
-    expect(buildHirondelleSyncLinks(info)).toEqual([]);
+    expect(buildMartinSyncLinks(info)).toEqual([]);
   });
 });

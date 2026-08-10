@@ -60,13 +60,13 @@ describe("AtelierConnectorCredentialVault", () => {
     await vault.saveCredential({
       baseUrl: "https://atelier.example.test",
       connector: CONNECTOR,
-      scopes: ["crane", "hirondelle"],
+      scopes: ["crane", "martin"],
       secret: "stc_test-only-connector-secret",
     });
     expect(await vault.getCredential()).toEqual({
       baseUrl: "https://atelier.example.test",
       connector: CONNECTOR,
-      scopes: ["crane", "hirondelle"],
+      scopes: ["crane", "martin"],
       secret: "stc_test-only-connector-secret",
     });
     expect(readFileSync(filePath, "utf8")).not.toContain(

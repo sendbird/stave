@@ -13,7 +13,7 @@ import {
   setCraneConnectorClientStatus,
 } from "@/lib/crane-connector/client-state";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
-import { normalizeHirondelleSyncSettings } from "@/lib/hirondelle-sync/types";
+import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
 
 function buildLensSecurityConfig(): LensSecurityConfig {
@@ -118,7 +118,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const syncApi = window.api?.hirondelleSync;
+    const syncApi = window.api?.martinSync;
     if (!syncApi?.configure) return;
 
     const pushConfig = (
@@ -126,18 +126,18 @@ export default function App() {
     ) => {
       void syncApi
         .configure?.(
-          normalizeHirondelleSyncSettings(settings.hirondelleSync),
+          normalizeMartinSyncSettings(settings.martinSync),
         )
         .catch(() => undefined);
     };
 
     pushConfig(useAppStore.getState().settings);
     return useAppStore.subscribe((state, previous) => {
-      const current = normalizeHirondelleSyncSettings(
-        state.settings.hirondelleSync,
+      const current = normalizeMartinSyncSettings(
+        state.settings.martinSync,
       );
-      const prior = normalizeHirondelleSyncSettings(
-        previous.settings.hirondelleSync,
+      const prior = normalizeMartinSyncSettings(
+        previous.settings.martinSync,
       );
       if (
         current.enabled === prior.enabled &&

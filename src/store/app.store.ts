@@ -87,10 +87,10 @@ import {
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import {
-  collectHirondelleTriggerContext,
-  notifyHirondelleTaskArchived,
-  notifyHirondelleTurnSummary,
-} from "@/lib/hirondelle-sync/renderer-triggers";
+  collectMartinTriggerContext,
+  notifyMartinTaskArchived,
+  notifyMartinTurnSummary,
+} from "@/lib/martin-sync/renderer-triggers";
 import {
   buildWorkspaceTurnSummaryPrompt,
   createWorkspaceTurnSummary,
@@ -640,9 +640,9 @@ export const useAppStore = create<AppState>()(
 
       if (args.trigger === "task.archiving" && args.taskTitle) {
         const state = get();
-        notifyHirondelleTaskArchived({
-          context: collectHirondelleTriggerContext(state, args.workspaceId),
-          settings: state.settings.hirondelleSync,
+        notifyMartinTaskArchived({
+          context: collectMartinTriggerContext(state, args.workspaceId),
+          settings: state.settings.martinSync,
           taskTitle: args.taskTitle,
         });
       }
@@ -894,9 +894,9 @@ export const useAppStore = create<AppState>()(
       }
 
       const state = get();
-      notifyHirondelleTurnSummary({
-        context: collectHirondelleTriggerContext(state, args.workspaceId),
-        settings: state.settings.hirondelleSync,
+      notifyMartinTurnSummary({
+        context: collectMartinTriggerContext(state, args.workspaceId),
+        settings: state.settings.martinSync,
         workSummary: args.summary.workSummary,
       });
 

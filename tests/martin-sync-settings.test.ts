@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  DEFAULT_HIRONDELLE_SYNC_SETTINGS,
-  normalizeHirondelleSyncSettings,
-} from "../src/lib/hirondelle-sync/types";
+  DEFAULT_MARTIN_SYNC_SETTINGS,
+  normalizeMartinSyncSettings,
+} from "../src/lib/martin-sync/types";
 import { settingDefinitions } from "../src/components/layout/settings-dialog.registry";
 import { defaultSettings } from "../src/store/app-settings";
 
-describe("hirondelle sync settings", () => {
+describe("martin sync settings", () => {
   test("defaults are factual-on, interpretive-off, master-off", () => {
-    expect(DEFAULT_HIRONDELLE_SYNC_SETTINGS).toEqual({
+    expect(DEFAULT_MARTIN_SYNC_SETTINGS).toEqual({
       enabled: false,
       prOpened: true,
       taskCompleted: true,
@@ -18,15 +18,15 @@ describe("hirondelle sync settings", () => {
     });
   });
 
-  test("app settings carry the Hirondelle sync defaults", () => {
-    expect(defaultSettings.hirondelleSync).toEqual(
-      DEFAULT_HIRONDELLE_SYNC_SETTINGS,
+  test("app settings carry the Martin sync defaults", () => {
+    expect(defaultSettings.martinSync).toEqual(
+      DEFAULT_MARTIN_SYNC_SETTINGS,
     );
   });
 
   test("the setting definition is sensitive and excluded from export", () => {
     const definition = settingDefinitions.find(
-      (candidate) => candidate.key === "hirondelleSync",
+      (candidate) => candidate.key === "martinSync",
     );
     expect(definition?.sectionId).toBe("integrations");
     expect(definition?.sensitivity).toBe("sensitive");
@@ -34,20 +34,20 @@ describe("hirondelle sync settings", () => {
   });
 
   test("normalize returns defaults for garbage", () => {
-    expect(normalizeHirondelleSyncSettings(undefined)).toEqual(
-      DEFAULT_HIRONDELLE_SYNC_SETTINGS,
+    expect(normalizeMartinSyncSettings(undefined)).toEqual(
+      DEFAULT_MARTIN_SYNC_SETTINGS,
     );
-    expect(normalizeHirondelleSyncSettings("nope")).toEqual(
-      DEFAULT_HIRONDELLE_SYNC_SETTINGS,
+    expect(normalizeMartinSyncSettings("nope")).toEqual(
+      DEFAULT_MARTIN_SYNC_SETTINGS,
     );
-    expect(normalizeHirondelleSyncSettings(null)).toEqual(
-      DEFAULT_HIRONDELLE_SYNC_SETTINGS,
+    expect(normalizeMartinSyncSettings(null)).toEqual(
+      DEFAULT_MARTIN_SYNC_SETTINGS,
     );
   });
 
   test("normalize salvages known booleans and drops unknown keys", () => {
     expect(
-      normalizeHirondelleSyncSettings({
+      normalizeMartinSyncSettings({
         enabled: true,
         turnSummaries: true,
         futureField: "from-a-newer-build",

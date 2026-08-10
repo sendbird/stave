@@ -242,7 +242,7 @@ export type WorkspaceInfoCustomField =
   | WorkspaceUrlField
   | WorkspaceSingleSelectField;
 
-export interface WorkspaceHirondelleProjectLink {
+export interface WorkspaceMartinProjectLink {
   ref: string;
   slug: string;
   name: string;
@@ -261,7 +261,7 @@ export interface WorkspaceInformationState {
   linkedPullRequests: WorkspaceLinkedPullRequest[];
   amplifyLinks: WorkspaceAmplifyLink[];
   slackThreads: WorkspaceSlackThread[];
-  hirondelleProject?: WorkspaceHirondelleProjectLink | null;
+  martinProject?: WorkspaceMartinProjectLink | null;
   turnSummary?: WorkspaceTurnSummary | null;
   notes: string;
   todos: WorkspaceTodoItem[];
@@ -1522,7 +1522,7 @@ export function createEmptyWorkspaceInformation(): WorkspaceInformationState {
     linkedPullRequests: [],
     amplifyLinks: [],
     slackThreads: [],
-    hirondelleProject: null,
+    martinProject: null,
     notes: "",
     todos: [],
     customFields: [],

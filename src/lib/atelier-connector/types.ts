@@ -10,7 +10,7 @@ const AtelierBaseUrlSchema = z
   .url()
   .transform((value) => value.replace(/\/+$/, ""));
 
-export const ATELIER_CONNECTOR_SCOPES = ["crane", "hirondelle"] as const;
+export const ATELIER_CONNECTOR_SCOPES = ["crane", "martin"] as const;
 
 export const AtelierConnectorScopeSchema = z.enum(ATELIER_CONNECTOR_SCOPES);
 

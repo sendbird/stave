@@ -3,27 +3,27 @@ import { app } from "electron";
 import type {
   StaveSyncEventV1,
   StaveSyncLinkV1,
-} from "../../../src/lib/hirondelle-sync/contract";
-import type { HirondelleSyncSettings } from "../../../src/lib/hirondelle-sync/types";
-import { buildHirondelleSyncLinks } from "../../../src/lib/hirondelle-sync/links";
+} from "../../../src/lib/martin-sync/contract";
+import type { MartinSyncSettings } from "../../../src/lib/martin-sync/types";
+import { buildMartinSyncLinks } from "../../../src/lib/martin-sync/links";
 import { onHostServiceEvent } from "../host-service-client";
 import {
   getWorkspaceInformation,
-  setWorkspaceHirondelleProject,
+  setWorkspaceMartinProject,
 } from "../stave-mcp-service";
 import { AtelierConnectorHttpClient } from "../atelier-connector/http-client";
 import { getAtelierConnectorCredentialVault } from "../atelier-connector/credential-service";
 import { ensurePersistenceReadySync } from "../state";
 import { getMainWindow } from "../window";
 import {
-  HirondelleSyncRuntime,
-  type HirondelleSyncPublicStatus,
+  MartinSyncRuntime,
+  type MartinSyncPublicStatus,
 } from "./runtime";
 
-const STATUS_EVENT = "hirondelle-sync:status";
-const MAPPING_STALE_EVENT = "hirondelle-sync:mapping-stale";
+const STATUS_EVENT = "martin-sync:status";
+const MAPPING_STALE_EVENT = "martin-sync:mapping-stale";
 
-let runtime: HirondelleSyncRuntime | null = null;
+let runtime: MartinSyncRuntime | null = null;
 let stopWorkspaceInformationSubscription: (() => void) | null = null;
 const linksFingerprintByWorkspace = new Map<string, string>();
 
@@ -40,9 +40,9 @@ async function markWorkspaceMappingStale(args: {
   const result = await getWorkspaceInformation({
     workspaceId: args.workspaceId,
   });
-  const project = result.workspaceInformation.hirondelleProject;
+  const project = result.workspaceInformation.martinProject;
   if (!project || project.ref !== args.projectRef || project.stale) return;
-  await setWorkspaceHirondelleProject({
+  await setWorkspaceMartinProject({
     workspaceId: args.workspaceId,
     project: { ...project, stale: true },
   });
@@ -53,8 +53,8 @@ function ensureWorkspaceInformationSubscription() {
   stopWorkspaceInformationSubscription = onHostServiceEvent(
     "local-mcp.workspace-information-updated",
     (payload) => {
-      const project = payload.workspaceInformation.hirondelleProject;
-      const settings = getHirondelleSyncRuntime().getSettings();
+      const project = payload.workspaceInformation.martinProject;
+      const settings = getMartinSyncRuntime().getSettings();
       if (
         !project ||
         project.stale ||
@@ -64,7 +64,7 @@ function ensureWorkspaceInformationSubscription() {
         linksFingerprintByWorkspace.delete(payload.workspaceId);
         return;
       }
-      const links = buildHirondelleSyncLinks(payload.workspaceInformation);
+      const links = buildMartinSyncLinks(payload.workspaceInformation);
       const fingerprint = JSON.stringify({ projectRef: project.ref, links });
       if (
         linksFingerprintByWorkspace.get(payload.workspaceId) === fingerprint
@@ -72,7 +72,7 @@ function ensureWorkspaceInformationSubscription() {
         return;
       }
       linksFingerprintByWorkspace.set(payload.workspaceId, fingerprint);
-      getHirondelleSyncRuntime().noteLinksChanged({
+      getMartinSyncRuntime().noteLinksChanged({
         workspaceId: payload.workspaceId,
         projectRef: project.ref,
         links,
@@ -81,16 +81,16 @@ function ensureWorkspaceInformationSubscription() {
   );
 }
 
-export function getHirondelleSyncCredential() {
+export function getMartinSyncCredential() {
   return getAtelierConnectorCredentialVault().getCredential();
 }
 
-export function getHirondelleSyncRuntime() {
+export function getMartinSyncRuntime() {
   if (runtime) return runtime;
   const allowInsecureLocalhost =
     process.env.STAVE_DEV === "1" && !app.isPackaged;
   const vault = getAtelierConnectorCredentialVault();
-  runtime = new HirondelleSyncRuntime({
+  runtime = new MartinSyncRuntime({
     persistence: ensurePersistenceReadySync(),
     getCredential: () => vault.getCredential(),
     createHttpClient: (baseUrl) =>
@@ -103,7 +103,7 @@ export function getHirondelleSyncRuntime() {
       sendToRenderer(MAPPING_STALE_EVENT, payload);
       void markWorkspaceMappingStale(payload).catch((error) => {
         console.error(
-          "[hirondelle-sync] failed to mark a stale workspace mapping",
+          "[martin-sync] failed to mark a stale workspace mapping",
           error,
         );
       });
@@ -113,43 +113,43 @@ export function getHirondelleSyncRuntime() {
   return runtime;
 }
 
-export function configureHirondelleSync(
-  settings: HirondelleSyncSettings,
-): HirondelleSyncPublicStatus {
-  return getHirondelleSyncRuntime().configure(settings);
+export function configureMartinSync(
+  settings: MartinSyncSettings,
+): MartinSyncPublicStatus {
+  return getMartinSyncRuntime().configure(settings);
 }
 
-export function getHirondelleSyncStatus(): HirondelleSyncPublicStatus {
-  return getHirondelleSyncRuntime().getStatus();
+export function getMartinSyncStatus(): MartinSyncPublicStatus {
+  return getMartinSyncRuntime().getStatus();
 }
 
-export function enqueueHirondelleSyncEvent(args: {
+export function enqueueMartinSyncEvent(args: {
   workspaceId: string;
   projectRef: string;
   event: StaveSyncEventV1;
 }): void {
-  getHirondelleSyncRuntime().enqueueEvent(args);
+  getMartinSyncRuntime().enqueueEvent(args);
 }
 
-export function noteHirondelleWorkspaceLinksChanged(args: {
+export function noteMartinWorkspaceLinksChanged(args: {
   workspaceId: string;
   projectRef: string;
   links: StaveSyncLinkV1[];
 }): void {
-  getHirondelleSyncRuntime().noteLinksChanged(args);
+  getMartinSyncRuntime().noteLinksChanged(args);
 }
 
-export function retryFailedHirondelleSync(): HirondelleSyncPublicStatus {
-  const syncRuntime = getHirondelleSyncRuntime();
+export function retryFailedMartinSync(): MartinSyncPublicStatus {
+  const syncRuntime = getMartinSyncRuntime();
   syncRuntime.retryFailed();
   return syncRuntime.getStatus();
 }
 
-export function stopHirondelleSyncRuntime(): void {
+export function stopMartinSyncRuntime(): void {
   runtime?.shutdown();
 }
 
-export function resetHirondelleSyncRuntimeForTests(): void {
+export function resetMartinSyncRuntimeForTests(): void {
   runtime?.shutdown();
   runtime = null;
   stopWorkspaceInformationSubscription?.();

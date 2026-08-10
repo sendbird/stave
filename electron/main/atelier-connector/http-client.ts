@@ -5,18 +5,18 @@ import {
   type AtelierConnectorScope,
 } from "../../../src/lib/atelier-connector/types";
 import {
-  HirondelleContextBundleV1Schema,
-  HirondelleProjectListResponseV1Schema,
+  MartinContextBundleV1Schema,
+  MartinProjectListResponseV1Schema,
   STAVE_SYNC_CONTRACT_VERSION,
   StaveSyncEventsRequestV1Schema,
   StaveSyncEventsResponseV1Schema,
   StaveSyncLinksMergeRequestV1Schema,
   StaveSyncLinksMergeResponseV1Schema,
-  toHirondelleProjectSummary,
-  type HirondelleContextBundleV1,
+  toMartinProjectSummary,
+  type MartinContextBundleV1,
   type StaveSyncEventV1,
   type StaveSyncLinkV1,
-} from "../../../src/lib/hirondelle-sync/contract";
+} from "../../../src/lib/martin-sync/contract";
 import {
   CraneConnectorMetadataSchema,
   type CraneConnectorMetadata,
@@ -250,7 +250,7 @@ export class AtelierConnectorHttpClient {
     };
   }
 
-  async listHirondelleProjects(args: {
+  async listMartinProjects(args: {
     secret: string;
     query?: string;
     limit?: number;
@@ -261,32 +261,32 @@ export class AtelierConnectorHttpClient {
     if (args.limit !== undefined) search.set("limit", String(args.limit));
     const suffix = search.size > 0 ? `?${search}` : "";
     const response = await this.request({
-      path: `/api/hirondelle/stave/projects${suffix}`,
+      path: `/api/martin/stave/projects${suffix}`,
       secret: args.secret,
       signal: args.signal,
-      schema: HirondelleProjectListResponseV1Schema,
+      schema: MartinProjectListResponseV1Schema,
       maxResponseBytes: SYNC_MAX_RESPONSE_BYTES,
     });
     return response.projects.map((project) =>
-      toHirondelleProjectSummary(project, this.baseUrl),
+      toMartinProjectSummary(project, this.baseUrl),
     );
   }
 
-  async getHirondelleContextBundle(args: {
+  async getMartinContextBundle(args: {
     secret: string;
     projectRef: string;
     signal?: AbortSignal;
-  }): Promise<HirondelleContextBundleV1> {
+  }): Promise<MartinContextBundleV1> {
     return this.request({
-      path: `/api/hirondelle/stave/projects/${encodeURIComponent(args.projectRef)}/context-bundle`,
+      path: `/api/martin/stave/projects/${encodeURIComponent(args.projectRef)}/context-bundle`,
       secret: args.secret,
       signal: args.signal,
-      schema: HirondelleContextBundleV1Schema,
+      schema: MartinContextBundleV1Schema,
       maxResponseBytes: CONTEXT_BUNDLE_MAX_RESPONSE_BYTES,
     });
   }
 
-  async postHirondelleEvents(args: {
+  async postMartinEvents(args: {
     secret: string;
     projectRef: string;
     events: StaveSyncEventV1[];
@@ -297,7 +297,7 @@ export class AtelierConnectorHttpClient {
       events: args.events,
     });
     const response = await this.request({
-      path: `/api/hirondelle/stave/projects/${encodeURIComponent(args.projectRef)}/events`,
+      path: `/api/martin/stave/projects/${encodeURIComponent(args.projectRef)}/events`,
       method: "POST",
       secret: args.secret,
       body,
@@ -308,7 +308,7 @@ export class AtelierConnectorHttpClient {
     return response.results;
   }
 
-  async mergeHirondelleLinks(args: {
+  async mergeMartinLinks(args: {
     secret: string;
     projectRef: string;
     links: StaveSyncLinkV1[];
@@ -319,7 +319,7 @@ export class AtelierConnectorHttpClient {
       links: args.links,
     });
     const response = await this.request({
-      path: `/api/hirondelle/stave/projects/${encodeURIComponent(args.projectRef)}/links/merge`,
+      path: `/api/martin/stave/projects/${encodeURIComponent(args.projectRef)}/links/merge`,
       method: "POST",
       secret: args.secret,
       body,

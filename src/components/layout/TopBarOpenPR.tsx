@@ -98,9 +98,9 @@ import {
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { cn } from "@/lib/utils";
 import {
-  collectHirondelleTriggerContext,
-  notifyHirondellePrOpened,
-} from "@/lib/hirondelle-sync/renderer-triggers";
+  collectMartinTriggerContext,
+  notifyMartinPrOpened,
+} from "@/lib/martin-sync/renderer-triggers";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1479,9 +1479,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     if (prResult.prUrl && submitWorkspaceId) {
       const state = useAppStore.getState();
-      notifyHirondellePrOpened({
-        context: collectHirondelleTriggerContext(state, submitWorkspaceId),
-        settings: state.settings.hirondelleSync,
+      notifyMartinPrOpened({
+        context: collectMartinTriggerContext(state, submitWorkspaceId),
+        settings: state.settings.martinSync,
         prUrl: prResult.prUrl,
         prTitle: title,
       });

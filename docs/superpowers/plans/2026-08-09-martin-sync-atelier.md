@@ -1,26 +1,26 @@
 <!-- doc-path-check: external-repository -->
 
-# Hirondelle Stave Sync (Atelier) Implementation Plan
+# Martin Stave Sync (Atelier) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give Atelier a connector-authenticated Stave sync surface for Hirondelle: generalize the existing Crane↔Stave `stc_` connector with scopes, and add four `/api/hirondelle/stave/*` routes (project picker list, context-bundle pull, idempotent change-event push, server-side links merge) behind a feature flag, with contract fixtures shared with the Stave repo.
+**Goal:** Give Atelier a connector-authenticated Stave sync surface for Martin: generalize the existing Crane↔Stave `stc_` connector with scopes, and add four `/api/martin/stave/*` routes (project picker list, context-bundle pull, idempotent change-event push, server-side links merge) behind a feature flag, with contract fixtures shared with the Stave repo.
 
-**Architecture:** The Crane connector resolver (`resolveStaveConnectorCaller`) moves to a platform-shared module `src/stave-connector/auth.mjs` and gains per-request scope + app-permission checks; `crane_stave_connectors` gains a `scopes` JSON column (backfilled `["crane"]`); the pairing exchange endpoint gains `requestedScopes` granted as an intersection with the user's live permissions. Hirondelle gains a new route module `apps/hirondelle/src/server/stave-sync-routes.mjs` (registered from `registerHirondelleRoutes`), a data module `stave-sync-data.mjs` (idempotent conditional event inserts, links merge in one `db.batch`), and a Zod contract module `stave-sync-contract.mjs` validated against `stave-sync-v1` JSON fixtures. Two D1 migrations: `0025` (scopes) and `0026` (change_events table rebuild to add the `stave` source, partial expression unique index on `staveEventId`, `hirondelle_links.origin`).
+**Architecture:** The Crane connector resolver (`resolveStaveConnectorCaller`) moves to a platform-shared module `src/stave-connector/auth.mjs` and gains per-request scope + app-permission checks; `crane_stave_connectors` gains a `scopes` JSON column (backfilled `["crane"]`); the pairing exchange endpoint gains `requestedScopes` granted as an intersection with the user's live permissions. Martin gains a new route module `apps/martin/src/server/stave-sync-routes.mjs` (registered from `registerMartinRoutes`), a data module `stave-sync-data.mjs` (idempotent conditional event inserts, links merge in one `db.batch`), and a Zod contract module `stave-sync-contract.mjs` validated against `stave-sync-v1` JSON fixtures. Two D1 migrations: `0025` (scopes) and `0026` (change_events table rebuild to add the `stave` source, partial expression unique index on `staveEventId`, `martin_links.origin`).
 
-**Tech Stack:** Bun workspaces, Hono routes on a Cloudflare Worker, D1/SQLite migrations in `migrations/d1/`, Zod v4 (`^4.1.13`), `bun:sqlite` D1-like test harness (`apps/hirondelle/tests/test-db.ts`).
+**Tech Stack:** Bun workspaces, Hono routes on a Cloudflare Worker, D1/SQLite migrations in `migrations/d1/`, Zod v4 (`^4.1.13`), `bun:sqlite` D1-like test harness (`apps/martin/tests/test-db.ts`).
 
 ## Global Constraints
 
 - Repo: `<atelier-repo>`, branch `feat/heath/hirondelle-stave-sync` (branch format `<type>/<person>/<work-summary>` per AGENTS.md).
 - Toolchain: Bun; run all commands from the repo root (`cd <atelier-repo>` first, since agent cwd resets).
-- Feature flag: `HIRONDELLE_STAVE_SYNC_ENABLED` — absent/off ⇒ every `/api/hirondelle/stave/*` route returns 404 (same `envValue` on/true/1 pattern as `CRANE_STAVE_DISPATCH_ENABLED`).
-- Contract version: `stave-sync-v1`; fixtures live in `apps/hirondelle/tests/fixtures/stave-sync-v1/*.json`.
+- Feature flag: `MARTIN_STAVE_SYNC_ENABLED` — absent/off ⇒ every `/api/martin/stave/*` route returns 404 (same `envValue` on/true/1 pattern as `CRANE_STAVE_DISPATCH_ENABLED`).
+- Contract version: `stave-sync-v1`; fixtures live in `apps/martin/tests/fixtures/stave-sync-v1/*.json`.
 - Body limits (crane `readBoundedJson` pattern): events POST 100_000 bytes, links/merge POST 160_000 bytes; GET routes take no body.
 - Batch caps: max 20 events per push, max 50 links per merge.
-- Migration numbers: `0025_stave_connector_scopes.sql`, `0026_hirondelle_stave_sync.sql` (last existing is 0024).
+- Migration numbers: `0025_stave_connector_scopes.sql`, `0026_martin_stave_sync.sql` (last existing is 0024).
 - File size cap: 500 lines per source file (`scripts/source-structure-baseline.json` `maxLines`); this is why routes/data/contract are three files.
-- Verification gates: `bun run --filter @sendbird/hirondelle check`, `bun run --filter @sendbird/crane check`, `bun run check:structure`; Conventional Commits (`feat`/`fix`/`refactor`/`docs`/`test` + optional scope).
+- Verification gates: `bun run --filter @sendbird/martin check`, `bun run --filter @sendbird/crane check`, `bun run check:structure`; Conventional Commits (`feat`/`fix`/`refactor`/`docs`/`test` + optional scope).
 
 ---
 
@@ -32,7 +32,7 @@
 
 **Interfaces:**
 - Consumes: `createStaveDispatchTestDb`, `seedStaveDispatchUser` from `apps/crane/tests/stave-dispatch-test-db.ts` (harness applies every file in `migrations/d1/` sorted).
-- Produces: column `crane_stave_connectors.scopes TEXT NOT NULL DEFAULT '["crane"]' CHECK (json_valid(scopes))`. SQLite `ADD COLUMN` with a literal default backfills existing rows to `["crane"]` — no separate `UPDATE` needed (same technique as `0024_hirondelle_lifecycle.sql`).
+- Produces: column `crane_stave_connectors.scopes TEXT NOT NULL DEFAULT '["crane"]' CHECK (json_valid(scopes))`. SQLite `ADD COLUMN` with a literal default backfills existing rows to `["crane"]` — no separate `UPDATE` needed (same technique as `0024_martin_lifecycle.sql`).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -113,7 +113,7 @@ Expected failure: `SQLiteError: no such column: scopes` on the `select scopes` q
 -- Migration number: 0025 2026-08-09
 -- Generalize the Crane <-> Stave connector into a shared Atelier connector.
 -- `scopes` is a JSON array of app surfaces the connector may call ('crane',
--- 'hirondelle'). SQLite backfills existing rows with the literal default, so
+-- 'martin'). SQLite backfills existing rows with the literal default, so
 -- every pre-existing connector stays crane-only; new scopes require
 -- re-pairing (there is deliberately no upgrade endpoint in v1).
 
@@ -138,22 +138,22 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 2: Migration 0026 — `stave` change-event source, idempotency index, `hirondelle_links.origin`
+### Task 2: Migration 0026 — `stave` change-event source, idempotency index, `martin_links.origin`
 
 **Files:**
-- Create: `migrations/d1/0026_hirondelle_stave_sync.sql`
-- Modify: `apps/hirondelle/src/server/sections-data.mjs` (`linkRow` at lines 37–44; `links` build in `SECTION_SPECS` at lines 99–121 — expose/round-trip `origin` so a human section edit does not erase stave markers)
-- Test: `apps/hirondelle/tests/stave-sync-migration.test.ts`
+- Create: `migrations/d1/0026_martin_stave_sync.sql`
+- Modify: `apps/martin/src/server/sections-data.mjs` (`linkRow` at lines 37–44; `links` build in `SECTION_SPECS` at lines 99–121 — expose/round-trip `origin` so a human section edit does not erase stave markers)
+- Test: `apps/martin/tests/stave-sync-migration.test.ts`
 
 **Interfaces:**
-- Consumes: `createHirondelleTestDb` from `apps/hirondelle/tests/test-db.ts`; raw `bun:sqlite` for the incremental-application preservation test.
-- Produces: rebuilt `hirondelle_change_events` whose `source` CHECK includes `'stave'`; `unique index idx_hirondelle_change_events_stave_event on (project_id, json_extract(metadata_json,'$.staveEventId')) where … is not null`; `hirondelle_links.origin TEXT` nullable with `check (origin is null or origin = 'stave')`; `linkRow(row)` now returns `{ id, kind, label, url, note, origin, position }`.
-- CRITICAL, empirically verified: `DROP TABLE hirondelle_change_events` fires `on delete set null` on `hirondelle_memory_entries.change_event_id` even under `PRAGMA defer_foreign_keys`, and D1 cannot run `PRAGMA foreign_keys = off`. The migration therefore snapshots memory→event links into a temp table before the drop and restores them after the rename. This exact sequence was validated in-memory (link preserved, `pragma foreign_key_check` clean, FK still enforced afterwards).
+- Consumes: `createMartinTestDb` from `apps/martin/tests/test-db.ts`; raw `bun:sqlite` for the incremental-application preservation test.
+- Produces: rebuilt `martin_change_events` whose `source` CHECK includes `'stave'`; `unique index idx_martin_change_events_stave_event on (project_id, json_extract(metadata_json,'$.staveEventId')) where … is not null`; `martin_links.origin TEXT` nullable with `check (origin is null or origin = 'stave')`; `linkRow(row)` now returns `{ id, kind, label, url, note, origin, position }`.
+- CRITICAL, empirically verified: `DROP TABLE martin_change_events` fires `on delete set null` on `martin_memory_entries.change_event_id` even under `PRAGMA defer_foreign_keys`, and D1 cannot run `PRAGMA foreign_keys = off`. The migration therefore snapshots memory→event links into a temp table before the drop and restores them after the rename. This exact sequence was validated in-memory (link preserved, `pragma foreign_key_check` clean, FK still enforced afterwards).
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// apps/hirondelle/tests/stave-sync-migration.test.ts
+// apps/martin/tests/stave-sync-migration.test.ts
 import Database from "bun:sqlite";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -162,8 +162,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { replaceSection } from "../src/server/sections-data.mjs";
 import {
-  createHirondelleTestDb,
-  type HirondelleTestDb,
+  createMartinTestDb,
+  type MartinTestDb,
 } from "./test-db";
 
 const MIGRATIONS_DIR = path.resolve(
@@ -173,14 +173,14 @@ const MIGRATIONS_DIR = path.resolve(
   "d1",
 );
 
-describe("migration 0026: hirondelle stave sync schema", () => {
-  let db: HirondelleTestDb;
+describe("migration 0026: martin stave sync schema", () => {
+  let db: MartinTestDb;
 
   beforeEach(() => {
-    db = createHirondelleTestDb();
+    db = createMartinTestDb();
     db.sqlite
       .query(
-        `insert into hirondelle_projects (id, slug, name)
+        `insert into martin_projects (id, slug, name)
          values ('proj-1', 'proj-one', 'Project One'),
                 ('proj-2', 'proj-two', 'Project Two')`,
       )
@@ -192,7 +192,7 @@ describe("migration 0026: hirondelle stave sync schema", () => {
   const insertEvent = (id: string, projectId: string, metadata: string) =>
     db.sqlite
       .query(
-        `insert into hirondelle_change_events
+        `insert into martin_change_events
            (id, project_id, source, kind, summary, metadata_json)
          values (?, ?, 'stave', 'pr_opened', 'PR #1', ?)`,
       )
@@ -222,7 +222,7 @@ describe("migration 0026: hirondelle stave sync schema", () => {
     expect(() =>
       db.sqlite
         .query(
-          `insert into hirondelle_links (id, project_id, kind, origin)
+          `insert into martin_links (id, project_id, kind, origin)
            values ('bad-origin', 'proj-1', 'other', 'human')`,
         )
         .run(),
@@ -241,12 +241,12 @@ describe("migration 0026: hirondelle stave sync schema", () => {
       sqlite.exec(readFileSync(path.join(MIGRATIONS_DIR, name), "utf8"));
     }
     sqlite.exec(`
-      insert into hirondelle_projects (id, slug, name)
+      insert into martin_projects (id, slug, name)
         values ('proj-m', 'proj-m', 'Migrating');
-      insert into hirondelle_change_events
+      insert into martin_change_events
         (id, project_id, source, kind, summary, metadata_json)
         values ('event-m', 'proj-m', 'manual', 'noted', 'A decision', '{}');
-      insert into hirondelle_memory_entries
+      insert into martin_memory_entries
         (id, project_id, kind, body, change_event_id)
         values ('memory-m', 'proj-m', 'decision', 'Keep it', 'event-m');
     `);
@@ -254,12 +254,12 @@ describe("migration 0026: hirondelle stave sync schema", () => {
       sqlite.exec(readFileSync(path.join(MIGRATIONS_DIR, name), "utf8"));
     }
     const memory = sqlite
-      .query("select change_event_id from hirondelle_memory_entries where id = 'memory-m'")
+      .query("select change_event_id from martin_memory_entries where id = 'memory-m'")
       .get() as { change_event_id: string | null };
     expect(memory.change_event_id).toBe("event-m");
     expect(sqlite.query("pragma foreign_key_check").all()).toHaveLength(0);
     const copied = sqlite
-      .query("select summary from hirondelle_change_events where id = 'event-m'")
+      .query("select summary from martin_change_events where id = 'event-m'")
       .get() as { summary: string };
     expect(copied.summary).toBe("A decision");
     sqlite.close();
@@ -270,33 +270,33 @@ describe("migration 0026: hirondelle stave sync schema", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-migration.test.ts
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-migration.test.ts
 ```
 
-Expected failures: `CHECK constraint failed` on `source = 'stave'` insert (first test), `table hirondelle_links has no column named origin` / missing `origin` in `linkRow` (second test), and the preservation test fails because no file `>= "0026"` exists so the `stave` source is still rejected — plus `origin` assertions fail.
+Expected failures: `CHECK constraint failed` on `source = 'stave'` insert (first test), `table martin_links has no column named origin` / missing `origin` in `linkRow` (second test), and the preservation test fails because no file `>= "0026"` exists so the `stave` source is still rejected — plus `origin` assertions fail.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```sql
--- migrations/d1/0026_hirondelle_stave_sync.sql
+-- migrations/d1/0026_martin_stave_sync.sql
 -- Migration number: 0026 2026-08-09
--- Hirondelle <-> Stave workspace sync groundwork.
+-- Martin <-> Stave workspace sync groundwork.
 --
--- (1) hirondelle_change_events gains 'stave' as a source. SQLite cannot edit
+-- (1) martin_change_events gains 'stave' as a source. SQLite cannot edit
 --     a CHECK constraint, so the table is rebuilt: create new -> copy ->
 --     drop -> rename. DROP TABLE fires `on delete set null` on
---     hirondelle_memory_entries.change_event_id even under
+--     martin_memory_entries.change_event_id even under
 --     `PRAGMA defer_foreign_keys`, and D1 cannot disable foreign_keys, so the
 --     memory->event linkage is snapshotted first and restored afterwards.
 -- (2) A partial expression unique index makes Stave event pushes idempotent
 --     on (project_id, metadata_json $.staveEventId).
--- (3) hirondelle_links gains a nullable `origin`: 'stave' marks rows the sync
+-- (3) martin_links gains a nullable `origin`: 'stave' marks rows the sync
 --     surface owns and may update; NULL means human-created and untouchable.
 
-create table hirondelle_change_events_new (
+create table martin_change_events_new (
   id text primary key,
   project_id text not null
-    references hirondelle_projects(id) on delete cascade,
+    references martin_projects(id) on delete cascade,
   source text not null
     check (source in ('schedule', 'import', 'manual', 'slack', 'confluence', 'figma', 'stave')),
   kind text not null,
@@ -308,46 +308,46 @@ create table hirondelle_change_events_new (
   detected_at text not null default (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
-insert into hirondelle_change_events_new
+insert into martin_change_events_new
   (id, project_id, source, kind, summary, source_url, tier, metadata_json, detected_at)
 select id, project_id, source, kind, summary, source_url, tier, metadata_json, detected_at
-from hirondelle_change_events;
+from martin_change_events;
 
-create table hirondelle_stave_sync_memory_backup (
+create table martin_stave_sync_memory_backup (
   id text primary key,
   change_event_id text not null
 );
 
-insert into hirondelle_stave_sync_memory_backup (id, change_event_id)
-select id, change_event_id from hirondelle_memory_entries
+insert into martin_stave_sync_memory_backup (id, change_event_id)
+select id, change_event_id from martin_memory_entries
 where change_event_id is not null;
 
-drop table hirondelle_change_events;
+drop table martin_change_events;
 
-alter table hirondelle_change_events_new rename to hirondelle_change_events;
+alter table martin_change_events_new rename to martin_change_events;
 
-update hirondelle_memory_entries
+update martin_memory_entries
    set change_event_id = (
-     select b.change_event_id from hirondelle_stave_sync_memory_backup b
-     where b.id = hirondelle_memory_entries.id
+     select b.change_event_id from martin_stave_sync_memory_backup b
+     where b.id = martin_memory_entries.id
    )
- where id in (select id from hirondelle_stave_sync_memory_backup);
+ where id in (select id from martin_stave_sync_memory_backup);
 
-drop table hirondelle_stave_sync_memory_backup;
+drop table martin_stave_sync_memory_backup;
 
-create index idx_hirondelle_change_events_project
-  on hirondelle_change_events (project_id, detected_at);
+create index idx_martin_change_events_project
+  on martin_change_events (project_id, detected_at);
 
-create unique index idx_hirondelle_change_events_stave_event
-  on hirondelle_change_events (project_id, json_extract(metadata_json, '$.staveEventId'))
+create unique index idx_martin_change_events_stave_event
+  on martin_change_events (project_id, json_extract(metadata_json, '$.staveEventId'))
   where json_extract(metadata_json, '$.staveEventId') is not null;
 
-alter table hirondelle_links
+alter table martin_links
   add column origin text
   check (origin is null or origin = 'stave');
 ```
 
-In `apps/hirondelle/src/server/sections-data.mjs`, change `linkRow` (lines 37–44):
+In `apps/martin/src/server/sections-data.mjs`, change `linkRow` (lines 37–44):
 
 ```js
 export const linkRow = (row) => ({
@@ -365,14 +365,14 @@ and the `links` spec `build` (lines 99–121), so a full-replace section edit ro
 
 ```js
   links: {
-    table: "hirondelle_links",
+    table: "martin_links",
     map: linkRow,
     build(db, projectId, input, position) {
       if (!LINK_KINDS.includes(input.kind))
         return { error: "invalid_link_kind" };
       return db
         .prepare(
-          `insert into hirondelle_links
+          `insert into martin_links
              (id, project_id, kind, label, url, note, origin, position)
            values (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
@@ -393,7 +393,7 @@ and the `links` spec `build` (lines 99–121), so a full-replace section edit ro
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-migration.test.ts && bun run --filter @sendbird/hirondelle test
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-migration.test.ts && bun run --filter @sendbird/martin test
 ```
 
 (The second command proves existing section/route tests still pass with the rebuilt table and the extra `origin` field.)
@@ -401,7 +401,7 @@ cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-migration.test.ts
 - [ ] **Step 5: Commit**
 
 ```bash
-cd <atelier-repo> && git add migrations/d1/0026_hirondelle_stave_sync.sql apps/hirondelle/src/server/sections-data.mjs apps/hirondelle/tests/stave-sync-migration.test.ts && git commit -m "feat(hirondelle): allow stave change events and link origins
+cd <atelier-repo> && git add migrations/d1/0026_martin_stave_sync.sql apps/martin/src/server/sections-data.mjs apps/martin/tests/stave-sync-migration.test.ts && git commit -m "feat(martin): allow stave change events and link origins
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -417,8 +417,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Produces (in `src/stave-connector/auth.mjs`):
-  - `export const STAVE_CONNECTOR_SCOPES = ["crane", "hirondelle"]`
-  - `export const STAVE_SCOPE_BASE_PERMISSIONS = Object.freeze({ crane: "crane:view", hirondelle: "hirondelle:view" })`
+  - `export const STAVE_CONNECTOR_SCOPES = ["crane", "martin"]`
+  - `export const STAVE_SCOPE_BASE_PERMISSIONS = Object.freeze({ crane: "crane:view", martin: "martin:view" })`
   - `export function parseStaveConnectorScopes(raw)` — JSON parse with `'["crane"]'` fallback, filtered to known scopes
   - `export function grantedStaveConnectorScopes(access, requestedScopes)` — dedupe then filter by `hasPermission(access, STAVE_SCOPE_BASE_PERMISSIONS[scope])`
   - `export async function resolveStaveConnectorCaller(db, authorization, { now = Date.now(), touch = true, scope = "crane", permissionKey } = {})` — same 401/403 sentinels as today; additionally 403 when the connector's `scopes` lacks `scope`, and checks `permissionKey` (when given and different from the scope's base permission) on top of the base permission. Defaults reproduce old crane behavior exactly.
@@ -428,25 +428,25 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - [ ] **Step 1: Write the failing test** — append to `apps/crane/tests/stave-dispatch-auth.test.ts`:
 
 ```ts
-  function grantHirondelleView(db: StaveDispatchTestDb) {
+  function grantMartinView(db: StaveDispatchTestDb) {
     db.sqlite
       .query(
         `insert into platform_permissions (key, app_slug, label, system_permission)
-         values ('hirondelle:view', 'hirondelle', 'View Hirondelle', 0)
+         values ('martin:view', 'martin', 'View Martin', 0)
          on conflict (key) do nothing`,
       )
       .run();
     db.sqlite
       .query(
         `insert into platform_role_permissions (role_id, permission_key)
-         values ('role-member', 'hirondelle:view') on conflict do nothing`,
+         values ('role-member', 'martin:view') on conflict do nothing`,
       )
       .run();
   }
 
   test("grants only the requested-scope intersection at exchange", async () => {
     const pairing = await createStavePairingCode(db, user.id, { now: NOW });
-    // The user only holds crane:view — hirondelle is requested but not granted.
+    // The user only holds crane:view — martin is requested but not granted.
     const craneOnly = await exchangeStavePairingCode(
       db,
       {
@@ -455,14 +455,14 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
         protocolVersion: 1,
         appVersion: "1.4.0",
         capabilities: ["run_task"],
-        requestedScopes: ["crane", "hirondelle"],
+        requestedScopes: ["crane", "martin"],
       },
       { now: NOW + 1_000 },
     );
     expect(craneOnly.error).toBeUndefined();
     expect(craneOnly.connector.scopes).toEqual(["crane"]);
 
-    grantHirondelleView(db);
+    grantMartinView(db);
     const secondPairing = await createStavePairingCode(db, user.id, {
       now: NOW + 2_000,
     });
@@ -474,11 +474,11 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
         protocolVersion: 1,
         appVersion: "1.4.0",
         capabilities: ["run_task"],
-        requestedScopes: ["crane", "hirondelle"],
+        requestedScopes: ["crane", "martin"],
       },
       { now: NOW + 3_000 },
     );
-    expect(both.connector.scopes).toEqual(["crane", "hirondelle"]);
+    expect(both.connector.scopes).toEqual(["crane", "martin"]);
   });
 
   test("defaults exchange to the crane scope for legacy payloads", async () => {
@@ -498,7 +498,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
   });
 
   test("rejects a connector that lacks the required scope", async () => {
-    grantHirondelleView(db);
+    grantMartinView(db);
     const pairing = await createStavePairingCode(db, user.id, { now: NOW });
     const exchanged = await exchangeStavePairingCode(
       db,
@@ -515,7 +515,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
     const caller = await resolveStaveConnectorCaller(
       db,
       `Bearer ${exchanged.secret}`,
-      { scope: "hirondelle", touch: false },
+      { scope: "martin", touch: false },
     );
     expect(caller).toEqual({ error: "forbidden", status: 403 });
   });
@@ -539,7 +539,7 @@ import { sha256Hex } from "../routes/context.mjs";
 
 /**
  * Shared Stave desktop connector resolver for every Atelier surface that
- * accepts the `stc_` bearer secret (Crane dispatch, Hirondelle sync). Every
+ * accepts the `stc_` bearer secret (Crane dispatch, Martin sync). Every
  * request re-verifies, live: secret hash -> active user -> connector scope ->
  * app permission. Scopes are granted at pairing time as the intersection of
  * the requested scopes and the permissions the pairing user actually holds.
@@ -547,11 +547,11 @@ import { sha256Hex } from "../routes/context.mjs";
 
 const SECRET_LIMIT = 128;
 
-export const STAVE_CONNECTOR_SCOPES = ["crane", "hirondelle"];
+export const STAVE_CONNECTOR_SCOPES = ["crane", "martin"];
 
 export const STAVE_SCOPE_BASE_PERMISSIONS = Object.freeze({
   crane: "crane:view",
-  hirondelle: "hirondelle:view",
+  martin: "martin:view",
 });
 
 export function parseStaveConnectorScopes(raw) {
@@ -672,7 +672,7 @@ export { resolveStaveConnectorCaller } from "../../../../src/stave-connector/aut
 
 ```js
     requestedScopes: z
-      .array(z.enum(["crane", "hirondelle"]))
+      .array(z.enum(["crane", "martin"]))
       .min(1)
       .max(2)
       .default(["crane"]),
@@ -712,10 +712,10 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task 4: `stave-sync-v1` contract module and shared fixtures
 
 **Files:**
-- Create: `apps/hirondelle/src/server/stave-sync-contract.mjs`
-- Create: `apps/hirondelle/tests/fixtures/stave-sync-v1/valid-events.json`, `valid-links-merge.json`, `valid-context-bundle.json`, `invalid-events-missing-id.json`, `invalid-events-forbidden-property.json`, `invalid-links-kind.json`
-- Modify: `apps/hirondelle/package.json` (add `"zod": "^4.1.13"` to `dependencies`, then `bun install`)
-- Test: `apps/hirondelle/tests/stave-sync-contract.test.ts`
+- Create: `apps/martin/src/server/stave-sync-contract.mjs`
+- Create: `apps/martin/tests/fixtures/stave-sync-v1/valid-events.json`, `valid-links-merge.json`, `valid-context-bundle.json`, `invalid-events-missing-id.json`, `invalid-events-forbidden-property.json`, `invalid-links-kind.json`
+- Modify: `apps/martin/package.json` (add `"zod": "^4.1.13"` to `dependencies`, then `bun install`)
+- Test: `apps/martin/tests/stave-sync-contract.test.ts`
 
 **Interfaces (produced):**
 
@@ -730,12 +730,12 @@ export const StaveSyncEventsResponseV1Schema;    // { contract, results: [{ stav
 export const StaveSyncLinksMergeResponseV1Schema; // { contract, results: [{ url, action: "inserted"|"updated"|"skipped" }] }
 ```
 
-These fixtures are the cross-repo contract: the Stave repo copies `apps/hirondelle/tests/fixtures/stave-sync-v1/` verbatim (same pattern as crane's `stave-dispatch-v1`).
+These fixtures are the cross-repo contract: the Stave repo copies `apps/martin/tests/fixtures/stave-sync-v1/` verbatim (same pattern as crane's `stave-dispatch-v1`).
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// apps/hirondelle/tests/stave-sync-contract.test.ts
+// apps/martin/tests/stave-sync-contract.test.ts
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -751,7 +751,7 @@ async function readFixture(name: string) {
   return Bun.file(new URL(name, fixtureDirectory)).json();
 }
 
-describe("Hirondelle Stave sync V1 contract", () => {
+describe("Martin Stave sync V1 contract", () => {
   test("accepts the shared valid fixtures", async () => {
     expect(
       StaveSyncEventsRequestV1Schema.safeParse(
@@ -793,22 +793,22 @@ describe("Hirondelle Stave sync V1 contract", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-contract.test.ts
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-contract.test.ts
 ```
 
 Expected failure: `Cannot find module '../src/server/stave-sync-contract.mjs'`.
 
 - [ ] **Step 3: Write minimal implementation**
 
-`apps/hirondelle/src/server/stave-sync-contract.mjs`:
+`apps/martin/src/server/stave-sync-contract.mjs`:
 
 ```js
 import { z } from "zod";
 
 /**
  * The `stave-sync-v1` wire contract between the Stave desktop app and the
- * Hirondelle sync surface. The JSON fixtures in
- * `apps/hirondelle/tests/fixtures/stave-sync-v1/` are duplicated verbatim in
+ * Martin sync surface. The JSON fixtures in
+ * `apps/martin/tests/fixtures/stave-sync-v1/` are duplicated verbatim in
  * the Stave repo (crane's `stave-dispatch-v1` pattern) — change both together.
  */
 
@@ -1047,13 +1047,13 @@ Fixtures — `valid-events.json`:
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd <atelier-repo> && bun install && bun test apps/hirondelle/tests/stave-sync-contract.test.ts
+cd <atelier-repo> && bun install && bun test apps/martin/tests/stave-sync-contract.test.ts
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd <atelier-repo> && git add apps/hirondelle/src/server/stave-sync-contract.mjs apps/hirondelle/tests/fixtures/stave-sync-v1 apps/hirondelle/tests/stave-sync-contract.test.ts apps/hirondelle/package.json bun.lock && git commit -m "feat(hirondelle): add stave-sync-v1 contract and fixtures
+cd <atelier-repo> && git add apps/martin/src/server/stave-sync-contract.mjs apps/martin/tests/fixtures/stave-sync-v1 apps/martin/tests/stave-sync-contract.test.ts apps/martin/package.json bun.lock && git commit -m "feat(martin): add stave-sync-v1 contract and fixtures
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -1063,33 +1063,33 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task 5: Sync route module — flag gate, connector guard, GET projects, GET context-bundle
 
 **Files:**
-- Create: `apps/hirondelle/src/server/stave-sync-routes.mjs`
-- Create: `apps/hirondelle/tests/stave-sync-test-db.ts` (connector + project seed helpers)
-- Modify: `apps/hirondelle/src/server/routes.mjs` (import at line 31 area; call `registerHirondelleStaveSyncRoutes(app, env);` as the first line inside `registerHirondelleRoutes`, line 41)
-- Test: `apps/hirondelle/tests/stave-sync-routes.test.ts`
+- Create: `apps/martin/src/server/stave-sync-routes.mjs`
+- Create: `apps/martin/tests/stave-sync-test-db.ts` (connector + project seed helpers)
+- Modify: `apps/martin/src/server/routes.mjs` (import at line 31 area; call `registerMartinStaveSyncRoutes(app, env);` as the first line inside `registerMartinRoutes`, line 41)
+- Test: `apps/martin/tests/stave-sync-routes.test.ts`
 
 **Interfaces:**
-- Produces: `export function isStaveSyncEnabled(env)`; `export function registerHirondelleStaveSyncRoutes(app, env)` registering `GET /api/hirondelle/stave/projects` and `GET /api/hirondelle/stave/projects/:ref/context-bundle` (POST routes arrive in Tasks 6–7). Internal helpers: `requireStaveConnector(c, env, permissionKey = "hirondelle:view")` (flag → 404; `getDb` → 503; shared resolver with `scope: "hirondelle"`), `resolveProjectForConnector(c, caller)` (same personal-visibility 404 logic as `resolveProject` in `routes.mjs` lines 52–62), and `readBoundedJson(c, maxBytes)` copied from crane `stave-dispatch-routes.mjs` lines 56–102.
-- Consumes: `resolveStaveConnectorCaller` from `src/stave-connector/auth.mjs`; `getDb` from `src/platform-db.mjs`; `audit`, `envValue` from `src/routes/context.mjs`; `listHirondelleProjects`, `loadHirondelleProject`, `projectRow` from `./data.mjs`; `listChangeEvents` from `./events-data.mjs`; `loadSections` from `./sections-data.mjs`; `renderProjectMarkdown` from `./markdown-export.mjs`; `STAVE_SYNC_CONTRACT` from `./stave-sync-contract.mjs`.
+- Produces: `export function isStaveSyncEnabled(env)`; `export function registerMartinStaveSyncRoutes(app, env)` registering `GET /api/martin/stave/projects` and `GET /api/martin/stave/projects/:ref/context-bundle` (POST routes arrive in Tasks 6–7). Internal helpers: `requireStaveConnector(c, env, permissionKey = "martin:view")` (flag → 404; `getDb` → 503; shared resolver with `scope: "martin"`), `resolveProjectForConnector(c, caller)` (same personal-visibility 404 logic as `resolveProject` in `routes.mjs` lines 52–62), and `readBoundedJson(c, maxBytes)` copied from crane `stave-dispatch-routes.mjs` lines 56–102.
+- Consumes: `resolveStaveConnectorCaller` from `src/stave-connector/auth.mjs`; `getDb` from `src/platform-db.mjs`; `audit`, `envValue` from `src/routes/context.mjs`; `listMartinProjects`, `loadMartinProject`, `projectRow` from `./data.mjs`; `listChangeEvents` from `./events-data.mjs`; `loadSections` from `./sections-data.mjs`; `renderProjectMarkdown` from `./markdown-export.mjs`; `STAVE_SYNC_CONTRACT` from `./stave-sync-contract.mjs`.
 
 - [ ] **Step 1: Write the failing test**
 
-First the seed helper `apps/hirondelle/tests/stave-sync-test-db.ts`:
+First the seed helper `apps/martin/tests/stave-sync-test-db.ts`:
 
 ```ts
 import { createHash } from "node:crypto";
 
-import type { HirondelleTestDb } from "./test-db";
+import type { MartinTestDb } from "./test-db";
 
 export const STAVE_SYNC_TEST_SECRET = `stc_${"a".repeat(64)}`;
 
 /** Insert a paired connector row directly (pairing flow is crane-tested). */
 export function seedStaveConnector(
-  db: HirondelleTestDb,
+  db: MartinTestDb,
   userId: string,
   {
     id = "connector-stave",
-    scopes = ["hirondelle"],
+    scopes = ["martin"],
     secret = STAVE_SYNC_TEST_SECRET,
   }: { id?: string; scopes?: string[]; secret?: string } = {},
 ) {
@@ -1113,7 +1113,7 @@ export function seedStaveConnector(
 }
 
 export function seedStaveProject(
-  db: HirondelleTestDb,
+  db: MartinTestDb,
   {
     id = "proj-shared",
     slug = "policy-knowledge-toggle",
@@ -1125,7 +1125,7 @@ export function seedStaveProject(
 ) {
   db.sqlite
     .query(
-      `insert into hirondelle_projects
+      `insert into martin_projects
          (id, slug, name, visibility, created_by, status)
        values (?, ?, ?, ?, ?, ?)`,
     )
@@ -1134,30 +1134,30 @@ export function seedStaveProject(
 }
 ```
 
-Then `apps/hirondelle/tests/stave-sync-routes.test.ts`:
+Then `apps/martin/tests/stave-sync-routes.test.ts`:
 
 ```ts
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 
-import { registerHirondelleRoutes } from "../src/server/routes.mjs";
+import { registerMartinRoutes } from "../src/server/routes.mjs";
 import { StaveSyncContextBundleV1Schema } from "../src/server/stave-sync-contract.mjs";
 import {
-  createHirondelleTestDb,
-  seedHirondelleUser,
+  createMartinTestDb,
+  seedMartinUser,
   SESSION_SECRET,
-  type HirondelleTestDb,
+  type MartinTestDb,
 } from "./test-db";
 import { seedStaveConnector, seedStaveProject } from "./stave-sync-test-db";
 
-describe("Hirondelle Stave sync routes", () => {
+describe("Martin Stave sync routes", () => {
   let app: Hono;
-  let db: HirondelleTestDb;
+  let db: MartinTestDb;
   let connector: ReturnType<typeof seedStaveConnector>;
 
   beforeEach(() => {
-    db = createHirondelleTestDb();
-    seedHirondelleUser(db, { id: "editor" });
+    db = createMartinTestDb();
+    seedMartinUser(db, { id: "editor" });
     connector = seedStaveConnector(db, "editor");
     seedStaveProject(db);
     seedStaveProject(db, {
@@ -1166,7 +1166,7 @@ describe("Hirondelle Stave sync routes", () => {
       name: "My Draft",
       visibility: "personal",
     });
-    seedHirondelleUser(db, { id: "someone", email: "someone@example.test" });
+    seedMartinUser(db, { id: "someone", email: "someone@example.test" });
     seedStaveProject(db, {
       id: "proj-foreign-personal",
       slug: "their-draft",
@@ -1175,10 +1175,10 @@ describe("Hirondelle Stave sync routes", () => {
       createdBy: "someone",
     });
     app = new Hono();
-    registerHirondelleRoutes(app, {
+    registerMartinRoutes(app, {
       ATELIER_DB: db,
       SESSION_SECRET,
-      HIRONDELLE_STAVE_SYNC_ENABLED: "true",
+      MARTIN_STAVE_SYNC_ENABLED: "true",
     });
   });
 
@@ -1189,36 +1189,36 @@ describe("Hirondelle Stave sync routes", () => {
 
   test("returns 404 for every route when the flag is off", async () => {
     const gated = new Hono();
-    registerHirondelleRoutes(gated, { ATELIER_DB: db, SESSION_SECRET });
-    const response = await gated.request("/api/hirondelle/stave/projects", {
+    registerMartinRoutes(gated, { ATELIER_DB: db, SESSION_SECRET });
+    const response = await gated.request("/api/martin/stave/projects", {
       headers: { authorization: `Bearer ${connector.secret}` },
     });
     expect(response.status).toBe(404);
   });
 
   test("rejects missing secrets, wrong scopes, and revoked permissions", async () => {
-    const anonymous = await app.request("/api/hirondelle/stave/projects");
+    const anonymous = await app.request("/api/martin/stave/projects");
     expect(anonymous.status).toBe(401);
 
-    seedHirondelleUser(db, { id: "crane-only", email: "crane@example.test" });
+    seedMartinUser(db, { id: "crane-only", email: "crane@example.test" });
     const craneOnly = seedStaveConnector(db, "crane-only", {
       id: "connector-crane",
       scopes: ["crane"],
       secret: `stc_${"b".repeat(64)}`,
     });
-    expect((await get("/api/hirondelle/stave/projects", craneOnly.secret)).status).toBe(403);
+    expect((await get("/api/martin/stave/projects", craneOnly.secret)).status).toBe(403);
 
     db.sqlite
       .query(
         `insert into platform_user_permissions (user_id, permission_key, effect)
-         values ('editor', 'hirondelle:view', 'deny')`,
+         values ('editor', 'martin:view', 'deny')`,
       )
       .run();
-    expect((await get("/api/hirondelle/stave/projects")).status).toBe(403);
+    expect((await get("/api/martin/stave/projects")).status).toBe(403);
   });
 
   test("lists projects with personal visibility scoped to the connector owner", async () => {
-    const response = await get("/api/hirondelle/stave/projects");
+    const response = await get("/api/martin/stave/projects");
     expect(response.status).toBe(200);
     const body = await response.json();
     const slugs = body.projects.map((p: { slug: string }) => p.slug).sort();
@@ -1228,12 +1228,12 @@ describe("Hirondelle Stave sync routes", () => {
 
   test("serves a contract-valid context bundle and 404s foreign personal projects", async () => {
     const foreign = await get(
-      "/api/hirondelle/stave/projects/their-draft/context-bundle",
+      "/api/martin/stave/projects/their-draft/context-bundle",
     );
     expect(foreign.status).toBe(404);
 
     const response = await get(
-      "/api/hirondelle/stave/projects/policy-knowledge-toggle/context-bundle",
+      "/api/martin/stave/projects/policy-knowledge-toggle/context-bundle",
     );
     expect(response.status).toBe(200);
     const bundle = await response.json();
@@ -1248,20 +1248,20 @@ describe("Hirondelle Stave sync routes", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-routes.test.ts
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-routes.test.ts
 ```
 
 Expected failure: every request 404s (routes not registered) — the flag-off test passes by accident but all others fail on status assertions.
 
 - [ ] **Step 3: Write minimal implementation**
 
-`apps/hirondelle/src/server/stave-sync-routes.mjs`:
+`apps/martin/src/server/stave-sync-routes.mjs`:
 
 ```js
 import { getDb } from "../../../../src/platform-db.mjs";
 import { audit, envValue } from "../../../../src/routes/context.mjs";
 import { resolveStaveConnectorCaller } from "../../../../src/stave-connector/auth.mjs";
-import { listHirondelleProjects, loadHirondelleProject, projectRow } from "./data.mjs";
+import { listMartinProjects, loadMartinProject, projectRow } from "./data.mjs";
 import { listChangeEvents } from "./events-data.mjs";
 import { renderProjectMarkdown } from "./markdown-export.mjs";
 import { errorResponse } from "./route-errors.mjs";
@@ -1274,9 +1274,9 @@ import {
 import { mergeStaveLinks, pushStaveEvents } from "./stave-sync-data.mjs";
 
 /**
- * Hirondelle <-> Stave sync surface. Authenticated with the shared `stc_`
- * desktop connector (hirondelle scope), never a session cookie. Gated by
- * HIRONDELLE_STAVE_SYNC_ENABLED: off means every route 404s.
+ * Martin <-> Stave sync surface. Authenticated with the shared `stc_`
+ * desktop connector (martin scope), never a session cookie. Gated by
+ * MARTIN_STAVE_SYNC_ENABLED: off means every route 404s.
  */
 
 const BODY_LIMITS = Object.freeze({
@@ -1285,7 +1285,7 @@ const BODY_LIMITS = Object.freeze({
 });
 
 export function isStaveSyncEnabled(env) {
-  const value = envValue(env, "HIRONDELLE_STAVE_SYNC_ENABLED")
+  const value = envValue(env, "MARTIN_STAVE_SYNC_ENABLED")
     .trim()
     .toLowerCase();
   return value === "1" || value === "true" || value === "on";
@@ -1296,7 +1296,7 @@ export function isStaveSyncEnabled(env) {
 // streamed bounded read, fatal UTF-8 decode). Not exported there; the copy
 // carries a provenance comment.
 
-async function requireStaveConnector(c, env, permissionKey = "hirondelle:view") {
+async function requireStaveConnector(c, env, permissionKey = "martin:view") {
   if (!isStaveSyncEnabled(env)) {
     return { error: c.json({ error: "not_found" }, 404) };
   }
@@ -1307,7 +1307,7 @@ async function requireStaveConnector(c, env, permissionKey = "hirondelle:view") 
   const caller = await resolveStaveConnectorCaller(
     db,
     c.req.header("authorization"),
-    { scope: "hirondelle", permissionKey },
+    { scope: "martin", permissionKey },
   );
   if (caller.error) {
     return { error: c.json({ error: caller.error }, caller.status) };
@@ -1317,7 +1317,7 @@ async function requireStaveConnector(c, env, permissionKey = "hirondelle:view") 
 
 /** Same privacy rule as routes.mjs resolveProject: personal ⇒ creator only. */
 async function resolveProjectForConnector(c, caller) {
-  const row = await loadHirondelleProject(caller.db, c.req.param("ref"));
+  const row = await loadMartinProject(caller.db, c.req.param("ref"));
   if (!row) return { error: c.json({ error: "not_found" }, 404) };
   if (row.visibility === "personal" && row.created_by !== caller.user.id) {
     return { error: c.json({ error: "not_found" }, 404) };
@@ -1325,11 +1325,11 @@ async function resolveProjectForConnector(c, caller) {
   return { row };
 }
 
-export function registerHirondelleStaveSyncRoutes(app, env) {
-  app.get("/api/hirondelle/stave/projects", async (c) => {
+export function registerMartinStaveSyncRoutes(app, env) {
+  app.get("/api/martin/stave/projects", async (c) => {
     const caller = await requireStaveConnector(c, env);
     if (caller.error) return caller.error;
-    const listing = await listHirondelleProjects(caller.db, {
+    const listing = await listMartinProjects(caller.db, {
       callerId: caller.user.id,
       limit: c.req.query("limit"),
       query: c.req.query("query"),
@@ -1349,7 +1349,7 @@ export function registerHirondelleStaveSyncRoutes(app, env) {
     });
   });
 
-  app.get("/api/hirondelle/stave/projects/:ref/context-bundle", async (c) => {
+  app.get("/api/martin/stave/projects/:ref/context-bundle", async (c) => {
     const caller = await requireStaveConnector(c, env);
     if (caller.error) return caller.error;
     const resolved = await resolveProjectForConnector(c, caller);
@@ -1378,28 +1378,28 @@ export function registerHirondelleStaveSyncRoutes(app, env) {
 
 (While the POST routes are absent, temporarily omit the unused imports — `errorResponse`, the two request schemas, `pushStaveEvents`, `mergeStaveLinks`, `audit`, `BODY_LIMITS` — and add each in the task that uses it, so `tsc --noUnusedLocals`-style lint and `node --check` stay clean; Tasks 6–7 restore the full import block shown here.)
 
-In `apps/hirondelle/src/server/routes.mjs`, add to the imports:
+In `apps/martin/src/server/routes.mjs`, add to the imports:
 
 ```js
-import { registerHirondelleStaveSyncRoutes } from "./stave-sync-routes.mjs";
+import { registerMartinStaveSyncRoutes } from "./stave-sync-routes.mjs";
 ```
 
-and as the first statement of `registerHirondelleRoutes` (line 41):
+and as the first statement of `registerMartinRoutes` (line 41):
 
 ```js
-  registerHirondelleStaveSyncRoutes(app, env);
+  registerMartinStaveSyncRoutes(app, env);
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-routes.test.ts && bun test apps/hirondelle/tests/routes.test.ts
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-routes.test.ts && bun test apps/martin/tests/routes.test.ts
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd <atelier-repo> && git add apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/src/server/routes.mjs apps/hirondelle/tests/stave-sync-test-db.ts apps/hirondelle/tests/stave-sync-routes.test.ts && git commit -m "feat(hirondelle): add stave sync read routes behind flag
+cd <atelier-repo> && git add apps/martin/src/server/stave-sync-routes.mjs apps/martin/src/server/routes.mjs apps/martin/tests/stave-sync-test-db.ts apps/martin/tests/stave-sync-routes.test.ts && git commit -m "feat(martin): add stave sync read routes behind flag
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -1409,50 +1409,50 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task 6: POST events — idempotent batch push
 
 **Files:**
-- Create: `apps/hirondelle/src/server/stave-sync-data.mjs`
-- Modify: `apps/hirondelle/src/server/events-data.mjs` (add `"stave"` to `CHANGE_EVENT_SOURCES`, lines 8–15)
-- Modify: `apps/hirondelle/src/server/route-errors.mjs` (add `project_archived: 409` to `HIRONDELLE_ERROR_STATUS`)
-- Modify: `apps/hirondelle/src/server/stave-sync-routes.mjs` (add the POST route + `readBoundedJson`/`BODY_LIMITS` if deferred in Task 5)
-- Test: `apps/hirondelle/tests/stave-sync-events.test.ts`
+- Create: `apps/martin/src/server/stave-sync-data.mjs`
+- Modify: `apps/martin/src/server/events-data.mjs` (add `"stave"` to `CHANGE_EVENT_SOURCES`, lines 8–15)
+- Modify: `apps/martin/src/server/route-errors.mjs` (add `project_archived: 409` to `MARTIN_ERROR_STATUS`)
+- Modify: `apps/martin/src/server/stave-sync-routes.mjs` (add the POST route + `readBoundedJson`/`BODY_LIMITS` if deferred in Task 5)
+- Test: `apps/martin/tests/stave-sync-events.test.ts`
 
 **Interfaces:**
-- Produces (in `stave-sync-data.mjs`): `export async function pushStaveEvents(db, projectId, events)` → `{ results: [{ staveEventId, status: "inserted" | "duplicate" }] }`. Each event becomes a **conditional insert** (`insert … select … where not exists`, matching the `conditionalInsertStatement` pattern in `events-data.mjs` lines 85–104) guarded on `(project_id, json_extract(metadata_json,'$.staveEventId'))`; the 0026 unique index is the race backstop. All statements plus `touchHirondelleProjectStatement(db, projectId)` run in one `db.batch`; per-statement `meta.changes` distinguishes inserted (1) from duplicate (0). Duplicates *within* one batch also resolve correctly because statements execute sequentially inside the transaction.
+- Produces (in `stave-sync-data.mjs`): `export async function pushStaveEvents(db, projectId, events)` → `{ results: [{ staveEventId, status: "inserted" | "duplicate" }] }`. Each event becomes a **conditional insert** (`insert … select … where not exists`, matching the `conditionalInsertStatement` pattern in `events-data.mjs` lines 85–104) guarded on `(project_id, json_extract(metadata_json,'$.staveEventId'))`; the 0026 unique index is the race backstop. All statements plus `touchMartinProjectStatement(db, projectId)` run in one `db.batch`; per-statement `meta.changes` distinguishes inserted (1) from duplicate (0). Duplicates *within* one batch also resolve correctly because statements execute sequentially inside the transaction.
 - Server composes `metadata_json` itself: `{ branch, contract: "stave-sync-v1", staveEventId, workspaceName }`; `source` is always `'stave'`; the client can never set either.
-- Route: `POST /api/hirondelle/stave/projects/:ref/events` — guard with `permissionKey: "hirondelle:edit"`, resolve project, archived ⇒ `errorResponse(c, "project_archived")` (409), bounded read (100_000), `StaveSyncEventsRequestV1Schema.safeParse` ⇒ 400 `invalid_request`, then push + `audit(caller.db, caller.user, "hirondelle.stave_events_pushed", { appSlug: "hirondelle", id, type: "hirondelle_project" }, { connectorId, inserted, duplicates, slug })` (counts only — no summaries in audit metadata).
+- Route: `POST /api/martin/stave/projects/:ref/events` — guard with `permissionKey: "martin:edit"`, resolve project, archived ⇒ `errorResponse(c, "project_archived")` (409), bounded read (100_000), `StaveSyncEventsRequestV1Schema.safeParse` ⇒ 400 `invalid_request`, then push + `audit(caller.db, caller.user, "martin.stave_events_pushed", { appSlug: "martin", id, type: "martin_project" }, { connectorId, inserted, duplicates, slug })` (counts only — no summaries in audit metadata).
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// apps/hirondelle/tests/stave-sync-events.test.ts
+// apps/martin/tests/stave-sync-events.test.ts
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 
-import { registerHirondelleRoutes } from "../src/server/routes.mjs";
+import { registerMartinRoutes } from "../src/server/routes.mjs";
 import {
-  createHirondelleTestDb,
-  seedHirondelleUser,
+  createMartinTestDb,
+  seedMartinUser,
   SESSION_SECRET,
-  type HirondelleTestDb,
+  type MartinTestDb,
 } from "./test-db";
 import { seedStaveConnector, seedStaveProject } from "./stave-sync-test-db";
 
 const EVENT_ID = "0d5a9b3e-7c41-4f2a-9a67-2f8a1c3db901";
 
-describe("Hirondelle Stave events push", () => {
+describe("Martin Stave events push", () => {
   let app: Hono;
-  let db: HirondelleTestDb;
+  let db: MartinTestDb;
   let connector: ReturnType<typeof seedStaveConnector>;
 
   beforeEach(() => {
-    db = createHirondelleTestDb();
-    seedHirondelleUser(db, { id: "editor" });
+    db = createMartinTestDb();
+    seedMartinUser(db, { id: "editor" });
     connector = seedStaveConnector(db, "editor");
     seedStaveProject(db);
     app = new Hono();
-    registerHirondelleRoutes(app, {
+    registerMartinRoutes(app, {
       ATELIER_DB: db,
       SESSION_SECRET,
-      HIRONDELLE_STAVE_SYNC_ENABLED: "true",
+      MARTIN_STAVE_SYNC_ENABLED: "true",
     });
   });
 
@@ -1470,7 +1470,7 @@ describe("Hirondelle Stave events push", () => {
   });
 
   const push = (events: unknown[], slug = "policy-knowledge-toggle") =>
-    app.request(`/api/hirondelle/stave/projects/${slug}/events`, {
+    app.request(`/api/martin/stave/projects/${slug}/events`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${connector.secret}`,
@@ -1502,7 +1502,7 @@ describe("Hirondelle Stave events push", () => {
 
     const rows = db.sqlite
       .query(
-        `select source, kind, metadata_json from hirondelle_change_events
+        `select source, kind, metadata_json from martin_change_events
          where project_id = 'proj-shared' order by kind`,
       )
       .all() as Array<{ source: string; kind: string; metadata_json: string }>;
@@ -1545,11 +1545,11 @@ describe("Hirondelle Stave events push", () => {
     expect(await response.json()).toEqual({ error: "project_archived" });
   });
 
-  test("requires hirondelle:edit", async () => {
+  test("requires martin:edit", async () => {
     db.sqlite
       .query(
         `insert into platform_user_permissions (user_id, permission_key, effect)
-         values ('editor', 'hirondelle:edit', 'deny')`,
+         values ('editor', 'martin:edit', 'deny')`,
       )
       .run();
     expect((await push([makeEvent()])).status).toBe(403);
@@ -1560,17 +1560,17 @@ describe("Hirondelle Stave events push", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-events.test.ts
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-events.test.ts
 ```
 
 Expected failure: `404` on every POST (route not registered).
 
 - [ ] **Step 3: Write minimal implementation**
 
-`apps/hirondelle/src/server/stave-sync-data.mjs` (first half; `mergeStaveLinks` arrives in Task 7):
+`apps/martin/src/server/stave-sync-data.mjs` (first half; `mergeStaveLinks` arrives in Task 7):
 
 ```js
-import { touchHirondelleProjectStatement } from "./data.mjs";
+import { touchMartinProjectStatement } from "./data.mjs";
 import { STAVE_SYNC_CONTRACT } from "./stave-sync-contract.mjs";
 
 /**
@@ -1589,11 +1589,11 @@ function staveEventStatement(db, projectId, event) {
   });
   return db
     .prepare(
-      `insert into hirondelle_change_events
+      `insert into martin_change_events
          (id, project_id, source, kind, summary, source_url, tier, metadata_json)
        select ?, ?, 'stave', ?, ?, ?, ?, ?
        where not exists (
-         select 1 from hirondelle_change_events
+         select 1 from martin_change_events
          where project_id = ?
            and json_extract(metadata_json, '$.staveEventId') = ?
        )`,
@@ -1615,7 +1615,7 @@ export async function pushStaveEvents(db, projectId, events) {
   const statements = events.map((event) =>
     staveEventStatement(db, projectId, event),
   );
-  statements.push(touchHirondelleProjectStatement(db, projectId));
+  statements.push(touchMartinProjectStatement(db, projectId));
   const outcomes = await db.batch(statements);
   return {
     results: events.map((event, index) => ({
@@ -1627,11 +1627,11 @@ export async function pushStaveEvents(db, projectId, events) {
 }
 ```
 
-In `events-data.mjs`, extend `CHANGE_EVENT_SOURCES` (lines 8–15) with `"stave"`. In `route-errors.mjs`, add `project_archived: 409,` to `HIRONDELLE_ERROR_STATUS` (alphabetical, after `not_found`). In `stave-sync-routes.mjs`, add the route inside `registerHirondelleStaveSyncRoutes` (plus `readBoundedJson` and `BODY_LIMITS` from the Task 5 sketch if they were deferred):
+In `events-data.mjs`, extend `CHANGE_EVENT_SOURCES` (lines 8–15) with `"stave"`. In `route-errors.mjs`, add `project_archived: 409,` to `MARTIN_ERROR_STATUS` (alphabetical, after `not_found`). In `stave-sync-routes.mjs`, add the route inside `registerMartinStaveSyncRoutes` (plus `readBoundedJson` and `BODY_LIMITS` from the Task 5 sketch if they were deferred):
 
 ```js
-  app.post("/api/hirondelle/stave/projects/:ref/events", async (c) => {
-    const caller = await requireStaveConnector(c, env, "hirondelle:edit");
+  app.post("/api/martin/stave/projects/:ref/events", async (c) => {
+    const caller = await requireStaveConnector(c, env, "martin:edit");
     if (caller.error) return caller.error;
     const resolved = await resolveProjectForConnector(c, caller);
     if (resolved.error) return resolved.error;
@@ -1654,8 +1654,8 @@ In `events-data.mjs`, extend `CHANGE_EVENT_SOURCES` (lines 8–15) with `"stave"
     await audit(
       caller.db,
       caller.user,
-      "hirondelle.stave_events_pushed",
-      { appSlug: "hirondelle", id: resolved.row.id, type: "hirondelle_project" },
+      "martin.stave_events_pushed",
+      { appSlug: "martin", id: resolved.row.id, type: "martin_project" },
       {
         connectorId: caller.connector.id,
         duplicates: pushed.results.length - inserted,
@@ -1670,13 +1670,13 @@ In `events-data.mjs`, extend `CHANGE_EVENT_SOURCES` (lines 8–15) with `"stave"
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-events.test.ts && bun run --filter @sendbird/hirondelle test
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-events.test.ts && bun run --filter @sendbird/martin test
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd <atelier-repo> && git add apps/hirondelle/src/server/stave-sync-data.mjs apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/src/server/events-data.mjs apps/hirondelle/src/server/route-errors.mjs apps/hirondelle/tests/stave-sync-events.test.ts && git commit -m "feat(hirondelle): accept idempotent stave change event batches
+cd <atelier-repo> && git add apps/martin/src/server/stave-sync-data.mjs apps/martin/src/server/stave-sync-routes.mjs apps/martin/src/server/events-data.mjs apps/martin/src/server/route-errors.mjs apps/martin/tests/stave-sync-events.test.ts && git commit -m "feat(martin): accept idempotent stave change event batches
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -1686,62 +1686,62 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task 7: POST links/merge — server-side merge rules
 
 **Files:**
-- Modify: `apps/hirondelle/src/server/stave-sync-data.mjs` (add `normalizeStaveLinkUrl`, `mergeStaveLinks`)
-- Modify: `apps/hirondelle/src/server/stave-sync-routes.mjs` (add the route)
-- Test: `apps/hirondelle/tests/stave-sync-links.test.ts`
+- Modify: `apps/martin/src/server/stave-sync-data.mjs` (add `normalizeStaveLinkUrl`, `mergeStaveLinks`)
+- Modify: `apps/martin/src/server/stave-sync-routes.mjs` (add the route)
+- Test: `apps/martin/tests/stave-sync-links.test.ts`
 
 **Interfaces:**
-- Produces: `export function normalizeStaveLinkUrl(raw)` — trim, strip `#fragment`, strip trailing slashes (merge identity only; the stored `url` keeps the client's original string). `export async function mergeStaveLinks(db, projectId, links)` → `{ results: [{ url, action: "inserted" | "updated" | "skipped" }] }`. Rules, all in **one** `db.batch` (atomic): unknown normalized URL ⇒ insert with `origin='stave'` at `max(position)+1`; existing row with `origin='stave'` ⇒ update `label`/`note` (+ `updated_at`); existing human row (`origin` NULL) ⇒ skipped; nothing is ever deleted; repeated URL within one payload ⇒ later occurrence skipped. Batch also carries `touchHirondelleProjectStatement`. **No change event is written** — the links section is its own history.
-- Route: `POST /api/hirondelle/stave/projects/:ref/links/merge` — `hirondelle:edit`, archived ⇒ 409 `project_archived`, bounded read (160_000), `StaveSyncLinksMergeRequestV1Schema`, audit `"hirondelle.stave_links_merged"` with `{ connectorId, inserted, updated, skipped, slug }`.
+- Produces: `export function normalizeStaveLinkUrl(raw)` — trim, strip `#fragment`, strip trailing slashes (merge identity only; the stored `url` keeps the client's original string). `export async function mergeStaveLinks(db, projectId, links)` → `{ results: [{ url, action: "inserted" | "updated" | "skipped" }] }`. Rules, all in **one** `db.batch` (atomic): unknown normalized URL ⇒ insert with `origin='stave'` at `max(position)+1`; existing row with `origin='stave'` ⇒ update `label`/`note` (+ `updated_at`); existing human row (`origin` NULL) ⇒ skipped; nothing is ever deleted; repeated URL within one payload ⇒ later occurrence skipped. Batch also carries `touchMartinProjectStatement`. **No change event is written** — the links section is its own history.
+- Route: `POST /api/martin/stave/projects/:ref/links/merge` — `martin:edit`, archived ⇒ 409 `project_archived`, bounded read (160_000), `StaveSyncLinksMergeRequestV1Schema`, audit `"martin.stave_links_merged"` with `{ connectorId, inserted, updated, skipped, slug }`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// apps/hirondelle/tests/stave-sync-links.test.ts
+// apps/martin/tests/stave-sync-links.test.ts
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 
-import { registerHirondelleRoutes } from "../src/server/routes.mjs";
+import { registerMartinRoutes } from "../src/server/routes.mjs";
 import { mergeStaveLinks } from "../src/server/stave-sync-data.mjs";
 import {
-  createHirondelleTestDb,
-  seedHirondelleUser,
+  createMartinTestDb,
+  seedMartinUser,
   SESSION_SECRET,
-  type HirondelleTestDb,
+  type MartinTestDb,
 } from "./test-db";
 import { seedStaveConnector, seedStaveProject } from "./stave-sync-test-db";
 
 const PR_URL = "https://github.com/sendbird/stave/pull/12";
 
-describe("Hirondelle Stave links merge", () => {
+describe("Martin Stave links merge", () => {
   let app: Hono;
-  let db: HirondelleTestDb;
+  let db: MartinTestDb;
   let connector: ReturnType<typeof seedStaveConnector>;
 
   beforeEach(() => {
-    db = createHirondelleTestDb();
-    seedHirondelleUser(db, { id: "editor" });
+    db = createMartinTestDb();
+    seedMartinUser(db, { id: "editor" });
     connector = seedStaveConnector(db, "editor");
     seedStaveProject(db);
     // A pre-existing human link at position 0.
     db.sqlite
       .query(
-        `insert into hirondelle_links (id, project_id, kind, label, url, note, position)
+        `insert into martin_links (id, project_id, kind, label, url, note, position)
          values ('link-human', 'proj-shared', 'prd', 'PRD', 'https://example.test/prd', 'human note', 0)`,
       )
       .run();
     app = new Hono();
-    registerHirondelleRoutes(app, {
+    registerMartinRoutes(app, {
       ATELIER_DB: db,
       SESSION_SECRET,
-      HIRONDELLE_STAVE_SYNC_ENABLED: "true",
+      MARTIN_STAVE_SYNC_ENABLED: "true",
     });
   });
 
   afterEach(() => db.close());
 
   const merge = (links: unknown[]) =>
-    app.request("/api/hirondelle/stave/projects/policy-knowledge-toggle/links/merge", {
+    app.request("/api/martin/stave/projects/policy-knowledge-toggle/links/merge", {
       method: "POST",
       headers: {
         authorization: `Bearer ${connector.secret}`,
@@ -1753,7 +1753,7 @@ describe("Hirondelle Stave links merge", () => {
   const allLinks = () =>
     db.sqlite
       .query(
-        `select id, label, url, note, origin, position from hirondelle_links
+        `select id, label, url, note, origin, position from martin_links
          where project_id = 'proj-shared' order by position`,
       )
       .all() as Array<{ id: string; label: string; url: string; note: string; origin: string | null; position: number }>;
@@ -1818,7 +1818,7 @@ describe("Hirondelle Stave links merge", () => {
 
   test("refuses archived projects", async () => {
     db.sqlite
-      .query("update hirondelle_projects set status = 'archived' where id = 'proj-shared'")
+      .query("update martin_projects set status = 'archived' where id = 'proj-shared'")
       .run();
     expect((await merge([{ kind: "github", label: "PR", url: PR_URL, note: "" }])).status).toBe(409);
   });
@@ -1828,14 +1828,14 @@ describe("Hirondelle Stave links merge", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-links.test.ts
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-links.test.ts
 ```
 
 Expected failure: `mergeStaveLinks` is not exported from `stave-sync-data.mjs` (SyntaxError/undefined), and the route requests 404.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Append to `apps/hirondelle/src/server/stave-sync-data.mjs`:
+Append to `apps/martin/src/server/stave-sync-data.mjs`:
 
 ```js
 const NOW_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
@@ -1857,7 +1857,7 @@ export function normalizeStaveLinkUrl(raw) {
 export async function mergeStaveLinks(db, projectId, links) {
   const { results: existing } = await db
     .prepare(
-      `select id, url, origin, position from hirondelle_links
+      `select id, url, origin, position from martin_links
        where project_id = ? order by position`,
     )
     .bind(projectId)
@@ -1888,7 +1888,7 @@ export async function mergeStaveLinks(db, projectId, links) {
       statements.push(
         db
           .prepare(
-            `insert into hirondelle_links
+            `insert into martin_links
                (id, project_id, kind, label, url, note, origin, position)
              values (?, ?, ?, ?, ?, ?, 'stave', ?)`,
           )
@@ -1908,7 +1908,7 @@ export async function mergeStaveLinks(db, projectId, links) {
       statements.push(
         db
           .prepare(
-            `update hirondelle_links
+            `update martin_links
                set label = ?, note = ?, updated_at = ${NOW_SQL}
              where id = ?`,
           )
@@ -1921,7 +1921,7 @@ export async function mergeStaveLinks(db, projectId, links) {
   }
 
   if (statements.length > 0) {
-    statements.push(touchHirondelleProjectStatement(db, projectId));
+    statements.push(touchMartinProjectStatement(db, projectId));
     await db.batch(statements);
   }
   return { results };
@@ -1931,8 +1931,8 @@ export async function mergeStaveLinks(db, projectId, links) {
 Add the route to `stave-sync-routes.mjs`:
 
 ```js
-  app.post("/api/hirondelle/stave/projects/:ref/links/merge", async (c) => {
-    const caller = await requireStaveConnector(c, env, "hirondelle:edit");
+  app.post("/api/martin/stave/projects/:ref/links/merge", async (c) => {
+    const caller = await requireStaveConnector(c, env, "martin:edit");
     if (caller.error) return caller.error;
     const resolved = await resolveProjectForConnector(c, caller);
     if (resolved.error) return resolved.error;
@@ -1954,8 +1954,8 @@ Add the route to `stave-sync-routes.mjs`:
     await audit(
       caller.db,
       caller.user,
-      "hirondelle.stave_links_merged",
-      { appSlug: "hirondelle", id: resolved.row.id, type: "hirondelle_project" },
+      "martin.stave_links_merged",
+      { appSlug: "martin", id: resolved.row.id, type: "martin_project" },
       { connectorId: caller.connector.id, ...counts, slug: resolved.row.slug },
     );
     return c.json({ contract: STAVE_SYNC_CONTRACT, results: merged.results });
@@ -1965,13 +1965,13 @@ Add the route to `stave-sync-routes.mjs`:
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-cd <atelier-repo> && bun test apps/hirondelle/tests/stave-sync-links.test.ts && bun run --filter @sendbird/hirondelle test
+cd <atelier-repo> && bun test apps/martin/tests/stave-sync-links.test.ts && bun run --filter @sendbird/martin test
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd <atelier-repo> && git add apps/hirondelle/src/server/stave-sync-data.mjs apps/hirondelle/src/server/stave-sync-routes.mjs apps/hirondelle/tests/stave-sync-links.test.ts && git commit -m "feat(hirondelle): merge stave resource links server-side
+cd <atelier-repo> && git add apps/martin/src/server/stave-sync-data.mjs apps/martin/src/server/stave-sync-routes.mjs apps/martin/tests/stave-sync-links.test.ts && git commit -m "feat(martin): merge stave resource links server-side
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -1981,7 +1981,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Task 8: Docs, flag documentation, and final verification gates
 
 **Files:**
-- Modify: `docs/apps/hirondelle.md` (HTTP API section around line 114; Change events section around line 252)
+- Modify: `docs/apps/martin.md` (HTTP API section around line 114; Change events section around line 252)
 - Modify: `docs/apps/crane-stave-connector.md` (Summary + Data Boundary sections)
 - Modify: `.env.example` (after the `CRANE_STAVE_DISPATCH_ENABLED` block, ~line 38)
 
@@ -1992,43 +1992,43 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 `.env.example`, directly under the Crane dispatch block:
 
 ```
-# Hirondelle <-> Stave workspace sync surface. Connector-authenticated
-# /api/hirondelle/stave/* routes; disabled unless explicitly enabled.
-# HIRONDELLE_STAVE_SYNC_ENABLED=false
+# Martin <-> Stave workspace sync surface. Connector-authenticated
+# /api/martin/stave/* routes; disabled unless explicitly enabled.
+# MARTIN_STAVE_SYNC_ENABLED=false
 ```
 
-`docs/apps/hirondelle.md` — add a subsection after the HTTP API table:
+`docs/apps/martin.md` — add a subsection after the HTTP API table:
 
 ```markdown
 ### Stave sync surface (connector-authenticated)
 
-Behind `HIRONDELLE_STAVE_SYNC_ENABLED` (off ⇒ 404), the shell Worker also
+Behind `MARTIN_STAVE_SYNC_ENABLED` (off ⇒ 404), the shell Worker also
 mounts four routes from
-[`apps/hirondelle/src/server/stave-sync-routes.mjs`](../../apps/hirondelle/src/server/stave-sync-routes.mjs).
+[`apps/martin/src/server/stave-sync-routes.mjs`](../../apps/martin/src/server/stave-sync-routes.mjs).
 They are authenticated with the shared Stave desktop connector (`stc_` bearer,
-`hirondelle` scope — see [Connect Crane to Stave](./crane-stave-connector.md)),
+`martin` scope — see [Connect Crane to Stave](./crane-stave-connector.md)),
 never a session cookie. Personal-project privacy follows the connector owner,
 and every write lands a `platform_audit_logs` row. The wire contract is
 `stave-sync-v1`; its fixtures live in
-`apps/hirondelle/tests/fixtures/stave-sync-v1/` and are duplicated in the
+`apps/martin/tests/fixtures/stave-sync-v1/` and are duplicated in the
 Stave repo.
 
 | Method and path                                             | Behavior                                                                                                       | Scope + permission               |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `GET /api/hirondelle/stave/projects`                        | Picker listing (`query`, `limit`); personal projects only for the connector owner.                              | `hirondelle` + `hirondelle:view` |
-| `GET /api/hirondelle/stave/projects/:ref/context-bundle`    | Project, all five sections, 50 recent change events, and the Markdown projection in one response.               | `hirondelle` + `hirondelle:view` |
-| `POST /api/hirondelle/stave/projects/:ref/events`           | Idempotent change-event batch (max 20; deduped on `metadata.staveEventId`); `409 project_archived` when archived. | `hirondelle` + `hirondelle:edit` |
-| `POST /api/hirondelle/stave/projects/:ref/links/merge`      | Server-side links merge: insert `origin='stave'` rows, update stave rows, never touch human rows, never delete. | `hirondelle` + `hirondelle:edit` |
+| `GET /api/martin/stave/projects`                        | Picker listing (`query`, `limit`); personal projects only for the connector owner.                              | `martin` + `martin:view` |
+| `GET /api/martin/stave/projects/:ref/context-bundle`    | Project, all five sections, 50 recent change events, and the Markdown projection in one response.               | `martin` + `martin:view` |
+| `POST /api/martin/stave/projects/:ref/events`           | Idempotent change-event batch (max 20; deduped on `metadata.staveEventId`); `409 project_archived` when archived. | `martin` + `martin:edit` |
+| `POST /api/martin/stave/projects/:ref/links/merge`      | Server-side links merge: insert `origin='stave'` rows, update stave rows, never touch human rows, never delete. | `martin` + `martin:edit` |
 ```
 
 In the "Change events and delivery" section, note the new source: `stave` events are factual pushes from a paired Stave workspace (`pr_opened`, `task_completed`, `workspace_linked`, `workspace_unlinked`) plus opt-in interpretive `work_update` turn summaries, carrying `{ staveEventId, workspaceName, branch, contract }` metadata.
 
-`docs/apps/crane-stave-connector.md` — in Summary and Data Boundary: the pairing exchange now accepts `requestedScopes` (`crane`, `hirondelle`) and grants only the intersection with the permissions the pairing user actually holds; connectors paired before scopes exist remain crane-only, and adding the `hirondelle` scope requires re-pairing (no upgrade endpoint in v1). The data boundary is unchanged: titles, URLs, branch and workspace names only — never file paths, diffs, transcripts, or secrets.
+`docs/apps/crane-stave-connector.md` — in Summary and Data Boundary: the pairing exchange now accepts `requestedScopes` (`crane`, `martin`) and grants only the intersection with the permissions the pairing user actually holds; connectors paired before scopes exist remain crane-only, and adding the `martin` scope requires re-pairing (no upgrade endpoint in v1). The data boundary is unchanged: titles, URLs, branch and workspace names only — never file paths, diffs, transcripts, or secrets.
 
 - [ ] **Step 2: Run the full verification gates**
 
 ```bash
-cd <atelier-repo> && bun run --filter @sendbird/hirondelle check && bun run --filter @sendbird/crane check && bun run check:structure && bun run check:server
+cd <atelier-repo> && bun run --filter @sendbird/martin check && bun run --filter @sendbird/crane check && bun run check:structure && bun run check:server
 ```
 
 Expected: all green. `check:structure` confirms every new file (`stave-sync-routes.mjs`, `stave-sync-data.mjs`, `stave-sync-contract.mjs`, `src/stave-connector/auth.mjs`, migrations, tests) is under the 500-line cap and no dependency cycle was added; `check:server` re-parses the worker with the new registrations.
@@ -2040,7 +2040,7 @@ Expected: all green. `check:structure` confirms every new file (`stave-sync-rout
 - [ ] **Step 5: Commit**
 
 ```bash
-cd <atelier-repo> && git add docs/apps/hirondelle.md docs/apps/crane-stave-connector.md .env.example && git commit -m "docs(hirondelle): document stave sync surface and connector scopes
+cd <atelier-repo> && git add docs/apps/martin.md docs/apps/crane-stave-connector.md .env.example && git commit -m "docs(martin): document stave sync surface and connector scopes
 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ```
@@ -2049,8 +2049,8 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ## Deviations from spec
 
-1. **Three Hirondelle modules instead of one.** The spec names only `stave-sync-routes.mjs`; the plan adds `stave-sync-data.mjs` and `stave-sync-contract.mjs`. `check:structure` caps files at 500 lines, and the repo convention already splits routes from data (`events-data.mjs`, `sections-data.mjs`) and contracts (crane's `stave-dispatch-contract.mjs`).
-2. **Migration rebuild needs a memory-link backup/restore.** Verified empirically: `DROP TABLE hirondelle_change_events` fires `on delete set null` on `hirondelle_memory_entries.change_event_id` even under `PRAGMA defer_foreign_keys`, and D1 cannot run `PRAGMA foreign_keys = off`. Migration 0026 therefore snapshots `(id, change_event_id)` into a temp table before the drop and restores it after the rename — plain sequential SQL, no PRAGMAs, valid on both D1 and the `bun:sqlite` harness.
+1. **Three Martin modules instead of one.** The spec names only `stave-sync-routes.mjs`; the plan adds `stave-sync-data.mjs` and `stave-sync-contract.mjs`. `check:structure` caps files at 500 lines, and the repo convention already splits routes from data (`events-data.mjs`, `sections-data.mjs`) and contracts (crane's `stave-dispatch-contract.mjs`).
+2. **Migration rebuild needs a memory-link backup/restore.** Verified empirically: `DROP TABLE martin_change_events` fires `on delete set null` on `martin_memory_entries.change_event_id` even under `PRAGMA defer_foreign_keys`, and D1 cannot run `PRAGMA foreign_keys = off`. Migration 0026 therefore snapshots `(id, change_event_id)` into a temp table before the drop and restores it after the rename — plain sequential SQL, no PRAGMAs, valid on both D1 and the `bun:sqlite` harness.
 3. **Scopes backfill uses the column default.** `ADD COLUMN … NOT NULL DEFAULT '["crane"]'` backfills existing rows in SQLite; no separate `UPDATE` statement is required (same technique as migration 0024).
 4. **`linkRow`/section-replace round-trip `origin` (Task 2).** Not in the spec, but without it any human edit of the links section (a full delete-and-reinsert in `replaceSection`) would silently convert every stave-origin row to a human row and break the merge rules from then on.
 5. **Crane keeps importing the resolver from `stave-dispatch-auth.mjs`.** The shared implementation lives in `src/stave-connector/auth.mjs`; the crane module re-exports it so `stave-dispatch-routes.mjs` and existing tests need no import changes ("crane routes keep working").
@@ -2060,7 +2060,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 ### Critical Files for Implementation
 
 - <atelier-repo>/apps/crane/src/server/stave-dispatch-auth.mjs
-- <atelier-repo>/apps/hirondelle/src/server/routes.mjs
-- <atelier-repo>/apps/hirondelle/src/server/sections-data.mjs
-- <atelier-repo>/apps/hirondelle/tests/test-db.ts
-- <atelier-repo>/migrations/d1/0022_hirondelle.sql
+- <atelier-repo>/apps/martin/src/server/routes.mjs
+- <atelier-repo>/apps/martin/src/server/sections-data.mjs
+- <atelier-repo>/apps/martin/tests/test-db.ts
+- <atelier-repo>/migrations/d1/0022_martin.sql

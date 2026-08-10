@@ -6,7 +6,7 @@ import {
   StaveSyncLinkV1Schema,
 } from "./contract";
 
-export const HirondelleSyncSettingsSchema = z
+export const MartinSyncSettingsSchema = z
   .object({
     enabled: z.boolean(),
     prOpened: z.boolean(),
@@ -16,11 +16,11 @@ export const HirondelleSyncSettingsSchema = z
   })
   .strict();
 
-export type HirondelleSyncSettings = z.infer<
-  typeof HirondelleSyncSettingsSchema
+export type MartinSyncSettings = z.infer<
+  typeof MartinSyncSettingsSchema
 >;
 
-export interface HirondelleSyncPublicStatus {
+export interface MartinSyncPublicStatus {
   runtimeState:
     | "disabled"
     | "unpaired"
@@ -35,13 +35,13 @@ export interface HirondelleSyncPublicStatus {
   lastDeliveredAt: string | null;
 }
 
-export interface HirondelleSyncMappingStalePayload {
+export interface MartinSyncMappingStalePayload {
   workspaceId: string;
   projectRef: string;
   code: "project_not_found" | "project_archived";
 }
 
-export const DEFAULT_HIRONDELLE_SYNC_SETTINGS: HirondelleSyncSettings =
+export const DEFAULT_MARTIN_SYNC_SETTINGS: MartinSyncSettings =
   Object.freeze({
     enabled: false,
     prOpened: true,
@@ -50,59 +50,59 @@ export const DEFAULT_HIRONDELLE_SYNC_SETTINGS: HirondelleSyncSettings =
     turnSummaries: false,
   });
 
-export function normalizeHirondelleSyncSettings(
+export function normalizeMartinSyncSettings(
   value: unknown,
-): HirondelleSyncSettings {
-  const parsed = HirondelleSyncSettingsSchema.safeParse(value);
+): MartinSyncSettings {
+  const parsed = MartinSyncSettingsSchema.safeParse(value);
   if (parsed.success) return parsed.data;
 
   const source = value && typeof value === "object" ? value : {};
-  const candidate = source as Partial<Record<keyof HirondelleSyncSettings, unknown>>;
+  const candidate = source as Partial<Record<keyof MartinSyncSettings, unknown>>;
   return {
     enabled:
       typeof candidate.enabled === "boolean"
         ? candidate.enabled
-        : DEFAULT_HIRONDELLE_SYNC_SETTINGS.enabled,
+        : DEFAULT_MARTIN_SYNC_SETTINGS.enabled,
     prOpened:
       typeof candidate.prOpened === "boolean"
         ? candidate.prOpened
-        : DEFAULT_HIRONDELLE_SYNC_SETTINGS.prOpened,
+        : DEFAULT_MARTIN_SYNC_SETTINGS.prOpened,
     taskCompleted:
       typeof candidate.taskCompleted === "boolean"
         ? candidate.taskCompleted
-        : DEFAULT_HIRONDELLE_SYNC_SETTINGS.taskCompleted,
+        : DEFAULT_MARTIN_SYNC_SETTINGS.taskCompleted,
     resourceLinks:
       typeof candidate.resourceLinks === "boolean"
         ? candidate.resourceLinks
-        : DEFAULT_HIRONDELLE_SYNC_SETTINGS.resourceLinks,
+        : DEFAULT_MARTIN_SYNC_SETTINGS.resourceLinks,
     turnSummaries:
       typeof candidate.turnSummaries === "boolean"
         ? candidate.turnSummaries
-        : DEFAULT_HIRONDELLE_SYNC_SETTINGS.turnSummaries,
+        : DEFAULT_MARTIN_SYNC_SETTINGS.turnSummaries,
   };
 }
 
-export const HirondelleSyncConfigureArgsSchema = HirondelleSyncSettingsSchema;
+export const MartinSyncConfigureArgsSchema = MartinSyncSettingsSchema;
 
-export const HirondelleListProjectsArgsSchema = z
+export const MartinListProjectsArgsSchema = z
   .object({
     query: z.string().trim().max(200).optional(),
     limit: z.number().int().min(1).max(50).optional(),
   })
   .strict();
 
-export const HirondelleWorkspaceArgsSchema = z
+export const MartinWorkspaceArgsSchema = z
   .object({ workspaceId: z.string().trim().min(1).max(256) })
   .strict();
 
-export const HirondelleLinkProjectArgsSchema = z
+export const MartinLinkProjectArgsSchema = z
   .object({
     workspaceId: z.string().trim().min(1).max(256),
     projectRef: z.string().trim().min(1).max(128),
   })
   .strict();
 
-export const HirondelleSyncEnqueueArgsSchema = z
+export const MartinSyncEnqueueArgsSchema = z
   .object({
     workspaceId: z.string().trim().min(1).max(256),
     projectRef: z.string().trim().min(1).max(128),
@@ -118,7 +118,7 @@ export const HirondelleSyncEnqueueArgsSchema = z
   })
   .strict();
 
-export const HirondelleSyncLinksChangedArgsSchema = z
+export const MartinSyncLinksChangedArgsSchema = z
   .object({
     workspaceId: z.string().trim().min(1).max(256),
     projectRef: z.string().trim().min(1).max(128),
@@ -128,18 +128,18 @@ export const HirondelleSyncLinksChangedArgsSchema = z
   })
   .strict();
 
-export type HirondelleListProjectsArgs = z.infer<
-  typeof HirondelleListProjectsArgsSchema
+export type MartinListProjectsArgs = z.infer<
+  typeof MartinListProjectsArgsSchema
 >;
-export type HirondelleWorkspaceArgs = z.infer<
-  typeof HirondelleWorkspaceArgsSchema
+export type MartinWorkspaceArgs = z.infer<
+  typeof MartinWorkspaceArgsSchema
 >;
-export type HirondelleLinkProjectArgs = z.infer<
-  typeof HirondelleLinkProjectArgsSchema
+export type MartinLinkProjectArgs = z.infer<
+  typeof MartinLinkProjectArgsSchema
 >;
-export type HirondelleSyncEnqueueArgs = z.infer<
-  typeof HirondelleSyncEnqueueArgsSchema
+export type MartinSyncEnqueueArgs = z.infer<
+  typeof MartinSyncEnqueueArgsSchema
 >;
-export type HirondelleSyncLinksChangedArgs = z.infer<
-  typeof HirondelleSyncLinksChangedArgsSchema
+export type MartinSyncLinksChangedArgs = z.infer<
+  typeof MartinSyncLinksChangedArgsSchema
 >;

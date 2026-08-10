@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 
-import { HirondelleSyncOutboxStore } from "../electron/persistence/hirondelle-sync-outbox-store";
+import { MartinSyncOutboxStore } from "../electron/persistence/martin-sync-outbox-store";
 
 const NOW = "2026-08-09T12:00:00.000Z";
 
-describe("HirondelleSyncOutboxStore", () => {
+describe("MartinSyncOutboxStore", () => {
   let database: Database;
-  let store: HirondelleSyncOutboxStore;
+  let store: MartinSyncOutboxStore;
 
   beforeEach(() => {
     database = new Database(":memory:");
-    store = new HirondelleSyncOutboxStore(database);
+    store = new MartinSyncOutboxStore(database);
   });
 
   afterEach(() => database.close());
@@ -32,7 +32,7 @@ describe("HirondelleSyncOutboxStore", () => {
       store.listDue({ now: "2026-08-09T12:01:00.000Z", limit: 10 }),
     ).toMatchObject([{ attempts: 1 }]);
 
-    const restarted = new HirondelleSyncOutboxStore(database);
+    const restarted = new MartinSyncOutboxStore(database);
     expect(
       restarted.listDue({ now: "2026-08-09T12:01:00.000Z", limit: 10 }),
     ).toHaveLength(1);

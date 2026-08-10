@@ -130,7 +130,7 @@ import {
 } from "@/hooks/use-sortable-list";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
-import { WorkspaceInformationHirondelleCard } from "./WorkspaceInformationHirondelleCard";
+import { WorkspaceInformationMartinCard } from "./WorkspaceInformationMartinCard";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 
 // ---------------------------------------------------------------------------
@@ -1657,7 +1657,7 @@ export function WorkspaceInformationPanel() {
     >
       <div className="px-3 py-2">
         <div className="mb-2">
-          <WorkspaceInformationHirondelleCard />
+          <WorkspaceInformationMartinCard />
         </div>
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>

@@ -1,7 +1,7 @@
 import type { WorkspaceInformationState } from "../workspace-information";
 import { StaveSyncLinkV1Schema, type StaveSyncLinkV1 } from "./contract";
 
-export function buildHirondelleSyncLinks(
+export function buildMartinSyncLinks(
   info: WorkspaceInformationState,
 ): StaveSyncLinkV1[] {
   const candidates: unknown[] = [

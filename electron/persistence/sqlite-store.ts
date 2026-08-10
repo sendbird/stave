@@ -50,9 +50,9 @@ import {
   type LocalCraneJobBinding,
 } from "./crane-job-binding-store";
 import {
-  HirondelleSyncOutboxStore,
-  type HirondelleOutboxEntry,
-} from "./hirondelle-sync-outbox-store";
+  MartinSyncOutboxStore,
+  type MartinOutboxEntry,
+} from "./martin-sync-outbox-store";
 import {
   shouldRunFullVacuumMigration,
   type SqliteStorageMetrics,
@@ -191,7 +191,7 @@ export class SqliteStore {
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
-  private hirondelleSyncOutbox: HirondelleSyncOutboxStore;
+  private martinSyncOutbox: MartinSyncOutboxStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -232,7 +232,7 @@ export class SqliteStore {
     this.bootstrap();
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
-    this.hirondelleSyncOutbox = new HirondelleSyncOutboxStore(this.db);
+    this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;
@@ -2864,63 +2864,63 @@ export class SqliteStore {
     return this.craneJobBindings.pruneTerminalBefore(cutoff);
   }
 
-  enqueueHirondelleOutboxEntry(input: {
+  enqueueMartinOutboxEntry(input: {
     workspaceId: string;
     projectRef: string;
     kind: "event";
     payloadJson: string;
     now: string;
   }) {
-    return this.hirondelleSyncOutbox.enqueue(input);
+    return this.martinSyncOutbox.enqueue(input);
   }
 
-  upsertHirondelleLinksMergeEntry(input: {
+  upsertMartinLinksMergeEntry(input: {
     workspaceId: string;
     projectRef: string;
     payloadJson: string;
     nextAttemptAt: string;
     now: string;
   }) {
-    return this.hirondelleSyncOutbox.upsertLinksMerge(input);
+    return this.martinSyncOutbox.upsertLinksMerge(input);
   }
 
-  listDueHirondelleOutboxEntries(args: {
+  listDueMartinOutboxEntries(args: {
     now: string;
     limit: number;
-  }): HirondelleOutboxEntry[] {
-    return this.hirondelleSyncOutbox.listDue(args);
+  }): MartinOutboxEntry[] {
+    return this.martinSyncOutbox.listDue(args);
   }
 
-  markHirondelleOutboxDelivered(id: string, deliveredAt: string) {
-    this.hirondelleSyncOutbox.markDelivered(id, deliveredAt);
+  markMartinOutboxDelivered(id: string, deliveredAt: string) {
+    this.martinSyncOutbox.markDelivered(id, deliveredAt);
   }
 
-  markHirondelleOutboxRetry(
+  markMartinOutboxRetry(
     id: string,
     attempts: number,
     nextAttemptAt: string,
   ) {
-    this.hirondelleSyncOutbox.markRetry(id, attempts, nextAttemptAt);
+    this.martinSyncOutbox.markRetry(id, attempts, nextAttemptAt);
   }
 
-  markHirondelleOutboxFailed(id: string) {
-    this.hirondelleSyncOutbox.markFailed(id);
+  markMartinOutboxFailed(id: string) {
+    this.martinSyncOutbox.markFailed(id);
   }
 
-  setHirondelleOutboxWorkspaceHeld(workspaceId: string, held: boolean) {
-    return this.hirondelleSyncOutbox.setWorkspaceHeld(workspaceId, held);
+  setMartinOutboxWorkspaceHeld(workspaceId: string, held: boolean) {
+    return this.martinSyncOutbox.setWorkspaceHeld(workspaceId, held);
   }
 
-  retryFailedHirondelleOutboxEntries() {
-    return this.hirondelleSyncOutbox.retryFailed();
+  retryFailedMartinOutboxEntries() {
+    return this.martinSyncOutbox.retryFailed();
   }
 
-  countHirondelleOutbox() {
-    return this.hirondelleSyncOutbox.counts();
+  countMartinOutbox() {
+    return this.martinSyncOutbox.counts();
   }
 
-  pruneHirondelleOutboxDeliveredBefore(cutoff: string) {
-    return this.hirondelleSyncOutbox.pruneDeliveredBefore(cutoff);
+  pruneMartinOutboxDeliveredBefore(cutoff: string) {
+    return this.martinSyncOutbox.pruneDeliveredBefore(cutoff);
   }
 
   getStorageMetrics(): SqliteStorageMetrics {
