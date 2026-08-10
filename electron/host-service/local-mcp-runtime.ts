@@ -103,6 +103,10 @@ import {
   MANAGED_TASK_STOP_NOTICE,
   reconcileTasksWithPersistedArchival,
 } from "../../src/lib/tasks";
+import {
+  MANAGED_TASK_APPROVAL_TIMEOUT_MS,
+  resolveManagedTaskRuntimeOptions,
+} from "../../src/lib/providers/managed-task-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
@@ -1533,6 +1537,98 @@ async function persistApprovalNotification(args: {
   });
 }
 
+/**
+ * Pending auto-deny deadlines for approvals raised inside a managed task,
+ * keyed by `${turnId}:${requestId}`.
+ */
+const managedApprovalAutoDenyTimers = new Map<string, NodeJS.Timeout>();
+
+function managedApprovalAutoDenyKey(args: {
+  turnId: string;
+  requestId: string;
+}) {
+  return `${args.turnId}:${args.requestId}`;
+}
+
+function clearManagedApprovalAutoDeny(args: {
+  turnId: string;
+  requestId?: string;
+}) {
+  if (args.requestId) {
+    const key = managedApprovalAutoDenyKey({
+      turnId: args.turnId,
+      requestId: args.requestId,
+    });
+    const timer = managedApprovalAutoDenyTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      managedApprovalAutoDenyTimers.delete(key);
+    }
+    return;
+  }
+  const prefix = `${args.turnId}:`;
+  for (const [key, timer] of managedApprovalAutoDenyTimers) {
+    if (key.startsWith(prefix)) {
+      clearTimeout(timer);
+      managedApprovalAutoDenyTimers.delete(key);
+    }
+  }
+}
+
+/**
+ * Arms the deadlock guard for a managed task's approval.
+ *
+ * Managed tasks intentionally raise no approval notification, so a prompt-mode
+ * approval can sit unanswered forever and the summoning agent never hears back.
+ * Denying after the deadline turns that silent hang into a tool error the
+ * running agent can report on.
+ */
+function scheduleManagedApprovalAutoDeny(args: {
+  workspaceId: string;
+  taskId: string;
+  turnId: string;
+  event: Extract<NormalizedProviderEvent, { type: "approval" }>;
+  session: WorkspaceSessionState;
+}) {
+  const task =
+    args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
+    null;
+  if (!task || !isExternallyManagedTask(task)) {
+    return;
+  }
+  const key = managedApprovalAutoDenyKey({
+    turnId: args.turnId,
+    requestId: args.event.requestId,
+  });
+  if (managedApprovalAutoDenyTimers.has(key)) {
+    return;
+  }
+  const timer = setTimeout(() => {
+    managedApprovalAutoDenyTimers.delete(key);
+    console.warn("[stave-mcp] auto-denying unanswered managed approval", {
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      turnId: args.turnId,
+      requestId: args.event.requestId,
+      toolName: args.event.toolName,
+    });
+    void respondApproval({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      requestId: args.event.requestId,
+      approved: false,
+    }).catch((error) => {
+      console.warn("[stave-mcp] managed approval auto-deny failed", error, {
+        workspaceId: args.workspaceId,
+        taskId: args.taskId,
+        requestId: args.event.requestId,
+      });
+    });
+  }, MANAGED_TASK_APPROVAL_TIMEOUT_MS);
+  timer.unref?.();
+  managedApprovalAutoDenyTimers.set(key, timer);
+}
+
 async function persistUserInputNotification(args: {
   workspaceId: string;
   taskId: string;
@@ -1694,6 +1790,13 @@ async function handleProviderEvent(args: {
   });
 
   if (args.event.type === "approval") {
+    scheduleManagedApprovalAutoDeny({
+      workspaceId: args.workspaceId,
+      taskId: args.taskId,
+      turnId: args.turnId,
+      event: args.event,
+      session: applied.session,
+    });
     await persistApprovalNotification({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
@@ -1714,6 +1817,7 @@ async function handleProviderEvent(args: {
     });
   }
   if (args.event.type === "done") {
+    clearManagedApprovalAutoDeny({ turnId: args.turnId });
     await persistTurnCompletedNotification({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
@@ -2262,7 +2366,14 @@ export async function runTask(args: {
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
       runtimeOptions: {
-        ...args.runtimeOptions,
+        ...(isExternallyManagedTask(task)
+          ? resolveManagedTaskRuntimeOptions({
+              providerId: provider,
+              ...(args.runtimeOptions
+                ? { runtimeOptions: args.runtimeOptions }
+                : {}),
+            })
+          : args.runtimeOptions),
         model,
       },
     },
@@ -2640,6 +2751,10 @@ export async function respondApproval(args: {
       throw new Error(`Pending approval not found: ${args.requestId}`);
     }
 
+    clearManagedApprovalAutoDeny({
+      turnId: activeTurnId,
+      requestId: args.requestId,
+    });
     const result = await providerRuntime.respondApproval({
       turnId: activeTurnId,
       requestId: args.requestId,

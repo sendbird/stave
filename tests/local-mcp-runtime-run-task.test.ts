@@ -362,6 +362,35 @@ describe("local MCP runtime runTask", () => {
     expect(startTurnStreamCalls).toHaveLength(1);
   });
 
+  test("runs an externally managed task without interactive approvals", async () => {
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Run this unattended",
+      runtimeOptions: { claudePermissionMode: "auto" },
+    });
+
+    expect(startTurnStreamCalls.at(-1)).toMatchObject({
+      runtimeOptions: {
+        claudePermissionMode: "bypassPermissions",
+        claudeAllowDangerouslySkipPermissions: true,
+      },
+    });
+  });
+
+  test("leaves interactive task runtime options untouched", async () => {
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Run this with me watching",
+      controlMode: "interactive",
+      controlOwner: "stave",
+      runtimeOptions: { claudePermissionMode: "auto" },
+    });
+
+    expect(startTurnStreamCalls.at(-1)).toMatchObject({
+      runtimeOptions: { claudePermissionMode: "auto" },
+    });
+  });
+
   test("signals renderer sync only after host task state is persisted", async () => {
     const updates: Array<{
       workspaceId: string;
