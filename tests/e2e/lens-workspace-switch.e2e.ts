@@ -256,29 +256,40 @@ test("workspace switch with an open Lens keeps the active task surface visible",
   const automaticLensSurface = page.getByTestId("lens-surface-panel");
   await expect(automaticLensSurface).toBeVisible();
   await expect(sessionArea).toBeVisible();
-  const lensSplitBorderColor = await automaticLensSurface.evaluate(
-    (element) => {
-      const lensRect = element.getBoundingClientRect();
-      const view = Array.from(document.querySelectorAll<HTMLElement>(
-        ".dv-view",
-      )).find((candidate) => {
-        const candidateRect = candidate.getBoundingClientRect();
-        return (
-          Math.abs(candidateRect.left - lensRect.left) < 1 &&
-          Math.abs(candidateRect.width - lensRect.width) < 1
-        );
-      });
-      return view
-        ? {
-            isLensBoundary: view.hasAttribute("data-lens-split-boundary"),
-            separatorColor: getComputedStyle(view, "::before").backgroundColor,
-          }
-        : null;
-    },
-  );
-  expect(lensSplitBorderColor).toEqual({
-    isLensBoundary: true,
-    separatorColor: "rgba(0, 0, 0, 0)",
+  const lensSplitBorder = await automaticLensSurface.evaluate((element) => {
+    const lensRect = element.getBoundingClientRect();
+    const view = Array.from(
+      document.querySelectorAll<HTMLElement>(".dv-view"),
+    ).find((candidate) => {
+      const candidateRect = candidate.getBoundingClientRect();
+      return (
+        Math.abs(candidateRect.left - lensRect.left) < 1 &&
+        Math.abs(candidateRect.width - lensRect.width) < 1
+      );
+    });
+    if (!view) {
+      return null;
+    }
+    const separatorView = view.previousElementSibling
+      ? view
+      : view.nextElementSibling;
+    if (!(separatorView instanceof HTMLElement)) {
+      return null;
+    }
+    const separatorStyle = getComputedStyle(separatorView, "::before");
+    const themeBorder = getComputedStyle(
+      document.documentElement,
+    ).getPropertyValue("--border");
+    return {
+      side: separatorView === view ? "left" : "right",
+      separatorWidth: separatorStyle.width,
+      usesThemeBorder: separatorStyle.backgroundColor === themeBorder.trim(),
+    };
+  });
+  expect(lensSplitBorder).toEqual({
+    side: "left",
+    separatorWidth: "1px",
+    usesThemeBorder: true,
   });
   const [taskBounds, lensBounds, taskGroupIsActive] = await Promise.all([
     sessionArea.boundingBox(),
@@ -297,9 +308,6 @@ test("workspace switch with an open Lens keeps the active task surface visible",
     .getByRole("button", { name: "close-pane-lens:automatic-lens" })
     .click();
   await expect(automaticLensSurface).toHaveCount(0);
-  await expect(
-    page.locator(".dv-view[data-lens-split-boundary]"),
-  ).toHaveCount(0);
 
   await page.evaluate(() => {
     const target = window as unknown as {
