@@ -106,6 +106,7 @@ import {
   type ClaudeMcpConfigDiagnostic,
 } from "./claude-mcp-config";
 import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
+import { isAlwaysAllowedStaveLocalMcpTool } from "./stave-local-mcp-approval";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 
 /**
@@ -166,38 +167,6 @@ const CLAUDE_READ_ONLY_BUILTIN_TOOL_NAMES = new Set([
   "bashoutput",
   "todoread",
   "todowrite",
-]);
-const CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES = new Set([
-  "stave_get_workspace_information",
-  "stave_replace_workspace_notes",
-  "stave_append_workspace_notes",
-  "stave_clear_workspace_notes",
-  "stave_add_workspace_todo",
-  "stave_update_workspace_todo",
-  "stave_remove_workspace_todo",
-  "stave_add_workspace_resource",
-  "stave_remove_workspace_resource",
-  "stave_add_workspace_jira_issue",
-  "stave_add_workspace_confluence_page",
-  "stave_add_workspace_storybook_resource",
-  "stave_update_workspace_storybook_resource_access",
-  "stave_add_workspace_figma_resource",
-  "stave_add_workspace_slack_thread",
-  "stave_add_workspace_amplify_link",
-  "stave_add_workspace_custom_field",
-  "stave_set_workspace_custom_field",
-  "stave_remove_workspace_custom_field",
-  "stave_list_routines",
-  "stave_create_routine",
-  "stave_update_routine",
-  "stave_remove_routine",
-  "stave_set_routine_enabled",
-  "stave_list_routine_information_references",
-  "stave_create_routine_information_resource",
-  // Reading delegation state is safe. Creating a child task and stopping one
-  // are not, so `stave_delegate_task` and `stave_stop_child_task` stay on the
-  // approval path alongside `stave_run_task`.
-  "stave_list_child_tasks",
 ]);
 const STAVE_LOCAL_MCP_TOOL_PREFIX = "mcp__stave-local-mcp__";
 /**
@@ -773,9 +742,7 @@ export function resolveClaudePermissionModeDecision(args: {
   if (CLAUDE_AUTO_ALLOWED_TOOL_NAMES.has(normalizedToolName)) {
     return "allow" as const;
   }
-  const leafToolName =
-    normalizedToolName.split("__").at(-1) ?? normalizedToolName;
-  if (CLAUDE_AUTO_ALLOWED_MCP_TOOL_NAMES.has(leafToolName)) {
+  if (isAlwaysAllowedStaveLocalMcpTool(normalizedToolName)) {
     return "allow" as const;
   }
   if (

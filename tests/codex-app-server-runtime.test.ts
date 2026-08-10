@@ -585,6 +585,95 @@ describe("mapCodexElicitationToUserInput", () => {
     ).toBe(false);
   });
 
+  test("auto-approves always-allowed Stave tools even when the flag is off, matching Claude", () => {
+    const buildParams = (toolName: string) => ({
+      mode: "form",
+      serverName: "stave-local",
+      message: `Allow the stave-local MCP server to run tool "${toolName}"?`,
+      requestedSchema: { type: "object", properties: {} },
+      _meta: { codex_approval_kind: "mcp_tool_call", tool_name: toolName },
+    });
+
+    // Read-only / workspace-metadata tools: allowed in every posture, exactly
+    // as `resolveClaudePermissionModeDecision` allows them in every mode.
+    for (const toolName of [
+      "stave_list_child_tasks",
+      "stave_get_workspace_information",
+      "stave_append_workspace_notes",
+    ]) {
+      expect(
+        shouldAutoApproveStaveLocalMcpElicitation({
+          enabled: false,
+          params: buildParams(toolName),
+        }),
+      ).toBe(true);
+      expect(
+        shouldAutoApproveStaveLocalMcpElicitation({
+          enabled: true,
+          params: buildParams(toolName),
+        }),
+      ).toBe(true);
+    }
+
+    // Agent-starting / agent-stopping tools keep following the run's posture.
+    for (const toolName of [
+      "stave_delegate_task",
+      "stave_stop_child_task",
+      "stave_run_task",
+    ]) {
+      expect(
+        shouldAutoApproveStaveLocalMcpElicitation({
+          enabled: false,
+          params: buildParams(toolName),
+        }),
+      ).toBe(false);
+      expect(
+        shouldAutoApproveStaveLocalMcpElicitation({
+          enabled: true,
+          params: buildParams(toolName),
+        }),
+      ).toBe(true);
+    }
+  });
+
+  test("decodes namespaced tool names and falls back to prompting when undecodable", () => {
+    const withToolName = (toolName: string) => ({
+      mode: "form",
+      serverName: "stave-local",
+      message: "Allow this tool?",
+      requestedSchema: { type: "object", properties: {} },
+      _meta: { codex_approval_kind: "mcp_tool_call", tool_name: toolName },
+    });
+
+    for (const decorated of [
+      "stave-local__stave_list_child_tasks",
+      "stave-local.stave_list_child_tasks",
+      "  STAVE_LIST_CHILD_TASKS  ",
+    ]) {
+      expect(
+        shouldAutoApproveStaveLocalMcpElicitation({
+          enabled: false,
+          params: withToolName(decorated),
+        }),
+      ).toBe(true);
+    }
+
+    // No parseable tool name: Codex's inference yields "MCP tool", which is in
+    // no allowlist, so the request must still reach the user.
+    expect(
+      shouldAutoApproveStaveLocalMcpElicitation({
+        enabled: false,
+        params: {
+          mode: "form",
+          serverName: "stave-local",
+          message: "Allow this tool?",
+          requestedSchema: { type: "object", properties: {} },
+          _meta: { codex_approval_kind: "mcp_tool_call" },
+        },
+      }),
+    ).toBe(false);
+  });
+
   test("keeps generic empty-form elicitation as submit-or-decline user input", () => {
     const mapped = mapCodexElicitationToUserInput({
       mode: "form",

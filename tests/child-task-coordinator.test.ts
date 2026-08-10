@@ -528,6 +528,37 @@ describe("child permission profiles", () => {
     ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
   });
 
+  test("an unattended child can answer Stave MCP prompts on both providers", () => {
+    // Nobody is watching a child run, so neither provider may leave it sitting
+    // on an approval prompt. Claude expresses that as a permission-mode bypass;
+    // Codex needs the elicitation auto-approve flag on top of its approval
+    // policy, because elicitation is a separate channel that `never` does not
+    // cover and an unanswered request is auto-declined on timeout.
+    expect(
+      buildChildTaskRuntimeOptions({
+        providerId: "codex",
+        permissionProfile: "auto",
+      }),
+    ).toMatchObject({
+      codexApprovalPolicy: "never",
+      codexAutoApproveStaveLocalMcpTools: true,
+    });
+    expect(
+      buildChildTaskRuntimeOptions({
+        providerId: "claude-code",
+        permissionProfile: "auto",
+      }),
+    ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
+
+    // Supervised profiles must not gain the flag: those children are meant to
+    // surface their approvals.
+    for (const permissionProfile of ["guided", "manual"] as const) {
+      expect(
+        buildChildTaskRuntimeOptions({ providerId: "codex", permissionProfile }),
+      ).not.toMatchObject({ codexAutoApproveStaveLocalMcpTools: true });
+    }
+  });
+
   test("no secret binding can reach a child through its profile", () => {
     for (const permissionProfile of ["auto", "guided", "manual"] as const) {
       for (const providerId of ["claude-code", "codex"] as const) {
