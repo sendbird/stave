@@ -68,8 +68,9 @@ than factual.
 - `Turn summaries`: sends model-written work summaries. It is off by default.
 - `Retry failed`: returns failed outbox items to the delivery queue.
 - `Refresh`: pulls the latest project context and rewrites the local snapshot.
-- `Unlink`: removes the workspace-to-project mapping. It does not delete the
-  Martin project or its existing data.
+- `Unlink`: removes the workspace-to-project mapping and discards that
+  project's undelivered outbox items. It does not delete the Martin project or
+  its existing data.
 
 ## Common Workflows
 
@@ -125,11 +126,17 @@ metadata.
 - One Stave workspace can link to one Martin project at a time.
 - Sync does not reverse-merge Martin links into Stave's Information
   resources. `Refresh` updates the context snapshot only.
-- A missing or archived project marks the mapping as stale and holds outbound
-  items for that workspace. Relink to an active project or unlink the stale
-  mapping before delivery can resume.
+- A missing or archived project marks the mapping as stale and holds the
+  outbound items queued for that project. Items queued for a different project
+  are unaffected. Relinking discards the stale project's items so the new
+  mapping starts clean; unlinking discards them outright.
+- `Refresh` on an archived project rewrites the context snapshot but keeps the
+  mapping stale, because Martin still rejects every write.
 - Link mirroring inserts or updates Stave-origin links in Martin. It does
   not delete links or overwrite links maintained by people in Martin.
+- Link mirroring sends at most 50 links per merge. A workspace above that
+  keeps the highest-priority entries, ordered pull requests, Figma, Slack,
+  then the remaining resource types.
 - Turning off the master switch stops delivery but does not discard queued
   items.
 

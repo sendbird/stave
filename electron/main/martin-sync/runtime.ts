@@ -29,9 +29,7 @@ const MARTIN_SYNC_DRAIN_LIMIT = 50;
 
 const LinksMergePayloadSchema = z
   .object({
-    links: z
-      .array(StaveSyncLinkV1Schema)
-      .max(STAVE_SYNC_LIMITS.linksPerMerge),
+    links: z.array(StaveSyncLinkV1Schema).max(STAVE_SYNC_LIMITS.linksPerMerge),
   })
   .strict();
 
@@ -66,7 +64,13 @@ export interface MartinSyncOutboxPersistence {
   setMartinOutboxWorkspaceHeld(
     workspaceId: string,
     held: boolean,
+    projectRef?: string,
   ): number;
+  discardMartinOutboxWorkspaceEntries(args: {
+    workspaceId: string;
+    projectRef?: string;
+    exceptProjectRef?: string;
+  }): number;
   retryFailedMartinOutboxEntries(): number;
   countMartinOutbox(): { pending: number; failed: number };
 }
@@ -85,10 +89,7 @@ interface MartinSyncRuntimeDependencies {
   emitMappingStale: (args: MartinSyncMappingStalePayload) => void;
   now?: () => Date;
   random?: () => number;
-  setTimer?: (
-    callback: () => void,
-    delayMs: number,
-  ) => NodeJS.Timeout;
+  setTimer?: (callback: () => void, delayMs: number) => NodeJS.Timeout;
   clearTimer?: (timer: NodeJS.Timeout) => void;
 }
 
@@ -105,13 +106,14 @@ interface DrainFailure {
 
 function errorCode(error: unknown) {
   if (error instanceof AtelierConnectorHttpError) return error.code;
-  if (
-    error instanceof Error &&
-    /^[a-z][a-z0-9_]*$/.test(error.message)
-  ) {
+  if (error instanceof Error && /^[a-z][a-z0-9_]*$/.test(error.message)) {
     return error.message;
   }
   return "sync_error";
+}
+
+function mappingKey(workspaceId: string, projectRef: string) {
+  return `${workspaceId}\u0000${projectRef}`;
 }
 
 function splitIntoBatches<T>(values: T[], size: number): T[][] {
@@ -132,9 +134,7 @@ export class MartinSyncRuntime {
   private generation = 0;
   private operationQueue: Promise<void> = Promise.resolve();
 
-  constructor(
-    private readonly dependencies: MartinSyncRuntimeDependencies,
-  ) {
+  constructor(private readonly dependencies: MartinSyncRuntimeDependencies) {
     const counts = dependencies.persistence.countMartinOutbox();
     this.status = {
       runtimeState: "disabled",
@@ -197,9 +197,7 @@ export class MartinSyncRuntime {
     projectRef: string;
     links: StaveSyncLinkV1[];
   }): void {
-    const links = args.links.map((link) =>
-      StaveSyncLinkV1Schema.parse(link),
-    );
+    const links = args.links.map((link) => StaveSyncLinkV1Schema.parse(link));
     if (links.length > STAVE_SYNC_LIMITS.linksPerMerge) {
       throw new Error("too_many_martin_links");
     }
@@ -226,21 +224,40 @@ export class MartinSyncRuntime {
     this.schedule(0);
   }
 
-  holdWorkspace(workspaceId: string): void {
+  holdWorkspace(workspaceId: string, projectRef?: string): void {
     this.dependencies.persistence.setMartinOutboxWorkspaceHeld(
       workspaceId,
       true,
+      projectRef,
     );
     this.setStatus(this.getCountsPatch());
   }
 
-  resumeWorkspace(workspaceId: string): void {
+  resumeWorkspace(workspaceId: string, projectRef?: string): void {
     this.dependencies.persistence.setMartinOutboxWorkspaceHeld(
       workspaceId,
       false,
+      projectRef,
     );
     this.setStatus(this.getCountsPatch());
     this.schedule(0);
+  }
+
+  /**
+   * Drops undelivered rows that a relink or unlink made undeliverable. Without
+   * this, rows aimed at a removed project keep failing with 404/409 forever:
+   * those responses never increment attempts, so they never dead-letter and
+   * `retryFailed` cannot reach them either.
+   */
+  discardWorkspaceEntries(args: {
+    workspaceId: string;
+    projectRef?: string;
+    exceptProjectRef?: string;
+  }): number {
+    const discarded =
+      this.dependencies.persistence.discardMartinOutboxWorkspaceEntries(args);
+    if (discarded > 0) this.setStatus(this.getCountsPatch());
+    return discarded;
   }
 
   shutdown(): void {
@@ -281,11 +298,10 @@ export class MartinSyncRuntime {
     }
 
     const now = this.now();
-    const due =
-      this.dependencies.persistence.listDueMartinOutboxEntries({
-        now: now.toISOString(),
-        limit: MARTIN_SYNC_DRAIN_LIMIT,
-      });
+    const due = this.dependencies.persistence.listDueMartinOutboxEntries({
+      now: now.toISOString(),
+      limit: MARTIN_SYNC_DRAIN_LIMIT,
+    });
     if (due.length === 0) {
       const counts = this.dependencies.persistence.countMartinOutbox();
       this.setStatus({
@@ -309,13 +325,15 @@ export class MartinSyncRuntime {
     const client = this.dependencies.createHttpClient(credential.baseUrl);
     const eventBatches = this.buildEventBatches(due);
     const linksRows = due.filter((entry) => entry.kind === "links_merge");
-    const heldWorkspaces = new Set<string>();
+    const heldMappings = new Set<string>();
     let failure: DrainFailure | null = null;
     let minimumRetryDelay: number | null = null;
     let lastDeliveredAt = this.status.lastDeliveredAt;
 
     for (const batch of eventBatches) {
-      if (heldWorkspaces.has(batch.workspaceId)) continue;
+      if (heldMappings.has(mappingKey(batch.workspaceId, batch.projectRef))) {
+        continue;
+      }
       try {
         const events = batch.rows.map((row) =>
           StaveSyncEventV1Schema.parse(JSON.parse(row.payloadJson)),
@@ -340,7 +358,7 @@ export class MartinSyncRuntime {
         const result = this.handleDeliveryError(error, batch.rows);
         if (result.stop) return;
         if (result.mappingStale) {
-          heldWorkspaces.add(batch.workspaceId);
+          heldMappings.add(mappingKey(batch.workspaceId, batch.projectRef));
         }
         failure = result.failure ?? failure;
         if (result.retryDelay !== null) {
@@ -353,7 +371,9 @@ export class MartinSyncRuntime {
     }
 
     for (const row of linksRows) {
-      if (heldWorkspaces.has(row.workspaceId)) continue;
+      if (heldMappings.has(mappingKey(row.workspaceId, row.projectRef))) {
+        continue;
+      }
       try {
         const payload = LinksMergePayloadSchema.parse(
           JSON.parse(row.payloadJson),
@@ -413,9 +433,7 @@ export class MartinSyncRuntime {
     }
   }
 
-  private buildEventBatches(
-    entries: MartinOutboxEntry[],
-  ): EventBatch[] {
+  private buildEventBatches(entries: MartinOutboxEntry[]): EventBatch[] {
     const groups = new Map<
       string,
       {
@@ -427,7 +445,7 @@ export class MartinSyncRuntime {
     for (const entry of entries) {
       switch (entry.kind) {
         case "event": {
-          const key = `${entry.workspaceId}\u0000${entry.projectRef}`;
+          const key = mappingKey(entry.workspaceId, entry.projectRef);
           const group = groups.get(key) ?? {
             workspaceId: entry.workspaceId,
             projectRef: entry.projectRef,
@@ -536,9 +554,7 @@ export class MartinSyncRuntime {
         new Date(this.now().getTime() + delay).toISOString(),
       );
       minimumRetryDelay =
-        minimumRetryDelay === null
-          ? delay
-          : Math.min(minimumRetryDelay, delay);
+        minimumRetryDelay === null ? delay : Math.min(minimumRetryDelay, delay);
     }
     return {
       stop: false,
@@ -587,13 +603,16 @@ export class MartinSyncRuntime {
       (this.dependencies.clearTimer ?? clearTimeout)(this.timer);
     }
     const generation = this.generation;
-    this.timer = (this.dependencies.setTimer ?? setTimeout)(() => {
-      this.timer = null;
-      if (generation !== this.generation || !this.settings.enabled) {
-        return;
-      }
-      void this.enqueue(() => this.drain());
-    }, Math.max(0, delayMs));
+    this.timer = (this.dependencies.setTimer ?? setTimeout)(
+      () => {
+        this.timer = null;
+        if (generation !== this.generation || !this.settings.enabled) {
+          return;
+        }
+        void this.enqueue(() => this.drain());
+      },
+      Math.max(0, delayMs),
+    );
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {

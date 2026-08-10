@@ -73,9 +73,9 @@ describe("MartinSyncOutboxStore", () => {
       now: NOW,
     });
     store.markFailed(entry.id);
-    expect(store.listDue({ now: "9999-01-01T00:00:00.000Z", limit: 10 })).toEqual(
-      [],
-    );
+    expect(
+      store.listDue({ now: "9999-01-01T00:00:00.000Z", limit: 10 }),
+    ).toEqual([]);
     expect(store.counts()).toEqual({ pending: 0, failed: 1 });
     expect(store.retryFailed()).toBe(1);
     expect(store.counts()).toEqual({ pending: 1, failed: 0 });
@@ -100,6 +100,149 @@ describe("MartinSyncOutboxStore", () => {
     ]);
     expect(store.setWorkspaceHeld("workspace-1", false)).toBe(1);
     expect(store.listDue({ now: NOW, limit: 10 })).toHaveLength(2);
+  });
+
+  test("holds and resumes a single project inside one workspace", () => {
+    for (const projectRef of ["old-project", "new-project"]) {
+      store.enqueue({
+        workspaceId: "workspace-1",
+        projectRef,
+        kind: "event",
+        payloadJson: "{}",
+        now: NOW,
+      });
+    }
+
+    expect(store.setWorkspaceHeld("workspace-1", true, "old-project")).toBe(1);
+    expect(store.listDue({ now: NOW, limit: 10 })).toMatchObject([
+      { projectRef: "new-project" },
+    ]);
+
+    expect(store.setWorkspaceHeld("workspace-1", false, "new-project")).toBe(0);
+    expect(store.listDue({ now: NOW, limit: 10 })).toMatchObject([
+      { projectRef: "new-project" },
+    ]);
+
+    expect(store.setWorkspaceHeld("workspace-1", false, "old-project")).toBe(1);
+    expect(store.listDue({ now: NOW, limit: 10 })).toHaveLength(2);
+  });
+
+  test("discards undelivered rows for a project without touching others", () => {
+    for (const projectRef of ["old-project", "new-project"]) {
+      store.enqueue({
+        workspaceId: "workspace-1",
+        projectRef,
+        kind: "event",
+        payloadJson: "{}",
+        now: NOW,
+      });
+    }
+    const other = store.enqueue({
+      workspaceId: "workspace-2",
+      projectRef: "old-project",
+      kind: "event",
+      payloadJson: "{}",
+      now: NOW,
+    });
+    const delivered = store.enqueue({
+      workspaceId: "workspace-1",
+      projectRef: "old-project",
+      kind: "event",
+      payloadJson: "{}",
+      now: NOW,
+    });
+    store.markDelivered(delivered.id, NOW);
+
+    expect(
+      store.discardWorkspaceEntries({
+        workspaceId: "workspace-1",
+        projectRef: "old-project",
+      }),
+    ).toBe(1);
+    expect(
+      store
+        .listDue({ now: NOW, limit: 10 })
+        .map((entry) => `${entry.workspaceId}/${entry.projectRef}`)
+        .sort(),
+    ).toEqual(["workspace-1/new-project", "workspace-2/old-project"]);
+    expect(store.counts()).toEqual({ pending: 2, failed: 0 });
+    expect(other.id).toBeTruthy();
+  });
+
+  test("discards every project except the newly linked one, including held rows", () => {
+    for (const projectRef of ["stale-a", "stale-b", "new-project"]) {
+      store.enqueue({
+        workspaceId: "workspace-1",
+        projectRef,
+        kind: "event",
+        payloadJson: "{}",
+        now: NOW,
+      });
+    }
+    store.setWorkspaceHeld("workspace-1", true, "stale-a");
+    store.markFailed(
+      store
+        .listDue({ now: NOW, limit: 10 })
+        .find((entry) => entry.projectRef === "stale-b")!.id,
+    );
+
+    expect(
+      store.discardWorkspaceEntries({
+        workspaceId: "workspace-1",
+        exceptProjectRef: "new-project",
+      }),
+    ).toBe(2);
+    expect(store.counts()).toEqual({ pending: 1, failed: 0 });
+    expect(store.listDue({ now: NOW, limit: 10 })).toMatchObject([
+      { projectRef: "new-project" },
+    ]);
+  });
+
+  test("re-points a held links merge to a new project as pending", () => {
+    store.upsertLinksMerge({
+      workspaceId: "workspace-1",
+      projectRef: "old-project",
+      payloadJson: '{"links":[]}',
+      nextAttemptAt: NOW,
+      now: NOW,
+    });
+    store.setWorkspaceHeld("workspace-1", true, "old-project");
+    expect(store.listDue({ now: NOW, limit: 10 })).toEqual([]);
+
+    const repointed = store.upsertLinksMerge({
+      workspaceId: "workspace-1",
+      projectRef: "new-project",
+      payloadJson: '{"links":[]}',
+      nextAttemptAt: NOW,
+      now: NOW,
+    });
+    expect(repointed).toMatchObject({
+      projectRef: "new-project",
+      status: "pending",
+    });
+    expect(store.listDue({ now: NOW, limit: 10 })).toHaveLength(1);
+  });
+
+  test("keeps a held links merge held when the project is unchanged", () => {
+    store.upsertLinksMerge({
+      workspaceId: "workspace-1",
+      projectRef: "old-project",
+      payloadJson: '{"links":[]}',
+      nextAttemptAt: NOW,
+      now: NOW,
+    });
+    store.setWorkspaceHeld("workspace-1", true, "old-project");
+
+    expect(
+      store.upsertLinksMerge({
+        workspaceId: "workspace-1",
+        projectRef: "old-project",
+        payloadJson: '{"links":[1]}',
+        nextAttemptAt: NOW,
+        now: NOW,
+      }),
+    ).toMatchObject({ status: "held" });
+    expect(store.listDue({ now: NOW, limit: 10 })).toEqual([]);
   });
 
   test("prunes only delivered rows older than the cutoff", () => {

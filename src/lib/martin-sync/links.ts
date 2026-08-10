@@ -1,6 +1,15 @@
 import type { WorkspaceInformationState } from "../workspace-information";
-import { StaveSyncLinkV1Schema, type StaveSyncLinkV1 } from "./contract";
+import {
+  STAVE_SYNC_LIMITS,
+  StaveSyncLinkV1Schema,
+  type StaveSyncLinkV1,
+} from "./contract";
 
+/**
+ * Maps workspace resources onto the merge contract. The result is capped at
+ * `STAVE_SYNC_LIMITS.linksPerMerge` so a link-heavy workspace can never build a
+ * payload the runtime is contractually obliged to reject.
+ */
 export function buildMartinSyncLinks(
   info: WorkspaceInformationState,
 ): StaveSyncLinkV1[] {
@@ -51,8 +60,11 @@ export function buildMartinSyncLinks(
     })),
   ];
 
-  return candidates.flatMap((candidate) => {
+  const links: StaveSyncLinkV1[] = [];
+  for (const candidate of candidates) {
+    if (links.length >= STAVE_SYNC_LIMITS.linksPerMerge) break;
     const parsed = StaveSyncLinkV1Schema.safeParse(candidate);
-    return parsed.success ? [parsed.data] : [];
-  });
+    if (parsed.success) links.push(parsed.data);
+  }
+  return links;
 }

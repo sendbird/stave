@@ -40,7 +40,10 @@ function createHarness(options?: {
   credential?: null | { scopes: Array<"crane" | "martin"> };
   postEvents?: (
     events: StaveSyncEventV1[],
-  ) => Promise<Array<{ staveEventId: string; status: "inserted" | "duplicate" }>>;
+    projectRef: string,
+  ) => Promise<
+    Array<{ staveEventId: string; status: "inserted" | "duplicate" }>
+  >;
 }) {
   let nowMs = START_MS;
   let sequence = 0;
@@ -48,7 +51,9 @@ function createHarness(options?: {
   const statuses: unknown[] = [];
   const mappingStale: unknown[] = [];
   const postCalls: StaveSyncEventV1[][] = [];
+  const postProjectRefs: string[] = [];
   const mergeCalls: StaveSyncLinkV1[][] = [];
+  const mergeProjectRefs: string[] = [];
   const timers: Array<{ callback: () => void; delayMs: number }> = [];
 
   const persistence = {
@@ -117,8 +122,7 @@ function createHarness(options?: {
     listDueMartinOutboxEntries(args: { now: string; limit: number }) {
       return [...rows.values()]
         .filter(
-          (row) =>
-            row.status === "pending" && row.nextAttemptAt <= args.now,
+          (row) => row.status === "pending" && row.nextAttemptAt <= args.now,
         )
         .sort(
           (left, right) =>
@@ -134,11 +138,7 @@ function createHarness(options?: {
         deliveredAt,
       });
     },
-    markMartinOutboxRetry(
-      id: string,
-      attempts: number,
-      nextAttemptAt: string,
-    ) {
+    markMartinOutboxRetry(id: string, attempts: number, nextAttemptAt: string) {
       Object.assign(rows.get(id)!, {
         status: "pending" as const,
         attempts,
@@ -148,14 +148,44 @@ function createHarness(options?: {
     markMartinOutboxFailed(id: string) {
       Object.assign(rows.get(id)!, { status: "failed" as const });
     },
-    setMartinOutboxWorkspaceHeld(workspaceId: string, held: boolean) {
+    setMartinOutboxWorkspaceHeld(
+      workspaceId: string,
+      held: boolean,
+      projectRef?: string,
+    ) {
       let changed = 0;
       for (const row of rows.values()) {
         const source = held ? "pending" : "held";
-        if (row.workspaceId === workspaceId && row.status === source) {
-          row.status = held ? "held" : "pending";
-          changed += 1;
+        if (row.workspaceId !== workspaceId || row.status !== source) continue;
+        if (projectRef !== undefined && row.projectRef !== projectRef) continue;
+        row.status = held ? "held" : "pending";
+        changed += 1;
+      }
+      return changed;
+    },
+    discardMartinOutboxWorkspaceEntries(args: {
+      workspaceId: string;
+      projectRef?: string;
+      exceptProjectRef?: string;
+    }) {
+      let changed = 0;
+      for (const [id, row] of [...rows.entries()]) {
+        if (row.workspaceId !== args.workspaceId) continue;
+        if (row.status === "delivered") continue;
+        if (
+          args.projectRef !== undefined &&
+          row.projectRef !== args.projectRef
+        ) {
+          continue;
         }
+        if (
+          args.exceptProjectRef !== undefined &&
+          row.projectRef === args.exceptProjectRef
+        ) {
+          continue;
+        }
+        rows.delete(id);
+        changed += 1;
       }
       return changed;
     },
@@ -190,18 +220,27 @@ function createHarness(options?: {
         status: "duplicate" as const,
       })));
   const http = {
-    postMartinEvents: async (args: { events: StaveSyncEventV1[] }) => {
+    postMartinEvents: async (args: {
+      projectRef: string;
+      events: StaveSyncEventV1[];
+    }) => {
       postCalls.push(structuredClone(args.events));
-      return postEvents(args.events);
+      postProjectRefs.push(args.projectRef);
+      return postEvents(args.events, args.projectRef);
     },
-    mergeMartinLinks: async (args: { links: StaveSyncLinkV1[] }) => {
+    mergeMartinLinks: async (args: {
+      projectRef: string;
+      links: StaveSyncLinkV1[];
+    }) => {
       mergeCalls.push(structuredClone(args.links));
+      mergeProjectRefs.push(args.projectRef);
       return { ok: true as const, inserted: 0, updated: 1, skipped: 0 };
     },
   };
-  const credentialOption = options && "credential" in options
-    ? options.credential
-    : { scopes: ["martin" as const] };
+  const credentialOption =
+    options && "credential" in options
+      ? options.credential
+      : { scopes: ["martin" as const] };
   const runtime = new MartinSyncRuntime({
     persistence,
     getCredential: async () =>
@@ -251,8 +290,10 @@ function createHarness(options?: {
     flush,
     mappingStale,
     mergeCalls,
+    mergeProjectRefs,
     persistence,
     postCalls,
+    postProjectRefs,
     rows,
     runNextTimer,
     runtime,
@@ -349,8 +390,7 @@ describe("MartinSyncRuntime", () => {
       projectRef: "project-1",
       event: createEvent(),
     });
-    [...harness.rows.values()][0].attempts =
-      MAX_MARTIN_SYNC_ATTEMPTS - 1;
+    [...harness.rows.values()][0].attempts = MAX_MARTIN_SYNC_ATTEMPTS - 1;
     harness.runtime.configure(ENABLED_SETTINGS);
 
     await harness.runNextTimer();
@@ -415,6 +455,94 @@ describe("MartinSyncRuntime", () => {
     expect(harness.mappingStale).toEqual([
       { workspaceId: "workspace-1", projectRef: "project-1", code },
     ]);
+  });
+
+  test("holds only the stale project and keeps delivering the relinked one", async () => {
+    const harness = createHarness({
+      postEvents: async (events, projectRef) => {
+        if (projectRef === "old-project") {
+          throw new AtelierConnectorHttpError("project_not_found", 404);
+        }
+        return events.map((event) => ({
+          staveEventId: event.staveEventId,
+          status: "inserted" as const,
+        }));
+      },
+    });
+    harness.runtime.configure(ENABLED_SETTINGS);
+    harness.runtime.enqueueEvent({
+      workspaceId: "workspace-1",
+      projectRef: "old-project",
+      event: createEvent(1),
+    });
+    harness.runtime.enqueueEvent({
+      workspaceId: "workspace-1",
+      projectRef: "new-project",
+      event: createEvent(2),
+    });
+    harness.runtime.noteLinksChanged({
+      workspaceId: "workspace-1",
+      projectRef: "new-project",
+      links: [createLink("Relinked")],
+    });
+    harness.advance(MARTIN_LINKS_MERGE_DEBOUNCE_MS);
+
+    await harness.runNextTimer();
+
+    const byProject = new Map(
+      [...harness.rows.values()].map((row) => [
+        `${row.projectRef}:${row.kind}`,
+        row.status,
+      ]),
+    );
+    expect(byProject.get("old-project:event")).toBe("held");
+    expect(byProject.get("new-project:event")).toBe("delivered");
+    expect(byProject.get("new-project:links_merge")).toBe("delivered");
+    expect(harness.mergeCalls).toEqual([[createLink("Relinked")]]);
+    expect(harness.mappingStale).toEqual([
+      {
+        workspaceId: "workspace-1",
+        projectRef: "old-project",
+        code: "project_not_found",
+      },
+    ]);
+  });
+
+  test("resumes and discards outbox rows scoped to a single project", async () => {
+    const harness = createHarness();
+    harness.runtime.enqueueEvent({
+      workspaceId: "workspace-1",
+      projectRef: "old-project",
+      event: createEvent(1),
+    });
+    harness.runtime.enqueueEvent({
+      workspaceId: "workspace-1",
+      projectRef: "new-project",
+      event: createEvent(2),
+    });
+    harness.runtime.holdWorkspace("workspace-1");
+    expect(
+      [...harness.rows.values()].every((row) => row.status === "held"),
+    ).toBe(true);
+
+    harness.runtime.resumeWorkspace("workspace-1", "new-project");
+    expect(
+      [...harness.rows.values()].map((row) => [row.projectRef, row.status]),
+    ).toEqual([
+      ["old-project", "held"],
+      ["new-project", "pending"],
+    ]);
+
+    expect(
+      harness.runtime.discardWorkspaceEntries({
+        workspaceId: "workspace-1",
+        exceptProjectRef: "new-project",
+      }),
+    ).toBe(1);
+    expect([...harness.rows.values()]).toMatchObject([
+      { projectRef: "new-project", status: "pending" },
+    ]);
+    expect(harness.runtime.getStatus()).toMatchObject({ pendingCount: 1 });
   });
 
   test("trailing-debounces resource links and sends only the latest payload", async () => {

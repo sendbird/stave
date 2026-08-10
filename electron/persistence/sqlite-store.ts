@@ -2895,11 +2895,7 @@ export class SqliteStore {
     this.martinSyncOutbox.markDelivered(id, deliveredAt);
   }
 
-  markMartinOutboxRetry(
-    id: string,
-    attempts: number,
-    nextAttemptAt: string,
-  ) {
+  markMartinOutboxRetry(id: string, attempts: number, nextAttemptAt: string) {
     this.martinSyncOutbox.markRetry(id, attempts, nextAttemptAt);
   }
 
@@ -2907,8 +2903,24 @@ export class SqliteStore {
     this.martinSyncOutbox.markFailed(id);
   }
 
-  setMartinOutboxWorkspaceHeld(workspaceId: string, held: boolean) {
-    return this.martinSyncOutbox.setWorkspaceHeld(workspaceId, held);
+  setMartinOutboxWorkspaceHeld(
+    workspaceId: string,
+    held: boolean,
+    projectRef?: string,
+  ) {
+    return this.martinSyncOutbox.setWorkspaceHeld(
+      workspaceId,
+      held,
+      projectRef,
+    );
+  }
+
+  discardMartinOutboxWorkspaceEntries(args: {
+    workspaceId: string;
+    projectRef?: string;
+    exceptProjectRef?: string;
+  }) {
+    return this.martinSyncOutbox.discardWorkspaceEntries(args);
   }
 
   retryFailedMartinOutboxEntries() {

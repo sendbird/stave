@@ -4,6 +4,7 @@ import {
   MartinContextBundleV1Schema,
   MartinProjectListResponseV1Schema,
   STAVE_SYNC_CONTRACT_VERSION,
+  STAVE_SYNC_LIMITS,
   StaveSyncEventsRequestV1Schema,
   StaveSyncEventsResponseV1Schema,
   StaveSyncLinksMergeRequestV1Schema,
@@ -180,5 +181,34 @@ describe("stave-sync-v1 contract", () => {
       note: "",
     });
     expect(buildMartinSyncLinks(info)).toEqual([]);
+  });
+
+  test("caps mapped links at the merge limit, keeping the highest tier", () => {
+    const info = createEmptyWorkspaceInformation();
+    for (let index = 0; index < STAVE_SYNC_LIMITS.linksPerMerge; index += 1) {
+      info.linkedPullRequests.push({
+        id: `pr-${index}`,
+        title: `PR ${index}`,
+        url: `https://github.com/acme/repo/pull/${index}`,
+        status: "open",
+        note: "",
+      });
+    }
+    info.slackThreads.push({
+      id: "slack-overflow",
+      url: "https://acme.slack.com/archives/C1/p9",
+      channelName: "#overflow",
+      note: "",
+    });
+
+    const links = buildMartinSyncLinks(info);
+    expect(links).toHaveLength(STAVE_SYNC_LIMITS.linksPerMerge);
+    expect(links.every((link) => link.kind === "github")).toBe(true);
+    expect(
+      StaveSyncLinksMergeRequestV1Schema.safeParse({
+        contract: STAVE_SYNC_CONTRACT_VERSION,
+        links,
+      }).success,
+    ).toBe(true);
   });
 });

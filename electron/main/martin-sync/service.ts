@@ -15,10 +15,7 @@ import { AtelierConnectorHttpClient } from "../atelier-connector/http-client";
 import { getAtelierConnectorCredentialVault } from "../atelier-connector/credential-service";
 import { ensurePersistenceReadySync } from "../state";
 import { getMainWindow } from "../window";
-import {
-  MartinSyncRuntime,
-  type MartinSyncPublicStatus,
-} from "./runtime";
+import { MartinSyncRuntime, type MartinSyncPublicStatus } from "./runtime";
 
 const STATUS_EVENT = "martin-sync:status";
 const MAPPING_STALE_EVENT = "martin-sync:mapping-stale";
@@ -53,30 +50,41 @@ function ensureWorkspaceInformationSubscription() {
   stopWorkspaceInformationSubscription = onHostServiceEvent(
     "local-mcp.workspace-information-updated",
     (payload) => {
-      const project = payload.workspaceInformation.martinProject;
-      const settings = getMartinSyncRuntime().getSettings();
-      if (
-        !project ||
-        project.stale ||
-        !settings.enabled ||
-        !settings.resourceLinks
-      ) {
+      // Host-service listeners run synchronously inside the stdout frame loop,
+      // so anything thrown here would abort the remaining frames and every
+      // listener registered after this one. Sync work must never escape.
+      try {
+        const project = payload.workspaceInformation.martinProject;
+        const settings = getMartinSyncRuntime().getSettings();
+        if (
+          !project ||
+          project.stale ||
+          !settings.enabled ||
+          !settings.resourceLinks
+        ) {
+          linksFingerprintByWorkspace.delete(payload.workspaceId);
+          return;
+        }
+        const links = buildMartinSyncLinks(payload.workspaceInformation);
+        const fingerprint = JSON.stringify({ projectRef: project.ref, links });
+        if (
+          linksFingerprintByWorkspace.get(payload.workspaceId) === fingerprint
+        ) {
+          return;
+        }
+        linksFingerprintByWorkspace.set(payload.workspaceId, fingerprint);
+        getMartinSyncRuntime().noteLinksChanged({
+          workspaceId: payload.workspaceId,
+          projectRef: project.ref,
+          links,
+        });
+      } catch (error) {
         linksFingerprintByWorkspace.delete(payload.workspaceId);
-        return;
+        console.error(
+          "[martin-sync] failed to queue a resource link merge",
+          error,
+        );
       }
-      const links = buildMartinSyncLinks(payload.workspaceInformation);
-      const fingerprint = JSON.stringify({ projectRef: project.ref, links });
-      if (
-        linksFingerprintByWorkspace.get(payload.workspaceId) === fingerprint
-      ) {
-        return;
-      }
-      linksFingerprintByWorkspace.set(payload.workspaceId, fingerprint);
-      getMartinSyncRuntime().noteLinksChanged({
-        workspaceId: payload.workspaceId,
-        projectRef: project.ref,
-        links,
-      });
     },
   );
 }
@@ -85,19 +93,21 @@ export function getMartinSyncCredential() {
   return getAtelierConnectorCredentialVault().getCredential();
 }
 
+/** Single place that decides whether insecure localhost URLs are allowed. */
+export function createMartinHttpClient(baseUrl: string) {
+  return new AtelierConnectorHttpClient({
+    baseUrl,
+    allowInsecureLocalhost: process.env.STAVE_DEV === "1" && !app.isPackaged,
+  });
+}
+
 export function getMartinSyncRuntime() {
   if (runtime) return runtime;
-  const allowInsecureLocalhost =
-    process.env.STAVE_DEV === "1" && !app.isPackaged;
   const vault = getAtelierConnectorCredentialVault();
   runtime = new MartinSyncRuntime({
     persistence: ensurePersistenceReadySync(),
     getCredential: () => vault.getCredential(),
-    createHttpClient: (baseUrl) =>
-      new AtelierConnectorHttpClient({
-        baseUrl,
-        allowInsecureLocalhost,
-      }),
+    createHttpClient: createMartinHttpClient,
     emitStatus: (status) => sendToRenderer(STATUS_EVENT, status),
     emitMappingStale: (payload) => {
       sendToRenderer(MAPPING_STALE_EVENT, payload);

@@ -20,10 +20,8 @@ export const MARTIN_OUTBOX_STATUSES = [
   "held",
 ] as const;
 
-export type MartinOutboxKind =
-  (typeof MARTIN_OUTBOX_KINDS)[number];
-export type MartinOutboxStatus =
-  (typeof MARTIN_OUTBOX_STATUSES)[number];
+export type MartinOutboxKind = (typeof MARTIN_OUTBOX_KINDS)[number];
+export type MartinOutboxStatus = (typeof MARTIN_OUTBOX_STATUSES)[number];
 
 export const MartinOutboxEntrySchema = z
   .object({
@@ -40,9 +38,7 @@ export const MartinOutboxEntrySchema = z
   })
   .strict();
 
-export type MartinOutboxEntry = z.infer<
-  typeof MartinOutboxEntrySchema
->;
+export type MartinOutboxEntry = z.infer<typeof MartinOutboxEntrySchema>;
 
 interface OutboxRow {
   id: string;
@@ -165,12 +161,14 @@ export class MartinSyncOutboxStore {
     const updated = this.db
       .prepare(
         `UPDATE martin_sync_outbox
-         SET project_ref = ?, payload_json = ?, attempts = 0,
+         SET status = CASE WHEN project_ref = ? THEN status ELSE 'pending' END,
+             project_ref = ?, payload_json = ?, attempts = 0,
              next_attempt_at = ?, delivered_at = NULL
          WHERE workspace_id = ? AND kind = 'links_merge'
            AND status IN ('pending', 'held')`,
       )
       .run(
+        input.projectRef,
         input.projectRef,
         input.payloadJson,
         input.nextAttemptAt,
@@ -245,23 +243,59 @@ export class MartinSyncOutboxStore {
 
   markFailed(id: string): void {
     this.db
-      .prepare(
-        `UPDATE martin_sync_outbox SET status = 'failed' WHERE id = ?`,
-      )
+      .prepare(`UPDATE martin_sync_outbox SET status = 'failed' WHERE id = ?`)
       .run(id);
   }
 
-  setWorkspaceHeld(workspaceId: string, held: boolean): number {
+  /**
+   * Holds or resumes a workspace's rows. Pass `projectRef` to scope the change
+   * to one project so a stale mapping cannot freeze a workspace's other links.
+   */
+  setWorkspaceHeld(
+    workspaceId: string,
+    held: boolean,
+    projectRef?: string,
+  ): number {
     const result = this.db
       .prepare(
         `UPDATE martin_sync_outbox
          SET status = ?
-         WHERE workspace_id = ? AND status = ?`,
+         WHERE workspace_id = ? AND status = ?
+           AND (? IS NULL OR project_ref = ?)`,
       )
       .run(
         held ? "held" : "pending",
         workspaceId,
         held ? "pending" : "held",
+        projectRef ?? null,
+        projectRef ?? null,
+      );
+    return Number(result.changes ?? 0);
+  }
+
+  /**
+   * Deletes a workspace's undelivered rows. Scope with `projectRef` for a
+   * single project, or `exceptProjectRef` to drop everything a newly linked
+   * project did not produce. Delivered rows stay for the prune window.
+   */
+  discardWorkspaceEntries(args: {
+    workspaceId: string;
+    projectRef?: string;
+    exceptProjectRef?: string;
+  }): number {
+    const result = this.db
+      .prepare(
+        `DELETE FROM martin_sync_outbox
+         WHERE workspace_id = ? AND status <> 'delivered'
+           AND (? IS NULL OR project_ref = ?)
+           AND (? IS NULL OR project_ref <> ?)`,
+      )
+      .run(
+        args.workspaceId,
+        args.projectRef ?? null,
+        args.projectRef ?? null,
+        args.exceptProjectRef ?? null,
+        args.exceptProjectRef ?? null,
       );
     return Number(result.changes ?? 0);
   }
