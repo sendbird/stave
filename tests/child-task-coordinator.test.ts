@@ -7,6 +7,7 @@ import {
   type ChildTaskLedgerPort,
 } from "../electron/main/runs/child-task-coordinator";
 import { buildChildTaskRuntimeOptions } from "../src/lib/runs/child-task-runtime";
+import { resolveManagedTaskRuntimeOptions } from "../src/lib/providers/managed-task-runtime";
 import type { ChildTaskDelegateArgs } from "../src/lib/runs/child-task";
 
 const PROJECT_PATH = "/tmp/stave";
@@ -551,12 +552,54 @@ describe("child permission profiles", () => {
     ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
 
     // Supervised profiles must not gain the flag: those children are meant to
-    // surface their approvals.
+    // surface their approvals. Asserted through
+    // `resolveManagedTaskRuntimeOptions` because that is what actually reaches
+    // the provider — a child always runs as an externally managed task, so an
+    // *absent* flag would be defaulted to `true` there and silently override
+    // the profile. Only an explicit `false` survives.
     for (const permissionProfile of ["guided", "manual"] as const) {
+      const options = buildChildTaskRuntimeOptions({
+        providerId: "codex",
+        permissionProfile,
+      });
+      expect(options.codexAutoApproveStaveLocalMcpTools).toBe(false);
       expect(
-        buildChildTaskRuntimeOptions({ providerId: "codex", permissionProfile }),
-      ).not.toMatchObject({ codexAutoApproveStaveLocalMcpTools: true });
+        resolveManagedTaskRuntimeOptions({
+          providerId: "codex",
+          runtimeOptions: options,
+        }).codexAutoApproveStaveLocalMcpTools,
+      ).toBe(false);
     }
+
+    // The unattended profile keeps its `true` through the same layer.
+    expect(
+      resolveManagedTaskRuntimeOptions({
+        providerId: "codex",
+        runtimeOptions: buildChildTaskRuntimeOptions({
+          providerId: "codex",
+          permissionProfile: "auto",
+        }),
+      }),
+    ).toMatchObject({
+      codexApprovalPolicy: "never",
+      codexAutoApproveStaveLocalMcpTools: true,
+    });
+
+    // Claude states every permission field explicitly, so the managed-task
+    // resolver has nothing left to default for a supervised child either.
+    expect(
+      resolveManagedTaskRuntimeOptions({
+        providerId: "claude-code",
+        runtimeOptions: buildChildTaskRuntimeOptions({
+          providerId: "claude-code",
+          permissionProfile: "guided",
+        }),
+      }),
+    ).toMatchObject({
+      claudePermissionMode: "default",
+      claudeAllowUnsandboxedCommands: false,
+      claudeAllowDangerouslySkipPermissions: false,
+    });
   });
 
   test("no secret binding can reach a child through its profile", () => {

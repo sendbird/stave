@@ -34,14 +34,27 @@ export function buildChildTaskRuntimeOptions(args: {
     trustPolicy,
   );
   const options = routineRuntimeToProviderOptions(runtime);
-  // A child runs with nobody watching it, so a Codex child must also be able to
-  // answer Stave Local MCP elicitations on its own. `approvalPolicy: never`
-  // does not cover that: elicitation is a separate channel, and an unanswered
-  // request is auto-declined once it times out, which would silently strip the
-  // child of every Stave tool. Scheduled routines carry the same flag for the
-  // same reason.
-  if (args.providerId === "codex" && trustPolicy === "unattended") {
-    return { ...options, codexAutoApproveStaveLocalMcpTools: true };
+  if (args.providerId !== "codex") {
+    // The Claude branch of `routineRuntimeToProviderOptions` already states
+    // every permission field explicitly, so `resolveManagedTaskRuntimeOptions`
+    // (which fills gaps with `??`) has nothing left to default.
+    return options;
   }
-  return options;
+  // The Codex branch does not mention `codexAutoApproveStaveLocalMcpTools`, and
+  // a child always runs as an externally managed task — so leaving it unset
+  // hands the decision to the managed-task default of `true`, whatever the
+  // child's declared profile said. Both values are therefore explicit here.
+  //
+  // An unattended child needs `true`: nobody is watching it, and
+  // `approvalPolicy: never` does not cover elicitation, which is a separate
+  // channel whose unanswered requests are auto-declined on timeout — that would
+  // silently strip the child of every Stave tool. Scheduled routines carry the
+  // same flag for the same reason.
+  //
+  // A `guided` or `manual` child asked for its approvals to be reviewed, so it
+  // gets `false` and keeps prompting inside its own task.
+  return {
+    ...options,
+    codexAutoApproveStaveLocalMcpTools: trustPolicy === "unattended",
+  };
 }
