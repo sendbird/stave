@@ -39,6 +39,7 @@ import {
   setRoutineEnabled,
   updateRoutine,
 } from "./routine-service";
+import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
 import { ensurePersistenceReady } from "./state";
 import {
   addWorkspaceAmplifyLink,
@@ -386,10 +387,13 @@ function createToolServer() {
           .enum(["claude-code", "codex"])
           .optional()
           .describe("Provider to run. Defaults to `claude-code`."),
-        runtimeOptions: z
-          .record(z.string(), z.unknown())
-          .optional()
-          .describe("Optional provider runtime overrides."),
+        // Typed rather than a free-form record: an unknown or misspelled key
+        // used to be accepted and then silently dropped by the provider
+        // runtime, so a caller asking for `bypassPermissions` could end up on
+        // the interactive fallback with no error to explain it.
+        runtimeOptions: RuntimeOptionsObjectSchema.optional().describe(
+          "Optional provider runtime overrides (model, claudeEffort, claudePermissionMode, codexApprovalPolicy, ...).",
+        ),
       },
     },
     async ({ workspaceId, prompt, taskId, title, provider, runtimeOptions }) =>
@@ -400,7 +404,7 @@ function createToolServer() {
           taskId,
           title,
           provider,
-          runtimeOptions: runtimeOptions as never,
+          ...(runtimeOptions ? { runtimeOptions } : {}),
         }),
       }),
   );
