@@ -6,9 +6,9 @@ request to a task, as bounded, untrusted context.
 This is Stage A of the agent platform plan. The contract file list is in
 [`docs/architecture/contracts.md`](../architecture/contracts.md).
 
-The agent platform taxonomy doc — which fixes the vocabulary this stage
-inherits — arrives on `main` with PR #348, so it is not linked here yet. Add
-the link once that PR merges.
+The vocabulary this stage inherits (attention item, action required, ledger,
+receipt, occurrence) is fixed by
+[`docs/architecture/agent-platform-taxonomy.md`](../architecture/agent-platform-taxonomy.md).
 
 ## What it does
 
