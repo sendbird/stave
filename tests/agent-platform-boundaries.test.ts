@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { createChildTaskCoordinator } from "../electron/main/runs/child-task-coordinator";
+import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { RoutineUpsertInputSchema } from "../src/lib/routines";
 import { UTILITY_INFERENCE_FEATURES } from "../src/lib/providers/utility-inference";
 import {
@@ -39,9 +42,70 @@ describe("Agent platform boundaries", () => {
     expect(definitionKeys.filter((key) => /task/i.test(key))).toEqual([]);
   });
 
+  test("a worker never survives a restart; a child task always does", async () => {
+    // The ledger's blanket restart sweep closes every step whose execution died
+    // with the process. A child task is a real task that may still be running,
+    // so it is excluded there and reconciled against the live task instead. If
+    // that exclusion is ever removed, a surviving child is silently reported as
+    // interrupted.
+    const ledger = readSource("electron/persistence/run-ledger-store.ts");
+    expect(ledger).toContain("kind != 'child-task-turn'");
+
+    // The child-task coordinator owns that recovery, and it asks the live task
+    // what happened rather than assuming.
+    const store = new RunLedgerStore(new Database(":memory:"));
+    const statusCalls: string[] = [];
+    const coordinator = createChildTaskCoordinator({
+      getLedger: () => ({
+        getRunAggregate: (args) => store.getAggregate(args),
+        claimRunStep: (args) => store.claimStep(args),
+        markRunStepWaiting: (args) => store.markStepWaiting(args),
+        completeRunStep: (args) => store.completeStep(args),
+        failRunStep: (args) => store.failStep(args),
+        cancelRunStep: (args) => store.cancelStep(args),
+        interruptRunStep: (args) => store.interruptStep(args),
+        setRunStepTarget: (args) => store.setStepTarget(args),
+        listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
+        listActiveRunAggregatesByStepKind: (args) =>
+          store.listActiveAggregatesByStepKind(args),
+      }),
+      host: {
+        resolveWorkspace: async () => null,
+        createWorkspace: async () => {
+          throw new Error("unused");
+        },
+        getTaskStatus: async ({ taskId }) => {
+          statusCalls.push(taskId);
+          return { ok: false, reason: "missing" };
+        },
+        runTask: async () => {
+          throw new Error("unused");
+        },
+        stopTask: async () => ({}),
+      },
+      concurrencyLimit: 1,
+    });
+
+    expect(await coordinator.reconcile()).toEqual({
+      reconciled: 0,
+      deferred: 0,
+    });
+
+    // A worker is turn-scoped: it has no durable record to reconcile.
+    const workerImports = importedModules(
+      readSource("src/lib/providers/worker-mode.ts"),
+    );
+    expect(
+      workerImports.filter((specifier) =>
+        /run-ledger-store|runs\/child-task|persistence\//.test(specifier),
+      ),
+    ).toEqual([]);
+  });
+
   test("the ledger records and never executes: run domain and store import no provider runtime", () => {
     for (const file of [
       "src/lib/runs/run-domain.ts",
+      "src/lib/runs/child-task.ts",
       "electron/persistence/run-ledger-store.ts",
     ]) {
       const imports = importedModules(readSource(file));

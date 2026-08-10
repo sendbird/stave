@@ -151,6 +151,10 @@ const fakeStore = {
   ],
   loadWorkspaceSnapshot: ({ workspaceId }: { workspaceId: string }) =>
     loadFakeWorkspaceSnapshot(workspaceId),
+  // `runTask` injects child-task receipts into every managed turn. These tests
+  // delegate nothing, so an empty ledger is the honest answer; without it the
+  // runtime falls back and logs a read failure on each run.
+  listRunAggregatesByOrigin: () => [],
   loadWorkspaceShell: ({ workspaceId }: { workspaceId: string }) => {
     const snapshot = loadFakeWorkspaceSnapshot(workspaceId);
     return {

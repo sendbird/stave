@@ -116,6 +116,14 @@ If `Codex` auto-registration is enabled, Stave also keeps the current loopback U
    - `stave_get_task`
    - `stave_respond_approval` or `stave_respond_user_input` when needed
 
+To delegate work from a task to a durable child task, use:
+
+- `stave_delegate_task`
+- `stave_list_child_tasks`
+- `stave_stop_child_task`
+
+See [`docs/features/child-tasks.md`](child-tasks.md).
+
 For workspace Information panel management, also use:
 
 - `stave_get_workspace_information`

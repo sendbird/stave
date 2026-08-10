@@ -8,6 +8,7 @@
 import type { UserInputQuestion } from "../../src/types/chat";
 import { CODEX_STAVE_MCP_SERVER_NAME } from "../main/codex-mcp";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
+import { isAlwaysAllowedStaveLocalMcpTool } from "./stave-local-mcp-approval";
 
 export interface ElicitationFieldDescriptor {
   key: string;
@@ -392,19 +393,36 @@ export function mapCodexElicitationToApproval(params: Record<string, unknown>) {
   };
 }
 
+/**
+ * Whether Stave should answer a Codex elicitation itself instead of prompting.
+ *
+ * `enabled` is the run's server-wide auto-approve flag, which is on only for
+ * the Codex equivalent of a full bypass (`danger-full-access` +
+ * `approvalPolicy: never`). It is deliberately coarse — it says nothing about
+ * *which* tool is being asked for.
+ *
+ * The always-allowed set is checked before that flag so read-only and
+ * workspace-metadata tools behave the same as they do under Claude, which
+ * allows them in every permission mode. Without this, a Codex run with any
+ * tightened sandbox setting prompted for `stave_list_child_tasks` while the
+ * identical Claude run did not.
+ */
 export function shouldAutoApproveStaveLocalMcpElicitation(args: {
   enabled?: boolean;
   params: Record<string, unknown>;
 }) {
-  if (!args.enabled) {
+  const serverName = toTrimmedString(args.params.serverName);
+  if (serverName !== CODEX_STAVE_MCP_SERVER_NAME) {
     return false;
   }
-
-  const serverName = toTrimmedString(args.params.serverName);
-  return (
-    serverName === CODEX_STAVE_MCP_SERVER_NAME &&
-    mapCodexElicitationToApproval(args.params) !== null
-  );
+  const approval = mapCodexElicitationToApproval(args.params);
+  if (!approval) {
+    return false;
+  }
+  if (isAlwaysAllowedStaveLocalMcpTool(approval.toolName)) {
+    return true;
+  }
+  return args.enabled === true;
 }
 
 export function coerceElicitationAnswer(args: {

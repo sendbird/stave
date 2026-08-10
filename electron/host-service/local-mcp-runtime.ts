@@ -10,6 +10,12 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
+import {
+  CHILD_TASK_LIST_LIMIT,
+  toChildTaskSummary,
+  type ChildTaskSummary,
+} from "../../src/lib/runs/child-task";
+import { buildChildTaskReceiptsRetrievedContext } from "../../src/lib/task-context/child-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-context/current-task-awareness";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
 import {
@@ -2113,6 +2119,33 @@ export async function createWorkspace(args: {
   } satisfies CreatedWorkspaceInfo;
 }
 
+/**
+ * Child-task receipts for one parent, read straight from the ledger. Returns an
+ * empty list rather than throwing: a parent's turn must never fail because its
+ * delegation bookkeeping could not be read.
+ */
+function listChildTaskSummaries(args: {
+  parentTaskId: string;
+}): ChildTaskSummary[] {
+  try {
+    return ensureHostServicePersistenceReady()
+      .listRunAggregatesByOrigin({
+        originKind: "task",
+        originId: args.parentTaskId,
+        limit: CHILD_TASK_LIST_LIMIT,
+      })
+      .flatMap((aggregate) => {
+        const summary = toChildTaskSummary(aggregate);
+        return summary ? [summary] : [];
+      });
+  } catch (error) {
+    console.warn(
+      `[stave-mcp] failed to read child task receipts: ${String(error)}`,
+    );
+    return [];
+  }
+}
+
 export async function runTask(args: {
   workspaceId: string;
   prompt: string;
@@ -2289,6 +2322,11 @@ export async function runTask(args: {
           ].join("\n"),
         }
       : null;
+  // A parent that delegated work sees where its children stand before it takes
+  // its next turn — identity, phase and reason, never the child's transcript.
+  const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
+    children: listChildTaskSummaries({ parentTaskId: task.id }),
+  });
   const conversation = buildCanonicalConversationRequest({
     turnId,
     taskId: task.id,
@@ -2313,6 +2351,7 @@ export async function runTask(args: {
         tasks: session.tasks,
         workspaceInformation: session.workspaceInformation,
       }),
+      ...(childTaskReceiptsPart ? [childTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),
     ],

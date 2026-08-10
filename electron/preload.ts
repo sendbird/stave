@@ -153,6 +153,10 @@ import type {
   SecondaryRunReceiptListArgs,
   SecondaryRunTransitionResponse,
 } from "../src/lib/runs/secondary-run";
+import type {
+  ChildTaskList,
+  ChildTaskListArgs,
+} from "../src/lib/runs/child-task";
 
 interface ProviderSlashCommand {
   name: string;
@@ -770,6 +774,8 @@ contextBridge.exposeInMainWorld("api", {
       args: SecondaryRunReceiptListArgs,
     ): Promise<SecondaryRunReceiptList> =>
       ipcRenderer.invoke("runs:list-receipts", args),
+    listChildTasks: (args: ChildTaskListArgs): Promise<ChildTaskList> =>
+      ipcRenderer.invoke("runs:list-child-tasks", args),
   },
   provider: {
     streamTurn: (args: StreamTurnArgs) =>

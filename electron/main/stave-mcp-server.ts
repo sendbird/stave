@@ -40,6 +40,7 @@ import {
   updateRoutine,
 } from "./routine-service";
 import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
+import { getChildTaskCoordinator } from "./runs/child-task-coordinator-instance";
 import { ensurePersistenceReady } from "./state";
 import {
   addWorkspaceAmplifyLink,
@@ -406,6 +407,119 @@ function createToolServer() {
           provider,
           ...(runtimeOptions ? { runtimeOptions } : {}),
         }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_delegate_task",
+    {
+      description:
+        "Delegate work from this task to a durable child Stave task, optionally on the other provider. The delegation is recorded on the run ledger and identified by `(parentTaskId, delegationKey)`, so calling this twice with the same key returns the same child instead of creating a second one.",
+      inputSchema: {
+        projectPath: z
+          .string()
+          .min(1)
+          .describe("Project root path that owns the parent workspace."),
+        parentWorkspaceId: z
+          .string()
+          .min(1)
+          .describe("Workspace id of the delegating (parent) task."),
+        parentTaskId: z.string().min(1).describe("Id of the delegating task."),
+        delegationKey: z
+          .string()
+          .min(1)
+          .describe(
+            "Caller-chosen idempotency key for this delegation, unique within the parent task. Letters, digits, dot, underscore and hyphen only.",
+          ),
+        prompt: z.string().min(1).describe("Prompt to run in the child task."),
+        title: z.string().optional().describe("Optional child task title."),
+        provider: z
+          .enum(["claude-code", "codex"])
+          .describe("Provider the child runs on. Required — never inherited."),
+        model: z
+          .string()
+          .optional()
+          .describe("Optional model override for the child."),
+        permissionProfile: z
+          .enum(["auto", "guided", "manual"])
+          .describe(
+            "Child permission profile. Required and never inherited from the parent: `auto` runs unattended, `guided` routes sensitive actions through approvals, `manual` uses the provider defaults.",
+          ),
+        lifecycle: z
+          .enum(["one-turn", "detached"])
+          .describe(
+            "`one-turn` finishes the delegation when the child's first turn ends. `detached` keeps the child task open until it is stopped.",
+          ),
+        workspace: z
+          .union([
+            z.object({ mode: z.literal("same-workspace") }),
+            z.object({
+              mode: z.literal("new-worktree"),
+              name: z
+                .string()
+                .min(1)
+                .describe("Workspace name for the new worktree."),
+              fromBranch: z.string().optional().describe("Base branch."),
+            }),
+          ])
+          .describe("Where the child runs."),
+        retry: z
+          .boolean()
+          .optional()
+          .describe(
+            "Start a new attempt when this delegation already ended without succeeding. Ignored while it is still running.",
+          ),
+      },
+    },
+    async ({ provider, retry, ...rest }) =>
+      toStructuredResult({
+        delegation: await getChildTaskCoordinator().delegate({
+          ...rest,
+          providerId: provider,
+          retry: retry ?? false,
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_list_child_tasks",
+    {
+      description:
+        "List the child tasks a task delegated, with identity, phase and terminal reason. Never returns a child's transcript.",
+      inputSchema: {
+        parentTaskId: z.string().min(1).describe("Id of the delegating task."),
+        includeFinished: z
+          .boolean()
+          .optional()
+          .describe("Include delegations that already ended. Defaults to true."),
+      },
+    },
+    async ({ parentTaskId, includeFinished }) =>
+      toStructuredResult({
+        children: await getChildTaskCoordinator().list({
+          parentTaskId,
+          includeFinished: includeFinished ?? true,
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_stop_child_task",
+    {
+      description:
+        "Stop a delegated child task. The ledger row is cancelled durably; the child task is asked to stop as a best effort.",
+      inputSchema: {
+        parentTaskId: z.string().min(1).describe("Id of the delegating task."),
+        delegationKey: z
+          .string()
+          .min(1)
+          .describe("The delegation key used when the child was created."),
+        reason: z.string().optional().describe("Short reason for the stop."),
+      },
+    },
+    async (input) =>
+      toStructuredResult({
+        stop: await getChildTaskCoordinator().stop(input),
       }),
   );
 

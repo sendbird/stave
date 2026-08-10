@@ -56,21 +56,29 @@ Fleet-scoped, read plus control, no new execution semantics.
 | Run ledger (run core) | Durable bookkeeping for delegated execution: runs, steps, receipts, idempotency, claims |
 
 The run ledger is shared machinery, not a feature. Compare Judge is its first
-client; durable child tasks are planned as its second. Widen it for a new
-client instead of building a second ledger beside it.
+client; durable child tasks are its second. Widen it for a new client instead of
+building a second ledger beside it.
 
 ### Layer 3 — Continuity: keep going without me
 
 Durable (SQLite), reconciled on restart, always carrying an explicit terminal
 reason. Two axes:
 
-| | Ephemeral (exists) | Durable (planned) |
+| | Ephemeral | Durable |
 | --- | --- | --- |
-| Time — run again | — | Routine (new task per occurrence) / Heartbeat (same task, same session) |
-| Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts) |
+| Time — run again | — | Routine (new task per occurrence, exists) / Heartbeat (same task, same session, planned) |
+| Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts, exists) |
 
 Routine is the only concept that lives outside a task: it mints tasks.
 Everything else in this layer attaches to one existing task.
+
+A child task is a real Stave task created on a parent's behalf, recorded on the
+run ledger as a `child-task` run with a `task` origin (the parent's id) and one
+`child-task-turn` step per delegated turn. The ledger holds the bookkeeping —
+identity, phase, receipts, idempotency — while the normal task machinery creates
+the task and runs its turns. The parent's context receives identity, phase and
+reason; never the child's transcript. See
+`docs/features/child-tasks.md`.
 
 ## Boundary Statements
 
@@ -87,10 +95,11 @@ whose name repeats it.
 6. The work queue assigns a workspace to exactly one lane, in fixed priority
    order.
 
-Statements 2 and 3 are partly forward-looking: heartbeats and child tasks are
-not built yet. They are recorded here so the capability lands inside the
-boundary rather than beside it, and the gate test asserts the half that exists
-today.
+Statement 2 is still forward-looking: heartbeats are not built yet. It is
+recorded here so the capability lands inside the boundary rather than beside it,
+and the gate test asserts the half that exists today. Statement 3 is now fully
+asserted: a child task is reconciled against the live task after a restart
+rather than closed with the process.
 
 ## Adding Something New
 

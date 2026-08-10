@@ -29,13 +29,33 @@ export const RunReceiptTypeSchema = z.enum([
 ]);
 export type RunReceiptType = z.infer<typeof RunReceiptTypeSchema>;
 
+/**
+ * `task` origins carry a parent task id: the ledger row exists because an
+ * existing task delegated work, not because a surface kicked a run off.
+ */
 export const RunOriginSchema = z
   .object({
-    kind: z.enum(["compare-run", "fleet", "advisor", "crane", "manual"]),
+    kind: z.enum([
+      "compare-run",
+      "fleet",
+      "advisor",
+      "crane",
+      "manual",
+      "task",
+    ]),
     id: RunIdSchema,
   })
   .strict();
 export type RunOrigin = z.infer<typeof RunOriginSchema>;
+
+export const RunKindSchema = z.enum(["secondary-provider", "child-task"]);
+export type RunKind = z.infer<typeof RunKindSchema>;
+
+export const RunStepKindSchema = z.enum([
+  "secondary-provider-turn",
+  "child-task-turn",
+]);
+export type RunStepKind = z.infer<typeof RunStepKindSchema>;
 
 export const RunOwnershipSchema = z
   .object({
@@ -57,10 +77,19 @@ export const RunPolicySchema = z
   .strict();
 export type RunPolicy = z.infer<typeof RunPolicySchema>;
 
+/**
+ * Version 1 rows were written when `secondary-provider` was the only run kind
+ * and steps had no delegation target. Version 2 adds the child-task kinds and
+ * `RunStepRecord.target`. Both versions stay readable: a v1 row is a valid
+ * ledger row with `target: null`, so existing Compare Judge history is never
+ * rewritten.
+ */
+export const RUN_LEDGER_SCHEMA_VERSION = 2;
+
 export const RunProvenanceSchema = z
   .object({
     createdBy: z.string().trim().min(1).max(120),
-    schemaVersion: z.literal(1),
+    schemaVersion: z.union([z.literal(1), z.literal(2)]),
     sourceVersion: z.string().trim().min(1).max(120).optional(),
   })
   .strict();
@@ -69,7 +98,7 @@ export type RunProvenance = z.infer<typeof RunProvenanceSchema>;
 export const RunRecordSchema = z
   .object({
     id: RunIdSchema,
-    kind: z.literal("secondary-provider"),
+    kind: RunKindSchema,
     origin: RunOriginSchema,
     ownership: RunOwnershipSchema,
     status: RunStatusSchema,
@@ -83,11 +112,28 @@ export const RunRecordSchema = z
   .strict();
 export type RunRecord = z.infer<typeof RunRecordSchema>;
 
+/**
+ * The execution a step delegates to, when that execution has a durable identity
+ * of its own. A `child-task-turn` step points at the real Stave task it created;
+ * `turnId` stays null until the child's turn identity is known. Identity only —
+ * never transcript text.
+ */
+export const RunStepTargetSchema = z
+  .object({
+    taskId: RunIdSchema,
+    workspaceId: RunIdSchema,
+    turnId: RunIdSchema.nullable(),
+    providerId: z.enum(["claude-code", "codex"]),
+  })
+  .strict();
+export type RunStepTarget = z.infer<typeof RunStepTargetSchema>;
+
 export const RunStepRecordSchema = z
   .object({
     id: RunIdSchema,
     runId: RunIdSchema,
-    kind: z.literal("secondary-provider-turn"),
+    kind: RunStepKindSchema,
+    target: RunStepTargetSchema.nullable(),
     dependencyIds: z.array(RunIdSchema).max(64),
     status: RunStepStatusSchema,
     attempt: z.number().int().min(0).max(10),
@@ -202,8 +248,13 @@ export function sanitizeRunReceiptDetail(
     : null;
 }
 
-function normalizeRunError(value: string) {
-  return normalizeDiagnosticText(value, 1_000) || "Secondary run failed.";
+const RUN_ERROR_FALLBACK: Record<RunKind, string> = {
+  "secondary-provider": "Secondary run failed.",
+  "child-task": "The child task run failed.",
+};
+
+function normalizeRunError(value: string, kind: RunKind) {
+  return normalizeDiagnosticText(value, 1_000) || RUN_ERROR_FALLBACK[kind];
 }
 
 function buildReceipt(args: {
@@ -272,7 +323,7 @@ function acceptedTransition(args: {
 
 export function createPendingRun(args: {
   id: string;
-  kind: "secondary-provider";
+  kind: RunKind;
   origin: RunOrigin;
   ownership: RunOwnership;
   policy: RunPolicy;
@@ -297,7 +348,8 @@ export function createPendingRun(args: {
 export function createPendingRunStep(args: {
   id: string;
   runId: string;
-  kind: "secondary-provider-turn";
+  kind: RunStepKind;
+  target?: RunStepTarget | null;
   dependencyIds: string[];
   inputHash: string;
   now: string;
@@ -306,6 +358,7 @@ export function createPendingRunStep(args: {
     id: args.id,
     runId: args.runId,
     kind: args.kind,
+    target: args.target ?? null,
     dependencyIds: args.dependencyIds,
     status: "pending",
     attempt: 0,
@@ -319,6 +372,46 @@ export function createPendingRunStep(args: {
     completedAt: null,
     error: null,
   });
+}
+
+/**
+ * Refine a step's delegation target in place. The target's task identity is the
+ * step's idempotent anchor, so it can be filled in once and then only
+ * elaborated (turn id, provider) — never repointed at a different task.
+ */
+export function refineRunStepTarget(args: {
+  step: RunStepRecord;
+  target: RunStepTarget;
+}): { changed: boolean; step: RunStepRecord } {
+  const step = RunStepRecordSchema.parse(args.step);
+  const target = RunStepTargetSchema.parse(args.target);
+  if (
+    step.target &&
+    (step.target.taskId !== target.taskId ||
+      step.target.workspaceId !== target.workspaceId)
+  ) {
+    return { changed: false, step };
+  }
+  const next: RunStepTarget = {
+    ...target,
+    turnId: target.turnId ?? step.target?.turnId ?? null,
+  };
+  if (step.target && sameRunStepTarget(step.target, next)) {
+    return { changed: false, step };
+  }
+  return {
+    changed: true,
+    step: RunStepRecordSchema.parse({ ...step, target: next }),
+  };
+}
+
+function sameRunStepTarget(left: RunStepTarget, right: RunStepTarget) {
+  return (
+    left.taskId === right.taskId &&
+    left.workspaceId === right.workspaceId &&
+    left.turnId === right.turnId &&
+    left.providerId === right.providerId
+  );
 }
 
 export function claimRunStep(args: {
@@ -538,7 +631,7 @@ export function failRunStep(args: {
   if (rejection) {
     return rejection;
   }
-  const error = normalizeRunError(args.error);
+  const error = normalizeRunError(args.error, run.kind);
   return acceptedTransition({
     run: {
       ...run,
@@ -651,7 +744,7 @@ export function interruptRunStep(args: {
   ) {
     return rejectTransition({ reason: "invalid-state", run, step });
   }
-  const error = normalizeRunError(args.error);
+  const error = normalizeRunError(args.error, run.kind);
   return acceptedTransition({
     run: {
       ...run,

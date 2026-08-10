@@ -144,6 +144,7 @@ import type {
   SecondaryRunReceiptListArgs,
   SecondaryRunTransitionResponse,
 } from "@/lib/runs/secondary-run";
+import type { ChildTaskList, ChildTaskListArgs } from "@/lib/runs/child-task";
 
 interface WindowRunsApi {
   claimSecondary?: (
@@ -167,6 +168,7 @@ interface WindowRunsApi {
   listReceipts?: (
     args: SecondaryRunReceiptListArgs,
   ) => Promise<SecondaryRunReceiptList>;
+  listChildTasks?: (args: ChildTaskListArgs) => Promise<ChildTaskList>;
 }
 
 interface ProviderStreamTurnArgs {

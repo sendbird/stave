@@ -151,16 +151,20 @@
     {
       "id": "agent-platform-boundaries",
       "title": "Agent platform layers stay distinct",
-      "invariant": "A routine cannot target an existing task, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
+      "invariant": "A routine cannot target an existing task, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
+        "tests/child-task-coordinator.test.ts",
+        "tests/child-task-ledger.test.ts",
         "tests/fleet-sidebar-work-queue.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
+        "electron/main/runs/child-task-coordinator.ts",
         "src/lib/fleet/sidebar-work-queue.ts",
         "src/lib/providers/utility-inference.ts",
-        "src/lib/routines.ts"
+        "src/lib/routines.ts",
+        "src/lib/runs/child-task.ts"
       ]
     }
   ]
