@@ -1675,7 +1675,7 @@ export function ProjectWorkspaceSidebar(args: {
         <div
           className={cn(
             "border-b border-sidebar-border/55",
-            args.collapsed ? "px-2 pb-3" : "flex h-12 items-center px-3",
+            args.collapsed ? "px-2 pb-3" : "flex h-8 items-center px-3",
           )}
           style={
             args.collapsed && IS_MAC
@@ -1736,7 +1736,7 @@ export function ProjectWorkspaceSidebar(args: {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-9 w-9 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                        className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                         onClick={() =>
                           setLayout({
                             patch: { workspaceSidebarCollapsed: true },
@@ -1821,7 +1821,12 @@ export function ProjectWorkspaceSidebar(args: {
         {!args.collapsed ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1.5">
             <TooltipProvider>
-              <div className="mb-2 space-y-0.5">
+              <div
+                className={cn(
+                  "space-y-0.5",
+                  sidebarShowFleetView && "mb-2",
+                )}
+              >
                 {sidebarShowFleetView ? (
                   <button
                     type="button"
