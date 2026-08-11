@@ -12,6 +12,26 @@ import {
 const repoRoot = process.cwd();
 const docsRoot = path.join(repoRoot, "docs");
 const outputRoot = path.join(repoRoot, ".pages-dist");
+const githubBlobBase = "https://github.com/sendbird/stave/blob/main/";
+
+// Contributor and architecture material is intentionally excluded from the
+// public docs site (see the rules comment in site/src/public-docs.ts). A
+// public doc may still legitimately link to one of these for readers who
+// land on GitHub instead of the hosted site, so those links are rewritten to
+// GitHub blob URLs rather than treated as a broken internal link.
+const excludedDocRoots = [
+  path.join(docsRoot, "architecture"),
+  path.join(docsRoot, "developer"),
+];
+
+function isExcludedDocPath(resolvedTargetPath: string) {
+  return excludedDocRoots.some(
+    (root) =>
+      resolvedTargetPath === root ||
+      resolvedTargetPath.startsWith(`${root}${path.sep}`),
+  );
+}
+
 const generatedModulePath = path.join(
   repoRoot,
   "site",
@@ -82,6 +102,14 @@ async function createGeneratedModule() {
             resolvedTargetPath.endsWith(".md") &&
             resolvedTargetPath.startsWith(docsRoot)
           ) {
+            if (isExcludedDocPath(resolvedTargetPath)) {
+              const relativePath = path
+                .relative(repoRoot, resolvedTargetPath)
+                .split(path.sep)
+                .join("/");
+              return `${label}(${githubBlobBase}${relativePath}${hash ? `#${hash}` : ""})`;
+            }
+
             const targetRoute = routeBySourcePath.get(resolvedTargetPath);
 
             if (!targetRoute) {
