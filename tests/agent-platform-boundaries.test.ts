@@ -7,6 +7,13 @@ import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { RoutineUpsertInputSchema } from "../src/lib/routines";
 import { TaskHeartbeatUpsertInputSchema } from "../src/lib/automation/task-supervisor";
 import { UTILITY_INFERENCE_FEATURES } from "../src/lib/providers/utility-inference";
+import { resolveProviderRuntimeCapabilities } from "../src/lib/providers/runtime-capabilities";
+import {
+  createWorkGraph,
+  reduceWorkGraphEvent,
+} from "../src/lib/work-graph/work-graph-reducer";
+import { resolveWorkGraphControls } from "../src/lib/work-graph/work-graph-tree";
+import { toolCallNodeKey } from "../src/lib/work-graph/work-graph.types";
 import {
   SIDEBAR_WORK_QUEUE_LANE_ORDER,
   buildSidebarWorkQueueLanes,
@@ -189,5 +196,72 @@ describe("Agent platform boundaries", () => {
 
     expect(placements).toEqual(["ws-1", "ws-2"]);
     expect(new Set(placements).size).toBe(placements.length);
+  });
+  test("a work graph node names a worker, never a call", () => {
+    // The graph is a projection of the turn, not a second place to run things.
+    // If it ever imports an executor or the supervisor, node state has become
+    // execution state, and the two layers the taxonomy separates have merged.
+    for (const module of [
+      "src/lib/work-graph/work-graph.types.ts",
+      "src/lib/work-graph/work-graph-reducer.ts",
+      "src/lib/work-graph/work-graph-tree.ts",
+    ]) {
+      const imports = importedModules(readSource(module));
+      expect(
+        imports.filter((specifier) =>
+          /task-supervisor|secondary-run|run-ledger-store|persistence\/|electron\//.test(
+            specifier,
+          ),
+        ),
+      ).toEqual([]);
+    }
+
+    // A node the provider never named is shown but never steered: the tool-use
+    // id identifies a call, and a Stop aimed at a call either misses or kills
+    // the whole turn. Both are worse than no button.
+    const graph = reduceWorkGraphEvent(
+      createWorkGraph({
+        turnId: "turn-1",
+        providerId: "claude-code",
+        startedAt: 1_000,
+      }),
+      {
+        type: "tool",
+        toolName: "Task",
+        toolUseId: "toolu_1",
+        input: "{}",
+        state: "input-available",
+      },
+      2_000,
+    );
+    const unnamed = graph.nodesByKey[toolCallNodeKey("toolu_1")];
+
+    expect(unnamed?.identitySource).toBe("tool-call");
+    expect(
+      resolveWorkGraphControls({
+        node: unnamed!,
+        capabilities: {
+          agentIdentity: true,
+          nesting: true,
+          message: true,
+          interrupt: true,
+          stop: true,
+        },
+        liveIdentities: new Set(["toolu_1"]),
+      }).available,
+    ).toEqual([]);
+
+    // No runtime may claim per-agent steering it has not wired end to end.
+    // These flags are what the UI gates on, so a hopeful `true` here renders a
+    // control that silently does nothing.
+    for (const version of ["2.0.0", "9.9.9"]) {
+      const claude = resolveProviderRuntimeCapabilities({
+        providerId: "claude-code",
+        version,
+      });
+      expect(claude.workGraph.message).toBe(false);
+      expect(claude.workGraph.interrupt).toBe(false);
+      expect(claude.workGraph.stop).toBe(false);
+    }
   });
 });

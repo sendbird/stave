@@ -48,6 +48,30 @@ export interface ProviderRuntimeCapabilities {
   };
   delegationPolicies: Array<"disabled" | "explicit" | "proactive">;
   webSearchModes: ProviderWebSearchMode[];
+  workGraph: ProviderWorkGraphCapabilities;
+}
+
+/**
+ * What the runtime lets the work graph know and do about agents running inside
+ * a turn. Every field is a claim Stave has wired end-to-end, so `false` means
+ * "no control is offered" rather than "we did not check" — a control the
+ * provider cannot target at one agent is never rendered, because a Stop button
+ * that actually cancels the whole turn would be lying about its scope.
+ */
+export interface ProviderWorkGraphCapabilities {
+  /**
+   * The runtime names each spawned agent, so graph nodes key off provider
+   * identity instead of a bare tool-use id.
+   */
+  agentIdentity: boolean;
+  /** The runtime reports parent→child nesting rather than leaving it inferred. */
+  nesting: boolean;
+  /** Send a message to one running agent without disturbing its siblings. */
+  message: boolean;
+  /** Interrupt one running agent and let the turn continue. */
+  interrupt: boolean;
+  /** Stop one running agent and let the turn continue. */
+  stop: boolean;
 }
 
 export interface ProviderAvailabilityResponse {
@@ -810,6 +834,30 @@ export type NormalizedProviderEvent =
       output?: string;
       state: ToolUsePart["state"];
       workerExecution?: WorkerExecutionMetadata;
+      /**
+       * Provider-owned identity of the agent this event is *about* — the agent
+       * a delegating call spawned (Codex's child `agentThreadId`). The work
+       * graph keys nodes off this rather than off `toolUseId`, because a
+       * tool-use id names one call while an agent id names the worker that
+       * outlives it.
+       *
+       * Distinct from `ownerAgentId`, and the two must never be merged: this
+       * one points *down* to a spawned worker, that one points *up* to the
+       * worker we are already inside. Collapsing them inverts an edge.
+       */
+      agentId?: string;
+      /**
+       * Provider-owned identity of the agent that *emitted* this event, when
+       * the activity happened inside a subagent rather than the main loop
+       * (Claude's hook `agent_id`). Absent means the main loop.
+       */
+      ownerAgentId?: string;
+      /**
+       * The tool call this one ran *inside*, when the provider reports nesting
+       * (Claude's `parent_tool_use_id`). Absent means top level; it never means
+       * "unknown parent" — the graph leaves such nodes attached to the turn.
+       */
+      parentToolUseId?: string;
     }
   | {
       type: "tool_progress";
@@ -853,7 +901,15 @@ export type NormalizedProviderEvent =
         gitRef?: string;
       };
     }
-  | { type: "subagent_progress"; toolUseId?: string; content: string }
+  | {
+      type: "subagent_progress";
+      toolUseId?: string;
+      content: string;
+      /** See `tool.agentId`: the subagent this progress is reporting on. */
+      agentId?: string;
+      /** See `tool.ownerAgentId`: the subagent that emitted this progress. */
+      ownerAgentId?: string;
+    }
   | {
       type: "model_resolved";
       resolvedProviderId: ProviderId;

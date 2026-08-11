@@ -3418,10 +3418,16 @@ export async function streamCodexWithAppServer(
           if (!progressMessage) {
             return;
           }
+          // `itemId` is a tool-use id, never an agent id. Only tag `agentId`
+          // when this item actually spawned a child thread Codex named.
+          const progressAgentId = itemId
+            ? (workerActivity.agentIdForToolUseId(itemId) ?? "")
+            : "";
           emitBridgeEvent({
             type: "subagent_progress",
             ...(itemId ? { toolUseId: itemId } : {}),
             content: progressMessage,
+            ...(progressAgentId ? { agentId: progressAgentId } : {}),
           });
           return;
         }

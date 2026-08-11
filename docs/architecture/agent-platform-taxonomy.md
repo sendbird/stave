@@ -39,9 +39,32 @@ Ephemeral, turn-scoped, minimal product branding. These are task options.
 | Advisor | One read-only advice call before a turn, injected as context | Execute; persist |
 | Worker | Same-provider delegation inside a turn | Survive a restart; cross providers |
 | Utility inference | Mechanical meta calls: task name, route classification, commit message | Block the task; give advice |
+| Work graph | The turn's fan-out as a tree: who is working, what waits on what | Execute; persist; outlive the turn |
 
 Boundary: Advisor produces *content* the user would recognize as an opinion.
 Utility inference produces *metadata* the user never argues with.
+
+The work graph is a *projection*, not a second executor. It reduces the same
+normalized provider events the flat activity shelf reads, shares its
+subagent-classification predicates (`src/lib/providers/subagent-identity.ts`) so
+the two can never disagree about what counts as a subagent, and rides the turn's
+activity snapshot so both are started and discarded together. It holds no state
+the turn does not already have.
+
+A node is only ever keyed from something that names a *worker*: the delegation
+key where Stave owns the child on the run ledger, or provider identity where the
+runtime owns it. A delegating call the provider never attributed still appears —
+a flat fan-out is better than a blank surface — but it is marked as
+call-derived and is refused every per-agent control, because a tool-use id
+identifies one call and a Stop aimed at it would either miss or end the whole
+turn. Per-agent message, interrupt, and stop are gated on
+`ProviderRuntimeCapabilities.workGraph`; no runtime declares them today, which
+is why they are declared capabilities rather than assumptions.
+
+Two provider fields answer "which agent" and mean opposite things, so they are
+carried separately on the normalized event and must never be merged: `agentId`
+points *down* to an agent a call spawned, `ownerAgentId` points *up* to the agent
+the event was emitted from. Collapsing them inverts a spawn edge.
 
 ### Layer 2 — Supervision: see everything, intervene from anywhere
 
@@ -114,6 +137,8 @@ whose name repeats it.
 5. Advisor advises content; utility inference computes metadata.
 6. The work queue assigns a workspace to exactly one lane, in fixed priority
    order.
+7. A work graph node names a worker, never a call; a call-derived node is never
+   offered a per-agent control.
 
 Every statement is now fully asserted; none is forward-looking any more. The two
 that were written ahead of their capability landed inside the boundary rather

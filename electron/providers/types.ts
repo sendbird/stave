@@ -155,6 +155,30 @@ export type BridgeEvent =
         | "output-available"
         | "output-error";
       workerExecution?: WorkerExecutionMetadata;
+      /**
+       * Provider-owned identity of the agent this event is *about* — the agent
+       * a delegating call spawned (Codex's child `agentThreadId`). The work
+       * graph keys nodes off this rather than off `toolUseId`, because a
+       * tool-use id names one call while an agent id names the worker that
+       * outlives it.
+       *
+       * Distinct from `ownerAgentId`, and the two must never be merged: this
+       * one points *down* to a spawned worker, that one points *up* to the
+       * worker we are already inside. Collapsing them inverts an edge.
+       */
+      agentId?: string;
+      /**
+       * Provider-owned identity of the agent that *emitted* this event, when
+       * the activity happened inside a subagent rather than the main loop
+       * (Claude's hook `agent_id`). Absent means the main loop.
+       */
+      ownerAgentId?: string;
+      /**
+       * The tool call this one ran *inside*, when the provider reports nesting
+       * (Claude's `parent_tool_use_id`). Absent means top level; it never means
+       * "unknown parent" — the graph leaves such nodes attached to the turn.
+       */
+      parentToolUseId?: string;
     }
   | {
       type: "tool_result";
@@ -198,7 +222,15 @@ export type BridgeEvent =
         gitRef?: string;
       };
     }
-  | { type: "subagent_progress"; toolUseId?: string; content: string }
+  | {
+      type: "subagent_progress";
+      toolUseId?: string;
+      content: string;
+      /** See `tool.agentId`: the subagent this progress is reporting on. */
+      agentId?: string;
+      /** See `tool.ownerAgentId`: the subagent that emitted this progress. */
+      ownerAgentId?: string;
+    }
   | {
       type: "model_resolved";
       resolvedProviderId: "claude-code" | "codex";

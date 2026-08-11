@@ -186,6 +186,9 @@ const ToolEventSchema = z.object({
   output: z.string().optional(),
   state: ToolStateSchema,
   workerExecution: WorkerExecutionMetadataSchema.optional(),
+  agentId: z.string().optional(),
+  ownerAgentId: z.string().optional(),
+  parentToolUseId: z.string().optional(),
 });
 
 const ToolResultEventSchema = z.object({
@@ -306,6 +309,8 @@ const SubagentProgressEventSchema = z.object({
   type: z.literal("subagent_progress"),
   toolUseId: z.string().optional(),
   content: z.string(),
+  agentId: z.string().optional(),
+  ownerAgentId: z.string().optional(),
 });
 
 export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {

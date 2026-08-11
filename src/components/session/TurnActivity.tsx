@@ -1,18 +1,5 @@
 import { memo, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import {
-  Bot,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Circle,
-  CircleAlert,
-  CirclePause,
-  ClipboardList,
-  ListChecks,
-  Webhook,
-  Wrench,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import {
   ChildTaskParentBacklink,
@@ -22,6 +9,15 @@ import { deriveTodoTraceItems } from "@/components/session/message/assistant-tra
 import { resolvePlanViewerState } from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import { findLatestTodoPart } from "@/components/session/todo-floater.utils";
+import {
+  getTurnActivityStatusLabel,
+  TurnActivityStatusIcon,
+} from "@/components/session/turn-activity-status-icon";
+import {
+  NO_WORK_GRAPH_CAPABILITIES,
+  WorkGraphTree,
+  type WorkGraphControlRequest,
+} from "@/components/session/WorkGraphTree";
 import {
   buildTurnActivityItems,
   countTurnActivityItems,
@@ -33,9 +29,7 @@ import {
   resolveTurnActivityOrbState,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
-  type TurnActivityIconKey,
   type TurnActivityItem,
-  type TurnActivityRowStatus,
   type TurnActivityTodo,
 } from "@/components/session/turn-activity.utils";
 import { Button } from "@/components/ui";
@@ -45,6 +39,7 @@ import {
   buildTaskExecutionSummary,
   type TaskExecutionSummary,
 } from "@/lib/fleet/task-execution-summary";
+import type { ProviderWorkGraphCapabilities } from "@/lib/providers/provider.types";
 import {
   formatProviderTurnElapsedDuration,
   formatProviderTurnIdleDuration,
@@ -52,6 +47,8 @@ import {
   type ProviderTurnActivitySnapshot,
   type ProviderTurnWorkItem,
 } from "@/lib/providers/turn-status";
+import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
+import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
@@ -74,16 +71,6 @@ const TURN_ACTIVITY_EXIT_MS = 180;
  * updates/second loses nothing and stops the list from repainting every frame.
  */
 const TURN_ACTIVITY_CONTENT_THROTTLE_MS = 120;
-
-const TURN_ACTIVITY_ICONS: Record<TurnActivityIconKey, LucideIcon> = {
-  alert: CircleAlert,
-  pause: CirclePause,
-  plan: ListChecks,
-  subagent: Bot,
-  todo: ClipboardList,
-  tool: Wrench,
-  hook: Webhook,
-};
 
 function useTurnClock(activeTurnId: string | null) {
   const [now, setNow] = useState(() => Date.now());
@@ -150,6 +137,7 @@ export function TurnActivity() {
     rateLimits,
     activeWorkspaceId,
     projectPath,
+    runtimeCapabilities,
   ] = useAppStore(
     useShallow((state) => [
       state.tasks.find((task) => task.id === taskId) ?? null,
@@ -166,6 +154,7 @@ export function TurnActivity() {
       state.rateLimitsSnapshot,
       state.activeWorkspaceId,
       state.projectPath,
+      state.providerRuntimeCapabilities,
     ]),
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
@@ -294,6 +283,13 @@ export function TurnActivity() {
     todos,
     TURN_ACTIVITY_CONTENT_THROTTLE_MS,
   );
+  // The graph is rebuilt by the same per-frame flush as the work items, and the
+  // tree re-derives its rows from the graph's identity, so it rides the same
+  // throttle rather than reading straight off the live snapshot.
+  const throttledWorkGraph = useThrottledValue(
+    currentActivity?.workGraph ?? null,
+    TURN_ACTIVITY_CONTENT_THROTTLE_MS,
+  );
 
   const surfaceProps = useMemo<TurnActivitySurfaceProps | null>(() => {
     if (!shouldShow) {
@@ -305,6 +301,8 @@ export function TurnActivity() {
       isPlanPreparing,
       workItems: throttledWorkItems,
       todos: throttledTodos,
+      workGraph: throttledWorkGraph,
+      workGraphCapabilities: runtimeCapabilities[activeProvider].workGraph,
       expandedByDefault,
       hasPendingInteractionCard,
       executionSummary,
@@ -313,6 +311,7 @@ export function TurnActivity() {
       projectPath,
     };
   }, [
+    activeProvider,
     activeTurnId,
     activeWorkspaceId,
     currentActivity,
@@ -321,9 +320,11 @@ export function TurnActivity() {
     hasPendingInteractionCard,
     isPlanPreparing,
     projectPath,
+    runtimeCapabilities,
     shouldShow,
     taskId,
     throttledTodos,
+    throttledWorkGraph,
     throttledWorkItems,
   ]);
   // Keep the last visible snapshot around for one exit animation so the shelf
@@ -368,6 +369,14 @@ interface TurnActivitySurfaceProps {
   isPlanPreparing: boolean;
   workItems: ProviderTurnWorkItem[];
   todos: TurnActivityTodo[];
+  /**
+   * The same turn seen as a tree. Passed separately from `activity` because the
+   * shelf's turn-level state stays live while row content is throttled, and the
+   * tree belongs to the throttled half.
+   */
+  workGraph?: WorkGraph | null;
+  workGraphCapabilities?: ProviderWorkGraphCapabilities;
+  onWorkGraphControl?: (request: WorkGraphControlRequest) => void;
   /**
    * Setting-backed default for the expanded list. A manual toggle overrides it
    * for the rest of the turn; the surface is keyed per turn, so the next turn
@@ -520,8 +529,20 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     featuredItem.detail !== headline
       ? featuredItem.detail
       : null;
+  // A turn can delegate before it reports a single work item, and the tree is
+  // the only thing that would say so — without this the list stays shut and the
+  // agents are invisible until unrelated activity opens it.
+  const hasWorkGraphRows = useMemo(
+    () =>
+      props.workGraph
+        ? summarizeWorkGraph(props.workGraph).totalCount > 0
+        : false,
+    [props.workGraph],
+  );
   const canExpand =
-    (activityItems.length > 0 || props.executionSummary != null) &&
+    (activityItems.length > 0 ||
+      hasWorkGraphRows ||
+      props.executionSummary != null) &&
     !interactionCardOwnsFocus;
   // `0/4` says nothing, so the ratio only appears once work has landed.
   const showProgress =
@@ -656,6 +677,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               {activityItems.map((item) => (
                 <TurnActivityRow key={item.id} item={item} />
               ))}
+              <WorkGraphTree
+                graph={props.workGraph}
+                capabilities={
+                  props.workGraphCapabilities ?? NO_WORK_GRAPH_CAPABILITIES
+                }
+                onControl={props.onWorkGraphControl}
+                className="px-1.5 pt-2"
+              />
               {props.executionSummary ? (
                 <TaskExecutionSummarySurface
                   compact
@@ -731,7 +760,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
       {item.elapsedSeconds != null ? (
         <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground">
           <span className="sr-only">
-            {getStatusLabel(item.status)},{" "}
+            {getTurnActivityStatusLabel(item.status)},{" "}
             {formatElapsedSeconds(item.elapsedSeconds)} elapsed
           </span>
           <span aria-hidden="true">
@@ -742,70 +771,6 @@ const TurnActivityRow = memo(function TurnActivityRow({
     </div>
   );
 });
-
-function TurnActivityStatusIcon({
-  status,
-  iconKey,
-}: {
-  status: TurnActivityRowStatus;
-  iconKey: TurnActivityIconKey;
-}) {
-  if (status === "completed") {
-    return (
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        <CheckCircle2 className="size-4 text-success" aria-hidden />
-        <span className="sr-only">Done</span>
-      </span>
-    );
-  }
-  if (status === "failed") {
-    return (
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        <CircleAlert className="size-4 text-destructive" aria-hidden />
-        <span className="sr-only">Failed</span>
-      </span>
-    );
-  }
-  if (status === "waiting") {
-    return (
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        <CirclePause className="size-4 text-warning" aria-hidden />
-        <span className="sr-only">Waiting</span>
-      </span>
-    );
-  }
-  if (status === "pending") {
-    return (
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        <Circle className="size-3.5 text-muted-foreground/45" aria-hidden />
-        <span className="sr-only">Queued</span>
-      </span>
-    );
-  }
-  const Icon = TURN_ACTIVITY_ICONS[iconKey];
-  return (
-    <span className="flex size-4 shrink-0 items-center justify-center">
-      <Icon className="size-3.5 text-muted-foreground" aria-hidden />
-      <span className="sr-only">Running</span>
-    </span>
-  );
-}
-
-function getStatusLabel(status: TurnActivityRowStatus) {
-  if (status === "completed") {
-    return "Done";
-  }
-  if (status === "failed") {
-    return "Failed";
-  }
-  if (status === "waiting") {
-    return "Waiting";
-  }
-  if (status === "pending") {
-    return "Queued";
-  }
-  return "Running";
-}
 
 function formatElapsedSeconds(value: number) {
   const totalSeconds = Math.max(0, Math.round(value));

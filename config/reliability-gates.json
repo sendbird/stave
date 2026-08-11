@@ -188,6 +188,23 @@
       ]
     },
     {
+      "id": "work-graph-identity",
+      "title": "A work graph node names a worker, never a call",
+      "invariant": "Every agent node is keyed from the delegation ledger where Stave owns the child or from provider identity where the provider owns it; a node derived from a bare tool-use id is marked unsteerable and is never offered a per-agent control; per-agent message, interrupt, and stop are gated on a declared runtime capability and refused with a reason when the identity is no longer live; and the graph reducer tolerates late, duplicate, and partial events without inventing an edge.",
+      "testFiles": [
+        "tests/work-graph-domain.test.ts",
+        "tests/work-graph-tree-render.test.tsx",
+        "tests/agent-platform-boundaries.test.ts"
+      ],
+      "assertionRefs": [
+        "src/lib/work-graph/work-graph.types.ts",
+        "src/lib/work-graph/work-graph-reducer.ts",
+        "src/lib/work-graph/work-graph-tree.ts",
+        "src/lib/providers/runtime-capabilities.ts",
+        "docs/architecture/agent-platform-taxonomy.md"
+      ]
+    },
+    {
       "id": "task-supervisor-safety",
       "title": "A heartbeat never overrides the user",
       "invariant": "A due heartbeat occurrence defers to an active turn without being consumed, pauses while an approval or question is pending or the task's provider runtime changed, stops with an explicit reason on archive, expiry, or the occurrence cap, catches up at most once after a restart, and records every occurrence idempotently.",

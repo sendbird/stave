@@ -3,6 +3,7 @@ import type {
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
+import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { TurnVerificationResult } from "@/lib/workspace-scripts";
 import type { ChatMessage, CodeDiffPart } from "@/types/chat";
 
@@ -56,6 +57,26 @@ export interface TaskExecutionContextHeadroom {
   totalTokens?: number;
 }
 
+/**
+ * How much of this task is being done by agents other than the main loop.
+ *
+ * It rides the shared execution summary rather than a card of its own because
+ * a fan-out is a property of the run, not a new kind of thing to look at: the
+ * same surface already answers "how long, how much changed, did it verify", and
+ * "how many agents, is one of them stuck on me" is the same question asked of
+ * the turn's shape.
+ */
+export interface TaskExecutionAgents {
+  totalCount: number;
+  runningCount: number;
+  blockedCount: number;
+  failedCount: number;
+  /** Deepest nesting level, 0 when the fan-out is flat. */
+  maxDepth: number;
+  /** One compact line, e.g. `3 agents · 1 blocked`. */
+  label: string;
+}
+
 export interface TaskExecutionSummary {
   elapsed: TaskExecutionMetric<TaskExecutionElapsed>;
   latestActivity: TaskExecutionMetric<TaskExecutionLatestActivity>;
@@ -64,6 +85,7 @@ export interface TaskExecutionSummary {
   usage: TaskExecutionMetric<TaskExecutionUsage>;
   accountLimit: TaskExecutionMetric<TaskExecutionAccountLimit>;
   contextHeadroom: TaskExecutionMetric<TaskExecutionContextHeadroom>;
+  agents: TaskExecutionMetric<TaskExecutionAgents>;
 }
 
 export interface TaskReviewArtifact {
@@ -579,6 +601,7 @@ export function buildTaskExecutionSummary(args: {
       providerId: args.providerId,
       rateLimits: args.rateLimits,
     }),
+    agents: buildAgentsMetric(args.activity),
     contextHeadroom: args.contextHeadroom
       ? {
           value: args.contextHeadroom,
@@ -588,6 +611,41 @@ export function buildTaskExecutionSummary(args: {
       : unavailableMetric(
           "Live context headroom is not reliably reported for this provider turn.",
         ),
+  };
+}
+
+/**
+ * A task with no fan-out reports "unavailable" rather than a zero.
+ *
+ * Zero agents and no graph are different statements, and the summary's
+ * provenance vocabulary exists to keep them apart: "0 agents" on a plain
+ * single-loop turn would read as a fan-out that failed to start.
+ */
+function buildAgentsMetric(
+  activity: ProviderTurnActivitySnapshot | null | undefined,
+): TaskExecutionMetric<TaskExecutionAgents> {
+  if (!activity) {
+    return unavailableMetric<TaskExecutionAgents>(
+      "No live turn is reporting agent activity for this task.",
+    );
+  }
+  const summary = summarizeWorkGraph(activity.workGraph);
+  if (summary.totalCount === 0) {
+    return unavailableMetric<TaskExecutionAgents>(
+      "This turn is running on the main loop with no delegated agents.",
+    );
+  }
+  return {
+    value: {
+      totalCount: summary.totalCount,
+      runningCount: summary.runningCount,
+      blockedCount: summary.blockedCount,
+      failedCount: summary.failedCount,
+      maxDepth: summary.maxDepth,
+      label: summary.label,
+    },
+    provenance: "derived",
+    sourceRefs: [`work-graph:${activity.turnId}`],
   };
 }
 
@@ -625,6 +683,19 @@ export function buildTaskReviewArtifact(
     );
   } else {
     cautions.push("Verification was not reported.");
+  }
+  const agents = summary.agents.value;
+  if (agents) {
+    facts.push(agents.label);
+    // A blocked agent is the one state in this artifact a person can clear
+    // themselves, so it is a caution rather than another fact to skim past.
+    if (agents.blockedCount > 0) {
+      cautions.push(
+        `${agents.blockedCount} agent${agents.blockedCount === 1 ? "" : "s"} ${
+          agents.blockedCount === 1 ? "is" : "are"
+        } waiting on an answer.`,
+      );
+    }
   }
   const usage = summary.usage.value;
   if (usage) {

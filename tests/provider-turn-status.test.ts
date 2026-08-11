@@ -21,7 +21,7 @@ describe("provider turn status helpers", () => {
       now: 1000,
     });
 
-    expect(started["task-1"]).toEqual({
+    expect(started["task-1"]).toMatchObject({
       turnId: "turn-1",
       providerId: "claude-code",
       startedAt: 1000,
@@ -30,6 +30,13 @@ describe("provider turn status helpers", () => {
       pendingInteraction: null,
       workItemsById: {},
       orderedWorkItemIds: [],
+    });
+    // A turn that has activity always has a graph: the two projections share
+    // one lifecycle so neither can outlive the other.
+    expect(started["task-1"]?.workGraph).toMatchObject({
+      turnId: "turn-1",
+      providerId: "claude-code",
+      startedAt: 1000,
     });
   });
 

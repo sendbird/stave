@@ -2,8 +2,21 @@ import type {
   NormalizedProviderEvent,
   ProviderId,
 } from "@/lib/providers/provider.types";
-import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
+import {
+  formatToolDisplayName,
+  isSubagentToolName,
+  parseToolInput,
+  PROVIDER_TURN_WORK_TEXT_LIMIT,
+  resolveSubagentBadge,
+  resolveToolTitle,
+  truncateWorkText,
+} from "@/lib/providers/subagent-identity";
 import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
+import {
+  createWorkGraph,
+  reduceWorkGraphEvent,
+} from "@/lib/work-graph/work-graph-reducer";
+import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 
 /**
  * How long a turn can be silent (no events) before it is marked stalled in the
@@ -67,7 +80,6 @@ export const PROVIDER_TURN_WORK_ITEM_LIMIT = 12;
  */
 export const PROVIDER_TURN_GENERAL_TOOL_LIMIT = 3;
 const PROVIDER_TURN_WORK_PROGRESS_LIMIT = 6;
-const PROVIDER_TURN_WORK_TEXT_LIMIT = 240;
 
 export interface ProviderTurnActivitySnapshot {
   turnId: string;
@@ -81,6 +93,17 @@ export interface ProviderTurnActivitySnapshot {
   completedAt?: number;
   workItemsById: Record<string, ProviderTurnWorkItem>;
   orderedWorkItemIds: string[];
+  /**
+   * The same turn seen as a graph rather than a flat shelf.
+   *
+   * It rides the activity snapshot instead of a store slice of its own so the
+   * two projections cannot drift: they are started, updated, and discarded by
+   * the same three functions, from the same event array, and a turn that has
+   * activity always has a graph. A separate slice would need its own lifecycle
+   * wired into all five call sites that manage this one, and the first missed
+   * `clear` would leave a dead graph on screen.
+   */
+  workGraph: WorkGraph;
 }
 
 export type ProviderTurnDisplayState = "idle" | "responding" | "stalled";
@@ -115,6 +138,13 @@ export function startProviderTurnActivity(args: {
         (isSameTurn ? current.pendingInteraction : null),
       workItemsById: isSameTurn ? current.workItemsById : {},
       orderedWorkItemIds: isSameTurn ? current.orderedWorkItemIds : [],
+      workGraph: isSameTurn
+        ? current.workGraph
+        : createWorkGraph({
+            turnId: args.turnId,
+            providerId: args.providerId,
+            startedAt,
+          }),
       ...(isSameTurn && current.turnError
         ? {
             turnError: current.turnError,
@@ -342,82 +372,6 @@ function resolveTurnCompletionError(args: {
   } satisfies ProviderTurnErrorState;
 }
 
-function truncateWorkText(value: unknown) {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const normalized = value.trim().replace(/\s+/g, " ");
-  if (!normalized) {
-    return undefined;
-  }
-  if (normalized.length <= PROVIDER_TURN_WORK_TEXT_LIMIT) {
-    return normalized;
-  }
-  return `${normalized.slice(0, PROVIDER_TURN_WORK_TEXT_LIMIT - 1).trimEnd()}…`;
-}
-
-function parseToolInput(input: string): Record<string, unknown> | null {
-  try {
-    const parsed = JSON.parse(input);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function isSubagentToolName(toolName: string) {
-  const normalized = toolName.toLowerCase().replace(/[^a-z0-9]+/g, "");
-  return (
-    normalized === "agent" ||
-    normalized === "task" ||
-    normalized.endsWith("spawnagent")
-  );
-}
-
-/** `mcp__server__do_thing` / `collaboration.spawn_agent` → action-oriented copy. */
-function formatToolDisplayName(toolName: string) {
-  if (!toolName.trim()) {
-    return undefined;
-  }
-  if (isStaveToolName(toolName)) {
-    return truncateWorkText(toStaveToolDisplayName(toolName));
-  }
-  const segments = toolName.trim().split(/__|\./).filter(Boolean);
-  const lastSegment = segments.at(-1) ?? toolName;
-  return truncateWorkText(lastSegment.replace(/_/g, " "));
-}
-
-function resolveToolTitle(
-  toolName: string,
-  input: string,
-  currentTitle?: string,
-) {
-  const parsed = parseToolInput(input);
-  const title =
-    truncateWorkText(parsed?.description) ??
-    truncateWorkText(parsed?.task_name) ??
-    truncateWorkText(parsed?.name);
-  return (
-    title ??
-    currentTitle ??
-    formatToolDisplayName(toolName) ??
-    "Background work"
-  );
-}
-
-/** Subagent flavor (`Explore`, `Plan`, …) surfaced as a row badge. */
-function resolveSubagentBadge(input: string) {
-  const parsed = parseToolInput(input);
-  return (
-    truncateWorkText(parsed?.subagent_type) ??
-    truncateWorkText(parsed?.subagentType) ??
-    truncateWorkText(parsed?.agentType) ??
-    truncateWorkText(parsed?.agent_type)
-  );
-}
-
 /** Keep the tail of a path so the row shows `session/ChatInput.tsx`. */
 function formatPathPreview(value: string) {
   const segments = value.split("/").filter(Boolean);
@@ -587,6 +541,44 @@ function pruneWorkItems(args: WorkItemCollection) {
       overflowCount,
     }),
   );
+}
+
+/**
+ * Fold this batch of events into the turn's graph.
+ *
+ * The graph is rebuilt from scratch whenever the turn id changes, and also
+ * whenever the resolved provider changes under an empty graph: node keys are
+ * namespaced by provider id, so carrying keys across a provider switch would
+ * put two runtimes' agents in one namespace. `model_resolved` arrives at the
+ * head of a turn, before any agent exists, which is why "empty" is a sufficient
+ * guard rather than a hopeful one.
+ */
+function applyTurnWorkGraphEvents(args: {
+  current?: ProviderTurnActivitySnapshot;
+  turnId: string;
+  providerId: ProviderId;
+  events: NormalizedProviderEvent[];
+  startedAt: number;
+  now: number;
+}) {
+  const carried =
+    args.current?.turnId === args.turnId ? args.current.workGraph : undefined;
+  const reusable =
+    carried &&
+    (carried.providerId === args.providerId ||
+      carried.orderedNodeKeys.length > 1);
+  let graph =
+    reusable && carried
+      ? carried
+      : createWorkGraph({
+          turnId: args.turnId,
+          providerId: args.providerId,
+          startedAt: args.startedAt,
+        });
+  for (const event of args.events) {
+    graph = reduceWorkGraphEvent(graph, event, args.now);
+  }
+  return graph;
 }
 
 function applyTurnWorkEvents(args: {
@@ -811,6 +803,14 @@ export function applyProviderTurnActivityEvents(args: {
       pendingInteraction,
       workItemsById: work.workItemsById,
       orderedWorkItemIds: work.orderedWorkItemIds,
+      workGraph: applyTurnWorkGraphEvents({
+        current,
+        turnId: args.turnId,
+        providerId,
+        events: args.events,
+        startedAt,
+        now,
+      }),
       ...(turnErrorState
         ? {
             turnError: turnErrorState.message,
