@@ -34,11 +34,40 @@ function parseTimestamp(value?: string | null) {
  * tasks are excluded for the same reason from the other direction: they are
  * already represented by the parent row that owns them, so counting them again
  * would double-count one unit of work.
+ *
+ * A task whose pane tab was closed without archiving is closed too, as far as
+ * the user is concerned: `closeTaskTab` removes it from every workspace surface
+ * and `selectTaskHistoryEntries` files it under history. Listing it on the board
+ * as a plain `Idle` row makes settled work look like a fleet of parked agents.
+ *
+ * The one exception is a closed tab that still owns an active provider turn:
+ * closing a tab does not stop the agent, and work genuinely in flight has to
+ * stay visible somewhere.
+ *
+ * `openTaskTabIds` is `null`/absent when the pane state is unknown (a legacy
+ * snapshot or a summary that predates the field). `normalizePaneState` resolves
+ * that same absence to "every non-archived task is open", so this does too
+ * rather than reporting the whole workspace as closed.
  */
-export function selectFleetOpenTasks(tasks: readonly Task[]) {
-  return tasks.filter(
-    (task) => !isTaskArchived(task) && !isDelegatedChildTask(task),
-  );
+export function selectFleetOpenTasks(
+  tasks: readonly Task[],
+  options?: {
+    openTaskTabIds?: readonly string[] | null;
+    activeTurnIdsByTask?: Record<string, string | undefined>;
+  },
+) {
+  const openTaskTabIds = options?.openTaskTabIds
+    ? new Set(options.openTaskTabIds)
+    : null;
+  return tasks.filter((task) => {
+    if (isTaskArchived(task) || isDelegatedChildTask(task)) {
+      return false;
+    }
+    if (!openTaskTabIds || openTaskTabIds.has(task.id)) {
+      return true;
+    }
+    return Boolean(options?.activeTurnIdsByTask?.[task.id]);
+  });
 }
 
 /**

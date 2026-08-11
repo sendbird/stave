@@ -230,6 +230,7 @@ export function FleetWorkspaceCard(args: {
     activeMessagesByTask,
     activeMessageCountByTask,
     activeTurnIdsByTask,
+    activeOpenTaskTabIds,
     providerTurnActivityByTask,
     runtimeState,
     prStatus,
@@ -247,6 +248,7 @@ export function FleetWorkspaceCard(args: {
         isActive ? state.messagesByTask : EMPTY_MESSAGES_BY_TASK,
         isActive ? state.messageCountByTask : EMPTY_MESSAGE_COUNT_BY_TASK,
         isActive ? state.activeTurnIdsByTask : EMPTY_ACTIVE_TURN_IDS_BY_TASK,
+        isActive ? state.openTaskTabIds : null,
         state.providerTurnActivityByTask,
         state.workspaceRuntimeCacheById[args.workspace.id] ?? null,
         state.workspacePrInfoById[args.workspace.id]?.derived ?? null,
@@ -299,6 +301,7 @@ export function FleetWorkspaceCard(args: {
         messagesByTask: activeMessagesByTask,
         messageCountByTask: activeMessageCountByTask,
         activeTurnIdsByTask,
+        openTaskTabIds: activeOpenTaskTabIds,
       };
     }
     if (runtimeState) {
@@ -308,6 +311,7 @@ export function FleetWorkspaceCard(args: {
         messagesByTask: runtimeState.messagesByTask,
         messageCountByTask: runtimeState.messageCountByTask,
         activeTurnIdsByTask: runtimeState.activeTurnIdsByTask,
+        openTaskTabIds: runtimeState.openTaskTabIds,
       };
     }
     return {
@@ -317,10 +321,14 @@ export function FleetWorkspaceCard(args: {
       messageCountByTask:
         loadedShell?.messageCountByTask ?? EMPTY_MESSAGE_COUNT_BY_TASK,
       activeTurnIdsByTask: EMPTY_ACTIVE_TURN_IDS_BY_TASK,
+      // Absent on summaries that predate the field: unknown pane state, not
+      // "nothing open".
+      openTaskTabIds: loadedShell?.openTaskTabIds ?? null,
     };
   }, [
     activeMessageCountByTask,
     activeMessagesByTask,
+    activeOpenTaskTabIds,
     activeTasks,
     activeTurnIdsByTask,
     isActiveWorkspace,
@@ -329,8 +337,12 @@ export function FleetWorkspaceCard(args: {
   ]);
 
   const openTasks = useMemo(
-    () => selectFleetOpenTasks(taskState.tasks),
-    [taskState.tasks],
+    () =>
+      selectFleetOpenTasks(taskState.tasks, {
+        openTaskTabIds: taskState.openTaskTabIds,
+        activeTurnIdsByTask: taskState.activeTurnIdsByTask,
+      }),
+    [taskState],
   );
 
   const rows = useMemo(

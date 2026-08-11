@@ -8,6 +8,7 @@ import {
   buildWorkspaceArchiveDialogCopy,
   buildWorkspaceHoverPreview,
   buildVisibleWorkspaceShortcutTargets,
+  formatWorkQueueWorkspaceLabel,
   getWorkspaceHoverActionVisibilityClasses,
   getWorkspaceLeadingAttentionKind,
   getWorkspaceShortcutLabel,
@@ -532,6 +533,54 @@ describe("buildSidebarWorkQueueEntries", () => {
     expect(
       entries.filter((entry) => entry.workspaceId === "ws-idle"),
     ).toHaveLength(1);
+  });
+});
+
+describe("formatWorkQueueWorkspaceLabel", () => {
+  test("prefers the workspace label over its branch", () => {
+    expect(
+      formatWorkQueueWorkspaceLabel({
+        name: "fleet ux",
+        branch: "fix/fleet-ux-0811",
+        isDefault: false,
+      }),
+    ).toBe("fleet ux");
+  });
+
+  test("falls back to the branch when the workspace has no label of its own", () => {
+    expect(
+      formatWorkQueueWorkspaceLabel({
+        name: "Default Workspace",
+        branch: "main",
+        isDefault: true,
+      }),
+    ).toBe("main");
+    expect(
+      formatWorkQueueWorkspaceLabel({
+        name: "   ",
+        branch: "feat/queue",
+        isDefault: false,
+      }),
+    ).toBe("feat/queue");
+  });
+
+  test("treats the fabricated default name as unlabelled even without the flag", () => {
+    expect(
+      formatWorkQueueWorkspaceLabel({
+        name: "Default Workspace",
+        branch: "release/1.2",
+        isDefault: false,
+      }),
+    ).toBe("release/1.2");
+  });
+
+  test("keeps a readable identifier when neither label nor branch is known", () => {
+    expect(
+      formatWorkQueueWorkspaceLabel({ name: "", isDefault: true }),
+    ).toBe("Default");
+    expect(
+      formatWorkQueueWorkspaceLabel({ name: "", isDefault: false }),
+    ).toBe("worktree");
   });
 });
 
