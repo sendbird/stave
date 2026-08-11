@@ -1,3 +1,4 @@
+import { webContents } from "electron";
 import { resolveChildTaskConcurrencyLimit } from "../../../src/lib/runs/child-task";
 import { buildChildTaskRuntimeOptions } from "../../../src/lib/runs/child-task-runtime";
 import type { HostTaskStopArgs } from "../../host-service/protocol";
@@ -83,10 +84,12 @@ const host: ChildTaskHostPort = {
     providerId,
     model,
     permissionProfile,
+    parentTaskId,
   }) {
     const result = await runTask({
       workspaceId,
       taskId,
+      parentTaskId,
       prompt,
       ...(title ? { title } : {}),
       provider: providerId,
@@ -119,6 +122,17 @@ export function getChildTaskCoordinator() {
           `[child-task] ${context.scope} failed for ${context.runId}: ${String(error)}`,
         );
       },
+      // A delegation changes phase whenever the child's turn ends, including
+      // for delegations the renderer never started. Telling the surfaces beats
+      // asking them to poll a durable record that is usually idle.
+      onChange: ({ parentTaskId }) => {
+        for (const contents of webContents.getAllWebContents()) {
+          if (contents.isDestroyed()) {
+            continue;
+          }
+          contents.send("runs:child-tasks-changed", { parentTaskId });
+        }
+      },
     });
   }
   return coordinator;
@@ -134,7 +148,9 @@ export async function reconcileChildTasks() {
   try {
     return await getChildTaskCoordinator().reconcile();
   } catch (error) {
-    console.warn(`[child-task] restart reconciliation failed: ${String(error)}`);
+    console.warn(
+      `[child-task] restart reconciliation failed: ${String(error)}`,
+    );
     return { reconciled: 0, deferred: 0 };
   }
 }

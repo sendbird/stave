@@ -671,6 +671,12 @@ export function cancelRunStep(args: {
   idempotencyKey: string;
   expectedExecutionId?: string;
   detail?: unknown;
+  /**
+   * Why the run was cancelled, in words a person can read. Cancellation is the
+   * one terminal transition a human can trigger for several different reasons,
+   * so the caller may record which one instead of leaving the row silent.
+   */
+  error?: string;
   now: string;
 }): RunStepTransition {
   const run = RunRecordSchema.parse(args.run);
@@ -697,20 +703,23 @@ export function cancelRunStep(args: {
   ) {
     return rejectTransition({ reason: "invalid-state", run, step });
   }
+  const cancelError = args.error
+    ? normalizeRunError(args.error, run.kind)
+    : null;
   return acceptedTransition({
     run: {
       ...run,
       status: "cancelled",
       updatedAt: args.now,
       completedAt: args.now,
-      error: null,
+      error: cancelError,
     },
     step: {
       ...step,
       status: "cancelled",
       updatedAt: args.now,
       completedAt: args.now,
-      error: null,
+      error: cancelError,
     },
     receipts: [
       buildReceipt({

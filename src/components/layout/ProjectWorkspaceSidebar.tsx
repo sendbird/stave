@@ -107,7 +107,7 @@ import {
   type SidebarWorkQueueLane,
   type SidebarWorkQueueSignals,
 } from "@/lib/fleet/sidebar-work-queue";
-import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
+import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
@@ -1336,7 +1336,9 @@ export function ProjectWorkspaceSidebar(args: {
 
         let bestStatus: FleetTaskStatus = "idle";
         for (const task of runtimeState.tasks) {
-          if (isTaskArchived(task) || isLegacyBranchTask(task)) {
+          // A delegated child is surfaced under its parent, so its status must
+          // not drive the workspace roll-up on its own.
+          if (isTaskArchived(task) || isDelegatedChildTask(task)) {
             continue;
           }
           const status = classifyTaskStatus({

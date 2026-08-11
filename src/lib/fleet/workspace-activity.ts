@@ -1,4 +1,4 @@
-import { isLegacyBranchTask, isTaskArchived } from "@/lib/tasks";
+import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
 import type { FleetDisplayStatus } from "@/lib/fleet/task-status";
 import type { Task } from "@/types/chat";
 
@@ -30,12 +30,14 @@ function parseTimestamp(value?: string | null) {
 
 /**
  * Open tasks are the only ones Fleet counts. Archived tasks are closed by
- * definition and legacy branch tasks are hidden everywhere else in the app, so
- * neither should keep a workspace looking busy.
+ * definition, so they must not keep a workspace looking busy. Delegated child
+ * tasks are excluded for the same reason from the other direction: they are
+ * already represented by the parent row that owns them, so counting them again
+ * would double-count one unit of work.
  */
 export function selectFleetOpenTasks(tasks: readonly Task[]) {
   return tasks.filter(
-    (task) => !isTaskArchived(task) && !isLegacyBranchTask(task),
+    (task) => !isTaskArchived(task) && !isDelegatedChildTask(task),
   );
 }
 

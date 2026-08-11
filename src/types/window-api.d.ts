@@ -162,7 +162,17 @@ import type {
   SecondaryRunReceiptListArgs,
   SecondaryRunTransitionResponse,
 } from "@/lib/runs/secondary-run";
-import type { ChildTaskList, ChildTaskListArgs } from "@/lib/runs/child-task";
+import type {
+  ChildTaskActionResponse,
+  ChildTaskDetachArgs,
+  ChildTaskFollowUpArgs,
+  ChildTaskList,
+  ChildTaskListArgs,
+  ChildTaskLinkArgs,
+  ChildTaskRetryArgs,
+  ChildTaskStopArgs,
+  ChildTaskSummary,
+} from "@/lib/runs/child-task";
 
 interface WindowRunsApi {
   claimSecondary?: (
@@ -187,6 +197,22 @@ interface WindowRunsApi {
     args: SecondaryRunReceiptListArgs,
   ) => Promise<SecondaryRunReceiptList>;
   listChildTasks?: (args: ChildTaskListArgs) => Promise<ChildTaskList>;
+  followUpChildTask?: (
+    args: ChildTaskFollowUpArgs,
+  ) => Promise<ChildTaskActionResponse>;
+  retryChildTask?: (
+    args: ChildTaskRetryArgs,
+  ) => Promise<ChildTaskActionResponse>;
+  stopChildTask?: (args: ChildTaskStopArgs) => Promise<ChildTaskActionResponse>;
+  detachChildTask?: (
+    args: ChildTaskDetachArgs,
+  ) => Promise<ChildTaskActionResponse>;
+  getChildTaskLink?: (
+    args: ChildTaskLinkArgs,
+  ) => Promise<ChildTaskSummary | null>;
+  onChildTasksChanged?: (
+    callback: (payload: { parentTaskId: string }) => void,
+  ) => () => void;
 }
 
 interface ProviderStreamTurnArgs {
@@ -1474,6 +1500,8 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
+        /** Delegation link, present only on a delegated child task row. */
+        parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
       providerSessionByTask?: Record<string, TaskProviderSessionState>;
@@ -1517,6 +1545,8 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
+        /** Delegation link, present only on a delegated child task row. */
+        parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
       providerSessionByTask?: Record<string, TaskProviderSessionState>;
@@ -1560,6 +1590,8 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
+        /** Delegation link, present only on a delegated child task row. */
+        parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
       providerSessionByTask?: Record<string, TaskProviderSessionState>;
@@ -1580,6 +1612,8 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
+        /** Delegation link, present only on a delegated child task row. */
+        parentTaskId?: string | null;
       }>;
       messageCountByTask?: Record<string, number>;
       terminalTabCount?: number;

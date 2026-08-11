@@ -24,6 +24,12 @@ export interface PersistenceTaskRow {
   archivedAt?: string | null;
   controlMode?: "interactive" | "managed";
   controlOwner?: "stave" | "external";
+  /**
+   * Delegation link, present only on a delegated child task row. Carried on the
+   * snapshot blob rather than the `tasks` index table, which only indexes the
+   * columns archival reconciliation reads.
+   */
+  parentTaskId?: string | null;
 }
 
 export interface PersistenceChatMessageRow {

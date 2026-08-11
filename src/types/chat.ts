@@ -400,8 +400,11 @@ export interface Task {
   titleManuallySet?: boolean;
   /** Legacy relative paths to persisted plan files kept for snapshot compatibility. */
   planFilePaths?: string[];
-  /** Legacy branch marker pruned from persisted workspaces on load. */
-  coliseumParentTaskId?: string | null;
+  /**
+   * Id of the task that delegated this one, denormalized from the run ledger
+   * (which stays the source of truth) and frozen when the child row is created.
+   */
+  parentTaskId?: string | null;
 }
 
 export interface EditorTab {

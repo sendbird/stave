@@ -172,8 +172,15 @@ import type {
   SecondaryRunTransitionResponse,
 } from "../src/lib/runs/secondary-run";
 import type {
+  ChildTaskActionResponse,
+  ChildTaskDetachArgs,
+  ChildTaskFollowUpArgs,
+  ChildTaskLinkArgs,
   ChildTaskList,
   ChildTaskListArgs,
+  ChildTaskRetryArgs,
+  ChildTaskStopArgs,
+  ChildTaskSummary,
 } from "../src/lib/runs/child-task";
 
 interface ProviderSlashCommand {
@@ -307,6 +314,19 @@ ipcRenderer.on(
       pendingCraneDispatchApprovals.delete(payload.jobId);
     }
     for (const subscriber of craneDispatchJobUpdateSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const childTaskChangeSubscribers = new Set<
+  (payload: { parentTaskId: string }) => void
+>();
+
+ipcRenderer.on(
+  "runs:child-tasks-changed",
+  (_event, payload: { parentTaskId: string }) => {
+    for (const subscriber of childTaskChangeSubscribers) {
       subscriber(payload);
     }
   },
@@ -816,6 +836,34 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("runs:list-receipts", args),
     listChildTasks: (args: ChildTaskListArgs): Promise<ChildTaskList> =>
       ipcRenderer.invoke("runs:list-child-tasks", args),
+    followUpChildTask: (
+      args: ChildTaskFollowUpArgs,
+    ): Promise<ChildTaskActionResponse> =>
+      ipcRenderer.invoke("runs:follow-up-child-task", args),
+    retryChildTask: (
+      args: ChildTaskRetryArgs,
+    ): Promise<ChildTaskActionResponse> =>
+      ipcRenderer.invoke("runs:retry-child-task", args),
+    stopChildTask: (
+      args: ChildTaskStopArgs,
+    ): Promise<ChildTaskActionResponse> =>
+      ipcRenderer.invoke("runs:stop-child-task", args),
+    detachChildTask: (
+      args: ChildTaskDetachArgs,
+    ): Promise<ChildTaskActionResponse> =>
+      ipcRenderer.invoke("runs:detach-child-task", args),
+    getChildTaskLink: (
+      args: ChildTaskLinkArgs,
+    ): Promise<ChildTaskSummary | null> =>
+      ipcRenderer.invoke("runs:get-child-task-link", args),
+    onChildTasksChanged: (
+      callback: (payload: { parentTaskId: string }) => void,
+    ) => {
+      childTaskChangeSubscribers.add(callback);
+      return () => {
+        childTaskChangeSubscribers.delete(callback);
+      };
+    },
   },
   provider: {
     streamTurn: (args: StreamTurnArgs) =>

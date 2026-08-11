@@ -31,16 +31,15 @@ function buildTask(overrides: Partial<Task> = {}): Task {
 }
 
 describe("selectFleetOpenTasks", () => {
-  test("drops archived and legacy branch tasks", () => {
+  test("drops archived tasks", () => {
     const open = buildTask({ id: "open" });
     const archived = buildTask({
       id: "archived",
       archivedAt: "2026-07-30T00:00:00.000Z",
     });
-    const legacy = buildTask({ id: "legacy", coliseumParentTaskId: "parent" });
 
     expect(
-      selectFleetOpenTasks([open, archived, legacy]).map((task) => task.id),
+      selectFleetOpenTasks([open, archived]).map((task) => task.id),
     ).toEqual(["open"]);
   });
 });

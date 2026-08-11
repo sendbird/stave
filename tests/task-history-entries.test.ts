@@ -61,17 +61,6 @@ describe("selectTaskHistoryEntries", () => {
     ).toEqual(["archived"]);
   });
 
-  test("drops legacy branch tasks", () => {
-    const branch = buildTask({
-      id: "branch",
-      coliseumParentTaskId: "parent",
-    });
-
-    expect(
-      selectTaskHistoryEntries({ tasks: [branch], openTaskTabIds: [] }),
-    ).toEqual([]);
-  });
-
   test("treats unknown pane state as every live task open", () => {
     // Mirrors `normalizePaneState`: a shell summary that predates
     // `openTaskTabIds` means "all non-archived tasks open", so an unknown pane

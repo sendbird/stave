@@ -3,7 +3,16 @@ import {
   SecondaryRunExecuteResponseSchema,
   SecondaryRunTransitionResponseSchema,
 } from "../../../src/lib/runs/secondary-run";
-import { ChildTaskListArgsSchema } from "../../../src/lib/runs/child-task";
+import {
+  ChildTaskActionResponseSchema,
+  ChildTaskDetachArgsSchema,
+  ChildTaskFollowUpArgsSchema,
+  ChildTaskLinkArgsSchema,
+  ChildTaskListArgsSchema,
+  ChildTaskRetryArgsSchema,
+  ChildTaskStopArgsSchema,
+  describeChildTaskRejection,
+} from "../../../src/lib/runs/child-task";
 import { invokeHostService } from "../host-service-client";
 import {
   getChildTaskCoordinator,
@@ -35,6 +44,16 @@ function invalidTransitionResponse() {
     duplicate: false,
     reason: "invalid-request",
     aggregate: null,
+  });
+}
+
+function invalidChildTaskResponse() {
+  return ChildTaskActionResponseSchema.parse({
+    accepted: false,
+    duplicate: false,
+    reason: "invalid-request",
+    message: describeChildTaskRejection("invalid-request"),
+    child: null,
   });
 }
 
@@ -108,5 +127,51 @@ export function registerRunHandlers() {
   ipcMain.handle("runs:list-child-tasks", async (_event, rawArgs: unknown) => {
     const args = ChildTaskListArgsSchema.safeParse(rawArgs);
     return args.success ? await getChildTaskCoordinator().list(args.data) : [];
+  });
+
+  // The parent's own controls. Each one carries the identity its row was
+  // rendered against, so the coordinator can refuse a click prepared against a
+  // delegation that has since moved on rather than apply it to whatever
+  // replaced it.
+  ipcMain.handle(
+    "runs:follow-up-child-task",
+    async (_event, rawArgs: unknown) => {
+      const args = ChildTaskFollowUpArgsSchema.safeParse(rawArgs);
+      return args.success
+        ? await getChildTaskCoordinator().followUp(args.data)
+        : invalidChildTaskResponse();
+    },
+  );
+
+  ipcMain.handle("runs:retry-child-task", async (_event, rawArgs: unknown) => {
+    const args = ChildTaskRetryArgsSchema.safeParse(rawArgs);
+    return args.success
+      ? await getChildTaskCoordinator().retry(args.data)
+      : invalidChildTaskResponse();
+  });
+
+  ipcMain.handle("runs:stop-child-task", async (_event, rawArgs: unknown) => {
+    const args = ChildTaskStopArgsSchema.safeParse(rawArgs);
+    return args.success
+      ? await getChildTaskCoordinator().stop(args.data)
+      : invalidChildTaskResponse();
+  });
+
+  // Seen from the child's side: which delegation, if any, owns this task.
+  ipcMain.handle(
+    "runs:get-child-task-link",
+    async (_event, rawArgs: unknown) => {
+      const args = ChildTaskLinkArgsSchema.safeParse(rawArgs);
+      return args.success
+        ? await getChildTaskCoordinator().getParentLink(args.data)
+        : null;
+    },
+  );
+
+  ipcMain.handle("runs:detach-child-task", async (_event, rawArgs: unknown) => {
+    const args = ChildTaskDetachArgsSchema.safeParse(rawArgs);
+    return args.success
+      ? await getChildTaskCoordinator().detach(args.data)
+      : invalidChildTaskResponse();
   });
 }

@@ -148,13 +148,6 @@ describe("classifyTaskStatus", () => {
         activity: buildActivity(),
       }),
     ).toBe("idle");
-    expect(
-      classifyTaskStatus({
-        task: buildTask({ coliseumParentTaskId: "task-parent" }),
-        activeTurnId: "turn-1",
-        activity: buildActivity(),
-      }),
-    ).toBe("idle");
   });
 
   test("classifies inactive tasks with no attention as idle", () => {

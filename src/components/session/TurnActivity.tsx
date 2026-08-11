@@ -14,6 +14,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
+import {
+  ChildTaskParentBacklink,
+  ChildTaskRows,
+} from "@/components/session/ChildTaskRows";
 import { deriveTodoTraceItems } from "@/components/session/message/assistant-trace.utils";
 import { resolvePlanViewerState } from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
@@ -144,6 +148,8 @@ export function TurnActivity() {
     expandedByDefault,
     verification,
     rateLimits,
+    activeWorkspaceId,
+    projectPath,
   ] = useAppStore(
     useShallow((state) => [
       state.tasks.find((task) => task.id === taskId) ?? null,
@@ -158,6 +164,8 @@ export function TurnActivity() {
       state.settings.turnActivityExpandedByDefault,
       state.turnVerificationByWorkspace[state.activeWorkspaceId] ?? null,
       state.rateLimitsSnapshot,
+      state.activeWorkspaceId,
+      state.projectPath,
     ]),
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
@@ -300,15 +308,21 @@ export function TurnActivity() {
       expandedByDefault,
       hasPendingInteractionCard,
       executionSummary,
+      taskId,
+      workspaceId: activeWorkspaceId,
+      projectPath,
     };
   }, [
     activeTurnId,
+    activeWorkspaceId,
     currentActivity,
     expandedByDefault,
     executionSummary,
     hasPendingInteractionCard,
     isPlanPreparing,
+    projectPath,
     shouldShow,
+    taskId,
     throttledTodos,
     throttledWorkItems,
   ]);
@@ -369,6 +383,10 @@ interface TurnActivitySurfaceProps {
    */
   hasPendingInteractionCard?: boolean;
   executionSummary?: TaskExecutionSummary;
+  /** Identity of the task this shelf belongs to, used by the child-task rows. */
+  taskId?: string;
+  workspaceId?: string | null;
+  projectPath?: string | null;
 }
 
 export const TurnActivitySurface = memo(function TurnActivitySurface(
@@ -646,6 +664,17 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   className="px-1.5 pb-1 pt-2"
                 />
               ) : null}
+              <ChildTaskParentBacklink
+                taskId={props.taskId}
+                projectPath={props.projectPath}
+                className="px-1.5 pt-2"
+              />
+              <ChildTaskRows
+                parentTaskId={props.taskId}
+                parentWorkspaceId={props.workspaceId}
+                projectPath={props.projectPath}
+                className="px-1.5 pb-1 pt-2"
+              />
             </div>
           </div>
         ) : null}

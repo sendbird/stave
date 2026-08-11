@@ -671,6 +671,7 @@ export class RunLedgerStore {
     idempotencyKey: string;
     expectedExecutionId?: string;
     detail?: unknown;
+    error?: string;
     now: string;
   }) {
     return this.transitionExisting(args, ({ run, step }) =>
@@ -680,6 +681,7 @@ export class RunLedgerStore {
         idempotencyKey: args.idempotencyKey,
         expectedExecutionId: args.expectedExecutionId,
         detail: args.detail,
+        error: args.error,
         now: args.now,
       }),
     );
@@ -729,6 +731,31 @@ export class RunLedgerStore {
       `,
       )
       .all(args.originKind, args.originId, args.limit) as RunStepRow[];
+    return rows.flatMap((row) => {
+      const step = mapRunStepRow(row);
+      const run = this.getRun(step.runId);
+      return run ? [{ run, step }] : [];
+    });
+  }
+
+  /**
+   * The delegations that own one task. A child task is an ordinary task in its
+   * own workspace, so this is how a surface showing that task finds out it was
+   * delegated and by whom.
+   */
+  listAggregatesByOwnedTask(args: { taskId: string; limit: number }) {
+    const rows = this.db
+      .prepare(
+        `
+        SELECT step.*
+        FROM run_steps AS step
+        JOIN runs AS run ON run.id = step.run_id
+        WHERE run.task_id = ?
+        ORDER BY step.updated_at DESC, step.id ASC
+        LIMIT ?
+      `,
+      )
+      .all(args.taskId, args.limit) as RunStepRow[];
     return rows.flatMap((row) => {
       const step = mapRunStepRow(row);
       const run = this.getRun(step.runId);

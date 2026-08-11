@@ -2119,6 +2119,12 @@ export class SqliteStore {
     return this.runLedger.listAggregatesByOrigin(args);
   }
 
+  listRunAggregatesByOwnedTask(
+    args: Parameters<RunLedgerStore["listAggregatesByOwnedTask"]>[0],
+  ) {
+    return this.runLedger.listAggregatesByOwnedTask(args);
+  }
+
   listActiveRunAggregatesByStepKind(
     args: Parameters<RunLedgerStore["listActiveAggregatesByStepKind"]>[0],
   ) {

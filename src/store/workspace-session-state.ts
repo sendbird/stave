@@ -334,25 +334,6 @@ export function buildNativeSessionReadyByTask(args: {
   return next;
 }
 
-function collectLegacyBranchTaskIds(tasks: Task[]) {
-  return tasks
-    .filter((task) => Boolean(task.coliseumParentTaskId))
-    .map((task) => task.id);
-}
-
-function stripRecordsByIds<T>(
-  records: Record<string, T>,
-  removableIds: readonly string[],
-): Record<string, T> {
-  if (removableIds.length === 0) {
-    return records;
-  }
-  const removable = new Set(removableIds);
-  return Object.fromEntries(
-    Object.entries(records).filter(([taskId]) => !removable.has(taskId)),
-  ) as Record<string, T>;
-}
-
 function buildMessageId(args: { taskId: string; count: number }) {
   return `${args.taskId}-m-${args.count + 1}`;
 }
@@ -559,27 +540,19 @@ export function buildWorkspaceSessionState(args: {
   appendInterruptedNotices?: boolean;
 }): WorkspaceSessionState {
   const empty = createEmptyWorkspaceState();
-  const rawTasks = (args.snapshot?.tasks ?? empty.tasks).map(
-    normalizeTaskControl,
-  );
-  const orphanedBranchTaskIds = collectLegacyBranchTaskIds(rawTasks);
-  const tasks = rawTasks.filter((task) => !task.coliseumParentTaskId);
-  const rawProviderSessionByTask =
+  // Every persisted task row hydrates, delegated children included. Hiding a
+  // child from workspace-level listings is a rendering decision made by
+  // `isDelegatedChildTask`, not a reason to drop its state on load — its
+  // messages and provider session have to survive for the child to be openable.
+  const tasks = (args.snapshot?.tasks ?? empty.tasks).map(normalizeTaskControl);
+  const providerSessionByTask =
     args.snapshot?.providerSessionByTask ?? empty.providerSessionByTask;
-  const providerSessionByTask = stripRecordsByIds(
-    rawProviderSessionByTask,
-    orphanedBranchTaskIds,
-  );
-  const rawMessagesByTask = args.appendInterruptedNotices
+  const messagesByTask = args.appendInterruptedNotices
     ? appendInterruptedTurnNotices({
         messagesByTask: args.snapshot?.messagesByTask ?? empty.messagesByTask,
         latestTurns: args.latestTurns,
       })
     : (args.snapshot?.messagesByTask ?? empty.messagesByTask);
-  const messagesByTask = stripRecordsByIds(
-    rawMessagesByTask,
-    orphanedBranchTaskIds,
-  );
   const messageCountByTask = Object.fromEntries(
     Object.entries(messagesByTask).map(
       ([taskId, messages]) => [taskId, messages.length] as const,
@@ -644,14 +617,10 @@ export function buildWorkspaceSessionState(args: {
     tasks,
     messagesByTask,
     messageCountByTask,
-    promptDraftByTask: stripRecordsByIds(
+    promptDraftByTask:
       args.snapshot?.promptDraftByTask ?? empty.promptDraftByTask,
-      orphanedBranchTaskIds,
-    ),
-    reviewCommentsByTask: stripRecordsByIds(
+    reviewCommentsByTask:
       args.snapshot?.reviewCommentsByTask ?? empty.reviewCommentsByTask,
-      orphanedBranchTaskIds,
-    ),
     workspaceInformation:
       args.snapshot?.workspaceInformation ?? empty.workspaceInformation,
     editorTabs,
@@ -669,10 +638,7 @@ export function buildWorkspaceSessionState(args: {
     lensTabs: paneState.lensTabs,
     paneTabMeta: paneState.paneTabMeta,
     dockLayout: paneState.dockLayout,
-    activeTurnIdsByTask: stripRecordsByIds(
-      activeTurnIdsByTask,
-      orphanedBranchTaskIds,
-    ),
+    activeTurnIdsByTask,
     providerSessionByTask,
     providerGoalByTask: empty.providerGoalByTask,
     nativeSessionReadyByTask: buildNativeSessionReadyByTask({
@@ -690,33 +656,24 @@ export function buildWorkspaceSessionStateFromShell(args: {
   appendInterruptedNotices?: boolean;
 }): WorkspaceSessionState {
   const empty = createEmptyWorkspaceState();
-  const rawTasks = (args.shell?.tasks ?? empty.tasks).map(normalizeTaskControl);
-  const orphanedBranchTaskIds = collectLegacyBranchTaskIds(rawTasks);
-  const tasks = rawTasks.filter((task) => !task.coliseumParentTaskId);
-  const providerSessionByTask = stripRecordsByIds(
-    args.shell?.providerSessionByTask ?? empty.providerSessionByTask,
-    orphanedBranchTaskIds,
-  );
+  // As in `buildWorkspaceSessionState`: children hydrate like any other task
+  // and are hidden at the listing layer, not dropped here.
+  const tasks = (args.shell?.tasks ?? empty.tasks).map(normalizeTaskControl);
+  const providerSessionByTask =
+    args.shell?.providerSessionByTask ?? empty.providerSessionByTask;
   const loadedMessagesByTask = args.messagesByTask ?? empty.messagesByTask;
   const baseMessageCountByTask = {
     ...(args.shell?.messageCountByTask ?? empty.messageCountByTask),
     ...(args.messageCountByTaskOverrides ?? {}),
   };
-  const rawMessagesByTask = args.appendInterruptedNotices
+  const messagesByTask = args.appendInterruptedNotices
     ? appendInterruptedTurnNotices({
         messagesByTask: loadedMessagesByTask,
         latestTurns: args.latestTurns,
         messageCountByTask: baseMessageCountByTask,
       })
     : loadedMessagesByTask;
-  const messagesByTask = stripRecordsByIds(
-    rawMessagesByTask,
-    orphanedBranchTaskIds,
-  );
-  const messageCountByTask = stripRecordsByIds(
-    baseMessageCountByTask,
-    orphanedBranchTaskIds,
-  );
+  const messageCountByTask = { ...baseMessageCountByTask };
   for (const [taskId, messages] of Object.entries(messagesByTask)) {
     messageCountByTask[taskId] = Math.max(
       messageCountByTask[taskId] ?? 0,
@@ -782,14 +739,9 @@ export function buildWorkspaceSessionStateFromShell(args: {
     tasks,
     messagesByTask,
     messageCountByTask,
-    promptDraftByTask: stripRecordsByIds(
-      args.shell?.promptDraftByTask ?? empty.promptDraftByTask,
-      orphanedBranchTaskIds,
-    ),
-    reviewCommentsByTask: stripRecordsByIds(
+    promptDraftByTask: args.shell?.promptDraftByTask ?? empty.promptDraftByTask,
+    reviewCommentsByTask:
       args.shell?.reviewCommentsByTask ?? empty.reviewCommentsByTask,
-      orphanedBranchTaskIds,
-    ),
     workspaceInformation:
       args.shell?.workspaceInformation ?? empty.workspaceInformation,
     editorTabs,
@@ -807,10 +759,7 @@ export function buildWorkspaceSessionStateFromShell(args: {
     lensTabs: paneState.lensTabs,
     paneTabMeta: paneState.paneTabMeta,
     dockLayout: paneState.dockLayout,
-    activeTurnIdsByTask: stripRecordsByIds(
-      activeTurnIdsByTask,
-      orphanedBranchTaskIds,
-    ),
+    activeTurnIdsByTask,
     providerSessionByTask,
     providerGoalByTask: empty.providerGoalByTask,
     nativeSessionReadyByTask: buildNativeSessionReadyByTask({
