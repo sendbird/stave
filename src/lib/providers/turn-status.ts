@@ -12,9 +12,12 @@ import {
   truncateWorkText,
 } from "@/lib/providers/subagent-identity";
 import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
+import type { ChildTaskSummary } from "@/lib/runs/child-task";
 import {
   createWorkGraph,
+  mergeChildTasksIntoWorkGraph,
   reduceWorkGraphEvent,
+  resolveWorkGraphInteractions,
 } from "@/lib/work-graph/work-graph-reducer";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 
@@ -172,6 +175,15 @@ export function markProviderTurnInteractionResolved(args: {
   taskId: string;
   turnId: string;
   now?: number;
+  /**
+   * The graph's id for the prompt that was answered, from
+   * `approvalInteractionId` / `userInputInteractionId`.
+   *
+   * The shelf's `pendingInteraction` is a single hint, but a turn can hold one
+   * prompt per subagent at once, so the graph clears exactly the one answered.
+   * Omitted, no graph block is lifted — the caller could not say which.
+   */
+  interactionId?: string;
 }) {
   const current = args.activityByTask[args.taskId];
   if (!current || current.turnId !== args.turnId) {
@@ -186,7 +198,54 @@ export function markProviderTurnInteractionResolved(args: {
       lastEventAt: now,
       stalledAt: null,
       pendingInteraction: null,
+      // The graph learns that a prompt was answered from the same place the
+      // shelf does. No provider event reports it — the runtime just carries on
+      // — so without this the node that raised it stays badged "Needs you"
+      // while it is visibly working again.
+      workGraph: args.interactionId
+        ? resolveWorkGraphInteractions(
+            current.workGraph,
+            now,
+            args.interactionId,
+          )
+        : current.workGraph,
     },
+  };
+}
+
+/**
+ * Fold the parent's child-task listing into the turn's graph.
+ *
+ * The listing is read by the surface, not streamed by the provider, so it
+ * enters here rather than through `reduceWorkGraphEvent`. It lands on the same
+ * snapshot every other view of the turn reads, which is the point: Fleet's
+ * agent count and the Turn Activity tree derive from one graph, so a delegated
+ * child cannot be counted by one and missing from the other.
+ */
+export function applyChildTasksToProviderTurnActivity(args: {
+  activityByTask: ProviderTurnActivityByTask;
+  taskId: string;
+  children: readonly ChildTaskSummary[];
+  now?: number;
+}) {
+  const current = args.activityByTask[args.taskId];
+  if (!current) {
+    return args.activityByTask;
+  }
+  const workGraph = mergeChildTasksIntoWorkGraph(
+    current.workGraph,
+    args.children,
+    args.now ?? Date.now(),
+  );
+  // The merge is reference-stable when nothing changed, so a listing that
+  // repeats itself — and it repeats on every child-task change event — does not
+  // publish a new snapshot to every subscriber.
+  if (workGraph === current.workGraph) {
+    return args.activityByTask;
+  }
+  return {
+    ...args.activityByTask,
+    [args.taskId]: { ...current, workGraph },
   };
 }
 

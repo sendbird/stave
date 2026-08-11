@@ -10,6 +10,8 @@ import {
   resolveProviderTurnDisplayState,
   startProviderTurnActivity,
 } from "../src/lib/providers/turn-status";
+import { userInputInteractionId } from "../src/lib/work-graph/work-graph-reducer";
+import { summarizeWorkGraph } from "../src/lib/work-graph/work-graph-tree";
 
 describe("provider turn status helpers", () => {
   test("starts tracking a new active turn", () => {
@@ -283,35 +285,64 @@ describe("provider turn status helpers", () => {
   });
 
   test("resumes activity after approval resolution", () => {
-    const pending = {
-      "task-1": {
-        turnId: "turn-1",
-        providerId: "claude-code" as const,
-        startedAt: 1000,
-        lastEventAt: 2000,
-        stalledAt: null,
-        pendingInteraction: "user_input" as const,
-        workItemsById: {},
-        orderedWorkItemIds: [],
-      },
-    };
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 1000,
+    });
+    const pending = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "toolu_1",
+          toolName: "Task",
+          input: JSON.stringify({ description: "Sweep the callers" }),
+          state: "input-available",
+          agentId: "agent_1",
+        },
+        {
+          type: "user_input",
+          toolName: "AskUserQuestion",
+          requestId: "req-1",
+          questions: [],
+          ownerAgentId: "agent_1",
+        },
+      ],
+    });
+    expect(pending["task-1"]?.pendingInteraction).toBe("user_input");
+    expect(
+      summarizeWorkGraph(pending["task-1"]!.workGraph).blockedCount,
+    ).toBe(1);
+
     const resumed = markProviderTurnInteractionResolved({
       activityByTask: pending,
       taskId: "task-1",
       turnId: "turn-1",
       now: 5000,
+      interactionId: userInputInteractionId("req-1"),
     });
 
-    expect(resumed["task-1"]).toEqual({
+    expect(resumed["task-1"]).toMatchObject({
       turnId: "turn-1",
       providerId: "claude-code",
       startedAt: 1000,
       lastEventAt: 5000,
       stalledAt: null,
       pendingInteraction: null,
-      workItemsById: {},
-      orderedWorkItemIds: [],
     });
+    // The graph hears "answered" from the same place the shelf does: no
+    // provider event reports it, so otherwise the agent stays badged as
+    // needing a person while it is visibly working again.
+    expect(summarizeWorkGraph(resumed["task-1"]!.workGraph).blockedCount).toBe(
+      0,
+    );
   });
 
   test("clears activity when the turn finishes", () => {

@@ -1,4 +1,12 @@
-import { memo, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import {
@@ -8,6 +16,10 @@ import {
 import { deriveTodoTraceItems } from "@/components/session/message/assistant-trace.utils";
 import { resolvePlanViewerState } from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
+import {
+  useChildTasks,
+  type ChildTaskListingSource,
+} from "@/components/session/useChildTasks";
 import { findLatestTodoPart } from "@/components/session/todo-floater.utils";
 import {
   getTurnActivityStatusLabel,
@@ -47,6 +59,7 @@ import {
   type ProviderTurnActivitySnapshot,
   type ProviderTurnWorkItem,
 } from "@/lib/providers/turn-status";
+import { buildChildTaskExpectedIdentity } from "@/lib/runs/child-task-view";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import { cn } from "@/lib/utils";
@@ -235,6 +248,93 @@ export function TurnActivity() {
     hasRetainedFailure,
   });
 
+  // Read once here rather than inside the rows: the same listing has to reach
+  // both the child task rows and the turn's graph, and two subscriptions to one
+  // ledger would double every refetch and let the two views disagree mid-flight.
+  const childTasks = useChildTasks({
+    parentTaskId: taskId,
+    parentWorkspaceId: activeWorkspaceId,
+    projectPath,
+    enabled: shouldShow,
+  });
+  const { children: childTaskRows } = childTasks;
+  // Only the rows and the controls travel down, and they travel as their own
+  // object: the hook's result is rebuilt on every render, and its `loading`
+  // flag flips twice per refetch, so passing the whole thing would defeat the
+  // shelf's memo and re-render every row on a listing nothing read.
+  const childTaskSource = useMemo(
+    () => ({ children: childTaskRows, actions: childTasks.actions }),
+    [childTaskRows, childTasks.actions],
+  );
+  const syncChildTasksIntoTurnGraph = useAppStore(
+    (state) => state.syncChildTasksIntoTurnGraph,
+  );
+  useEffect(() => {
+    if (!taskId) {
+      return;
+    }
+    syncChildTasksIntoTurnGraph({ taskId, children: childTaskRows });
+  }, [childTaskRows, syncChildTasksIntoTurnGraph, taskId]);
+
+  // A refusal is the expected outcome here, not the exception: the coordinator
+  // re-checks the identity this control was prepared against, which is the
+  // whole point of Stage F's freeze. So every path out of the stop says
+  // something — a control that fails silently is indistinguishable from one
+  // that worked, and from one that is broken.
+  const [controlErrorByNodeKey, setControlErrorByNodeKey] = useState<
+    Record<string, string>
+  >({});
+  const setControlError = useCallback((nodeKey: string, error: string | null) => {
+    setControlErrorByNodeKey((current) => {
+      if (!error) {
+        if (!(nodeKey in current)) {
+          return current;
+        }
+        const next = { ...current };
+        delete next[nodeKey];
+        return next;
+      }
+      return current[nodeKey] === error ? current : { ...current, [nodeKey]: error };
+    });
+  }, []);
+  const childTaskActions = childTasks.actions;
+  const handleWorkGraphControl = useCallback(
+    (request: WorkGraphControlRequest) => {
+      const { node } = request;
+      if (request.control !== "stop" || !node.delegationKey) {
+        return;
+      }
+      const child = childTaskRows.find(
+        (row) => row.delegationKey === node.delegationKey,
+      );
+      // The graph learns about a delegation from the turn's own tool call,
+      // which lands before the ledger listing catches up. Stop needs the
+      // ledger's identity, so there is a real window where it cannot be sent.
+      if (!child) {
+        setControlError(
+          node.key,
+          "This child task is still being recorded. Try again in a moment.",
+        );
+        return;
+      }
+      setControlError(node.key, null);
+      void childTaskActions
+        .stop({
+          delegationKey: child.delegationKey,
+          expected: buildChildTaskExpectedIdentity(child),
+        })
+        .then((result) => {
+          if (!result.ok) {
+            setControlError(
+              node.key,
+              result.error ?? "This child task could not be stopped.",
+            );
+          }
+        });
+    },
+    [childTaskActions, childTaskRows, setControlError],
+  );
+
   useEffect(() => {
     if (activeTurnId || !activity?.turnError || activity.completedAt == null) {
       return;
@@ -303,6 +403,9 @@ export function TurnActivity() {
       todos: throttledTodos,
       workGraph: throttledWorkGraph,
       workGraphCapabilities: runtimeCapabilities[activeProvider].workGraph,
+      onWorkGraphControl: handleWorkGraphControl,
+      workGraphControlErrorByNodeKey: controlErrorByNodeKey,
+      childTasks: childTaskSource,
       expandedByDefault,
       hasPendingInteractionCard,
       executionSummary,
@@ -314,9 +417,12 @@ export function TurnActivity() {
     activeProvider,
     activeTurnId,
     activeWorkspaceId,
+    childTaskSource,
+    controlErrorByNodeKey,
     currentActivity,
     expandedByDefault,
     executionSummary,
+    handleWorkGraphControl,
     hasPendingInteractionCard,
     isPlanPreparing,
     projectPath,
@@ -377,6 +483,12 @@ interface TurnActivitySurfaceProps {
   workGraph?: WorkGraph | null;
   workGraphCapabilities?: ProviderWorkGraphCapabilities;
   onWorkGraphControl?: (request: WorkGraphControlRequest) => void;
+  workGraphControlErrorByNodeKey?: Readonly<Record<string, string>>;
+  /**
+   * The parent's delegations, already loaded upstream. Handed down rather than
+   * re-read here so the rows and the tree describe the same listing.
+   */
+  childTasks?: ChildTaskListingSource;
   /**
    * Setting-backed default for the expanded list. A manual toggle overrides it
    * for the rest of the turn; the surface is keyed per turn, so the next turn
@@ -683,6 +795,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   props.workGraphCapabilities ?? NO_WORK_GRAPH_CAPABILITIES
                 }
                 onControl={props.onWorkGraphControl}
+                controlErrorByNodeKey={props.workGraphControlErrorByNodeKey}
                 className="px-1.5 pt-2"
               />
               {props.executionSummary ? (
@@ -702,6 +815,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 parentTaskId={props.taskId}
                 parentWorkspaceId={props.workspaceId}
                 projectPath={props.projectPath}
+                source={props.childTasks}
                 className="px-1.5 pb-1 pt-2"
               />
             </div>

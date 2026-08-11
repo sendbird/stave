@@ -11,8 +11,6 @@ import {
   applyProviderTurnActivityEvents,
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
-import { recordWorkGraphInteraction } from "@/lib/work-graph/work-graph-reducer";
-import { providerAgentNodeKey } from "@/lib/work-graph/work-graph.types";
 import type { ChatMessage } from "@/types/chat";
 
 function assistantMessage(
@@ -374,23 +372,16 @@ describe("task execution summary — agents", () => {
   });
 
   it("raises a blocked agent as a caution, not another fact to skim", () => {
-    const activity = activityWithGraph([
+    const blocked = activityWithGraph([
       spawn("toolu_1", "agent_1", "Sweep the callers"),
+      {
+        type: "approval",
+        toolName: "Bash",
+        requestId: "req-1",
+        description: "Run migration?",
+        ownerAgentId: "agent_1",
+      } as NormalizedProviderEvent,
     ]);
-    const blocked = {
-      ...activity!,
-      workGraph: recordWorkGraphInteraction(
-        activity!.workGraph,
-        {
-          id: "interaction-1",
-          nodeKey: providerAgentNodeKey("claude-code", "agent_1"),
-          kind: "approval",
-          title: "Run migration?",
-          raisedAt: 3_000,
-        },
-        3_000,
-      ),
-    };
 
     const artifact = buildTaskReviewArtifact(
       buildTaskExecutionSummary({

@@ -45,11 +45,22 @@ export interface ChildTaskActions {
   refresh: () => void;
 }
 
-export interface UseChildTasksResult {
+/**
+ * The half of the listing a consumer needs to render rows and act on them.
+ *
+ * Split out from the full result so a surface can pass it down without dragging
+ * `loading` along: that flag flips twice per refetch, and a component memoized
+ * on the whole result would re-render on every refresh whether or not the rows
+ * changed.
+ */
+export interface ChildTaskListingSource {
   children: readonly ChildTaskSummary[];
+  actions: ChildTaskActions;
+}
+
+export interface UseChildTasksResult extends ChildTaskListingSource {
   loading: boolean;
   error: string | null;
-  actions: ChildTaskActions;
 }
 
 function describeThrown(cause: unknown) {

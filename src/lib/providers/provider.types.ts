@@ -885,12 +885,23 @@ export type NormalizedProviderEvent =
       requestId: string;
       description: string;
       input?: string;
+      /**
+       * See `tool.ownerAgentId`: the subagent whose work is stopped until this
+       * is answered. Absent means the main loop asked.
+       *
+       * Carried so the work graph can say *who* is blocked. Without it every
+       * prompt reads as the turn being stuck, and a fan-out where one worker of
+       * six is waiting on a person looks identical to one where all six are.
+       */
+      ownerAgentId?: string;
     }
   | {
       type: "user_input";
       toolName: string;
       requestId: string;
       questions: UserInputQuestion[];
+      /** See `approval.ownerAgentId`. */
+      ownerAgentId?: string;
     }
   | { type: "plan_ready"; planText: string; sourceSegmentId?: string }
   | {

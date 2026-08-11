@@ -6,6 +6,7 @@ import { WorkGraphTree } from "@/components/session/WorkGraphTree";
 import type { ProviderWorkGraphCapabilities } from "@/lib/providers/provider.types";
 import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
 import {
+  ledgerNodeKey,
   providerAgentNodeKey,
   toolCallNodeKey,
   type AgentNode,
@@ -76,12 +77,16 @@ function graphOf(
 function renderTree(args: {
   graph: WorkGraph | null;
   capabilities?: ProviderWorkGraphCapabilities;
+  controlErrorByNodeKey?: Record<string, string>;
 }) {
   return renderToStaticMarkup(
     createElement(WorkGraphTree, {
       graph: args.graph,
       capabilities: args.capabilities ?? ALL_CAPABILITIES,
       onControl: () => {},
+      ...(args.controlErrorByNodeKey
+        ? { controlErrorByNodeKey: args.controlErrorByNodeKey }
+        : {}),
     }),
   );
 }
@@ -164,6 +169,51 @@ describe("WorkGraphTree", () => {
     expect(deniedHtml).toContain(
       "This provider cannot steer one agent without ending the turn.",
     );
+  });
+
+  test("a ledger child keeps its Stop where the runtime steers nothing", () => {
+    // The child is Stave's own task, stopped through the child-task
+    // coordinator, so the provider's inability to steer its in-process
+    // subagents must not hide a control that works.
+    const html = renderTree({
+      graph: graphOf([
+        agentNode({
+          key: ledgerNodeKey("port-callers"),
+          identitySource: "ledger",
+          delegationKey: "port-callers",
+          childTaskId: "task-child",
+          label: "Port the callers",
+        }),
+      ]),
+      capabilities: NO_CAPABILITIES,
+    });
+
+    expect(html).toContain('aria-label="Stop Port the callers"');
+    expect(html).not.toContain('aria-label="Message Port the callers"');
+  });
+
+  test("a refused stop says so on the row that offered it", () => {
+    // A stop prepared against an identity that has since moved on is refused by
+    // design; the refusal has to land where the reader clicked, not somewhere
+    // they would have to go looking.
+    const key = ledgerNodeKey("port-callers");
+    const html = renderTree({
+      graph: graphOf([
+        agentNode({
+          key,
+          identitySource: "ledger",
+          delegationKey: "port-callers",
+          label: "Port the callers",
+        }),
+      ]),
+      capabilities: NO_CAPABILITIES,
+      controlErrorByNodeKey: {
+        [key]: "That child task has already moved on.",
+      },
+    });
+
+    expect(html).toContain('data-testid="work-graph-control-error"');
+    expect(html).toContain("That child task has already moved on.");
   });
 
   test("refuses a control for a node the provider never named", () => {

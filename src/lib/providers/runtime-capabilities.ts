@@ -121,10 +121,16 @@ export function resolveProviderRuntimeCapabilities(args: {
         // `parent_tool_use_id` is a field on the base message shape rather than
         // a gated surface, so any recognized 2.x runtime reports nesting.
         nesting: isAtLeast(version, { major: 2, minor: 0, patch: 0 }),
-        // The SDK exposes no way to address one running subagent: a message or
-        // interrupt would land on the whole session.
+        // A message or an interrupt lands on the whole session: the SDK's
+        // input stream is the session's, not any one subagent's.
         message: false,
         interrupt: false,
+        // The SDK *does* expose `Query.stopTask(taskId)`, keyed by the same
+        // `task_id` the work graph uses as this provider's agent identity. It
+        // is reported `false` because this flag means "wired end-to-end", and
+        // reaching that query handle from the renderer needs a control channel
+        // Stave has not built. Claiming it before then would render a Stop that
+        // silently does nothing.
         stop: false,
       },
     };

@@ -5208,6 +5208,10 @@ export async function streamClaudeWithSdk(
               blockedPath: options.blockedPath,
             }),
             ...(trustedApprovalInput ? { input: trustedApprovalInput } : {}),
+            // `agentID` is set only when the call came from inside a subagent,
+            // which is exactly when the work graph needs it: it names the one
+            // worker of the fan-out whose progress this prompt is holding up.
+            ...(options.agentID ? { ownerAgentId: options.agentID } : {}),
           };
           eventCollector.append(approvalEvent);
           args.onEvent?.(approvalEvent);

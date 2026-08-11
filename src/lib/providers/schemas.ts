@@ -226,6 +226,7 @@ const ApprovalEventSchema = z.object({
   requestId: z.string(),
   description: z.string(),
   input: z.string().optional(),
+  ownerAgentId: z.string().optional(),
 });
 
 const UserInputQuestionSchema = z.object({
@@ -269,6 +270,7 @@ const UserInputEventSchema = z.object({
   toolName: z.string(),
   requestId: z.string(),
   questions: z.array(UserInputQuestionSchema),
+  ownerAgentId: z.string().optional(),
 });
 
 const PlanReadyEventSchema = z.object({

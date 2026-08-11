@@ -4,11 +4,15 @@ import type {
 } from "@/lib/providers/provider.types";
 import {
   isSubagentToolName,
+  parseToolInput,
   resolveSubagentBadge,
   resolveToolTitle,
   truncateWorkText,
 } from "@/lib/providers/subagent-identity";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import {
+  isActiveChildTaskPhase,
+  type ChildTaskSummary,
+} from "@/lib/runs/child-task";
 import type { ToolUsePart } from "@/types/chat";
 import {
   isTerminalWorkGraphStatus,
@@ -79,6 +83,26 @@ function resolveNodeLabel(
   return resolveToolTitle(toolName, input, current);
 }
 
+/**
+ * What to call a delegated child task.
+ *
+ * Deliberately not `resolveToolTitle`: that would fall back to the tool's own
+ * display name, and every child in the turn would then be called "Delegate to
+ * child task". The delegation key is a worse name than a title but a true one,
+ * and it is what every other surface calls this child.
+ */
+function resolveDelegatedChildLabel(
+  input: string,
+  delegationKey: string,
+  existingLabel: string | undefined,
+) {
+  if (existingLabel && existingLabel !== UNNAMED_AGENT_LABEL) {
+    return existingLabel;
+  }
+  const parsed = parseToolInput(input);
+  return truncateWorkText(parsed?.title) ?? delegationKey;
+}
+
 const TOOL_STATE_STATUS: Record<ToolUsePart["state"], WorkGraphStatus> = {
   "input-streaming": "pending",
   "input-available": "running",
@@ -89,13 +113,22 @@ const TOOL_STATE_STATUS: Record<ToolUsePart["state"], WorkGraphStatus> = {
 /**
  * Child phases are run-ledger statuses; the graph speaks its own status
  * vocabulary so a ledger rename cannot silently change what a node looks like.
+ *
+ * Every member of `RunStatusSchema` must appear. A missing phase does not fail
+ * loudly — it falls through to "running", which for a settled child means a row
+ * that never finishes, stays counted as live, and keeps offering a Stop for a
+ * task that already ended.
  */
-const CHILD_PHASE_STATUS: Record<string, WorkGraphStatus> = {
+const CHILD_PHASE_STATUS: Record<ChildTaskSummary["phase"], WorkGraphStatus> = {
   pending: "pending",
   running: "running",
+  waiting: "waiting",
   completed: "completed",
   failed: "failed",
   cancelled: "cancelled",
+  // The ledger's "interrupted" is a run that was cut off rather than one that
+  // failed on its own terms; `cancelled` is the graph's word for that.
+  interrupted: "cancelled",
 };
 
 export function createWorkGraph(args: {
@@ -126,7 +159,6 @@ export function createWorkGraph(args: {
     orderedWorkItemIds: [],
     dependenciesById: {},
     interactionsById: {},
-    artifactsById: {},
     pendingChildKeysByParentKey: {},
     nodeKeyBySpawnToolUseId: {},
   };
@@ -151,6 +183,13 @@ function advanceStatus(
     return current;
   }
   return next;
+}
+
+function mergeProgress(earlier: string[], later: string[]) {
+  return later.reduce(
+    (acc, line) => appendProgress(acc, line),
+    earlier.slice(),
+  );
 }
 
 function appendProgress(progress: string[], line: string | undefined) {
@@ -179,6 +218,18 @@ function upsertNode(
   patch: Partial<Omit<AgentNode, "key">> & {
     identitySource: AgentNode["identitySource"];
     label?: string;
+    /**
+     * This patch is a queried snapshot of the record that owns the node, not a
+     * replayed provider event.
+     *
+     * The terminal-status guard and the "absent means unchanged" merge both
+     * exist to survive a stream that repeats and reorders itself. A ledger read
+     * has neither problem: it is the source of truth for the child, answered on
+     * demand. Applying the guard to it is what pinned a retried child to the
+     * previous attempt's failure — the delegation key is unchanged by design,
+     * so the node was already terminal when the new attempt arrived.
+     */
+    authoritative?: boolean;
   },
   now: number,
 ): WorkGraph {
@@ -193,6 +244,7 @@ function upsertNode(
       agentId: patch.agentId,
       delegationKey: patch.delegationKey,
       childTaskId: patch.childTaskId,
+      attempt: patch.attempt,
       spawnedByToolUseId: patch.spawnedByToolUseId,
       parentKey: patch.parentKey ?? null,
       label: patch.label ?? UNNAMED_AGENT_LABEL,
@@ -213,12 +265,15 @@ function upsertNode(
     return adoptPendingChildren(linkToParent(withNode, node, now), key, now);
   }
 
-  const status = advanceStatus(existing.status, patch.status);
+  const status = patch.authoritative
+    ? (patch.status ?? existing.status)
+    : advanceStatus(existing.status, patch.status);
   const next: AgentNode = {
     ...existing,
     agentId: patch.agentId ?? existing.agentId,
     delegationKey: patch.delegationKey ?? existing.delegationKey,
     childTaskId: patch.childTaskId ?? existing.childTaskId,
+    attempt: patch.attempt ?? existing.attempt,
     spawnedByToolUseId:
       patch.spawnedByToolUseId ?? existing.spawnedByToolUseId,
     // A reported parent wins over "root": the root parent is what a node gets
@@ -232,13 +287,19 @@ function upsertNode(
     label: patch.label ?? existing.label,
     badge: patch.badge ?? existing.badge,
     status,
-    completedAt:
-      patch.completedAt ??
-      (isTerminalWorkGraphStatus(status) && !existing.completedAt
-        ? now
-        : existing.completedAt),
+    // An authoritative patch replaces rather than falls back: a child that is
+    // running again has no completion time and no failure reason, and carrying
+    // the previous attempt's forward would describe a run that is over.
+    completedAt: patch.authoritative
+      ? patch.completedAt
+      : (patch.completedAt ??
+        (isTerminalWorkGraphStatus(status) && !existing.completedAt
+          ? now
+          : existing.completedAt)),
     progress: patch.progress ?? existing.progress,
-    reason: patch.reason ?? existing.reason,
+    reason: patch.authoritative
+      ? patch.reason
+      : (patch.reason ?? existing.reason),
   };
   if (isNodeUnchanged(existing, next)) {
     return graph;
@@ -259,6 +320,7 @@ function isNodeUnchanged(previous: AgentNode, next: AgentNode) {
     previous.agentId === next.agentId &&
     previous.delegationKey === next.delegationKey &&
     previous.childTaskId === next.childTaskId &&
+    previous.attempt === next.attempt &&
     previous.spawnedByToolUseId === next.spawnedByToolUseId &&
     previous.parentKey === next.parentKey &&
     previous.label === next.label &&
@@ -457,6 +519,247 @@ function resolveSpawnedNode(
   return null;
 }
 
+/**
+ * Rekey a node that was only ever a call onto the worker the provider has since
+ * named.
+ *
+ * Claude reports the spawn before it reports the worker: the `Task` tool call
+ * arrives carrying nothing but a tool-use id, and the `task_id` that names the
+ * agent only appears on the first progress message. Adding a second node then
+ * would draw one worker twice — once as the call that started it, once as the
+ * agent it became — and the visible half would be the call, which is precisely
+ * the half no control may target.
+ *
+ * So the call node *becomes* the agent node: same row, same place in spawn
+ * order, same progress, now with an identity. Every reference to the old key is
+ * repointed in the same pass, because a dangling parent or work-item key does
+ * not error — it silently drops rows out of the tree.
+ */
+function resolvePromotedParentKey(args: {
+  parentKey: string | null;
+  providerKey: string;
+  rootKey: string;
+}) {
+  return args.parentKey === args.providerKey ? args.rootKey : args.parentKey;
+}
+
+function promoteToolCallNode(args: {
+  graph: WorkGraph;
+  callKey: string;
+  providerKey: string;
+  agentId: string;
+  now: number;
+}): WorkGraph {
+  const { graph, callKey, providerKey, agentId, now } = args;
+  const callNode = graph.nodesByKey[callKey];
+  if (!callNode || callKey === providerKey) {
+    return graph;
+  }
+  const existing = graph.nodesByKey[providerKey];
+  const promoted: AgentNode = {
+    key: providerKey,
+    identitySource: "provider",
+    agentId,
+    delegationKey: existing?.delegationKey ?? callNode.delegationKey,
+    childTaskId: existing?.childTaskId ?? callNode.childTaskId,
+    attempt: existing?.attempt ?? callNode.attempt,
+    spawnedByToolUseId:
+      callNode.spawnedByToolUseId ?? existing?.spawnedByToolUseId,
+    // Rekeying can collapse a parent and its child onto one key if the runtime
+    // ever named a call after the agent that made it. That is a provider bug,
+    // but a self-parented node is a tree that cannot be drawn, so it re-roots.
+    parentKey: resolvePromotedParentKey({
+      parentKey: existing?.parentKey ?? callNode.parentKey,
+      providerKey,
+      rootKey: graph.rootKey,
+    }),
+    // The call node holds the spawn's description; a node materialized from a
+    // bare agent id holds only the placeholder. Whichever actually says
+    // something wins, and the call's own label loses to a real one.
+    label:
+      existing && existing.label !== UNNAMED_AGENT_LABEL
+        ? existing.label
+        : callNode.label,
+    badge: existing?.badge ?? callNode.badge,
+    // A result may already have settled the call while the agent node was still
+    // reporting progress. Terminal wins either way: the work is over.
+    status: isTerminalWorkGraphStatus(callNode.status)
+      ? callNode.status
+      : (existing?.status ?? callNode.status),
+    startedAt: Math.min(
+      callNode.startedAt,
+      existing?.startedAt ?? callNode.startedAt,
+    ),
+    updatedAt: now,
+    completedAt: callNode.completedAt ?? existing?.completedAt,
+    // Both halves narrated the same worker, so neither tail is discarded: the
+    // call's lines were collected first, before anything named the agent.
+    progress: existing?.progress.length
+      ? mergeProgress(callNode.progress, existing.progress)
+      : callNode.progress,
+    reason: callNode.reason ?? existing?.reason,
+  };
+
+  const { [callKey]: _replaced, ...restNodes } = graph.nodesByKey;
+  const nodesByKey: Record<string, AgentNode> = { ...restNodes };
+  for (const [key, node] of Object.entries(nodesByKey)) {
+    if (node.parentKey === callKey) {
+      nodesByKey[key] = { ...node, parentKey: providerKey, updatedAt: now };
+    }
+  }
+  nodesByKey[providerKey] = promoted;
+
+  const orderedNodeKeys = existing
+    ? graph.orderedNodeKeys.filter((key) => key !== callKey)
+    : graph.orderedNodeKeys.map((key) => (key === callKey ? providerKey : key));
+
+  const workItemsById: Record<string, WorkItem> = {};
+  for (const [id, item] of Object.entries(graph.workItemsById)) {
+    workItemsById[id] =
+      item.nodeKey === callKey ? { ...item, nodeKey: providerKey } : item;
+  }
+
+  const dependenciesById: Record<string, Dependency> = {};
+  for (const dependency of Object.values(graph.dependenciesById)) {
+    const from = dependency.from === callKey ? providerKey : dependency.from;
+    const to = dependency.to === callKey ? providerKey : dependency.to;
+    if (from === to) {
+      continue;
+    }
+    const id =
+      dependency.kind === "spawn" ? `spawn:${from}->${to}` : dependency.id;
+    dependenciesById[id] = { ...dependency, id, from, to };
+  }
+
+  const interactionsById: Record<string, Interaction> = {};
+  for (const [id, interaction] of Object.entries(graph.interactionsById)) {
+    interactionsById[id] =
+      interaction.nodeKey === callKey
+        ? { ...interaction, nodeKey: providerKey }
+        : interaction;
+  }
+
+  const pendingChildKeysByParentKey: Record<string, string[]> = {};
+  for (const [parentKey, childKeys] of Object.entries(
+    graph.pendingChildKeysByParentKey,
+  )) {
+    const target = parentKey === callKey ? providerKey : parentKey;
+    const merged = new Set(pendingChildKeysByParentKey[target] ?? []);
+    for (const key of childKeys) {
+      merged.add(key === callKey ? providerKey : key);
+    }
+    merged.delete(target);
+    pendingChildKeysByParentKey[target] = [...merged];
+  }
+
+  const nodeKeyBySpawnToolUseId: Record<string, string> = {};
+  for (const [toolUseId, nodeKey] of Object.entries(
+    graph.nodeKeyBySpawnToolUseId,
+  )) {
+    nodeKeyBySpawnToolUseId[toolUseId] =
+      nodeKey === callKey ? providerKey : nodeKey;
+  }
+
+  const promotedGraph: WorkGraph = {
+    ...graph,
+    updatedAt: now,
+    nodesByKey,
+    orderedNodeKeys,
+    workItemsById,
+    dependenciesById,
+    interactionsById,
+    pendingChildKeysByParentKey,
+    nodeKeyBySpawnToolUseId,
+  };
+  // The promoted node may be the parent a queued orphan was waiting for under
+  // its new key, so the park list gets another chance to drain.
+  return adoptPendingChildren(promotedGraph, providerKey, now);
+}
+
+/**
+ * Promote the call this event names, when the event finally names the agent
+ * behind it. A no-op for every provider that gets identity right the first
+ * time, and for every event after the first that carries both ids.
+ */
+function bindSpawnedAgentIdentity(args: {
+  graph: WorkGraph;
+  toolUseId: string | undefined;
+  agentId: string | undefined;
+  now: number;
+}): WorkGraph {
+  const { graph, toolUseId, agentId, now } = args;
+  if (!toolUseId || !agentId) {
+    return graph;
+  }
+  const callKey = graph.nodeKeyBySpawnToolUseId[toolUseId];
+  if (!callKey || graph.nodesByKey[callKey]?.identitySource !== "tool-call") {
+    return graph;
+  }
+  return promoteToolCallNode({
+    graph,
+    callKey,
+    providerKey: providerAgentNodeKey(graph.providerId, agentId),
+    agentId,
+    now,
+  });
+}
+
+/**
+ * The Local MCP call a task makes to delegate durable work to a child task.
+ *
+ * Matched by suffix because each runtime prefixes MCP tools its own way
+ * (`mcp__stave-local-mcp__…` for Claude), and the delegation key travels in the
+ * call's own input — it is the handle Stage F froze, so reading it here is what
+ * lets a ledger-owned child hang off the agent that actually delegated it
+ * instead of floating at the turn root.
+ */
+const DELEGATION_TOOL_NAME_SUFFIX = "stave_delegate_task";
+
+/**
+ * Why a delegation never happened, from the delegating call's own result.
+ *
+ * The coordinator can refuse before any ledger row exists — an unavailable
+ * workspace, a concurrency limit, a request it will not honor — and the MCP
+ * tool reports that as an ordinary successful call carrying a refusal. Nothing
+ * else can correct the node in that case: the ledger has no row to list, so the
+ * child would sit "pending" for the life of the turn, counted as a live agent
+ * and offering a Stop for a task that was never started.
+ *
+ * Returns undefined unless the result explicitly says the delegation was
+ * refused. An unparseable result is left alone rather than guessed at, because
+ * the ledger is still the better authority whenever it has anything to say.
+ */
+function resolveDelegationRefusal(event: {
+  output: string;
+  isError?: boolean;
+}) {
+  if (event.isError) {
+    return truncateWorkText(event.output) ?? "The delegation was refused.";
+  }
+  const parsed = parseToolInput(event.output);
+  const delegation =
+    parsed && typeof parsed.delegation === "object" && parsed.delegation
+      ? (parsed.delegation as Record<string, unknown>)
+      : null;
+  if (!delegation || delegation.accepted !== false) {
+    return undefined;
+  }
+  return (
+    truncateWorkText(delegation.message) ??
+    truncateWorkText(delegation.reason) ??
+    "The delegation was refused."
+  );
+}
+
+function resolveDelegationKeyFromTool(toolName: string, input: string) {
+  if (!toolName.endsWith(DELEGATION_TOOL_NAME_SUFFIX)) {
+    return undefined;
+  }
+  const parsed = parseToolInput(input);
+  const key = parsed?.delegationKey;
+  return typeof key === "string" && key.trim() ? key.trim() : undefined;
+}
+
 export function reduceWorkGraphEvent(
   graph: WorkGraph,
   event: NormalizedProviderEvent,
@@ -464,9 +767,66 @@ export function reduceWorkGraphEvent(
 ): WorkGraph {
   switch (event.type) {
     case "tool": {
-      const ownerKey = resolveOwnerKey(graph, event);
-      let next = ensureOwnerNode(graph, ownerKey, now);
+      const bound = bindSpawnedAgentIdentity({
+        graph,
+        toolUseId: event.toolUseId,
+        agentId: event.agentId,
+        now,
+      });
+      const ownerKey = resolveOwnerKey(bound, event);
+      let next = ensureOwnerNode(bound, ownerKey, now);
       const status = TOOL_STATE_STATUS[event.state];
+
+      const delegationKey = resolveDelegationKeyFromTool(
+        event.toolName,
+        event.input,
+      );
+      if (delegationKey) {
+        const nodeKey = ledgerNodeKey(delegationKey);
+        const existingChild = next.nodesByKey[nodeKey];
+        next = upsertNode(
+          next,
+          nodeKey,
+          {
+            identitySource: "ledger",
+            delegationKey,
+            spawnedByToolUseId: event.toolUseId,
+            parentKey: ownerKey,
+            label: resolveDelegatedChildLabel(
+              event.input,
+              delegationKey,
+              existingChild?.label,
+            ),
+            // The call returns the moment the delegation is recorded, so its
+            // own tool state says nothing about the child. The ledger owns this
+            // node from here; until it answers, the child is merely queued.
+            ...(existingChild ? {} : { status: "pending" as const }),
+          },
+          now,
+        );
+        if (event.toolUseId && !next.nodeKeyBySpawnToolUseId[event.toolUseId]) {
+          next = {
+            ...next,
+            nodeKeyBySpawnToolUseId: {
+              ...next.nodeKeyBySpawnToolUseId,
+              [event.toolUseId]: nodeKey,
+            },
+          };
+        }
+        return upsertWorkItem(
+          next,
+          {
+            id: workItemId(event.toolUseId, ownerKey, event.toolName),
+            nodeKey: ownerKey,
+            kind: "delegation",
+            status,
+            title: next.nodesByKey[nodeKey]?.label ?? "Delegated work",
+            toolUseId: event.toolUseId,
+            startedAt: now,
+          },
+          now,
+        );
+      }
 
       if (isSubagentToolName(event.toolName)) {
         const spawned = resolveSpawnedNode(next, event);
@@ -534,35 +894,139 @@ export function reduceWorkGraphEvent(
       );
     }
 
+    case "tool_result": {
+      // A partial result is a chunk of output, not an ending. Settling on one
+      // would retire a node that is still working.
+      if (event.isPartial) {
+        return graph;
+      }
+      const status: WorkGraphStatus = event.isError ? "failed" : "completed";
+      let next = graph;
+      const item = next.workItemsById[`tool:${event.tool_use_id}`];
+      if (item) {
+        next = upsertWorkItem(next, { ...item, status }, now);
+      }
+      const spawnedKey = next.nodeKeyBySpawnToolUseId[event.tool_use_id];
+      const spawned = spawnedKey ? next.nodesByKey[spawnedKey] : undefined;
+      if (!spawned || !spawnedKey) {
+        return next;
+      }
+      // A ledger-owned child outlives the call that delegated it: the MCP call
+      // returns as soon as the delegation is recorded, while the child task
+      // runs on. Only the ledger may end that node — except when there is no
+      // ledger row to end it, because the delegation was refused.
+      if (spawned.identitySource === "ledger") {
+        const refusal = resolveDelegationRefusal(event);
+        return refusal
+          ? upsertNode(
+              next,
+              spawnedKey,
+              {
+                identitySource: "ledger",
+                authoritative: true,
+                status: "failed",
+                reason: refusal,
+              },
+              now,
+            )
+          : next;
+      }
+      return upsertNode(
+        next,
+        spawnedKey,
+        {
+          identitySource: spawned.identitySource,
+          status,
+          // Only when this result is what ends the node. A call that already
+          // completed keeps that ending, and pinning a failure reason to it
+          // would label a finished row with an error it did not have.
+          ...(status === "failed" &&
+          !isTerminalWorkGraphStatus(spawned.status)
+            ? { reason: truncateWorkText(event.output) }
+            : {}),
+        },
+        now,
+      );
+    }
+
     case "subagent_progress": {
       // Progress is *about* a subagent, so it routes by spawn identity, not by
       // owner: `agentId` names it outright, and a bare `toolUseId` resolves
       // through the spawn index rather than being read as a node key of its
       // own.
-      const key = event.agentId
-        ? providerAgentNodeKey(graph.providerId, event.agentId)
-        : event.toolUseId
-          ? (graph.nodeKeyBySpawnToolUseId[event.toolUseId] ??
-            toolCallNodeKey(event.toolUseId))
-          : resolveOwnerKey(graph, event);
-      const existing = graph.nodesByKey[key];
       const line = truncateWorkText(event.content);
       if (!line) {
         return graph;
       }
-      return upsertNode(
+      const bound = bindSpawnedAgentIdentity({
         graph,
+        toolUseId: event.toolUseId,
+        agentId: event.agentId,
+        now,
+      });
+      const key = event.agentId
+        ? providerAgentNodeKey(bound.providerId, event.agentId)
+        : event.toolUseId
+          ? (bound.nodeKeyBySpawnToolUseId[event.toolUseId] ??
+            toolCallNodeKey(event.toolUseId))
+          : resolveOwnerKey(bound, event);
+      const existing = bound.nodesByKey[key];
+      return upsertNode(
+        bound,
         key,
         {
-          identitySource: event.agentId ? "provider" : "tool-call",
+          identitySource:
+            existing?.identitySource ??
+            (event.agentId ? "provider" : "tool-call"),
           agentId: event.agentId,
           spawnedByToolUseId: event.toolUseId,
-          parentKey: existing?.parentKey ?? graph.rootKey,
+          parentKey: existing?.parentKey ?? bound.rootKey,
           progress: appendProgress(existing?.progress ?? [], line),
         },
         now,
       );
     }
+
+    case "approval": {
+      const ownerKey = resolveOwnerKey(graph, event);
+      return recordWorkGraphInteraction(
+        ensureOwnerNode(graph, ownerKey, now),
+        {
+          id: approvalInteractionId(event.requestId),
+          nodeKey: ownerKey,
+          kind: "approval",
+          title:
+            truncateWorkText(event.description) ??
+            truncateWorkText(event.toolName) ??
+            "Approval needed",
+          raisedAt: now,
+        },
+        now,
+      );
+    }
+
+    case "user_input": {
+      const ownerKey = resolveOwnerKey(graph, event);
+      return recordWorkGraphInteraction(
+        ensureOwnerNode(graph, ownerKey, now),
+        {
+          id: userInputInteractionId(event.requestId),
+          nodeKey: ownerKey,
+          kind: "user-input",
+          title:
+            truncateWorkText(event.questions[0]?.question) ??
+            "Question for you",
+          raisedAt: now,
+        },
+        now,
+      );
+    }
+
+    case "done":
+      // The turn is over, so nothing in it is still waiting on a person. Left
+      // open, an unanswered prompt would keep its node badged "Needs you" for
+      // as long as the finished turn stayed on screen.
+      return resolveWorkGraphInteractions(graph, now);
 
     default:
       return graph;
@@ -610,6 +1074,22 @@ function ensureOwnerNode(graph: WorkGraph, ownerKey: string, now: number) {
  * before this could. The ledger is authoritative for them — phase, reason, and
  * lifetime all come from the delegation record, so a child keeps its place in
  * the graph after its parent turn's event stream has gone quiet.
+ *
+ * Scoped on purpose, because the listing a parent reads is its whole delegation
+ * history while a graph is one turn. A child already in the graph was put there
+ * by this turn's delegating call and keeps the position that call gave it —
+ * under the agent that delegated it, not at the root. A child the graph has
+ * never seen joins only while it is still running, which covers the two cases
+ * where the call is not in the graph to be recognized: a runtime whose MCP
+ * input Stave cannot parse, and a turn adopted mid-flight from persistence,
+ * whose earlier events were never replayed. A child that has already ended and
+ * that this turn never delegated belongs to an earlier turn, and is left to the
+ * child task list.
+ *
+ * Deliberately not a timestamp comparison. `startedAt` is when Stave began
+ * *watching* the turn, not when the turn began — adopting a restored turn
+ * stamps it with the adoption — and a child's `createdAt` is its run's, which a
+ * retry reuses. Both make a clock-based rule quietly drop live children.
  */
 export function mergeChildTasksIntoWorkGraph(
   graph: WorkGraph,
@@ -618,15 +1098,26 @@ export function mergeChildTasksIntoWorkGraph(
 ): WorkGraph {
   let next = graph;
   for (const child of children) {
+    const key = ledgerNodeKey(child.delegationKey);
+    const existing = next.nodesByKey[key];
+    if (!existing && !isActiveChildTaskPhase(child.phase)) {
+      continue;
+    }
     next = upsertNode(
       next,
-      ledgerNodeKey(child.delegationKey),
+      key,
       {
         identitySource: "ledger",
+        authoritative: true,
         delegationKey: child.delegationKey,
         childTaskId: child.childTaskId,
-        parentKey: next.rootKey,
-        label: child.delegationKey,
+        attempt: child.attempt,
+        parentKey: existing?.parentKey ?? next.rootKey,
+        label: resolveDelegatedChildLabel(
+          "",
+          child.delegationKey,
+          existing?.label,
+        ),
         status: CHILD_PHASE_STATUS[child.phase] ?? "running",
         reason: child.reason ?? undefined,
         completedAt: child.completedAt
@@ -647,7 +1138,7 @@ export function mergeChildTasksIntoWorkGraph(
  * approval, so the edge has to come from the interaction. Without it the tree
  * shows a busy agent where a human is in fact the critical path.
  */
-export function recordWorkGraphInteraction(
+function recordWorkGraphInteraction(
   graph: WorkGraph,
   interaction: Interaction,
   now: number,
@@ -681,4 +1172,49 @@ export function recordWorkGraphInteraction(
     },
     now,
   );
+}
+
+/** The graph's id for the prompt a provider knows by `requestId`. */
+export function approvalInteractionId(requestId: string) {
+  return `approval:${requestId}`;
+}
+
+export function userInputInteractionId(requestId: string) {
+  return `user-input:${requestId}`;
+}
+
+/**
+ * The person answered, or the turn ended: nothing is waiting on a human now.
+ *
+ * Resolution is not something the provider reports — an approval is answered
+ * through Stave, and the runtime simply carries on — so the graph would never
+ * clear a block on its own.
+ *
+ * `interactionId` scopes it to the prompt that was actually answered. Both
+ * runtimes hold pending approvals in a map and can have several open at once,
+ * one per subagent; clearing them together would drop the "Needs you" badge off
+ * a worker whose question is still on screen unanswered, and nothing would ever
+ * raise it again. Omitting the id is for the one case where the whole set truly
+ * settles at once: the turn is over.
+ */
+export function resolveWorkGraphInteractions(
+  graph: WorkGraph,
+  now: number,
+  interactionId?: string,
+): WorkGraph {
+  const open = Object.values(graph.interactionsById).filter(
+    (interaction) =>
+      !interaction.resolvedAt &&
+      (!interactionId || interaction.id === interactionId),
+  );
+  if (open.length === 0) {
+    return graph;
+  }
+  const interactionsById = { ...graph.interactionsById };
+  const dependenciesById = { ...graph.dependenciesById };
+  for (const interaction of open) {
+    interactionsById[interaction.id] = { ...interaction, resolvedAt: now };
+    delete dependenciesById[`blocked-on:${interaction.id}`];
+  }
+  return { ...graph, updatedAt: now, interactionsById, dependenciesById };
 }

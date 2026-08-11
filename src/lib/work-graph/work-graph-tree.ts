@@ -220,9 +220,15 @@ export interface WorkGraphControlAvailability {
  *    set. A control prepared against an agent that has since exited is the
  *    stale-turn problem Stage F froze identity to prevent, and it is rejected
  *    here rather than at the runtime.
- * 3. **Capability.** The runtime must actually implement per-agent steering. No
- *    provider does today, which is precisely why this is a declared capability
- *    and not an assumption — when one ships, only its capability flags change.
+ * 3. **Ownership.** A ledger-owned child is Stave's, not the runtime's: it is a
+ *    task with a workspace and a run of its own, steered through the child-task
+ *    coordinator against the identity Stage F froze. Its controls therefore do
+ *    not depend on what the provider can do to its own in-process subagents,
+ *    and gating them on a runtime capability would hide a control that works.
+ * 4. **Capability.** For a provider-owned agent the runtime must actually
+ *    implement per-agent steering. None does today, which is precisely why this
+ *    is a declared capability and not an assumption — when one ships, only its
+ *    capability flags change.
  */
 export function resolveWorkGraphControls(args: {
   node: AgentNode;
@@ -247,6 +253,12 @@ export function resolveWorkGraphControls(args: {
       available: [],
       reason: "This agent is no longer running in the current turn.",
     };
+  }
+  if (node.identitySource === "ledger") {
+    // Stop only: it is the one control that needs nothing from the person
+    // beyond the decision. A follow-up is a prompt, and the child task row
+    // below already owns the composer for writing one.
+    return { available: ["stop"] };
   }
   const available: WorkGraphControl[] = [];
   if (capabilities.message) {

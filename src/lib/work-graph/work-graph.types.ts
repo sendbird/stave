@@ -2,8 +2,8 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 
 /**
  * The vocabulary of the work graph: who is working (`AgentNode`), what they are
- * doing (`WorkItem`), what waits on what (`Dependency`), what they need from a
- * person (`Interaction`), and what they produced (`Artifact`).
+ * doing (`WorkItem`), what waits on what (`Dependency`), and what they need
+ * from a person (`Interaction`).
  *
  * This module is types and key constructors only — no reducer, no provider
  * imports beyond the id union, no clock. The reducer in
@@ -93,6 +93,14 @@ export interface AgentNode {
   delegationKey?: string;
   /** The child task this node runs as, for ledger-owned nodes. */
   childTaskId?: string;
+  /**
+   * Ledger attempt number, for ledger-owned nodes.
+   *
+   * Kept on the node because a retry reuses the delegation key — which is the
+   * node's identity — so the attempt is the only thing that distinguishes "this
+   * child failed" from "this child failed once and is running again".
+   */
+  attempt?: number;
   /** The tool call that spawned this agent, when known. */
   spawnedByToolUseId?: string;
   /**
@@ -163,19 +171,6 @@ export interface Interaction {
   resolvedAt?: number;
 }
 
-export type ArtifactKind = "file" | "diff" | "pull-request" | "output";
-
-/** Something a node produced that outlives the turn. */
-export interface Artifact {
-  id: string;
-  nodeKey: string;
-  kind: ArtifactKind;
-  label: string;
-  /** Path, URL, or other locator; never file contents. */
-  locator?: string;
-  producedAt: number;
-}
-
 /**
  * The whole graph for one turn.
  *
@@ -197,7 +192,6 @@ export interface WorkGraph {
   orderedWorkItemIds: string[];
   dependenciesById: Record<string, Dependency>;
   interactionsById: Record<string, Interaction>;
-  artifactsById: Record<string, Artifact>;
   /**
    * Nodes whose parent was reported but has not arrived yet, keyed by the
    * missing parent key. Late and out-of-order events are the normal case for a

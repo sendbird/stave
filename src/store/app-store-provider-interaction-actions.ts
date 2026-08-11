@@ -1,9 +1,14 @@
 import type { StoreApi } from "zustand";
 import {
+  applyChildTasksToProviderTurnActivity,
   clearProviderTurnActivity,
   markProviderTurnInteractionResolved,
 } from "@/lib/providers/turn-status";
 import { isTaskManaged } from "@/lib/tasks";
+import {
+  approvalInteractionId,
+  userInputInteractionId,
+} from "@/lib/work-graph/work-graph-reducer";
 import type { AppState } from "@/store/app-store.types";
 import {
   buildMessageId,
@@ -35,7 +40,8 @@ type ProviderInteractionActionKey =
   | "skipTaskAdvisor"
   | "dismissAdvisorExchange"
   | "resolveApproval"
-  | "resolveUserInput";
+  | "resolveUserInput"
+  | "syncChildTasksIntoTurnGraph";
 
 type ProviderInteractionActions = Pick<AppState, ProviderInteractionActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
@@ -103,6 +109,24 @@ export function createProviderInteractionActions(args: {
           ? state
           : { advisorExchangeByTask };
       });
+    },
+    syncChildTasksIntoTurnGraph: ({ taskId, children }) => {
+      // Computed before `set` rather than inside it: returning the same state
+      // from the updater suppresses the subscriber notification but not the
+      // persist middleware, which serializes and writes the store on every
+      // `set` regardless. This runs on every child-task change event and is
+      // usually a no-op, so it must not reach `set` at all.
+      const providerTurnActivityByTask = applyChildTasksToProviderTurnActivity({
+        activityByTask: get().providerTurnActivityByTask,
+        taskId,
+        children,
+      });
+      if (
+        providerTurnActivityByTask === get().providerTurnActivityByTask
+      ) {
+        return;
+      }
+      set({ providerTurnActivityByTask });
     },
     abortTaskTurn: ({ taskId }) => {
       const stateBefore = get();
@@ -357,6 +381,7 @@ export function createProviderInteractionActions(args: {
                 taskId,
                 turnId: activeTurnId,
                 now: resolvedAt,
+                interactionId: approvalInteractionId(requestId),
               })
             : state.providerTurnActivityByTask;
           if (workspaceId && workspaceId !== state.activeWorkspaceId) {
@@ -595,6 +620,7 @@ export function createProviderInteractionActions(args: {
                 taskId,
                 turnId: activeTurnId,
                 now: resolvedAt,
+                interactionId: userInputInteractionId(requestId),
               })
             : state.providerTurnActivityByTask;
           if (workspaceId && workspaceId !== state.activeWorkspaceId) {

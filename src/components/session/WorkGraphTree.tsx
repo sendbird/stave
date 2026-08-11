@@ -84,11 +84,19 @@ export interface WorkGraphTreeProps {
   graph: WorkGraph | null | undefined;
   capabilities: ProviderWorkGraphCapabilities;
   /**
-   * Optional because no runtime implements per-agent steering yet, so
-   * `resolveWorkGraphControls` returns nothing to click today. The prop exists
-   * so the first runtime that ships one only has to be handed a handler.
+   * Optional because a surface may render the tree with no controls at all —
+   * no runtime implements per-agent steering, so only ledger-owned children
+   * have anything to click.
    */
   onControl?: (request: WorkGraphControlRequest) => void;
+  /**
+   * Why a control the reader just used did not take effect, per node.
+   *
+   * A refusal is the expected outcome of a stop prepared against an identity
+   * that has since moved on, so the row it was clicked on is where it has to
+   * appear; sending the reader elsewhere to find out is the same as not saying.
+   */
+  controlErrorByNodeKey?: Readonly<Record<string, string>>;
   className?: string;
 }
 
@@ -125,6 +133,7 @@ export const WorkGraphTree = memo(function WorkGraphTree(
             capabilities={props.capabilities}
             liveIdentities={liveIdentities}
             onControl={props.onControl}
+            controlError={props.controlErrorByNodeKey?.[row.key] ?? null}
           />
         ))}
       </div>
@@ -137,11 +146,13 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   capabilities,
   liveIdentities,
   onControl,
+  controlError,
 }: {
   row: WorkGraphTreeRow;
   capabilities: ProviderWorkGraphCapabilities;
   liveIdentities: ReadonlySet<string>;
   onControl?: (request: WorkGraphControlRequest) => void;
+  controlError?: string | null;
 }) {
   const { node } = row;
   const controls = resolveWorkGraphControls({
@@ -212,6 +223,15 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
         {detail ? (
           <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
             {detail}
+          </p>
+        ) : null}
+        {controlError ? (
+          <p
+            role="status"
+            data-testid="work-graph-control-error"
+            className="line-clamp-2 text-[11px] leading-4 text-destructive"
+          >
+            {controlError}
           </p>
         ) : null}
       </div>

@@ -57,14 +57,33 @@ runtime owns it. A delegating call the provider never attributed still appears �
 a flat fan-out is better than a blank surface — but it is marked as
 call-derived and is refused every per-agent control, because a tool-use id
 identifies one call and a Stop aimed at it would either miss or end the whole
-turn. Per-agent message, interrupt, and stop are gated on
-`ProviderRuntimeCapabilities.workGraph`; no runtime declares them today, which
-is why they are declared capabilities rather than assumptions.
+turn. Per-agent message, interrupt, and stop over a *provider-owned* agent are
+gated on `ProviderRuntimeCapabilities.workGraph`; no runtime declares them
+today, which is why they are declared capabilities rather than assumptions. A
+*ledger-owned* child is not gated on them at all: it is a Stave task with its
+own workspace and run, steered through the child-task coordinator against the
+frozen identity, so what the provider can do to its own in-process subagents
+says nothing about it.
+
+Both kinds of node live in one graph, and the delegating call is what joins
+them: `stave_delegate_task` carries the delegation key in its own input, so the
+child hangs off the agent that delegated it rather than floating at the turn
+root. The graph is scoped to a turn, so the parent's full delegation history
+stays with the child task list; only the children this turn delegated join its
+fan-out.
 
 Two provider fields answer "which agent" and mean opposite things, so they are
 carried separately on the normalized event and must never be merged: `agentId`
 points *down* to an agent a call spawned, `ownerAgentId` points *up* to the agent
 the event was emitted from. Collapsing them inverts a spawn edge.
+
+A runtime may report the two out of order — Claude names the spawning call
+first and the worker behind it only on a later progress message. The node is
+then rekeyed onto the identity rather than joined by a second node, because the
+half that would stay visible is the call, which is the half no control may
+target. `ownerAgentId` also travels on approval and user-input events, so a
+fan-out where one worker is waiting on a person does not read as one where all
+of them are.
 
 ### Layer 2 — Supervision: see everything, intervene from anywhere
 
