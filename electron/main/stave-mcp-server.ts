@@ -656,10 +656,10 @@ function createToolServer() {
     "stave_create_task_heartbeat",
     {
       description:
-        "Attach a heartbeat to an existing task so it wakes on a schedule in the same session. Use this for standing checks on a task that already exists, such as re-checking CI on its pull request. To run something on a schedule in a NEW task each time, create a routine instead.",
+        "Attach a heartbeat to an existing task so it wakes in the same session — on a schedule, or when work that task delegated finishes. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its child tasks return. To run something on a schedule in a NEW task each time, create a routine instead.",
       inputSchema: {
         input: TaskHeartbeatUpsertInputSchema.describe(
-          "Heartbeat definition. `taskId` must name a task that already exists.",
+          "Heartbeat definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the wake chain cannot recurse forever.",
         ),
       },
     },
@@ -673,7 +673,7 @@ function createToolServer() {
     "stave_update_task_heartbeat",
     {
       description:
-        "Replace a task heartbeat's prompt, schedule, expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
+        "Replace a task heartbeat's prompt, trigger, expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
       inputSchema: {
         id: z.string().min(1).describe("Heartbeat id."),
         input: TaskHeartbeatUpsertInputSchema.describe(
