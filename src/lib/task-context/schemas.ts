@@ -133,6 +133,8 @@ const ImageContextPartSchema = z.object({
 const WorkspaceInformationReferenceSchema = z.object({
   section: z.union([
     z.literal("turn-summary"),
+    z.literal("lens"),
+    z.literal("web"),
     z.literal("notes"),
     z.literal("todo"),
     z.literal("pr"),
@@ -765,6 +767,17 @@ const WorkspaceTurnSummarySchema = z.object({
   workSummary: z.string().optional().default(""),
 });
 
+const WorkspaceConnectedBrowserTabSchema = z.object({
+  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  status: z.union([
+    z.literal("connecting"),
+    z.literal("connected"),
+    z.literal("failed"),
+  ]),
+  requestedAt: z.string(),
+  lastUpdatedAt: z.string(),
+});
+
 const WorkspaceInformationSchema = z.object({
   jiraIssues: z.array(WorkspaceJiraIssueSchema).optional().default([]),
   confluencePages: z
@@ -783,6 +796,7 @@ const WorkspaceInformationSchema = z.object({
   amplifyLinks: z.array(WorkspaceAmplifyLinkSchema).optional().default([]),
   slackThreads: z.array(WorkspaceSlackThreadSchema).optional().default([]),
   turnSummary: WorkspaceTurnSummarySchema.nullable().optional(),
+  connectedBrowserTab: WorkspaceConnectedBrowserTabSchema.nullable().optional(),
   notes: z.string().optional().default(""),
   todos: z.array(WorkspaceTodoItemSchema).optional().default([]),
   customFields: z.array(WorkspaceInfoCustomFieldSchema).optional().default([]),

@@ -752,6 +752,12 @@ export type NormalizedProviderEvent =
       nativeTurnId: string;
     }
   | {
+      type: "browser_connection";
+      providerId: ProviderId;
+      status: "connecting" | "connected" | "failed";
+      at: number;
+    }
+  | {
       type: "goal_status";
       providerId: "codex";
       goal: ProviderGoalSnapshot | null;

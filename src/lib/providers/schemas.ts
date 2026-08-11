@@ -26,6 +26,17 @@ const ProviderTurnEventSchema = z.object({
   nativeTurnId: z.string(),
 });
 
+const BrowserConnectionEventSchema = z.object({
+  type: z.literal("browser_connection"),
+  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  status: z.union([
+    z.literal("connecting"),
+    z.literal("connected"),
+    z.literal("failed"),
+  ]),
+  at: z.number(),
+});
+
 const ProviderGoalStatusSchema = z.union([
   z.literal("active"),
   z.literal("paused"),
@@ -320,6 +331,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   text: TextEventSchema,
   provider_session: ProviderSessionEventSchema,
   provider_turn: ProviderTurnEventSchema,
+  browser_connection: BrowserConnectionEventSchema,
   goal_status: GoalStatusEventSchema,
   usage: UsageEventSchema,
   prompt_suggestions: PromptSuggestionsEventSchema,
@@ -346,6 +358,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.text,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_session,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_turn,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.browser_connection,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.goal_status,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.usage,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.prompt_suggestions,

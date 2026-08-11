@@ -84,6 +84,7 @@ Recommended next steps:
 
 - [Install Guide](docs/install-guide.md) for the full macOS install and update flow
 - [Lens Browser Guide](docs/features/lens.md) for inspecting a live page and sending its context into a task draft
+- [Provider Browser Access](docs/features/provider-browser-access.md) for using `@web` with the active provider's native browser extension
 - [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety, Advisor, and plan settings
 - [Local MCP User Guide](docs/features/local-mcp-user-guide.md) for same-machine automation setup
 - [Crane Connector Guide](docs/features/crane-connector.md) for pairing Crane with this Stave installation and approving issue runs locally

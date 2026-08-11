@@ -2,6 +2,7 @@ import type { NormalizedProviderEvent, ProviderId } from "@/lib/providers/provid
 import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import { trimLoadedTaskMessages } from "@/store/task-message-loading";
+import { applyProviderBrowserConnectionEvents } from "@/lib/provider-browser";
 
 export function applyProviderEventsToWorkspaceSession(args: {
   session: WorkspaceSessionState;
@@ -24,6 +25,10 @@ export function applyProviderEventsToWorkspaceSession(args: {
     providerGoal: providerGoalByTask[args.taskId] ?? null,
     messageCount: args.session.messageCountByTask[args.taskId],
   });
+  const connectedBrowserTab = applyProviderBrowserConnectionEvents({
+    current: args.session.workspaceInformation?.connectedBrowserTab,
+    events: args.events,
+  });
 
   const activeTurnMatches = args.session.activeTurnIdsByTask[args.taskId] === replayed.activeTurnId;
   const nativeSessionReadyMatches =
@@ -33,6 +38,9 @@ export function applyProviderEventsToWorkspaceSession(args: {
     || args.session.providerSessionByTask[args.taskId] === replayed.providerSession;
   const providerGoalMatches =
     (providerGoalByTask[args.taskId] ?? null) === replayed.providerGoal;
+  const browserConnectionMatches =
+    args.session.workspaceInformation?.connectedBrowserTab ===
+    connectedBrowserTab;
 
   if (
     !replayed.changed
@@ -40,6 +48,7 @@ export function applyProviderEventsToWorkspaceSession(args: {
     && nativeSessionReadyMatches
     && providerSessionMatches
     && providerGoalMatches
+    && browserConnectionMatches
   ) {
     return {
       stateChanged: false,
@@ -52,9 +61,18 @@ export function applyProviderEventsToWorkspaceSession(args: {
   return {
     stateChanged: true,
     snapshotChanged:
-      replayed.changed || !providerSessionMatches || !providerGoalMatches,
+      replayed.changed ||
+      !providerSessionMatches ||
+      !providerGoalMatches ||
+      !browserConnectionMatches,
     session: {
       ...args.session,
+      workspaceInformation: browserConnectionMatches
+        ? args.session.workspaceInformation
+        : {
+            ...args.session.workspaceInformation,
+            connectedBrowserTab,
+          },
       messagesByTask: replayed.changed
         ? {
             ...args.session.messagesByTask,

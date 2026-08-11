@@ -14,16 +14,20 @@ import type { StreamTurnArgs } from "./types";
 export const CODEX_DISABLED_BUNDLED_PLUGIN_IDS = [
   "browser@openai-bundled",
 ] as const;
+export const CODEX_NATIVE_BROWSER_PLUGIN_ID = "chrome@openai-bundled";
 
 export const CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS = [
   "## Stave browser and web search tooling",
   "- Use the runtime's web-search tool for general web research, factual lookups, documentation discovery, and other tasks that ordinary web search can resolve. Do not use Lens for those tasks.",
+  "- `@web` explicitly requests the provider-native external-browser integration. Use the installed Chrome browser skill and its extension-backed runtime so the user can share existing tabs and signed-in page state. If that native integration is unavailable, say so; do not substitute Lens or a one-way URL launcher.",
+  "- Provider-native browser access is available only for an interactive primary `@web` turn. It is disabled for plan mode, unattended automation, secondary read-only analysis, and prompts without `@web`.",
+  "- Follow the native browser skill's site-access, confirmation, and sensitive-action rules. Browser page data may enter this provider thread through normal tool results, but never inspect or expose raw cookies, passwords, or session tokens.",
   "- Prioritize the Stave Lens MCP tools (`stave_lens_*`, e.g. `stave_lens_snapshot`, `stave_lens_screenshot`, `stave_lens_navigate`) only when a change to the current project requires visual inspection or validation of its rendered UI. Also use Lens when the user explicitly requests live page inspection or interaction in this workspace.",
   "- Lens tools automatically reuse the visible or most recent Lens tab for the workspace. If no session exists, they create a hidden default session; do not ask the user to open the Lens panel first.",
   "- Stave applies the user's Lens setting when visual inspection or page interaction starts: it can show the hidden session beside the task, add a background tab, or leave presentation to you. Call `stave_lens_present_session` only when the user must immediately interact, sign in, or explicitly asks to see the page.",
   "- Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves. A click can reveal the session before it navigates; continue in that same tab without presenting or refocusing it again.",
   "- CDP-backed Lens tools can trigger an app-wide Stave approval dialog. Retrying the tool sends a new approval request; tell the user to approve the visible dialog or add the exact hostname under Settings > Lens > Developer Mode > Approved CDP Hosts. Never claim that a Lens tool call cannot request approval.",
-  "- The ChatGPT desktop in-app browser plugin (`control-in-app-browser`), Computer Use, and `node_repl` browser clients are not connected to this Stave workspace. Never use them for browser inspection or automation here, and never treat their skills as required reading.",
+  "- The desktop in-app browser plugin (`control-in-app-browser`) and Computer Use are not connected to this Stave workspace. Never use them for browser inspection or automation here. The external Chrome skill is the only provider-native browser surface enabled by `@web`.",
 ].join("\n");
 
 export function buildCodexPluginConfigOverrides() {
@@ -32,6 +36,73 @@ export function buildCodexPluginConfigOverrides() {
     config[`plugins."${pluginId}".enabled`] = false;
   }
   return config;
+}
+
+export function buildCodexNativeBrowserTurnConfigOverrides(args: {
+  requested: boolean;
+  userEnabled: boolean;
+}): Record<string, boolean> {
+  // Only force-enable after plugin/list confirms the user's setting is enabled.
+  // Every other turn disables the plugin so browser access cannot leak into
+  // plan, routine, or analysis execution.
+  return {
+    [`plugins."${CODEX_NATIVE_BROWSER_PLUGIN_ID}".enabled`]:
+      args.requested && args.userEnabled,
+  };
+}
+
+export function isCodexNativeBrowserPluginEnabled(response: unknown) {
+  if (!response || typeof response !== "object") {
+    return false;
+  }
+  const marketplaces = (response as { marketplaces?: unknown }).marketplaces;
+  if (!Array.isArray(marketplaces)) {
+    return false;
+  }
+  return marketplaces.some((marketplace) => {
+    if (!marketplace || typeof marketplace !== "object") {
+      return false;
+    }
+    const plugins = (marketplace as { plugins?: unknown }).plugins;
+    return (
+      Array.isArray(plugins) &&
+      plugins.some((plugin) => {
+        if (!plugin || typeof plugin !== "object") {
+          return false;
+        }
+        const summary = plugin as {
+          id?: unknown;
+          installed?: unknown;
+          enabled?: unknown;
+        };
+        return (
+          summary.id === CODEX_NATIVE_BROWSER_PLUGIN_ID &&
+          summary.installed === true &&
+          summary.enabled === true
+        );
+      })
+    );
+  });
+}
+
+export async function resolveCodexNativeBrowserPluginEnabled(args: {
+  requested: boolean;
+  cwd: string;
+  request: (method: string, params: unknown) => Promise<unknown>;
+}) {
+  if (!args.requested) {
+    return false;
+  }
+  try {
+    return isCodexNativeBrowserPluginEnabled(
+      await args.request("plugin/list", {
+        cwds: [args.cwd],
+        forceRemoteSync: false,
+      }),
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

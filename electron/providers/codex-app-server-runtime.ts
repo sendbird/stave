@@ -136,6 +136,8 @@ import {
 import { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
+import { createProviderBrowserConnectionTracker, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
+import { buildCodexNativeBrowserTurnConfigOverrides, resolveCodexNativeBrowserPluginEnabled } from "./codex-runtime-config";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -2355,6 +2357,10 @@ export async function streamCodexWithAppServer(
     executablePath: codexExecutablePath,
     runtimeOptions: requestedRuntimeOptions,
   });
+  const providerBrowserRequested = shouldActivateProviderBrowser({
+    prompt: args.prompt, secondaryReadOnly,
+    unattendedAutomation: Boolean(args.unattendedAutomation), planMode: runtimeOptions?.codexPlanMode === true,
+  });
   const workerProfile = secondaryReadOnly ? null : resolveCodexWorkerProfile({ runtimeOptions });
   const workerExecution = workerProfile ? buildWorkerExecutionMetadata(workerProfile) : null;
   const codexCapabilities = getCodexVersionCapabilities(codexExecutablePath);
@@ -2468,10 +2474,17 @@ export async function streamCodexWithAppServer(
     }
   }
 
+  const nativeBrowserPluginEnabled = await resolveCodexNativeBrowserPluginEnabled({
+    requested: providerBrowserRequested, cwd: runtimeCwd, request: client.request.bind(client),
+  });
+
   const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
   const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
   const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
-    base: secondaryConfigOverrides,
+    base: {
+      ...(secondaryConfigOverrides ?? {}),
+      ...buildCodexNativeBrowserTurnConfigOverrides({ requested: providerBrowserRequested, userEnabled: nativeBrowserPluginEnabled }),
+    },
     secretShellOverrides,
     unattendedAutomationAuthorizationToken:
       args.unattendedAutomation?.authorizationToken,
@@ -2515,6 +2528,9 @@ export async function streamCodexWithAppServer(
     });
     const events: BridgeEvent[] = eventCollector.events;
     let hasEmittedDone = false;
+    const providerBrowserTracker = createProviderBrowserConnectionTracker({
+      providerId: "codex", requested: providerBrowserRequested, available: nativeBrowserPluginEnabled,
+    });
     const emitBridgeEvent = (event: BridgeEvent) => {
       if (event.type === "done") {
         hasEmittedDone = true;
@@ -2525,7 +2541,12 @@ export async function streamCodexWithAppServer(
     const emitBridgeEvents = (nextEvents: BridgeEvent[]) => {
       nextEvents.forEach(emitBridgeEvent);
     };
+    const settleMissingProviderBrowserConnection = () =>
+      providerBrowserTracker.settle(emitBridgeEvent);
     const finalizeCollectedEvents = () => {
+      if (!hasEmittedDone) {
+        settleMissingProviderBrowserConnection();
+      }
       if (eventCollector.overflowed) {
         for (const overflowEvent of CODEX_APP_SERVER_OVERFLOW_TAIL_EVENTS) {
           eventCollector.appendTail(overflowEvent);
@@ -2545,6 +2566,7 @@ export async function streamCodexWithAppServer(
     };
 
     emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
+    providerBrowserTracker.emitInitial(emitBridgeEvent);
     const syncedGoalEvent = await readCodexGoalStatusEvent({
       client,
       threadId,
@@ -3623,6 +3645,16 @@ export async function streamCodexWithAppServer(
                     }),
                 ...(mcpItem.status === "failed" ? { isError: true } : {}),
               });
+              const browserConnectionEvent =
+                providerBrowserTracker.observeCodexMcpCall({
+                  server: mcpItem.server,
+                  tool: mcpItem.tool,
+                  input: serializeCodexMcpToolCallArguments(mcpItem.arguments),
+                  failed: Boolean(mcpItem.status === "failed" || mcpItem.error?.message),
+                });
+              if (browserConnectionEvent) {
+                completedEvents.push(browserConnectionEvent);
+              }
               emitBridgeEvents(completedEvents);
               return;
             }
@@ -3748,6 +3780,7 @@ export async function streamCodexWithAppServer(
               ...latestUsage,
             });
           }
+          settleMissingProviderBrowserConnection();
           emitBridgeEvent(
             abortRequested
               ? { type: "done", stop_reason: "user_abort" }
@@ -3776,6 +3809,7 @@ export async function streamCodexWithAppServer(
         message: toCodexUserFacingErrorMessage({ message: exitMessage }),
         recoverable: true,
       });
+      settleMissingProviderBrowserConnection();
       emitBridgeEvent(
         abortRequested
           ? { type: "done", stop_reason: "user_abort" }
@@ -3791,6 +3825,7 @@ export async function streamCodexWithAppServer(
       if (!appServerTurnId) {
         // turn/start hasn't resolved yet — no turnId to interrupt.
         // Resolve the wait so the Promise.race below exits.
+        settleMissingProviderBrowserConnection();
         emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
         finishTurnWait();
         return;
@@ -3806,6 +3841,7 @@ export async function streamCodexWithAppServer(
           "[provider-runtime] Codex app-server interrupt did not settle after 10 seconds",
           { threadId, appServerTurnId },
         );
+        settleMissingProviderBrowserConnection();
         emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
         finishTurnWait();
       }, APP_SERVER_INTERRUPT_GRACE_MS);
@@ -3903,6 +3939,7 @@ export async function streamCodexWithAppServer(
           if (completed) {
             return;
           }
+          settleMissingProviderBrowserConnection();
           emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
           finishTurnWait();
         }, APP_SERVER_INTERRUPT_GRACE_MS);
@@ -3931,11 +3968,9 @@ export async function streamCodexWithAppServer(
           threadId,
           appServerTurnId,
         });
-        const abortEvents: BridgeEvent[] = [
-          { type: "done", stop_reason: "user_abort" },
-        ];
-        abortEvents.forEach((event) => args.onEvent?.(event));
-        return abortEvents;
+        settleMissingProviderBrowserConnection();
+        emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
+        return finalizeCollectedEvents();
       }
       const errorEvent: BridgeEvent = {
         type: "error",
@@ -3945,6 +3980,7 @@ export async function streamCodexWithAppServer(
         recoverable: true,
       };
       emitBridgeEvent(errorEvent);
+      settleMissingProviderBrowserConnection();
       emitBridgeEvent({ type: "done" });
       return finalizeCollectedEvents();
     } finally {

@@ -1,4 +1,5 @@
 import type { IntentGuardContextInput } from "./source-control-review";
+import type { WorkspaceConnectedBrowserTab } from "./provider-browser";
 
 export const WORKSPACE_INFO_FIELD_TYPES = [
   "text",
@@ -263,6 +264,8 @@ export interface WorkspaceInformationState {
   slackThreads: WorkspaceSlackThread[];
   martinProject?: WorkspaceMartinProjectLink | null;
   turnSummary?: WorkspaceTurnSummary | null;
+  /** Latest provider-native browser connection requested through `@web`. */
+  connectedBrowserTab?: WorkspaceConnectedBrowserTab | null;
   notes: string;
   todos: WorkspaceTodoItem[];
   customFields: WorkspaceInfoCustomField[];

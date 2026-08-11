@@ -443,6 +443,13 @@ Claude path and approval handling:
 - Stave runs Claude with the active workspace `cwd`
 - workspace-root guidance is appended so relative paths stay rooted correctly
 - approval and user-input responses are validated before they are returned to the SDK
+- Interactive prompts containing `@web` opt that turn into Claude Code's native
+  Chrome integration through the SDK `extraArgs` equivalent of `--chrome`.
+  Stave explicitly passes the native no-Chrome flag on other turns, including
+  plan mode, unattended automation, and secondary read-only analysis. Claude's
+  extension owns site access and sensitive-action
+  confirmation; Stave records only normalized connection status in workspace
+  Information.
 
 Compaction checkpoint UI support:
 
@@ -468,7 +475,7 @@ Codex prompt injection note:
 
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.
 - Task history, selected file context, image attachments, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config.
-- Stave always appends browser-tooling guidance to `developer_instructions`. It directs Codex to use ordinary web search for general research and to prioritize the Stave Lens MCP tools (`stave_lens_*`) only when the current project's rendered UI needs visual inspection or validation, or when the user explicitly requests live page inspection or interaction. Stave also disables the ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. That browser is not connected to the Stave workspace. See `electron/providers/codex-runtime-config.ts`.
+- Stave always appends browser-tooling guidance to `developer_instructions`. It directs Codex to use ordinary web search for general research, its installed native Chrome plugin for explicit interactive `@web` requests, and the Stave Lens MCP tools (`stave_lens_*`) only when the current project's rendered UI needs visual inspection or validation, or when the user explicitly requests live page inspection or interaction. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin, and records only normalized connection status in workspace Information. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
 
 Codex event mapping:
 
@@ -480,6 +487,7 @@ Codex event mapping:
 - command execution -> `tool`
 - MCP tool calls -> `tool`
 - web search -> `tool`
+- provider-native browser selection -> `browser_connection` metadata in workspace Information
 - file changes -> diff events
 - hook lifecycle -> `hook_activity`
 - acknowledged turn id -> assistant `history_boundary`

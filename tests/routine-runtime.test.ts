@@ -502,7 +502,7 @@ describe("routine host runtime", () => {
     );
   });
 
-  test("lists Information references but excludes live Lens state", async () => {
+  test("lists Information references but excludes interactive browser state", async () => {
     const harness = createHarness();
     const options = await harness.runtime.listInformationReferences({
       workspaceId: "ws-1",
@@ -512,6 +512,9 @@ describe("routine host runtime", () => {
       options.some((option) => option.reference.token === "@info:notes"),
     ).toBe(true);
     expect(options.some((option) => option.reference.token === "@lens")).toBe(
+      false,
+    );
+    expect(options.some((option) => option.reference.token === "@web")).toBe(
       false,
     );
   });

@@ -36,6 +36,12 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     };
     workspaceInformation.notes =
       "Check the design handoff before editing the prompt input.";
+    workspaceInformation.connectedBrowserTab = {
+      providerId: "codex",
+      status: "connected",
+      requestedAt: "2026-04-10T01:00:00.000Z",
+      lastUpdatedAt: "2026-04-10T01:00:01.000Z",
+    };
     workspaceInformation.figmaResources = [
       {
         id: "figma-1",
@@ -98,6 +104,10 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
       "title: Make task chat understand the information panel",
     );
     expect(context.content).toContain("Latest turn summary:");
+    expect(context.content).toContain("Connected browser tab:");
+    expect(context.content).toContain(
+      "codex | connected | updated 2026-04-10T01:00:01.000Z | provider-native browser extension",
+    );
     expect(context.content).toContain("Storybook resources (1):");
     expect(context.content).toContain("Amplify deploy links (1):");
     expect(context.content).not.toContain("Workspace Information Summary:");
@@ -122,6 +132,9 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
       "prefer `stave_lens_snapshot`, scoped `stave_lens_get_text`, or screenshots before raw HTML",
     );
     expect(context.content).toContain("`stave_lens_present_session`");
+    expect(context.content).toContain(
+      "`@web` requests the active provider's native external-browser integration",
+    );
     expect(context.content).toContain("Handoff procedure:");
     expect(context.content).toContain(
       "Write a plan file at the target's `.stave/context/plans/<taskIdPrefix>_<timestamp>.md`",

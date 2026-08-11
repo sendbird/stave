@@ -99,10 +99,10 @@ test("clicking an @ autocomplete popover item inserts the reference token", asyn
   await expect(editor).toContainText("Lens browser");
   await expect(editor).toContainText("Check");
 
-  // A second reference picked from further down the list must also insert.
+  // The provider browser is a first-class reference beside Lens.
   await page.keyboard.type("and @");
-  const customItem = page.getByRole("option", { name: /Custom fields/ });
-  await expect(customItem).toBeVisible();
-  await customItem.click();
-  await expect(editor).toContainText("Custom fields");
+  const webItem = page.getByRole("option", { name: /Connected browser/ });
+  await expect(webItem).toBeVisible();
+  await webItem.click();
+  await expect(editor).toContainText("Connected browser");
 });

@@ -183,6 +183,7 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "prompt_suggestions":
     case "provider_session":
     case "provider_turn":
+    case "browser_connection":
     case "goal_status":
     case "history_boundary":
     case "hook_activity":
@@ -305,6 +306,7 @@ function normalizeEventToPart(args: {
       return createTextPart({ text: event.text, segmentId: event.segmentId });
     case "provider_session":
     case "provider_turn":
+    case "browser_connection":
     case "goal_status":
     case "history_boundary":
     case "hook_activity":
@@ -801,6 +803,10 @@ export function appendProviderEventToAssistant(args: {
       nativeProviderSessionId: args.event.nativeSessionId,
       nativeProviderTurnId: args.event.nativeTurnId,
     };
+  }
+
+  if (args.event.type === "browser_connection") {
+    return message;
   }
 
   if (args.event.type === "done") {
