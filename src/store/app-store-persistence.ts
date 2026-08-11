@@ -1,6 +1,7 @@
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
+import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import {
   mergeWorkspaceActivityStamps,
   pruneWorkspaceActivityStamps,
@@ -139,6 +140,9 @@ export function createAppStorePersistenceOptions() {
       const raw = state.settings as any;
       state.settings.craneConnector = normalizeCraneConnectorSettings(
         raw.craneConnector,
+      );
+      state.settings.martinSync = normalizeMartinSyncSettings(
+        raw.martinSync,
       );
       state.compareRunsById = normalizePersistedCompareRuns({
         runsById: state.compareRunsById,

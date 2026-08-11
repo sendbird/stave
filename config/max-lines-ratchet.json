@@ -3,7 +3,7 @@
   "files": {
     "src/components/layout/useTerminalInstance.ts": 895,
     "electron/host-service/terminal-runtime.ts": 1170,
-    "src/store/app.store.ts": 3148,
+    "src/store/app.store.ts": 3155,
     "electron/providers/codex-app-server-runtime.ts": 4030
   }
 }

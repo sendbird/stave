@@ -63,7 +63,25 @@ import type {
   CraneDispatchApprovalResponse,
   CraneDispatchJobUpdate,
 } from "../src/lib/crane-connector/types";
-import type { WorkspaceInformationState } from "../src/lib/workspace-information";
+import type {
+  AtelierConnectorPairInput,
+  AtelierConnectorPublicStatus,
+} from "../src/lib/atelier-connector/types";
+import type { MartinProjectSummary } from "../src/lib/martin-sync/contract";
+import type {
+  MartinLinkProjectArgs,
+  MartinListProjectsArgs,
+  MartinSyncEnqueueArgs,
+  MartinSyncLinksChangedArgs,
+  MartinSyncMappingStalePayload,
+  MartinSyncPublicStatus,
+  MartinSyncSettings,
+  MartinWorkspaceArgs,
+} from "../src/lib/martin-sync/types";
+import type {
+  WorkspaceMartinProjectLink,
+  WorkspaceInformationState,
+} from "../src/lib/workspace-information";
 import type {
   RoutineInformationResourceCreateInput,
   RoutineRun,
@@ -228,6 +246,12 @@ interface WorkspaceInformationUpdatePayload {
 const craneConnectorStatusSubscribers = new Set<
   (payload: CraneConnectorPublicStatus) => void
 >();
+const martinSyncStatusSubscribers = new Set<
+  (payload: MartinSyncPublicStatus) => void
+>();
+const martinMappingStaleSubscribers = new Set<
+  (payload: MartinSyncMappingStalePayload) => void
+>();
 const craneDispatchApprovalSubscribers = new Set<
   (payload: CraneDispatchApprovalRequest) => void
 >();
@@ -243,6 +267,22 @@ ipcRenderer.on(
   "crane-connector:status",
   (_event, payload: CraneConnectorPublicStatus) => {
     for (const subscriber of craneConnectorStatusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "martin-sync:status",
+  (_event, payload: MartinSyncPublicStatus) => {
+    for (const subscriber of martinSyncStatusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "martin-sync:mapping-stale",
+  (_event, payload: MartinSyncMappingStalePayload) => {
+    for (const subscriber of martinMappingStaleSubscribers) {
       subscriber(payload);
     }
   },
@@ -1470,6 +1510,94 @@ contextBridge.exposeInMainWorld("api", {
       localMcpTaskTurnUpdateSubscribers.add(listener);
       return () => {
         localMcpTaskTurnUpdateSubscribers.delete(listener);
+      };
+    },
+  },
+  atelierConnector: {
+    getStatus: () =>
+      ipcRenderer.invoke("atelier-connector:get-status") as Promise<{
+        ok: boolean;
+        status: AtelierConnectorPublicStatus;
+        message?: string;
+      }>,
+    pair: (args: AtelierConnectorPairInput) =>
+      ipcRenderer.invoke("atelier-connector:pair", args) as Promise<{
+        ok: boolean;
+        status: AtelierConnectorPublicStatus;
+        message?: string;
+      }>,
+  },
+  martinSync: {
+    getStatus: () =>
+      ipcRenderer.invoke("martin-sync:get-status") as Promise<{
+        ok: boolean;
+        status: MartinSyncPublicStatus;
+        message?: string;
+      }>,
+    configure: (args: MartinSyncSettings) =>
+      ipcRenderer.invoke("martin-sync:configure", args) as Promise<{
+        ok: boolean;
+        status: MartinSyncPublicStatus;
+        message?: string;
+      }>,
+    enqueue: (args: MartinSyncEnqueueArgs) =>
+      ipcRenderer.invoke("martin-sync:enqueue", args) as Promise<{
+        ok: boolean;
+        status?: MartinSyncPublicStatus;
+        message?: string;
+      }>,
+    notifyLinksChanged: (args: MartinSyncLinksChangedArgs) =>
+      ipcRenderer.invoke("martin-sync:links-changed", args) as Promise<{
+        ok: boolean;
+        status?: MartinSyncPublicStatus;
+        message?: string;
+      }>,
+    retryFailed: () =>
+      ipcRenderer.invoke("martin-sync:retry-failed") as Promise<{
+        ok: boolean;
+        status: MartinSyncPublicStatus;
+        message?: string;
+      }>,
+    listProjects: (args: MartinListProjectsArgs = {}) =>
+      ipcRenderer.invoke("martin-sync:list-projects", args) as Promise<{
+        ok: boolean;
+        projects: MartinProjectSummary[];
+        message?: string;
+      }>,
+    linkProject: (args: MartinLinkProjectArgs) =>
+      ipcRenderer.invoke("martin-sync:link-project", args) as Promise<{
+        ok: boolean;
+        project?: WorkspaceMartinProjectLink;
+        snapshotRelativePath?: string;
+        message?: string;
+      }>,
+    unlinkProject: (args: MartinWorkspaceArgs) =>
+      ipcRenderer.invoke("martin-sync:unlink-project", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    refreshContext: (args: MartinWorkspaceArgs) =>
+      ipcRenderer.invoke("martin-sync:refresh-context", args) as Promise<{
+        ok: boolean;
+        project?: WorkspaceMartinProjectLink;
+        snapshotRelativePath?: string;
+        markdown?: string;
+        message?: string;
+      }>,
+    subscribeStatus: (
+      listener: (payload: MartinSyncPublicStatus) => void,
+    ) => {
+      martinSyncStatusSubscribers.add(listener);
+      return () => {
+        martinSyncStatusSubscribers.delete(listener);
+      };
+    },
+    subscribeMappingStale: (
+      listener: (payload: MartinSyncMappingStalePayload) => void,
+    ) => {
+      martinMappingStaleSubscribers.add(listener);
+      return () => {
+        martinMappingStaleSubscribers.delete(listener);
       };
     },
   },

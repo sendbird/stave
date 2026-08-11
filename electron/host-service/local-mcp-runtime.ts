@@ -40,6 +40,7 @@ import {
   shouldAutoFillWorkspaceInformation,
   upsertWorkspaceResourceInState,
   type WorkspaceInfoCustomField,
+  type WorkspaceMartinProjectLink,
   type WorkspaceInformationState,
   type WorkspaceInfoFieldType,
   type WorkspaceResourceUpsertResult,
@@ -794,6 +795,19 @@ export async function getWorkspaceInformation(args: { workspaceId: string }) {
     workspaceId: args.workspaceId,
     workspaceInformation: session.workspaceInformation,
   };
+}
+
+export async function setWorkspaceMartinProject(args: {
+  workspaceId: string;
+  project: WorkspaceMartinProjectLink | null;
+}) {
+  return updateWorkspaceInformationState({
+    workspaceId: args.workspaceId,
+    updater: (current) => ({
+      ...current,
+      martinProject: args.project,
+    }),
+  });
 }
 
 export async function replaceWorkspaceNotes(args: {

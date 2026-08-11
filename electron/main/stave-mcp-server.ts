@@ -92,6 +92,12 @@ import {
   syncCodexMcpRegistration,
 } from "./codex-mcp";
 import { sanitizeMcpLogValue } from "./stave-mcp-log-sanitizer";
+import {
+  linkMartinProject,
+  listMartinProjects,
+  refreshMartinContext,
+  unlinkMartinProject,
+} from "./martin-sync/project-link";
 
 let httpServer: Server | null = null;
 let manifestPaths: string[] = [];
@@ -297,6 +303,70 @@ function createToolServer() {
       toStructuredResult({
         projects: await listKnownProjects(),
       }),
+  );
+
+  server.registerTool(
+    "stave_martin_list_projects",
+    {
+      description:
+        "Search Martin projects reachable through the paired Atelier connector.",
+      inputSchema: {
+        query: z
+          .string()
+          .max(200)
+          .optional()
+          .describe("Optional name or slug filter."),
+        limit: z.number().int().min(1).max(50).optional(),
+      },
+    },
+    async ({ query, limit }) =>
+      toStructuredResult({
+        projects: await listMartinProjects({ query, limit }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_martin_link_project",
+    {
+      description:
+        "Link a Stave workspace to a Martin project and pull its context snapshot.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Target workspace id."),
+        projectRef: z
+          .string()
+          .min(1)
+          .describe("Martin project slug or id."),
+      },
+    },
+    async ({ workspaceId, projectRef }) =>
+      toStructuredResult(
+        await linkMartinProject({ workspaceId, projectRef }),
+      ),
+  );
+
+  server.registerTool(
+    "stave_martin_unlink_project",
+    {
+      description: "Unlink a Stave workspace from its Martin project.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Target workspace id."),
+      },
+    },
+    async ({ workspaceId }) =>
+      toStructuredResult(await unlinkMartinProject({ workspaceId })),
+  );
+
+  server.registerTool(
+    "stave_martin_get_context",
+    {
+      description:
+        "Fetch the latest Martin project context bundle for a linked workspace and refresh the local snapshot file.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Target workspace id."),
+      },
+    },
+    async ({ workspaceId }) =>
+      toStructuredResult(await refreshMartinContext({ workspaceId })),
   );
 
   server.registerTool(

@@ -54,6 +54,17 @@ export interface CraneConnectorLease {
   expiresAt: string;
 }
 
+export interface CraneCredentialStore {
+  isSecureStorageAvailable(): boolean;
+  getMetadata(): Promise<Omit<CraneConnectorCredential, "secret"> | null>;
+  getCredential(): Promise<CraneConnectorCredential | null>;
+  saveCredential(input: CraneConnectorCredential): Promise<void>;
+  clear(): Promise<boolean>;
+  putLease(input: CraneConnectorLease): Promise<void>;
+  getLease(jobId: string): Promise<CraneConnectorLease | null>;
+  deleteLease(jobId: string): Promise<boolean>;
+}
+
 export class CraneConnectorCredentialVault {
   private mutationQueue: Promise<void> = Promise.resolve();
 

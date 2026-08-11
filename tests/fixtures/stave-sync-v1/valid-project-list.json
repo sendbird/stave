@@ -1,0 +1,15 @@
+{
+  "contract": "stave-sync-v1",
+  "projects": [
+    {
+      "id": "project-sync",
+      "slug": "sync-outbox",
+      "name": "Sync Outbox",
+      "summary": "Durable workspace synchronization.",
+      "status": "active",
+      "visibility": "shared",
+      "updatedAt": "2026-08-09T12:00:00.000Z"
+    }
+  ],
+  "total": 1
+}

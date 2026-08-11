@@ -1,0 +1,11 @@
+{
+  "contract": "stave-sync-v1",
+  "links": [
+    {
+      "kind": "github",
+      "label": "Local repository",
+      "url": "http://localhost/repository",
+      "note": ""
+    }
+  ]
+}

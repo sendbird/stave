@@ -38,6 +38,7 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
+import { MartinSyncSettingsSection } from "@/components/layout/settings-dialog-martin-sync";
 import {
   COMMAND_PALETTE_GROUP_LABELS,
   getCommandPaletteCoreCommands,
@@ -3956,7 +3957,12 @@ export function SettingsDialogSectionContent(args: {
     case "mcp":
       return <McpSection />;
     case "integrations":
-      return <CraneConnectorSettingsSection />;
+      return (
+        <div className="space-y-8">
+          <CraneConnectorSettingsSection />
+          <MartinSyncSettingsSection />
+        </div>
+      );
     case "kickoff":
       return <KickoffSection />;
     case "prompts":

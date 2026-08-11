@@ -5,6 +5,10 @@ import {
   type TaskProviderSessionState,
 } from "@/lib/db/workspaces.db";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
+import {
+  collectMartinTriggerContext,
+  notifyMartinInformationEdited,
+} from "@/lib/martin-sync/renderer-triggers";
 import { toProviderSessionTitle } from "@/lib/providers/thread-actions";
 import {
   isTaskArchived,
@@ -414,16 +418,38 @@ export function createTaskCoreActions(args: {
       });
     },
     updateWorkspaceInformation: ({ updater }) => {
+      let change:
+        | {
+            previous: AppState["workspaceInformation"];
+            next: AppState["workspaceInformation"];
+          }
+        | undefined;
       set((state) => {
         const nextWorkspaceInformation = updater(state.workspaceInformation);
         if (nextWorkspaceInformation === state.workspaceInformation) {
           return state;
         }
+        change = {
+          previous: state.workspaceInformation,
+          next: nextWorkspaceInformation,
+        };
         return {
           workspaceInformation: nextWorkspaceInformation,
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
+      if (change) {
+        const state = get();
+        notifyMartinInformationEdited({
+          context: collectMartinTriggerContext(
+            state,
+            state.activeWorkspaceId,
+          ),
+          settings: state.settings.martinSync,
+          previous: change.previous,
+          next: change.next,
+        });
+      }
     },
     applyExternalWorkspaceInformationUpdate: ({
       workspaceId,

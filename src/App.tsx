@@ -13,6 +13,7 @@ import {
   setCraneConnectorClientStatus,
 } from "@/lib/crane-connector/client-state";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
+import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
 
 function buildLensSecurityConfig(): LensSecurityConfig {
@@ -114,6 +115,41 @@ export default function App() {
       timerByTaskTurn.clear();
       pendingByTaskTurn.clear();
     };
+  }, []);
+
+  useEffect(() => {
+    const syncApi = window.api?.martinSync;
+    if (!syncApi?.configure) return;
+
+    const pushConfig = (
+      settings: ReturnType<typeof useAppStore.getState>["settings"],
+    ) => {
+      void syncApi
+        .configure?.(
+          normalizeMartinSyncSettings(settings.martinSync),
+        )
+        .catch(() => undefined);
+    };
+
+    pushConfig(useAppStore.getState().settings);
+    return useAppStore.subscribe((state, previous) => {
+      const current = normalizeMartinSyncSettings(
+        state.settings.martinSync,
+      );
+      const prior = normalizeMartinSyncSettings(
+        previous.settings.martinSync,
+      );
+      if (
+        current.enabled === prior.enabled &&
+        current.prOpened === prior.prOpened &&
+        current.taskCompleted === prior.taskCompleted &&
+        current.resourceLinks === prior.resourceLinks &&
+        current.turnSummaries === prior.turnSummaries
+      ) {
+        return;
+      }
+      pushConfig(state.settings);
+    });
   }, []);
 
   useEffect(() => {

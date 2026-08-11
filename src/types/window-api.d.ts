@@ -57,6 +57,21 @@ import type {
   CraneDispatchApprovalResponse,
   CraneDispatchJobUpdate,
 } from "@/lib/crane-connector/types";
+import type {
+  AtelierConnectorPairInput,
+  AtelierConnectorPublicStatus,
+} from "@/lib/atelier-connector/types";
+import type { MartinProjectSummary } from "@/lib/martin-sync/contract";
+import type {
+  MartinLinkProjectArgs,
+  MartinListProjectsArgs,
+  MartinSyncEnqueueArgs,
+  MartinSyncLinksChangedArgs,
+  MartinSyncMappingStalePayload,
+  MartinSyncPublicStatus,
+  MartinSyncSettings,
+  MartinWorkspaceArgs,
+} from "@/lib/martin-sync/types";
 import type { RepoMapResponse } from "@/lib/fs/repo-map.types";
 import type {
   AppNotification,
@@ -77,7 +92,10 @@ import type {
   TerminalCreateSessionArgs,
   WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
-import type { WorkspaceInformationState } from "@/lib/workspace-information";
+import type {
+  WorkspaceMartinProjectLink,
+  WorkspaceInformationState,
+} from "@/lib/workspace-information";
 import type {
   RoutineInformationResourceCreateInput,
   RoutineRun,
@@ -699,6 +717,75 @@ interface WindowLocalMcpApi {
   ) => () => void;
   subscribeTaskTurnUpdates?: (
     listener: (payload: LocalMcpTaskTurnUpdate) => void,
+  ) => () => void;
+}
+
+interface WindowAtelierConnectorApi {
+  getStatus?: () => Promise<{
+    ok: boolean;
+    status: AtelierConnectorPublicStatus;
+    message?: string;
+  }>;
+  pair?: (args: AtelierConnectorPairInput) => Promise<{
+    ok: boolean;
+    status: AtelierConnectorPublicStatus;
+    message?: string;
+  }>;
+}
+
+interface WindowMartinSyncApi {
+  getStatus?: () => Promise<{
+    ok: boolean;
+    status: MartinSyncPublicStatus;
+    message?: string;
+  }>;
+  configure?: (args: MartinSyncSettings) => Promise<{
+    ok: boolean;
+    status: MartinSyncPublicStatus;
+    message?: string;
+  }>;
+  enqueue?: (args: MartinSyncEnqueueArgs) => Promise<{
+    ok: boolean;
+    status?: MartinSyncPublicStatus;
+    message?: string;
+  }>;
+  notifyLinksChanged?: (args: MartinSyncLinksChangedArgs) => Promise<{
+    ok: boolean;
+    status?: MartinSyncPublicStatus;
+    message?: string;
+  }>;
+  retryFailed?: () => Promise<{
+    ok: boolean;
+    status: MartinSyncPublicStatus;
+    message?: string;
+  }>;
+  listProjects?: (args?: MartinListProjectsArgs) => Promise<{
+    ok: boolean;
+    projects: MartinProjectSummary[];
+    message?: string;
+  }>;
+  linkProject?: (args: MartinLinkProjectArgs) => Promise<{
+    ok: boolean;
+    project?: WorkspaceMartinProjectLink;
+    snapshotRelativePath?: string;
+    message?: string;
+  }>;
+  unlinkProject?: (args: MartinWorkspaceArgs) => Promise<{
+    ok: boolean;
+    message?: string;
+  }>;
+  refreshContext?: (args: MartinWorkspaceArgs) => Promise<{
+    ok: boolean;
+    project?: WorkspaceMartinProjectLink;
+    snapshotRelativePath?: string;
+    markdown?: string;
+    message?: string;
+  }>;
+  subscribeStatus?: (
+    listener: (payload: MartinSyncPublicStatus) => void,
+  ) => () => void;
+  subscribeMappingStale?: (
+    listener: (payload: MartinSyncMappingStalePayload) => void,
   ) => () => void;
 }
 
@@ -2487,6 +2574,8 @@ interface WindowApi {
   fs?: WindowFsApi;
   skills?: WindowSkillsApi;
   localMcp?: WindowLocalMcpApi;
+  atelierConnector?: WindowAtelierConnectorApi;
+  martinSync?: WindowMartinSyncApi;
   craneConnector?: WindowCraneConnectorApi;
   taskControl?: WindowTaskControlApi;
   routines?: WindowRoutinesApi;

@@ -6,6 +6,10 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { AppSettings } from "@/store/app-settings";
 import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
+import {
+  DEFAULT_MARTIN_SYNC_SETTINGS,
+  MartinSyncSettingsSchema,
+} from "@/lib/martin-sync/types";
 import type { SectionId } from "./settings-dialog.schema";
 
 export interface SettingDefinition<
@@ -157,6 +161,30 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "exclude",
   } satisfies SettingDefinition<"craneConnector">,
+  {
+    key: "martinSync",
+    sectionId: "integrations",
+    fieldId: "settings-field-martin-sync",
+    title: "Martin sync",
+    description:
+      "Push workspace events and resource links to a linked Martin project and pull its context snapshot.",
+    keywords: [
+      "martin",
+      "atelier",
+      "sync",
+      "project",
+      "events",
+      "links",
+      "outbox",
+      "connector",
+    ],
+    schema: MartinSyncSettingsSchema,
+    defaultValue: { ...DEFAULT_MARTIN_SYNC_SETTINGS },
+    scope: "app",
+    sensitivity: "sensitive",
+    applyMode: "immediate",
+    importExport: "exclude",
+  } satisfies SettingDefinition<"martinSync">,
 ] as const;
 
 export function getSettingsFieldSearchText<Key extends keyof AppSettings>(

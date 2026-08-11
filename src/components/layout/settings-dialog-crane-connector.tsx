@@ -54,20 +54,17 @@ function statusLabel(state: string | undefined) {
 }
 
 export function CraneConnectorSettingsSection() {
-  const connector = useAppStore(
-    (state) => state.settings.craneConnector,
-  );
+  const connector = useAppStore((state) => state.settings.craneConnector);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const registeredProjects = useAppStore((state) => state.recentProjects);
   const registeredProjectCount = registeredProjects.length;
   const { status } = useCraneConnectorClientState();
   const [baseUrl, setBaseUrl] = useState(connector.baseUrl);
   const [pairingCode, setPairingCode] = useState("");
-  const [connectorName, setConnectorName] =
-    useState("Stave Desktop");
-  const [busy, setBusy] = useState<
-    "pair" | "disconnect" | "refresh" | null
-  >(null);
+  const [connectorName, setConnectorName] = useState("Stave Desktop");
+  const [busy, setBusy] = useState<"pair" | "disconnect" | "refresh" | null>(
+    null,
+  );
 
   useEffect(() => {
     setBaseUrl(connector.baseUrl);
@@ -75,19 +72,20 @@ export function CraneConnectorSettingsSection() {
 
   useEffect(() => {
     let cancelled = false;
-    void window.api?.craneConnector?.getStatus?.().then((result) => {
-      if (!cancelled && result) {
-        setCraneConnectorClientStatus(result.status);
-      }
-    }).catch(() => undefined);
+    void window.api?.craneConnector
+      ?.getStatus?.()
+      .then((result) => {
+        if (!cancelled && result) {
+          setCraneConnectorClientStatus(result.status);
+        }
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const saveConnector = (
-    patch: Partial<typeof connector>,
-  ) => {
+  const saveConnector = (patch: Partial<typeof connector>) => {
     updateSettings({
       patch: {
         craneConnector: {
@@ -150,8 +148,7 @@ export function CraneConnectorSettingsSection() {
   };
 
   const disconnect = async () => {
-    const disconnectConnector =
-      window.api?.craneConnector?.disconnect;
+    const disconnectConnector = window.api?.craneConnector?.disconnect;
     if (!disconnectConnector) {
       return;
     }
@@ -206,11 +203,13 @@ export function CraneConnectorSettingsSection() {
               variant="link"
               className="mt-1 h-auto px-0 text-xs"
               onClick={() => {
-                void window.api?.shell?.openExternal?.({
-                  url: STAVE_CRANE_CONNECTOR_GUIDE_URL,
-                }).catch(() => {
-                  toast.error("Could not open the Crane connector guide.");
-                });
+                void window.api?.shell
+                  ?.openExternal?.({
+                    url: STAVE_CRANE_CONNECTOR_GUIDE_URL,
+                  })
+                  .catch(() => {
+                    toast.error("Could not open the Crane connector guide.");
+                  });
               }}
             >
               <BookOpen className="size-3" />
@@ -226,9 +225,7 @@ export function CraneConnectorSettingsSection() {
             onClick={() => void refreshStatus()}
           >
             <RefreshCw
-              className={
-                busy === "refresh" ? "size-4 animate-spin" : "size-4"
-              }
+              className={busy === "refresh" ? "size-4 animate-spin" : "size-4"}
             />
           </Button>
         </div>
@@ -250,9 +247,7 @@ export function CraneConnectorSettingsSection() {
               id="settings-crane-enabled"
               checked={enabled}
               disabled={busy !== null}
-              onCheckedChange={(checked) =>
-                saveConnector({ enabled: checked })
-              }
+              onCheckedChange={(checked) => saveConnector({ enabled: checked })}
             />
           </div>
 
@@ -294,7 +289,9 @@ export function CraneConnectorSettingsSection() {
                         toast.error("Could not open the Crane connector page.");
                       });
                   } catch {
-                    toast.error("Enter a valid Crane URL before opening Crane.");
+                    toast.error(
+                      "Enter a valid Crane URL before opening Crane.",
+                    );
                   }
                 }}
               >
@@ -324,10 +321,7 @@ export function CraneConnectorSettingsSection() {
                 })
               }
             >
-              <SelectTrigger
-                id="settings-crane-poll-interval"
-                className="w-48"
-              >
+              <SelectTrigger id="settings-crane-poll-interval" className="w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -360,9 +354,7 @@ export function CraneConnectorSettingsSection() {
                   <Input
                     id="settings-crane-connector-name"
                     value={connectorName}
-                    onChange={(event) =>
-                      setConnectorName(event.target.value)
-                    }
+                    onChange={(event) => setConnectorName(event.target.value)}
                     maxLength={80}
                     autoComplete="off"
                   />
@@ -429,6 +421,15 @@ export function CraneConnectorSettingsSection() {
             </div>
           )}
 
+          {status?.connector ? (
+            <p className="rounded-lg border border-border px-4 py-3 text-xs leading-5 text-muted-foreground">
+              Crane and Martin share this one connector credential.
+              Disconnecting revokes both, so Martin workspace sync stops
+              delivering until you pair again. Queued items are kept and resume
+              after re-pairing.
+            </p>
+          ) : null}
+
           {status && !status.secureStorageAvailable ? (
             <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive">
               OS credential encryption is unavailable. Pairing remains blocked
@@ -448,8 +449,8 @@ export function CraneConnectorSettingsSection() {
               <div>
                 <h4 className="text-sm font-medium">Project mappings</h4>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Incoming issue teams preselect these local Stave projects.
-                  The mapping never leaves this device.
+                  Incoming issue teams preselect these local Stave projects. The
+                  mapping never leaves this device.
                 </p>
               </div>
               <div className="space-y-2">
@@ -484,11 +485,9 @@ export function CraneConnectorSettingsSection() {
                         aria-label={`Remove ${routeLabel} project mapping`}
                         onClick={() =>
                           saveConnector({
-                            projectMappings:
-                              connector.projectMappings.filter(
-                                (_, mappingIndex) =>
-                                  mappingIndex !== index,
-                              ),
+                            projectMappings: connector.projectMappings.filter(
+                              (_, mappingIndex) => mappingIndex !== index,
+                            ),
                           })
                         }
                       >
@@ -507,8 +506,8 @@ export function CraneConnectorSettingsSection() {
         <h3 className="text-sm font-semibold">Outbound data</h3>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Crane receives job lifecycle states and safe error codes only.
-          Transcripts, reasoning, diffs, files, local paths, branches,
-          provider credentials, and Local MCP metadata remain on this machine.
+          Transcripts, reasoning, diffs, files, local paths, branches, provider
+          credentials, and Local MCP metadata remain on this machine.
         </p>
       </div>
     </div>

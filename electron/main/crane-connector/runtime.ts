@@ -27,7 +27,7 @@ import type {
   TaskRunResult,
   TaskStatusResult,
 } from "../../host-service/local-mcp-runtime";
-import type { CraneConnectorCredentialVault } from "./credential-vault";
+import type { CraneCredentialStore } from "./credential-vault";
 import {
   CraneConnectorHttpClient,
   CraneConnectorHttpError,
@@ -63,7 +63,7 @@ interface CraneBindingPersistence {
 }
 
 interface CraneRuntimeDependencies {
-  vault: CraneConnectorCredentialVault;
+  vault: CraneCredentialStore;
   persistence: CraneBindingPersistence;
   appVersion: string;
   createHttpClient: (baseUrl: string) => CraneConnectorHttpClient;

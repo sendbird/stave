@@ -1,0 +1,13 @@
+{
+  "contract": "stave-sync-v1",
+  "results": [
+    {
+      "staveEventId": "0d5a9b3e-7c41-4f2a-9a67-2f8a1c3db901",
+      "status": "inserted"
+    },
+    {
+      "staveEventId": "3d1f2c44-9e0b-4b7a-8f7d-6a2e9c0b1a22",
+      "status": "duplicate"
+    }
+  ]
+}

@@ -99,6 +99,10 @@ import {
 } from "@/lib/providers/utility-inference-notice";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { cn } from "@/lib/utils";
+import {
+  collectMartinTriggerContext,
+  notifyMartinPrOpened,
+} from "@/lib/martin-sync/renderer-triggers";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1473,6 +1477,16 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         description: prResult.prUrl
           ? `${autoMergeDescription} ${prResult.prUrl}`
           : autoMergeDescription,
+      });
+    }
+
+    if (prResult.prUrl && submitWorkspaceId) {
+      const state = useAppStore.getState();
+      notifyMartinPrOpened({
+        context: collectMartinTriggerContext(state, submitWorkspaceId),
+        settings: state.settings.martinSync,
+        prUrl: prResult.prUrl,
+        prTitle: title,
       });
     }
 

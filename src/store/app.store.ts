@@ -89,6 +89,11 @@ import {
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import {
+  collectMartinTriggerContext,
+  notifyMartinTaskArchived,
+  notifyMartinTurnSummary,
+} from "@/lib/martin-sync/renderer-triggers";
+import {
   buildWorkspaceTurnSummaryPrompt,
   createWorkspaceTurnSummary,
   parseWorkspaceTurnSummaryResponse,
@@ -632,6 +637,15 @@ export const useAppStore = create<AppState>()(
       const runScriptHook = window.api?.scripts?.runHook;
       const context = resolveScriptHookWorkspaceContext(args.workspaceId);
 
+      if (args.trigger === "task.archiving" && args.taskTitle) {
+        const state = get();
+        notifyMartinTaskArchived({
+          context: collectMartinTriggerContext(state, args.workspaceId),
+          settings: state.settings.martinSync,
+          taskTitle: args.taskTitle,
+        });
+      }
+
       // Intent guard runs independently of verify hooks; it only needs the
       // resolved workspace context (path) to diff against.
       if (args.trigger === "turn.completed" && context) {
@@ -878,8 +892,15 @@ export const useAppStore = create<AppState>()(
         return;
       }
 
+      const state = get();
+      notifyMartinTurnSummary({
+        context: collectMartinTriggerContext(state, args.workspaceId),
+        settings: state.settings.martinSync,
+        workSummary: args.summary.workSummary,
+      });
+
       const latestSession = getWorkspaceSessionForState({
-        state: get(),
+        state,
         workspaceId: args.workspaceId,
       });
       if (latestSession) {

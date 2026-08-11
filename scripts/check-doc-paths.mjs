@@ -4,6 +4,7 @@ import process from "node:process";
 
 const root = process.cwd();
 const documentationRoots = ["AGENTS.md", "CLAUDE.md", "docs", "skills"];
+const externalRepositoryMarker = "<!-- doc-path-check: external-repository -->";
 const ignoredDirectories = new Set([
   ".git",
   ".stave",
@@ -300,6 +301,10 @@ const failures = [];
 
 for (const documentationFile of documentationFiles) {
   const source = await readFile(path.join(root, documentationFile), "utf8");
+  // Cross-repository design artifacts can intentionally use paths that only
+  // resolve in the named sibling repository. The marker must be the first
+  // line so an ordinary guide cannot disable checks accidentally.
+  if (source.startsWith(`${externalRepositoryMarker}\n`)) continue;
   for (const reference of extractReferences(documentationFile, source)) {
     const rawResolved = resolveReference(reference);
     if (!rawResolved) continue;

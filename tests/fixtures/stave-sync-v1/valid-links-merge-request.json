@@ -1,0 +1,16 @@
+{
+  "contract": "stave-sync-v1",
+  "links": [
+    {
+      "kind": "github",
+      "label": "PR #12: Harden the sync outbox",
+      "url": "https://github.com/sendbird/stave/pull/12",
+      "note": ""
+    },
+    {
+      "kind": "figma",
+      "label": "Sync settings card",
+      "url": "https://www.figma.com/design/AbC123/sync-card"
+    }
+  ]
+}

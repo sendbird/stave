@@ -181,6 +181,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Queue a Crane issue for local Claude or Codex execution with explicit per-job approval and status-only reporting.",
       },
       {
+        routePath: "martin-sync",
+        sourcePath: "docs/features/martin-sync.md",
+        title: "Martin Workspace Sync",
+        description:
+          "Link a workspace to a Martin project, sync selected activity and resource links, and pull project context into Stave.",
+      },
+      {
         routePath: "language-intelligence",
         sourcePath: "docs/features/language-intelligence.md",
         title: "Language Intelligence",

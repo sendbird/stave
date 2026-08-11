@@ -55,6 +55,10 @@ import type {
   TaskHeartbeatOccurrence,
 } from "../../src/lib/automation/task-supervisor";
 import {
+  MartinSyncOutboxStore,
+  type MartinOutboxEntry,
+} from "./martin-sync-outbox-store";
+import {
   shouldRunFullVacuumMigration,
   type SqliteStorageMetrics,
 } from "./sqlite-maintenance-policy";
@@ -192,6 +196,7 @@ export class SqliteStore {
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
+  private martinSyncOutbox: MartinSyncOutboxStore;
   private taskHeartbeats: TaskHeartbeatStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
@@ -233,6 +238,7 @@ export class SqliteStore {
     this.bootstrap();
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
+    this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.taskHeartbeats = new TaskHeartbeatStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
@@ -2916,6 +2922,77 @@ export class SqliteStore {
 
   pruneCraneJobBindings(cutoff: string) {
     return this.craneJobBindings.pruneTerminalBefore(cutoff);
+  }
+
+  enqueueMartinOutboxEntry(input: {
+    workspaceId: string;
+    projectRef: string;
+    kind: "event";
+    payloadJson: string;
+    now: string;
+  }) {
+    return this.martinSyncOutbox.enqueue(input);
+  }
+
+  upsertMartinLinksMergeEntry(input: {
+    workspaceId: string;
+    projectRef: string;
+    payloadJson: string;
+    nextAttemptAt: string;
+    now: string;
+  }) {
+    return this.martinSyncOutbox.upsertLinksMerge(input);
+  }
+
+  listDueMartinOutboxEntries(args: {
+    now: string;
+    limit: number;
+  }): MartinOutboxEntry[] {
+    return this.martinSyncOutbox.listDue(args);
+  }
+
+  markMartinOutboxDelivered(id: string, deliveredAt: string) {
+    this.martinSyncOutbox.markDelivered(id, deliveredAt);
+  }
+
+  markMartinOutboxRetry(id: string, attempts: number, nextAttemptAt: string) {
+    this.martinSyncOutbox.markRetry(id, attempts, nextAttemptAt);
+  }
+
+  markMartinOutboxFailed(id: string) {
+    this.martinSyncOutbox.markFailed(id);
+  }
+
+  setMartinOutboxWorkspaceHeld(
+    workspaceId: string,
+    held: boolean,
+    projectRef?: string,
+  ) {
+    return this.martinSyncOutbox.setWorkspaceHeld(
+      workspaceId,
+      held,
+      projectRef,
+    );
+  }
+
+  discardMartinOutboxWorkspaceEntries(args: {
+    workspaceId: string;
+    projectRef?: string;
+    exceptProjectRef?: string;
+  }) {
+    return this.martinSyncOutbox.discardWorkspaceEntries(args);
+  }
+
+  retryFailedMartinOutboxEntries() {
+    return this.martinSyncOutbox.retryFailed();
+  }
+
+  countMartinOutbox() {
+    return this.martinSyncOutbox.counts();
+  }
+
+  pruneMartinOutboxDeliveredBefore(cutoff: string) {
+    return this.martinSyncOutbox.pruneDeliveredBefore(cutoff);
   }
 
   listTaskHeartbeats() {

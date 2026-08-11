@@ -1,0 +1,13 @@
+{
+  "contract": "stave-sync-v1",
+  "events": [
+    {
+      "staveEventId": "0d5a9b3e-7c41-4f2a-9a67-2f8a1c3db901",
+      "kind": "workspace_deleted",
+      "summary": "Workspace deleted",
+      "tier": "factual",
+      "workspaceName": "sync-outbox",
+      "branch": "feat/sync-outbox"
+    }
+  ]
+}
