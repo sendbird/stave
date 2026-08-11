@@ -39,6 +39,13 @@ export interface GitGraphColumnVisibility {
   hash: boolean;
 }
 
+export function shouldSeparateRemoteBranches(args: {
+  localBranchCount: number;
+  remoteBranchCount: number;
+}) {
+  return args.localBranchCount > 0 && args.remoteBranchCount > 0;
+}
+
 interface GitGraphToolbarProps {
   head: string | null;
   availableRefs: GraphRepositoryRef[];
@@ -160,7 +167,12 @@ function BranchFilter({
         ) : null}
         {remoteRefs.length > 0 ? (
           <>
-            <DropdownMenuSeparator />
+            {shouldSeparateRemoteBranches({
+              localBranchCount: localRefs.length,
+              remoteBranchCount: remoteRefs.length,
+            }) ? (
+              <DropdownMenuSeparator />
+            ) : null}
             <DropdownMenuLabel>Remote branches</DropdownMenuLabel>
             {remoteRefs.map((ref) => (
               <DropdownMenuCheckboxItem
