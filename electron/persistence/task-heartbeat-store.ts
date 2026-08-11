@@ -390,9 +390,28 @@ export class TaskHeartbeatStore {
     return rows.map(parseOccurrenceRow);
   }
 
-  pruneOccurrences(args: { heartbeatId: string; keep?: number }): number {
+  /**
+   * History pruning, with one exemption: `fired` rows survive past the general
+   * cap up to `keepFired`.
+   *
+   * They are not kept for display. A completion heartbeat asks "have I already
+   * consumed this finished child" by looking for that child's `fired` row, and
+   * the ledger goes on reporting the child for as long as it sits in the
+   * ledger's own list window. If a burst of `deferred` rows pushed that one
+   * `fired` row out of the retained window, the completion would look new again
+   * and wake the task a second time.
+   */
+  pruneOccurrences(args: {
+    heartbeatId: string;
+    keep?: number;
+    keepFired?: number;
+  }): number {
     const keep = Math.max(
       args.keep ?? TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences,
+      1,
+    );
+    const keepFired = Math.max(
+      args.keepFired ?? TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences,
       1,
     );
     const result = this.db
@@ -404,9 +423,15 @@ export class TaskHeartbeatStore {
              WHERE heartbeat_id = ?
              ORDER BY recorded_at DESC, id DESC
              LIMIT ?
+           )
+           AND id NOT IN (
+             SELECT id FROM task_heartbeat_occurrences
+             WHERE heartbeat_id = ? AND outcome = 'fired'
+             ORDER BY recorded_at DESC, id DESC
+             LIMIT ?
            )`,
       )
-      .run(args.heartbeatId, args.heartbeatId, keep);
+      .run(args.heartbeatId, args.heartbeatId, keep, args.heartbeatId, keepFired);
     return Number(result.changes ?? 0);
   }
 }

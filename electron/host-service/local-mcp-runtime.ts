@@ -12,9 +12,15 @@ import type {
 } from "../../src/lib/providers/provider.types";
 import {
   CHILD_TASK_LIST_LIMIT,
+  isActiveChildTaskPhase,
   toChildTaskSummary,
   type ChildTaskSummary,
 } from "../../src/lib/runs/child-task";
+import {
+  TaskCompletionStatusSchema,
+  TASK_HEARTBEAT_LIMITS,
+  type TaskCompletionSignal,
+} from "../../src/lib/automation/task-supervisor";
 import { buildChildTaskReceiptsRetrievedContext } from "../../src/lib/task-context/child-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-context/current-task-awareness";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
@@ -2140,13 +2146,14 @@ export async function createWorkspace(args: {
  */
 function listChildTaskSummaries(args: {
   parentTaskId: string;
+  limit?: number;
 }): ChildTaskSummary[] {
   try {
     return ensureHostServicePersistenceReady()
       .listRunAggregatesByOrigin({
         originKind: "task",
         originId: args.parentTaskId,
-        limit: CHILD_TASK_LIST_LIMIT,
+        limit: args.limit ?? CHILD_TASK_LIST_LIMIT,
       })
       .flatMap((aggregate) => {
         const summary = toChildTaskSummary(aggregate);
@@ -2158,6 +2165,64 @@ function listChildTaskSummaries(args: {
     );
     return [];
   }
+}
+
+/**
+ * How deep the completion feed reads, as opposed to `CHILD_TASK_LIST_LIMIT`,
+ * which sizes a panel a human is looking at.
+ *
+ * These two limits answer different questions. Truncating a *display* list
+ * hides rows the user can still go and find; truncating the *completion* feed
+ * loses a wake-up permanently, because the supervisor only ever consumes what
+ * this read returns. So the window has to be at least as wide as the
+ * idempotency guard that protects it — a completion that ages out of the read
+ * before it is ever consumed can never be recovered, while one that is still
+ * visible is at worst re-reported and deduped. Doubled over that floor because
+ * still-running children share the same window and push terminal rows down it.
+ */
+const TASK_COMPLETION_FEED_LIMIT =
+  TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences * 2;
+
+/**
+ * The task supervisor's completion feed: delegated runs of one parent that have
+ * reached a terminal status.
+ *
+ * Read-only, and derived from the same ledger rows the child-task surface
+ * shows, so a completion wake-up can never disagree with what the user sees.
+ * The supervisor decides what to do with these; this only reports them.
+ */
+export function listTaskCompletionSignals(args: {
+  taskId: string;
+}): TaskCompletionSignal[] {
+  return listChildTaskSummaries({
+    parentTaskId: args.taskId,
+    limit: TASK_COMPLETION_FEED_LIMIT,
+  }).flatMap(
+    (summary) => {
+      if (isActiveChildTaskPhase(summary.phase)) {
+        return [];
+      }
+      const status = TaskCompletionStatusSchema.safeParse(summary.phase);
+      if (!status.success) {
+        return [];
+      }
+      return [
+        {
+          runId: summary.runId,
+          stepId: summary.stepId,
+          childTaskId: summary.childTaskId,
+          providerId: summary.providerId,
+          status: status.data,
+          reason: summary.reason
+            ? summary.reason.slice(0, TASK_HEARTBEAT_LIMITS.maxReasonChars)
+            : null,
+          // A terminal step without a `completedAt` is a reconciled one; its
+          // `updatedAt` is the instant it settled.
+          completedAt: summary.completedAt ?? summary.updatedAt,
+        } satisfies TaskCompletionSignal,
+      ];
+    },
+  );
 }
 
 export async function runTask(args: {
@@ -2220,17 +2285,21 @@ export async function runTask(args: {
     }
   }
 
-  const provider = args.provider ?? "claude-code";
+  let task = findWorkspaceTaskOrThrow({
+    tasks: session.tasks,
+    requestedTaskId: args.taskId,
+  });
+
+  // An existing task already has a provider, and adding a turn to it must not
+  // silently move it to another one: the same conversation would continue under
+  // a runtime that never saw it. Only a brand new task falls back to the
+  // product default.
+  const provider = args.provider ?? task?.provider ?? "claude-code";
   const model =
     args.runtimeOptions?.model?.trim() ||
     getDefaultModelForProvider({
       providerId: provider,
     });
-
-  let task = findWorkspaceTaskOrThrow({
-    tasks: session.tasks,
-    requestedTaskId: args.taskId,
-  });
 
   const requestedControlMode = args.controlMode ?? "managed";
   const requestedControlOwner = args.controlOwner ?? "external";
@@ -2654,6 +2723,13 @@ export async function runHeartbeatTurn(args: {
   workspaceId: string;
   taskId: string;
   prompt: string;
+  /**
+   * The runtime identity the supervisor validated against live task state on
+   * this very tick. Passed explicitly rather than left to `runTask`'s default,
+   * because "wake this task" means wake it as itself — a Codex task resumed
+   * under the Claude default would be a different agent answering.
+   */
+  fingerprint?: { providerId: ProviderId; model: string };
   retrievedContextParts?: CanonicalRetrievedContextPart[];
 }) {
   return runTask({
@@ -2662,9 +2738,64 @@ export async function runHeartbeatTurn(args: {
     prompt: args.prompt,
     controlMode: "interactive",
     controlOwner: "stave",
+    ...(args.fingerprint
+      ? {
+          provider: args.fingerprint.providerId,
+          runtimeOptions: { model: args.fingerprint.model },
+        }
+      : {}),
     ...(args.retrievedContextParts
       ? { retrievedContextParts: args.retrievedContextParts }
       : {}),
+  });
+}
+
+/**
+ * The terminal notification half of a heartbeat's contract: a wake-up that
+ * consumed its receipt but never reached the task.
+ *
+ * `task.turn_failed` rather than a new kind — from the user's side that is
+ * exactly what happened, and inventing a supervisor-only kind would widen the
+ * notification surface for no new decision. The dedupe key is the occurrence's
+ * own reason so a repeated failure of the same wake-up collapses into one row.
+ */
+export async function notifyHeartbeatWakeFailed(args: {
+  workspaceId: string;
+  taskId: string;
+  triggerKind: "schedule" | "completion";
+  detail: string;
+}) {
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({
+    projects,
+    workspaceId: args.workspaceId,
+  });
+  const session = await loadWorkspaceSession(args.workspaceId);
+  const task =
+    session.tasks.find((candidate) => candidate.id === args.taskId) ?? null;
+  const taskTitle = task?.title || "Task";
+  await persistNotification({
+    id: randomUUID(),
+    kind: "task.turn_failed",
+    title: taskTitle,
+    body:
+      args.triggerKind === "completion"
+        ? `A heartbeat could not report finished delegated work: ${args.detail}`
+        : `A scheduled heartbeat turn could not start: ${args.detail}`,
+    projectPath: registration?.project.projectPath ?? null,
+    projectName: registration?.project.projectName ?? null,
+    workspaceId: args.workspaceId,
+    workspaceName: registration?.workspace.name ?? null,
+    taskId: args.taskId,
+    taskTitle,
+    turnId: null,
+    providerId: task?.provider ?? null,
+    action: null,
+    payload: {
+      source: "task-heartbeat",
+      triggerKind: args.triggerKind,
+    },
+    dedupeKey: `task-heartbeat.wake_failed:${args.taskId}:${args.detail}`,
   });
 }
 

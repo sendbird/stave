@@ -151,7 +151,7 @@
     {
       "id": "agent-platform-boundaries",
       "title": "Agent platform layers stay distinct",
-      "invariant": "A routine cannot target an existing task, a heartbeat must target one and cannot mint one, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
+      "invariant": "A routine cannot target an existing task, a heartbeat must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
         "tests/child-task-coordinator.test.ts",
@@ -171,7 +171,7 @@
     {
       "id": "task-supervisor-safety",
       "title": "A heartbeat never overrides the user",
-      "invariant": "A due heartbeat occurrence defers to an active turn without being consumed, pauses while an approval or question is pending or the task's provider runtime changed, stops with an explicit reason on archive, expiry, or the occurrence cap, catches up at most once after a restart, and records every occurrence idempotently.",
+      "invariant": "A due heartbeat occurrence defers to an active turn without being consumed, pauses while an approval or question is pending or the task's provider runtime changed, stops with an explicit reason on archive, expiry, or the occurrence cap, catches up at most once after a restart, and records every occurrence idempotently. A completion trigger obeys every one of those rails, consumes each finished delegated run exactly once however many times it is delivered, coalesces a batch into a single wake-up, is capped by default so the wake chain cannot recurse forever, wakes the task on its own provider and model rather than a default, notifies the user when a consumed wake-up produced no turn instead of losing it silently, and stops with 'completion-unobservable' rather than waiting silently when completion cannot be seen.",
       "testFiles": [
         "tests/task-supervisor.test.ts",
         "tests/task-supervisor-runtime.test.ts"

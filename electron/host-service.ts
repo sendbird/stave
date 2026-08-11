@@ -503,6 +503,15 @@ const taskSupervisorRuntime = createTaskSupervisorRuntime({
   persistence: ensureHostServicePersistenceReady(),
   getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
   runHeartbeatTurn: localMcpRuntime.runHeartbeatTurn,
+  // Wiring this is what makes completion observable at all: without it the
+  // capability probe reports `unsupported` and a completion heartbeat is
+  // refused rather than left waiting for an event that never arrives.
+  listCompletedDelegatedRuns: ({ taskId }) =>
+    localMcpRuntime.listTaskCompletionSignals({ taskId }),
+  // A consumed receipt that never became a turn has to surface somewhere, or
+  // "exactly one follow-up turn or one terminal notification" quietly becomes
+  // neither.
+  notifyHeartbeatWakeFailed: localMcpRuntime.notifyHeartbeatWakeFailed,
 });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);

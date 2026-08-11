@@ -125,6 +125,51 @@ describe("Agent platform boundaries", () => {
     ).toBe(false);
   });
 
+  test("a completion trigger wakes an existing task: it cannot mint one either", () => {
+    // The completion trigger is the second way into the same wake-up path, so
+    // the boundary above has to hold for it too — including that it carries no
+    // definition of its own that could describe a task to create.
+    const completionTrigger = TaskHeartbeatUpsertInputSchema.shape.trigger.options.find(
+      (option) => option.shape.kind.value === "completion",
+    );
+
+    expect(completionTrigger).toBeDefined();
+    expect(Object.keys(completionTrigger!.shape)).toEqual(["kind"]);
+    expect(
+      TaskHeartbeatUpsertInputSchema.safeParse({
+        workspaceId: "ws-1",
+        taskId: "",
+        prompt: "Fold the delegated result in.",
+        trigger: { kind: "completion" },
+      }).success,
+    ).toBe(false);
+  });
+
+  test("supervisor tables record wake-ups while the ledger records delegated execution", () => {
+    // A heartbeat has no claim, no lease, and no receipts. If the supervisor
+    // ever imported the ledger store or the child-task coordinator it would be
+    // one refactor away from writing runs — which is the collapse this
+    // separation exists to prevent. It reads completions through an injected
+    // function precisely so that stays true.
+    const supervisorRuntime = readSource(
+      "electron/host-service/task-supervisor-runtime.ts",
+    );
+
+    expect(
+      importedModules(supervisorRuntime).filter((specifier) =>
+        /run-ledger-store|child-task-coordinator|runs\/run-domain/.test(
+          specifier ?? "",
+        ),
+      ),
+    ).toEqual([]);
+    // And the pure policy stays pure: no ledger vocabulary at all.
+    expect(
+      importedModules(readSource("src/lib/automation/task-supervisor.ts")).filter(
+        (specifier) => /runs\/|persistence\/|host-service/.test(specifier ?? ""),
+      ),
+    ).toEqual([]);
+  });
+
   test("the ledger records and never executes: run domain and store import no provider runtime", () => {
     for (const file of [
       "src/lib/runs/run-domain.ts",

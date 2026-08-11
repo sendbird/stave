@@ -1,9 +1,9 @@
 /**
  * Task supervisor domain: the pure half of a heartbeat.
  *
- * A heartbeat wakes one existing task on a schedule, in the same provider
- * session. It never creates a task — that is a routine's job, and the boundary
- * is asserted in `tests/agent-platform-boundaries.test.ts`.
+ * A heartbeat wakes one existing task — on a schedule, or when work that task
+ * delegated finishes. It never creates a task — that is a routine's job, and
+ * the boundary is asserted in `tests/agent-platform-boundaries.test.ts`.
  *
  * Used by:
  * - `electron/host-service/task-supervisor-runtime.ts` (the only executor)
@@ -27,6 +27,24 @@ import {
 export const TASK_HEARTBEAT_LIMITS = Object.freeze({
   maxIdChars: 256,
   /**
+   * Widths for ids the supervisor *reads* rather than mints, which must match
+   * the run ledger's `RunIdSchema` bound rather than this file's own. A child
+   * run id is derived (`child-task:<parentTaskId>:<delegationKey>`) and so runs
+   * legitimately longer than a UUID; validating it against `maxIdChars` would
+   * reject a legal row, and rejecting the read looks exactly like "nothing
+   * finished" — the silent forever-scheduled heartbeat this stage exists to
+   * prevent.
+   */
+  maxLedgerIdChars: 300,
+  /**
+   * Wide enough that a completion key — heartbeat id, outcome, run id, step id,
+   * status, and the `:error` marker — always fits whole. Truncating it would be
+   * worse than rejecting it: two steps of one run share a derived prefix, so a
+   * clipped key could collide with a sibling's and drop that completion as an
+   * already-handled duplicate.
+   */
+  maxIdempotencyKeyChars: 1_024,
+  /**
    * Heartbeat prompts are short standing instructions ("re-check CI, report
    * only on change"), not task briefs, and this row is replayed indefinitely.
    * Deliberately far below the routine prompt bound.
@@ -40,7 +58,37 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
   maxCatchUpSteps: 10_000,
   /** Occurrence rows retained per heartbeat. */
   maxRetainedOccurrences: 100,
+  /**
+   * `fired` rows retained regardless of the cap above, because for a completion
+   * they ARE the idempotency guard: the ledger keeps reporting a finished child
+   * for as long as it is inside its own list window, so evicting that child's
+   * row would let it wake the task a second time. Deferrals and skips must
+   * never be able to crowd one out, hence a separate floor comfortably above
+   * the ledger's list limit.
+   *
+   * A scheduled heartbeat does not need this — its instants only move forward,
+   * so a pruned instant can never come due again.
+   */
+  minRetainedFiredOccurrences: 256,
+  /**
+   * A completion heartbeat has no cadence to run out, and the turn it wakes can
+   * delegate more work — which finishes, which wakes it again. An uncapped one
+   * is therefore an unbounded recursion, so a completion heartbeat created
+   * without a cap gets this one and stops with `occurrence-cap-reached` rather
+   * than running forever.
+   */
+  defaultCompletionOccurrenceCap: 20,
+  /** Completions folded into a single wake-up. Older ones still consume. */
+  maxCoalescedCompletions: 20,
 });
+
+const IdSchema = z.string().trim().min(1).max(TASK_HEARTBEAT_LIMITS.maxIdChars);
+/** Ids that originate in the run ledger. See `maxLedgerIdChars`. */
+const LedgerIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(TASK_HEARTBEAT_LIMITS.maxLedgerIdChars);
 
 /* -------------------------------------------------------------------------- */
 /* Identity                                                                    */
@@ -89,10 +137,11 @@ export const TaskHeartbeatScheduleTriggerSchema = z
   .strict();
 
 /**
- * Designed, not implemented. A completion trigger wakes the task when a
- * delegated child run finishes; that executor lands with child tasks. The slot
- * exists now so the durable row shape does not have to change later, and the
- * runtime refuses to create one until then.
+ * Wakes the task when work it delegated finishes. "Delegated work" means a
+ * child-task run on the run ledger whose origin is this task — the taxonomy's
+ * only durable delegation. It carries no configuration: the task it belongs to
+ * already says which children to watch, and a field here would be a second
+ * place to get that wrong.
  */
 export const TaskHeartbeatCompletionTriggerSchema = z
   .object({
@@ -105,6 +154,108 @@ export const TaskHeartbeatTriggerSchema = z.discriminatedUnion("kind", [
   TaskHeartbeatCompletionTriggerSchema,
 ]);
 export type TaskHeartbeatTrigger = z.infer<typeof TaskHeartbeatTriggerSchema>;
+
+/* -------------------------------------------------------------------------- */
+/* Completion observability                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How completion can be seen for one task.
+ *
+ * - `provider_event`: the runtime itself reports that delegated work finished.
+ * - `stave_owned`: Stave sees it in its own durable records, not the runtime's.
+ * - `unsupported`: it cannot be seen at all.
+ *
+ * The third value is the point of the enum. A completion heartbeat that cannot
+ * observe completion would sit `scheduled` forever and leave its task looking
+ * permanently busy, so it is refused at creation and stopped with
+ * `completion-unobservable` if it ever loses observability — never silence.
+ */
+export const TASK_COMPLETION_OBSERVABILITY = [
+  "provider_event",
+  "stave_owned",
+  "unsupported",
+] as const;
+export const TaskCompletionObservabilitySchema = z.enum(
+  TASK_COMPLETION_OBSERVABILITY,
+);
+export type TaskCompletionObservability = z.infer<
+  typeof TaskCompletionObservabilitySchema
+>;
+
+/**
+ * The capability probe.
+ *
+ * Today every supported provider classifies `stave_owned`, and deliberately so:
+ * a child task's terminal state is a run-ledger row that the child-task
+ * coordinator writes, and neither runtime emits an event saying "the work I was
+ * delegated is done". That is also why this is a function of the ledger rather
+ * than of the provider — the two runtimes are symmetric here because the signal
+ * never comes from them.
+ *
+ * `provider_event` stays in the enum because a runtime that reports delegated
+ * completion natively should land inside this classification rather than beside
+ * it; nothing returns it yet, and the callers already branch only on
+ * `unsupported`.
+ */
+export function classifyTaskCompletionObservability(args: {
+  providerId: TaskHeartbeatFingerprint["providerId"] | null;
+  /** False when no run-ledger reader is wired into the supervisor at all. */
+  ledgerReadable: boolean;
+}): TaskCompletionObservability {
+  if (!args.providerId) {
+    return "unsupported";
+  }
+  return args.ledgerReadable ? "stave_owned" : "unsupported";
+}
+
+/** The terminal statuses a delegated run can settle into. */
+export const TASK_COMPLETION_STATUSES = [
+  "completed",
+  "failed",
+  "cancelled",
+  "interrupted",
+] as const;
+export const TaskCompletionStatusSchema = z.enum(TASK_COMPLETION_STATUSES);
+export type TaskCompletionStatus = z.infer<typeof TaskCompletionStatusSchema>;
+
+/**
+ * One finished piece of delegated work, as the supervisor sees it.
+ *
+ * Identity, phase, and reason only. The child's transcript never crosses into
+ * the parent — that boundary is the taxonomy's, and this shape is where it is
+ * enforced for wake-ups.
+ */
+export const TaskCompletionSignalSchema = z
+  .object({
+    runId: LedgerIdSchema,
+    stepId: LedgerIdSchema,
+    /** Null while the child task was never actually minted. */
+    childTaskId: z
+      .string()
+      .trim()
+      .max(TASK_HEARTBEAT_LIMITS.maxLedgerIdChars)
+      .nullable(),
+    providerId: TaskHeartbeatFingerprintSchema.shape.providerId,
+    status: TaskCompletionStatusSchema,
+    reason: z.string().max(TASK_HEARTBEAT_LIMITS.maxReasonChars).nullable(),
+    completedAt: z.string().datetime(),
+  })
+  .strict();
+export type TaskCompletionSignal = z.infer<typeof TaskCompletionSignalSchema>;
+
+/**
+ * Stable per (run, step, terminal status) and never per delivery. This is what
+ * makes a completion idempotent: the same finished child observed on ten ticks
+ * yields one key, one occurrence row, and therefore one follow-up turn.
+ */
+export function buildTaskCompletionSignalKey(signal: {
+  runId: string;
+  stepId: string;
+  status: TaskCompletionStatus;
+}) {
+  return `${signal.runId}:${signal.stepId}:${signal.status}`;
+}
 
 /* -------------------------------------------------------------------------- */
 /* State                                                                       */
@@ -141,6 +292,14 @@ export const TASK_HEARTBEAT_STOP_REASONS = [
   "expired",
   "occurrence-cap-reached",
   "task-unavailable",
+  /**
+   * Completion cannot be observed for this task, so this heartbeat would wait
+   * forever. Terminal rather than paused: observability is a property of how
+   * Stave is wired, not a condition that lifts on its own while the supervisor
+   * watches, and a silent forever-scheduled heartbeat is the exact failure this
+   * layer exists to prevent.
+   */
+  "completion-unobservable",
 ] as const;
 export const TaskHeartbeatStopReasonSchema = z.enum(
   TASK_HEARTBEAT_STOP_REASONS,
@@ -164,8 +323,6 @@ export function isAutomaticTaskHeartbeatPause(reason: TaskHeartbeatPauseReason) 
 /* -------------------------------------------------------------------------- */
 /* Entry                                                                       */
 /* -------------------------------------------------------------------------- */
-
-const IdSchema = z.string().trim().min(1).max(TASK_HEARTBEAT_LIMITS.maxIdChars);
 
 /**
  * The definition input. Unlike a routine's, this REQUIRES a taskId: a heartbeat
@@ -267,7 +424,10 @@ export const TaskHeartbeatOccurrenceSchema = z
      * index turns a duplicate delivery — a double tick, a replayed catch-up —
      * into a no-op instead of a second turn.
      */
-    idempotencyKey: z.string().min(1).max(512),
+    idempotencyKey: z
+      .string()
+      .min(1)
+      .max(TASK_HEARTBEAT_LIMITS.maxIdempotencyKeyChars),
     workspaceId: IdSchema,
     taskId: IdSchema,
     turnId: IdSchema.nullable(),
@@ -287,6 +447,32 @@ export function buildTaskHeartbeatIdempotencyKey(args: {
   scheduledFor: string;
 }) {
   return `${args.heartbeatId}:${args.outcome}:${args.scheduledFor}`;
+}
+
+/**
+ * The completion-side counterpart. It keys on the completion itself rather than
+ * on an instant, because two children can finish in the same millisecond and
+ * keying by timestamp would silently drop one of them.
+ *
+ * Never truncated: `maxIdempotencyKeyChars` is sized so the whole key fits, and
+ * clipping it would make two steps of one run — which share a derived prefix —
+ * collide and lose a completion to a false duplicate.
+ */
+export function buildTaskHeartbeatCompletionIdempotencyKey(args: {
+  heartbeatId: string;
+  outcome: TaskHeartbeatOccurrenceOutcome;
+  signalKey: string;
+}) {
+  return `${args.heartbeatId}:${args.outcome}:completion:${args.signalKey}`;
+}
+
+/**
+ * Marks a consumed occurrence whose wake-up never actually reached the task, so
+ * a boot sweep can tell "this completion was reported" from "this completion
+ * was consumed and then dropped on the floor".
+ */
+export function buildTaskHeartbeatUnreportedKey(idempotencyKey: string) {
+  return `${idempotencyKey}:error`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -394,6 +580,18 @@ export interface TaskHeartbeatObservation {
    * staleness question the fleet control plane already answers.
    */
   identity: { ok: true } | { ok: false; reason: string };
+  /**
+   * How completion can be seen for this task right now. Meaningless for a
+   * schedule heartbeat, which never reads it.
+   */
+  completionObservability: TaskCompletionObservability;
+  /**
+   * Delegated work that finished and has NOT been consumed by an earlier
+   * wake-up. The runtime does that filtering against the durable occurrence
+   * rows before calling in, which is what keeps this function pure and keeps
+   * "was this already handled" a single question with a single answer.
+   */
+  completions: TaskCompletionSignal[];
 }
 
 export type TaskHeartbeatDecision =
@@ -407,8 +605,49 @@ export type TaskHeartbeatDecision =
       skippedAt: string[];
       truncated: boolean;
     }
+  | {
+      /**
+       * One wake-up for a batch of finished work. Every signal in `completions`
+       * is consumed by this single turn: N children finishing together must not
+       * stack N unattended turns onto a task.
+       */
+      action: "fire-completion";
+      completions: TaskCompletionSignal[];
+      observedAt: string;
+    }
   | { action: "pause"; reason: TaskHeartbeatPauseReason; detail: string }
   | { action: "stop"; reason: TaskHeartbeatStopReason; detail: string };
+
+/** Oldest first, with the signal key as a tiebreak so batching is deterministic. */
+function compareCompletionSignals(
+  left: TaskCompletionSignal,
+  right: TaskCompletionSignal,
+) {
+  const delta = Date.parse(left.completedAt) - Date.parse(right.completedAt);
+  if (delta !== 0 && Number.isFinite(delta)) {
+    return delta;
+  }
+  return buildTaskCompletionSignalKey(left).localeCompare(
+    buildTaskCompletionSignalKey(right),
+  );
+}
+
+/** The instant a deferred completion batch is recorded against. */
+function latestCompletionInstant(
+  completions: TaskCompletionSignal[],
+  now: Date,
+) {
+  let latest = Number.NEGATIVE_INFINITY;
+  for (const completion of completions) {
+    const parsed = Date.parse(completion.completedAt);
+    if (Number.isFinite(parsed) && parsed > latest) {
+      latest = parsed;
+    }
+  }
+  return Number.isFinite(latest)
+    ? new Date(latest).toISOString()
+    : now.toISOString();
+}
 
 /**
  * The whole safety policy, in priority order. Read top to bottom: stop beats
@@ -447,6 +686,20 @@ export function decideTaskHeartbeatAction(args: {
       action: "stop",
       reason: "task-unavailable",
       detail: "The task this heartbeat watches was archived.",
+    };
+  }
+  // A completion heartbeat that cannot observe completion never fires. Saying so
+  // is the whole point: the alternative is a heartbeat that reads `scheduled`
+  // forever while nothing is ever going to wake it.
+  if (
+    heartbeat.trigger.kind === "completion" &&
+    observation.completionObservability === "unsupported"
+  ) {
+    return {
+      action: "stop",
+      reason: "completion-unobservable",
+      detail:
+        "Stave cannot observe when this task's delegated work finishes, so this heartbeat would never fire.",
     };
   }
   if (heartbeat.expiresAt && Date.parse(heartbeat.expiresAt) <= now.getTime()) {
@@ -517,10 +770,35 @@ export function decideTaskHeartbeatAction(args: {
     return { action: "idle" };
   }
 
-  // 5. The completion trigger has no executor yet; it must never fire early.
-  if (heartbeat.trigger.kind !== "schedule") {
-    return { action: "idle" };
+  // 5. Completion. Its dueness question is "did anything finish that this
+  //    heartbeat has not already consumed", and the runtime has answered it by
+  //    the time we get here. Everything above — stop, pause, and the deferral
+  //    below — applies to a completion wake-up exactly as to a scheduled one.
+  if (heartbeat.trigger.kind === "completion") {
+    if (observation.completions.length === 0) {
+      return { action: "idle" };
+    }
+    // The user's turn still wins. The completions stay unconsumed, so the next
+    // tick sees the same batch (plus anything that finished meanwhile) rather
+    // than losing the wake-up.
+    if (observation.hasActiveTurn) {
+      return {
+        action: "defer",
+        dueAt: latestCompletionInstant(observation.completions, now),
+        detail: "The task is mid-turn; the completion wake-up waits for it to finish.",
+      };
+    }
+    return {
+      action: "fire-completion",
+      // Oldest first, and bounded: a backlog larger than this still consumes in
+      // order, one wake-up per tick, instead of building one unbounded prompt.
+      completions: [...observation.completions]
+        .sort(compareCompletionSignals)
+        .slice(0, TASK_HEARTBEAT_LIMITS.maxCoalescedCompletions),
+      observedAt: now.toISOString(),
+    };
   }
+
   if (!heartbeat.nextRunAt) {
     return { action: "idle" };
   }
@@ -655,10 +933,61 @@ export function applyTaskHeartbeatDecision(args: {
       }
       return fired;
     }
+    case "fire-completion": {
+      // One wake-up, however many children it folded in. The cap therefore
+      // bounds *turns*, which is the thing that recurses — a parent that
+      // delegates ten children and is woken once has spent one occurrence.
+      const occurrenceCount = heartbeat.occurrenceCount + 1;
+      const latest = decision.completions[decision.completions.length - 1];
+      const woken: TaskHeartbeat = {
+        ...heartbeat,
+        state: "scheduled",
+        pauseReason: null,
+        stopReason: null,
+        reasonDetail: null,
+        occurrenceCount,
+        lastOccurrenceAt: latest?.completedAt ?? decision.observedAt,
+        // A completion heartbeat has no cadence, so there is no next instant to
+        // advertise. It waits on the ledger, not on the clock.
+        nextRunAt: null,
+        updatedAt,
+      };
+      if (
+        woken.maxOccurrences !== null &&
+        occurrenceCount >= woken.maxOccurrences
+      ) {
+        return {
+          ...woken,
+          state: "stopped",
+          stopReason: "occurrence-cap-reached",
+          reasonDetail: `This heartbeat reached its limit of ${woken.maxOccurrences} occurrences.`,
+        };
+      }
+      return woken;
+    }
     default:
       decision satisfies never;
       return heartbeat;
   }
+}
+
+/**
+ * A schedule heartbeat may legitimately run forever — the user chose a cadence
+ * and can see it. A completion heartbeat cannot: the turn it wakes can delegate
+ * more work, whose completion wakes it again, and nothing in that loop involves
+ * the user. So an uncapped completion heartbeat gets the default cap, which is
+ * the whole of the recursion bound: the chain always ends, always with the
+ * stated `occurrence-cap-reached` reason.
+ */
+export function resolveTaskHeartbeatOccurrenceCap(
+  input: Pick<TaskHeartbeatUpsertInput, "trigger" | "maxOccurrences">,
+) {
+  if (input.trigger.kind !== "completion") {
+    return input.maxOccurrences;
+  }
+  return (
+    input.maxOccurrences ?? TASK_HEARTBEAT_LIMITS.defaultCompletionOccurrenceCap
+  );
 }
 
 export function createTaskHeartbeat(args: {
@@ -671,6 +1000,7 @@ export function createTaskHeartbeat(args: {
   const timestamp = args.now.toISOString();
   return TaskHeartbeatSchema.parse({
     ...args.input,
+    maxOccurrences: resolveTaskHeartbeatOccurrenceCap(args.input),
     id: args.id,
     projectPath: args.projectPath,
     fingerprint: args.fingerprint,
@@ -700,6 +1030,11 @@ export function createTaskHeartbeat(args: {
 export interface TaskHeartbeatSummary {
   heartbeatId: string;
   taskId: string;
+  /**
+   * A completion heartbeat has no `nextRunAt`, so without this the surface
+   * cannot tell "waiting on delegated work" from "scheduled but broken".
+   */
+  triggerKind: TaskHeartbeatTrigger["kind"];
   state: TaskHeartbeatState;
   reason: string | null;
   nextRunAt: string | null;
@@ -717,6 +1052,7 @@ export function summarizeTaskHeartbeat(
   return {
     heartbeatId: heartbeat.id,
     taskId: heartbeat.taskId,
+    triggerKind: heartbeat.trigger.kind,
     state: heartbeat.state,
     reason: heartbeat.reasonDetail,
     nextRunAt: heartbeat.state === "scheduled" ? heartbeat.nextRunAt : null,

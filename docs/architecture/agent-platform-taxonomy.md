@@ -88,6 +88,15 @@ reason: the ledger records delegated execution, while a heartbeat records
 wake-ups on a task the user already owns — no claim, no lease, no receipts.
 See `docs/features/task-heartbeats.md`.
 
+A heartbeat wakes on one of two triggers. A schedule walks a cadence; a
+completion waits for a child-task run of the same parent to reach a terminal
+status. The completion trigger is where the two rows above meet without
+merging: the supervisor *reads* the ledger's terminal rows and writes only its
+own occurrence rows, so the direction of that dependency — supervisor reads
+ledger, never the reverse, and never through the coordinator — is what keeps
+"records wake-ups" and "records delegated execution" separate concepts rather
+than one table with two meanings.
+
 ## Boundary Statements
 
 These are the statements that keep the layers from collapsing into each other.
