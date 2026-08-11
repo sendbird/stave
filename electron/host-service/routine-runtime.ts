@@ -753,7 +753,11 @@ export function createRoutineRuntime(
         });
         return buildWorkspaceInformationReferenceOptions(
           result.workspaceInformation,
-        ).filter((option) => option.reference.section !== "lens");
+        ).filter(
+          (option) =>
+            option.reference.section !== "lens" &&
+            option.reference.section !== "web",
+        );
       }),
   };
 }

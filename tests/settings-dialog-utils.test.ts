@@ -106,11 +106,17 @@ describe("matchesSettingsSection", () => {
       (section) => section.id === "scripts",
     );
     const chat = settingsSections.find((section) => section.id === "chat");
+    const providers = settingsSections.find(
+      (section) => section.id === "providers",
+    );
 
     expect(scripts).toBeDefined();
     expect(chat).toBeDefined();
+    expect(providers).toBeDefined();
     expect(matchesSettingsSection(scripts!, "quick commands")).toBe(true);
     expect(matchesSettingsSection(chat!, "mid-turn")).toBe(true);
+    expect(matchesSettingsSection(providers!, "browser access")).toBe(true);
+    expect(matchesSettingsSection(providers!, "chrome extension")).toBe(true);
   });
 
   test("requires every search term to match the same section", () => {

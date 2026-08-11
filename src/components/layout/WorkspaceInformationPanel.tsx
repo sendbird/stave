@@ -131,6 +131,7 @@ import {
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
 import { WorkspaceInformationMartinCard } from "./WorkspaceInformationMartinCard";
+import { WorkspaceInformationConnectedBrowserCard } from "./WorkspaceInformationConnectedBrowserCard";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 
 // ---------------------------------------------------------------------------
@@ -1656,8 +1657,11 @@ export function WorkspaceInformationPanel() {
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
       <div className="px-3 py-2">
-        <div className="mb-2">
+        <div className="mb-2 space-y-2">
           <WorkspaceInformationMartinCard />
+          <WorkspaceInformationConnectedBrowserCard
+            tab={workspaceInformation.connectedBrowserTab ?? null}
+          />
         </div>
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>

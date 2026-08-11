@@ -7,6 +7,7 @@ import {
 export const WORKSPACE_INFORMATION_REFERENCE_SECTIONS = [
   "turn-summary",
   "lens",
+  "web",
   "notes",
   "todo",
   "pr",
@@ -49,6 +50,7 @@ export interface WorkspaceInformationReferenceOption {
 const SECTION_LABELS: Record<WorkspaceInformationReferenceSection, string> = {
   "turn-summary": "Latest turn summary",
   lens: "Lens browser",
+  web: "Connected browser",
   notes: "Notes",
   todo: "Todos",
   pr: "Linked pull requests",
@@ -67,6 +69,9 @@ const SECTION_ALIASES: Record<string, WorkspaceInformationReferenceSection> = {
   summary: "turn-summary",
   lens: "lens",
   browser: "lens",
+  web: "web",
+  externalbrowser: "web",
+  systembrowser: "web",
   notes: "notes",
   note: "notes",
   todo: "todo",
@@ -111,8 +116,13 @@ function createSectionReference(
     section,
     scope: "section",
     label: SECTION_LABELS[section],
-    // Lens is a first-class mention rather than an Information panel entry.
-    token: section === "lens" ? "@lens" : `@info:${section}`,
+    // Browser surfaces are first-class mentions rather than generic entries.
+    token:
+      section === "lens"
+        ? "@lens"
+        : section === "web"
+          ? "@web"
+          : `@info:${section}`,
   };
 }
 
@@ -133,6 +143,9 @@ function createItemReference(args: {
 function sectionDescription(section: WorkspaceInformationReferenceSection, count: number) {
   if (section === "lens") {
     return "Reference the current Lens browser page.";
+  }
+  if (section === "web") {
+    return "Use the provider's native browser extension.";
   }
   if (section === "notes") {
     return "Reference the full workspace notes field.";
@@ -182,6 +195,7 @@ export function buildWorkspaceInformationReferenceOptions(
   const sectionCounts: Record<WorkspaceInformationReferenceSection, number> = {
     "turn-summary": info.turnSummary ? 1 : 0,
     lens: 1,
+    web: info.connectedBrowserTab ? 1 : 0,
     notes: info.notes.trim() ? 1 : 0,
     todo: info.todos.length,
     pr: info.linkedPullRequests.length,
@@ -421,6 +435,9 @@ export function resolveWorkspaceInformationReferenceFromToken(
   if (/^@lens$/i.test(normalized)) {
     return createSectionReference("lens");
   }
+  if (/^@web$/i.test(normalized)) {
+    return createSectionReference("web");
+  }
   const match = normalized.match(/^@info(?::([^/\s]+)(?:\/([^\s]+))?)?$/i);
   if (!match) {
     return null;
@@ -444,7 +461,7 @@ export function resolveWorkspaceInformationReferenceFromToken(
 export function extractWorkspaceInformationReferencesFromText(text: string) {
   const references: WorkspaceInformationReference[] = [];
   for (const match of text.matchAll(
-    /@(?:info(?::[^\s.,;!?)]*)?|lens(?![A-Za-z0-9_-]))/gi,
+    /@(?:info(?::[^\s.,;!?)]*)?|(?:lens|web)(?![A-Za-z0-9_-]))/gi,
   )) {
     const reference = resolveWorkspaceInformationReferenceFromToken(match[0]);
     if (reference) {
@@ -492,6 +509,22 @@ function formatLensReferenceLines(lens: LensReferenceState | null | undefined) {
   ];
 }
 
+function formatWebReferenceLines(info: WorkspaceInformationState) {
+  const tab = info.connectedBrowserTab;
+  return [
+    "`@web` requests the active provider's native external-browser integration for this interactive turn.",
+    "Use the provider's browser extension tools to reference existing tabs and signed-in page state. Do not substitute Lens, web search, or a one-way URL launcher for browser interaction.",
+    "Follow the native provider's site-access and sensitive-action confirmation flow. Never inspect or expose raw cookies, passwords, or session tokens.",
+    ...(tab
+      ? [
+          `Last provider: ${tab.providerId}`,
+          `Connection status: ${tab.status}`,
+          `Last updated: ${tab.lastUpdatedAt}`,
+        ]
+      : ["No provider-native browser connection is recorded for this workspace yet."]),
+  ];
+}
+
 function formatSectionItemLines(args: {
   info: WorkspaceInformationState;
   section: WorkspaceInformationReferenceSection;
@@ -499,6 +532,9 @@ function formatSectionItemLines(args: {
 }) {
   if (args.section === "lens") {
     return formatLensReferenceLines(args.lens);
+  }
+  if (args.section === "web") {
+    return formatWebReferenceLines(args.info);
   }
   const optionItems = buildWorkspaceInformationReferenceOptions(args.info)
     .filter(

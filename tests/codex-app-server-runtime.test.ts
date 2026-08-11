@@ -36,7 +36,10 @@ import { buildCodexTurnSteerParams } from "../electron/providers/codex-app-serve
 import { mapCodexThreadForkResponse } from "../electron/providers/codex-thread-actions";
 import {
   buildCodexDeveloperInstructions,
+  buildCodexNativeBrowserTurnConfigOverrides,
   CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS,
+  isCodexNativeBrowserPluginEnabled,
+  resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
 
@@ -741,6 +744,74 @@ describe("buildSandboxPolicy", () => {
 });
 
 describe("Codex bundled plugin and browser tooling overrides", () => {
+  test("exposes the native Chrome plugin only to explicit @web turns", () => {
+    expect(
+      buildCodexNativeBrowserTurnConfigOverrides({
+        requested: false,
+        userEnabled: true,
+      }),
+    ).toEqual({
+      'plugins."chrome@openai-bundled".enabled': false,
+    });
+    expect(
+      buildCodexNativeBrowserTurnConfigOverrides({
+        requested: true,
+        userEnabled: true,
+      }),
+    ).toEqual({ 'plugins."chrome@openai-bundled".enabled': true });
+    expect(
+      buildCodexNativeBrowserTurnConfigOverrides({
+        requested: true,
+        userEnabled: false,
+      }),
+    ).toEqual({ 'plugins."chrome@openai-bundled".enabled': false });
+  });
+
+  test("reads the user's native Chrome plugin setting from App Server inventory", () => {
+    expect(
+      isCodexNativeBrowserPluginEnabled({
+        marketplaces: [
+          {
+            plugins: [
+              {
+                id: "chrome@openai-bundled",
+                installed: true,
+                enabled: true,
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      isCodexNativeBrowserPluginEnabled({
+        marketplaces: [
+          {
+            plugins: [
+              {
+                id: "chrome@openai-bundled",
+                installed: true,
+                enabled: false,
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  test("fails closed when Codex plugin inventory is unavailable", async () => {
+    expect(
+      await resolveCodexNativeBrowserPluginEnabled({
+        requested: true,
+        cwd: "/tmp/project",
+        request: async () => {
+          throw new Error("inventory unavailable");
+        },
+      }),
+    ).toBe(false);
+  });
+
   test("always disables the ChatGPT bundled browser plugin in thread config overrides", () => {
     const config = buildCodexConfigOverrides({});
 
@@ -793,6 +864,10 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       "Use the runtime's web-search tool for general web research",
     );
     expect(withBasePrompt).toContain("Do not use Lens for those tasks");
+    expect(withBasePrompt).toContain("`@web` explicitly requests");
+    expect(withBasePrompt).toContain("installed Chrome browser skill");
+    expect(withBasePrompt).toContain("existing tabs and signed-in page state");
+    expect(withBasePrompt).toContain("unattended automation");
     expect(withBasePrompt).toContain(
       "only when a change to the current project requires visual inspection",
     );

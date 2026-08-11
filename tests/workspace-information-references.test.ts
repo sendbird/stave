@@ -106,6 +106,40 @@ test("lens references resolve, extract, and format from @lens tokens", () => {
   expect(closedContext).toContain("Lens browser state unavailable");
 });
 
+test("web references request the provider-native browser integration", () => {
+  const info = createEmptyWorkspaceInformation();
+  info.connectedBrowserTab = {
+    providerId: "codex",
+    status: "connected",
+    requestedAt: "2026-08-11T05:00:00.000Z",
+    lastUpdatedAt: "2026-08-11T05:00:01.000Z",
+  };
+  const options = buildWorkspaceInformationReferenceOptions(info);
+  expect(options.some((option) => option.reference.token === "@web")).toBe(
+    true,
+  );
+  expect(resolveWorkspaceInformationReferenceFromToken("@web")).toMatchObject({
+    section: "web",
+    scope: "section",
+    token: "@web",
+  });
+  expect(
+    extractWorkspaceInformationReferencesFromText(
+      "Open it with @web but ignore @website.",
+    ),
+  ).toMatchObject([{ section: "web", token: "@web" }]);
+
+  const context = formatWorkspaceInformationReferencesContext({
+    info,
+    references: [resolveWorkspaceInformationReferenceFromToken("@web")!],
+  });
+  expect(context).toContain("Section: Connected browser (@web)");
+  expect(context).toContain("provider's browser extension tools");
+  expect(context).toContain("Last provider: codex");
+  expect(context).toContain("Connection status: connected");
+  expect(context).not.toContain("example.com");
+});
+
 test("getActiveWorkspaceInformationTokenMatch opens on bare @ and @info tokens", () => {
   expect(
     getActiveWorkspaceInformationTokenMatch({

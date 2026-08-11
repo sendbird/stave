@@ -108,6 +108,10 @@ import {
 import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
 import { isAlwaysAllowedStaveLocalMcpTool } from "./stave-local-mcp-approval";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
+import {
+  isClaudeChromeToolName,
+  shouldActivateProviderBrowser,
+} from "../../src/lib/provider-browser";
 
 /**
  * Cache boundary marker for the claude-agent-sdk systemPrompt string[] API.
@@ -1904,6 +1908,7 @@ export function buildClaudeQueryOptions(args: {
   onElicitation?: OnElicitation;
   onUserDialog?: OnUserDialog;
   secondaryReadOnly?: boolean;
+  providerBrowserRequested?: boolean;
   /**
    * Env vars for bound vault secrets, resolved in the main process. Spread into
    * the SDK subprocess env so the agent's Bash tool can read them. Passed only
@@ -2057,6 +2062,9 @@ export function buildClaudeQueryOptions(args: {
       args.promptSuggestions ??
       false,
     cwd: args.cwd,
+    extraArgs: args.providerBrowserRequested
+      ? { chrome: null }
+      : { "no-chrome": null },
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
     ...(fallbackModel ? { fallbackModel } : {}),
     ...(args.systemPrompt ? { systemPrompt: args.systemPrompt } : {}),
@@ -2798,6 +2806,7 @@ export function mapClaudeMessageToEvents(args: {
   cwd?: string;
   planState?: ClaudePlanStreamState;
   ownerAgentIdResolver?: ClaudeOwnerAgentIdResolver;
+  providerBrowserRequested?: boolean;
 }): BridgeEvent[] {
   const { message, claudeDebugStream } = args;
 
@@ -2889,13 +2898,28 @@ export function mapClaudeMessageToEvents(args: {
       typeof sysMsg.session_id === "string" &&
       sysMsg.session_id.trim()
     ) {
-      return [
+      const events: BridgeEvent[] = [
         {
           type: "provider_session",
           providerId: "claude-code",
           nativeSessionId: sysMsg.session_id,
         },
       ];
+      if (args.providerBrowserRequested) {
+        const chromeServer = sysMsg.mcp_servers?.find(
+          (server) => server.name.trim().toLowerCase() === "claude-in-chrome",
+        );
+        events.push({
+          type: "browser_connection",
+          providerId: "claude-code",
+          status:
+            chromeServer?.status.trim().toLowerCase() === "connected"
+              ? "connected"
+              : "failed",
+          at: Date.now(),
+        });
+      }
+      return events;
     }
     if (sysMsg.subtype === "compact_boundary") {
       const meta = (sysMsg as { compact_metadata?: { trigger?: string } })
@@ -4807,6 +4831,12 @@ export async function streamClaudeWithSdk(
       envValue: process.env.STAVE_CLAUDE_PERMISSION_MODE?.trim(),
       fallback: "acceptEdits",
     });
+    const providerBrowserRequested = shouldActivateProviderBrowser({
+      prompt: args.prompt,
+      secondaryReadOnly,
+      unattendedAutomation: Boolean(args.unattendedAutomation),
+      planMode: claudePermissionMode === "plan",
+    });
     const planModeApprovalScope = resolveClaudePlanModeApprovalScope({
       runtimeValue: args.runtimeOptions?.claudePlanModeApprovalScope,
       envValue: process.env.STAVE_CLAUDE_PLAN_MODE_APPROVAL_SCOPE?.trim(),
@@ -4863,6 +4893,7 @@ export async function streamClaudeWithSdk(
         workerModeEligible: true,
         mcpServers: resolvedMcpServers.mcpServers,
         secondaryReadOnly,
+        providerBrowserRequested,
         secretEnv: boundSecretEnv,
         onElicitation: async (request, options) => {
           const requestId =
@@ -5021,6 +5052,17 @@ export async function streamClaudeWithSdk(
               message:
                 "Secondary provider runs allow only local read-only inspection.",
               context: "approval:secondary-read-only",
+            });
+          }
+
+          if (
+            providerBrowserRequested &&
+            isClaudeChromeToolName(toolName)
+          ) {
+            return buildClaudeApprovalPermissionResult({
+              approved: true,
+              normalizedInput,
+              denialMessage: `The provider-native browser denied ${toolName}.`,
             });
           }
 
@@ -5478,6 +5520,7 @@ export async function streamClaudeWithSdk(
         cwd: runtimeCwd,
         planState: planStreamState,
         ownerAgentIdResolver: subagentTracker,
+        providerBrowserRequested,
       });
       normalizedEvents = attachClaudeWorkerExecutionMetadata({
         events: normalizedEvents,

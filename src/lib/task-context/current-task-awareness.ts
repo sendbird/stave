@@ -54,6 +54,16 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
   const noteItems = info.notes.trim()
     ? [truncateText(info.notes, MAX_NOTES_CHARS)]
     : [];
+  const connectedBrowserItems = info.connectedBrowserTab
+    ? [
+        [
+          info.connectedBrowserTab.providerId,
+          info.connectedBrowserTab.status,
+          `updated ${info.connectedBrowserTab.lastUpdatedAt}`,
+          "provider-native browser extension",
+        ].join(" | "),
+      ]
+    : [];
   const todoItems = info.todos
     .slice(0, MAX_VISIBLE_RESOURCES)
     .map((todo) => `${todo.completed ? "[done]" : "[open]"} ${todo.text}`);
@@ -147,6 +157,10 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
     ...formatSection({
       label: "Latest turn summary",
       items: turnSummaryItems,
+    }),
+    ...formatSection({
+      label: "Connected browser tab",
+      items: connectedBrowserItems,
     }),
     ...formatSection({
       label: "Notes",
@@ -254,6 +268,8 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
     "- Treat this injected context as current. Do not call `stave_get_workspace_information` just to re-read fields already shown here.",
     "- Keep Information panel notes and todos compact. Put long handoff or execution details in `.stave/context/plans/` and reference the plan path instead.",
     "- For Lens inspection, prefer `stave_lens_snapshot`, scoped `stave_lens_get_text`, or screenshots before raw HTML, console, or network dumps.",
+    "- `@web` requests the active provider's native external-browser integration for this interactive turn. Use its browser extension tools so existing tabs and signed-in page state can be referenced; do not substitute Lens or a one-way URL launcher.",
+    "- Native browser site approvals and sensitive-action confirmations remain provider-owned. Never request, inspect, or expose raw cookies, passwords, or session tokens.",
     "- Lens tools reuse the visible/recent workspace session or create a hidden default automatically. Stave applies the user's presentation setting when visual inspection or page interaction starts; use `stave_lens_present_session` only when immediate user interaction, sign-in, or explicit visual confirmation is required.",
     "- When using Lens log or HTML tools, pass the narrowest selector or smallest useful limit/maxChars.",
   ];

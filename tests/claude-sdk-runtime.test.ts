@@ -123,6 +123,63 @@ describe("mapClaudeMessageToEvents", () => {
     ]);
   });
 
+  test("records Claude's native Chrome connection for an @web turn", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "system",
+        subtype: "init",
+        session_id: "session-web-1",
+        uuid: "msg-init-web-1",
+        mcp_servers: [
+          { name: "claude-in-chrome", status: "connected" },
+        ],
+      } as never,
+      claudeDebugStream: false,
+      providerBrowserRequested: true,
+    });
+
+    expect(events).toEqual([
+      {
+        type: "provider_session",
+        providerId: "claude-code",
+        nativeSessionId: "session-web-1",
+      },
+      {
+        type: "browser_connection",
+        providerId: "claude-code",
+        status: "connected",
+        at: expect.any(Number),
+      },
+    ]);
+  });
+
+  test("records an unavailable Claude Chrome connection without exposing MCP details", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "system",
+        subtype: "init",
+        session_id: "session-web-2",
+        uuid: "msg-init-web-2",
+        mcp_servers: [
+          {
+            name: "claude-in-chrome",
+            status: "failed",
+            error: "extension-specific detail",
+          },
+        ],
+      } as never,
+      claudeDebugStream: false,
+      providerBrowserRequested: true,
+    });
+
+    expect(events.at(-1)).toMatchObject({
+      type: "browser_connection",
+      providerId: "claude-code",
+      status: "failed",
+    });
+    expect(JSON.stringify(events)).not.toContain("extension-specific detail");
+  });
+
   test("surfaces Claude assistant UUIDs as point-in-time turn metadata", () => {
     const events = mapClaudeMessageToEvents({
       message: {
@@ -1621,6 +1678,21 @@ describe("resolveClaudeAgentProgressSummaries", () => {
 });
 
 describe("buildClaudeQueryOptions", () => {
+  test("enables Claude's native Chrome integration only when requested", () => {
+    const enabled = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      providerBrowserRequested: true,
+    });
+    const disabled = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+    });
+
+    expect(enabled.extraArgs).toEqual({ chrome: null });
+    expect(disabled.extraArgs).toEqual({ "no-chrome": null });
+  });
+
   test("forces AskUserQuestion through Stave while preserving SDK bypass mode", () => {
     const canUseTool = async () =>
       ({ behavior: "allow", updatedInput: {} }) as const;

@@ -38,7 +38,7 @@ export interface PromptTokenParseOptions {
 const COMMAND_TOKEN_PATTERN = /^\/[A-Za-z0-9:._-]+/;
 const SKILL_TOKEN_PATTERN = /^\$[A-Za-z0-9._-]+/;
 const INFORMATION_TOKEN_PATTERN =
-  /^@(?:info(?::[^\s.,;!?)]*)?|lens(?![A-Za-z0-9_-]))/i;
+  /^@(?:info(?::[^\s.,;!?)]*)?|(?:lens|web)(?![A-Za-z0-9_-]))/i;
 const LINK_TOKEN_PATTERN = /^https?:\/\/[^\s<>"'`]+/i;
 
 function isTokenBoundaryBefore(text: string, index: number) {
@@ -136,8 +136,10 @@ function resolveInformationDescriptor(args: {
     token: reference.token,
     label: getWorkspaceInformationReferenceLabel(reference),
     detail:
-      reference.section === "lens"
-        ? "Lens browser"
+      reference.section === "lens" || reference.section === "web"
+        ? reference.section === "lens"
+          ? "Lens browser"
+          : "Provider browser"
         : reference.scope === "section"
           ? "Information section"
           : "Information item",

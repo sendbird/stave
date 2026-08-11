@@ -147,6 +147,54 @@ describe("saveActiveWorkspaceRuntimeCache", () => {
 });
 
 describe("applyProviderEventsToWorkspaceSession", () => {
+  test("persists normalized provider browser connection metadata", () => {
+    const workspaceInformation = createEmptyWorkspaceInformation();
+    const session = {
+      activeTaskId: "task-1",
+      tasks: [],
+      messagesByTask: { "task-1": [] },
+      messageCountByTask: { "task-1": 0 },
+      promptDraftByTask: {},
+      workspaceInformation,
+      editorTabs: [],
+      activeEditorTabId: null,
+      terminalTabs: [],
+      activeTerminalTabId: null,
+      terminalDocked: false,
+      cliSessionTabs: [],
+      activeCliSessionTabId: null,
+      activeSurface: { kind: "task" as const, taskId: "task-1" },
+      activeTurnIdsByTask: { "task-1": "turn-1" },
+      providerSessionByTask: {},
+      providerGoalByTask: {},
+      nativeSessionReadyByTask: {},
+    };
+
+    const applied = applyProviderEventsToWorkspaceSession({
+      session,
+      taskId: "task-1",
+      events: [
+        {
+          type: "browser_connection",
+          providerId: "codex",
+          status: "connected",
+          at: Date.parse("2026-08-11T05:00:00.000Z"),
+        },
+      ],
+      provider: "codex",
+      model: "gpt-5.4",
+      turnId: "turn-1",
+    });
+
+    expect(applied.snapshotChanged).toBe(true);
+    expect(applied.session.workspaceInformation.connectedBrowserTab).toEqual({
+      providerId: "codex",
+      status: "connected",
+      requestedAt: "2026-08-11T05:00:00.000Z",
+      lastUpdatedAt: "2026-08-11T05:00:00.000Z",
+    });
+  });
+
   test("marks snapshots changed when only the provider goal changes", () => {
     const session = {
       activeTaskId: "task-1",

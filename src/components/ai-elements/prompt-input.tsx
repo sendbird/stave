@@ -3125,7 +3125,8 @@ export function PromptInput(args: PromptInputProps) {
                       Type `@` to search Information. Selection inserts
                       `@info:section` for a full section or `@info:section/item`
                       for one item. `@lens` references the current Lens browser
-                      page.
+                      page; `@web` connects the active provider to its native
+                      browser extension.
                     </p>
                   </div>
                 ) : activePalette === "skill" ? (

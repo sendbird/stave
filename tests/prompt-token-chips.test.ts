@@ -89,10 +89,32 @@ describe("parsePromptTokenSegments", () => {
     ]);
   });
 
-  test("does not treat @lens-prefixed words as Lens chips", () => {
-    const segments = parsePromptTokenSegments("Check @lenses today", {});
+  test("parses @web into a provider browser chip descriptor", () => {
+    const segments = parsePromptTokenSegments("Open this with @web", {});
 
-    expect(segments).toEqual([{ type: "text", text: "Check @lenses today" }]);
+    expect(segments).toMatchObject([
+      { type: "text", text: "Open this with " },
+      {
+        type: "token",
+        descriptor: {
+          kind: "information",
+          token: "@web",
+          label: "Connected browser",
+          detail: "Provider browser",
+        },
+      },
+    ]);
+  });
+
+  test("does not treat @lens-prefixed words as Lens chips", () => {
+    const segments = parsePromptTokenSegments(
+      "Check @lenses and @website today",
+      {},
+    );
+
+    expect(segments).toEqual([
+      { type: "text", text: "Check @lenses and @website today" },
+    ]);
   });
 
   test("does not treat incomplete triggers as chips", () => {

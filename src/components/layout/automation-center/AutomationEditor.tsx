@@ -668,7 +668,10 @@ export function AutomationEditor(props: {
   function attachInformationOption(
     option: WorkspaceInformationReferenceOption,
   ) {
-    if (option.reference.section === "lens") {
+    if (
+      option.reference.section === "lens" ||
+      option.reference.section === "web"
+    ) {
       return;
     }
     const targetKey = getRoutineInformationReferenceKey(option.reference);

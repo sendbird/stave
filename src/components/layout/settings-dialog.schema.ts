@@ -101,6 +101,11 @@ export const settingsSections = [
       "advisor",
       "preflight",
       "fable",
+      "browser",
+      "browser access",
+      "chrome",
+      "extension",
+      "@web",
     ],
   },
   {
