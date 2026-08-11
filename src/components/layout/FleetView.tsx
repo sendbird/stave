@@ -707,7 +707,15 @@ export function FleetView() {
                         // Width-driven rather than breakpoint-driven: the board
                         // sits between two sidebars, so viewport breakpoints
                         // would size cards against space the board never has.
-                        className="grid grid-cols-[repeat(auto-fill,minmax(min(17rem,100%),1fr))] items-start gap-2.5 px-4 py-3"
+                        //
+                        // Capped at three columns per row: past that the cards
+                        // are too narrow to read a task list in, and a wide
+                        // monitor otherwise fans out to five or six. The track
+                        // floor is the larger of the 17rem card minimum and an
+                        // exact third of the row (minus the two 0.625rem gaps),
+                        // so wide rows land on exactly three and narrow rows
+                        // still collapse to two and then one.
+                        className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,max(17rem,calc((100%_-_2_*_0.625rem)_/_3))),1fr))] items-start gap-2.5 px-4 py-3"
                       >
                         {orderProjectWorkspaces(
                           project,

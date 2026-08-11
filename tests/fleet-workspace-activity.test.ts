@@ -42,6 +42,48 @@ describe("selectFleetOpenTasks", () => {
       selectFleetOpenTasks([open, archived]).map((task) => task.id),
     ).toEqual(["open"]);
   });
+
+  test("drops tasks whose pane tab was closed without archiving", () => {
+    const open = buildTask({ id: "open" });
+    const closed = buildTask({ id: "closed" });
+
+    expect(
+      selectFleetOpenTasks([open, closed], {
+        openTaskTabIds: ["open"],
+      }).map((task) => task.id),
+    ).toEqual(["open"]);
+  });
+
+  test("keeps a closed tab whose provider turn is still in flight", () => {
+    const open = buildTask({ id: "open" });
+    const closed = buildTask({ id: "closed" });
+
+    expect(
+      selectFleetOpenTasks([open, closed], {
+        openTaskTabIds: ["open"],
+        activeTurnIdsByTask: { closed: "turn-1" },
+      }).map((task) => task.id),
+    ).toEqual(["open", "closed"]);
+  });
+
+  test("treats unknown pane state as every live task open", () => {
+    const first = buildTask({ id: "first" });
+    const second = buildTask({ id: "second" });
+
+    expect(
+      selectFleetOpenTasks([first, second], {
+        openTaskTabIds: null,
+      }).map((task) => task.id),
+    ).toEqual(["first", "second"]);
+  });
+
+  test("an explicitly empty tab list closes every task", () => {
+    expect(
+      selectFleetOpenTasks([buildTask({ id: "only" })], {
+        openTaskTabIds: [],
+      }),
+    ).toEqual([]);
+  });
 });
 
 describe("hasFleetLiveTask", () => {

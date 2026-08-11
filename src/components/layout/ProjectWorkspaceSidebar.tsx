@@ -43,6 +43,7 @@ import {
   buildSidebarWorkQueueEntries,
   buildWorkspaceArchiveDialogCopy,
   filterProjectSidebarProjects,
+  formatWorkQueueWorkspaceLabel,
   formatWorkspaceDisplayName,
   buildWorkspaceHoverPreview,
   buildVisibleWorkspaceShortcutTargets,
@@ -576,7 +577,11 @@ function WorkQueueRow(args: {
           attentionKind={args.attentionKind}
         />
         <span className="min-w-0 flex-1 truncate text-left">
-          {entry.workspaceName}
+          {formatWorkQueueWorkspaceLabel({
+            name: entry.workspaceName,
+            branch: entry.branch,
+            isDefault: entry.isDefault,
+          })}
         </span>
         <span className="shrink-0 truncate text-xs text-muted-foreground">
           {entry.projectName}

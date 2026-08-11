@@ -8,9 +8,10 @@ import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
-import type {
-  ProjectAppearanceColorId,
-  ProjectAppearanceIconId,
+import {
+  isDefaultWorkspaceName,
+  type ProjectAppearanceColorId,
+  type ProjectAppearanceIconId,
 } from "@/store/project.utils";
 
 export interface ProjectSidebarWorkspaceView {
@@ -266,6 +267,37 @@ export function formatWorkspaceDisplayName(args: {
     return `${name} (${branch})`;
   }
   return name;
+}
+
+/**
+ * Row label for the Work queue view: the workspace's own label first, its branch
+ * second.
+ *
+ * The Projects tree can afford `label (branch)` because its rows are nested
+ * under a project and indented, so the parenthetical still fits. A queue row is
+ * flat and already spends its right edge on the project name, so it gets exactly
+ * one identifier — and the useful one is whatever the user actually named the
+ * workspace.
+ *
+ * A workspace still carrying the fabricated default name has no label of its
+ * own, so it falls through to the branch: `main` says more about which worktree
+ * a row points at than a column of identical `Default`s does.
+ */
+export function formatWorkQueueWorkspaceLabel(args: {
+  name: string;
+  branch?: string;
+  isDefault: boolean;
+}) {
+  const label =
+    args.isDefault || isDefaultWorkspaceName(args.name) ? "" : args.name.trim();
+  if (label) {
+    return label;
+  }
+  const branch = formatBranchLabel(args.branch);
+  if (branch) {
+    return branch;
+  }
+  return args.isDefault ? "Default" : "worktree";
 }
 
 function normalizeWorkspaceSearchText(value: string) {
