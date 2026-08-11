@@ -336,4 +336,65 @@ describe("TurnActivity", () => {
     expect(html).toContain('data-testid="turn-activity-orb"');
     expect(html).not.toContain("animate-spin");
   });
+
+  test("renders host-specific chrome and placement controls per variant", () => {
+    const baseProps = {
+      activeTurnId: "turn-variant",
+      activity: {
+        turnId: "turn-variant",
+        providerId: "claude-code" as const,
+        startedAt: 1_000,
+        lastEventAt: 2_000,
+        stalledAt: null,
+        pendingInteraction: null,
+        workItemsById: {},
+        orderedWorkItemIds: [],
+      },
+      isPlanPreparing: false,
+      workItems: [],
+      todos: [],
+      onPlacementChange: () => {},
+    };
+
+    const docked = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...baseProps,
+        variant: "docked",
+        placement: "docked",
+      }),
+    );
+    // Docked keeps the tucked-under-composer chrome and offers the other two
+    // placements.
+    expect(docked).toContain('data-variant="docked"');
+    expect(docked).toContain("turn-activity-surface");
+    expect(docked).toContain("Float turn activity over the chat");
+    expect(docked).toContain("Show turn activity in the side panel");
+    expect(docked).not.toContain("Dock turn activity above the input");
+
+    const floating = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...baseProps,
+        variant: "floating",
+        placement: "floating",
+        dragHandleProps: { onPointerDown: () => {} },
+      }),
+    );
+    // Floating swaps the docked chrome for a bordered card with a drag handle.
+    expect(floating).toContain('data-variant="floating"');
+    expect(floating).not.toContain("turn-activity-surface");
+    expect(floating).toContain("cursor-grab");
+    expect(floating).toContain("Dock turn activity above the input");
+    expect(floating).not.toContain("Float turn activity over the chat");
+
+    const panel = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...baseProps,
+        variant: "panel",
+        placement: "panel",
+      }),
+    );
+    expect(panel).toContain('data-variant="panel"');
+    expect(panel).toContain("Dock turn activity above the input");
+    expect(panel).not.toContain("Show turn activity in the side panel");
+  });
 });

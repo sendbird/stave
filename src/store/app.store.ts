@@ -1522,7 +1522,6 @@ export const useAppStore = create<AppState>()(
       hydrateWorkspaceMessagesInBackground,
       refreshWorkspaceFilesInBackground,
     });
-
     return {
       hasHydratedWorkspaces: false,
       workspaceSnapshotVersion: 0,
@@ -1563,6 +1562,7 @@ export const useAppStore = create<AppState>()(
         terminalDocked: false,
         editorDiffMode: false,
         editorMarkdownPreviewMode: false,
+        turnActivityFloatPos: null,
       },
       settings: defaultSettings,
       editorTabs: [],

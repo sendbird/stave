@@ -71,6 +71,28 @@ describe("sidebar settings", () => {
   });
 });
 
+describe("turn activity settings", () => {
+  test("defaults to docked and normalizes invalid placement updates", () => {
+    const settings = useAppStore.getInitialState().settings;
+
+    expect(settings.turnActivityPlacement).toBe("docked");
+
+    useAppStore.getState().updateSettings({
+      patch: { turnActivityPlacement: "floating" },
+    });
+    expect(useAppStore.getState().settings.turnActivityPlacement).toBe(
+      "floating",
+    );
+
+    useAppStore.getState().updateSettings({
+      patch: { turnActivityPlacement: "invalid" as never },
+    });
+    expect(useAppStore.getState().settings.turnActivityPlacement).toBe(
+      "docked",
+    );
+  });
+});
+
 describe("lens session scope settings", () => {
   test("defaults to project scope and normalizes invalid updates", () => {
     (

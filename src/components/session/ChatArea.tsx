@@ -16,6 +16,7 @@ import {
 } from "@/components/session/chat-area.utils";
 import { EmptySplash } from "@/components/session/EmptySplash";
 import { PlanViewer } from "@/components/session/PlanViewer";
+import { TurnActivity } from "@/components/session/TurnActivity";
 import { SessionLoadingState } from "@/components/session/SessionLoadingState";
 import {
   Button,
@@ -354,6 +355,12 @@ function ChatAreaImpl(props: ChatAreaProps) {
                 rather than its output. */}
             <RenderProfiler id="AdvisorExchangeMonitor">
               <AdvisorExchangeMonitor />
+            </RenderProfiler>
+            {/* Floating placement of the turn activity shelf. Renders only
+                when `settings.turnActivityPlacement === "floating"`; the
+                docked copy in ChatInput bows out symmetrically. */}
+            <RenderProfiler id="TurnActivityFloating">
+              <TurnActivity host="floating" />
             </RenderProfiler>
           </div>
         </div>

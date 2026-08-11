@@ -14,6 +14,35 @@ export interface LayoutState {
   terminalDocked: boolean;
   editorDiffMode: boolean;
   editorMarkdownPreviewMode: boolean;
+  /**
+   * Persisted drag position of the floating turn activity card, in pixels
+   * from the top-left of the message pane. `null` means "never dragged":
+   * the card anchors to its default top-right corner.
+   */
+  turnActivityFloatPos: TurnActivityFloatPosition | null;
+}
+
+export interface TurnActivityFloatPosition {
+  x: number;
+  y: number;
+}
+
+export function normalizeTurnActivityFloatPos(
+  value: unknown,
+): TurnActivityFloatPosition | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const candidate = value as { x?: unknown; y?: unknown };
+  if (
+    typeof candidate.x !== "number" ||
+    !Number.isFinite(candidate.x) ||
+    typeof candidate.y !== "number" ||
+    !Number.isFinite(candidate.y)
+  ) {
+    return null;
+  }
+  return { x: Math.max(0, candidate.x), y: Math.max(0, candidate.y) };
 }
 
 export const WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODES = [
@@ -62,6 +91,9 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
     sidebarOverlayTab: RIGHT_RAIL_PANEL_IDS.includes(layout.sidebarOverlayTab)
       ? layout.sidebarOverlayTab
       : "explorer",
+    turnActivityFloatPos: normalizeTurnActivityFloatPos(
+      layout.turnActivityFloatPos,
+    ),
   };
 }
 

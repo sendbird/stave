@@ -57,6 +57,7 @@ import {
   normalizePersistedLensSettings,
   normalizeReasoningExpansionMode,
   normalizeSidebarNavView,
+  normalizeTurnActivityPlacement,
   type AppSettings,
 } from "@/store/app-settings";
 import { normalizeAppActiveSurface } from "@/store/app-surface";
@@ -166,6 +167,9 @@ export function createAppStorePersistenceOptions() {
         typeof raw.showConversationTurnRail === "boolean"
           ? raw.showConversationTurnRail
           : defaultSettings.showConversationTurnRail;
+      state.settings.turnActivityPlacement = normalizeTurnActivityPlacement(
+        raw.turnActivityPlacement,
+      );
       state.settings.borderBeamSize = normalizeBorderBeamSize(
         raw.borderBeamSize,
       );

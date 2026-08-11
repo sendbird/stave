@@ -16,6 +16,7 @@ function baseLayout(): LayoutState {
     terminalDocked: false,
     editorDiffMode: false,
     editorMarkdownPreviewMode: false,
+    turnActivityFloatPos: null,
   };
 }
 
@@ -52,5 +53,32 @@ describe("normalizeLayoutState", () => {
     expect(normalized).not.toHaveProperty("lensDisplayModeByWorkspaceId");
     expect(normalized).not.toHaveProperty("terminalDockHeight");
     expect(normalized).not.toHaveProperty("editorVisible");
+  });
+
+  test("keeps a finite floating turn-activity position and clamps negatives", () => {
+    expect(
+      normalizeLayoutState({
+        ...baseLayout(),
+        turnActivityFloatPos: { x: 120, y: -4 },
+      }).turnActivityFloatPos,
+    ).toEqual({ x: 120, y: 0 });
+  });
+
+  test("drops malformed floating turn-activity positions", () => {
+    for (const value of [
+      { x: Number.NaN, y: 10 },
+      { x: "12", y: 10 },
+      { x: 12 },
+      "top-right",
+      undefined,
+    ]) {
+      expect(
+        normalizeLayoutState({
+          ...baseLayout(),
+          turnActivityFloatPos:
+            value as LayoutState["turnActivityFloatPos"],
+        }).turnActivityFloatPos,
+      ).toBeNull();
+    }
   });
 });

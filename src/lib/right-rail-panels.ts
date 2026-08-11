@@ -1,4 +1,5 @@
 import {
+  Activity,
   FolderTree,
   GitBranch,
   Info,
@@ -8,7 +9,7 @@ import {
 import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
 
 export type RightRailPanelId =
-  "explorer" | "changes" | "information" | "skills" | "scripts";
+  "explorer" | "changes" | "information" | "skills" | "scripts" | "activity";
 
 /** Panels the right rail actually renders as sidebar overlays. */
 export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
@@ -17,6 +18,7 @@ export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
   "information",
   "skills",
   "scripts",
+  "activity",
 ];
 
 export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
@@ -25,6 +27,7 @@ export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
   information: "Information",
   skills: "Skills",
   scripts: WORKSPACE_TOOLS_PRESENTATION.label,
+  activity: "Turn Activity",
 };
 
 export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
@@ -33,4 +36,5 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
   information: Info,
   skills: SearchCheck,
   scripts: WORKSPACE_TOOLS_PRESENTATION.icon,
+  activity: Activity,
 };
