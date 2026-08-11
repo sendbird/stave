@@ -73,15 +73,34 @@ What differs is only where dueness comes from:
 | Question | Schedule | Completion |
 | --- | --- | --- |
 | What makes it due? | An instant passed | A delegated run reached a terminal status |
-| What is consumed? | One instant | One `(run, step, status)` |
+| What is consumed? | One instant | One `(run, step, attempt, status)` |
 | What bounds it? | Expiry and the occurrence cap | The occurrence cap, which is applied by default |
 | Where does the next one come from? | `computeNextRoutineRunAt` | The ledger, on the next tick |
 
 **Exactly once, however it is delivered.** Each completion is keyed by
-`<heartbeatId>:fired:completion:<runId>:<stepId>:<status>` rather than by an
-instant, because two children can finish in the same millisecond and a
-timestamp key would silently drop one of them. The occurrence row is the guard:
-if nothing new was accepted, no turn starts at all.
+`<heartbeatId>:fired:completion:<runId>:<stepId>:<attempt>:<status>` rather
+than by an instant, because two children can finish in the same millisecond and
+a timestamp key would silently drop one of them. The attempt is part of the key
+because a retried delegation reuses its run and step ids: without it, a retry
+that fails again would be deduped against the first attempt's wake-up and the
+parent would never hear about it. The occurrence row is the guard: if nothing
+new was accepted, no turn starts at all.
+
+**Only work that finishes after the heartbeat exists counts.** Completions
+whose terminal instant predates the heartbeat's `createdAt` are never
+signalable. Without that baseline, creating a completion heartbeat on a task
+with old finished delegations — or re-creating one whose stopped predecessor's
+history was just deleted — would consume every old receipt still in the feed
+window as a burst of wake-ups. Updating a heartbeat keeps its `createdAt`, so
+an update never re-opens old work either.
+
+**Detached children signal on ending, not between turns.** A `detached`
+delegation parks in `waiting` while its child task stays open, and `waiting` is
+an active phase — so a detached child's individual turns never appear in the
+completion feed. The delegation becomes a signal only when it settles into a
+terminal status (the parent stops it, it fails, or it is interrupted). A parent
+that wants to be woken per turn of a detached child should use a schedule
+trigger instead.
 
 **A batch is one wake-up.** Three children finishing together consume three
 completions and start one turn. Stacking three unattended turns onto a task is
@@ -137,9 +156,13 @@ The feed is read deeper than `CHILD_TASK_LIST_LIMIT`, which sizes the child-task
 panel. The two limits answer different questions: truncating a list a human is
 reading hides rows they can still go and find, while truncating the completion
 feed loses a wake-up permanently, because only what the read returns is ever
-consumed. So the window is at least as wide as the `fired`-row guard that
-protects it — a completion still visible is at worst re-reported and deduped,
-one that aged out of the read is gone.
+consumed. The safety inequality runs the other way around: the `fired`-row
+retention that guards consumption must be **at least as wide as the feed
+window** (`maxCompletionFeedRows` ≤ `minRetainedFiredOccurrences`, pinned by a
+test). If the feed could still report a completion whose consumed `fired` row
+had already been pruned, that completion would read as brand new and wake the
+task a second time. A completion still visible and still guarded is at worst
+re-reported and deduped; one that aged out of the read unconsumed is gone.
 
 **How the signal arrives, for now.** The supervisor reads the feed on its own
 tick rather than being pushed at: nothing emits a completion event today, and
@@ -163,10 +186,10 @@ agent into the same conversation, mid-thread.
 
 Every firing, deferral, and skip is recorded with an idempotency key of
 `<heartbeatId>:<outcome>:<scheduledFor>`, or, for a completion,
-`<heartbeatId>:<outcome>:completion:<runId>:<stepId>:<status>`. A unique index on
-`(heartbeat_id, idempotency_key)` turns a duplicate delivery into a no-op, and
-it means repeated deferrals of one instant collapse into a single row rather
-than one per tick.
+`<heartbeatId>:<outcome>:completion:<runId>:<stepId>:<attempt>:<status>`. A
+unique index on `(heartbeat_id, idempotency_key)` turns a duplicate delivery
+into a no-op, and it means repeated deferrals of one instant collapse into a
+single row rather than one per tick.
 
 Occurrence history is pruned to the most recent 100 per heartbeat, with one
 exemption: `fired` rows survive past that cap, up to 256. For a completion they
@@ -189,7 +212,7 @@ forward, so a pruned instant can never come due twice.
 - `stave_list_task_heartbeats` — optionally scoped to a workspace
 - `stave_get_task_heartbeat` — one heartbeat plus recent occurrences and their reasons
 - `stave_create_task_heartbeat` — requires an existing `taskId`
-- `stave_update_task_heartbeat` — also re-accepts the task's current runtime
+- `stave_update_task_heartbeat` — also re-accepts the task's current runtime; refused for a stopped heartbeat (add a new one instead), and switching trigger kinds resets the fired count so the new trigger's cap starts unspent
 - `stave_set_task_heartbeat_paused` — pause or resume
 - `stave_remove_task_heartbeat` — deletes the heartbeat and its history
 

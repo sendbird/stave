@@ -42,6 +42,11 @@ import {
   removeCachedWorkspaceFiles,
   resolveWorkspacePathForId,
 } from "@/store/workspace-file-cache";
+import {
+  listTaskIdsForWorkspaces,
+  removeRecordEntries,
+  removeTaskTurnRuntimeEntries,
+} from "@/store/task-turn-runtime-cleanup";
 import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
 import {
   buildWorkspaceSessionState,
@@ -240,6 +245,29 @@ export function createWorkspaceManagementActions(args: {
               ([, ownerWorkspaceId]) => ownerWorkspaceId !== workspaceId,
             ),
           );
+          const removedTaskIds = [
+            ...new Set([
+              ...listTaskIdsForWorkspaces({
+                taskWorkspaceIdById: nextState.taskWorkspaceIdById,
+                workspaceIds: [workspaceId],
+              }),
+              // No replacement workspace exists, so the closed workspace is
+              // the active one and its tasks are the live session's tasks.
+              ...nextState.tasks.map((task) => task.id),
+            ]),
+          ];
+          const nextTaskCheckpointById = removeRecordEntries(
+            nextState.taskCheckpointById,
+            removedTaskIds,
+          );
+          const nextTurnVerificationByWorkspace = removeRecordEntries(
+            nextState.turnVerificationByWorkspace,
+            [workspaceId],
+          );
+          const nextTurnIntentComplianceByWorkspace = removeRecordEntries(
+            nextState.turnIntentComplianceByWorkspace,
+            [workspaceId],
+          );
           return {
             workspaces: nextWorkspaces,
             workspaceBranchById: nextBranchById,
@@ -267,6 +295,27 @@ export function createWorkspaceManagementActions(args: {
             }),
             workspaceRuntimeCacheById: nextRuntimeCacheById,
             taskWorkspaceIdById: nextTaskWorkspaceIdById,
+            // Shed the closed workspace's per-task turn runtime snapshots and
+            // persisted checkpoint/verification entries; nothing else removes
+            // them once the tasks are gone.
+            ...removeTaskTurnRuntimeEntries({
+              state: nextState,
+              taskIds: removedTaskIds,
+            }),
+            ...(nextTaskCheckpointById
+              ? { taskCheckpointById: nextTaskCheckpointById }
+              : {}),
+            ...(nextTurnVerificationByWorkspace
+              ? {
+                  turnVerificationByWorkspace: nextTurnVerificationByWorkspace,
+                }
+              : {}),
+            ...(nextTurnIntentComplianceByWorkspace
+              ? {
+                  turnIntentComplianceByWorkspace:
+                    nextTurnIntentComplianceByWorkspace,
+                }
+              : {}),
             ...workspaceState,
             layout: {
               ...nextState.layout,
@@ -319,6 +368,31 @@ export function createWorkspaceManagementActions(args: {
             ([, ownerWorkspaceId]) => ownerWorkspaceId !== workspaceId,
           ),
         );
+        const removedTaskIds = [
+          ...new Set([
+            ...listTaskIdsForWorkspaces({
+              taskWorkspaceIdById: nextState.taskWorkspaceIdById,
+              workspaceIds: [workspaceId],
+            }),
+            // The switch above parked the closed workspace's session in the
+            // runtime cache, so its task ids are read from there.
+            ...(
+              nextState.workspaceRuntimeCacheById[workspaceId]?.tasks ?? []
+            ).map((task) => task.id),
+          ]),
+        ];
+        const nextTaskCheckpointById = removeRecordEntries(
+          nextState.taskCheckpointById,
+          removedTaskIds,
+        );
+        const nextTurnVerificationByWorkspace = removeRecordEntries(
+          nextState.turnVerificationByWorkspace,
+          [workspaceId],
+        );
+        const nextTurnIntentComplianceByWorkspace = removeRecordEntries(
+          nextState.turnIntentComplianceByWorkspace,
+          [workspaceId],
+        );
         return {
           workspaces: nextWorkspaces,
           workspaceBranchById: nextBranchById,
@@ -344,6 +418,25 @@ export function createWorkspaceManagementActions(args: {
           }),
           workspaceRuntimeCacheById: nextRuntimeCacheById,
           taskWorkspaceIdById: nextTaskWorkspaceIdById,
+          // Shed the closed workspace's per-task turn runtime snapshots and
+          // persisted checkpoint/verification entries; nothing else removes
+          // them once the tasks are gone.
+          ...removeTaskTurnRuntimeEntries({
+            state: nextState,
+            taskIds: removedTaskIds,
+          }),
+          ...(nextTaskCheckpointById
+            ? { taskCheckpointById: nextTaskCheckpointById }
+            : {}),
+          ...(nextTurnVerificationByWorkspace
+            ? { turnVerificationByWorkspace: nextTurnVerificationByWorkspace }
+            : {}),
+          ...(nextTurnIntentComplianceByWorkspace
+            ? {
+                turnIntentComplianceByWorkspace:
+                  nextTurnIntentComplianceByWorkspace,
+              }
+            : {}),
         };
       });
       startWorkspaceArchiveCleanup({

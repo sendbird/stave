@@ -22,6 +22,7 @@ import {
   ChildTaskParentBacklink,
   ChildTaskRows,
 } from "@/components/session/ChildTaskRows";
+import { useChildTasks } from "@/components/session/useChildTasks";
 import { Button, Textarea } from "@/components/ui";
 import {
   resolveFleetCurrentTaskControlState,
@@ -198,6 +199,30 @@ export function FleetTaskControlPanel(args: {
   const hasStaleExpectedInteraction =
     Boolean(args.expectedInteraction) &&
     (!pendingInteraction || !interactionTurnMatches);
+  // The panel's agent count and its child rows must describe the same listing.
+  // The count comes from the turn's work graph, and ledger-owned children only
+  // reach that graph through this merge — previously it ran only when the Turn
+  // Activity shelf was mounted, so a panel opened from Fleet could count fewer
+  // agents than the rows it draws directly underneath.
+  const childTasks = useChildTasks({
+    parentTaskId: args.target.taskId,
+    parentWorkspaceId: args.target.workspaceId,
+    projectPath: args.target.projectPath,
+  });
+  const { children: childTaskRows } = childTasks;
+  const childTaskSource = useMemo(
+    () => ({ children: childTaskRows, actions: childTasks.actions }),
+    [childTaskRows, childTasks.actions],
+  );
+  const syncChildTasksIntoTurnGraph = useAppStore(
+    (state) => state.syncChildTasksIntoTurnGraph,
+  );
+  useEffect(() => {
+    syncChildTasksIntoTurnGraph({
+      taskId: args.target.taskId,
+      children: childTaskRows,
+    });
+  }, [args.target.taskId, childTaskRows, syncChildTasksIntoTurnGraph]);
   const summary = useMemo(
     () =>
       buildTaskExecutionSummary({
@@ -457,6 +482,7 @@ export function FleetTaskControlPanel(args: {
         parentTaskId={args.target.taskId}
         parentWorkspaceId={args.target.workspaceId}
         projectPath={args.target.projectPath}
+        source={childTaskSource}
         className="mt-3"
       />
 

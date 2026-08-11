@@ -443,6 +443,7 @@ export class RunLedgerStore {
           attempt = ?,
           execution_id = ?,
           claim_idempotency_key = ?,
+          input_hash = ?,
           result_artifact_ref = ?,
           updated_at = ?,
           started_at = ?,
@@ -456,6 +457,7 @@ export class RunLedgerStore {
         transition.step.attempt,
         transition.step.executionId,
         transition.step.claimIdempotencyKey,
+        transition.step.inputHash,
         transition.step.resultArtifactRef,
         transition.step.updatedAt,
         transition.step.startedAt,
@@ -477,10 +479,12 @@ export class RunLedgerStore {
     for (const receipt of transition.receipts) {
       sequence += 1;
       const record = RunReceiptRecordSchema.parse({ ...receipt, sequence });
+      // OR IGNORE: the idempotency unique index turns a replayed receipt into
+      // a no-op instead of failing the whole transition transaction.
       this.db
         .prepare(
           `
-          INSERT INTO run_receipts (
+          INSERT OR IGNORE INTO run_receipts (
             run_id,
             step_id,
             sequence,
@@ -511,6 +515,7 @@ export class RunLedgerStore {
     step: RunStepRecord;
     executionId: string;
     idempotencyKey: string;
+    detail?: unknown;
     now: string;
   }): RunLedgerTransitionResult {
     const incomingRun = RunRecordSchema.parse(args.run);
@@ -537,13 +542,31 @@ export class RunLedgerStore {
         };
       }
       if (step && step.inputHash !== incomingStep.inputHash) {
-        return {
-          accepted: false,
-          reason: "input-mismatch",
-          run,
-          step,
-          receipts: [],
-        };
+        // A fresh attempt on a step that already ended without succeeding may
+        // carry revised inputs — a retry is allowed to change the
+        // instructions without becoming a different delegation. It is
+        // recognizable as a fresh attempt because it claims under a new
+        // idempotency key; a repeat of the *initial* claim reuses the stored
+        // key, so a duplicate delegate with different inputs is still refused
+        // rather than silently rewriting what the key names. The stored hash
+        // moves to the new attempt's inputs when the claim is accepted.
+        const isRetryAttempt =
+          (step.status === "failed" || step.status === "interrupted") &&
+          step.claimIdempotencyKey !== null &&
+          step.claimIdempotencyKey !== args.idempotencyKey;
+        if (!isRetryAttempt) {
+          return {
+            accepted: false,
+            reason: "input-mismatch",
+            run,
+            step,
+            receipts: [],
+          };
+        }
+        step = RunStepRecordSchema.parse({
+          ...step,
+          inputHash: incomingStep.inputHash,
+        });
       }
       if (!run) {
         this.insertRun(incomingRun);
@@ -567,6 +590,7 @@ export class RunLedgerStore {
         step,
         executionId: args.executionId,
         idempotencyKey: args.idempotencyKey,
+        detail: args.detail,
         now: args.now,
       });
       this.persistTransition(transition);
@@ -609,6 +633,7 @@ export class RunLedgerStore {
     executionId: string;
     idempotencyKey: string;
     detail?: unknown;
+    reenter?: boolean;
     now: string;
   }) {
     return this.transitionExisting(args, ({ run, step }) =>
@@ -618,6 +643,7 @@ export class RunLedgerStore {
         executionId: args.executionId,
         idempotencyKey: args.idempotencyKey,
         detail: args.detail,
+        reenter: args.reenter,
         now: args.now,
       }),
     );

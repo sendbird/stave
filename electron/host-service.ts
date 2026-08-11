@@ -176,6 +176,13 @@ const HOST_SERVICE_QUEUE_MAX_BYTES = 2 * 1024 * 1024;
 const HOST_SERVICE_QUEUE_SLOW_WRITE_MS = 48;
 const HOST_SERVICE_QUEUE_LOG_INTERVAL_MS = 2_000;
 const HOST_SERVICE_SHUTDOWN_TIMEOUT_MS = 10_000;
+/**
+ * Absolute backstop after a shutdown has been triggered. Even if `shutdown()`
+ * itself wedges past its internal timeout (a sync persistence close that
+ * blocks, an exit path that never settles), the process still terminates
+ * instead of lingering as a ghost that keeps provider subprocesses alive.
+ */
+const HOST_SERVICE_HARD_EXIT_TIMEOUT_MS = HOST_SERVICE_SHUTDOWN_TIMEOUT_MS + 5_000;
 const HOST_PROVIDER_EVENT_STRING_MAX_BYTES = 128 * 1024;
 const HOST_PROVIDER_EVENT_LIST_MAX_ITEMS = 32;
 const HOST_SERVICE_STDIN_BUFFER_MAX_BYTES =
@@ -250,25 +257,47 @@ function maybeLogQueueRecovery() {
   );
 }
 
+function scheduleHardExit(exitCode: number) {
+  const timer = setTimeout(() => {
+    process.stderr.write(
+      `[host-service] shutdown did not complete within ${HOST_SERVICE_HARD_EXIT_TIMEOUT_MS}ms; forcing exit\n`,
+    );
+    process.exit(exitCode);
+  }, HOST_SERVICE_HARD_EXIT_TIMEOUT_MS);
+  timer.unref?.();
+}
+
+/**
+ * Single guarded path for every way this process can end (stdin close, fatal
+ * protocol error, termination signal): run `shutdown()` exactly once so
+ * provider subprocesses, PTYs, and the turn journal are cleaned up, and arm a
+ * hard-exit backstop so a wedged shutdown still exits.
+ */
+function beginGuardedShutdown(args: { reason: string; exitCode: number }) {
+  if (shutdownTriggered) {
+    return false;
+  }
+  shutdownTriggered = true;
+  scheduleHardExit(args.exitCode);
+  void shutdown()
+    .catch((shutdownError) => {
+      process.stderr.write(
+        `[host-service] shutdown error (${args.reason}): ${String(shutdownError)}\n`,
+      );
+    })
+    .finally(() => {
+      process.exit(args.exitCode);
+    });
+  return true;
+}
+
 function triggerFatalHostServiceError(error: Error) {
   if (fatalHostServiceError) {
     return;
   }
   fatalHostServiceError = error;
   process.stderr.write(`[host-service] ${error.message}\n`);
-  if (shutdownTriggered) {
-    return;
-  }
-  shutdownTriggered = true;
-  void shutdown()
-    .catch((shutdownError) => {
-      process.stderr.write(
-        `[host-service] shutdown error: ${String(shutdownError)}\n`,
-      );
-    })
-    .finally(() => {
-      process.exit(1);
-    });
+  beginGuardedShutdown({ reason: "fatal error", exitCode: 1 });
 }
 
 function shrinkProviderEventString(value: string, label: string) {
@@ -544,6 +573,10 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.getTaskStatus(
         args as Parameters<typeof localMcpRuntime.getTaskStatus>[0],
       );
+    case "release-task-parent":
+      return localMcpRuntime.releaseTaskParent(
+        args as Parameters<typeof localMcpRuntime.releaseTaskParent>[0],
+      );
     case "respond-approval":
       return localMcpRuntime.respondApproval(
         args as Parameters<typeof localMcpRuntime.respondApproval>[0],
@@ -730,6 +763,25 @@ const TURN_EVENT_FLUSH_INTERVAL_MS = 300;
 /** Flush immediately once this many events are buffered, regardless of timer. */
 const TURN_EVENT_FLUSH_MAX_PENDING = 64;
 
+/**
+ * Finalizers for in-flight push turns. Shutdown walks this so a turn that
+ * never reached its terminal event still gets its buffered journal entries
+ * flushed (and its flush timer cleared) before persistence closes.
+ */
+const activePushTurnFlushFinalizers = new Set<() => void>();
+
+function flushActivePushTurnEvents() {
+  for (const finalize of Array.from(activePushTurnFlushFinalizers)) {
+    try {
+      finalize();
+    } catch (error) {
+      process.stderr.write(
+        `[host-service] failed to flush push-turn events during shutdown: ${String(error)}\n`,
+      );
+    }
+  }
+}
+
 function startPushProviderTurn(args: StreamTurnArgs) {
   const turnId = args.turnId ?? randomUUID();
   const store = args.taskId ? ensureHostServicePersistenceReady() : null;
@@ -741,7 +793,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
   // per-event DB write (the unbounded per-event journal it replaces was purged).
   const persistEnabled = Boolean(args.taskId && store);
   let pendingTurnEvents: Array<{ sequence: number; event: BridgeEvent }> = [];
-  let turnEventFlushTimer: ReturnType<typeof setInterval> | null = null;
+  let turnEventFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
   const flushTurnEvents = () => {
     if (!persistEnabled || !store || pendingTurnEvents.length === 0) {
@@ -762,10 +814,33 @@ function startPushProviderTurn(args: StreamTurnArgs) {
 
   const stopTurnEventFlushTimer = () => {
     if (turnEventFlushTimer) {
-      clearInterval(turnEventFlushTimer);
+      clearTimeout(turnEventFlushTimer);
       turnEventFlushTimer = null;
     }
   };
+
+  // One-shot, unref'd, and re-armed only while events are actually pending: a
+  // turn that stalls forever holds at most one 300ms timer instead of an
+  // eternal interval, and the timer never keeps the process alive on its own.
+  const scheduleTurnEventFlush = () => {
+    if (turnEventFlushTimer) {
+      return;
+    }
+    turnEventFlushTimer = setTimeout(() => {
+      turnEventFlushTimer = null;
+      flushTurnEvents();
+    }, TURN_EVENT_FLUSH_INTERVAL_MS);
+    turnEventFlushTimer.unref?.();
+  };
+
+  const finalizeTurnEventFlush = () => {
+    activePushTurnFlushFinalizers.delete(finalizeTurnEventFlush);
+    stopTurnEventFlushTimer();
+    flushTurnEvents();
+  };
+  if (persistEnabled) {
+    activePushTurnFlushFinalizers.add(finalizeTurnEventFlush);
+  }
 
   if (args.taskId && store) {
     try {
@@ -797,14 +872,10 @@ function startPushProviderTurn(args: StreamTurnArgs) {
 
         if (persistEnabled) {
           pendingTurnEvents.push({ sequence, event: turnEvent });
-          if (!turnEventFlushTimer) {
-            turnEventFlushTimer = setInterval(
-              flushTurnEvents,
-              TURN_EVENT_FLUSH_INTERVAL_MS,
-            );
-          }
           if (pendingTurnEvents.length >= TURN_EVENT_FLUSH_MAX_PENDING) {
             flushTurnEvents();
+          } else {
+            scheduleTurnEventFlush();
           }
         }
 
@@ -820,8 +891,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
         });
       },
       onDone: () => {
-        stopTurnEventFlushTimer();
-        flushTurnEvents();
+        finalizeTurnEventFlush();
         if (!completed && args.taskId && store) {
           completed = true;
           try {
@@ -1186,6 +1256,9 @@ async function shutdown() {
       timer.unref?.();
     }),
   ]);
+  // Persist whatever the still-running push turns had buffered (and clear
+  // their flush timers) before the store closes underneath them.
+  flushActivePushTurnEvents();
   resetHostServicePersistence();
 }
 
@@ -1244,11 +1317,22 @@ async function loadMergedCodexMcpStatus(args: {
 
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
   switch (request.method) {
-    case "service.shutdown":
-      await shutdown();
+    case "service.shutdown": {
+      // Guard re-entrancy: a signal, stdin close, or duplicate request may
+      // already be running the one allowed shutdown pass. In that case just
+      // acknowledge and let the in-flight pass finish and exit the process.
+      const firstTrigger = !shutdownTriggered;
+      if (firstTrigger) {
+        shutdownTriggered = true;
+        scheduleHardExit(0);
+        await shutdown();
+      }
       await respond(request.id, { ok: true });
-      setImmediate(() => process.exit(0));
+      if (firstTrigger) {
+        setImmediate(() => process.exit(0));
+      }
       return;
+    }
     case "terminal.create-session":
       await respond(request.id, terminalRuntime.createSession(request.params));
       return;
@@ -1761,21 +1845,43 @@ async function main() {
   });
   let stdinClosed = false;
   const handleStdinClosed = () => {
-    if (stdinClosed || shutdownTriggered) {
+    if (stdinClosed) {
       return;
     }
     stdinClosed = true;
-    shutdownTriggered = true;
-    void shutdown()
-      .catch((error) => {
-        process.stderr.write(
-          `[host-service] shutdown error: ${String(error)}\n`,
-        );
-      })
-      .finally(() => {
-        process.exit(0);
-      });
+    beginGuardedShutdown({ reason: "stdin closed", exitCode: 0 });
   };
+
+  // The default disposition for these signals kills the process instantly,
+  // orphaning provider CLI subprocesses (and their MCP-server children), the
+  // shared Codex app-server, and PTYs, and dropping buffered journal events.
+  // Route them into the same guarded shutdown path as stdin close.
+  const handleTerminationSignal = (signal: NodeJS.Signals) => {
+    beginGuardedShutdown({ reason: `signal ${signal}`, exitCode: 0 });
+  };
+  process.on("SIGTERM", handleTerminationSignal);
+  process.on("SIGINT", handleTerminationSignal);
+  if (process.platform !== "win32") {
+    process.on("SIGHUP", handleTerminationSignal);
+  }
+
+  // Last-resort safety nets: a throw escaping a subprocess event callback or a
+  // timer must not hard-crash the shared host service without cleanup. An
+  // uncaught exception leaves state unknowable, so shut down gracefully (kill
+  // provider children, flush the journal) and let the client respawn us; a
+  // stray rejection is settled state, so log it and keep serving other tasks.
+  process.on("uncaughtException", (error) => {
+    triggerFatalHostServiceError(
+      error instanceof Error
+        ? error
+        : new Error(`uncaught exception: ${String(error)}`),
+    );
+  });
+  process.on("unhandledRejection", (reason) => {
+    const detail =
+      reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
+    process.stderr.write(`[host-service] unhandled rejection: ${detail}\n`);
+  });
 
   process.stdin.on("data", (chunk: Buffer) => {
     let messages: string[];

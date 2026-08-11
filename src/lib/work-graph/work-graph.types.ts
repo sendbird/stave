@@ -215,6 +215,21 @@ export const WORK_GRAPH_PROGRESS_LIMIT = 6;
 export const WORK_GRAPH_NODE_LIMIT = 200;
 /** Hard cap on work items per turn, for the same reason. */
 export const WORK_GRAPH_WORK_ITEM_LIMIT = 500;
+/**
+ * Hard cap on interactions per turn. Every approval and user-input prompt mints
+ * a unique request id, so without a ceiling a turn that prompts in a loop grows
+ * `interactionsById` for as long as it runs. The graph lives in the store for
+ * the whole turn, so each of its maps needs a bound the way nodes and work
+ * items already have one.
+ */
+export const WORK_GRAPH_INTERACTION_LIMIT = 200;
+/**
+ * Hard cap on `nodeKeyBySpawnToolUseId` entries per turn. Nodes are capped, but
+ * many spawning calls (each with a fresh tool-use id) can point at one node —
+ * a delegation retried in a loop, a replayed stream — so the index needs its
+ * own ceiling to stay bounded within a long turn.
+ */
+export const WORK_GRAPH_SPAWN_INDEX_LIMIT = 500;
 
 export function isTerminalWorkGraphStatus(status: WorkGraphStatus) {
   return (

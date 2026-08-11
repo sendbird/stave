@@ -18,6 +18,7 @@ import {
   ledgerNodeKey,
   providerAgentNodeKey,
   toolCallNodeKey,
+  WORK_GRAPH_INTERACTION_LIMIT,
   type WorkGraph,
 } from "@/lib/work-graph/work-graph.types";
 
@@ -367,6 +368,166 @@ describe("work graph tolerates late, duplicate, and partial events", () => {
     );
 
     expect(second).toBe(first);
+  });
+
+  test("agentless progress with no spawn mapping mints no phantom agent", () => {
+    // Codex emits `subagent_progress` for every MCP progress ping, keyed by an
+    // item id the graph never saw as a spawn. Manufacturing a call node from it
+    // created a perpetual "running" agent per ping that nothing ever settled.
+    const before = graph();
+    const after = reduceWorkGraphEvent(
+      before,
+      {
+        type: "subagent_progress",
+        toolUseId: "mcp-item-1",
+        content: "Fetching the page",
+      },
+      2_000,
+    );
+
+    expect(after).toBe(before);
+    expect(summarizeWorkGraph(after).totalCount).toBe(0);
+  });
+
+  test("progress that names an agent still renders without a prior spawn", () => {
+    // The legitimate flat fallback: an adopted mid-flight turn never replayed
+    // the spawn, but the progress carries the provider's own identity, which is
+    // enough to draw a real worker at the root.
+    const after = reduceAll(graph(), [
+      {
+        type: "subagent_progress",
+        agentId: "agent_flat",
+        content: "Reading callers",
+      },
+    ]);
+
+    const node =
+      after.nodesByKey[providerAgentNodeKey("claude-code", "agent_flat")];
+    expect(node?.identitySource).toBe("provider");
+    expect(node?.progress).toEqual(["Reading callers"]);
+    expect(buildWorkGraphTree(after)).toHaveLength(1);
+  });
+
+  test("a replayed spawn event after promotion cannot resurrect the call node", () => {
+    // Runtimes replay tool state on reconnect. After `call:toolu_1` has been
+    // promoted onto the agent, the replayed copy of the same tool event names
+    // only the tool-use id again — it must land on the promoted node, not key a
+    // duplicate worker row.
+    const promoted = reduceAll(graph(), [
+      toolEvent({ toolUseId: "toolu_1" }),
+      {
+        type: "subagent_progress",
+        toolUseId: "toolu_1",
+        agentId: "agent_late",
+        content: "Working",
+      },
+    ]);
+    const replayed = reduceAll(promoted, [toolEvent({ toolUseId: "toolu_1" })]);
+
+    const agentKey = providerAgentNodeKey("claude-code", "agent_late");
+    expect(replayed.nodesByKey[toolCallNodeKey("toolu_1")]).toBeUndefined();
+    expect(replayed.orderedNodeKeys).toEqual([replayed.rootKey, agentKey]);
+    expect(replayed.nodesByKey[agentKey]?.identitySource).toBe("provider");
+  });
+
+  test("a positional-fallback guess routes text but never binds identity", () => {
+    // With concurrent Tasks A and B, Claude's positional heuristic can hand B's
+    // tool-use id to progress that names agent A. Binding that guess promotes
+    // the wrong call node onto A permanently: A's rows and results cross-wire
+    // with B's for the rest of the turn.
+    const spawned = reduceAll(graph(), [
+      toolEvent({ toolUseId: "toolu_a" }),
+      toolEvent({ toolUseId: "toolu_b" }),
+    ]);
+    const guessed = reduceAll(spawned, [
+      {
+        type: "subagent_progress",
+        toolUseId: "toolu_b",
+        agentId: "agent_a",
+        binding: "guess",
+        content: "Reading callers",
+      },
+    ]);
+
+    const agentKey = providerAgentNodeKey("claude-code", "agent_a");
+    // B's call node survives untouched and the spawn index still points at it.
+    expect(guessed.nodesByKey[toolCallNodeKey("toolu_b")]?.identitySource).toBe(
+      "tool-call",
+    );
+    expect(guessed.nodeKeyBySpawnToolUseId.toolu_b).toBe(
+      toolCallNodeKey("toolu_b"),
+    );
+    // The text still lands on the agent the provider actually named, and the
+    // guessed tool-use id does not stick to it as a spawn claim.
+    expect(guessed.nodesByKey[agentKey]?.progress).toEqual(["Reading callers"]);
+    expect(guessed.nodesByKey[agentKey]?.spawnedByToolUseId).toBeUndefined();
+
+    // A later authoritative correlation still binds normally: A's own call
+    // node is promoted onto the agent.
+    const bound = reduceAll(guessed, [
+      {
+        type: "subagent_progress",
+        toolUseId: "toolu_a",
+        agentId: "agent_a",
+        binding: "authoritative",
+        content: "Found 4",
+      },
+    ]);
+    expect(bound.nodesByKey[toolCallNodeKey("toolu_a")]).toBeUndefined();
+    expect(bound.nodeKeyBySpawnToolUseId.toolu_a).toBe(agentKey);
+    expect(bound.nodesByKey[agentKey]?.spawnedByToolUseId).toBe("toolu_a");
+    // B's result ends B's call, not agent A.
+    const ended = reduceAll(bound, [
+      { type: "tool_result", tool_use_id: "toolu_b", output: "done" },
+    ]);
+    expect(ended.nodesByKey[toolCallNodeKey("toolu_b")]?.status).toBe(
+      "completed",
+    );
+    expect(ended.nodesByKey[agentKey]?.status).not.toBe("completed");
+  });
+
+  test("a two-node parent cycle re-roots instead of dropping both nodes", () => {
+    // Two confused ownership claims — A says it ran inside B, B says it ran
+    // inside A — close a loop the tree walk can never reach from the root.
+    // Accepting both silently removed both agents from the tree and the Fleet
+    // count; the later claim is re-rooted instead.
+    const cyclic = reduceAll(graph(), [
+      toolEvent({
+        toolUseId: "toolu_a",
+        agentId: "agent_a",
+        ownerAgentId: "agent_b",
+      }),
+      toolEvent({
+        toolUseId: "toolu_b",
+        agentId: "agent_b",
+        ownerAgentId: "agent_a",
+      }),
+    ]);
+
+    const rows = buildWorkGraphTree(cyclic);
+    expect(rows.map((row) => row.node.agentId).sort()).toEqual([
+      "agent_a",
+      "agent_b",
+    ]);
+    expect(summarizeWorkGraph(cyclic).totalCount).toBe(2);
+  });
+
+  test("an owner known only from ownership claims is a live identity", () => {
+    // `ensureOwnerNode` materializes the parent from the child's claim. Without
+    // `agentId` on that node the liveness gate cannot see it, and every control
+    // on the visibly running parent refuses with "no longer running".
+    const next = reduceAll(graph(), [
+      toolEvent({
+        toolUseId: "toolu_child",
+        agentId: "agent_child",
+        ownerAgentId: "agent_parent",
+      }),
+    ]);
+
+    const parent =
+      next.nodesByKey[providerAgentNodeKey("claude-code", "agent_parent")];
+    expect(parent?.agentId).toBe("agent_parent");
+    expect(collectLiveWorkGraphIdentities(next).has("agent_parent")).toBe(true);
   });
 });
 
@@ -735,6 +896,62 @@ describe("work graph projection", () => {
     expect(summarizeWorkGraph(answered).blockedCount).toBe(1);
     expect(answered.interactionsById["approval:req-a"]?.resolvedAt).toBe(6_000);
     expect(answered.interactionsById["approval:req-b"]?.resolvedAt).toBeUndefined();
+  });
+
+  test("a replayed prompt cannot resurrect an answered interaction", () => {
+    // Runtimes replay events on reconnect. A replayed approval for a request
+    // the person already answered would re-raise the "Needs you" badge and the
+    // blocked-on edge, and nothing would ever clear them again — the answer
+    // has already been and gone.
+    const approvalEvent: NormalizedProviderEvent = {
+      type: "approval",
+      toolName: "Bash",
+      requestId: "req-replay",
+      description: "Run migration?",
+      ownerAgentId: "agent_a",
+    };
+    const blocked = reduceAll(graph(), [
+      toolEvent({ toolUseId: "toolu_a", agentId: "agent_a" }),
+      approvalEvent,
+    ]);
+    const answered = resolveWorkGraphInteractions(
+      blocked,
+      6_000,
+      approvalInteractionId("req-replay"),
+    );
+
+    const replayed = reduceWorkGraphEvent(answered, approvalEvent, 7_000);
+    expect(replayed).toBe(answered);
+    expect(summarizeWorkGraph(replayed).blockedCount).toBe(0);
+    expect(replayed.interactionsById["approval:req-replay"]?.resolvedAt).toBe(
+      6_000,
+    );
+    expect(
+      replayed.dependenciesById["blocked-on:approval:req-replay"],
+    ).toBeUndefined();
+  });
+
+  test("a turn that prompts in a loop cannot grow interactions unbounded", () => {
+    let next = reduceAll(graph(), [
+      toolEvent({ toolUseId: "toolu_a", agentId: "agent_a" }),
+    ]);
+    for (let index = 0; index < WORK_GRAPH_INTERACTION_LIMIT + 25; index += 1) {
+      next = reduceWorkGraphEvent(
+        next,
+        {
+          type: "approval",
+          toolName: "Bash",
+          requestId: `req-${index}`,
+          description: "Run step?",
+          ownerAgentId: "agent_a",
+        },
+        3_000 + index,
+      );
+    }
+
+    expect(Object.keys(next.interactionsById).length).toBe(
+      WORK_GRAPH_INTERACTION_LIMIT,
+    );
   });
 
   test("a finished turn leaves nothing badged as needing a person", () => {

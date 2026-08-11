@@ -305,16 +305,37 @@ export function createTaskSupervisorRuntime(
         .filter((occurrence) => occurrence.outcome === "fired")
         .map((occurrence) => occurrence.idempotencyKey),
     );
-    return args.signals.filter(
-      (signal) =>
-        !consumed.has(
+    return args.signals.filter((signal) => {
+      if (
+        consumed.has(
           buildTaskHeartbeatCompletionIdempotencyKey({
             heartbeatId: args.heartbeat.id,
             outcome: "fired",
             signalKey: buildTaskCompletionSignalKey(signal),
           }),
-        ),
-    );
+        )
+      ) {
+        return false;
+      }
+      // Rows written before the signal key carried the attempt used the legacy
+      // `runId:stepId:status` shape. Only a first attempt may match one — a
+      // retried attempt is a new fact, and matching it against a legacy row
+      // would reintroduce the very "retry never re-wakes" bug the attempt in
+      // the key fixes.
+      if (
+        signal.attempt <= 1 &&
+        consumed.has(
+          buildTaskHeartbeatCompletionIdempotencyKey({
+            heartbeatId: args.heartbeat.id,
+            outcome: "fired",
+            signalKey: `${signal.runId}:${signal.stepId}:${signal.status}`,
+          }),
+        )
+      ) {
+        return false;
+      }
+      return true;
+    });
   }
 
   async function readCompletions(heartbeat: TaskHeartbeat) {
@@ -343,7 +364,21 @@ export function createTaskSupervisorRuntime(
       });
       return [];
     }
-    return selectUnconsumedCompletions({ heartbeat, signals });
+    // Only work that reached a terminal state after this heartbeat existed is
+    // signalable. Without the baseline, a freshly created (or re-created)
+    // completion heartbeat has no occurrence rows at all, so every old
+    // terminal receipt still inside the feed window would read as new and the
+    // creation itself would trigger a burst of wake-ups for work that finished
+    // long ago. `createdAt` survives updates, so an updated heartbeat keeps
+    // its original baseline and its consumed receipts.
+    const baseline = Date.parse(heartbeat.createdAt);
+    const eligible = Number.isFinite(baseline)
+      ? signals.filter((signal) => {
+          const completedAt = Date.parse(signal.completedAt);
+          return !Number.isFinite(completedAt) || completedAt >= baseline;
+        })
+      : signals;
+    return selectUnconsumedCompletions({ heartbeat, signals: eligible });
   }
 
   function buildObservation(args: {
@@ -624,12 +659,19 @@ export function createTaskSupervisorRuntime(
     if (decision.action === "defer") {
       // Collapsed by idempotency key, so a long user turn leaves one row per
       // missed instant rather than one per tick.
-      recordOccurrence({
+      const deferred = recordOccurrence({
         heartbeat,
         outcome: "deferred",
         scheduledFor: decision.dueAt,
         reason: decision.detail,
       });
+      if (deferred.recorded) {
+        // The fire paths prune after themselves, but a heartbeat can defer for
+        // a very long time without ever firing — pruning here keeps its
+        // history bounded instead of growing one row per missed instant
+        // forever. The `fired` retention floor is unaffected.
+        persistence.pruneTaskHeartbeatOccurrences({ heartbeatId: heartbeat.id });
+      }
       return heartbeat;
     }
 
@@ -644,15 +686,42 @@ export function createTaskSupervisorRuntime(
       );
     }
 
-    for (const skippedAt of decision.skippedAt) {
-      recordOccurrence({
-        heartbeat,
-        outcome: "skipped",
-        scheduledFor: skippedAt,
-        reason: decision.truncated
-          ? "Missed while Stave was not running; more occurrences were missed than are recorded."
-          : "Missed while Stave was not running.",
-      });
+    if (decision.skippedAt.length > 0) {
+      // "Missed" has two different causes and the row should not lie about
+      // which one happened: an instant that has a durable `deferred` row was
+      // skipped while Stave was running but the task was busy with another
+      // turn; one without was missed while Stave was not running at all.
+      const deferredKeys = new Set(
+        persistence
+          .listTaskHeartbeatOccurrences({
+            heartbeatId: heartbeat.id,
+            limit: TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences,
+          })
+          .filter((occurrence) => occurrence.outcome === "deferred")
+          .map((occurrence) => occurrence.idempotencyKey),
+      );
+      const truncatedSuffix = decision.truncated
+        ? " More occurrences were missed than are recorded."
+        : "";
+      for (const skippedAt of decision.skippedAt) {
+        const wasDeferred = deferredKeys.has(
+          buildTaskHeartbeatIdempotencyKey({
+            heartbeatId: heartbeat.id,
+            outcome: "deferred",
+            scheduledFor: skippedAt,
+          }),
+        );
+        recordOccurrence({
+          heartbeat,
+          outcome: "skipped",
+          scheduledFor: skippedAt,
+          reason: `${
+            wasDeferred
+              ? "Skipped while the task was busy with another turn."
+              : "Missed while Stave was not running."
+          }${truncatedSuffix}`,
+        });
+      }
     }
 
     const fired = recordOccurrence({
@@ -792,7 +861,17 @@ export function createTaskSupervisorRuntime(
     if (intervalHandle) {
       return;
     }
-    closeInterruptedHeartbeatTurns();
+    try {
+      // The boot sweep must not be able to keep the supervisor from starting:
+      // one unreadable heartbeat row would otherwise take every heartbeat (and
+      // the host service's startup path) down with it.
+      closeInterruptedHeartbeatTurns();
+    } catch (error) {
+      console.error(
+        "[task-supervisor] failed to close interrupted heartbeat turns",
+        error,
+      );
+    }
     void enqueue(reportInterruptedHeartbeatWakes).catch((error) => {
       console.error(
         "[task-supervisor] failed to report interrupted wake-ups",
@@ -914,6 +993,14 @@ export function createTaskSupervisorRuntime(
       enqueue(async () => {
         const input = TaskHeartbeatUpsertInputSchema.parse(rawInput);
         const current = requireHeartbeat(id);
+        if (current.state === "stopped") {
+          // Matches `resume`: a stopped heartbeat is terminal for a stated
+          // reason, and an update quietly rescheduling it would erase that
+          // reason. Creating a fresh heartbeat replaces a stopped one instead.
+          throw new Error(
+            `This heartbeat stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
+          );
+        }
         if (
           input.taskId !== current.taskId ||
           input.workspaceId !== current.workspaceId
@@ -942,7 +1029,13 @@ export function createTaskSupervisorRuntime(
         return persistence.upsertTaskHeartbeat({
           ...updated,
           createdAt: current.createdAt,
-          occurrenceCount: current.occurrenceCount,
+          // Switching trigger kinds resets the fired count: a schedule that
+          // already fired dozens of times must not arrive at the completion
+          // trigger's default cap half spent (or vice versa).
+          occurrenceCount:
+            input.trigger.kind === current.trigger.kind
+              ? current.occurrenceCount
+              : 0,
           skippedCount: current.skippedCount,
           lastOccurrenceAt: current.lastOccurrenceAt,
         });

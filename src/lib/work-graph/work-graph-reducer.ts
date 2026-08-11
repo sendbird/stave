@@ -20,8 +20,10 @@ import {
   providerAgentNodeKey,
   toolCallNodeKey,
   turnNodeKey,
+  WORK_GRAPH_INTERACTION_LIMIT,
   WORK_GRAPH_NODE_LIMIT,
   WORK_GRAPH_PROGRESS_LIMIT,
+  WORK_GRAPH_SPAWN_INDEX_LIMIT,
   WORK_GRAPH_WORK_ITEM_LIMIT,
   type AgentNode,
   type Dependency,
@@ -206,6 +208,38 @@ function appendProgress(progress: string[], line: string | undefined) {
 }
 
 /**
+ * The parent this node may actually claim, which is the reported one unless
+ * that claim would close a loop.
+ *
+ * A cycle cannot be drawn: the tree walk starts at the root, a cycle's members
+ * are reachable from nowhere, and both nodes silently vanish from the tree and
+ * the Fleet summary. That happens with only two nodes and one confused
+ * provider — A arrives naming B before B exists, then B arrives naming A. The
+ * losing claim is re-rooted instead of accepted: a node drawn at the top level
+ * is wrong about its position but present, the same trade the tree already
+ * makes for orphans.
+ */
+function resolveAcyclicParentKey(
+  graph: WorkGraph,
+  nodeKey: string,
+  parentKey: string | null | undefined,
+): string | null | undefined {
+  if (!parentKey || parentKey === graph.rootKey) {
+    return parentKey;
+  }
+  const seen = new Set<string>([nodeKey]);
+  let cursor: string | null | undefined = parentKey;
+  while (cursor) {
+    if (seen.has(cursor)) {
+      return graph.rootKey;
+    }
+    seen.add(cursor);
+    cursor = graph.nodesByKey[cursor]?.parentKey;
+  }
+  return parentKey;
+}
+
+/**
  * Create the node if it is new, otherwise fold in whatever this event knew.
  *
  * Returns the same graph object when nothing changed, so callers can rely on
@@ -246,7 +280,7 @@ function upsertNode(
       childTaskId: patch.childTaskId,
       attempt: patch.attempt,
       spawnedByToolUseId: patch.spawnedByToolUseId,
-      parentKey: patch.parentKey ?? null,
+      parentKey: resolveAcyclicParentKey(graph, key, patch.parentKey) ?? null,
       label: patch.label ?? UNNAMED_AGENT_LABEL,
       badge: patch.badge,
       status: patch.status ?? "running",
@@ -282,7 +316,8 @@ function upsertNode(
     // real one and re-parenting mid-turn would make the tree jump.
     parentKey:
       existing.parentKey === null || existing.parentKey === graph.rootKey
-        ? (patch.parentKey ?? existing.parentKey)
+        ? (resolveAcyclicParentKey(graph, key, patch.parentKey) ??
+          existing.parentKey)
         : existing.parentKey,
     label: patch.label ?? existing.label,
     badge: patch.badge ?? existing.badge,
@@ -510,6 +545,20 @@ function resolveSpawnedNode(
     };
   }
   if (event.toolUseId) {
+    // The spawn index first: after a call node has been promoted onto the
+    // agent the provider later named, a replayed copy of the same tool event
+    // carries only the tool-use id again. Keying a fresh call node from it
+    // would resurrect the retired node and draw the worker twice — runtimes
+    // replay tool state on reconnect, so this is the normal case, not an edge.
+    const mappedKey = graph.nodeKeyBySpawnToolUseId[event.toolUseId];
+    const mapped = mappedKey ? graph.nodesByKey[mappedKey] : undefined;
+    if (mappedKey && mapped) {
+      return {
+        key: mappedKey,
+        identitySource: mapped.identitySource,
+        agentId: mapped.agentId,
+      };
+    }
     return {
       key: toolCallNodeKey(event.toolUseId),
       identitySource: "tool-call" as const,
@@ -705,6 +754,37 @@ function bindSpawnedAgentIdentity(args: {
 }
 
 /**
+ * Record spawning tool-use id → spawned node, bounded twice over.
+ *
+ * No entry is written for a node the node cap refused to create, and the index
+ * stops growing at its own ceiling — the graph lives in the store for the whole
+ * turn, so a runaway stream of spawning calls must not keep growing this map
+ * after the node table has stopped.
+ */
+function recordSpawnMapping(
+  graph: WorkGraph,
+  toolUseId: string | undefined,
+  nodeKey: string,
+): WorkGraph {
+  if (
+    !toolUseId ||
+    graph.nodeKeyBySpawnToolUseId[toolUseId] ||
+    !graph.nodesByKey[nodeKey] ||
+    Object.keys(graph.nodeKeyBySpawnToolUseId).length >=
+      WORK_GRAPH_SPAWN_INDEX_LIMIT
+  ) {
+    return graph;
+  }
+  return {
+    ...graph,
+    nodeKeyBySpawnToolUseId: {
+      ...graph.nodeKeyBySpawnToolUseId,
+      [toolUseId]: nodeKey,
+    },
+  };
+}
+
+/**
  * The Local MCP call a task makes to delegate durable work to a child task.
  *
  * Matched by suffix because each runtime prefixes MCP tools its own way
@@ -774,7 +854,7 @@ export function reduceWorkGraphEvent(
         now,
       });
       const ownerKey = resolveOwnerKey(bound, event);
-      let next = ensureOwnerNode(bound, ownerKey, now);
+      let next = ensureOwnerNode(bound, ownerKey, now, event.ownerAgentId);
       const status = TOOL_STATE_STATUS[event.state];
 
       const delegationKey = resolveDelegationKeyFromTool(
@@ -804,15 +884,7 @@ export function reduceWorkGraphEvent(
           },
           now,
         );
-        if (event.toolUseId && !next.nodeKeyBySpawnToolUseId[event.toolUseId]) {
-          next = {
-            ...next,
-            nodeKeyBySpawnToolUseId: {
-              ...next.nodeKeyBySpawnToolUseId,
-              [event.toolUseId]: nodeKey,
-            },
-          };
-        }
+        next = recordSpawnMapping(next, event.toolUseId, nodeKey);
         return upsertWorkItem(
           next,
           {
@@ -849,15 +921,7 @@ export function reduceWorkGraphEvent(
             },
             now,
           );
-          if (event.toolUseId && !next.nodeKeyBySpawnToolUseId[event.toolUseId]) {
-            next = {
-              ...next,
-              nodeKeyBySpawnToolUseId: {
-                ...next.nodeKeyBySpawnToolUseId,
-                [event.toolUseId]: spawned.key,
-              },
-            };
-          }
+          next = recordSpawnMapping(next, event.toolUseId, spawned.key);
           return upsertWorkItem(
             next,
             {
@@ -958,18 +1022,33 @@ export function reduceWorkGraphEvent(
       if (!line) {
         return graph;
       }
-      const bound = bindSpawnedAgentIdentity({
-        graph,
-        toolUseId: event.toolUseId,
-        agentId: event.agentId,
-        now,
-      });
+      // A guessed correlation may route text, never identity: binding the
+      // guessed tool-use id to the reported agent id would permanently promote
+      // the wrong call node, cross-wiring two concurrent workers' rows and
+      // results. Only an authoritative match may create the spawn↔identity
+      // binding; a later authoritative event still binds normally.
+      const isGuess = event.binding === "guess";
+      const bound = isGuess
+        ? graph
+        : bindSpawnedAgentIdentity({
+            graph,
+            toolUseId: event.toolUseId,
+            agentId: event.agentId,
+            now,
+          });
       const key = event.agentId
         ? providerAgentNodeKey(bound.providerId, event.agentId)
         : event.toolUseId
-          ? (bound.nodeKeyBySpawnToolUseId[event.toolUseId] ??
-            toolCallNodeKey(event.toolUseId))
+          ? bound.nodeKeyBySpawnToolUseId[event.toolUseId]
           : resolveOwnerKey(bound, event);
+      // A tool-use id with no spawn mapping and no agent id names no worker.
+      // Manufacturing a call node here is how every Codex MCP progress ping
+      // used to mint a phantom "running" agent that nothing ever settled: the
+      // line still reaches the flat activity shelf through its own path, so
+      // the graph drops it rather than inventing an agent.
+      if (!key) {
+        return bound;
+      }
       const existing = bound.nodesByKey[key];
       return upsertNode(
         bound,
@@ -979,7 +1058,9 @@ export function reduceWorkGraphEvent(
             existing?.identitySource ??
             (event.agentId ? "provider" : "tool-call"),
           agentId: event.agentId,
-          spawnedByToolUseId: event.toolUseId,
+          // A guessed tool-use id must not stick to the node either: it is the
+          // same laundering one field over.
+          ...(isGuess ? {} : { spawnedByToolUseId: event.toolUseId }),
           parentKey: existing?.parentKey ?? bound.rootKey,
           progress: appendProgress(existing?.progress ?? [], line),
         },
@@ -990,7 +1071,7 @@ export function reduceWorkGraphEvent(
     case "approval": {
       const ownerKey = resolveOwnerKey(graph, event);
       return recordWorkGraphInteraction(
-        ensureOwnerNode(graph, ownerKey, now),
+        ensureOwnerNode(graph, ownerKey, now, event.ownerAgentId),
         {
           id: approvalInteractionId(event.requestId),
           nodeKey: ownerKey,
@@ -1008,7 +1089,7 @@ export function reduceWorkGraphEvent(
     case "user_input": {
       const ownerKey = resolveOwnerKey(graph, event);
       return recordWorkGraphInteraction(
-        ensureOwnerNode(graph, ownerKey, now),
+        ensureOwnerNode(graph, ownerKey, now, event.ownerAgentId),
         {
           id: userInputInteractionId(event.requestId),
           nodeKey: ownerKey,
@@ -1052,17 +1133,63 @@ function workItemId(
  * activity from inside a subagent without a preceding spawn Stave saw. Naming
  * it here keeps its work attributed to it instead of silently collapsing into
  * the turn root.
+ *
+ * `ownerAgentId` is carried onto the node, not just into the key: the liveness
+ * gate reads `node.agentId`, so a provider-identity node created without it
+ * would be absent from `collectLiveWorkGraphIdentities` and every control on a
+ * visibly live agent would refuse with "no longer running".
  */
-function ensureOwnerNode(graph: WorkGraph, ownerKey: string, now: number) {
-  if (graph.nodesByKey[ownerKey]) {
+function ensureOwnerNode(
+  graph: WorkGraph,
+  ownerKey: string,
+  now: number,
+  ownerAgentId?: string,
+) {
+  const existing = graph.nodesByKey[ownerKey];
+  if (existing) {
+    if (
+      ownerAgentId &&
+      !existing.agentId &&
+      ownerKey === providerAgentNodeKey(graph.providerId, ownerAgentId)
+    ) {
+      return upsertNode(
+        graph,
+        ownerKey,
+        { identitySource: existing.identitySource, agentId: ownerAgentId },
+        now,
+      );
+    }
     return graph;
   }
   return upsertNode(
     graph,
     ownerKey,
-    { identitySource: "provider", parentKey: graph.rootKey },
+    {
+      identitySource: "provider",
+      parentKey: graph.rootKey,
+      // Only when the key was actually derived from this id — a key resolved
+      // through the spawn index or the root names no owner identity.
+      ...(ownerAgentId &&
+      ownerKey === providerAgentNodeKey(graph.providerId, ownerAgentId)
+        ? { agentId: ownerAgentId }
+        : {}),
+    },
     now,
   );
+}
+
+/**
+ * A malformed ledger timestamp becomes "unknown", never `NaN`. `NaN` on a node
+ * is worse than a crash here: it fails every equality check, so
+ * `isNodeUnchanged` reports the node changed on every merge and each repeat of
+ * the child listing publishes a fresh graph to every subscriber.
+ */
+function parseLedgerTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 /**
@@ -1120,9 +1247,7 @@ export function mergeChildTasksIntoWorkGraph(
         ),
         status: CHILD_PHASE_STATUS[child.phase] ?? "running",
         reason: child.reason ?? undefined,
-        completedAt: child.completedAt
-          ? Date.parse(child.completedAt)
-          : undefined,
+        completedAt: parseLedgerTimestamp(child.completedAt),
       },
       now,
     );
@@ -1144,10 +1269,27 @@ function recordWorkGraphInteraction(
   now: number,
 ): WorkGraph {
   const existing = graph.interactionsById[interaction.id];
+  // Terminal never regresses, for prompts as for statuses: runtimes replay
+  // events on reconnect, and a replayed approval for a request the person has
+  // already answered would re-raise the "Needs you" badge and the blocked-on
+  // edge with nothing left to clear them.
+  if (existing?.resolvedAt && !interaction.resolvedAt) {
+    return graph;
+  }
   if (
     existing &&
     existing.resolvedAt === interaction.resolvedAt &&
     existing.nodeKey === interaction.nodeKey
+  ) {
+    return graph;
+  }
+  // Interactions are keyed by provider request id, so a turn that prompts in a
+  // loop grows this map for as long as it runs. Same bound as nodes and work
+  // items: past the cap, new prompts are dropped from the graph (the chat-level
+  // interaction card still shows them).
+  if (
+    !existing &&
+    Object.keys(graph.interactionsById).length >= WORK_GRAPH_INTERACTION_LIMIT
   ) {
     return graph;
   }

@@ -24,6 +24,7 @@ import {
 import type { NotificationAttentionSync } from "@/store/notification-attention-sync";
 import { resolveTaskWorkspaceContext } from "@/store/project.utils";
 import { trimLoadedTaskMessages } from "@/store/task-message-loading";
+import { removeTaskTurnRuntimeEntries } from "@/store/task-turn-runtime-cleanup";
 import { removePaneTabMetaEntry } from "@/store/workspace-pane-state";
 import { interruptActiveTaskTurns } from "@/store/workspace-session-state";
 import type { ChatMessage, Task } from "@/types/chat";
@@ -455,6 +456,14 @@ export function createTaskLifecycleActions(args: {
             ),
           },
           activeTurnIdsByTask: interrupted.activeTurnIdsByTask,
+          // An archived task's turn runtime snapshots (activity + Stage G work
+          // graph, advisor exchange, host turn ownership) would otherwise
+          // linger until restart: the aborted turn's late `done` is dropped for
+          // archived tasks, so nothing downstream ever clears them.
+          ...removeTaskTurnRuntimeEntries({
+            state,
+            taskIds: [taskId],
+          }),
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });

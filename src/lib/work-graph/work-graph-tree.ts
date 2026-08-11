@@ -129,6 +129,15 @@ export function buildWorkGraphTree(graph: WorkGraph): WorkGraphTreeRow[] {
   };
 
   walk(graph.rootKey, 0);
+  // Anything the walk could not reach — a parent cycle the reducer did not get
+  // to re-root, or any other malformed chain — is surfaced at the top level
+  // rather than dropped: an agent shown in the wrong place is still better
+  // than one that vanished from both the tree and the Fleet count.
+  for (const key of graph.orderedNodeKeys) {
+    if (!visited.has(key) && key !== graph.rootKey) {
+      walk(key, 1);
+    }
+  }
   return rows;
 }
 

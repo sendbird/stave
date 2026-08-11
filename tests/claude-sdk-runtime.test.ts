@@ -32,6 +32,7 @@ import {
   isReadOnlyMcpLeafToolName,
   shouldRedirectClaudePreloadedSkillToolUse,
   shouldDenyClaudeToolInPlanMode,
+  buildClaudeSubagentProgressEvent,
   SubagentProgressTracker,
   waitForClaudeToolDecision,
 } from "../electron/providers/claude-sdk-runtime";
@@ -2210,6 +2211,61 @@ describe("SubagentProgressTracker", () => {
   test("returns undefined when no agents have been tracked", () => {
     const tracker = new SubagentProgressTracker();
     expect(tracker.resolveToolUseId({})).toBeUndefined();
+  });
+
+  test("a positional-fallback match crosses the event boundary as a guess", () => {
+    // `resolvedBy` does not travel on the wire, so without the binding marker
+    // a guessed tool_use_id emitted next to the message's real task_id reads
+    // downstream as an authoritative spawn↔identity pair — which is exactly
+    // how the work graph cross-wired two concurrent Tasks.
+    const tracker = new SubagentProgressTracker();
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "Task",
+      toolUseId: "toolu_a",
+      input: "{}",
+      state: "input-streaming",
+    });
+    tracker.trackEvent({
+      type: "tool",
+      toolName: "Task",
+      toolUseId: "toolu_b",
+      input: "{}",
+      state: "input-streaming",
+    });
+
+    const guessed = buildClaudeSubagentProgressEvent({
+      summary: "Reading callers",
+      resolution: tracker.resolveProgress({ task_id: "agent_a" }),
+    });
+    expect(guessed).toEqual({
+      type: "subagent_progress",
+      toolUseId: "toolu_b",
+      content: "Reading callers",
+      agentId: "agent_a",
+      binding: "guess",
+    });
+
+    const direct = buildClaudeSubagentProgressEvent({
+      summary: "Found 4",
+      resolution: tracker.resolveProgress({
+        tool_use_id: "toolu_a",
+        task_id: "agent_a",
+      }),
+    });
+    expect(direct).toMatchObject({
+      toolUseId: "toolu_a",
+      agentId: "agent_a",
+      binding: "authoritative",
+    });
+
+    // No correlation at all carries no binding claim either way.
+    const unresolvedTracker = new SubagentProgressTracker();
+    const unresolved = buildClaudeSubagentProgressEvent({
+      summary: "Working",
+      resolution: unresolvedTracker.resolveProgress({}),
+    });
+    expect(unresolved).not.toHaveProperty("binding");
   });
 });
 

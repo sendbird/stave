@@ -1,3 +1,4 @@
+import { truncateUtf8Middle } from "@/lib/providers/transport-bounds";
 import type {
   ApprovalPart,
   ChatMessage,
@@ -12,6 +13,24 @@ type ToolResultEvent = {
   isError?: boolean;
   isPartial?: boolean;
 };
+
+/**
+ * Per-part cap on a tool result's output. SDK passthrough tools can emit
+ * multi-megabyte outputs, and every merged part lives in the renderer's
+ * message state for the task's lifetime; the cap matches the transport-bounds
+ * retry budget (256 KiB) already used to bound provider request payloads.
+ */
+export const TOOL_RESULT_OUTPUT_MAX_BYTES = 256 * 1024;
+
+const TOOL_RESULT_TRUNCATION_MARKER = "\n…<output truncated>…\n";
+
+function capToolResultOutput(output: string): string {
+  return truncateUtf8Middle({
+    value: output,
+    maxBytes: TOOL_RESULT_OUTPUT_MAX_BYTES,
+    marker: TOOL_RESULT_TRUNCATION_MARKER,
+  });
+}
 
 export function hasRenderableAssistantPart(part: MessagePart): boolean {
   if (part.type === "text") {
@@ -64,7 +83,7 @@ export function mergeToolResultIntoPart(args: {
   if (event.isError) {
     return {
       ...part,
-      output: event.output,
+      output: capToolResultOutput(event.output),
       state: "output-error",
     };
   }
@@ -75,7 +94,7 @@ export function mergeToolResultIntoPart(args: {
 
   return {
     ...part,
-    output: event.output,
+    output: capToolResultOutput(event.output),
     state: nextState,
   };
 }

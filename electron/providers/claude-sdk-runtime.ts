@@ -2534,6 +2534,13 @@ export class SubagentProgressTracker {
  * message. Each id is carried only when the provider actually reported it:
  * `agentId` from the message's `task_id`, `ownerAgentId` from hook metadata for
  * a non-guessed tool_use_id match.
+ *
+ * The resolution's confidence crosses the event boundary as `binding`, because
+ * withholding `ownerAgentId` alone is not enough: a positional-fallback
+ * `toolUseId` emitted next to the message's real `task_id` still reads
+ * downstream as "this call spawned this agent", and the work graph would bind
+ * the guess permanently. `binding: "guess"` lets consumers route the text
+ * without ever treating the correlation as identity.
  */
 export function buildClaudeSubagentProgressEvent(args: {
   summary: string;
@@ -2546,6 +2553,14 @@ export function buildClaudeSubagentProgressEvent(args: {
     ...(args.resolution.agentId ? { agentId: args.resolution.agentId } : {}),
     ...(args.resolution.ownerAgentId
       ? { ownerAgentId: args.resolution.ownerAgentId }
+      : {}),
+    ...(args.resolution.toolUseId
+      ? {
+          binding:
+            args.resolution.resolvedBy === "positional_fallback"
+              ? ("guess" as const)
+              : ("authoritative" as const),
+        }
       : {}),
   };
 }
@@ -5098,6 +5113,11 @@ export async function streamClaudeWithSdk(
               toolName,
               requestId,
               questions,
+              // Same as the approval event below: `agentID` is set only when
+              // the question came from inside a subagent, which is exactly
+              // when the work graph needs it — the prompt lands on the worker
+              // that asked instead of reading as the whole turn being stuck.
+              ...(options.agentID ? { ownerAgentId: options.agentID } : {}),
             };
             eventCollector.append(userInputEvent);
             args.onEvent?.(userInputEvent);

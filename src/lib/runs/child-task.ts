@@ -168,6 +168,10 @@ export type ChildTaskDetachArgs = z.infer<typeof ChildTaskDetachArgsSchema>;
  * A fresh attempt on a delegation that ended without succeeding. Provider,
  * lifecycle and workspace are read back from the delegation itself, so a retry
  * cannot quietly become a different delegation wearing the same key.
+ *
+ * The permission profile is optional on purpose: omitted, the retry keeps the
+ * profile the delegation was originally created with. Sending one is an
+ * explicit override.
  */
 export const ChildTaskRetryArgsSchema = z
   .object({
@@ -176,7 +180,7 @@ export const ChildTaskRetryArgsSchema = z
     parentTaskId: z.string().trim().min(1).max(150),
     delegationKey: ChildTaskDelegationKeySchema,
     prompt: z.string().trim().min(1).max(100_000),
-    permissionProfile: ChildTaskPermissionProfileSchema.default("guided"),
+    permissionProfile: ChildTaskPermissionProfileSchema.optional(),
     expected: ChildTaskExpectedIdentitySchema,
   })
   .strict();

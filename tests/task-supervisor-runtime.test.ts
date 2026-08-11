@@ -23,7 +23,10 @@ function completionSignal(
     providerId: "claude-code",
     status: "completed",
     reason: null,
-    completedAt: "2026-08-09T23:59:00.000Z",
+    // After the harness's default heartbeat creation instant (00:00): only
+    // work that finishes after the heartbeat exists is signalable.
+    completedAt: "2026-08-10T00:30:00.000Z",
+    attempt: 1,
     ...overrides,
   };
 }
@@ -737,7 +740,7 @@ describe("task supervisor runtime — completion trigger", () => {
           runId: "child-task:task-1:a",
           stepId: "child-task:task-1:a:turn",
           childTaskId: "task-child-a",
-          completedAt: "2026-08-09T23:10:00.000Z",
+          completedAt: "2026-08-10T00:10:00.000Z",
         }),
         completionSignal({
           runId: "child-task:task-1:b",
@@ -745,7 +748,7 @@ describe("task supervisor runtime — completion trigger", () => {
           childTaskId: "task-child-b",
           status: "failed",
           reason: "The child task ran out of attempts.",
-          completedAt: "2026-08-09T23:20:00.000Z",
+          completedAt: "2026-08-10T00:20:00.000Z",
         }),
       ],
     });
@@ -811,7 +814,7 @@ describe("task supervisor runtime — completion trigger", () => {
             runId: "child-task:task-1:second",
             stepId: "child-task:task-1:second:turn",
             providerId,
-            completedAt: "2026-08-09T23:30:00.000Z",
+            completedAt: "2026-08-10T00:40:00.000Z",
           }),
         ],
       });
@@ -1082,6 +1085,109 @@ describe("task supervisor runtime — completion trigger", () => {
         input: completionInput({ taskId: "task-2" }),
       }),
     ).rejects.toThrow(/cannot be moved/i);
+  });
+
+  test("a retried delegation that fails again wakes the parent again", async () => {
+    // Same run, same step — a retry bumps only the attempt. The first failure
+    // is consumed; the second must not be deduped against it.
+    const failure = (attempt: number, completedAt: string) =>
+      completionSignal({
+        status: "failed",
+        reason: "boom",
+        attempt,
+        completedAt,
+      });
+    const harness = createHarness({
+      completions: [failure(1, "2026-08-10T00:30:00.000Z")],
+    });
+    const heartbeat = await harness.runtime.create(completionInput());
+    await arm(harness);
+
+    expect(harness.getRunCalls()).toHaveLength(1);
+
+    harness.setCompletions([failure(2, "2026-08-10T01:30:00.000Z")]);
+    harness.setNow("2026-08-10T01:31:00.000Z");
+    await harness.tick();
+
+    expect(harness.getRunCalls()).toHaveLength(2);
+    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(2);
+    // Re-delivering the retried failure is still a no-op.
+    await harness.tick();
+    expect(harness.getRunCalls()).toHaveLength(2);
+  });
+
+  test("creating a completion heartbeat does not consume work that finished before it", async () => {
+    const stale = completionSignal({
+      completedAt: "2026-08-09T20:00:00.000Z",
+    });
+    const harness = createHarness({ completions: [stale] });
+    const heartbeat = await harness.runtime.create(completionInput());
+    await arm(harness);
+
+    // The child finished before the heartbeat existed, so creation must not
+    // trigger a burst of wake-ups for old receipts.
+    expect(harness.getRunCalls()).toHaveLength(0);
+    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(0);
+
+    // Work finishing after the heartbeat exists still wakes it.
+    harness.setCompletions([
+      stale,
+      completionSignal({
+        runId: "child-task:task-1:fresh",
+        stepId: "child-task:task-1:fresh:turn",
+        childTaskId: "task-child-fresh",
+        completedAt: "2026-08-10T01:00:00.000Z",
+      }),
+    ]);
+    harness.setNow("2026-08-10T01:00:05.000Z");
+    await harness.tick();
+
+    expect(harness.getRunCalls()).toHaveLength(1);
+    const context = harness.getRunCalls()[0]?.retrievedContextParts?.[0] as {
+      content: string;
+    };
+    expect(context.content).toContain("task-child-fresh");
+    expect(context.content).not.toContain("task-child-1");
+  });
+
+  test("a stopped heartbeat refuses an update instead of resurrecting", async () => {
+    const harness = createHarness({ completions: [completionSignal()] });
+    const heartbeat = await harness.runtime.create(
+      completionInput({ maxOccurrences: 1 }),
+    );
+    await arm(harness);
+
+    expect(harness.store.get(heartbeat.id)!.state).toBe("stopped");
+    await expect(
+      harness.runtime.update({ id: heartbeat.id, input: completionInput() }),
+    ).rejects.toThrow(/stopped for good/i);
+    expect(harness.store.get(heartbeat.id)!.state).toBe("stopped");
+  });
+
+  test("switching trigger kinds resets the fired count against the new cap", async () => {
+    const harness = createHarness({ completions: [] });
+    const heartbeat = await harness.runtime.create(createInput());
+    harness.runtime.start();
+    await harness.drain();
+    harness.setNow("2026-08-10T01:00:00.000Z");
+    await harness.tick();
+
+    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(1);
+
+    // A schedule that already fired must not arrive at the completion
+    // trigger's default cap partly spent.
+    await harness.runtime.update({
+      id: heartbeat.id,
+      input: completionInput(),
+    });
+    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(0);
+
+    // Same-kind updates keep the count.
+    await harness.runtime.update({
+      id: heartbeat.id,
+      input: completionInput(),
+    });
+    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(0);
   });
 });
 

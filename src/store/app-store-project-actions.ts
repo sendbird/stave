@@ -31,6 +31,11 @@ import {
   resolveInitialWorkspaceFiles,
   resolveWorkspacePathForId,
 } from "@/store/workspace-file-cache";
+import {
+  listTaskIdsForWorkspaces,
+  removeRecordEntries,
+  removeTaskTurnRuntimeEntries,
+} from "@/store/task-turn-runtime-cleanup";
 import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
 import {
   buildWorkspaceSessionState,
@@ -610,13 +615,49 @@ export function createProjectActions(args: {
         const nextRecentProjects = state.recentProjects.filter(
           (project) => project.projectPath !== normalizedProjectPath,
         );
+        // Tasks removed with the project would otherwise strand their turn
+        // runtime snapshots and persisted checkpoint/verification entries.
+        const removedTaskIds = [
+          ...new Set([
+            ...listTaskIdsForWorkspaces({
+              taskWorkspaceIdById: state.taskWorkspaceIdById,
+              workspaceIds: [...workspaceIds],
+            }),
+            ...[...workspaceIds].flatMap((removedWorkspaceId) =>
+              (
+                state.workspaceRuntimeCacheById[removedWorkspaceId]?.tasks ?? []
+              ).map((task) => task.id),
+            ),
+            ...(isCurrentProject ? state.tasks.map((task) => task.id) : []),
+          ]),
+        ];
+        const turnRuntimePatch = removeTaskTurnRuntimeEntries({
+          state,
+          taskIds: removedTaskIds,
+        });
+        const nextTurnVerificationByWorkspace = removeRecordEntries(
+          state.turnVerificationByWorkspace,
+          [...workspaceIds],
+        );
+        const turnVerificationPatch = nextTurnVerificationByWorkspace
+          ? { turnVerificationByWorkspace: nextTurnVerificationByWorkspace }
+          : {};
 
         if (!isCurrentProject) {
+          const nextTaskCheckpointById = removeRecordEntries(
+            state.taskCheckpointById,
+            removedTaskIds,
+          );
           return {
             recentProjects: nextRecentProjects,
             workspaceRuntimeCacheById: nextRuntimeCacheById,
             workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
             taskWorkspaceIdById: nextTaskWorkspaceIdById,
+            ...turnRuntimePatch,
+            ...turnVerificationPatch,
+            ...(nextTaskCheckpointById
+              ? { taskCheckpointById: nextTaskCheckpointById }
+              : {}),
           };
         }
 
@@ -624,6 +665,8 @@ export function createProjectActions(args: {
           snapshot: null,
         });
         return {
+          ...turnRuntimePatch,
+          ...turnVerificationPatch,
           hasHydratedWorkspaces: false,
           workspaceSnapshotVersion: 0,
           workspaces: [],

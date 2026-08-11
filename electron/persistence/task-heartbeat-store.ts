@@ -374,9 +374,16 @@ export class TaskHeartbeatStore {
     heartbeatId: string;
     limit?: number;
   }): TaskHeartbeatOccurrence[] {
+    // The clamp must cover everything pruning can retain: up to
+    // `maxRetainedOccurrences` recent rows PLUS up to
+    // `minRetainedFiredOccurrences` protected `fired` rows. Clamping to the
+    // general cap alone would hide the protected `fired` rows from the
+    // supervisor's already-consumed check, and an invisible receipt is the
+    // same duplicate wake the retention floor exists to prevent.
     const limit = Math.min(
       Math.max(args.limit ?? 20, 1),
-      TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences,
+      TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences +
+        TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences,
     );
     const rows = this.db
       .prepare(

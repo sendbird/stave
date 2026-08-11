@@ -89,6 +89,7 @@ mock.module("../electron/providers/claude-sdk-runtime", () => ({
 
 mock.module("../electron/providers/codex-app-server-runtime", () => ({
   cleanupCodexAppServerTask: () => {},
+  disposeAllCodexAppServerClients: () => {},
   getCodexModelCatalog: async () => ({
     ok: true,
     detail: "",

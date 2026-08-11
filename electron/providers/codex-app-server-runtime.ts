@@ -212,6 +212,12 @@ export function resolveCodexApprovalDecisionTimeoutMs(args: {
 const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = 64 * 1024 * 1024;
 const CODEX_APP_SERVER_STDOUT_SOFT_LINE_MAX_BYTES = 1 * 1024 * 1024;
 const CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES = 32 * 1024 * 1024;
+/**
+ * Grace period between the teardown SIGTERM and the SIGKILL escalation. A
+ * wedged app-server that ignores SIGTERM would otherwise survive its own
+ * teardown while a fresh one respawns, accumulating ghost processes.
+ */
+const CODEX_APP_SERVER_KILL_ESCALATION_MS = 2_000;
 const CODEX_APP_SERVER_COLLECTED_EVENTS_MAX_BYTES = 512 * 1024;
 const CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES = 256 * 1024;
 const CODEX_APP_SERVER_PLAN_BUFFER_MAX_BYTES = 128 * 1024;
@@ -859,13 +865,15 @@ class CodexAppServerClient {
 
   async respond(requestId: JsonRpcId, result: unknown) {
     await this.ensureStarted();
-    this.process?.stdin.write(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: requestId,
-        result,
-      }) + "\n",
-    );
+    const child = this.process;
+    if (!child) {
+      return;
+    }
+    this.writeToProcessStdin(child, {
+      jsonrpc: "2.0",
+      id: requestId,
+      result,
+    });
   }
 
   async respondError(
@@ -873,13 +881,15 @@ class CodexAppServerClient {
     error: { code: number; message: string; data?: unknown },
   ) {
     await this.ensureStarted();
-    this.process?.stdin.write(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: requestId,
-        error,
-      }) + "\n",
-    );
+    const child = this.process;
+    if (!child) {
+      return;
+    }
+    this.writeToProcessStdin(child, {
+      jsonrpc: "2.0",
+      id: requestId,
+      error,
+    });
   }
 
   getLastErrorMessage() {
@@ -983,10 +993,35 @@ class CodexAppServerClient {
     });
 
     child.once("exit", (_code, signal) => {
+      // A superseded child's late exit must not tear down its replacement.
+      if (child !== this.process) {
+        return;
+      }
       this.teardownProcess(
         signal
           ? `Codex App Server exited with signal ${signal}.`
           : "Codex App Server exited.",
+      );
+    });
+
+    // A spawn failure (ENOENT/EACCES/EMFILE) or an async stdin write failure
+    // (EPIPE against a dying process) surfaces as an 'error' event; without a
+    // listener it becomes an uncaught exception that takes down the entire
+    // shared host service instead of failing just this client.
+    child.on("error", (error) => {
+      if (child !== this.process) {
+        return;
+      }
+      this.teardownProcess(
+        `Codex App Server process error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
+    child.stdin.on?.("error", (error: unknown) => {
+      if (child !== this.process) {
+        return;
+      }
+      this.teardownProcess(
+        `Codex App Server stdin error: ${error instanceof Error ? error.message : String(error)}`,
       );
     });
 
@@ -999,14 +1034,33 @@ class CodexAppServerClient {
         experimentalApi: true,
       },
     });
-    child.stdin.write(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        method: "initialized",
-        params: {},
-      }) + "\n",
-    );
+    this.writeToProcessStdin(child, {
+      jsonrpc: "2.0",
+      method: "initialized",
+      params: {},
+    });
     this.initialized = true;
+  }
+
+  /**
+   * Best-effort framed write that never throws: a destroyed or unwritable
+   * stdin reports failure instead of crashing the caller, and async write
+   * errors are handled by the stdin 'error' listener installed in start().
+   */
+  private writeToProcessStdin(
+    child: ChildProcessWithoutNullStreams,
+    payload: unknown,
+  ): boolean {
+    const stdin = child.stdin;
+    if (!stdin || stdin.destroyed || stdin.writable === false) {
+      return false;
+    }
+    try {
+      stdin.write(JSON.stringify(payload) + "\n");
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async sendRequest<T = unknown>(
@@ -1029,14 +1083,23 @@ class CodexAppServerClient {
         resolve,
         reject,
       });
-      child.stdin.write(
-        JSON.stringify({
-          jsonrpc: "2.0",
-          id: requestId,
-          method,
-          params,
-        }) + "\n",
-      );
+      const wrote = this.writeToProcessStdin(child, {
+        jsonrpc: "2.0",
+        id: requestId,
+        method,
+        params,
+      });
+      if (!wrote) {
+        // Reject immediately instead of waiting for the request deadline on a
+        // write that never reached the process.
+        const pending = takePendingCodexAppServerResponse({
+          pendingResponses: this.pendingResponses,
+          requestId,
+        });
+        pending?.reject(
+          new Error(`Codex App Server stdin is not writable (${method}).`),
+        );
+      }
     });
   }
 
@@ -1074,7 +1137,15 @@ class CodexAppServerClient {
   }
 
   private dispatchMessage(message: JsonRpcMessage) {
-    codexMcpManagement.captureNotification(this.executablePath, message);
+    try {
+      codexMcpManagement.captureNotification(this.executablePath, message);
+    } catch (error) {
+      // Diagnostics capture must never break protocol dispatch.
+      console.warn(
+        "[codex-app-server-runtime] failed to capture notification",
+        error,
+      );
+    }
     const hasResponseId =
       Object.prototype.hasOwnProperty.call(message, "id") &&
       (Object.prototype.hasOwnProperty.call(message, "result") ||
@@ -1101,7 +1172,16 @@ class CodexAppServerClient {
     }
 
     for (const listener of this.listeners) {
-      listener(message);
+      try {
+        listener(message);
+      } catch (error) {
+        // A throwing subscriber runs inside the stdout 'data' callback; an
+        // escaped exception there would take down the whole host service.
+        console.warn(
+          "[codex-app-server-runtime] notification listener failed",
+          error,
+        );
+      }
     }
   }
 
@@ -1113,6 +1193,20 @@ class CodexAppServerClient {
     this.lastErrorMessage = message;
     if (current && !current.killed) {
       current.kill();
+    }
+    // Escalate to SIGKILL if the process ignores SIGTERM; otherwise a wedged
+    // app-server survives its own teardown while a replacement respawns.
+    if (current && current.exitCode === null && current.signalCode === null) {
+      const killTimer = setTimeout(() => {
+        if (current.exitCode === null && current.signalCode === null) {
+          try {
+            current.kill("SIGKILL");
+          } catch {
+            // The process is already gone.
+          }
+        }
+      }, CODEX_APP_SERVER_KILL_ESCALATION_MS);
+      killTimer.unref?.();
     }
     rejectAllPendingCodexAppServerResponses({
       pendingResponses: this.pendingResponses,
@@ -1140,6 +1234,20 @@ function getCodexAppServerClient(args: { executablePath: string }) {
   const client = new CodexAppServerClient(executablePath);
   clientByExecutablePath.set(executablePath, client);
   return client;
+}
+
+/**
+ * Dispose every cached shared app-server client. Called from
+ * `providerRuntime.shutdown()` so the shared `codex app-server` processes are
+ * actually terminated on exit instead of surviving as ghosts.
+ */
+export function disposeAllCodexAppServerClients(
+  message = "Stave is shutting down.",
+) {
+  for (const client of clientByExecutablePath.values()) {
+    client.dispose(message);
+  }
+  clientByExecutablePath.clear();
 }
 
 function restartCodexAppServerForMcpConfigChange(executablePath: string) {

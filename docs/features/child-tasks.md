@@ -134,9 +134,15 @@ Use the child row's controls, or have the agent call `stave_stop_child_task`.
 Stopping cancels the ledger row durably and asks the child task to stop as a best
 effort, because a child that already ended is a successful stop. Detaching is the
 narrower action: it ends only the parent's claim, leaving the child alive as an
-ordinary task nobody is delegating to. Retrying starts a fresh attempt on the
-same child, reading provider, lifecycle and workspace back from the delegation so
-a retry cannot quietly become a different delegation reusing the key.
+ordinary task nobody is delegating to — including in the task listings: detach
+clears the delegation stamp on the child's task row, so the child reappears in
+ordinary workspace listings instead of staying hidden behind its former parent
+forever. Retrying starts a fresh attempt on the
+same child, reading provider, lifecycle, workspace, model and permission profile
+back from the delegation so a retry cannot quietly become a different delegation
+reusing the key. Only the prompt is expected to change — a retry may carry new
+instructions without tripping the `input-mismatch` guard, which continues to
+refuse a *non-retry* delegate under the same key with different inputs.
 
 ## Files And Data
 

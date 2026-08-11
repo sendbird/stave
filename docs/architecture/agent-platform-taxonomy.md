@@ -81,9 +81,20 @@ A runtime may report the two out of order — Claude names the spawning call
 first and the worker behind it only on a later progress message. The node is
 then rekeyed onto the identity rather than joined by a second node, because the
 half that would stay visible is the call, which is the half no control may
-target. `ownerAgentId` also travels on approval and user-input events, so a
-fan-out where one worker is waiting on a person does not read as one where all
-of them are.
+target. A correlation the runtime only guessed at (Claude's positional
+fallback) crosses the event boundary marked `binding: "guess"` and may route
+progress text to a row, but never creates or overwrites a spawn↔identity
+binding — a laundered guess would cross-wire two concurrent workers for the
+rest of the turn.
+
+`ownerAgentId` also travels on the prompts a person has to answer, exactly as
+far as the runtimes report an owner: Claude attaches it to approvals and to
+`AskUserQuestion` user-input raised inside a subagent (its permission callback
+is the only prompt path that carries the sub-agent id; MCP elicitations and
+user dialogs report none). Codex has no owner concept on prompts, so its
+approval and user-input events never carry it and a Codex prompt blocks the
+turn root. Where the id is present, a fan-out where one worker is waiting on a
+person does not read as one where all of them are.
 
 ### Layer 2 — Supervision: see everything, intervene from anywhere
 

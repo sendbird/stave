@@ -212,7 +212,9 @@ export function useChildTasks(args: {
                   parentTaskId,
                   delegationKey: input.delegationKey,
                   prompt: input.prompt,
-                  permissionProfile: "guided",
+                  // No profile on purpose: the coordinator treats an explicit
+                  // profile as an override and otherwise preserves the child's
+                  // original one.
                   expected: input.expected,
                 })
             : null,

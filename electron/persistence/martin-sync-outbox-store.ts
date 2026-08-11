@@ -327,13 +327,21 @@ export class MartinSyncOutboxStore {
     };
   }
 
+  /**
+   * Ages out rows the drain loop will never deliver again: delivered rows keep
+   * their payload only for the retention window, and failed or held rows whose
+   * last scheduled attempt (`next_attempt_at`) predates the cutoff are dropped
+   * too — a 404/409 hold never increments attempts, so without this they would
+   * accumulate forever.
+   */
   pruneDeliveredBefore(cutoff: string): number {
     const result = this.db
       .prepare(
         `DELETE FROM martin_sync_outbox
-         WHERE status = 'delivered' AND delivered_at < ?`,
+         WHERE (status = 'delivered' AND delivered_at < ?)
+            OR (status IN ('failed', 'held') AND next_attempt_at < ?)`,
       )
-      .run(cutoff);
+      .run(cutoff, cutoff);
     return Number(result.changes ?? 0);
   }
 }

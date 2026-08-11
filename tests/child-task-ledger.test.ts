@@ -129,6 +129,80 @@ describe("run ledger widening for child tasks", () => {
     });
   });
 
+  test("a retry attempt may carry revised inputs; a duplicate initial claim may not", () => {
+    const store = new RunLedgerStore(new Database(":memory:"));
+    const records = createChildRecords();
+
+    const claim = store.claimStep({
+      run: records.run,
+      step: records.step,
+      executionId: "execution-1",
+      idempotencyKey: records.delegationKey,
+      detail: {
+        providerId: "codex",
+        model: "gpt-5.3-codex",
+        permissionProfile: "auto",
+        workspaceMode: "new-worktree",
+      },
+      now: NOW,
+    });
+    expect(claim.accepted).toBe(true);
+    // The claim receipt records the delegation's original inputs so a retry
+    // can read them back — the step row only keeps a hash.
+    const acceptedReceipt = store
+      .listReceipts({ runId: records.run.id })
+      .find((receipt) => receipt.type === "accepted");
+    expect(acceptedReceipt?.detail).toMatchObject({
+      model: "gpt-5.3-codex",
+      permissionProfile: "auto",
+      workspaceMode: "new-worktree",
+    });
+
+    const failed = store.failStep({
+      runId: records.run.id,
+      stepId: records.step.id,
+      executionId: "execution-1",
+      idempotencyKey: "child:execution-1:failed",
+      error: "Provider exploded",
+      now: NOW,
+    });
+    expect(failed.accepted).toBe(true);
+
+    const revisedStep = { ...records.step, inputHash: "c".repeat(64) };
+
+    // Re-sending the *initial* claim with different inputs is a different
+    // delegation wearing the same key: still refused.
+    const duplicateInitial = store.claimStep({
+      run: records.run,
+      step: revisedStep,
+      executionId: "execution-2",
+      idempotencyKey: records.delegationKey,
+      now: NOW,
+    });
+    expect(duplicateInitial).toMatchObject({
+      accepted: false,
+      reason: "input-mismatch",
+    });
+
+    // A fresh attempt (a new idempotency key) on the failed step may revise
+    // its inputs — a retry's prompt is expected to change — and the stored
+    // hash moves with it.
+    const retry = store.claimStep({
+      run: records.run,
+      step: revisedStep,
+      executionId: "execution-3",
+      idempotencyKey: `${records.delegationKey}:attempt-2`,
+      now: NOW,
+    });
+    expect(retry.accepted).toBe(true);
+    const aggregate = store.getAggregate({
+      runId: records.run.id,
+      stepId: records.step.id,
+    });
+    expect(aggregate?.step.attempt).toBe(2);
+    expect(aggregate?.step.inputHash).toBe("c".repeat(64));
+  });
+
   test("a v1 database gains the target column without rewriting its rows", () => {
     const db = new Database(":memory:");
     // The exact schema version 1 shape: no `target_json`.
