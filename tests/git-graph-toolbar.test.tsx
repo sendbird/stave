@@ -5,13 +5,31 @@ import {
   GIT_GRAPH_LANE_PALETTE,
   GitGraphCanvas,
 } from "@/components/git-graph/GitGraphCanvas";
-import { GitGraphToolbar } from "@/components/git-graph/GitGraphToolbar";
+import {
+  GitGraphToolbar,
+  shouldSeparateRemoteBranches,
+} from "@/components/git-graph/GitGraphToolbar";
 import {
   GitGraphWorkingTreeRow,
   ROW_HEIGHT,
 } from "@/components/git-graph/GitGraphRow";
 
 describe("Commit graph toolbar", () => {
+  test("separates remote branches only when a local branch section precedes them", () => {
+    expect(
+      shouldSeparateRemoteBranches({
+        localBranchCount: 0,
+        remoteBranchCount: 1,
+      }),
+    ).toBe(false);
+    expect(
+      shouldSeparateRemoteBranches({
+        localBranchCount: 1,
+        remoteBranchCount: 1,
+      }),
+    ).toBe(true);
+  });
+
   test("uses a two-row compact layout and exposes unavailable status", () => {
     const html = renderToStaticMarkup(
       createElement(GitGraphToolbar, {
