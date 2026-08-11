@@ -363,6 +363,156 @@ describe("mapClaudeMessageToEvents", () => {
     ]);
   });
 
+  test("threads parent_tool_use_id onto nested tool events", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "assistant",
+        uuid: "assistant-nested-1",
+        session_id: "session-1",
+        parent_tool_use_id: "toolu_agent",
+        message: {
+          content: [
+            {
+              type: "tool_use",
+              id: "toolu_child",
+              name: "Read",
+              input: { file_path: "/workspace/a.ts" },
+            },
+          ],
+        },
+      } as never,
+      claudeDebugStream: false,
+    });
+
+    expect(events).toEqual([
+      {
+        type: "provider_turn",
+        providerId: "claude-code",
+        nativeSessionId: "session-1",
+        nativeTurnId: "assistant-nested-1",
+      },
+      {
+        type: "tool",
+        toolUseId: "toolu_child",
+        toolName: "Read",
+        input: JSON.stringify({ file_path: "/workspace/a.ts" }),
+        state: "input-available",
+        parentToolUseId: "toolu_agent",
+      },
+    ]);
+  });
+
+  test("omits parentToolUseId for top-level tool events", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "assistant",
+        uuid: "assistant-top-1",
+        session_id: "session-1",
+        parent_tool_use_id: null,
+        message: {
+          content: [
+            {
+              type: "tool_use",
+              id: "toolu_top",
+              name: "Bash",
+              input: { command: "ls" },
+            },
+          ],
+        },
+      } as never,
+      claudeDebugStream: false,
+    });
+
+    const toolEvent = events.find((event) => event.type === "tool");
+    expect(toolEvent).toBeDefined();
+    expect(toolEvent).not.toHaveProperty("parentToolUseId");
+    expect(toolEvent).not.toHaveProperty("agentId");
+    expect(toolEvent).not.toHaveProperty("ownerAgentId");
+  });
+
+  test("stamps tool events with the owning agent the tracker already knows", () => {
+    const tracker = new SubagentProgressTracker();
+    tracker.processRawMessage({
+      type: "hook_started",
+      input: { agent_id: "agent-42", tool_use_id: "toolu_child" },
+    });
+
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "assistant",
+        uuid: "assistant-nested-2",
+        session_id: "session-1",
+        parent_tool_use_id: "toolu_agent",
+        message: {
+          content: [
+            {
+              type: "tool_use",
+              id: "toolu_child",
+              name: "Grep",
+              input: { pattern: "todo" },
+            },
+            {
+              type: "tool_use",
+              id: "toolu_unknown",
+              name: "Glob",
+              input: { pattern: "*.ts" },
+            },
+          ],
+        },
+      } as never,
+      claudeDebugStream: false,
+      ownerAgentIdResolver: tracker,
+    });
+
+    const toolEvents = events.filter((event) => event.type === "tool");
+    expect(toolEvents).toMatchObject([
+      {
+        toolUseId: "toolu_child",
+        ownerAgentId: "agent-42",
+        parentToolUseId: "toolu_agent",
+      },
+      { toolUseId: "toolu_unknown", parentToolUseId: "toolu_agent" },
+    ]);
+    // The hook id says which worker ran the call, never which worker it
+    // spawned, so it must not land on agentId.
+    expect(toolEvents[0]).not.toHaveProperty("agentId");
+    expect(toolEvents[1]).not.toHaveProperty("ownerAgentId");
+  });
+
+  test("leaves agentId absent on an Agent spawn tool call", () => {
+    const tracker = new SubagentProgressTracker();
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "assistant",
+        uuid: "assistant-spawn-1",
+        session_id: "session-1",
+        parent_tool_use_id: null,
+        message: {
+          content: [
+            {
+              type: "tool_use",
+              id: "toolu_agent",
+              name: "Agent",
+              input: { subagent_type: "general-purpose" },
+            },
+          ],
+        },
+      } as never,
+      claudeDebugStream: false,
+      ownerAgentIdResolver: tracker,
+    });
+
+    const toolEvent = events.find((event) => event.type === "tool");
+    expect(toolEvent).toMatchObject({
+      toolUseId: "toolu_agent",
+      toolName: "Agent",
+    });
+    // The spawned worker's task_id does not exist yet; the reducer binds it
+    // later from a task_progress carrying both ids.
+    expect(toolEvent).not.toHaveProperty("agentId");
+    expect(toolEvent).not.toHaveProperty("ownerAgentId");
+  });
+
   test("surfaces compact_boundary as a system event", () => {
     const events = mapClaudeMessageToEvents({
       message: {

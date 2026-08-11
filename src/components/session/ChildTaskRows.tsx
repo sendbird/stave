@@ -9,6 +9,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import {
   useChildTasks,
   type ChildTaskActionResult,
+  type ChildTaskListingSource,
 } from "@/components/session/useChildTasks";
 import { Button, Textarea } from "@/components/ui";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
@@ -336,14 +337,24 @@ export function ChildTaskRows(props: {
   parentWorkspaceId?: string | null;
   projectPath?: string | null;
   enabled?: boolean;
+  /**
+   * A listing already loaded by an ancestor that needs it for something else
+   * too — the turn activity shelf reads it to fold delegated children into the
+   * turn's work graph. Passing it down keeps one subscription per parent task
+   * instead of one per view, and guarantees both views show the same rows.
+   */
+  source?: ChildTaskListingSource;
   className?: string;
 }) {
-  const { children, actions } = useChildTasks({
+  // Disabled rather than skipped: a hook cannot be conditional, and an disabled
+  // `useChildTasks` neither lists nor subscribes.
+  const ownListing = useChildTasks({
     parentTaskId: props.parentTaskId,
     parentWorkspaceId: props.parentWorkspaceId,
     projectPath: props.projectPath,
-    enabled: props.enabled,
+    enabled: props.source ? false : props.enabled,
   });
+  const { children, actions } = props.source ?? ownListing;
   const [errorByDelegationKey, setErrorByDelegationKey] = useState<
     Record<string, string>
   >({});

@@ -5,6 +5,7 @@ import {
   Coins,
   FileDiff,
   Gauge,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -108,6 +109,7 @@ export function TaskExecutionSummarySurface(args: {
   const usage = summary.usage.value;
   const accountLimit = summary.accountLimit.value;
   const contextHeadroom = summary.contextHeadroom.value;
+  const agents = summary.agents.value;
   const latest = summary.latestActivity.value;
   const verificationTone =
     verification?.status === "pass"
@@ -235,6 +237,22 @@ export function TaskExecutionSummarySurface(args: {
               ? `${Math.round(accountLimit.usedPercent)}% used · ${accountLimit.label}`
               : "Not reported"
           }
+        />
+        <SummaryMetric
+          compact={args.compact}
+          icon={Network}
+          label="Agents"
+          // A blocked agent outranks a failed one here: the failure is already
+          // history, while the block is the thing this reader can still clear.
+          tone={
+            agents && agents.blockedCount > 0
+              ? "warning"
+              : agents && agents.failedCount > 0
+                ? "danger"
+                : "default"
+          }
+          metric={summary.agents}
+          value={agents ? agents.label : "Main loop only"}
         />
         <SummaryMetric
           compact={args.compact}

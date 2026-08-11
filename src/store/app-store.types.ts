@@ -16,6 +16,7 @@ import type { UpdateModelRuntimePreferenceArgs } from "@/lib/providers/model-run
 import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
+import type { ChildTaskSummary } from "@/lib/runs/child-task";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import type { SkillCatalogEntry, SkillCatalogRoot } from "@/lib/skills/types";
 import type { TaskPreset } from "@/lib/task-presets";
@@ -560,6 +561,19 @@ export interface AppState
     scriptId?: string;
   }) => Promise<SendUserMessageResult>;
   abortTaskTurn: (args: { taskId: string }) => void;
+  /**
+   * Publish a parent's child-task listing into its active turn's work graph.
+   *
+   * The listing is read by the surface that shows it, but the graph is where
+   * both the Turn Activity tree and Fleet's agent count come from — so it has to
+   * land on the shared snapshot rather than being merged per view, or the two
+   * would report different fan-outs for the same turn. A no-op when the task has
+   * no live turn, and reference-stable when the listing has not changed.
+   */
+  syncChildTasksIntoTurnGraph: (args: {
+    taskId: string;
+    children: readonly ChildTaskSummary[];
+  }) => void;
   /**
    * Cancels only the Advisor preflight for the task's active turn. The primary
    * turn keeps running, so escaping a slow advisor is not an abort.

@@ -3,7 +3,14 @@ import {
   buildTaskExecutionSummary,
   buildTaskReviewArtifact,
 } from "@/lib/fleet/task-execution-summary";
-import type { RateLimitsSnapshotResponse } from "@/lib/providers/provider.types";
+import type {
+  NormalizedProviderEvent,
+  RateLimitsSnapshotResponse,
+} from "@/lib/providers/provider.types";
+import {
+  applyProviderTurnActivityEvents,
+  startProviderTurnActivity,
+} from "@/lib/providers/turn-status";
 import type { ChatMessage } from "@/types/chat";
 
 function assistantMessage(
@@ -290,5 +297,103 @@ describe("task execution summary", () => {
     expect(artifact.headline).toBe("Implemented the requested change.");
     expect(artifact.cautions).toContain("Verification was not reported.");
     expect(artifact.facts.some((fact) => fact.includes("passed"))).toBe(false);
+  });
+});
+
+describe("task execution summary — agents", () => {
+  function activityWithGraph(events: NormalizedProviderEvent[]) {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 1_000,
+    });
+    const applied = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      events,
+      now: 2_000,
+    });
+    return applied["task-1"] ?? null;
+  }
+
+  function spawn(toolUseId: string, agentId: string, description: string) {
+    return {
+      type: "tool",
+      toolName: "Task",
+      toolUseId,
+      agentId,
+      input: JSON.stringify({ description }),
+      state: "input-available",
+    } as NormalizedProviderEvent;
+  }
+
+  it("reports a fan-out as a derived metric rather than a new card", () => {
+    const summary = buildTaskExecutionSummary({
+      providerId: "claude-code",
+      messages: [],
+      activity: activityWithGraph([
+        spawn("toolu_1", "agent_1", "Sweep the callers"),
+        spawn("toolu_2", "agent_2", "Check the schema"),
+      ]),
+    });
+
+    expect(summary.agents.provenance).toBe("derived");
+    expect(summary.agents.value?.totalCount).toBe(2);
+    expect(summary.agents.value?.label).toBe("2 agents");
+    expect(summary.agents.sourceRefs).toEqual(["work-graph:turn-1"]);
+  });
+
+  it("separates a main-loop turn from a fan-out that never started", () => {
+    // "0 agents" would read as a failed delegation, so a turn with no graph
+    // reports unavailable with the reason instead of a zero.
+    const summary = buildTaskExecutionSummary({
+      providerId: "claude-code",
+      messages: [],
+      activity: activityWithGraph([
+        {
+          type: "tool",
+          toolName: "Read",
+          toolUseId: "toolu_read",
+          input: "{}",
+          state: "input-available",
+        } as NormalizedProviderEvent,
+      ]),
+    });
+
+    expect(summary.agents.provenance).toBe("unavailable");
+    expect(summary.agents.value).toBeNull();
+    expect(summary.agents.detail).toBe(
+      "This turn is running on the main loop with no delegated agents.",
+    );
+  });
+
+  it("raises a blocked agent as a caution, not another fact to skim", () => {
+    const blocked = activityWithGraph([
+      spawn("toolu_1", "agent_1", "Sweep the callers"),
+      {
+        type: "approval",
+        toolName: "Bash",
+        requestId: "req-1",
+        description: "Run migration?",
+        ownerAgentId: "agent_1",
+      } as NormalizedProviderEvent,
+    ]);
+
+    const artifact = buildTaskReviewArtifact(
+      buildTaskExecutionSummary({
+        providerId: "claude-code",
+        messages: [],
+        activity: blocked,
+      }),
+    );
+
+    expect(artifact.facts).toContain("1 agent · 1 blocked");
+    expect(artifact.cautions).toContain(
+      "1 agent is waiting on an answer.",
+    );
   });
 });

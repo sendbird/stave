@@ -58,6 +58,13 @@ export function createEmptyProviderRuntimeCapabilities(): ProviderRuntimeCapabil
     },
     delegationPolicies: [],
     webSearchModes: [],
+    workGraph: {
+      agentIdentity: false,
+      nesting: false,
+      message: false,
+      interrupt: false,
+      stop: false,
+    },
   };
 }
 
@@ -107,6 +114,25 @@ export function resolveProviderRuntimeCapabilities(args: {
         inventory: false,
         trustManagement: false,
       },
+      workGraph: {
+        // `agent_id` reaches Stave only through hook lifecycle metadata, so it
+        // rides the same version marker as the hook surface itself.
+        agentIdentity: hasSdkMutationSurface,
+        // `parent_tool_use_id` is a field on the base message shape rather than
+        // a gated surface, so any recognized 2.x runtime reports nesting.
+        nesting: isAtLeast(version, { major: 2, minor: 0, patch: 0 }),
+        // A message or an interrupt lands on the whole session: the SDK's
+        // input stream is the session's, not any one subagent's.
+        message: false,
+        interrupt: false,
+        // The SDK *does* expose `Query.stopTask(taskId)`, keyed by the same
+        // `task_id` the work graph uses as this provider's agent identity. It
+        // is reported `false` because this flag means "wired end-to-end", and
+        // reaching that query handle from the renderer needs a control channel
+        // Stave has not built. Claiming it before then would render a Stop that
+        // silently does nothing.
+        stop: false,
+      },
     };
   }
 
@@ -150,6 +176,19 @@ export function resolveProviderRuntimeCapabilities(args: {
     webSearchModes: hasH1AppControls
       ? ["disabled", "cached", "live", "indexed"]
       : ["disabled", "cached", "live"],
+    workGraph: {
+      // Child threads carry their own `agentThreadId`, which is a real agent
+      // identity and arrives with the same app-server surface as the other H1
+      // controls.
+      agentIdentity: hasH1AppControls,
+      // `subAgentActivity` names the spawning tool call, so the parent edge is
+      // reported rather than inferred.
+      nesting: hasH1AppControls,
+      // The app server accepts no per-child-thread steering command today.
+      message: false,
+      interrupt: false,
+      stop: false,
+    },
   };
 }
 

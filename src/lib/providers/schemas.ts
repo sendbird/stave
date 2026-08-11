@@ -186,6 +186,9 @@ const ToolEventSchema = z.object({
   output: z.string().optional(),
   state: ToolStateSchema,
   workerExecution: WorkerExecutionMetadataSchema.optional(),
+  agentId: z.string().optional(),
+  ownerAgentId: z.string().optional(),
+  parentToolUseId: z.string().optional(),
 });
 
 const ToolResultEventSchema = z.object({
@@ -223,6 +226,7 @@ const ApprovalEventSchema = z.object({
   requestId: z.string(),
   description: z.string(),
   input: z.string().optional(),
+  ownerAgentId: z.string().optional(),
 });
 
 const UserInputQuestionSchema = z.object({
@@ -266,6 +270,7 @@ const UserInputEventSchema = z.object({
   toolName: z.string(),
   requestId: z.string(),
   questions: z.array(UserInputQuestionSchema),
+  ownerAgentId: z.string().optional(),
 });
 
 const PlanReadyEventSchema = z.object({
@@ -306,6 +311,8 @@ const SubagentProgressEventSchema = z.object({
   type: z.literal("subagent_progress"),
   toolUseId: z.string().optional(),
   content: z.string(),
+  agentId: z.string().optional(),
+  ownerAgentId: z.string().optional(),
 });
 
 export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {

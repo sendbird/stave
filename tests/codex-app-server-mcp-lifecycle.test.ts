@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { applyProviderTurnActivityEvents } from "@/lib/providers/turn-status";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
+import { createCodexWorkerActivityMapper } from "../electron/providers/codex-worker-activity";
 
 const actualChildProcess = await import("node:child_process");
 
@@ -334,6 +335,9 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         output: '{"content":[{"type":"text","text":"Inspection complete"}]}',
       },
     ]);
+    // An MCP progress notification carries no child thread identity, so the
+    // item id must never be reused as an agent id.
+    expect(events[1]).not.toHaveProperty("agentId");
 
     const activity = applyProviderTurnActivityEvents({
       activityByTask: {},
@@ -391,11 +395,13 @@ describe("Codex App Server MCP lifecycle mapping", () => {
           workerModel: "gpt-5.6-terra",
           workerEffort: "max",
         },
+        agentId: "thread-worker-1",
       },
       {
         type: "subagent_progress",
         toolUseId: "collab-item-1",
         content: "Checking the requested result",
+        agentId: "thread-worker-1",
       },
       {
         type: "tool_result",
@@ -651,5 +657,164 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         (message) => message.method === "thread/start",
       ),
     ).toBe(true);
+  });
+});
+
+describe("Codex worker activity identity mapping", () => {
+  const createMapper = () =>
+    createCodexWorkerActivityMapper({
+      workerExecution: null,
+      inputMaxBytes: 4_096,
+      outputMaxBytes: 4_096,
+    });
+
+  const startedActivity = {
+    id: "activity-1",
+    type: "subAgentActivity",
+    kind: "started",
+    agentThreadId: "thread-worker-1",
+    agentPath: "/root/terra_ack",
+  };
+
+  test("tags the spawn tool event with the child agentThreadId", () => {
+    const mapper = createMapper();
+
+    const started = mapper.mapStarted(startedActivity);
+
+    expect(started.handled).toBe(true);
+    expect(started.events).toEqual([
+      {
+        type: "tool",
+        toolUseId: "activity-1",
+        toolName: "collaboration:spawn_agent",
+        input: '{"task_name":"terra_ack","agentThreadId":"thread-worker-1"}',
+        state: "input-available",
+        agentId: "thread-worker-1",
+      },
+    ]);
+    expect(mapper.ownsChildThread("thread-worker-1")).toBe(true);
+    expect(mapper.agentIdForToolUseId("activity-1")).toBe("thread-worker-1");
+  });
+
+  test("carries both the parent tool id and the child agent id on progress", () => {
+    const mapper = createMapper();
+    mapper.mapStarted(startedActivity);
+
+    const progress = mapper.mapForeignNotification({
+      method: "item/completed",
+      threadId: "thread-worker-1",
+      params: {
+        item: {
+          id: "worker-progress-1",
+          type: "agentMessage",
+          phase: "commentary",
+          text: "Checking the requested result",
+        },
+      },
+    });
+
+    expect(progress.events).toEqual([
+      {
+        type: "subagent_progress",
+        toolUseId: "activity-1",
+        content: "Checking the requested result",
+        agentId: "thread-worker-1",
+      },
+    ]);
+    // The link must survive a non-final message.
+    expect(mapper.ownsChildThread("thread-worker-1")).toBe(true);
+    expect(mapper.agentIdForToolUseId("activity-1")).toBe("thread-worker-1");
+  });
+
+  test("clears both directions of the child thread link on the final answer", () => {
+    const mapper = createMapper();
+    mapper.mapStarted(startedActivity);
+
+    const final = mapper.mapForeignNotification({
+      method: "item/completed",
+      threadId: "thread-worker-1",
+      params: {
+        item: {
+          id: "worker-message-1",
+          type: "agentMessage",
+          phase: "final_answer",
+          text: "WORKER_TERRA_OK",
+        },
+      },
+    });
+
+    expect(final.events).toEqual([
+      {
+        type: "tool_result",
+        tool_use_id: "activity-1",
+        output: "WORKER_TERRA_OK",
+      },
+    ]);
+    expect(mapper.ownsChildThread("thread-worker-1")).toBe(false);
+    expect(mapper.agentIdForToolUseId("activity-1")).toBeUndefined();
+    // A later notification for the finished child is no longer owned.
+    expect(
+      mapper.mapForeignNotification({
+        method: "turn/completed",
+        threadId: "thread-worker-1",
+        params: { turn: { id: "turn-worker-1", status: "failed" } },
+      }),
+    ).toEqual({ handled: false, events: [] });
+  });
+
+  test("clears both directions of the child thread link on a failed turn", () => {
+    const mapper = createMapper();
+    mapper.mapStarted(startedActivity);
+
+    const failed = mapper.mapForeignNotification({
+      method: "turn/completed",
+      threadId: "thread-worker-1",
+      params: { turn: { id: "turn-worker-1", status: "failed" } },
+    });
+
+    expect(failed.events).toEqual([
+      {
+        type: "tool_result",
+        tool_use_id: "activity-1",
+        output: "[error] Worker turn failed.",
+        isError: true,
+      },
+    ]);
+    expect(mapper.ownsChildThread("thread-worker-1")).toBe(false);
+    expect(mapper.agentIdForToolUseId("activity-1")).toBeUndefined();
+  });
+
+  test("names the receiver agent and its spawning tool call on a collab item", () => {
+    const mapper = createMapper();
+    mapper.mapStarted(startedActivity);
+
+    const collab = mapper.mapStarted({
+      id: "collab-item-2",
+      type: "collabToolCall",
+      tool: "send_message",
+      receiverThreadId: "thread-worker-1",
+      prompt: "Report back",
+    });
+
+    expect(collab.events[0]).toMatchObject({
+      type: "tool",
+      toolUseId: "collab-item-2",
+      toolName: "collaboration:send_message",
+      agentId: "thread-worker-1",
+      parentToolUseId: "activity-1",
+    });
+  });
+
+  test("omits identity fields when a collab item names no child thread", () => {
+    const mapper = createMapper();
+
+    const collab = mapper.mapStarted({
+      id: "collab-item-3",
+      type: "collabToolCall",
+      tool: "list_agents",
+    });
+
+    expect(collab.events[0]).not.toHaveProperty("agentId");
+    expect(collab.events[0]).not.toHaveProperty("parentToolUseId");
   });
 });

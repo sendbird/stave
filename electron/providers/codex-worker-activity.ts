@@ -40,10 +40,28 @@ function truncate(value: string, maxBytes: number) {
   return truncateBufferedText({ value, maxBytes });
 }
 
+/**
+ * The child thread id a collaboration item directly names, when it names
+ * exactly one. `receiverThreadIds` (plural) is a broadcast and identifies no
+ * single agent, so it is deliberately ignored here.
+ */
+function readCollabChildThreadId(item: CollabToolCallItem) {
+  const candidate =
+    (typeof item.newThreadId === "string" ? item.newThreadId.trim() : "") ||
+    (typeof item.receiverThreadId === "string"
+      ? item.receiverThreadId.trim()
+      : "");
+  return candidate || "";
+}
+
 function buildCollabInput(
   item: CollabToolCallItem,
   workerExecution: WorkerExecutionMetadata | null,
   inputMaxBytes: number,
+  identity: {
+    agentId: string;
+    parentToolUseId: string;
+  },
 ): Extract<BridgeEvent, { type: "tool" }> {
   const itemId = typeof item.id === "string" ? item.id : "";
   const toolName =
@@ -72,6 +90,10 @@ function buildCollabInput(
     state: "input-available",
     ...(workerExecution && toolName === "spawn_agent"
       ? { workerExecution }
+      : {}),
+    ...(identity.agentId ? { agentId: identity.agentId } : {}),
+    ...(identity.parentToolUseId
+      ? { parentToolUseId: identity.parentToolUseId }
       : {}),
   };
 }
@@ -112,11 +134,52 @@ export function createCodexWorkerActivityMapper(args: {
 }) {
   const startedCollabIds = new Set<string>();
   const startedActivityIds = new Set<string>();
+  // Both directions of the same link. They are written and cleared together by
+  // `linkChildThread` / `unlinkChildThread` so neither entry can outlive its
+  // sibling.
   const toolIdByChildThreadId = new Map<string, string>();
+  const childThreadIdByToolId = new Map<string, string>();
+
+  function linkChildThread(childThreadId: string, toolUseId: string) {
+    if (!childThreadId || !toolUseId) return;
+    const previousToolUseId = toolIdByChildThreadId.get(childThreadId);
+    if (previousToolUseId && previousToolUseId !== toolUseId) {
+      childThreadIdByToolId.delete(previousToolUseId);
+    }
+    toolIdByChildThreadId.set(childThreadId, toolUseId);
+    childThreadIdByToolId.set(toolUseId, childThreadId);
+  }
+
+  function unlinkChildThread(childThreadId: string) {
+    const toolUseId = toolIdByChildThreadId.get(childThreadId);
+    toolIdByChildThreadId.delete(childThreadId);
+    if (toolUseId) childThreadIdByToolId.delete(toolUseId);
+  }
+
+  function buildCollabIdentity(item: CollabToolCallItem) {
+    const childThreadId = readCollabChildThreadId(item);
+    if (!childThreadId) return { agentId: "", parentToolUseId: "" };
+    const itemId = typeof item.id === "string" ? item.id : "";
+    const parentToolUseId = toolIdByChildThreadId.get(childThreadId) ?? "";
+    return {
+      agentId: childThreadId,
+      // Never let a tool call claim itself as its own parent.
+      parentToolUseId: parentToolUseId === itemId ? "" : parentToolUseId,
+    };
+  }
 
   return {
     ownsChildThread(threadId: string) {
       return toolIdByChildThreadId.has(threadId);
+    },
+
+    /**
+     * The child thread id (Codex's `agentThreadId`) a tool-use id spawned, when
+     * one is known. A tool-use id is never an agent id, so callers must resolve
+     * it here instead of reusing the item id.
+     */
+    agentIdForToolUseId(toolUseId: string) {
+      return childThreadIdByToolId.get(toolUseId);
     },
 
     mapStarted(itemValue: unknown): MappingResult {
@@ -129,8 +192,12 @@ export function createCodexWorkerActivityMapper(args: {
           return { handled: true, events: [] };
         }
         startedActivityIds.add(itemId);
-        if (item.agentThreadId) {
-          toolIdByChildThreadId.set(item.agentThreadId, itemId);
+        const agentThreadId =
+          typeof item.agentThreadId === "string"
+            ? item.agentThreadId.trim()
+            : "";
+        if (agentThreadId) {
+          linkChildThread(agentThreadId, itemId);
         }
         const agentPath =
           typeof item.agentPath === "string" ? item.agentPath.trim() : "";
@@ -145,14 +212,13 @@ export function createCodexWorkerActivityMapper(args: {
               toolName: "collaboration:spawn_agent",
               input: serialize({
                 task_name: taskName,
-                ...(item.agentThreadId
-                  ? { agentThreadId: item.agentThreadId }
-                  : {}),
+                ...(agentThreadId ? { agentThreadId } : {}),
               }),
               state: "input-available",
               ...(args.workerExecution
                 ? { workerExecution: args.workerExecution }
                 : {}),
+              ...(agentThreadId ? { agentId: agentThreadId } : {}),
             },
           ],
         };
@@ -172,7 +238,12 @@ export function createCodexWorkerActivityMapper(args: {
       return {
         handled: true,
         events: [
-          buildCollabInput(item, args.workerExecution, args.inputMaxBytes),
+          buildCollabInput(
+            item,
+            args.workerExecution,
+            args.inputMaxBytes,
+            buildCollabIdentity(item),
+          ),
         ],
       };
     },
@@ -194,7 +265,14 @@ export function createCodexWorkerActivityMapper(args: {
         handled: true,
         events: [
           ...(!itemId || !startedCollabIds.delete(itemId)
-            ? [buildCollabInput(item, args.workerExecution, args.inputMaxBytes)]
+            ? [
+                buildCollabInput(
+                  item,
+                  args.workerExecution,
+                  args.inputMaxBytes,
+                  buildCollabIdentity(item),
+                ),
+              ]
             : []),
           buildCollabResult(item),
         ],
@@ -208,6 +286,8 @@ export function createCodexWorkerActivityMapper(args: {
     }): MappingResult {
       const toolUseId = toolIdByChildThreadId.get(input.threadId);
       if (!toolUseId) return { handled: false, events: [] };
+      // The foreign thread id *is* Codex's `agentThreadId` for this worker.
+      const agentId = input.threadId;
       if (input.method === "item/completed") {
         const item = isRecord(input.params.item) ? input.params.item : null;
         const text = typeof item?.text === "string" ? item.text : "";
@@ -220,11 +300,12 @@ export function createCodexWorkerActivityMapper(args: {
                   type: "subagent_progress",
                   toolUseId,
                   content: truncate(text, args.inputMaxBytes),
+                  ...(agentId ? { agentId } : {}),
                 },
               ],
             };
           }
-          toolIdByChildThreadId.delete(input.threadId);
+          unlinkChildThread(input.threadId);
           return {
             handled: true,
             events: [
@@ -241,7 +322,7 @@ export function createCodexWorkerActivityMapper(args: {
         const turn = isRecord(input.params.turn) ? input.params.turn : null;
         const status = typeof turn?.status === "string" ? turn.status : "";
         if (status && status !== "completed") {
-          toolIdByChildThreadId.delete(input.threadId);
+          unlinkChildThread(input.threadId);
           return {
             handled: true,
             events: [
