@@ -452,18 +452,66 @@ class HostServiceClient {
       child.kill();
     }
 
-    await Promise.race([
-      new Promise<void>((resolve) => {
-        child.once("exit", () => resolve());
-      }),
-      new Promise<void>((resolve) => {
-        setTimeout(() => {
-          child.kill();
-          resolve();
-        }, 5_000);
-      }),
-    ]);
+    await escalateHostServiceChildTermination(child);
   }
+}
+
+/** The subset of ChildProcess the termination escalation relies on. */
+export interface StoppableHostServiceChild {
+  kill(signal?: NodeJS.Signals): boolean;
+  once(event: "exit", listener: () => void): unknown;
+  off(event: "exit", listener: () => void): unknown;
+  readonly exitCode: number | null;
+  readonly signalCode: NodeJS.Signals | null;
+}
+
+function waitForHostServiceChildExit(
+  child: StoppableHostServiceChild,
+  timeoutMs: number,
+) {
+  return new Promise<boolean>((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      resolve(true);
+      return;
+    }
+    const onExit = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      child.off("exit", onExit);
+      resolve(false);
+    }, timeoutMs);
+    timer.unref?.();
+    child.once("exit", onExit);
+  });
+}
+
+/**
+ * Escalate instead of trusting a single SIGTERM: a wedged host service that
+ * ignores graceful shutdown (and its SIGTERM handler) must still die, or its
+ * provider subprocesses outlive Stave. The child is spawned in our own
+ * process group (not detached), so per-process kill is the safe form on
+ * macOS/Linux; on win32 `kill()` terminates the process outright regardless
+ * of the requested signal.
+ */
+export async function escalateHostServiceChildTermination(
+  child: StoppableHostServiceChild,
+  timeouts: {
+    gracefulExitMs?: number;
+    sigtermExitMs?: number;
+    sigkillExitMs?: number;
+  } = {},
+) {
+  if (await waitForHostServiceChildExit(child, timeouts.gracefulExitMs ?? 5_000)) {
+    return;
+  }
+  child.kill("SIGTERM");
+  if (await waitForHostServiceChildExit(child, timeouts.sigtermExitMs ?? 2_000)) {
+    return;
+  }
+  child.kill("SIGKILL");
+  await waitForHostServiceChildExit(child, timeouts.sigkillExitMs ?? 1_000);
 }
 
 const hostServiceClient = new HostServiceClient();

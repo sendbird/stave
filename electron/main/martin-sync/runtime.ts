@@ -22,10 +22,17 @@ import { computeCraneConnectorRetryDelay } from "../crane-connector/runtime";
 
 export const MAX_MARTIN_SYNC_ATTEMPTS = 8;
 export const MARTIN_LINKS_MERGE_DEBOUNCE_MS = 30_000;
+/**
+ * How long delivered rows keep their payload, and how long failed/held rows
+ * may sit before they age out. Without a prune, every workspace change event's
+ * full payload_json accumulates in the outbox forever.
+ */
+export const MARTIN_OUTBOX_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 const MARTIN_SYNC_RETRY_BASE_MS = 5_000;
 const MARTIN_SYNC_IDLE_POLL_MS = 5_000;
 const MARTIN_SYNC_DRAIN_LIMIT = 50;
+const MARTIN_OUTBOX_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 
 const LinksMergePayloadSchema = z
   .object({
@@ -73,6 +80,7 @@ export interface MartinSyncOutboxPersistence {
   }): number;
   retryFailedMartinOutboxEntries(): number;
   countMartinOutbox(): { pending: number; failed: number };
+  pruneMartinOutboxDeliveredBefore(cutoff: string): number;
 }
 
 interface MartinSyncCredential {
@@ -133,6 +141,7 @@ export class MartinSyncRuntime {
   private abortController: AbortController | null = null;
   private generation = 0;
   private operationQueue: Promise<void> = Promise.resolve();
+  private lastOutboxPruneAtMs: number | null = null;
 
   constructor(private readonly dependencies: MartinSyncRuntimeDependencies) {
     const counts = dependencies.persistence.countMartinOutbox();
@@ -274,6 +283,9 @@ export class MartinSyncRuntime {
       });
       return;
     }
+    // Prune before touching credentials so retention holds even while the
+    // connector is unpaired or offline.
+    this.pruneOutboxIfDue();
 
     let credential: MartinSyncCredential | null;
     try {
@@ -565,6 +577,30 @@ export class MartinSyncRuntime {
       },
       retryDelay: minimumRetryDelay,
     };
+  }
+
+  /**
+   * Ages out delivered rows past the retention window, plus failed/held rows
+   * whose last scheduled attempt is that old (404/409 holds never dead-letter
+   * on their own). Throttled so the drain loop's 5s cadence does not turn the
+   * sweep into a per-drain DELETE.
+   */
+  private pruneOutboxIfDue() {
+    const nowMs = this.now().getTime();
+    if (
+      this.lastOutboxPruneAtMs !== null &&
+      nowMs - this.lastOutboxPruneAtMs < MARTIN_OUTBOX_PRUNE_INTERVAL_MS
+    ) {
+      return;
+    }
+    this.lastOutboxPruneAtMs = nowMs;
+    const cutoff = new Date(nowMs - MARTIN_OUTBOX_RETENTION_MS).toISOString();
+    const pruned =
+      this.dependencies.persistence.pruneMartinOutboxDeliveredBefore(cutoff);
+    if (pruned > 0) {
+      // Failed and held rows count toward the surfaced totals.
+      this.setStatus(this.getCountsPatch());
+    }
   }
 
   private setStatus(patch: Partial<MartinSyncPublicStatus>) {

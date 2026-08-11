@@ -36,6 +36,7 @@ import {
   createPendingRun,
   createPendingRunStep,
   RUN_LEDGER_SCHEMA_VERSION,
+  type RunReceiptRecord,
   type RunRecord,
   type RunStepRecord,
   type RunStepTarget,
@@ -59,6 +60,7 @@ export interface ChildTaskLedgerPort {
     step: RunStepRecord;
     executionId: string;
     idempotencyKey: string;
+    detail?: unknown;
     now: string;
   }): RunLedgerTransitionResult;
   markRunStepWaiting(args: {
@@ -67,8 +69,10 @@ export interface ChildTaskLedgerPort {
     executionId: string;
     idempotencyKey: string;
     detail?: unknown;
+    reenter?: boolean;
     now: string;
   }): RunLedgerTransitionResult;
+  listRunReceipts(args: { runId: string }): RunReceiptRecord[];
   completeRunStep(args: {
     runId: string;
     stepId: string;
@@ -169,6 +173,16 @@ export interface ChildTaskHostPort {
     parentTaskId: string;
   }): Promise<{ turnId: string }>;
   stopTask(args: { workspaceId: string; taskId: string }): Promise<unknown>;
+  /**
+   * Clears the `parentTaskId` stamped by `runTask`, so a detached child
+   * re-enters ordinary workspace task listings. Without it the listing
+   * predicate keeps the task hidden forever — a possibly still-running
+   * session nobody can find once the parent is archived.
+   */
+  releaseTaskParent(args: {
+    workspaceId: string;
+    taskId: string;
+  }): Promise<unknown>;
 }
 
 interface ChildTaskCoordinatorDependencies {
@@ -348,12 +362,17 @@ export function createChildTaskCoordinator(
       target: { ...args.target, turnId: args.turnId },
     });
     if (args.lifecycle === "detached") {
+      // Keyed per turn and allowed to re-enter `waiting`: a detached child
+      // parks in `waiting` between turns, so a follow-up turn's completion
+      // must still write its own receipt and move `updatedAt` instead of
+      // short-circuiting as a duplicate of the first turn's settle.
       return args.ledger.markRunStepWaiting({
         runId: args.runId,
         stepId: args.stepId,
         executionId: args.executionId,
-        idempotencyKey: `child:${args.executionId}:turn`,
+        idempotencyKey: `child:${args.executionId}:turn:${args.turnId}`,
         detail: { code: "child-turn-completed", providerId: args.providerId },
+        reenter: true,
         now: timestamp,
       });
     }
@@ -506,13 +525,32 @@ export function createChildTaskCoordinator(
         reconciled += transition.accepted ? 1 : 0;
         continue;
       }
-      if (status.activeTurnId) {
-        continue;
-      }
       if (summary.lifecycle === "detached" && summary.phase === "waiting") {
+        // Parked open on purpose; whatever the child does next belongs to its
+        // own task surface, not to this delegation's receipts.
         continue;
       }
-      if (status.latestTurnError) {
+      if (status.activeTurnId) {
+        // The child is genuinely still working — typically across a restart,
+        // where no in-process watcher will settle the row when its turn ends.
+        // Counting it as deferred keeps `ensureReconciled` unsettled, so the
+        // next list/delegate/control read reconciles again and eventually
+        // records the turn's outcome instead of leaving a `running` row (and
+        // its concurrency slot) occupied forever.
+        deferred += 1;
+        continue;
+      }
+      // A turn that finished before this attempt was claimed belongs to an
+      // earlier attempt. Settling attempt N from attempt N-1's turn would
+      // close a retry with results the retry never produced, so such a row
+      // falls through to the interrupted receipt instead.
+      const claimedAt = aggregate.step.startedAt;
+      const staleLatestTurn = Boolean(
+        claimedAt &&
+          status.latestTurnCompletedAt &&
+          Date.parse(status.latestTurnCompletedAt) < Date.parse(claimedAt),
+      );
+      if (!staleLatestTurn && status.latestTurnError) {
         const transition = ledger.failRunStep({
           runId: aggregate.run.id,
           stepId: aggregate.step.id,
@@ -528,7 +566,7 @@ export function createChildTaskCoordinator(
         reconciled += transition.accepted ? 1 : 0;
         continue;
       }
-      if (status.latestTurnId && status.latestTurnCompletedAt) {
+      if (!staleLatestTurn && status.latestTurnId && status.latestTurnCompletedAt) {
         const transition = settleAfterTurn({
           ledger,
           runId: aggregate.run.id,
@@ -645,6 +683,36 @@ export function createChildTaskCoordinator(
     };
   };
 
+  /**
+   * One delegation admission at a time per parent task. The admission path
+   * counts live children, resolves a workspace, and only then claims the
+   * ledger row — with awaits in between, two parallel delegates could both
+   * pass the concurrency check (or both cut a worktree for the same key)
+   * before either claim lands. Serializing per parent makes the count that is
+   * checked the count that is claimed against. The map entry is removed once
+   * its chain drains so an idle parent leaves no state behind.
+   */
+  const delegationLocksByParent = new Map<string, Promise<void>>();
+  const withParentDelegationLock = <T>(
+    parentTaskId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> => {
+    const previous =
+      delegationLocksByParent.get(parentTaskId) ?? Promise.resolve();
+    const run = previous.then(operation, operation);
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    delegationLocksByParent.set(parentTaskId, tail);
+    void tail.then(() => {
+      if (delegationLocksByParent.get(parentTaskId) === tail) {
+        delegationLocksByParent.delete(parentTaskId);
+      }
+    });
+    return run;
+  };
+
   const delegateChild = async (
     rawArgs: unknown,
   ): Promise<ChildTaskActionResponse> => {
@@ -653,6 +721,14 @@ export function createChildTaskCoordinator(
       return rejected("invalid-request");
     }
     const args = parsed.data;
+    return withParentDelegationLock(args.parentTaskId, () =>
+      admitDelegation(args),
+    );
+  };
+
+  const admitDelegation = async (
+    args: ChildTaskDelegateArgs,
+  ): Promise<ChildTaskActionResponse> => {
     const runId = buildChildTaskRunId({
       parentTaskId: args.parentTaskId,
       delegationKey: args.delegationKey,
@@ -775,6 +851,15 @@ export function createChildTaskCoordinator(
       idempotencyKey: args.retry
         ? `${args.delegationKey}:attempt-${attempt + 1}`
         : args.delegationKey,
+      // Recorded on the claim receipt so a later retry can preserve the
+      // delegation's original model, posture and workspace strategy — the
+      // step row itself only keeps a hash of the inputs.
+      detail: {
+        providerId: args.providerId,
+        ...(args.model ? { model: args.model } : {}),
+        permissionProfile: args.permissionProfile,
+        workspaceMode: args.workspace.mode,
+      },
       now: timestamp,
     });
 
@@ -816,10 +901,13 @@ export function createChildTaskCoordinator(
     delegate: delegateChild,
 
     /**
-     * A fresh attempt on a delegation that ended without succeeding. Provider,
-     * lifecycle and workspace come from the delegation the ledger already
-     * holds, so the retry stays the same delegation rather than a new one
-     * borrowing its key.
+     * A fresh attempt on a delegation that ended without succeeding. Provider
+     * and lifecycle come from the delegation the ledger already holds; model
+     * and permission profile come from the original claim receipt unless the
+     * caller explicitly overrides the profile; and the retry always reuses the
+     * workspace the delegation already owns. That keeps the retry the same
+     * delegation rather than a new one borrowing its key — only the prompt is
+     * expected to change.
      */
     async retry(rawArgs: unknown): Promise<ChildTaskActionResponse> {
       const parsed = ChildTaskRetryArgsSchema.safeParse(rawArgs);
@@ -834,6 +922,22 @@ export function createChildTaskCoordinator(
       if (!resolveChildTaskControls(resolved.child).canRetry) {
         return rejected("invalid-state", resolved.child);
       }
+      // The first claim receipt carries the inputs the delegation was created
+      // with. Best effort on purpose: a delegation claimed before the receipt
+      // recorded them simply falls back to the defaults it used to get.
+      let originalClaim: RunReceiptRecord | undefined;
+      try {
+        originalClaim = resolved.ledger
+          .listRunReceipts({ runId: resolved.runId })
+          .find(
+            (receipt) =>
+              receipt.type === "accepted" &&
+              (receipt.detail?.model !== undefined ||
+                receipt.detail?.permissionProfile !== undefined),
+          );
+      } catch (error) {
+        reportError(error, { scope: "retry-child", runId: resolved.runId });
+      }
       return delegateChild({
         projectPath: args.projectPath,
         parentWorkspaceId: args.parentWorkspaceId,
@@ -841,9 +945,17 @@ export function createChildTaskCoordinator(
         delegationKey: args.delegationKey,
         prompt: args.prompt,
         providerId: resolved.child.providerId,
-        permissionProfile: args.permissionProfile,
+        ...(originalClaim?.detail?.model
+          ? { model: originalClaim.detail.model }
+          : {}),
+        permissionProfile:
+          args.permissionProfile ??
+          originalClaim?.detail?.permissionProfile ??
+          "guided",
         lifecycle: resolved.child.lifecycle,
-        // Ignored on a retry: the delegation keeps the workspace it owns.
+        // Inert on a retry — the delegation keeps the workspace it already
+        // owns (`childWorkspaceId` is reused), so a new-worktree delegation
+        // retries inside its original worktree and never cuts a second one.
         workspace: { mode: "same-workspace" },
         retry: true,
       });
@@ -928,6 +1040,21 @@ export function createChildTaskCoordinator(
           toRejectionReason(transition.reason),
           summaryFromTransition(transition) ?? resolved.child,
         );
+      }
+      // The child is an ordinary task from here on, so its delegation stamp
+      // must go too — that stamp is what hides it from workspace task
+      // listings. Best effort: the ledger release above is the authority, and
+      // an unreachable host must not turn a completed detach into a refusal.
+      const target = resolved.step.target;
+      if (target && !transition.duplicate) {
+        try {
+          await dependencies.host.releaseTaskParent({
+            workspaceId: target.workspaceId,
+            taskId: target.taskId,
+          });
+        } catch (error) {
+          reportError(error, { scope: "detach-child", runId: resolved.runId });
+        }
       }
       notifyChanged(args.parentTaskId);
       return accepted({

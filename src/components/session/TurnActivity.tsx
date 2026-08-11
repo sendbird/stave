@@ -301,7 +301,18 @@ export function TurnActivity() {
   const handleWorkGraphControl = useCallback(
     (request: WorkGraphControlRequest) => {
       const { node } = request;
-      if (request.control !== "stop" || !node.delegationKey) {
+      if (request.control !== "stop") {
+        setControlError(
+          node.key,
+          "Only Stop is wired up for agents in this turn so far.",
+        );
+        return;
+      }
+      if (!node.delegationKey) {
+        setControlError(
+          node.key,
+          "Only a delegated child task can be stopped from this row.",
+        );
         return;
       }
       const child = childTaskRows.find(

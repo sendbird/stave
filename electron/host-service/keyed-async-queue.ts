@@ -38,12 +38,17 @@ export function createKeyedAsyncQueue<TKey>() {
      * Wait for every in-flight task chain to settle, then clear the queue.
      * Used during shutdown to ensure queued handlers (e.g. handleProviderEvent)
      * finish before the persistence layer is closed.
+     *
+     * Tasks enqueued while a drain pass is awaiting are picked up by the next
+     * pass: we snapshot-and-repeat until the tail map stays empty so nothing
+     * enqueued mid-drain runs against already-closed infrastructure.
      */
     async drain() {
-      if (tails.size === 0) {
-        return;
+      while (tails.size > 0) {
+        await Promise.allSettled(Array.from(tails.values()));
+        // Settled chains remove themselves from `tails`; anything left was
+        // enqueued while we were waiting, so take another pass.
       }
-      await Promise.allSettled(Array.from(tails.values()));
       tails.clear();
     },
   };

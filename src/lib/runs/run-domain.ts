@@ -157,6 +157,14 @@ export const RunReceiptDetailSchema = z
     providerId: z.enum(["claude-code", "codex"]).optional(),
     model: z.string().max(200).optional(),
     attempt: z.number().int().min(0).max(10).optional(),
+    /**
+     * The posture and workspace strategy a child-task delegation was claimed
+     * with. Recorded on the claim receipt so a later retry can preserve the
+     * original delegation's inputs instead of hard-coding fresh ones — the
+     * step row itself only keeps a hash of them.
+     */
+    permissionProfile: z.enum(["auto", "guided", "manual"]).optional(),
+    workspaceMode: z.enum(["same-workspace", "new-worktree"]).optional(),
   })
   .strict();
 export type RunReceiptDetail = z.infer<typeof RunReceiptDetailSchema>;
@@ -236,12 +244,25 @@ export function sanitizeRunReceiptDetail(
     candidate.attempt <= 10
       ? candidate.attempt
       : undefined;
+  const permissionProfile =
+    candidate.permissionProfile === "auto" ||
+    candidate.permissionProfile === "guided" ||
+    candidate.permissionProfile === "manual"
+      ? candidate.permissionProfile
+      : undefined;
+  const workspaceMode =
+    candidate.workspaceMode === "same-workspace" ||
+    candidate.workspaceMode === "new-worktree"
+      ? candidate.workspaceMode
+      : undefined;
   const detail = {
     ...(code ? { code } : {}),
     ...(message ? { message } : {}),
     ...(providerId ? { providerId } : {}),
     ...(model ? { model } : {}),
     ...(attempt !== undefined ? { attempt } : {}),
+    ...(permissionProfile ? { permissionProfile } : {}),
+    ...(workspaceMode ? { workspaceMode } : {}),
   };
   return Object.keys(detail).length > 0
     ? RunReceiptDetailSchema.parse(detail)
@@ -419,6 +440,13 @@ export function claimRunStep(args: {
   step: RunStepRecord;
   executionId: string;
   idempotencyKey: string;
+  /**
+   * Extra diagnostic fields folded into the claim receipts (sanitized through
+   * `sanitizeRunReceiptDetail`). Child-task claims record the delegation's
+   * model, permission profile and workspace strategy here so a retry can read
+   * the original inputs back.
+   */
+  detail?: unknown;
   now: string;
 }): RunStepTransition {
   const run = RunRecordSchema.parse(args.run);
@@ -466,7 +494,7 @@ export function claimRunStep(args: {
     completedAt: null,
     error: null,
   };
-  const detail = { attempt };
+  const detail = { ...(sanitizeRunReceiptDetail(args.detail) ?? {}), attempt };
   return acceptedTransition({
     run: nextRun,
     step: nextStep,
@@ -523,18 +551,30 @@ export function markRunStepWaiting(args: {
   executionId: string;
   idempotencyKey: string;
   detail?: unknown;
+  /**
+   * Allow a step that is already `waiting` under this execution to record a
+   * fresh waiting receipt instead of short-circuiting as a duplicate. A
+   * detached child task parks in `waiting` between turns, so each follow-up
+   * turn that finishes re-enters the same state — without this the follow-up's
+   * completion would leave no receipt and never move `updatedAt`.
+   */
+  reenter?: boolean;
   now: string;
 }): RunStepTransition {
   const run = RunRecordSchema.parse(args.run);
   const step = RunStepRecordSchema.parse(args.step);
-  if (step.status === "waiting" && step.executionId === args.executionId) {
+  if (
+    !args.reenter &&
+    step.status === "waiting" &&
+    step.executionId === args.executionId
+  ) {
     return duplicateTransition({ run, step });
   }
   const rejection = validateActiveExecution({
     run,
     step,
     executionId: args.executionId,
-    allowedStatuses: ["running"],
+    allowedStatuses: args.reenter ? ["running", "waiting"] : ["running"],
   });
   if (rejection) {
     return rejection;

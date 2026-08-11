@@ -206,12 +206,19 @@ export type BridgeEvent =
       requestId: string;
       description: string;
       input?: string;
+      /**
+       * See `tool.ownerAgentId`: the subagent whose work is stopped until this
+       * is answered. Absent means the main loop asked.
+       */
+      ownerAgentId?: string;
     }
   | {
       type: "user_input";
       toolName: string;
       requestId: string;
       questions: UserInputQuestion[];
+      /** See `approval.ownerAgentId`. */
+      ownerAgentId?: string;
     }
   | {
       type: "tool_progress";
@@ -236,6 +243,14 @@ export type BridgeEvent =
       agentId?: string;
       /** See `tool.ownerAgentId`: the subagent that emitted this progress. */
       ownerAgentId?: string;
+      /**
+       * How confidently `toolUseId` was correlated to this progress. Absent
+       * means `authoritative`. A `guess` (Claude's positional fallback) may
+       * route the text to a row, but the work graph must never create or
+       * overwrite a spawn↔identity binding from it — a laundered guess
+       * permanently cross-wires two concurrent workers.
+       */
+      binding?: "authoritative" | "guess";
     }
   | {
       type: "model_resolved";

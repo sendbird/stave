@@ -926,6 +926,14 @@ export type NormalizedProviderEvent =
       agentId?: string;
       /** See `tool.ownerAgentId`: the subagent that emitted this progress. */
       ownerAgentId?: string;
+      /**
+       * How confidently `toolUseId` was correlated to this progress. Absent
+       * means `authoritative`. A `guess` (Claude's positional fallback) may
+       * route the text to a row, but the work graph must never create or
+       * overwrite a spawn↔identity binding from it — a laundered guess
+       * permanently cross-wires two concurrent workers.
+       */
+      binding?: "authoritative" | "guess";
     }
   | {
       type: "model_resolved";

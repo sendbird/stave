@@ -210,6 +210,21 @@ function createHarness(options?: {
       }
       return { pending, failed };
     },
+    pruneMartinOutboxDeliveredBefore(cutoff: string) {
+      let changed = 0;
+      for (const [id, row] of [...rows.entries()]) {
+        const aged =
+          (row.status === "delivered" &&
+            row.deliveredAt !== null &&
+            row.deliveredAt < cutoff) ||
+          ((row.status === "failed" || row.status === "held") &&
+            row.nextAttemptAt < cutoff);
+        if (!aged) continue;
+        rows.delete(id);
+        changed += 1;
+      }
+      return changed;
+    },
   };
 
   const postEvents =

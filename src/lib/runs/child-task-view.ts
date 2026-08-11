@@ -173,9 +173,9 @@ export function resolveChildTaskActionError(
 }
 
 /**
- * Rows are ordered so the delegations a human still has to act on sit at the
- * top, then by most recent movement. Sorting a copy keeps the listing response
- * usable as an immutable snapshot.
+ * Rows are ordered by most recent movement, newest first, with the delegation
+ * key as a stable tiebreak. Sorting a copy keeps the listing response usable
+ * as an immutable snapshot.
  */
 export function sortChildTaskRows(
   children: readonly ChildTaskSummary[],

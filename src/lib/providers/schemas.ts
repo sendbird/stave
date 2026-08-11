@@ -324,6 +324,7 @@ const SubagentProgressEventSchema = z.object({
   content: z.string(),
   agentId: z.string().optional(),
   ownerAgentId: z.string().optional(),
+  binding: z.enum(["authoritative", "guess"]).optional(),
 });
 
 export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {

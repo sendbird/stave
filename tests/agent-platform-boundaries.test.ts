@@ -299,10 +299,10 @@ describe("Agent platform boundaries", () => {
     // No runtime may claim per-agent steering it has not wired end to end.
     // These flags are what the UI gates on, so a hopeful `true` here renders a
     // control that silently does nothing.
-    for (const version of ["2.0.0", "9.9.9"]) {
+    for (const versionText of ["2.0.0", "9.9.9"]) {
       const claude = resolveProviderRuntimeCapabilities({
         providerId: "claude-code",
-        version,
+        versionText,
       });
       expect(claude.workGraph.message).toBe(false);
       expect(claude.workGraph.interrupt).toBe(false);

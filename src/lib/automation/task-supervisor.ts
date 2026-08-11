@@ -71,6 +71,16 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
    */
   minRetainedFiredOccurrences: 256,
   /**
+   * How deep the run-ledger completion feed reads. It MUST stay at or below
+   * `minRetainedFiredOccurrences`: the retained `fired` rows are the
+   * idempotency guard, so every completion the feed can still report must
+   * still have its consumed receipt retained. A feed wider than the retention
+   * would let pruning evict a consumed completion's receipt while the ledger
+   * still reports it — which reads as brand new and wakes the task twice.
+   * `tests/task-supervisor.test.ts` pins the inequality.
+   */
+  maxCompletionFeedRows: 128,
+  /**
    * A completion heartbeat has no cadence to run out, and the turn it wakes can
    * delegate more work — which finishes, which wakes it again. An uncapped one
    * is therefore an unbounded recursion, so a completion heartbeat created
@@ -240,21 +250,31 @@ export const TaskCompletionSignalSchema = z
     status: TaskCompletionStatusSchema,
     reason: z.string().max(TASK_HEARTBEAT_LIMITS.maxReasonChars).nullable(),
     completedAt: z.string().datetime(),
+    /**
+     * The ledger step's attempt when it settled. A retried delegation reuses
+     * its run and step ids and bumps only the attempt, so without it a retry
+     * that fails again would look like the already-consumed first failure and
+     * never wake the parent a second time.
+     */
+    attempt: z.number().int().min(0).max(10).default(0),
   })
   .strict();
 export type TaskCompletionSignal = z.infer<typeof TaskCompletionSignalSchema>;
 
 /**
- * Stable per (run, step, terminal status) and never per delivery. This is what
- * makes a completion idempotent: the same finished child observed on ten ticks
- * yields one key, one occurrence row, and therefore one follow-up turn.
+ * Stable per (run, step, attempt, terminal status) and never per delivery.
+ * This is what makes a completion idempotent: the same finished child observed
+ * on ten ticks yields one key, one occurrence row, and therefore one follow-up
+ * turn. The attempt is part of the key on purpose — a retried attempt that
+ * settles again is a new fact and must be able to wake the parent again.
  */
 export function buildTaskCompletionSignalKey(signal: {
   runId: string;
   stepId: string;
   status: TaskCompletionStatus;
+  attempt?: number;
 }) {
-  return `${signal.runId}:${signal.stepId}:${signal.status}`;
+  return `${signal.runId}:${signal.stepId}:${signal.attempt ?? 0}:${signal.status}`;
 }
 
 /* -------------------------------------------------------------------------- */

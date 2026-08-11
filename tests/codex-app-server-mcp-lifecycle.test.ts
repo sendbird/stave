@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { applyProviderTurnActivityEvents } from "@/lib/providers/turn-status";
+import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import { createCodexWorkerActivityMapper } from "../electron/providers/codex-worker-activity";
 
@@ -355,6 +356,14 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       detail: "Inspection complete",
       status: "completed",
     });
+    // The agentless MCP progress ping must not mint a phantom agent node in
+    // the work graph: nothing would ever settle it, so every MCP-heavy turn
+    // would show perpetual "running" agents and inflate the Fleet count. The
+    // spawn call itself is the only agent this fan-out has.
+    const workGraph = activity["task-full-lifecycle"]!.workGraph;
+    const summary = summarizeWorkGraph(workGraph);
+    expect(summary.totalCount).toBe(1);
+    expect(summary.runningCount).toBe(0);
   }, 15_000);
 
   test("keeps the completed-only MCP fallback mapping", async () => {
@@ -784,7 +793,11 @@ describe("Codex worker activity identity mapping", () => {
     expect(mapper.agentIdForToolUseId("activity-1")).toBeUndefined();
   });
 
-  test("names the receiver agent and its spawning tool call on a collab item", () => {
+  test("a collab item that only targets a thread claims no spawn identity", () => {
+    // `agentId` points down at a worker the call spawned and `parentToolUseId`
+    // means "the call this one ran inside". A send_message to an existing
+    // worker did neither: tagging it with the receiver's identity drew a
+    // main-loop call as work happening inside the agent it messaged.
     const mapper = createMapper();
     mapper.mapStarted(startedActivity);
 
@@ -800,9 +813,29 @@ describe("Codex worker activity identity mapping", () => {
       type: "tool",
       toolUseId: "collab-item-2",
       toolName: "collaboration:send_message",
-      agentId: "thread-worker-1",
-      parentToolUseId: "activity-1",
     });
+    expect(collab.events[0]).not.toHaveProperty("agentId");
+    expect(collab.events[0]).not.toHaveProperty("parentToolUseId");
+  });
+
+  test("a collab item that spawned a thread names it without claiming a parent", () => {
+    const mapper = createMapper();
+
+    const collab = mapper.mapStarted({
+      id: "collab-item-4",
+      type: "collabToolCall",
+      tool: "spawn_agent",
+      newThreadId: "thread-worker-2",
+      prompt: "Audit the reducer",
+    });
+
+    expect(collab.events[0]).toMatchObject({
+      type: "tool",
+      toolUseId: "collab-item-4",
+      toolName: "collaboration:spawn_agent",
+      agentId: "thread-worker-2",
+    });
+    expect(collab.events[0]).not.toHaveProperty("parentToolUseId");
   });
 
   test("omits identity fields when a collab item names no child thread", () => {

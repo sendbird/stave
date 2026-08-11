@@ -78,6 +78,7 @@ function completion(
     status: "completed",
     reason: null,
     completedAt: "2026-08-09T23:59:00.000Z",
+    attempt: 1,
     ...overrides,
   };
 }
@@ -398,7 +399,7 @@ describe("decision priority", () => {
     });
   });
 
-  test("never fires a completion trigger, which has no executor yet", () => {
+  test("a completion trigger with nothing finished idles, even with a stale nextRunAt", () => {
     const heartbeat = createHeartbeat({
       trigger: { kind: "completion" },
       nextRunAt: "2026-08-10T00:00:00.000Z",
@@ -835,6 +836,19 @@ describe("completion idempotency keys", () => {
     expect(key(first)).toBe(key({ ...first, reason: "anything" }));
     // A run that failed and a run that completed are different facts.
     expect(key(first)).not.toBe(key({ ...first, status: "failed" }));
+    // A retry reuses its run and step ids and bumps only the attempt, so the
+    // attempt must be part of the key or a retried failure would be deduped
+    // against the first attempt's wake-up and never wake the parent again.
+    expect(key(first)).not.toBe(key({ ...first, attempt: 2 }));
+  });
+
+  test("the completion feed window never outruns the fired-row retention", () => {
+    // The retained `fired` rows are the idempotency guard for everything the
+    // feed can still report. Inverting this inequality lets pruning resurrect
+    // a consumed completion, which wakes the task twice.
+    expect(TASK_HEARTBEAT_LIMITS.maxCompletionFeedRows).toBeLessThanOrEqual(
+      TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences,
+    );
   });
 
   test("the widest legal completion still produces a whole, unique key", () => {

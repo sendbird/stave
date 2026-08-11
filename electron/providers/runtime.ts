@@ -10,6 +10,7 @@ import { buildCodexCliEnv } from "./cli-path-env";
 import {
   resolveCodexExecutablePath,
   cleanupCodexAppServerTask,
+  disposeAllCodexAppServerClients,
   streamCodexWithAppServer,
 } from "./codex-app-server-runtime";
 import {
@@ -1374,5 +1375,8 @@ export const providerRuntime: ProviderRuntime = {
     for (const taskId of taskIds) {
       cleanupProviderTaskState(taskId);
     }
+    // Terminate the shared `codex app-server` processes; without this they
+    // outlive the host service as ghost children.
+    disposeAllCodexAppServerClients();
   },
 };

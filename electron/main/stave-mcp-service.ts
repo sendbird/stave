@@ -419,6 +419,17 @@ export async function getTaskStatus(args: {
   >("get-task-status", args);
 }
 
+/**
+ * Clears the delegation link on a detached child task so it reappears in
+ * ordinary workspace task listings instead of staying hidden forever.
+ */
+export async function releaseTaskParent(args: {
+  workspaceId: string;
+  taskId: string;
+}) {
+  return invokeLocalMcp<{ released: boolean }>("release-task-parent", args);
+}
+
 export async function respondApproval(args: {
   workspaceId: string;
   taskId: string;

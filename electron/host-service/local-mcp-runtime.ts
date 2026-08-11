@@ -2194,14 +2194,19 @@ function listChildTaskSummaries(args: {
  * These two limits answer different questions. Truncating a *display* list
  * hides rows the user can still go and find; truncating the *completion* feed
  * loses a wake-up permanently, because the supervisor only ever consumes what
- * this read returns. So the window has to be at least as wide as the
- * idempotency guard that protects it — a completion that ages out of the read
- * before it is ever consumed can never be recovered, while one that is still
- * visible is at worst re-reported and deduped. Doubled over that floor because
- * still-running children share the same window and push terminal rows down it.
+ * this read returns.
+ *
+ * The direction of the safety inequality matters: the supervisor's `fired`-row
+ * retention (`minRetainedFiredOccurrences`) must be at least as wide as this
+ * window, never the other way around. The retained `fired` rows are the
+ * idempotency guard — if this read can still report a completion whose
+ * consumed receipt was already pruned, that completion reads as brand new and
+ * wakes the task a second time. A completion that ages out of this window
+ * unconsumed is lost instead, which is why the window is still generous. The
+ * constant lives beside the retention limits so the inequality is pinned by a
+ * test rather than re-derived here.
  */
-const TASK_COMPLETION_FEED_LIMIT =
-  TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences * 2;
+const TASK_COMPLETION_FEED_LIMIT = TASK_HEARTBEAT_LIMITS.maxCompletionFeedRows;
 
 /**
  * The task supervisor's completion feed: delegated runs of one parent that have
@@ -2219,6 +2224,11 @@ export function listTaskCompletionSignals(args: {
     limit: TASK_COMPLETION_FEED_LIMIT,
   }).flatMap(
     (summary) => {
+      // `waiting` is an active phase, so a detached child that parked open
+      // after its turn never appears here: only stopping or detaching the
+      // delegation settles it into a terminal status. Documented in
+      // docs/features/task-heartbeats.md — a completion heartbeat observes
+      // delegations that *end*, not detached children between turns.
       if (isActiveChildTaskPhase(summary.phase)) {
         return [];
       }
@@ -2239,6 +2249,9 @@ export function listTaskCompletionSignals(args: {
           // A terminal step without a `completedAt` is a reconciled one; its
           // `updatedAt` is the instant it settled.
           completedAt: summary.completedAt ?? summary.updatedAt,
+          // Part of the signal's identity: a retried attempt that settles
+          // again must not be deduped against the first attempt's wake-up.
+          attempt: summary.attempt,
         } satisfies TaskCompletionSignal,
       ];
     },
@@ -2667,6 +2680,52 @@ export async function getTaskStatus(args: {
     pendingApprovals: findPendingApprovals(messages),
     pendingUserInputs: findPendingUserInputs(messages),
   } satisfies TaskStatusResult;
+}
+
+/**
+ * Clears the delegation link on a child task so it re-enters ordinary
+ * workspace listings. `parentTaskId` is the listing predicate
+ * (`isDelegatedChildTask`), so a detached child that kept it would stay hidden
+ * from every workspace-level task listing forever — a possibly still-running
+ * session nobody can find once its parent is archived. Detach's contract is
+ * "the child carries on as an ordinary task", and this is what makes that
+ * true in the task listings, not just in the ledger.
+ *
+ * Idempotent: releasing a task that has no parent link reports
+ * `released: false` and changes nothing.
+ */
+export async function releaseTaskParent(args: {
+  workspaceId: string;
+  taskId: string;
+}): Promise<{ released: boolean }> {
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({
+    projects,
+    workspaceId: args.workspaceId,
+  });
+  if (!registration) {
+    throw new Error(`Workspace not found: ${args.workspaceId}`);
+  }
+  const session = await loadWorkspaceSession(args.workspaceId);
+  const task = session.tasks.find((item) => item.id === args.taskId);
+  if (!task) {
+    throw new Error(`Task not found: ${args.taskId}`);
+  }
+  if (!task.parentTaskId) {
+    return { released: false };
+  }
+  const updated = cacheWorkspaceSession(args.workspaceId, {
+    ...session,
+    tasks: session.tasks.map((item) =>
+      item.id === args.taskId ? { ...item, parentTaskId: null } : item,
+    ),
+  });
+  await queueWorkspaceSessionPersist({
+    workspaceId: args.workspaceId,
+    workspaceName: registration.workspace.name,
+    session: updated,
+  });
+  return { released: true };
 }
 
 /**

@@ -424,6 +424,7 @@ export type HostLocalMcpAction =
   | "create-workspace"
   | "run-task"
   | "get-task-status"
+  | "release-task-parent"
   | "respond-approval"
   | "respond-user-input"
   | "get-workspace-information"

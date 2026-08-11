@@ -64,7 +64,7 @@ function takeUtf8SuffixByBytes(args: { value: string; maxBytes: number }) {
   return args.value.slice(best);
 }
 
-function truncateUtf8Middle(args: {
+export function truncateUtf8Middle(args: {
   value: string;
   maxBytes: number;
   marker?: string;

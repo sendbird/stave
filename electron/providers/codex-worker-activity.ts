@@ -40,20 +40,6 @@ function truncate(value: string, maxBytes: number) {
   return truncateBufferedText({ value, maxBytes });
 }
 
-/**
- * The child thread id a collaboration item directly names, when it names
- * exactly one. `receiverThreadIds` (plural) is a broadcast and identifies no
- * single agent, so it is deliberately ignored here.
- */
-function readCollabChildThreadId(item: CollabToolCallItem) {
-  const candidate =
-    (typeof item.newThreadId === "string" ? item.newThreadId.trim() : "") ||
-    (typeof item.receiverThreadId === "string"
-      ? item.receiverThreadId.trim()
-      : "");
-  return candidate || "";
-}
-
 function buildCollabInput(
   item: CollabToolCallItem,
   workerExecution: WorkerExecutionMetadata | null,
@@ -156,16 +142,22 @@ export function createCodexWorkerActivityMapper(args: {
     if (toolUseId) childThreadIdByToolId.delete(toolUseId);
   }
 
+  /**
+   * `agentId` points *down* at a worker this call spawned, so only a collab
+   * item that actually created a thread (`newThreadId`) may claim one. A
+   * send/wait item that merely *targets* an existing thread spawned nothing —
+   * tagging it with the receiver would tell the work graph this call created
+   * that worker.
+   *
+   * `parentToolUseId` is never set here: it means "the tool call this one ran
+   * *inside*", and the collab stream does not report that. The old value — the
+   * spawn call of the thread the item *targeted* — inverted the edge and drew
+   * a main-loop `send_message` as work happening inside its receiver.
+   */
   function buildCollabIdentity(item: CollabToolCallItem) {
-    const childThreadId = readCollabChildThreadId(item);
-    if (!childThreadId) return { agentId: "", parentToolUseId: "" };
-    const itemId = typeof item.id === "string" ? item.id : "";
-    const parentToolUseId = toolIdByChildThreadId.get(childThreadId) ?? "";
-    return {
-      agentId: childThreadId,
-      // Never let a tool call claim itself as its own parent.
-      parentToolUseId: parentToolUseId === itemId ? "" : parentToolUseId,
-    };
+    const newThreadId =
+      typeof item.newThreadId === "string" ? item.newThreadId.trim() : "";
+    return { agentId: newThreadId, parentToolUseId: "" };
   }
 
   return {
