@@ -79,6 +79,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         description:
           "Fork or roll back provider conversations from an earlier response without reverting workspace files.",
       },
+      {
+        routePath: "turn-activity",
+        sourcePath: "docs/features/turn-activity.md",
+        title: "Turn Activity",
+        description:
+          "Choose a docked, floating, or right-rail view for following tools, child tasks, todos, and other live turn data.",
+      },
     ],
   },
   {

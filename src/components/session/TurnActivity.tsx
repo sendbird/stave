@@ -6,15 +6,28 @@ import {
   useReducer,
   useRef,
   useState,
+  type CSSProperties,
+  type HTMLAttributes,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  PanelBottomClose,
+  PanelRight,
+  PictureInPicture2,
+} from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import {
   ChildTaskParentBacklink,
   ChildTaskRows,
 } from "@/components/session/ChildTaskRows";
 import { deriveTodoTraceItems } from "@/components/session/message/assistant-trace.utils";
-import { resolvePlanViewerState } from "@/components/session/plan-viewer.utils";
+import {
+  resolvePlanViewerState,
+  SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
+} from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   useChildTasks,
@@ -63,7 +76,9 @@ import { buildChildTaskExpectedIdentity } from "@/lib/runs/child-task-view";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import { cn } from "@/lib/utils";
+import type { TurnActivityPlacement } from "@/store/app-settings";
 import { useAppStore } from "@/store/app.store";
+import type { TurnActivityFloatPosition } from "@/store/layout.utils";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
 import { resolvePromptDraftRuntimeState } from "@/store/prompt-draft-runtime";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
@@ -133,7 +148,17 @@ function getLatestPlanMessages(messages: ChatMessage[]) {
   return { latestPlanMessage, lastMessage };
 }
 
-export function TurnActivity() {
+/**
+ * Which surface is asking to render the shelf. The container renders only
+ * when the user's `turnActivityPlacement` setting matches, so exactly one
+ * host shows the activity at a time:
+ *
+ * - `docked` — mounted by `ChatInput` above the composer (default).
+ * - `floating` — mounted in `ChatArea`'s overlay as a draggable card.
+ * - `panel` — mounted by the right rail's Activity panel.
+ */
+export function TurnActivity(props: { host?: TurnActivityPlacement }) {
+  const host = props.host ?? "docked";
   const taskId = useScopedTaskId();
   const [
     activeTask,
@@ -151,6 +176,7 @@ export function TurnActivity() {
     activeWorkspaceId,
     projectPath,
     runtimeCapabilities,
+    placement,
   ] = useAppStore(
     useShallow((state) => [
       state.tasks.find((task) => task.id === taskId) ?? null,
@@ -168,7 +194,24 @@ export function TurnActivity() {
       state.activeWorkspaceId,
       state.projectPath,
       state.providerRuntimeCapabilities,
+      state.settings.turnActivityPlacement,
     ]),
+  );
+  const updateSettings = useAppStore((state) => state.updateSettings);
+  const setLayout = useAppStore((state) => state.setLayout);
+  const placementMatchesHost = placement === host;
+  const handlePlacementChange = useCallback(
+    (next: TurnActivityPlacement) => {
+      updateSettings({ patch: { turnActivityPlacement: next } });
+      // Moving into the panel must also surface it, or the activity would
+      // silently vanish until the user finds the rail icon.
+      if (next === "panel") {
+        setLayout({
+          patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "activity" },
+        });
+      }
+    },
+    [setLayout, updateSettings],
   );
   const activeProvider = activeTask?.provider ?? draftProvider;
   const taskRuntimeState = resolvePromptDraftRuntimeState({
@@ -255,7 +298,7 @@ export function TurnActivity() {
     parentTaskId: taskId,
     parentWorkspaceId: activeWorkspaceId,
     projectPath,
-    enabled: shouldShow,
+    enabled: shouldShow && placementMatchesHost,
   });
   const { children: childTaskRows } = childTasks;
   // Only the rows and the controls travel down, and they travel as their own
@@ -467,16 +510,186 @@ export function TurnActivity() {
   }, [surfaceProps]);
 
   const visibleProps = surfaceProps ?? leavingProps;
+  if (!placementMatchesHost) {
+    return null;
+  }
   if (!visibleProps) {
+    if (host === "panel") {
+      return (
+        <div
+          data-testid="turn-activity-panel-idle"
+          className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground"
+        >
+          Activity appears here while a turn is running.
+        </div>
+      );
+    }
     return null;
   }
 
+  const sharedProps = {
+    ...visibleProps,
+    isLeaving: leavingProps != null,
+    placement,
+    onPlacementChange: handlePlacementChange,
+  };
+  const surfaceKey = `${taskId}:${visibleProps.activeTurnId}`;
+
+  if (host === "floating") {
+    return (
+      <TurnActivityFloatingShell>
+        {(dragHandleProps) => (
+          <TurnActivitySurface
+            key={surfaceKey}
+            {...sharedProps}
+            variant="floating"
+            dragHandleProps={dragHandleProps}
+          />
+        )}
+      </TurnActivityFloatingShell>
+    );
+  }
+
   return (
-    <TurnActivitySurface
-      key={`${taskId}:${visibleProps.activeTurnId}`}
-      {...visibleProps}
-      isLeaving={leavingProps != null}
-    />
+    <TurnActivitySurface key={surfaceKey} {...sharedProps} variant={host} />
+  );
+}
+
+interface FloatingDragState {
+  pointerId: number;
+  startMouseX: number;
+  startMouseY: number;
+  startPosX: number;
+  startPosY: number;
+  containerWidth: number;
+  containerHeight: number;
+  cardWidth: number;
+  cardHeight: number;
+  /** True once movement exceeds the activation threshold. */
+  active: boolean;
+}
+
+const TURN_ACTIVITY_FLOAT_DEFAULT_TOP_PX = 12;
+const TURN_ACTIVITY_FLOAT_DEFAULT_RIGHT_PX = 16;
+
+/**
+ * Draggable wrapper for the floating placement. Lives inside `ChatArea`'s
+ * `pointer-events-none absolute inset-0` overlay, so positions are pixels
+ * from the message pane's top-left. The card anchors top-right until the
+ * user drags it; the dropped position persists via `layout.turnActivityFloatPos`.
+ */
+function TurnActivityFloatingShell(props: {
+  children: (dragHandleProps: HTMLAttributes<HTMLDivElement>) => ReactNode;
+}) {
+  const [storedPos, setLayout] = useAppStore(
+    useShallow(
+      (state) => [state.layout.turnActivityFloatPos, state.setLayout] as const,
+    ),
+  );
+  const [dragPos, setDragPos] = useState<TurnActivityFloatPosition | null>(
+    null,
+  );
+  const outerRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<FloatingDragState | null>(null);
+  const lastDragPosRef = useRef<TurnActivityFloatPosition | null>(null);
+
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0 || dragRef.current !== null) {
+        return;
+      }
+      const outer = outerRef.current;
+      const containerRect = outer?.parentElement?.getBoundingClientRect();
+      if (!outer || !containerRect) {
+        return;
+      }
+      const outerRect = outer.getBoundingClientRect();
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startMouseX: e.clientX,
+        startMouseY: e.clientY,
+        startPosX: outerRect.left - containerRect.left,
+        startPosY: outerRect.top - containerRect.top,
+        containerWidth: containerRect.width,
+        containerHeight: containerRect.height,
+        cardWidth: outer.offsetWidth,
+        cardHeight: outer.offsetHeight,
+        active: false,
+      };
+    },
+    [],
+  );
+
+  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const state = dragRef.current;
+    if (!state) {
+      return;
+    }
+    const dx = e.clientX - state.startMouseX;
+    const dy = e.clientY - state.startMouseY;
+    // Activate only after a small movement threshold so header buttons keep
+    // receiving plain clicks.
+    if (!state.active) {
+      if (Math.abs(dx) + Math.abs(dy) < 4) {
+        return;
+      }
+      state.active = true;
+      e.currentTarget.setPointerCapture(state.pointerId);
+    }
+    const next: TurnActivityFloatPosition = {
+      x: Math.max(
+        0,
+        Math.min(state.containerWidth - state.cardWidth, state.startPosX + dx),
+      ),
+      y: Math.max(
+        0,
+        Math.min(
+          state.containerHeight - state.cardHeight,
+          state.startPosY + dy,
+        ),
+      ),
+    };
+    lastDragPosRef.current = next;
+    setDragPos(next);
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    const state = dragRef.current;
+    dragRef.current = null;
+    if (state?.active && lastDragPosRef.current) {
+      setLayout({ patch: { turnActivityFloatPos: lastDragPosRef.current } });
+    }
+  }, [setLayout]);
+
+  const pos = dragPos ?? storedPos;
+  // A stored position can outlive the window size it was dragged in, so the
+  // CSS `min()` keeps at least the drag handle reachable after a resize.
+  const wrapperStyle: CSSProperties = pos
+    ? {
+        top: `min(${pos.y}px, calc(100% - 3rem))`,
+        left: `min(${pos.x}px, calc(100% - 8rem))`,
+      }
+    : {
+        top: TURN_ACTIVITY_FLOAT_DEFAULT_TOP_PX,
+        right: TURN_ACTIVITY_FLOAT_DEFAULT_RIGHT_PX,
+      };
+
+  return (
+    <div
+      ref={outerRef}
+      data-testid="turn-activity-floating-shell"
+      className={SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME}
+      style={wrapperStyle}
+    >
+      <div className="pointer-events-auto w-[min(26rem,80vw)]">
+        {props.children({
+          onPointerDown,
+          onPointerMove,
+          onPointerUp,
+          onPointerCancel: onPointerUp,
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -519,6 +732,17 @@ interface TurnActivitySurfaceProps {
   taskId?: string;
   workspaceId?: string | null;
   projectPath?: string | null;
+  /**
+   * Which host chrome to render: the docked shelf tucked under the composer
+   * (default), a bordered floating card, or a full-height panel body.
+   */
+  variant?: TurnActivityPlacement;
+  /** Current placement setting; drives which placement controls render. */
+  placement?: TurnActivityPlacement;
+  /** Renders placement-switch buttons in the header when provided. */
+  onPlacementChange?: (placement: TurnActivityPlacement) => void;
+  /** Pointer handlers that make the header a drag handle (floating variant). */
+  dragHandleProps?: HTMLAttributes<HTMLDivElement>;
 }
 
 export const TurnActivitySurface = memo(function TurnActivitySurface(
@@ -673,15 +897,20 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     counts.totalCount > 1 &&
     counts.completedCount > 0;
   const isListOpen = expanded && canExpand;
+  const variant = props.variant ?? "docked";
 
   return (
     <div
       data-testid="turn-activity-stack"
+      data-variant={variant}
       className={cn(
-        // The shelf slides under the prompt input: `-mb-3` pulls the composer
-        // up over the surface's extra `pb-3`, so the squared bottom edge reads
-        // as tucked behind the composer instead of floating above it.
-        "relative z-0 mx-3 -mb-3",
+        variant === "docked" &&
+          // The shelf slides under the prompt input: `-mb-3` pulls the composer
+          // up over the surface's extra `pb-3`, so the squared bottom edge reads
+          // as tucked behind the composer instead of floating above it.
+          "relative z-0 mx-3 -mb-3",
+        variant === "floating" && "relative",
+        variant === "panel" && "flex h-full min-h-0 flex-col",
         props.isLeaving
           ? "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-2 motion-safe:fill-mode-forwards"
           : "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2",
@@ -692,14 +921,21 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         aria-label="Turn activity"
         data-testid="turn-activity"
         className={cn(
-          "turn-activity-surface relative flex min-h-0 flex-col overflow-hidden rounded-t-xl rounded-b-none bg-card pb-3",
+          "relative flex min-h-0 flex-col overflow-hidden bg-card",
+          variant === "docked" &&
+            "turn-activity-surface rounded-t-xl rounded-b-none pb-3",
+          variant === "floating" &&
+            "rounded-xl border border-border/80 pb-2 shadow-lg",
+          variant === "panel" && "flex-1 pb-2",
           "transition-[box-shadow,border-color] duration-200 ease-out motion-reduce:transition-none",
         )}
       >
         <div
+          {...props.dragHandleProps}
           className={cn(
             "flex min-h-11 shrink-0 items-center gap-2.5 px-3 py-2",
             expanded && canExpand && "border-b border-border/50 bg-muted/10",
+            props.dragHandleProps && "cursor-grab select-none touch-none",
           )}
         >
           <span
@@ -771,6 +1007,12 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               {elapsedLabel}
             </span>
           ) : null}
+          {props.onPlacementChange ? (
+            <TurnActivityPlacementControls
+              placement={props.placement ?? variant}
+              onPlacementChange={props.onPlacementChange}
+            />
+          ) : null}
           {canExpand ? (
             <Button
               type="button"
@@ -794,7 +1036,12 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         {isListOpen ? (
           <div
             data-testid="turn-activity-list"
-            className="max-h-[min(12rem,28vh)] min-h-0 overflow-y-auto overscroll-contain bg-muted/10"
+            className={cn(
+              "min-h-0 overflow-y-auto overscroll-contain bg-muted/10",
+              variant === "docked" && "max-h-[min(12rem,28vh)]",
+              variant === "floating" && "max-h-[min(24rem,55vh)]",
+              variant === "panel" && "flex-1",
+            )}
           >
             <div className="px-1.5 py-1.5">
               {activityItems.map((item) => (
@@ -836,6 +1083,54 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     </div>
   );
 });
+
+const PLACEMENT_CONTROLS: Array<{
+  placement: TurnActivityPlacement;
+  label: string;
+  Icon: typeof PanelBottomClose;
+}> = [
+  {
+    placement: "docked",
+    label: "Dock turn activity above the input",
+    Icon: PanelBottomClose,
+  },
+  {
+    placement: "floating",
+    label: "Float turn activity over the chat",
+    Icon: PictureInPicture2,
+  },
+  {
+    placement: "panel",
+    label: "Show turn activity in the side panel",
+    Icon: PanelRight,
+  },
+];
+
+function TurnActivityPlacementControls(props: {
+  placement: TurnActivityPlacement;
+  onPlacementChange: (placement: TurnActivityPlacement) => void;
+}) {
+  return (
+    <span className="flex shrink-0 items-center gap-0.5">
+      {PLACEMENT_CONTROLS.filter(
+        (control) => control.placement !== props.placement,
+      ).map(({ placement, label, Icon }) => (
+        <Button
+          key={placement}
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={label}
+          title={label}
+          className="text-muted-foreground hover:text-foreground"
+          onClick={() => props.onPlacementChange(placement)}
+        >
+          <Icon className="size-3.5" />
+        </Button>
+      ))}
+    </span>
+  );
+}
 
 // Memoized so the shelf's per-second clock tick and the surrounding 60fps store
 // churn do not re-render every row. Row objects are rebuilt only when their

@@ -150,6 +150,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    */
   turnActivityExpandedByDefault: boolean;
   /**
+   * Where the turn activity surface renders: docked above the prompt input
+   * (default), floating as a draggable card over the message pane, or inside
+   * the right rail's Activity panel for a full-height view.
+   */
+  turnActivityPlacement: TurnActivityPlacement;
+  /**
    * Where each prompt-input control renders: the toolbar, the `⋯` tray, or
    * nowhere. Sparse — an absent entry means "toolbar", so controls added later
    * are visible by default without a migration.
@@ -370,6 +376,29 @@ export const SIDEBAR_NAV_VIEWS: readonly SidebarNavView[] = [
   "work-queue",
 ] as const;
 
+/**
+ * Where the turn activity surface lives.
+ *
+ * - `docked` — the shelf above the prompt input (default).
+ * - `floating` — a draggable card floating over the message pane.
+ * - `panel` — the right rail's Activity panel, full height.
+ */
+export type TurnActivityPlacement = "docked" | "floating" | "panel";
+
+export const TURN_ACTIVITY_PLACEMENTS: readonly TurnActivityPlacement[] = [
+  "docked",
+  "floating",
+  "panel",
+] as const;
+
+export function normalizeTurnActivityPlacement(
+  value: unknown,
+): TurnActivityPlacement {
+  return TURN_ACTIVITY_PLACEMENTS.includes(value as TurnActivityPlacement)
+    ? (value as TurnActivityPlacement)
+    : "docked";
+}
+
 export function normalizeReasoningExpansionMode(
   value: unknown,
 ): "auto" | "manual" {
@@ -431,6 +460,7 @@ export const defaultSettings: AppSettings = {
   showInterimMessages: false,
   showConversationTurnRail: true,
   turnActivityExpandedByDefault: true,
+  turnActivityPlacement: "docked",
   composerControlPlacements: {},
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),

@@ -36,6 +36,7 @@ import {
   normalizeLensSessionScope,
   normalizeReasoningExpansionMode,
   normalizeSidebarNavView,
+  normalizeTurnActivityPlacement,
   type AppSettings,
 } from "@/store/app-settings";
 import type { AppState } from "@/store/app-store.types";
@@ -358,6 +359,13 @@ export function createSettingsActions(args: {
           ? {}
           : {
               sidebarNavView: normalizeSidebarNavView(patch.sidebarNavView),
+            }),
+        ...(patch.turnActivityPlacement === undefined
+          ? {}
+          : {
+              turnActivityPlacement: normalizeTurnActivityPlacement(
+                patch.turnActivityPlacement,
+              ),
             }),
         ...(patch.infoPanelSectionVisibility === undefined
           ? {}

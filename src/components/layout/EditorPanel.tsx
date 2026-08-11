@@ -13,6 +13,7 @@ import { hasSourceControlStagedChanges, type SourceControlStatusItem } from "@/l
 import { resolveWorkspaceTodoStatus } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
+import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
 import { RightRailPanelShell } from "./RightRailPanelShell";
 import { WorkspaceScriptsPanel } from "./WorkspaceScriptsPanel";
 import { WorkspaceSkillsPanel } from "./WorkspaceSkillsPanel";
@@ -1045,6 +1046,7 @@ export function EditorPanel(props: EditorPanelProps) {
           {rightTab === "scripts" ? (
             <WorkspaceScriptsPanel onOpenSettings={props.onOpenSettings} />
           ) : null}
+          {rightTab === "activity" ? <TurnActivityPanel /> : null}
         </RightRailPanelShell>
       </div>
       <ConfirmDialog
