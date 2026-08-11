@@ -155,6 +155,8 @@ describe("provider request translators", () => {
     });
 
     expect(prompt).not.toContain("[Task Shared Context]");
+    expect(prompt).not.toContain("workspacePlanDirectory:");
+    expect(prompt).not.toContain("handoffConvention:");
     expect(prompt).toContain("[Current User Input]");
   });
 

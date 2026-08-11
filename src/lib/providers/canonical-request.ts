@@ -309,6 +309,7 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
   includeImageData?: boolean;
 }) {
   const maxHistoryChars = 12000;
+  const includeWorkspaceGuidance = args.includeHistory !== false;
   const hasVisibleSkillContext = args.request.contextParts.some(
     (part) =>
       part.type === "skill_context" &&
@@ -324,9 +325,13 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
               ? `workspaceId: ${args.request.workspaceId}`
               : null,
             args.request.taskId ? `taskId: ${args.request.taskId}` : null,
-            "workspacePlanDirectory: .stave/context/plans",
-            "newWorkspacePlanFiles: .stave/context/plans/<taskIdPrefix>_<timestamp>.md",
-            "handoffConvention: write plan files (not workspace notes) when handing off to a new workspace; notes carry only a pointer to the plan file, and the source workspace's plan/notes/todos must not be copied verbatim into the target.",
+            ...(includeWorkspaceGuidance
+              ? [
+                  "workspacePlanDirectory: .stave/context/plans",
+                  "newWorkspacePlanFiles: .stave/context/plans/<taskIdPrefix>_<timestamp>.md",
+                  "handoffConvention: write plan files (not workspace notes) when handing off to a new workspace; notes carry only a pointer to the plan file, and the source workspace's plan/notes/todos must not be copied verbatim into the target.",
+                ]
+              : []),
           ]
             .filter(Boolean)
             .join("\n"),
