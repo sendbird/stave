@@ -73,11 +73,16 @@ describe("ManagedTaskTakeoverNotice", () => {
             content: "Untrusted issue material.",
           },
         ],
+        onRemove: () => {},
+        onClear: () => {},
       }),
     );
 
     expect(html).toContain("Crane ATL-1 · Fix dispatch");
     expect(html).toContain("Attached to every turn");
     expect(html).toContain("Untrusted issue material.");
+    expect(html).toContain('aria-label="Remove all attached context"');
+    expect(html).toContain("Clear all");
+    expect(html).toContain('aria-label="Remove Crane ATL-1 · Fix dispatch"');
   });
 });

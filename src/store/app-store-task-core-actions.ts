@@ -46,6 +46,7 @@ type TaskCoreActionKey =
   | "renameTask"
   | "attachTaskSourceContext"
   | "removeTaskSourceContext"
+  | "clearTaskSourceContexts"
   | "restoreTask"
   | "duplicateTask"
   | "rewindClaudeFilesFromMessage"
@@ -734,6 +735,26 @@ export function createTaskCoreActions(args: {
               ? {
                   ...task,
                   sourceContexts: nextContexts,
+                  updatedAt: buildRecentTimestamp(),
+                }
+              : task,
+          ),
+          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+        };
+      });
+    },
+    clearTaskSourceContexts: ({ taskId }) => {
+      set((state) => {
+        const target = state.tasks.find((task) => task.id === taskId);
+        if (!target?.sourceContexts?.length) {
+          return state;
+        }
+        return {
+          tasks: state.tasks.map((task) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  sourceContexts: [],
                   updatedAt: buildRecentTimestamp(),
                 }
               : task,

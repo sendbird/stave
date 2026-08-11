@@ -57,6 +57,7 @@ export function TaskSourceContextNotice(props: {
   currentPrUrl?: string | null;
   currentPrHeadSha?: string | null;
   onRemove?: (sourceId: string) => void;
+  onClear?: () => void;
   onRefreshPrContext?: () => void;
 }) {
   const attached = props.sourceContexts.filter((part) =>
@@ -88,6 +89,16 @@ export function TaskSourceContextNotice(props: {
             Stored locally with this task · Attached to every turn
           </p>
         </div>
+        {props.onClear ? (
+          <button
+            type="button"
+            aria-label="Remove all attached context"
+            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
+            onClick={props.onClear}
+          >
+            Clear all
+          </button>
+        ) : null}
       </div>
 
       {stale.length > 0 ? (
