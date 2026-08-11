@@ -245,6 +245,7 @@ interface ChatInputComposerProps {
   currentPrUrl: string | null;
   currentPrHeadSha: string | null;
   onRemoveSourceContext: (sourceId: string) => void;
+  onClearSourceContexts: () => void;
   onRefreshPrContext: () => void;
   canTakeOverManagedTask: boolean;
   onTakeOverManagedTask: () => void;
@@ -1143,6 +1144,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           currentPrUrl={args.currentPrUrl}
           currentPrHeadSha={args.currentPrHeadSha}
           onRemove={args.onRemoveSourceContext}
+          onClear={args.onClearSourceContexts}
           onRefreshPrContext={args.onRefreshPrContext}
         />
         {args.managedTaskOwner ? (
@@ -2590,6 +2592,11 @@ function BaseChatInput() {
         useAppStore
           .getState()
           .removeTaskSourceContext({ taskId: activeTaskId, sourceId });
+      }}
+      onClearSourceContexts={() => {
+        useAppStore
+          .getState()
+          .clearTaskSourceContexts({ taskId: activeTaskId });
       }}
       onRefreshPrContext={() => dispatchTopBarPrAction("attach-context")}
       canTakeOverManagedTask={canTakeOverManagedTask}
