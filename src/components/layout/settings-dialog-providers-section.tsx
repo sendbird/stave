@@ -89,6 +89,7 @@ import {
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
 import { SettingsWorkerSection } from "./settings-dialog-worker-section";
+import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
 type ExplainedSelectOption<T extends string> = {
   value: T;
   label: string;
@@ -667,6 +668,7 @@ export function ProvidersSection() {
     codexBinaryPath,
     activeTaskProvider,
     activeTaskModelOverride,
+    connectedBrowserTab,
     claudeRuntimeCapabilities,
     codexRuntimeCapabilities,
   ] = useAppStore(
@@ -717,6 +719,7 @@ export function ProvidersSection() {
             ?.provider ?? null,
           state.promptDraftByTask[state.activeTaskId]?.runtimeOverrides
             ?.model ?? null,
+          state.workspaceInformation.connectedBrowserTab ?? null,
           state.providerRuntimeCapabilities["claude-code"],
           state.providerRuntimeCapabilities.codex,
         ] as const,
@@ -859,6 +862,7 @@ export function ProvidersSection() {
 
   return (
     <>
+      <ProviderBrowserAccessSettingsCard tab={connectedBrowserTab} />
       <SettingsCard
         id={ADVISOR_SETTING_FIELD_ID}
         tabIndex={-1}

@@ -29,6 +29,16 @@ and secondary read-only analysis. Use ordinary web search for public research,
 or Lens when the current project's rendered UI needs workspace-scoped visual
 inspection.
 
+## Settings
+
+Settings > Providers > Browser access shows the latest connection state
+recorded in the active workspace, together with the setup and recheck path for
+Claude Code and Codex. `Not checked` means the workspace has no recorded
+`@web` request. `No recent result` means the other provider owns the single
+latest result; run this provider with `@web` to check it again. Because the
+extension is provider-owned, Stave cannot install it, enable it, or grant site
+access from Settings.
+
 ## Information panel
 
 After an `@web` request, the Information panel shows a `Connected browser tab`
