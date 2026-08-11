@@ -90,17 +90,17 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     expect(context.sourceId).toBe("stave:current-task-awareness");
     expect(context.title).toBe("Current Stave Task Context");
     expect(context.content).toContain(
-      "The Information panel is workspace-scoped, not task-scoped.",
+      "The Information panel is workspace-scoped",
     );
-    expect(context.content).toContain("workspaceId or taskId");
+    expect(context.content).toContain("ask only when the target is ambiguous");
     expect(context.content).toContain("id: ws-123");
     expect(context.content).toContain(
       "title: Make task chat understand the information panel",
     );
-    expect(context.content).toContain("Latest turn summary: present");
-    expect(context.content).toContain("Storybook: 1");
-    expect(context.content).toContain("Amplify links: 1");
-    expect(context.content).toContain("Amplify deploy links:");
+    expect(context.content).toContain("Latest turn summary:");
+    expect(context.content).toContain("Storybook resources (1):");
+    expect(context.content).toContain("Amplify deploy links (1):");
+    expect(context.content).not.toContain("Workspace Information Summary:");
     expect(context.content).toContain(
       "main | https://main.d123abc456.amplifyapp.com | Preview deploy",
     );
@@ -176,13 +176,13 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     // A terse pointer replaces the verbose guidance so the model still knows
     // the conventions remain in force.
     expect(compact.content).toContain(
-      "Workspace conventions, token-budget guidance, and the handoff procedure were provided at the start of this task",
+      "Static workspace and handoff guidance from the first turn still applies.",
     );
     // Dynamic identity + information state survive on every turn.
     expect(compact.content).toContain("id: ws-static");
     expect(compact.content).toContain("title: Reduce per-turn tokens");
-    expect(compact.content).toContain("Notes: present");
-    expect(compact.content).toContain("[current] Reduce per-turn tokens");
+    expect(compact.content).toContain("Notes:");
+    expect(compact.content).not.toContain("Other visible tasks:");
     // The compact turn is meaningfully smaller.
     expect(compact.content.length).toBeLessThan(full.content.length);
   });
@@ -222,14 +222,31 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
       workspaceInformation,
     });
 
-    expect(context.content).toContain("[current] Task 1");
-    expect(context.content).toContain("[other] Task 8 | task id: task-8");
-    expect(context.content).not.toContain("Task 9 | task id: task-9");
+    expect(context.content).toContain("Other visible tasks:");
+    expect(context.content).toContain("Task 2 | task id: task-2");
+    expect(context.content).toContain("Task 4 | task id: task-4");
+    expect(context.content).not.toContain("Task 5 | task id: task-5");
     expect(context.content).toContain(
       "Resource 5 | https://www.figma.com/design/FILE5",
     );
     expect(context.content).not.toContain(
       "Resource 6 | https://www.figma.com/design/FILE6",
     );
+  });
+
+  test("omits empty information sections from follow-up prompts", () => {
+    const context = buildCurrentTaskAwarenessRetrievedContext({
+      workspaceId: "ws-empty",
+      taskId: "task-1",
+      tasks: [createTask({ id: "task-1", title: "Task" })],
+      workspaceInformation: createEmptyWorkspaceInformation(),
+      includeStaticGuidance: false,
+    });
+
+    expect(context.content).toContain("Workspace Information: none");
+    expect(context.content).not.toContain("Notes:");
+    expect(context.content).not.toContain("Todos:");
+    expect(context.content).not.toContain("Linked pull requests:");
+    expect(context.content.length).toBeLessThan(750);
   });
 });

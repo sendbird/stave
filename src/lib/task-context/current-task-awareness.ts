@@ -7,7 +7,7 @@ import type { Task } from "@/types/chat";
 
 const MAX_TEXT_CHARS = 320;
 const MAX_NOTES_CHARS = 600;
-const MAX_VISIBLE_TASKS = 8;
+const MAX_VISIBLE_TASKS = 3;
 const MAX_VISIBLE_RESOURCES = 5;
 const MAX_VISIBLE_CUSTOM_FIELDS = 8;
 
@@ -23,39 +23,23 @@ function truncateText(value: string, maxChars = MAX_TEXT_CHARS) {
   return `${normalized.slice(0, Math.max(0, maxChars - 1))}…`;
 }
 
-function summarizeWorkspaceInformation(info: WorkspaceInformationState) {
-  const storybookResources = info.storybookResources ?? [];
-
-  return [
-    `Latest turn summary: ${info.turnSummary ? "present" : "empty"}`,
-    `Notes: ${info.notes.trim() ? "present" : "empty"}`,
-    `Todos: ${info.todos.length}`,
-    `Linked PRs: ${info.linkedPullRequests.length}`,
-    `Jira: ${info.jiraIssues.length}`,
-    `Confluence: ${info.confluencePages.length}`,
-    `Storybook: ${storybookResources.length}`,
-    `Amplify links: ${(info.amplifyLinks ?? []).length}`,
-    `Slack: ${info.slackThreads.length}`,
-    `Figma: ${info.figmaResources.length}`,
-    `Custom fields: ${info.customFields.length}`,
-  ].join("\n");
-}
-
 function formatSection(args: {
   label: string;
   items: string[];
-  emptyLabel: string;
+  totalCount?: number;
 }) {
   if (args.items.length === 0) {
-    return [`${args.label}:`, `- ${args.emptyLabel}`];
+    return [];
   }
+  const count = args.totalCount ? ` (${args.totalCount})` : "";
   return [
-    `${args.label}:`,
+    `${args.label}${count}:`,
     ...args.items.map((item) => `- ${truncateText(item)}`),
   ];
 }
 
 function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
+  const storybookResources = info.storybookResources ?? [];
   const turnSummaryItems = info.turnSummary
     ? [
         [
@@ -67,9 +51,9 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
           .join(" | "),
       ]
     : [];
-  const noteSummary = info.notes.trim()
-    ? truncateText(info.notes, MAX_NOTES_CHARS)
-    : "empty";
+  const noteItems = info.notes.trim()
+    ? [truncateText(info.notes, MAX_NOTES_CHARS)]
+    : [];
   const todoItems = info.todos
     .slice(0, MAX_VISIBLE_RESOURCES)
     .map((todo) => `${todo.completed ? "[done]" : "[open]"} ${todo.text}`);
@@ -105,7 +89,7 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
         .filter((value) => value.trim().length > 0)
         .join(" | "),
     );
-  const storybookItems = (info.storybookResources ?? [])
+  const storybookItems = storybookResources
     .slice(0, MAX_VISIBLE_RESOURCES)
     .map((resource) =>
       [
@@ -163,57 +147,55 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
     ...formatSection({
       label: "Latest turn summary",
       items: turnSummaryItems,
-      emptyLabel: "none",
     }),
     ...formatSection({
       label: "Notes",
-      items: [noteSummary],
-      emptyLabel: "empty",
+      items: noteItems,
     }),
     ...formatSection({
       label: "Todos",
       items: todoItems,
-      emptyLabel: "none",
+      totalCount: info.todos.length,
     }),
     ...formatSection({
       label: "Linked pull requests",
       items: linkedPrItems,
-      emptyLabel: "none",
+      totalCount: info.linkedPullRequests.length,
     }),
     ...formatSection({
       label: "Jira issues",
       items: jiraItems,
-      emptyLabel: "none",
+      totalCount: info.jiraIssues.length,
     }),
     ...formatSection({
       label: "Confluence pages",
       items: confluenceItems,
-      emptyLabel: "none",
+      totalCount: info.confluencePages.length,
     }),
     ...formatSection({
       label: "Storybook resources",
       items: storybookItems,
-      emptyLabel: "none",
+      totalCount: storybookResources.length,
     }),
     ...formatSection({
       label: "Amplify deploy links",
       items: amplifyItems,
-      emptyLabel: "none",
+      totalCount: (info.amplifyLinks ?? []).length,
     }),
     ...formatSection({
       label: "Slack threads",
       items: slackItems,
-      emptyLabel: "none",
+      totalCount: info.slackThreads.length,
     }),
     ...formatSection({
       label: "Figma resources",
       items: figmaItems,
-      emptyLabel: "none",
+      totalCount: info.figmaResources.length,
     }),
     ...formatSection({
       label: "Custom fields",
       items: customFieldItems,
-      emptyLabel: "none",
+      totalCount: info.customFields.length,
     }),
   ];
 }
@@ -240,11 +222,11 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
   const currentTask =
     args.tasks.find((task) => task.id === args.taskId) ?? null;
   const visibleTasks = args.tasks
+    .filter((task) => task.id !== args.taskId)
     .slice(0, MAX_VISIBLE_TASKS)
     .map(
       (task) =>
-        `${task.id === args.taskId ? "[current]" : "[other]"} ${truncateText(task.title, 140)}` +
-        (task.id === args.taskId ? "" : ` | task id: ${task.id}`),
+        `${truncateText(task.title, 140)} | task id: ${task.id}`,
     );
 
   const projectLines = [
@@ -299,19 +281,19 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
       ]
     : [
         "",
-        "Workspace conventions, token-budget guidance, and the handoff procedure were provided at the start of this task and still apply — follow them without re-fetching.",
+        "Static workspace and handoff guidance from the first turn still applies.",
       ];
+  const workspaceInformationLines = buildWorkspaceInformationDetailLines(
+    args.workspaceInformation,
+  );
 
   return {
     type: "retrieved_context",
     sourceId: "stave:current-task-awareness",
     title: "Current Stave Task Context",
     content: [
-      "Current Stave task chat context.",
-      "This task belongs to the workspace below.",
-      'Interpret unqualified references to "this task", "current task", "this workspace", "current workspace", and "Information panel" as referring to this task and its owning workspace unless the user clearly says otherwise.',
-      "The Information panel is workspace-scoped, not task-scoped.",
-      "Do not ask for workspaceId or taskId when the user's request clearly targets the current task or workspace. If the target is ambiguous, ask a normal clarification in chat instead.",
+      "Current Stave task context.",
+      'Resolve unqualified references to "this task", "this workspace", and "Information panel" to the task and workspace below. The Information panel is workspace-scoped; ask only when the target is ambiguous.',
       "",
       "Project:",
       ...projectLines,
@@ -322,17 +304,17 @@ export function buildCurrentTaskAwarenessRetrievedContext(args: {
       "Task:",
       ...taskLines,
       ...staticGuidanceLines,
-      "",
-      "Visible tasks in this workspace:",
       ...(visibleTasks.length > 0
-        ? visibleTasks.map((task) => `- ${task}`)
-        : ["- none"]),
+        ? [
+            "",
+            "Other visible tasks:",
+            ...visibleTasks.map((task) => `- ${task}`),
+          ]
+        : []),
       "",
-      "Workspace Information Summary:",
-      summarizeWorkspaceInformation(args.workspaceInformation),
-      "",
-      "Workspace Information Details:",
-      ...buildWorkspaceInformationDetailLines(args.workspaceInformation),
+      ...(workspaceInformationLines.length > 0
+        ? ["Workspace Information:", ...workspaceInformationLines]
+        : ["Workspace Information: none"]),
     ].join("\n"),
   };
 }
