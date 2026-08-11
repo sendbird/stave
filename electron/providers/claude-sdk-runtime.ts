@@ -3605,7 +3605,12 @@ export async function runClaudeReadOnlyPrompt(args: {
     stream = queryFn({ prompt: args.prompt, options }) as Query;
     args.onProgress?.({ stage: "waiting_for_result" });
 
-    return consumeClaudeReadOnlyPromptStream({
+    // `await` is load-bearing: with a bare `return <promise>` inside this try
+    // block the `finally` runs `stream.close()` before the stream has been
+    // consumed, killing the query mid-flight so every read-only prompt
+    // resolved to "ended without a result" — silently, which left auto task
+    // titles stuck on "New Task".
+    return await consumeClaudeReadOnlyPromptStream({
       stream,
       label,
       onProgress: args.onProgress,
