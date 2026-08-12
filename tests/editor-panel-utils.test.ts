@@ -4,9 +4,63 @@ import {
   buildSourceControlSections,
   buildSourceControlSummary,
   collectAncestorFolders,
+  didActiveWorkspaceTurnEnd,
   getExplorerExpandedPathsAfterCreate,
   normalizeRelativeInputPath,
 } from "@/components/layout/editor-panel.utils";
+
+describe("didActiveWorkspaceTurnEnd", () => {
+  test("detects a completed or replaced turn", () => {
+    expect(didActiveWorkspaceTurnEnd({
+      previous: {
+        workspaceId: "workspace-1",
+        turnIdsByTask: { "task-1": "turn-1" },
+      },
+      current: {
+        workspaceId: "workspace-1",
+        turnIdsByTask: { "task-1": undefined },
+      },
+    })).toBe(true);
+
+    expect(didActiveWorkspaceTurnEnd({
+      previous: {
+        workspaceId: "workspace-1",
+        turnIdsByTask: { "task-1": "turn-1" },
+      },
+      current: {
+        workspaceId: "workspace-1",
+        turnIdsByTask: { "task-1": "turn-2" },
+      },
+    })).toBe(true);
+  });
+
+  test("ignores turn starts and workspace switches", () => {
+    expect(didActiveWorkspaceTurnEnd({
+      previous: {
+        workspaceId: "workspace-1",
+        turnIdsByTask: { "task-1": "turn-1" },
+      },
+      current: {
+        workspaceId: "workspace-1",
+        turnIdsByTask: {
+          "task-1": "turn-1",
+          "task-2": "turn-2",
+        },
+      },
+    })).toBe(false);
+
+    expect(didActiveWorkspaceTurnEnd({
+      previous: {
+        workspaceId: "workspace-1",
+        turnIdsByTask: { "task-1": "turn-1" },
+      },
+      current: {
+        workspaceId: "workspace-2",
+        turnIdsByTask: {},
+      },
+    })).toBe(false);
+  });
+});
 
 describe("normalizeRelativeInputPath", () => {
   test("normalizes safe relative paths", () => {

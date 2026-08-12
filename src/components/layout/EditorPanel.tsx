@@ -25,9 +25,11 @@ import { EXPLORER_SEARCH_REQUEST_EVENT } from "./explorer-search-events";
 import {
   buildSourceControlSections,
   buildSourceControlSummary,
+  didActiveWorkspaceTurnEnd,
   getExplorerExpandedPathsAfterCreate,
   normalizeRelativeInputPath,
   type SourceControlItemViewModel,
+  type WorkspaceActiveTurnSnapshot,
 } from "./editor-panel.utils";
 
 interface SourceControlHistoryItem {
@@ -118,6 +120,7 @@ export function EditorPanel(props: EditorPanelProps) {
     workspacePrInfo,
     isDefaultWorkspace,
     fetchWorkspacePrStatus,
+    activeTurnIdsByTask,
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.hasHydratedWorkspaces,
@@ -138,6 +141,7 @@ export function EditorPanel(props: EditorPanelProps) {
     state.workspacePrInfoById[state.activeWorkspaceId] ?? null,
     Boolean(state.workspaceDefaultById[state.activeWorkspaceId]),
     state.fetchWorkspacePrStatus,
+    state.activeTurnIdsByTask,
   ] as const));
 
   const handleFixVerificationWithAgent = useCallback(
@@ -198,6 +202,8 @@ export function EditorPanel(props: EditorPanelProps) {
   const explorerDirectoryStateRef = useRef<Record<string, ExplorerDirectoryState>>({});
   const explorerRequestTokenRef = useRef(0);
   const selectedDiffRequestIdRef = useRef(0);
+  const scmRequestTokenRef = useRef(0);
+  const previousWorkspaceTurnSnapshotRef = useRef<WorkspaceActiveTurnSnapshot | null>(null);
   const pendingExplorerCreateInputRef = useRef<HTMLInputElement | null>(null);
 
   const explorerRootState = explorerDirectoryStateByPath[""];
@@ -373,12 +379,17 @@ export function EditorPanel(props: EditorPanelProps) {
     if (!args?.skipBusyState) {
       setIsScmBusy(true);
     }
+    const requestToken = ++scmRequestTokenRef.current;
 
     try {
       const [statusResult, historyResult] = await Promise.all([
         getStatus({ cwd: workspaceCwd }),
         getHistory ? getHistory({ cwd: workspaceCwd, limit: 15 }) : Promise.resolve(null),
       ]);
+
+      if (scmRequestTokenRef.current !== requestToken) {
+        return;
+      }
 
       setSourceBranch(statusResult.branch);
       setSourceItems(statusResult.items);
@@ -420,6 +431,23 @@ export function EditorPanel(props: EditorPanelProps) {
   loadScmStatusRef.current = loadScmStatus;
   const isScmBusyRef = useRef(isScmBusy);
   isScmBusyRef.current = isScmBusy;
+
+  useEffect(() => {
+    const current: WorkspaceActiveTurnSnapshot = {
+      workspaceId: activeWorkspaceId,
+      turnIdsByTask: activeTurnIdsByTask,
+    };
+    const shouldRefresh = didActiveWorkspaceTurnEnd({
+      previous: previousWorkspaceTurnSnapshotRef.current,
+      current,
+    });
+    previousWorkspaceTurnSnapshotRef.current = current;
+
+    if (!shouldRefresh) return;
+    if (rightTab !== "changes" || !sidebarOverlayVisible || !workspaceCwd) return;
+
+    void loadScmStatusRef.current({ skipBusyState: true });
+  }, [activeTurnIdsByTask, activeWorkspaceId, rightTab, sidebarOverlayVisible, workspaceCwd]);
 
   useEffect(() => {
     if (scmAutoRefreshSeconds <= 0) return;

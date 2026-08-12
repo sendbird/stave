@@ -71,6 +71,11 @@ export interface SourceControlSummary {
   workingTreeCount: number;
 }
 
+export interface WorkspaceActiveTurnSnapshot {
+  workspaceId: string;
+  turnIdsByTask: Readonly<Record<string, string | undefined>>;
+}
+
 const SOURCE_CONTROL_SECTION_ORDER: SourceControlSectionId[] = [
   "conflicted",
   "mixed",
@@ -114,6 +119,20 @@ const SOURCE_CONTROL_SECTION_META: Record<
     badgeVariant: "outline",
   },
 };
+
+export function didActiveWorkspaceTurnEnd(args: {
+  previous: WorkspaceActiveTurnSnapshot | null;
+  current: WorkspaceActiveTurnSnapshot;
+}) {
+  if (!args.previous || args.previous.workspaceId !== args.current.workspaceId) {
+    return false;
+  }
+
+  return Object.entries(args.previous.turnIdsByTask).some(
+    ([taskId, turnId]) =>
+      Boolean(turnId) && args.current.turnIdsByTask[taskId] !== turnId,
+  );
+}
 
 export function normalizeRelativeInputPath(args: { value: string }) {
   const normalized = args.value.trim().replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "");
