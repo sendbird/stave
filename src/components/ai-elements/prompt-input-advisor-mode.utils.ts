@@ -137,7 +137,7 @@ export interface AdvisorPillPresentation {
   label: string;
   /**
    * Resolved tier shown beside the label. Non-null whenever the Advisor is
-   * armed with a usable target, pinned or not — the cost of the preflight
+   * armed with a usable target, pinned or not — the cost of each consult
    * should not depend on opening a menu to discover it.
    */
   effortLabel: string | null;
@@ -165,20 +165,22 @@ const ADVISOR_ARM_OPTIONS: readonly AdvisorArmOption[] = [
   {
     id: "off",
     label: "Off",
-    summary: "No preflight",
-    description: "Start the primary model immediately.",
+    summary: "No Advisor",
+    description: "The primary model gets no on-demand Advisor this turn.",
   },
   {
     id: "claude-code",
     label: "Claude",
     summary: "Tools disabled",
-    description: "Ask an isolated Claude turn before this task's turns.",
+    description:
+      "Let the primary consult an isolated Claude turn on demand.",
   },
   {
     id: "codex",
     label: "Codex",
     summary: "Ephemeral read-only thread",
-    description: "Ask a throwaway Codex thread before this task's turns.",
+    description:
+      "Let the primary consult a throwaway Codex thread on demand.",
   },
 ] as const;
 
@@ -234,6 +236,12 @@ export function describeAdvisorPill(args: {
   primaryModel: string;
   /** True while this task's turn is blocked waiting on the Advisor. */
   blocking?: boolean;
+  /**
+   * Why consults cannot reach the model right now (Local MCP down), already
+   * phrased for display. An armed Advisor whose tool never reaches the primary
+   * would otherwise fail silently: no consult, no card, no explanation.
+   */
+  consultBlock?: string | null;
 }): AdvisorPillPresentation {
   const { arm } = args;
   const selfAdvising = isAdvisorSelfAdvising({
@@ -248,8 +256,8 @@ export function describeAdvisorPill(args: {
       effortLabel: null,
       tone: "off",
       tooltip: arm.target
-        ? `Advisor off for this task. ${ADVISOR_TOGGLE_SHORTCUT_LABEL} asks ${describeTargetRun(arm.target)} before each turn.`
-        : `Advisor off. ${ADVISOR_PICKER_SHORTCUT_LABEL} picks a model to ask before each of this task's turns.`,
+        ? `Advisor off for this task. ${ADVISOR_TOGGLE_SHORTCUT_LABEL} lets the primary consult ${describeTargetRun(arm.target)} on demand.`
+        : `Advisor off. ${ADVISOR_PICKER_SHORTCUT_LABEL} picks a model the primary may consult during this task's turns.`,
       toggleAriaLabel: arm.target
         ? `Turn the Advisor on for this task using ${describeTargetRun(arm.target)}`
         : "Choose an Advisor model for this task",
@@ -278,13 +286,17 @@ export function describeAdvisorPill(args: {
     providerId: arm.target.providerId,
   })}`;
   const resolvedEffort = resolveAdvisorEffort(arm.target);
+  // Ordered by how early the consult dies: an uncatalogued model is skipped
+  // before the tool is ever offered, a broken Local MCP link means the tool is
+  // never offered at all, and self-advising still works — it is just pointless.
   const warning = unsupported
     ? `${toHumanModelName({ model: arm.target.model })} is not in the current ${getProviderLabel(
         { providerId: arm.target.providerId },
       )} catalog, so this turn will skip the Advisor.`
-    : selfAdvising
-      ? `The Advisor and this task both run ${describeTarget(arm.target)}, so the second opinion is the same model.`
-      : null;
+    : (args.consultBlock ??
+      (selfAdvising
+        ? `The Advisor and this task both run ${describeTarget(arm.target)}, so the second opinion is the same model.`
+        : null));
   const note =
     arm.target.effort && arm.target.effort !== resolvedEffort
       ? `${toHumanModelName({ model: arm.target.model })} does not accept ${formatAdvisorEffortLabel(
@@ -299,12 +311,15 @@ export function describeAdvisorPill(args: {
     effortLabel: unsupported
       ? null
       : formatAdvisorEffortShortLabel(resolvedEffort),
-    tone: unsupported || selfAdvising ? "warning" : "armed",
+    tone:
+      unsupported || selfAdvising || args.consultBlock ? "warning" : "armed",
     tooltip: args.blocking
-      ? `Waiting on ${describeTargetRun(arm.target)}. ${ADVISOR_TOGGLE_SHORTCUT_LABEL} skips it and turns the Advisor off for this task.`
-      : `Asks ${describeTargetRun(arm.target)} before each of this task's turns. ${ADVISOR_TOGGLE_SHORTCUT_LABEL} turns it off.`,
+      ? `Consulting ${describeTargetRun(arm.target)}. ${ADVISOR_TOGGLE_SHORTCUT_LABEL} cancels the consult and turns the Advisor off for this task.`
+      : args.consultBlock
+        ? `${args.consultBlock} ${ADVISOR_TOGGLE_SHORTCUT_LABEL} turns the Advisor off.`
+        : `Lets the primary consult ${describeTargetRun(arm.target)} on demand during this task's turns. ${ADVISOR_TOGGLE_SHORTCUT_LABEL} turns it off.`,
     toggleAriaLabel: args.blocking
-      ? "Skip the running Advisor and turn it off for this task"
+      ? "Cancel the running Advisor consult and turn it off for this task"
       : "Turn the Advisor off for this task",
     canToggle: true,
     warning,

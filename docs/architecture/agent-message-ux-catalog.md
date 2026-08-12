@@ -84,7 +84,7 @@ become a second visible assistant message.
 | `goal_status` | Task-level `providerGoalByTask` state | Reflect Codex goal progress and blocked, limited, or completed control states outside the message body | Metadata only |
 | `usage` | `ChatMessage.usage` | Show token, cache, cost, and TTFT details in the message footer and aggregate task summaries | Metadata only |
 | `prompt_suggestions` | `ChatMessage.promptSuggestions` | Offer follow-up chips in the composer without inserting assistant text into the transcript | Metadata only |
-| `advisor_activity` | Advisor lifecycle state outside the transcript | Distinguish started, completed, applied, failed, timeout, aborted, and skipped advisor work; advice must not become a normal assistant bubble | Metadata only |
+| `advisor_activity` | Advisor consult lifecycle state outside the transcript | Distinguish started, completed, failed, timeout, aborted, and cancelled consults per exchange; advice must not become a normal assistant bubble | Metadata only |
 | `history_boundary` | `providerBoundary` on the target message | Enable history fork and rewind actions at the exact native thread, turn, or message boundary; no transcript row | Metadata only |
 | `permission_denial` | `system_event` with a normalized denial message | Explain which tool was denied and why in the trace without pretending it was a tool result | Not yet |
 | `hook_activity` | Turn-status or activity state | Surface hook running, completed, failed, cancelled, or blocked status in activity-oriented UI; no transcript row | Metadata only |

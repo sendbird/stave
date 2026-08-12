@@ -553,6 +553,7 @@ describe("child task coordinator", () => {
       delegateArgs({
         workspace: { mode: "new-worktree", name: "docs-review" },
         model: "gpt-5.3-codex",
+        effort: "high",
         permissionProfile: "auto",
       }),
     );
@@ -592,6 +593,7 @@ describe("child task coordinator", () => {
       prompt: "Try again, and read the checklist first.",
       workspaceId: "workspace-docs-review",
       model: "gpt-5.3-codex",
+      effort: "high",
       permissionProfile: "auto",
     });
     // The retry reused the delegation's worktree instead of cutting another.

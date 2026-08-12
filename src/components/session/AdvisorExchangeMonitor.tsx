@@ -61,6 +61,7 @@ function useAdvisorClock(active: boolean) {
 }
 
 const TONE_ACCENT_CLASS: Record<AdvisorExchangeTone, string> = {
+  neutral: "text-muted-foreground",
   active: "text-info",
   positive: "text-success",
   caution: "text-warning",
@@ -68,6 +69,7 @@ const TONE_ACCENT_CLASS: Record<AdvisorExchangeTone, string> = {
 };
 
 const TONE_BADGE_CLASS: Record<AdvisorExchangeTone, string> = {
+  neutral: "border-border/60 bg-muted/40 text-muted-foreground",
   active: "border-info/40 bg-info/10 text-info",
   positive: "border-success/40 bg-success/10 text-success",
   caution: "border-warning/40 bg-warning/10 text-warning",
@@ -152,9 +154,9 @@ export function AdvisorExchangeCard(props: {
   const checks = useMemo(() => buildAdvisorChecks(snapshot), [snapshot]);
   const failedChecks = checks.filter((check) => check.status === "fail").length;
   const running = snapshot.outcome === "pending";
-  // While the advisor holds the turn the baton sits on its side of the track;
-  // it returns to the primary the moment the primary actually starts.
-  const batonAtAdvisor = running && snapshot.primaryStartedAt === undefined;
+  // While the consult runs the baton sits on the advisor's side of the track;
+  // it returns to the primary the moment the advice comes back.
+  const batonAtAdvisor = running;
 
   return (
     <div
@@ -180,7 +182,10 @@ export function AdvisorExchangeCard(props: {
           />
         )}
         <span className="flex-1 truncate text-[0.8125rem] font-medium">
-          Advisor exchange
+          {snapshot.consultIndex !== undefined &&
+          snapshot.consultLimit !== undefined
+            ? `Advisor consult ${snapshot.consultIndex}/${snapshot.consultLimit}`
+            : "Advisor exchange"}
         </span>
         {failedChecks > 0 && !running ? (
           <TriangleAlert
@@ -275,7 +280,7 @@ export function AdvisorExchangeCard(props: {
         <div className="flex shrink-0 items-center gap-2 border-t border-border/60 px-3 py-1.5">
           <span className="min-w-0 flex-1 truncate text-[0.75rem] text-muted-foreground">
             {remainingMs === null
-              ? "Advisor is holding the turn."
+              ? "The primary is waiting on this consult."
               : `Deadline in ${formatAdvisorDuration(remainingMs)}.`}
           </span>
           <Button
@@ -285,7 +290,7 @@ export function AdvisorExchangeCard(props: {
             onClick={props.onSkip}
           >
             <SkipForward className="size-3" />
-            Skip advisor
+            Cancel consult
           </Button>
         </div>
       ) : null}
@@ -317,6 +322,17 @@ export function AdvisorExchangeCard(props: {
               </li>
             ))}
           </ul>
+
+          {snapshot.question ? (
+            <>
+              <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                Question asked
+              </p>
+              <p className="mt-1 whitespace-pre-wrap break-words rounded-md border border-border/60 bg-background/55 px-2 py-1.5 text-[0.75rem] leading-[1.5] text-foreground">
+                {snapshot.question}
+              </p>
+            </>
+          ) : null}
 
           {snapshot.advice ? (
             <>
@@ -436,8 +452,7 @@ export function AdvisorExchangeMonitor() {
     return null;
   }
 
-  const canSkip =
-    snapshot.outcome === "pending" && snapshot.primaryStartedAt === undefined;
+  const canSkip = snapshot.outcome === "pending";
 
   return (
     <div

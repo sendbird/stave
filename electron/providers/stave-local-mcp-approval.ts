@@ -47,6 +47,13 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // are not, so `stave_delegate_task` and `stave_stop_child_task` stay on the
   // approval path alongside `stave_run_task`.
   "stave_list_child_tasks",
+  // The one deliberate exception to the "spends tokens" rule: an Advisor
+  // consult can only run against a grant the user armed for this exact turn
+  // (composer pill / Alt+A), against the target and per-turn budget the user
+  // chose. The spend was authorised at arm time; prompting again per consult
+  // would break the "quick second opinion" flow the feature exists for. The
+  // consult itself is read-only and tool-less.
+  "stave_consult_advisor",
   // Same line the routine tools sit on: defining or pausing scheduled work only
   // edits a definition, so it belongs here, while anything that starts a turn
   // right now (`stave_run_routine_now`) does not. A heartbeat has no immediate

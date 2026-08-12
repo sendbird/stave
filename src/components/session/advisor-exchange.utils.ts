@@ -16,17 +16,17 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 export const ADVISOR_EXCHANGE_SETTLED_LINGER_MS = 6_000;
 export const ADVISOR_EXCHANGE_ATTENTION_LINGER_MS = 20_000;
 
-export type AdvisorExchangeTone = "active" | "positive" | "caution" | "danger";
+export type AdvisorExchangeTone =
+  /** Armed but not consulted: present, costing nothing, demanding nothing. */
+  | "neutral"
+  | "active"
+  | "positive"
+  | "caution"
+  | "danger";
 
 export type AdvisorCheckStatus = "pass" | "fail" | "pending" | "skipped";
 
-export type AdvisorCheckId =
-  | "cross_model"
-  | "isolation"
-  | "advice"
-  | "applied"
-  | "primary"
-  | "usage";
+export type AdvisorCheckId = "cross_model" | "isolation" | "advice" | "usage";
 
 export type AdvisorCheck = {
   id: AdvisorCheckId;
@@ -45,14 +45,11 @@ export function resolveAdvisorExchangeLingerMs(
   if (snapshot.outcome === "pending") {
     return null;
   }
-  if (snapshot.outcome === "completed") {
-    // Advice that was generated but never injected is the failure this whole
-    // surface exists to expose, so it must not disappear on the success timer.
-    return snapshot.applied
-      ? ADVISOR_EXCHANGE_SETTLED_LINGER_MS
-      : ADVISOR_EXCHANGE_ATTENTION_LINGER_MS;
-  }
-  if (snapshot.outcome === "skipped" || snapshot.outcome === "aborted") {
+  if (
+    snapshot.outcome === "completed" ||
+    snapshot.outcome === "skipped" ||
+    snapshot.outcome === "aborted"
+  ) {
     return ADVISOR_EXCHANGE_SETTLED_LINGER_MS;
   }
   return ADVISOR_EXCHANGE_ATTENTION_LINGER_MS;
@@ -68,6 +65,13 @@ export function resolveAdvisorExchangeVisibility(args: {
   if (!snapshot) {
     return false;
   }
+  if (snapshot.outcome === "armed") {
+    // The floating card reports exchanges. A grant that has not been consulted
+    // is reported by the turn activity shelf instead, which is where the user
+    // already looks for "what is this turn doing" — popping a card to announce
+    // that nothing happened would be the loudest possible way to say nothing.
+    return false;
+  }
   const lingerMs = resolveAdvisorExchangeLingerMs(snapshot);
   if (lingerMs === null || args.pinned) {
     return true;
@@ -80,10 +84,13 @@ export function resolveAdvisorExchangeTone(
   snapshot: AdvisorExchangeSnapshot,
 ): AdvisorExchangeTone {
   switch (snapshot.outcome) {
+    // The grant record is neutral chrome, not an exchange in flight.
+    case "armed":
+      return "neutral";
     case "pending":
       return "active";
     case "completed":
-      return snapshot.applied ? "positive" : "danger";
+      return "positive";
     case "failed":
     case "timeout":
       return "caution";
@@ -106,35 +113,31 @@ export function describeAdvisorExchangeStatus(
       ? null
       : formatAdvisorDuration(snapshot.durationMs);
   switch (snapshot.outcome) {
+    case "armed":
+      return "Armed for this turn. The primary has not consulted it yet.";
     case "pending":
-      return snapshot.primaryStartedAt !== undefined
-        ? "Primary turn running."
-        : "Waiting on the advisor before the primary turn starts.";
+      return "The primary is waiting on the advisor's answer.";
     case "completed":
-      return snapshot.applied
-        ? `Advice reached the primary prompt${duration ? ` in ${duration}` : ""}.`
-        : "Advice was produced but never reached the primary prompt.";
+      return `Advice returned to the primary${duration ? ` in ${duration}` : ""}.`;
     case "timeout":
       return `Advisor timed out${duration ? ` after ${duration}` : ""}. The primary turn continued without advice.`;
     case "failed":
       return `Advisor failed${duration ? ` after ${duration}` : ""}. The primary turn continued without advice.`;
     case "skipped":
-      return "Advisor skipped. The primary turn continued without advice.";
+      return "Consult cancelled. The primary turn continued without advice.";
     case "aborted":
-      return "Turn cancelled during the advisor step.";
+      return "Turn cancelled during an advisor consult.";
   }
 }
 
 export function describeAdvisorPhase(phase: AdvisorActivityPhase): string {
   switch (phase) {
+    case "armed":
+      return "Advisor armed";
     case "started":
       return "Consulting advisor";
     case "completed":
       return "Advice returned";
-    case "applied":
-      return "Advice injected into prompt";
-    case "primary_started":
-      return "Primary turn started";
     case "failed":
       return "Advisor failed";
     case "timeout":
@@ -142,7 +145,7 @@ export function describeAdvisorPhase(phase: AdvisorActivityPhase): string {
     case "aborted":
       return "Aborted";
     case "skipped":
-      return "Advisor skipped";
+      return "Consult cancelled";
   }
 }
 
@@ -150,6 +153,8 @@ export function describeAdvisorOutcome(
   outcome: AdvisorExchangeOutcome,
 ): string {
   switch (outcome) {
+    case "armed":
+      return "Armed";
     case "pending":
       return "Running";
     case "completed":
@@ -166,17 +171,12 @@ export function describeAdvisorOutcome(
 }
 
 /**
- * Badge text for the whole exchange, which is not the same as the advisor's own
- * outcome: an advisor can complete while the exchange still failed, because the
- * advice never reached the prompt. Badging that "Completed" would report the
- * exact failure this surface exists to catch as a success.
+ * Badge text for the exchange. Advice returns to the primary as the consult
+ * tool's own result, so "Completed" here does mean the primary saw it.
  */
 export function describeAdvisorExchangeBadge(
   snapshot: AdvisorExchangeSnapshot,
 ): string {
-  if (snapshot.outcome === "completed" && !snapshot.applied) {
-    return "Not applied";
-  }
   return describeAdvisorOutcome(snapshot.outcome);
 }
 
@@ -284,44 +284,13 @@ export function buildAdvisorChecks(
     },
     {
       id: "advice",
-      label: "Advisor returned advice",
+      label: "Advice returned to the primary",
       status: producedAdvice ? "pass" : unreachable,
       detail: producedAdvice
-        ? `${adviceChars ?? 0} characters returned.`
+        ? `${adviceChars ?? 0} characters returned as the consult tool result.`
         : running
           ? "Waiting for the advisor to respond."
           : (snapshot.detail ?? "No advice was produced."),
-    },
-    {
-      id: "applied",
-      label: "Advice reached the primary prompt",
-      // A completed advisor whose advice never landed is a hard failure, not a
-      // skip: the primary model answered as if the advisor had never run.
-      status: snapshot.applied ? "pass" : producedAdvice ? "fail" : unreachable,
-      detail: snapshot.applied
-        ? `Injected as retrieved_context part ${snapshot.injectedPartIndex ?? 0} (${snapshot.injectedChars ?? 0} chars).`
-        : producedAdvice
-          ? "Advice was returned but no injection was reported."
-          : "Nothing to inject.",
-    },
-    {
-      id: "primary",
-      label: "Primary turn ran after the handoff",
-      status:
-        snapshot.primaryStartedAt !== undefined
-          ? "pass"
-          : snapshot.outcome === "aborted"
-            ? "skipped"
-            : "pending",
-      detail:
-        snapshot.primaryStartedAt === undefined
-          ? snapshot.outcome === "aborted"
-            ? "The turn was cancelled before the primary provider started."
-            : "The primary provider has not started yet."
-          : `Started ${formatAdvisorDuration(
-              snapshot.primaryStartedAt -
-                (snapshot.appliedAt ?? snapshot.outcomeAt ?? snapshot.startedAt),
-            )} after the advisor step.`,
     },
     {
       id: "usage",
@@ -351,34 +320,28 @@ export type AdvisorLaneSegments = {
 };
 
 /**
- * Latency split for the two-lane bar. Rendering the blocked span is the point:
- * the advisor's wall-clock cost is invisible in every other surface.
+ * Latency split for the two-lane bar. During an on-demand consult the primary
+ * waits on the tool result for the whole exchange, so the blocked span equals
+ * the advisor span — rendering it is still the point: the consult's wall-clock
+ * cost is invisible in every other surface.
  */
 export function resolveAdvisorLaneSegments(args: {
   snapshot: AdvisorExchangeSnapshot;
   nowMs: number;
 }): AdvisorLaneSegments {
   const { snapshot } = args;
-  // The window runs to the *last* thing that happened, not to the advisor's
-  // own outcome: injection and the handoff to the primary land after it, and
-  // cropping them would hide exactly the gap this bar exists to show.
   const endedAt =
     snapshot.outcome === "pending"
       ? Math.max(args.nowMs, snapshot.startedAt)
-      : Math.max(
-          snapshot.outcomeAt ?? args.nowMs,
-          snapshot.appliedAt ?? 0,
-          snapshot.primaryStartedAt ?? 0,
-        );
+      : Math.max(snapshot.outcomeAt ?? args.nowMs, snapshot.startedAt);
   const elapsedMs = Math.max(0, endedAt - snapshot.startedAt);
   // A pending exchange fills the whole window so the bar reads as "still the
   // advisor's time" rather than collapsing to zero width.
   const window = Math.max(1, elapsedMs);
   const advisorEnd = snapshot.outcomeAt ?? endedAt;
-  const blockedEnd = snapshot.primaryStartedAt ?? endedAt;
   return {
     advisorFraction: clampFraction((advisorEnd - snapshot.startedAt) / window),
-    blockedFraction: clampFraction((blockedEnd - snapshot.startedAt) / window),
+    blockedFraction: clampFraction((advisorEnd - snapshot.startedAt) / window),
     elapsedMs,
   };
 }
@@ -396,9 +359,6 @@ export function resolveAdvisorRemainingMs(args: {
   nowMs: number;
 }): number | null {
   if (args.snapshot.outcome !== "pending" || !args.snapshot.timeoutMs) {
-    return null;
-  }
-  if (args.snapshot.primaryStartedAt !== undefined) {
     return null;
   }
   return Math.max(

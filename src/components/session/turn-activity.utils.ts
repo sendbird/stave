@@ -1,4 +1,12 @@
 import type { TodoItem } from "@/components/ai-elements/todo";
+import {
+  formatAdvisorDuration,
+  type AdvisorExchangeSnapshot,
+} from "@/lib/providers/advisor-activity";
+import {
+  getProviderLabel,
+  toHumanModelName,
+} from "@/lib/providers/model-catalog";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
@@ -10,7 +18,14 @@ export type TurnActivityRowStatus =
 
 /** Icon slot for a row; the renderer maps these onto lucide components. */
 export type TurnActivityIconKey =
-  "alert" | "pause" | "plan" | "subagent" | "tool" | "hook" | "todo";
+  | "alert"
+  | "pause"
+  | "plan"
+  | "subagent"
+  | "advisor"
+  | "tool"
+  | "hook"
+  | "todo";
 
 export interface TurnActivityWorkItemLike {
   status: TurnActivityRowStatus;
@@ -135,6 +150,93 @@ export function promoteFirstPendingTodoForActiveTurn(
   );
 }
 
+/** `Claude · Sonnet 4.6 · high`, or null when the runtime named no target. */
+function describeAdvisorIdentity(snapshot: AdvisorExchangeSnapshot) {
+  if (!snapshot.advisorProviderId) {
+    return null;
+  }
+  const segments = [
+    getProviderLabel({ providerId: snapshot.advisorProviderId }),
+    ...(snapshot.advisorModel
+      ? [toHumanModelName({ model: snapshot.advisorModel })]
+      : []),
+    ...(snapshot.advisorEffort ? [snapshot.advisorEffort] : []),
+  ];
+  return segments.join(" · ");
+}
+
+/**
+ * The Advisor's row in the turn shelf.
+ *
+ * On-demand consults are the one delegation the user cannot predict: the model
+ * decides whether to spend one at all. So the row exists from the moment the
+ * turn is armed, and its title always states the count — a turn that consulted
+ * nobody says so, instead of looking exactly like a turn with no Advisor.
+ *
+ * The floating exchange card still owns the detail (question, advice, checks);
+ * this row exists so every delegation this turn made is countable in one place.
+ */
+export function describeAdvisorTurnActivityItem(
+  snapshot: AdvisorExchangeSnapshot,
+): TurnActivityItem {
+  const identity = describeAdvisorIdentity(snapshot);
+  const limit = snapshot.consultLimit;
+  const duration =
+    snapshot.durationMs === undefined
+      ? null
+      : formatAdvisorDuration(snapshot.durationMs);
+
+  if (snapshot.outcome === "armed") {
+    return {
+      id: "advisor",
+      status: "pending",
+      title: "Advisor armed · 0 consults",
+      detail: identity
+        ? `${identity} · available if the primary asks`
+        : "Available if the primary asks",
+      ...(limit ? { badge: `0/${limit}` } : {}),
+      iconKey: "advisor",
+    };
+  }
+
+  const index = snapshot.consultIndex ?? snapshot.settledConsults;
+  const countLabel = limit ? `${index}/${limit}` : `${index}`;
+  if (snapshot.outcome === "pending") {
+    return {
+      id: "advisor",
+      status: "running",
+      title: `Advisor consult ${countLabel}`,
+      detail: snapshot.question ?? identity ?? "Waiting on the advisor",
+      ...(limit ? { badge: countLabel } : {}),
+      iconKey: "advisor",
+    };
+  }
+
+  const failed = snapshot.outcome === "failed" || snapshot.outcome === "timeout";
+  const outcomeDetail =
+    snapshot.outcome === "completed"
+      ? `Advice returned${duration ? ` in ${duration}` : ""}`
+      : snapshot.outcome === "timeout"
+        ? `Timed out${duration ? ` after ${duration}` : ""}; the turn continued`
+        : snapshot.outcome === "failed"
+          ? `Failed${duration ? ` after ${duration}` : ""}; the turn continued`
+          : snapshot.outcome === "skipped"
+            ? "Consult cancelled; the turn continued"
+            : "Turn cancelled during a consult";
+  return {
+    id: "advisor",
+    // A failed consult is not a failed turn — the primary keeps going — but it
+    // is the one advisor outcome worth surfacing in the collapsed header.
+    status: failed ? "failed" : "completed",
+    title: `Advisor · ${snapshot.settledConsults} consult${
+      snapshot.settledConsults === 1 ? "" : "s"
+    }`,
+    detail: identity ? `${outcomeDetail} · ${identity}` : outcomeDetail,
+    ...(limit ? { badge: `${snapshot.settledConsults}/${limit}` } : {}),
+    iconKey: "advisor",
+  };
+}
+
 function resolveTodoStatus(todo: TurnActivityTodo): TurnActivityRowStatus {
   if (todo.status === "completed") {
     return "completed";
@@ -165,6 +267,12 @@ export function buildTurnActivityItems(args: {
   isStalled: boolean;
   todos: TurnActivityTodo[];
   workItems: ProviderTurnWorkItem[];
+  /**
+   * This turn's Advisor grant, if one was minted. Rendered here rather than
+   * only in the floating card so subagents, child tasks and consults are all
+   * countable from the same shelf.
+   */
+  advisor?: AdvisorExchangeSnapshot | null;
   /**
    * A chat-level approval/user-input card is already on screen, so the shelf
    * skips its own row rather than saying the same thing twice.
@@ -214,6 +322,12 @@ export function buildTurnActivityItems(args: {
       title: "Preparing the plan",
       iconKey: "plan",
     });
+  }
+  if (args.advisor) {
+    // Fixed slot ahead of provider work: the row appears when the turn is
+    // armed and only changes text afterwards, so it never reorders the list
+    // mid-turn the way an insertion at consult time would.
+    items.push(describeAdvisorTurnActivityItem(args.advisor));
   }
   for (const item of args.workItems) {
     items.push({

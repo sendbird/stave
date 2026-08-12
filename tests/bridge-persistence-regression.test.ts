@@ -449,19 +449,13 @@ describe("host task turn synchronization", () => {
           durationMs: 6_700,
           detail: "Advisor configuration failed.",
         },
-        {
-          type: "advisor_activity",
-          phase: "primary_started",
-          primaryProviderId: "codex",
-          at: 1_700_000_006_750,
-        },
       ],
     });
 
     expect(useAppStore.getState().advisorExchangeByTask[taskId]).toMatchObject({
       turnId,
       outcome: "failed",
-      primaryStartedAt: 1_700_000_006_750,
+      settledConsults: 1,
       advisorProviderId: "claude-code",
     });
 

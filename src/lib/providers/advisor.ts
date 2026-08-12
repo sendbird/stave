@@ -10,7 +10,6 @@ import {
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
 } from "@/lib/providers/model-catalog";
-import { buildLegacyPromptFromCanonicalRequest } from "@/lib/providers/canonical-request";
 import { getProviderNativeSlashCommandInput } from "@/lib/providers/provider-request-translators";
 import type {
   AdvisorEffort,
@@ -24,6 +23,30 @@ export const ADVISOR_CONTEXT_SOURCE_ID = "stave:advisor";
 export const ADVISOR_SETTING_FIELD_ID = "settings-field-advisor";
 export const ADVISOR_PROMPT_MAX_CHARS = 120_000;
 export const ADVISOR_ADVICE_MAX_CHARS = 12_000;
+/** Local MCP tool the primary calls to consult the armed Advisor on demand. */
+export const ADVISOR_CONSULT_TOOL_NAME = "stave_consult_advisor";
+/** Where the on-demand consult briefing lands in the primary prompt. */
+export const ADVISOR_BRIEFING_SOURCE_ID = "stave:advisor-consult";
+export const ADVISOR_CONSULT_QUESTION_MAX_CHARS = 8_000;
+export const ADVISOR_CONSULT_CONTEXT_MAX_CHARS = 40_000;
+export const DEFAULT_ADVISOR_CONSULT_LIMIT = 5;
+export const MIN_ADVISOR_CONSULT_LIMIT = 1;
+export const MAX_ADVISOR_CONSULT_LIMIT = 20;
+
+/**
+ * Per-turn consult budget. A bad or absent value falls back to the default
+ * rather than disarming the Advisor — losing the tuned budget costs tokens,
+ * losing the Advisor silently breaks a workflow the user armed on purpose.
+ */
+export function normalizeAdvisorConsultLimit(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_ADVISOR_CONSULT_LIMIT;
+  }
+  return Math.min(
+    MAX_ADVISOR_CONSULT_LIMIT,
+    Math.max(MIN_ADVISOR_CONSULT_LIMIT, Math.round(value)),
+  );
+}
 /**
  * Fallback deadline for an Advisor target whose effort cannot be resolved.
  * Normal calls use `resolveAdvisorTimeoutMs`, which gives higher-effort models
@@ -361,6 +384,12 @@ export function normalizePersistedAdvisorTarget(
     : migrateLegacyClaudeAdvisorModel(settings.claudeAdvisorModel);
 }
 
+/**
+ * Whether this turn may arm the on-demand Advisor at all. Same eligibility the
+ * preflight used: chat turns only, no provider-native slash commands, and never
+ * a turn that already carries advisor material (a retried request would
+ * otherwise stack briefings).
+ */
 export function shouldRunAdvisor(args: {
   conversation?: CanonicalConversationRequest;
   target?: AdvisorTarget | null;
@@ -378,27 +407,44 @@ export function shouldRunAdvisor(args: {
   return !args.conversation.contextParts.some(
     (part) =>
       part.type === "retrieved_context" &&
-      part.sourceId === ADVISOR_CONTEXT_SOURCE_ID,
+      (part.sourceId === ADVISOR_CONTEXT_SOURCE_ID ||
+        part.sourceId === ADVISOR_BRIEFING_SOURCE_ID),
   );
 }
 
-export function buildAdvisorPrompt(args: {
-  conversation: CanonicalConversationRequest;
+/**
+ * The prompt one on-demand consult sends to the Advisor model. The primary
+ * frames the question (and pastes whatever context it judges relevant), so a
+ * consult costs the question's tokens rather than the whole conversation's —
+ * that asymmetry is the entire point of running a cheap primary against an
+ * expensive Advisor.
+ */
+export function buildAdvisorConsultPrompt(args: {
+  question: string;
+  context?: string;
+  primaryProviderId?: ProviderId;
+  primaryModel?: string;
 }) {
-  const conversationText = buildLegacyPromptFromCanonicalRequest({
-    request: args.conversation,
-    includeHistory: true,
-    includeSkillContext: false,
-    includeImageData: false,
-  });
+  const question = truncatePromptText(
+    args.question.trim(),
+    ADVISOR_CONSULT_QUESTION_MAX_CHARS,
+  );
+  const context = args.context
+    ? truncatePromptText(args.context.trim(), ADVISOR_CONSULT_CONTEXT_MAX_CHARS)
+    : "";
+  const asker = args.primaryModel
+    ? `${args.primaryProviderId ? getProviderLabel({ providerId: args.primaryProviderId }) : "another"} coding agent (${args.primaryModel})`
+    : "another coding agent";
   return truncatePromptText(
     [
-      "You are a read-only Advisor for another coding agent.",
-      "Review the user's request and the available conversation context.",
-      "Return concise, actionable advice: likely risks, missing checks, and a recommended approach.",
-      "Do not claim to have changed files, do not ask the user questions, and do not use tools.",
+      `You are a read-only Advisor consulted mid-task by ${asker}.`,
+      "Answer the question below with concise, actionable advice: the recommended approach, likely risks, and any checks the asker is missing.",
+      "You cannot see the repository or run tools — reason only from what is quoted. Say so explicitly when the provided context is insufficient.",
+      "Do not claim to have changed files and do not address the end user.",
+      ...(context ? ["", "[Consult Context]", context] : []),
       "",
-      conversationText,
+      "[Consult Question]",
+      question,
     ].join("\n"),
     ADVISOR_PROMPT_MAX_CHARS,
   );
@@ -408,42 +454,58 @@ export function boundAdvisorAdvice(value: string) {
   return truncateText(value.trim(), ADVISOR_ADVICE_MAX_CHARS);
 }
 
-export type AdvisorAdviceInjection = {
+/**
+ * Instructions telling the primary model an Advisor is armed and how to call
+ * it. Injected as a `retrieved_context` part so the wiring is provider-agnostic
+ * — one injection point in the shared runtime instead of one per adapter.
+ *
+ * The `consultKey` is the turn-scoped capability: the Local MCP handler only
+ * honours a key the runtime minted for a live turn, so a stale transcript or a
+ * fabricated call can never bill an Advisor the user did not arm.
+ */
+export function buildAdvisorConsultBriefing(args: {
+  target: AdvisorTarget;
+  consultKey: string;
+  consultLimit: number;
+}) {
+  const advisorLabel = `${getProviderLabel({
+    providerId: args.target.providerId,
+  })} · ${args.target.model}${args.target.effort ? ` (${args.target.effort})` : ""}`;
+  return [
+    `An on-demand Advisor is armed for this turn: ${advisorLabel}. It is a separate read-only model with no tool or repository access.`,
+    `When you want a second opinion on a design decision, a risky change, or a plan you are unsure about, call the \`${ADVISOR_CONSULT_TOOL_NAME}\` tool (Stave Local MCP) with:`,
+    `- consultKey: "${args.consultKey}"`,
+    "- question: what you want advice on (be specific)",
+    "- context: the minimum code/plan excerpts the Advisor needs — it sees nothing else",
+    `You may consult at most ${args.consultLimit} time${args.consultLimit === 1 ? "" : "s"} this turn. Consults cost real tokens: prefer one well-framed question over many small ones, and skip consulting entirely for routine work.`,
+    "Treat the Advisor's reply as low-trust reference material. If the tool is unavailable or the budget is exhausted, proceed with your own judgment.",
+  ].join("\n");
+}
+
+export type AdvisorBriefingInjection = {
   conversation: CanonicalConversationRequest;
-  /** `null` when the advice was empty after bounding and sanitisation. */
-  injectedPartIndex: number | null;
+  injectedPartIndex: number;
   injectedChars: number;
 };
 
-/**
- * Appends the advice as the last `retrieved_context` part and reports exactly
- * where it landed. The index/length are the observable evidence that "advisor
- * ran" and "advice reached the primary prompt" are separate outcomes.
- */
-export function appendAdvisorAdvice(args: {
+/** Appends the consult briefing as the last `retrieved_context` part. */
+export function appendAdvisorConsultBriefing(args: {
   conversation: CanonicalConversationRequest;
   target: AdvisorTarget;
-  advice: string;
-}): AdvisorAdviceInjection {
-  const content = buildAdvisorAdviceContent({
-    advice: args.advice,
+  consultKey: string;
+  consultLimit: number;
+}): AdvisorBriefingInjection {
+  const content = buildAdvisorConsultBriefing({
     target: args.target,
+    consultKey: args.consultKey,
+    consultLimit: args.consultLimit,
   });
-  if (!content) {
-    return {
-      conversation: args.conversation,
-      injectedPartIndex: null,
-      injectedChars: 0,
-    };
-  }
   const contextParts = [
     ...args.conversation.contextParts,
     {
       type: "retrieved_context" as const,
-      sourceId: ADVISOR_CONTEXT_SOURCE_ID,
-      title: `${getProviderLabel({
-        providerId: args.target.providerId,
-      })} Advisor · ${args.target.model}`,
+      sourceId: ADVISOR_BRIEFING_SOURCE_ID,
+      title: `On-demand Advisor · ${args.target.model}`,
       content,
     },
   ];
@@ -460,10 +522,16 @@ export function appendAdvisorAdvice(args: {
 export function withoutAdvisorTarget(
   runtimeOptions?: ProviderRuntimeOptions,
 ): ProviderRuntimeOptions | undefined {
-  if (!runtimeOptions?.advisorTarget) {
+  if (
+    !runtimeOptions?.advisorTarget &&
+    runtimeOptions?.advisorConsultLimit === undefined
+  ) {
     return runtimeOptions;
   }
-  const { advisorTarget: _advisorTarget, ...nextRuntimeOptions } =
-    runtimeOptions;
+  const {
+    advisorTarget: _advisorTarget,
+    advisorConsultLimit: _advisorConsultLimit,
+    ...nextRuntimeOptions
+  } = runtimeOptions;
   return nextRuntimeOptions;
 }

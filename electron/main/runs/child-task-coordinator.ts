@@ -164,6 +164,7 @@ export interface ChildTaskHostPort {
     prompt: string;
     providerId: "claude-code" | "codex";
     model?: string;
+    effort?: ChildTaskDelegateArgs["effort"];
     permissionProfile: ChildTaskDelegateArgs["permissionProfile"];
     /**
      * Stamped onto the child task row when the row is first created, so the
@@ -202,6 +203,7 @@ function hashChildTaskInput(args: ChildTaskDelegateArgs) {
         prompt: args.prompt,
         providerId: args.providerId,
         model: args.model ?? null,
+        effort: args.effort ?? null,
         permissionProfile: args.permissionProfile,
         lifecycle: args.lifecycle,
         workspace: args.workspace,
@@ -407,6 +409,7 @@ export function createChildTaskCoordinator(
       prompt: string;
       title?: string;
       model?: string;
+      effort?: ChildTaskDelegateArgs["effort"];
       permissionProfile: ChildTaskPermissionProfile;
       lifecycle: ChildTaskLifecycle;
     };
@@ -421,6 +424,7 @@ export function createChildTaskCoordinator(
           prompt: args.turn.prompt,
           providerId: args.target.providerId,
           model: args.turn.model,
+          effort: args.turn.effort,
           permissionProfile: args.turn.permissionProfile,
         });
         settleAfterTurn({
@@ -852,11 +856,12 @@ export function createChildTaskCoordinator(
         ? `${args.delegationKey}:attempt-${attempt + 1}`
         : args.delegationKey,
       // Recorded on the claim receipt so a later retry can preserve the
-      // delegation's original model, posture and workspace strategy — the
-      // step row itself only keeps a hash of the inputs.
+      // delegation's original model, effort, posture and workspace strategy —
+      // the step row itself only keeps a hash of the inputs.
       detail: {
         providerId: args.providerId,
         ...(args.model ? { model: args.model } : {}),
+        ...(args.effort ? { effort: args.effort } : {}),
         permissionProfile: args.permissionProfile,
         workspaceMode: args.workspace.mode,
       },
@@ -889,6 +894,7 @@ export function createChildTaskCoordinator(
         prompt: args.prompt,
         title: args.title,
         model: args.model,
+        effort: args.effort,
         permissionProfile: args.permissionProfile,
         lifecycle: args.lifecycle,
       },
@@ -902,8 +908,8 @@ export function createChildTaskCoordinator(
 
     /**
      * A fresh attempt on a delegation that ended without succeeding. Provider
-     * and lifecycle come from the delegation the ledger already holds; model
-     * and permission profile come from the original claim receipt unless the
+     * and lifecycle come from the delegation the ledger already holds; model,
+     * effort and permission profile come from the original claim receipt unless the
      * caller explicitly overrides the profile; and the retry always reuses the
      * workspace the delegation already owns. That keeps the retry the same
      * delegation rather than a new one borrowing its key — only the prompt is
@@ -947,6 +953,9 @@ export function createChildTaskCoordinator(
         providerId: resolved.child.providerId,
         ...(originalClaim?.detail?.model
           ? { model: originalClaim.detail.model }
+          : {}),
+        ...(originalClaim?.detail?.effort
+          ? { effort: originalClaim.detail.effort }
           : {}),
         permissionProfile:
           args.permissionProfile ??

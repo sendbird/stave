@@ -5,23 +5,18 @@ import type {
 } from "@/lib/providers/provider.types";
 
 /**
- * Advisor lifecycle phases.
+ * Advisor consult lifecycle phases.
  *
- * `completed` and `applied` are deliberately separate: the advisor producing
- * advice and that advice actually reaching the primary prompt are different
- * events, and only the second one changes what the primary model sees. The
- * previous single system-trace string could not express that difference, which
- * made "advisor ran but the advice never landed" an invisible failure mode.
- *
- * `failed` and `timeout` are graceful fallbacks — the primary turn still runs.
- * `aborted` is a user cancellation of the whole turn. `skipped` means the
- * advisor never ran (ineligible turn, invalid target, unknown model).
+ * `armed` is turn-level, not consult-level: it says an Advisor is available to
+ * the primary this turn. Every other phase describes one consult. `failed` and
+ * `timeout` are graceful fallbacks — the primary turn keeps running. `aborted`
+ * means the whole turn was cancelled while a consult ran. `skipped` means this
+ * consult was cancelled by the user or never runnable.
  */
 export type AdvisorActivityPhase =
+  | "armed"
   | "started"
   | "completed"
-  | "applied"
-  | "primary_started"
   | "failed"
   | "timeout"
   | "aborted"
@@ -42,6 +37,8 @@ export type AdvisorActivityEvent = Extract<
 >;
 
 export type AdvisorExchangeOutcome =
+  /** Armed for the turn, not yet consulted. Never produced by a consult. */
+  | "armed"
   | "pending"
   | "completed"
   | "failed"
@@ -56,14 +53,24 @@ export type AdvisorExchangeStage = {
 };
 
 /**
- * Per-turn record of a primary -> advisor -> primary exchange.
+ * Record of one on-demand consult: primary -> advisor -> primary.
  *
  * Lives in its own store slice rather than inside a `MessagePart` so the
  * observability surface does not depend on transcript rendering, and so the
- * advice text is never persisted as an assistant response.
+ * advice text is never persisted as an assistant response. A turn can hold
+ * several consults; the slice keeps the latest one plus a settled counter so
+ * the card can read "Consult 3/5".
  */
 export type AdvisorExchangeSnapshot = {
   turnId: string;
+  /** Identity of this consult; events with a new id open a new snapshot. */
+  exchangeId?: string;
+  /** 1-based index of this consult within the turn, as the runtime counted. */
+  consultIndex?: number;
+  /** Per-turn consult budget the primary was granted. */
+  consultLimit?: number;
+  /** The question the primary asked, bounded by the runtime. */
+  question?: string;
   primaryProviderId: ProviderId;
   primaryModel?: string;
   advisorProviderId?: ProviderId;
@@ -79,14 +86,11 @@ export type AdvisorExchangeSnapshot = {
   detail?: string;
   advice?: string;
   adviceChars?: number;
-  applied: boolean;
-  appliedAt?: number;
-  injectedChars?: number;
-  injectedPartIndex?: number;
-  primaryStartedAt?: number;
   inputTokens?: number;
   outputTokens?: number;
   totalCostUsd?: number;
+  /** Consults of this turn that already reached a terminal outcome. */
+  settledConsults: number;
   stages: AdvisorExchangeStage[];
 };
 
@@ -122,12 +126,21 @@ const TERMINAL_OUTCOME_BY_PHASE: Partial<
 };
 
 export function isAdvisorExchangeTerminal(snapshot: AdvisorExchangeSnapshot) {
-  return snapshot.outcome !== "pending";
+  return snapshot.outcome !== "pending" && snapshot.outcome !== "armed";
 }
 
-/** True while the advisor is holding the turn and the primary has not started. */
+/**
+ * True for the turn-level grant record: an Advisor is available but the primary
+ * has not consulted it. Surfaces render this as "armed, 0 consults" rather than
+ * as an exchange, so a cost-free turn still proves the Advisor was live.
+ */
+export function isAdvisorArmedOnly(snapshot: AdvisorExchangeSnapshot) {
+  return snapshot.outcome === "armed";
+}
+
+/** True while a consult is running and the primary is waiting on its answer. */
 export function isAdvisorExchangeBlocking(snapshot: AdvisorExchangeSnapshot) {
-  return snapshot.outcome === "pending" && snapshot.primaryStartedAt === undefined;
+  return snapshot.outcome === "pending";
 }
 
 function appendStage(
@@ -143,10 +156,19 @@ function appendStage(
 function startSnapshot(args: {
   event: AdvisorActivityEvent;
   turnId: string;
+  settledConsults: number;
 }): AdvisorExchangeSnapshot {
   const { event } = args;
   return {
     turnId: args.turnId,
+    ...(event.exchangeId ? { exchangeId: event.exchangeId } : {}),
+    ...(event.consultIndex !== undefined
+      ? { consultIndex: event.consultIndex }
+      : {}),
+    ...(event.consultLimit !== undefined
+      ? { consultLimit: event.consultLimit }
+      : {}),
+    ...(event.question ? { question: event.question } : {}),
     primaryProviderId: event.primaryProviderId,
     ...(event.primaryModel ? { primaryModel: event.primaryModel } : {}),
     ...(event.advisorProviderId
@@ -157,9 +179,9 @@ function startSnapshot(args: {
     ...(event.isolation ? { isolation: event.isolation } : {}),
     startedAt: event.at,
     ...(event.timeoutMs !== undefined ? { timeoutMs: event.timeoutMs } : {}),
-    outcome: "pending",
-    applied: false,
-    stages: [{ phase: "started", at: event.at }],
+    outcome: event.phase === "armed" ? "armed" : "pending",
+    settledConsults: args.settledConsults,
+    stages: [{ phase: event.phase === "armed" ? "armed" : "started", at: event.at }],
   };
 }
 
@@ -179,6 +201,12 @@ function reduceEvent(args: {
     ...(event.advisorModel ? { advisorModel: event.advisorModel } : {}),
     ...(event.advisorEffort ? { advisorEffort: event.advisorEffort } : {}),
     ...(event.isolation ? { isolation: event.isolation } : {}),
+    ...(event.consultIndex !== undefined
+      ? { consultIndex: event.consultIndex }
+      : {}),
+    ...(event.consultLimit !== undefined
+      ? { consultLimit: event.consultLimit }
+      : {}),
     stages: appendStage(args.snapshot.stages, {
       phase: event.phase,
       at: event.at,
@@ -190,24 +218,6 @@ function reduceEvent(args: {
     return base;
   }
 
-  if (event.phase === "applied") {
-    return {
-      ...base,
-      applied: true,
-      appliedAt: event.at,
-      ...(event.injectedChars !== undefined
-        ? { injectedChars: event.injectedChars }
-        : {}),
-      ...(event.injectedPartIndex !== undefined
-        ? { injectedPartIndex: event.injectedPartIndex }
-        : {}),
-    };
-  }
-
-  if (event.phase === "primary_started") {
-    return { ...base, primaryStartedAt: event.at };
-  }
-
   const outcome = TERMINAL_OUTCOME_BY_PHASE[event.phase];
   if (!outcome) {
     return base;
@@ -216,6 +226,7 @@ function reduceEvent(args: {
     ...base,
     outcome,
     outcomeAt: event.at,
+    settledConsults: args.snapshot.settledConsults + 1,
     ...(event.durationMs !== undefined ? { durationMs: event.durationMs } : {}),
     ...(event.detail ? { detail: event.detail } : {}),
     ...(event.advice ? { advice: event.advice } : {}),
@@ -232,6 +243,29 @@ function reduceEvent(args: {
       ? { totalCostUsd: event.totalCostUsd }
       : {}),
   };
+}
+
+/** Whether this event belongs to a different consult than the snapshot shows. */
+function isNewExchange(
+  snapshot: AdvisorExchangeSnapshot,
+  event: AdvisorActivityEvent,
+) {
+  if (event.phase !== "started") {
+    // Outcome events without a matching snapshot are handled by the synthesis
+    // branch below; an id mismatch on a non-started event still updates the
+    // visible card rather than silently dropping the outcome.
+    return false;
+  }
+  if (snapshot.outcome === "armed") {
+    // The grant record is not an exchange, so the first consult replaces it
+    // outright rather than inheriting its start time and empty identity.
+    return true;
+  }
+  return (
+    snapshot.exchangeId !== undefined &&
+    event.exchangeId !== undefined &&
+    snapshot.exchangeId !== event.exchangeId
+  );
 }
 
 /**
@@ -258,16 +292,32 @@ export function applyAdvisorActivityEvents(args: {
   let snapshot = current?.turnId === args.turnId ? current : undefined;
 
   for (const event of advisorEvents) {
+    if (event.phase === "armed" && snapshot) {
+      // The grant is announced once per turn. A repeat (a recoverable provider
+      // retry re-entering the runtime) must not erase consults already folded.
+      continue;
+    }
+    if (snapshot && isNewExchange(snapshot, event)) {
+      // A new consult replaces the card; how many already settled this turn is
+      // carried forward so "Consult n/limit" stays truthful across cards.
+      snapshot = startSnapshot({
+        event,
+        turnId: args.turnId,
+        settledConsults: snapshot.settledConsults,
+      });
+      continue;
+    }
     if (!snapshot) {
       // A non-`started` first event still produces a usable record; dropping it
       // would lose the outcome when the replay window evicted `started`.
       snapshot =
-        event.phase === "started"
-          ? startSnapshot({ event, turnId: args.turnId })
+        event.phase === "started" || event.phase === "armed"
+          ? startSnapshot({ event, turnId: args.turnId, settledConsults: 0 })
           : reduceEvent({
               snapshot: startSnapshot({
                 event: { ...event, phase: "started" },
                 turnId: args.turnId,
+                settledConsults: 0,
               }),
               event,
             });

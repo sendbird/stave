@@ -145,14 +145,14 @@ describe("advisor pill presentation", () => {
     expect(presentation.warning).toContain("skip it");
   });
 
-  test("promises to release a blocked turn rather than only the next one", () => {
+  test("promises to cancel a running consult rather than only future ones", () => {
     const presentation = describeAdvisorPill({
       arm: arm({ settingsTarget: CODEX_TARGET }),
       ...CLAUDE_PRIMARY,
       blocking: true,
     });
-    expect(presentation.tooltip).toContain("skip");
-    expect(presentation.toggleAriaLabel).toContain("Skip");
+    expect(presentation.tooltip).toContain("cancels the consult");
+    expect(presentation.toggleAriaLabel).toContain("Cancel");
   });
 
   test("self-advising detection needs both provider and model to match", () => {
@@ -465,12 +465,54 @@ describe("advisor pill reports the effort", () => {
     });
     expect(off.tooltip).toContain("Alt+A");
     expect(blocking.tooltip).toContain("Alt+A");
-    expect(blocking.tooltip).toContain("skips it");
+    expect(blocking.tooltip).toContain("cancels the consult");
   });
 
   test("the runtime summary row names the tier the turn will pay for", () => {
     expect(
       formatAdvisorRuntimeStatusValue(arm({ settingsTarget: CODEX_TARGET })),
     ).toBe("Codex · GPT-5.6 Sol · X-High");
+  });
+
+  describe("an armed Advisor the model cannot reach", () => {
+    const BLOCK =
+      "Advisor consults reach the model through the Local MCP server. The Local MCP server is turned off in Settings → Developer.";
+
+    test("says the armed Advisor is unreachable instead of looking healthy", () => {
+      const presentation = describeAdvisorPill({
+        ...CLAUDE_PRIMARY,
+        arm: arm({ settingsTarget: CODEX_TARGET }),
+        consultBlock: BLOCK,
+      });
+
+      expect(presentation.tone).toBe("warning");
+      expect(presentation.warning).toBe(BLOCK);
+      expect(presentation.tooltip).toContain("Local MCP server is turned off");
+    });
+
+    test("an uncatalogued model still wins, since it dies first", () => {
+      const presentation = describeAdvisorPill({
+        ...CLAUDE_PRIMARY,
+        // Claude has no dynamic catalog, so an unknown Claude model is the one
+        // target the renderer can prove will be skipped before any tool call.
+        arm: arm({
+          settingsTarget: { providerId: "claude-code", model: "claude-gone-9" },
+        }),
+        consultBlock: BLOCK,
+      });
+
+      expect(presentation.warning).toContain("not in the current");
+    });
+
+    test("a disarmed Advisor is not warned about", () => {
+      const presentation = describeAdvisorPill({
+        ...CLAUDE_PRIMARY,
+        arm: arm({ overrides: { advisorEnabled: false }, settingsTarget: CODEX_TARGET }),
+        consultBlock: BLOCK,
+      });
+
+      expect(presentation.tone).toBe("off");
+      expect(presentation.warning).toBeNull();
+    });
   });
 });

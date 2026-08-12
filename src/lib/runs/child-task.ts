@@ -64,6 +64,23 @@ export type ChildTaskWorkspaceStrategy = z.infer<
   typeof ChildTaskWorkspaceStrategySchema
 >;
 
+/**
+ * The reasoning-effort tier a delegation may ask its child to run at. The
+ * vocabulary is the shared provider union — `ultra` is Codex-only and Claude
+ * has no such tier — and `buildChildTaskRuntimeOptions` clamps a requested
+ * tier to what the child's provider and model actually accept, stepping down
+ * rather than rejecting, exactly as the Advisor's `resolveAdvisorEffort` does.
+ */
+export const ChildTaskEffortSchema = z.enum([
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+]);
+export type ChildTaskEffort = z.infer<typeof ChildTaskEffortSchema>;
+
 export const ChildTaskDelegationKeySchema = z
   .string()
   .trim()
@@ -84,6 +101,7 @@ export const ChildTaskDelegateArgsSchema = z
     title: z.string().trim().min(1).max(200).optional(),
     providerId: z.enum(["claude-code", "codex"]),
     model: z.string().trim().min(1).max(200).optional(),
+    effort: ChildTaskEffortSchema.optional(),
     permissionProfile: ChildTaskPermissionProfileSchema,
     lifecycle: ChildTaskLifecycleSchema,
     workspace: ChildTaskWorkspaceStrategySchema,

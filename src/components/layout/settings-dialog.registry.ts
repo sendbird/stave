@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { ADVISOR_SETTING_FIELD_ID } from "@/lib/providers/advisor";
+import {
+  ADVISOR_SETTING_FIELD_ID,
+  DEFAULT_ADVISOR_CONSULT_LIMIT,
+} from "@/lib/providers/advisor";
 import {
   getSdkModelOptions,
   toHumanModelName,
@@ -53,10 +56,11 @@ export const settingDefinitions = [
     fieldId: ADVISOR_SETTING_FIELD_ID,
     title: "Advisor",
     description:
-      "Run one isolated read-only Claude or Codex preflight before a normal chat turn.",
+      "Arm an isolated read-only Claude or Codex Advisor the primary can consult on demand during its turn.",
     keywords: [
       "advisor",
-      "preflight",
+      "on demand",
+      "second opinion",
       "review",
       "consult",
       "read only",
@@ -75,6 +79,21 @@ export const settingDefinitions = [
     applyMode: "next-turn",
     importExport: "include",
   } satisfies SettingDefinition<"advisorTarget">,
+  {
+    key: "advisorConsultLimit",
+    sectionId: "providers",
+    fieldId: ADVISOR_SETTING_FIELD_ID,
+    title: "Advisor consults per turn",
+    description:
+      "How many times the primary may consult the armed Advisor in a single turn.",
+    keywords: ["advisor", "consult", "limit", "budget", "per turn"],
+    schema: z.number().int().min(1).max(20),
+    defaultValue: DEFAULT_ADVISOR_CONSULT_LIMIT,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "include",
+  } satisfies SettingDefinition<"advisorConsultLimit">,
   {
     key: "workerEnabled",
     sectionId: "providers",

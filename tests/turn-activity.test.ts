@@ -14,6 +14,7 @@ import {
   type TurnActivityRowStatus,
 } from "@/components/session/turn-activity.utils";
 import type { ProviderTurnWorkItem } from "@/lib/providers/turn-status";
+import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
 
 function buildWorkItem(
   overrides: Partial<ProviderTurnWorkItem> & Pick<ProviderTurnWorkItem, "id">,
@@ -447,5 +448,111 @@ describe("turn activity presentation", () => {
     expect(resolveTurnActivityHiddenSeverity([running, waiting])).toBe("waiting");
     expect(resolveTurnActivityHiddenSeverity([running])).toBe("default");
     expect(resolveTurnActivityHiddenSeverity([])).toBe("default");
+  });
+
+  describe("the advisor row", () => {
+    function advisorSnapshot(
+      overrides: Partial<AdvisorExchangeSnapshot> = {},
+    ): AdvisorExchangeSnapshot {
+      return {
+        turnId: "turn-1",
+        primaryProviderId: "codex",
+        advisorProviderId: "claude-code",
+        advisorModel: "claude-fable-5",
+        advisorEffort: "xhigh",
+        consultLimit: 5,
+        startedAt: 1_000,
+        outcome: "armed",
+        settledConsults: 0,
+        stages: [],
+        ...overrides,
+      };
+    }
+
+    const baseArgs = {
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [],
+    };
+
+    test("an armed turn says so before any consult happens", () => {
+      const [row] = buildTurnActivityItems({
+        ...baseArgs,
+        advisor: advisorSnapshot(),
+      });
+
+      // The whole point of the row: "armed but never asked" must be readable
+      // as such, not as a turn that had no Advisor at all.
+      expect(row?.title).toBe("Advisor armed · 0 consults");
+      expect(row?.status).toBe("pending");
+      expect(row?.badge).toBe("0/5");
+      expect(row?.detail).toContain("Fable");
+      expect(row?.iconKey).toBe("advisor");
+    });
+
+    test("a running consult reports which of the budget it is spending", () => {
+      const [row] = buildTurnActivityItems({
+        ...baseArgs,
+        advisor: advisorSnapshot({
+          outcome: "pending",
+          consultIndex: 2,
+          question: "Is the cancellation path sound?",
+        }),
+      });
+
+      expect(row?.title).toBe("Advisor consult 2/5");
+      expect(row?.status).toBe("running");
+      expect(row?.detail).toBe("Is the cancellation path sound?");
+    });
+
+    test("a settled consult keeps the turn's count visible", () => {
+      const [row] = buildTurnActivityItems({
+        ...baseArgs,
+        advisor: advisorSnapshot({
+          outcome: "completed",
+          consultIndex: 1,
+          settledConsults: 1,
+          durationMs: 2_400,
+        }),
+      });
+
+      expect(row?.title).toBe("Advisor · 1 consult");
+      expect(row?.status).toBe("completed");
+      expect(row?.detail).toContain("Advice returned in 2.4s");
+    });
+
+    test("a failed consult is a failed row, not a failed turn", () => {
+      const [row] = buildTurnActivityItems({
+        ...baseArgs,
+        advisor: advisorSnapshot({
+          outcome: "timeout",
+          consultIndex: 1,
+          settledConsults: 1,
+          durationMs: 90_000,
+        }),
+      });
+
+      expect(row?.status).toBe("failed");
+      expect(row?.detail).toContain("the turn continued");
+    });
+
+    test("the row sits ahead of provider work and never reorders it", () => {
+      const titles = buildTurnActivityItems({
+        ...baseArgs,
+        advisor: advisorSnapshot(),
+        workItems: [buildWorkItem({ id: "tool-1", title: "Read" })],
+      }).map((item) => item.title);
+
+      expect(titles).toEqual(["Advisor armed · 0 consults", "Read"]);
+    });
+
+    test("no grant means no row", () => {
+      expect(
+        buildTurnActivityItems({ ...baseArgs, advisor: null }),
+      ).toEqual([]);
+    });
   });
 });

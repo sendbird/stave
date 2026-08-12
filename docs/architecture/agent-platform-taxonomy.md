@@ -36,7 +36,7 @@ Ephemeral, turn-scoped, minimal product branding. These are task options.
 
 | Concept | Role | Does not |
 | --- | --- | --- |
-| Advisor | One read-only advice call before a turn, injected as context | Execute; persist |
+| Advisor | Read-only second opinions the primary requests on demand mid-turn (budgeted per turn) | Execute; persist |
 | Worker | Same-provider delegation inside a turn | Survive a restart; cross providers |
 | Utility inference | Mechanical meta calls: task name, route classification, commit message | Block the task; give advice |
 | Work graph | The turn's fan-out as a tree: who is working, what waits on what | Execute; persist; outlive the turn |

@@ -41,6 +41,7 @@ import {
   updateRoutine,
 } from "./routine-service";
 import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
+import { consultAdvisor } from "../providers/advisor-consult";
 import { getChildTaskCoordinator } from "./runs/child-task-coordinator-instance";
 import {
   createTaskHeartbeat,
@@ -491,6 +492,40 @@ function createToolServer() {
   );
 
   server.registerTool(
+    "stave_consult_advisor",
+    {
+      description:
+        "Consult the on-demand Advisor armed for the current turn: a separate read-only model that answers one question with advice. Only usable with the consultKey from this turn's Advisor briefing; each turn has a limited consult budget.",
+      inputSchema: {
+        consultKey: z
+          .string()
+          .min(1)
+          .describe(
+            "The turn-scoped consult key from the Advisor briefing in your context.",
+          ),
+        question: z
+          .string()
+          .min(1)
+          .describe("What you want advice on. Be specific."),
+        context: z
+          .string()
+          .optional()
+          .describe(
+            "Minimal code/plan excerpts the Advisor needs. It has no repository or tool access and sees nothing else.",
+          ),
+      },
+    },
+    async ({ consultKey, question, context }) =>
+      toStructuredResult({
+        consult: await consultAdvisor({
+          consultKey,
+          question,
+          ...(context ? { context } : {}),
+        }),
+      }),
+  );
+
+  server.registerTool(
     "stave_delegate_task",
     {
       description:
@@ -520,6 +555,12 @@ function createToolServer() {
           .string()
           .optional()
           .describe("Optional model override for the child."),
+        effort: z
+          .enum(["low", "medium", "high", "xhigh", "max", "ultra"])
+          .optional()
+          .describe(
+            "Optional reasoning-effort tier for the child. Clamped to what the child's provider and model accept (`ultra` is Codex-only; Claude steps it down to `max`). Omitted, the child runs at the automation default (`medium`). Bounded briefs often do better on a cheaper model at `high`+ effort than on the default tier.",
+          ),
         permissionProfile: z
           .enum(["auto", "guided", "manual"])
           .describe(

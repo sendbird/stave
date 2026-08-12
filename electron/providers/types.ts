@@ -1,5 +1,6 @@
 import type {
   AdvisorActivityPhase,
+  AdvisorEffort,
   AdvisorIsolationMode,
   CanonicalConversationRequest,
   ProviderAvailabilityResponse,
@@ -110,11 +111,21 @@ export type BridgeEvent =
       /** Structured advisor lifecycle signal. Mirrors `NormalizedProviderEvent`. */
       type: "advisor_activity";
       phase: AdvisorActivityPhase;
+      /** Identity of one consult; absent on the turn-level `armed` event. */
+      exchangeId?: string;
+      /** 1-based index of this consult within the turn. */
+      consultIndex?: number;
+      /** Per-turn consult budget the primary was granted. */
+      consultLimit?: number;
+      /** Question the primary asked, bounded by the runtime. */
+      question?: string;
       primaryProviderId: ProviderId;
       /** Primary model id, so "a different model answered" is verifiable. */
       primaryModel?: string;
       advisorProviderId?: ProviderId;
       advisorModel?: string;
+      /** Tier the call carries, after defaulting and clamping. */
+      advisorEffort?: AdvisorEffort;
       isolation?: AdvisorIsolationMode;
       at: number;
       timeoutMs?: number;

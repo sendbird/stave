@@ -6,6 +6,7 @@ import {
 import { resolveDefaultClaudeFallbackModel } from "@/lib/providers/model-catalog";
 import {
   type AdvisorArmOverrides,
+  normalizeAdvisorConsultLimit,
   resolveAdvisorArmState,
 } from "@/lib/providers/advisor";
 import {
@@ -49,6 +50,7 @@ type RuntimeSettings = Pick<
   | "claudeSandboxCredentialEnvVars"
   | "claudeTaskBudgetTokens"
   | "advisorTarget"
+  | "advisorConsultLimit"
   | "workerEnabled"
   | "workerConfigByProvider"
   | "claudeSettingSources"
@@ -272,7 +274,14 @@ export function buildProviderRuntimeOptions(args: {
           claudeTaskBudgetTokens,
         }
       : {}),
-    ...(advisorTarget ? { advisorTarget } : {}),
+    ...(advisorTarget
+      ? {
+          advisorTarget,
+          advisorConsultLimit: normalizeAdvisorConsultLimit(
+            settings.advisorConsultLimit,
+          ),
+        }
+      : {}),
     ...(workerIntent ? { workerIntent } : {}),
     claudeEffort: settings.claudeEffort,
     claudeThinkingMode: settings.claudeThinkingMode,

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import {
-  ADVISOR_PREFLIGHT_PAUSE_PHASE,
-  createTurnTimeoutController,
-} from "../electron/providers/runtime";
+import { createTurnTimeoutController } from "../electron/providers/runtime";
+
+// Advisor consults hold the clock through an opaque per-exchange phase key;
+// the controller only cares that pause and resume use the same string.
+const ADVISOR_CONSULT_PAUSE_PHASE = "advisor-consult:test";
 
 // Task B regression: the turn-level timeout must pause while the UI is
 // waiting on a user decision so an idle approval prompt doesn't silently
@@ -163,7 +164,7 @@ describe("createTurnTimeoutController", () => {
   });
 
   test("a phase pause survives resumeAllDecisions and holds the clock alone", async () => {
-    // The advisor preflight owns its pause through a `finally`, so a terminal
+    // An advisor consult owns its pause through a `finally`, so a terminal
     // stream signal clearing decision pauses must not restart the clock under
     // it — that would bill advisor latency to the provider's budget.
     let fired = false;
@@ -174,13 +175,13 @@ describe("createTurnTimeoutController", () => {
       },
     });
 
-    controller.pausePhase({ phase: ADVISOR_PREFLIGHT_PAUSE_PHASE });
+    controller.pausePhase({ phase: ADVISOR_CONSULT_PAUSE_PHASE });
     controller.pauseForDecision({ key: "req-1" });
     controller.resumeAllDecisions();
     await sleep(80);
     expect(fired).toBe(false);
 
-    controller.resumePhase({ phase: ADVISOR_PREFLIGHT_PAUSE_PHASE });
+    controller.resumePhase({ phase: ADVISOR_CONSULT_PAUSE_PHASE });
     await sleep(80);
     expect(fired).toBe(true);
     controller.dispose();

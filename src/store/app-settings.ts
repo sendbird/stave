@@ -15,6 +15,7 @@ import type {
   ClaudeSettingSource,
   ProviderId,
 } from "@/lib/providers/provider.types";
+import { DEFAULT_ADVISOR_CONSULT_LIMIT } from "@/lib/providers/advisor";
 import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import type { PrMergeMethod } from "@/lib/pr-status";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
@@ -278,8 +279,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Comma/newline-delimited credential env names denied by Claude sandbox. */
   claudeSandboxCredentialEnvVars: string;
   claudeTaskBudgetTokens: number;
-  /** Optional isolated read-only preflight used before normal user turns. */
+  /** Optional isolated read-only Advisor the primary consults on demand. */
   advisorTarget: AdvisorTarget | null;
+  /** Per-turn on-demand Advisor consult budget (1–20). */
+  advisorConsultLimit: number;
   /**
    * Whether new tasks arm Worker mode by default. Tasks may override in either
    * direction from the composer.
@@ -542,6 +545,7 @@ export const defaultSettings: AppSettings = {
   claudeSandboxCredentialEnvVars: "",
   claudeTaskBudgetTokens: 0,
   advisorTarget: null,
+  advisorConsultLimit: DEFAULT_ADVISOR_CONSULT_LIMIT,
   // Off by default: Worker mode changes how a turn spends tokens, so it must be
   // an explicit opt-in rather than something a user discovers on their bill.
   workerEnabled: false,

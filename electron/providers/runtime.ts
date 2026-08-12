@@ -41,20 +41,18 @@ import {
   waitForSteerDelivery,
 } from "../../src/lib/providers/steer-delivery";
 import {
-  appendAdvisorAdvice,
+  appendAdvisorConsultBriefing,
+  normalizeAdvisorConsultLimit,
   normalizeAdvisorTarget,
-  resolveAdvisorTimeoutMs,
+  shouldRunAdvisor,
   withoutAdvisorTarget,
 } from "../../src/lib/providers/advisor";
 import {
-  buildAdvisorOutcomeEvent,
-  buildAdvisorStartedEvent,
+  buildAdvisorArmedEvent,
   createAdvisorUsageMerger,
-  formatAdvisorSystemTrace,
-  resolveAdvisorIsolationMode,
-  runAdvisorPreflight,
-  shouldContinuePrimaryTurn,
+  mergeAdvisorUsage,
 } from "./advisor-runtime";
+import { registerAdvisorConsultGrant } from "./advisor-consult";
 import {
   createProviderTurnLifecycle,
   type ProviderTurnLifecycleSnapshot,
@@ -81,7 +79,7 @@ type TurnTimeoutController = {
   resumeAfterDecision: (args?: { key?: string }) => void;
   /** Release every outstanding decision pause (terminal stream signals). */
   resumeAllDecisions: () => void;
-  /** Suspend the clock for a named runtime phase (e.g. the advisor preflight). */
+  /** Suspend the clock for a named runtime phase (e.g. an advisor consult). */
   pausePhase: (args: { phase: string }) => void;
   resumePhase: (args: { phase: string }) => void;
   dispose: () => void;
@@ -89,9 +87,6 @@ type TurnTimeoutController = {
   /** Diagnostics: which decision pauses are still outstanding. */
   readonly pausedDecisionKeys: string[];
 };
-
-/** Phase key for the advisor preflight pause (see `runProviderTurn`). */
-export const ADVISOR_PREFLIGHT_PAUSE_PHASE = "advisor-preflight";
 
 const ANONYMOUS_DECISION_PAUSE_PREFIX = "anonymous:";
 
@@ -115,9 +110,9 @@ type ActiveRuntimeSession = {
     clientMessageId?: string;
   }) => Promise<ProviderResponderResult>;
   /**
-   * Drops the advisor preflight while keeping the primary turn. Separate from
-   * `abort` so escaping a slow advisor never costs the user their whole turn.
-   * Returns `false` once the preflight is no longer running.
+   * Cancels the in-flight advisor consult while keeping the primary turn.
+   * Separate from `abort` so escaping a slow advisor never costs the user
+   * their whole turn. Returns `false` when no consult is running.
    */
   skipAdvisor?: () => boolean;
   timeoutController?: TurnTimeoutController;
@@ -725,40 +720,6 @@ async function runProviderTurn(
       aborter();
     }
   };
-  let advisorSkipRequested = false;
-  let advisorPhaseActive = false;
-  let advisorSkipHandler: (() => void) | null = null;
-  /**
-   * Published to the active session *before* the preflight starts, because the
-   * preflight's eligibility phase can itself take seconds — the Codex catalog
-   * sweep is a paginated network call. Registering only once the runner exists
-   * left a window where `skipAdvisor` answered "no Advisor is running" while
-   * the UI was visibly blocked on one, and the request was dropped.
-   */
-  const publishAdvisorSkip = () => {
-    upsertActiveSession({
-      turnId,
-      providerId: args.providerId,
-      taskId: args.taskId,
-      skipAdvisor: () => {
-        // Reports whether a skip was actually possible. Once the preflight has
-        // resolved there is nothing left to skip, and answering "skipped" then
-        // would tell the user their still-running primary turn lost its advice.
-        if (!advisorPhaseActive) {
-          return false;
-        }
-        advisorSkipRequested = true;
-        advisorSkipHandler?.();
-        return true;
-      },
-    });
-  };
-  const registerAdvisorSkip = (skip: () => void) => {
-    advisorSkipHandler = skip;
-    if (advisorSkipRequested) {
-      skip();
-    }
-  };
   const updateActiveSession = (
     patch: Pick<
       ActiveRuntimeSession,
@@ -834,138 +795,106 @@ async function runProviderTurn(
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
   };
-  let advisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
-  // Usage from an advisor that was skipped or timed out, harvested after the
-  // preflight already returned. Read lazily by the usage merger below.
-  let lateAdvisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
-  let advisorRan = false;
-  if (args.runtimeOptions?.advisorTarget) {
-    advisorRan = true;
-    const advisorTarget = normalizeAdvisorTarget(
-      args.runtimeOptions.advisorTarget,
+  // Sum of every consult's usage this turn (plus late usage from cancelled
+  // consults). Read lazily by the usage merger below so consults that land
+  // while the primary is still streaming are billed into the turn total.
+  let accumulatedAdvisorUsage:
+    | Extract<BridgeEvent, { type: "usage" }>
+    | undefined;
+  let advisorGrantHandle: ReturnType<typeof registerAdvisorConsultGrant> | null =
+    null;
+  const revokeAdvisorGrant = () => {
+    advisorGrantHandle?.revoke();
+    advisorGrantHandle = null;
+  };
+  const advisorTarget = normalizeAdvisorTarget(
+    args.runtimeOptions?.advisorTarget,
+  );
+  if (
+    advisorTarget &&
+    shouldRunAdvisor({
+      conversation: args.conversation,
+      target: advisorTarget,
+    }) &&
+    effectiveArgs.conversation
+  ) {
+    // On-demand Advisor: instead of a blocking preflight, mint a turn-scoped
+    // consult grant and brief the primary on how to use it. The primary calls
+    // the `stave_consult_advisor` Local MCP tool with the grant's key whenever
+    // it wants a second opinion; each consult streams its own
+    // `advisor_activity` exchange into this turn.
+    const consultKey = randomUUID();
+    const consultLimit = normalizeAdvisorConsultLimit(
+      args.runtimeOptions?.advisorConsultLimit,
     );
-    const advisorTimeoutMs = resolveAdvisorTimeoutMs(advisorTarget);
+    advisorGrantHandle = registerAdvisorConsultGrant({
+      consultKey,
+      turnId,
+      ...(args.taskId ? { taskId: args.taskId } : {}),
+      target: advisorTarget,
+      primaryProviderId: args.providerId,
+      ...(args.runtimeOptions?.model
+        ? { primaryModel: args.runtimeOptions.model }
+        : {}),
+      consultLimit,
+      cwd: args.cwd,
+      runtimeOptions: {
+        ...(args.runtimeOptions?.claudeBinaryPath
+          ? { claudeBinaryPath: args.runtimeOptions.claudeBinaryPath }
+          : {}),
+        ...(args.runtimeOptions?.codexBinaryPath
+          ? { codexBinaryPath: args.runtimeOptions.codexBinaryPath }
+          : {}),
+      },
+      emit: (event) => lifecycle.emit(event),
+      // A consult is another model's latency, not the primary provider's
+      // generation budget. The per-exchange phase pause keeps a 90s consult
+      // from consuming the whole `providerTimeoutMs`.
+      pausePhase: (pauseArgs) => timeoutController.pausePhase(pauseArgs),
+      resumePhase: (pauseArgs) => timeoutController.resumePhase(pauseArgs),
+      addUsage: (usage) => {
+        accumulatedAdvisorUsage = accumulatedAdvisorUsage
+          ? mergeAdvisorUsage(accumulatedAdvisorUsage, usage)
+          : usage;
+      },
+    });
+    const grantHandle = advisorGrantHandle;
+    upsertActiveSession({
+      turnId,
+      providerId: args.providerId,
+      taskId: args.taskId,
+      skipAdvisor: () => grantHandle.skipInFlight(),
+    });
+    // Announce the grant before the primary starts: a turn whose primary never
+    // consults must still be visibly armed, otherwise "no consult" and "no
+    // Advisor" look identical in every surface.
     lifecycle.emit(
-      buildAdvisorStartedEvent({
+      buildAdvisorArmedEvent({
         primaryProviderId: args.providerId,
-        primaryModel: args.runtimeOptions?.model,
+        ...(args.runtimeOptions?.model
+          ? { primaryModel: args.runtimeOptions.model }
+          : {}),
         target: advisorTarget,
         at: Date.now(),
-        timeoutMs: advisorTimeoutMs,
+        consultLimit,
       }),
     );
-    advisorPhaseActive = true;
-    publishAdvisorSkip();
-    // The advisor is another model's latency, not the primary provider's
-    // generation budget. Without this pause a 90s advisor could consume the
-    // whole `providerTimeoutMs` and kill the turn before the primary ever ran.
-    // A phase pause (not a decision pause) so a terminal `resumeAllDecisions()`
-    // can never unpause the preflight behind the `finally` below.
-    timeoutController.pausePhase({ phase: ADVISOR_PREFLIGHT_PAUSE_PHASE });
-    let advisorResult: Awaited<ReturnType<typeof runAdvisorPreflight>>;
-    try {
-      advisorResult = await runAdvisorPreflight({
-        turn: args,
-        registerAbort: registerPhaseAborter,
-        registerSkip: registerAdvisorSkip,
-        reportLateUsage: (usage) => {
-          lateAdvisorUsage = usage;
-        },
-        timeoutMs: advisorTimeoutMs,
-      });
-    } finally {
-      advisorPhaseActive = false;
-      timeoutController.resumePhase({ phase: ADVISOR_PREFLIGHT_PAUSE_PHASE });
-    }
-    lifecycle.emit(
-      buildAdvisorOutcomeEvent({
-        primaryProviderId: args.providerId,
-        result: advisorResult,
-        at: Date.now(),
-      }),
-    );
-    if (!shouldContinuePrimaryTurn(advisorResult) || abortRequested) {
-      const terminalEvents: BridgeEvent[] = timeoutController.timedOut
-        ? [
-            {
-              type: "error",
-              message: `Provider turn timed out during Advisor preflight. timeout=${turnTimeoutMs}ms`,
-              recoverable: true,
-            },
-            {
-              type: "done",
-              stop_reason: "runtime_failure",
-            },
-          ]
-        : [
-            {
-              type: "done",
-              stop_reason: "user_abort",
-            },
-          ];
-      const mapUsage = createAdvisorUsageMerger(
-        () => advisorResult.usage ?? lateAdvisorUsage,
-      );
-      const mappedTerminalEvents = terminalEvents.flatMap((event) =>
-        mapUsage(event),
-      );
-      mappedTerminalEvents.forEach((event) => lifecycle.emit(event));
-      timeoutController.dispose();
-      clearActiveTurnState({ turnId });
-      lastCompletedLifecycleSnapshot = lifecycle.snapshot();
-      return lifecycle.events();
-    }
-    if (advisorResult.shouldTrace) {
-      // The structured event above drives the live UI; this durable transcript
-      // receipt is what survives a restart.
-      lifecycle.emit({
-        type: "system",
-        content: formatAdvisorSystemTrace(advisorResult),
-      });
-    }
-    advisorUsage = advisorResult.usage;
-    if (advisorResult.status === "completed" && effectiveArgs.conversation) {
-      const injection = appendAdvisorAdvice({
-        conversation: effectiveArgs.conversation,
-        target: advisorResult.target,
-        advice: advisorResult.advice,
-      });
-      effectiveArgs = {
-        ...effectiveArgs,
-        conversation: injection.conversation,
-      };
-      // `applied` is emitted only from the real injection site. Advice produced
-      // but never injected is a distinct, previously invisible failure mode.
-      if (injection.injectedPartIndex !== null) {
-        lifecycle.emit({
-          type: "advisor_activity",
-          phase: "applied",
-          primaryProviderId: args.providerId,
-          advisorProviderId: advisorResult.target.providerId,
-          advisorModel: advisorResult.target.model,
-          isolation: resolveAdvisorIsolationMode(
-            advisorResult.target.providerId,
-          ),
-          at: Date.now(),
-          injectedChars: injection.injectedChars,
-          injectedPartIndex: injection.injectedPartIndex,
-        });
-      }
-    }
+    const injection = appendAdvisorConsultBriefing({
+      conversation: effectiveArgs.conversation,
+      target: advisorTarget,
+      consultKey,
+      consultLimit,
+    });
+    effectiveArgs = {
+      ...effectiveArgs,
+      conversation: injection.conversation,
+    };
   }
 
   const mapUsageForDownstream = createAdvisorUsageMerger(
-    () => advisorUsage ?? lateAdvisorUsage,
+    () => accumulatedAdvisorUsage,
   );
   flushAdvisorUsage = mapUsageForDownstream.flush;
-  if (advisorRan) {
-    lifecycle.emit({
-      type: "advisor_activity",
-      phase: "primary_started",
-      primaryProviderId: args.providerId,
-      at: Date.now(),
-    });
-  }
   const emittedPrimaryEvents: BridgeEvent[] = [];
   const emitPrimaryEvent = (event: BridgeEvent) => {
     emittedPrimaryEvents.push(event);
@@ -1054,6 +983,7 @@ async function runProviderTurn(
       });
       return finishLifecycle("runtime_failure");
     } finally {
+      revokeAdvisorGrant();
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
     }
@@ -1116,6 +1046,7 @@ async function runProviderTurn(
     });
     return finishLifecycle("runtime_failure");
   } finally {
+    revokeAdvisorGrant();
     timeoutController.dispose();
     clearActiveTurnState({ turnId });
   }

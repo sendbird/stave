@@ -12,7 +12,10 @@ import {
   normalizeNotificationSoundVolume,
 } from "@/lib/notifications/notification-sound";
 import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
-import { normalizePersistedAdvisorTarget } from "@/lib/providers/advisor";
+import {
+  normalizeAdvisorConsultLimit,
+  normalizePersistedAdvisorTarget,
+} from "@/lib/providers/advisor";
 import { normalizeWorkerConfigByProvider } from "@/lib/providers/worker-mode";
 import { normalizeModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
 import {
@@ -436,6 +439,9 @@ export function createAppStorePersistenceOptions() {
       });
       state.settings.advisorTarget =
         normalizePersistedAdvisorTarget(persistedSettings);
+      state.settings.advisorConsultLimit = normalizeAdvisorConsultLimit(
+        state.settings.advisorConsultLimit,
+      );
       delete raw.claudeAdvisorModel;
       // Re-normalized on load rather than trusted: a config written by a newer
       // build can name a preset or effort this build does not know.

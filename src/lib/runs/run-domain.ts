@@ -165,6 +165,14 @@ export const RunReceiptDetailSchema = z
      */
     permissionProfile: z.enum(["auto", "guided", "manual"]).optional(),
     workspaceMode: z.enum(["same-workspace", "new-worktree"]).optional(),
+    /**
+     * The reasoning-effort tier the delegation was claimed with, recorded for
+     * the same retry-preservation reason as `model` and `permissionProfile`.
+     * Stored as requested (pre-clamp): the clamp is per provider+model and
+     * runs where the child's runtime is built, so the receipt keeps the
+     * caller's intent rather than one moment's resolution of it.
+     */
+    effort: z.enum(["low", "medium", "high", "xhigh", "max", "ultra"]).optional(),
   })
   .strict();
 export type RunReceiptDetail = z.infer<typeof RunReceiptDetailSchema>;
@@ -255,6 +263,15 @@ export function sanitizeRunReceiptDetail(
     candidate.workspaceMode === "new-worktree"
       ? candidate.workspaceMode
       : undefined;
+  const effort =
+    candidate.effort === "low" ||
+    candidate.effort === "medium" ||
+    candidate.effort === "high" ||
+    candidate.effort === "xhigh" ||
+    candidate.effort === "max" ||
+    candidate.effort === "ultra"
+      ? candidate.effort
+      : undefined;
   const detail = {
     ...(code ? { code } : {}),
     ...(message ? { message } : {}),
@@ -263,6 +280,7 @@ export function sanitizeRunReceiptDetail(
     ...(attempt !== undefined ? { attempt } : {}),
     ...(permissionProfile ? { permissionProfile } : {}),
     ...(workspaceMode ? { workspaceMode } : {}),
+    ...(effort ? { effort } : {}),
   };
   return Object.keys(detail).length > 0
     ? RunReceiptDetailSchema.parse(detail)

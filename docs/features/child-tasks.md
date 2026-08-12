@@ -49,6 +49,14 @@ Three Local MCP tools, all called by the agent in the parent task:
 - `stave_list_child_tasks` — list what this task delegated.
 - `stave_stop_child_task` — stop one delegation.
 
+Because delegation is agent-driven, there is no arming control to discover —
+which makes the capability easy to never meet. **Settings → Providers →
+Delegation (child tasks)** is the reference surface for that: it states that
+delegation happens through an agent tool call, reports whether Local MCP can
+currently carry that call for each provider, and lists every parameter a
+delegation may specify with its default. It is read-only on purpose; see
+[Model And Effort](#model-and-effort) for why the parameters stay per call.
+
 Delegating is agent-driven, but watching and steering is not: once a turn has
 delegated, the parent's conversation shows a **child task row** per delegation,
 directly in the turn activity. The child is also a task in its own right, so it
@@ -94,6 +102,25 @@ whatever replaced it.
 | `workspace` | `same-workspace`, or `new-worktree` with a name and optional base branch. |
 | `retry` | Start a new attempt on a delegation that already ended without succeeding. |
 
+### Model And Effort
+
+Two optional runtime choices ride along: `model` overrides the child's model, and
+`effort` picks its reasoning tier (`low`–`max`, plus Codex's `ultra`). An effort
+the child's provider or model does not accept steps down to the nearest tier
+below it rather than being rejected — the same clamp the Advisor uses — and an
+omitted effort keeps the automation default (`medium`). Bounded briefs often do
+better on a cheaper model at `high`+ effort than on a bigger model at the
+default tier. Both are recorded on the claim receipt, so a retry reuses them.
+
+Neither has a global default in Settings, and that is deliberate rather than
+missing: a child's provider, permissions and workspace must be declared by the
+delegation that creates it, so an agent choosing a cheap child for a bounded
+brief is making one decision the request can be read back from. A hidden default
+would move part of that decision somewhere the delegating agent never sees, and
+somewhere the receipt could not prove. Steer them in the request instead —
+"delegate this to a Codex child at `high` effort" — and read the result back in
+the Delegation card or the child task row.
+
 ## Common Workflows
 
 ### Delegate Something
@@ -138,7 +165,8 @@ ordinary task nobody is delegating to — including in the task listings: detach
 clears the delegation stamp on the child's task row, so the child reappears in
 ordinary workspace listings instead of staying hidden behind its former parent
 forever. Retrying starts a fresh attempt on the
-same child, reading provider, lifecycle, workspace, model and permission profile
+same child, reading provider, lifecycle, workspace, model, effort and permission
+profile
 back from the delegation so a retry cannot quietly become a different delegation
 reusing the key. Only the prompt is expected to change — a retry may carry new
 instructions without tripping the `input-mismatch` guard, which continues to

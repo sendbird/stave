@@ -19,15 +19,7 @@ import type {
 } from "../src/lib/providers/provider.types";
 import { streamClaudeWithSdk } from "../electron/providers/claude-sdk-runtime";
 import { streamCodexWithAppServer } from "../electron/providers/codex-app-server-runtime";
-import {
-  appendAdvisorAdvice,
-  withoutAdvisorTarget,
-} from "../src/lib/providers/advisor";
-import {
-  createAdvisorUsageMerger,
-  formatAdvisorSystemTrace,
-  runAdvisorPreflight,
-} from "../electron/providers/advisor-runtime";
+import { withoutAdvisorTarget } from "../src/lib/providers/advisor";
 import { buildProjectShellEnv } from "../electron/shared/project-node-env";
 import {
   checkoutDefaultBranchDetached,
@@ -319,48 +311,15 @@ const server = Bun.serve({
         }
       };
       activeProviderAborters.set(turnKey, abortTurn);
-      let effectiveBody: ProviderTurnRequest = {
+      // The browser-dev bridge has no Local MCP server, so the on-demand
+      // Advisor cannot be consulted here. Stripping the target keeps the
+      // primary turn identical to Electron minus the consult grant.
+      const effectiveBody: ProviderTurnRequest = {
         ...body,
         runtimeOptions: withoutAdvisorTarget(body.runtimeOptions),
       };
-      let advisorUsage: Extract<BridgeEvent, { type: "usage" }> | undefined;
 
       try {
-        if (body.runtimeOptions?.advisorTarget) {
-          const advisorResult = await runAdvisorPreflight({
-            turn: body,
-            registerAbort: registerPhaseAborter,
-          });
-          if (advisorResult.status === "aborted" || abortRequested) {
-            const done: BridgeEvent = {
-              type: "done",
-              stop_reason: "user_abort",
-            };
-            return json({
-              events: createAdvisorUsageMerger(advisorResult.usage)(done),
-            });
-          }
-          if (advisorResult.shouldTrace) {
-            events.push({
-              type: "system",
-              content: formatAdvisorSystemTrace(advisorResult),
-            });
-          }
-          advisorUsage = advisorResult.usage;
-          if (
-            advisorResult.status === "completed" &&
-            effectiveBody.conversation
-          ) {
-            effectiveBody = {
-              ...effectiveBody,
-              conversation: appendAdvisorAdvice({
-                conversation: effectiveBody.conversation,
-                target: advisorResult.target,
-                advice: advisorResult.advice,
-              }),
-            };
-          }
-        }
         const primaryEvents: BridgeEvent[] = [];
         const collectEvent = (event: BridgeEvent) => {
           primaryEvents.push(event);
@@ -368,12 +327,7 @@ const server = Bun.serve({
         const respondWithPrimaryEvents = (
           returnedEvents: BridgeEvent[] | null,
         ) => {
-          const mapUsage = createAdvisorUsageMerger(advisorUsage);
-          events.push(
-            ...(returnedEvents ?? primaryEvents).flatMap((event) =>
-              mapUsage(event),
-            ),
-          );
+          events.push(...(returnedEvents ?? primaryEvents));
           return json({ events });
         };
 

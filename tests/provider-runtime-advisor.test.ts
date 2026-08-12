@@ -1,54 +1,89 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
-import type { AdvisorPreflightResult } from "../electron/providers/advisor-runtime";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import type { AdvisorRunnerDependencies } from "../electron/providers/advisor-runtime";
 import type { BridgeEvent, StreamTurnArgs } from "../electron/providers/types";
+import type { CodexModelCatalogEntry } from "../src/lib/providers/provider.types";
+import { DEFAULT_ADVISOR_CONSULT_LIMIT } from "../src/lib/providers/advisor";
 
-const actualAdvisorRuntime =
-  await import("../electron/providers/advisor-runtime");
 const actualClaudeRuntime =
   await import("../electron/providers/claude-sdk-runtime");
 const actualCodexRuntime =
   await import("../electron/providers/codex-app-server-runtime");
 
-let advisorResult: AdvisorPreflightResult = {
-  status: "completed",
-  target: { providerId: "codex", model: "gpt-5.6-terra" },
-  advice: "Check cancellation and usage accounting.",
-  durationMs: 100,
-  usage: { type: "usage", inputTokens: 10, outputTokens: 4 },
-  shouldTrace: true,
-};
-let advisorCallCount = 0;
-let advisorAbortCallCount = 0;
-let primaryAbortCallCount = 0;
+type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
+type CodexRunnerArgs = Parameters<AdvisorRunnerDependencies["runCodex"]>[0];
+type RunnerResult = Awaited<ReturnType<AdvisorRunnerDependencies["runCodex"]>>;
+
+function defaultRunnerResult(): RunnerResult {
+  return {
+    ok: true,
+    text: "Check cancellation and usage accounting.",
+    usage: { type: "usage", inputTokens: 10, outputTokens: 4 },
+  };
+}
+
+let codexRunnerResult: RunnerResult = defaultRunnerResult();
+let codexRunnerCallCount = 0;
+let lastCodexRunnerArgs: CodexRunnerArgs | null = null;
+/**
+ * When set, the codex runner only settles after its abort signal fires — the
+ * shape of a slow advisor the user skips. The held result simulates the
+ * abandoned runner finishing anyway, whose usage must still be harvested.
+ */
+let holdCodexRunnerUntilCancelled = false;
+let heldRunnerResult: RunnerResult = defaultRunnerResult();
+let codexRunnerHeld = false;
 let primaryTurn: StreamTurnArgs | null = null;
-let beforePrimaryAbortRegistration: (() => Promise<void>) | null = null;
 let primaryEmitsEvents = true;
+/** Runs while the fake adapter's stream is still pending, i.e. mid-turn. */
+let duringPrimaryTurn: ((args: StreamTurnArgs) => Promise<void>) | null = null;
+
+function catalogEntry(model: string): CodexModelCatalogEntry {
+  return {
+    id: model,
+    model,
+    displayName: model,
+    description: "",
+    hidden: false,
+    isDefault: false,
+    supportsPersonality: false,
+    defaultReasoningEffort: "xhigh",
+    supportedReasoningEfforts: ["low", "medium", "high", "xhigh"],
+    inputModalities: ["text"],
+    additionalSpeedTiers: [],
+    upgrade: null,
+    upgradeInfo: null,
+  } as unknown as CodexModelCatalogEntry;
+}
 
 /**
- * Usage the preflight harvests from an abandoned runner *after* it returned,
- * simulating an advisor that generated and was then skipped or timed out.
+ * Scoped through `setDefaultAdvisorConsultRunnersForTest` rather than
+ * `mock.module("../electron/providers/advisor-runtime", ...)`: module mocks are
+ * process-global in bun and would poison the suites that need the real
+ * `runAdvisorCall`.
  */
-let advisorLateUsage: Extract<BridgeEvent, { type: "usage" }> | null = null;
-
-mock.module("../electron/providers/advisor-runtime", () => ({
-  ...actualAdvisorRuntime,
-  runAdvisorPreflight: async (args: {
-    registerAbort: (aborter: () => void) => void;
-    reportLateUsage?: (usage: Extract<BridgeEvent, { type: "usage" }>) => void;
-  }) => {
-    advisorCallCount += 1;
-    args.registerAbort(() => {
-      advisorAbortCallCount += 1;
-    });
-    if (advisorLateUsage) {
-      const late = advisorLateUsage;
-      // Deliberately after the preflight resolves: the turn must not have
-      // pinned the usage value when it built its merger.
-      queueMicrotask(() => args.reportLateUsage?.(late));
-    }
-    return advisorResult;
+const fakeRunners: AdvisorRunnerDependencies = {
+  runClaude: async () => {
+    throw new Error("The Claude advisor runner must not be called.");
   },
-}));
+  runCodex: async (args) => {
+    codexRunnerCallCount += 1;
+    lastCodexRunnerArgs = args;
+    if (holdCodexRunnerUntilCancelled) {
+      codexRunnerHeld = true;
+      return await new Promise<RunnerResult>((resolve) => {
+        args.signal?.addEventListener("abort", () => resolve(heldRunnerResult), {
+          once: true,
+        });
+      });
+    }
+    return codexRunnerResult;
+  },
+  getCodexModelCatalog: async () => ({
+    ok: true,
+    detail: "",
+    models: [catalogEntry("gpt-5.6-terra")],
+  }),
+};
 
 async function streamPrimary(
   args: StreamTurnArgs & {
@@ -57,18 +92,13 @@ async function streamPrimary(
   },
 ) {
   primaryTurn = args;
-  await beforePrimaryAbortRegistration?.();
-  let aborted = false;
-  args.registerAbort?.(() => {
-    aborted = true;
-    primaryAbortCallCount += 1;
-  });
-  const events: BridgeEvent[] = aborted
-    ? [{ type: "done", stop_reason: "user_abort" }]
-    : [
-        { type: "usage", inputTokens: 20, outputTokens: 8 },
-        { type: "done", stop_reason: "end_turn" },
-      ];
+  args.registerAbort?.(() => {});
+  // Consults are on-demand: they happen while this stream is pending.
+  await duringPrimaryTurn?.(args);
+  const events: BridgeEvent[] = [
+    { type: "usage", inputTokens: 20, outputTokens: 8 },
+    { type: "done", stop_reason: "end_turn" },
+  ];
   if (primaryEmitsEvents) {
     events.forEach((event) => args.onEvent?.(event));
   }
@@ -110,8 +140,21 @@ mock.module("../electron/providers/connected-tool-status", () => ({
 }));
 
 const { providerRuntime } = await import("../electron/providers/runtime");
+const {
+  consultAdvisor,
+  clearAdvisorConsultGrantsForTest,
+  setDefaultAdvisorConsultRunnersForTest,
+} = await import("../electron/providers/advisor-consult");
 
-function createConversation(providerId: "claude-code" | "codex" = "codex") {
+const BRIEFING_SOURCE_ID = "stave:advisor-consult";
+const CONSULT_TOOL_NAME = "stave_consult_advisor";
+
+type Conversation = NonNullable<StreamTurnArgs["conversation"]>;
+
+function createConversation(
+  providerId: "claude-code" | "codex" = "codex",
+  overrides?: Partial<Conversation>,
+): Conversation {
   const input = "Implement the provider-neutral Advisor.";
   return {
     target: {
@@ -127,6 +170,7 @@ function createConversation(providerId: "claude-code" | "codex" = "codex") {
       parts: [{ type: "text" as const, text: input }],
     },
     contextParts: [],
+    ...overrides,
   };
 }
 
@@ -136,6 +180,8 @@ async function runBufferedTurn(args?: {
     providerId: "claude-code" | "codex";
     model: string;
   };
+  advisorConsultLimit?: number;
+  conversation?: Conversation;
 }) {
   const primaryProviderId = args?.primaryProviderId ?? "codex";
   let resolveDone = () => {};
@@ -147,9 +193,14 @@ async function runBufferedTurn(args?: {
       turnId: "advisor-runtime-turn",
       providerId: primaryProviderId,
       prompt: "Implement the provider-neutral Advisor.",
-      conversation: createConversation(primaryProviderId),
+      conversation: args?.conversation ?? createConversation(primaryProviderId),
       runtimeOptions: args?.advisorTarget
-        ? { advisorTarget: args.advisorTarget }
+        ? {
+            advisorTarget: args.advisorTarget,
+            ...(args.advisorConsultLimit !== undefined
+              ? { advisorConsultLimit: args.advisorConsultLimit }
+              : {}),
+          }
         : undefined,
     },
     {
@@ -164,10 +215,23 @@ async function runBufferedTurn(args?: {
   }).events;
 }
 
-/**
- * The structured advisor lifecycle is asserted on its own below. Filtering it
- * out keeps the turn-shape assertions about the turn.
- */
+function briefingPart(conversation: StreamTurnArgs["conversation"]) {
+  return conversation?.contextParts.find(
+    (part) =>
+      part.type === "retrieved_context" && part.sourceId === BRIEFING_SOURCE_ID,
+  );
+}
+
+/** The consultKey is minted per turn and only surfaced through the briefing. */
+function captureConsultKey(conversation: StreamTurnArgs["conversation"]) {
+  const content = briefingPart(conversation)?.content ?? "";
+  const match = /consultKey: "([^"]+)"/.exec(content);
+  if (!match?.[1]) {
+    throw new Error("No consultKey found in the advisor briefing.");
+  }
+  return match[1];
+}
+
 function withoutAdvisorActivity(events: BridgeEvent[]) {
   return events.filter((event) => event.type !== "advisor_activity");
 }
@@ -183,26 +247,33 @@ function advisorPhases(events: BridgeEvent[]) {
   return advisorActivity(events).map((event) => event.phase);
 }
 
+async function until(predicate: () => boolean) {
+  for (let attempt = 0; attempt < 500 && !predicate(); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  expect(predicate()).toBe(true);
+}
+
+beforeEach(() => {
+  setDefaultAdvisorConsultRunnersForTest(fakeRunners);
+});
+
 afterEach(async () => {
-  advisorResult = {
-    status: "completed",
-    target: { providerId: "codex", model: "gpt-5.6-terra" },
-    advice: "Check cancellation and usage accounting.",
-    durationMs: 100,
-    usage: { type: "usage", inputTokens: 10, outputTokens: 4 },
-    shouldTrace: true,
-  };
-  advisorLateUsage = null;
-  advisorCallCount = 0;
-  advisorAbortCallCount = 0;
-  primaryAbortCallCount = 0;
+  setDefaultAdvisorConsultRunnersForTest(undefined);
+  clearAdvisorConsultGrantsForTest();
+  codexRunnerResult = defaultRunnerResult();
+  heldRunnerResult = defaultRunnerResult();
+  codexRunnerCallCount = 0;
+  lastCodexRunnerArgs = null;
+  holdCodexRunnerUntilCancelled = false;
+  codexRunnerHeld = false;
   primaryTurn = null;
-  beforePrimaryAbortRegistration = null;
   primaryEmitsEvents = true;
+  duringPrimaryTurn = null;
   await providerRuntime.shutdown();
 });
 
-describe("provider runtime Advisor integration", () => {
+describe("provider runtime on-demand Advisor integration", () => {
   test.each([
     {
       primaryProviderId: "claude-code" as const,
@@ -233,387 +304,325 @@ describe("provider runtime Advisor integration", () => {
       },
     },
   ])(
-    "runs $primaryProviderId with $advisorTarget.providerId Advisor through the same preflight wrapper",
+    "briefs $primaryProviderId on the $advisorTarget.providerId Advisor instead of running a preflight",
     async ({ primaryProviderId, advisorTarget }) => {
-      advisorResult = {
-        status: "completed",
-        target: advisorTarget,
-        advice: "Check the shared wrapper.",
-        durationMs: 100,
-        shouldTrace: true,
-      };
+      const events = await runBufferedTurn({ primaryProviderId, advisorTarget });
 
-      await runBufferedTurn({ primaryProviderId, advisorTarget });
-
-      expect(advisorCallCount).toBe(1);
+      // No preflight: nothing consults the advisor until the primary asks,
+      // but the grant itself is announced so an unconsulted turn is still
+      // visibly armed rather than indistinguishable from no Advisor at all.
+      expect(codexRunnerCallCount).toBe(0);
+      expect(advisorPhases(events)).toEqual(["armed"]);
+      const armed = advisorActivity(events).at(0);
+      expect(armed?.consultLimit).toBe(DEFAULT_ADVISOR_CONSULT_LIMIT);
+      expect(armed?.primaryProviderId).toBe(primaryProviderId);
+      expect(armed?.advisorProviderId).toBe(advisorTarget.providerId);
+      expect(armed?.advisorModel).toBe(advisorTarget.model);
+      expect(armed?.durationMs).toBeUndefined();
       expect(primaryTurn?.providerId).toBe(primaryProviderId);
-      expect(primaryTurn?.conversation?.contextParts).toContainEqual({
-        type: "retrieved_context",
-        sourceId: "stave:advisor",
-        title: expect.stringContaining("Advisor"),
-        content: expect.stringContaining("Check the shared wrapper."),
-      });
-    },
-  );
 
-  test.each([
-    {
-      primaryProviderId: "claude-code" as const,
-      advisorTarget: {
-        providerId: "codex" as const,
-        model: "gpt-5.6-terra",
-      },
-      isolation: "codex-ephemeral-read-only",
-    },
-    {
-      primaryProviderId: "codex" as const,
-      advisorTarget: {
-        providerId: "claude-code" as const,
-        model: "claude-fable-5",
-      },
-      isolation: "claude-tools-disabled",
-    },
-  ])(
-    "reports the $advisorTarget.providerId advisor identity and isolation to $primaryProviderId",
-    async ({ primaryProviderId, advisorTarget, isolation }) => {
-      advisorResult = {
-        status: "completed",
-        target: advisorTarget,
-        advice: "Cross-model advice.",
-        durationMs: 120,
-        shouldTrace: true,
-      };
+      // The primary is armed through a briefing part instead of injected advice.
+      const briefing = briefingPart(primaryTurn?.conversation);
+      expect(briefing?.type).toBe("retrieved_context");
+      expect(briefing?.sourceId).toBe(BRIEFING_SOURCE_ID);
+      expect(briefing?.title).toContain("On-demand Advisor");
+      expect(briefing?.content).toContain(CONSULT_TOOL_NAME);
+      expect(briefing?.content).toContain(advisorTarget.model);
+      expect(captureConsultKey(primaryTurn?.conversation)).toMatch(
+        /^[0-9a-f-]{36}$/,
+      );
 
-      const events = await runBufferedTurn({
-        primaryProviderId,
-        advisorTarget,
-      });
+      // The adapter must never see the advisor wiring options.
+      expect(primaryTurn?.runtimeOptions).not.toHaveProperty("advisorTarget");
+      expect(primaryTurn?.runtimeOptions).not.toHaveProperty(
+        "advisorConsultLimit",
+      );
 
-      // The renderer must never infer isolation from the provider id; it is
-      // reported by the code path that actually applied it.
-      expect(advisorActivity(events)[0]).toMatchObject({
-        phase: "started",
-        primaryProviderId,
-        advisorProviderId: advisorTarget.providerId,
-        advisorModel: advisorTarget.model,
-        isolation,
-        timeoutMs: 10 * 60_000,
-      });
-      expect(advisorPhases(events)).toEqual([
-        "started",
-        "completed",
-        "applied",
-        "primary_started",
+      // Beyond the grant announcement, an unconsulted turn is just the
+      // primary's own events — arming costs nothing until the primary asks.
+      expect(
+        events.filter((event) => event.type !== "advisor_activity"),
+      ).toEqual([
+        { type: "usage", inputTokens: 20, outputTokens: 8 },
+        { type: "done", stop_reason: "end_turn" },
       ]);
     },
   );
 
-  test("reports injection separately from advice generation", async () => {
-    const events = await runBufferedTurn({
-      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
-    });
-
-    const applied = advisorActivity(events).find(
-      (event) => event.phase === "applied",
-    );
-    const injectedPart =
-      primaryTurn?.conversation?.contextParts[applied?.injectedPartIndex ?? -1];
-
-    // `applied` must point at the part that really landed in the prompt —
-    // that pointer is the only proof the advice was not silently dropped.
-    expect(applied?.injectedPartIndex).toBe(0);
-    expect(injectedPart).toMatchObject({ sourceId: "stave:advisor" });
-    expect(applied?.injectedChars).toBe(injectedPart?.content.length);
-  });
-
-  test("keeps the primary turn and reports a timeout phase", async () => {
-    advisorResult = {
-      status: "failed",
-      target: { providerId: "codex", model: "gpt-5.6-terra" },
-      detail: "the Advisor did not respond within 90 seconds.",
-      failureKind: "timeout",
-      durationMs: 90_000,
-      shouldTrace: true,
-    };
-
-    const events = await runBufferedTurn({
-      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
-    });
-
-    // A timeout is a graceful fallback: the user's work still runs.
-    expect(advisorPhases(events)).toEqual(["started", "timeout", "primary_started"]);
-    expect(primaryTurn).not.toBeNull();
-    expect(primaryTurn?.conversation?.contextParts).toEqual([]);
-  });
-
-  test("reports a user skip while keeping the primary turn", async () => {
-    advisorResult = {
-      status: "skipped",
-      target: { providerId: "codex", model: "gpt-5.6-terra" },
-      detail: "you skipped the Advisor for this turn",
-      skipKind: "user",
-      durationMs: 1_200,
-      usage: { type: "usage", inputTokens: 5, outputTokens: 2 },
-      shouldTrace: true,
-    };
-
-    const events = await runBufferedTurn({
-      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
-    });
-
-    expect(advisorPhases(events)).toEqual(["started", "skipped", "primary_started"]);
-    expect(primaryTurn).not.toBeNull();
-    // Tokens spent before the skip landed still belong to the turn total.
-    expect(withoutAdvisorActivity(events)).toContainEqual({
-      type: "usage",
-      inputTokens: 25,
-      outputTokens: 10,
-    });
-  });
-
-  test("reports advisor usage even when the primary turn never emits usage", async () => {
-    advisorResult = {
-      status: "failed",
-      target: { providerId: "codex", model: "gpt-5.6-terra" },
-      detail: "Codex authentication is required.",
-      failureKind: "error",
-      durationMs: 300,
-      usage: { type: "usage", inputTokens: 7, outputTokens: 3 },
-      shouldTrace: true,
-    };
-    advisorResult = { ...advisorResult };
-
-    const events = await runBufferedTurn({
-      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
-    });
-
-    // Advisor tokens are billed regardless of the outcome, so they must be
-    // reported exactly once rather than merged into every usage event.
-    const usageEvents = events.filter((event) => event.type === "usage");
-    expect(usageEvents).toEqual([
-      { type: "usage", inputTokens: 27, outputTokens: 11 },
-    ]);
-  });
-
-  test("injects advice, clears nesting state, and merges usage", async () => {
-    const events = await runBufferedTurn({
-      advisorTarget: {
-        providerId: "codex",
-        model: "gpt-5.6-terra",
-      },
-    });
-
-    expect(advisorCallCount).toBe(1);
-    expect(primaryTurn?.runtimeOptions).not.toHaveProperty("advisorTarget");
-    expect(primaryTurn?.conversation?.contextParts).toContainEqual({
-      type: "retrieved_context",
-      sourceId: "stave:advisor",
-      title: "Codex Advisor · gpt-5.6-terra",
-      content: expect.stringContaining("Check cancellation and usage accounting."),
-    });
-    expect(withoutAdvisorActivity(events)).toEqual([
-      {
-        type: "system",
-        content: expect.stringContaining(
-          "Advisor completed with Codex · gpt-5.6-terra",
-        ),
-      },
-      { type: "usage", inputTokens: 30, outputTokens: 12 },
-      { type: "done", stop_reason: "end_turn" },
-    ]);
-  });
-
-  test("continues the primary turn after a recoverable failure", async () => {
-    advisorResult = {
-      status: "failed",
-      target: { providerId: "claude-code", model: "claude-fable-5" },
-      detail: "Claude authentication is required.",
-      failureKind: "error",
-      durationMs: 250,
-      shouldTrace: true,
-    };
-
-    const events = await runBufferedTurn({
-      advisorTarget: {
-        providerId: "claude-code",
-        model: "claude-fable-5",
-      },
-    });
-
-    expect(primaryTurn).not.toBeNull();
-    expect(primaryTurn?.conversation?.contextParts).toEqual([]);
-    expect(withoutAdvisorActivity(events)[0]).toMatchObject({
-      type: "system",
-      content: expect.stringContaining("The primary turn continued."),
-    });
-    expect(events.at(-1)).toEqual({
-      type: "done",
-      stop_reason: "end_turn",
-    });
-  });
-
-  test("forwards primary events returned without streaming callbacks", async () => {
-    primaryEmitsEvents = false;
-
-    const events = await runBufferedTurn({
-      advisorTarget: {
-        providerId: "codex",
-        model: "gpt-5.6-terra",
-      },
-    });
-
-    expect(withoutAdvisorActivity(events)).toEqual([
-      {
-        type: "system",
-        content: expect.stringContaining(
-          "Advisor completed with Codex · gpt-5.6-terra",
-        ),
-      },
-      { type: "usage", inputTokens: 30, outputTokens: 12 },
-      { type: "done", stop_reason: "end_turn" },
-    ]);
-  });
-
-  test("does not start the primary provider after a user abort", async () => {
-    advisorResult = {
-      status: "aborted",
-      target: { providerId: "codex", model: "gpt-5.6-terra" },
-      durationMs: 50,
-      usage: { type: "usage", inputTokens: 3, outputTokens: 1 },
-      shouldTrace: false,
-    };
-
-    const events = await runBufferedTurn({
-      advisorTarget: {
-        providerId: "codex",
-        model: "gpt-5.6-terra",
-      },
-    });
-
-    expect(primaryTurn).toBeNull();
-    expect(withoutAdvisorActivity(events)).toEqual([
-      { type: "usage", inputTokens: 3, outputTokens: 1 },
-      { type: "done", stop_reason: "user_abort" },
-    ]);
-    // A user abort is the one outcome that stops the primary turn, so the
-    // terminal phase has to say so — otherwise the turn ends unexplained.
-    expect(advisorPhases(events)).toEqual(["started", "aborted"]);
-  });
-
-  test("carries an abort across the Advisor-to-primary handoff", async () => {
-    let markPrimarySetupStarted = () => {};
-    const primarySetupStarted = new Promise<void>((resolve) => {
-      markPrimarySetupStarted = resolve;
-    });
-    let releasePrimarySetup = () => {};
-    const primarySetupReleased = new Promise<void>((resolve) => {
-      releasePrimarySetup = resolve;
-    });
-    beforePrimaryAbortRegistration = async () => {
-      markPrimarySetupStarted();
-      await primarySetupReleased;
-    };
-
-    const pendingEvents = runBufferedTurn({
-      advisorTarget: {
-        providerId: "codex",
-        model: "gpt-5.6-terra",
-      },
-    });
-    await primarySetupStarted;
-
-    expect(
-      providerRuntime.abortTurn({ turnId: "advisor-runtime-turn" }),
-    ).toMatchObject({ ok: true });
-    releasePrimarySetup();
-
-    expect(withoutAdvisorActivity(await pendingEvents)).toEqual([
-      {
-        type: "system",
-        content: expect.stringContaining(
-          "Advisor completed with Codex · gpt-5.6-terra",
-        ),
-      },
-      { type: "usage", inputTokens: 10, outputTokens: 4 },
-      { type: "done", stop_reason: "user_abort" },
-    ]);
-    expect(advisorAbortCallCount).toBe(1);
-    expect(primaryAbortCallCount).toBe(1);
-  });
-
-  test("does not run preflight when Advisor is off", async () => {
+  test("injects no briefing when the Advisor is off", async () => {
     const events = await runBufferedTurn();
 
-    expect(advisorCallCount).toBe(0);
-    expect(primaryTurn).not.toBeNull();
+    expect(codexRunnerCallCount).toBe(0);
+    expect(primaryTurn?.conversation?.contextParts).toEqual([]);
+    expect(advisorPhases(events)).toEqual([]);
     expect(events).toEqual([
       { type: "usage", inputTokens: 20, outputTokens: 8 },
       { type: "done", stop_reason: "end_turn" },
     ]);
-    // No advisor configured means no advisor surface at all — the overlay must
-    // not appear for turns that never consulted anyone.
-    expect(advisorPhases(events)).toEqual([]);
   });
 
-  test("skipAdvisor only reports success while the preflight is running", async () => {
-    expect(
-      providerRuntime.skipAdvisor({ turnId: "advisor-runtime-turn" }),
-    ).toMatchObject({ ok: false });
-
+  test("injects no briefing for a non-chat turn", async () => {
     await runBufferedTurn({
       advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+      conversation: createConversation("codex", { mode: "review" }),
     });
 
-    // After the preflight resolves there is nothing to skip; answering "ok"
-    // would tell the user their running turn had lost its advice.
-    expect(
-      providerRuntime.skipAdvisor({ turnId: "advisor-runtime-turn" }),
-    ).toMatchObject({ ok: false });
+    expect(briefingPart(primaryTurn?.conversation)).toBeUndefined();
   });
-});
 
-describe("advisor usage harvested after the preflight returned", () => {
-  test("folds a timed-out advisor's tokens into the turn total", async () => {
-    // The advisor generated for the full 90s and then timed out. Reporting it
-    // as zero made the most expensive outcome the feature has look free, and
-    // made the exchange monitor's own usage check say none was reported.
-    advisorResult = {
-      status: "failed",
-      target: { providerId: "codex", model: "gpt-5.6-terra" },
-      detail: "timed out after 90 seconds.",
-      failureKind: "timeout",
-      durationMs: 90_000,
-      shouldTrace: true,
+  test("injects no briefing for an unsupported advisor target", async () => {
+    await runBufferedTurn({
+      advisorTarget: {
+        providerId: "claude-code",
+        model: "not-a-real-model",
+      },
+    });
+
+    expect(briefingPart(primaryTurn?.conversation)).toBeUndefined();
+  });
+
+  test("does not stack a second briefing onto a retried conversation", async () => {
+    const existingBriefing = {
+      type: "retrieved_context" as const,
+      sourceId: BRIEFING_SOURCE_ID,
+      title: "On-demand Advisor · gpt-5.6-terra",
+      content: 'call the tool with consultKey: "stale-key"',
     };
-    advisorLateUsage = { type: "usage", inputTokens: 900, outputTokens: 120 };
+    await runBufferedTurn({
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+      conversation: createConversation("codex", {
+        contextParts: [existingBriefing],
+      }),
+    });
+
+    // A retried request already carries advisor material; re-arming would
+    // stack briefings and hand out a second live key.
+    expect(primaryTurn?.conversation?.contextParts).toEqual([existingBriefing]);
+  });
+
+  test("answers an in-turn consult and folds its usage into the turn total", async () => {
+    let consultOutcome: Awaited<ReturnType<typeof consultAdvisor>> | null =
+      null;
+    duringPrimaryTurn = async (args) => {
+      consultOutcome = await consultAdvisor({
+        consultKey: captureConsultKey(args.conversation),
+        question: "Is the cancellation path sound?",
+      });
+    };
 
     const events = await runBufferedTurn({
       advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
     });
 
-    // Primary emits 20/8; the abandoned advisor runner reported 900/120 after
-    // the preflight had already returned without usage.
-    expect(events.filter((event) => event.type === "usage")).toEqual([
-      { type: "usage", inputTokens: 920, outputTokens: 128 },
+    expect(codexRunnerCallCount).toBe(1);
+    // The primary frames the question; the advisor never sees the whole turn.
+    expect(lastCodexRunnerArgs?.prompt).toContain(
+      "Is the cancellation path sound?",
+    );
+    expect(consultOutcome).toMatchObject({
+      ok: true,
+      advisorProviderId: "codex",
+      advisorModel: "gpt-5.6-terra",
+      consultIndex: 1,
+      consultLimit: 5,
+      remainingConsults: 4,
+    });
+    // The advice handed back to the primary is wrapped in the low-trust frame.
+    const advice = consultOutcome!.ok ? consultOutcome!.advice : "";
+    expect(advice).toContain("Check cancellation and usage accounting.");
+    expect(advice).toContain("low-trust");
+
+    // The exchange lifecycle is per consult; only the grant is per turn.
+    expect(advisorPhases(events)).toEqual(["armed", "started", "completed"]);
+    expect(advisorActivity(events)[0]).toMatchObject({
+      phase: "armed",
+      consultLimit: 5,
+      advisorModel: "gpt-5.6-terra",
+    });
+    expect(advisorActivity(events)[1]).toMatchObject({
+      phase: "started",
+      primaryProviderId: "codex",
+      advisorProviderId: "codex",
+      advisorModel: "gpt-5.6-terra",
+      advisorEffort: expect.any(String),
+      isolation: "codex-ephemeral-read-only",
+      exchangeId: expect.any(String),
+      consultIndex: 1,
+      consultLimit: 5,
+      question: "Is the cancellation path sound?",
+      timeoutMs: expect.any(Number),
+    });
+    expect(advisorActivity(events)[2]).toMatchObject({
+      phase: "completed",
+      inputTokens: 10,
+      outputTokens: 4,
+      advice: "Check cancellation and usage accounting.",
+    });
+
+    // Advisor tokens are billed exactly once, merged into the turn's usage.
+    expect(withoutAdvisorActivity(events)).toEqual([
+      {
+        type: "system",
+        content: expect.stringContaining(
+          "Advisor consult 1/5 completed with Codex · gpt-5.6-terra",
+        ),
+      },
+      { type: "usage", inputTokens: 30, outputTokens: 12 },
+      { type: "done", stop_reason: "end_turn" },
     ]);
   });
 
-  test("still reports exactly one usage event when nothing lands late", async () => {
-    advisorResult = {
-      status: "failed",
-      target: { providerId: "codex", model: "gpt-5.6-terra" },
-      detail: "timed out after 90 seconds.",
-      failureKind: "timeout",
-      durationMs: 90_000,
-      shouldTrace: true,
+  test("keeps the primary turn and bills usage when a consult fails", async () => {
+    codexRunnerResult = {
+      ok: false,
+      detail: "Codex authentication is required.",
+      usage: { type: "usage", inputTokens: 900, outputTokens: 120 },
+    };
+
+    let consultOutcome: Awaited<ReturnType<typeof consultAdvisor>> | null =
+      null;
+    duringPrimaryTurn = async (args) => {
+      consultOutcome = await consultAdvisor({
+        consultKey: captureConsultKey(args.conversation),
+        question: "Second opinion?",
+      });
     };
 
     const events = await runBufferedTurn({
       advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
     });
 
+    // A failed consult is a graceful fallback: the primary keeps its turn,
+    // and whatever the advisor spent before failing is still billed.
+    expect(consultOutcome).toMatchObject({ ok: false, code: "advisor-failed" });
+    expect(advisorPhases(events)).toEqual(["armed", "started", "failed"]);
     expect(events.filter((event) => event.type === "usage")).toEqual([
-      { type: "usage", inputTokens: 20, outputTokens: 8 },
+      { type: "usage", inputTokens: 920, outputTokens: 128 },
+    ]);
+    expect(events.at(-1)).toEqual({ type: "done", stop_reason: "end_turn" });
+  });
+
+  test("enforces the normalized per-turn consult budget", async () => {
+    const outcomes: Awaited<ReturnType<typeof consultAdvisor>>[] = [];
+    duringPrimaryTurn = async (args) => {
+      const consultKey = captureConsultKey(args.conversation);
+      outcomes.push(await consultAdvisor({ consultKey, question: "One?" }));
+      outcomes.push(await consultAdvisor({ consultKey, question: "Two?" }));
+    };
+
+    // 0 normalizes up to the minimum of 1 rather than disarming the Advisor.
+    await runBufferedTurn({
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+      advisorConsultLimit: 0,
+    });
+
+    expect(briefingPart(primaryTurn?.conversation)?.content).toContain(
+      "at most 1 time",
+    );
+    expect(outcomes[0]).toMatchObject({ ok: true, consultLimit: 1 });
+    expect(outcomes[1]).toMatchObject({
+      ok: false,
+      code: "consult-limit-exhausted",
+      remainingConsults: 0,
+    });
+    expect(codexRunnerCallCount).toBe(1);
+  });
+
+  test("skipAdvisor cancels only an in-flight consult and keeps the turn", async () => {
+    // Nothing running yet: skipping must not claim success.
+    expect(
+      providerRuntime.skipAdvisor({ turnId: "advisor-runtime-turn" }),
+    ).toMatchObject({ ok: false });
+
+    holdCodexRunnerUntilCancelled = true;
+    // The abandoned runner finishes after the skip; its spend is still real.
+    heldRunnerResult = {
+      ok: true,
+      text: "Too late to matter.",
+      usage: { type: "usage", inputTokens: 900, outputTokens: 120 },
+    };
+    let consultOutcome: Awaited<ReturnType<typeof consultAdvisor>> | null =
+      null;
+    let inFlightOutcome: Awaited<ReturnType<typeof consultAdvisor>> | null =
+      null;
+    duringPrimaryTurn = async (args) => {
+      const consultKey = captureConsultKey(args.conversation);
+      const pending = consultAdvisor({ consultKey, question: "Slow one?" });
+      await until(() => codexRunnerHeld);
+      // One consult at a time per grant.
+      inFlightOutcome = await consultAdvisor({
+        consultKey,
+        question: "Parallel?",
+      });
+      expect(
+        providerRuntime.skipAdvisor({ turnId: "advisor-runtime-turn" }),
+      ).toMatchObject({ ok: true });
+      consultOutcome = await pending;
+    };
+
+    const events = await runBufferedTurn({
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+    });
+
+    expect(inFlightOutcome).toMatchObject({
+      ok: false,
+      code: "consult-in-flight",
+    });
+    expect(consultOutcome).toMatchObject({
+      ok: false,
+      code: "consult-cancelled",
+    });
+    expect(advisorPhases(events)).toEqual(["armed", "started", "skipped"]);
+    // The late usage harvested from the abandoned runner reaches the total.
+    expect(events.filter((event) => event.type === "usage")).toEqual([
+      { type: "usage", inputTokens: 920, outputTokens: 128 },
+    ]);
+    expect(events.at(-1)).toEqual({ type: "done", stop_reason: "end_turn" });
+
+    // After the turn there is no consult left to skip.
+    expect(
+      providerRuntime.skipAdvisor({ turnId: "advisor-runtime-turn" }),
+    ).toMatchObject({ ok: false });
+  });
+
+  test("revokes the consult grant when the turn ends", async () => {
+    await runBufferedTurn({
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+    });
+    const consultKey = captureConsultKey(primaryTurn?.conversation);
+
+    // The key was live during the turn but must die with it: a stale
+    // transcript or fabricated call can never bill an advisor afterwards.
+    expect(
+      await consultAdvisor({ consultKey, question: "Too late?" }),
+    ).toMatchObject({ ok: false, code: "unknown-consult-key" });
+    expect(
+      await consultAdvisor({ consultKey: "never-minted", question: "Hm?" }),
+    ).toMatchObject({ ok: false, code: "unknown-consult-key" });
+  });
+
+  test("merges consult usage into primary events returned without streaming callbacks", async () => {
+    primaryEmitsEvents = false;
+    duringPrimaryTurn = async (args) => {
+      await consultAdvisor({
+        consultKey: captureConsultKey(args.conversation),
+        question: "Merged anyway?",
+      });
+    };
+
+    const events = await runBufferedTurn({
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+    });
+
+    expect(withoutAdvisorActivity(events)).toEqual([
+      {
+        type: "system",
+        content: expect.stringContaining(
+          "Advisor consult 1/5 completed with Codex · gpt-5.6-terra",
+        ),
+      },
+      { type: "usage", inputTokens: 30, outputTokens: 12 },
+      { type: "done", stop_reason: "end_turn" },
     ]);
   });
 });

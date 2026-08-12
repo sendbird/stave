@@ -30,19 +30,20 @@ You can also confirm the effective state from the runtime chips near the compose
 
 ## Optional Advisor
 
-The Advisor card at the top of `Settings → Providers` can add a read-only
-second opinion before normal chat turns:
+The Advisor card at the top of `Settings → Providers` arms a read-only second
+opinion the primary model can request on demand during normal chat turns:
 
 1. Choose `Off`, `Claude`, or `Codex`.
-2. If enabled, select a model from that provider's catalog.
+2. If enabled, select a model from that provider's catalog and, optionally,
+   the per-turn consult budget.
 3. Check the configured executor → Advisor pair shown in the card.
 
 The Advisor is isolated from the primary conversation session and cannot edit
-files, use network access, or resume a provider thread. Its bounded advice is
-passed to the primary provider as context. If the Advisor is unavailable or
-times out, Stave records a small trace and continues with the primary provider;
-it does not silently switch models. Native slash commands and internal helper
-turns skip the Advisor.
+files, use network access, or resume a provider thread. Its bounded advice
+returns to the primary as the `stave_consult_advisor` tool result. If a
+consult is unavailable, fails, or times out, Stave records a small trace and
+the primary continues; it does not silently switch models. Native slash
+commands and internal helper turns never receive a consult grant.
 
 ## Recommended Starting Points
 

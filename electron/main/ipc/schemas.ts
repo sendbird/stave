@@ -897,6 +897,9 @@ export const RuntimeOptionsObjectSchema = z
       })
       .strict()
       .optional(),
+    // Per-turn on-demand Advisor consult budget. Bounds mirror
+    // `normalizeAdvisorConsultLimit`; the main process re-normalizes anyway.
+    advisorConsultLimit: z.number().int().min(1).max(20).optional(),
     // Worker mode intent, already narrowed to the active provider. Shape only:
     // whether this model may actually run as a worker on this primary is
     // semantic and is re-proved by `resolveWorkerProfile` in the main process.
