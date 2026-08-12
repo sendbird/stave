@@ -70,7 +70,7 @@ const FEATURES = [
   {
     title: "One inbox for every workspace",
     description:
-      "Fleet's Needs me view lists pending questions, approvals, failed runs, and PR blockers across all your workspaces.",
+      "Fleet's \"Action required\" rail lists pending questions, approvals, failed runs, and PR blockers across all your workspaces.",
     icon: Inbox,
   },
 ];

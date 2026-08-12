@@ -141,7 +141,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
       {
         routePath: "fleet-needs-me",
         sourcePath: "docs/features/fleet-needs-me.md",
-        title: "Fleet Needs Me",
+        title: "Fleet Action Required",
         description:
           "Work through questions, approvals, failed runs, results, and pull request blockers across every workspace.",
       },

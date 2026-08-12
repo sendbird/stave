@@ -74,7 +74,7 @@ You can play a short sound when a task turn finishes. This is useful when you ha
 
 ## Related Docs
 
-- [Fleet Needs Me](fleet-needs-me.md)
+- [Fleet Action Required](fleet-needs-me.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
 - [Latest Turn Summary](workspace-latest-turn-summary.md)
 - [Command Palette](command-palette.md)

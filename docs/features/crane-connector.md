@@ -171,4 +171,4 @@ paths, branch names, provider credentials, or Local MCP metadata.
 
 - [Local MCP](local-mcp-user-guide.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
-- [Fleet Needs Me](fleet-needs-me.md)
+- [Fleet Action Required](fleet-needs-me.md)
