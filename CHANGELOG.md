@@ -1,3 +1,19 @@
+## [0.15.0](https://github.com/sendbird/stave/compare/v0.14.5...v0.15.0) (2026-08-12)
+
+### Features
+
+* Add opt-in on-demand Advisor consults with a turn-scoped read-only grant, provider/model/effort selection, a configurable per-turn budget, lifecycle activity, cancellation, timeout, and usage tracking.
+* Expose delegation controls in Settings and carry optional model and effort through child-task runtime, receipt, and retry contracts.
+
+### Bug Fixes
+
+* Refresh source-control status and history when active workspace turns end, including completed, interrupted, and replaced turns, while keeping overlapping refreshes ordered.
+* Surface Local MCP readiness and actionable Advisor reachability states, make zero-consult turns explicit, and keep Advisor provider-event contracts aligned across Claude and Codex.
+
+### References
+
+* [#371](https://github.com/sendbird/stave/pull/371), [#372](https://github.com/sendbird/stave/pull/372)
+
 ## [0.14.5](https://github.com/sendbird/stave/compare/v0.14.4...v0.14.5) (2026-08-12)
 
 ### Features
