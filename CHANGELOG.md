@@ -1,3 +1,22 @@
+## [0.14.5](https://github.com/sendbird/stave/compare/v0.14.4...v0.14.5) (2026-08-12)
+
+### Features
+
+* Let explicit interactive `@web` turns use the active provider's native browser integration, with connection status in Settings and Information while plan, unattended, and secondary turns remain fail-closed.
+* Add restart-safe, cross-provider child-task delegation with parent-side steering, scheduled and completion heartbeats, and ghost-session protection.
+* Show nested agent work in Turn Activity with docked, draggable floating, and right-rail placement modes.
+* Add opt-in Martin workspace sync with context snapshots and a durable outbox for pull request, task, resource, and turn-summary events when server support is enabled.
+* Attach selected pull request review threads and failed-CI excerpts as bounded external context, with individual removal and a clear-all action.
+* Add a persisted sidebar Work queue with Action required, In progress, In review, and Idle lanes, plus clearer labels and a three-column Fleet board cap.
+
+### Bug Fixes
+
+* Improve provider and MCP startup reliability, apply managed-task permissions, reduce repeated prompt context, and fix checkpoint, model-shortcut, Lens-divider, branch-menu, sidebar-spacing, and public-doc link regressions.
+
+### References
+
+* [#345](https://github.com/sendbird/stave/pull/345), [#346](https://github.com/sendbird/stave/pull/346), [#347](https://github.com/sendbird/stave/pull/347), [#348](https://github.com/sendbird/stave/pull/348), [#349](https://github.com/sendbird/stave/pull/349), [#350](https://github.com/sendbird/stave/pull/350), [#351](https://github.com/sendbird/stave/pull/351), [#352](https://github.com/sendbird/stave/pull/352), [#353](https://github.com/sendbird/stave/pull/353), [#355](https://github.com/sendbird/stave/pull/355), [#356](https://github.com/sendbird/stave/pull/356), [#357](https://github.com/sendbird/stave/pull/357), [#358](https://github.com/sendbird/stave/pull/358), [#359](https://github.com/sendbird/stave/pull/359), [#360](https://github.com/sendbird/stave/pull/360), [#361](https://github.com/sendbird/stave/pull/361), [#362](https://github.com/sendbird/stave/pull/362), [#363](https://github.com/sendbird/stave/pull/363), [#364](https://github.com/sendbird/stave/pull/364), [#365](https://github.com/sendbird/stave/pull/365), [#366](https://github.com/sendbird/stave/pull/366), [#367](https://github.com/sendbird/stave/pull/367), [#368](https://github.com/sendbird/stave/pull/368), [#369](https://github.com/sendbird/stave/pull/369)
+
 ## [0.14.4](https://github.com/sendbird/stave/compare/v0.14.3...v0.14.4) (2026-08-06)
 
 ### Features

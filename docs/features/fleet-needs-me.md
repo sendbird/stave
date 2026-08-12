@@ -1,8 +1,8 @@
-# Fleet Needs Me
+# Fleet Action Required
 
 ## Summary
 
-Fleet is Stave's cross-workspace action inbox. Its default `Needs me` view
+Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` rail
 combines pending questions and approvals, unread failed or completed turns, and
 actionable pull request states in one urgency-ordered list.
 
@@ -30,8 +30,8 @@ optional shortcuts on top of that.
 ## Quick Start
 
 1. Open Fleet from the top-bar fleet button or the workspace sidebar.
-2. Review the fixed `Needs me` rail, which keeps questions and approvals ahead
-   of the folded `Worth a look` review queue.
+2. Review the fixed `Action required` rail, which keeps questions and approvals
+   ahead of the folded `Worth a look` review queue.
 3. Select an item to open its exact task or workspace.
 4. Approve or deny approval requests, mark results as reviewed, or open the
    linked pull request from the item actions.
@@ -41,12 +41,13 @@ optional shortcuts on top of that.
 ### Entry Points
 
 - Top bar: the Fleet button shows the total number of known actionable items.
-- Workspace sidebar: workspaces with a need that has a visible icon are promoted
-  into the active workspace list. A result waiting for review never promotes a
-  workspace on its own, because that need carries no visible marker.
-- Fleet view: `Needs me` is a layout-level rail. It stays visible while board
-  filters change; on narrow screens it becomes a compact top rail. The board
-  itself uses workspace cards and activity filters (`Active`, `Running`,
+- Workspace sidebar: switch to `Work queue` to group every workspace into
+  `Action required`, `In progress`, `In review`, or `Idle`. Blocking attention
+  puts a workspace in `Action required`; an unread result without a blocker
+  belongs in `In review`.
+- Fleet view: `Action required` is a layout-level rail. It stays visible while
+  board filters change; on narrow screens it becomes a compact top rail. The
+  board itself uses workspace cards and activity filters (`Active`, `Running`,
   `Blocked`, and `All`) rather than a task timeline.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
@@ -78,7 +79,7 @@ optional shortcuts on top of that.
 
 ### Clear Pending Agent Requests
 
-1. Start at the top of `Needs me`.
+1. Start at the top of `Action required`.
 2. Answer questions in their task and resolve approvals from the inbox or task.
 3. Continue with failed runs, pull request blockers, completed results, and
    merge-ready work.
@@ -119,7 +120,7 @@ optional shortcuts on top of that.
 
 ## Troubleshooting
 
-### A Workspace Is Not In Needs Me
+### A Workspace Is Not In Action Required
 
 - Symptom: a workspace has recent work but no Fleet item.
 - Cause: Fleet shows actionable states, not all recent activity.
