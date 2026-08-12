@@ -2325,10 +2325,21 @@ export async function runTask(args: {
     }
   }
 
-  let task = findWorkspaceTaskOrThrow({
-    tasks: session.tasks,
-    requestedTaskId: args.taskId,
-  });
+  // A delegation pre-mints its child task id on the run ledger before the
+  // child task exists, so the coordinator path (parentTaskId set) may name a
+  // task that is not in this workspace yet — it is created below with that
+  // exact id so the ledger row and the task row agree on identity. Every
+  // other caller passing taskId means "continue this task", where a miss is
+  // an error.
+  const delegationTaskId =
+    args.parentTaskId?.trim() && args.taskId?.trim() ? args.taskId.trim() : null;
+  let task = delegationTaskId
+    ? (session.tasks.find((candidate) => candidate.id === delegationTaskId) ??
+      null)
+    : findWorkspaceTaskOrThrow({
+        tasks: session.tasks,
+        requestedTaskId: args.taskId,
+      });
 
   // An existing task already has a provider, and adding a turn to it must not
   // silently move it to another one: the same conversation would continue under
@@ -2346,7 +2357,7 @@ export async function runTask(args: {
   const requestedSourceContexts = args.retrievedContextParts ?? [];
 
   if (!task) {
-    const taskId = randomUUID();
+    const taskId = delegationTaskId ?? randomUUID();
     task = {
       id: taskId,
       title: args.title?.trim() || buildTaskTitleFromPrompt(args.prompt),

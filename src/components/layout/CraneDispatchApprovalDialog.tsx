@@ -994,8 +994,8 @@ export function CraneDispatchApprovalDialog() {
                         </SelectContent>
                       </Select>
                       <p className="text-xs leading-5 text-muted-foreground">
-                        Adds one isolated read-only preflight and extra latency
-                        before the primary run.
+                        Lets the primary consult an isolated read-only Advisor
+                        on demand, adding a model call per consult.
                       </p>
                     </div>
                   ) : null}

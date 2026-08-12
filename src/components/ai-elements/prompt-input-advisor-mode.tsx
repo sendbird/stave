@@ -36,6 +36,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
 import { cn } from "@/lib/utils";
 
 /**
@@ -68,6 +69,12 @@ export function PromptInputAdvisorPill(args: {
   onSelectEffort: (effort: AdvisorEffortOptionValue) => void;
   /** Fires on open so the host can lazily load a provider model catalog. */
   onOpenChange?: (open: boolean) => void;
+  /**
+   * Set when consults cannot reach the model because the Local MCP link is
+   * down. Armed-but-unreachable is the one failure the Advisor cannot report
+   * itself: no tool is offered, so no consult, card or trace is ever produced.
+   */
+  consultBlock?: string | null;
   className?: string;
 }) {
   const open = args.open;
@@ -76,6 +83,7 @@ export function PromptInputAdvisorPill(args: {
     primaryProviderId: args.primaryProviderId,
     primaryModel: args.primaryModel,
     blocking: args.blocking,
+    consultBlock: args.consultBlock,
   });
   const activeOptionId = resolveAdvisorArmOptionId(args.arm);
   // Bound to a const so the non-null narrow survives into the row callbacks
@@ -153,6 +161,17 @@ export function PromptInputAdvisorPill(args: {
               className="shrink-0 rounded bg-muted/70 px-1 text-[10px] leading-4 font-medium text-muted-foreground"
             >
               {presentation.effortLabel}
+            </span>
+          ) : null}
+          {args.consultBlock ? (
+            // An amber icon alone reads as "something is slightly off"; the
+            // word says the armed Advisor is unreachable without opening
+            // anything.
+            <span
+              data-testid="advisor-mode-unreachable"
+              className="shrink-0 rounded bg-warning/10 px-1 text-[10px] leading-4 font-medium text-warning dark:bg-warning/15"
+            >
+              Unreachable
             </span>
           ) : null}
         </TooltipTrigger>
@@ -339,9 +358,9 @@ export function PromptInputAdvisorPill(args: {
           ) : null}
 
           <p className="px-1 text-[11px] leading-4 text-muted-foreground">
-            Applies to this task only. The Advisor runs read-only before each
-            turn and its advice is injected as low-trust reference context, so
-            it adds one model call and its latency.{" "}
+            Applies to this task only. The primary model may consult the
+            read-only Advisor on demand during its turn; every consult is one
+            extra model call it waits on.{" "}
             <span className="whitespace-nowrap">
               {ADVISOR_TOGGLE_SHORTCUT_LABEL} toggles
             </span>
@@ -351,6 +370,20 @@ export function PromptInputAdvisorPill(args: {
             </span>
             .
           </p>
+          <button
+            type="button"
+            data-testid="advisor-mode-open-settings"
+            className="px-1 text-left text-[11px] leading-4 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
+                  detail: { section: "providers" },
+                }),
+              );
+            }}
+          >
+            Defaults and consult budget live in Settings → Providers → Advisor.
+          </button>
         </PopoverContent>
       </Popover>
     </div>

@@ -1,6 +1,14 @@
 # Advisor Interaction Map
 
-Status: **proposed / not implemented**
+Status: **proposed / not implemented — partially superseded**
+
+> ⚠️ This plan was drawn for the preflight-era Advisor (one blocking call
+> before the turn, advice injected into the primary prompt). The Advisor has
+> since become **on-demand**: the primary consults it mid-turn via the
+> `stave_consult_advisor` Local MCP tool, advice returns as the tool result,
+> and the `applied`/`primary_started` phases no longer exist. The injection
+> and handoff panels below would need to be redesigned per-consult before this
+> is implemented.
 
 This document is the durable visual and implementation plan for Advisor UX
 prototype 3. The existing Handoff Monitor remains the ambient surface, and its
@@ -56,6 +64,19 @@ The current surface is
   map trigger and returns to the expanded Handoff Monitor.
 - The map never opens automatically and does not replace the ambient monitor.
 
+Two surfaces outside the monitor carry Advisor state, because a consult that
+never happens produces no card to open:
+
+- The turn activity shelf renders one Advisor row per turn from the same
+  `AdvisorExchangeSnapshot`, starting at `Advisor armed · 0 consults` when the
+  grant is minted and becoming a consult count once the primary asks. This is
+  where an unconsulted turn proves the Advisor was live, and where consults are
+  counted alongside subagents and delegated child tasks.
+- The composer Advisor pill shows an `Unreachable` badge when the Local MCP
+  server that carries `stave_consult_advisor` is down. An armed Advisor whose
+  tool never reaches the model is otherwise silent: no consult, no card, no
+  trace.
+
 Use the repository `Dialog` primitive for focus containment, dismissal, and
 focus restoration. Do not squeeze the graph and detail rail into the existing
 23 rem floating card.
@@ -104,6 +125,7 @@ second store, replay path, or interpretation of provider events.
 
 | State                         | Primary node             | Advisor node        | Prompt node and links                                |
 | ----------------------------- | ------------------------ | ------------------- | ---------------------------------------------------- |
+| Armed, not consulted          | Streaming normally       | Available           | No request yet; shelf row only, no floating card     |
 | Advisor started               | Waiting for Advisor      | Running             | Request active; response and injection inactive      |
 | Advice completed, not applied | Waiting for injection    | Advice ready        | Response active; injection inactive and called out   |
 | Advice applied                | Ready or streaming       | Advice ready        | `retrieved_context` active with chars and part index |

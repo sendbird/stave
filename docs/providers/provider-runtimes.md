@@ -15,25 +15,40 @@ decisions are recorded in
 
 The renderer submits a selected provider and model with each turn. `electron/main/ipc/provider.ts` validates the request, forwards it into the dedicated desktop `host-service` child process, and `electron/providers/runtime.ts` dispatches to the matching provider runtime.
 
-## Advisor preflight
+## On-demand Advisor consults
 
-`Settings → Providers → Advisor` can run one isolated read-only preflight
-before a normal user-authored chat turn. The primary provider and Advisor are
+`Settings → Providers → Advisor` arms an isolated read-only Advisor that the
+**primary model consults on demand during its turn** via the
+`stave_consult_advisor` Local MCP tool. The primary provider and Advisor are
 independent: Claude can advise Codex, Codex can advise Claude, and either
 provider can advise another model from its own catalog. Fable is a normal
-Claude model choice, not a special Advisor mode.
+Claude model choice, not a special Advisor mode. The intended asymmetry is a
+cheap primary consulting an expensive Advisor only when it needs a second
+opinion — the consult carries the primary's framed question plus minimal
+quoted context, not the whole conversation.
+
+Control is split deliberately: the **user** decides who answers, at what
+effort, and how often (the per-turn consult budget,
+`advisorConsultLimit`, default 5, clamp 1–20); the **model** decides when a
+question is worth asking. When a turn starts with an armed Advisor, the shared
+runtime mints a turn-scoped `consultKey` (a capability honoured only while
+that turn is alive), registers a consult grant, and injects a briefing
+`retrieved_context` part (source id `stave:advisor-consult`) telling the
+primary how to call the tool. The tool is auto-approved
+(`stave-local-mcp-approval.ts`) because the spend was authorised at arm time
+and each call is read-only and budget-bounded.
 
 The Advisor target is stored as
-`advisorTarget: { providerId, model, effort? } | null` and is only attached to
-the main user-turn request. Summary generation, routing classifiers, task
-naming, PR helpers, native slash-command turns, and other internal one-shot
-calls do not inherit it.
+`advisorTarget: { providerId, model, effort? } | null` and the grant is only
+minted for the main user-turn request. Summary generation, routing
+classifiers, task naming, PR helpers, native slash-command turns, and other
+internal one-shot calls never carry it.
 
 ### Advisor effort
 
 `effort` is optional; absent means "follow the model's provider default", which
-is what every target did before the tier became selectable. Because the Advisor
-blocks the turn while it thinks, the tier is a direct latency choice, so the
+is what every target did before the tier became selectable. Because the primary
+waits on each consult it makes, the tier is a latency-per-consult choice, so the
 composer and Settings both show what the default resolves to rather than only
 the word "Auto".
 
@@ -48,12 +63,12 @@ costs latency, losing the target would silently disarm an Advisor the user
 believes is on. Codex's legacy `minimal` is not selectable and collapses to
 `low` before the call, so it never appears as a pin or in a reported event.
 
-The Advisor deadline follows the resolved effort rather than sharing the
+Each consult's deadline follows the resolved effort rather than sharing the
 primary provider timeout: `low` gets 2 minutes, `medium` 3 minutes, `high` 5
 minutes, and `xhigh`/`max`/`ultra` 10 minutes. The lifecycle `started` event
 reports that same resolved deadline, so the exchange monitor countdown and the
-runtime enforcement cannot drift. The existing Skip Advisor control remains
-available throughout the wait.
+runtime enforcement cannot drift. The monitor's Cancel-consult control drops
+only the in-flight consult; the grant (and the turn) keep going.
 
 ### Per-task arming
 
@@ -81,13 +96,13 @@ per-task value falls back to the Settings default instead of reaching the
 runtime. `buildProviderRuntimeOptions` calls it behind `includeAdvisor`, which
 keeps every utility turn advisor-free by construction.
 
-Turning the Advisor off while it is holding the turn also issues
+Turning the Advisor off while a consult is running also issues
 `provider.skip-advisor`, so the control means "now" at the one moment the user
 needs it to, rather than silently meaning "next turn". The composer also warns
-before the turn is spent when the target is off-catalog (the turn would skip the
-Advisor) or identical to the model running the turn (the second opinion is the
-same model) — the pre-flight counterpart to the monitor's post-hoc checklist.
-A pinned tier the model cannot run is reported separately from those, as a note
+before the turn is spent when the target is off-catalog (consults would fail)
+or identical to the model running the turn (the second opinion is the same
+model) — the arm-time counterpart to the monitor's post-hoc checklist. A
+pinned tier the model cannot run is reported separately from those, as a note
 rather than a warning: the Advisor still advises correctly, just one tier down.
 
 `Alt+A` toggles the Advisor and `Alt+Shift+A` opens its picker, joining the
@@ -97,8 +112,9 @@ rather than a warning: the Advisor still advises correctly, just one tier down.
 same `windowShortcutsEnabled` flag the host computes for the active task, which
 keeps the Advisor out of `PromptInput`'s prop surface.
 
-`electron/providers/advisor-runtime.ts` runs the preflight before the primary
-provider dispatch:
+`electron/providers/advisor-consult.ts` owns the per-turn grant (key, budget,
+one consult at a time, revocation on turn end) and calls
+`electron/providers/advisor-runtime.ts` for each consult:
 
 - Claude uses a fresh one-turn SDK query with `tools: []`, no setting sources,
   no skills, no MCP servers, and no resume state.
@@ -110,33 +126,37 @@ provider dispatch:
   server catalog cannot be read, the isolated call is refused rather than run
   with weaker isolation than it advertises.
 - Successful advice is bounded, stripped of any `[Section]` header lines so it
-  cannot forge a higher-trust prompt section, and appended to the canonical
-  request as `retrieved_context` with source id `stave:advisor`.
-- A compact `system` trace records completion, skip, or recoverable failure.
-  Advisor text is not persisted as a separate assistant response.
-- Advisor usage is merged into the visible primary turn usage exactly once,
-  including when the primary turn ends without emitting its own usage event.
-- An unavailable, invalid, failed, or timed-out Advisor does not trigger a
-  fallback and does not block the primary turn. A user abort during preflight
-  aborts the whole turn.
+  cannot forge a higher-trust prompt section, and returned to the primary as
+  the consult tool's own result with an explicit low-trust preamble.
+- A compact `system` trace records each consult's completion, cancellation, or
+  recoverable failure. Advisor text is not persisted as a separate assistant
+  response.
+- Every consult's usage (including late usage from a cancelled consult's
+  abandoned runner) is accumulated and merged into the visible primary turn
+  usage exactly once, including when the primary turn ends without emitting its
+  own usage event.
+- A failed, timed-out, or cancelled consult returns a structured refusal to the
+  primary and never stops the turn; the tool result tells the model to proceed
+  with its own judgment. Turn end revokes the grant, so a consult can never
+  outlive or bill into a finished turn.
 - Claude timeout diagnostics retain content-free SDK progress metadata: whether
   the runtime was still loading or the last SDK event type seen while waiting
   for the final result. Partial model text is never applied as advice.
-- The preflight pauses the primary provider's generation timeout while it runs,
-  so another model's latency cannot consume the primary turn's budget.
+- Each consult pauses the primary provider's generation timeout while it runs
+  (a per-exchange phase pause), so another model's latency cannot consume the
+  primary turn's budget.
 
 ### Advisor lifecycle events
 
-The preflight emits structured `advisor_activity` events on the normalized
+Each consult emits structured `advisor_activity` events on the normalized
 provider event union rather than requiring the renderer to sniff the `system`
-trace string. Phases are `started`, `completed`, `applied`, `primary_started`,
-`failed`, `timeout`, `aborted`, and `skipped`.
-
-`completed` and `applied` are deliberately distinct. The advisor producing
-advice and that advice actually reaching the primary prompt are separate
-outcomes, and only `applied` — emitted from the injection site with the real
-`injectedPartIndex` and `injectedChars` — proves the primary model saw it.
-"Advisor ran but the advice never landed" was previously invisible.
+trace string. Phases are `started`, `completed`, `failed`, `timeout`,
+`aborted`, and `skipped`, and every event of one consult shares an
+`exchangeId` plus `consultIndex`/`consultLimit` so the monitor can show
+"Consult 2/5". `started` also carries a bounded copy of the question the
+primary asked. (The preflight-era `applied`/`primary_started` phases are gone:
+advice now reaches the primary as the tool call's own result, so "returned"
+and "seen" are the same event.)
 
 Events carry the primary and advisor provider/model plus the isolation mode and
 the effort tier actually applied by the runtime, so the UI never infers either
@@ -147,17 +167,18 @@ per-task `advisorExchangeSnapshot` held in its own store slice, never in
 `messagesByTask`, so the advice text is not persisted as an assistant response
 and the surface does not depend on transcript rendering.
 
-`provider.skip-advisor` cancels only the preflight: the primary turn continues
-with a `skipped` phase. It is distinct from `abortTurn`, so escaping a slow
-advisor never costs the user their turn. It reports `ok: false` once the
-preflight is no longer running.
+`provider.skip-advisor` cancels only the in-flight consult: the primary turn
+continues with a `skipped` phase and the tool returns a structured
+cancellation. It is distinct from `abortTurn`, so escaping a slow advisor never
+costs the user their turn. It reports `ok: false` when no consult is running.
 
 The user-facing surface is `src/components/session/AdvisorExchangeMonitor.tsx`,
-a floating card at the top-right of the chat stage. Expanded, it renders a
+a floating card at the top-right of the chat stage that shows the current
+consult (with its question) and the per-turn count. Expanded, it renders a
 checklist computed only from reported fields — separate model, tool isolation,
-advice returned, advice applied, primary started, usage counted — which is the
-acceptance criteria for the event contract, not decoration. It also reports the
-isolation mode, effort tier, and deadline the call actually used.
+advice returned, usage counted — which is the acceptance criteria for the
+event contract, not decoration. It also reports the isolation mode, effort
+tier, and deadline the call actually used.
 `ideas/advisor-ux-lens/harness.html` renders that real component over real
 reducer output for every terminal scenario, plus the real composer pill over
 the real arm resolver for every arming state.

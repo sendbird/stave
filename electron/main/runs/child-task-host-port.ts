@@ -246,6 +246,7 @@ export function createChildTaskHostPort(
       prompt,
       providerId,
       model,
+      effort,
       permissionProfile,
       parentTaskId,
     }) {
@@ -259,6 +260,7 @@ export function createChildTaskHostPort(
         runtimeOptions: buildChildTaskRuntimeOptions({
           providerId,
           model,
+          effort,
           permissionProfile,
         }),
       });

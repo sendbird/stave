@@ -366,6 +366,37 @@ describe("local MCP runtime runTask", () => {
     expect(startTurnStreamCalls).toHaveLength(1);
   });
 
+  test("creates a delegated child task with the ledger's pre-minted id", async () => {
+    // The child-task coordinator claims the ledger row with a derived task id
+    // before the task exists, then starts the first turn with that id. The
+    // delegation path (parentTaskId set) must create the task under that
+    // exact id instead of rejecting it as an unknown task.
+    const premintedTaskId = "child-preminted-task-id";
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      taskId: premintedTaskId,
+      parentTaskId: "parent-task-id",
+      prompt: "Delegated child turn",
+    });
+
+    expect(result.taskId).toBe(premintedTaskId);
+    expect(
+      lastUpsertSnapshotByWorkspaceId
+        .get(WORKSPACE_ID)
+        ?.tasks?.find((task) => task.id === premintedTaskId)?.parentTaskId,
+    ).toBe("parent-task-id");
+  });
+
+  test("still rejects an unknown taskId without a delegation link", async () => {
+    await expect(
+      runtime.runTask({
+        workspaceId: WORKSPACE_ID,
+        taskId: "no-such-task",
+        prompt: "Continue a task that does not exist",
+      }),
+    ).rejects.toThrow("Task not found in this workspace: no-such-task");
+  });
+
   test("runs an externally managed task without interactive approvals", async () => {
     await runtime.runTask({
       workspaceId: WORKSPACE_ID,

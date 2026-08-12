@@ -99,13 +99,21 @@ export const settingsSections = [
       "model",
       "effort",
       "advisor",
-      "preflight",
+      "consult",
+      "on demand",
       "fable",
       "browser",
       "browser access",
       "chrome",
       "extension",
       "@web",
+      // Delegation has no settings key of its own (its parameters are per
+      // call), so the section keywords are the only way search can reach the
+      // card that explains it.
+      "delegation",
+      "delegate",
+      "child task",
+      "worker",
     ],
   },
   {

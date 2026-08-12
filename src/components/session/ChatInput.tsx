@@ -84,6 +84,10 @@ import {
 } from "@/lib/providers/provider-mode-presets";
 import { resolveAdvisorArmState } from "@/lib/providers/advisor";
 import { isAdvisorExchangeBlocking } from "@/lib/providers/advisor-activity";
+import {
+  describeLocalMcpBlock,
+  useLocalMcpReadiness,
+} from "@/lib/local-mcp-readiness";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { buildModelEffortRuntimeOverrides } from "@/lib/providers/model-effort";
 import type { ClaudeSettingSource } from "@/lib/providers/provider.types";
@@ -386,6 +390,24 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     [promptDraft.runtimeOverrides, settingsAdvisorTarget],
   );
   const [advisorPickerOpen, setAdvisorPickerOpen] = useState(false);
+  // Consults travel over Local MCP, so an armed Advisor with a broken link is
+  // silently inert. Read only while the Advisor is armed or being configured —
+  // there is nothing to warn about otherwise.
+  const localMcpReadiness = useLocalMcpReadiness({
+    enabled: advisorArm.enabled || advisorPickerOpen,
+    primaryProviderId: args.activeProvider,
+    refreshKey: advisorPickerOpen,
+  });
+  const advisorConsultBlock = useMemo(
+    () =>
+      advisorArm.enabled
+        ? describeLocalMcpBlock({
+            readiness: localMcpReadiness.readiness,
+            capability: "Advisor consults",
+          })
+        : null,
+    [advisorArm.enabled, localMcpReadiness.readiness],
+  );
   // Codex advertises models dynamically, so the list is only worth fetching
   // once the user actually opens the picker on a Codex advisor.
   const advisorCodexCatalog = useCodexModelCatalog({
@@ -1264,6 +1286,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               primaryModel={args.selectedModelOption.model}
               advisorModelOptions={advisorModelOptions}
               blocking={advisorBlockingTurn}
+              consultBlock={advisorConsultBlock}
               disabled={isInputBlocked}
               open={advisorPickerOpen}
               onOpenChange={setAdvisorPickerOpen}

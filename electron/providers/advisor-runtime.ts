@@ -1,12 +1,8 @@
 import {
   boundAdvisorAdvice,
-  buildAdvisorPrompt,
   isStaticAdvisorTarget,
-  isSupportedAdvisorTarget,
-  normalizeAdvisorTarget,
   resolveAdvisorEffort,
   resolveAdvisorTimeoutMs,
-  shouldRunAdvisor,
 } from "../../src/lib/providers/advisor";
 import { getProviderLabel } from "../../src/lib/providers/model-catalog";
 import type {
@@ -24,7 +20,7 @@ import {
   runCodexReadOnlyPrompt,
 } from "./codex-app-server-runtime";
 import { ADVISOR_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
-import type { BridgeEvent, StreamTurnArgs } from "./types";
+import type { BridgeEvent } from "./types";
 
 type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
 
@@ -40,7 +36,7 @@ const DEFAULT_ADVISOR_RUNNERS: AdvisorRunnerDependencies = {
   getCodexModelCatalog,
 };
 
-export type AdvisorPreflightResult =
+export type AdvisorCallResult =
   | {
       status: "completed";
       target: AdvisorTarget;
@@ -55,7 +51,7 @@ export type AdvisorPreflightResult =
       detail: string;
       /**
        * Distinguishes a deadline from a provider error without re-parsing
-       * `detail`. Both are graceful fallbacks — the primary turn still runs.
+       * `detail`. Both are graceful fallbacks — the primary turn keeps running.
        */
       failureKind: "timeout" | "error";
       durationMs: number;
@@ -67,9 +63,9 @@ export type AdvisorPreflightResult =
       target: AdvisorTarget | null;
       detail: string;
       /**
-       * `user` means the user pressed skip while the advisor was holding the
-       * turn; the primary must still run. `ineligible` means the advisor was
-       * never applicable to this turn.
+       * `user` means the user cancelled this consult from the exchange monitor;
+       * the primary keeps running. `ineligible` means the call was never
+       * runnable (unknown Codex model).
        */
       skipKind: "user" | "ineligible";
       durationMs: number;
@@ -135,9 +131,9 @@ export function mergeAdvisorUsage(
  * usage whenever the primary turn timed out or aborted.
  */
 export function createAdvisorUsageMerger(
-  // Accepts a getter as well as a value because a cancelled advisor reports its
-  // usage *after* this merger is constructed. Reading it eagerly would pin the
-  // value to `undefined` and drop the tokens a timed-out advisor already spent.
+  // Accepts a getter as well as a value because consults land *while the turn
+  // is running* and a cancelled consult reports its usage after the fact.
+  // Reading eagerly would pin the value and drop everything spent later.
   advisorUsage?: UsageEvent | (() => UsageEvent | undefined),
 ) {
   const resolveUsage = () =>
@@ -207,19 +203,26 @@ function compactTraceDetail(detail: string) {
 
 export { formatAdvisorDuration };
 
-export function formatAdvisorSystemTrace(result: AdvisorPreflightResult) {
+export function formatAdvisorSystemTrace(
+  result: AdvisorCallResult,
+  args?: { consultIndex?: number; consultLimit?: number },
+) {
   const target = describeTarget(result.target);
   const duration = formatAdvisorDuration(result.durationMs);
+  const consult =
+    args?.consultIndex !== undefined && args?.consultLimit !== undefined
+      ? `Advisor consult ${args.consultIndex}/${args.consultLimit}`
+      : "Advisor consult";
   if (result.status === "completed") {
-    return `Advisor completed with ${target} in ${duration}.`;
+    return `${consult} completed with ${target} in ${duration}.`;
   }
   if (result.status === "skipped") {
-    return `Advisor skipped for ${target}: ${compactTraceDetail(result.detail)} The primary turn continued.`;
+    return `${consult} skipped for ${target}: ${compactTraceDetail(result.detail)} The primary turn continued.`;
   }
   if (result.status === "aborted") {
-    return `Advisor aborted for ${target} after ${duration}.`;
+    return `${consult} aborted for ${target} after ${duration}.`;
   }
-  return `Advisor unavailable for ${target} after ${duration}: ${compactTraceDetail(result.detail)} The primary turn continued.`;
+  return `${consult} unavailable for ${target} after ${duration}: ${compactTraceDetail(result.detail)} The primary turn continued.`;
 }
 
 type AdvisorActivityEvent = Extract<BridgeEvent, { type: "advisor_activity" }>;
@@ -238,10 +241,44 @@ function describeAdvisorIdentity(target: AdvisorTarget | null) {
     : {};
 }
 
+/** Consult identity every event of one exchange carries. */
+export type AdvisorConsultDescriptor = {
+  exchangeId: string;
+  consultIndex: number;
+  consultLimit: number;
+};
+
 /**
- * Emitted *before* the blocking preflight so the renderer can show that the
- * primary turn is waiting on another model instead of looking like a slow
- * "thinking" phase for up to the advisor deadline.
+ * Emitted once when a turn grants the primary an Advisor, before any consult.
+ *
+ * On-demand delegation trades a guarantee for efficiency: the Advisor may cost
+ * nothing this turn because the primary never asks. Without this event that is
+ * indistinguishable from "the Advisor was never armed" or "the tool never
+ * reached the model" — the exact ambiguity the preflight design did not have.
+ * The runtime reports it because only the runtime knows the grant was minted.
+ */
+export function buildAdvisorArmedEvent(args: {
+  primaryProviderId: ProviderId;
+  primaryModel?: string;
+  target: AdvisorTarget | null;
+  at: number;
+  consultLimit: number;
+}): AdvisorActivityEvent {
+  return {
+    type: "advisor_activity",
+    phase: "armed",
+    consultLimit: args.consultLimit,
+    primaryProviderId: args.primaryProviderId,
+    ...(args.primaryModel ? { primaryModel: args.primaryModel } : {}),
+    ...describeAdvisorIdentity(args.target),
+    at: args.at,
+  };
+}
+
+/**
+ * Emitted the moment a consult starts so the renderer can show that the primary
+ * turn is waiting on another model instead of looking like a slow tool call for
+ * up to the advisor deadline.
  */
 export function buildAdvisorStartedEvent(args: {
   primaryProviderId: ProviderId;
@@ -249,10 +286,14 @@ export function buildAdvisorStartedEvent(args: {
   target: AdvisorTarget | null;
   at: number;
   timeoutMs?: number;
+  consult?: AdvisorConsultDescriptor;
+  question?: string;
 }): AdvisorActivityEvent {
   return {
     type: "advisor_activity",
     phase: "started",
+    ...(args.consult ?? {}),
+    ...(args.question ? { question: args.question } : {}),
     primaryProviderId: args.primaryProviderId,
     ...(args.primaryModel ? { primaryModel: args.primaryModel } : {}),
     ...describeAdvisorIdentity(args.target),
@@ -266,8 +307,9 @@ export function buildAdvisorStartedEvent(args: {
 
 export function buildAdvisorOutcomeEvent(args: {
   primaryProviderId: ProviderId;
-  result: AdvisorPreflightResult;
+  result: AdvisorCallResult;
   at: number;
+  consult?: AdvisorConsultDescriptor;
 }): AdvisorActivityEvent {
   const { result } = args;
   const phase: AdvisorActivityEvent["phase"] =
@@ -283,6 +325,7 @@ export function buildAdvisorOutcomeEvent(args: {
   return {
     type: "advisor_activity",
     phase,
+    ...(args.consult ?? {}),
     primaryProviderId: args.primaryProviderId,
     ...describeAdvisorIdentity(result.target),
     at: args.at,
@@ -306,19 +349,25 @@ export function buildAdvisorOutcomeEvent(args: {
 }
 
 /**
- * The primary must still run for a graceful advisor fallback. Only a user abort
- * of the whole turn stops it.
+ * Runs one isolated, read-only Advisor call and returns its outcome.
+ *
+ * The caller (the consult grant in `advisor-consult.ts`) owns eligibility —
+ * the target arriving here is already normalized and supported. This function
+ * owns everything about a single call: the deadline, cancellation, the Codex
+ * dynamic-catalog check, and late-usage harvesting.
  */
-export function shouldContinuePrimaryTurn(result: AdvisorPreflightResult) {
-  return result.status !== "aborted";
-}
-
-export async function runAdvisorPreflight(args: {
-  turn: StreamTurnArgs;
+export async function runAdvisorCall(args: {
+  target: AdvisorTarget;
+  prompt: string;
+  cwd: string;
+  runtimeOptions?: {
+    claudeBinaryPath?: string;
+    codexBinaryPath?: string;
+  };
   registerAbort: (aborter: () => void) => void;
   /**
-   * Registers a *advisor-scoped* cancel. Unlike `registerAbort` this drops the
-   * advisor and lets the primary turn proceed, so the user is never forced to
+   * Registers a *consult-scoped* cancel. Unlike `registerAbort` this drops the
+   * consult and lets the primary turn proceed, so the user is never forced to
    * kill their whole turn just to escape a slow advisor.
    */
   registerSkip?: (skip: () => void) => void;
@@ -326,62 +375,22 @@ export async function runAdvisorPreflight(args: {
    * Reports usage that lands *after* this function returned.
    *
    * On cancellation the runner promise is deliberately abandoned, but the
-   * tokens it already spent are real. A 90s advisor that timed out mid-answer
+   * tokens it already spent are real. A 90s consult that timed out mid-answer
    * is the single most expensive outcome the feature has, and reporting it as
    * zero made the exchange monitor claim "no advisor usage was reported" for
-   * precisely the turn that cost the most.
+   * precisely the consult that cost the most.
    */
   reportLateUsage?: (usage: UsageEvent) => void;
   runners?: AdvisorRunnerDependencies;
   timeoutMs?: number;
-}): Promise<AdvisorPreflightResult> {
+}): Promise<AdvisorCallResult> {
   const startedAt = Date.now();
   const runners = args.runners ?? DEFAULT_ADVISOR_RUNNERS;
-  const target = normalizeAdvisorTarget(
-    args.turn.runtimeOptions?.advisorTarget,
-  );
+  const target = args.target;
   const timeoutMs = Math.max(
     1,
     args.timeoutMs ?? resolveAdvisorTimeoutMs(target),
   );
-  if (!target) {
-    return {
-      status: "skipped",
-      target: null,
-      detail: "the target is invalid",
-      skipKind: "ineligible",
-      durationMs: Date.now() - startedAt,
-      shouldTrace: true,
-    };
-  }
-  if (!isSupportedAdvisorTarget(target)) {
-    return {
-      status: "skipped",
-      target,
-      detail: "the model is not in the current provider catalog",
-      skipKind: "ineligible",
-      durationMs: Date.now() - startedAt,
-      shouldTrace: true,
-    };
-  }
-  if (
-    !shouldRunAdvisor({
-      conversation: args.turn.conversation,
-      target,
-    })
-  ) {
-    const unsupported = !args.turn.conversation
-      ? "this call has no canonical conversation"
-      : "this turn type or model is not eligible";
-    return {
-      status: "skipped",
-      target,
-      detail: unsupported,
-      skipKind: "ineligible",
-      durationMs: Date.now() - startedAt,
-      shouldTrace: false,
-    };
-  }
 
   type CancellationReason = "user" | "timeout" | "skip";
   let providerProgress: ClaudeReadOnlyPromptProgress | undefined;
@@ -419,9 +428,7 @@ export async function runAdvisorPreflight(args: {
         reason,
       })),
     ]);
-  const buildCancellationResult = (
-    usage?: UsageEvent,
-  ): AdvisorPreflightResult => {
+  const buildCancellationResult = (usage?: UsageEvent): AdvisorCallResult => {
     const durationMs = Date.now() - startedAt;
     if (cancellationReason === "user") {
       return {
@@ -436,7 +443,7 @@ export async function runAdvisorPreflight(args: {
       return {
         status: "skipped",
         target,
-        detail: "you skipped the Advisor for this turn",
+        detail: "you cancelled this Advisor consult",
         skipKind: "user",
         durationMs,
         usage,
@@ -469,9 +476,9 @@ export async function runAdvisorPreflight(args: {
     if (target.providerId === "codex" && !isStaticAdvisorTarget(target)) {
       const catalogOutcome = await waitForCancellation(
         (runners.getCodexModelCatalog ?? getCodexModelCatalog)({
-          cwd: args.turn.cwd,
+          cwd: args.cwd,
           runtimeOptions: {
-            codexBinaryPath: args.turn.runtimeOptions?.codexBinaryPath,
+            codexBinaryPath: args.runtimeOptions?.codexBinaryPath,
           },
           // Without the signal the paginated `model/list` sweep keeps running
           // after the turn is already gone.
@@ -515,21 +522,18 @@ export async function runAdvisorPreflight(args: {
       }
     }
 
-    const prompt = buildAdvisorPrompt({
-      conversation: args.turn.conversation!,
-    });
     // Resolved through the same helper the renderer labels with, so the tier
     // the composer promised is the tier the call requests.
     const runnerTask =
       target.providerId === "claude-code"
         ? runners.runClaude({
-            cwd: args.turn.cwd,
-            prompt,
+            cwd: args.cwd,
+            prompt: args.prompt,
             effort: resolveAdvisorEffort(target),
             model: target.model,
             runtimeOptions: {
               model: target.model,
-              claudeBinaryPath: args.turn.runtimeOptions?.claudeBinaryPath,
+              claudeBinaryPath: args.runtimeOptions?.claudeBinaryPath,
             },
             signal: controller.signal,
             label: ADVISOR_READ_ONLY_PROMPT_LABEL,
@@ -538,12 +542,12 @@ export async function runAdvisorPreflight(args: {
             },
           })
         : runners.runCodex({
-            cwd: args.turn.cwd,
-            prompt,
+            cwd: args.cwd,
+            prompt: args.prompt,
             model: target.model,
             runtimeOptions: {
               model: target.model,
-              codexBinaryPath: args.turn.runtimeOptions?.codexBinaryPath,
+              codexBinaryPath: args.runtimeOptions?.codexBinaryPath,
               codexReasoningEffort: resolveAdvisorEffort(target),
             },
             signal: controller.signal,

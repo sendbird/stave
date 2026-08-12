@@ -33,6 +33,7 @@ import {
 } from "@/lib/providers/worker-mode";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
 import { cn } from "@/lib/utils";
 
 /**
@@ -373,6 +374,21 @@ export function PromptInputWorkerPill(args: {
             </span>
             .
           </p>
+          <button
+            type="button"
+            data-testid="worker-mode-open-settings"
+            className="px-1 text-left text-[11px] leading-4 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
+                  detail: { section: "providers" },
+                }),
+              );
+            }}
+          >
+            Default arming, instructions, and turn caps live in Settings →
+            Providers → Worker mode.
+          </button>
         </PopoverContent>
       </Popover>
     </div>

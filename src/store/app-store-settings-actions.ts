@@ -8,7 +8,10 @@ import {
   normalizeNotificationSoundVolume,
 } from "@/lib/notifications/notification-sound";
 import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
-import { normalizeAdvisorTarget } from "@/lib/providers/advisor";
+import {
+  normalizeAdvisorConsultLimit,
+  normalizeAdvisorTarget,
+} from "@/lib/providers/advisor";
 import { mergeModelRuntimePreferenceSettings } from "@/lib/providers/model-runtime-preferences";
 import {
   normalizeModelShortcutEfforts,
@@ -347,6 +350,13 @@ export function createSettingsActions(args: {
           ? {}
           : {
               advisorTarget: normalizeAdvisorTarget(patch.advisorTarget),
+            }),
+        ...(patch.advisorConsultLimit === undefined
+          ? {}
+          : {
+              advisorConsultLimit: normalizeAdvisorConsultLimit(
+                patch.advisorConsultLimit,
+              ),
             }),
         ...(patch.reasoningExpansionMode === undefined
           ? {}

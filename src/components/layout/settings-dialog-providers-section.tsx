@@ -62,6 +62,8 @@ import {
 } from "@/lib/providers/model-catalog";
 import {
   ADVISOR_SETTING_FIELD_ID,
+  MAX_ADVISOR_CONSULT_LIMIT,
+  MIN_ADVISOR_CONSULT_LIMIT,
   isAdvisorEffortClamped,
   listAdvisorEffortsForProvider,
   resolveAdvisorEffort,
@@ -90,6 +92,7 @@ import {
 } from "./settings-dialog-developer-section";
 import { SettingsWorkerSection } from "./settings-dialog-worker-section";
 import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
+import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
 type ExplainedSelectOption<T extends string> = {
   value: T;
   label: string;
@@ -636,6 +639,7 @@ export function ProvidersSection() {
     claudeSandboxCredentialEnvVars,
     claudeTaskBudgetTokens,
     advisorTarget,
+    advisorConsultLimit,
     workerEnabled,
     workerConfigByProvider,
     claudeSettingSources,
@@ -685,6 +689,7 @@ export function ProvidersSection() {
           state.settings.claudeSandboxCredentialEnvVars,
           state.settings.claudeTaskBudgetTokens,
           state.settings.advisorTarget,
+          state.settings.advisorConsultLimit,
           state.settings.workerEnabled,
           state.settings.workerConfigByProvider,
           state.settings.claudeSettingSources,
@@ -867,7 +872,7 @@ export function ProvidersSection() {
         id={ADVISOR_SETTING_FIELD_ID}
         tabIndex={-1}
         title="Advisor"
-        description="Default for new tasks: run one isolated, read-only preflight before each normal user chat turn. The Advisor can be Claude or Codex regardless of the primary provider, and each task can arm or disarm it from the composer."
+        description="Default for new tasks: arm an isolated, read-only Advisor the primary model can consult on demand during its turn (via the stave_consult_advisor tool). The Advisor can be Claude or Codex regardless of the primary provider, and each task can arm or disarm it from the composer."
         titleAccessory={
           <Badge
             variant={
@@ -895,7 +900,7 @@ export function ProvidersSection() {
               value: "off",
               label: "Off",
               description:
-                "Start the primary provider immediately unless a task arms the Advisor itself.",
+                "No Advisor is offered to the primary unless a task arms one itself.",
             },
             {
               value: "claude-code",
@@ -960,7 +965,7 @@ export function ProvidersSection() {
         {advisorTarget ? (
           <LabeledField
             title="Advisor Effort"
-            description="The Advisor holds the turn while it thinks, so the tier is a direct latency choice. Auto follows the model's own default, which for Codex is deliberately high."
+            description="The primary waits on each consult it makes, so the tier is a latency-per-consult choice. Auto follows the model's own default, which for Codex is deliberately high."
           >
             <ChoiceButtons
               value={
@@ -988,6 +993,24 @@ export function ProvidersSection() {
             ) : null}
           </LabeledField>
         ) : null}
+        {advisorTarget ? (
+          <LabeledField
+            title="Consults per turn"
+            description={`How many times the primary may consult the Advisor in one turn (${MIN_ADVISOR_CONSULT_LIMIT}–${MAX_ADVISOR_CONSULT_LIMIT}). Each consult is one full Advisor call — the budget is the spend ceiling per turn.`}
+          >
+            <DraftInput
+              className="h-10 w-24 rounded-md border-border/80 bg-background"
+              value={String(advisorConsultLimit)}
+              onCommit={(value) =>
+                updateSettings({
+                  patch: {
+                    advisorConsultLimit: readInt(value, advisorConsultLimit),
+                  },
+                })
+              }
+            />
+          </LabeledField>
+        ) : null}
         <div className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
           <p>
             <span className="font-medium text-foreground">
@@ -1007,9 +1030,11 @@ export function ProvidersSection() {
               : "Advisor off"}
           </p>
           <p className="mt-1">
-            Adds one model call, latency, and usage. A recoverable Advisor
-            failure is traced and the primary turn still runs; Stave never
-            switches Advisor models automatically.
+            Each consult adds one model call, latency, and usage — the primary
+            decides when to ask, the user decides who answers and how often. A
+            recoverable Advisor failure is traced and the primary turn still
+            runs; Stave never switches Advisor models automatically. Consults
+            require Local MCP to be enabled.
           </p>
           <p className="mt-1">
             This is only the default. Each task&apos;s composer has an Advisor
@@ -1023,6 +1048,7 @@ export function ProvidersSection() {
         workerConfigByProvider={workerConfigByProvider}
         onChange={(patch) => updateSettings({ patch })}
       />
+      <SettingsDelegationSection />
       <SettingsCard
         title="Trusted Approvals"
         description="Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command."

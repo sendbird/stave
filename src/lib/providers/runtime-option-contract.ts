@@ -202,6 +202,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexPlanMode",
   "codexResumeThreadId",
   "advisorTarget",
+  "advisorConsultLimit",
   "workerIntent",
   "responseStylePrompt",
   "promptPrDescription",

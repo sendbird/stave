@@ -397,4 +397,42 @@ describe("TurnActivity", () => {
     expect(panel).toContain("Dock turn activity above the input");
     expect(panel).not.toContain("Show turn activity in the side panel");
   });
+
+  test("renders the armed Advisor in the shelf before any consult", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-advisor",
+        activity: {
+          turnId: "turn-advisor",
+          providerId: "codex",
+          startedAt: Date.now() - 3_000,
+          lastEventAt: Date.now(),
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [],
+        todos: [],
+        advisorExchange: {
+          turnId: "turn-advisor",
+          primaryProviderId: "codex",
+          advisorProviderId: "claude-code",
+          advisorModel: "claude-fable-5",
+          advisorEffort: "xhigh",
+          consultLimit: 5,
+          startedAt: 1_000,
+          outcome: "armed",
+          settledConsults: 0,
+          stages: [],
+        },
+      }),
+    );
+
+    // The shelf is the surface a user already watches during a turn, so this is
+    // where "armed but never asked" has to be legible.
+    expect(html).toContain("Advisor armed · 0 consults");
+    expect(html).toContain("0/5");
+  });
 });

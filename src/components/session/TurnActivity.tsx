@@ -43,6 +43,7 @@ import {
   WorkGraphTree,
   type WorkGraphControlRequest,
 } from "@/components/session/WorkGraphTree";
+import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
 import {
   buildTurnActivityItems,
   countTurnActivityItems,
@@ -170,6 +171,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     messages,
     activeTurnId,
     activity,
+    advisorExchange,
     expandedByDefault,
     verification,
     rateLimits,
@@ -188,6 +190,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
       state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
       state.activeTurnIdsByTask[taskId] ?? null,
       state.providerTurnActivityByTask[taskId] ?? null,
+      state.advisorExchangeByTask[taskId] ?? null,
       state.settings.turnActivityExpandedByDefault,
       state.turnVerificationByWorkspace[state.activeWorkspaceId] ?? null,
       state.rateLimitsSnapshot,
@@ -444,6 +447,17 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     currentActivity?.workGraph ?? null,
     TURN_ACTIVITY_CONTENT_THROTTLE_MS,
   );
+  // Scoped to the turn this shelf is showing. The advisor slice keeps the last
+  // turn's record until the next one starts, and attributing it to a new turn
+  // would credit that turn with consults it never made. Not throttled: consults
+  // arrive a handful of times per turn, not per frame.
+  const turnAdvisorExchange = useMemo(() => {
+    const shelfTurnId = activeTurnId ?? currentActivity?.turnId ?? null;
+    if (!advisorExchange || !shelfTurnId) {
+      return null;
+    }
+    return advisorExchange.turnId === shelfTurnId ? advisorExchange : null;
+  }, [activeTurnId, advisorExchange, currentActivity?.turnId]);
 
   const surfaceProps = useMemo<TurnActivitySurfaceProps | null>(() => {
     if (!shouldShow) {
@@ -455,6 +469,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
       isPlanPreparing,
       workItems: throttledWorkItems,
       todos: throttledTodos,
+      advisorExchange: turnAdvisorExchange,
       workGraph: throttledWorkGraph,
       workGraphCapabilities: runtimeCapabilities[activeProvider].workGraph,
       onWorkGraphControl: handleWorkGraphControl,
@@ -486,6 +501,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     throttledTodos,
     throttledWorkGraph,
     throttledWorkItems,
+    turnAdvisorExchange,
   ]);
   // Keep the last visible snapshot around for one exit animation so the shelf
   // shrinks away instead of yanking the composer down when a turn ends.
@@ -700,6 +716,11 @@ interface TurnActivitySurfaceProps {
   workItems: ProviderTurnWorkItem[];
   todos: TurnActivityTodo[];
   /**
+   * This turn's Advisor grant, if one was minted. The shelf counts consults;
+   * the floating exchange card still owns each consult's detail.
+   */
+  advisorExchange?: AdvisorExchangeSnapshot | null;
+  /**
    * The same turn seen as a tree. Passed separately from `activity` because the
    * shelf's turn-level state stays live while row content is throttled, and the
    * tree belongs to the throttled half.
@@ -817,6 +838,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         isStalled,
         todos: props.todos,
         workItems: props.workItems,
+        advisor: props.advisorExchange ?? null,
         hasPendingInteractionCard: props.hasPendingInteractionCard,
       }),
     [
@@ -826,6 +848,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       activityTurnErrorRecoverable,
       hasActivity,
       isStalled,
+      props.advisorExchange,
       props.hasPendingInteractionCard,
       props.isPlanPreparing,
       props.todos,

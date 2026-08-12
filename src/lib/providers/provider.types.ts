@@ -116,10 +116,14 @@ export interface AdvisorTarget {
  * behind keeping `completed` and `applied` separate.
  */
 export type AdvisorActivityPhase =
+  /**
+   * The turn granted the primary an Advisor it may consult. Emitted once per
+   * turn, before any consult, so a turn where the primary never asks is still
+   * visibly *armed* rather than indistinguishable from no Advisor at all.
+   */
+  | "armed"
   | "started"
   | "completed"
-  | "applied"
-  | "primary_started"
   | "failed"
   | "timeout"
   | "aborted"
@@ -780,6 +784,17 @@ export type NormalizedProviderEvent =
        */
       type: "advisor_activity";
       phase: AdvisorActivityPhase;
+      /**
+       * Identity of one on-demand consult. Events sharing an `exchangeId`
+       * describe the same consult; a `started` with a new id opens a new card.
+       */
+      exchangeId?: string;
+      /** 1-based index of this consult within the turn. */
+      consultIndex?: number;
+      /** Per-turn consult budget the primary was granted. */
+      consultLimit?: number;
+      /** Question the primary asked, bounded by the runtime. Only on `started`. */
+      question?: string;
       /** Provider running the primary turn that asked for advice. */
       primaryProviderId: ProviderId;
       /** Primary model id, so "a different model answered" is verifiable. */
@@ -802,9 +817,6 @@ export type NormalizedProviderEvent =
       /** Advisor-authored advice. Only on `completed`. */
       advice?: string;
       adviceChars?: number;
-      /** Only on `applied`: what actually landed in the primary prompt. */
-      injectedChars?: number;
-      injectedPartIndex?: number;
       /** Failure, timeout, or skip reason. */
       detail?: string;
       inputTokens?: number;
@@ -1026,11 +1038,17 @@ export interface ProviderRuntimeOptions {
   codexPlanMode?: boolean;
   codexResumeThreadId?: string;
   /**
-   * Optional Stave-managed, isolated read-only preflight for a normal user
-   * turn. Runtimes must clear this before invoking the primary provider so an
-   * Advisor can never recursively launch another Advisor.
+   * Optional Stave-managed, isolated read-only Advisor the primary model may
+   * consult on demand during the turn. Runtimes must clear this before invoking
+   * the primary provider so an Advisor can never recursively launch another
+   * Advisor.
    */
   advisorTarget?: AdvisorTarget;
+  /**
+   * Maximum on-demand Advisor consults the primary may make in this turn.
+   * Normalized through `normalizeAdvisorConsultLimit` (default 5, max 20).
+   */
+  advisorConsultLimit?: number;
   /**
    * Worker mode intent for this turn, already narrowed to the active provider.
    *

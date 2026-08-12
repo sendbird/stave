@@ -220,8 +220,8 @@ The current planned features intentionally use different paths:
 
 - Fleet projects existing live state, durable notifications, and PR state; it
   does not launch provider work.
-- Advisor is an inline preflight in the same normal turn and contributes
-  context before primary execution.
+- Advisor is an in-turn consult the primary requests on demand and contributes
+  advice as tool results inside the same normal turn.
 - Crane dispatch creates a normal locally approved task that may require
   filesystem writes, provider approvals, and local user input.
 

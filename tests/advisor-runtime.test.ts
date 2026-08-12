@@ -5,34 +5,16 @@ import {
   createAdvisorUsageMerger,
   formatAdvisorSystemTrace,
   mergeAdvisorUsage,
-  runAdvisorPreflight,
+  runAdvisorCall,
   type AdvisorRunnerDependencies,
 } from "../electron/providers/advisor-runtime";
-import type { BridgeEvent, StreamTurnArgs } from "../electron/providers/types";
+import type { BridgeEvent } from "../electron/providers/types";
 import type { AdvisorTarget } from "@/lib/providers/provider.types";
 
 type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
 
-function createTurn(target: AdvisorTarget): StreamTurnArgs {
-  const input = "Implement the provider-neutral Advisor.";
-  return {
-    providerId: "codex",
-    prompt: input,
-    conversation: {
-      target: { providerId: "codex", model: "gpt-5.6-terra" },
-      mode: "chat",
-      history: [],
-      input: {
-        role: "user",
-        providerId: "user",
-        content: input,
-        parts: [{ type: "text", text: input }],
-      },
-      contextParts: [],
-    },
-    runtimeOptions: { advisorTarget: target },
-  };
-}
+const CWD = "/tmp/advisor-runtime-test";
+const PROMPT = "Review the plan for the provider-neutral Advisor.";
 
 function createUnusedRunner(message: string) {
   return async () => {
@@ -40,7 +22,16 @@ function createUnusedRunner(message: string) {
   };
 }
 
-describe("runAdvisorPreflight", () => {
+function callArgs(target: AdvisorTarget) {
+  return {
+    target,
+    prompt: PROMPT,
+    cwd: CWD,
+    registerAbort: () => {},
+  };
+}
+
+describe("runAdvisorCall", () => {
   test("routes a Claude target only to the Claude runner", async () => {
     let selectedModel = "";
     const runners = {
@@ -51,12 +42,8 @@ describe("runAdvisorPreflight", () => {
       runCodex: createUnusedRunner("Codex runner must not be called."),
     } satisfies AdvisorRunnerDependencies;
 
-    const result = await runAdvisorPreflight({
-      turn: createTurn({
-        providerId: "claude-code",
-        model: "claude-fable-5",
-      }),
-      registerAbort: () => {},
+    const result = await runAdvisorCall({
+      ...callArgs({ providerId: "claude-code", model: "claude-fable-5" }),
       runners,
     });
 
@@ -75,12 +62,8 @@ describe("runAdvisorPreflight", () => {
       },
     } satisfies AdvisorRunnerDependencies;
 
-    const result = await runAdvisorPreflight({
-      turn: createTurn({
-        providerId: "codex",
-        model: "gpt-5.6-sol",
-      }),
-      registerAbort: () => {},
+    const result = await runAdvisorCall({
+      ...callArgs({ providerId: "codex", model: "gpt-5.6-sol" }),
       runners,
     });
 
@@ -95,7 +78,7 @@ describe("runAdvisorPreflight", () => {
     });
   });
 
-  test("returns aborted when the user cancels during preflight", async () => {
+  test("returns aborted when the user cancels the call", async () => {
     let abort = () => {};
     const runners = {
       runClaude: createUnusedRunner("Claude runner must not be called."),
@@ -107,11 +90,8 @@ describe("runAdvisorPreflight", () => {
         }>(() => {}),
     } satisfies AdvisorRunnerDependencies;
 
-    const pending = runAdvisorPreflight({
-      turn: createTurn({
-        providerId: "codex",
-        model: "gpt-5.6-terra",
-      }),
+    const pending = runAdvisorCall({
+      ...callArgs({ providerId: "codex", model: "gpt-5.6-terra" }),
       registerAbort: (registeredAbort) => {
         abort = registeredAbort;
       },
@@ -121,6 +101,36 @@ describe("runAdvisorPreflight", () => {
     abort();
 
     expect((await pending).status).toBe("aborted");
+  });
+
+  test("a consult-scoped skip reports the user-facing cancellation detail", async () => {
+    let skip = () => {};
+    const runners = {
+      runClaude: createUnusedRunner("Claude runner must not be called."),
+      runCodex: async () =>
+        new Promise<{
+          ok: boolean;
+          aborted: boolean;
+          detail: string;
+        }>(() => {}),
+    } satisfies AdvisorRunnerDependencies;
+
+    const pending = runAdvisorCall({
+      ...callArgs({ providerId: "codex", model: "gpt-5.6-terra" }),
+      registerSkip: (registeredSkip) => {
+        skip = registeredSkip;
+      },
+      runners,
+    });
+    await Promise.resolve();
+    skip();
+
+    expect(await pending).toMatchObject({
+      status: "skipped",
+      skipKind: "user",
+      detail: "you cancelled this Advisor consult",
+      shouldTrace: true,
+    });
   });
 
   test("turns an internal timeout into a recoverable failure", async () => {
@@ -134,18 +144,15 @@ describe("runAdvisorPreflight", () => {
         }>(() => {}),
     } satisfies AdvisorRunnerDependencies;
 
-    const result = await runAdvisorPreflight({
-      turn: createTurn({
-        providerId: "codex",
-        model: "gpt-5.6-terra",
-      }),
-      registerAbort: () => {},
+    const result = await runAdvisorCall({
+      ...callArgs({ providerId: "codex", model: "gpt-5.6-terra" }),
       runners,
       timeoutMs: 5,
     });
 
     expect(result).toMatchObject({
       status: "failed",
+      failureKind: "timeout",
       shouldTrace: true,
     });
   });
@@ -166,12 +173,8 @@ describe("runAdvisorPreflight", () => {
       runCodex: createUnusedRunner("Codex runner must not be called."),
     } satisfies AdvisorRunnerDependencies;
 
-    const result = await runAdvisorPreflight({
-      turn: createTurn({
-        providerId: "claude-code",
-        model: "claude-opus-5",
-      }),
-      registerAbort: () => {},
+    const result = await runAdvisorCall({
+      ...callArgs({ providerId: "claude-code", model: "claude-opus-5" }),
       runners,
       timeoutMs: 5,
     });
@@ -180,27 +183,6 @@ describe("runAdvisorPreflight", () => {
       status: "failed",
       failureKind: "timeout",
       detail: expect.stringContaining("last SDK event: assistant"),
-    });
-  });
-
-  test("does not call a provider runner for an invalid target", async () => {
-    const runners = {
-      runClaude: createUnusedRunner("Claude runner must not be called."),
-      runCodex: createUnusedRunner("Codex runner must not be called."),
-    } satisfies AdvisorRunnerDependencies;
-
-    const result = await runAdvisorPreflight({
-      turn: createTurn({
-        providerId: "claude-code",
-        model: "claude-unknown-advisor",
-      }),
-      registerAbort: () => {},
-      runners,
-    });
-
-    expect(result).toMatchObject({
-      status: "skipped",
-      shouldTrace: true,
     });
   });
 
@@ -224,12 +206,8 @@ describe("runAdvisorPreflight", () => {
       }),
     } as AdvisorRunnerDependencies;
 
-    const result = await runAdvisorPreflight({
-      turn: createTurn({
-        providerId: "codex",
-        model: "o4-mini-preview",
-      }),
-      registerAbort: () => {},
+    const result = await runAdvisorCall({
+      ...callArgs({ providerId: "codex", model: "o4-mini-preview" }),
       runners,
     });
 
@@ -248,17 +226,14 @@ describe("runAdvisorPreflight", () => {
       }),
     } satisfies AdvisorRunnerDependencies;
 
-    const result = await runAdvisorPreflight({
-      turn: createTurn({
-        providerId: "codex",
-        model: "o4-mini-missing",
-      }),
-      registerAbort: () => {},
+    const result = await runAdvisorCall({
+      ...callArgs({ providerId: "codex", model: "o4-mini-missing" }),
       runners,
     });
 
     expect(result).toMatchObject({
       status: "skipped",
+      skipKind: "ineligible",
       shouldTrace: true,
     });
   });
@@ -311,6 +286,7 @@ describe("Advisor usage and trace helpers", () => {
       status: "failed",
       target: { providerId: "codex", model: "gpt-5.6-terra" },
       detail: "provider failure\n".repeat(100),
+      failureKind: "error",
       durationMs: 1_500,
       shouldTrace: true,
     });
@@ -318,6 +294,33 @@ describe("Advisor usage and trace helpers", () => {
     expect(trace).not.toContain("\n");
     expect(trace.length).toBeLessThan(400);
     expect(trace).toContain("The primary turn continued.");
+  });
+
+  test("a trace with a consult descriptor is numbered against the budget", () => {
+    const trace = formatAdvisorSystemTrace(
+      {
+        status: "completed",
+        target: { providerId: "codex", model: "gpt-5.6-terra" },
+        advice: "advice",
+        durationMs: 1_500,
+        shouldTrace: true,
+      },
+      { consultIndex: 2, consultLimit: 5 },
+    );
+
+    expect(trace).toStartWith("Advisor consult 2/5 completed with ");
+  });
+
+  test("a trace without a descriptor still reads as a consult", () => {
+    const trace = formatAdvisorSystemTrace({
+      status: "completed",
+      target: { providerId: "codex", model: "gpt-5.6-terra" },
+      advice: "advice",
+      durationMs: 1_500,
+      shouldTrace: true,
+    });
+
+    expect(trace).toStartWith("Advisor consult completed with ");
   });
 });
 
@@ -336,14 +339,12 @@ describe("advisor effort", () => {
       },
     } satisfies AdvisorRunnerDependencies;
 
-    await runAdvisorPreflight({
-      turn: createTurn({ providerId: "claude-code", model: "claude-fable-5" }),
-      registerAbort: () => {},
+    await runAdvisorCall({
+      ...callArgs({ providerId: "claude-code", model: "claude-fable-5" }),
       runners,
     });
-    await runAdvisorPreflight({
-      turn: createTurn({ providerId: "codex", model: "gpt-5.6-sol" }),
-      registerAbort: () => {},
+    await runAdvisorCall({
+      ...callArgs({ providerId: "codex", model: "gpt-5.6-sol" }),
       runners,
     });
 
@@ -361,13 +362,12 @@ describe("advisor effort", () => {
       },
     } satisfies AdvisorRunnerDependencies;
 
-    await runAdvisorPreflight({
-      turn: createTurn({
+    await runAdvisorCall({
+      ...callArgs({
         providerId: "codex",
         model: "gpt-5.6-sol",
         effort: "low",
       }),
-      registerAbort: () => {},
       runners,
     });
 
@@ -384,17 +384,16 @@ describe("advisor effort", () => {
       },
     } satisfies AdvisorRunnerDependencies;
 
-    await runAdvisorPreflight({
-      turn: createTurn({
+    await runAdvisorCall({
+      ...callArgs({
         providerId: "codex",
         model: "gpt-5.6-luna",
         effort: "ultra",
       }),
-      registerAbort: () => {},
       runners,
     });
 
-    // Luna caps at "max"; sending "ultra" would make the whole preflight fail.
+    // Luna caps at "max"; sending "ultra" would make the whole call fail.
     expect(codexEffort).toBe("max");
   });
 });
@@ -448,13 +447,50 @@ describe("advisor lifecycle events report the effort that ran", () => {
       buildAdvisorStartedEvent({ ...primary, target: null }),
     ).not.toHaveProperty("advisorEffort");
   });
+
+  test("both lifecycle events carry the consult exchange identity", () => {
+    const target = {
+      providerId: "codex" as const,
+      model: "gpt-5.6-sol",
+    };
+    const consult = {
+      exchangeId: "exchange-1",
+      consultIndex: 2,
+      consultLimit: 5,
+    };
+    expect(
+      buildAdvisorStartedEvent({
+        ...primary,
+        target,
+        consult,
+        question: "Should the cache key include the model?",
+      }),
+    ).toMatchObject({
+      ...consult,
+      question: "Should the cache key include the model?",
+    });
+    expect(
+      buildAdvisorOutcomeEvent({
+        primaryProviderId: "claude-code",
+        at: 2_000,
+        consult,
+        result: {
+          status: "completed",
+          target,
+          advice: "advice",
+          durationMs: 1_000,
+          shouldTrace: true,
+        },
+      }),
+    ).toMatchObject(consult);
+  });
 });
 
 describe("advisor usage that lands after cancellation", () => {
-  test("reports tokens the runner already spent when the advisor is skipped", async () => {
+  test("reports tokens the runner already spent when the consult is skipped", async () => {
     // The expensive case: the advisor generated, then a skip or timeout landed.
     // Dropping this usage made the exchange monitor report "no advisor usage"
-    // for precisely the turn that cost the most.
+    // for precisely the consult that cost the most.
     let settleRunner: (result: {
       ok: boolean;
       aborted: boolean;
@@ -476,9 +512,8 @@ describe("advisor usage that lands after cancellation", () => {
 
     let skip = () => {};
     const lateUsage: UsageEvent[] = [];
-    const pending = runAdvisorPreflight({
-      turn: createTurn({ providerId: "codex", model: "gpt-5.6-terra" }),
-      registerAbort: () => {},
+    const pending = runAdvisorCall({
+      ...callArgs({ providerId: "codex", model: "gpt-5.6-terra" }),
       registerSkip: (registeredSkip) => {
         skip = registeredSkip;
       },
@@ -492,7 +527,7 @@ describe("advisor usage that lands after cancellation", () => {
 
     const result = await pending;
     expect(result.status).toBe("skipped");
-    // The preflight must not have waited for the abandoned runner.
+    // The call must not have waited for the abandoned runner.
     expect(lateUsage).toHaveLength(0);
 
     settleRunner({
