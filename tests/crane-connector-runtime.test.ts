@@ -32,6 +32,8 @@ const JOB = {
 } as const;
 
 function createHarness(options?: {
+  /** Overrides the delivered job; defaults to `JOB`. */
+  job?: typeof JOB;
   heartbeatError?: CraneConnectorHttpError;
   heartbeatJobState?: string;
   receiptFailures?: Partial<Record<string, number>>;
@@ -45,6 +47,7 @@ function createHarness(options?: {
   const jobUpdates: unknown[] = [];
   const timers: Array<() => void> = [];
   const runCalls: unknown[] = [];
+  const registerIssueCalls: unknown[] = [];
   const releasedTasks: unknown[] = [];
   const taskStatusCalls: unknown[] = [];
   const receiptFailures = { ...options?.receiptFailures };
@@ -54,13 +57,11 @@ function createHarness(options?: {
   let taskCompleted = false;
   let laterActiveTurnId: string | null = null;
   let taskCompletionError: string | null = null;
-  let credential:
-    | {
-        baseUrl: string;
-        connector: typeof CONNECTOR;
-        secret: string;
-      }
-    | null = {
+  let credential: {
+    baseUrl: string;
+    connector: typeof CONNECTOR;
+    secret: string;
+  } | null = {
     baseUrl: "https://atelier.delight-tools.ai",
     connector: CONNECTOR,
     secret: "stc_test-only-connector-secret",
@@ -77,8 +78,7 @@ function createHarness(options?: {
     ],
   ]);
   const vault = {
-    isSecureStorageAvailable: () =>
-      options?.secureStorageAvailable !== false,
+    isSecureStorageAvailable: () => options?.secureStorageAvailable !== false,
     getCredential: async () => credential,
     getMetadata: async () =>
       credential
@@ -107,6 +107,7 @@ function createHarness(options?: {
     getLease: async (jobId: string) => leases.get(jobId) ?? null,
     deleteLease: async (jobId: string) => leases.delete(jobId),
   };
+  const deliveredJob = options?.job ?? JOB;
   const http = {
     getNextJob: async () => {
       if (options?.unauthorized) {
@@ -116,10 +117,10 @@ function createHarness(options?: {
         return null;
       }
       nextDelivered = true;
-      return { job: JOB, retryAfterMs: 0 };
+      return { job: deliveredJob, retryAfterMs: 0 };
     },
     claimJob: async () => ({
-      job: JOB,
+      job: deliveredJob,
       leaseId: "stl_test-only-lease",
       leaseExpiresAt: "2026-07-26T00:17:00.000Z",
       nextSequence: 1,
@@ -128,15 +129,10 @@ function createHarness(options?: {
     postReceipt: async (args: {
       receipt: { state: string; errorCode?: string; sequence: number };
     }) => {
-      const remainingFailures =
-        receiptFailures[args.receipt.state] ?? 0;
+      const remainingFailures = receiptFailures[args.receipt.state] ?? 0;
       if (remainingFailures > 0) {
-        receiptFailures[args.receipt.state] =
-          remainingFailures - 1;
-        throw new CraneConnectorHttpError(
-          "network_unavailable",
-          0,
-        );
+        receiptFailures[args.receipt.state] = remainingFailures - 1;
+        throw new CraneConnectorHttpError("network_unavailable", 0);
       }
       receipts.push({
         state: args.receipt.state,
@@ -158,8 +154,7 @@ function createHarness(options?: {
       }
       return {
         ok: true,
-        jobState:
-          options?.heartbeatJobState ?? "awaiting_local_approval",
+        jobState: options?.heartbeatJobState ?? "awaiting_local_approval",
         leaseExpiresAt: "2026-07-26T00:17:00.000Z",
         retryAfterMs: 15_000,
       };
@@ -236,17 +231,14 @@ function createHarness(options?: {
       turnId?: string;
     }) => {
       taskStatusCalls.push(args);
-      const observedTurnId =
-        args.turnId ?? laterActiveTurnId ?? "turn-crane";
+      const observedTurnId = args.turnId ?? laterActiveTurnId ?? "turn-crane";
       return {
         workspaceId: "workspace-crane",
         taskId: "task-crane",
         title: "Crane CRANE-42",
         provider: "codex",
         updatedAt: NOW.toISOString(),
-        activeTurnId: taskCompleted
-          ? laterActiveTurnId
-          : "turn-crane",
+        activeTurnId: taskCompleted ? laterActiveTurnId : "turn-crane",
         latestTurnId: observedTurnId,
         latestTurnCompletedAt:
           taskCompleted && observedTurnId === "turn-crane"
@@ -263,6 +255,10 @@ function createHarness(options?: {
     releaseTaskControl: async (args: unknown) => {
       releasedTasks.push(args);
       return { released: true };
+    },
+    registerWorkspaceIssues: async (args: unknown) => {
+      registerIssueCalls.push(args);
+      return undefined;
     },
     emitStatus: (status: unknown) => statuses.push(status),
     emitApproval: (approval: unknown) => approvals.push(approval),
@@ -304,6 +300,7 @@ function createHarness(options?: {
     jobUpdates,
     leases,
     receipts,
+    registerIssueCalls,
     releasedTasks,
     runCalls,
     runtime,
@@ -409,6 +406,22 @@ describe("CraneConnectorRuntime", () => {
         expect.objectContaining({ sourceId: "crane:CRANE-42" }),
       ],
     });
+    // No linked Jira on this job, so the title keeps the Crane key and the
+    // Information panel is asked to file only the Crane issue.
+    expect(harness.runCalls[0]).toMatchObject({
+      title: "Crane CRANE-42: Fix the connector",
+    });
+    expect(harness.registerIssueCalls).toEqual([
+      {
+        workspaceId: "workspace-crane",
+        crane: {
+          url: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-42",
+          issueKey: "CRANE-42",
+          title: "Fix the connector",
+        },
+        jira: null,
+      },
+    ]);
 
     harness.setTaskCompleted();
     await harness.runNextTimer();
@@ -424,10 +437,72 @@ describe("CraneConnectorRuntime", () => {
         ],
       },
     ]);
-    expect(JSON.stringify(harness.receipts)).not.toContain(
-      "sensitive output",
-    );
+    expect(JSON.stringify(harness.receipts)).not.toContain("sensitive output");
     expect(harness.bindings.get(JOB.id)?.state).toBe("completed");
+  });
+
+  test("uses the Jira issue Crane declares in issue.links", async () => {
+    // Crane declares the tracked Jira issue as a `rel: "jira"` link, so the
+    // whole approve path has to read it from there: the task title must carry
+    // the Jira key (not the Crane key) and the Information panel must file the
+    // Jira issue in its own section.
+    const harness = createHarness({
+      job: {
+        ...JOB,
+        issue: {
+          ...JOB.issue,
+          links: [
+            {
+              rel: "jira",
+              key: "DFE-2898",
+              url: "https://sendbird.atlassian.net/browse/DFE-2898",
+            },
+          ],
+        },
+      },
+    });
+    await harness.runtime.configure({
+      enabled: true,
+      baseUrl: "https://atelier.delight-tools.ai",
+      pollIntervalSeconds: 15,
+    });
+    await harness.runNextTimer();
+    await harness.runtime.approve({
+      jobId: JOB.id,
+      projectPath: "/tmp/project",
+      workspace: { strategy: "new", branchName: "crane/dfe-2898" },
+      runtime: {
+        provider: "codex",
+        model: "gpt-5.6",
+        providerTimeoutMs: 43_200_000,
+        codexFileAccess: "workspace-write",
+        codexNetworkAccess: false,
+        codexApprovalPolicy: "on-request",
+        codexWebSearch: "live",
+        codexReasoningEffort: "xhigh",
+        codexFastMode: false,
+        advisorTarget: null,
+      },
+    });
+
+    expect(harness.runCalls[0]).toMatchObject({
+      title: "DFE-2898: Fix the connector",
+    });
+    expect(harness.registerIssueCalls).toEqual([
+      {
+        workspaceId: "workspace-crane",
+        crane: {
+          url: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-42",
+          issueKey: "CRANE-42",
+          title: "Fix the connector",
+        },
+        // No title: the Crane issue title is not the Jira issue's title.
+        jira: {
+          url: "https://sendbird.atlassian.net/browse/DFE-2898",
+          issueKey: "DFE-2898",
+        },
+      },
+    ]);
   });
 
   test("settles the exact Crane turn before manual takeover", async () => {
@@ -828,38 +903,35 @@ describe("CraneConnectorRuntime", () => {
     {
       name: "expired remote lease",
       options: {
-        heartbeatError: new CraneConnectorHttpError(
-          "lease_not_renewed",
-          409,
-        ),
+        heartbeatError: new CraneConnectorHttpError("lease_not_renewed", 409),
       },
       errorCode: "remote_job_terminal",
     },
-  ])("stops awaiting $name without retrying approval", async ({
-    options,
-    errorCode,
-  }) => {
-    const harness = createHarness(options);
-    await harness.runtime.configure({
-      enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
-      pollIntervalSeconds: 15,
-    });
-    await harness.runNextTimer();
-    const approvalCount = harness.approvals.length;
+  ])(
+    "stops awaiting $name without retrying approval",
+    async ({ options, errorCode }) => {
+      const harness = createHarness(options);
+      await harness.runtime.configure({
+        enabled: true,
+        baseUrl: "https://atelier.delight-tools.ai",
+        pollIntervalSeconds: 15,
+      });
+      await harness.runNextTimer();
+      const approvalCount = harness.approvals.length;
 
-    await harness.runNextTimer();
+      await harness.runNextTimer();
 
-    expect(harness.bindings.get(JOB.id)).toMatchObject({
-      state: "cancelled",
-      errorCode,
-    });
-    expect(harness.leases.has(JOB.id)).toBe(false);
-    expect(harness.approvals).toHaveLength(approvalCount);
-    expect(harness.runtime.getStatus()).toMatchObject({
-      runtimeState: "connected",
-      activeJobId: null,
-      lastErrorCode: errorCode,
-    });
-  });
+      expect(harness.bindings.get(JOB.id)).toMatchObject({
+        state: "cancelled",
+        errorCode,
+      });
+      expect(harness.leases.has(JOB.id)).toBe(false);
+      expect(harness.approvals).toHaveLength(approvalCount);
+      expect(harness.runtime.getStatus()).toMatchObject({
+        runtimeState: "connected",
+        activeJobId: null,
+        lastErrorCode: errorCode,
+      });
+    },
+  );
 });

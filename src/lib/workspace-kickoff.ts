@@ -2,6 +2,7 @@ import {
   createEmptyWorkspaceInformation,
   createWorkspaceAmplifyLink,
   createWorkspaceConfluencePage,
+  createWorkspaceCraneIssue,
   createWorkspaceFigmaResource,
   createWorkspaceJiraIssue,
   createWorkspaceLinkedPullRequest,
@@ -9,6 +10,7 @@ import {
   createWorkspaceStorybookResource,
   createWorkspaceTodoItem,
   extractConfluencePageReference,
+  extractCraneIssueReference,
   extractFigmaResourceReference,
   extractGitHubPullRequestReference,
   extractJiraIssueReference,
@@ -580,7 +582,23 @@ export function buildWorkspaceInformationSeed(
 
   for (const entry of draft.panelEntries) {
     switch (entry.target) {
-      case "jiraIssues":
+      case "jiraIssues": {
+        // A Crane task URL carries a Jira-shaped key, so a kickoff proposal can
+        // land one here. Keep it out of the Jira section.
+        const craneReference = extractCraneIssueReference(entry.url);
+        if (craneReference) {
+          information.craneIssues = [
+            ...(information.craneIssues ?? []),
+            {
+              ...createWorkspaceCraneIssue(),
+              issueKey: craneReference.issueKey || entry.reference,
+              title: entry.title,
+              url: entry.url,
+              note: entry.note,
+            },
+          ];
+          break;
+        }
         information.jiraIssues.push({
           ...createWorkspaceJiraIssue(),
           issueKey: entry.reference,
@@ -589,6 +607,7 @@ export function buildWorkspaceInformationSeed(
           note: entry.note,
         });
         break;
+      }
       case "confluencePages":
         information.confluencePages.push({
           ...createWorkspaceConfluencePage(),

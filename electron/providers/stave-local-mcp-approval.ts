@@ -27,6 +27,7 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_add_workspace_resource",
   "stave_remove_workspace_resource",
   "stave_add_workspace_jira_issue",
+  "stave_add_workspace_crane_issue",
   "stave_add_workspace_confluence_page",
   "stave_add_workspace_storybook_resource",
   "stave_update_workspace_storybook_resource_access",

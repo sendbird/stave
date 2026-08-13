@@ -52,6 +52,10 @@ import {
   type CraneDispatchModelState,
 } from "@/lib/crane-connector/dispatch-runtime";
 import {
+  buildCraneDispatchBranchName,
+  resolveCraneJiraReference,
+} from "@/lib/crane-connector/jira-reference";
+import {
   findMappedCraneTeamRuntime,
   findMappedStaveProjectPath,
   getCraneTeamKey,
@@ -82,15 +86,6 @@ type WorkspaceStrategy = "new" | "existing";
 type AdvisorProvider = ProviderId | "off";
 
 const CRANE_DISPATCH_PROVIDER_IDS = listProviderIds();
-
-function defaultBranchName(issueKey: string) {
-  const normalized = issueKey
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `crane/${normalized || "issue"}`;
-}
 
 function advisorModelsForProvider(providerId: ProviderId, selected: string) {
   return Array.from(
@@ -134,6 +129,10 @@ export function CraneDispatchApprovalDialog() {
     () =>
       projects.find((project) => project.projectPath === projectPath) ?? null,
     [projectPath, projects],
+  );
+  const jiraReference = useMemo(
+    () => (approval ? resolveCraneJiraReference(approval.job) : null),
+    [approval],
   );
   const craneTeamKey = useMemo(
     () => (approval ? getCraneTeamKey(approval.job.issue.key) : null),
@@ -242,7 +241,7 @@ export function CraneDispatchApprovalDialog() {
     );
     setWorkspaceStrategy("new");
     setWorkspaceId("");
-    setBranchName(defaultBranchName(approval.job.issue.key));
+    setBranchName(buildCraneDispatchBranchName(approval.job));
     const seededModel = resolveCraneDispatchModelDefaults({
       settings: currentSettings,
       draftProvider: store.draftProvider,
@@ -491,6 +490,12 @@ export function CraneDispatchApprovalDialog() {
                 <p className="mt-1 text-xs text-muted-foreground">
                   Expires {expiresAt}
                 </p>
+                {jiraReference ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Jira {jiraReference.key} takes precedence over the Crane key
+                    in the branch name and task title.
+                  </p>
+                ) : null}
               </div>
               <Button
                 type="button"

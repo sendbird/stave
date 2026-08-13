@@ -12,6 +12,7 @@ export const WORKSPACE_INFORMATION_REFERENCE_SECTIONS = [
   "todo",
   "pr",
   "jira",
+  "crane",
   "confluence",
   "storybook",
   "amplify",
@@ -55,6 +56,7 @@ const SECTION_LABELS: Record<WorkspaceInformationReferenceSection, string> = {
   todo: "Todos",
   pr: "Linked pull requests",
   jira: "Jira issues",
+  crane: "Crane issues",
   confluence: "Confluence pages",
   storybook: "Storybook resources",
   amplify: "Amplify links",
@@ -83,6 +85,9 @@ const SECTION_ALIASES: Record<string, WorkspaceInformationReferenceSection> = {
   jira: "jira",
   issue: "jira",
   issues: "jira",
+  crane: "crane",
+  craneissue: "crane",
+  craneissues: "crane",
   confluence: "confluence",
   page: "confluence",
   pages: "confluence",
@@ -200,6 +205,7 @@ export function buildWorkspaceInformationReferenceOptions(
     todo: info.todos.length,
     pr: info.linkedPullRequests.length,
     jira: info.jiraIssues.length,
+    crane: (info.craneIssues ?? []).length,
     confluence: (info.confluencePages ?? []).length,
     storybook: (info.storybookResources ?? []).length,
     amplify: (info.amplifyLinks ?? []).length,
@@ -283,6 +289,22 @@ export function buildWorkspaceInformationReferenceOptions(
         title: [item.issueKey, item.title].filter(Boolean).join(" · ") || "Jira issue",
         description: truncate([item.status, item.url, item.note].filter(Boolean).join(" | ")),
         group: SECTION_LABELS.jira,
+        kind: "item",
+      }),
+    );
+  }
+
+  for (const item of info.craneIssues ?? []) {
+    options.push(
+      optionFromReference({
+        reference: createItemReference({
+          section: "crane",
+          itemId: item.id,
+          label: item.issueKey || item.title || "Crane issue",
+        }),
+        title: [item.issueKey, item.title].filter(Boolean).join(" · ") || "Crane issue",
+        description: truncate([item.status, item.url, item.note].filter(Boolean).join(" | ")),
+        group: SECTION_LABELS.crane,
         kind: "item",
       }),
     );

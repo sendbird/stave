@@ -36,6 +36,13 @@ export interface JiraIssueReference {
   issueKey: string;
 }
 
+export interface CraneIssueReference {
+  host: string;
+  issueKey: string;
+  /** Crane workspace/team slug from `/apps/crane/w/<TEAM>/…`, when present. */
+  teamKey: string;
+}
+
 export type FigmaResourceKind =
   | "file"
   | "design"
@@ -53,6 +60,15 @@ export interface FigmaResourceReference {
 }
 
 export interface WorkspaceJiraIssue {
+  id: string;
+  issueKey: string;
+  title: string;
+  url: string;
+  status: string;
+  note: string;
+}
+
+export interface WorkspaceCraneIssue {
   id: string;
   issueKey: string;
   title: string;
@@ -256,6 +272,12 @@ export interface WorkspaceMartinProjectLink {
 
 export interface WorkspaceInformationState {
   jiraIssues: WorkspaceJiraIssue[];
+  /**
+   * Crane issues, kept apart from `jiraIssues` so a Crane key/URL never
+   * masquerades as the product's Jira issue. Surfaced only for users with the
+   * Crane connector enabled (or when entries already exist).
+   */
+  craneIssues?: WorkspaceCraneIssue[];
   confluencePages: WorkspaceConfluencePage[];
   figmaResources: WorkspaceFigmaResource[];
   storybookResources: WorkspaceStorybookResource[];
@@ -284,6 +306,17 @@ function buildWorkspaceInformationId(prefix: string) {
 export function createWorkspaceJiraIssue(): WorkspaceJiraIssue {
   return {
     id: buildWorkspaceInformationId("jira"),
+    issueKey: "",
+    title: "",
+    url: "",
+    status: "",
+    note: "",
+  };
+}
+
+export function createWorkspaceCraneIssue(): WorkspaceCraneIssue {
+  return {
+    id: buildWorkspaceInformationId("crane"),
     issueKey: "",
     title: "",
     url: "",
@@ -471,6 +504,51 @@ export function extractJiraIssueReference(
     host: formatWorkspaceInfoHostLabel(value),
     issueKey,
   };
+}
+
+/**
+ * Crane task URLs look like `https://<crane-host>/apps/crane/w/<TEAM>/task/CRN-42`.
+ * Detected by path shape rather than hostname so self-hosted and dev Crane
+ * deployments are recognised too.
+ *
+ * Crane issue keys are shaped exactly like Jira keys, so without this the Crane
+ * link ends up filed as a Jira issue.
+ */
+export function extractCraneIssueReference(
+  value: string,
+): CraneIssueReference | null {
+  const url = parseWorkspaceInfoUrl(value);
+  if (!url) {
+    return null;
+  }
+  const segments = decodeURIComponent(url.pathname)
+    .split("/")
+    .filter(Boolean);
+  const craneIndex = segments.findIndex(
+    (segment, index) =>
+      segment.toLowerCase() === "crane" &&
+      segments[index - 1]?.toLowerCase() === "apps",
+  );
+  if (craneIndex < 0) {
+    return null;
+  }
+  const taskIndex = segments.indexOf("task", craneIndex);
+  const issueKey =
+    taskIndex >= 0 ? (segments[taskIndex + 1] ?? "").trim() : "";
+  const workspaceIndex = segments.indexOf("w", craneIndex);
+  return {
+    host: formatWorkspaceInfoHostLabel(value),
+    issueKey: /^[A-Za-z][A-Za-z0-9_-]*-\d+$/.test(issueKey)
+      ? issueKey.toUpperCase()
+      : "",
+    teamKey:
+      workspaceIndex >= 0 ? (segments[workspaceIndex + 1] ?? "").trim() : "",
+  };
+}
+
+/** Whether the URL points at a Crane issue rather than a Jira issue. */
+export function isCraneIssueUrl(value: string): boolean {
+  return extractCraneIssueReference(value) !== null;
 }
 
 export function extractFigmaResourceReference(
@@ -850,6 +928,7 @@ export function isConfluencePageUrl(value: string) {
 
 export const WORKSPACE_RESOURCE_KINDS = [
   "jira",
+  "crane",
   "pull_request",
   "confluence",
   "figma",
@@ -862,6 +941,7 @@ export type WorkspaceResourceKind = (typeof WORKSPACE_RESOURCE_KINDS)[number];
 
 export type WorkspaceResourceItem =
   | WorkspaceJiraIssue
+  | WorkspaceCraneIssue
   | WorkspaceLinkedPullRequest
   | WorkspaceConfluencePage
   | WorkspaceFigmaResource
@@ -913,6 +993,16 @@ export function buildWorkspaceResourceDedupeKey(args: {
       return issueKey
         ? `jira:key:${issueKey.toUpperCase()}`
         : `jira:url:${normalizeWorkspaceResourceUrlKey(url)}`;
+    }
+    case "crane": {
+      const reference = extractCraneIssueReference(url);
+      const issueKey =
+        args.issueKey?.trim() || reference?.issueKey || "";
+      // Host-scoped: Crane and Jira keys share a shape, so a bare key is not a
+      // globally unique identity the way a Jira key is.
+      return issueKey
+        ? `crane:key:${reference?.host.toLowerCase() ?? ""}:${issueKey.toUpperCase()}`
+        : `crane:url:${normalizeWorkspaceResourceUrlKey(url)}`;
     }
     case "pull_request": {
       const reference = extractGitHubPullRequestReference(url);
@@ -1157,6 +1247,46 @@ export function upsertWorkspaceResourceInState(args: {
       return {
         state: result.changed
           ? { ...current, jiraIssues: result.items }
+          : current,
+        resource: result.resource,
+        deduplicated: result.deduplicated,
+      };
+    }
+    case "crane": {
+      const issueKey =
+        input.issueKey?.trim() ||
+        extractCraneIssueReference(url)?.issueKey ||
+        "";
+      const status = input.status?.trim() ?? "";
+      const result = upsertWorkspaceResourceList({
+        items: current.craneIssues ?? [],
+        dedupeKey,
+        dedupeKeyOf: (item) =>
+          buildWorkspaceResourceDedupeKey({
+            kind: "crane",
+            url: item.url,
+            issueKey: item.issueKey,
+          }),
+        merge: (existing) => ({
+          ...existing,
+          issueKey: fillIfEmpty(existing.issueKey, issueKey),
+          title: fillIfEmpty(existing.title, title),
+          status: status || existing.status,
+          note: fillIfEmpty(existing.note, note),
+        }),
+        create: () => {
+          const nextLink = createWorkspaceCraneIssue();
+          nextLink.issueKey = issueKey;
+          nextLink.title = title || issueKey || url;
+          nextLink.url = url;
+          nextLink.status = status;
+          nextLink.note = note;
+          return nextLink;
+        },
+      });
+      return {
+        state: result.changed
+          ? { ...current, craneIssues: result.items }
           : current,
         resource: result.resource,
         deduplicated: result.deduplicated,
@@ -1422,6 +1552,17 @@ function classifyWorkspaceResourceUrl(
       spaceKey: confluenceReference.spaceKey,
     };
   }
+  // Ahead of the Jira branch: Crane task URLs carry a Jira-shaped issue key and
+  // would otherwise be filed as Jira issues on a Jira-looking host.
+  const craneReference = extractCraneIssueReference(url);
+  if (craneReference) {
+    return {
+      kind: "crane",
+      url,
+      issueKey: craneReference.issueKey,
+      title: craneReference.issueKey,
+    };
+  }
   // Restrict Jira detection to Jira-looking hosts — the issue-key pattern
   // alone would false-positive on branch names in arbitrary URLs.
   if (host.endsWith("atlassian.net") || host.includes("jira")) {
@@ -1519,6 +1660,7 @@ export const WORKSPACE_INFO_FIELD_TYPE_LABELS: Record<
 export function createEmptyWorkspaceInformation(): WorkspaceInformationState {
   return {
     jiraIssues: [],
+    craneIssues: [],
     confluencePages: [],
     figmaResources: [],
     storybookResources: [],
@@ -1575,6 +1717,9 @@ export function buildIntentGuardContextInput(
   return {
     notes: info.notes,
     jiraIssues: info.jiraIssues.filter((issue) => pinned.has(issue.id)),
+    craneIssues: (info.craneIssues ?? []).filter((issue) =>
+      pinned.has(issue.id),
+    ),
     confluencePages: info.confluencePages.filter((page) =>
       pinned.has(page.id),
     ),

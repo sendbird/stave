@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Cable,
   CalendarIcon,
   ClipboardCheck,
   CheckCircle2,
@@ -70,6 +71,7 @@ import {
   createWorkspaceConfluencePage,
   createWorkspaceFigmaResource,
   createWorkspaceInfoCustomField,
+  createWorkspaceCraneIssue,
   createWorkspaceJiraIssue,
   createWorkspaceLinkedPullRequest,
   createWorkspaceSlackThread,
@@ -82,6 +84,7 @@ import {
   extractConfluencePageReference,
   extractFigmaResourceReference,
   extractGitHubPullRequestReference,
+  extractCraneIssueReference,
   extractJiraIssueReference,
   extractSlackThreadReference,
   extractStorybookResourceReference,
@@ -1281,6 +1284,7 @@ export function WorkspaceInformationPanel() {
     fetchWorkspacePrStatus,
     infoPanelScale,
     infoPanelSectionVisibility,
+    craneConnectorEnabled,
     workspacePlansRefreshNonce,
     notifyWorkspacePlansChanged,
     openFileFromTree,
@@ -1302,6 +1306,7 @@ export function WorkspaceInformationPanel() {
           state.fetchWorkspacePrStatus,
           state.settings.infoPanelScale,
           state.settings.infoPanelSectionVisibility,
+          state.settings.craneConnector.enabled,
           state.workspacePlansRefreshNonce,
           state.notifyWorkspacePlansChanged,
           state.openFileFromTree,
@@ -1322,8 +1327,9 @@ export function WorkspaceInformationPanel() {
       resolveVisibleWorkspaceInformationSections({
         visibility: infoPanelSectionVisibility,
         information: workspaceInformation,
+        craneConnectorEnabled,
       }),
-    [infoPanelSectionVisibility, workspaceInformation],
+    [craneConnectorEnabled, infoPanelSectionVisibility, workspaceInformation],
   );
   const visibleSections = useMemo(
     () => new Set(visibleSectionIds),
@@ -2226,6 +2232,144 @@ export function WorkspaceInformationPanel() {
                               ...current,
                               jiraIssues: removeItemById(
                                 current.jiraIssues,
+                                issue.id,
+                              ),
+                            }))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                </SectionHeader>
+
+                {/* ── Crane ─────────────────────────────────────────── */}
+                <SectionHeader
+                  value="crane"
+                  order={sectionOrderIndexById.crane}
+                  title="Crane Issues"
+                  icon={<Cable className="size-4" />}
+                  count={(workspaceInformation.craneIssues ?? []).length}
+                  action={
+                    <AddButton
+                      onClick={() =>
+                        patchWorkspaceInformation((current) => ({
+                          ...current,
+                          craneIssues: [
+                            ...(current.craneIssues ?? []),
+                            createWorkspaceCraneIssue(),
+                          ],
+                        }))
+                      }
+                      label="Add Crane issue"
+                    />
+                  }
+                >
+                  <div className="-mx-2 space-y-0.5">
+                    {(workspaceInformation.craneIssues ?? []).length === 0 ? (
+                      <EmptyHint>No linked Crane issues</EmptyHint>
+                    ) : null}
+                    {(workspaceInformation.craneIssues ?? []).map((issue) => {
+                      const issueRef = extractCraneIssueReference(issue.url);
+                      const issueKey =
+                        issue.issueKey.trim() || issueRef?.issueKey || "";
+                      const host =
+                        issueRef?.host ||
+                        formatWorkspaceInfoHostLabel(issue.url);
+                      const title =
+                        issue.title.trim() || issueKey || "Linked Crane issue";
+                      const referenceLabel = issueKey || host || undefined;
+
+                      if (!isWorkspaceInfoUrl(issue.url)) {
+                        return (
+                          <InlineUrlInput
+                            key={issue.id}
+                            value={issue.url}
+                            icon={<Link className="size-4" />}
+                            placeholder="https://atelier.delight-tools.ai/apps/crane/w/TEAM/task/CRN-42"
+                            onChange={(url) =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                craneIssues: updateItemById(
+                                  current.craneIssues ?? [],
+                                  issue.id,
+                                  (item) => {
+                                    const parsed =
+                                      extractCraneIssueReference(url);
+                                    return {
+                                      ...item,
+                                      url,
+                                      issueKey:
+                                        parsed?.issueKey || item.issueKey,
+                                    };
+                                  },
+                                ),
+                              }))
+                            }
+                            onRemove={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                craneIssues: removeItemById(
+                                  current.craneIssues ?? [],
+                                  issue.id,
+                                ),
+                              }))
+                            }
+                          />
+                        );
+                      }
+
+                      return (
+                        <InlineLinkRow
+                          key={issue.id}
+                          pinned={isWorkspaceIntentAnchor(
+                            workspaceInformation,
+                            issue.id,
+                          )}
+                          onTogglePin={() =>
+                            patchWorkspaceInformation((current) =>
+                              toggleWorkspaceIntentAnchor(current, issue.id),
+                            )
+                          }
+                          icon={
+                            <Cable className="size-4 text-muted-foreground/70" />
+                          }
+                          label={title}
+                          sublabel={
+                            host
+                              ? `${host}${issueKey ? ` · ${issueKey}` : ""}`
+                              : issueKey
+                          }
+                          badge={
+                            issue.status.trim() ? (
+                              <Badge
+                                variant="outline"
+                                className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none"
+                              >
+                                {issue.status.trim()}
+                              </Badge>
+                            ) : null
+                          }
+                          url={issue.url}
+                          actions={
+                            <CreateTaskActionButton
+                              disabled={taskSeedInFlightId !== null}
+                              onClick={() =>
+                                void handleCreateTaskFromWorkspaceInfo({
+                                  itemId: issue.id,
+                                  sourceLabel: "Crane issue",
+                                  title,
+                                  url: issue.url,
+                                  referenceLabel,
+                                  note: issue.note,
+                                })
+                              }
+                            />
+                          }
+                          onRemove={() =>
+                            patchWorkspaceInformation((current) => ({
+                              ...current,
+                              craneIssues: removeItemById(
+                                current.craneIssues ?? [],
                                 issue.id,
                               ),
                             }))

@@ -85,6 +85,81 @@ Pairing codes are exchanged once and are not stored in Stave settings.
    Codex Advisor.
 6. Approve the job.
 
+### Issue Keys, Branch Names, And The Information Panel
+
+Crane issue keys such as `TFE-94` are shaped exactly like Jira issue keys, so for
+company products the Jira key is what belongs in a branch name, task title, and
+PR title. Stave resolves the naming key in this order:
+
+1. An `issue.links` entry with `rel: "jira"` — the link Crane declares.
+2. A Jira issue URL found in the Crane issue title, description, or instruction.
+3. A bare Jira key found in the same text, ignoring the Crane issue's own team
+   prefix so a sibling Crane key is never read as Jira.
+4. The Crane issue key, when no Jira issue is linked.
+
+The approval dialog states which Jira key it resolved and leaves the proposed
+branch name editable.
+
+Layers 2 and 3 are not a Crane channel. They are a best effort for issues where
+someone pasted the Jira link into the body and Crane has no tracker link to
+declare, so a declared link always wins over them.
+
+### Dispatch Payload Contract
+
+The dispatch envelope stays at `version: 1`. Additive changes never bump it,
+because the job schema ignores properties it does not know instead of rejecting
+them. Crane and Stave can therefore ship a new field in either order and neither
+side has to wait for the other.
+
+Crane links the tracked Jira issue like this:
+
+```json
+{
+  "issue": {
+    "key": "TFE-94",
+    "links": [
+      {
+        "rel": "jira",
+        "key": "DFE-2898",
+        "url": "https://sendbird.atlassian.net/browse/DFE-2898",
+        "title": "Region column is visible to trial orgs"
+      }
+    ]
+  }
+}
+```
+
+- `rel` is an open string. Stave understands `"jira"` (case-insensitive) today
+  and ignores every other value, so Crane can start emitting `confluence`,
+  `linear`, or `figma` links before Stave renders them.
+- `links` is ordered: Stave takes the first `rel: "jira"` entry. Up to 8 entries.
+- `key` is optional when `url` is a Jira issue address, and `url` is required.
+  A URL on a non-Jira host is dropped and only the key is kept, so a mislabelled
+  entry can never file a foreign address in the panel's Jira section.
+- `links` is the only channel for a tracked issue. Crane does not append a
+  `Jira: <KEY> <URL>` line to `issue.description`, and there is no `issue.jira`
+  field; neither shape ever shipped, so neither is read.
+
+Two rules keep the tolerance safe:
+
+- Unknown properties are stripped during parsing, so they never reach Stave
+  runtime code.
+- Anything that reads as an attempt to steer this machine — `localPath`, `cwd`,
+  `command`, `args`, `env`, `provider`, `model`, `runtime`, `permissions`,
+  `sandbox`, `mcpServers`, `token`, `secret`, and similar names, at any nesting
+  depth and in any casing — is rejected outright rather than ignored, so the
+  attempt fails loudly. A dispatch payload describes an issue; every local
+  execution choice is made in the Stave approval dialog.
+
+Receipts going the other way stay a closed shape: Stave authors them, so an
+unexpected property there is a Stave bug, not a rollout skew.
+
+On approval, the Crane issue is filed in the Information panel's **Crane Issues**
+section and any resolved Jira issue in the **Jira Issues** section. The Crane
+section appears only while the connector is enabled (or while it still holds
+entries), and a Crane task URL passed to the Jira tooling is rerouted to the
+Crane section rather than being recorded as the product's tracked Jira issue.
+
 The issue text is stored locally with the task and attached to the initial
 kickoff turn as untrusted retrieved context. The attached context remains
 inspectable above the composer and is reattached to later task turns; it does

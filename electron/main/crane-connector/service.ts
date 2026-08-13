@@ -5,6 +5,8 @@ import type {
   CraneDispatchApprovalResponse,
 } from "../../../src/lib/crane-connector/types";
 import {
+  addWorkspaceCraneIssue,
+  addWorkspaceJiraIssue,
   createWorkspace,
   getTaskStatus,
   listKnownProjects,
@@ -51,6 +53,21 @@ export function getCraneConnectorRuntime() {
     runTask: (args) => runLocallyApprovedCraneTask(args),
     getTaskStatus,
     releaseTaskControl: releaseLocallyManagedCraneTask,
+    registerWorkspaceIssues: async ({ workspaceId, crane, jira }) => {
+      await addWorkspaceCraneIssue({
+        workspaceId,
+        url: crane.url,
+        issueKey: crane.issueKey,
+        title: crane.title,
+      });
+      if (jira) {
+        await addWorkspaceJiraIssue({
+          workspaceId,
+          url: jira.url,
+          issueKey: jira.issueKey,
+        });
+      }
+    },
     emitStatus: (status) => sendToRenderer(STATUS_EVENT, status),
     emitApproval: (request) =>
       sendToRenderer(APPROVAL_EVENT, request),

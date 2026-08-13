@@ -641,6 +641,10 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
           typeof localMcpRuntime.removeWorkspaceCustomField
         >[0],
       );
+    case "add-workspace-crane-issue":
+      return localMcpRuntime.addWorkspaceCraneIssue(
+        args as Parameters<typeof localMcpRuntime.addWorkspaceCraneIssue>[0],
+      );
     case "add-workspace-jira-issue":
       return localMcpRuntime.addWorkspaceJiraIssue(
         args as Parameters<typeof localMcpRuntime.addWorkspaceJiraIssue>[0],

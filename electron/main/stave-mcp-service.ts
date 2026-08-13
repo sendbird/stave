@@ -219,6 +219,22 @@ export async function removeWorkspaceCustomField(args: {
   }>("remove-workspace-custom-field", args);
 }
 
+export async function addWorkspaceCraneIssue(args: {
+  workspaceId: string;
+  url: string;
+  issueKey?: string;
+  title?: string;
+  status?: string;
+  note?: string;
+}) {
+  return invokeLocalMcp<{
+    workspaceId: string;
+    added: import("../../src/lib/workspace-information").WorkspaceCraneIssue;
+    deduplicated: boolean;
+    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
+  }>("add-workspace-crane-issue", args);
+}
+
 export async function addWorkspaceJiraIssue(args: {
   workspaceId: string;
   url: string;

@@ -37,6 +37,7 @@ import {
 test("createEmptyWorkspaceInformation returns empty defaults", () => {
   expect(createEmptyWorkspaceInformation()).toEqual({
     jiraIssues: [],
+    craneIssues: [],
     confluencePages: [],
     figmaResources: [],
     storybookResources: [],

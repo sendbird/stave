@@ -441,6 +441,7 @@ export type HostLocalMcpAction =
   | "set-workspace-custom-field"
   | "remove-workspace-custom-field"
   | "add-workspace-jira-issue"
+  | "add-workspace-crane-issue"
   | "add-workspace-confluence-page"
   | "add-workspace-figma-resource"
   | "add-workspace-storybook-resource"

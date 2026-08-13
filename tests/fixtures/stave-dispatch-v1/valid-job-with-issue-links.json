@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "id": "job_01K12CRANESTAVE000000000004",
+  "kind": "run_task",
+  "connectorId": "connector_01K12LOCALSTAVE00000001",
+  "issue": {
+    "id": "task_01K12CRANE000000000000094",
+    "key": "TFE-94",
+    "title": "Hide the region column until after the demo",
+    "description": "Hide the region column until after the demo.",
+    "href": "https://atelier.delight-tools.ai/apps/crane/w/FRONTEND/task/TFE-94",
+    "updatedAt": "2026-08-12T05:32:27.933Z",
+    "links": [
+      {
+        "rel": "jira",
+        "key": "DFE-2898",
+        "url": "https://sendbird.atlassian.net/browse/DFE-2898",
+        "title": "Region column is visible to trial orgs"
+      },
+      {
+        "rel": "confluence",
+        "url": "https://sendbird.atlassian.net/wiki/spaces/DFE/pages/12345",
+        "title": "Demo script"
+      }
+    ]
+  },
+  "instruction": "Implement the issue.",
+  "requestedAt": "2026-08-12T05:35:00.000Z",
+  "expiresAt": "2026-08-13T05:35:00.000Z"
+}

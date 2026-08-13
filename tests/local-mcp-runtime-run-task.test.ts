@@ -1099,6 +1099,55 @@ describe("local MCP runtime Information panel auto-fill and dedup", () => {
     expect(matches[0]?.status).toBe("In Progress");
     expect(matches[0]?.id).toBe(first.added.id);
   });
+
+  // Crane issue keys (`TFE-94`) are shaped exactly like Jira keys, so agents
+  // routinely file a Crane task link through the Jira tool. It must land in the
+  // Crane section instead, leaving the Jira section to the product's own issue.
+  test("addWorkspaceJiraIssue reroutes a Crane task URL to the Crane section", async () => {
+    const craneUrl =
+      "https://atelier.delight-tools.ai/apps/crane/w/FRONTEND/task/TFE-94";
+    const result = await runtime.addWorkspaceJiraIssue({
+      workspaceId: WORKSPACE_ID,
+      url: craneUrl,
+      title: "Hide region information",
+    });
+
+    expect(result.reroutedTo).toBe("crane");
+    expect(
+      result.workspaceInformation.jiraIssues.map((issue) => issue.url),
+    ).not.toContain(craneUrl);
+    const crane = (result.workspaceInformation.craneIssues ?? []).find(
+      (issue) => issue.url === craneUrl,
+    );
+    expect(crane?.issueKey).toBe("TFE-94");
+
+    // The generic resource tool takes the same guard.
+    const generic = await runtime.addWorkspaceResource({
+      workspaceId: WORKSPACE_ID,
+      kind: "jira",
+      url: `${craneUrl}?from=list`,
+      status: "in_review",
+    });
+    expect(generic.kind).toBe("crane");
+    expect(generic.reroutedFrom).toBe("jira");
+    expect(generic.deduplicated).toBe(true);
+    expect(
+      (generic.workspaceInformation.craneIssues ?? []).filter(
+        (issue) => issue.issueKey === "TFE-94",
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("a real Jira issue still lands in the Jira section", async () => {
+    const result = await runtime.addWorkspaceJiraIssue({
+      workspaceId: WORKSPACE_ID,
+      url: "https://acme.atlassian.net/browse/DESK-4821",
+    });
+    expect(result.reroutedTo).toBeUndefined();
+    expect(
+      result.workspaceInformation.jiraIssues.map((issue) => issue.issueKey),
+    ).toContain("DESK-4821");
+  });
 });
 
 describe("local MCP runtime archived-task persistence", () => {

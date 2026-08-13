@@ -14,28 +14,32 @@ import {
 import {
   WORKSPACE_INFORMATION_SECTION_IDS,
   WORKSPACE_INFORMATION_SECTION_LABELS,
+  isWorkspaceInformationSectionAvailable,
   resolveVisibleWorkspaceInformationSections,
   workspaceInformationSectionHasContent,
 } from "@/lib/workspace-information-sections";
 import { useAppStore } from "@/store/app.store";
 
 export function WorkspaceInformationSectionMenu() {
-  const [information, visibility, updateSettings] = useAppStore(
-    useShallow((state) => [
-      state.workspaceInformation,
-      state.settings.infoPanelSectionVisibility,
-      state.updateSettings,
-    ]),
-  );
+  const [information, visibility, craneConnectorEnabled, updateSettings] =
+    useAppStore(
+      useShallow((state) => [
+        state.workspaceInformation,
+        state.settings.infoPanelSectionVisibility,
+        state.settings.craneConnector.enabled,
+        state.updateSettings,
+      ]),
+    );
   const visibleSections = useMemo(
     () =>
       new Set(
         resolveVisibleWorkspaceInformationSections({
           visibility,
           information,
+          craneConnectorEnabled,
         }),
       ),
-    [information, visibility],
+    [craneConnectorEnabled, information, visibility],
   );
 
   return (
@@ -55,7 +59,15 @@ export function WorkspaceInformationSectionMenu() {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Visible sections</DropdownMenuLabel>
         {WORKSPACE_INFORMATION_SECTION_IDS.filter(
-          (id) => id !== "overview",
+          (id) =>
+            id !== "overview" &&
+            // Integration-gated sections stay out of the menu entirely while
+            // their integration is off and they hold nothing.
+            isWorkspaceInformationSectionAvailable({
+              id,
+              information,
+              craneConnectorEnabled,
+            }),
         ).map((id) => {
           // Plans live on the filesystem, so the menu cannot cheaply know
           // whether they exist; skip the hint instead of showing a stale one.
