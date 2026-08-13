@@ -1,3 +1,13 @@
+## [0.15.1](https://github.com/sendbird/stave/compare/v0.15.0...v0.15.1) (2026-08-13)
+
+### Bug Fixes
+
+* Separate Crane issue references from Jira issue references, keeping linked Jira work in naming and Crane links in their own Information panel section.
+
+### References
+
+* [#374](https://github.com/sendbird/stave/pull/374)
+
 ## [0.15.0](https://github.com/sendbird/stave/compare/v0.14.5...v0.15.0) (2026-08-12)
 
 ### Features
