@@ -2140,6 +2140,7 @@ describe("workspace snapshot schema compatibility", () => {
     });
     expect(loaded?.workspaceInformation).toEqual({
       jiraIssues: [],
+      craneIssues: [],
       confluencePages: [],
       figmaResources: [],
       storybookResources: [],
@@ -2227,6 +2228,7 @@ describe("workspace snapshot schema compatibility", () => {
     });
     expect(loaded?.workspaceInformation).toEqual({
       jiraIssues: [],
+      craneIssues: [],
       confluencePages: [],
       figmaResources: [],
       storybookResources: [],

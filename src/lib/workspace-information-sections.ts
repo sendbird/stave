@@ -7,6 +7,7 @@ export const WORKSPACE_INFORMATION_SECTION_IDS = [
   "plans",
   "github",
   "jira",
+  "crane",
   "confluence",
   "storybook",
   "amplify",
@@ -28,6 +29,7 @@ export const WORKSPACE_INFORMATION_SECTION_LABELS: Record<
   plans: "Plans",
   github: "GitHub",
   jira: "Jira",
+  crane: "Crane",
   confluence: "Confluence",
   storybook: "Storybook",
   amplify: "Amplify",
@@ -110,6 +112,8 @@ export function workspaceInformationSectionHasContent(args: {
       return args.information.linkedPullRequests.length > 0;
     case "jira":
       return args.information.jiraIssues.length > 0;
+    case "crane":
+      return (args.information.craneIssues ?? []).length > 0;
     case "confluence":
       return args.information.confluencePages.length > 0;
     case "storybook":
@@ -125,10 +129,32 @@ export function workspaceInformationSectionHasContent(args: {
   }
 }
 
+/**
+ * Sections that stay hidden unless the integration behind them is switched on.
+ * A leftover explicit `true` in stored visibility must not resurrect them, so
+ * the gate is checked before the visibility override.
+ */
+export function isWorkspaceInformationSectionAvailable(args: {
+  id: WorkspaceInformationSectionId;
+  information: WorkspaceInformationState;
+  craneConnectorEnabled?: boolean;
+}): boolean {
+  if (args.id !== "crane") {
+    return true;
+  }
+  // Still shown when entries exist, so disabling the connector never hides data
+  // the user already has.
+  return (
+    Boolean(args.craneConnectorEnabled) ||
+    (args.information.craneIssues ?? []).length > 0
+  );
+}
+
 export function resolveVisibleWorkspaceInformationSections(args: {
   visibility: WorkspaceInformationSectionVisibility;
   information: WorkspaceInformationState;
   planCount?: number;
+  craneConnectorEnabled?: boolean;
 }): WorkspaceInformationSectionId[] {
   const visibility = normalizeWorkspaceInformationSectionVisibility(
     args.visibility,
@@ -137,6 +163,15 @@ export function resolveVisibleWorkspaceInformationSections(args: {
   return WORKSPACE_INFORMATION_SECTION_IDS.filter((id) => {
     if (id === "overview") {
       return true;
+    }
+    if (
+      !isWorkspaceInformationSectionAvailable({
+        id,
+        information: args.information,
+        craneConnectorEnabled: args.craneConnectorEnabled,
+      })
+    ) {
+      return false;
     }
     const explicitVisibility = visibility[id];
     if (typeof explicitVisibility === "boolean") {

@@ -12,6 +12,7 @@ import {
   CraneStaveJobV1Schema,
   CraneStaveReceiptV1Schema,
 } from "../src/lib/crane-connector/contract";
+import { resolveCraneJiraReference } from "../src/lib/crane-connector/jira-reference";
 
 const fixtureDirectory = new URL(
   "./fixtures/stave-dispatch-v1/",
@@ -25,15 +26,83 @@ async function readFixture(name: string) {
 describe("Crane Stave dispatch V1 contract", () => {
   test("accepts the shared valid job and receipt fixtures", async () => {
     expect(
-      CraneStaveJobV1Schema.safeParse(
-        await readFixture("valid-job.json"),
-      ).success,
+      CraneStaveJobV1Schema.safeParse(await readFixture("valid-job.json"))
+        .success,
     ).toBe(true);
     expect(
       CraneStaveReceiptV1Schema.safeParse(
         await readFixture("valid-receipt.json"),
       ).success,
     ).toBe(true);
+  });
+
+  test("reads the Jira link from issue.links and ignores other rels", async () => {
+    const parsed = CraneStaveJobV1Schema.safeParse(
+      await readFixture("valid-job-with-issue-links.json"),
+    );
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.issue.links).toHaveLength(2);
+      expect(resolveCraneJiraReference(parsed.data)).toEqual({
+        key: "DFE-2898",
+        url: "https://sendbird.atlassian.net/browse/DFE-2898",
+        source: "crane_link",
+      });
+    }
+  });
+
+  test("ignores additive Crane fields instead of rejecting the job", async () => {
+    const job = await readFixture("valid-job.json");
+    job.issue.labels = ["frontend"];
+    job.issue.assignee = { name: "Jacob" };
+    job.issue.links = [
+      { rel: "design", url: "https://figma.com/file/abc", note: "later" },
+    ];
+    job.deliveredAt = "2026-07-26T01:05:00.000Z";
+    const parsed = CraneStaveJobV1Schema.safeParse(job);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      // Unknown fields are stripped, so they can never reach runtime code.
+      expect(parsed.data).not.toHaveProperty("deliveredAt");
+      expect(parsed.data.issue).not.toHaveProperty("labels");
+      expect(parsed.data.issue.links?.[0]).toEqual({
+        rel: "design",
+        url: "https://figma.com/file/abc",
+      });
+      expect(resolveCraneJiraReference(parsed.data)).toBeNull();
+    }
+  });
+
+  test("rejects host-control fields wherever they are nested", async () => {
+    const nested = await readFixture("valid-job.json");
+    nested.issue.runtime = { provider: "codex" };
+    expect(CraneStaveJobV1Schema.safeParse(nested).success).toBe(false);
+
+    const cased = await readFixture("valid-job.json");
+    cased.issue.local_path = "/private/project";
+    expect(CraneStaveJobV1Schema.safeParse(cased).success).toBe(false);
+
+    const inLink = await readFixture("valid-job.json");
+    inLink.issue.links = [
+      {
+        rel: "jira",
+        url: "https://example.atlassian.net/browse/AB-1",
+        cwd: "/",
+      },
+    ];
+    expect(CraneStaveJobV1Schema.safeParse(inLink).success).toBe(false);
+  });
+
+  test("caps the number of declared links", async () => {
+    const job = await readFixture("valid-job-with-issue-links.json");
+    job.issue.links = Array.from(
+      { length: CRANE_STAVE_DISPATCH_LIMITS.links + 1 },
+      (_unused, index) => ({
+        rel: "jira",
+        url: `https://sendbird.atlassian.net/browse/DFE-${index + 1}`,
+      }),
+    );
+    expect(CraneStaveJobV1Schema.safeParse(job).success).toBe(false);
   });
 
   test.each([
@@ -64,15 +133,11 @@ describe("Crane Stave dispatch V1 contract", () => {
 
     const receipt = await readFixture("valid-receipt.json");
     receipt.jobId = "j".repeat(CRANE_STAVE_DISPATCH_LIMITS.id);
-    receipt.connectorId = "c".repeat(
-      CRANE_STAVE_DISPATCH_LIMITS.id,
-    );
+    receipt.connectorId = "c".repeat(CRANE_STAVE_DISPATCH_LIMITS.id);
     receipt.errorCode = `e${"x".repeat(
       CRANE_STAVE_DISPATCH_LIMITS.errorCode - 1,
     )}`;
-    expect(CraneStaveReceiptV1Schema.safeParse(receipt).success).toBe(
-      false,
-    );
+    expect(CraneStaveReceiptV1Schema.safeParse(receipt).success).toBe(false);
   });
 
   test("does not define fields for local paths or runtime options", () => {
@@ -220,13 +285,7 @@ describe("Crane Stave dispatch V1 contract", () => {
       "utf8",
     );
     const mainIpc = readFileSync(
-      path.join(
-        repoRoot,
-        "electron",
-        "main",
-        "ipc",
-        "crane-connector.ts",
-      ),
+      path.join(repoRoot, "electron", "main", "ipc", "crane-connector.ts"),
       "utf8",
     );
     const endpoints = [

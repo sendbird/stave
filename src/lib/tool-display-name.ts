@@ -60,6 +60,7 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_set_workspace_custom_field: "Update workspace field",
   stave_remove_workspace_custom_field: "Remove workspace field",
   stave_add_workspace_jira_issue: "Attach Jira issue",
+  stave_add_workspace_crane_issue: "Attach Crane issue",
   stave_add_workspace_confluence_page: "Attach Confluence page",
   stave_add_workspace_storybook_resource: "Attach Storybook resource",
   stave_update_workspace_storybook_resource_access: "Update Storybook access",

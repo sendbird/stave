@@ -27,6 +27,10 @@ import type {
   TaskRunResult,
   TaskStatusResult,
 } from "../../host-service/local-mcp-runtime";
+import {
+  buildCraneDispatchTaskTitle,
+  resolveCraneJiraReference,
+} from "../../../src/lib/crane-connector/jira-reference";
 import type { CraneCredentialStore } from "./credential-vault";
 import {
   CraneConnectorHttpClient,
@@ -96,6 +100,16 @@ interface CraneRuntimeDependencies {
     sourceContexts?: ReturnType<
       typeof buildCraneDispatchRetrievedContext
     >[];
+  }) => Promise<unknown>;
+  /**
+   * Files the dispatched Crane issue (and any Jira issue it links to) into the
+   * workspace Information panel. Optional and best-effort: a failure here must
+   * never abort a job that is otherwise ready to run.
+   */
+  registerWorkspaceIssues?: (args: {
+    workspaceId: string;
+    crane: { url: string; issueKey: string; title: string };
+    jira: { url: string; issueKey: string } | null;
   }) => Promise<unknown>;
   emitStatus: (status: CraneConnectorPublicStatus) => void;
   emitApproval: (request: CraneDispatchApprovalRequest) => void;
@@ -475,6 +489,8 @@ export class CraneConnectorRuntime {
         throw error;
       }
 
+      await this.registerWorkspaceIssues(workspaceId, binding.job);
+
       let updated = this.saveBinding({
         ...binding,
         workspaceId,
@@ -484,7 +500,7 @@ export class CraneConnectorRuntime {
         const run = await this.dependencies.runTask({
           workspaceId,
           prompt: buildCraneDispatchPrompt(binding.job),
-          title: `Crane ${binding.job.issue.key}: ${binding.job.issue.title}`,
+          title: buildCraneDispatchTaskTitle(binding.job),
           provider: approval.runtime.provider,
           runtimeOptions: runtimeOptionsForApproval(approval),
           retrievedContextParts: [
@@ -1047,6 +1063,35 @@ export class CraneConnectorRuntime {
       errorCode: receipt.errorCode ?? null,
       updatedAt: receipt.occurredAt,
     });
+  }
+
+  /**
+   * Best-effort: the Crane link belongs in the Crane section of the Information
+   * panel, and the linked Jira issue (when Crane reports one) in the Jira
+   * section. Failures are swallowed — the job is already approved and must run.
+   */
+  private async registerWorkspaceIssues(
+    workspaceId: string,
+    job: CraneStaveJobV1,
+  ) {
+    const register = this.dependencies.registerWorkspaceIssues;
+    if (!register) {
+      return;
+    }
+    const jira = resolveCraneJiraReference(job);
+    try {
+      await register({
+        workspaceId,
+        crane: {
+          url: job.issue.href,
+          issueKey: job.issue.key,
+          title: job.issue.title,
+        },
+        jira: jira?.url ? { url: jira.url, issueKey: jira.key } : null,
+      });
+    } catch {
+      // Intentionally ignored — panel bookkeeping must not block the dispatch.
+    }
   }
 
   private async failBeforeExecution(

@@ -139,6 +139,7 @@ const WorkspaceInformationReferenceSchema = z.object({
     z.literal("todo"),
     z.literal("pr"),
     z.literal("jira"),
+    z.literal("crane"),
     z.literal("confluence"),
     z.literal("storybook"),
     z.literal("amplify"),
@@ -628,6 +629,15 @@ const WorkspaceJiraIssueSchema = z.object({
   note: z.string().optional().default(""),
 });
 
+const WorkspaceCraneIssueSchema = z.object({
+  id: z.string(),
+  issueKey: z.string().optional().default(""),
+  title: z.string().optional().default(""),
+  url: z.string().optional().default(""),
+  status: z.string().optional().default(""),
+  note: z.string().optional().default(""),
+});
+
 const WorkspaceFigmaResourceSchema = z.object({
   id: z.string(),
   title: z.string().optional().default(""),
@@ -780,6 +790,7 @@ const WorkspaceConnectedBrowserTabSchema = z.object({
 
 const WorkspaceInformationSchema = z.object({
   jiraIssues: z.array(WorkspaceJiraIssueSchema).optional().default([]),
+  craneIssues: z.array(WorkspaceCraneIssueSchema).optional().default([]),
   confluencePages: z
     .array(WorkspaceConfluencePageSchema)
     .optional()
@@ -875,6 +886,7 @@ export const WorkspaceSnapshotSchema = z.object({
   dockLayout: z.record(z.string(), z.unknown()).nullable().optional(),
   workspaceInformation: WorkspaceInformationSchema.optional().default({
     jiraIssues: [],
+    craneIssues: [],
     confluencePages: [],
     figmaResources: [],
     storybookResources: [],

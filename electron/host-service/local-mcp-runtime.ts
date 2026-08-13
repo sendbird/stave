@@ -38,6 +38,7 @@ import {
   detectWorkspaceResourcesInText,
   extractAmplifyLinkReference,
   extractConfluencePageReference,
+  extractCraneIssueReference,
   extractFigmaResourceReference,
   extractJiraIssueReference,
   extractSlackThreadReference,
@@ -250,6 +251,7 @@ let localMcpEventListener:
 
 type WorkspaceInformationResourceKind =
   | "jira"
+  | "crane"
   | "pull_request"
   | "confluence"
   | "figma"
@@ -656,6 +658,7 @@ function normalizeWorkspaceResourceKind(
 ): WorkspaceInformationResourceKind {
   switch (value.trim()) {
     case "jira":
+    case "crane":
     case "pull_request":
     case "confluence":
     case "figma":
@@ -963,11 +966,17 @@ export async function addWorkspaceResource(args: {
   storybookReadableVia?: string;
   storybookSourceHint?: string;
 }) {
-  const kind = normalizeWorkspaceResourceKind(args.kind);
+  const requestedKind = normalizeWorkspaceResourceKind(args.kind);
   const url = args.url.trim();
   if (!url) {
     throw new Error("Workspace resource URL is required.");
   }
+  // A Crane task URL carries a Jira-shaped issue key, so `kind: "jira"` on one
+  // is always a misclassification. Keep the link, file it under Crane.
+  const kind =
+    requestedKind === "jira" && extractCraneIssueReference(url)
+      ? ("crane" as const)
+      : requestedKind;
   // Upsert instead of blind append — duplicate registrations of the same
   // canonical entity (e.g. one Jira issue key across URL variants) merge
   // into the existing Information panel entry.
@@ -1002,8 +1011,10 @@ export async function addWorkspaceResource(args: {
   const resolved = upserted as WorkspaceResourceUpsertResult;
   return {
     ...result,
+    kind,
     resource: resolved.resource,
     deduplicated: resolved.deduplicated,
+    ...(kind === requestedKind ? {} : { reroutedFrom: requestedKind }),
   };
 }
 
@@ -1027,6 +1038,18 @@ export async function removeWorkspaceResource(args: {
           return {
             ...current,
             jiraIssues,
+          };
+        }
+        case "crane": {
+          const craneIssues = (current.craneIssues ?? []).filter(
+            (item) => item.id !== args.itemId,
+          );
+          if (craneIssues.length === (current.craneIssues ?? []).length) {
+            throw new Error(`Workspace resource not found: ${args.itemId}`);
+          }
+          return {
+            ...current,
+            craneIssues,
           };
         }
         case "pull_request": {
@@ -1234,6 +1257,37 @@ export async function removeWorkspaceCustomField(args: {
   });
 }
 
+export async function addWorkspaceCraneIssue(args: {
+  workspaceId: string;
+  url: string;
+  issueKey?: string;
+  title?: string;
+  status?: string;
+  note?: string;
+}) {
+  const parsed = extractCraneIssueReference(args.url);
+  const result = await addWorkspaceResource({
+    workspaceId: args.workspaceId,
+    kind: "crane",
+    url: normalizeWorkspaceInfoString(args.url),
+    issueKey:
+      normalizeWorkspaceInfoString(args.issueKey) || parsed?.issueKey || "",
+    title:
+      normalizeWorkspaceInfoString(args.title) ||
+      normalizeWorkspaceInfoString(args.issueKey) ||
+      parsed?.issueKey ||
+      "Crane issue",
+    status: normalizeWorkspaceInfoString(args.status),
+    note: normalizeWorkspaceInfoString(args.note),
+  });
+  return {
+    workspaceId: result.workspaceId,
+    added: result.resource,
+    deduplicated: result.deduplicated,
+    workspaceInformation: result.workspaceInformation,
+  };
+}
+
 export async function addWorkspaceJiraIssue(args: {
   workspaceId: string;
   url: string;
@@ -1242,6 +1296,14 @@ export async function addWorkspaceJiraIssue(args: {
   status?: string;
   note?: string;
 }) {
+  // Crane issue keys (`CRN-42`) are shaped exactly like Jira keys, so agents
+  // routinely file a Crane link here. Reroute instead of rejecting: the link is
+  // worth keeping, just not in the Jira section, where it would be read as the
+  // product's tracked issue.
+  if (extractCraneIssueReference(args.url)) {
+    const rerouted = await addWorkspaceCraneIssue(args);
+    return { ...rerouted, reroutedTo: "crane" as const };
+  }
   const parsed = extractJiraIssueReference(args.url);
   const result = await addWorkspaceResource({
     workspaceId: args.workspaceId,

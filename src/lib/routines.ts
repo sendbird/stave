@@ -248,6 +248,7 @@ export const RoutineInformationReferenceSchema = z
       "todo",
       "pr",
       "jira",
+      "crane",
       "confluence",
       "storybook",
       "amplify",

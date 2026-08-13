@@ -57,6 +57,7 @@ import {
   addWorkspaceAmplifyLink,
   addWorkspaceCustomField,
   addWorkspaceConfluencePage,
+  addWorkspaceCraneIssue,
   addWorkspaceFigmaResource,
   addWorkspaceJiraIssue,
   addWorkspaceResource,
@@ -1042,6 +1043,7 @@ function createToolServer() {
         kind: z
           .enum([
             "jira",
+            "crane",
             "pull_request",
             "confluence",
             "storybook",
@@ -1055,7 +1057,7 @@ function createToolServer() {
         issueKey: z
           .string()
           .optional()
-          .describe("Jira issue key when kind=`jira`."),
+          .describe("Issue key when kind=`jira` or kind=`crane`."),
         status: z
           .string()
           .optional()
@@ -1219,7 +1221,7 @@ function createToolServer() {
     "stave_add_workspace_jira_issue",
     {
       description:
-        "Register a Jira issue in the Stave Workspace Information panel. Idempotent: an issue already registered under the same issue key is merged into the existing entry (the result sets `deduplicated: true`).",
+        "Register a Jira issue in the Stave Workspace Information panel. Jira issues only: a Crane task URL passed here is rerouted to the Crane section (the result sets `reroutedTo: \"crane\"`), so use `stave_add_workspace_crane_issue` for Crane links. Idempotent: an issue already registered under the same issue key is merged into the existing entry (the result sets `deduplicated: true`).",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         url: z.string().min(1).describe("Jira issue URL."),
@@ -1238,6 +1240,42 @@ function createToolServer() {
     async ({ workspaceId, url, issueKey, title, status, note }) =>
       toStructuredResult(
         await addWorkspaceJiraIssue({
+          workspaceId,
+          url,
+          issueKey,
+          title,
+          status,
+          note,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "stave_add_workspace_crane_issue",
+    {
+      description:
+        "Register a Crane issue in the Stave Workspace Information panel. Use this — never `stave_add_workspace_jira_issue` — for Crane task links: Crane keys such as `CRN-42` look like Jira keys but belong in the Crane section, so the Jira section keeps holding only the product's tracked Jira issue. Idempotent: an issue already registered under the same Crane host and key is merged into the existing entry (the result sets `deduplicated: true`).",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id."),
+        url: z
+          .string()
+          .min(1)
+          .describe("Crane issue URL, e.g. https://<host>/apps/crane/w/TEAM/task/CRN-42."),
+        issueKey: z
+          .string()
+          .optional()
+          .describe("Optional Crane issue key override."),
+        title: z.string().optional().describe("Optional title override."),
+        status: z.string().optional().describe("Optional status label."),
+        note: z
+          .string()
+          .optional()
+          .describe("Optional note stored with the link."),
+      },
+    },
+    async ({ workspaceId, url, issueKey, title, status, note }) =>
+      toStructuredResult(
+        await addWorkspaceCraneIssue({
           workspaceId,
           url,
           issueKey,

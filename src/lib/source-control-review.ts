@@ -300,6 +300,12 @@ export interface IntentGuardContextInput {
     url?: string;
     note?: string;
   }>;
+  craneIssues?: ReadonlyArray<{
+    issueKey?: string;
+    title?: string;
+    url?: string;
+    note?: string;
+  }>;
   confluencePages?: ReadonlyArray<{
     title?: string;
     url?: string;
@@ -337,7 +343,7 @@ function buildResourceSection(
 }
 
 /**
- * Collect the workspace's pinned product intent (notes + Jira/Confluence/Figma
+ * Collect the workspace's pinned product intent (notes + Jira/Crane/Confluence/Figma
  * references) into a single labelled, length-capped string for the intent
  * guard prompt. Returns an empty string when no intent is available, so callers
  * can skip the guard entirely.
@@ -357,6 +363,22 @@ export function collectIntentContext(input: IntentGuardContextInput): string {
       .join(" — ");
     const section = buildResourceSection(
       "Jira",
+      heading || undefined,
+      issue.url,
+      issue.note,
+    );
+    if (section) {
+      sections.push(section);
+    }
+  }
+
+  for (const issue of input.craneIssues ?? []) {
+    const heading = [issue.issueKey, issue.title]
+      .map((part) => (part ?? "").trim())
+      .filter(Boolean)
+      .join(" — ");
+    const section = buildResourceSection(
+      "Crane",
       heading || undefined,
       issue.url,
       issue.note,

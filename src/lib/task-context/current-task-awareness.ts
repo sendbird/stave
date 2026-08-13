@@ -80,6 +80,19 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
         .filter((value) => value.trim().length > 0)
         .join(" | "),
     );
+  const craneItems = (info.craneIssues ?? [])
+    .slice(0, MAX_VISIBLE_RESOURCES)
+    .map((issue) =>
+      [
+        issue.issueKey || "Crane",
+        issue.title,
+        issue.status,
+        issue.url,
+        issue.note,
+      ]
+        .filter((value) => value.trim().length > 0)
+        .join(" | "),
+    );
   const confluenceItems = info.confluencePages
     .slice(0, MAX_VISIBLE_RESOURCES)
     .map((page) =>
@@ -180,6 +193,11 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
       label: "Jira issues",
       items: jiraItems,
       totalCount: info.jiraIssues.length,
+    }),
+    ...formatSection({
+      label: "Crane issues",
+      items: craneItems,
+      totalCount: (info.craneIssues ?? []).length,
     }),
     ...formatSection({
       label: "Confluence pages",
