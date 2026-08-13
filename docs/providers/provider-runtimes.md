@@ -15,6 +15,28 @@ decisions are recorded in
 
 The renderer submits a selected provider and model with each turn. `electron/main/ipc/provider.ts` validates the request, forwards it into the dedicated desktop `host-service` child process, and `electron/providers/runtime.ts` dispatches to the matching provider runtime.
 
+## Prompt secret references
+
+A primary task prompt may reference an injectable Settings → Secrets entry by
+its environment-variable name: `@secret:{OPENAI_API_KEY}`. The current input is
+parsed inside the provider runtime, and only the non-secret key is used to ask
+the main-owned vault for the matching value. The value follows the existing
+bound-secret environment path: Claude receives it through `options.env`, while
+Codex uses a disposable App Server process plus per-thread
+`shell_environment_policy.set.*` overrides. It never replaces the token with
+plaintext or adds the value to renderer state, provider prompt text, events,
+transcripts, diagnostics, or logs.
+
+The provider prompt receives value-free guidance that maps a resolved reference
+to `$OPENAI_API_KEY`, so shell commands and supported MCP authentication can use
+it without the model seeing the value. Missing, malformed, over-limit, and
+reserved references are described as unavailable and are never satisfied from
+an ambient process variable. Reference resolution applies only to the current
+primary input; secondary read-only execution does not receive referenced or
+manually bound secrets. A command that deliberately prints the environment
+variable can still surface its value, so this remains an automatic-leak
+boundary rather than a sandbox.
+
 ## On-demand Advisor consults
 
 `Settings → Providers → Advisor` arms an isolated read-only Advisor that the

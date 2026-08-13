@@ -14,6 +14,10 @@ import {
   normalizeEnvVarName,
   normalizeSecretName,
 } from "../src/lib/secrets/secrets";
+import {
+  appendPromptSecretReferenceContext,
+  parsePromptSecretReferences,
+} from "../src/lib/secrets/secret-references";
 
 const tempDirs: string[] = [];
 
@@ -333,6 +337,82 @@ describe("SecretVault.resolveEnvForIds", () => {
     expect(await insecure.resolveEnvForIds([])).toEqual({
       env: {},
       skipped: [],
+    });
+  });
+});
+
+describe("prompt secret references", () => {
+  test("parses valid keys and classifies malformed and protected keys", () => {
+    const parsed = parsePromptSecretReferences({
+      prompt:
+        "Use @secret:{OPENAI_API_KEY}, retry @secret:{MISSING_KEY}, refuse @secret:{PATH}, and ignore @secret:{bad-name}. @secret:{OPENAI_API_KEY}",
+    });
+
+    expect(parsed.resolutionKeys).toEqual([
+      "OPENAI_API_KEY",
+      "MISSING_KEY",
+    ]);
+    expect(parsed.references).toEqual([
+      { key: "OPENAI_API_KEY", status: "candidate" },
+      { key: "MISSING_KEY", status: "candidate" },
+      { key: "PATH", status: "protected" },
+      { key: "", status: "invalid" },
+    ]);
+  });
+
+  test("adds only value-free availability guidance to the provider prompt", () => {
+    const secretValue = "must-never-enter-provider-prompt";
+    const parsed = parsePromptSecretReferences({
+      prompt:
+        "Authenticate with @secret:{OPENAI_API_KEY}; also try @secret:{MISSING_KEY} and @secret:{CODEX_HOME}.",
+    });
+    const providerPrompt = appendPromptSecretReferenceContext({
+      prompt:
+        "Authenticate with @secret:{OPENAI_API_KEY}; also try @secret:{MISSING_KEY} and @secret:{CODEX_HOME}.",
+      parsed,
+      availableEnvNames: ["OPENAI_API_KEY"],
+    });
+
+    expect(providerPrompt).toContain("$OPENAI_API_KEY");
+    expect(providerPrompt).toContain(
+      "@secret:{MISSING_KEY} is unavailable",
+    );
+    expect(providerPrompt).toContain(
+      "CODEX_HOME is a protected runtime variable",
+    );
+    expect(providerPrompt).toContain("Secret values are not included");
+    expect(providerPrompt).not.toContain(secretValue);
+  });
+});
+
+describe("SecretVault.resolveEnvForReferences", () => {
+  test("resolves valid keys and skips missing and protected references", async () => {
+    const { vault } = createHarness();
+    await vault.upsert({
+      name: "OpenAI",
+      value: "sk-reference-value",
+      envVarName: "OPENAI_API_KEY",
+    });
+
+    const result = await vault.resolveEnvForReferences([
+      "OPENAI_API_KEY",
+      "MISSING_KEY",
+      "PATH",
+    ]);
+
+    expect(result.env).toEqual({ OPENAI_API_KEY: "sk-reference-value" });
+    expect(result.skipped).toEqual([
+      { key: "MISSING_KEY", reason: "not-found" },
+      { key: "PATH", reason: "reserved-name" },
+    ]);
+  });
+
+  test("rejects malformed reference keys at the vault boundary", async () => {
+    const { vault } = createHarness();
+
+    expect(await vault.resolveEnvForReferences(["bad-name"])).toEqual({
+      env: {},
+      skipped: [{ key: "", reason: "invalid-name" }],
     });
   });
 });

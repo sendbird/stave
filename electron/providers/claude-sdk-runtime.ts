@@ -7,6 +7,7 @@ import type {
 import {
   buildProviderTurnPrompt,
   filterPromptRetrievedContext,
+  getProviderNativeSlashCommandInput,
   resolveProviderResumeSessionId,
 } from "../../src/lib/providers/provider-request-translators";
 import {
@@ -86,6 +87,11 @@ import {
   toClaudeSdkMcpServerConfig,
 } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
+import { MAX_BOUND_SECRETS } from "../../src/lib/secrets/secrets";
+import {
+  appendPromptSecretReferenceContext,
+  parsePromptSecretReferences,
+} from "../../src/lib/secrets/secret-references";
 import {
   parseBooleanEnv,
   parsePositiveIntEnv,
@@ -4793,15 +4799,22 @@ export async function streamClaudeWithSdk(
     }
 
     const secondaryReadOnly = args.executionPolicy === "secondary-read-only";
-    // Resolve bound-secret env for the primary user turn only. Secondary
-    // read-only analysis turns never receive injected secrets.
+    const boundSecretIds = args.runtimeOptions?.boundSecretIds ?? [];
+    const promptSecretReferences = parsePromptSecretReferences({
+      prompt: args.prompt,
+      maxResolvableReferences:
+        MAX_BOUND_SECRETS - new Set(boundSecretIds).size,
+    });
+    // Resolve bound and explicitly referenced secrets for the primary user
+    // turn only. Secondary read-only analysis turns never receive them.
     const boundSecretEnv =
       secondaryReadOnly ||
-      !args.runtimeOptions?.boundSecretIds ||
-      args.runtimeOptions.boundSecretIds.length === 0
+      (boundSecretIds.length === 0 &&
+        promptSecretReferences.resolutionKeys.length === 0)
         ? {}
         : await resolveBoundSecretEnv({
-            ids: args.runtimeOptions.boundSecretIds,
+            ids: boundSecretIds,
+            referenceKeys: promptSecretReferences.resolutionKeys,
           });
     const existingSessionId = secondaryReadOnly
       ? undefined
@@ -4880,12 +4893,23 @@ export async function streamClaudeWithSdk(
             : ["stave:current-task-awareness"],
         })
       : args.conversation;
-    const providerPrompt = buildProviderTurnPrompt({
+    const nativeSlashCommandInput = promptConversation
+      ? getProviderNativeSlashCommandInput(promptConversation)
+      : null;
+    const providerPromptBase = buildProviderTurnPrompt({
       providerId: args.providerId,
       prompt: args.prompt,
       conversation: promptConversation,
       activeResumeSessionId: existingSessionId ?? null,
     });
+    const providerPrompt = nativeSlashCommandInput
+      ? providerPromptBase
+      : appendPromptSecretReferenceContext({
+          prompt: providerPromptBase,
+          parsed: promptSecretReferences,
+          availableEnvNames: Object.keys(boundSecretEnv),
+          disabledForSecondaryReadOnly: secondaryReadOnly,
+        });
     const activatedSkillSlugs = collectClaudeActivatedSkillSlugs({
       conversation: args.conversation,
     });

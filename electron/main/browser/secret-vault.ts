@@ -6,6 +6,7 @@ import {
   buildSecretPreview,
   ENV_VAR_NAME_MAX_LENGTH,
   ENV_VAR_NAME_PATTERN,
+  MAX_BOUND_SECRETS,
   isReservedEnvVarName,
   normalizeEnvVarName,
   normalizeSecretName,
@@ -252,6 +253,68 @@ export class SecretVault {
       }
       seenNames.add(envVarName);
       env[envVarName] = this.decryptValue(entry);
+    }
+    return { env, skipped };
+  }
+
+  /**
+   * Resolve `@secret:{ENV_VAR_NAME}` keys without exposing vault metadata or
+   * plaintext outside the main-owned provider runtime path.
+   *
+   * Validation and the reserved-key denylist are repeated here even though the
+   * prompt parser filters candidates first. This is the security boundary: a
+   * direct or future caller must not be able to claim PATH, CODEX_HOME, or any
+   * other Stave/runtime-owned variable.
+   */
+  async resolveEnvForReferences(keys: readonly string[]): Promise<{
+    env: Record<string, string>;
+    skipped: Array<{ key: string; reason: string }>;
+  }> {
+    const env: Record<string, string> = {};
+    const skipped: Array<{ key: string; reason: string }> = [];
+    const uniqueKeys = [
+      ...new Set(
+        keys
+          .filter((key): key is string => typeof key === "string")
+          .map((key) => key.trim()),
+      ),
+    ];
+    if (uniqueKeys.length === 0) {
+      return { env, skipped };
+    }
+
+    this.assertSecureEncryption();
+    const document = await this.readDocument();
+    for (const [index, key] of uniqueKeys.entries()) {
+      if (index >= MAX_BOUND_SECRETS) {
+        skipped.push({ key, reason: "limit-exceeded" });
+        continue;
+      }
+      if (
+        key.length === 0 ||
+        key.length > ENV_VAR_NAME_MAX_LENGTH ||
+        !ENV_VAR_NAME_PATTERN.test(key)
+      ) {
+        skipped.push({ key: "", reason: "invalid-name" });
+        continue;
+      }
+      if (isReservedEnvVarName(key)) {
+        skipped.push({ key, reason: "reserved-name" });
+        continue;
+      }
+
+      const matches = document.secrets.filter(
+        (entry) => entry.envVarName === key,
+      );
+      if (matches.length === 0) {
+        skipped.push({ key, reason: "not-found" });
+        continue;
+      }
+      if (matches.length > 1) {
+        skipped.push({ key, reason: "duplicate-name" });
+        continue;
+      }
+      env[key] = this.decryptValue(matches[0]!);
     }
     return { env, skipped };
   }
