@@ -64,7 +64,7 @@ describe("buildCodexMcpDisableConfigOverrides", () => {
 });
 
 describe("resolveCodexIsolationConfigOverrides", () => {
-  test("disables every reachable server that the config actually defines", async () => {
+  test("disables every server the effective config declares", async () => {
     const overrides = await resolveCodexIsolationConfigOverrides({
       request: createRequest({
         servers: [{ name: "slack" }, { name: "linear" }],
@@ -78,6 +78,27 @@ describe("resolveCodexIsolationConfigOverrides", () => {
         slack: { enabled: false },
         linear: { enabled: false },
       },
+    });
+  });
+
+  test("disables a server that only a project config layer declares", async () => {
+    // `mcpServerStatus/list` answers for the App Server's own working
+    // directory and takes no cwd, so a server declared in the repo's
+    // `.codex/config.toml` is absent from it while `config/read {cwd}` — which
+    // merges the project layers between `cwd` and the repo root — has it.
+    // Intersecting the two dropped exactly those servers, leaving them live in
+    // a thread that advertises isolation.
+    const overrides = await resolveCodexIsolationConfigOverrides({
+      request: createRequest({
+        servers: [{ name: "globalsrv" }],
+        config: { mcp_servers: { globalsrv: {}, projsrv: {} } },
+      }),
+      cwd: "/workspace/stave",
+    });
+
+    expect(overrides.mcp_servers).toEqual({
+      globalsrv: { enabled: false },
+      projsrv: { enabled: false },
     });
   });
 
@@ -141,21 +162,28 @@ describe("resolveCodexIsolationConfigOverrides", () => {
     });
   });
 
-  test("fails closed when the MCP catalog is unreadable", async () => {
-    await expect(
-      resolveCodexIsolationConfigOverrides({
-        request: createRequest({ servers: "not-a-list" }),
-        cwd: "/workspace/stave",
+  test("never consults the cwd-blind MCP catalog", async () => {
+    const seen: string[] = [];
+    await resolveCodexIsolationConfigOverrides({
+      request: createRequest({
+        servers: [{ name: "slack" }],
+        config: { mcp_servers: { slack: {} } },
+        onRequest: (method) => seen.push(method),
       }),
-    ).rejects.toThrow();
+      cwd: "/workspace/stave",
+    });
+
+    // It answers for the App Server's own directory, so anything it adds is
+    // either already in the config or unnameable, and anything it removes is a
+    // project-layer server that must still be disabled.
+    expect(seen).not.toContain("mcpServerStatus/list");
   });
 
-  test("fails closed when a catalog entry has no usable name", async () => {
+  test("fails closed when a configured server has no usable name", async () => {
     await expect(
       resolveCodexIsolationConfigOverrides({
         request: createRequest({
-          servers: [{ name: "slack" }, { name: "  " }],
-          config: { mcp_servers: { slack: {} } },
+          config: { mcp_servers: { slack: {}, "  ": {} } },
         }),
         cwd: "/workspace/stave",
       }),

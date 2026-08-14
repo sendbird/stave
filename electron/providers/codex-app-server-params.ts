@@ -355,20 +355,6 @@ export function buildCodexMcpDisableConfigOverrides(
   return Object.keys(servers).length > 0 ? { mcp_servers: servers } : {};
 }
 
-function readCodexCatalogServerNames(response: unknown) {
-  const data = isRecord(response) ? response.data : undefined;
-  if (!Array.isArray(data)) {
-    throw new Error("Codex returned an invalid MCP server catalog.");
-  }
-  return data.map((server) => {
-    const name = isRecord(server) ? server.name : undefined;
-    if (typeof name !== "string" || !name.trim()) {
-      throw new Error("Codex returned an invalid MCP server catalog.");
-    }
-    return name.trim();
-  });
-}
-
 function readCodexConfiguredServerNames(response: unknown) {
   const config = isRecord(response) ? response.config : undefined;
   if (!isRecord(config)) {
@@ -379,7 +365,12 @@ function readCodexConfiguredServerNames(response: unknown) {
     : isRecord(config.mcpServers)
       ? config.mcpServers
       : {};
-  return new Set(Object.keys(servers));
+  return Object.keys(servers).map((name) => {
+    if (!name.trim()) {
+      throw new Error("Codex returned an invalid MCP server configuration.");
+    }
+    return name;
+  });
 }
 
 /**
@@ -392,6 +383,15 @@ function readCodexConfiguredServerNames(response: unknown) {
  * instead, which also takes `read_mcp_resource`, `list_mcp_resources`, and
  * `request_plugin_install` out of the thread's tool set.
  *
+ * The names come from `config/read` alone, never from the `mcpServerStatus/list`
+ * catalog. That catalog belongs to the shared App Server process and takes no
+ * cwd, so it cannot see a server declared in a project layer between the
+ * thread's `cwd` and its repo root; intersecting the two sources silently left
+ * every project-scoped server live inside a thread that advertises isolation.
+ * `config/read {cwd}` resolves those layers, and it is also the exact set of
+ * names that have an `mcp_servers` entry — which is what makes them safe to
+ * name in the first place.
+ *
  * Fails closed. Running with weaker isolation than the caller was promised is
  * worse than not running at all.
  */
@@ -399,9 +399,6 @@ export async function resolveCodexIsolationConfigOverrides(args: {
   request: CodexRequest;
   cwd?: string;
 }): Promise<CodexConfigOverrides> {
-  const reachable = readCodexCatalogServerNames(
-    await args.request("mcpServerStatus/list", {}),
-  );
   const configured = readCodexConfiguredServerNames(
     await args.request("config/read", {
       ...(args.cwd ? { cwd: args.cwd } : {}),
@@ -409,9 +406,7 @@ export async function resolveCodexIsolationConfigOverrides(args: {
   );
   return {
     "features.apps": false,
-    ...buildCodexMcpDisableConfigOverrides(
-      reachable.filter((name) => configured.has(name)),
-    ),
+    ...buildCodexMcpDisableConfigOverrides(configured),
   };
 }
 

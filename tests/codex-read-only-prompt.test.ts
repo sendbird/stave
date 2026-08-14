@@ -139,7 +139,6 @@ describe("runCodexReadOnlyPromptWithClient", () => {
     });
     expect(methods).toEqual([
       "account/read",
-      "mcpServerStatus/list",
       "config/read",
       "thread/start",
       "turn/start",
@@ -187,14 +186,15 @@ describe("runCodexReadOnlyPromptWithClient", () => {
     expect(methods).not.toContain("thread/start");
   });
 
-  test("refuses an isolated call when the MCP catalog cannot be read", async () => {
+  test("disables a project-scoped server the shared MCP catalog cannot see", async () => {
     const methods: string[] = [];
+    let threadStartArgs: unknown;
 
-    const result = await runCodexReadOnlyPromptWithClient({
+    await runCodexReadOnlyPromptWithClient({
       runtimeCwd: "/workspace/stave",
       prompt: "Review this request.",
       isolated: true,
-      request: async <T>(method: string) => {
+      request: async <T>(method: string, params: unknown) => {
         methods.push(method);
         if (method === "account/read") {
           return {
@@ -202,8 +202,24 @@ describe("runCodexReadOnlyPromptWithClient", () => {
             requiresOpenaiAuth: true,
           } as T;
         }
-        if (method === "mcpServerStatus/list") {
-          return { data: "not-a-list" } as T;
+        if (method === "config/read") {
+          // Resolved from `cwd`, so it includes the repo's own config layer.
+          return {
+            config: { mcp_servers: { globalsrv: {}, projsrv: {} } },
+          } as T;
+        }
+        if (method === "thread/start") {
+          threadStartArgs = params;
+          return { thread: { id: "advisor-thread" } } as T;
+        }
+        if (method === "turn/start") {
+          return {
+            turn: {
+              id: "advisor-turn",
+              status: "completed",
+              items: [{ type: "agentMessage", text: "Fine." }],
+            },
+          } as T;
         }
         return {} as T;
       },
@@ -212,10 +228,19 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       buildTurnStartParams: (args) => args,
     });
 
-    // Failing closed matters: running anyway would give the caller weaker
-    // isolation than the `isolated` flag advertises.
-    expect(result).toMatchObject({ ok: false });
-    expect(methods).not.toContain("thread/start");
+    // The catalog runs in the App Server's own directory and takes no cwd, so
+    // `projsrv` never appears in it. Gating on it left the server live in a
+    // thread whose whole purpose is that nothing MCP is reachable.
+    expect(threadStartArgs).toMatchObject({
+      configOverrides: {
+        mcp_servers: {
+          globalsrv: { enabled: false },
+          projsrv: { enabled: false },
+        },
+        "features.apps": false,
+      },
+    });
+    expect(methods).not.toContain("mcpServerStatus/list");
   });
 
   test("does not resolve the MCP catalog for non-isolated calls", async () => {

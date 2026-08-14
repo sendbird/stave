@@ -511,11 +511,14 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       (message) => message.method === "turn/start",
     );
 
+    // The names come from `config/read {cwd}` alone. The catalog answers for
+    // the App Server's own directory and takes no cwd, so gating on it dropped
+    // every project-scoped server from the disable set.
     expect(
       child.receivedMessages.some(
         (message) => message.method === "mcpServerStatus/list",
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       child.receivedMessages.some(
         (message) => message.method === "thread/resume",
