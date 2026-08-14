@@ -3431,11 +3431,22 @@ function LensSessionSurface(args: {
           </div>
         </div>
 
-        <div className="relative min-h-0 flex-1 overflow-hidden">
+        {/*
+          Carries the page background so the split gutters reserved around the
+          native view read as part of the page rather than as a seam.
+        */}
+        <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
           {lensPanelTab === "preview" ? (
             <>
+              {/*
+                Measured rectangle for the native browser view. Its inset is
+                shrunk by `data-lens-split-gutters` (see `src/globals.css`) so
+                the native surface never covers Dockview's split separator or
+                resize sash.
+              */}
               <div
                 ref={placeholderRef}
+                data-lens-native-view-placeholder=""
                 className="absolute inset-0 min-h-0 overflow-hidden bg-background"
               />
               {hasLensApi && isLoading ? (
