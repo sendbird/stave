@@ -479,7 +479,7 @@ function openMessageAfterPlan(args: {
   return {
     messages: [
       ...args.messages.slice(0, -1),
-      finalizeAssistantMessage({ message: args.plan }),
+      releaseTurnUsage(finalizeAssistantMessage({ message: args.plan })),
       target,
     ],
     target,
@@ -607,6 +607,26 @@ function createPlanAssistantMessage(args: {
     planText: normalizedPlanText,
     parts: [],
   };
+}
+
+/**
+ * Hand a turn's usage on when the turn outlives the message carrying it.
+ *
+ * Usage is a fact about the *turn*, but it rides whichever assistant message
+ * was open when a `usage` event landed, and consumers sum it across messages
+ * (`buildUsageMetric` in src/lib/fleet/task-execution-summary.ts). One turn may
+ * open several messages — a plan seals the message before it and opens one
+ * after — so a running total dropped mid-turn would sit on a sealed message and
+ * be counted a second time when `turn/completed` reports the authoritative
+ * figure on the message that is still open. Dropping it here keeps exactly one
+ * carrier per turn, which is the invariant the sum relies on.
+ */
+function releaseTurnUsage(message: ChatMessage): ChatMessage {
+  if (!message.usage) {
+    return message;
+  }
+  const { usage: _usage, ...rest } = message;
+  return rest;
 }
 
 function finalizeAssistantMessage(args: {
@@ -1147,9 +1167,9 @@ export function replayProviderEventsToTaskState(args: {
         hasRenderableAssistantContent({ message: cleanedTarget });
 
       if (shouldAppendSeparatePlanMessage) {
-        const finalizedTarget = finalizeAssistantMessage({
-          message: cleanedTarget,
-        });
+        const finalizedTarget = releaseTurnUsage(
+          finalizeAssistantMessage({ message: cleanedTarget }),
+        );
         const planMessage = inheritNativeTurnIdentity({
           message: createPlanAssistantMessage({
             taskId: args.taskId,

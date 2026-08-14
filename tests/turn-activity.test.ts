@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildTurnActivityItems,
   countTurnActivityItems,
+  describeRetainedTurnHeadline,
   formatTurnActivityCountsLabel,
   hasOutstandingTurnActivity,
   promoteFirstPendingTodoForActiveTurn,
@@ -9,6 +10,7 @@ import {
   resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
   resolveTurnActivityOrbState,
+  resolveTurnActivityReplay,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
   type TurnActivityRowStatus,
@@ -124,6 +126,64 @@ describe("turn activity presentation", () => {
         hasRetainedFailure: true,
       }),
     ).toBe(true);
+    expect(
+      resolveTurnActivityVisibility({
+        isTurnActive: false,
+        isPlanPending: false,
+        hasReplay: true,
+      }),
+    ).toBe(true);
+  });
+
+  describe("replaying the last finished turn", () => {
+    const retained = { turnId: "turn-1" };
+
+    test("only the panel keeps a finished turn on screen", () => {
+      expect(
+        resolveTurnActivityReplay({
+          placement: "panel",
+          isTurnActive: false,
+          retained,
+        }),
+      ).toBe(retained);
+      // The docked shelf has to give the composer its space back, and a
+      // floating card would hang a dead turn over the chat forever.
+      for (const placement of ["docked", "floating"] as const) {
+        expect(
+          resolveTurnActivityReplay({
+            placement,
+            isTurnActive: false,
+            retained,
+          }),
+        ).toBeNull();
+      }
+    });
+
+    test("a live turn is never replaced by the replay", () => {
+      expect(
+        resolveTurnActivityReplay({
+          placement: "panel",
+          isTurnActive: true,
+          retained,
+        }),
+      ).toBeNull();
+    });
+
+    test("nothing retained leaves the panel on its idle placeholder", () => {
+      expect(
+        resolveTurnActivityReplay({
+          placement: "panel",
+          isTurnActive: false,
+          retained: null,
+        }),
+      ).toBeNull();
+    });
+
+    test("the headline says the turn is over instead of guessing at live work", () => {
+      expect(describeRetainedTurnHeadline("completed")).toBe("Turn finished");
+      expect(describeRetainedTurnHeadline("stopped")).toBe("Turn stopped");
+      expect(describeRetainedTurnHeadline("failed")).toBe("Turn failed");
+    });
   });
 
   test("keeps the shelf mounted behind pending approval and user-input cards", () => {
@@ -331,6 +391,95 @@ describe("turn activity presentation", () => {
       status: "running",
       badge: "Next",
     });
+  });
+
+  test("carries the tool call id so a row can reveal itself in the transcript", () => {
+    const [withTool, withoutTool] = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [
+        buildWorkItem({ id: "a", kind: "tool", toolUseId: "toolu_1" }),
+        buildWorkItem({ id: "b", kind: "tool" }),
+      ],
+    });
+
+    expect(withTool?.toolUseId).toBe("toolu_1");
+    // A work item the provider never gave a tool id must stay inert rather
+    // than render a button that cannot navigate anywhere.
+    expect(withoutTool?.toolUseId).toBeUndefined();
+  });
+
+  test("derives a finished row's duration when the provider reports none", () => {
+    const [claudeRow, codexDone, codexRunning] = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [
+        // Claude reports elapsed through `tool_progress`; keep its number.
+        buildWorkItem({
+          id: "a",
+          status: "completed",
+          elapsedSeconds: 12,
+          startedAt: 1_000,
+          updatedAt: 9_000,
+        }),
+        // Codex reports none, so a settled row derives from its timestamps.
+        buildWorkItem({
+          id: "b",
+          status: "completed",
+          startedAt: 1_000,
+          updatedAt: 4_500,
+        }),
+        // A live row must not derive: that would need a per-second clock in
+        // the memoized row list.
+        buildWorkItem({
+          id: "c",
+          status: "running",
+          startedAt: 1_000,
+          updatedAt: 4_500,
+        }),
+      ],
+    });
+
+    expect(claudeRow?.elapsedSeconds).toBe(12);
+    expect(codexDone?.elapsedSeconds).toBe(3.5);
+    expect(codexRunning?.elapsedSeconds).toBeUndefined();
+  });
+
+  test("places each work row on the turn's own timeline", () => {
+    const [first, second] = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      turnStartedAt: 1_000,
+      workItems: [
+        buildWorkItem({ id: "a", startedAt: 1_000 }),
+        buildWorkItem({ id: "b", startedAt: 65_000 }),
+      ],
+    });
+
+    expect(first?.startOffsetSeconds).toBe(0);
+    expect(second?.startOffsetSeconds).toBe(64);
+  });
+
+  test("omits the timeline offset when the turn start is unknown", () => {
+    const [row] = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [buildWorkItem({ id: "a" })],
+    });
+
+    expect(row?.startOffsetSeconds).toBeUndefined();
   });
 
   test("counts rows and summarizes them for the expanded header", () => {

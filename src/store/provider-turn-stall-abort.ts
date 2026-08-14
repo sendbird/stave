@@ -3,7 +3,9 @@ import {
   markProviderTurnStalled,
   PROVIDER_TURN_AUTO_ABORT_GRACE_MS,
   resolveProviderTurnStallThresholdMs,
+  retainRetiredTurnActivity,
   type ProviderTurnActivitySnapshot,
+  type RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
 import {
@@ -134,6 +136,7 @@ export interface StalledTurnAbortState {
   activeWorkspaceId: string;
   taskWorkspaceIdById: Record<string, string>;
   providerTurnActivityByTask: ProviderTurnActivityByTask;
+  retainedTurnActivityByTask: RetainedTurnActivityByTask;
   workspaceRuntimeCacheById: Record<string, WorkspaceSessionState>;
   workspaceSnapshotVersion: number;
 }
@@ -141,6 +144,7 @@ export interface StalledTurnAbortState {
 /** The slice of the app store this module writes. */
 export interface StalledTurnAbortPatch {
   providerTurnActivityByTask: ProviderTurnActivityByTask;
+  retainedTurnActivityByTask?: RetainedTurnActivityByTask;
   messagesByTask?: Record<string, ChatMessage[]>;
   activeTurnIdsByTask?: Record<string, string | undefined>;
   workspaceRuntimeCacheById?: Record<string, WorkspaceSessionState>;
@@ -237,9 +241,19 @@ export function createStalledProviderTurnAborter<
         activityByTask: nextState.providerTurnActivityByTask,
         taskId: args.taskId,
       });
+      // A turn killed for going silent is exactly the one worth reading back:
+      // the retained rows name the step it never returned from.
+      const retainedTurnActivityByTask = retainRetiredTurnActivity({
+        retainedByTask: nextState.retainedTurnActivityByTask,
+        previous: nextState.providerTurnActivityByTask,
+        next: providerTurnActivityByTask,
+        taskId: args.taskId,
+        outcome: "stopped",
+      });
       if (isActiveWorkspace) {
         return {
           providerTurnActivityByTask,
+          retainedTurnActivityByTask,
           messagesByTask: interrupted.messagesByTask,
           activeTurnIdsByTask: interrupted.activeTurnIdsByTask,
           workspaceSnapshotVersion: nextState.workspaceSnapshotVersion + 1,
@@ -248,10 +262,11 @@ export function createStalledProviderTurnAborter<
       const cachedSession =
         nextState.workspaceRuntimeCacheById[owningWorkspaceId];
       if (!cachedSession) {
-        return { providerTurnActivityByTask };
+        return { providerTurnActivityByTask, retainedTurnActivityByTask };
       }
       return {
         providerTurnActivityByTask,
+        retainedTurnActivityByTask,
         workspaceRuntimeCacheById: {
           ...nextState.workspaceRuntimeCacheById,
           [owningWorkspaceId]: {

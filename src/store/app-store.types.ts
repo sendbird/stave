@@ -14,7 +14,10 @@ import type {
 } from "@/lib/providers/provider.types";
 import type { UpdateModelRuntimePreferenceArgs } from "@/lib/providers/model-runtime-preferences";
 import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
-import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
+import type {
+  ProviderTurnActivitySnapshot,
+  RetainedTurnActivityByTask,
+} from "@/lib/providers/turn-status";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import type { ChildTaskSummary } from "@/lib/runs/child-task";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
@@ -154,6 +157,15 @@ export interface AppState
     taskId: string;
     nonce: number;
   } | null;
+  /**
+   * A Turn Activity row asked the transcript to reveal the tool call behind it.
+   * The nonce lets the same row be clicked twice in a row and still scroll.
+   */
+  focusTranscriptToolRequest: {
+    taskId: string;
+    toolUseId: string;
+    nonce: number;
+  } | null;
   scrollToLatestMessageRequest: TaskScrollToLatestRequest | null;
   pendingCloseEditorTabId: string | null;
   pendingEditorSelection: {
@@ -178,6 +190,12 @@ export interface AppState
     string,
     ProviderTurnActivitySnapshot | undefined
   >;
+  /**
+   * The last finished turn per task, so the Activity panel can still be read
+   * once the live snapshot above is gone. In memory only and bounded to
+   * `RETAINED_TURN_ACTIVITY_LIMIT` tasks.
+   */
+  retainedTurnActivityByTask: RetainedTurnActivityByTask;
   /**
    * Latest primary <-> Advisor exchange per task, in memory only.
    *
@@ -332,6 +350,7 @@ export interface AppState
     refreshFromPersistence?: boolean;
   }) => Promise<void>;
   requestTaskScrollToLatest: (args: { taskId: string }) => void;
+  focusTranscriptTool: (args: { taskId: string; toolUseId: string }) => void;
   selectTask: (args: { taskId: string }) => void;
   loadTaskMessages: (args: {
     taskId: string;

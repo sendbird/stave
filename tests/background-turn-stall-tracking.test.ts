@@ -414,4 +414,72 @@ describe("background workspace turn activity tracking", () => {
     expect(cached?.promptDraftByTask["task-a"]?.queuedTurns).toBeUndefined();
     expect(cached?.activeTurnIdsByTask["task-a"]).toBeString();
   });
+
+  test("retains the finished turn's work so the activity panel can replay it", async () => {
+    const { useAppStore, emit } = await setupBackgroundTurn();
+
+    emit(
+      {
+        type: "tool",
+        toolUseId: "tool-1",
+        toolName: "Bash",
+        input: JSON.stringify({ command: "bun test" }),
+        state: "input-available",
+      },
+      { sequence: 1, done: false },
+    );
+    emit(
+      {
+        type: "tool_result",
+        tool_use_id: "tool-1",
+        output: "ok",
+      },
+      { sequence: 2, done: false },
+    );
+    await Bun.sleep(50);
+    expect(
+      useAppStore.getState().providerTurnActivityByTask["task-a"]
+        ?.orderedWorkItemIds,
+    ).toEqual(["tool-1"]);
+
+    // `done` is emitted without letting the frame flush first, so it batches
+    // with the tool events behind it — the shape a hidden window produces, and
+    // the one where reading the finished turn back off the store would find it
+    // already gone.
+    emit(
+      {
+        type: "tool",
+        toolUseId: "tool-2",
+        toolName: "Read",
+        input: JSON.stringify({ file_path: "README.md" }),
+        state: "input-available",
+      },
+      { sequence: 3, done: false },
+    );
+    emit(
+      { type: "tool_result", tool_use_id: "tool-2", output: "read" },
+      { sequence: 4, done: false },
+    );
+    emit({ type: "done" }, { sequence: 5, done: true });
+    await Bun.sleep(50);
+
+    // The live entry still has to go: its presence is what Fleet, the tab
+    // chips, and the attention projection read as "this task is working".
+    expect(
+      useAppStore.getState().providerTurnActivityByTask["task-a"],
+    ).toBeUndefined();
+    // The replay copy is taken from the turn's last frame, which is the only
+    // one that still holds the work items.
+    const retained =
+      useAppStore.getState().retainedTurnActivityByTask["task-a"];
+    expect(retained?.outcome).toBe("completed");
+    expect(retained?.snapshot.orderedWorkItemIds).toEqual(["tool-1", "tool-2"]);
+    expect(retained?.snapshot.completedAt).toBeNumber();
+    expect(retained?.snapshot.workItemsById["tool-1"]?.status).toBe(
+      "completed",
+    );
+    expect(retained?.snapshot.workItemsById["tool-2"]?.status).toBe(
+      "completed",
+    );
+  });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  findMessageIndexByToolUseId,
   formatInlineSystemEventContent,
   getLatestRenderableAssistantMessage,
   getReasoningTraceExpansionMode,
@@ -503,5 +504,39 @@ describe("resolvePlanMessagePresentation", () => {
       showPlanCard: false,
       showAssistantBody: true,
     });
+  });
+});
+
+describe("findMessageIndexByToolUseId", () => {
+  const messages = [
+    {
+      parts: [
+        { type: "tool_use" as const, toolUseId: "toolu_a", toolName: "Read", input: "", state: "output-available" as const },
+      ],
+    },
+    { parts: [{ type: "text" as const, text: "thinking out loud" }] },
+    {
+      parts: [
+        { type: "tool_use" as const, toolUseId: "toolu_b", toolName: "Bash", input: "", state: "output-available" as const },
+      ],
+    },
+  ];
+
+  test("locates the message rendering a given tool call", () => {
+    expect(findMessageIndexByToolUseId({ messages, toolUseId: "toolu_a" })).toBe(0);
+    expect(findMessageIndexByToolUseId({ messages, toolUseId: "toolu_b" })).toBe(2);
+  });
+
+  test("reports a miss instead of guessing a nearby message", () => {
+    // A row can outlive its transcript entry once older messages are trimmed;
+    // the caller must be able to tell "not loaded" from "index 0".
+    expect(findMessageIndexByToolUseId({ messages, toolUseId: "toolu_missing" })).toBe(-1);
+    expect(findMessageIndexByToolUseId({ messages, toolUseId: "" })).toBe(-1);
+    expect(findMessageIndexByToolUseId({ messages: [], toolUseId: "toolu_a" })).toBe(-1);
+  });
+
+  test("prefers the most recent match when a tool id repeats", () => {
+    const replayed = [...messages, messages[0]!];
+    expect(findMessageIndexByToolUseId({ messages: replayed, toolUseId: "toolu_a" })).toBe(3);
   });
 });

@@ -1,5 +1,8 @@
 import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
-import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
+import type {
+  ProviderTurnActivitySnapshot,
+  RetainedTurnActivityByTask,
+} from "@/lib/providers/turn-status";
 
 /**
  * Per-task turn runtime maps that must be shed when a task leaves the app
@@ -15,6 +18,12 @@ export interface TaskTurnRuntimeEntries {
     string,
     ProviderTurnActivitySnapshot | undefined
   >;
+  /**
+   * The replayable copy of the last finished turn. It is bounded on its own,
+   * but a task that has left the app has nothing left to replay, so it is shed
+   * here too rather than occupying one of the few retained slots.
+   */
+  retainedTurnActivityByTask: RetainedTurnActivityByTask;
   advisorExchangeByTask: AdvisorExchangeByTask;
   hostOwnedTurnIdsByTask: Record<string, string | undefined>;
 }
@@ -56,6 +65,13 @@ export function removeTaskTurnRuntimeEntries(args: {
   );
   if (providerTurnActivityByTask) {
     patch.providerTurnActivityByTask = providerTurnActivityByTask;
+  }
+  const retainedTurnActivityByTask = removeRecordEntries(
+    args.state.retainedTurnActivityByTask,
+    args.taskIds,
+  );
+  if (retainedTurnActivityByTask) {
+    patch.retainedTurnActivityByTask = retainedTurnActivityByTask;
   }
   const advisorExchangeByTask = removeRecordEntries(
     args.state.advisorExchangeByTask,

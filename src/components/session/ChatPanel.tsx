@@ -50,6 +50,7 @@ import {
   ModelIcon,
 } from "@/components/ai-elements";
 import {
+  findMessageIndexByToolUseId,
   getReasoningTraceExpansionMode,
   getMessageScrollFingerprint,
   resolvePlanMessagePresentation,
@@ -644,6 +645,9 @@ function ChatPanelMessageList(props: {
   const scrollToLatestMessageRequest = useAppStore(
     (state) => state.scrollToLatestMessageRequest,
   );
+  const focusTranscriptToolRequest = useAppStore(
+    (state) => state.focusTranscriptToolRequest,
+  );
   const taskMessagesLoading = useAppStore(
     (state) => state.taskMessagesLoadingByTask[taskId] === true,
   );
@@ -810,6 +814,62 @@ function ChatPanelMessageList(props: {
     pendingInteraction,
     visibleMessages,
   ]);
+
+  // A Turn Activity row asked to be shown in the conversation. Same two-step as
+  // the pending-interaction focus above: the virtualized list has to mount the
+  // message before its tool step exists in the DOM to scroll to.
+  //
+  // The request is a standing store value with no natural end — unlike the
+  // pending-interaction one above, which stops when the prompt is answered — so
+  // the nonce it carries is what marks it spent. Without that, `visibleMessages`
+  // hands this effect a fresh array on every provider flush and a single row
+  // click would keep yanking the transcript back to that step, and focus away
+  // from the composer, for the rest of the session.
+  const handledFocusTranscriptNonceRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      !focusTranscriptToolRequest ||
+      focusTranscriptToolRequest.taskId !== taskId ||
+      handledFocusTranscriptNonceRef.current === focusTranscriptToolRequest.nonce
+    ) {
+      return;
+    }
+    const { toolUseId } = focusTranscriptToolRequest;
+    const messageIndex = findMessageIndexByToolUseId({
+      messages: visibleMessages,
+      toolUseId,
+    });
+    // Not marked spent: the message may still be paging in, and the next
+    // `visibleMessages` change is this request's second chance.
+    if (messageIndex < 0) {
+      return;
+    }
+    handledFocusTranscriptNonceRef.current = focusTranscriptToolRequest.nonce;
+
+    virtuosoRef.current?.scrollToIndex({
+      index: messageIndex,
+      align: "center",
+      behavior: "smooth",
+    });
+
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const node = document.querySelector<HTMLElement>(
+          `[data-tool-use-id="${escapeAttributeSelectorValue(toolUseId)}"]`,
+        );
+        node?.scrollIntoView({ block: "center", behavior: "smooth" });
+        node?.focus({ preventScroll: true });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) {
+        window.cancelAnimationFrame(secondFrame);
+      }
+    };
+  }, [focusTranscriptToolRequest, taskId, visibleMessages]);
 
   return (
     <>

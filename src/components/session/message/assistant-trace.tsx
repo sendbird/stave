@@ -637,6 +637,9 @@ function AssistantTraceEntryView(args: {
           openWhen={entry.part.state === "input-streaming"}
           /* Errors stay expanded — auto-collapse only hides a clean result. */
           collapseWhen={entry.part.state === "output-available"}
+          /* Anchor for Turn Activity's "show in conversation" jump. */
+          data-tool-use-id={entry.part.toolUseId}
+          tabIndex={entry.part.toolUseId ? -1 : undefined}
         >
           <ToolStepDetail
             input={entry.part.input}
@@ -681,6 +684,9 @@ function AssistantTraceEntryView(args: {
           defaultOpen={entry.part.state === "input-streaming"}
           openWhen={entry.part.state === "input-streaming"}
           collapseWhen={entry.part.state === "output-available"}
+          /* Anchor for Turn Activity's "show in conversation" jump. */
+          data-tool-use-id={entry.part.toolUseId}
+          tabIndex={entry.part.toolUseId ? -1 : undefined}
         >
           <SubagentStepDetail
             input={entry.part.input}

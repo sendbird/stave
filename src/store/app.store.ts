@@ -77,10 +77,10 @@ import {
   clearAdvisorExchange,
 } from "@/lib/providers/advisor-activity";
 import {
-  applyProviderTurnActivityEvents,
   resolveProviderTurnDisplayState,
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
+import { buildTurnActivityFlushPatch } from "@/store/turn-activity-retention";
 import {
   applyDetectedWorkspaceResources,
   buildIntentGuardContextInput,
@@ -1578,6 +1578,7 @@ export const useAppStore = create<AppState>()(
       paneTabMeta: {},
       dockLayout: null,
       focusPendingInteractionRequest: null,
+      focusTranscriptToolRequest: null,
       scrollToLatestMessageRequest: null,
       pendingCloseEditorTabId: null,
       pendingEditorSelection: null,
@@ -1603,6 +1604,7 @@ export const useAppStore = create<AppState>()(
       activeTurnIdsByTask: {},
       hostOwnedTurnIdsByTask: {},
       providerTurnActivityByTask: {},
+      retainedTurnActivityByTask: {},
       advisorExchangeByTask: {},
       nativeSessionReadyByTask: {},
       providerSessionByTask: {},
@@ -2818,15 +2820,19 @@ export const useAppStore = create<AppState>()(
                 const turnStillActive =
                   owningTurnSession?.activeTurnIdsByTask[resolvedTaskId] ===
                   turnId;
-                const nextTurnActivityByTask = turnStillActive
-                  ? applyProviderTurnActivityEvents({
+                const turnActivityPatch = turnStillActive
+                  ? buildTurnActivityFlushPatch({
                       activityByTask: currentState.providerTurnActivityByTask,
+                      retainedByTask: currentState.retainedTurnActivityByTask,
                       taskId: resolvedTaskId,
                       turnId,
                       providerId: provider,
                       events: pendingEvents,
                     })
-                  : currentState.providerTurnActivityByTask;
+                  : null;
+                const nextTurnActivityByTask =
+                  turnActivityPatch?.providerTurnActivityByTask ??
+                  currentState.providerTurnActivityByTask;
                 // Advisor phases are folded even for a turn that is no longer
                 // the active one: the terminal phase is what explains why the
                 // turn ended, and dropping it would hide advisor aborts.
@@ -2839,17 +2845,10 @@ export const useAppStore = create<AppState>()(
                 persistInactiveWorkspaceSession =
                   applied.persistInactiveWorkspaceSession;
                 updatedSession = applied.updatedSession;
-                const activityChanged =
-                  nextTurnActivityByTask !==
-                  currentState.providerTurnActivityByTask;
-                if (applied.stateChanged || activityChanged || advisorPatch) {
+                if (applied.stateChanged || turnActivityPatch || advisorPatch) {
                   set({
                     ...applied.statePatch,
-                    ...(activityChanged
-                      ? {
-                          providerTurnActivityByTask: nextTurnActivityByTask,
-                        }
-                      : {}),
+                    ...turnActivityPatch,
                     ...advisorPatch,
                   });
                 }

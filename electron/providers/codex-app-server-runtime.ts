@@ -238,6 +238,8 @@ const CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES = 256 * 1024;
 const CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES = 64 * 1024;
 const CODEX_APP_SERVER_PARTIAL_PLAN_EMIT_THROTTLE_MS = 80;
 const CODEX_APP_SERVER_PARTIAL_TOOL_EMIT_THROTTLE_MS = 200;
+/** Throttle live usage updates; completion still emits the authoritative total. */
+const CODEX_APP_SERVER_USAGE_EMIT_THROTTLE_MS = 1_000;
 const CODEX_APP_SERVER_OVERFLOW_TAIL_EVENTS: BridgeEvent[] = [
   {
     type: "error",
@@ -2576,6 +2578,12 @@ export async function streamCodexWithAppServer(
     const planBuffers = new Map<string, string>();
     const planLastEmitAt = new Map<string, number>();
     const startedMcpToolCallIds = new Set<string>();
+    // A command's `tool` event is announced at `item/started` so its streamed
+    // `outputDelta` chunks have a work item to attach to. Without that opener
+    // the turn-status reducer drops every partial result (it has no item to
+    // update) and a long-running command stays invisible until it finishes —
+    // exactly the window where "what is it doing" matters most.
+    const startedCommandExecutionIds = new Set<string>();
     const workerActivity = createCodexWorkerActivityMapper({
       workerExecution,
       inputMaxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
@@ -2588,6 +2596,7 @@ export async function streamCodexWithAppServer(
       outputTokens: number;
       cacheReadTokens?: number;
     } | null = null;
+    let lastUsageEmitAt = 0;
     let appServerTurnId = "";
     let abortRequested = false;
     let completed = false;
@@ -3245,6 +3254,28 @@ export async function streamCodexWithAppServer(
             emitBridgeEvents(workerMapping.events);
             return;
           }
+          const startedItem = params.item as
+            | { type?: string; id?: string; command?: string }
+            | undefined;
+          const startedItemId =
+            typeof startedItem?.id === "string" ? startedItem.id : "";
+          if (startedItem?.type === "commandExecution") {
+            if (!startedItemId || startedCommandExecutionIds.has(startedItemId)) {
+              return;
+            }
+            startedCommandExecutionIds.add(startedItemId);
+            emitBridgeEvent({
+              type: "tool",
+              toolUseId: startedItemId,
+              toolName: "bash",
+              input:
+                typeof startedItem.command === "string"
+                  ? startedItem.command
+                  : "",
+              state: "input-available",
+            });
+            return;
+          }
           const item = params.item as CodexMcpToolCallItem | undefined;
           if (item?.type !== "mcpToolCall") {
             return;
@@ -3416,6 +3447,21 @@ export async function streamCodexWithAppServer(
               ? { cacheReadTokens: tokenUsage.last.cachedInputTokens }
               : {}),
           };
+          // Replay overwrites the assistant message's usage fields rather than
+          // accumulating them, so emitting the running total repeatedly is
+          // safe and keeps the Usage metric live instead of blank until the
+          // turn ends. Waiting for the first output token keeps a usage ping
+          // from opening an assistant message before the model has said
+          // anything; `turn/completed` still emits the authoritative total.
+          const usageNow = Date.now();
+          if (
+            latestUsage.outputTokens > 0 &&
+            usageNow - lastUsageEmitAt >=
+              CODEX_APP_SERVER_USAGE_EMIT_THROTTLE_MS
+          ) {
+            lastUsageEmitAt = usageNow;
+            emitBridgeEvent({ type: "usage", ...latestUsage });
+          }
           return;
         }
         case "error": {
@@ -3547,17 +3593,27 @@ export async function streamCodexWithAppServer(
               if (itemId) {
                 toolOutputBuffers.delete(itemId);
               }
+              // `item/started` already opened this command (and its streamed
+              // output has been landing against it), so only re-announce the
+              // tool when the opener never arrived.
+              const alreadyStarted = Boolean(
+                itemId && startedCommandExecutionIds.delete(itemId),
+              );
               emitBridgeEvents([
-                {
-                  type: "tool",
-                  ...(itemId ? { toolUseId: itemId } : {}),
-                  toolName: "bash",
-                  input:
-                    typeof commandItem.command === "string"
-                      ? commandItem.command
-                      : "",
-                  state: "input-available",
-                },
+                ...(alreadyStarted
+                  ? []
+                  : [
+                      {
+                        type: "tool" as const,
+                        ...(itemId ? { toolUseId: itemId } : {}),
+                        toolName: "bash",
+                        input:
+                          typeof commandItem.command === "string"
+                            ? commandItem.command
+                            : "",
+                        state: "input-available" as const,
+                      },
+                    ]),
                 {
                   type: "tool_result",
                   tool_use_id: itemId,

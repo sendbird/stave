@@ -34,6 +34,7 @@ import type { PromptDraft, Task } from "@/types/chat";
 type TaskCoreActionKey =
   | "focusTaskAttention"
   | "requestTaskScrollToLatest"
+  | "focusTranscriptTool"
   | "selectTask"
   | "loadTaskMessages"
   | "clearTaskSelection"
@@ -187,6 +188,18 @@ export function createTaskCoreActions(args: {
     },
     requestTaskScrollToLatest: ({ taskId }) =>
       set((state) => reduceTaskScrollToLatestRequest({ state, taskId })),
+    focusTranscriptTool: ({ taskId, toolUseId }) => {
+      if (!taskId || !toolUseId) {
+        return;
+      }
+      set((state) => ({
+        focusTranscriptToolRequest: {
+          taskId,
+          toolUseId,
+          nonce: (state.focusTranscriptToolRequest?.nonce ?? 0) + 1,
+        },
+      }));
+    },
     selectTask: ({ taskId }) => {
       const stateBefore = get();
       const targetTask =

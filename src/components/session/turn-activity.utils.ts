@@ -10,6 +10,7 @@ import {
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
+  RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
 import type { OrbState } from "thinking-orbs";
 
@@ -47,6 +48,17 @@ export interface TurnActivityItem {
   detail?: string;
   badge?: string;
   elapsedSeconds?: number;
+  /**
+   * Seconds between the turn starting and this row's work starting. Lets the
+   * roomier placements show *where* in the turn a step happened, which a bare
+   * duration cannot answer.
+   */
+  startOffsetSeconds?: number;
+  /**
+   * The provider tool call this row stands for. Present only for rows the
+   * transcript can actually reveal, so it doubles as "this row is clickable".
+   */
+  toolUseId?: string;
   iconKey: TurnActivityIconKey;
 }
 
@@ -86,10 +98,58 @@ export function resolveTurnActivityVisibility(args: {
   isTurnActive: boolean;
   isPlanPending: boolean;
   hasRetainedFailure?: boolean;
+  /**
+   * A finished turn is being replayed. Only the panel ever sets this — see
+   * `resolveTurnActivityReplay` for why the other two placements do not.
+   */
+  hasReplay?: boolean;
 }) {
   return Boolean(
-    args.hasRetainedFailure || (args.isTurnActive && !args.isPlanPending),
+    args.hasRetainedFailure ||
+      args.hasReplay ||
+      (args.isTurnActive && !args.isPlanPending),
   );
+}
+
+/**
+ * Whether this surface should replay the task's last finished turn.
+ *
+ * Replay is the panel's alone. The docked shelf sits between the transcript and
+ * the composer and has to collapse when a turn ends, or every finished turn
+ * would permanently steal a band of the prompt area; the floating card would
+ * hang a stale turn over the chat with no reason to ever go away. The panel is
+ * opened deliberately, is full height, and is already the placement people
+ * choose when they want to study a turn rather than glance at it — so it is the
+ * one surface where keeping the finished turn on screen is what was asked for.
+ */
+export function resolveTurnActivityReplay<T>(args: {
+  placement: "docked" | "floating" | "panel";
+  isTurnActive: boolean;
+  retained: T | null;
+}): T | null {
+  if (args.placement !== "panel" || args.isTurnActive) {
+    return null;
+  }
+  return args.retained;
+}
+
+/**
+ * The headline for a replayed turn.
+ *
+ * The live headline names what is happening right now, and every one of its
+ * fallbacks ("Working on your request") reads as a turn still in flight. A
+ * finished turn has to say so in the first two words or the panel is
+ * indistinguishable from a live one that stopped updating.
+ */
+export function describeRetainedTurnHeadline(outcome: RetainedTurnOutcome) {
+  switch (outcome) {
+    case "failed":
+      return "Turn failed";
+    case "stopped":
+      return "Turn stopped";
+    case "completed":
+      return "Turn finished";
+  }
 }
 
 /**
@@ -237,6 +297,37 @@ export function describeAdvisorTurnActivityItem(
   };
 }
 
+/**
+ * How long this row's work took.
+ *
+ * Only Claude reports `elapsedSeconds` (it rides `tool_progress`, which the
+ * Codex app server has no equivalent for), so a finished row derives its own
+ * duration from the timestamps every provider records. Live rows deliberately
+ * do NOT derive: that would need a per-second clock in the row list, and the
+ * list is memoized precisely to avoid re-rendering every row on every tick.
+ */
+function resolveWorkItemElapsedSeconds(item: ProviderTurnWorkItem) {
+  if (item.elapsedSeconds != null) {
+    return item.elapsedSeconds;
+  }
+  if (item.status !== "completed" && item.status !== "failed") {
+    return undefined;
+  }
+  const elapsedMs = item.updatedAt - item.startedAt;
+  return elapsedMs > 0 ? elapsedMs / 1000 : undefined;
+}
+
+function resolveWorkItemStartOffsetSeconds(args: {
+  item: ProviderTurnWorkItem;
+  turnStartedAt: number | null;
+}) {
+  if (args.turnStartedAt == null) {
+    return undefined;
+  }
+  const offsetMs = args.item.startedAt - args.turnStartedAt;
+  return offsetMs > 0 ? offsetMs / 1000 : 0;
+}
+
 function resolveTodoStatus(todo: TurnActivityTodo): TurnActivityRowStatus {
   if (todo.status === "completed") {
     return "completed";
@@ -267,6 +358,8 @@ export function buildTurnActivityItems(args: {
   isStalled: boolean;
   todos: TurnActivityTodo[];
   workItems: ProviderTurnWorkItem[];
+  /** Turn start, used to place each work row on the turn's own timeline. */
+  turnStartedAt?: number | null;
   /**
    * This turn's Advisor grant, if one was minted. Rendered here rather than
    * only in the floating card so subagents, child tasks and consults are all
@@ -330,15 +423,20 @@ export function buildTurnActivityItems(args: {
     items.push(describeAdvisorTurnActivityItem(args.advisor));
   }
   for (const item of args.workItems) {
+    const elapsedSeconds = resolveWorkItemElapsedSeconds(item);
+    const startOffsetSeconds = resolveWorkItemStartOffsetSeconds({
+      item,
+      turnStartedAt: args.turnStartedAt ?? null,
+    });
     items.push({
       id: `work:${item.id}`,
       status: item.status,
       title: item.title,
       detail: item.progressMessages.at(-1) ?? item.detail,
       ...(item.badge ? { badge: item.badge } : {}),
-      ...(item.elapsedSeconds != null
-        ? { elapsedSeconds: item.elapsedSeconds }
-        : {}),
+      ...(elapsedSeconds != null ? { elapsedSeconds } : {}),
+      ...(startOffsetSeconds != null ? { startOffsetSeconds } : {}),
+      ...(item.toolUseId ? { toolUseId: item.toolUseId } : {}),
       iconKey:
         item.kind === "subagent"
           ? "subagent"

@@ -5,7 +5,9 @@ import {
 } from "@/lib/tasks";
 import {
   clearProviderTurnActivity,
+  retainRetiredTurnActivity,
   type ProviderTurnActivitySnapshot,
+  type RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
 import { interruptActiveTaskTurns } from "@/store/workspace-session-state";
 import type { ChatMessage, Task, TaskSourceContext } from "@/types/chat";
@@ -20,6 +22,7 @@ interface ManagedTaskTurnState<TSession, TGoal> {
     string,
     ProviderTurnActivitySnapshot | undefined
   >;
+  retainedTurnActivityByTask: RetainedTurnActivityByTask;
   providerSessionByTask: Record<string, TSession>;
   providerGoalByTask: Record<string, TGoal>;
   nativeSessionReadyByTask: Record<string, boolean>;
@@ -124,6 +127,10 @@ export function buildManagedTaskTurnInterruptionPatch<TSession, TGoal>(
     state.providerSessionByTask;
   const { [taskId]: _providerGoal, ...providerGoalByTask } =
     state.providerGoalByTask;
+  const providerTurnActivityByTask = clearProviderTurnActivity({
+    activityByTask: state.providerTurnActivityByTask,
+    taskId,
+  });
   return {
     messagesByTask: interrupted.messagesByTask,
     activeTurnIdsByTask: interrupted.activeTurnIdsByTask,
@@ -131,9 +138,15 @@ export function buildManagedTaskTurnInterruptionPatch<TSession, TGoal>(
       ...state.hostOwnedTurnIdsByTask,
       [taskId]: undefined,
     },
-    providerTurnActivityByTask: clearProviderTurnActivity({
-      activityByTask: state.providerTurnActivityByTask,
+    providerTurnActivityByTask,
+    // Taking a managed task over interrupts whatever the host was running, so
+    // the replay is what tells the user what they just walked in on.
+    retainedTurnActivityByTask: retainRetiredTurnActivity({
+      retainedByTask: state.retainedTurnActivityByTask,
+      previous: state.providerTurnActivityByTask,
+      next: providerTurnActivityByTask,
       taskId,
+      outcome: "stopped",
     }),
     providerSessionByTask,
     providerGoalByTask,

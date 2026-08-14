@@ -466,6 +466,36 @@ export function shouldRenderInlineSystemEvent(args: { content: string }): boolea
   return !normalized.includes("failed");
 }
 
+/**
+ * Which message renders a given tool call.
+ *
+ * Turn Activity rows carry the provider's `toolUseId`, and the transcript is
+ * virtualized — so revealing a row means first scrolling its *message* into the
+ * viewport, and only then locating the step's DOM node. Searches from the end
+ * because a jump almost always targets the turn in flight.
+ */
+export function findMessageIndexByToolUseId(args: {
+  messages: Pick<ChatMessage, "parts">[];
+  toolUseId: string;
+}): number {
+  if (!args.toolUseId) {
+    return -1;
+  }
+  for (let index = args.messages.length - 1; index >= 0; index -= 1) {
+    const parts = args.messages[index]?.parts;
+    if (!parts) {
+      continue;
+    }
+    const found = parts.some(
+      (part) => part.type === "tool_use" && part.toolUseId === args.toolUseId,
+    );
+    if (found) {
+      return index;
+    }
+  }
+  return -1;
+}
+
 export function summarizeReplayOnlyToolParts(parts: MessagePart[]): ReplayOnlyToolSummary {
   const counts = new Map<string, number>();
   let totalActions = 0;
