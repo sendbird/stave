@@ -64,7 +64,10 @@ class FakeChild extends EventEmitter {
         if (message.method === "config/read" && message.id != null) {
           const cwd = String(message.params?.cwd ?? process.cwd());
           this.emitResponse(message.id, {
-            config: {},
+            // `functions` and `slack` are declared servers; `codex_apps` is the
+            // plugin runtime Codex registers on its own and which therefore has
+            // no `mcp_servers` entry to switch off.
+            config: { mcp_servers: { functions: {}, slack: {} } },
             origins: {},
             layers: [
               {
@@ -87,7 +90,11 @@ class FakeChild extends EventEmitter {
           message.id != null
         ) {
           this.emitResponse(message.id, {
-            data: [{ name: "functions" }, { name: "slack" }],
+            data: [
+              { name: "functions" },
+              { name: "slack" },
+              { name: "codex_apps" },
+            ],
           });
           continue;
         }
@@ -521,10 +528,24 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       config: {
         network_access: false,
         web_search: "disabled",
-        'mcp_servers."functions".enabled': false,
-        'mcp_servers."slack".enabled': false,
+        // Nested value, not `mcp_servers."slack".enabled`: Codex takes each
+        // dotted key segment literally, so a quoted one invents a server with
+        // no transport and the whole config load fails.
+        mcp_servers: {
+          functions: { enabled: false },
+          slack: { enabled: false },
+        },
+        // `codex_apps` has no config entry, so naming it would be that same
+        // transport-less table. The feature it comes from is turned off instead.
+        "features.apps": false,
       },
     });
+    expect(
+      Object.keys(
+        (threadStart?.params as { config?: Record<string, unknown> })?.config ??
+          {},
+      ).filter((key) => key.startsWith("mcp_servers")),
+    ).toEqual(["mcp_servers"]);
     expect(turnStart?.params).toMatchObject({
       approvalPolicy: "never",
       sandboxPolicy: {

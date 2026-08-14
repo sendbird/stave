@@ -21,6 +21,11 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   Record<HostServiceMethod, number | null>
 > = {
   "service.shutdown": 30_000,
+  // One Advisor consult is bounded by `resolveAdvisorTimeoutMs`, which tops out
+  // at 10 minutes for the highest effort tiers. The backstop stays bounded but
+  // must sit above that ceiling, otherwise it would pre-empt the runtime's own
+  // `advisor-timeout` outcome with a transport error the primary cannot read.
+  "provider.consult-advisor": 15 * 60_000,
   "provider.stream-turn": null,
   "provider.start-stream-turn": null,
   "provider.start-push-turn": null,

@@ -158,6 +158,14 @@ import {
   listMcpServerConfigs,
   previewMcpServerConfigMutation,
 } from "./providers/mcp-config-management";
+import { claimHostServiceStdout } from "./host-service/stdout-guard";
+
+/**
+ * Claimed before anything in this process can log: stdout carries the protocol
+ * frames, and a single `console.log` landing between them fails the parent's
+ * decoder. Everything else that writes to stdout now goes to stderr instead.
+ */
+const hostServiceStdout = claimHostServiceStdout();
 
 type HostServiceOutboundMessage =
   | AnyHostServiceResponseEnvelope
@@ -423,7 +431,7 @@ function shrinkProviderStreamEventPayload(
 function writeMessageNow(serializedMessage: string, label: string) {
   return new Promise<void>((resolve, reject) => {
     const startedAt = Date.now();
-    process.stdout.write(serializedMessage, (error) => {
+    hostServiceStdout.writeFrame(serializedMessage, (error) => {
       if (error) {
         reject(error);
         return;
@@ -1474,6 +1482,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.skip-advisor":
       await respond(request.id, providerRuntime.skipAdvisor(request.params));
+      return;
+    case "provider.consult-advisor":
+      await respond(
+        request.id,
+        await providerRuntime.consultAdvisor(request.params),
+      );
       return;
     case "provider.cleanup-task":
       await respond(request.id, providerRuntime.cleanupTask(request.params));

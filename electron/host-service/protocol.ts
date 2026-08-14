@@ -6,6 +6,7 @@ import type {
   PrCheckLogExcerpt,
   PrContextIndex,
 } from "../../src/lib/pr-context";
+import type { AdvisorConsultOutcome } from "../providers/advisor-consult";
 import type {
   CanonicalRetrievedContextPart,
   CodexAppServerSnapshotResponse,
@@ -555,6 +556,11 @@ export interface HostServiceRequestMap {
   "provider.skip-advisor": {
     turnId: string;
   };
+  "provider.consult-advisor": {
+    consultKey: string;
+    question: string;
+    context?: string;
+  };
   "provider.cleanup-task": {
     taskId: string;
   };
@@ -963,6 +969,7 @@ export interface HostServiceResponseMap {
   "provider.ack-stream-turn": HostProviderMutationResult;
   "provider.abort-turn": HostProviderMutationResult;
   "provider.skip-advisor": HostProviderMutationResult;
+  "provider.consult-advisor": AdvisorConsultOutcome;
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;

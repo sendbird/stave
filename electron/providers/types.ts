@@ -9,6 +9,7 @@ import type {
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
 } from "../../src/lib/providers/provider.types";
+import type { AdvisorConsultOutcome } from "./advisor-consult";
 import type { UserInputQuestion } from "../../src/types/chat";
 import type { WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
 import type {
@@ -299,6 +300,20 @@ export interface ProviderRuntime {
    * the user to abort work they still want.
    */
   skipAdvisor: (args: { turnId: string }) => { ok: boolean; message: string };
+  /**
+   * Runs one on-demand Advisor consult against a turn-scoped grant.
+   *
+   * Exposed on the runtime because the grant registry is process-local: grants
+   * are minted here, in the host-service child, while the
+   * `stave_consult_advisor` Local MCP tool is served from the Electron main
+   * process. Main must cross the boundary rather than consult a registry that
+   * is, in its own process, permanently empty.
+   */
+  consultAdvisor: (args: {
+    consultKey: string;
+    question: string;
+    context?: string;
+  }) => Promise<AdvisorConsultOutcome>;
   cleanupTask: (args: { taskId: string }) => { ok: boolean; message: string };
   respondApproval: (args: {
     turnId: string;

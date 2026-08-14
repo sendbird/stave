@@ -105,6 +105,25 @@ describe("local MCP service bridge", () => {
     }]);
   });
 
+  test("routes an Advisor consult to the process that minted the grant", async () => {
+    // The grant registry is a module-level map in the host-service child, so a
+    // main-process lookup would always miss with `unknown-consult-key`.
+    await localMcpService.consultAdvisor({
+      consultKey: "grant-1",
+      question: "Is the cancellation path sound?",
+      context: "runAdvisorCall(...)",
+    });
+
+    expect(invokeCalls).toEqual([{
+      method: "provider.consult-advisor",
+      params: {
+        consultKey: "grant-1",
+        question: "Is the cancellation path sound?",
+        context: "runAdvisorCall(...)",
+      },
+    }]);
+  });
+
   test("routes approved Crane work through the trusted kickoff action", async () => {
     const retrievedContextParts = [{
       type: "retrieved_context" as const,

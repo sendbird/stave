@@ -17,7 +17,17 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         } as T;
       }
       if (method === "mcpServerStatus/list") {
-        return { data: [{ name: "github" }, { name: "linear" }] } as T;
+        return {
+          data: [
+            { name: "github" },
+            { name: "linear" },
+            // Registered by the Codex plugin runtime, absent from `mcp_servers`.
+            { name: "codex_apps" },
+          ],
+        } as T;
+      }
+      if (method === "config/read") {
+        return { config: { mcp_servers: { github: {}, linear: {} } } } as T;
       }
       if (method === "thread/start") {
         return { thread: { id: "advisor-thread" } } as T;
@@ -103,8 +113,16 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       approvalPolicy: "never",
       isolated: true,
       configOverrides: {
-        'mcp_servers."github".enabled': false,
-        'mcp_servers."linear".enabled': false,
+        // Declared servers are switched off by name, through a nested value.
+        // A quoted dotted key would address a transport-less server instead and
+        // Codex would reject the whole configuration.
+        mcp_servers: {
+          github: { enabled: false },
+          linear: { enabled: false },
+        },
+        // `codex_apps` has no `mcp_servers` entry, so it cannot be named at
+        // all — the feature that registers it is disabled instead.
+        "features.apps": false,
       },
       runtimeOptions: {
         model: "gpt-5.6-terra",
@@ -122,10 +140,51 @@ describe("runCodexReadOnlyPromptWithClient", () => {
     expect(methods).toEqual([
       "account/read",
       "mcpServerStatus/list",
+      "config/read",
       "thread/start",
       "turn/start",
       "thread/delete",
     ]);
+    expect(
+      Object.keys(
+        (threadStartArgs as { configOverrides?: Record<string, unknown> })
+          .configOverrides ?? {},
+      ).some((key) => key.includes('"')),
+    ).toBe(false);
+  });
+
+  test("refuses an isolated call when the effective config cannot be read", async () => {
+    const methods: string[] = [];
+
+    const result = await runCodexReadOnlyPromptWithClient({
+      runtimeCwd: "/workspace/stave",
+      prompt: "Review this request.",
+      isolated: true,
+      request: async <T>(method: string) => {
+        methods.push(method);
+        if (method === "account/read") {
+          return {
+            account: { type: "chatgpt" },
+            requiresOpenaiAuth: true,
+          } as T;
+        }
+        if (method === "mcpServerStatus/list") {
+          return { data: [{ name: "github" }] } as T;
+        }
+        if (method === "config/read") {
+          return { config: "unreadable" } as T;
+        }
+        return {} as T;
+      },
+      subscribe: () => () => {},
+      buildThreadStartParams: (args) => args,
+      buildTurnStartParams: (args) => args,
+    });
+
+    // Without the config we cannot tell which servers are safe to name, and
+    // naming the wrong one makes Codex reject the entire configuration.
+    expect(result).toMatchObject({ ok: false });
+    expect(methods).not.toContain("thread/start");
   });
 
   test("refuses an isolated call when the MCP catalog cannot be read", async () => {
@@ -138,7 +197,10 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       request: async <T>(method: string) => {
         methods.push(method);
         if (method === "account/read") {
-          return { account: { type: "chatgpt" }, requiresOpenaiAuth: true } as T;
+          return {
+            account: { type: "chatgpt" },
+            requiresOpenaiAuth: true,
+          } as T;
         }
         if (method === "mcpServerStatus/list") {
           return { data: "not-a-list" } as T;
@@ -165,7 +227,10 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       request: async <T>(method: string) => {
         methods.push(method);
         if (method === "account/read") {
-          return { account: { type: "chatgpt" }, requiresOpenaiAuth: true } as T;
+          return {
+            account: { type: "chatgpt" },
+            requiresOpenaiAuth: true,
+          } as T;
         }
         if (method === "thread/start") {
           return { thread: { id: "read-only-thread" } } as T;
