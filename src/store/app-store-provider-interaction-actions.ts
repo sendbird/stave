@@ -3,6 +3,7 @@ import {
   applyChildTasksToProviderTurnActivity,
   clearProviderTurnActivity,
   markProviderTurnInteractionResolved,
+  retainRetiredTurnActivity,
 } from "@/lib/providers/turn-status";
 import { isTaskManaged } from "@/lib/tasks";
 import {
@@ -242,6 +243,15 @@ export function createProviderInteractionActions(args: {
           activityByTask: state.providerTurnActivityByTask,
           taskId,
         });
+        // "What was it doing when I stopped it" is the question a stop leaves
+        // behind, so the interrupted turn is the one most worth replaying.
+        const retainedTurnActivityByTask = retainRetiredTurnActivity({
+          retainedByTask: state.retainedTurnActivityByTask,
+          previous: state.providerTurnActivityByTask,
+          next: providerTurnActivityByTask,
+          taskId,
+          outcome: "stopped",
+        });
         if (cachedSession && workspaceId) {
           return {
             workspaceRuntimeCacheById: {
@@ -252,11 +262,13 @@ export function createProviderInteractionActions(args: {
               },
             },
             providerTurnActivityByTask,
+            retainedTurnActivityByTask,
           };
         }
         return {
           ...sessionPatch,
           providerTurnActivityByTask,
+          retainedTurnActivityByTask,
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });

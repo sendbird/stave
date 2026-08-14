@@ -47,12 +47,14 @@ import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
 import {
   buildTurnActivityItems,
   countTurnActivityItems,
+  describeRetainedTurnHeadline,
   formatTurnActivityCountsLabel,
   promoteFirstPendingTodoForActiveTurn,
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
   resolveTurnActivityOrbState,
+  resolveTurnActivityReplay,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
   type TurnActivityItem,
@@ -72,6 +74,7 @@ import {
   clearProviderTurnActivity,
   type ProviderTurnActivitySnapshot,
   type ProviderTurnWorkItem,
+  type RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
 import { buildChildTaskExpectedIdentity } from "@/lib/runs/child-task-view";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
@@ -171,6 +174,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     messages,
     activeTurnId,
     activity,
+    retainedActivity,
     advisorExchange,
     expandedByDefault,
     verification,
@@ -190,6 +194,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
       state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
       state.activeTurnIdsByTask[taskId] ?? null,
       state.providerTurnActivityByTask[taskId] ?? null,
+      state.retainedTurnActivityByTask[taskId] ?? null,
       state.advisorExchangeByTask[taskId] ?? null,
       state.settings.turnActivityExpandedByDefault,
       state.turnVerificationByWorkspace[state.activeWorkspaceId] ?? null,
@@ -202,7 +207,17 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
   const setLayout = useAppStore((state) => state.setLayout);
+  const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
   const placementMatchesHost = placement === host;
+  // A row names a tool call the transcript already renders in full. Without
+  // this the only way from "that grep looks wrong" to its output was scrolling
+  // the conversation by hand.
+  const handleSelectTool = useCallback(
+    (toolUseId: string) => {
+      focusTranscriptTool({ taskId, toolUseId });
+    },
+    [focusTranscriptTool, taskId],
+  );
   const handlePlacementChange = useCallback(
     (next: TurnActivityPlacement) => {
       updateSettings({ patch: { turnActivityPlacement: next } });
@@ -252,23 +267,36 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
       ? promoteFirstPendingTodoForActiveTurn(derivedTodos)
       : derivedTodos;
   }, [activeTurnId, todoPart]);
+  const hasRetainedFailure = Boolean(
+    !activeTurnId && activity?.turnError && activity.completedAt,
+  );
+  // The last finished turn, shown once the live one is gone. A turn in flight
+  // always wins; replay is what fills the panel between turns.
+  //
+  // It also covers the failure-linger window, where the live snapshot survives
+  // its turn for a few seconds: that snapshot no longer matches an active turn
+  // id, so the row list reads as empty, and the panel would show a bare "Turn
+  // failed" until the linger expired and the replay filled it back in.
+  const replay = resolveTurnActivityReplay({
+    placement: host,
+    isTurnActive: Boolean(activeTurnId),
+    retained: retainedActivity,
+  });
   const workItems = useMemo(
     () =>
       getCurrentTurnWorkItems({
-        activity,
-        activeTurnId,
+        activity: replay?.snapshot ?? activity,
+        activeTurnId: replay ? replay.snapshot.turnId : activeTurnId,
       }),
-    [activeTurnId, activity],
-  );
-  const hasRetainedFailure = Boolean(
-    !activeTurnId && activity?.turnError && activity.completedAt,
+    [activeTurnId, activity, replay],
   );
   const hasPendingInteractionCard = useMemo(
     () => findLatestPendingToolInteraction({ messages }) != null,
     [messages],
   );
   const currentActivity =
-    activity?.turnId === activeTurnId || hasRetainedFailure ? activity : null;
+    replay?.snapshot ??
+    (activity?.turnId === activeTurnId || hasRetainedFailure ? activity : null);
   const executionSummary = useMemo(
     () =>
       buildTaskExecutionSummary({
@@ -292,6 +320,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     isTurnActive: Boolean(activeTurnId),
     isPlanPending,
     hasRetainedFailure,
+    hasReplay: replay != null,
   });
 
   // Read once here rather than inside the rows: the same listing has to reach
@@ -471,16 +500,22 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
       todos: throttledTodos,
       advisorExchange: turnAdvisorExchange,
       workGraph: throttledWorkGraph,
-      workGraphCapabilities: runtimeCapabilities[activeProvider].workGraph,
-      onWorkGraphControl: handleWorkGraphControl,
+      // A finished turn's agents cannot be stopped, so replay shows the tree
+      // without controls rather than buttons that can only report a refusal.
+      workGraphCapabilities: replay
+        ? NO_WORK_GRAPH_CAPABILITIES
+        : runtimeCapabilities[activeProvider].workGraph,
+      ...(replay ? {} : { onWorkGraphControl: handleWorkGraphControl }),
       workGraphControlErrorByNodeKey: controlErrorByNodeKey,
       childTasks: childTaskSource,
       expandedByDefault,
       hasPendingInteractionCard,
       executionSummary,
+      onSelectTool: handleSelectTool,
       taskId,
       workspaceId: activeWorkspaceId,
       projectPath,
+      ...(replay ? { replayOutcome: replay.outcome } : {}),
     };
   }, [
     activeProvider,
@@ -491,10 +526,12 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     currentActivity,
     expandedByDefault,
     executionSummary,
+    handleSelectTool,
     handleWorkGraphControl,
     hasPendingInteractionCard,
     isPlanPreparing,
     projectPath,
+    replay,
     runtimeCapabilities,
     shouldShow,
     taskId,
@@ -749,6 +786,11 @@ interface TurnActivitySurfaceProps {
    */
   hasPendingInteractionCard?: boolean;
   executionSummary?: TaskExecutionSummary;
+  /**
+   * Reveal a row's tool call in the transcript. Rows without a `toolUseId`
+   * stay inert, so this never turns a todo or a status row into a dead button.
+   */
+  onSelectTool?: (toolUseId: string) => void;
   /** Identity of the task this shelf belongs to, used by the child-task rows. */
   taskId?: string;
   workspaceId?: string | null;
@@ -762,6 +804,14 @@ interface TurnActivitySurfaceProps {
   placement?: TurnActivityPlacement;
   /** Renders placement-switch buttons in the header when provided. */
   onPlacementChange?: (placement: TurnActivityPlacement) => void;
+  /**
+   * Set when the surface is replaying a turn that has already ended. Everything
+   * else about the surface already reads `activity.completedAt` and freezes
+   * itself (the clock stops, the orb pauses, the elapsed label holds); this only
+   * has to say *why* it is frozen, because "finished" and "hung" look identical
+   * otherwise.
+   */
+  replayOutcome?: RetainedTurnOutcome;
   /** Pointer handlers that make the header a drag handle (floating variant). */
   dragHandleProps?: HTMLAttributes<HTMLDivElement>;
 }
@@ -769,6 +819,7 @@ interface TurnActivitySurfaceProps {
 export const TurnActivitySurface = memo(function TurnActivitySurface(
   props: TurnActivitySurfaceProps,
 ) {
+  const variant = props.variant ?? "docked";
   const expandedByDefault = props.expandedByDefault ?? true;
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(
     null,
@@ -779,7 +830,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   );
   const expanded = interactionCardOwnsFocus
     ? false
-    : (expandedOverride ?? expandedByDefault);
+    : variant === "panel"
+      ? true
+      : (expandedOverride ?? expandedByDefault);
   const now = useTurnClock(
     props.activity?.completedAt == null ? props.activeTurnId : null,
   );
@@ -821,6 +874,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const activityTurnErrorRecoverable =
     props.activity?.turnErrorRecoverable ?? false;
   const hasActivity = props.activity != null;
+  const activityStartedAt = props.activity?.startedAt ?? null;
   const stalledIdleLabel = isStalled ? idleLabel : null;
   const activityItems = useMemo(
     () =>
@@ -838,12 +892,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         isStalled,
         todos: props.todos,
         workItems: props.workItems,
+        turnStartedAt: activityStartedAt,
         advisor: props.advisorExchange ?? null,
         hasPendingInteractionCard: props.hasPendingInteractionCard,
       }),
     [
       activityCompletedAt,
       activityPendingInteraction,
+      activityStartedAt,
       activityTurnError,
       activityTurnErrorRecoverable,
       hasActivity,
@@ -882,14 +938,16 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     isStalled ||
     props.activity?.turnError != null;
   const countsLabel = formatTurnActivityCountsLabel(counts);
-  const headline = resolveTurnActivityHeadline({
-    expanded,
-    needsAttention,
-    counts,
-    countsLabel,
-    featuredItem,
-    summaryLabel: summary.label,
-  });
+  const headline = props.replayOutcome
+    ? describeRetainedTurnHeadline(props.replayOutcome)
+    : resolveTurnActivityHeadline({
+        expanded,
+        needsAttention,
+        counts,
+        countsLabel,
+        featuredItem,
+        summaryLabel: summary.label,
+      });
   // An attention headline owns the whole line: pairing "Waiting for your input"
   // with a running tool's progress detail reads as one confused sentence.
   const headlineDetail =
@@ -920,7 +978,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     counts.totalCount > 1 &&
     counts.completedCount > 0;
   const isListOpen = expanded && canExpand;
-  const variant = props.variant ?? "docked";
 
   return (
     <div
@@ -941,8 +998,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       )}
     >
       <section
-        aria-label="Turn activity"
+        aria-label={props.replayOutcome ? "Last turn activity" : "Turn activity"}
         data-testid="turn-activity"
+        data-replay={props.replayOutcome}
         className={cn(
           "relative flex min-h-0 flex-col overflow-hidden bg-card",
           variant === "docked" &&
@@ -980,7 +1038,17 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               className="size-5"
             />
           </span>
-          <h2 className="sr-only">Turn activity</h2>
+          <h2 className="sr-only">
+            {props.replayOutcome ? "Last turn activity" : "Turn activity"}
+          </h2>
+          {props.replayOutcome ? (
+            <span
+              data-testid="turn-activity-replay-badge"
+              className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+            >
+              Last turn
+            </span>
+          ) : null}
           <p
             aria-live="polite"
             className="min-w-0 flex-1 truncate text-[0.8125rem] leading-5"
@@ -1036,7 +1104,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               onPlacementChange={props.onPlacementChange}
             />
           ) : null}
-          {canExpand ? (
+          {canExpand && variant !== "panel" ? (
             <Button
               type="button"
               variant="ghost"
@@ -1068,7 +1136,12 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           >
             <div className="px-1.5 py-1.5">
               {activityItems.map((item) => (
-                <TurnActivityRow key={item.id} item={item} />
+                <TurnActivityRow
+                  key={item.id}
+                  item={item}
+                  onSelectTool={props.onSelectTool}
+                  showStartOffset={variant === "panel"}
+                />
               ))}
               <WorkGraphTree
                 graph={props.workGraph}
@@ -1160,23 +1233,29 @@ function TurnActivityPlacementControls(props: {
 // throttled source data actually changes.
 const TurnActivityRow = memo(function TurnActivityRow({
   item,
+  onSelectTool,
+  showStartOffset,
 }: {
   item: TurnActivityItem;
+  onSelectTool?: (toolUseId: string) => void;
+  /**
+   * Roomy placements also print where in the turn the row started. The docked
+   * shelf is one composer-width line and cannot spare the column.
+   */
+  showStartOffset?: boolean;
 }) {
   const detail =
     item.detail && item.detail !== item.title ? item.detail : undefined;
   const isCompleted = item.status === "completed";
-  return (
-    <div
-      data-turn-activity-item-id={item.id}
-      className={cn(
-        "flex min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5",
-        // Rows mount once and keep their slot, so this plays exactly when a new
-        // activity appears instead of on every update.
-        "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
-      )}
-      title={detail ? `${item.title} · ${detail}` : item.title}
-    >
+  const toolUseId = item.toolUseId;
+  const canReveal = Boolean(toolUseId && onSelectTool);
+  const baseTitle = detail ? `${item.title} · ${detail}` : item.title;
+  const startOffsetLabel =
+    showStartOffset && item.startOffsetSeconds != null
+      ? formatStartOffsetSeconds(item.startOffsetSeconds)
+      : null;
+  const body = (
+    <>
       <span className="flex h-5 shrink-0 items-center">
         <TurnActivityStatusIcon status={item.status} iconKey={item.iconKey} />
       </span>
@@ -1200,6 +1279,12 @@ const TurnActivityRow = memo(function TurnActivityRow({
           </p>
         ) : null}
       </div>
+      {startOffsetLabel ? (
+        <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground/70">
+          <span className="sr-only">Started {startOffsetLabel} into the turn</span>
+          <span aria-hidden="true">{startOffsetLabel}</span>
+        </span>
+      ) : null}
       {item.elapsedSeconds != null ? (
         <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground">
           <span className="sr-only">
@@ -1211,9 +1296,48 @@ const TurnActivityRow = memo(function TurnActivityRow({
           </span>
         </span>
       ) : null}
-    </div>
+    </>
+  );
+  const layoutClassName = cn(
+    "flex w-full min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5 text-left",
+    // Rows mount once and keep their slot, so this plays exactly when a new
+    // activity appears instead of on every update.
+    "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
+  );
+
+  if (!canReveal || !toolUseId || !onSelectTool) {
+    return (
+      <div
+        data-turn-activity-item-id={item.id}
+        className={layoutClassName}
+        title={baseTitle}
+      >
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-turn-activity-item-id={item.id}
+      data-turn-activity-revealable="true"
+      className={cn(
+        layoutClassName,
+        "cursor-pointer transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none",
+      )}
+      title={`${baseTitle} — show in conversation`}
+      onClick={() => onSelectTool(toolUseId)}
+    >
+      {body}
+    </button>
   );
 });
+
+/** `+1m 4s` — how far into the turn a row's work began. */
+function formatStartOffsetSeconds(value: number) {
+  return `+${formatElapsedSeconds(value)}`;
+}
 
 function formatElapsedSeconds(value: number) {
   const totalSeconds = Math.max(0, Math.round(value));

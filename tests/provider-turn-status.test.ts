@@ -6,12 +6,18 @@ import {
   markProviderTurnInteractionResolved,
   markProviderTurnStalled,
   PROVIDER_TURN_STALL_THRESHOLD_MS,
+  reduceProviderTurnActivityEvents,
   resolveProviderTurnStallThresholdMs,
   resolveProviderTurnDisplayState,
+  RETAINED_TURN_ACTIVITY_LIMIT,
+  retainRetiredTurnActivity,
   startProviderTurnActivity,
 } from "../src/lib/providers/turn-status";
 import { userInputInteractionId } from "../src/lib/work-graph/work-graph-reducer";
-import { summarizeWorkGraph } from "../src/lib/work-graph/work-graph-tree";
+import {
+  buildWorkGraphTree,
+  summarizeWorkGraph,
+} from "../src/lib/work-graph/work-graph-tree";
 
 describe("provider turn status helpers", () => {
   test("starts tracking a new active turn", () => {
@@ -1115,5 +1121,303 @@ describe("provider turn status helpers", () => {
     expect(resolveProviderTurnStallThresholdMs({ providerId: "codex" })).toBe(
       PROVIDER_TURN_STALL_THRESHOLD_MS,
     );
+  });
+});
+
+describe("retained turn activity", () => {
+  function runningTurn(args?: { taskId?: string; turnId?: string }) {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: args?.taskId ?? "task-1",
+      turnId: args?.turnId ?? "turn-1",
+      providerId: "claude-code",
+      now: 1000,
+    });
+    return applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: args?.taskId ?? "task-1",
+      turnId: args?.turnId ?? "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "tool-1",
+          toolName: "Grep",
+          input: JSON.stringify({ pattern: "retain" }),
+          state: "output-available",
+        },
+      ],
+    });
+  }
+
+  test("keeps the finished turn's work items after the reducer drops them", () => {
+    const running = runningTurn();
+    const reduced = reduceProviderTurnActivityEvents({
+      activityByTask: running,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 3000,
+      events: [{ type: "done" }],
+    });
+    // The live map is the thing Fleet reads as "busy", so a clean turn still
+    // has to leave it entirely.
+    expect(reduced.activityByTask["task-1"]).toBeUndefined();
+
+    const retained = retainRetiredTurnActivity({
+      retainedByTask: {},
+      previous: running,
+      next: reduced.activityByTask,
+      taskId: "task-1",
+      snapshot: reduced.retiredSnapshot,
+      now: 3000,
+    });
+
+    expect(retained["task-1"]?.outcome).toBe("completed");
+    expect(retained["task-1"]?.snapshot.turnId).toBe("turn-1");
+    expect(retained["task-1"]?.snapshot.completedAt).toBe(3000);
+    expect(retained["task-1"]?.snapshot.orderedWorkItemIds).toEqual(["tool-1"]);
+  });
+
+  test("keeps the work that arrived in the very batch that ended the turn", () => {
+    // `done` is flushed together with everything queued behind it, and after a
+    // spell with the window hidden the animation-frame flush can be paused long
+    // enough for that batch to be the whole turn. Reading the retired snapshot
+    // off the live map would then replay an empty turn.
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 1000,
+    });
+    const reduced = reduceProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "tool-1",
+          toolName: "Grep",
+          input: JSON.stringify({ pattern: "retain" }),
+          state: "input-available",
+        },
+        { type: "tool_result", tool_use_id: "tool-1", output: "3 matches" },
+        { type: "done" },
+      ],
+    });
+
+    expect(reduced.activityByTask["task-1"]).toBeUndefined();
+    expect(reduced.retiredSnapshot?.orderedWorkItemIds).toEqual(["tool-1"]);
+    // And the row is finished, not left spinning at its last pre-`done` state.
+    expect(reduced.retiredSnapshot?.workItemsById["tool-1"]?.status).toBe(
+      "completed",
+    );
+
+    const retained = retainRetiredTurnActivity({
+      retainedByTask: {},
+      previous: started,
+      next: reduced.activityByTask,
+      taskId: "task-1",
+      snapshot: reduced.retiredSnapshot,
+      now: 2000,
+    });
+    expect(retained["task-1"]?.snapshot.orderedWorkItemIds).toEqual(["tool-1"]);
+  });
+
+  test("a still-running batch retires nothing", () => {
+    const reduced = reduceProviderTurnActivityEvents({
+      activityByTask: runningTurn(),
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2500,
+      events: [{ type: "text", text: "thinking" }],
+    });
+
+    expect(reduced.retiredSnapshot).toBeNull();
+    expect(reduced.activityByTask["task-1"]).toBeDefined();
+  });
+
+  test("leaves the map untouched while the same turn is still running", () => {
+    const running = runningTurn();
+    const stillRunning = applyProviderTurnActivityEvents({
+      activityByTask: running,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2500,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "tool-2",
+          toolName: "Read",
+          input: "{}",
+          state: "input-available",
+        },
+      ],
+    });
+    const retainedByTask = {};
+
+    expect(
+      retainRetiredTurnActivity({
+        retainedByTask,
+        previous: running,
+        next: stillRunning,
+        taskId: "task-1",
+        now: 2500,
+      }),
+    ).toBe(retainedByTask);
+  });
+
+  test("records an errored turn as failed and does not re-record it on the clear", () => {
+    const running = runningTurn();
+    const failed = applyProviderTurnActivityEvents({
+      activityByTask: running,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 3000,
+      events: [
+        { type: "error", message: "stream closed" },
+        { type: "done" },
+      ],
+    });
+    // A failed turn keeps its snapshot on screen for a linger window before it
+    // is cleared, so retention must fire on the completion, not the removal.
+    expect(failed["task-1"]?.completedAt).toBe(3000);
+
+    const retained = retainRetiredTurnActivity({
+      retainedByTask: {},
+      previous: running,
+      next: failed,
+      taskId: "task-1",
+      now: 3000,
+    });
+    expect(retained["task-1"]?.outcome).toBe("failed");
+
+    const afterLingerClear = retainRetiredTurnActivity({
+      retainedByTask: retained,
+      previous: failed,
+      next: clearProviderTurnActivity({
+        activityByTask: failed,
+        taskId: "task-1",
+      }),
+      taskId: "task-1",
+      now: 8000,
+    });
+    expect(afterLingerClear).toBe(retained);
+  });
+
+  test("an errored turn stays failed even when the caller says it was stopped", () => {
+    const running = runningTurn();
+    const failed = applyProviderTurnActivityEvents({
+      activityByTask: running,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 3000,
+      events: [{ type: "error", message: "stream closed" }, { type: "done" }],
+    });
+
+    expect(
+      retainRetiredTurnActivity({
+        retainedByTask: {},
+        previous: failed,
+        next: {},
+        taskId: "task-1",
+        outcome: "stopped",
+        now: 4000,
+      })["task-1"]?.outcome,
+    ).toBe("failed");
+  });
+
+  test("freezes a stopped turn so replay stops asking for an answer", () => {
+    // A subagent raises the prompt, so the block lands on its own graph node
+    // rather than on the turn root (which the tree does not render).
+    const waiting = applyProviderTurnActivityEvents({
+      activityByTask: runningTurn(),
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2500,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "agent-1",
+          toolName: "Task",
+          input: JSON.stringify({ description: "Sweep the callers" }),
+          state: "input-available",
+          agentId: "agent_a",
+        },
+        {
+          type: "approval",
+          requestId: "req-1",
+          toolName: "Bash",
+          ownerAgentId: "agent_a",
+        },
+      ],
+    });
+    expect(waiting["task-1"]?.pendingInteraction).toBe("approval");
+    expect(
+      buildWorkGraphTree(waiting["task-1"]!.workGraph).some(
+        (row) => row.blocked,
+      ),
+    ).toBe(true);
+
+    const retained = retainRetiredTurnActivity({
+      retainedByTask: {},
+      previous: waiting,
+      next: clearProviderTurnActivity({
+        activityByTask: waiting,
+        taskId: "task-1",
+      }),
+      taskId: "task-1",
+      outcome: "stopped",
+      now: 4000,
+    });
+
+    expect(retained["task-1"]?.outcome).toBe("stopped");
+    expect(retained["task-1"]?.snapshot.pendingInteraction).toBeNull();
+    expect(retained["task-1"]?.snapshot.stalledAt).toBeNull();
+    expect(retained["task-1"]?.snapshot.completedAt).toBe(4000);
+    // The stop paths never send a `done` through the graph, so its own open
+    // interactions have to be settled here too — otherwise the node that raised
+    // the prompt replays badged "Needs you" with no way to answer it.
+    expect(
+      Object.values(retained["task-1"]!.snapshot.workGraph.interactionsById)
+        .filter((interaction) => !interaction.resolvedAt),
+    ).toEqual([]);
+    expect(
+      buildWorkGraphTree(retained["task-1"]!.snapshot.workGraph).some(
+        (row) => row.blocked,
+      ),
+    ).toBe(false);
+  });
+
+  test("keeps only the most recently finished turns", () => {
+    let retainedByTask = {};
+    const overflow = RETAINED_TURN_ACTIVITY_LIMIT + 2;
+    for (let index = 0; index < overflow; index += 1) {
+      const taskId = `task-${index}`;
+      const running = runningTurn({ taskId, turnId: `turn-${index}` });
+      retainedByTask = retainRetiredTurnActivity({
+        retainedByTask,
+        previous: running,
+        next: {},
+        taskId,
+        now: 10_000 + index,
+      });
+    }
+
+    const kept = Object.keys(retainedByTask).sort();
+    expect(kept).toHaveLength(RETAINED_TURN_ACTIVITY_LIMIT);
+    // Oldest out first: replay answers "the turn I was just watching".
+    expect(kept).not.toContain("task-0");
+    expect(kept).toContain(`task-${overflow - 1}`);
   });
 });

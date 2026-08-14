@@ -53,7 +53,12 @@ describe("TurnActivity", () => {
     expect(html).toContain("Task execution summary");
     expect(html).toContain("1 file");
     expect(html).toContain("120 tokens");
-    expect(html).toContain("Not supported");
+    // Account limit and context headroom share one "Headroom" tile so the grid
+    // stays at six evenly dividing tiles.
+    expect(html).toContain("Headroom");
+    expect(html).not.toContain(">Context left<");
+    expect(html).not.toContain(">Account limit<");
+    expect(html.match(/data-metric="/g)).toHaveLength(6);
   });
 
   test("renders live agent work in the stacked activity shelf", () => {
@@ -398,6 +403,148 @@ describe("TurnActivity", () => {
     expect(panel).not.toContain("Show turn activity in the side panel");
   });
 
+  test("keeps the panel activity list expanded regardless of the default setting", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-panel-expanded",
+        activity: {
+          turnId: "turn-panel-expanded",
+          providerId: "claude-code",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [
+          {
+            id: "tool-panel",
+            kind: "tool",
+            status: "running",
+            title: "Inspect panel activity",
+            progressMessages: [],
+            startedAt: 1_000,
+            updatedAt: 2_000,
+          },
+        ],
+        todos: [],
+        expandedByDefault: false,
+        variant: "panel",
+        placement: "panel",
+      }),
+    );
+
+    expect(html).toContain('data-testid="turn-activity-list"');
+    expect(html).toContain("Inspect panel activity");
+    expect(html).not.toContain("Expand turn activity");
+    expect(html).not.toContain("Minimize turn activity");
+  });
+
+  test("makes a row with a tool call reveal-able and leaves the rest inert", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-reveal",
+        activity: {
+          turnId: "turn-reveal",
+          providerId: "claude-code",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [
+          {
+            id: "tool-revealable",
+            kind: "tool",
+            status: "completed",
+            title: "Search the repo",
+            toolUseId: "toolu_reveal",
+            progressMessages: [],
+            startedAt: 1_000,
+            updatedAt: 2_000,
+          },
+          {
+            id: "tool-inert",
+            kind: "tool",
+            status: "completed",
+            title: "Unlinked step",
+            progressMessages: [],
+            startedAt: 1_000,
+            updatedAt: 2_000,
+          },
+        ],
+        todos: [{ content: "Write it up", status: "pending" }],
+        onSelectTool: () => {},
+        variant: "panel",
+        placement: "panel",
+      }),
+    );
+
+    // Exactly one row becomes a button: a todo or a work item without a tool
+    // id would be a control that navigates nowhere.
+    expect(html.match(/data-turn-activity-revealable="true"/g)).toHaveLength(1);
+    expect(html).toContain("Search the repo — show in conversation");
+    expect(html).not.toContain("Unlinked step — show in conversation");
+  });
+
+  test("prints the turn timeline offset in the panel but not in the shelf", () => {
+    const props = {
+      activeTurnId: "turn-offset",
+      activity: {
+        turnId: "turn-offset",
+        providerId: "claude-code" as const,
+        startedAt: 1_000,
+        lastEventAt: 200_000,
+        stalledAt: null,
+        pendingInteraction: null,
+        workItemsById: {},
+        orderedWorkItemIds: [],
+      },
+      isPlanPreparing: false,
+      workItems: [
+        {
+          id: "tool-late",
+          kind: "tool" as const,
+          status: "completed" as const,
+          title: "Late step",
+          progressMessages: [],
+          startedAt: 91_000,
+          updatedAt: 95_000,
+        },
+      ],
+      todos: [],
+    };
+
+    const panel = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...props,
+        variant: "panel",
+        placement: "panel",
+      }),
+    );
+    // 90s into the turn, and a 4s duration derived from the timestamps even
+    // though no provider reported `elapsedSeconds`.
+    expect(panel).toContain("+1m 30s");
+    expect(panel).toContain("Started +1m 30s into the turn");
+    expect(panel).toContain("4s");
+
+    const docked = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...props,
+        variant: "docked",
+        placement: "docked",
+      }),
+    );
+    // The composer-width shelf has no column to spare for the offset.
+    expect(docked).not.toContain("+1m 30s");
+    expect(docked).toContain("4s");
+  });
+
   test("renders the armed Advisor in the shelf before any consult", () => {
     const html = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
@@ -434,5 +581,91 @@ describe("TurnActivity", () => {
     // where "armed but never asked" has to be legible.
     expect(html).toContain("Advisor armed · 0 consults");
     expect(html).toContain("0/5");
+  });
+
+  describe("replaying a finished turn in the panel", () => {
+    const finishedTurn = {
+      activeTurnId: "turn-replay",
+      activity: {
+        turnId: "turn-replay",
+        providerId: "codex" as const,
+        startedAt: 100_000,
+        lastEventAt: 190_000,
+        stalledAt: null,
+        pendingInteraction: null,
+        completedAt: 190_000,
+        workItemsById: {},
+        orderedWorkItemIds: [],
+      },
+      isPlanPreparing: false,
+      workItems: [
+        {
+          id: "tool-replay",
+          kind: "tool" as const,
+          status: "completed" as const,
+          title: "Run the migration",
+          toolUseId: "tool-replay",
+          progressMessages: [],
+          startedAt: 130_000,
+          updatedAt: 150_000,
+        },
+      ],
+      todos: [],
+      variant: "panel" as const,
+      placement: "panel" as const,
+    };
+
+    test("names the outcome instead of implying the turn is still working", () => {
+      const html = renderToStaticMarkup(
+        createElement(TurnActivitySurface, {
+          ...finishedTurn,
+          replayOutcome: "completed" as const,
+        }),
+      );
+
+      expect(html).toContain('data-replay="completed"');
+      expect(html).toContain('data-testid="turn-activity-replay-badge"');
+      expect(html).toContain("Last turn");
+      expect(html).toContain("Turn finished");
+      // The live fallback headline reads as a turn still in flight, which is
+      // exactly the confusion replay exists to remove.
+      expect(html).not.toContain("Working on your request");
+      // The rows the reducer would otherwise have dropped are the point.
+      expect(html).toContain("Run the migration");
+      // Frozen: total time held at the completion, not ticking against now.
+      expect(html).toContain("1m 30s");
+    });
+
+    test("reports a stopped and a failed turn differently", () => {
+      expect(
+        renderToStaticMarkup(
+          createElement(TurnActivitySurface, {
+            ...finishedTurn,
+            replayOutcome: "stopped" as const,
+          }),
+        ),
+      ).toContain("Turn stopped");
+      expect(
+        renderToStaticMarkup(
+          createElement(TurnActivitySurface, {
+            ...finishedTurn,
+            activity: { ...finishedTurn.activity, turnError: "stream closed" },
+            replayOutcome: "failed" as const,
+          }),
+        ),
+      ).toContain("Turn failed");
+    });
+
+    test("a live turn keeps the header free of the replay badge", () => {
+      const html = renderToStaticMarkup(
+        createElement(TurnActivitySurface, {
+          ...finishedTurn,
+          activity: { ...finishedTurn.activity, completedAt: undefined },
+        }),
+      );
+
+      expect(html).not.toContain('data-testid="turn-activity-replay-badge"');
+      expect(html).not.toContain("Turn finished");
+    });
   });
 });

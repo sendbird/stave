@@ -10,9 +10,29 @@ import {
 } from "lucide-react";
 import type {
   TaskExecutionMetric,
+  TaskExecutionMetricProvenance,
   TaskExecutionSummary,
 } from "@/lib/fleet/task-execution-summary";
 import { cn } from "@/lib/utils";
+
+type MetricTone = "default" | "success" | "warning" | "danger";
+
+/**
+ * One tile of the summary grid.
+ *
+ * The tiles are described as data rather than written out as JSX so the grid
+ * stays a fixed, evenly divisible count: six tiles land flush on the 2 / 3 / 6
+ * column breakpoints instead of leaving a widowed cell on the last row.
+ */
+interface SummaryMetricDescriptor {
+  key: string;
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  tone: MetricTone;
+  provenance: TaskExecutionMetricProvenance;
+  detail?: string;
+}
 
 function formatDuration(milliseconds: number) {
   const seconds = Math.max(0, Math.round(milliseconds / 1000));
@@ -31,8 +51,8 @@ function formatCount(value: number) {
   }).format(value);
 }
 
-function provenanceLabel(metric: TaskExecutionMetric<unknown>) {
-  switch (metric.provenance) {
+function provenanceLabel(provenance: TaskExecutionMetricProvenance) {
+  switch (provenance) {
     case "reported":
       return "Reported";
     case "derived":
@@ -42,56 +62,260 @@ function provenanceLabel(metric: TaskExecutionMetric<unknown>) {
   }
 }
 
-function SummaryMetric(args: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  metric: TaskExecutionMetric<unknown>;
-  tone?: "default" | "success" | "warning" | "danger";
+function toneTextClassName(tone: MetricTone) {
+  switch (tone) {
+    case "success":
+      return "text-success";
+    case "warning":
+      return "text-warning";
+    case "danger":
+      return "text-destructive";
+    case "default":
+      return "text-foreground";
+  }
+}
+
+function toneIconClassName(tone: MetricTone) {
+  return tone === "default" ? "text-muted-foreground" : toneTextClassName(tone);
+}
+
+/**
+ * Provenance moved from a third text line to a dot on the label row.
+ *
+ * The old caption doubled every tile's height to repeat "Reported" on tiles
+ * that were reported by definition, and it only rendered in the roomy variant,
+ * so the two variants disagreed about how tall a tile is. A dot keeps the fact
+ * available (title plus screen-reader text) at a constant tile height.
+ */
+function ProvenanceDot(args: { provenance: TaskExecutionMetricProvenance }) {
+  const label = provenanceLabel(args.provenance);
+  return (
+    <span
+      className={cn(
+        "ml-auto size-1.5 shrink-0 rounded-full",
+        args.provenance === "reported"
+          ? "bg-muted-foreground/70"
+          : args.provenance === "derived"
+            ? "border border-muted-foreground/70"
+            : "bg-muted-foreground/25",
+      )}
+      title={label}
+    >
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
+function SummaryMetricTile(args: {
+  descriptor: SummaryMetricDescriptor;
   compact?: boolean;
 }) {
-  const Icon = args.icon;
+  const { descriptor } = args;
+  const Icon = descriptor.icon;
+  const unavailable = descriptor.provenance === "unavailable";
   return (
     <div
       className={cn(
-        "min-w-0 rounded-md border border-border/60 bg-background/55",
+        "flex min-w-0 flex-col justify-between rounded-lg border border-border/60 bg-background/55",
         args.compact ? "px-2.5 py-2" : "px-3 py-2.5",
       )}
-      title={args.metric.detail}
+      data-metric={descriptor.key}
+      title={descriptor.detail}
     >
       <div className="flex min-w-0 items-center gap-1.5">
         <Icon
-          className={cn(
-            "size-3.5 shrink-0",
-            args.tone === "success"
-              ? "text-success"
-              : args.tone === "warning"
-                ? "text-warning"
-                : args.tone === "danger"
-                  ? "text-destructive"
-                  : "text-muted-foreground",
-          )}
+          className={cn("size-3.5 shrink-0", toneIconClassName(descriptor.tone))}
           aria-hidden="true"
         />
         <dt className="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-          {args.label}
+          {descriptor.label}
         </dt>
+        <ProvenanceDot provenance={descriptor.provenance} />
       </div>
       <dd
         className={cn(
-          "mt-1 truncate font-medium text-foreground",
+          "mt-1 truncate font-medium tabular-nums",
           args.compact ? "text-[11px]" : "text-xs",
-          args.metric.provenance === "unavailable" &&
-            "font-normal text-muted-foreground",
+          unavailable
+            ? "font-normal text-muted-foreground"
+            : toneTextClassName(descriptor.tone),
         )}
       >
-        {args.value}
+        {descriptor.value}
       </dd>
-      {!args.compact ? (
-        <span className="mt-0.5 block text-[10px] text-muted-foreground">
-          {provenanceLabel(args.metric)}
-        </span>
-      ) : null}
+    </div>
+  );
+}
+
+function joinDetails(parts: Array<string | undefined>) {
+  const joined = parts.filter(Boolean).join(" · ");
+  return joined || undefined;
+}
+
+/**
+ * Account limit and context headroom are one tile because they answer one
+ * question: how much room is left before this run has to stop. Split across two
+ * tiles they read as unrelated gauges, and they were the pair that pushed the
+ * grid to an awkward seven.
+ */
+function buildHeadroomDescriptor(
+  summary: TaskExecutionSummary,
+): SummaryMetricDescriptor {
+  const accountLimit = summary.accountLimit.value;
+  const contextHeadroom = summary.contextHeadroom.value;
+  const contextRatio =
+    contextHeadroom && contextHeadroom.totalTokens
+      ? contextHeadroom.remainingTokens / contextHeadroom.totalTokens
+      : null;
+  const tone: MetricTone =
+    (accountLimit && accountLimit.usedPercent >= 90) ||
+    (contextRatio != null && contextRatio <= 0.1)
+      ? "danger"
+      : (accountLimit && accountLimit.usedPercent >= 75) ||
+          (contextRatio != null && contextRatio <= 0.2)
+        ? "warning"
+        : "default";
+  const segments = [
+    contextHeadroom
+      ? `${formatCount(contextHeadroom.remainingTokens)} ctx left`
+      : null,
+    accountLimit ? `${Math.round(accountLimit.usedPercent)}% limit` : null,
+  ].filter(Boolean) as string[];
+  const provenance: TaskExecutionMetricProvenance =
+    contextHeadroom || accountLimit ? "reported" : "unavailable";
+  return {
+    key: "headroom",
+    icon: Gauge,
+    label: "Headroom",
+    tone,
+    provenance,
+    value: segments.length ? segments.join(" · ") : "Not reported",
+    detail: joinDetails([
+      accountLimit?.label,
+      summary.accountLimit.detail,
+      summary.contextHeadroom.detail,
+    ]),
+  };
+}
+
+function buildMetricDescriptors(
+  summary: TaskExecutionSummary,
+): SummaryMetricDescriptor[] {
+  const elapsed = summary.elapsed.value;
+  const changes = summary.changes.value;
+  const verification = summary.verification.value;
+  const usage = summary.usage.value;
+  const agents = summary.agents.value;
+  return [
+    {
+      key: "elapsed",
+      icon: Clock3,
+      label: "Elapsed",
+      tone: "default",
+      provenance: summary.elapsed.provenance,
+      detail: summary.elapsed.detail,
+      value: elapsed
+        ? `${formatDuration(elapsed.milliseconds)}${elapsed.running ? " · running" : ""}`
+        : "Not reported",
+    },
+    {
+      key: "changes",
+      icon: FileDiff,
+      label: "Changes",
+      tone: "default",
+      provenance: summary.changes.provenance,
+      detail: summary.changes.detail,
+      value: changes
+        ? `${changes.files.length} file${changes.files.length === 1 ? "" : "s"}${
+            changes.additions == null || changes.deletions == null
+              ? ""
+              : ` · +${changes.additions}/−${changes.deletions}`
+          }`
+        : "No diff reported",
+    },
+    {
+      key: "verification",
+      icon: BadgeCheck,
+      label: "Verification",
+      provenance: summary.verification.provenance,
+      detail: summary.verification.detail,
+      tone:
+        verification?.status === "pass"
+          ? "success"
+          : verification?.status === "fail"
+            ? "danger"
+            : verification?.status === "warn"
+              ? "warning"
+              : "default",
+      value: verification
+        ? `${verification.status} · ${verification.executedEntries}/${verification.totalEntries}`
+        : "Not reported",
+    },
+    {
+      key: "usage",
+      icon: Coins,
+      label: "Usage",
+      tone: "default",
+      provenance: summary.usage.provenance,
+      detail: summary.usage.detail,
+      value: usage
+        ? `${formatCount(usage.inputTokens + usage.outputTokens)} tokens${
+            usage.totalCostUsd == null
+              ? ""
+              : ` · $${usage.totalCostUsd.toFixed(4)}`
+          }`
+        : "Not reported",
+    },
+    {
+      key: "agents",
+      icon: Network,
+      label: "Agents",
+      provenance: summary.agents.provenance,
+      detail: summary.agents.detail,
+      // A blocked agent outranks a failed one here: the failure is already
+      // history, while the block is the thing this reader can still clear.
+      tone:
+        agents && agents.blockedCount > 0
+          ? "warning"
+          : agents && agents.failedCount > 0
+            ? "danger"
+            : "default",
+      value: agents ? agents.label : "Main loop only",
+    },
+    buildHeadroomDescriptor(summary),
+  ];
+}
+
+function LatestActivityRow(args: {
+  metric: TaskExecutionMetric<{ label: string; detail?: string }>;
+  compact?: boolean;
+}) {
+  const latest = args.metric.value;
+  return (
+    <div className="flex min-w-0 items-start gap-2 rounded-lg border border-border/60 bg-muted/18 px-3 py-2">
+      <Activity
+        className="mt-0.5 size-3.5 shrink-0 text-primary"
+        aria-hidden="true"
+      />
+      <div className="min-w-0">
+        <h3 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+          Latest activity
+        </h3>
+        <p
+          className={cn(
+            "mt-0.5 text-xs text-foreground",
+            args.compact ? "line-clamp-1" : "line-clamp-2",
+          )}
+        >
+          {latest?.label ?? "No activity reported"}
+          {latest?.detail ? (
+            <span className="text-muted-foreground"> · {latest.detail}</span>
+          ) : null}
+        </p>
+      </div>
+      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+        {provenanceLabel(args.metric.provenance)}
+      </span>
     </div>
   );
 }
@@ -102,24 +326,8 @@ export function TaskExecutionSummarySurface(args: {
   showLatestActivity?: boolean;
   className?: string;
 }) {
-  const { summary } = args;
-  const elapsed = summary.elapsed.value;
-  const changes = summary.changes.value;
-  const verification = summary.verification.value;
-  const usage = summary.usage.value;
-  const accountLimit = summary.accountLimit.value;
-  const contextHeadroom = summary.contextHeadroom.value;
-  const agents = summary.agents.value;
-  const latest = summary.latestActivity.value;
-  const verificationTone =
-    verification?.status === "pass"
-      ? "success"
-      : verification?.status === "fail"
-        ? "danger"
-          : verification?.status === "warn"
-          ? "warning"
-          : "default";
   const showLatestActivity = args.showLatestActivity ?? true;
+  const descriptors = buildMetricDescriptors(args.summary);
 
   return (
     <section
@@ -127,144 +335,27 @@ export function TaskExecutionSummarySurface(args: {
       aria-label="Task execution summary"
     >
       {showLatestActivity ? (
-        <div className="flex min-w-0 items-start gap-2 rounded-md border border-border/60 bg-muted/18 px-3 py-2">
-          <Activity
-            className="mt-0.5 size-3.5 shrink-0 text-primary"
-            aria-hidden="true"
-          />
-          <div className="min-w-0">
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              Latest activity
-            </h3>
-            <p
-              className={cn(
-                "mt-0.5 text-xs text-foreground",
-                args.compact ? "line-clamp-1" : "line-clamp-2",
-              )}
-            >
-              {latest?.label ?? "No activity reported"}
-              {latest?.detail ? (
-                <span className="text-muted-foreground">
-                  {" "}
-                  · {latest.detail}
-                </span>
-              ) : null}
-            </p>
-            {!args.compact ? (
-              <span className="mt-0.5 block text-[10px] text-muted-foreground">
-                {provenanceLabel(summary.latestActivity)}
-              </span>
-            ) : null}
-          </div>
-        </div>
+        <LatestActivityRow
+          compact={args.compact}
+          metric={args.summary.latestActivity}
+        />
       ) : null}
       <dl
         className={cn(
-          "grid gap-2",
+          "grid auto-rows-fr gap-2",
           showLatestActivity && "mt-2",
           args.compact
             ? "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
             : "grid-cols-2 sm:grid-cols-3",
         )}
       >
-        <SummaryMetric
-          compact={args.compact}
-          icon={Clock3}
-          label="Elapsed"
-          metric={summary.elapsed}
-          value={
-            elapsed
-              ? `${formatDuration(elapsed.milliseconds)}${elapsed.running ? " · running" : ""}`
-              : "Not reported"
-          }
-        />
-        <SummaryMetric
-          compact={args.compact}
-          icon={FileDiff}
-          label="Changes"
-          metric={summary.changes}
-          value={
-            changes
-              ? `${changes.files.length} file${changes.files.length === 1 ? "" : "s"}${
-                  changes.additions == null || changes.deletions == null
-                    ? ""
-                    : ` · +${changes.additions}/−${changes.deletions}`
-                }`
-              : "No diff reported"
-          }
-        />
-        <SummaryMetric
-          compact={args.compact}
-          icon={BadgeCheck}
-          label="Verification"
-          metric={summary.verification}
-          tone={verificationTone}
-          value={
-            verification
-              ? `${verification.status} · ${verification.executedEntries}/${verification.totalEntries}`
-              : "Not reported"
-          }
-        />
-        <SummaryMetric
-          compact={args.compact}
-          icon={Coins}
-          label="Usage"
-          metric={summary.usage}
-          value={
-            usage
-              ? `${formatCount(usage.inputTokens + usage.outputTokens)} tokens${
-                  usage.totalCostUsd == null
-                    ? ""
-                    : ` · $${usage.totalCostUsd.toFixed(4)}`
-                }`
-              : "Not reported"
-          }
-        />
-        <SummaryMetric
-          compact={args.compact}
-          icon={Gauge}
-          label="Account limit"
-          metric={summary.accountLimit}
-          tone={
-            accountLimit && accountLimit.usedPercent >= 90
-              ? "danger"
-              : accountLimit && accountLimit.usedPercent >= 75
-                ? "warning"
-                : "default"
-          }
-          value={
-            accountLimit
-              ? `${Math.round(accountLimit.usedPercent)}% used · ${accountLimit.label}`
-              : "Not reported"
-          }
-        />
-        <SummaryMetric
-          compact={args.compact}
-          icon={Network}
-          label="Agents"
-          // A blocked agent outranks a failed one here: the failure is already
-          // history, while the block is the thing this reader can still clear.
-          tone={
-            agents && agents.blockedCount > 0
-              ? "warning"
-              : agents && agents.failedCount > 0
-                ? "danger"
-                : "default"
-          }
-          metric={summary.agents}
-          value={agents ? agents.label : "Main loop only"}
-        />
-        <SummaryMetric
-          compact={args.compact}
-          icon={Gauge}
-          label="Context left"
-          metric={summary.contextHeadroom}
-          value={
-            contextHeadroom
-              ? `${formatCount(contextHeadroom.remainingTokens)} tokens`
-              : "Not supported"
-          }
-        />
+        {descriptors.map((descriptor) => (
+          <SummaryMetricTile
+            compact={args.compact}
+            descriptor={descriptor}
+            key={descriptor.key}
+          />
+        ))}
       </dl>
     </section>
   );

@@ -7,8 +7,10 @@ import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import {
   applyProviderTurnActivityEvents,
   clearProviderTurnActivity,
+  retainRetiredTurnActivity,
   startProviderTurnActivity,
   type ProviderTurnActivitySnapshot,
+  type RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
 import {
   applyAdvisorActivityEvents,
@@ -38,6 +40,7 @@ type HostTaskTurnStoreState = Parameters<
     string,
     ProviderTurnActivitySnapshot | undefined
   >;
+  retainedTurnActivityByTask: RetainedTurnActivityByTask;
   advisorExchangeByTask: AdvisorExchangeByTask;
 };
 
@@ -192,6 +195,14 @@ export function applyHostTaskTurnSync(args: {
           activityByTask: args.state.providerTurnActivityByTask,
           taskId: args.update.taskId,
         });
+  // A host-driven turn ends the same way a local one does — the snapshot just
+  // disappears from the map — so it retires through the same comparison.
+  const retainedTurnActivityByTask = retainRetiredTurnActivity({
+    retainedByTask: args.state.retainedTurnActivityByTask,
+    previous: args.state.providerTurnActivityByTask,
+    next: providerTurnActivityByTask,
+    taskId: args.update.taskId,
+  });
   const advisorExchangeByTask = args.update.activityEvents?.length
     ? applyAdvisorActivityEvents({
         exchangeByTask: args.state.advisorExchangeByTask,
@@ -206,6 +217,7 @@ export function applyHostTaskTurnSync(args: {
       [args.update.taskId]: args.loaded.persistedActiveTurnId,
     },
     providerTurnActivityByTask,
+    retainedTurnActivityByTask,
     advisorExchangeByTask,
     taskWorkspaceIdById: {
       ...args.state.taskWorkspaceIdById,
@@ -238,6 +250,7 @@ export function applyHostTaskTurnSync(args: {
         string,
         ProviderTurnActivitySnapshot | undefined
       >;
+      retainedTurnActivityByTask: RetainedTurnActivityByTask;
       advisorExchangeByTask: AdvisorExchangeByTask;
     },
     syncedSession: merged.session,

@@ -14,7 +14,11 @@ class FakeStream extends EventEmitter {
   setEncoding(_encoding: string) {}
 }
 
-type FakeScenario = "full-lifecycle" | "completed-only" | "native-collab";
+type FakeScenario =
+  | "full-lifecycle"
+  | "completed-only"
+  | "native-collab"
+  | "command-streaming";
 
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
@@ -108,11 +112,17 @@ class FakeChild extends EventEmitter {
         }
         if (message.method === "turn/start" && message.id != null) {
           this.emitResponse(message.id, { turn: { id: "turn-1" } });
-          queueMicrotask(() =>
-            this.scenario === "native-collab"
-              ? this.emitCollabLifecycle()
-              : this.emitMcpLifecycle(),
-          );
+          queueMicrotask(() => {
+            if (this.scenario === "native-collab") {
+              this.emitCollabLifecycle();
+              return;
+            }
+            if (this.scenario === "command-streaming") {
+              this.emitCommandStreamingLifecycle();
+              return;
+            }
+            this.emitMcpLifecycle();
+          });
         }
       }
 
@@ -178,6 +188,62 @@ class FakeChild extends EventEmitter {
           ...item,
           status: "completed",
           result: { content: [{ type: "text", text: "Inspection complete" }] },
+        },
+        completedAtMs: 2,
+      },
+    });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "turn/completed",
+      params: {
+        ...envelope,
+        turn: { id: "turn-1", status: "completed" },
+      },
+    });
+  }
+
+  private emitCommandStreamingLifecycle() {
+    const envelope = { threadId: "thread-1", turnId: "turn-1" };
+    const item = {
+      id: "cmd-item-1",
+      type: "commandExecution",
+      command: "rg --files-with-matches TODO",
+    };
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/started",
+      params: { ...envelope, item, startedAtMs: 1 },
+    });
+    // A replayed start must not open the command twice.
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/started",
+      params: { ...envelope, item, startedAtMs: 1 },
+    });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/commandExecution/outputDelta",
+      params: { ...envelope, itemId: item.id, delta: "src/app.ts\n" },
+    });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "thread/tokenUsage/updated",
+      params: {
+        ...envelope,
+        tokenUsage: {
+          last: { inputTokens: 120, outputTokens: 30, cachedInputTokens: 90 },
+        },
+      },
+    });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/completed",
+      params: {
+        ...envelope,
+        item: {
+          ...item,
+          status: "completed",
+          aggregatedOutput: "src/app.ts\nsrc/store.ts\n",
         },
         completedAtMs: 2,
       },
@@ -296,9 +362,16 @@ afterEach(async () => {
   );
 });
 
+const DEFAULT_SCENARIO_EVENT_TYPES = [
+  "tool",
+  "subagent_progress",
+  "tool_result",
+];
+
 async function streamScenario(
   scenario: FakeScenario,
   runtimeOptions: ProviderRuntimeOptions = {},
+  eventTypes: string[] = DEFAULT_SCENARIO_EVENT_TYPES,
 ) {
   nextScenario = scenario;
   const runtime = await import(
@@ -314,9 +387,7 @@ async function streamScenario(
       ...runtimeOptions,
     },
   });
-  return (events ?? []).filter((event) =>
-    ["tool", "subagent_progress", "tool_result"].includes(event.type),
-  );
+  return (events ?? []).filter((event) => eventTypes.includes(event.type));
 }
 
 describe("Codex App Server MCP lifecycle mapping", () => {
@@ -384,6 +455,77 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       state: "input-available",
     });
   });
+
+  test("opens a command at item start so its streamed output is not dropped", async () => {
+    const events = await streamScenario("command-streaming", {}, [
+      "tool",
+      "tool_result",
+      "usage",
+    ]);
+
+    // One opener only: the replayed `item/started` and the later
+    // `item/completed` must not re-announce a command already in flight.
+    const toolEvents = events.filter((event) => event.type === "tool");
+    expect(toolEvents).toEqual([
+      {
+        type: "tool",
+        toolUseId: "cmd-item-1",
+        toolName: "bash",
+        input: "rg --files-with-matches TODO",
+        state: "input-available",
+      },
+    ]);
+    expect(events.map((event) => event.type)).toEqual([
+      "tool",
+      "tool_result",
+      "usage",
+      "tool_result",
+      "usage",
+    ]);
+    expect(events[1]).toMatchObject({
+      type: "tool_result",
+      tool_use_id: "cmd-item-1",
+      output: "src/app.ts\n",
+      isPartial: true,
+    });
+    // Token usage lands while the turn is still running instead of only at
+    // `turn/completed`, so the Usage metric is live rather than blank.
+    expect(events[2]).toMatchObject({
+      type: "usage",
+      inputTokens: 120,
+      outputTokens: 30,
+      cacheReadTokens: 90,
+    });
+
+    // The partial result now has a work item to attach to, so a long-running
+    // command is visible in Turn Activity while it runs.
+    const midFlight = applyProviderTurnActivityEvents({
+      activityByTask: {},
+      taskId: "task-command-streaming",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 1_000,
+      events: events.slice(0, 2),
+    });
+    expect(
+      midFlight["task-command-streaming"]?.workItemsById["cmd-item-1"],
+    ).toMatchObject({
+      kind: "tool",
+      status: "running",
+    });
+
+    const settled = applyProviderTurnActivityEvents({
+      activityByTask: {},
+      taskId: "task-command-streaming",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 1_000,
+      events,
+    });
+    expect(
+      settled["task-command-streaming"]?.workItemsById["cmd-item-1"],
+    ).toMatchObject({ status: "completed" });
+  }, 15_000);
 
   test("records a Sol medium to Terra max Worker execution receipt", async () => {
     const events = await streamScenario("native-collab", {

@@ -490,6 +490,36 @@ describe("appendProviderEventToAssistant", () => {
     const planMessage = replayed.messages.at(-1);
     expect(planMessage?.isPlanResponse).toBe(true);
   });
+
+  test("a turn that splits across messages leaves its usage on one of them", () => {
+    // Codex reports a running token total mid-turn and the authoritative one at
+    // `turn/completed`. A plan seals the message the first landed on and opens
+    // another for the second, and `buildUsageMetric` sums usage across
+    // messages — so both surviving would report roughly twice the real cost.
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        { type: "text", text: "Looking at the callers." },
+        { type: "usage", inputTokens: 900, outputTokens: 100 },
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        { type: "text", text: "Shall I proceed?" },
+        { type: "usage", inputTokens: 1_000, outputTokens: 250 },
+        { type: "done" },
+      ],
+      provider: "codex",
+      model: "gpt-5.6",
+      turnId: "turn-1",
+    });
+
+    const carriers = replayed.messages.filter((message) => message.usage);
+    expect(carriers).toHaveLength(1);
+    // The one left holding it is the authoritative total, not the running one.
+    expect(carriers[0]?.usage).toMatchObject({
+      inputTokens: 1_000,
+      outputTokens: 250,
+    });
+  });
 });
 
 describe("provider session cursor replay", () => {

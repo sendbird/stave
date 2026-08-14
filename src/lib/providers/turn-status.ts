@@ -170,6 +170,164 @@ export function clearProviderTurnActivity(args: {
   return next;
 }
 
+/** Why a retained turn stopped producing activity. */
+export type RetainedTurnOutcome = "completed" | "failed" | "stopped";
+
+/**
+ * The last turn a task finished, kept so its activity can still be read after
+ * the live snapshot is gone.
+ *
+ * This is a slice of its own rather than a flag on `providerTurnActivityByTask`
+ * because *presence* in that map is what Fleet, the pane tab chips, and the
+ * attention projection read as "this task is working". Leaving a finished turn
+ * parked there would report every idle task as busy, which is a far worse bug
+ * than the one replay fixes.
+ */
+export interface RetainedTurnActivity {
+  /** Frozen: `completedAt` is always set and nothing is pending. */
+  snapshot: ProviderTurnActivitySnapshot;
+  outcome: RetainedTurnOutcome;
+  retainedAt: number;
+}
+
+export type RetainedTurnActivityByTask = Record<
+  string,
+  RetainedTurnActivity | undefined
+>;
+
+/**
+ * How many tasks keep a replayable turn at once.
+ *
+ * Live snapshots are transient — one per *running* turn — but a retained one
+ * outlives its task's activity, and each carries a work graph that can reach
+ * hundreds of KB. Replay answers "what did the turn I was just watching do",
+ * so a small ring of the most recently finished turns covers it without
+ * letting a long session accumulate a snapshot per task it ever ran.
+ */
+export const RETAINED_TURN_ACTIVITY_LIMIT = 8;
+
+/**
+ * A finished turn waits for nothing.
+ *
+ * The stop paths (`abortTaskTurn`, the stall aborter, a managed takeover) drop
+ * the live snapshot without ever answering the prompt the turn was blocked on
+ * and without a `done` reaching the graph, so both projections have to be
+ * settled here: the shelf hint, or the replay would keep asking for an approval
+ * that can no longer be given, and the graph's open interactions, or the
+ * subagent that raised one stays badged "Needs you" for as long as the finished
+ * turn is on screen. `reduceWorkGraphEvent`'s `done` case does the same for the
+ * turns that end by completing.
+ */
+function freezeRetiredSnapshot(
+  snapshot: ProviderTurnActivitySnapshot,
+  now: number,
+): ProviderTurnActivitySnapshot {
+  return {
+    ...snapshot,
+    pendingInteraction: null,
+    stalledAt: null,
+    completedAt: snapshot.completedAt ?? now,
+    workGraph: resolveWorkGraphInteractions(snapshot.workGraph, now),
+  };
+}
+
+function pruneRetainedTurnActivity(
+  retainedByTask: RetainedTurnActivityByTask,
+): RetainedTurnActivityByTask {
+  const entries = Object.entries(retainedByTask).filter(
+    (entry): entry is [string, RetainedTurnActivity] => entry[1] != null,
+  );
+  if (entries.length <= RETAINED_TURN_ACTIVITY_LIMIT) {
+    return retainedByTask;
+  }
+  entries.sort((left, right) => right[1].retainedAt - left[1].retainedAt);
+  return Object.fromEntries(entries.slice(0, RETAINED_TURN_ACTIVITY_LIMIT));
+}
+
+/**
+ * The snapshot a turn left behind, read off the live map on both sides of a
+ * change.
+ *
+ * Used by the callers that only *remove* a turn — the stop paths and a host
+ * sync that swapped turns — since for them the map still holds everything the
+ * turn did. The flush path cannot use it (see `reduceProviderTurnActivityEvents`)
+ * and passes its snapshot in directly instead.
+ */
+function resolveRetiredSnapshot(args: {
+  previous: ProviderTurnActivityByTask;
+  next: ProviderTurnActivityByTask;
+  taskId: string;
+}): ProviderTurnActivitySnapshot | null {
+  const prior = args.previous[args.taskId];
+  if (!prior) {
+    return null;
+  }
+  const following = args.next[args.taskId];
+  const settled =
+    following && following.turnId === prior.turnId ? following : null;
+  if (settled && (settled.completedAt == null || prior.completedAt != null)) {
+    // Same turn, still running — or already retained when it first completed.
+    return null;
+  }
+  return settled ?? prior;
+}
+
+/**
+ * Move a turn into the replay slot as it leaves the live activity map.
+ *
+ * Callers hand over the map on both sides of whatever they just did rather than
+ * a "did it end" flag, because the places a turn can leave the live map
+ * disagree about how they say so: the reducer deletes the entry on a clean
+ * `done` but *keeps* it with `completedAt` set on a failure, the stop paths
+ * delete it outright, and a host sync can swap in a different turn entirely.
+ * Comparing before to after recognises all of those without each caller having
+ * to re-derive the terminal condition — and returns the map untouched for the
+ * flushes that did not end anything, which is nearly all of them.
+ */
+export function retainRetiredTurnActivity(args: {
+  retainedByTask: RetainedTurnActivityByTask;
+  /** The live activity map before the caller's change. */
+  previous: ProviderTurnActivityByTask;
+  /** The same map after it. */
+  next: ProviderTurnActivityByTask;
+  taskId: string;
+  /**
+   * The turn's final snapshot, when the caller already holds one that the map
+   * does not. Supplying it asserts the turn retired, so pass it only for a
+   * batch that actually ended one.
+   */
+  snapshot?: ProviderTurnActivitySnapshot | null;
+  /**
+   * Outcome to record when the snapshot carries no error, e.g. `"stopped"` for
+   * the abort paths. An errored turn always reads as `"failed"`.
+   */
+  outcome?: RetainedTurnOutcome;
+  now?: number;
+}): RetainedTurnActivityByTask {
+  const retired = args.snapshot ?? resolveRetiredSnapshot(args);
+  if (!retired) {
+    return args.retainedByTask;
+  }
+  const now = args.now ?? Date.now();
+  const snapshot = freezeRetiredSnapshot(retired, now);
+  const outcome: RetainedTurnOutcome = snapshot.turnError
+    ? "failed"
+    : (args.outcome ?? "completed");
+  const existing = args.retainedByTask[args.taskId];
+  if (
+    existing &&
+    existing.outcome === outcome &&
+    existing.snapshot.turnId === snapshot.turnId &&
+    existing.snapshot.completedAt === snapshot.completedAt
+  ) {
+    return args.retainedByTask;
+  }
+  return pruneRetainedTurnActivity({
+    ...args.retainedByTask,
+    [args.taskId]: { snapshot, outcome, retainedAt: now },
+  });
+}
+
 export function markProviderTurnInteractionResolved(args: {
   activityByTask: ProviderTurnActivityByTask;
   taskId: string;
@@ -801,8 +959,35 @@ export function applyProviderTurnActivityEvents(args: {
   events: NormalizedProviderEvent[];
   now?: number;
 }) {
+  return reduceProviderTurnActivityEvents(args).activityByTask;
+}
+
+/**
+ * The same fold as `applyProviderTurnActivityEvents`, plus the snapshot the
+ * turn ended on.
+ *
+ * The two have to come from one pass. `done` arrives in the same batch as the
+ * work that preceded it — the runtime cancels the pending animation-frame flush
+ * and drains everything queued, which after a spell of a hidden window can be
+ * the entire turn — and a cleanly completed turn is deleted from the map. So
+ * neither side of the map comparison holds what the turn actually did: the
+ * "before" is one flush stale and the "after" is empty. Anything that wants to
+ * keep the finished turn has to be handed the snapshot from in here.
+ */
+export function reduceProviderTurnActivityEvents(args: {
+  activityByTask: ProviderTurnActivityByTask;
+  taskId: string;
+  turnId: string;
+  providerId: ProviderId;
+  events: NormalizedProviderEvent[];
+  now?: number;
+}): {
+  activityByTask: ProviderTurnActivityByTask;
+  /** The turn's final snapshot when this batch ended it, else null. */
+  retiredSnapshot: ProviderTurnActivitySnapshot | null;
+} {
   if (args.events.length === 0) {
-    return args.activityByTask;
+    return { activityByTask: args.activityByTask, retiredSnapshot: null };
   }
 
   const current = args.activityByTask[args.taskId];
@@ -825,13 +1010,6 @@ export function applyProviderTurnActivityEvents(args: {
     });
   }
 
-  if (turnCompleted && !turnErrorState) {
-    return clearProviderTurnActivity({
-      activityByTask: args.activityByTask,
-      taskId: args.taskId,
-    });
-  }
-
   const now = args.now ?? Date.now();
   const pendingInteraction = turnCompleted
     ? null
@@ -851,33 +1029,44 @@ export function applyProviderTurnActivityEvents(args: {
     now,
   });
 
-  return {
-    ...args.activityByTask,
-    [args.taskId]: {
+  const snapshot: ProviderTurnActivitySnapshot = {
+    turnId: args.turnId,
+    providerId,
+    startedAt,
+    lastEventAt: now,
+    stalledAt: null,
+    pendingInteraction,
+    workItemsById: work.workItemsById,
+    orderedWorkItemIds: work.orderedWorkItemIds,
+    workGraph: applyTurnWorkGraphEvents({
+      current,
       turnId: args.turnId,
       providerId,
+      events: args.events,
       startedAt,
-      lastEventAt: now,
-      stalledAt: null,
-      pendingInteraction,
-      workItemsById: work.workItemsById,
-      orderedWorkItemIds: work.orderedWorkItemIds,
-      workGraph: applyTurnWorkGraphEvents({
-        current,
-        turnId: args.turnId,
-        providerId,
-        events: args.events,
-        startedAt,
-        now,
-      }),
-      ...(turnErrorState
-        ? {
-            turnError: turnErrorState.message,
-            turnErrorRecoverable: turnErrorState.recoverable,
-          }
-        : {}),
-      ...(turnCompleted ? { completedAt: now } : {}),
-    },
+      now,
+    }),
+    ...(turnErrorState
+      ? {
+          turnError: turnErrorState.message,
+          turnErrorRecoverable: turnErrorState.recoverable,
+        }
+      : {}),
+    ...(turnCompleted ? { completedAt: now } : {}),
+  };
+
+  return {
+    // A cleanly completed turn still leaves the live map entirely: presence
+    // there is what Fleet, the pane tab chips, and the attention projection
+    // read as "this task is working".
+    activityByTask:
+      turnCompleted && !turnErrorState
+        ? clearProviderTurnActivity({
+            activityByTask: args.activityByTask,
+            taskId: args.taskId,
+          })
+        : { ...args.activityByTask, [args.taskId]: snapshot },
+    retiredSnapshot: turnCompleted ? snapshot : null,
   };
 }
 
