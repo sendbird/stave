@@ -446,6 +446,22 @@ export async function releaseTaskParent(args: {
   return invokeLocalMcp<{ released: boolean }>("release-task-parent", args);
 }
 
+/**
+ * Bridges the `stave_consult_advisor` Local MCP tool to the host service.
+ *
+ * The consult grant registry is a module-level map in the process that minted
+ * the grant — the host-service child, where provider turns run. Resolving the
+ * key here in the Electron main process would always miss, so every consult
+ * would fail with `unknown-consult-key` regardless of the armed advisor.
+ */
+export async function consultAdvisor(args: {
+  consultKey: string;
+  question: string;
+  context?: string;
+}) {
+  return invokeHostService("provider.consult-advisor", args);
+}
+
 export async function respondApproval(args: {
   workspaceId: string;
   taskId: string;

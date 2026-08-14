@@ -52,7 +52,10 @@ import {
   createAdvisorUsageMerger,
   mergeAdvisorUsage,
 } from "./advisor-runtime";
-import { registerAdvisorConsultGrant } from "./advisor-consult";
+import {
+  consultAdvisor,
+  registerAdvisorConsultGrant,
+} from "./advisor-consult";
 import {
   createProviderTurnLifecycle,
   type ProviderTurnLifecycleSnapshot,
@@ -1192,6 +1195,9 @@ export const providerRuntime: ProviderRuntime = {
     }
     return { ok: true, message: "Advisor preflight skipped." };
   },
+  // The grant registry lives in this process because this is where grants are
+  // minted; the Local MCP tool reaches it through `provider.consult-advisor`.
+  consultAdvisor: (args) => consultAdvisor(args),
   cleanupTask: ({ taskId }) => {
     clearActiveTaskSessions({ taskId });
     cleanupProviderTaskState(taskId);

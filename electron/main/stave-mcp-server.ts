@@ -41,7 +41,6 @@ import {
   updateRoutine,
 } from "./routine-service";
 import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
-import { consultAdvisor } from "../providers/advisor-consult";
 import { getChildTaskCoordinator } from "./runs/child-task-coordinator-instance";
 import {
   createTaskHeartbeat,
@@ -66,6 +65,7 @@ import {
   addWorkspaceTodo,
   appendWorkspaceNotes,
   clearWorkspaceNotes,
+  consultAdvisor,
   createWorkspace,
   getWorkspaceInformation,
   getTaskStatus,

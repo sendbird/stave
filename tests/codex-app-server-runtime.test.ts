@@ -751,20 +751,20 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
         userEnabled: true,
       }),
     ).toEqual({
-      'plugins."chrome@openai-bundled".enabled': false,
+      "plugins.chrome@openai-bundled.enabled": false,
     });
     expect(
       buildCodexNativeBrowserTurnConfigOverrides({
         requested: true,
         userEnabled: true,
       }),
-    ).toEqual({ 'plugins."chrome@openai-bundled".enabled': true });
+    ).toEqual({ "plugins.chrome@openai-bundled.enabled": true });
     expect(
       buildCodexNativeBrowserTurnConfigOverrides({
         requested: true,
         userEnabled: false,
       }),
-    ).toEqual({ 'plugins."chrome@openai-bundled".enabled': false });
+    ).toEqual({ "plugins.chrome@openai-bundled.enabled": false });
   });
 
   test("reads the user's native Chrome plugin setting from App Server inventory", () => {
@@ -816,7 +816,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     const config = buildCodexConfigOverrides({});
 
     expect(config).toMatchObject({
-      'plugins."browser@openai-bundled".enabled': false,
+      "plugins.browser@openai-bundled.enabled": false,
     });
   });
 
@@ -829,7 +829,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     });
 
     expect(config).toMatchObject({
-      'plugins."browser@openai-bundled".enabled': false,
+      "plugins.browser@openai-bundled.enabled": false,
       collaboration_mode_kind: "plan",
     });
   });
@@ -890,7 +890,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     expectGeneratedThreadStartParamKeys(params);
     expect(params).toMatchObject({
       config: {
-        'plugins."browser@openai-bundled".enabled': false,
+        "plugins.browser@openai-bundled.enabled": false,
       },
     });
   });
@@ -924,16 +924,23 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     expect(params.config).not.toHaveProperty("developer_instructions");
   });
 
-  test("disables every discovered MCP server through quoted config keys", () => {
+  test("disables discovered MCP servers through a nested table, never quoted keys", () => {
+    // Codex splits an override key on `.` and takes each segment verbatim, so
+    // `mcp_servers."slack".enabled` addresses a server literally named
+    // `"slack"` whose table has no transport — and Codex then refuses to load
+    // the configuration at all.
     const config = buildCodexMcpDisableConfigOverrides([
-      { name: "slack" },
-      { name: 'quoted"name' },
-      { name: "" },
+      "slack",
+      'quoted"name',
+      "weird.name",
     ]);
 
     expect(config).toEqual({
-      'mcp_servers."slack".enabled': false,
-      'mcp_servers."quoted\\"name".enabled': false,
+      mcp_servers: {
+        slack: { enabled: false },
+        'quoted"name': { enabled: false },
+        "weird.name": { enabled: false },
+      },
     });
   });
 
@@ -944,7 +951,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
         authorizationToken: "authorization-placeholder",
       }),
     ).toEqual({
-      'mcp_servers."stave-local".url':
+      "mcp_servers.stave-local.url":
         "http://127.0.0.1:39517/mcp?staveUnattendedAutomation=authorization-placeholder",
     });
   });
@@ -956,7 +963,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       sandbox: "read-only",
       approvalPolicy: "never",
       configOverrides: {
-        'mcp_servers."slack".enabled': false,
+        mcp_servers: { slack: { enabled: false } },
       },
     });
 
@@ -966,7 +973,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       sandbox: "read-only",
       approvalPolicy: "never",
       config: {
-        'mcp_servers."slack".enabled': false,
+        mcp_servers: { slack: { enabled: false } },
       },
     });
   });

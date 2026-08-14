@@ -2,8 +2,9 @@ import type { BridgeEvent, StreamTurnArgs } from "./types";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 import {
-  buildCodexMcpDisableConfigOverrides,
   buildCodexSecondaryServerRequestDenial,
+  resolveCodexIsolationConfigOverrides,
+  type CodexConfigOverrides,
 } from "./codex-app-server-params";
 
 type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
@@ -26,29 +27,9 @@ type BuildThreadStartParams = (args: {
   ephemeral?: boolean;
   sandbox?: "read-only" | "workspace-write" | "danger-full-access";
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
-  configOverrides?: Record<string, string | boolean>;
+  configOverrides?: CodexConfigOverrides;
   isolated?: boolean;
 }) => unknown;
-
-/**
- * Isolated threads advertise "no tools, no MCP", but `thread/start` only
- * *instructs* the model not to use MCP. Any registered server stays reachable
- * unless it is explicitly disabled per thread, so an isolated call could still
- * reach the network or mutate state through an MCP tool. Resolving the catalog
- * is therefore mandatory: if it cannot be read, the isolated call is refused
- * rather than run with weaker isolation than it claims.
- */
-async function resolveIsolatedMcpDisableOverrides(request: Request) {
-  const response = await request<{ data?: unknown }>("mcpServerStatus/list", {});
-  if (!Array.isArray(response.data)) {
-    throw new Error("Codex returned an invalid MCP server catalog.");
-  }
-  return buildCodexMcpDisableConfigOverrides(
-    response.data.filter((server): server is { name?: unknown } =>
-      isRecord(server),
-    ),
-  );
-}
 
 type BuildTurnStartParams = (args: {
   threadId: string;
@@ -224,9 +205,19 @@ export async function runCodexReadOnlyPromptWithClient(
       return { ok: false, detail: "Codex authentication is required." };
     }
 
-    const isolatedConfigOverrides = args.isolated
-      ? await resolveIsolatedMcpDisableOverrides(args.request)
-      : undefined;
+    /**
+     * `isolated` only *instructs* the model to avoid MCP; every registered
+     * server stays reachable until it is disabled for this thread. Resolving
+     * the overrides is therefore mandatory — if they cannot be resolved the
+     * call is refused rather than run with weaker isolation than it claims.
+     */
+    const isolatedConfigOverrides: CodexConfigOverrides | undefined =
+      args.isolated
+        ? await resolveCodexIsolationConfigOverrides({
+            request: args.request,
+            cwd: args.runtimeCwd,
+          })
+        : undefined;
     if (aborted) {
       return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }

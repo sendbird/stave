@@ -13,12 +13,25 @@ import {
 import { buildExecutableLookupEnv } from "./executable-path";
 import { parseBooleanEnv } from "./runtime-shared";
 import { buildProjectNvmShellConfigOverrides } from "../shared/project-node-env";
+import { isRecord } from "./codex-app-server-json";
 
 type CodexRequest = (
   method: string,
   params: unknown,
   options?: { timeoutMs?: number },
 ) => Promise<unknown>;
+
+/**
+ * A `thread/start` / `thread/resume` config override value.
+ *
+ * Codex splits an override KEY on `.` and uses each segment verbatim; it does
+ * not parse TOML quoting. Nested tables therefore have to be expressed as a
+ * nested VALUE — see `buildCodexMcpDisableConfigOverrides`.
+ */
+export type CodexConfigOverrideValue =
+  string | boolean | number | { [key: string]: CodexConfigOverrideValue };
+
+export type CodexConfigOverrides = Record<string, CodexConfigOverrideValue>;
 
 function resolveFileAccessMode(args: {
   runtimeValue?: "read-only" | "workspace-write" | "danger-full-access";
@@ -63,7 +76,7 @@ function resolveApprovalPolicy(args: {
 export function buildCodexConfigOverrides(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  configOverrides?: Record<string, string | boolean | number>;
+  configOverrides?: CodexConfigOverrides;
   /**
    * Set for `secondary-read-only` turns. A secondary run must not delegate: it
    * is a bounded read-only analysis pass, and a worker would both escape that
@@ -75,7 +88,7 @@ export function buildCodexConfigOverrides(args: {
   const workerRuntimeOptions = args.secondaryReadOnly
     ? undefined
     : args.runtimeOptions;
-  const config: Record<string, string | boolean | number> = {
+  const config: CodexConfigOverrides = {
     ...buildCodexPluginConfigOverrides(),
     ...(args.cwd
       ? buildProjectNvmShellConfigOverrides({
@@ -229,7 +242,7 @@ export function buildCodexThreadStartParams(args: {
   ephemeral?: boolean;
   sandbox?: "read-only" | "workspace-write" | "danger-full-access";
   approvalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
-  configOverrides?: Record<string, string | boolean>;
+  configOverrides?: CodexConfigOverrides;
   isolated?: boolean;
   secondaryReadOnly?: boolean;
 }) {
@@ -299,7 +312,7 @@ export function buildCodexThreadResumeParams(args: {
   threadId: string;
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  configOverrides?: Record<string, string | boolean>;
+  configOverrides?: CodexConfigOverrides;
   secondaryReadOnly?: boolean;
 }) {
   const config = buildCodexConfigOverrides({
@@ -317,17 +330,84 @@ export function buildCodexThreadResumeParams(args: {
   };
 }
 
+/**
+ * Turns off the named MCP servers for one thread.
+ *
+ * The disables travel as a single `mcp_servers` key whose value is a nested
+ * table, never as `mcp_servers."<name>".enabled` dotted keys. Codex splits an
+ * override key on `.` and takes each segment literally, so a quoted segment
+ * addresses a server whose name really does contain quote characters — a table
+ * with an `enabled` flag and no transport, which makes Codex reject the entire
+ * configuration:
+ *
+ *     failed to load configuration: invalid transport in `mcp_servers."slack"`
+ *
+ * Values, by contrast, are parsed as data, so every name — including one with a
+ * `.` in it — addresses the entry it names.
+ */
 export function buildCodexMcpDisableConfigOverrides(
-  servers: Array<{ name?: unknown }>,
-) {
-  const config: Record<string, boolean> = {};
-  for (const server of servers) {
-    const name = typeof server.name === "string" ? server.name.trim() : "";
-    if (name) {
-      config[`mcp_servers.${JSON.stringify(name)}.enabled`] = false;
-    }
+  serverNames: string[],
+): CodexConfigOverrides {
+  const servers: Record<string, CodexConfigOverrideValue> = {};
+  for (const name of serverNames) {
+    servers[name] = { enabled: false };
   }
-  return config;
+  return Object.keys(servers).length > 0 ? { mcp_servers: servers } : {};
+}
+
+function readCodexConfiguredServerNames(response: unknown) {
+  const config = isRecord(response) ? response.config : undefined;
+  if (!isRecord(config)) {
+    throw new Error("Codex returned an unreadable configuration.");
+  }
+  const servers = isRecord(config.mcp_servers)
+    ? config.mcp_servers
+    : isRecord(config.mcpServers)
+      ? config.mcpServers
+      : {};
+  return Object.keys(servers).map((name) => {
+    if (!name.trim()) {
+      throw new Error("Codex returned an invalid MCP server configuration.");
+    }
+    return name;
+  });
+}
+
+/**
+ * Config overrides that strip an isolated thread of everything MCP can reach.
+ *
+ * Two origins need two mechanisms. Servers declared under `mcp_servers` are
+ * switched off by name. Servers Codex registers itself — the `codex_apps`
+ * plugin runtime — have no `mcp_servers` entry, so naming one would *create* a
+ * transport-less table and fail config load; the `apps` feature is turned off
+ * instead, which also takes `read_mcp_resource`, `list_mcp_resources`, and
+ * `request_plugin_install` out of the thread's tool set.
+ *
+ * The names come from `config/read` alone, never from the `mcpServerStatus/list`
+ * catalog. That catalog belongs to the shared App Server process and takes no
+ * cwd, so it cannot see a server declared in a project layer between the
+ * thread's `cwd` and its repo root; intersecting the two sources silently left
+ * every project-scoped server live inside a thread that advertises isolation.
+ * `config/read {cwd}` resolves those layers, and it is also the exact set of
+ * names that have an `mcp_servers` entry — which is what makes them safe to
+ * name in the first place.
+ *
+ * Fails closed. Running with weaker isolation than the caller was promised is
+ * worse than not running at all.
+ */
+export async function resolveCodexIsolationConfigOverrides(args: {
+  request: CodexRequest;
+  cwd?: string;
+}): Promise<CodexConfigOverrides> {
+  const configured = readCodexConfiguredServerNames(
+    await args.request("config/read", {
+      ...(args.cwd ? { cwd: args.cwd } : {}),
+    }),
+  );
+  return {
+    "features.apps": false,
+    ...buildCodexMcpDisableConfigOverrides(configured),
+  };
 }
 
 export function buildCodexSecondaryServerRequestDenial(method: string) {
@@ -371,27 +451,12 @@ export function resolveCodexSecondaryRuntimeOptions(args: {
 
 export async function resolveCodexSecondaryConfigOverrides(
   request: CodexRequest,
-) {
-  const response = (await request("mcpServerStatus/list", {})) as {
-    data?: unknown;
-  };
-  if (
-    !Array.isArray(response.data) ||
-    response.data.some(
-      (server) =>
-        !server ||
-        typeof server !== "object" ||
-        Array.isArray(server) ||
-        typeof (server as { name?: unknown }).name !== "string" ||
-        !(server as { name: string }).name.trim(),
-    )
-  ) {
-    throw new Error("Codex returned an invalid MCP server catalog.");
-  }
+  cwd?: string,
+): Promise<CodexConfigOverrides> {
   return {
     developer_instructions:
       "This is an isolated secondary read-only analysis turn. Use only local read-only inspection. Do not use MCP, web, network access, approvals, or file mutation.",
-    ...buildCodexMcpDisableConfigOverrides(response.data),
+    ...(await resolveCodexIsolationConfigOverrides({ request, cwd })),
   };
 }
 

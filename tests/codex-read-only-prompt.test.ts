@@ -17,7 +17,17 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         } as T;
       }
       if (method === "mcpServerStatus/list") {
-        return { data: [{ name: "github" }, { name: "linear" }] } as T;
+        return {
+          data: [
+            { name: "github" },
+            { name: "linear" },
+            // Registered by the Codex plugin runtime, absent from `mcp_servers`.
+            { name: "codex_apps" },
+          ],
+        } as T;
+      }
+      if (method === "config/read") {
+        return { config: { mcp_servers: { github: {}, linear: {} } } } as T;
       }
       if (method === "thread/start") {
         return { thread: { id: "advisor-thread" } } as T;
@@ -103,8 +113,16 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       approvalPolicy: "never",
       isolated: true,
       configOverrides: {
-        'mcp_servers."github".enabled': false,
-        'mcp_servers."linear".enabled': false,
+        // Declared servers are switched off by name, through a nested value.
+        // A quoted dotted key would address a transport-less server instead and
+        // Codex would reject the whole configuration.
+        mcp_servers: {
+          github: { enabled: false },
+          linear: { enabled: false },
+        },
+        // `codex_apps` has no `mcp_servers` entry, so it cannot be named at
+        // all — the feature that registers it is disabled instead.
+        "features.apps": false,
       },
       runtimeOptions: {
         model: "gpt-5.6-terra",
@@ -121,14 +139,20 @@ describe("runCodexReadOnlyPromptWithClient", () => {
     });
     expect(methods).toEqual([
       "account/read",
-      "mcpServerStatus/list",
+      "config/read",
       "thread/start",
       "turn/start",
       "thread/delete",
     ]);
+    expect(
+      Object.keys(
+        (threadStartArgs as { configOverrides?: Record<string, unknown> })
+          .configOverrides ?? {},
+      ).some((key) => key.includes('"')),
+    ).toBe(false);
   });
 
-  test("refuses an isolated call when the MCP catalog cannot be read", async () => {
+  test("refuses an isolated call when the effective config cannot be read", async () => {
     const methods: string[] = [];
 
     const result = await runCodexReadOnlyPromptWithClient({
@@ -138,10 +162,16 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       request: async <T>(method: string) => {
         methods.push(method);
         if (method === "account/read") {
-          return { account: { type: "chatgpt" }, requiresOpenaiAuth: true } as T;
+          return {
+            account: { type: "chatgpt" },
+            requiresOpenaiAuth: true,
+          } as T;
         }
         if (method === "mcpServerStatus/list") {
-          return { data: "not-a-list" } as T;
+          return { data: [{ name: "github" }] } as T;
+        }
+        if (method === "config/read") {
+          return { config: "unreadable" } as T;
         }
         return {} as T;
       },
@@ -150,10 +180,67 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       buildTurnStartParams: (args) => args,
     });
 
-    // Failing closed matters: running anyway would give the caller weaker
-    // isolation than the `isolated` flag advertises.
+    // Without the config we cannot tell which servers are safe to name, and
+    // naming the wrong one makes Codex reject the entire configuration.
     expect(result).toMatchObject({ ok: false });
     expect(methods).not.toContain("thread/start");
+  });
+
+  test("disables a project-scoped server the shared MCP catalog cannot see", async () => {
+    const methods: string[] = [];
+    let threadStartArgs: unknown;
+
+    await runCodexReadOnlyPromptWithClient({
+      runtimeCwd: "/workspace/stave",
+      prompt: "Review this request.",
+      isolated: true,
+      request: async <T>(method: string, params: unknown) => {
+        methods.push(method);
+        if (method === "account/read") {
+          return {
+            account: { type: "chatgpt" },
+            requiresOpenaiAuth: true,
+          } as T;
+        }
+        if (method === "config/read") {
+          // Resolved from `cwd`, so it includes the repo's own config layer.
+          return {
+            config: { mcp_servers: { globalsrv: {}, projsrv: {} } },
+          } as T;
+        }
+        if (method === "thread/start") {
+          threadStartArgs = params;
+          return { thread: { id: "advisor-thread" } } as T;
+        }
+        if (method === "turn/start") {
+          return {
+            turn: {
+              id: "advisor-turn",
+              status: "completed",
+              items: [{ type: "agentMessage", text: "Fine." }],
+            },
+          } as T;
+        }
+        return {} as T;
+      },
+      subscribe: () => () => {},
+      buildThreadStartParams: (args) => args,
+      buildTurnStartParams: (args) => args,
+    });
+
+    // The catalog runs in the App Server's own directory and takes no cwd, so
+    // `projsrv` never appears in it. Gating on it left the server live in a
+    // thread whose whole purpose is that nothing MCP is reachable.
+    expect(threadStartArgs).toMatchObject({
+      configOverrides: {
+        mcp_servers: {
+          globalsrv: { enabled: false },
+          projsrv: { enabled: false },
+        },
+        "features.apps": false,
+      },
+    });
+    expect(methods).not.toContain("mcpServerStatus/list");
   });
 
   test("does not resolve the MCP catalog for non-isolated calls", async () => {
@@ -165,7 +252,10 @@ describe("runCodexReadOnlyPromptWithClient", () => {
       request: async <T>(method: string) => {
         methods.push(method);
         if (method === "account/read") {
-          return { account: { type: "chatgpt" }, requiresOpenaiAuth: true } as T;
+          return {
+            account: { type: "chatgpt" },
+            requiresOpenaiAuth: true,
+          } as T;
         }
         if (method === "thread/start") {
           return { thread: { id: "read-only-thread" } } as T;

@@ -472,6 +472,56 @@ describe("provider runtime on-demand Advisor integration", () => {
     ]);
   });
 
+  test("answers a consult routed through the runtime's host-service seam", async () => {
+    // `stave_consult_advisor` is served from the Electron main process while
+    // grants are minted here, in the host-service child. Main crosses the gap
+    // via `provider.consult-advisor`, which dispatches to this method — so the
+    // seam must resolve a live grant exactly like the in-process call does.
+    let consultOutcome: Awaited<
+      ReturnType<typeof providerRuntime.consultAdvisor>
+    > | null = null;
+    duringPrimaryTurn = async (args) => {
+      consultOutcome = await providerRuntime.consultAdvisor({
+        consultKey: captureConsultKey(args.conversation),
+        question: "Is the cancellation path sound?",
+      });
+    };
+
+    await runBufferedTurn({
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+    });
+
+    expect(codexRunnerCallCount).toBe(1);
+    expect(consultOutcome).toMatchObject({
+      ok: true,
+      advisorProviderId: "codex",
+      advisorModel: "gpt-5.6-terra",
+      consultIndex: 1,
+    });
+  });
+
+  test("reports an unknown key through the same seam", async () => {
+    let unknownKeyOutcome: Awaited<
+      ReturnType<typeof providerRuntime.consultAdvisor>
+    > | null = null;
+    duringPrimaryTurn = async () => {
+      unknownKeyOutcome = await providerRuntime.consultAdvisor({
+        consultKey: "not-a-minted-key",
+        question: "Is the cancellation path sound?",
+      });
+    };
+
+    await runBufferedTurn({
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+    });
+
+    expect(codexRunnerCallCount).toBe(0);
+    expect(unknownKeyOutcome).toMatchObject({
+      ok: false,
+      code: "unknown-consult-key",
+    });
+  });
+
   test("keeps the primary turn and bills usage when a consult fails", async () => {
     codexRunnerResult = {
       ok: false,

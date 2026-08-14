@@ -133,6 +133,7 @@ import {
   deleteCodexSecondaryThread,
   resolveCodexSecondaryConfigOverrides,
   resolveCodexSecondaryRuntimeOptions,
+  type CodexConfigOverrides,
 } from "./codex-app-server-params";
 import { mergeCodexTurnConfigOverrides } from "./codex-app-server-config-overrides";
 import { parsePositiveIntEnv } from "./runtime-shared";
@@ -1147,7 +1148,7 @@ async function ensureCodexThread(args: {
   conversation?: StreamTurnArgs["conversation"];
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   ephemeral?: boolean;
-  configOverrides?: Record<string, string | boolean>;
+  configOverrides?: CodexConfigOverrides;
   boundSecretFingerprint?: string;
   /**
    * A secondary read-only run must not delegate to a Worker-mode subagent: it is
@@ -2390,11 +2391,14 @@ export async function streamCodexWithAppServer(
     return events;
   }
 
-  let secondaryConfigOverrides: Record<string, string | boolean> | undefined;
+  let secondaryConfigOverrides: CodexConfigOverrides | undefined;
   if (secondaryReadOnly) {
     try {
+      // The thread cwd matters: project config layers between it and the repo
+      // root decide which MCP servers actually exist for this thread.
       secondaryConfigOverrides = await resolveCodexSecondaryConfigOverrides(
         client.request.bind(client),
+        runtimeCwd,
       );
     } catch {
       const events: BridgeEvent[] = [

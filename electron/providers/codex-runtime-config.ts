@@ -30,10 +30,17 @@ export const CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS = [
   "- The desktop in-app browser plugin (`control-in-app-browser`) and Computer Use are not connected to this Stave workspace. Never use them for browser inspection or automation here. The external Chrome skill is the only provider-native browser surface enabled by `@web`.",
 ].join("\n");
 
+/**
+ * The plugin id goes into the key bare, not quoted. Codex splits an override
+ * key on `.` and takes each segment verbatim — it does not parse TOML quoting —
+ * so `plugins."chrome@openai-bundled".enabled` adds a *new* entry named
+ * `"chrome@openai-bundled"`, quote characters and all, and leaves the real
+ * plugin enabled. These disables were silently doing nothing.
+ */
 export function buildCodexPluginConfigOverrides() {
   const config: Record<string, boolean> = {};
   for (const pluginId of CODEX_DISABLED_BUNDLED_PLUGIN_IDS) {
-    config[`plugins."${pluginId}".enabled`] = false;
+    config[`plugins.${pluginId}.enabled`] = false;
   }
   return config;
 }
@@ -45,8 +52,10 @@ export function buildCodexNativeBrowserTurnConfigOverrides(args: {
   // Only force-enable after plugin/list confirms the user's setting is enabled.
   // Every other turn disables the plugin so browser access cannot leak into
   // plan, routine, or analysis execution.
+  //
+  // Bare id, for the reason spelled out on `buildCodexPluginConfigOverrides`.
   return {
-    [`plugins."${CODEX_NATIVE_BROWSER_PLUGIN_ID}".enabled`]:
+    [`plugins.${CODEX_NATIVE_BROWSER_PLUGIN_ID}.enabled`]:
       args.requested && args.userEnabled,
   };
 }
