@@ -71,6 +71,19 @@ describe("EditorMarkdownPreview", () => {
     expect(html).toContain("<hr");
   });
 
+  test("renders HTML br tags as line breaks", () => {
+    const html = renderToStaticMarkup(
+      createElement(EditorMarkdownPreview, {
+        content: "First line<br>Second line<br />Third line",
+        fontSize: 15,
+      }),
+    );
+
+    expect(html).toContain("First line<br/>");
+    expect(html).toContain("Second line<br/>");
+    expect(html).toContain("Third line");
+  });
+
   test("keeps relative links inert while preserving external links", () => {
     const html = renderToStaticMarkup(
       createElement(EditorMarkdownPreview, {

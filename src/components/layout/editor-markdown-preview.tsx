@@ -22,6 +22,41 @@ interface EditorMarkdownPreviewProps extends HTMLAttributes<HTMLDivElement> {
   variant?: "editor" | "embedded";
 }
 
+interface MarkdownAstNode {
+  type?: string;
+  value?: unknown;
+  children?: MarkdownAstNode[];
+}
+
+/**
+ * Supports HTML-style line breaks without enabling arbitrary raw HTML in the
+ * preview. Code spans and fenced code blocks are unaffected because they are
+ * parsed as code nodes rather than HTML nodes.
+ */
+function remarkHtmlBreaks() {
+  return (tree: MarkdownAstNode) => {
+    const visit = (node: MarkdownAstNode): void => {
+      if (!node.children) {
+        return;
+      }
+
+      for (const child of node.children) {
+        if (
+          child.type === "html" &&
+          /^<br\s*\/?\s*>$/i.test(String(child.value))
+        ) {
+          child.type = "break";
+          delete child.value;
+          continue;
+        }
+        visit(child);
+      }
+    };
+
+    visit(tree);
+  };
+}
+
 function renderRelativeLink(href: string | undefined, children: ReactNode) {
   return (
     <a
@@ -69,7 +104,7 @@ export function EditorMarkdownPreview({
             the frontmatter card renders above it. */}
         <div className="min-w-0">
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkHtmlBreaks]}
             components={{
               h1: ({ children }) => (
                 <h1 className="mt-2 mb-5 text-3xl font-semibold tracking-tight first:mt-0">
