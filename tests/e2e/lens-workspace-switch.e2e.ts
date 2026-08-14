@@ -280,16 +280,32 @@ test("workspace switch with an open Lens keeps the active task surface visible",
     const themeBorder = getComputedStyle(
       document.documentElement,
     ).getPropertyValue("--border");
+    // The native browser surface tracks this placeholder, so its inset is what
+    // keeps the separator and the resize sash visible below the toolbar.
+    const placeholder = element.querySelector<HTMLElement>(
+      "[data-lens-native-view-placeholder]",
+    );
+    const gutterOwner = placeholder?.closest<HTMLElement>(
+      "[data-lens-split-gutters]",
+    );
     return {
       side: separatorView === view ? "left" : "right",
       separatorWidth: separatorStyle.width,
       usesThemeBorder: separatorStyle.backgroundColor === themeBorder.trim(),
+      gutters: view.getAttribute("data-lens-split-gutters"),
+      contentGutters: gutterOwner?.getAttribute("data-lens-split-gutters"),
+      placeholderLeftInset: placeholder
+        ? Math.round(placeholder.getBoundingClientRect().left - lensRect.left)
+        : null,
     };
   });
   expect(lensSplitBorder).toEqual({
     side: "left",
     separatorWidth: "1px",
     usesThemeBorder: true,
+    gutters: "left",
+    contentGutters: "left",
+    placeholderLeftInset: 2,
   });
   const [taskBounds, lensBounds, taskGroupIsActive] = await Promise.all([
     sessionArea.boundingBox(),

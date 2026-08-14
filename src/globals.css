@@ -488,6 +488,45 @@
 }
 
 /*
+ * Lens draws its page with a native Electron view stacked above the renderer,
+ * so it would paint over Dockview's one-pixel split separator (z-index 5 inside
+ * the view) and over the inner half of the 4px resize sash. Both then survive
+ * only across the Lens toolbar, which reads as a border that stops below the
+ * tab strip and as a resize handle that highlights just that strip.
+ *
+ * `WorkspacePaneHost` tags the hosting view with the edges it shares with a
+ * neighbour; shrinking the native view's placeholder by the sash half-width
+ * there keeps that strip renderer-owned for the full height of the panel.
+ */
+.dockview-theme-stave [data-lens-split-gutters] {
+  --lens-split-gutter: 2px;
+}
+
+.dockview-theme-stave
+  [data-lens-split-gutters~="left"]
+  [data-lens-native-view-placeholder] {
+  left: var(--lens-split-gutter);
+}
+
+.dockview-theme-stave
+  [data-lens-split-gutters~="right"]
+  [data-lens-native-view-placeholder] {
+  right: var(--lens-split-gutter);
+}
+
+.dockview-theme-stave
+  [data-lens-split-gutters~="top"]
+  [data-lens-native-view-placeholder] {
+  top: var(--lens-split-gutter);
+}
+
+.dockview-theme-stave
+  [data-lens-split-gutters~="bottom"]
+  [data-lens-native-view-placeholder] {
+  bottom: var(--lens-split-gutter);
+}
+
+/*
  * Keep the task rail itself borderless and attach the primary indicator to the
  * selected tab. The inset line follows the tab bounds without drawing a
  * separator beneath unrelated rail actions.
