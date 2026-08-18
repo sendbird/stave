@@ -1,3 +1,19 @@
+## [0.15.2](https://github.com/sendbird/stave/compare/v0.15.1...v0.15.2) (2026-08-18)
+
+### Features
+
+* Make Turn Activity a live operational surface and retain the latest completed turn for review.
+
+### Bug Fixes
+
+* Restore Claude and Codex Advisor consults while hardening Codex isolation and host-service protocol framing.
+* Render HTML-style `<br>` line breaks in Markdown preview without enabling arbitrary raw HTML.
+* Restore full-height Lens split borders and resize gutters across native browser surfaces.
+
+### References
+
+* [#377](https://github.com/sendbird/stave/pull/377), [#378](https://github.com/sendbird/stave/pull/378), [#379](https://github.com/sendbird/stave/pull/379), [#380](https://github.com/sendbird/stave/pull/380)
+
 ## [0.15.1](https://github.com/sendbird/stave/compare/v0.15.0...v0.15.1) (2026-08-13)
 
 ### Bug Fixes
