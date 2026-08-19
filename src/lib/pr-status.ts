@@ -19,6 +19,12 @@ export type WorkspacePrStatus =
 /** Merge strategy used when Create PR queues GitHub auto-merge. */
 export type PrMergeMethod = "default" | "merge" | "squash" | "rebase";
 
+/**
+ * Strategy actually handed to `gh pr merge`. "default" is not usable there:
+ * without a TTY the CLI requires one of --merge/--rebase/--squash.
+ */
+export type ConcretePrMergeMethod = Exclude<PrMergeMethod, "default">;
+
 /** Raw payload returned by the `scm:get-pr-status` IPC handler. */
 export interface GitHubPrPayload {
   number: number;

@@ -26,11 +26,12 @@ describe("buildCreatePullRequestArgs", () => {
 });
 
 describe("buildAutoMergePullRequestArgs", () => {
-  test("lets GitHub select the repository default merge strategy", () => {
+  test("always passes an explicit strategy because gh needs one without a TTY", () => {
     expect(buildAutoMergePullRequestArgs()).toEqual([
       "pr",
       "merge",
       "--auto",
+      "--squash",
       "--delete-branch",
     ]);
   });

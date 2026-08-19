@@ -1,10 +1,48 @@
 import { describe, expect, test } from "bun:test";
 import { ensureGhAuth, invalidateGhAuthCache } from "../electron/host-service/gh-auth";
-import { buildAutoMergePullRequestArgs, classifyAutoMergeFailure } from "../electron/host-service/scm-runtime";
+import {
+  buildAutoMergePullRequestArgs,
+  buildMergePullRequestArgs,
+  classifyAutoMergeFailure,
+  pickAllowedMergeMethod,
+} from "../electron/host-service/scm-runtime";
 
 describe("Create PR SCM runtime", () => {
   test("builds a concrete auto-merge command", () => {
     expect(buildAutoMergePullRequestArgs("squash")).toEqual(["pr", "merge", "--auto", "--squash", "--delete-branch"]);
+  });
+
+  test("merge command always carries an explicit strategy flag", () => {
+    // Regression: `gh pr merge --delete-branch` exits with
+    // "--merge, --rebase, or --squash required when not running interactively",
+    // so the Merge PR action must never omit the strategy.
+    expect(buildMergePullRequestArgs("merge")).toEqual(["pr", "merge", "--merge", "--delete-branch"]);
+    expect(buildMergePullRequestArgs()).toEqual(["pr", "merge", "--squash", "--delete-branch"]);
+  });
+
+  test("resolves the default merge method against repository settings", () => {
+    expect(pickAllowedMergeMethod({ method: "rebase" })).toBe("rebase");
+    expect(pickAllowedMergeMethod({ method: "default" })).toBe("squash");
+    expect(pickAllowedMergeMethod({})).toBe("squash");
+    expect(
+      pickAllowedMergeMethod({
+        method: "default",
+        settings: { squashMergeAllowed: false, mergeCommitAllowed: true, rebaseMergeAllowed: true },
+      }),
+    ).toBe("merge");
+    expect(
+      pickAllowedMergeMethod({
+        method: "default",
+        settings: { squashMergeAllowed: false, mergeCommitAllowed: false, rebaseMergeAllowed: true },
+      }),
+    ).toBe("rebase");
+    // An explicit user choice is honored even if the repo reports it as disallowed.
+    expect(
+      pickAllowedMergeMethod({
+        method: "squash",
+        settings: { squashMergeAllowed: false, mergeCommitAllowed: true, rebaseMergeAllowed: true },
+      }),
+    ).toBe("squash");
   });
 
   test("classifies graceful auto-merge fallback cases", () => {
