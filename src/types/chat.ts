@@ -1,7 +1,11 @@
 import type { LensAnnotation } from "@/lib/lens/lens.types";
 // Type-only, and `provider.types` imports this module the same way, so the
 // cycle is erased at compile time rather than existing at runtime.
-import type { AdvisorTarget, ProviderId } from "@/lib/providers/provider.types";
+import type {
+  AdvisorTarget,
+  AdvisorTargetByProvider,
+  ProviderId,
+} from "@/lib/providers/provider.types";
 import type { WorkerExecutionMetadata, WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
@@ -101,6 +105,13 @@ export interface PromptDraftRuntimeOverrides {
    * which model advises another task.
    */
   advisorTarget?: AdvisorTarget;
+  /**
+   * Per-task Advisor pick remembered per provider, so the composer can offer
+   * each provider's model and effort while the Advisor is off and switching
+   * provider restores that provider's own choice instead of resetting it to
+   * the catalog default. `advisorTarget` stays the single armed pick.
+   */
+  advisorTargetByProvider?: AdvisorTargetByProvider;
   /**
    * Per-task Worker mode arming. Absent inherits the Settings default. `false`
    * disarms only this task and deliberately keeps `workerConfigByProvider`, so

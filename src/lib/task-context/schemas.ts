@@ -282,6 +282,32 @@ const PromptDraftRuntimeOverridesSchema = z.object({
     })
     .optional()
     .catch(undefined),
+  // Remembered per-provider Advisor pick, so the composer can configure a
+  // provider that is not armed. Same `.catch(undefined)` discipline: a corrupt
+  // entry must degrade to "unset" instead of rejecting the snapshot.
+  advisorTargetByProvider: z
+    .record(
+      z.union([z.literal("claude-code"), z.literal("codex")]),
+      z
+        .object({
+          model: z.string().trim().min(1).max(200),
+          effort: z
+            .union([
+              z.literal("low"),
+              z.literal("medium"),
+              z.literal("high"),
+              z.literal("xhigh"),
+              z.literal("max"),
+              z.literal("ultra"),
+            ])
+            .optional()
+            .catch(undefined),
+        })
+        .optional()
+        .catch(undefined),
+    )
+    .optional()
+    .catch(undefined),
   // Per-task Worker mode arming, stored separately from the per-provider
   // config for the same reason as the Advisor: turning Worker mode off must
   // keep the remembered preset/model/effort. Same `.catch(undefined)`

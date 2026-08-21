@@ -111,6 +111,20 @@ export interface AdvisorTarget {
 }
 
 /**
+ * A provider's remembered Advisor pick, without the provider itself. Kept per
+ * provider so choosing a Codex advisor never overwrites which Claude model the
+ * task would go back to — the two catalogs and effort scales share nothing.
+ */
+export interface AdvisorProviderPreference {
+  model: string;
+  effort?: AdvisorEffort;
+}
+
+export type AdvisorTargetByProvider = Partial<
+  Record<ProviderId, AdvisorProviderPreference>
+>;
+
+/**
  * Advisor lifecycle phases carried by the `advisor_activity` provider event.
  * See `src/lib/providers/advisor-activity.ts` for the reducer and the rationale
  * behind keeping `completed` and `applied` separate.

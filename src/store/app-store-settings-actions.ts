@@ -11,6 +11,7 @@ import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
 import {
   normalizeAdvisorConsultLimit,
   normalizeAdvisorTarget,
+  normalizeAdvisorTargetByProvider,
 } from "@/lib/providers/advisor";
 import { mergeModelRuntimePreferenceSettings } from "@/lib/providers/model-runtime-preferences";
 import {
@@ -350,6 +351,13 @@ export function createSettingsActions(args: {
           ? {}
           : {
               advisorTarget: normalizeAdvisorTarget(patch.advisorTarget),
+            }),
+        ...(patch.advisorTargetByProvider === undefined
+          ? {}
+          : {
+              advisorTargetByProvider: normalizeAdvisorTargetByProvider(
+                patch.advisorTargetByProvider,
+              ),
             }),
         ...(patch.advisorConsultLimit === undefined
           ? {}

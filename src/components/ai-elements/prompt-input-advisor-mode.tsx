@@ -2,28 +2,28 @@ import {
   ArrowLeftRight,
   Check,
   ChevronDown,
-  CircleSlash,
   Info,
   TriangleAlert,
 } from "lucide-react";
 import { useCallback } from "react";
 import {
   Button,
+  ButtonGroup,
+  ButtonGroupSeparator,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Switch,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
-  type AdvisorArmOptionId,
   type AdvisorEffortOptionValue,
-  buildAdvisorArmOptions,
   buildAdvisorEffortOptions,
+  buildAdvisorProviderOptions,
   describeAdvisorPill,
-  resolveAdvisorArmOptionId,
   resolveAdvisorEffortSelection,
 } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import {
@@ -32,6 +32,7 @@ import {
 } from "@/lib/advisor-shortcuts";
 import type { AdvisorArmState } from "@/lib/providers/advisor";
 import {
+  getProviderLabel,
   getProviderWaveToneClass,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
@@ -44,14 +45,23 @@ import { cn } from "@/lib/utils";
  * thinking toggles rather than behind Settings.
  *
  * Split on purpose: the left half is a real one-click toggle, the chevron opens
- * the target picker. Turning the Advisor on and off is the frequent action, so
- * it must not cost a menu.
+ * the configuration. Turning the Advisor on and off is the frequent action, so
+ * it must not cost a menu — the two halves are one button group because they
+ * act on one object.
+ *
+ * Inside the menu, arming and configuring are deliberately separate: the switch
+ * decides whether this task pays for an Advisor, and the provider/model/effort
+ * rows stay editable while it is off so a task can be set up before it is
+ * turned on. Each provider keeps its own model and tier, so flipping between
+ * them is not a destructive edit.
  */
 export function PromptInputAdvisorPill(args: {
   arm: AdvisorArmState;
   primaryProviderId: ProviderId;
   primaryModel: string;
-  /** Selectable models for the currently armed provider. */
+  /** Provider the picker configures, armed or not. Resolved by the host. */
+  selectedProviderId: ProviderId;
+  /** Selectable models for {@link selectedProviderId}. */
   advisorModelOptions: readonly string[];
   /** True while this task's turn is blocked waiting on the Advisor. */
   blocking?: boolean;
@@ -64,7 +74,8 @@ export function PromptInputAdvisorPill(args: {
    */
   open: boolean;
   onToggle: () => void;
-  onSelectProvider: (optionId: AdvisorArmOptionId) => void;
+  onSetEnabled: (enabled: boolean) => void;
+  onSelectProvider: (providerId: ProviderId) => void;
   onSelectModel: (model: string) => void;
   onSelectEffort: (effort: AdvisorEffortOptionValue) => void;
   /** Fires on open so the host can lazily load a provider model catalog. */
@@ -85,14 +96,12 @@ export function PromptInputAdvisorPill(args: {
     blocking: args.blocking,
     consultBlock: args.consultBlock,
   });
-  const activeOptionId = resolveAdvisorArmOptionId(args.arm);
-  // Bound to a const so the non-null narrow survives into the row callbacks
-  // below; narrowing `args.arm.target` directly does not cross a closure.
-  const armedTarget = args.arm.target;
-  const effortSelection = armedTarget
-    ? resolveAdvisorEffortSelection(armedTarget)
-    : null;
-  const { onOpenChange, onToggle } = args;
+  const selectedProviderId = args.selectedProviderId;
+  // The picker always has something to show, armed or not: an unarmed provider
+  // falls back to its remembered pick and then to its catalog default.
+  const selectedTarget = args.arm.targetByProvider[selectedProviderId];
+  const effortSelection = resolveAdvisorEffortSelection(selectedTarget);
+  const { onOpenChange, onToggle, onSetEnabled } = args;
   const canToggle = presentation.canToggle;
 
   const openPicker = useCallback(() => {
@@ -119,11 +128,8 @@ export function PromptInputAdvisorPill(args: {
         : undefined;
 
   return (
-    <div
-      className={cn(
-        "inline-flex h-9 items-stretch gap-0.5 rounded-md",
-        args.className,
-      )}
+    <ButtonGroup
+      className={cn("h-9", args.className)}
       data-advisor-control="true"
       data-testid="advisor-mode-pill"
       data-advisor-tone={presentation.tone}
@@ -180,6 +186,8 @@ export function PromptInputAdvisorPill(args: {
         </TooltipContent>
       </Tooltip>
 
+      <ButtonGroupSeparator />
+
       <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
         <PopoverTrigger
           render={
@@ -187,7 +195,7 @@ export function PromptInputAdvisorPill(args: {
               type="button"
               disabled={args.disabled}
               aria-label={`Choose which model advises this task and at what effort (${ADVISOR_PICKER_SHORTCUT_LABEL})`}
-              className="inline-flex w-7 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex w-7 items-center justify-center text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
             />
           }
         >
@@ -205,137 +213,150 @@ export function PromptInputAdvisorPill(args: {
           className="w-[23rem] gap-2 p-2"
           data-testid="advisor-mode-options"
         >
-          <div className="space-y-1">
-            {buildAdvisorArmOptions().map((option) => {
-              const isActive = activeOptionId === option.id;
-              return (
-                <Button
-                  key={option.id}
-                  type="button"
-                  variant="ghost"
-                  data-testid={`advisor-mode-option-${option.id}`}
-                  className={cn(
-                    "h-auto min-h-14 w-full justify-start gap-3 rounded-lg border px-3 py-2.5 text-left whitespace-normal",
-                    isActive
-                      ? "border-primary/30 bg-primary/10 hover:bg-primary/14"
-                      : "border-transparent hover:border-border/70 hover:bg-muted/60",
-                  )}
-                  onClick={() => {
-                    args.onSelectProvider(option.id);
-                    onOpenChange?.(false);
-                  }}
-                >
-                  {/* `off` keeps the slot so all three rows share one text
-                      baseline; a mark there would imply a vendor. */}
-                  <span className="flex size-4 shrink-0 items-center justify-center self-start pt-0.5">
-                    {option.id === "off" ? (
-                      <CircleSlash className="size-3.5 text-muted-foreground/70" />
-                    ) : (
-                      <ModelIcon providerId={option.id} className="size-4" />
-                    )}
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-sm font-medium leading-none">
-                      {option.label}
-                    </span>
-                    <span className="text-[11px] leading-4 text-muted-foreground">
-                      {option.id === "off" && args.blocking
-                        ? "Skips the running Advisor too"
-                        : option.summary}
-                    </span>
-                    <span className="text-xs leading-4 text-muted-foreground">
-                      {option.description}
-                    </span>
-                  </span>
-                  {isActive ? (
-                    <Check className="size-4 shrink-0 text-primary" />
-                  ) : null}
-                </Button>
-              );
-            })}
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
+            <label
+              htmlFor="advisor-mode-switch"
+              className="flex min-w-0 flex-1 flex-col gap-0.5"
+            >
+              <span className="text-sm font-medium leading-none">Advisor</span>
+              <span className="text-[11px] leading-4 text-muted-foreground">
+                The primary may consult{" "}
+                {getProviderLabel({ providerId: selectedProviderId })} ·{" "}
+                {toHumanModelName({ model: selectedTarget.model })} on demand.
+              </span>
+            </label>
+            <Switch
+              id="advisor-mode-switch"
+              checked={args.arm.enabled}
+              onCheckedChange={(checked) => onSetEnabled(checked)}
+              data-testid="advisor-mode-switch"
+            />
           </div>
 
-          {args.arm.enabled && armedTarget ? (
-            <div className="space-y-1 border-t border-border/60 pt-2">
-              <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                Advisor model
-              </p>
-              <div className="max-h-52 space-y-0.5 overflow-y-auto">
-                {args.advisorModelOptions.map((model) => {
-                  const isActive = armedTarget.model === model;
-                  return (
-                    <Button
-                      key={model}
-                      type="button"
-                      variant="ghost"
-                      className={cn(
-                        "h-auto min-h-8 w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left text-sm whitespace-normal",
-                        isActive && "bg-muted/70",
-                      )}
-                      onClick={() => {
-                        args.onSelectModel(model);
-                      }}
-                    >
-                      {/* Every row here is the armed provider, so the mark is an
-                          anchor rather than a distinction — it matches the main
-                          model list users already read. */}
-                      <ModelIcon
-                        providerId={armedTarget.providerId}
-                        model={model}
-                        className="size-3.5"
-                      />
-                      <span className="min-w-0 flex-1 truncate">
-                        {toHumanModelName({ model })}
+          <div className="space-y-1 border-t border-border/60 pt-2">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+              Advisor provider
+            </p>
+            <div className="grid grid-cols-2 gap-1">
+              {buildAdvisorProviderOptions().map((option) => {
+                const isActive = selectedProviderId === option.id;
+                return (
+                  <Button
+                    key={option.id}
+                    type="button"
+                    variant="ghost"
+                    aria-pressed={isActive}
+                    data-testid={`advisor-mode-provider-${option.id}`}
+                    className={cn(
+                      "h-auto min-h-14 w-full justify-start gap-2 rounded-lg border px-2.5 py-2 text-left whitespace-normal",
+                      isActive
+                        ? "border-primary/30 bg-primary/10 hover:bg-primary/14"
+                        : "border-transparent hover:border-border/70 hover:bg-muted/60",
+                    )}
+                    onClick={() => {
+                      args.onSelectProvider(option.id);
+                    }}
+                  >
+                    <ModelIcon
+                      providerId={option.id}
+                      className="size-4 shrink-0 self-start"
+                    />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-sm font-medium leading-none">
+                        {option.label}
                       </span>
-                      {isActive ? (
-                        <Check className="size-3.5 shrink-0 text-primary" />
-                      ) : null}
-                    </Button>
-                  );
-                })}
-              </div>
+                      <span className="text-[11px] leading-4 text-muted-foreground">
+                        {option.summary}
+                      </span>
+                    </span>
+                    {isActive ? (
+                      <Check className="size-3.5 shrink-0 self-start text-primary" />
+                    ) : null}
+                  </Button>
+                );
+              })}
             </div>
-          ) : null}
+          </div>
 
-          {args.arm.enabled && args.arm.target ? (
-            <div
-              className="space-y-1 border-t border-border/60 pt-2"
-              data-testid="advisor-mode-effort-row"
-            >
-              <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                Advisor effort
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {buildAdvisorEffortOptions(args.arm.target).map((option) => {
-                  const isActive = effortSelection === option.value;
-                  return (
-                    <Button
-                      key={option.value ?? "auto"}
-                      type="button"
-                      variant="ghost"
-                      title={option.title}
-                      aria-pressed={isActive}
-                      data-testid={`advisor-mode-effort-${option.value ?? "auto"}`}
-                      className={cn(
-                        "h-7 min-w-11 flex-1 justify-center rounded-md border px-2 text-xs",
-                        isActive
-                          ? "border-primary/30 bg-primary/10 font-medium text-foreground hover:bg-primary/14"
-                          : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/60",
-                      )}
-                      onClick={() => {
-                        args.onSelectEffort(option.value);
-                      }}
-                    >
-                      {option.label}
-                    </Button>
-                  );
-                })}
-              </div>
-              <p className="px-1 text-[11px] leading-4 text-muted-foreground">
-                Higher tiers give better advice and make the turn wait longer.
-              </p>
+          <div className="space-y-1 border-t border-border/60 pt-2">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+              Advisor model
+            </p>
+            <div className="max-h-52 space-y-0.5 overflow-y-auto">
+              {args.advisorModelOptions.map((model) => {
+                const isActive = selectedTarget.model === model;
+                return (
+                  <Button
+                    key={model}
+                    type="button"
+                    variant="ghost"
+                    aria-pressed={isActive}
+                    data-testid={`advisor-mode-model-${model}`}
+                    className={cn(
+                      "h-auto min-h-8 w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left text-sm whitespace-normal",
+                      isActive && "bg-muted/70",
+                    )}
+                    onClick={() => {
+                      args.onSelectModel(model);
+                    }}
+                  >
+                    {/* Every row here is the selected provider, so the mark is
+                        an anchor rather than a distinction — it matches the
+                        main model list users already read. */}
+                    <ModelIcon
+                      providerId={selectedProviderId}
+                      model={model}
+                      className="size-3.5"
+                    />
+                    <span className="min-w-0 flex-1 truncate">
+                      {toHumanModelName({ model })}
+                    </span>
+                    {isActive ? (
+                      <Check className="size-3.5 shrink-0 text-primary" />
+                    ) : null}
+                  </Button>
+                );
+              })}
             </div>
-          ) : null}
+          </div>
+
+          <div
+            className="space-y-1 border-t border-border/60 pt-2"
+            data-testid="advisor-mode-effort-row"
+          >
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+              Advisor effort
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {buildAdvisorEffortOptions(selectedTarget).map((option) => {
+                const isActive = effortSelection === option.value;
+                return (
+                  <Button
+                    key={option.value ?? "auto"}
+                    type="button"
+                    variant="ghost"
+                    title={option.title}
+                    aria-pressed={isActive}
+                    data-testid={`advisor-mode-effort-${option.value ?? "auto"}`}
+                    className={cn(
+                      "h-7 min-w-11 flex-1 justify-center rounded-md border px-2 text-xs",
+                      isActive
+                        ? "border-primary/30 bg-primary/10 font-medium text-foreground hover:bg-primary/14"
+                        : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/60",
+                    )}
+                    onClick={() => {
+                      args.onSelectEffort(option.value);
+                    }}
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="px-1 text-[11px] leading-4 text-muted-foreground">
+              Higher tiers give better advice and make the turn wait longer.
+            </p>
+          </div>
 
           {presentation.note ? (
             <p
@@ -386,6 +407,6 @@ export function PromptInputAdvisorPill(args: {
           </button>
         </PopoverContent>
       </Popover>
-    </div>
+    </ButtonGroup>
   );
 }

@@ -14,6 +14,8 @@ import {
 import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
 import {
   normalizeAdvisorConsultLimit,
+  normalizeAdvisorTargetByProvider,
+  normalizePersistedAdvisorEnabled,
   normalizePersistedAdvisorTarget,
 } from "@/lib/providers/advisor";
 import { normalizeWorkerConfigByProvider } from "@/lib/providers/worker-mode";
@@ -439,6 +441,15 @@ export function createAppStorePersistenceOptions() {
       });
       state.settings.advisorTarget =
         normalizePersistedAdvisorTarget(persistedSettings);
+      // Read after the target: a snapshot written before the Advisor default
+      // had its own switch expressed "on" as a configured target.
+      state.settings.advisorEnabled = normalizePersistedAdvisorEnabled({
+        persistedSettings,
+        target: state.settings.advisorTarget,
+      });
+      state.settings.advisorTargetByProvider = normalizeAdvisorTargetByProvider(
+        state.settings.advisorTargetByProvider,
+      );
       state.settings.advisorConsultLimit = normalizeAdvisorConsultLimit(
         state.settings.advisorConsultLimit,
       );

@@ -309,6 +309,25 @@ describe("buildProviderRuntimeOptions", () => {
     });
   });
 
+  test("a default-off Advisor stays off even though the pick is remembered", () => {
+    const runtimeOptions = buildProviderRuntimeOptions({
+      provider: "claude-code",
+      model: "claude-sonnet-5",
+      includeAdvisor: true,
+      settings: {
+        ...settings,
+        advisorEnabled: false,
+        advisorTarget: {
+          providerId: "codex",
+          model: "gpt-5.6-terra",
+        },
+      },
+      providerSession: null,
+    });
+
+    expect(runtimeOptions).not.toHaveProperty("advisorTarget");
+  });
+
   test("omits Advisor from generic helper calls unless explicitly included", () => {
     const runtimeOptions = buildProviderRuntimeOptions({
       provider: "claude-code",

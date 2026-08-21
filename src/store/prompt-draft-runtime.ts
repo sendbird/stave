@@ -181,6 +181,25 @@ function areAdvisorTargetsEqual(
   );
 }
 
+/**
+ * Compared per provider for the same reason as the worker map: the composer
+ * edits one provider's remembered pick at a time, and a reference check would
+ * report that edit as unchanged, so the write would be dropped.
+ */
+function areAdvisorTargetsByProviderEqual(
+  left?: PromptDraftRuntimeOverrides["advisorTargetByProvider"],
+  right?: PromptDraftRuntimeOverrides["advisorTargetByProvider"],
+) {
+  if (left === right) {
+    return true;
+  }
+  return (["claude-code", "codex"] as const).every(
+    (providerId) =>
+      left?.[providerId]?.model === right?.[providerId]?.model &&
+      left?.[providerId]?.effort === right?.[providerId]?.effort,
+  );
+}
+
 function areStringArraysEqual(left?: string[], right?: string[]) {
   if (left === right) {
     return true;
@@ -238,6 +257,10 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.autoRouting === right?.autoRouting &&
     left?.advisorEnabled === right?.advisorEnabled &&
     areAdvisorTargetsEqual(left?.advisorTarget, right?.advisorTarget) &&
+    areAdvisorTargetsByProviderEqual(
+      left?.advisorTargetByProvider,
+      right?.advisorTargetByProvider,
+    ) &&
     left?.workerEnabled === right?.workerEnabled &&
     areWorkerConfigsByProviderEqual(
       left?.workerConfigByProvider,

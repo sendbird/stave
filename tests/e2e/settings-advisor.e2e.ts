@@ -49,7 +49,11 @@ function seedAdvisorSettings(page: Page) {
             workspaceBranchById: { "ws-main": "main" },
             workspacePathById: { "ws-main": "/tmp/stave-project" },
             workspaceDefaultById: { "ws-main": true },
-            settings: { autoRoutingEnabled: true, advisorTarget: null },
+            settings: {
+              autoRoutingEnabled: true,
+              advisorEnabled: false,
+              advisorTarget: null,
+            },
             ...workspaceSnapshot,
           },
           version: 0,
@@ -88,7 +92,7 @@ function seedAdvisorSettings(page: Page) {
   }, SEED_KEY);
 }
 
-test("Advisor settings support search, provider models, and persistence", async ({
+test("Advisor settings configure per-provider defaults while off, then arm", async ({
   page,
 }, testInfo) => {
   const pageErrors: Error[] = [];
@@ -115,42 +119,59 @@ test("Advisor settings support search, provider models, and persistence", async 
     }),
   ).toBeVisible();
 
-  // Exact: the card now also holds an "Advisor Effort" radiogroup, and
-  // Playwright's accessible-name matching is a substring match by default.
-  const advisorChoices = settings.getByRole("radiogroup", {
-    name: "Advisor",
-    exact: true,
+  // Off by default, and the provider/model/effort rows are still editable:
+  // configuring the Advisor must not require paying for one first.
+  const armSwitch = advisorCard.getByRole("switch", {
+    name: "Arm an Advisor by default",
   });
-  const offChoice = advisorChoices.getByRole("radio", { name: /^Off/ });
-  const claudeChoice = advisorChoices.getByRole("radio", { name: /^Claude/ });
-  const codexChoice = advisorChoices.getByRole("radio", { name: /^Codex/ });
-  await expect(offChoice).toHaveAttribute("aria-checked", "true");
+  await expect(armSwitch).toHaveAttribute("aria-checked", "false");
+  await expect(
+    advisorCard.getByText("Default off", { exact: true }),
+  ).toBeVisible();
+  await expect(advisorCard).toContainText("Advisor off");
 
-  await offChoice.focus();
-  await offChoice.press("ArrowRight");
+  const providerChoices = advisorCard.getByRole("radiogroup", {
+    name: "Advisor Provider",
+  });
+  const claudeChoice = providerChoices.getByRole("radio", { name: /^Claude/ });
+  const codexChoice = providerChoices.getByRole("radio", { name: /^Codex/ });
+  // The turn runs on Codex, so the card opens on the provider that could
+  // actually give a second opinion.
   await expect(claudeChoice).toHaveAttribute("aria-checked", "true");
 
-  let modelSelector = settings.getByRole("button", {
-    name: /^Advisor model:/,
-  });
-  await expect(modelSelector).toHaveAccessibleName(
+  const modelSelector = () =>
+    advisorCard.getByRole("button", { name: /^Advisor model:/ });
+  await expect(modelSelector()).toHaveAccessibleName(
     "Advisor model: Claude Sonnet 5",
   );
-  await modelSelector.click();
+  await modelSelector().click();
   let modelPicker = page.getByRole("dialog", { name: "Select model" });
   await modelPicker.getByPlaceholder("Search model").fill("Fable");
   await modelPicker.getByRole("option", { name: /Claude Fable 5/ }).click();
-  await expect(advisorCard).toContainText("Claude Advisor · Claude Fable 5");
+  await expect(modelSelector()).toHaveAccessibleName(
+    "Advisor model: Claude Fable 5",
+  );
 
   await codexChoice.click();
-  modelSelector = settings.getByRole("button", {
-    name: /^Advisor model:/,
-  });
-  await modelSelector.click();
+  await modelSelector().click();
   modelPicker = page.getByRole("dialog", { name: "Select model" });
   await modelPicker.getByPlaceholder("Search model").fill("GPT-6 Preview");
   await modelPicker.getByRole("option", { name: /GPT-6 Preview/ }).click();
   await expect(modelPicker).toBeHidden();
+  await expect(modelSelector()).toHaveAccessibleName(
+    "Advisor model: GPT-6 Preview",
+  );
+
+  // Switching back must restore Claude's own pick rather than the catalog
+  // default: each provider remembers its own model and tier.
+  await claudeChoice.click();
+  await expect(modelSelector()).toHaveAccessibleName(
+    "Advisor model: Claude Fable 5",
+  );
+  await codexChoice.click();
+
+  await armSwitch.click();
+  await expect(armSwitch).toHaveAttribute("aria-checked", "true");
   await expect(advisorCard).toContainText(
     "Active pair: Codex · GPT-5.6 Terra → Codex Advisor · GPT-6 Preview",
   );
@@ -166,15 +187,31 @@ test("Advisor settings support search, provider models, and persistence", async 
         ) as {
           state?: {
             settings?: {
+              advisorEnabled?: boolean;
               advisorTarget?: { providerId: string; model: string } | null;
+              advisorTargetByProvider?: Record<string, { model: string }>;
             };
           };
         };
-        return persisted.state?.settings?.advisorTarget;
+        return {
+          enabled: persisted.state?.settings?.advisorEnabled,
+          target: persisted.state?.settings?.advisorTarget,
+          byProvider: persisted.state?.settings?.advisorTargetByProvider,
+        };
       }),
     )
-    .toEqual({ providerId: "codex", model: "gpt-6-preview" });
+    .toEqual({
+      enabled: true,
+      target: { providerId: "codex", model: "gpt-6-preview" },
+      byProvider: {
+        "claude-code": { model: "claude-fable-5" },
+        codex: { model: "gpt-6-preview" },
+      },
+    });
 
+  // Let the switch's colour transition settle so the capture shows the armed
+  // state rather than a frame mid-animation.
+  await page.waitForTimeout(400);
   await page.screenshot({
     path: testInfo.outputPath("settings-advisor.png"),
     fullPage: true,
@@ -200,5 +237,14 @@ test("Advisor settings support search, provider models, and persistence", async 
   await expect(
     reloadedAdvisorCard.getByText("Default on", { exact: true }),
   ).toBeVisible();
+  // The other provider's default survives a reload too, so a pre-configured
+  // Claude Advisor is still one click away.
+  await reloadedAdvisorCard
+    .getByRole("radiogroup", { name: "Advisor Provider" })
+    .getByRole("radio", { name: /^Claude/ })
+    .click();
+  await expect(
+    reloadedAdvisorCard.getByRole("button", { name: /^Advisor model:/ }),
+  ).toHaveAccessibleName("Advisor model: Claude Fable 5");
   expect(pageErrors.map((error) => error.message)).toEqual([]);
 });

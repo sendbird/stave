@@ -5,6 +5,7 @@ import {
   DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
   clampCodexEffortToModel,
+  getDefaultModelForProvider,
   getProviderLabel,
   getSdkModelOptions,
   resolveDefaultClaudeEffortForModel,
@@ -14,6 +15,7 @@ import { getProviderNativeSlashCommandInput } from "@/lib/providers/provider-req
 import type {
   AdvisorEffort,
   AdvisorTarget,
+  AdvisorTargetByProvider,
   CanonicalConversationRequest,
   ProviderId,
   ProviderRuntimeOptions,
@@ -275,7 +277,86 @@ export function isAdvisorEffortClamped(target: AdvisorTarget) {
 export type AdvisorArmOverrides = {
   advisorEnabled?: boolean;
   advisorTarget?: AdvisorTarget | null;
+  advisorTargetByProvider?: AdvisorTargetByProvider | null;
 };
+
+export function normalizeAdvisorTargetByProvider(
+  value: unknown,
+): AdvisorTargetByProvider {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  const entries = value as Record<string, unknown>;
+  const normalized: AdvisorTargetByProvider = {};
+  for (const providerId of PROVIDER_IDS) {
+    // Reuse the target normalizer so a stored preference can never carry a
+    // tier the provider does not have; the providerId is supplied here rather
+    // than trusted from the entry, which is keyed by it already.
+    const target = normalizeAdvisorTarget({
+      ...(entries[providerId] as object | undefined),
+      providerId,
+    });
+    if (target) {
+      normalized[providerId] = {
+        model: target.model,
+        ...(target.effort ? { effort: target.effort } : {}),
+      };
+    }
+  }
+  return normalized;
+}
+
+/**
+ * Records a target as its provider's remembered pick.
+ *
+ * Shared by the composer's task-local patch builder and the Settings defaults
+ * so both layers store the same shape: a flat "current pick" plus one entry
+ * per provider. Switching provider is then non-destructive at either layer,
+ * because the flat field alone can only hold one provider's choice.
+ */
+export function rememberAdvisorTargetByProvider(args: {
+  byProvider?: AdvisorTargetByProvider | null;
+  target: AdvisorTarget;
+}): AdvisorTargetByProvider {
+  return {
+    ...(args.byProvider ?? {}),
+    [args.target.providerId]: {
+      model: args.target.model,
+      ...(args.target.effort ? { effort: args.target.effort } : {}),
+    },
+  };
+}
+
+/**
+ * The Settings-level Advisor default, in the same three fields a task uses.
+ *
+ * Kept symmetrical on purpose: `advisorEnabled` decides whether new tasks pay
+ * for an Advisor, `advisorTarget` is the remembered pick that survives an off
+ * state, and `advisorTargetByProvider` remembers the other provider's model
+ * and tier so both can be configured before either is armed.
+ */
+export type AdvisorSettingsDefaults = {
+  advisorEnabled: boolean;
+  advisorTarget: AdvisorTarget | null;
+  advisorTargetByProvider: AdvisorTargetByProvider;
+};
+
+/**
+ * Builds the Settings patch that selects a default target, writing the flat
+ * pick and its per-provider entry together so the two can never disagree.
+ */
+export function buildAdvisorSettingsTargetPatch(args: {
+  defaults: Pick<AdvisorSettingsDefaults, "advisorTargetByProvider">;
+  target: AdvisorTarget;
+}): Pick<AdvisorSettingsDefaults, "advisorTarget" | "advisorTargetByProvider"> {
+  return {
+    advisorTarget: args.target,
+    advisorTargetByProvider: rememberAdvisorTargetByProvider({
+      byProvider: args.defaults.advisorTargetByProvider,
+      target: args.target,
+    }),
+  };
+}
 
 export type AdvisorArmState = {
   /** Whether this task wants an Advisor preflight before its next turn. */
@@ -286,7 +367,53 @@ export type AdvisorArmState = {
   effectiveTarget: AdvisorTarget | null;
   /** True when the task decided, rather than inheriting the Settings default. */
   overridden: boolean;
+  /**
+   * The pick each provider would arm with, remembered choice first and the
+   * provider's catalog default as the floor. Always populated for every
+   * provider so the composer can offer a model and effort for a provider that
+   * is not armed — configuring the Advisor must not require turning it on.
+   */
+  targetByProvider: Record<ProviderId, AdvisorTarget>;
 };
+
+function toRememberedAdvisorTarget(args: {
+  providerId: ProviderId;
+  byProvider: AdvisorTargetByProvider;
+}): AdvisorTarget | null {
+  const preference = args.byProvider[args.providerId];
+  if (!preference) {
+    return null;
+  }
+  return {
+    providerId: args.providerId,
+    model: preference.model,
+    ...(preference.effort ? { effort: preference.effort } : {}),
+  };
+}
+
+/**
+ * Picks the first candidate that actually belongs to this provider.
+ *
+ * Candidates arrive in priority order — task-remembered pick, task target,
+ * Settings-remembered pick, Settings target — and entries for the other
+ * provider are skipped rather than rewritten, because the two catalogs and
+ * effort scales share nothing. The provider's catalog default is the floor, so
+ * every provider always has something to offer even when nothing is armed.
+ */
+function resolveAdvisorTargetForProvider(args: {
+  providerId: ProviderId;
+  candidates: readonly (AdvisorTarget | null | undefined)[];
+}): AdvisorTarget {
+  const candidate = args.candidates.find(
+    (entry) => entry?.providerId === args.providerId,
+  );
+  return (
+    candidate ?? {
+      providerId: args.providerId,
+      model: getDefaultModelForProvider({ providerId: args.providerId }),
+    }
+  );
+}
 
 /**
  * Single resolution point for "does this task run an Advisor, against which
@@ -295,21 +422,60 @@ export type AdvisorArmState = {
  *
  * Arming is intentionally two fields rather than a nullable target: keeping the
  * remembered target through an off state is what lets the composer toggle be a
- * real toggle instead of a destructive edit.
+ * real toggle instead of a destructive edit. Settings stores the same three
+ * fields, so a provider the task never touched still starts from the default
+ * that was configured for *that* provider rather than the catalog floor.
  */
 export function resolveAdvisorArmState(args: {
   overrides?: AdvisorArmOverrides | null;
   settingsTarget?: AdvisorTarget | null;
+  /**
+   * Settings-level arming. Absent falls back to "a configured target means
+   * armed by default", which is how the default was expressed before it grew
+   * an explicit switch — so an older persisted shape keeps its behaviour.
+   */
+  settingsEnabled?: boolean | null;
+  /** Settings-level per-provider defaults, inherited by every task. */
+  settingsTargetByProvider?: AdvisorTargetByProvider | null;
 }): AdvisorArmState {
   const settingsTarget = normalizeAdvisorTarget(args.settingsTarget);
   const target =
     normalizeAdvisorTarget(args.overrides?.advisorTarget) ?? settingsTarget;
-  const enabled = args.overrides?.advisorEnabled ?? settingsTarget !== null;
+  const enabled =
+    args.overrides?.advisorEnabled ??
+    (typeof args.settingsEnabled === "boolean"
+      ? args.settingsEnabled
+      : settingsTarget !== null);
+  const remembered = normalizeAdvisorTargetByProvider(
+    args.overrides?.advisorTargetByProvider,
+  );
+  const settingsRemembered = normalizeAdvisorTargetByProvider(
+    args.settingsTargetByProvider,
+  );
+  const resolveForProvider = (providerId: ProviderId) =>
+    resolveAdvisorTargetForProvider({
+      providerId,
+      // Most specific first: the task's own memory, then its current pick,
+      // then the Settings default for this provider, then the Settings pick.
+      candidates: [
+        toRememberedAdvisorTarget({ providerId, byProvider: remembered }),
+        target,
+        toRememberedAdvisorTarget({
+          providerId,
+          byProvider: settingsRemembered,
+        }),
+        settingsTarget,
+      ],
+    });
   return {
     enabled,
     target,
     effectiveTarget: enabled ? target : null,
     overridden: typeof args.overrides?.advisorEnabled === "boolean",
+    targetByProvider: {
+      "claude-code": resolveForProvider("claude-code"),
+      codex: resolveForProvider("codex"),
+    },
   };
 }
 
@@ -382,6 +548,29 @@ export function normalizePersistedAdvisorTarget(
   return Object.hasOwn(settings, "advisorTarget")
     ? normalizeAdvisorTarget(settings.advisorTarget)
     : migrateLegacyClaudeAdvisorModel(settings.claudeAdvisorModel);
+}
+
+/**
+ * Reads the Settings default's on/off state from a persisted snapshot.
+ *
+ * The default used to be expressed as "a target means armed", which made
+ * turning it off destroy the pick. Now that off is its own field, a snapshot
+ * written before the switch existed has to be read the old way: a configured
+ * target was an armed Advisor, and inferring anything else would silently stop
+ * arming an Advisor the user is already paying for.
+ */
+export function normalizePersistedAdvisorEnabled(args: {
+  persistedSettings: unknown;
+  target: AdvisorTarget | null;
+}): boolean {
+  const settings =
+    args.persistedSettings && typeof args.persistedSettings === "object"
+      ? (args.persistedSettings as { advisorEnabled?: unknown })
+      : null;
+  if (settings && typeof settings.advisorEnabled === "boolean") {
+    return settings.advisorEnabled;
+  }
+  return args.target !== null;
 }
 
 /**

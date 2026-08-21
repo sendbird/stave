@@ -12,6 +12,7 @@ import type {
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import type {
   AdvisorTarget,
+  AdvisorTargetByProvider,
   ClaudeSettingSource,
   ProviderId,
 } from "@/lib/providers/provider.types";
@@ -279,8 +280,23 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Comma/newline-delimited credential env names denied by Claude sandbox. */
   claudeSandboxCredentialEnvVars: string;
   claudeTaskBudgetTokens: number;
-  /** Optional isolated read-only Advisor the primary consults on demand. */
+  /**
+   * Whether new tasks arm the isolated read-only Advisor the primary consults
+   * on demand. Split from the target so turning the default off keeps the
+   * configured pick instead of erasing it.
+   */
+  advisorEnabled: boolean;
+  /**
+   * The Advisor pick new tasks inherit, remembered while `advisorEnabled` is
+   * false. `null` means nothing has been configured yet.
+   */
   advisorTarget: AdvisorTarget | null;
+  /**
+   * Default Advisor model and effort per provider, so both providers can be
+   * set up before either is armed and switching between them is not a
+   * destructive edit. Mirrors the per-task memory of the same name.
+   */
+  advisorTargetByProvider: AdvisorTargetByProvider;
   /** Per-turn on-demand Advisor consult budget (1–20). */
   advisorConsultLimit: number;
   /**
@@ -544,7 +560,9 @@ export const defaultSettings: AppSettings = {
   claudeSandboxCredentialFiles: "",
   claudeSandboxCredentialEnvVars: "",
   claudeTaskBudgetTokens: 0,
+  advisorEnabled: false,
   advisorTarget: null,
+  advisorTargetByProvider: {},
   advisorConsultLimit: DEFAULT_ADVISOR_CONSULT_LIMIT,
   // Off by default: Worker mode changes how a turn spends tokens, so it must be
   // an explicit opt-in rather than something a user discovers on their bill.

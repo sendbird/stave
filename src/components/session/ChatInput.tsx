@@ -32,11 +32,13 @@ import {
 } from "@/lib/providers/worker-mode";
 import { resolveWorkerShortcutAction } from "@/lib/worker-shortcuts";
 import {
-  buildAdvisorArmPatch,
   buildAdvisorEffortPatch,
+  buildAdvisorEnabledPatch,
   buildAdvisorModelPatch,
+  buildAdvisorProviderPatch,
   buildAdvisorTogglePatch,
   formatAdvisorRuntimeStatusValue,
+  resolveAdvisorSelectedProviderId,
 } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import { resolveAdvisorShortcutAction } from "@/lib/advisor-shortcuts";
@@ -53,6 +55,8 @@ import {
 import {
   Badge,
   Button,
+  ButtonGroup,
+  ButtonGroupSeparator,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -310,7 +314,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     trustedTools,
     lensVisualCommentScreenshotsAsImageContext,
     workspaceInformation,
+    settingsAdvisorEnabled,
     settingsAdvisorTarget,
+    settingsAdvisorTargetByProvider,
     settingsCodexBinaryPath,
     skipTaskAdvisor,
     composerControlPlacements,
@@ -337,7 +343,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.settings.trustedTools,
           state.settings.lensVisualCommentScreenshotsAsImageContext,
           state.workspaceInformation,
+          state.settings.advisorEnabled,
           state.settings.advisorTarget,
+          state.settings.advisorTargetByProvider,
           state.settings.codexBinaryPath,
           state.skipTaskAdvisor,
           state.settings.composerControlPlacements,
@@ -386,8 +394,15 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       resolveAdvisorArmState({
         overrides: promptDraft.runtimeOverrides,
         settingsTarget: settingsAdvisorTarget,
+        settingsEnabled: settingsAdvisorEnabled,
+        settingsTargetByProvider: settingsAdvisorTargetByProvider,
       }),
-    [promptDraft.runtimeOverrides, settingsAdvisorTarget],
+    [
+      promptDraft.runtimeOverrides,
+      settingsAdvisorEnabled,
+      settingsAdvisorTarget,
+      settingsAdvisorTargetByProvider,
+    ],
   );
   const [advisorPickerOpen, setAdvisorPickerOpen] = useState(false);
   // Consults travel over Local MCP, so an armed Advisor with a broken link is
@@ -408,28 +423,33 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         : null,
     [advisorArm.enabled, localMcpReadiness.readiness],
   );
+  // Which provider the picker configures. Independent of arming, so a task can
+  // be set up before the Advisor is turned on.
+  const advisorSelectedProviderId = resolveAdvisorSelectedProviderId({
+    arm: advisorArm,
+    primaryProviderId: args.activeProvider,
+  });
   // Codex advertises models dynamically, so the list is only worth fetching
   // once the user actually opens the picker on a Codex advisor.
   const advisorCodexCatalog = useCodexModelCatalog({
-    enabled: advisorPickerOpen && advisorArm.target?.providerId === "codex",
+    enabled: advisorPickerOpen && advisorSelectedProviderId === "codex",
     codexBinaryPath: settingsCodexBinaryPath,
   });
   const advisorModelOptions = useMemo(() => {
-    const providerId = advisorArm.target?.providerId;
-    if (!providerId) {
-      return [] as readonly string[];
-    }
+    const providerId = advisorSelectedProviderId;
     const catalog: readonly string[] =
       providerId === "codex"
         ? advisorCodexCatalog.models
         : getSdkModelOptions({ providerId });
-    const selected = advisorArm.target?.model;
+    const selected = advisorArm.targetByProvider[providerId].model;
     // Keep a persisted-but-unlisted model visible so the picker always shows
     // what is actually configured instead of silently disagreeing with it.
-    return selected && !catalog.includes(selected)
-      ? [selected, ...catalog]
-      : [...catalog];
-  }, [advisorArm.target, advisorCodexCatalog.models]);
+    return !catalog.includes(selected) ? [selected, ...catalog] : [...catalog];
+  }, [
+    advisorArm.targetByProvider,
+    advisorCodexCatalog.models,
+    advisorSelectedProviderId,
+  ]);
 
   const workerArm = useMemo(
     () =>
@@ -1284,6 +1304,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               arm={advisorArm}
               primaryProviderId={args.activeProvider}
               primaryModel={args.selectedModelOption.model}
+              selectedProviderId={advisorSelectedProviderId}
               advisorModelOptions={advisorModelOptions}
               blocking={advisorBlockingTurn}
               consultBlock={advisorConsultBlock}
@@ -1291,37 +1312,50 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               open={advisorPickerOpen}
               onOpenChange={setAdvisorPickerOpen}
               onToggle={handleAdvisorToggle}
-              onSelectProvider={(optionId) => {
+              onSetEnabled={(enabled) => {
                 applyRuntimeOverrides(
-                  buildAdvisorArmPatch({
+                  buildAdvisorEnabledPatch({
                     overrides: promptDraft.runtimeOverrides,
                     arm: advisorArm,
-                    optionId,
+                    providerId: advisorSelectedProviderId,
+                    enabled,
                   }),
                 );
-                if (optionId === "off" && advisorBlockingTurn) {
+                // Disarming while the Advisor holds the turn has to release the
+                // turn too, otherwise the switch silently means "next time" at
+                // the one moment the user wants it to mean now.
+                if (!enabled && advisorBlockingTurn) {
                   skipTaskAdvisor({ taskId: args.activeTaskId });
                 }
               }}
+              onSelectProvider={(providerId) => {
+                applyRuntimeOverrides(
+                  buildAdvisorProviderPatch({
+                    overrides: promptDraft.runtimeOverrides,
+                    arm: advisorArm,
+                    providerId,
+                  }),
+                );
+              }}
               onSelectModel={(model) => {
-                const patch = buildAdvisorModelPatch({
-                  overrides: promptDraft.runtimeOverrides,
-                  arm: advisorArm,
-                  model,
-                });
-                if (patch) {
-                  applyRuntimeOverrides(patch);
-                }
+                applyRuntimeOverrides(
+                  buildAdvisorModelPatch({
+                    overrides: promptDraft.runtimeOverrides,
+                    arm: advisorArm,
+                    providerId: advisorSelectedProviderId,
+                    model,
+                  }),
+                );
               }}
               onSelectEffort={(effort) => {
-                const patch = buildAdvisorEffortPatch({
-                  overrides: promptDraft.runtimeOverrides,
-                  arm: advisorArm,
-                  effort,
-                });
-                if (patch) {
-                  applyRuntimeOverrides(patch);
-                }
+                applyRuntimeOverrides(
+                  buildAdvisorEffortPatch({
+                    overrides: promptDraft.runtimeOverrides,
+                    arm: advisorArm,
+                    providerId: advisorSelectedProviderId,
+                    effort,
+                  }),
+                );
               }}
             />
           }
@@ -1394,10 +1428,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           compareControl={
             args.isTurnActive ? null : (
-              <div
-                className="inline-flex h-9 items-stretch gap-0.5 rounded-md"
-                data-compare-control="true"
-              >
+              <ButtonGroup className="h-9" data-compare-control="true">
                 <Tooltip>
                   <TooltipTrigger
                     render={
@@ -1423,12 +1454,14 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   </TooltipContent>
                 </Tooltip>
 
+                <ButtonGroupSeparator />
+
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
                       <button
                         type="button"
-                        className="inline-flex w-8 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
+                        className="inline-flex w-8 items-center justify-center text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
                         aria-label="Compare options and recent runs"
                         disabled={
                           recentCompareRuns.length === 0 &&
@@ -1511,7 +1544,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                     ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </div>
+              </ButtonGroup>
             )
           }
           submitMode={managedTaskComposerAccess.submitMode}
@@ -1853,8 +1886,14 @@ function BaseChatInput() {
       state.promptDraftByTask[activeTaskId || "draft:session"]
         ?.runtimeOverrides,
   );
+  const settingsAdvisorEnabled = useAppStore(
+    (state) => state.settings.advisorEnabled,
+  );
   const settingsAdvisorTarget = useAppStore(
     (state) => state.settings.advisorTarget,
+  );
+  const settingsAdvisorTargetByProvider = useAppStore(
+    (state) => state.settings.advisorTargetByProvider,
   );
   const settingsWorkerEnabled = useAppStore(
     (state) => state.settings.workerEnabled,
@@ -2149,9 +2188,16 @@ function BaseChatInput() {
         resolveAdvisorArmState({
           overrides: promptDraftRuntimeOverrides,
           settingsTarget: settingsAdvisorTarget,
+          settingsEnabled: settingsAdvisorEnabled,
+          settingsTargetByProvider: settingsAdvisorTargetByProvider,
         }),
       ),
-    [promptDraftRuntimeOverrides, settingsAdvisorTarget],
+    [
+      promptDraftRuntimeOverrides,
+      settingsAdvisorEnabled,
+      settingsAdvisorTarget,
+      settingsAdvisorTargetByProvider,
+    ],
   );
   // Resolved separately from the composer's copy: the runtime bar lives in a
   // different component, and reporting a stale shape here would contradict the

@@ -8,6 +8,7 @@ import {
   ADVISOR_CONTEXT_SOURCE_ID,
   ADVISOR_PROMPT_MAX_CHARS,
   appendAdvisorConsultBriefing,
+  buildAdvisorSettingsTargetPatch,
   boundAdvisorAdvice,
   buildAdvisorAdviceContent,
   buildAdvisorConsultBriefing,
@@ -21,6 +22,7 @@ import {
   listAdvisorEffortsForProvider,
   migrateLegacyClaudeAdvisorModel,
   normalizeAdvisorTarget,
+  normalizePersistedAdvisorEnabled,
   normalizePersistedAdvisorTarget,
   resolveAdvisorArmState,
   resolveAdvisorEffort,
@@ -327,13 +329,13 @@ describe("advisor arming", () => {
   };
 
   test("inherits the Settings default when the task has no opinion", () => {
-    expect(resolveAdvisorArmState({ settingsTarget })).toEqual({
+    expect(resolveAdvisorArmState({ settingsTarget })).toMatchObject({
       enabled: true,
       target: settingsTarget,
       effectiveTarget: settingsTarget,
       overridden: false,
     });
-    expect(resolveAdvisorArmState({ settingsTarget: null })).toEqual({
+    expect(resolveAdvisorArmState({ settingsTarget: null })).toMatchObject({
       enabled: false,
       target: null,
       effectiveTarget: null,
@@ -347,7 +349,7 @@ describe("advisor arming", () => {
         overrides: { advisorEnabled: false },
         settingsTarget,
       }),
-    ).toEqual({
+    ).toMatchObject({
       enabled: false,
       // Still reported so re-arming restores this pick instead of nothing.
       target: settingsTarget,
@@ -366,12 +368,51 @@ describe("advisor arming", () => {
         overrides: { advisorEnabled: true, advisorTarget: taskTarget },
         settingsTarget: null,
       }),
-    ).toEqual({
+    ).toMatchObject({
       enabled: true,
       target: taskTarget,
       effectiveTarget: taskTarget,
       overridden: true,
     });
+  });
+
+  test("every provider has a configurable pick, armed or not", () => {
+    // The composer must be able to offer a model and a tier for a provider the
+    // task never armed; otherwise the Advisor can only be configured by first
+    // paying for it.
+    const state = resolveAdvisorArmState({
+      overrides: {
+        advisorEnabled: false,
+        advisorTargetByProvider: {
+          "claude-code": { model: "claude-fable-5", effort: "low" },
+        },
+      },
+      settingsTarget,
+    });
+    expect(state.targetByProvider["claude-code"]).toEqual({
+      providerId: "claude-code",
+      model: "claude-fable-5",
+      effort: "low",
+    });
+    // Nothing remembered for Codex, so the settings pick stands in.
+    expect(state.targetByProvider.codex).toEqual(settingsTarget);
+  });
+
+  test("a provider with nothing remembered falls back to its catalog default", () => {
+    const state = resolveAdvisorArmState({ settingsTarget: null });
+    expect(state.targetByProvider["claude-code"].model).toBeTruthy();
+    expect(state.targetByProvider.codex.model).toBeTruthy();
+    expect(state.effectiveTarget).toBeNull();
+  });
+
+  test("a corrupted remembered pick degrades to the fallback", () => {
+    const state = resolveAdvisorArmState({
+      overrides: {
+        advisorTargetByProvider: { codex: { model: "  " } } as never,
+      },
+      settingsTarget,
+    });
+    expect(state.targetByProvider.codex).toEqual(settingsTarget);
   });
 
   test("arming with no target anywhere cannot produce a runtime target", () => {
@@ -393,6 +434,70 @@ describe("advisor arming", () => {
         settingsTarget,
       }).effectiveTarget,
     ).toEqual(settingsTarget);
+  });
+
+  test("the Settings switch decides arming without discarding the pick", () => {
+    // Off is its own field now, so the configured default survives it: the
+    // user can set up an Advisor today and start paying for it tomorrow.
+    expect(
+      resolveAdvisorArmState({ settingsTarget, settingsEnabled: false }),
+    ).toMatchObject({
+      enabled: false,
+      target: settingsTarget,
+      effectiveTarget: null,
+      overridden: false,
+    });
+    expect(
+      resolveAdvisorArmState({ settingsTarget, settingsEnabled: true })
+        .effectiveTarget,
+    ).toEqual(settingsTarget);
+  });
+
+  test("a task inherits the Settings default for a provider it never armed", () => {
+    const state = resolveAdvisorArmState({
+      settingsTarget,
+      settingsEnabled: false,
+      settingsTargetByProvider: {
+        "claude-code": { model: "claude-fable-5", effort: "high" },
+      },
+    });
+    expect(state.targetByProvider["claude-code"]).toEqual({
+      providerId: "claude-code",
+      model: "claude-fable-5",
+      effort: "high",
+    });
+    expect(state.targetByProvider.codex).toEqual(settingsTarget);
+  });
+
+  test("the task's own memory outranks the Settings per-provider default", () => {
+    const state = resolveAdvisorArmState({
+      overrides: {
+        advisorTargetByProvider: {
+          "claude-code": { model: "claude-opus-4-8" },
+        },
+      },
+      settingsTarget,
+      settingsTargetByProvider: {
+        "claude-code": { model: "claude-fable-5", effort: "high" },
+      },
+    });
+    expect(state.targetByProvider["claude-code"]).toEqual({
+      providerId: "claude-code",
+      model: "claude-opus-4-8",
+    });
+  });
+
+  test("a corrupted Settings per-provider default degrades to the catalog floor", () => {
+    const state = resolveAdvisorArmState({
+      settingsTarget: null,
+      settingsTargetByProvider: {
+        "claude-code": { model: "   " },
+      } as never,
+    });
+    expect(state.targetByProvider["claude-code"].model).toBeTruthy();
+    expect(state.targetByProvider["claude-code"].model.trim()).toBe(
+      state.targetByProvider["claude-code"].model,
+    );
   });
 
   test("the task target wins over the Settings default", () => {
@@ -524,5 +629,65 @@ describe("advisor effort", () => {
     const normalized = normalizeAdvisorTarget(persisted);
     expect(normalized).not.toBeNull();
     expect(resolveAdvisorEffort(normalized!)).toBe("xhigh");
+  });
+});
+
+describe("advisor settings defaults", () => {
+  test("selecting a default writes the flat pick and its provider entry together", () => {
+    const patch = buildAdvisorSettingsTargetPatch({
+      defaults: {
+        advisorTargetByProvider: {
+          "claude-code": { model: "claude-fable-5", effort: "high" },
+        },
+      },
+      target: { providerId: "codex", model: "gpt-5.6-sol", effort: "xhigh" },
+    });
+    expect(patch.advisorTarget).toEqual({
+      providerId: "codex",
+      model: "gpt-5.6-sol",
+      effort: "xhigh",
+    });
+    // The other provider's configured default must survive the write, or
+    // switching provider back would silently reset it.
+    expect(patch.advisorTargetByProvider).toEqual({
+      "claude-code": { model: "claude-fable-5", effort: "high" },
+      codex: { model: "gpt-5.6-sol", effort: "xhigh" },
+    });
+  });
+
+  test("clearing a pinned tier drops the field instead of storing it", () => {
+    const patch = buildAdvisorSettingsTargetPatch({
+      defaults: { advisorTargetByProvider: {} },
+      target: { providerId: "codex", model: "gpt-5.6-sol" },
+    });
+    expect(patch.advisorTargetByProvider.codex).toEqual({
+      model: "gpt-5.6-sol",
+    });
+  });
+
+  test("a snapshot written before the switch existed stays armed", () => {
+    const target = { providerId: "codex" as const, model: "gpt-5.6-sol" };
+    expect(
+      normalizePersistedAdvisorEnabled({
+        persistedSettings: { advisorTarget: target },
+        target,
+      }),
+    ).toBe(true);
+    expect(
+      normalizePersistedAdvisorEnabled({
+        persistedSettings: { advisorTarget: null },
+        target: null,
+      }),
+    ).toBe(false);
+  });
+
+  test("an explicit off survives a configured target", () => {
+    const target = { providerId: "codex" as const, model: "gpt-5.6-sol" };
+    expect(
+      normalizePersistedAdvisorEnabled({
+        persistedSettings: { advisorEnabled: false, advisorTarget: target },
+        target,
+      }),
+    ).toBe(false);
   });
 });

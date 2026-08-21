@@ -1,9 +1,3 @@
-import { ModelIcon } from "@/components/ai-elements/model-icon";
-import {
-  buildModelSelectorOptions,
-  buildModelSelectorValue,
-  ModelSelector,
-} from "@/components/ai-elements/model-selector";
 import {
   Badge,
   Button,
@@ -41,34 +35,10 @@ import {
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
 import type {
-  AdvisorEffort,
-  AdvisorTarget,
   ClaudeSettingSource,
-  ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
-import {
-  ADVISOR_EFFORT_AUTO_VALUE,
-  buildAdvisorEffortOptions,
-  formatAdvisorEffortLabel,
-  resolveAdvisorEffortSelection,
-} from "@/components/ai-elements/prompt-input-advisor-mode.utils";
-import {
-  getDefaultModelForProvider,
-  getProviderLabel,
-  getSdkModelOptions,
-  listCodexReasoningEffortsForModel,
-  toHumanModelName,
-} from "@/lib/providers/model-catalog";
-import {
-  ADVISOR_SETTING_FIELD_ID,
-  MAX_ADVISOR_CONSULT_LIMIT,
-  MIN_ADVISOR_CONSULT_LIMIT,
-  isAdvisorEffortClamped,
-  listAdvisorEffortsForProvider,
-  resolveAdvisorEffort,
-} from "@/lib/providers/advisor";
-import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
+import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
 import { resolvePromptDraftModelForProvider } from "@/store/prompt-draft-runtime";
@@ -90,6 +60,7 @@ import {
   ClaudeRuntimeToolsCard,
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
+import { SettingsAdvisorSection } from "./settings-dialog-advisor-section";
 import { SettingsWorkerSection } from "./settings-dialog-worker-section";
 import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
 import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
@@ -638,7 +609,9 @@ export function ProvidersSection() {
     claudeSandboxCredentialFiles,
     claudeSandboxCredentialEnvVars,
     claudeTaskBudgetTokens,
+    advisorEnabled,
     advisorTarget,
+    advisorTargetByProvider,
     advisorConsultLimit,
     workerEnabled,
     workerConfigByProvider,
@@ -688,7 +661,9 @@ export function ProvidersSection() {
           state.settings.claudeSandboxCredentialFiles,
           state.settings.claudeSandboxCredentialEnvVars,
           state.settings.claudeTaskBudgetTokens,
+          state.settings.advisorEnabled,
           state.settings.advisorTarget,
+          state.settings.advisorTargetByProvider,
           state.settings.advisorConsultLimit,
           state.settings.workerEnabled,
           state.settings.workerConfigByProvider,
@@ -783,35 +758,6 @@ export function ProvidersSection() {
     !codexRuntimeCapabilities.webSearchModes.includes("indexed")
       ? "cached"
       : codexWebSearch;
-  const advisorMode: "off" | ProviderId = advisorTarget?.providerId ?? "off";
-  const codexModelCatalog = useCodexModelCatalog({
-    enabled: advisorTarget?.providerId === "codex",
-    codexBinaryPath,
-  });
-  const advisorModelOptions = useMemo(
-    () =>
-      advisorTarget
-        ? buildModelSelectorOptions({
-            providerIds: [advisorTarget.providerId],
-            modelsByProvider: {
-              [advisorTarget.providerId]:
-                advisorTarget.providerId === "codex"
-                  ? codexModelCatalog.models
-                  : getSdkModelOptions({
-                      providerId: advisorTarget.providerId,
-                    }),
-            },
-          })
-        : [],
-    [advisorTarget, codexModelCatalog.models],
-  );
-  const advisorTargetSupported =
-    advisorTarget !== null &&
-    advisorModelOptions.some(
-      (option) =>
-        option.providerId === advisorTarget.providerId &&
-        option.model === advisorTarget.model,
-    );
   const executorProvider = activeTaskProvider ?? draftProvider;
   const executorModel = resolvePromptDraftModelForProvider({
     providerId: executorProvider,
@@ -821,40 +767,6 @@ export function ProvidersSection() {
     fallbackModel:
       executorProvider === "claude-code" ? modelClaude : modelCodex,
   });
-  const updateAdvisorProvider = (providerId: "off" | ProviderId) => {
-    if (providerId === "off") {
-      updateSettings({ patch: { advisorTarget: null } });
-      return;
-    }
-    const nextTarget: AdvisorTarget = {
-      providerId,
-      model:
-        advisorTarget?.providerId === providerId && advisorTargetSupported
-          ? advisorTarget.model
-          : getDefaultModelForProvider({ providerId }),
-      ...(advisorTarget?.effort &&
-      listAdvisorEffortsForProvider(providerId).includes(advisorTarget.effort)
-        ? { effort: advisorTarget.effort }
-        : {}),
-    };
-    updateSettings({ patch: { advisorTarget: nextTarget } });
-  };
-  const updateAdvisorEffort = (value: string) => {
-    if (!advisorTarget) {
-      return;
-    }
-    updateSettings({
-      patch: {
-        advisorTarget: {
-          providerId: advisorTarget.providerId,
-          model: advisorTarget.model,
-          ...(value === ADVISOR_EFFORT_AUTO_VALUE
-            ? {}
-            : { effort: value as AdvisorEffort }),
-        },
-      },
-    });
-  };
   const toggleClaudeSettingSource = (source: "user" | "project" | "local") => {
     updateSettings({
       patch: {
@@ -868,181 +780,17 @@ export function ProvidersSection() {
   return (
     <>
       <ProviderBrowserAccessSettingsCard tab={connectedBrowserTab} />
-      <SettingsCard
-        id={ADVISOR_SETTING_FIELD_ID}
-        tabIndex={-1}
-        title="Advisor"
-        description="Default for new tasks: arm an isolated, read-only Advisor the primary model can consult on demand during its turn (via the stave_consult_advisor tool). The Advisor can be Claude or Codex regardless of the primary provider, and each task can arm or disarm it from the composer."
-        titleAccessory={
-          <Badge
-            variant={
-              advisorTarget
-                ? advisorTargetSupported
-                  ? "secondary"
-                  : "destructive"
-                : "outline"
-            }
-          >
-            {advisorTarget
-              ? advisorTargetSupported
-                ? "Default on"
-                : "Invalid model"
-              : "Default off"}
-          </Badge>
-        }
-      >
-        <ChoiceButtons
-          columns={3}
-          value={advisorMode}
-          onChange={updateAdvisorProvider}
-          options={[
-            {
-              value: "off",
-              label: "Off",
-              description:
-                "No Advisor is offered to the primary unless a task arms one itself.",
-            },
-            {
-              value: "claude-code",
-              label: "Claude",
-              description: "Use an isolated Claude SDK turn.",
-              icon: <ModelIcon providerId="claude-code" className="size-3.5" />,
-            },
-            {
-              value: "codex",
-              label: "Codex",
-              description: "Use an ephemeral Codex App Server thread.",
-              icon: <ModelIcon providerId="codex" className="size-3.5" />,
-            },
-          ]}
-        />
-        {advisorTarget ? (
-          <LabeledField
-            title="Advisor Model"
-            description="Claude runs with tools disabled; Codex uses a read-only sandbox and isolated no-tool instructions. Neither uses network or conversation resume state."
-          >
-            <ModelSelector
-              value={buildModelSelectorValue({
-                providerId: advisorTarget.providerId,
-                model: advisorTarget.model,
-                available: advisorTargetSupported,
-              })}
-              options={advisorModelOptions}
-              className="w-full"
-              triggerAriaLabel={`Advisor model: ${toHumanModelName({
-                model: advisorTarget.model,
-              })}`}
-              triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
-              menuClassName="sm:max-w-lg"
-              onSelect={({ selection }) =>
-                updateSettings({
-                  patch: {
-                    advisorTarget: {
-                      providerId: selection.providerId,
-                      model: selection.model,
-                      // Switching models must not silently reset the pinned
-                      // tier; an unsupported one is clamped at resolution time.
-                      ...(advisorTarget.effort
-                        ? { effort: advisorTarget.effort }
-                        : {}),
-                    },
-                  },
-                })
-              }
-            />
-            {!advisorTargetSupported ? (
-              <p className="text-xs leading-5 text-destructive">
-                This persisted model is not in Stave&apos;s current{" "}
-                {getProviderLabel({
-                  providerId: advisorTarget.providerId,
-                })}{" "}
-                catalog. Advisor will stay skipped until you select a valid
-                model or turn it off.
-              </p>
-            ) : null}
-          </LabeledField>
-        ) : null}
-        {advisorTarget ? (
-          <LabeledField
-            title="Advisor Effort"
-            description="The primary waits on each consult it makes, so the tier is a latency-per-consult choice. Auto follows the model's own default, which for Codex is deliberately high."
-          >
-            <ChoiceButtons
-              value={
-                resolveAdvisorEffortSelection(advisorTarget) ??
-                ADVISOR_EFFORT_AUTO_VALUE
-              }
-              onChange={updateAdvisorEffort}
-              options={buildAdvisorEffortOptions(advisorTarget).map(
-                (option) => ({
-                  value: option.value ?? ADVISOR_EFFORT_AUTO_VALUE,
-                  // The full title carries what Auto resolves to, which is the
-                  // number that decides whether this default is expensive.
-                  label: option.title,
-                }),
-              )}
-            />
-            {advisorTarget.effort && isAdvisorEffortClamped(advisorTarget) ? (
-              <p className="text-xs leading-5 text-muted-foreground">
-                The saved tier is{" "}
-                {formatAdvisorEffortLabel(advisorTarget.effort)}, which{" "}
-                {toHumanModelName({ model: advisorTarget.model })} does not
-                accept, so the Advisor runs at{" "}
-                {formatAdvisorEffortLabel(resolveAdvisorEffort(advisorTarget))}.
-              </p>
-            ) : null}
-          </LabeledField>
-        ) : null}
-        {advisorTarget ? (
-          <LabeledField
-            title="Consults per turn"
-            description={`How many times the primary may consult the Advisor in one turn (${MIN_ADVISOR_CONSULT_LIMIT}–${MAX_ADVISOR_CONSULT_LIMIT}). Each consult is one full Advisor call — the budget is the spend ceiling per turn.`}
-          >
-            <DraftInput
-              className="h-10 w-24 rounded-md border-border/80 bg-background"
-              value={String(advisorConsultLimit)}
-              onCommit={(value) =>
-                updateSettings({
-                  patch: {
-                    advisorConsultLimit: readInt(value, advisorConsultLimit),
-                  },
-                })
-              }
-            />
-          </LabeledField>
-        ) : null}
-        <div className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
-          <p>
-            <span className="font-medium text-foreground">
-              {activeTaskProvider ? "Active pair:" : "Default pair:"}
-            </span>{" "}
-            {getProviderLabel({ providerId: executorProvider })} ·{" "}
-            {toHumanModelName({ model: executorModel })}
-            {" → "}
-            {advisorTarget
-              ? `${getProviderLabel({
-                  providerId: advisorTarget.providerId,
-                })} Advisor · ${toHumanModelName({
-                  model: advisorTarget.model,
-                })} · ${formatAdvisorEffortLabel(
-                  resolveAdvisorEffort(advisorTarget),
-                )}`
-              : "Advisor off"}
-          </p>
-          <p className="mt-1">
-            Each consult adds one model call, latency, and usage — the primary
-            decides when to ask, the user decides who answers and how often. A
-            recoverable Advisor failure is traced and the primary turn still
-            runs; Stave never switches Advisor models automatically. Consults
-            require Local MCP to be enabled.
-          </p>
-          <p className="mt-1">
-            This is only the default. Each task&apos;s composer has an Advisor
-            control that can turn it on or off, or point it at a different
-            model, for that task alone.
-          </p>
-        </div>
-      </SettingsCard>
+      <SettingsAdvisorSection
+        advisorEnabled={advisorEnabled}
+        advisorTarget={advisorTarget}
+        advisorTargetByProvider={advisorTargetByProvider}
+        advisorConsultLimit={advisorConsultLimit}
+        codexBinaryPath={codexBinaryPath}
+        executorProvider={executorProvider}
+        executorModel={executorModel}
+        executorIsActiveTask={activeTaskProvider !== null}
+        onChange={(patch) => updateSettings({ patch })}
+      />
       <SettingsWorkerSection
         workerEnabled={workerEnabled}
         workerConfigByProvider={workerConfigByProvider}
