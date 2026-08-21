@@ -7,6 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, type MouseEvent } from "react";
+import { AdvisorConsultLogHost } from "@/components/session/AdvisorConsultLogDialog";
 import { AdvisorExchangeMonitor } from "@/components/session/AdvisorExchangeMonitor";
 import { ChatInput } from "@/components/session/ChatInput";
 import { ChatPanel } from "@/components/session/ChatPanel";
@@ -363,6 +364,11 @@ function ChatAreaImpl(props: ChatAreaProps) {
               <TurnActivity host="floating" />
             </RenderProfiler>
           </div>
+          {/* Outside the pointer-events-none overlay, and outside both of its
+              triggers: the exchange card clears on a linger timer and the
+              activity shelf is keyed per turn, so a dialog owned by either
+              would disappear while it was being read. */}
+          <AdvisorConsultLogHost />
         </div>
         <div className="relative z-30 shrink-0">
           <RenderProfiler id="ChatInput" thresholdMs={8}>

@@ -1,15 +1,12 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftRight,
-  Check,
   ChevronDown,
   ChevronUp,
-  CircleDashed,
+  History,
   LoaderCircle,
-  Minus,
   SkipForward,
   TriangleAlert,
-  X,
 } from "lucide-react";
 import {
   buildAdvisorChecks,
@@ -24,13 +21,17 @@ import {
   resolveAdvisorExchangeVisibility,
   resolveAdvisorLaneSegments,
   resolveAdvisorRemainingMs,
-  type AdvisorCheck,
   type AdvisorExchangeTone,
 } from "@/components/session/advisor-exchange.utils";
+import { AdvisorCheckIcon } from "@/components/session/AdvisorCheckIcon";
 import { SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME } from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import { Button } from "@/components/ui/button";
 import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
+import {
+  advisorConsultLogEntryKey,
+  selectAdvisorConsultLog,
+} from "@/lib/providers/advisor-consult-log";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { UI_ELEVATION_CLASS } from "@/lib/ui-layers";
@@ -119,21 +120,6 @@ function ParticipantChip(props: {
   );
 }
 
-function CheckIcon(props: { status: AdvisorCheck["status"] }) {
-  if (props.status === "pass") {
-    return <Check className="mt-0.5 size-3.5 shrink-0 text-success" />;
-  }
-  if (props.status === "fail") {
-    return <X className="mt-0.5 size-3.5 shrink-0 text-destructive" />;
-  }
-  if (props.status === "pending") {
-    return (
-      <CircleDashed className="mt-0.5 size-3.5 shrink-0 text-muted-foreground motion-safe:animate-spin" />
-    );
-  }
-  return <Minus className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/60" />;
-}
-
 /** Exported so the Lens harness can render the real card from real snapshots. */
 export function AdvisorExchangeCard(props: {
   snapshot: AdvisorExchangeSnapshot;
@@ -143,6 +129,12 @@ export function AdvisorExchangeCard(props: {
   onSkip: () => void;
   onDismiss: () => void;
   canSkip: boolean;
+  /**
+   * Opens the session consult log. The card shows one consult and clears on a
+   * linger timer, so this is the only way back to the ones it replaced.
+   */
+  onOpenLog?: () => void;
+  consultLogCount?: number;
 }) {
   const { snapshot } = props;
   const tone = resolveAdvisorExchangeTone(snapshot);
@@ -303,7 +295,7 @@ export function AdvisorExchangeCard(props: {
           <ul className="mt-1.5 space-y-1.5">
             {checks.map((check) => (
               <li key={check.id} className="flex items-start gap-2">
-                <CheckIcon status={check.status} />
+                <AdvisorCheckIcon status={check.status} />
                 <div className="min-w-0 flex-1">
                   <p
                     className={cn(
@@ -398,7 +390,19 @@ export function AdvisorExchangeCard(props: {
           </dl>
 
           {!props.canSkip && snapshot.outcome !== "pending" ? (
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 flex items-center justify-end gap-1">
+              {props.onOpenLog && (props.consultLogCount ?? 0) > 0 ? (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="mr-auto gap-1"
+                  data-testid="advisor-open-consult-log"
+                  onClick={props.onOpenLog}
+                >
+                  <History className="size-3" />
+                  View all consults ({props.consultLogCount})
+                </Button>
+              ) : null}
               <Button variant="ghost" size="xs" onClick={props.onDismiss}>
                 Dismiss
               </Button>
@@ -420,6 +424,14 @@ export function AdvisorExchangeMonitor() {
   const skipTaskAdvisor = useAppStore((state) => state.skipTaskAdvisor);
   const dismissAdvisorExchange = useAppStore(
     (state) => state.dismissAdvisorExchange,
+  );
+  const openAdvisorConsultLog = useAppStore(
+    (state) => state.openAdvisorConsultLog,
+  );
+  // A primitive, not the entry array: the card re-renders on a 200ms clock and
+  // must not also re-render whenever an unrelated consult is archived.
+  const consultLogCount = useAppStore(
+    (state) => selectAdvisorConsultLog(state.advisorConsultLogByTask, taskId).length,
   );
 
   const [expanded, setExpanded] = useState(false);
@@ -481,6 +493,15 @@ export function AdvisorExchangeMonitor() {
         }}
         onDismiss={() => {
           dismissAdvisorExchange({ taskId });
+        }}
+        consultLogCount={consultLogCount}
+        onOpenLog={() => {
+          // Opens focused on the consult the card is showing, so "view all"
+          // never loses the one the user was already reading.
+          openAdvisorConsultLog({
+            taskId,
+            entryKey: advisorConsultLogEntryKey(snapshot),
+          });
         }}
       />
     </div>

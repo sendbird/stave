@@ -581,6 +581,89 @@ describe("TurnActivity", () => {
     // where "armed but never asked" has to be legible.
     expect(html).toContain("Advisor armed · 0 consults");
     expect(html).toContain("0/5");
+    // No archived consults yet, so the row has nothing to open.
+    expect(html).not.toContain('data-turn-activity-opens');
+  });
+
+  describe("the advisor row as a consult log entry point", () => {
+    const advisorTurn = {
+      activeTurnId: "turn-advisor",
+      activity: {
+        turnId: "turn-advisor",
+        providerId: "codex" as const,
+        startedAt: 1_000,
+        lastEventAt: 5_000,
+        stalledAt: null,
+        pendingInteraction: null,
+        workItemsById: {
+          "tool-1": {
+            id: "tool-1",
+            kind: "tool" as const,
+            status: "completed" as const,
+            title: "Read src/app.ts",
+            toolUseId: "toolu_1",
+            progressMessages: [],
+            startedAt: 2_000,
+            updatedAt: 3_000,
+          },
+        },
+        orderedWorkItemIds: ["tool-1"],
+      },
+      isPlanPreparing: false,
+      todos: [],
+      advisorExchange: {
+        turnId: "turn-advisor",
+        primaryProviderId: "codex" as const,
+        advisorProviderId: "claude-code" as const,
+        advisorModel: "claude-fable-5",
+        consultLimit: 5,
+        consultIndex: 1,
+        startedAt: 1_000,
+        outcome: "completed" as const,
+        outcomeAt: 4_000,
+        durationMs: 3_000,
+        settledConsults: 1,
+        stages: [],
+      },
+    };
+    const workItems = [advisorTurn.activity.workItemsById["tool-1"]!];
+
+    test("opens the log without claiming the transcript can reveal it", () => {
+      const html = renderToStaticMarkup(
+        createElement(TurnActivitySurface, {
+          ...advisorTurn,
+          workItems,
+          hasAdvisorConsultLog: true,
+          onOpenAdvisorLog: () => {},
+          onSelectTool: () => {},
+        }),
+      );
+
+      expect(html).toContain('data-turn-activity-opens="advisor-consult-log"');
+      // The advisor row must not be mistaken for a revealable tool call: it
+      // stands for a consult the transcript never rendered.
+      const advisorRow = html.slice(
+        html.indexOf('data-turn-activity-item-id="advisor"'),
+      );
+      expect(advisorRow.slice(0, advisorRow.indexOf("</button>"))).not.toContain(
+        "data-turn-activity-revealable",
+      );
+      // The activation refactor must not have cost the tool rows their reveal.
+      expect(html).toContain('data-turn-activity-revealable="true"');
+    });
+
+    test("stays inert when the task has no archived consults", () => {
+      const html = renderToStaticMarkup(
+        createElement(TurnActivitySurface, {
+          ...advisorTurn,
+          workItems,
+          onSelectTool: () => {},
+        }),
+      );
+
+      expect(html).not.toContain("data-turn-activity-opens");
+      expect(html).toContain('data-turn-activity-revealable="true"');
+    });
   });
 
   describe("replaying a finished turn in the panel", () => {

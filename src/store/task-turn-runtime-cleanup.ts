@@ -1,4 +1,5 @@
 import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
+import type { AdvisorConsultLogByTask } from "@/lib/providers/advisor-consult-log";
 import type {
   ProviderTurnActivitySnapshot,
   RetainedTurnActivityByTask,
@@ -25,6 +26,12 @@ export interface TaskTurnRuntimeEntries {
    */
   retainedTurnActivityByTask: RetainedTurnActivityByTask;
   advisorExchangeByTask: AdvisorExchangeByTask;
+  /**
+   * The task's archived consults. Shed with the task, unlike
+   * `advisorVerdictTallyByModel`, which is keyed by advisor model rather than
+   * by task and so has nothing to drop here.
+   */
+  advisorConsultLogByTask: AdvisorConsultLogByTask;
   hostOwnedTurnIdsByTask: Record<string, string | undefined>;
 }
 
@@ -79,6 +86,13 @@ export function removeTaskTurnRuntimeEntries(args: {
   );
   if (advisorExchangeByTask) {
     patch.advisorExchangeByTask = advisorExchangeByTask;
+  }
+  const advisorConsultLogByTask = removeRecordEntries(
+    args.state.advisorConsultLogByTask,
+    args.taskIds,
+  );
+  if (advisorConsultLogByTask) {
+    patch.advisorConsultLogByTask = advisorConsultLogByTask;
   }
   const hostOwnedTurnIdsByTask = removeRecordEntries(
     args.state.hostOwnedTurnIdsByTask,

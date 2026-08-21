@@ -3,6 +3,10 @@ import type {
   NormalizedProviderEvent,
   ProviderId,
 } from "@/lib/providers/provider.types";
+import {
+  upsertAdvisorConsultLogEntry,
+  type AdvisorConsultLogByTask,
+} from "@/lib/providers/advisor-consult-log";
 
 /**
  * Advisor consult lifecycle phases.
@@ -269,82 +273,148 @@ function isNewExchange(
 }
 
 /**
- * Folds the turn's advisor events into the task's exchange snapshot.
+ * Applies one event to the running snapshot.
  *
- * Returns the original map when nothing changed so the Zustand slice keeps a
- * stable reference and subscribed components do not re-render.
+ * Returns `args.snapshot` **by reference** to mean "this event changed
+ * nothing", which is what lets the caller archive exactly the steps that did
+ * change instead of diffing the map once per flush.
+ */
+export function foldAdvisorEvent(args: {
+  snapshot: AdvisorExchangeSnapshot | undefined;
+  event: AdvisorActivityEvent;
+  turnId: string;
+}): AdvisorExchangeSnapshot | undefined {
+  const { snapshot, event } = args;
+  if (event.phase === "armed" && snapshot) {
+    // The grant is announced once per turn. A repeat (a recoverable provider
+    // retry re-entering the runtime) must not erase consults already folded.
+    return snapshot;
+  }
+  if (snapshot && isNewExchange(snapshot, event)) {
+    // A new consult replaces the card; how many already settled this turn is
+    // carried forward so "Consult n/limit" stays truthful across cards.
+    return startSnapshot({
+      event,
+      turnId: args.turnId,
+      settledConsults: snapshot.settledConsults,
+    });
+  }
+  if (!snapshot) {
+    // A non-`started` first event still produces a usable record; dropping it
+    // would lose the outcome when the replay window evicted `started`.
+    return event.phase === "started" || event.phase === "armed"
+      ? startSnapshot({ event, turnId: args.turnId, settledConsults: 0 })
+      : reduceEvent({
+          snapshot: startSnapshot({
+            event: { ...event, phase: "started" },
+            turnId: args.turnId,
+            settledConsults: 0,
+          }),
+          event,
+        });
+  }
+  return reduceEvent({ snapshot, event });
+}
+
+/**
+ * Folds the turn's advisor events into the task's exchange snapshot and
+ * archives every consult it passes through into the session consult log.
+ *
+ * The archive happens inside the fold loop rather than by comparing the map
+ * before and after. Provider events are rAF-batched, and rAF is paused while
+ * the window is hidden or occluded, so a single flush routinely carries several
+ * *complete* consults; a before/after comparison would keep only the last one
+ * and silently lose the rest — which is the failure the log exists to fix.
+ *
+ * Returns the original maps when nothing changed so the Zustand slices keep
+ * stable references and subscribed components do not re-render.
  */
 export function applyAdvisorActivityEvents(args: {
   exchangeByTask: AdvisorExchangeByTask;
+  logByTask: AdvisorConsultLogByTask;
   taskId: string;
   turnId: string;
   events: NormalizedProviderEvent[];
-}): AdvisorExchangeByTask {
+  now?: number;
+}): {
+  exchangeByTask: AdvisorExchangeByTask;
+  logByTask: AdvisorConsultLogByTask;
+} {
   const advisorEvents = args.events.filter(
     (event): event is AdvisorActivityEvent =>
       event.type === "advisor_activity",
   );
   if (advisorEvents.length === 0) {
-    return args.exchangeByTask;
+    return { exchangeByTask: args.exchangeByTask, logByTask: args.logByTask };
   }
 
   const current = args.exchangeByTask[args.taskId];
   let snapshot = current?.turnId === args.turnId ? current : undefined;
+  let logByTask = args.logByTask;
 
   for (const event of advisorEvents) {
-    if (event.phase === "armed" && snapshot) {
-      // The grant is announced once per turn. A repeat (a recoverable provider
-      // retry re-entering the runtime) must not erase consults already folded.
+    const next = foldAdvisorEvent({
+      snapshot,
+      event,
+      turnId: args.turnId,
+    });
+    if (next === snapshot) {
       continue;
     }
-    if (snapshot && isNewExchange(snapshot, event)) {
-      // A new consult replaces the card; how many already settled this turn is
-      // carried forward so "Consult n/limit" stays truthful across cards.
-      snapshot = startSnapshot({
-        event,
-        turnId: args.turnId,
-        settledConsults: snapshot.settledConsults,
+    snapshot = next;
+    // The turn-level grant is not a consult, so it never earns a log row — a
+    // turn that armed the Advisor and never asked it anything has nothing to
+    // review.
+    if (snapshot && !isAdvisorArmedOnly(snapshot)) {
+      logByTask = upsertAdvisorConsultLogEntry({
+        logByTask,
+        taskId: args.taskId,
+        snapshot,
+        ...(args.now === undefined ? {} : { now: args.now }),
       });
-      continue;
     }
-    if (!snapshot) {
-      // A non-`started` first event still produces a usable record; dropping it
-      // would lose the outcome when the replay window evicted `started`.
-      snapshot =
-        event.phase === "started" || event.phase === "armed"
-          ? startSnapshot({ event, turnId: args.turnId, settledConsults: 0 })
-          : reduceEvent({
-              snapshot: startSnapshot({
-                event: { ...event, phase: "started" },
-                turnId: args.turnId,
-                settledConsults: 0,
-              }),
-              event,
-            });
-      continue;
-    }
-    snapshot = reduceEvent({ snapshot, event });
   }
 
-  if (!snapshot || snapshot === current) {
-    return args.exchangeByTask;
-  }
-  return { ...args.exchangeByTask, [args.taskId]: snapshot };
+  return {
+    exchangeByTask:
+      !snapshot || snapshot === current
+        ? args.exchangeByTask
+        : { ...args.exchangeByTask, [args.taskId]: snapshot },
+    logByTask,
+  };
 }
 
 /**
  * Store-shaped wrapper: returns the partial state patch, or `null` when the
  * events changed nothing. Keeps the fold (and its "did anything change?"
  * comparison) out of the hot `app.store.ts` event loop.
+ *
+ * Unchanged keys are **omitted** rather than echoed back, so spreading the
+ * patch into `set()` never replaces an untouched map reference.
  */
 export function buildAdvisorExchangePatch(args: {
   exchangeByTask: AdvisorExchangeByTask;
+  logByTask: AdvisorConsultLogByTask;
   taskId: string;
   turnId: string;
   events: NormalizedProviderEvent[];
-}): { advisorExchangeByTask: AdvisorExchangeByTask } | null {
+  now?: number;
+}): {
+  advisorExchangeByTask?: AdvisorExchangeByTask;
+  advisorConsultLogByTask?: AdvisorConsultLogByTask;
+} | null {
   const next = applyAdvisorActivityEvents(args);
-  return next === args.exchangeByTask ? null : { advisorExchangeByTask: next };
+  const exchangeChanged = next.exchangeByTask !== args.exchangeByTask;
+  const logChanged = next.logByTask !== args.logByTask;
+  if (!exchangeChanged && !logChanged) {
+    return null;
+  }
+  return {
+    ...(exchangeChanged
+      ? { advisorExchangeByTask: next.exchangeByTask }
+      : {}),
+    ...(logChanged ? { advisorConsultLogByTask: next.logByTask } : {}),
+  };
 }
 
 export function clearAdvisorExchange(args: {

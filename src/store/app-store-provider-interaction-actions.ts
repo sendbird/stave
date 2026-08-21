@@ -27,6 +27,10 @@ import {
   interruptPendingToolInteractionsInMessages,
 } from "@/store/provider-message.utils";
 import { clearAdvisorExchange } from "@/lib/providers/advisor-activity";
+import {
+  selectAdvisorConsultLog,
+  setAdvisorConsultLogVerdict,
+} from "@/lib/providers/advisor-consult-log";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import type {
@@ -40,6 +44,10 @@ type ProviderInteractionActionKey =
   | "abortTaskTurn"
   | "skipTaskAdvisor"
   | "dismissAdvisorExchange"
+  | "openAdvisorConsultLog"
+  | "selectAdvisorConsultLogEntry"
+  | "closeAdvisorConsultLog"
+  | "setAdvisorConsultVerdict"
   | "resolveApproval"
   | "resolveUserInput"
   | "syncChildTasksIntoTurnGraph";
@@ -109,6 +117,52 @@ export function createProviderInteractionActions(args: {
         return advisorExchangeByTask === state.advisorExchangeByTask
           ? state
           : { advisorExchangeByTask };
+      });
+    },
+    openAdvisorConsultLog: ({ taskId, entryKey }) => {
+      // Dismissing the floating card must not erase the log, so opening the
+      // dialog deliberately touches nothing but the view state.
+      const entries = selectAdvisorConsultLog(
+        get().advisorConsultLogByTask,
+        taskId,
+      );
+      const resolvedKey =
+        entryKey && entries.some((entry) => entry.key === entryKey)
+          ? entryKey
+          : (entries[0]?.key ?? null);
+      set({ advisorConsultLogView: { taskId, entryKey: resolvedKey } });
+    },
+    selectAdvisorConsultLogEntry: ({ entryKey }) => {
+      const view = get().advisorConsultLogView;
+      if (!view || view.entryKey === entryKey) {
+        return;
+      }
+      set({ advisorConsultLogView: { ...view, entryKey } });
+    },
+    closeAdvisorConsultLog: () => {
+      if (!get().advisorConsultLogView) {
+        return;
+      }
+      set({ advisorConsultLogView: null });
+    },
+    setAdvisorConsultVerdict: ({ taskId, entryKey, verdict }) => {
+      // Computed before `set` rather than inside it: a repeat verdict must not
+      // reach the store at all, because the persist middleware serializes on
+      // every `set` even when the updater returns the same state.
+      const state = get();
+      const next = setAdvisorConsultLogVerdict({
+        logByTask: state.advisorConsultLogByTask,
+        tallyByModel: state.advisorVerdictTallyByModel,
+        taskId,
+        entryKey,
+        verdict,
+      });
+      if (!next) {
+        return;
+      }
+      set({
+        advisorConsultLogByTask: next.logByTask,
+        advisorVerdictTallyByModel: next.tallyByModel,
       });
     },
     syncChildTasksIntoTurnGraph: ({ taskId, children }) => {
