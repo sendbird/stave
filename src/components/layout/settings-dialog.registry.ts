@@ -32,13 +32,31 @@ export interface SettingDefinition<
   importExport: "include" | "exclude";
 }
 
-const AdvisorTargetSchema = z
+const AdvisorEffortSchema = z.enum([
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+]);
+
+const AdvisorPickSchema = z
   .object({
     providerId: z.enum(["claude-code", "codex"]),
     model: z.string().trim().min(1).max(200),
+    // Absent means "follow the model's provider default", so the field is
+    // optional rather than defaulted — see `resolveAdvisorEffort`.
+    effort: AdvisorEffortSchema.optional(),
   })
-  .strict()
-  .nullable();
+  .strict();
+
+const AdvisorTargetSchema = AdvisorPickSchema.nullable();
+
+const AdvisorTargetByProviderSchema = z.object({
+  "claude-code": AdvisorPickSchema.omit({ providerId: true }).optional(),
+  codex: AdvisorPickSchema.omit({ providerId: true }).optional(),
+});
 
 const ADVISOR_MODEL_SEARCH_KEYWORDS = (
   ["claude-code", "codex"] as const
@@ -79,6 +97,42 @@ export const settingDefinitions = [
     applyMode: "next-turn",
     importExport: "include",
   } satisfies SettingDefinition<"advisorTarget">,
+  {
+    key: "advisorEnabled",
+    sectionId: "providers",
+    fieldId: ADVISOR_SETTING_FIELD_ID,
+    title: "Arm an Advisor by default",
+    description:
+      "Whether new tasks start with the default Advisor armed. Off keeps the configured provider, model, and effort for later.",
+    keywords: ["advisor", "default", "arm", "by default", "on", "off"],
+    schema: z.boolean(),
+    defaultValue: false,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "include",
+  } satisfies SettingDefinition<"advisorEnabled">,
+  {
+    key: "advisorTargetByProvider",
+    sectionId: "providers",
+    fieldId: ADVISOR_SETTING_FIELD_ID,
+    title: "Advisor defaults per provider",
+    description:
+      "Default Advisor model and effort remembered separately for each provider, so both can be configured before either is armed.",
+    keywords: [
+      "advisor",
+      "per provider",
+      "advisor default",
+      "advisor effort",
+      "remembered",
+    ],
+    schema: AdvisorTargetByProviderSchema,
+    defaultValue: {},
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "include",
+  } satisfies SettingDefinition<"advisorTargetByProvider">,
   {
     key: "advisorConsultLimit",
     sectionId: "providers",

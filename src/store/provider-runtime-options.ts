@@ -49,7 +49,9 @@ type RuntimeSettings = Pick<
   | "claudeSandboxCredentialFiles"
   | "claudeSandboxCredentialEnvVars"
   | "claudeTaskBudgetTokens"
+  | "advisorEnabled"
   | "advisorTarget"
+  | "advisorTargetByProvider"
   | "advisorConsultLimit"
   | "workerEnabled"
   | "workerConfigByProvider"
@@ -197,6 +199,8 @@ export function buildProviderRuntimeOptions(args: {
     ? resolveAdvisorArmState({
         overrides: args.advisorRuntimeOverrides,
         settingsTarget: settings.advisorTarget,
+        settingsEnabled: settings.advisorEnabled,
+        settingsTargetByProvider: settings.advisorTargetByProvider,
       }).effectiveTarget
     : null;
   // Gated on the same `includeAdvisor` flag: it marks a real conversation turn,

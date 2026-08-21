@@ -26,6 +26,50 @@ export const CRANE_DISPATCH_EFFORTS = [
 ] as const;
 
 /**
+ * Effort tiers an Advisor target may pin. Narrower than
+ * `CRANE_DISPATCH_EFFORTS` on purpose: the primary model still accepts Codex's
+ * legacy `"minimal"` as input, but `resolveAdvisorEffort` collapses it to
+ * `"low"` before any Advisor call, so accepting it here would name a tier that
+ * never runs.
+ */
+const ADVISOR_EFFORTS = [
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+] as const;
+
+/**
+ * Advisor the approver pointed this dispatch at, or `null` for none.
+ *
+ * `effort` is optional because an absent tier means "follow the model's own
+ * default", which is a real choice rather than a missing one — the same
+ * distinction the composer and Settings surfaces make. It is accepted here so
+ * the approval dialog's effort row is not a promise the IPC boundary strips.
+ */
+const AdvisorTargetSchema = z
+  .object({
+    providerId: z.enum(["claude-code", "codex"]),
+    model: z.string().trim().min(1).max(200),
+    effort: z.enum(ADVISOR_EFFORTS).optional(),
+  })
+  .strict()
+  .nullable();
+
+/**
+ * Consults the primary may make against the Advisor in one turn.
+ *
+ * Present exactly when `advisorTarget` is, enforced by
+ * `withAdvisorConsultLimitPairing`. Sending the target without the limit is the
+ * failure this field exists to prevent: the runtime would fall back to its own
+ * hardcoded default and quietly ignore the ceiling the user configured in Stave
+ * settings, which is a spend limit rather than a cosmetic preference.
+ */
+const AdvisorConsultLimitSchema = z.number().int().min(1).max(20).optional();
+
+/**
  * Reasoning setup Stave remembers per Crane team so a repeat dispatch does not
  * force the same model/effort choice every time.
  *
@@ -40,6 +84,15 @@ export const CraneTeamRuntimeMemorySchema = z
     model: z.string().trim().min(1).max(200),
     effort: z.enum(CRANE_DISPATCH_EFFORTS),
     fastMode: z.boolean().optional(),
+    /**
+     * Advisor remembered for this team, as three distinct states rather than
+     * two: absent means the team has no preference and the dispatch inherits
+     * the Stave Advisor default, `null` means the team explicitly wants no
+     * Advisor, and a target means it explicitly wants that one. Collapsing
+     * absent into `null` would silently disarm the global default for every
+     * team that was mapped before Advisor became rememberable.
+     */
+    advisor: AdvisorTargetSchema.optional(),
   })
   .strict();
 
@@ -130,14 +183,6 @@ export const CraneConnectorConfigInputSchema =
     pollIntervalSeconds: true,
   });
 
-const AdvisorTargetSchema = z
-  .object({
-    providerId: z.enum(["claude-code", "codex"]),
-    model: z.string().trim().min(1).max(200),
-  })
-  .strict()
-  .nullable();
-
 const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
   z
     .object({
@@ -163,6 +208,7 @@ const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
       // default instead of the reasoning level the approver actually picked.
       claudeEffort: z.enum(["low", "medium", "high", "xhigh", "max"]),
       advisorTarget: AdvisorTargetSchema,
+      advisorConsultLimit: AdvisorConsultLimitSchema,
     })
     .strict(),
   z
@@ -198,9 +244,25 @@ const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
       ]),
       codexFastMode: z.boolean(),
       advisorTarget: AdvisorTargetSchema,
+      advisorConsultLimit: AdvisorConsultLimitSchema,
     })
     .strict(),
-]);
+])
+  // Refined on the assembled union rather than each member so a wrong
+  // `provider` still fails as a discriminator mismatch instead of as two
+  // parallel shape errors.
+  .superRefine((value, context) => {
+    const hasTarget = value.advisorTarget !== null;
+    const hasLimit = value.advisorConsultLimit !== undefined;
+    if (hasTarget !== hasLimit) {
+      context.addIssue({
+        code: "custom",
+        path: ["advisorConsultLimit"],
+        message:
+          "advisorConsultLimit must be present exactly when advisorTarget is set.",
+      });
+    }
+  });
 
 const CraneDispatchWorkspaceChoiceSchema = z.discriminatedUnion("strategy", [
   z

@@ -2,10 +2,10 @@ import {
   type AdvisorArmState,
   isSupportedAdvisorTarget,
   listAdvisorEffortsForProvider,
+  rememberAdvisorTargetByProvider,
   resolveAdvisorEffort,
 } from "@/lib/providers/advisor";
 import {
-  getDefaultModelForProvider,
   getProviderLabel,
   listCodexReasoningEffortsForModel,
   toHumanModelName,
@@ -25,13 +25,11 @@ import {
 } from "@/lib/advisor-shortcuts";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
-export type AdvisorArmOptionId = "off" | ProviderId;
-
-export interface AdvisorArmOption {
-  id: AdvisorArmOptionId;
+export interface AdvisorProviderOption {
+  id: ProviderId;
   label: string;
+  /** One line under the label; the card is two columns wide, so it is short. */
   summary: string;
-  description: string;
 }
 
 /** `null` is the "follow the model's default" row, not an absent choice. */
@@ -161,37 +159,21 @@ export interface AdvisorPillPresentation {
   note: string | null;
 }
 
-const ADVISOR_ARM_OPTIONS: readonly AdvisorArmOption[] = [
-  {
-    id: "off",
-    label: "Off",
-    summary: "No Advisor",
-    description: "The primary model gets no on-demand Advisor this turn.",
-  },
+const ADVISOR_PROVIDER_OPTIONS: readonly AdvisorProviderOption[] = [
   {
     id: "claude-code",
     label: "Claude",
     summary: "Tools disabled",
-    description:
-      "Let the primary consult an isolated Claude turn on demand.",
   },
   {
     id: "codex",
     label: "Codex",
-    summary: "Ephemeral read-only thread",
-    description:
-      "Let the primary consult a throwaway Codex thread on demand.",
+    summary: "Read-only thread",
   },
 ] as const;
 
-export function buildAdvisorArmOptions() {
-  return ADVISOR_ARM_OPTIONS;
-}
-
-export function resolveAdvisorArmOptionId(
-  arm: AdvisorArmState,
-): AdvisorArmOptionId {
-  return arm.enabled && arm.target ? arm.target.providerId : "off";
+export function buildAdvisorProviderOptions() {
+  return ADVISOR_PROVIDER_OPTIONS;
 }
 
 /**
@@ -328,53 +310,71 @@ export function describeAdvisorPill(args: {
 }
 
 /**
- * Picks a provider for this task. Reuses the remembered model when the provider
- * is unchanged so switching off and back on is not a destructive edit.
+ * Writes a target as the task's pick and remembers it for its provider.
+ *
+ * Arming is deliberately untouched: configuring which model would advise is a
+ * separate act from paying for it, so the picker stays usable while the
+ * Advisor is off. The per-provider entry is what makes switching provider and
+ * back non-destructive — the flat target can only hold one provider's choice.
  */
-export function buildAdvisorArmPatch(args: {
-  overrides?: PromptDraftRuntimeOverrides;
-  arm: AdvisorArmState;
-  optionId: AdvisorArmOptionId;
-}): PromptDraftRuntimeOverrides {
-  const base = args.overrides ?? {};
-  if (args.optionId === "off") {
-    return { ...base, advisorEnabled: false };
-  }
-  const keepsModel = args.arm.target?.providerId === args.optionId;
-  const pinnedEffort = args.arm.target?.effort;
-  // A pinned tier is an intent about cost, not about a provider, so it carries
-  // across a provider switch whenever the new provider has that tier at all.
-  const effort =
-    pinnedEffort &&
-    listAdvisorEffortsForProvider(args.optionId).includes(pinnedEffort)
-      ? pinnedEffort
-      : undefined;
-  return {
-    ...base,
-    advisorEnabled: true,
-    advisorTarget: {
-      providerId: args.optionId,
-      model: keepsModel
-        ? (args.arm.target?.model ?? "")
-        : getDefaultModelForProvider({ providerId: args.optionId }),
-      ...(effort ? { effort } : {}),
-    },
-  };
-}
-
 export function buildAdvisorTargetPatch(args: {
   overrides?: PromptDraftRuntimeOverrides;
   target: AdvisorTarget;
 }): PromptDraftRuntimeOverrides {
+  const base = args.overrides ?? {};
   return {
-    ...(args.overrides ?? {}),
-    advisorEnabled: true,
+    ...base,
     advisorTarget: args.target,
+    advisorTargetByProvider: rememberAdvisorTargetByProvider({
+      byProvider: base.advisorTargetByProvider,
+      target: args.target,
+    }),
   };
 }
 
 /**
- * Switches the model while keeping the pinned tier.
+ * Selects which provider the task would consult, restoring that provider's own
+ * remembered model and tier rather than resetting it to the catalog default.
+ */
+export function buildAdvisorProviderPatch(args: {
+  overrides?: PromptDraftRuntimeOverrides;
+  arm: AdvisorArmState;
+  providerId: ProviderId;
+}): PromptDraftRuntimeOverrides {
+  return buildAdvisorTargetPatch({
+    overrides: args.overrides,
+    target: args.arm.targetByProvider[args.providerId],
+  });
+}
+
+/**
+ * Arms or disarms the Advisor against the provider the picker is showing.
+ *
+ * Unlike the pill toggle this can arm from a cold start, because the picker
+ * always has a provider selected — the user is looking at the model and tier
+ * they are about to pay for.
+ */
+export function buildAdvisorEnabledPatch(args: {
+  overrides?: PromptDraftRuntimeOverrides;
+  arm: AdvisorArmState;
+  providerId: ProviderId;
+  enabled: boolean;
+}): PromptDraftRuntimeOverrides {
+  if (!args.enabled) {
+    return { ...(args.overrides ?? {}), advisorEnabled: false };
+  }
+  return {
+    ...buildAdvisorProviderPatch({
+      overrides: args.overrides,
+      arm: args.arm,
+      providerId: args.providerId,
+    }),
+    advisorEnabled: true,
+  };
+}
+
+/**
+ * Switches a provider's model while keeping its pinned tier.
  *
  * Exists so callers cannot rebuild the target by hand and silently drop
  * `effort` — the field is optional, so losing it fails as a quiet reversion to
@@ -383,17 +383,16 @@ export function buildAdvisorTargetPatch(args: {
 export function buildAdvisorModelPatch(args: {
   overrides?: PromptDraftRuntimeOverrides;
   arm: AdvisorArmState;
+  providerId: ProviderId;
   model: string;
-}): PromptDraftRuntimeOverrides | null {
-  if (!args.arm.target) {
-    return null;
-  }
+}): PromptDraftRuntimeOverrides {
+  const current = args.arm.targetByProvider[args.providerId];
   return buildAdvisorTargetPatch({
     overrides: args.overrides,
     target: {
-      providerId: args.arm.target.providerId,
+      providerId: args.providerId,
       model: args.model,
-      ...(args.arm.target.effort ? { effort: args.arm.target.effort } : {}),
+      ...(current.effort ? { effort: current.effort } : {}),
     },
   });
 }
@@ -402,16 +401,15 @@ export function buildAdvisorModelPatch(args: {
 export function buildAdvisorEffortPatch(args: {
   overrides?: PromptDraftRuntimeOverrides;
   arm: AdvisorArmState;
+  providerId: ProviderId;
   effort: AdvisorEffortOptionValue;
-}): PromptDraftRuntimeOverrides | null {
-  if (!args.arm.target) {
-    return null;
-  }
+}): PromptDraftRuntimeOverrides {
+  const current = args.arm.targetByProvider[args.providerId];
   return buildAdvisorTargetPatch({
     overrides: args.overrides,
     target: {
-      providerId: args.arm.target.providerId,
-      model: args.arm.target.model,
+      providerId: args.providerId,
+      model: current.model,
       ...(args.effort ? { effort: args.effort } : {}),
     },
   });

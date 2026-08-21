@@ -1,19 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import {
-  buildAdvisorArmOptions,
-  buildAdvisorArmPatch,
   buildAdvisorEffortOptions,
   buildAdvisorEffortPatch,
+  buildAdvisorEnabledPatch,
   buildAdvisorModelPatch,
+  buildAdvisorProviderOptions,
+  buildAdvisorProviderPatch,
   buildAdvisorTargetPatch,
   buildAdvisorTogglePatch,
   describeAdvisorPill,
   formatAdvisorRuntimeStatusValue,
   isAdvisorSelfAdvising,
-  resolveAdvisorArmOptionId,
   resolveAdvisorEffortSelection,
 } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
-import { resolveAdvisorArmState } from "@/lib/providers/advisor";
+import {
+  resolveAdvisorArmState,
+  resolveAdvisorSelectedProviderId,
+} from "@/lib/providers/advisor";
 
 const CODEX_TARGET = { providerId: "codex" as const, model: "gpt-5.6-sol" };
 const CLAUDE_TARGET = {
@@ -39,29 +42,52 @@ function arm(args: {
 }
 
 describe("advisor pill options", () => {
-  test("offers off plus both providers, independent of the primary", () => {
-    expect(buildAdvisorArmOptions().map((option) => option.id)).toEqual([
-      "off",
+  test("offers both providers, independent of the primary", () => {
+    expect(buildAdvisorProviderOptions().map((option) => option.id)).toEqual([
       "claude-code",
       "codex",
     ]);
   });
 
-  test("reports the armed provider as the active option", () => {
+  test("configures the armed provider", () => {
     expect(
-      resolveAdvisorArmOptionId(arm({ settingsTarget: CODEX_TARGET })),
+      resolveAdvisorSelectedProviderId({
+        arm: arm({ settingsTarget: CODEX_TARGET }),
+        ...CLAUDE_PRIMARY,
+      }),
     ).toBe("codex");
   });
 
-  test("reports off when a task disarmed a configured default", () => {
+  test("keeps configuring the remembered provider while disarmed", () => {
+    // Turning the Advisor off must not move the picker to another provider;
+    // the pick is remembered precisely so re-arming is not a fresh decision.
     expect(
-      resolveAdvisorArmOptionId(
-        arm({
+      resolveAdvisorSelectedProviderId({
+        arm: arm({
           overrides: { advisorEnabled: false },
           settingsTarget: CODEX_TARGET,
         }),
-      ),
-    ).toBe("off");
+        ...CLAUDE_PRIMARY,
+      }),
+    ).toBe("codex");
+  });
+
+  test("opens on the provider that is not running the turn", () => {
+    // With nothing configured, the only pick that can produce a real second
+    // opinion is the other provider.
+    expect(
+      resolveAdvisorSelectedProviderId({
+        arm: arm({ settingsTarget: null }),
+        ...CLAUDE_PRIMARY,
+      }),
+    ).toBe("codex");
+    expect(
+      resolveAdvisorSelectedProviderId({
+        arm: arm({ settingsTarget: null }),
+        primaryProviderId: "codex",
+        primaryModel: "gpt-5.6-sol",
+      }),
+    ).toBe("claude-code");
   });
 });
 
@@ -176,33 +202,113 @@ describe("advisor pill presentation", () => {
 });
 
 describe("advisor pill writes", () => {
-  test("selecting off disarms without discarding the target", () => {
+  test("the switch disarms without discarding the target", () => {
     expect(
-      buildAdvisorArmPatch({
+      buildAdvisorEnabledPatch({
         overrides: { codexPlanMode: true },
         arm: arm({ settingsTarget: CODEX_TARGET }),
-        optionId: "off",
+        providerId: "codex",
+        enabled: false,
       }),
     ).toEqual({ codexPlanMode: true, advisorEnabled: false });
   });
 
-  test("switching provider picks that provider's default model", () => {
-    const patch = buildAdvisorArmPatch({
-      arm: arm({ settingsTarget: CODEX_TARGET }),
-      optionId: "claude-code",
+  test("the switch can arm from a cold start", () => {
+    // The picker always shows a provider, model and tier, so turning it on is
+    // never a blind purchase — unlike the pill toggle, which opens the menu.
+    const patch = buildAdvisorEnabledPatch({
+      arm: arm({ settingsTarget: null }),
+      providerId: "codex",
+      enabled: true,
     });
     expect(patch.advisorEnabled).toBe(true);
+    expect(patch.advisorTarget?.providerId).toBe("codex");
+  });
+
+  test("switching provider leaves arming alone", () => {
+    // Configuring which model would advise is a separate act from paying for
+    // it, so the picker stays usable while the Advisor is off.
+    const patch = buildAdvisorProviderPatch({
+      overrides: { advisorEnabled: false },
+      arm: arm({ settingsTarget: CODEX_TARGET }),
+      providerId: "claude-code",
+    });
+    expect(patch.advisorEnabled).toBe(false);
     expect(patch.advisorTarget?.providerId).toBe("claude-code");
     expect(patch.advisorTarget?.model).not.toBe(CODEX_TARGET.model);
   });
 
-  test("re-selecting the armed provider keeps the chosen model", () => {
+  test("switching provider and back restores that provider's own model", () => {
+    const overrides = buildAdvisorModelPatch({
+      arm: arm({ settingsTarget: CODEX_TARGET }),
+      providerId: "claude-code",
+      model: CLAUDE_TARGET.model,
+    });
+    const switchedAway = buildAdvisorProviderPatch({
+      overrides,
+      arm: arm({ overrides, settingsTarget: CODEX_TARGET }),
+      providerId: "codex",
+    });
+    expect(switchedAway.advisorTarget?.model).toBe(CODEX_TARGET.model);
     expect(
-      buildAdvisorArmPatch({
-        arm: arm({ settingsTarget: CODEX_TARGET }),
-        optionId: "codex",
+      buildAdvisorProviderPatch({
+        overrides: switchedAway,
+        arm: arm({ overrides: switchedAway }),
+        providerId: "claude-code",
       }).advisorTarget,
-    ).toEqual(CODEX_TARGET);
+    ).toEqual(CLAUDE_TARGET);
+  });
+
+  test("a provider keeps its own pinned tier", () => {
+    const overrides = buildAdvisorEffortPatch({
+      arm: arm({ settingsTarget: CODEX_TARGET }),
+      providerId: "codex",
+      effort: "low",
+    });
+    expect(overrides.advisorTargetByProvider?.codex).toEqual({
+      model: CODEX_TARGET.model,
+      effort: "low",
+    });
+    // Claude never had a tier pinned, so it must not inherit Codex's.
+    expect(
+      buildAdvisorProviderPatch({
+        overrides,
+        arm: arm({ overrides }),
+        providerId: "claude-code",
+      }).advisorTarget?.effort,
+    ).toBeUndefined();
+  });
+
+  test("choosing a model keeps that provider's pinned tier", () => {
+    const overrides = buildAdvisorEffortPatch({
+      arm: arm({ settingsTarget: CODEX_TARGET }),
+      providerId: "codex",
+      effort: "max",
+    });
+    expect(
+      buildAdvisorModelPatch({
+        overrides,
+        arm: arm({ overrides }),
+        providerId: "codex",
+        model: "gpt-5.6-luna",
+      }).advisorTarget,
+    ).toEqual({ providerId: "codex", model: "gpt-5.6-luna", effort: "max" });
+  });
+
+  test("clearing the pin drops back to the model default", () => {
+    const overrides = buildAdvisorEffortPatch({
+      arm: arm({ settingsTarget: CODEX_TARGET }),
+      providerId: "codex",
+      effort: "max",
+    });
+    expect(
+      buildAdvisorEffortPatch({
+        overrides,
+        arm: arm({ overrides }),
+        providerId: "codex",
+        effort: null,
+      }).advisorTarget?.effort,
+    ).toBeUndefined();
   });
 
   test("toggling on copies the inherited target into the task", () => {
@@ -232,19 +338,20 @@ describe("advisor pill writes", () => {
     ).toBeNull();
   });
 
+  test("configuring a provider never arms it on its own", () => {
+    const overrides = buildAdvisorModelPatch({
+      arm: arm({ settingsTarget: null }),
+      providerId: "codex",
+      model: CODEX_TARGET.model,
+    });
+    expect(overrides.advisorEnabled).toBeUndefined();
+    expect(arm({ overrides }).effectiveTarget).toBeNull();
+  });
+
   test("refuses to write an armed-but-targetless state", () => {
     expect(
       buildAdvisorTogglePatch({ arm: arm({ settingsTarget: null }) }),
     ).toBeNull();
-  });
-
-  test("choosing a model arms the task at that exact target", () => {
-    expect(
-      buildAdvisorTargetPatch({
-        overrides: { advisorEnabled: false },
-        target: CODEX_TARGET,
-      }),
-    ).toEqual({ advisorEnabled: true, advisorTarget: CODEX_TARGET });
   });
 
   test("preserves unrelated runtime overrides on every write", () => {
@@ -253,10 +360,10 @@ describe("advisor pill writes", () => {
       buildAdvisorTargetPatch({ overrides, target: CODEX_TARGET }),
     ).toMatchObject(overrides);
     expect(
-      buildAdvisorArmPatch({
+      buildAdvisorProviderPatch({
         overrides,
         arm: arm({ settingsTarget: null }),
-        optionId: "codex",
+        providerId: "codex",
       }),
     ).toMatchObject(overrides);
   });
@@ -332,12 +439,10 @@ describe("advisor effort control", () => {
     expect(
       buildAdvisorEffortPatch({
         arm: arm({ settingsTarget: CODEX_TARGET }),
+        providerId: "codex",
         effort: "low",
-      }),
-    ).toEqual({
-      advisorEnabled: true,
-      advisorTarget: { ...CODEX_TARGET, effort: "low" },
-    });
+      }).advisorTarget,
+    ).toEqual({ ...CODEX_TARGET, effort: "low" });
   });
 
   test("clearing the pin removes the field rather than storing a tier", () => {
@@ -351,8 +456,9 @@ describe("advisor effort control", () => {
             advisorTarget: { ...CODEX_TARGET, effort: "low" },
           },
         }),
+        providerId: "codex",
         effort: null,
-      })?.advisorTarget,
+      }).advisorTarget,
     ).toEqual(CODEX_TARGET);
   });
 
@@ -365,43 +471,40 @@ describe("advisor effort control", () => {
             advisorTarget: { ...CODEX_TARGET, effort: "low" },
           },
         }),
+        providerId: "codex",
         model: "gpt-5.6-terra",
-      })?.advisorTarget,
+      }).advisorTarget,
     ).toEqual({ providerId: "codex", model: "gpt-5.6-terra", effort: "low" });
   });
 
-  test("switching provider keeps a tier the new provider has", () => {
+  test("a provider with no remembered pin starts unpinned", () => {
+    // Tiers are per provider now, so Codex's pin must not follow the user into
+    // a Claude advisor whose scale merely happens to contain the same word.
     expect(
-      buildAdvisorArmPatch({
+      buildAdvisorProviderPatch({
         arm: arm({
           overrides: {
             advisorEnabled: true,
             advisorTarget: { ...CODEX_TARGET, effort: "low" },
           },
         }),
-        optionId: "claude-code",
-      }).advisorTarget?.effort,
-    ).toBe("low");
-  });
-
-  test("switching provider drops a tier the new provider does not have", () => {
-    expect(
-      buildAdvisorArmPatch({
-        arm: arm({
-          overrides: {
-            advisorEnabled: true,
-            advisorTarget: { ...CODEX_TARGET, effort: "ultra" },
-          },
-        }),
-        optionId: "claude-code",
+        providerId: "claude-code",
       }).advisorTarget,
     ).not.toHaveProperty("effort");
   });
 
-  test("effort patches need a target, so they cannot arm an empty Advisor", () => {
+  test("effort can be pinned before the Advisor is ever armed", () => {
     const empty = arm({ settingsTarget: null });
-    expect(buildAdvisorEffortPatch({ arm: empty, effort: "low" })).toBeNull();
-    expect(buildAdvisorModelPatch({ arm: empty, model: "x" })).toBeNull();
+    const patch = buildAdvisorEffortPatch({
+      arm: empty,
+      providerId: "codex",
+      effort: "low",
+    });
+    expect(patch.advisorTarget?.effort).toBe("low");
+    // Pre-configuring is not purchasing: the turn still runs without an
+    // Advisor until the switch says otherwise.
+    expect(patch.advisorEnabled).toBeUndefined();
+    expect(arm({ overrides: patch }).effectiveTarget).toBeNull();
   });
 });
 

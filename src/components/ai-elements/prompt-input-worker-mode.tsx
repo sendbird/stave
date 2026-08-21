@@ -2,6 +2,8 @@ import { Check, ChevronDown, Info, TriangleAlert, Users } from "lucide-react";
 import { useCallback } from "react";
 import {
   Button,
+  ButtonGroup,
+  ButtonGroupSeparator,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -103,11 +105,8 @@ export function PromptInputWorkerPill(args: {
         : undefined;
 
   return (
-    <div
-      className={cn(
-        "inline-flex h-9 items-stretch gap-0.5 rounded-md",
-        args.className,
-      )}
+    <ButtonGroup
+      className={cn("h-9", args.className)}
       data-worker-control="true"
       data-testid="worker-mode-pill"
       data-worker-tone={presentation.tone}
@@ -149,6 +148,8 @@ export function PromptInputWorkerPill(args: {
         </TooltipContent>
       </Tooltip>
 
+      <ButtonGroupSeparator />
+
       <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
         <PopoverTrigger
           render={
@@ -156,7 +157,7 @@ export function PromptInputWorkerPill(args: {
               type="button"
               disabled={args.disabled}
               aria-label={`Choose the worker preset, model, and effort for this task (${WORKER_PICKER_SHORTCUT_LABEL})`}
-              className="inline-flex w-7 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex w-7 items-center justify-center text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
             />
           }
         >
@@ -194,152 +195,152 @@ export function PromptInputWorkerPill(args: {
             />
           </div>
 
-          {args.arm.enabled ? (
-            <>
-              <div className="space-y-1 border-t border-border/60 pt-2">
-                <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                  Preset
-                </p>
-                <div className="max-h-52 space-y-0.5 overflow-y-auto">
-                  {buildWorkerPresetOptions().map((option) => {
-                    const isActive = presetId === option.id;
-                    return (
-                      <Button
-                        key={option.id}
-                        type="button"
-                        variant="ghost"
-                        data-testid={`worker-mode-preset-${option.id}`}
-                        aria-pressed={isActive}
-                        className={cn(
-                          "h-auto min-h-11 w-full justify-start gap-2 rounded-md border px-2.5 py-1.5 text-left whitespace-normal",
-                          isActive
-                            ? "border-primary/30 bg-primary/10 hover:bg-primary/14"
-                            : "border-transparent hover:border-border/70 hover:bg-muted/60",
-                        )}
-                        onClick={() => {
-                          args.onSelectPreset(option.id);
-                        }}
-                      >
-                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                          <span className="text-sm font-medium leading-none">
-                            {option.label}
-                          </span>
-                          <span className="text-[11px] leading-4 text-muted-foreground">
-                            {option.summary}
-                          </span>
-                        </span>
-                        {isActive ? (
-                          <Check className="size-3.5 shrink-0 text-primary" />
-                        ) : null}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
+          {/* Configuration stays editable while Worker mode is off: setting a
+              task up before turning it on is the normal order, and gating the
+              rows behind the switch made the menu look empty at exactly the
+              moment the user came to fill it in. */}
+          <div className="space-y-1 border-t border-border/60 pt-2">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+              Preset
+            </p>
+            <div className="max-h-52 space-y-0.5 overflow-y-auto">
+              {buildWorkerPresetOptions().map((option) => {
+                const isActive = presetId === option.id;
+                return (
+                  <Button
+                    key={option.id}
+                    type="button"
+                    variant="ghost"
+                    data-testid={`worker-mode-preset-${option.id}`}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "h-auto min-h-11 w-full justify-start gap-2 rounded-md border px-2.5 py-1.5 text-left whitespace-normal",
+                      isActive
+                        ? "border-primary/30 bg-primary/10 hover:bg-primary/14"
+                        : "border-transparent hover:border-border/70 hover:bg-muted/60",
+                    )}
+                    onClick={() => {
+                      args.onSelectPreset(option.id);
+                    }}
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-sm font-medium leading-none">
+                        {option.label}
+                      </span>
+                      <span className="text-[11px] leading-4 text-muted-foreground">
+                        {option.summary}
+                      </span>
+                    </span>
+                    {isActive ? (
+                      <Check className="size-3.5 shrink-0 text-primary" />
+                    ) : null}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
 
-              <div className="space-y-1 border-t border-border/60 pt-2">
-                <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                  Worker model
-                </p>
-                <div className="max-h-44 space-y-0.5 overflow-y-auto">
-                  {buildWorkerModelOptions({
-                    providerId: args.primaryProviderId,
-                    presetId,
-                  }).map((option) => {
-                    const isActive = requestedModel === option.value;
-                    return (
-                      <Button
-                        key={option.value}
-                        type="button"
-                        variant="ghost"
-                        aria-pressed={isActive}
-                        data-testid={`worker-mode-model-${option.value}`}
-                        className={cn(
-                          "h-auto min-h-8 w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left text-sm whitespace-normal",
-                          isActive && "bg-muted/70",
-                        )}
-                        onClick={() => {
-                          args.onSelectModel(option.value);
-                        }}
-                      >
-                        {option.value === WORKER_AUTO_VALUE ? (
-                          <span className="flex size-3.5 shrink-0 items-center justify-center text-[10px] font-semibold text-muted-foreground">
-                            A
-                          </span>
-                        ) : (
-                          <ModelIcon
-                            providerId={args.primaryProviderId}
-                            model={option.value}
-                            className="size-3.5"
-                          />
-                        )}
-                        <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="truncate">{option.label}</span>
-                          {option.description ? (
-                            <span className="truncate text-[11px] leading-4 text-muted-foreground">
-                              {option.description}
-                            </span>
-                          ) : null}
+          <div className="space-y-1 border-t border-border/60 pt-2">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+              Worker model
+            </p>
+            <div className="max-h-44 space-y-0.5 overflow-y-auto">
+              {buildWorkerModelOptions({
+                providerId: args.primaryProviderId,
+                presetId,
+              }).map((option) => {
+                const isActive = requestedModel === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    variant="ghost"
+                    aria-pressed={isActive}
+                    data-testid={`worker-mode-model-${option.value}`}
+                    className={cn(
+                      "h-auto min-h-8 w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left text-sm whitespace-normal",
+                      isActive && "bg-muted/70",
+                    )}
+                    onClick={() => {
+                      args.onSelectModel(option.value);
+                    }}
+                  >
+                    {option.value === WORKER_AUTO_VALUE ? (
+                      <span className="flex size-3.5 shrink-0 items-center justify-center text-[10px] font-semibold text-muted-foreground">
+                        A
+                      </span>
+                    ) : (
+                      <ModelIcon
+                        providerId={args.primaryProviderId}
+                        model={option.value}
+                        className="size-3.5"
+                      />
+                    )}
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{option.label}</span>
+                      {option.description ? (
+                        <span className="truncate text-[11px] leading-4 text-muted-foreground">
+                          {option.description}
                         </span>
-                        {isActive ? (
-                          <Check className="size-3.5 shrink-0 text-primary" />
-                        ) : null}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
+                      ) : null}
+                    </span>
+                    {isActive ? (
+                      <Check className="size-3.5 shrink-0 text-primary" />
+                    ) : null}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
 
-              {effortOptions.length > 0 ? (
-                <div
-                  className="space-y-1 border-t border-border/60 pt-2"
-                  data-testid="worker-mode-effort-row"
-                >
-                  <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                    Worker effort
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {effortOptions.map((option) => {
-                      const isActive = effortSelection === option.value;
-                      return (
-                        <Button
-                          key={option.value}
-                          type="button"
-                          variant="ghost"
-                          title={option.title}
-                          aria-pressed={isActive}
-                          data-testid={`worker-mode-effort-${option.value}`}
-                          className={cn(
-                            "h-7 min-w-11 flex-1 justify-center rounded-md border px-2 text-xs",
-                            isActive
-                              ? "border-primary/30 bg-primary/10 font-medium text-foreground hover:bg-primary/14"
-                              : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/60",
-                          )}
-                          onClick={() => {
-                            args.onSelectEffort(option.value);
-                          }}
-                        >
-                          {option.label}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                  <p className="px-1 text-[11px] leading-4 text-muted-foreground">
-                    A cheap worker at high effort often beats a mid-tier worker
-                    at its default.
-                  </p>
-                </div>
-              ) : (
-                <p
-                  className="px-1 text-[11px] leading-4 text-muted-foreground"
-                  data-testid="worker-mode-effort-unavailable"
-                >
-                  This worker model has no selectable effort; it runs at its own
-                  default.
-                </p>
-              )}
-            </>
-          ) : null}
+          {effortOptions.length > 0 ? (
+            <div
+              className="space-y-1 border-t border-border/60 pt-2"
+              data-testid="worker-mode-effort-row"
+            >
+              <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                Worker effort
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {effortOptions.map((option) => {
+                  const isActive = effortSelection === option.value;
+                  return (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant="ghost"
+                      title={option.title}
+                      aria-pressed={isActive}
+                      data-testid={`worker-mode-effort-${option.value}`}
+                      className={cn(
+                        "h-7 min-w-11 flex-1 justify-center rounded-md border px-2 text-xs",
+                        isActive
+                          ? "border-primary/30 bg-primary/10 font-medium text-foreground hover:bg-primary/14"
+                          : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/60",
+                      )}
+                      onClick={() => {
+                        args.onSelectEffort(option.value);
+                      }}
+                    >
+                      {option.label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="px-1 text-[11px] leading-4 text-muted-foreground">
+                A cheap worker at high effort often beats a mid-tier worker
+                at its default.
+              </p>
+            </div>
+          ) : (
+            <p
+              className="px-1 text-[11px] leading-4 text-muted-foreground"
+              data-testid="worker-mode-effort-unavailable"
+            >
+              This worker model has no selectable effort; it runs at its own
+              default.
+            </p>
+          )}
 
           {presentation.note ? (
             <p
@@ -391,6 +392,6 @@ export function PromptInputWorkerPill(args: {
           </button>
         </PopoverContent>
       </Popover>
-    </div>
+    </ButtonGroup>
   );
 }

@@ -44,6 +44,21 @@ minted for the main user-turn request. Summary generation, routing
 classifiers, task naming, PR helpers, native slash-command turns, and other
 internal one-shot calls never carry it.
 
+The Settings default is three fields, the same shape a task keeps (see
+[Per-task arming](#per-task-arming)):
+
+- `advisorEnabled: boolean` — whether new tasks start armed.
+- `advisorTarget: AdvisorTarget | null` — the remembered pick, kept while the
+  default is off so turning it back on is one click.
+- `advisorTargetByProvider` — the default model and effort per provider.
+
+Arming and configuring are therefore separate acts in Settings too: the
+provider, model, and effort rows stay editable while the default is off, and
+each provider keeps its own pick, so both can be set up before either is armed
+and switching provider is not a destructive edit. A snapshot written before the
+switch existed is read the old way — a configured target meant armed — so an
+existing default keeps arming.
+
 ### Advisor effort
 
 `effort` is optional; absent means "follow the model's provider default", which
@@ -76,19 +91,30 @@ The Settings target is the **default**, not the whole story. Each task can arm
 or disarm the Advisor from its composer, next to the plan and thinking toggles,
 via `src/components/ai-elements/prompt-input-advisor-mode.tsx`.
 
-Arming lives in the task's `PromptDraftRuntimeOverrides` as two fields:
+Arming lives in the task's `PromptDraftRuntimeOverrides` as three fields:
 
-- `advisorEnabled?: boolean` — absent inherits the Settings default (a
-  configured `settings.advisorTarget` means "armed by default").
+- `advisorEnabled?: boolean` — absent inherits `settings.advisorEnabled`.
 - `advisorTarget?: AdvisorTarget` — the task's own target, including its pinned
   effort, kept task-local so arming one task never changes which model advises
   another.
+- `advisorTargetByProvider?` — the task's remembered model and effort per
+  provider, so switching provider and back is not a destructive edit. The flat
+  target can only hold one provider's choice, and the two catalogs and effort
+  scales share nothing.
 
-They are two fields rather than a nullable target on purpose: turning the
+Arming is its own field rather than a nullable target on purpose: turning the
 Advisor off keeps the remembered target, so switching it back on is one click
 instead of re-picking a model. A target without `advisorEnabled` never arms
 anything, so a hand-edited or partially migrated snapshot cannot start paying
 for an Advisor the user did not turn on.
+
+`targetByProvider` on the resolved state is always populated for every
+provider, in priority order: the task's remembered pick, the task's current
+target, the Settings default for that provider, the Settings pick, then the
+provider's catalog default. That is what lets the composer offer a model and
+tier for a provider that is not armed — configuring the Advisor must not
+require paying for it first — while a provider the task never touched still
+starts from the default configured for *that* provider.
 
 `resolveAdvisorArmState` in `src/lib/providers/advisor.ts` is the single
 resolution point, and it re-normalizes the persisted target, so a corrupt
@@ -107,6 +133,31 @@ rather than a warning: the Advisor still advises correctly, just one tier down.
 
 `Alt+A` toggles the Advisor and `Alt+Shift+A` opens its picker, joining the
 `Alt`-modifier family the composer already uses for model-adjacent controls.
+
+### Crane dispatch approvals
+
+The Crane dispatch approval dialog is the third Advisor surface, and it reads
+the same three fields through `resolveAdvisorArmState`. It seeds once per
+approval — from a fresh store read, so changing a setting in another window
+cannot overwrite a choice already made in the open dialog — and never writes
+back: approving one dispatch must not redefine the global default.
+
+Precedence is the Crane team's remembered pick, then the Stave default. The
+remembered value is deliberately three states rather than two: an absent
+`advisor` key on a `CraneTeamRuntimeMemory` means the team has no preference and
+inherits the default, `null` means the team explicitly wants no Advisor, and a
+target means it explicitly wants that one. Collapsing absent into `null` would
+silently disarm the default for every team mapped before the Advisor became
+rememberable.
+
+The approval payload carries `advisorTarget` and `advisorConsultLimit` as a
+pair, enforced both by the schema in `src/lib/crane-connector/types.ts` and
+structurally by `buildCraneDispatchRuntimeChoice`, which takes one
+`CraneDispatchAdvisorChoice` instead of two independent arguments. A target
+without its budget is the failure the pairing prevents: the runtime would
+substitute its own default of 5 and ignore a ceiling the user lowered on
+purpose. The schema also accepts the target's optional `effort`, so the
+dialog's effort row is not a promise the IPC boundary strips.
 `src/lib/advisor-shortcuts.ts` matches on `event.code` because macOS composes
 `Option+A` into `å`. The control installs its own window listener, gated by the
 same `windowShortcutsEnabled` flag the host computes for the active task, which
