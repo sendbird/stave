@@ -59,7 +59,37 @@ export interface TurnActivityItem {
    * transcript can actually reveal, so it doubles as "this row is clickable".
    */
   toolUseId?: string;
+  /**
+   * A detail surface this row opens instead of revealing a transcript entry.
+   *
+   * Separate from `toolUseId` on purpose: that field asserts "the transcript
+   * can reveal this call", and borrowing it for the advisor row would put a
+   * row in the transcript-reveal path that has nothing to reveal.
+   */
+  detailSurface?: "advisor-consult-log";
   iconKey: TurnActivityIconKey;
+}
+
+/**
+ * What clicking a row should do, if anything.
+ *
+ * One place decides, so the row component branches on the result rather than
+ * re-deriving "is this clickable" from two fields that mean different things.
+ */
+export type TurnActivityRowActivation =
+  | { kind: "tool"; toolUseId: string }
+  | { kind: "advisor-log" };
+
+export function resolveTurnActivityRowActivation(
+  item: TurnActivityItem,
+): TurnActivityRowActivation | null {
+  if (item.toolUseId) {
+    return { kind: "tool", toolUseId: item.toolUseId };
+  }
+  if (item.detailSurface === "advisor-consult-log") {
+    return { kind: "advisor-log" };
+  }
+  return null;
 }
 
 export interface TurnActivitySummary {
@@ -238,6 +268,14 @@ function describeAdvisorIdentity(snapshot: AdvisorExchangeSnapshot) {
  */
 export function describeAdvisorTurnActivityItem(
   snapshot: AdvisorExchangeSnapshot,
+  options?: {
+    /**
+     * The task has archived consults to open. Gated on log emptiness rather
+     * than on this turn's outcome, so a merely-armed turn whose task consulted
+     * earlier still offers a way back to those consults.
+     */
+    hasConsultLog?: boolean;
+  },
 ): TurnActivityItem {
   const identity = describeAdvisorIdentity(snapshot);
   const limit = snapshot.consultLimit;
@@ -255,6 +293,9 @@ export function describeAdvisorTurnActivityItem(
         ? `${identity} · available if the primary asks`
         : "Available if the primary asks",
       ...(limit ? { badge: `0/${limit}` } : {}),
+      ...(options?.hasConsultLog
+        ? { detailSurface: "advisor-consult-log" as const }
+        : {}),
       iconKey: "advisor",
     };
   }
@@ -268,6 +309,9 @@ export function describeAdvisorTurnActivityItem(
       title: `Advisor consult ${countLabel}`,
       detail: snapshot.question ?? identity ?? "Waiting on the advisor",
       ...(limit ? { badge: countLabel } : {}),
+      ...(options?.hasConsultLog
+        ? { detailSurface: "advisor-consult-log" as const }
+        : {}),
       iconKey: "advisor",
     };
   }
@@ -293,6 +337,9 @@ export function describeAdvisorTurnActivityItem(
     }`,
     detail: identity ? `${outcomeDetail} · ${identity}` : outcomeDetail,
     ...(limit ? { badge: `${snapshot.settledConsults}/${limit}` } : {}),
+    ...(options?.hasConsultLog
+      ? { detailSurface: "advisor-consult-log" as const }
+      : {}),
     iconKey: "advisor",
   };
 }
@@ -366,6 +413,8 @@ export function buildTurnActivityItems(args: {
    * countable from the same shelf.
    */
   advisor?: AdvisorExchangeSnapshot | null;
+  /** The task has archived consults, so the advisor row can open the log. */
+  hasAdvisorConsultLog?: boolean;
   /**
    * A chat-level approval/user-input card is already on screen, so the shelf
    * skips its own row rather than saying the same thing twice.
@@ -420,7 +469,11 @@ export function buildTurnActivityItems(args: {
     // Fixed slot ahead of provider work: the row appears when the turn is
     // armed and only changes text afterwards, so it never reorders the list
     // mid-turn the way an insertion at consult time would.
-    items.push(describeAdvisorTurnActivityItem(args.advisor));
+    items.push(
+      describeAdvisorTurnActivityItem(args.advisor, {
+        hasConsultLog: args.hasAdvisorConsultLog ?? false,
+      }),
+    );
   }
   for (const item of args.workItems) {
     const elapsedSeconds = resolveWorkItemElapsedSeconds(item);

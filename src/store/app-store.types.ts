@@ -15,6 +15,11 @@ import type {
 import type { UpdateModelRuntimePreferenceArgs } from "@/lib/providers/model-runtime-preferences";
 import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
 import type {
+  AdvisorConsultLogByTask,
+  AdvisorConsultVerdict,
+  AdvisorVerdictTallyByModel,
+} from "@/lib/providers/advisor-consult-log";
+import type {
   ProviderTurnActivitySnapshot,
   RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
@@ -204,6 +209,27 @@ export interface AppState
    * depend on transcript rendering.
    */
   advisorExchangeByTask: AdvisorExchangeByTask;
+  /**
+   * Every consult of the session, newest first per task, in memory only.
+   *
+   * The exchange map above holds one snapshot per task, so a second consult in
+   * the same turn overwrites the first and the floating card auto-hides a few
+   * seconds later. This is the only place the question and the advice survive
+   * long enough to be reviewed.
+   */
+  advisorConsultLogByTask: AdvisorConsultLogByTask;
+  /**
+   * The user's verdicts rolled up per advisor model, not per task, so it
+   * outlives ring eviction and reads as "how has this advisor been doing".
+   */
+  advisorVerdictTallyByModel: AdvisorVerdictTallyByModel;
+  /**
+   * Which task's consult log is open, and which consult is selected in it.
+   * Store-held so exactly one dialog is open across split-pane chat areas, and
+   * so the short-lived triggers (the linger-timed card, the per-turn shelf) can
+   * open a dialog that outlives them.
+   */
+  advisorConsultLogView: { taskId: string; entryKey: string | null } | null;
   nativeSessionReadyByTask: Record<string, boolean>;
   providerSessionByTask: Record<string, TaskProviderSessionState>;
   providerGoalByTask: Record<string, ProviderGoalSnapshot | null | undefined>;
@@ -601,6 +627,16 @@ export interface AppState
   skipTaskAdvisor: (args: { taskId: string }) => void;
   /** Dismisses the task's Advisor exchange card without touching the turn. */
   dismissAdvisorExchange: (args: { taskId: string }) => void;
+  /** Opens the session consult log, optionally focused on one consult. */
+  openAdvisorConsultLog: (args: { taskId: string; entryKey?: string }) => void;
+  selectAdvisorConsultLogEntry: (args: { entryKey: string }) => void;
+  closeAdvisorConsultLog: () => void;
+  /** Records the user's own call on a consult. Set-only; there is no deselect. */
+  setAdvisorConsultVerdict: (args: {
+    taskId: string;
+    entryKey: string;
+    verdict: AdvisorConsultVerdict;
+  }) => void;
   resolveApproval: (args: {
     taskId: string;
     messageId: string;

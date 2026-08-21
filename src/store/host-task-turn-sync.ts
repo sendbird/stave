@@ -16,6 +16,7 @@ import {
   applyAdvisorActivityEvents,
   type AdvisorExchangeByTask,
 } from "@/lib/providers/advisor-activity";
+import type { AdvisorConsultLogByTask } from "@/lib/providers/advisor-consult-log";
 import {
   createWorkspaceSessionStateFromAppState,
   type WorkspaceRuntimeStatePatch,
@@ -42,6 +43,7 @@ type HostTaskTurnStoreState = Parameters<
   >;
   retainedTurnActivityByTask: RetainedTurnActivityByTask;
   advisorExchangeByTask: AdvisorExchangeByTask;
+  advisorConsultLogByTask: AdvisorConsultLogByTask;
 };
 
 interface LoadedHostTaskTurn {
@@ -203,14 +205,21 @@ export function applyHostTaskTurnSync(args: {
     next: providerTurnActivityByTask,
     taskId: args.update.taskId,
   });
-  const advisorExchangeByTask = args.update.activityEvents?.length
+  // A host batch carries the same hazard as a renderer flush: several complete
+  // consults can arrive at once, so the archive happens inside the fold rather
+  // than by comparing the exchange map on either side of it.
+  const advisor = args.update.activityEvents?.length
     ? applyAdvisorActivityEvents({
         exchangeByTask: args.state.advisorExchangeByTask,
+        logByTask: args.state.advisorConsultLogByTask,
         taskId: args.update.taskId,
         turnId: args.update.turnId,
         events: args.update.activityEvents,
       })
-    : args.state.advisorExchangeByTask;
+    : {
+        exchangeByTask: args.state.advisorExchangeByTask,
+        logByTask: args.state.advisorConsultLogByTask,
+      };
   const sharedPatch = {
     hostOwnedTurnIdsByTask: {
       ...args.state.hostOwnedTurnIdsByTask,
@@ -218,7 +227,8 @@ export function applyHostTaskTurnSync(args: {
     },
     providerTurnActivityByTask,
     retainedTurnActivityByTask,
-    advisorExchangeByTask,
+    advisorExchangeByTask: advisor.exchangeByTask,
+    advisorConsultLogByTask: advisor.logByTask,
     taskWorkspaceIdById: {
       ...args.state.taskWorkspaceIdById,
       [args.update.taskId]: args.update.workspaceId,
@@ -252,6 +262,7 @@ export function applyHostTaskTurnSync(args: {
       >;
       retainedTurnActivityByTask: RetainedTurnActivityByTask;
       advisorExchangeByTask: AdvisorExchangeByTask;
+      advisorConsultLogByTask: AdvisorConsultLogByTask;
     },
     syncedSession: merged.session,
     turnSettled: merged.turnSettled,

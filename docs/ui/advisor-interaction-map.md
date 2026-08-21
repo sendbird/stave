@@ -1,14 +1,19 @@
 # Advisor Interaction Map
 
-Status: **proposed / not implemented — partially superseded**
+Status: **historical — superseded, do not implement**
 
 > ⚠️ This plan was drawn for the preflight-era Advisor (one blocking call
-> before the turn, advice injected into the primary prompt). The Advisor has
-> since become **on-demand**: the primary consults it mid-turn via the
-> `stave_consult_advisor` Local MCP tool, advice returns as the tool result,
-> and the `applied`/`primary_started` phases no longer exist. The injection
-> and handoff panels below would need to be redesigned per-consult before this
-> is implemented.
+> before the turn, advice injected into the primary prompt). The Advisor is now
+> **on-demand**: the primary consults it mid-turn via the
+> `stave_consult_advisor` Local MCP tool, advice returns as the tool result, and
+> the `applied` / `primary_started` phases and the injection step do not exist.
+> The graph below is therefore drawn around a relationship the runtime cannot
+> report.
+>
+> The shipped surface is [`advisor-consult-log.md`](./advisor-consult-log.md),
+> which shows sequence and cost and asks the user for the effectiveness call
+> rather than inferring causality. This file is kept only as a record of the
+> preflight-era design.
 
 This document is the durable visual and implementation plan for Advisor UX
 prototype 3. The existing Handoff Monitor remains the ambient surface, and its

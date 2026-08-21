@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyAdvisorActivityEvents,
+  buildAdvisorExchangePatch,
   clearAdvisorExchange,
   formatAdvisorDuration,
   isAdvisorArmedOnly,
@@ -8,8 +9,25 @@ import {
   isAdvisorExchangeTerminal,
   type AdvisorExchangeSnapshot,
 } from "../src/lib/providers/advisor-activity";
+import {
+  ADVISOR_CONSULT_LOG_LIMIT,
+  ADVISOR_CONSULT_LOG_TASK_LIMIT,
+  EMPTY_ADVISOR_CONSULT_LOG,
+  advisorConsultLogEntryKey,
+  selectAdvisorConsultLog,
+  setAdvisorConsultLogVerdict,
+  upsertAdvisorConsultLogEntry,
+  type AdvisorConsultLogEntry,
+} from "../src/lib/providers/advisor-consult-log";
+import {
+  resolveAdvisorConsultLogStatus,
+  resolveAdvisorConsultWorkItems,
+  resolveAdvisorPostConsultWorkItems,
+  summarizeAdvisorTurnSpend,
+} from "../src/components/session/advisor-consult-log.utils";
 import type { NormalizedProviderEvent } from "../src/lib/providers/provider.types";
 import { NormalizedProviderEventSchema } from "../src/lib/providers/schemas";
+import { createWorkGraph } from "../src/lib/work-graph/work-graph-reducer";
 import {
   ADVISOR_EXCHANGE_ATTENTION_LINGER_MS,
   ADVISOR_EXCHANGE_SETTLED_LINGER_MS,
@@ -46,10 +64,23 @@ function advisorEvent(
 function fold(events: NormalizedProviderEvent[], turnId = "turn-1") {
   return applyAdvisorActivityEvents({
     exchangeByTask: {},
+    logByTask: {},
     taskId: "task-1",
     turnId,
     events,
-  })["task-1"] as AdvisorExchangeSnapshot;
+  }).exchangeByTask["task-1"] as AdvisorExchangeSnapshot;
+}
+
+/** The archived consults the same events produce, newest first. */
+function foldLog(events: NormalizedProviderEvent[], turnId = "turn-1") {
+  return applyAdvisorActivityEvents({
+    exchangeByTask: {},
+    logByTask: {},
+    taskId: "task-1",
+    turnId,
+    events,
+    now: T0,
+  }).logByTask["task-1"] as readonly AdvisorConsultLogEntry[];
 }
 
 /** One on-demand consult: started by the primary, answered by the advisor. */
@@ -169,32 +200,39 @@ describe("advisor exchange reducer", () => {
   test("a new turn replaces the previous exchange instead of merging", () => {
     const first = applyAdvisorActivityEvents({
       exchangeByTask: {},
+      logByTask: {},
       taskId: "task-1",
       turnId: "turn-1",
       events: SUCCESSFUL_EXCHANGE,
     });
     const second = applyAdvisorActivityEvents({
-      exchangeByTask: first,
+      exchangeByTask: first.exchangeByTask,
+      logByTask: first.logByTask,
       taskId: "task-1",
       turnId: "turn-2",
       events: [advisorEvent({ phase: "started", at: T0 + 60_000 })],
     });
 
-    expect(second["task-1"]?.turnId).toBe("turn-2");
-    expect(second["task-1"]?.outcome).toBe("pending");
-    expect(second["task-1"]?.settledConsults).toBe(0);
+    expect(second.exchangeByTask["task-1"]?.turnId).toBe("turn-2");
+    expect(second.exchangeByTask["task-1"]?.outcome).toBe("pending");
+    expect(second.exchangeByTask["task-1"]?.settledConsults).toBe(0);
+    // The new turn replaces the card but must not erase the archive.
+    expect(second.logByTask["task-1"]).toHaveLength(2);
   });
 
   test("keeps a stable reference when no advisor events are present", () => {
     const map = { "task-1": fold(SUCCESSFUL_EXCHANGE) };
+    const log = {};
     const next = applyAdvisorActivityEvents({
       exchangeByTask: map,
+      logByTask: log,
       taskId: "task-1",
       turnId: "turn-1",
       events: [{ type: "done", stop_reason: "end_turn" }],
     });
 
-    expect(next).toBe(map);
+    expect(next.exchangeByTask).toBe(map);
+    expect(next.logByTask).toBe(log);
   });
 
   test("recovers an outcome even when the started phase was evicted", () => {
@@ -628,6 +666,501 @@ describe("advisor event schema", () => {
           at: T0,
         }).success,
       ).toBe(true);
+    });
+  });
+});
+
+describe("advisor consult log", () => {
+  const ARMED_GRANT = advisorEvent({
+    phase: "armed",
+    consultLimit: 5,
+    advisorProviderId: "codex",
+    advisorModel: "gpt-5.6-sol",
+  });
+
+  /** Two complete consults, folded from one batch — the rAF-batching case. */
+  const TWO_COMPLETE_CONSULTS: NormalizedProviderEvent[] = [
+    ...SUCCESSFUL_EXCHANGE,
+    advisorEvent({
+      phase: "started",
+      exchangeId: "exchange-2",
+      consultIndex: 2,
+      consultLimit: 5,
+      question: "Does the retry path double-count?",
+      advisorProviderId: "codex",
+      advisorModel: "gpt-5.6-sol",
+      at: T0 + 10_000,
+    }),
+    advisorEvent({
+      phase: "completed",
+      exchangeId: "exchange-2",
+      at: T0 + 14_000,
+      durationMs: 4_000,
+      advice: "It does not.",
+      inputTokens: 100,
+      outputTokens: 20,
+      totalCostUsd: 0.002,
+    }),
+  ];
+
+  test("two complete consults in one batch produce two entries", () => {
+    // The regression the log exists for: provider events are rAF-batched (and
+    // rAF pauses while the window is hidden), so one flush can carry several
+    // finished consults. Comparing the exchange map before and after would
+    // keep only the last.
+    const entries = foldLog(TWO_COMPLETE_CONSULTS);
+
+    expect(entries).toHaveLength(2);
+    // Newest first.
+    expect(entries[0]?.snapshot.exchangeId).toBe("exchange-2");
+    expect(entries[1]?.snapshot.exchangeId).toBe("exchange-1");
+    expect(entries[0]?.snapshot.advice).toBe("It does not.");
+    expect(entries[1]?.snapshot.question).toBe(
+      "Is the cancellation path sound?",
+    );
+  });
+
+  test("the terminal fold replaces the pending entry in place", () => {
+    const pendingOnly = foldLog([SUCCESSFUL_EXCHANGE[0]!]);
+    expect(pendingOnly).toHaveLength(1);
+    expect(pendingOnly[0]?.snapshot.outcome).toBe("pending");
+
+    const settled = foldLog(SUCCESSFUL_EXCHANGE);
+    expect(settled).toHaveLength(1);
+    expect(settled[0]?.snapshot.outcome).toBe("completed");
+    expect(settled[0]?.key).toBe(pendingOnly[0]!.key);
+  });
+
+  test("an armed-only turn writes no entry", () => {
+    expect(foldLog([ARMED_GRANT])).toBeUndefined();
+  });
+
+  test("replacing an entry preserves an existing verdict and its position", () => {
+    const started = applyAdvisorActivityEvents({
+      exchangeByTask: {},
+      logByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      events: [SUCCESSFUL_EXCHANGE[0]!],
+      now: T0,
+    });
+    const key = started.logByTask["task-1"]![0]!.key;
+    const rated = setAdvisorConsultLogVerdict({
+      logByTask: started.logByTask,
+      tallyByModel: {},
+      taskId: "task-1",
+      entryKey: key,
+      verdict: "helpful",
+    })!;
+    const settled = applyAdvisorActivityEvents({
+      exchangeByTask: started.exchangeByTask,
+      logByTask: rated.logByTask,
+      taskId: "task-1",
+      turnId: "turn-1",
+      events: [SUCCESSFUL_EXCHANGE[1]!],
+      now: T0 + 1,
+    });
+
+    const entries = settled.logByTask["task-1"]!;
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.snapshot.outcome).toBe("completed");
+    expect(entries[0]?.verdict).toBe("helpful");
+  });
+
+  test("re-archiving the same snapshot keeps the map reference", () => {
+    const snapshot = fold(SUCCESSFUL_EXCHANGE);
+    const first = upsertAdvisorConsultLogEntry({
+      logByTask: {},
+      taskId: "task-1",
+      snapshot,
+      now: T0,
+    });
+    const second = upsertAdvisorConsultLogEntry({
+      logByTask: first,
+      taskId: "task-1",
+      snapshot,
+      now: T0 + 5_000,
+    });
+
+    expect(second).toBe(first);
+  });
+
+  test("a maxed-out turn never truncates its own consults", () => {
+    // The per-task bound must stay at or above MAX_ADVISOR_CONSULT_LIMIT (20),
+    // or spending the whole budget would evict the turn's earliest consults.
+    expect(ADVISOR_CONSULT_LOG_LIMIT).toBeGreaterThanOrEqual(20);
+    let logByTask = {};
+    for (let index = 1; index <= 20; index += 1) {
+      logByTask = upsertAdvisorConsultLogEntry({
+        logByTask,
+        taskId: "task-1",
+        snapshot: fold([
+          advisorEvent({
+            phase: "started",
+            exchangeId: `exchange-${index}`,
+            consultIndex: index,
+            at: T0 + index,
+          }),
+        ]),
+        now: T0 + index,
+      });
+    }
+    expect(selectAdvisorConsultLog(logByTask, "task-1")).toHaveLength(20);
+  });
+
+  test("the per-task ring evicts the oldest consult", () => {
+    let logByTask = {};
+    for (let index = 0; index < ADVISOR_CONSULT_LOG_LIMIT + 3; index += 1) {
+      logByTask = upsertAdvisorConsultLogEntry({
+        logByTask,
+        taskId: "task-1",
+        snapshot: fold([
+          advisorEvent({
+            phase: "started",
+            exchangeId: `exchange-${index}`,
+            at: T0 + index,
+          }),
+        ]),
+        now: T0 + index,
+      });
+    }
+    const entries = selectAdvisorConsultLog(logByTask, "task-1");
+    expect(entries).toHaveLength(ADVISOR_CONSULT_LOG_LIMIT);
+    expect(entries[0]?.snapshot.exchangeId).toBe(
+      `exchange-${ADVISOR_CONSULT_LOG_LIMIT + 2}`,
+    );
+    expect(
+      entries.some((entry) => entry.snapshot.exchangeId === "exchange-0"),
+    ).toBe(false);
+  });
+
+  test("the task ring evicts the least recently updated task", () => {
+    let logByTask = {};
+    for (let index = 0; index < ADVISOR_CONSULT_LOG_TASK_LIMIT + 1; index += 1) {
+      logByTask = upsertAdvisorConsultLogEntry({
+        logByTask,
+        taskId: `task-${index}`,
+        snapshot: fold([
+          advisorEvent({ phase: "started", exchangeId: "e", at: T0 }),
+        ]),
+        now: T0 + index,
+      });
+    }
+    expect(Object.keys(logByTask)).toHaveLength(
+      ADVISOR_CONSULT_LOG_TASK_LIMIT,
+    );
+    expect(selectAdvisorConsultLog(logByTask, "task-0")).toBe(
+      EMPTY_ADVISOR_CONSULT_LOG,
+    );
+    expect(
+      selectAdvisorConsultLog(
+        logByTask,
+        `task-${ADVISOR_CONSULT_LOG_TASK_LIMIT}`,
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("dismissing the exchange card leaves the log intact", () => {
+    const folded = applyAdvisorActivityEvents({
+      exchangeByTask: {},
+      logByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      events: SUCCESSFUL_EXCHANGE,
+      now: T0,
+    });
+    const cleared = clearAdvisorExchange({
+      exchangeByTask: folded.exchangeByTask,
+      taskId: "task-1",
+    });
+
+    expect(cleared["task-1"]).toBeUndefined();
+    expect(folded.logByTask["task-1"]).toHaveLength(1);
+  });
+
+  test("the patch omits the key that did not change", () => {
+    const seeded = applyAdvisorActivityEvents({
+      exchangeByTask: {},
+      logByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      events: SUCCESSFUL_EXCHANGE,
+      now: T0,
+    });
+    expect(
+      buildAdvisorExchangePatch({
+        exchangeByTask: seeded.exchangeByTask,
+        logByTask: seeded.logByTask,
+        taskId: "task-1",
+        turnId: "turn-1",
+        events: [{ type: "done", stop_reason: "end_turn" }],
+      }),
+    ).toBeNull();
+
+    const patch = buildAdvisorExchangePatch({
+      exchangeByTask: {},
+      logByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      events: [ARMED_GRANT],
+    })!;
+    // An armed grant updates the card but archives nothing, so the log key must
+    // not appear and replace an untouched map reference.
+    expect(patch.advisorExchangeByTask).toBeDefined();
+    expect("advisorConsultLogByTask" in patch).toBe(false);
+  });
+
+  describe("verdicts", () => {
+    function seed() {
+      const folded = applyAdvisorActivityEvents({
+        exchangeByTask: {},
+        logByTask: {},
+        taskId: "task-1",
+        turnId: "turn-1",
+        events: SUCCESSFUL_EXCHANGE,
+        now: T0,
+      });
+      return {
+        logByTask: folded.logByTask,
+        entryKey: folded.logByTask["task-1"]![0]!.key,
+      };
+    }
+
+    test("records, switches, and refuses a repeat", () => {
+      const { logByTask, entryKey } = seed();
+      const first = setAdvisorConsultLogVerdict({
+        logByTask,
+        tallyByModel: {},
+        taskId: "task-1",
+        entryKey,
+        verdict: "helpful",
+      })!;
+      expect(first.tallyByModel["codex:gpt-5.6-sol"]).toEqual({
+        providerId: "codex",
+        model: "gpt-5.6-sol",
+        helpful: 1,
+        notHelpful: 0,
+        ignored: 0,
+      });
+
+      // A repeat must not reach `set()` at all.
+      expect(
+        setAdvisorConsultLogVerdict({
+          ...first,
+          taskId: "task-1",
+          entryKey,
+          verdict: "helpful",
+        }),
+      ).toBeNull();
+
+      const switched = setAdvisorConsultLogVerdict({
+        ...first,
+        taskId: "task-1",
+        entryKey,
+        verdict: "ignored",
+      })!;
+      // Switching moves the count rather than adding a second one.
+      expect(switched.tallyByModel["codex:gpt-5.6-sol"]).toEqual({
+        providerId: "codex",
+        model: "gpt-5.6-sol",
+        helpful: 0,
+        notHelpful: 0,
+        ignored: 1,
+      });
+    });
+
+    test("returns null for an entry that is not in the log", () => {
+      const { logByTask } = seed();
+      expect(
+        setAdvisorConsultLogVerdict({
+          logByTask,
+          tallyByModel: {},
+          taskId: "task-1",
+          entryKey: "turn-9::missing",
+          verdict: "helpful",
+        }),
+      ).toBeNull();
+      expect(
+        setAdvisorConsultLogVerdict({
+          logByTask,
+          tallyByModel: {},
+          taskId: "task-absent",
+          entryKey: "turn-1::exchange-1",
+          verdict: "helpful",
+        }),
+      ).toBeNull();
+    });
+
+    test("the tally survives evicting the entry it came from", () => {
+      const { logByTask, entryKey } = seed();
+      const rated = setAdvisorConsultLogVerdict({
+        logByTask,
+        tallyByModel: {},
+        taskId: "task-1",
+        entryKey,
+        verdict: "not_helpful",
+      })!;
+      let evicted = rated.logByTask;
+      for (let index = 0; index < ADVISOR_CONSULT_LOG_LIMIT; index += 1) {
+        evicted = upsertAdvisorConsultLogEntry({
+          logByTask: evicted,
+          taskId: "task-1",
+          snapshot: fold([
+            advisorEvent({
+              phase: "started",
+              exchangeId: `filler-${index}`,
+              at: T0 + 1_000 + index,
+            }),
+          ]),
+          now: T0 + 1_000 + index,
+        });
+      }
+      expect(
+        selectAdvisorConsultLog(evicted, "task-1").some(
+          (entry) => entry.key === entryKey,
+        ),
+      ).toBe(false);
+      expect(rated.tallyByModel["codex:gpt-5.6-sol"]?.notHelpful).toBe(1);
+    });
+  });
+
+  test("selectAdvisorConsultLog returns one shared empty reference", () => {
+    expect(selectAdvisorConsultLog({}, "task-1")).toBe(
+      EMPTY_ADVISOR_CONSULT_LOG,
+    );
+    expect(selectAdvisorConsultLog({}, "task-2")).toBe(
+      selectAdvisorConsultLog({}, "task-1"),
+    );
+  });
+
+  test("entry keys separate consults that repeat a consult index", () => {
+    // A recoverable provider retry can reuse `consultIndex`, so it must never
+    // be the identity.
+    const entries = foldLog([
+      advisorEvent({ phase: "started", exchangeId: "a", consultIndex: 1 }),
+      advisorEvent({
+        phase: "started",
+        exchangeId: "b",
+        consultIndex: 1,
+        at: T0 + 10,
+      }),
+    ]);
+    expect(entries).toHaveLength(2);
+    expect(new Set(entries.map((entry) => entry.key)).size).toBe(2);
+  });
+
+  describe("presentation", () => {
+    function entryFor(events: NormalizedProviderEvent[], turnId = "turn-1") {
+      return {
+        key: advisorConsultLogEntryKey(fold(events, turnId)),
+        snapshot: fold(events, turnId),
+        updatedAt: T0,
+      } satisfies AdvisorConsultLogEntry;
+    }
+
+    test("a still-pending consult reads as unresolved once its turn is gone", () => {
+      const entry = entryFor([SUCCESSFUL_EXCHANGE[0]!]);
+      expect(
+        resolveAdvisorConsultLogStatus({ entry, activeTurnId: "turn-1" }),
+      ).toBe("pending");
+      expect(
+        resolveAdvisorConsultLogStatus({ entry, activeTurnId: "turn-2" }),
+      ).toBe("unresolved");
+      expect(
+        resolveAdvisorConsultLogStatus({ entry, activeTurnId: null }),
+      ).toBe("unresolved");
+    });
+
+    test("post-consult work items are filtered, ordered and capped", () => {
+      const entry = entryFor(SUCCESSFUL_EXCHANGE);
+      const settledAt = entry.snapshot.outcomeAt!;
+      const workItems = [
+        { id: "late", startedAt: settledAt + 2_000 },
+        { id: "early", startedAt: settledAt - 1 },
+        { id: "next", startedAt: settledAt + 1 },
+      ].map((item) => ({
+        ...item,
+        kind: "tool" as const,
+        status: "completed" as const,
+        title: item.id,
+        progressMessages: [],
+        updatedAt: item.startedAt,
+      }));
+
+      const resolved = resolveAdvisorPostConsultWorkItems({
+        entry,
+        workItems,
+      });
+      expect(resolved.map((item) => item.id)).toEqual(["next", "late"]);
+      expect(
+        resolveAdvisorPostConsultWorkItems({ entry, workItems, limit: 1 }),
+      ).toHaveLength(1);
+      // An unsettled consult has no "after".
+      expect(
+        resolveAdvisorPostConsultWorkItems({
+          entry: entryFor([SUCCESSFUL_EXCHANGE[0]!]),
+          workItems,
+        }),
+      ).toEqual([]);
+    });
+
+    test("does not lend a newer turn's work items to an older consult", () => {
+      const entry = entryFor(SUCCESSFUL_EXCHANGE, "turn-old");
+      const newerActivity = {
+        turnId: "turn-new",
+        providerId: "codex" as const,
+        startedAt: T0 + 20_000,
+        lastEventAt: T0 + 21_000,
+        stalledAt: null,
+        pendingInteraction: null,
+        workItemsById: {
+          newer: {
+            id: "newer",
+            kind: "tool" as const,
+            status: "completed" as const,
+            title: "Newer turn work",
+            progressMessages: [],
+            startedAt: T0 + 20_500,
+            updatedAt: T0 + 21_000,
+          },
+        },
+        orderedWorkItemIds: ["newer"],
+        workGraph: createWorkGraph({
+          turnId: "turn-new",
+          providerId: "codex",
+          startedAt: T0 + 20_000,
+        }),
+      };
+
+      expect(
+        resolveAdvisorConsultWorkItems({
+          entry,
+          activity: newerActivity,
+          retained: null,
+        }),
+      ).toEqual([]);
+    });
+
+    test("turn spend sums only this turn's consults", () => {
+      const entries = [
+        ...foldLog(TWO_COMPLETE_CONSULTS),
+        entryFor(SUCCESSFUL_EXCHANGE, "turn-2"),
+      ];
+      const spend = summarizeAdvisorTurnSpend({ entries, turnId: "turn-1" });
+
+      expect(spend.consults).toBe(2);
+      expect(spend.inputTokens).toBe(1_000);
+      expect(spend.outputTokens).toBe(140);
+      expect(spend.totalCostUsd).toBeCloseTo(0.002, 6);
+    });
+
+    test("turn spend reports no cost rather than a fake zero", () => {
+      const spend = summarizeAdvisorTurnSpend({
+        entries: foldLog(SUCCESSFUL_EXCHANGE),
+        turnId: "turn-1",
+      });
+      expect(spend.consults).toBe(1);
+      expect(spend.totalCostUsd).toBeNull();
     });
   });
 });

@@ -44,9 +44,11 @@ import {
   type WorkGraphControlRequest,
 } from "@/components/session/WorkGraphTree";
 import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
+import { selectAdvisorConsultLog } from "@/lib/providers/advisor-consult-log";
 import {
   buildTurnActivityItems,
   countTurnActivityItems,
+  resolveTurnActivityRowActivation,
   describeRetainedTurnHeadline,
   formatTurnActivityCountsLabel,
   promoteFirstPendingTodoForActiveTurn,
@@ -176,6 +178,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     activity,
     retainedActivity,
     advisorExchange,
+    hasAdvisorConsultLog,
     expandedByDefault,
     verification,
     rateLimits,
@@ -196,6 +199,9 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
       state.providerTurnActivityByTask[taskId] ?? null,
       state.retainedTurnActivityByTask[taskId] ?? null,
       state.advisorExchangeByTask[taskId] ?? null,
+      // A boolean, not the entries: the shelf re-renders on a per-second clock
+      // and must not also re-render whenever a consult is archived.
+      selectAdvisorConsultLog(state.advisorConsultLogByTask, taskId).length > 0,
       state.settings.turnActivityExpandedByDefault,
       state.turnVerificationByWorkspace[state.activeWorkspaceId] ?? null,
       state.rateLimitsSnapshot,
@@ -218,6 +224,12 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     },
     [focusTranscriptTool, taskId],
   );
+  const openAdvisorConsultLog = useAppStore(
+    (state) => state.openAdvisorConsultLog,
+  );
+  const handleOpenAdvisorLog = useCallback(() => {
+    openAdvisorConsultLog({ taskId });
+  }, [openAdvisorConsultLog, taskId]);
   const handlePlacementChange = useCallback(
     (next: TurnActivityPlacement) => {
       updateSettings({ patch: { turnActivityPlacement: next } });
@@ -512,6 +524,8 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
       hasPendingInteractionCard,
       executionSummary,
       onSelectTool: handleSelectTool,
+      hasAdvisorConsultLog,
+      onOpenAdvisorLog: handleOpenAdvisorLog,
       taskId,
       workspaceId: activeWorkspaceId,
       projectPath,
@@ -526,8 +540,10 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     currentActivity,
     expandedByDefault,
     executionSummary,
+    handleOpenAdvisorLog,
     handleSelectTool,
     handleWorkGraphControl,
+    hasAdvisorConsultLog,
     hasPendingInteractionCard,
     isPlanPreparing,
     projectPath,
@@ -791,6 +807,14 @@ interface TurnActivitySurfaceProps {
    * stay inert, so this never turns a todo or a status row into a dead button.
    */
   onSelectTool?: (toolUseId: string) => void;
+  /**
+   * The task has archived consults, so the advisor row opens the consult log.
+   * Gated on the log rather than on this turn, so a turn that armed the Advisor
+   * without consulting it still reaches earlier consults.
+   */
+  hasAdvisorConsultLog?: boolean;
+  /** Opens the session consult log from the advisor row. */
+  onOpenAdvisorLog?: () => void;
   /** Identity of the task this shelf belongs to, used by the child-task rows. */
   taskId?: string;
   workspaceId?: string | null;
@@ -894,6 +918,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         workItems: props.workItems,
         turnStartedAt: activityStartedAt,
         advisor: props.advisorExchange ?? null,
+        hasAdvisorConsultLog: props.hasAdvisorConsultLog ?? false,
         hasPendingInteractionCard: props.hasPendingInteractionCard,
       }),
     [
@@ -905,6 +930,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       hasActivity,
       isStalled,
       props.advisorExchange,
+      props.hasAdvisorConsultLog,
       props.hasPendingInteractionCard,
       props.isPlanPreparing,
       props.todos,
@@ -1140,6 +1166,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   key={item.id}
                   item={item}
                   onSelectTool={props.onSelectTool}
+                  onOpenAdvisorLog={props.onOpenAdvisorLog}
                   showStartOffset={variant === "panel"}
                 />
               ))}
@@ -1234,10 +1261,12 @@ function TurnActivityPlacementControls(props: {
 const TurnActivityRow = memo(function TurnActivityRow({
   item,
   onSelectTool,
+  onOpenAdvisorLog,
   showStartOffset,
 }: {
   item: TurnActivityItem;
   onSelectTool?: (toolUseId: string) => void;
+  onOpenAdvisorLog?: () => void;
   /**
    * Roomy placements also print where in the turn the row started. The docked
    * shelf is one composer-width line and cannot spare the column.
@@ -1247,8 +1276,13 @@ const TurnActivityRow = memo(function TurnActivityRow({
   const detail =
     item.detail && item.detail !== item.title ? item.detail : undefined;
   const isCompleted = item.status === "completed";
-  const toolUseId = item.toolUseId;
-  const canReveal = Boolean(toolUseId && onSelectTool);
+  const activation = resolveTurnActivityRowActivation(item);
+  const handler =
+    activation?.kind === "tool" && onSelectTool
+      ? { onClick: () => onSelectTool(activation.toolUseId), reveal: true }
+      : activation?.kind === "advisor-log" && onOpenAdvisorLog
+        ? { onClick: onOpenAdvisorLog, reveal: false }
+        : null;
   const baseTitle = detail ? `${item.title} · ${detail}` : item.title;
   const startOffsetLabel =
     showStartOffset && item.startOffsetSeconds != null
@@ -1305,7 +1339,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
     "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
   );
 
-  if (!canReveal || !toolUseId || !onSelectTool) {
+  if (!handler) {
     return (
       <div
         data-turn-activity-item-id={item.id}
@@ -1321,13 +1355,20 @@ const TurnActivityRow = memo(function TurnActivityRow({
     <button
       type="button"
       data-turn-activity-item-id={item.id}
-      data-turn-activity-revealable="true"
+      // `revealable` stays tool-only: it means "the transcript has this call".
+      {...(handler.reveal
+        ? { "data-turn-activity-revealable": "true" }
+        : { "data-turn-activity-opens": "advisor-consult-log" })}
       className={cn(
         layoutClassName,
         "cursor-pointer transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none",
       )}
-      title={`${baseTitle} — show in conversation`}
-      onClick={() => onSelectTool(toolUseId)}
+      title={
+        handler.reveal
+          ? `${baseTitle} — show in conversation`
+          : `${baseTitle} — view all consults`
+      }
+      onClick={handler.onClick}
     >
       {body}
     </button>

@@ -1606,9 +1606,9 @@ export const useAppStore = create<AppState>()(
       providerTurnActivityByTask: {},
       retainedTurnActivityByTask: {},
       advisorExchangeByTask: {},
-      nativeSessionReadyByTask: {},
-      providerSessionByTask: {},
-      providerGoalByTask: {},
+      advisorConsultLogByTask: {}, advisorVerdictTallyByModel: {},
+      advisorConsultLogView: null, nativeSessionReadyByTask: {},
+      providerSessionByTask: {}, providerGoalByTask: {},
       turnVerificationByWorkspace: {},
       turnIntentComplianceByWorkspace: {},
       workspaceRuntimeCacheById: {},
@@ -2838,6 +2838,7 @@ export const useAppStore = create<AppState>()(
                 // turn ended, and dropping it would hide advisor aborts.
                 const advisorPatch = buildAdvisorExchangePatch({
                   exchangeByTask: currentState.advisorExchangeByTask,
+                  logByTask: currentState.advisorConsultLogByTask,
                   taskId: resolvedTaskId,
                   turnId,
                   events: pendingEvents,
