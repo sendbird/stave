@@ -1,3 +1,18 @@
+## [0.15.3](https://github.com/sendbird/stave/compare/v0.15.2...v0.15.3) (2026-08-21)
+
+### Features
+
+* Keep Advisor configuration editable while it is off, preserve model and effort choices per provider, and carry the resolved defaults through Crane dispatch approvals.
+* Archive multiple Advisor consults in a bounded session log with question, advice, lifecycle, cost, post-consult activity, and user-recorded verdicts.
+
+### Bug Fixes
+
+* Resolve the repository's default GitHub merge method and always pass an explicit strategy to manual, auto-merge, and clean-status fallback paths.
+
+### References
+
+* [#382](https://github.com/sendbird/stave/pull/382), [#383](https://github.com/sendbird/stave/pull/383), [#384](https://github.com/sendbird/stave/pull/384)
+
 ## [0.15.2](https://github.com/sendbird/stave/compare/v0.15.1...v0.15.2) (2026-08-18)
 
 ### Features
