@@ -1,7 +1,7 @@
 {
   "name": "stave",
   "private": true,
-  "version": "0.15.2",
+  "version": "0.15.3",
   "description": "Stave: AI coding workspace for Claude and Codex.",
   "author": {
     "name": "Sendbird, Inc.",
