@@ -5340,6 +5340,150 @@ describe("workspace store hydration ordering", () => {
     );
   });
 
+  test("a queued item with a steer in flight is off limits to every other dispatch path", async () => {
+    const localStorage = createMemoryStorage();
+    const steerCalls: Array<{ turnId: string; text: string }> = [];
+    let settlePendingSteer: (value: ProviderSteerTurnResponse) => void =
+      () => {};
+    let nextSteerResult: Promise<ProviderSteerTurnResponse> = new Promise(
+      (resolve) => {
+        settlePendingSteer = resolve;
+      },
+    );
+
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async () => ({
+            ok: true,
+            streamId: "stream-1",
+            turnId: "turn-1",
+          }),
+          subscribeStreamEvents: () => () => {},
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true }),
+          steerTurn: (steerArgs: { turnId: string; text: string }) => {
+            steerCalls.push({
+              turnId: steerArgs.turnId,
+              text: steerArgs.text,
+            });
+            return nextSteerResult;
+          },
+        },
+        fs: {
+          readFile: async () => ({
+            ok: false,
+            content: "",
+            revision: "",
+            stderr: "not found",
+          }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-04-09T00:00:00.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: { "ws-main": "/tmp/stave-project" },
+      workspaceBranchById: { "ws-main": "main" },
+      workspaceDefaultById: { "ws-main": true },
+      draftProvider: "codex",
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-04-09T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+    });
+
+    await useAppStore
+      .getState()
+      .sendUserMessage({ taskId: "task-main", content: "First prompt" });
+    await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Follow-up",
+      submitIntent: "queue",
+    });
+    const [queuedTurnId] = (
+      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns ?? []
+    ).map((item) => item.id);
+
+    // Steer #1 is parked on the provider acknowledgement, which can take up to
+    // RENDERER_STEER_ACK_TIMEOUT_MS. The item must not leave the queue by any
+    // other route while the provider may still accept it.
+    const inFlight = useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Follow-up",
+      queuedTurnId,
+      submitIntent: "steer",
+    });
+    await expect(
+      useAppStore.getState().sendUserMessage({
+        taskId: "task-main",
+        content: "Follow-up",
+        queuedTurnId,
+        submitIntent: "steer",
+      }),
+    ).resolves.toEqual({ status: "blocked" });
+    await expect(
+      useAppStore.getState().sendUserMessage({
+        taskId: "task-main",
+        content: "Follow-up",
+        queuedTurnId,
+      }),
+    ).resolves.toEqual({ status: "blocked" });
+    expect(steerCalls).toHaveLength(1);
+
+    // Unconfirmed delivery keeps the item queued. Automatic dispatch stays
+    // suppressed (a duplicate run is worse than a prompt sent again on
+    // purpose), but the user, who was warned, may still retry by hand.
+    settlePendingSteer({ ok: false, delivery: "unknown" });
+    await expect(inFlight).resolves.toMatchObject({
+      status: "steer-delivery-unknown",
+    });
+    expect(
+      useAppStore
+        .getState()
+        .promptDraftByTask["task-main"]?.queuedTurns?.map(
+          (item) => item.content,
+        ),
+    ).toEqual(["Follow-up"]);
+
+    nextSteerResult = Promise.resolve({ ok: true, delivery: "accepted" });
+    await expect(
+      useAppStore.getState().sendUserMessage({
+        taskId: "task-main",
+        content: "Follow-up",
+        queuedTurnId,
+        submitIntent: "steer",
+      }),
+    ).resolves.toMatchObject({ status: "steered" });
+    expect(steerCalls).toHaveLength(2);
+    expect(
+      useAppStore.getState().promptDraftByTask["task-main"]?.queuedTurns ?? [],
+    ).toEqual([]);
+  });
+
   test("Fleet-style steer and queue target an inactive workspace without clearing its composer", async () => {
     const localStorage = createMemoryStorage();
     const steerCalls: Array<{ turnId: string; text: string }> = [];

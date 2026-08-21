@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildPendingProviderTurnState,
   buildSteeredUserMessageState,
+  resolveActiveTurnProviderId,
   resolveMidTurnSteeringContext,
 } from "@/store/chat-state-helpers";
 import type { ChatMessage, Task } from "@/types/chat";
@@ -27,6 +28,42 @@ const sharedArgs = {
   activeModel: "gpt-5.4",
   content: "hello",
 };
+
+describe("resolveActiveTurnProviderId", () => {
+  test("follows the running turn, not a selector switched mid-turn", () => {
+    // The UI derives steer affordances from this too, so a provider switch
+    // that only retargets the NEXT turn must not change the answer here.
+    expect(
+      resolveActiveTurnProviderId({
+        activeTurnId: "turn-1",
+        activity: { turnId: "turn-1", providerId: "claude-code" },
+        fallbackProviderId: "codex",
+        messages: [],
+      }),
+    ).toBe("claude-code");
+  });
+
+  test("falls back to history when the activity snapshot is for another turn", () => {
+    expect(
+      resolveActiveTurnProviderId({
+        activeTurnId: "turn-2",
+        activity: { turnId: "turn-1", providerId: "claude-code" },
+        fallbackProviderId: "claude-code",
+        messages: [
+          {
+            id: "assistant-1",
+            role: "assistant",
+            model: "gpt-5.4",
+            providerId: "codex",
+            content: "Working",
+            isStreaming: true,
+            parts: [],
+          },
+        ],
+      }),
+    ).toBe("codex");
+  });
+});
 
 describe("resolveMidTurnSteeringContext", () => {
   test("keeps steering bound to the provider that owns the active turn", () => {

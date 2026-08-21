@@ -145,6 +145,7 @@ import type { SkillCatalogEntry } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
 import { buildLocalChangeReviewPrompt } from "@/lib/local-change-review";
 import { useAppStore } from "@/store/app.store";
+import { resolveActiveTurnProviderId } from "@/store/chat-state-helpers";
 import {
   findPendingApprovals,
   findLatestPendingUserInput,
@@ -642,11 +643,22 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   // independent of what is typed in the composer — only the queued item's own
   // payload gets steered, so the composer's attachments are irrelevant here.
   // Per-item attachments still block steering and are checked on each chip.
+  // Capability comes from the provider serving the RUNNING turn (resolved the
+  // same way the store resolves it), not from the model selector, which the
+  // user may switch mid-turn without retargeting that turn.
   const canSteerQueuedTurns =
     midTurnSteeringEnabled &&
-    providerSupportsMidTurnSteering({ providerId: args.activeProvider }) &&
     args.isTurnActive &&
-    providerTurnDisplayState !== "stalled";
+    providerTurnDisplayState !== "stalled" &&
+    !!activeTurnId &&
+    providerSupportsMidTurnSteering({
+      providerId: resolveActiveTurnProviderId({
+        activeTurnId,
+        activity: providerTurnActivity ?? undefined,
+        fallbackProviderId: args.activeProvider,
+        messages: activeTaskMessages,
+      }),
+    });
   const managedTaskComposerAccess = resolveManagedTaskComposerAccess({
     managedTaskOwner: args.managedTaskOwner,
     isTurnActive: args.isTurnActive && providerTurnDisplayState !== "stalled",
