@@ -637,6 +637,16 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     providerSupportsMidTurnSteering({ providerId: args.activeProvider }) &&
     (promptDraft.attachments?.length ?? 0) === 0 &&
     (promptDraft.attachedFilePaths?.length ?? 0) === 0;
+  // Whether a staged queue item may be promoted into the turn that is already
+  // running, instead of waiting for that turn to finish. Deliberately
+  // independent of what is typed in the composer — only the queued item's own
+  // payload gets steered, so the composer's attachments are irrelevant here.
+  // Per-item attachments still block steering and are checked on each chip.
+  const canSteerQueuedTurns =
+    midTurnSteeringEnabled &&
+    providerSupportsMidTurnSteering({ providerId: args.activeProvider }) &&
+    args.isTurnActive &&
+    providerTurnDisplayState !== "stalled";
   const managedTaskComposerAccess = resolveManagedTaskComposerAccess({
     managedTaskOwner: args.managedTaskOwner,
     isTurnActive: args.isTurnActive && providerTurnDisplayState !== "stalled",
@@ -915,6 +925,49 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         description:
           "The task is busy or waiting on another action. The prompt stays queued.",
       });
+    }
+  }
+
+  // Promote one staged queue item into the response that is already running
+  // instead of waiting for it to finish. On any failure the store returns
+  // before mutating, so the item simply stays queued.
+  async function steerQueuedTurnNow(itemId: string) {
+    const item = queuedTurns.find((queuedItem) => queuedItem.id === itemId);
+    if (!item) {
+      return;
+    }
+    const submissionTaskId = args.providerSelectionTarget;
+    if (pendingSteerTaskIdsRef.current.has(submissionTaskId)) {
+      return;
+    }
+    useAppStore.getState().requestTaskScrollToLatest({
+      taskId: args.activeTaskId,
+    });
+    setSteerSubmissionPending(submissionTaskId, true);
+    try {
+      const result = await sendUserMessage({
+        taskId: args.activeTaskId,
+        content: item.content,
+        turnOrigin: "conversation",
+        queuedTurnId: itemId,
+        submitIntent: "steer",
+      });
+      if (result.status === "steer-unavailable") {
+        toast.error("Couldn't steer this queued prompt", {
+          description: result.message,
+        });
+      } else if (result.status === "steer-delivery-unknown") {
+        toast.warning("Steer delivery is unconfirmed", {
+          description: result.message,
+        });
+      } else if (result.status === "blocked") {
+        toast.warning("Couldn't steer the queued prompt", {
+          description:
+            "The task is busy or waiting on another action. The prompt stays queued.",
+        });
+      }
+    } finally {
+      setSteerSubmissionPending(submissionTaskId, false);
     }
   }
 
@@ -1599,6 +1652,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onUpdateQueuedTurn={updateQueuedTurn}
           onRemoveQueuedTurn={({ itemId }) => removeQueuedTurn(itemId)}
           onSendQueuedTurn={({ itemId }) => void sendQueuedTurnNow(itemId)}
+          canSteerQueuedTurn={canSteerQueuedTurns}
+          onSteerQueuedTurn={({ itemId }) => void steerQueuedTurnNow(itemId)}
           onSuggestionSelect={async (suggestion) => {
             cancelPendingDraftSave();
             useAppStore.getState().requestTaskScrollToLatest({

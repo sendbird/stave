@@ -165,6 +165,7 @@ import {
   resolveTurnModelForSend,
 } from "@/store/prompt-draft-runtime";
 import {
+  applySteeredPromptDraft,
   buildPreservedQueuedDraft,
   resolvePromptDraftAfterSend,
   resolvePromptDraftSendState,
@@ -1949,11 +1950,16 @@ export const useAppStore = create<AppState>()(
         if (activeTurnId && activeTurnStalled) {
           get().abortTaskTurn({ taskId: resolvedTaskId });
         }
-        if (queuedTurnToSend && activeTurnId && !activeTurnStalled) {
-          // Manual dispatch of a queued item only makes sense while no live
-          // turn is running — during an active turn the item is already in
-          // line to auto-dispatch, and falling through here would re-queue
-          // it as a duplicate.
+        // A queued item dispatched during a live turn is already in line to
+        // auto-dispatch, so sending it here would duplicate it — unless the
+        // caller explicitly asked to steer, which promotes it into the
+        // running turn instead of waiting (see the steer branch below).
+        if (
+          queuedTurnToSend &&
+          activeTurnId &&
+          !activeTurnStalled &&
+          submitIntent !== "steer"
+        ) {
           return { status: "blocked" } satisfies SendUserMessageResult;
         }
         if (activeTurnId && !activeTurnStalled && submitIntent === "steer") {
@@ -2055,21 +2061,15 @@ export const useAppStore = create<AppState>()(
             });
             const promptDraftByTask =
               cachedSession?.promptDraftByTask ?? nextState.promptDraftByTask;
-            const currentDraft = promptDraftByTask[resolvedTaskId];
-            const shouldClearSubmittedDraft =
-              !preservePromptDraft && currentDraft?.text === promptDraft.text;
-            const nextPromptDraftByTask = shouldClearSubmittedDraft
-              ? {
-                  ...promptDraftByTask,
-                  [resolvedTaskId]: normalizePromptDraftForStorage({
-                    ...(currentDraft ?? sourcePromptDraft),
-                    text: "",
-                    attachedFilePaths: [],
-                    attachments: [],
-                    promptBatch: undefined,
-                  }),
-                }
-              : promptDraftByTask;
+            const nextPromptDraftByTask = applySteeredPromptDraft({
+              promptDraftByTask,
+              taskId: resolvedTaskId,
+              storedDraft: storedPromptDraftForTask,
+              sourceDraft: sourcePromptDraft,
+              sentDraft: promptDraft,
+              preservePromptDraft,
+              steeredQueuedTurn: queuedTurnToSend,
+            });
             const activityByTask = turnStillActive
               ? startProviderTurnActivity({
                   activityByTask: nextState.providerTurnActivityByTask,
