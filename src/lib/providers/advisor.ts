@@ -479,6 +479,27 @@ export function resolveAdvisorArmState(args: {
   };
 }
 
+/**
+ * Which provider an Advisor control is configuring.
+ *
+ * Arming and configuring are separate acts, so a control with nothing chosen
+ * yet still has to show a model and an effort. It opens on the provider that is
+ * not running the turn, because that is the only pick which can produce an
+ * actual second opinion — and it commits nothing until the user writes to it.
+ *
+ * Shared by every Advisor surface (composer picker, Settings default, Crane
+ * dispatch approval) so they all open on the same provider for the same task.
+ */
+export function resolveAdvisorSelectedProviderId(args: {
+  arm: AdvisorArmState;
+  primaryProviderId: ProviderId;
+}): ProviderId {
+  return (
+    args.arm.target?.providerId ??
+    (args.primaryProviderId === "codex" ? "claude-code" : "codex")
+  );
+}
+
 export function isSupportedAdvisorTarget(
   target: AdvisorTarget | null | undefined,
 ) {

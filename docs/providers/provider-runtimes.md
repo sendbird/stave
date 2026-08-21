@@ -133,6 +133,31 @@ rather than a warning: the Advisor still advises correctly, just one tier down.
 
 `Alt+A` toggles the Advisor and `Alt+Shift+A` opens its picker, joining the
 `Alt`-modifier family the composer already uses for model-adjacent controls.
+
+### Crane dispatch approvals
+
+The Crane dispatch approval dialog is the third Advisor surface, and it reads
+the same three fields through `resolveAdvisorArmState`. It seeds once per
+approval — from a fresh store read, so changing a setting in another window
+cannot overwrite a choice already made in the open dialog — and never writes
+back: approving one dispatch must not redefine the global default.
+
+Precedence is the Crane team's remembered pick, then the Stave default. The
+remembered value is deliberately three states rather than two: an absent
+`advisor` key on a `CraneTeamRuntimeMemory` means the team has no preference and
+inherits the default, `null` means the team explicitly wants no Advisor, and a
+target means it explicitly wants that one. Collapsing absent into `null` would
+silently disarm the default for every team mapped before the Advisor became
+rememberable.
+
+The approval payload carries `advisorTarget` and `advisorConsultLimit` as a
+pair, enforced both by the schema in `src/lib/crane-connector/types.ts` and
+structurally by `buildCraneDispatchRuntimeChoice`, which takes one
+`CraneDispatchAdvisorChoice` instead of two independent arguments. A target
+without its budget is the failure the pairing prevents: the runtime would
+substitute its own default of 5 and ignore a ceiling the user lowered on
+purpose. The schema also accepts the target's optional `effort`, so the
+dialog's effort row is not a promise the IPC boundary strips.
 `src/lib/advisor-shortcuts.ts` matches on `event.code` because macOS composes
 `Option+A` into `å`. The control installs its own window listener, gated by the
 same `windowShortcutsEnabled` flag the host computes for the active task, which

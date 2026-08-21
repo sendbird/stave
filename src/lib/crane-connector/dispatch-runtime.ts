@@ -9,8 +9,14 @@ import {
   CODEX_PROVIDER_MODE_PRESETS,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
+import {
+  normalizeAdvisorConsultLimit,
+  resolveAdvisorArmState,
+  resolveAdvisorSelectedProviderId,
+} from "@/lib/providers/advisor";
 import type {
   AdvisorTarget,
+  AdvisorTargetByProvider,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
@@ -329,8 +335,123 @@ export function resolveCraneDispatchModelDefaults(args: {
   };
 }
 
+/**
+ * Advisor controls in the approval dialog.
+ *
+ * The same three-part shape every other Advisor surface uses: arming is
+ * separate from configuring, and each provider keeps its own model and tier so
+ * switching provider and back is not a destructive edit. Held per approval
+ * rather than written to Stave settings, because approving one dispatch must
+ * not silently redefine the user's global default.
+ */
+export interface CraneDispatchAdvisorState {
+  /** Whether this dispatch actually pays for an Advisor. */
+  enabled: boolean;
+  /** Provider the dialog is configuring, armed or not. */
+  providerId: ProviderId;
+  /** Fully populated, so an unarmed provider still has a model and tier. */
+  targetByProvider: Record<ProviderId, AdvisorTarget>;
+}
+
+/** The Advisor fields this seeding reads out of Stave settings. */
+export interface CraneDispatchAdvisorSettings {
+  advisorEnabled: boolean;
+  advisorTarget: AdvisorTarget | null;
+  advisorTargetByProvider: AdvisorTargetByProvider;
+  advisorConsultLimit: number;
+}
+
+/**
+ * Seeds the Advisor controls for a new approval.
+ *
+ * Precedence is the team's remembered choice, then the Stave default. A team
+ * memory without an `advisor` key is a team mapped before Advisor became
+ * rememberable, so it inherits the default rather than reading as an explicit
+ * "off" — otherwise every existing mapping would silently disarm the Advisor.
+ */
+export function resolveCraneDispatchAdvisorDefaults(args: {
+  settings: CraneDispatchAdvisorSettings;
+  memory?: CraneTeamRuntimeMemory | null;
+  /** Provider that will run the dispatched turn, for the opposite-side default. */
+  primaryProviderId: ProviderId;
+}): CraneDispatchAdvisorState {
+  const remembered = args.memory ? args.memory.advisor : undefined;
+  const arm = resolveAdvisorArmState({
+    overrides:
+      remembered === undefined
+        ? null
+        : remembered === null
+          ? { advisorEnabled: false }
+          : { advisorEnabled: true, advisorTarget: remembered },
+    settingsEnabled: args.settings.advisorEnabled,
+    settingsTarget: args.settings.advisorTarget,
+    settingsTargetByProvider: args.settings.advisorTargetByProvider,
+  });
+  return {
+    enabled: arm.enabled,
+    providerId: resolveAdvisorSelectedProviderId({
+      arm,
+      primaryProviderId: args.primaryProviderId,
+    }),
+    targetByProvider: arm.targetByProvider,
+  };
+}
+
+/**
+ * Records a model or tier pick for the provider it belongs to, leaving the
+ * other provider's pick untouched.
+ */
+export function selectCraneDispatchAdvisorTarget(args: {
+  advisor: CraneDispatchAdvisorState;
+  target: AdvisorTarget;
+}): CraneDispatchAdvisorState {
+  return {
+    ...args.advisor,
+    providerId: args.target.providerId,
+    targetByProvider: {
+      ...args.advisor.targetByProvider,
+      [args.target.providerId]: args.target,
+    },
+  };
+}
+
+/** The target this dispatch will actually send — `null` whenever disarmed. */
+export function resolveCraneDispatchAdvisorTarget(
+  advisor: CraneDispatchAdvisorState,
+): AdvisorTarget | null {
+  return advisor.enabled ? advisor.targetByProvider[advisor.providerId] : null;
+}
+
+/**
+ * An Advisor and the budget it may spend, or `null` for no Advisor.
+ *
+ * One value rather than two arguments so a target can never be sent without a
+ * consult ceiling. That pairing is what the IPC schema enforces, and dropping
+ * the ceiling is not a cosmetic loss: the runtime would silently substitute its
+ * own default and ignore a budget the user lowered on purpose.
+ */
+export type CraneDispatchAdvisorChoice = {
+  target: AdvisorTarget;
+  consultLimit: number;
+} | null;
+
+export function resolveCraneDispatchAdvisorChoice(args: {
+  advisor: CraneDispatchAdvisorState;
+  /** The user's configured Stave ceiling, normalized here. */
+  consultLimit: number;
+}): CraneDispatchAdvisorChoice {
+  const target = resolveCraneDispatchAdvisorTarget(args.advisor);
+  return target
+    ? {
+        target,
+        consultLimit: normalizeAdvisorConsultLimit(args.consultLimit),
+      }
+    : null;
+}
+
 export function buildCraneTeamRuntimeMemory(args: {
   model: CraneDispatchModelState;
+  advisor: CraneDispatchAdvisorState;
 }): CraneTeamRuntimeMemory {
   return {
     provider: args.model.providerId,
@@ -339,6 +460,10 @@ export function buildCraneTeamRuntimeMemory(args: {
     ...(args.model.providerId === "codex"
       ? { fastMode: args.model.codexFastMode }
       : {}),
+    // Always written, including as an explicit `null`, so remembering an
+    // Advisor-free dispatch is a real choice rather than an absent key that
+    // would re-inherit the global default on the next job.
+    advisor: resolveCraneDispatchAdvisorTarget(args.advisor),
   };
 }
 
@@ -351,8 +476,16 @@ export function buildCraneDispatchRuntimeChoice(args: {
   model: CraneDispatchModelState;
   access: CraneDispatchAccessState;
   providerTimeoutMs: number;
-  advisorTarget: AdvisorTarget | null;
+  advisor: CraneDispatchAdvisorChoice;
 }): CraneDispatchApprovalResponse["runtime"] {
+  const advisor = args.advisor
+    ? {
+        advisorTarget: args.advisor.target,
+        advisorConsultLimit: normalizeAdvisorConsultLimit(
+          args.advisor.consultLimit,
+        ),
+      }
+    : { advisorTarget: null };
   if (args.model.providerId === "claude-code") {
     return {
       provider: "claude-code",
@@ -365,7 +498,7 @@ export function buildCraneDispatchRuntimeChoice(args: {
       claudeAllowDangerouslySkipPermissions:
         args.access.claudeAllowDangerouslySkipPermissions,
       claudeEffort: toClaudeEffort(args.model.effort),
-      advisorTarget: args.advisorTarget,
+      ...advisor,
     };
   }
   return {
@@ -378,6 +511,6 @@ export function buildCraneDispatchRuntimeChoice(args: {
     codexWebSearch: args.access.codexWebSearch,
     codexReasoningEffort: args.model.effort,
     codexFastMode: args.model.codexFastMode,
-    advisorTarget: args.advisorTarget,
+    ...advisor,
   };
 }

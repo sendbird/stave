@@ -12,10 +12,16 @@ const CONNECTOR_STATUS = {
 
 function seedCraneConnector(
   page: Page,
-  options?: { craneKickoffTask?: boolean; managedTask?: boolean },
+  options?: {
+    craneKickoffTask?: boolean;
+    managedTask?: boolean;
+    /** Extra `settings` keys, for seeding a Stave Advisor default. */
+    settings?: Record<string, unknown>;
+  },
 ) {
   return page.addInitScript((payload) => {
-    const { craneKickoffTask, initialStatus, managedTask } = payload;
+    const { craneKickoffTask, initialStatus, managedTask, extraSettings } =
+      payload;
     const workspaceSnapshot = {
       activeTaskId: "task-crane-settings",
       openTaskTabIds: ["task-crane-settings"],
@@ -107,6 +113,7 @@ function seedCraneConnector(
               pollIntervalSeconds: 15,
               projectMappings: [],
             },
+            ...extraSettings,
           },
           ...workspaceSnapshot,
         },
@@ -266,6 +273,7 @@ function seedCraneConnector(
     craneKickoffTask: options?.craneKickoffTask === true,
     initialStatus: CONNECTOR_STATUS,
     managedTask: options?.managedTask === true,
+    extraSettings: options?.settings ?? {},
   });
 }
 
@@ -480,6 +488,10 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
           model: "gpt-5.6",
           effort: "xhigh",
           fastMode: false,
+          // Explicitly null rather than absent: remembering an Advisor-free
+          // dispatch has to survive the team's next job, and an absent key
+          // would re-inherit the Stave default instead.
+          advisor: null,
         },
       },
     ]);
@@ -517,6 +529,126 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
         },
       },
     ]);
+  expect(pageErrors.map((error) => error.message)).toEqual([]);
+});
+
+test("Crane approval inherits the Advisor default and configures it while off", async ({
+  page,
+}, testInfo) => {
+  const pageErrors: Error[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error));
+  // Default off, but with a Claude model and tier already configured for it.
+  // The dialog used to ignore all three fields and always start at "off".
+  await seedCraneConnector(page, {
+    settings: {
+      advisorEnabled: false,
+      advisorTarget: null,
+      advisorTargetByProvider: {
+        "claude-code": { model: "claude-fable-5", effort: "max" },
+      },
+      advisorConsultLimit: 3,
+    },
+  });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.goto("/");
+
+  await page.evaluate(() => {
+    (
+      window as unknown as {
+        craneConnectorTestState: {
+          emitApproval: (request: unknown) => void;
+        };
+      }
+    ).craneConnectorTestState.emitApproval({
+      job: {
+        version: 1,
+        id: "job-advisor",
+        kind: "run_task",
+        connectorId: "connector-e2e",
+        issue: {
+          id: "issue-advisor",
+          key: "CRANE-43",
+          title: "Verify advisor defaults",
+          description: "Remote issue text stays untrusted.",
+          href: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-43",
+          updatedAt: "2026-07-26T00:00:00.000Z",
+        },
+        instruction: "Run the focused connector checks.",
+        requestedAt: "2026-07-26T00:01:00.000Z",
+        expiresAt: "2027-07-27T00:01:00.000Z",
+      },
+      leaseExpiresAt: "2027-07-26T00:16:00.000Z",
+    });
+  });
+
+  const dialog = page.getByRole("dialog", {
+    name: "Run CRANE-43 in Stave?",
+  });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Advanced" }).click();
+
+  const advisorSwitch = dialog.getByRole("switch", { name: "Advisor" });
+  await expect(advisorSwitch).not.toBeChecked();
+
+  // The whole point of the change: provider, model, and effort are editable
+  // while the switch is off, and they start from the Settings per-provider
+  // default rather than the catalog floor.
+  await expect(
+    dialog.getByRole("radio", { name: "Claude" }),
+  ).toBeChecked();
+  await expect(
+    dialog.getByRole("combobox", { name: "Claude Advisor model" }),
+  ).toContainText("Fable");
+  await expect(dialog.getByRole("radio", { name: "Max" })).toBeChecked();
+
+  await advisorSwitch.scrollIntoViewIfNeeded();
+  await dialog.screenshot({
+    path: testInfo.outputPath("crane-dispatch-advisor.png"),
+  });
+
+  // Switch provider and back: Codex gets its own pick, and returning to Claude
+  // must restore Fable/Max rather than resetting to the catalog default.
+  await dialog.getByRole("radio", { name: "Codex" }).click();
+  await expect(dialog.getByRole("radio", { name: "High" })).toBeVisible();
+  await dialog.getByRole("radio", { name: "High" }).click();
+  await dialog.getByRole("radio", { name: "Claude" }).click();
+  await expect(
+    dialog.getByRole("combobox", { name: "Claude Advisor model" }),
+  ).toContainText("Fable");
+  await expect(dialog.getByRole("radio", { name: "Max" })).toBeChecked();
+
+  await advisorSwitch.click();
+  await expect(advisorSwitch).toBeChecked();
+  await dialog
+    .getByRole("button", { name: "Approve and run locally" })
+    .click();
+  await expect(dialog).toBeHidden();
+
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              craneConnectorTestState: {
+                approveCalls: { runtime?: unknown }[];
+              };
+            }
+          ).craneConnectorTestState.approveCalls[0]?.runtime,
+      ),
+    )
+    .toMatchObject({
+      advisorTarget: {
+        providerId: "claude-code",
+        model: "claude-fable-5",
+        // Previously stripped by the strict IPC schema, which had no effort
+        // field at all.
+        effort: "max",
+      },
+      // Previously never sent, so the turn silently used the runtime default of
+      // 5 instead of the configured ceiling.
+      advisorConsultLimit: 3,
+    });
   expect(pageErrors.map((error) => error.message)).toEqual([]);
 });
 

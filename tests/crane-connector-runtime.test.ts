@@ -370,7 +370,9 @@ describe("CraneConnectorRuntime", () => {
         advisorTarget: {
           providerId: "claude-code",
           model: "claude-fable-5",
+          effort: "max",
         },
+        advisorConsultLimit: 3,
       },
     });
 
@@ -400,7 +402,12 @@ describe("CraneConnectorRuntime", () => {
         advisorTarget: {
           providerId: "claude-code",
           model: "claude-fable-5",
+          effort: "max",
         },
+        // Regression guard alongside the effort one above: a Crane dispatch
+        // used to drop the approver's consult budget and fall back to the
+        // runtime default of 5.
+        advisorConsultLimit: 3,
       },
       retrievedContextParts: [
         expect.objectContaining({ sourceId: "crane:CRANE-42" }),

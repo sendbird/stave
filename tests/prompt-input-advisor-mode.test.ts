@@ -12,9 +12,11 @@ import {
   formatAdvisorRuntimeStatusValue,
   isAdvisorSelfAdvising,
   resolveAdvisorEffortSelection,
-  resolveAdvisorSelectedProviderId,
 } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
-import { resolveAdvisorArmState } from "@/lib/providers/advisor";
+import {
+  resolveAdvisorArmState,
+  resolveAdvisorSelectedProviderId,
+} from "@/lib/providers/advisor";
 
 const CODEX_TARGET = { providerId: "codex" as const, model: "gpt-5.6-sol" };
 const CLAUDE_TARGET = {

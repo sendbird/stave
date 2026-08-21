@@ -38,7 +38,6 @@ import {
   buildAdvisorProviderPatch,
   buildAdvisorTogglePatch,
   formatAdvisorRuntimeStatusValue,
-  resolveAdvisorSelectedProviderId,
 } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import { resolveAdvisorShortcutAction } from "@/lib/advisor-shortcuts";
@@ -86,7 +85,10 @@ import {
   type ProviderModePresetDefinition,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
-import { resolveAdvisorArmState } from "@/lib/providers/advisor";
+import {
+  resolveAdvisorArmState,
+  resolveAdvisorSelectedProviderId,
+} from "@/lib/providers/advisor";
 import { isAdvisorExchangeBlocking } from "@/lib/providers/advisor-activity";
 import {
   describeLocalMcpBlock,

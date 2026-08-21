@@ -177,24 +177,6 @@ export function buildAdvisorProviderOptions() {
 }
 
 /**
- * Which provider the picker is configuring.
- *
- * Arming and configuring are separate acts: with nothing chosen yet the picker
- * still has to show a model and an effort, so it opens on the provider that is
- * not running the turn. That is the only pick that can produce an actual
- * second opinion, and it commits nothing until the user writes to it.
- */
-export function resolveAdvisorSelectedProviderId(args: {
-  arm: AdvisorArmState;
-  primaryProviderId: ProviderId;
-}): ProviderId {
-  return (
-    args.arm.target?.providerId ??
-    (args.primaryProviderId === "codex" ? "claude-code" : "codex")
-  );
-}
-
-/**
  * True when the Advisor would consult the very model running the turn. Legal,
  * but the "second opinion" is the same opinion, so the composer says so instead
  * of letting the pill read as a working cross-model setup.

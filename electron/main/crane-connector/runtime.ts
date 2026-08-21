@@ -124,6 +124,17 @@ function runtimeOptionsForApproval(
   approval: CraneDispatchApprovalResponse,
 ): ProviderRuntimeOptions {
   const advisorTarget = approval.runtime.advisorTarget ?? undefined;
+  // Paired by the approval schema, so the ceiling the approver saw is the one
+  // the turn enforces. Without it the runtime would fall back to its own
+  // default and ignore a deliberately lowered Stave budget.
+  const advisor = advisorTarget
+    ? {
+        advisorTarget,
+        ...(approval.runtime.advisorConsultLimit !== undefined
+          ? { advisorConsultLimit: approval.runtime.advisorConsultLimit }
+          : {}),
+      }
+    : {};
   if (approval.runtime.provider === "claude-code") {
     return {
       model: approval.runtime.model,
@@ -138,7 +149,7 @@ function runtimeOptionsForApproval(
       claudeAllowDangerouslySkipPermissions:
         approval.runtime.claudeAllowDangerouslySkipPermissions,
       claudeEffort: approval.runtime.claudeEffort,
-      ...(advisorTarget ? { advisorTarget } : {}),
+      ...advisor,
     };
   }
   return {
@@ -150,7 +161,7 @@ function runtimeOptionsForApproval(
     codexWebSearch: approval.runtime.codexWebSearch,
     codexReasoningEffort: approval.runtime.codexReasoningEffort,
     codexFastMode: approval.runtime.codexFastMode,
-    ...(advisorTarget ? { advisorTarget } : {}),
+    ...advisor,
   };
 }
 

@@ -47,8 +47,12 @@ import {
   listCraneEffortOptions,
   reseedCraneAccessForProvider,
   resolveCraneDispatchAccessDefaults,
+  resolveCraneDispatchAdvisorChoice,
+  resolveCraneDispatchAdvisorDefaults,
   resolveCraneDispatchModelDefaults,
+  selectCraneDispatchAdvisorTarget,
   type CraneDispatchAccessState,
+  type CraneDispatchAdvisorState,
   type CraneDispatchModelState,
 } from "@/lib/crane-connector/dispatch-runtime";
 import {
@@ -62,14 +66,24 @@ import {
   updateCraneTeamProjectMapping,
 } from "@/lib/crane-connector/project-mapping";
 import {
-  getDefaultModelForProvider,
+  ADVISOR_EFFORT_AUTO_VALUE,
+  buildAdvisorEffortOptions,
+  buildAdvisorProviderOptions,
+  formatAdvisorEffortLabel,
+  resolveAdvisorEffortSelection,
+} from "@/components/ai-elements/prompt-input-advisor-mode.utils";
+import {
+  isAdvisorEffortClamped,
+  resolveAdvisorEffort,
+} from "@/lib/providers/advisor";
+import {
   getProviderLabel,
   getSdkModelOptions,
   listProviderIds,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type {
-  AdvisorTarget,
+  AdvisorEffort,
   ProviderId,
 } from "@/lib/providers/provider.types";
 import {
@@ -83,10 +97,16 @@ import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { useAppStore } from "@/store/app.store";
 
 type WorkspaceStrategy = "new" | "existing";
-type AdvisorProvider = ProviderId | "off";
 
 const CRANE_DISPATCH_PROVIDER_IDS = listProviderIds();
 
+/**
+ * Models offered for an Advisor provider, with the current pick forced in.
+ *
+ * A remembered model that has left the catalog stays selectable rather than
+ * silently snapping to a different one: the row then shows what will actually
+ * run, and switching away from it is the user's decision.
+ */
 function advisorModelsForProvider(providerId: ProviderId, selected: string) {
   return Array.from(
     new Set([selected, ...getSdkModelOptions({ providerId })]),
@@ -121,9 +141,15 @@ export function CraneDispatchApprovalDialog() {
       model: settings.modelClaude,
     }),
   );
-  const [advisorProvider, setAdvisorProvider] =
-    useState<AdvisorProvider>("off");
-  const [advisorModel, setAdvisorModel] = useState("");
+  // Seeded per approval from the Stave default and the team's remembered pick,
+  // and never written back: approving one dispatch must not redefine the global
+  // Advisor default.
+  const [advisor, setAdvisor] = useState<CraneDispatchAdvisorState>(() =>
+    resolveCraneDispatchAdvisorDefaults({
+      settings,
+      primaryProviderId: "claude-code",
+    }),
+  );
 
   const selectedProject = useMemo(
     () =>
@@ -191,12 +217,13 @@ export function CraneDispatchApprovalDialog() {
         (preset) => preset.value === autonomyPreset,
       )?.description
     : "These access settings no longer match a built-in preset.";
+  // The provider being configured, which is independent of the switch: an
+  // Advisor can be set up here before it is armed, exactly as in the composer
+  // and in Settings.
+  const advisorTarget = advisor.targetByProvider[advisor.providerId];
   const advisorModels = useMemo(
-    () =>
-      advisorProvider === "off"
-        ? []
-        : advisorModelsForProvider(advisorProvider, advisorModel),
-    [advisorModel, advisorProvider],
+    () => advisorModelsForProvider(advisor.providerId, advisorTarget.model),
+    [advisor.providerId, advisorTarget.model],
   );
   const providerAvailable =
     providerAvailability[runtimeModel.providerId] !== false;
@@ -256,8 +283,15 @@ export function CraneDispatchApprovalDialog() {
         model: seededModel.model,
       }),
     );
-    setAdvisorProvider("off");
-    setAdvisorModel("");
+    setAdvisor(
+      resolveCraneDispatchAdvisorDefaults({
+        settings: currentSettings,
+        memory: rememberedRuntime,
+        // Opposite of the provider running the turn, so the default pick is an
+        // actual second opinion rather than the same model twice.
+        primaryProviderId: seededModel.providerId,
+      }),
+    );
     // Decline holds focus so a stray Enter cannot approve a remote-originated
     // job. A single frame is not enough: surfaces behind the dialog (notably
     // the composer) can autofocus a frame or two after it opens and win the
@@ -370,13 +404,6 @@ export function CraneDispatchApprovalDialog() {
       return;
     }
 
-    const advisorTarget: AdvisorTarget | null =
-      advisorProvider === "off"
-        ? null
-        : {
-            providerId: advisorProvider,
-            model: advisorModel,
-          };
     setSubmitting(true);
     try {
       const result = await approveJob({
@@ -390,7 +417,10 @@ export function CraneDispatchApprovalDialog() {
           model: runtimeModel,
           access,
           providerTimeoutMs: settings.providerTimeoutMs,
-          advisorTarget,
+          advisor: resolveCraneDispatchAdvisorChoice({
+            advisor,
+            consultLimit: settings.advisorConsultLimit,
+          }),
         }),
       });
       setCraneConnectorClientStatus(result.status);
@@ -412,7 +442,10 @@ export function CraneDispatchApprovalDialog() {
                 teamKey: craneTeamKey,
                 staveProjectPath: rememberTeamDefaults ? projectPath : null,
                 runtime: rememberTeamDefaults
-                  ? buildCraneTeamRuntimeMemory({ model: runtimeModel })
+                  ? buildCraneTeamRuntimeMemory({
+                      model: runtimeModel,
+                      advisor,
+                    })
                   : null,
               }),
             },
@@ -918,92 +951,156 @@ export function CraneDispatchApprovalDialog() {
                     </>
                   )}
 
-                  <div className="grid gap-2">
-                    <label
-                      htmlFor="crane-dispatch-advisor"
-                      className="text-xs font-medium text-muted-foreground"
-                    >
-                      Advisor
-                    </label>
-                    <Select
-                      value={advisorProvider}
-                      onValueChange={(value) => {
-                        const nextProvider = value as AdvisorProvider;
-                        setAdvisorProvider(nextProvider);
-                        setAdvisorModel(
-                          nextProvider === "off"
-                            ? ""
-                            : getDefaultModelForProvider({
-                                providerId: nextProvider,
-                              }),
-                        );
-                      }}
-                    >
-                      <SelectTrigger id="crane-dispatch-advisor">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="off">Off</SelectItem>
-                        <SelectItem value="claude-code">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <ModelIcon
-                              providerId="claude-code"
-                              className="size-3.5"
-                            />
-                            <span className="truncate">Claude Advisor</span>
-                          </span>
-                        </SelectItem>
-                        <SelectItem value="codex">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <ModelIcon
-                              providerId="codex"
-                              className="size-3.5"
-                            />
-                            <span className="truncate">Codex Advisor</span>
-                          </span>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {advisorProvider !== "off" ? (
-                    <div className="grid gap-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
                       <label
-                        htmlFor="crane-dispatch-advisor-model"
+                        htmlFor="crane-dispatch-advisor"
                         className="text-xs font-medium text-muted-foreground"
                       >
-                        {getProviderLabel({ providerId: advisorProvider })}{" "}
-                        Advisor model
+                        Advisor
                       </label>
-                      <Select
-                        value={advisorModel}
-                        onValueChange={setAdvisorModel}
-                      >
-                        <SelectTrigger id="crane-dispatch-advisor-model">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {advisorModels.map((value) => (
-                            <SelectItem key={value} value={value}>
-                              <span className="flex min-w-0 items-center gap-2">
-                                <ModelIcon
-                                  providerId={advisorProvider}
-                                  model={value}
-                                  className="size-3.5"
-                                />
-                                <span className="truncate">
-                                  {toHumanModelName({ model: value })}
-                                </span>
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs leading-5 text-muted-foreground">
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         Lets the primary consult an isolated read-only Advisor
                         on demand, adding a model call per consult.
                       </p>
                     </div>
-                  ) : null}
+                    <Switch
+                      id="crane-dispatch-advisor"
+                      checked={advisor.enabled}
+                      onCheckedChange={(checked) =>
+                        setAdvisor((current) => ({
+                          ...current,
+                          enabled: checked,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Advisor provider
+                    </p>
+                    <ChoiceButtons
+                      aria-label="Advisor provider"
+                      value={advisor.providerId}
+                      options={buildAdvisorProviderOptions().map((option) => ({
+                        value: option.id,
+                        label: option.label,
+                        icon: (
+                          <ModelIcon
+                            providerId={option.id}
+                            className="size-3.5"
+                          />
+                        ),
+                      }))}
+                      onChange={(providerId) =>
+                        // Non-destructive: each provider keeps its own model
+                        // and tier, so switching back restores the other pick
+                        // instead of resetting it to the catalog default.
+                        setAdvisor((current) => ({
+                          ...current,
+                          providerId,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <label
+                      htmlFor="crane-dispatch-advisor-model"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      {getProviderLabel({ providerId: advisor.providerId })}{" "}
+                      Advisor model
+                    </label>
+                    <Select
+                      value={advisorTarget.model}
+                      onValueChange={(model) =>
+                        setAdvisor((current) =>
+                          selectCraneDispatchAdvisorTarget({
+                            advisor: current,
+                            target: {
+                              providerId: current.providerId,
+                              model,
+                              // Switching model must not silently drop the
+                              // pinned tier; an unsupported one is clamped at
+                              // resolution time instead.
+                              ...(advisorTarget.effort
+                                ? { effort: advisorTarget.effort }
+                                : {}),
+                            },
+                          }),
+                        )
+                      }
+                    >
+                      <SelectTrigger id="crane-dispatch-advisor-model">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {advisorModels.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            <span className="flex min-w-0 items-center gap-2">
+                              <ModelIcon
+                                providerId={advisor.providerId}
+                                model={value}
+                                className="size-3.5"
+                              />
+                              <span className="truncate">
+                                {toHumanModelName({ model: value })}
+                              </span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Advisor effort
+                    </p>
+                    <ChoiceButtons
+                      aria-label="Advisor effort"
+                      value={
+                        resolveAdvisorEffortSelection(advisorTarget) ??
+                        ADVISOR_EFFORT_AUTO_VALUE
+                      }
+                      options={buildAdvisorEffortOptions(advisorTarget).map(
+                        (option) => ({
+                          value: option.value ?? ADVISOR_EFFORT_AUTO_VALUE,
+                          label: option.label,
+                        }),
+                      )}
+                      onChange={(value) =>
+                        setAdvisor((current) =>
+                          selectCraneDispatchAdvisorTarget({
+                            advisor: current,
+                            target: {
+                              providerId: current.providerId,
+                              model: advisorTarget.model,
+                              ...(value === ADVISOR_EFFORT_AUTO_VALUE
+                                ? {}
+                                : { effort: value as AdvisorEffort }),
+                            },
+                          }),
+                        )
+                      }
+                    />
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      {advisorTarget.effort &&
+                      isAdvisorEffortClamped(advisorTarget)
+                        ? `${toHumanModelName({
+                            model: advisorTarget.model,
+                          })} does not accept ${formatAdvisorEffortLabel(
+                            advisorTarget.effort,
+                          )}, so the Advisor runs at ${formatAdvisorEffortLabel(
+                            resolveAdvisorEffort(advisorTarget),
+                          )}.`
+                        : `The primary waits on each consult, so this is a latency-per-consult choice. Runs at ${formatAdvisorEffortLabel(
+                            resolveAdvisorEffort(advisorTarget),
+                          )}, up to ${settings.advisorConsultLimit} consults per turn.`}
+                    </p>
+                  </div>
 
                   <p className="text-xs leading-5 text-muted-foreground">
                     Provider timeout{" "}
@@ -1025,8 +1122,8 @@ export function CraneDispatchApprovalDialog() {
                   </label>
                   <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
                     Stored only in Stave. Future {craneTeamKey} jobs preselect
-                    this project, model, and effort. Access settings always
-                    re-derive from your current Stave settings.
+                    this project, model, effort, and Advisor. Access settings
+                    always re-derive from your current Stave settings.
                   </p>
                 </div>
                 <Switch

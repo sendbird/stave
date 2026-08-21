@@ -56,8 +56,12 @@ local approval before it creates a workspace or starts Claude or Codex.
   its local credential.
 - `Approve and run locally`: approves only the displayed job and the exact local
   runtime choices in the dialog.
-- `Remember for <TEAM> issues`: stores a local team-to-project preference. It
-  preselects a project on future approval dialogs but never bypasses approval.
+- `Remember for <TEAM> issues`: stores a local team-to-project preference plus
+  the team's model, effort, and Advisor choice. It preselects them on future
+  approval dialogs but never bypasses approval. Access levels are deliberately
+  not remembered, so a one-off `Auto` approval cannot replay on a later job. A
+  remembered Advisor is stored as three states: absent (inherit the Stave
+  default), explicit none, or an explicit target.
 - `Project mappings`: lists and removes remembered routes under
   `Settings > Integrations > Crane connector`.
 
@@ -82,7 +86,11 @@ Pairing codes are exchanged once and are not stored in Stave settings.
    You can change the selection for every job.
 4. Create a new workspace or select an existing workspace.
 5. Choose Claude or Codex, its model and permissions, and optionally a Claude or
-   Codex Advisor.
+   Codex Advisor. The Advisor switch starts from your
+   `Settings > Providers > Advisor` default rather than always at off, and its
+   provider, model, and effort rows stay editable while the switch is off, so a
+   dispatch can be configured before it is armed. Each provider keeps its own
+   model and effort, so switching provider and back is not a destructive edit.
 6. Approve the job.
 
 ### Issue Keys, Branch Names, And The Information Panel

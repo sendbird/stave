@@ -12,7 +12,6 @@ import {
   buildAdvisorProviderOptions,
   formatAdvisorEffortLabel,
   resolveAdvisorEffortSelection,
-  resolveAdvisorSelectedProviderId,
 } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import {
   ADVISOR_SETTING_FIELD_ID,
@@ -22,6 +21,7 @@ import {
   MIN_ADVISOR_CONSULT_LIMIT,
   resolveAdvisorArmState,
   resolveAdvisorEffort,
+  resolveAdvisorSelectedProviderId,
 } from "@/lib/providers/advisor";
 import {
   getProviderLabel,
