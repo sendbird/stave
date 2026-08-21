@@ -1604,9 +1604,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     }
 
     setStep("action");
+    // "default" is resolved to a repository-allowed strategy in the host
+    // service: `gh pr merge` requires an explicit --merge/--rebase/--squash
+    // flag because it runs without a TTY here.
     const result = await mergePr({
-      method:
-        createPrMergeMethod === "default" ? undefined : createPrMergeMethod,
+      method: createPrMergeMethod,
       cwd: workspaceCwd,
     });
     setStep("idle");

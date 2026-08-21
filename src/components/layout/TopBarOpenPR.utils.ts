@@ -1,12 +1,12 @@
 import { isReasonablePullRequestTitle } from "@/lib/source-control-pr";
-import type { PrMergeMethod } from "@/lib/pr-status";
+import type { ConcretePrMergeMethod, PrMergeMethod } from "@/lib/pr-status";
 
 export type CreatePrDialogStep =
   "idle" | "loading" | "ready" | "committing" | "reviewing" | "pushing" | "creating-pr" | "action";
 
 export type CreatePrSubmitAction = "pr";
 
-export type ConcretePrMergeMethod = Exclude<PrMergeMethod, "default">;
+export type { ConcretePrMergeMethod };
 
 export interface RepoMergeSettings {
   squashMergeAllowed: boolean;

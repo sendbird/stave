@@ -17,7 +17,10 @@ import type {
   GraphResult,
 } from "../../src/lib/git-graph/types";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
-import type { PrMergeMethod } from "../../src/lib/pr-status";
+import type {
+  ConcretePrMergeMethod,
+  PrMergeMethod,
+} from "../../src/lib/pr-status";
 import type { DetachedCheckoutResult } from "../main/types";
 import {
   buildSourceControlDiffPreview,
@@ -1628,15 +1631,13 @@ export async function mergeScmPr(args: {
   if (!authResult.ok) {
     return { ok: false, stderr: "GitHub CLI is not authenticated." };
   }
-  const method = args.method ?? "default";
+  const method = await resolveScmMergeMethod({
+    method: args.method,
+    cwd: args.cwd,
+  });
   const result = await runCommandArgs({
     command: "gh",
-    commandArgs: [
-      "pr",
-      "merge",
-      ...(method === "default" ? [] : [`--${method}`]),
-      "--delete-branch",
-    ],
+    commandArgs: buildMergePullRequestArgs(method),
     cwd: args.cwd,
   });
   invalidateCachedGhAuthOnFailure(result, args.cwd);
@@ -1707,15 +1708,15 @@ export function buildCreatePullRequestArgs(args: {
 }
 
 export function buildAutoMergePullRequestArgs(
-  method: PrMergeMethod = "default",
+  method: ConcretePrMergeMethod = "squash",
 ) {
-  return [
-    "pr",
-    "merge",
-    "--auto",
-    ...(method === "default" ? [] : [`--${method}`]),
-    "--delete-branch",
-  ];
+  return ["pr", "merge", "--auto", `--${method}`, "--delete-branch"];
+}
+
+export function buildMergePullRequestArgs(
+  method: ConcretePrMergeMethod = "squash",
+) {
+  return ["pr", "merge", `--${method}`, "--delete-branch"];
 }
 
 export function classifyAutoMergeFailure(stderr: string) {
@@ -1798,6 +1799,49 @@ export async function fetchRepoMergeSettings(args: { cwd?: string }) {
   }
 }
 
+const MERGE_METHOD_PREFERENCE = ["squash", "merge", "rebase"] as const;
+
+/**
+ * `gh pr merge` refuses to run without an explicit strategy flag when it is not
+ * attached to a TTY, so "default" has to be resolved to a concrete strategy
+ * before the command is spawned. The repository's allowed merge methods decide
+ * which one wins; when they cannot be read we fall back to squash.
+ */
+export function pickAllowedMergeMethod(args: {
+  method?: PrMergeMethod;
+  settings?: {
+    squashMergeAllowed?: boolean;
+    mergeCommitAllowed?: boolean;
+    rebaseMergeAllowed?: boolean;
+  };
+}): ConcretePrMergeMethod {
+  if (args.method && args.method !== "default") {
+    return args.method;
+  }
+  const allowed: Record<ConcretePrMergeMethod, boolean> = {
+    squash: args.settings?.squashMergeAllowed ?? true,
+    merge: args.settings?.mergeCommitAllowed ?? true,
+    rebase: args.settings?.rebaseMergeAllowed ?? true,
+  };
+  return MERGE_METHOD_PREFERENCE.find((method) => allowed[method]) ?? "squash";
+}
+
+async function resolveScmMergeMethod(args: {
+  method?: PrMergeMethod;
+  cwd?: string;
+}): Promise<ConcretePrMergeMethod> {
+  if (args.method && args.method !== "default") {
+    return args.method;
+  }
+  const settings = await fetchRepoMergeSettings({ cwd: args.cwd }).catch(
+    () => undefined,
+  );
+  return pickAllowedMergeMethod({
+    method: args.method,
+    settings: settings?.ok ? settings : undefined,
+  });
+}
+
 export async function createScmPullRequest(args: {
   title: string;
   body?: string;
@@ -1857,9 +1901,13 @@ export async function createScmPullRequest(args: {
     return { ok: true, prUrl, autoMergeEnabled: false, stderr: "" };
   }
 
+  const resolvedMergeMethod = await resolveScmMergeMethod({
+    method: mergeMethod,
+    cwd,
+  });
   const autoMergeResult = await runCommandArgs({
     command: "gh",
-    commandArgs: buildAutoMergePullRequestArgs(mergeMethod),
+    commandArgs: buildAutoMergePullRequestArgs(resolvedMergeMethod),
     cwd,
   });
   invalidateCachedGhAuthOnFailure(autoMergeResult, cwd);
@@ -1870,12 +1918,7 @@ export async function createScmPullRequest(args: {
     if (failure === "clean-status") {
       const mergeResult = await runCommandArgs({
         command: "gh",
-        commandArgs: [
-          "pr",
-          "merge",
-          ...(mergeMethod === "default" ? [] : [`--${mergeMethod}`]),
-          "--delete-branch",
-        ],
+        commandArgs: buildMergePullRequestArgs(resolvedMergeMethod),
         cwd,
       });
       invalidateCachedGhAuthOnFailure(mergeResult, cwd);
