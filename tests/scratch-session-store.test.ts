@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { useScratchSessionStore } from "../src/store/scratch-session.store";
+import {
+  selectScratchPendingApprovals,
+  useScratchSessionStore,
+} from "../src/store/scratch-session.store";
 import { defaultSettings } from "@/store/app-settings";
 import type { NormalizedProviderEvent } from "../src/lib/providers/provider.types";
 
@@ -205,5 +208,101 @@ describe("scratch session event folding", () => {
 
     expect(second.calls[0]?.runtimeOptions).toBeDefined();
     expect(useScratchSessionStore.getState().messages).toHaveLength(4);
+  });
+});
+
+async function startTurnWithPendingApproval() {
+  const runTurn = (_args: Record<string, unknown>) => {
+    return (async function* () {
+      yield {
+        type: "approval" as const,
+        toolName: "Edit",
+        requestId: "req-1",
+        description: "Rewrite README.md",
+      };
+      // Keep the turn alive by not ending the generator
+      await new Promise(() => {}); // Never resolves
+    })();
+  };
+
+  useScratchSessionStore
+    .getState()
+    .setFolder({ directoryPath: "/tmp/scratch" });
+  await useScratchSessionStore
+    .getState()
+    .send(
+      { prompt: "edit the readme", settings: defaultSettings },
+      { runTurn },
+    );
+  // Allow async event processing to complete
+  await new Promise(resolve => setTimeout(resolve, 10));
+}
+
+describe("scratch session approvals", () => {
+  test("exposes the pending approval", async () => {
+    await startTurnWithPendingApproval();
+    const pending = selectScratchPendingApprovals(
+      useScratchSessionStore.getState(),
+    );
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.part.requestId).toBe("req-1");
+  });
+
+  test("responds with the live turn id and transitions the part", async () => {
+    await startTurnWithPendingApproval();
+    const turnId = useScratchSessionStore.getState().activeTurnId;
+    const seen: Array<Record<string, unknown>> = [];
+
+    await useScratchSessionStore.getState().respondApproval(
+      { requestId: "req-1", approved: true },
+      {
+        respondApproval: async (args) => {
+          seen.push(args);
+          return { ok: true };
+        },
+      },
+    );
+
+    expect(seen[0]).toEqual({ turnId, requestId: "req-1", approved: true });
+    expect(
+      selectScratchPendingApprovals(useScratchSessionStore.getState()),
+    ).toHaveLength(0);
+  });
+
+  test("keeps the approval pending and records the failure when delivery fails", async () => {
+    await startTurnWithPendingApproval();
+
+    await useScratchSessionStore
+      .getState()
+      .respondApproval(
+        { requestId: "req-1", approved: true },
+        { respondApproval: async () => ({ ok: false, message: "gone" }) },
+      );
+
+    expect(
+      selectScratchPendingApprovals(useScratchSessionStore.getState()),
+    ).toHaveLength(1);
+    expect(useScratchSessionStore.getState().error).toContain("gone");
+  });
+});
+
+describe("scratch session stop", () => {
+  test("aborts the live turn and interrupts pending approvals", async () => {
+    await startTurnWithPendingApproval();
+    const turnId = useScratchSessionStore.getState().activeTurnId;
+    const aborted: Array<Record<string, unknown>> = [];
+
+    await useScratchSessionStore.getState().stop({
+      abortTurn: async (args) => {
+        aborted.push(args);
+        return { ok: true };
+      },
+    });
+
+    expect(aborted[0]).toEqual({ turnId });
+    expect(useScratchSessionStore.getState().activeTurnId).toBeNull();
+    expect(
+      selectScratchPendingApprovals(useScratchSessionStore.getState()),
+    ).toHaveLength(0);
   });
 });

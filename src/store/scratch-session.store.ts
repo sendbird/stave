@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import type { NormalizedProviderEvent, ProviderId } from "@/lib/providers/provider.types";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage, ApprovalPart } from "@/types/chat";
 import type { AppSettings } from "@/store/app-settings";
 import type { ProviderAdapter } from "@/lib/providers/provider.types";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
@@ -13,6 +13,11 @@ import {
   buildRecentTimestamp,
   createUserTextPart,
 } from "@/store/chat-state-helpers";
+import {
+  findPendingApprovals,
+  interruptPendingToolInteractionsInMessages,
+  updateApprovalPartsByRequestId,
+} from "@/store/provider-message.utils";
 
 export interface ScratchSessionDependencies {
   pickDirectory?: () => Promise<{
@@ -21,6 +26,12 @@ export interface ScratchSessionDependencies {
     stderr?: string;
   }>;
   runTurn?: ProviderAdapter["runTurn"];
+  abortTurn?: (args: { turnId: string }) => Promise<{ ok: boolean; message?: string }>;
+  respondApproval?: (args: {
+    turnId: string;
+    requestId: string;
+    approved: boolean;
+  }) => Promise<{ ok: boolean; message?: string }>;
 }
 
 export interface ScratchSessionState {
@@ -51,6 +62,11 @@ export interface ScratchSessionState {
     provider: ProviderId;
     model: string;
   }) => void;
+  stop: (dependencies?: ScratchSessionDependencies) => Promise<void>;
+  respondApproval: (
+    args: { requestId: string; approved: boolean },
+    dependencies?: ScratchSessionDependencies,
+  ) => Promise<void>;
 }
 
 export function createScratchTaskId() {
@@ -68,6 +84,10 @@ export function resolveScratchModel(args: {
 
 function isAbsolutePosixOrWindowsPath(candidate: string) {
   return candidate.startsWith("/") || /^[A-Za-z]:[\\/]/.test(candidate);
+}
+
+export function selectScratchPendingApprovals(state: ScratchSessionState) {
+  return findPendingApprovals({ messages: state.messages });
 }
 
 export const useScratchSessionStore = create<ScratchSessionState>()(
@@ -219,6 +239,59 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
         messages: next.messages,
         activeTurnId: next.activeTurnId ?? null,
         providerSession: next.providerSession ?? state.providerSession,
+      });
+    },
+
+    stop: async (dependencies) => {
+      const state = get();
+      const turnId = state.activeTurnId;
+      set({
+        activeTurnId: null,
+        messages: interruptPendingToolInteractionsInMessages({
+          messages: state.messages,
+        }),
+      });
+      if (!turnId) {
+        return;
+      }
+      const abortTurn = dependencies?.abortTurn ?? window.api?.provider?.abortTurn;
+      await abortTurn?.({ turnId });
+    },
+
+    respondApproval: async ({ requestId, approved }, dependencies) => {
+      const state = get();
+      const turnId = state.activeTurnId;
+      if (!turnId) {
+        set({
+          error:
+            "That approval can no longer be answered — the scratch turn already ended.",
+        });
+        return;
+      }
+
+      const respondApproval =
+        dependencies?.respondApproval ?? window.api?.provider?.respondApproval;
+      if (!respondApproval) {
+        set({ error: "Approval delivery is unavailable in this environment." });
+        return;
+      }
+
+      const result = await respondApproval({ turnId, requestId, approved });
+      if (!result.ok) {
+        set({ error: `Approval delivery failed: ${result.message ?? "unknown"}` });
+        return;
+      }
+
+      set({
+        error: null,
+        messages: get().messages.map((message) => ({
+          ...message,
+          parts: updateApprovalPartsByRequestId({
+            parts: message.parts,
+            requestId,
+            approved,
+          }),
+        })),
       });
     },
   }),
