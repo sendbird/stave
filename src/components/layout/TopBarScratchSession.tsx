@@ -41,12 +41,21 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
   const [open, setOpen] = useState(false);
   const [clearPromptOpen, setClearPromptOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [pendingFolderPath, setPendingFolderPath] = useState<string | null>(
+    null,
+  );
+  const [folderChangePromptOpen, setFolderChangePromptOpen] = useState(false);
+  const [changingFolder, setChangingFolder] = useState(false);
   const folderPath = useScratchSessionStore((state) => state.folderPath);
   const activeTurnId = useScratchSessionStore((state) => state.activeTurnId);
+  const hasMessages = useScratchSessionStore(
+    (state) => state.messages.length > 0,
+  );
   const pendingApprovalCount = useScratchSessionStore(
     (state) => selectScratchPendingApprovals(state).length,
   );
-  const pickFolder = useScratchSessionStore((state) => state.pickFolder);
+  const pickDirectory = useScratchSessionStore((state) => state.pickDirectory);
+  const setFolder = useScratchSessionStore((state) => state.setFolder);
   const clear = useScratchSessionStore((state) => state.clear);
 
   const label = buildScratchTriggerLabel({
@@ -54,8 +63,11 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
     turnActive: Boolean(activeTurnId),
   });
 
-  // A live turn or a waiting approval means clearing would interrupt work, so
-  // confirm first. An idle session clears immediately.
+  // A live turn, a waiting approval, or an existing transcript is a session
+  // worth protecting: clearing or switching folders confirms first. An empty
+  // session proceeds immediately.
+  const hasSession =
+    hasMessages || Boolean(activeTurnId) || pendingApprovalCount > 0;
   const needsClearConfirm = Boolean(activeTurnId) || pendingApprovalCount > 0;
 
   const handleClearClick = () => {
@@ -64,6 +76,25 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
     } else {
       void clear();
     }
+  };
+
+  // Spec 7.2: switching folders clears the current session (7.1 cleanup) so the
+  // old provider session / taskId never bleed into the new folder. Confirm only
+  // when there is a session to lose; a fresh pick just adopts the folder.
+  const handlePickFolder = async () => {
+    const picked = await pickDirectory();
+    if (!picked.ok || !picked.directoryPath) {
+      return;
+    }
+    if (picked.directoryPath === folderPath) {
+      return;
+    }
+    if (hasSession) {
+      setPendingFolderPath(picked.directoryPath);
+      setFolderChangePromptOpen(true);
+      return;
+    }
+    setFolder({ directoryPath: picked.directoryPath });
   };
 
   return (
@@ -116,7 +147,7 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
             size="sm"
             variant="outline"
             className="w-full justify-start truncate font-mono text-xs"
-            onClick={() => void pickFolder()}
+            onClick={() => void handlePickFolder()}
           >
             {folderPath ?? "Pick a folder"}
           </Button>
@@ -145,6 +176,30 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
             }
           }}
           onCancel={() => setClearPromptOpen(false)}
+        />
+        <ConfirmDialog
+          open={folderChangePromptOpen}
+          title="Switch to a different folder?"
+          description="The current scratch session is cleared — the running turn stops and any waiting approval is dropped — before the new folder opens."
+          confirmLabel="Switch folder"
+          loading={changingFolder}
+          onConfirm={async () => {
+            setChangingFolder(true);
+            try {
+              await clear();
+              if (pendingFolderPath) {
+                setFolder({ directoryPath: pendingFolderPath });
+              }
+            } finally {
+              setChangingFolder(false);
+              setFolderChangePromptOpen(false);
+              setPendingFolderPath(null);
+            }
+          }}
+          onCancel={() => {
+            setFolderChangePromptOpen(false);
+            setPendingFolderPath(null);
+          }}
         />
       </PopoverContent>
     </Popover>

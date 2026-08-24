@@ -51,6 +51,9 @@ export interface ScratchSessionState {
     ok: boolean;
     message?: string;
   };
+  pickDirectory: (
+    dependencies?: ScratchSessionDependencies,
+  ) => Promise<{ ok: boolean; directoryPath?: string; message?: string }>;
   pickFolder: (
     dependencies?: ScratchSessionDependencies,
   ) => Promise<{ ok: boolean; message?: string }>;
@@ -120,7 +123,7 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
       return { ok: true };
     },
 
-    pickFolder: async (dependencies) => {
+    pickDirectory: async (dependencies) => {
       const pickDirectory =
         dependencies?.pickDirectory ?? window.api?.fs?.pickDirectory;
       if (!pickDirectory) {
@@ -133,6 +136,14 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
       if (!picked.ok || !picked.directoryPath) {
         // A cancelled picker is not an error: keep the current folder and stay quiet.
         return { ok: false, message: picked.stderr };
+      }
+      return { ok: true, directoryPath: picked.directoryPath };
+    },
+
+    pickFolder: async (dependencies) => {
+      const picked = await get().pickDirectory(dependencies);
+      if (!picked.ok || !picked.directoryPath) {
+        return { ok: false, message: picked.message };
       }
       return get().setFolder({ directoryPath: picked.directoryPath });
     },

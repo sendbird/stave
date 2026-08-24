@@ -53,6 +53,27 @@ describe("scratch session folder guard", () => {
     expect(useScratchSessionStore.getState().folderPath).toBe("/tmp/kept");
   });
 
+  test("pickDirectory returns the chosen path without adopting it", async () => {
+    useScratchSessionStore.getState().reset();
+    const result = await useScratchSessionStore.getState().pickDirectory({
+      pickDirectory: async () => ({ ok: true, directoryPath: "/tmp/picked" }),
+    });
+
+    expect(result).toEqual({ ok: true, directoryPath: "/tmp/picked" });
+    // pickDirectory must NOT mutate the store — the caller decides what to do.
+    expect(useScratchSessionStore.getState().folderPath).toBeNull();
+  });
+
+  test("pickDirectory reports a cancelled picker without error", async () => {
+    useScratchSessionStore.getState().reset();
+    const result = await useScratchSessionStore.getState().pickDirectory({
+      pickDirectory: async () => ({ ok: false, stderr: "No folder selected." }),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(useScratchSessionStore.getState().folderPath).toBeNull();
+  });
+
   test("issues a distinct task id per session", () => {
     const first = useScratchSessionStore.getState().taskId;
     useScratchSessionStore.getState().reset();
