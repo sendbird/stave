@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { ScratchTranscript } from "@/components/layout/scratch-session/ScratchTranscript";
 import {
   selectScratchPendingApprovals,
   useScratchSessionStore,
@@ -82,7 +83,9 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
         <PopoverHeader>
           <PopoverTitle>Scratch session</PopoverTitle>
         </PopoverHeader>
-        {folderPath ? null : (
+        {folderPath ? (
+          <ScratchTranscript />
+        ) : (
           <p className="px-4 py-6 text-sm text-muted-foreground">
             {buildScratchEmptyStateText()}
           </p>
