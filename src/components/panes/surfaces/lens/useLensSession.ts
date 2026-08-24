@@ -17,7 +17,7 @@ import {
   type LensAnnotation,
   type LensSessionScope,
 } from "@/lib/lens/lens.types";
-import type { LensSurfaceHostHandle } from "@/components/panes/surfaces/lens/useLensSurfaceHost";
+import type { LensSurfaceHostHandle } from "@/components/panes/surfaces/lens/lens-surface-host";
 import { useAppStore } from "@/store/app.store";
 
 export const DEFAULT_LENS_NAVIGATION_STATE: BrowserNavigationState = {
@@ -114,6 +114,16 @@ export function useLensSession(args: {
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [lastLoadError, setLastLoadError] = useState<string | null>(null);
+  /*
+   * Bumped when this session has to be rebuilt from scratch.
+   *
+   * A Lens session can end without its tab ending: a guest page crashing, an
+   * agent force-closing it, or teardown from a panel generation that raced a
+   * remount. The tab and its pane survive all three, and before this the panel
+   * simply sat there — mounted, sessionless, with no path back short of closing
+   * and reopening the tab by hand.
+   */
+  const [sessionGeneration, setSessionGeneration] = useState(0);
 
   const applyNavigationState = useCallback((state: BrowserNavigationState) => {
     setUrl(state.url);
@@ -146,6 +156,26 @@ export function useLensSession(args: {
 
   const { attachGuest, detachGuest } = surface;
 
+  // The panel's own truth about whether its tab still exists, read from the
+  // latest render. Recovery keys on this rather than a store snapshot: during
+  // workspace hydration `lensTabs` is replaced in a separate commit from
+  // `activeWorkspaceId`, so a store read taken on a timer can momentarily see
+  // this tab missing when it is not.
+  const isTabOpenRef = useRef(isTabOpen);
+  isTabOpenRef.current = isTabOpen;
+
+  /*
+   * Consecutive failed opens for the current generation.
+   *
+   * A failed `openSession` (main busy, a guest that lost its attach race) would
+   * otherwise leave the panel mounted and permanently sessionless, since a
+   * failure emits no `lens:session-closed` to recover from. A few bounded
+   * retries turn a transient failure into a short delay; the cap stops a
+   * genuinely broken open from looping forever. Reset whenever an open
+   * succeeds.
+   */
+  const openAttemptsRef = useRef(0);
+
   useEffect(() => {
     callbacksRef.current.onSessionReset();
     // Not covered by `applyNavigationState`: a load that is not in progress is
@@ -161,29 +191,38 @@ export function useLensSession(args: {
 
     void (async () => {
       const lensApi = window.api?.lens;
-      const openResult = lensApi?.openSession
-        ? await lensApi.openSession({
-            workspaceId,
-            lensSessionId,
-            sessionScope: lensSessionScope,
-            projectKey: projectPath,
-          })
-        : await lensApi?.createView?.({
-            workspaceId,
-            lensSessionId,
-            sessionScope: lensSessionScope,
-            projectKey: projectPath,
-          });
-      if (cancelled || !openResult?.ok) {
-        if (!cancelled && openResult && !openResult.ok) {
-          toast.error("Lens failed to start", {
-            description:
-              openResult.message ??
-              "Could not create the embedded browser view.",
-          });
-        }
+      // No fallback path. `openSession` resolves only once main has a live
+      // guest bound for this session, which is the dependency the attach below
+      // states; anything that opened a session some other way would be opening
+      // a different kind of surface.
+      const openResult = await lensApi?.openSession?.({
+        workspaceId,
+        lensSessionId,
+        sessionScope: lensSessionScope,
+        projectKey: projectPath,
+      });
+      if (cancelled) {
         return;
       }
+      if (!openResult?.ok) {
+        const MAX_OPEN_ATTEMPTS = 4;
+        if (isTabOpenRef.current && openAttemptsRef.current < MAX_OPEN_ATTEMPTS) {
+          openAttemptsRef.current += 1;
+          window.setTimeout(() => {
+            if (isTabOpenRef.current) {
+              setSessionGeneration((generation) => generation + 1);
+            }
+          }, 150 * openAttemptsRef.current);
+          return;
+        }
+        toast.error("Lens failed to start", {
+          description:
+            openResult?.message ??
+            "Could not create the embedded browser view.",
+        });
+        return;
+      }
+      openAttemptsRef.current = 0;
 
       await attachGuest();
 
@@ -213,21 +252,36 @@ export function useLensSession(args: {
     return () => {
       cancelled = true;
       detachGuest();
-      // Hidden ≠ closed: the session survives unmounts (workspace switches,
-      // layout churn). Destroy it only when its tab is gone from the SAME
-      // workspace — this also covers close paths that bypassed
-      // `closePaneSurface` (Dockview-initiated removal, ⌘W in AppShell).
-      const store = useAppStore.getState();
-      if (
-        store.activeWorkspaceId === workspaceId &&
-        !store.lensTabs.some((tab) => tab.id === lensSessionId)
-      ) {
+
+      /*
+       * Hidden is not closed: the session survives unmounts — workspace
+       * switches, layout churn, a Dockview group being rebuilt. It is destroyed
+       * only when its tab is really gone from this workspace, which also covers
+       * the close paths that bypass `closePaneSurface` (Dockview-initiated
+       * removal, ⌘W in AppShell).
+       *
+       * Asked on the next macrotask rather than here, because "gone" and
+       * "briefly absent" look identical at unmount time. Workspace hydration
+       * replaces `lensTabs` and `activeWorkspaceId` in separate commits, so a
+       * panel unmounting inside that window sees its own tab missing from a
+       * store that is about to have it back — and closes a session another
+       * panel is at that moment opening. The next tick is after the store has
+       * settled, and by then the two cases are distinguishable.
+       */
+      window.setTimeout(() => {
+        const store = useAppStore.getState();
+        if (
+          store.activeWorkspaceId !== workspaceId ||
+          store.lensTabs.some((tab) => tab.id === lensSessionId)
+        ) {
+          return;
+        }
         void window.api?.lens
           ?.closeSession?.({ workspaceId, lensSessionId })
           .catch(() => {
             // Best-effort teardown; the main process reaps on workspace dispose.
           });
-      }
+      }, 0);
     };
   }, [
     applyNavigationState,
@@ -238,8 +292,41 @@ export function useLensSession(args: {
     lensSessionId,
     lensSessionScope,
     projectPath,
+    sessionGeneration,
     workspaceId,
   ]);
+
+  useEffect(() => {
+    if (!workspaceId || !hasLensApi || !isTabOpen) {
+      return;
+    }
+
+    const unsubscribe = window.api?.lens?.subscribeSessionClosed?.((payload) => {
+      if (!matchesSession(payload, workspaceId, lensSessionId)) {
+        return;
+      }
+      /*
+       * A session ended under a tab that is still open — a crashed guest, an
+       * agent force-close, or a teardown from a panel generation that raced
+       * this one's remount. Rebuild it. The panel is still here, so leaving it
+       * sessionless would strand it with no page and no path back.
+       *
+       * Deferred one macrotask so a genuine tab close (which fires this event
+       * too, just before the tab leaves) settles first: by the next tick this
+       * panel has either unmounted or confirmed, through its own prop, that its
+       * tab is still open.
+       */
+      window.setTimeout(() => {
+        if (isTabOpenRef.current) {
+          setSessionGeneration((generation) => generation + 1);
+        }
+      }, 0);
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [hasLensApi, isTabOpen, lensSessionId, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {

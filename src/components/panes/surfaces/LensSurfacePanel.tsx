@@ -1,17 +1,7 @@
 import type { IDockviewPanelProps } from "dockview-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Loader2, ScanSearch } from "lucide-react";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  TooltipProvider,
-  toast,
-} from "@/components/ui";
+import { TooltipProvider, toast } from "@/components/ui";
 import {
   type LensDownloadEntry,
   type LensDownloadEventPayload,
@@ -25,6 +15,7 @@ import {
 import { LensChrome } from "@/components/panes/surfaces/lens/LensChrome";
 import { LensConsoleWorkbench } from "@/components/panes/surfaces/lens/LensConsoleWorkbench";
 import { LensNetworkWorkbench } from "@/components/panes/surfaces/lens/LensNetworkWorkbench";
+import { LensPreviewSurface } from "@/components/panes/surfaces/lens/LensPreviewSurface";
 import { useLensAnnotationSync } from "@/components/panes/surfaces/lens/useLensAnnotationSync";
 import { useLensDiagnosticsLog } from "@/components/panes/surfaces/lens/useLensDiagnosticsLog";
 import { useLensOverlayModes } from "@/components/panes/surfaces/lens/useLensOverlayModes";
@@ -32,7 +23,7 @@ import {
   useLensSession,
   type LensRestoredSessionState,
 } from "@/components/panes/surfaces/lens/useLensSession";
-import { useLensSurfaceHost } from "@/components/panes/surfaces/lens/useLensSurfaceHost";
+import { useLensDomSurfaceHost } from "@/components/panes/surfaces/lens/useLensDomSurfaceHost";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
 
@@ -135,7 +126,7 @@ function LensSessionSurface(args: {
   // How the guest page is presented. The panel never learns what presenting
   // costs; it hands this to the session below, which reports when a guest
   // exists.
-  const surface = useLensSurfaceHost({
+  const surface = useLensDomSurfaceHost({
     annotationCount: annotations.length,
     hasLensApi,
     isAnnotationModeActive,
@@ -338,58 +329,12 @@ function LensSessionSurface(args: {
         */}
         <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
           {lensPanelTab === "preview" ? (
-            <>
-              {/*
-                Measured rectangle for the native browser view. Its inset is
-                shrunk by `data-lens-split-gutters` (see `src/globals.css`) so
-                the native surface never covers Dockview's split separator or
-                resize sash.
-              */}
-              <div
-                ref={surface.placeholderRef}
-                data-lens-native-view-placeholder=""
-                className="absolute inset-0 min-h-0 overflow-hidden bg-background"
-              />
-              {hasLensApi && isLoading ? (
-                <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-border/70 bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Loader2 className="size-3 animate-spin" />
-                    Loading page
-                  </span>
-                </div>
-              ) : null}
-              {hasLensApi && lastLoadError ? (
-                <div className="absolute inset-x-3 bottom-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive shadow-sm">
-                  {lastLoadError}
-                </div>
-              ) : null}
-              {!hasLensApi ? (
-                <div className="absolute inset-0 p-3">
-                  <Empty className="h-full justify-center rounded-xl border-border/70 bg-background/70 p-6">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <ScanSearch />
-                      </EmptyMedia>
-                      <EmptyTitle>Lens needs the desktop runtime</EmptyTitle>
-                      <EmptyDescription>
-                        The embedded browser is backed by Electron
-                        `WebContentsView`, so it is unavailable in browser-only
-                        mode.
-                      </EmptyDescription>
-                    </EmptyHeader>
-                    <EmptyContent>
-                      <div className="space-y-1 text-xs text-muted-foreground">
-                        <p>
-                          Use `bun run dev:desktop` or a packaged desktop build
-                          to inspect pages, capture screenshots, and send
-                          element context to a task.
-                        </p>
-                      </div>
-                    </EmptyContent>
-                  </Empty>
-                </div>
-              ) : null}
-            </>
+            <LensPreviewSurface
+              hasLensApi={hasLensApi}
+              isLoading={isLoading}
+              lastLoadError={lastLoadError}
+              placeholderRef={surface.placeholderRef}
+            />
           ) : lensPanelTab === "console" ? (
             <LensConsoleWorkbench
               diagnostics={diagnostics}

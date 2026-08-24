@@ -7,7 +7,6 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import {
   recordLensBoundsSyncLatency,
   recordLensOcclusionObservation,
@@ -20,53 +19,11 @@ import {
   type LensPanelTab,
 } from "@/lib/lens/lens-log-format";
 import { type LensBounds } from "@/lib/lens/lens.types";
-import {
-  DEFAULT_VISUAL_COMMENT_SHORTCUT,
-  isVisualCommentShortcut,
-  type VisualCommentShortcut,
-} from "@/lib/visual-comment-shortcuts";
-import { useAppStore } from "@/store/app.store";
+import { type VisualCommentShortcut } from "@/lib/visual-comment-shortcuts";
+import { useLensVisualCommentShortcut } from "@/components/panes/surfaces/lens/useLensVisualCommentShortcut";
+import type { LensSurfaceHostHandle } from "@/components/panes/surfaces/lens/lens-surface-host";
 
-/**
- * Lens sessions whose surface panel is currently visible. Workspace-level
- * events that carry no lensSessionId (visual-comment shortcut relayed while
- * the page has focus) are fielded by exactly one mounted panel picked
- * deterministically from this registry / the store.
- */
-const visibleLensSessionIds = new Set<string>();
-
-/**
- * How a Lens panel presents the guest page for its session.
- *
- * Four members, and deliberately none of them describe *how* the guest is
- * hosted. The panel says where the page goes (`placeholderRef`), when a guest
- * exists (`attachGuest` / `detachGuest`), and when its own chrome needs the
- * space (`setFloatingSurfaceOpen`). Everything else — whether presenting means
- * an IPC round trip or a style write, whether "chrome is up" means anything at
- * all — is the implementation's business.
- *
- * This is what makes the rendering-model change a second implementation of one
- * interface rather than another edit to the panel.
- */
-export type LensSurfaceHostHandle = {
-  /** Rectangle the panel renders for the guest page to occupy. */
-  placeholderRef: RefObject<HTMLDivElement | null>;
-  /**
-   * A guest now exists for this session and may be presented. Resolves once the
-   * host has told the guest whether it is on screen, so callers can serialize
-   * later session work behind it.
-   */
-  attachGuest: () => Promise<void>;
-  /** The panel is going away or its session is being replaced. */
-  detachGuest: () => void;
-  /**
-   * Panel-owned chrome that overlaps the preview is opening or closing.
-   *
-   * Only meaningful while the guest cannot be painted under DOM content; a
-   * host whose guest is a DOM element ignores it.
-   */
-  setFloatingSurfaceOpen: (open: boolean) => void;
-};
+export type { LensSurfaceHostHandle };
 
 /**
  * Native-surface host for one Lens session.
@@ -142,17 +99,6 @@ export function useLensSurfaceHost(args: {
       activeDisposable.dispose();
     };
   }, [panelApi]);
-
-  useEffect(() => {
-    if (isPanelVisible) {
-      visibleLensSessionIds.add(lensSessionId);
-    } else {
-      visibleLensSessionIds.delete(lensSessionId);
-    }
-    return () => {
-      visibleLensSessionIds.delete(lensSessionId);
-    };
-  }, [isPanelVisible, lensSessionId]);
 
   // Instrumentation only. A mounted panel owns exactly one guest, so this is
   // the guest count from the renderer's side of the boundary.
@@ -425,64 +371,14 @@ export function useLensSurfaceHost(args: {
     syncBounds();
   }, [hasLensApi, isLensSuppressed, lensSessionId, syncBounds, workspaceId]);
 
-  useEffect(() => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (isEditableShortcutTarget(event.target)) {
-        return;
-      }
-      if (
-        !isVisualCommentShortcut({
-          shortcut: visualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
-          key: event.key,
-          code: event.code,
-          shiftKey: event.shiftKey,
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          metaKey: event.metaKey,
-          isComposing: event.isComposing,
-        })
-      ) {
-        return;
-      }
-      // The shortcut is window-global while every lens panel is mounted
-      // (keep-alive), so exactly one session may claim it: the active lens
-      // panel if there is one, otherwise the first *visible* lens tab.
-      if (!isPanelActiveRef.current) {
-        const state = useAppStore.getState();
-        const activePanelSessionId =
-          state.activeSurface.kind === "lens"
-            ? state.activeSurface.lensSessionId
-            : null;
-        if (activePanelSessionId) {
-          if (activePanelSessionId !== lensSessionId) {
-            return;
-          }
-        } else {
-          const firstVisible = state.lensTabs.find((tab) =>
-            visibleLensSessionIds.has(tab.id),
-          );
-          if (firstVisible?.id !== lensSessionId) {
-            return;
-          }
-        }
-      }
-      event.preventDefault();
-      void onVisualCommentShortcut();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    hasLensApi,
+  useLensVisualCommentShortcut({
+    enabled: Boolean(workspaceId) && hasLensApi,
+    isPanelActiveRef,
+    isPanelVisible,
     lensSessionId,
-    onVisualCommentShortcut,
+    onTrigger: onVisualCommentShortcut,
     visualCommentShortcut,
-    workspaceId,
-  ]);
+  });
 
   const resetSurfaceTracking = useCallback(() => {
     pendingBoundsRef.current = null;
