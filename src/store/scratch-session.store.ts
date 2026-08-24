@@ -11,6 +11,7 @@ import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-prefe
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import { runProviderTurn } from "@/store/provider-turn-runtime";
 import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
+import { isAbsolutePosixOrWindowsPath } from "@/lib/path-utils";
 import {
   buildMessageId,
   buildRecentTimestamp,
@@ -108,10 +109,6 @@ export function resolveScratchModel(args: {
   return args.provider === "claude-code"
     ? args.settings.modelClaude
     : args.settings.modelCodex;
-}
-
-function isAbsolutePosixOrWindowsPath(candidate: string) {
-  return candidate.startsWith("/") || /^[A-Za-z]:[\\/]/.test(candidate);
 }
 
 export function selectScratchPendingApprovals(
