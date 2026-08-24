@@ -59,8 +59,14 @@ type PersistedStandaloneCliState = Pick<
  * partial backing store degrades to a no-op.
  */
 function resolveBackingStorage(): Storage | null {
-  const candidate = (globalThis as { window?: { localStorage?: unknown } }).window
-    ?.localStorage as Storage | undefined;
+  let candidate: Storage | undefined;
+  try {
+    candidate = (globalThis as { window?: { localStorage?: unknown } }).window
+      ?.localStorage as Storage | undefined;
+  } catch {
+    // Some sandboxed origins throw on the property access itself.
+    return null;
+  }
   if (
     !candidate ||
     typeof candidate.getItem !== "function" ||
