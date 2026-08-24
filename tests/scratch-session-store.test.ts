@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import {
   selectScratchPendingApprovals,
+  selectScratchPendingUserInputs,
   useScratchSessionStore,
 } from "../src/store/scratch-session.store";
 import { defaultSettings } from "@/store/app-settings";
@@ -167,6 +168,51 @@ describe("scratch session turn dispatch", () => {
     expect("advisorTarget" in runtimeOptions).toBe(false);
     expect("workerIntent" in runtimeOptions).toBe(false);
   });
+
+  test("disables unsupported plan modes for every scratch turn", async () => {
+    const claude = buildFakeRunTurn([{ type: "done" }]);
+    const planSettings = {
+      ...defaultSettings,
+      claudePermissionMode: "plan" as const,
+      claudePermissionModeBeforePlan: "acceptEdits" as const,
+      codexPlanMode: true,
+      codexFileAccess: "workspace-write" as const,
+    };
+
+    useScratchSessionStore
+      .getState()
+      .setFolder({ directoryPath: "/tmp/scratch" });
+    await useScratchSessionStore
+      .getState()
+      .send(
+        { prompt: "hi", settings: planSettings },
+        { runTurn: claude.runTurn },
+      );
+    await Bun.sleep(0);
+
+    const claudeRuntimeOptions = claude.calls[0]?.runtimeOptions as Record<
+      string,
+      unknown
+    >;
+    expect(claudeRuntimeOptions.claudePermissionMode).toBe("acceptEdits");
+
+    useScratchSessionStore.getState().setProvider({ provider: "codex" });
+    const codex = buildFakeRunTurn([{ type: "done" }]);
+    await useScratchSessionStore
+      .getState()
+      .send(
+        { prompt: "hi", settings: planSettings },
+        { runTurn: codex.runTurn },
+      );
+    await Bun.sleep(0);
+
+    const codexRuntimeOptions = codex.calls[0]?.runtimeOptions as Record<
+      string,
+      unknown
+    >;
+    expect(codexRuntimeOptions.codexPlanMode).toBe(false);
+    expect(codexRuntimeOptions.codexFileAccess).toBe("workspace-write");
+  });
 });
 
 describe("scratch session event folding", () => {
@@ -258,6 +304,37 @@ async function startTurnWithPendingApproval() {
   await Bun.sleep(0);
 }
 
+async function startTurnWithPendingUserInput() {
+  const runTurn = (_args: Record<string, unknown>) => {
+    return (async function* () {
+      yield {
+        type: "user_input" as const,
+        toolName: "request_user_input",
+        requestId: "input-1",
+        questions: [
+          {
+            key: "choice",
+            header: "Approach",
+            question: "Which approach should I use?",
+            options: [
+              { label: "Safe", description: "Prefer the safer option." },
+            ],
+          },
+        ],
+      };
+      await new Promise(() => {});
+    })();
+  };
+
+  useScratchSessionStore
+    .getState()
+    .setFolder({ directoryPath: "/tmp/scratch" });
+  await useScratchSessionStore
+    .getState()
+    .send({ prompt: "choose", settings: defaultSettings }, { runTurn });
+  await Bun.sleep(0);
+}
+
 describe("scratch session approvals", () => {
   test("exposes the pending approval", async () => {
     await startTurnWithPendingApproval();
@@ -338,8 +415,9 @@ describe("scratch session approvals", () => {
     await respondApprovalCall;
 
     // Approval should still be interrupted, not responded
-    const approval = useScratchSessionStore.getState().messages
-      .flatMap((m) => m.parts)
+    const approval = useScratchSessionStore
+      .getState()
+      .messages.flatMap((m) => m.parts)
       .find((p) => p.type === "approval" && p.requestId === "req-1");
     expect(approval?.type === "approval" && approval?.state).not.toBe(
       "approval-responded",
@@ -365,6 +443,54 @@ describe("scratch session approvals", () => {
   });
 });
 
+describe("scratch session user input", () => {
+  test("exposes and responds to a pending user-input request", async () => {
+    await startTurnWithPendingUserInput();
+    const turnId = useScratchSessionStore.getState().activeTurnId;
+    const seen: Array<Record<string, unknown>> = [];
+
+    expect(
+      selectScratchPendingUserInputs(useScratchSessionStore.getState()),
+    ).toHaveLength(1);
+
+    await useScratchSessionStore.getState().respondUserInput(
+      { requestId: "input-1", answers: { choice: "Safe" } },
+      {
+        respondUserInput: async (args) => {
+          seen.push(args);
+          return { ok: true };
+        },
+      },
+    );
+
+    expect(seen[0]).toEqual({
+      turnId,
+      requestId: "input-1",
+      answers: { choice: "Safe" },
+      denied: undefined,
+    });
+    expect(
+      selectScratchPendingUserInputs(useScratchSessionStore.getState()),
+    ).toHaveLength(0);
+  });
+
+  test("keeps user input pending and records a delivery failure", async () => {
+    await startTurnWithPendingUserInput();
+
+    await useScratchSessionStore.getState().respondUserInput(
+      { requestId: "input-1", denied: true },
+      {
+        respondUserInput: async () => ({ ok: false, message: "gone" }),
+      },
+    );
+
+    expect(
+      selectScratchPendingUserInputs(useScratchSessionStore.getState()),
+    ).toHaveLength(1);
+    expect(useScratchSessionStore.getState().error).toContain("gone");
+  });
+});
+
 describe("scratch session stop", () => {
   test("aborts the live turn and interrupts pending approvals", async () => {
     await startTurnWithPendingApproval();
@@ -387,6 +513,46 @@ describe("scratch session stop", () => {
 });
 
 describe("scratch session clear", () => {
+  test("rotates local state before awaiting remote cleanup", async () => {
+    const { runTurn } = buildFakeRunTurn([]);
+    useScratchSessionStore
+      .getState()
+      .setFolder({ directoryPath: "/tmp/scratch" });
+    await useScratchSessionStore
+      .getState()
+      .send({ prompt: "first", settings: defaultSettings }, { runTurn });
+    const previousTaskId = useScratchSessionStore.getState().taskId;
+
+    let releaseCleanup: (() => void) | undefined;
+    const cleanupPending = new Promise<void>((resolve) => {
+      releaseCleanup = resolve;
+    });
+    const clearCall = useScratchSessionStore.getState().clear({
+      abortTurn: async () => ({ ok: true }),
+      cleanupTask: async () => {
+        await cleanupPending;
+        return { ok: true };
+      },
+    });
+    await Bun.sleep(0);
+
+    const clearingState = useScratchSessionStore.getState();
+    expect(clearingState.isClearing).toBe(true);
+    expect(clearingState.messages).toEqual([]);
+    expect(clearingState.taskId).not.toBe(previousTaskId);
+
+    const next = buildFakeRunTurn([{ type: "done" }]);
+    await clearingState.send(
+      { prompt: "must wait", settings: defaultSettings },
+      { runTurn: next.runTurn },
+    );
+    expect(next.calls).toHaveLength(0);
+
+    releaseCleanup?.();
+    await clearCall;
+    expect(useScratchSessionStore.getState().isClearing).toBe(false);
+  });
+
   test("aborts, releases the provider task, and keeps the folder", async () => {
     await startTurnWithPendingApproval();
     useScratchSessionStore.getState().setProvider({ provider: "codex" });

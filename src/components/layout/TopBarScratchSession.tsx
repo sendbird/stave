@@ -24,7 +24,11 @@ import {
 export function buildScratchTriggerLabel(args: {
   pendingApprovalCount: number;
   turnActive: boolean;
+  clearing: boolean;
 }) {
+  if (args.clearing) {
+    return "Scratch session — clearing";
+  }
   if (args.pendingApprovalCount > 0) {
     return "Scratch session — approval waiting";
   }
@@ -49,6 +53,7 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
   const [changingFolder, setChangingFolder] = useState(false);
   const folderPath = useScratchSessionStore((state) => state.folderPath);
   const activeTurnId = useScratchSessionStore((state) => state.activeTurnId);
+  const isClearing = useScratchSessionStore((state) => state.isClearing);
   const hasMessages = useScratchSessionStore(
     (state) => state.messages.length > 0,
   );
@@ -64,16 +69,23 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
   const label = buildScratchTriggerLabel({
     pendingApprovalCount,
     turnActive: Boolean(activeTurnId),
+    clearing: isClearing,
   });
 
   // A live turn, a waiting approval, or an existing transcript is a session
   // worth protecting: clearing or switching folders confirms first. An empty
   // session proceeds immediately.
   const hasSession =
-    hasMessages || Boolean(activeTurnId) || pendingApprovalCount > 0;
+    hasMessages ||
+    Boolean(activeTurnId) ||
+    pendingApprovalCount > 0 ||
+    isClearing;
   const needsClearConfirm = Boolean(activeTurnId) || pendingApprovalCount > 0;
 
   const handleClearClick = () => {
+    if (isClearing) {
+      return;
+    }
     if (needsClearConfirm) {
       setClearPromptOpen(true);
     } else {
@@ -81,9 +93,9 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
     }
   };
 
-  // Spec 7.2: switching folders clears the current session (7.1 cleanup) so the
-  // old provider session / taskId never bleed into the new folder. Confirm only
-  // when there is a session to lose; a fresh pick just adopts the folder.
+  // Switching folders clears the current session so the old provider session /
+  // taskId never bleed into the new folder. Confirm only when there is a session
+  // to lose; a fresh pick just adopts the folder.
   const handlePickFolder = async () => {
     const picked = await pickDirectory();
     if (!picked.ok || !picked.directoryPath) {
@@ -116,7 +128,7 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
             }
           >
             <FolderCode className="size-4" />
-            {pendingApprovalCount > 0 || activeTurnId ? (
+            {pendingApprovalCount > 0 || activeTurnId || isClearing ? (
               <span
                 className={cn(
                   "absolute right-1 top-1 size-1.5 rounded-full",
@@ -140,6 +152,7 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
                 size="sm"
                 variant="ghost"
                 className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                disabled={isClearing || changingFolder}
                 onClick={handleClearClick}
               >
                 Clear
@@ -150,13 +163,16 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
             size="sm"
             variant="outline"
             className="w-full justify-start truncate font-mono text-xs"
+            disabled={isClearing || changingFolder}
             onClick={() => void handlePickFolder()}
           >
             {folderPath ?? "Pick a folder"}
           </Button>
           <ScratchProviderToggle
             provider={provider}
-            disabled={Boolean(activeTurnId) || pendingApprovalCount > 0}
+            disabled={
+              Boolean(activeTurnId) || pendingApprovalCount > 0 || isClearing
+            }
             onSelect={(next) => setProvider({ provider: next })}
           />
         </PopoverHeader>

@@ -25,9 +25,8 @@ async function loadComposer() {
     configurable: true,
   });
 
-  const composerModule = await import(
-    "@/components/layout/scratch-session/ScratchComposer"
-  );
+  const composerModule =
+    await import("@/components/layout/scratch-session/ScratchComposer");
   return { ScratchComposerView: composerModule.ScratchComposerView };
 }
 
@@ -41,6 +40,8 @@ describe("ScratchComposerView", () => {
       createElement(ScratchComposerView, {
         folderPath: null,
         activeTurnId: null,
+        isClearing: false,
+        error: null,
         draft: "",
         onDraftChange: noop,
         onSend: noop,
@@ -61,6 +62,8 @@ describe("ScratchComposerView", () => {
       createElement(ScratchComposerView, {
         folderPath: "/tmp/scratch",
         activeTurnId: "turn-1",
+        isClearing: false,
+        error: null,
         draft: "",
         onDraftChange: noop,
         onSend: noop,
@@ -79,6 +82,8 @@ describe("ScratchComposerView", () => {
       createElement(ScratchComposerView, {
         folderPath: "/tmp/scratch",
         activeTurnId: null,
+        isClearing: false,
+        error: null,
         draft: "look at this",
         onDraftChange: noop,
         onSend: noop,
@@ -89,5 +94,45 @@ describe("ScratchComposerView", () => {
     expect(markup).toContain(">Send<");
     // Neither the textarea nor the Send button carries the disabled attribute.
     expect(markup).not.toContain('disabled=""');
+  });
+
+  test("disables the composer while clear is releasing the previous task", async () => {
+    const { ScratchComposerView } = await loadComposer();
+
+    const markup = renderToStaticMarkup(
+      createElement(ScratchComposerView, {
+        folderPath: "/tmp/scratch",
+        activeTurnId: null,
+        isClearing: true,
+        error: null,
+        draft: "do not send yet",
+        onDraftChange: noop,
+        onSend: noop,
+        onStop: noop,
+      }),
+    );
+
+    expect(markup).toContain("Clearing session…");
+    expect(markup).toContain('disabled=""');
+  });
+
+  test("surfaces scratch-session failures in the popover", async () => {
+    const { ScratchComposerView } = await loadComposer();
+
+    const markup = renderToStaticMarkup(
+      createElement(ScratchComposerView, {
+        folderPath: "/tmp/scratch",
+        activeTurnId: "turn-1",
+        isClearing: false,
+        error: "Approval delivery failed: gone",
+        draft: "",
+        onDraftChange: noop,
+        onSend: noop,
+        onStop: noop,
+      }),
+    );
+
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain("Approval delivery failed: gone");
   });
 });

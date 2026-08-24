@@ -7,7 +7,7 @@ import {
   isStoreWiredPendingInteraction,
   stripStoreWiredPendingInteractions,
 } from "@/components/layout/scratch-session/ScratchTranscript";
-import type { ApprovalPart, ChatMessage } from "@/types/chat";
+import type { ApprovalPart, ChatMessage, UserInputPart } from "@/types/chat";
 
 const editApproval: ApprovalPart = {
   type: "approval",
@@ -15,6 +15,21 @@ const editApproval: ApprovalPart = {
   description: "Rewrite README.md",
   requestId: "req-1",
   state: "approval-requested",
+};
+
+const userInput: UserInputPart = {
+  type: "user_input",
+  requestId: "input-1",
+  toolName: "request_user_input",
+  questions: [
+    {
+      key: "choice",
+      header: "Approach",
+      question: "Which approach should I use?",
+      options: [{ label: "Safe", description: "Prefer the safer option." }],
+    },
+  ],
+  state: "input-requested",
 };
 
 describe("ScratchApprovalRow", () => {
@@ -68,14 +83,20 @@ describe("stripStoreWiredPendingInteractions", () => {
   });
 
   test("keeps text and non-requested interaction history", () => {
+    expect(isStoreWiredPendingInteraction({ type: "text", text: "hi" })).toBe(
+      false,
+    );
     expect(
-      isStoreWiredPendingInteraction({ type: "text", text: "hi" }),
+      isStoreWiredPendingInteraction({
+        ...editApproval,
+        state: "approval-responded",
+      }),
     ).toBe(false);
     expect(
-      isStoreWiredPendingInteraction({ ...editApproval, state: "approval-responded" }),
-    ).toBe(false);
-    expect(
-      isStoreWiredPendingInteraction({ ...editApproval, state: "approval-interrupted" }),
+      isStoreWiredPendingInteraction({
+        ...editApproval,
+        state: "approval-interrupted",
+      }),
     ).toBe(false);
   });
 
@@ -138,10 +159,7 @@ describe("ScratchTranscriptView", () => {
       model: "test-model",
       providerId: "claude-code",
       content: "",
-      parts: [
-        { type: "text", text: "let me edit that" },
-        editApproval,
-      ],
+      parts: [{ type: "text", text: "let me edit that" }, editApproval],
     };
 
     const markup = renderToStaticMarkup(
@@ -150,6 +168,7 @@ describe("ScratchTranscriptView", () => {
         taskId: "scratch-task",
         inFlightRequestId: null,
         onRespond: () => {},
+        onRespondUserInput: () => {},
       }),
     );
 
@@ -160,6 +179,32 @@ describe("ScratchTranscriptView", () => {
     expect(markup).toContain("Deny");
     // AssistantMessageBody must NOT render the pending approval step: the trace's
     // approval case stamps this attribute only for an approval-requested part.
+    expect(markup).not.toContain("data-pending-interaction-request-id");
+  });
+
+  test("renders pending user input through a scratch-owned response card", () => {
+    const message: ChatMessage = {
+      id: "m-input",
+      role: "assistant",
+      model: "test-model",
+      providerId: "codex",
+      content: "",
+      parts: [userInput],
+    };
+
+    const markup = renderToStaticMarkup(
+      createElement(ScratchTranscriptView, {
+        messages: [message],
+        taskId: "scratch-task",
+        inFlightRequestId: null,
+        onRespond: () => {},
+        onRespondUserInput: () => {},
+      }),
+    );
+
+    expect(markup).toContain("Which approach should I use?");
+    expect(markup).toContain("Continue");
+    expect(markup).toContain("Decline to answer");
     expect(markup).not.toContain("data-pending-interaction-request-id");
   });
 });

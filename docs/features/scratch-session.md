@@ -15,6 +15,7 @@
 
 - No setup is required — the scratch session button is always on the top bar, even when no project is open.
 - Scratch sessions can **modify files**. When the agent wants to make a change, an approval request appears inline inside the popover and waits for your decision.
+- If the agent needs a choice or clarification, its questions also appear inline with controls to answer or decline.
 - On macOS the first folder you pick may trigger a system folder-access prompt. See [macOS Folder Access](macos-folder-access-prompts.md).
 
 ## Quick Start
@@ -38,6 +39,7 @@
 - **Clear** — ends the current session: stops any running turn, drops any waiting approval, and empties the transcript, while keeping the selected folder. You are asked to confirm only when a turn is running or an approval is waiting.
 - **Input + Send / Stop** — the single-line composer at the bottom. Send is disabled until a folder is picked and you have typed something. While a turn is running, **Send** is replaced by **Stop**.
 - **Approval rows** — when the agent requests a change, an inline row shows the tool and description with **Approve** and **Deny** buttons. Both are disabled while your response is being delivered.
+- **Question cards** — when the agent needs more information, answer its inline questions and press **Continue**, or choose **Decline to answer**.
 
 ## Common Workflows
 
@@ -51,6 +53,11 @@
 
 1. When an approval row appears, read the tool and description, then click **Approve** or **Deny**.
 2. To abandon a turn entirely, press **Stop** — the running turn is aborted and any waiting approval is dropped.
+
+### Answer A Follow-up Question
+
+1. Select or type an answer in the inline question card.
+2. Press **Continue** to resume the turn, or **Decline to answer** to reject the request.
 
 ### Start Over Or Switch Folders
 
@@ -83,6 +90,12 @@
 - Symptom: clicking Approve or Deny reports that the turn already ended.
 - Cause: the turn finished or was stopped/cleared before the response was delivered.
 - Fix: send your prompt again to start a fresh turn.
+
+### A response could not be delivered
+
+- Symptom: an error appears above the composer and the approval or question remains pending.
+- Cause: the provider turn ended, or the response bridge rejected the request.
+- Fix: retry the response if the turn is still running, or press Stop and send the prompt again.
 
 ### The provider toggle is greyed out
 

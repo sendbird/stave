@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
-import type { NormalizedProviderEvent, ProviderId } from "@/lib/providers/provider.types";
-import type { ChatMessage, ApprovalPart } from "@/types/chat";
+import type {
+  NormalizedProviderEvent,
+  ProviderId,
+} from "@/lib/providers/provider.types";
+import type { ApprovalPart, ChatMessage, UserInputPart } from "@/types/chat";
 import type { AppSettings } from "@/store/app-settings";
 import type { ProviderAdapter } from "@/lib/providers/provider.types";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
@@ -17,6 +20,7 @@ import {
   findPendingApprovals,
   interruptPendingToolInteractionsInMessages,
   updateApprovalPartsByRequestId,
+  updateUserInputPartsByRequestId,
 } from "@/store/provider-message.utils";
 
 export interface ScratchSessionDependencies {
@@ -26,11 +30,19 @@ export interface ScratchSessionDependencies {
     stderr?: string;
   }>;
   runTurn?: ProviderAdapter["runTurn"];
-  abortTurn?: (args: { turnId: string }) => Promise<{ ok: boolean; message?: string }>;
+  abortTurn?: (args: {
+    turnId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   respondApproval?: (args: {
     turnId: string;
     requestId: string;
     approved: boolean;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  respondUserInput?: (args: {
+    turnId: string;
+    requestId: string;
+    answers?: Record<string, string>;
+    denied?: boolean;
   }) => Promise<{ ok: boolean; message?: string }>;
   cleanupTask?: (args: {
     taskId: string;
@@ -45,6 +57,7 @@ export interface ScratchSessionState {
   activeTurnId: string | null;
   providerSession: TaskProviderSessionState;
   error: string | null;
+  isClearing: boolean;
 
   setProvider: (args: { provider: ProviderId }) => void;
   setFolder: (args: { directoryPath: string }) => {
@@ -73,6 +86,14 @@ export interface ScratchSessionState {
     args: { requestId: string; approved: boolean },
     dependencies?: ScratchSessionDependencies,
   ) => Promise<void>;
+  respondUserInput: (
+    args: {
+      requestId: string;
+      answers?: Record<string, string>;
+      denied?: boolean;
+    },
+    dependencies?: ScratchSessionDependencies,
+  ) => Promise<void>;
   clear: (dependencies?: ScratchSessionDependencies) => Promise<void>;
 }
 
@@ -99,6 +120,53 @@ export function selectScratchPendingApprovals(
   return findPendingApprovals({ messages: state.messages });
 }
 
+export function selectScratchPendingUserInputs(
+  state: ScratchSessionState,
+): Array<{ messageId: string; part: UserInputPart }> {
+  const pending: Array<{ messageId: string; part: UserInputPart }> = [];
+  for (
+    let messageIndex = state.messages.length - 1;
+    messageIndex >= 0;
+    messageIndex -= 1
+  ) {
+    const message = state.messages[messageIndex];
+    if (!message) {
+      continue;
+    }
+    for (
+      let partIndex = message.parts.length - 1;
+      partIndex >= 0;
+      partIndex -= 1
+    ) {
+      const part = message.parts[partIndex];
+      if (part?.type === "user_input" && part.state === "input-requested") {
+        pending.push({ messageId: message.id, part });
+      }
+    }
+  }
+  return pending;
+}
+
+export function resolveScratchRuntimeSettings(args: {
+  provider: ProviderId;
+  model: string;
+  settings: AppSettings;
+}): AppSettings {
+  const settings = applyModelRuntimePreference({
+    settings: args.settings,
+    providerId: args.provider,
+    model: args.model,
+  });
+  return {
+    ...settings,
+    claudePermissionMode:
+      settings.claudePermissionMode === "plan"
+        ? (settings.claudePermissionModeBeforePlan ?? "auto")
+        : settings.claudePermissionMode,
+    codexPlanMode: false,
+  };
+}
+
 export const useScratchSessionStore = create<ScratchSessionState>()(
   (set, get) => ({
     folderPath: null,
@@ -108,6 +176,7 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
     activeTurnId: null,
     providerSession: {},
     error: null,
+    isClearing: false,
 
     setProvider: ({ provider }) => {
       set({ provider });
@@ -158,6 +227,7 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
         activeTurnId: null,
         providerSession: {},
         error: null,
+        isClearing: false,
         taskId: createScratchTaskId(),
       });
     },
@@ -166,6 +236,10 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
       const state = get();
       if (!state.folderPath) {
         set({ error: "Pick a folder before sending a message." });
+        return;
+      }
+      if (state.isClearing) {
+        set({ error: "Wait for the scratch session to finish clearing." });
         return;
       }
       if (state.activeTurnId) {
@@ -210,9 +284,9 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
         provider,
         model,
         includeAdvisor: false,
-        settings: applyModelRuntimePreference({
+        settings: resolveScratchRuntimeSettings({
           settings,
-          providerId: provider,
+          provider,
           model,
         }),
         providerSession: get().providerSession,
@@ -274,7 +348,8 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
       if (!turnId) {
         return;
       }
-      const abortTurn = dependencies?.abortTurn ?? window.api?.provider?.abortTurn;
+      const abortTurn =
+        dependencies?.abortTurn ?? window.api?.provider?.abortTurn;
       await abortTurn?.({ turnId });
     },
 
@@ -305,7 +380,9 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
       }
 
       if (!result.ok) {
-        set({ error: `Approval delivery failed: ${result.message ?? "unknown"}` });
+        set({
+          error: `Approval delivery failed: ${result.message ?? "unknown"}`,
+        });
         return;
       }
 
@@ -328,32 +405,108 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
       });
     },
 
-    // User-facing "clear": abort the live turn, interrupt pending approvals,
-    // release the provider task, then wipe the transcript and issue a fresh
-    // taskId — but keep folderPath and provider so the next turn stays in place.
-    // Unlike `reset`, this calls into the provider IPC and preserves the folder.
-    clear: async (dependencies) => {
-      const previousTaskId = get().taskId;
-      // Remote release (abort + cleanup) is best-effort: if either IPC rejects,
-      // swallow it so the local wipe below still runs — otherwise the transcript
-      // the user asked to clear would stay on screen. `clear` never rejects.
+    respondUserInput: async ({ requestId, answers, denied }, dependencies) => {
+      const state = get();
+      const turnId = state.activeTurnId;
+      if (!turnId) {
+        set({
+          error:
+            "That question can no longer be answered — the scratch turn already ended.",
+        });
+        return;
+      }
+
+      const respondUserInput =
+        dependencies?.respondUserInput ??
+        window.api?.provider?.respondUserInput;
+      if (!respondUserInput) {
+        set({ error: "Answer delivery is unavailable in this environment." });
+        return;
+      }
+
+      let result: { ok: boolean; message?: string };
       try {
-        await get().stop(dependencies);
+        result = await respondUserInput({
+          turnId,
+          requestId,
+          answers,
+          denied,
+        });
+      } catch (error) {
+        set({ error: `Answer delivery failed: ${String(error)}` });
+        return;
+      }
+
+      if (!result.ok) {
+        set({
+          error: `Answer delivery failed: ${result.message ?? "unknown"}`,
+        });
+        return;
+      }
+
+      if (get().activeTurnId !== turnId) {
+        return;
+      }
+
+      set({
+        error: null,
+        messages: get().messages.map((message) => ({
+          ...message,
+          parts: updateUserInputPartsByRequestId({
+            parts: message.parts,
+            requestId,
+            answers,
+            denied,
+          }),
+        })),
+      });
+    },
+
+    // User-facing "clear": wipe the local session immediately, then abort and
+    // release the previous provider task in the background. Keep folderPath and
+    // provider so the next turn stays in place. Unlike `reset`, this calls IPC.
+    clear: async (dependencies) => {
+      const state = get();
+      if (state.isClearing) {
+        return;
+      }
+      const previousTaskId = state.taskId;
+      const previousTurnId = state.activeTurnId;
+      const nextTaskId = createScratchTaskId();
+
+      // Rotate all local session identity before the first await. This makes Clear
+      // atomic from the renderer's perspective: stale events are ignored and send
+      // remains disabled until the previous provider task has been released.
+      set({
+        messages: [],
+        activeTurnId: null,
+        providerSession: {},
+        error: null,
+        isClearing: true,
+        taskId: nextTaskId,
+      });
+
+      // Remote release (abort + cleanup) is best-effort: if either IPC rejects,
+      // swallow it because the requested local wipe has already completed.
+      try {
+        if (previousTurnId) {
+          const abortTurn =
+            dependencies?.abortTurn ?? window.api?.provider?.abortTurn;
+          await abortTurn?.({ turnId: previousTurnId });
+        }
 
         const cleanupTask =
           dependencies?.cleanupTask ?? window.api?.provider?.cleanupTask;
         await cleanupTask?.({ taskId: previousTaskId });
       } catch {
         // Best-effort remote release; the local wipe is what matters.
+      } finally {
+        // A test-only reset or a future session rotation may have superseded this
+        // clear while IPC was pending. Only release the matching clear lock.
+        if (get().taskId === nextTaskId) {
+          set({ isClearing: false });
+        }
       }
-
-      set({
-        messages: [],
-        activeTurnId: null,
-        providerSession: {},
-        error: null,
-        taskId: createScratchTaskId(),
-      });
     },
   }),
 );

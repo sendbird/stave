@@ -21,14 +21,33 @@ function renderTrigger() {
 describe("buildScratchTriggerLabel", () => {
   test("names the waiting approval ahead of the running turn", () => {
     expect(
-      buildScratchTriggerLabel({ pendingApprovalCount: 1, turnActive: true }),
+      buildScratchTriggerLabel({
+        pendingApprovalCount: 1,
+        turnActive: true,
+        clearing: false,
+      }),
     ).toBe("Scratch session — approval waiting");
     expect(
-      buildScratchTriggerLabel({ pendingApprovalCount: 0, turnActive: true }),
+      buildScratchTriggerLabel({
+        pendingApprovalCount: 0,
+        turnActive: true,
+        clearing: false,
+      }),
     ).toBe("Scratch session — running");
     expect(
-      buildScratchTriggerLabel({ pendingApprovalCount: 0, turnActive: false }),
+      buildScratchTriggerLabel({
+        pendingApprovalCount: 0,
+        turnActive: false,
+        clearing: false,
+      }),
     ).toBe("Scratch session");
+    expect(
+      buildScratchTriggerLabel({
+        pendingApprovalCount: 0,
+        turnActive: false,
+        clearing: true,
+      }),
+    ).toBe("Scratch session — clearing");
   });
 });
 
@@ -52,6 +71,6 @@ describe("TopBarScratchSession", () => {
     // so this asserts the default/idle trigger regardless of live store state.
     const markup = renderTrigger();
     expect(markup).toContain("Scratch session");
-    expect(markup).toContain("aria-label=\"Scratch session\"");
+    expect(markup).toContain('aria-label="Scratch session"');
   });
 });

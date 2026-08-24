@@ -1,15 +1,21 @@
 import { useState } from "react";
 import { Button } from "@/components/ui";
+import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
 import { useScratchSessionStore } from "@/store/scratch-session.store";
-import type { ApprovalPart, ChatMessage, MessagePart } from "@/types/chat";
+import type {
+  ApprovalPart,
+  ChatMessage,
+  MessagePart,
+  UserInputPart,
+} from "@/types/chat";
 
 // AssistantMessageBody renders pending interaction parts (approval / user_input)
 // through MessagePartRenderer, whose Approve/Deny and input controls are hardwired
 // to the project-scoped useAppStore. A scratch session has no task in that store,
-// so those controls would be dead *and* duplicate the scratch-owned ScratchApprovalRow.
+// so those controls would be dead *and* duplicate the scratch-owned interaction UI.
 // Strip the requested (actionable) parts before handing the message to AssistantMessage-
-// Body; ScratchApprovalRow becomes the sole live control. Non-requested states
+// Body; the rows below become the sole live controls. Non-requested states
 // (responded / interrupted) stay for history — ConfirmationCompact renders them
 // buttonless, so they carry no misrouted actions.
 export function isStoreWiredPendingInteraction(part: MessagePart): boolean {
@@ -24,7 +30,9 @@ export function stripStoreWiredPendingInteractions(
 ): ChatMessage {
   return {
     ...message,
-    parts: message.parts.filter((part) => !isStoreWiredPendingInteraction(part)),
+    parts: message.parts.filter(
+      (part) => !isStoreWiredPendingInteraction(part),
+    ),
   };
 }
 
@@ -65,6 +73,11 @@ export function ScratchTranscriptView(props: {
   taskId: string;
   inFlightRequestId: string | null;
   onRespond: (args: { part: ApprovalPart; approved: boolean }) => void;
+  onRespondUserInput: (args: {
+    part: UserInputPart;
+    answers?: Record<string, string>;
+    denied?: boolean;
+  }) => void;
 }) {
   return (
     <div className="max-h-[24rem] space-y-3 overflow-y-auto px-4 py-3">
@@ -77,9 +90,9 @@ export function ScratchTranscriptView(props: {
           );
         }
 
-        const approvals = message.parts.filter(
-          (part): part is ApprovalPart =>
-            part.type === "approval" && part.state === "approval-requested",
+        const pendingInteractions = message.parts.filter(
+          (part): part is ApprovalPart | UserInputPart =>
+            isStoreWiredPendingInteraction(part),
         );
 
         return (
@@ -90,16 +103,39 @@ export function ScratchTranscriptView(props: {
               messageId={message.id}
               streamingEnabled
             />
-            {approvals.map((part) => (
-              <ScratchApprovalRow
-                key={part.requestId}
-                part={part}
-                disabled={props.inFlightRequestId === part.requestId}
-                onRespond={({ approved }) =>
-                  props.onRespond({ part, approved })
-                }
-              />
-            ))}
+            {pendingInteractions.map((part) =>
+              part.type === "approval" ? (
+                <ScratchApprovalRow
+                  key={`approval-${part.requestId}`}
+                  part={part}
+                  disabled={props.inFlightRequestId === part.requestId}
+                  onRespond={({ approved }) =>
+                    props.onRespond({ part, approved })
+                  }
+                />
+              ) : (
+                <UserInputCard
+                  key={`user-input-${part.requestId}`}
+                  toolName={part.toolName}
+                  questions={part.questions}
+                  state={part.state}
+                  answers={part.answers}
+                  presentation="inline"
+                  disabled={props.inFlightRequestId === part.requestId}
+                  disabledReason={
+                    props.inFlightRequestId === part.requestId
+                      ? "Sending response…"
+                      : undefined
+                  }
+                  onSubmit={(answers) =>
+                    props.onRespondUserInput({ part, answers })
+                  }
+                  onDeny={() =>
+                    props.onRespondUserInput({ part, denied: true })
+                  }
+                />
+              ),
+            )}
           </div>
         );
       })}
@@ -112,6 +148,9 @@ export function ScratchTranscript() {
   const taskId = useScratchSessionStore((state) => state.taskId);
   const respondApproval = useScratchSessionStore(
     (state) => state.respondApproval,
+  );
+  const respondUserInput = useScratchSessionStore(
+    (state) => state.respondUserInput,
   );
   const [inFlightRequestId, setInFlightRequestId] = useState<string | null>(
     null,
@@ -127,6 +166,14 @@ export function ScratchTranscript() {
         void respondApproval({ requestId: part.requestId, approved }).finally(
           () => setInFlightRequestId(null),
         );
+      }}
+      onRespondUserInput={({ part, answers, denied }) => {
+        setInFlightRequestId(part.requestId);
+        void respondUserInput({
+          requestId: part.requestId,
+          answers,
+          denied,
+        }).finally(() => setInFlightRequestId(null));
       }}
     />
   );
