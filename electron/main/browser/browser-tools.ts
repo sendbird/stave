@@ -140,7 +140,7 @@ export function registerBrowserTools(server: McpServer): void {
         const targetUrl = normalizeLensUrl(url);
         assertNavigationAllowed(targetUrl);
         await Promise.race([
-          session.view.webContents.loadURL(targetUrl),
+          session.webContents.loadURL(targetUrl),
           new Promise<never>((_, reject) =>
             setTimeout(
               () =>
@@ -161,9 +161,9 @@ export function registerBrowserTools(server: McpServer): void {
         session: {
           workspaceId,
           lensSessionId: session.lensSessionId,
-          url: session.view.webContents.getURL(),
-          title: session.view.webContents.getTitle(),
-          isLoading: session.view.webContents.isLoading(),
+          url: session.webContents.getURL(),
+          title: session.webContents.getTitle(),
+          isLoading: session.webContents.isLoading(),
         },
       });
     },
@@ -251,9 +251,9 @@ export function registerBrowserTools(server: McpServer): void {
         session: {
           workspaceId: session.workspaceId,
           lensSessionId: session.lensSessionId,
-          url: session.view.webContents.getURL(),
-          title: session.view.webContents.getTitle(),
-          isLoading: session.view.webContents.isLoading(),
+          url: session.webContents.getURL(),
+          title: session.webContents.getTitle(),
+          isLoading: session.webContents.isLoading(),
         },
         ...(!requested
           ? { message: "Stave renderer is not available to show Lens." }
@@ -281,7 +281,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId, url }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
-      const wc = session.view.webContents;
+      const wc = session.webContents;
 
       const targetUrl = normalizeLensUrl(url);
       assertNavigationAllowed(targetUrl);
@@ -405,7 +405,7 @@ export function registerBrowserTools(server: McpServer): void {
         "stave_lens_fill_saved_account",
       );
       const result = await fillLensCredentialForWebContents(
-        session.view.webContents,
+        session.webContents,
         { submit: submit === true, username },
       );
       return toStructuredResult(result);
@@ -457,7 +457,7 @@ export function registerBrowserTools(server: McpServer): void {
         { x: number; y: number; width: number; height: number } | undefined;
       if (selector) {
         const box = (await evaluateExpression(
-          session.view.webContents.id,
+          session.webContents.id,
           `
           (() => {
             const el = document.querySelector(${JSON.stringify(selector)});
@@ -470,7 +470,7 @@ export function registerBrowserTools(server: McpServer): void {
         if (box) clip = box;
       }
 
-      const dataUrl = await captureScreenshot(session.view.webContents.id, {
+      const dataUrl = await captureScreenshot(session.webContents.id, {
         fullPage,
         clip,
       });
@@ -517,7 +517,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId, selector, maxChars }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
-      let html = await getDocumentHTML(session.view.webContents.id, selector);
+      let html = await getDocumentHTML(session.webContents.id, selector);
       const resolvedMaxChars = clampPositiveInteger(maxChars, {
         defaultValue: DEFAULT_HTML_MAX_CHARS,
         maxValue: MAX_HTML_CHARS,
@@ -552,7 +552,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId, selector }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
-      const text = await getTextContent(session.view.webContents.id, selector);
+      const text = await getTextContent(session.webContents.id, selector);
       return toStructuredResult({ ok: true, text });
     },
   );
@@ -579,7 +579,7 @@ export function registerBrowserTools(server: McpServer): void {
     async ({ workspaceId, lensSessionId, expression }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
       const result = await evaluateExpression(
-        session.view.webContents.id,
+        session.webContents.id,
         expression,
       );
       return toStructuredResult({ ok: true, result });
@@ -688,7 +688,7 @@ export function registerBrowserTools(server: McpServer): void {
       const targetUrl = normalizeLensUrl(url);
       assertNavigationAllowed(targetUrl);
       const entry = await triggerDownloadByUrl(
-        session.view.webContents.id,
+        session.webContents.id,
         targetUrl,
         filename,
       );
@@ -794,7 +794,7 @@ export function registerBrowserTools(server: McpServer): void {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_set_style");
       const edits = await setElementStyle(
-        session.view.webContents.id,
+        session.webContents.id,
         selector,
         style,
       );
@@ -823,7 +823,7 @@ export function registerBrowserTools(server: McpServer): void {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_inspect");
       const box = await getElementBoxModel(
-        session.view.webContents.id,
+        session.webContents.id,
         selector,
       );
       return toStructuredResult({ ok: true, box });
@@ -852,7 +852,7 @@ export function registerBrowserTools(server: McpServer): void {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_measure");
       const result = await measureElements(
-        session.view.webContents.id,
+        session.webContents.id,
         selectorA,
         selectorB,
       );
@@ -880,7 +880,7 @@ export function registerBrowserTools(server: McpServer): void {
     async ({ workspaceId, lensSessionId, selector }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_click");
-      await clickElement(session.view.webContents.id, selector);
+      await clickElement(session.webContents.id, selector);
       return toStructuredResult({ ok: true });
     },
   );
@@ -909,7 +909,7 @@ export function registerBrowserTools(server: McpServer): void {
     async ({ workspaceId, lensSessionId, text, selector }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_type");
-      await typeText(session.view.webContents.id, text, selector);
+      await typeText(session.webContents.id, text, selector);
       return toStructuredResult({ ok: true });
     },
   );
@@ -932,7 +932,7 @@ export function registerBrowserTools(server: McpServer): void {
     },
     async ({ workspaceId, lensSessionId }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
-      const tree = await getAccessibilitySnapshot(session.view.webContents.id);
+      const tree = await getAccessibilitySnapshot(session.webContents.id);
       return toStructuredResult({ ok: true, tree });
     },
   );

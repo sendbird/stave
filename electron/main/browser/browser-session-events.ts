@@ -517,7 +517,7 @@ export function ensureBrowserSessionWithEvents(
   session.managedByMcp = options?.managedByMcp === true;
   session.detachEventListeners = attachBrowserSessionEventListeners(
     workspaceId,
-    session.view.webContents,
+    session.webContents,
     session.lensSessionId,
   );
   return { session, created: true };

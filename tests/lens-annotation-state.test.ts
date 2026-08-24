@@ -74,11 +74,9 @@ function browserSession(): BrowserSessionState {
   return {
     documentId: "document-old",
     annotationNonce: "nonce-old",
-    view: {
-      webContents: {
-        getURL: () => "https://example.com/path",
-        getTitle: () => "Example",
-      },
+    webContents: {
+      getURL: () => "https://example.com/path",
+      getTitle: () => "Example",
     },
     navigationState: {
       url: "https://example.com/path",

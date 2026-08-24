@@ -127,7 +127,17 @@ export interface BrowserSessionState {
   lensSessionId: string;
   sessionProfile: ResolvedLensSessionProfile;
   view: WebContentsView;
-  /** webContents id of the view, captured at creation (survives destroy). */
+  /**
+   * The guest page itself, which is what every feature actually talks to:
+   * navigation, CDP, console/network capture, downloads, annotations.
+   *
+   * Held directly rather than reached through `view`, because the wrapper that
+   * owns a guest is a property of how the surface is hosted and nothing above
+   * this line cares. Reading `view.webContents` also throws once the native
+   * wrapper is gone, while this reference stays inspectable (`isDestroyed()`).
+   */
+  webContents: Electron.WebContents;
+  /** webContents id of the guest, captured at creation (survives destroy). */
   webContentsId: number;
   authPopups: Set<BrowserWindow>;
   consoleLog: RingBuffer<BrowserConsoleEntry>;
@@ -900,6 +910,7 @@ export function createBrowserSession(
     lensSessionId,
     sessionProfile,
     view,
+    webContents: view.webContents,
     webContentsId: view.webContents.id,
     authPopups: new Set(),
     consoleLog: new RingBuffer<BrowserConsoleEntry>(CONSOLE_BUFFER_SIZE),
@@ -950,7 +961,7 @@ export async function clearBrowserSessionData(
     session.networkLog.clear();
     clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
     session.downloadLog.clear();
-    const wc = session.view.webContents;
+    const wc = session.webContents;
     if (!wc.isDestroyed() && wc.getURL() !== "about:blank") {
       wc.reloadIgnoringCache();
     }
@@ -1112,7 +1123,7 @@ export function getWebContentsForSession(
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return undefined;
   try {
-    const wc = session.view.webContents;
+    const wc = session.webContents;
     return wc && !wc.isDestroyed() ? wc : undefined;
   } catch {
     return undefined;

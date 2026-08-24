@@ -283,7 +283,7 @@ export function registerBrowserHandlers() {
         if (args.url?.trim()) {
           const url = normalizeLensUrl(args.url);
           assertNavigationAllowed(url);
-          await session.view.webContents.loadURL(url);
+          await session.webContents.loadURL(url);
         }
 
         return {
@@ -490,7 +490,7 @@ export function registerBrowserHandlers() {
         assertLensDocumentIdentity(session, args.options?.documentId);
         const captureDocumentId = session.documentId;
         await executeInLensAnnotationWorld(
-          session.view.webContents,
+          session.webContents,
             `new Promise((resolve) => {
               window.__staveSetAnnotationScreenshotCaptureActive?.(false);
               requestAnimationFrame(() => requestAnimationFrame(() => resolve(true)));
@@ -500,7 +500,7 @@ export function registerBrowserHandlers() {
         const { documentId: _documentId, ...captureOptions } =
           args.options ?? {};
         const dataUrl = await captureScreenshot(
-          session.view.webContents.id,
+          session.webContents.id,
           captureOptions,
         );
         assertLensDocumentIdentity(session, captureDocumentId);
@@ -512,7 +512,7 @@ export function registerBrowserHandlers() {
         };
       } finally {
         await executeInLensAnnotationWorld(
-          session.view.webContents,
+          session.webContents,
             "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
           )
           .catch(() => false);
@@ -538,7 +538,7 @@ export function registerBrowserHandlers() {
 
       try {
         const dataUrl = await captureScreenshot(
-          session.view.webContents.id,
+          session.webContents.id,
           args.options,
         );
         const buffer = pngDataUrlToBuffer(dataUrl);
@@ -596,7 +596,7 @@ export function registerBrowserHandlers() {
         const url = normalizeLensUrl(args.url);
         assertNavigationAllowed(url);
         const entry = await triggerDownloadByUrl(
-          session.view.webContents.id,
+          session.webContents.id,
           url,
           args.filename,
         );
@@ -618,7 +618,7 @@ export function registerBrowserHandlers() {
 
       try {
         const assetUrls = await enumeratePageAssets(
-          session.view.webContents.id,
+          session.webContents.id,
         );
         const entries: LensDownloadEntry[] = [];
         const errors: Array<{ url: string; message: string }> = [];
@@ -627,7 +627,7 @@ export function registerBrowserHandlers() {
           try {
             assertNavigationAllowed(assetUrl);
             entries.push(
-              await triggerDownloadByUrl(session.view.webContents.id, assetUrl),
+              await triggerDownloadByUrl(session.webContents.id, assetUrl),
             );
           } catch (error) {
             errors.push({
@@ -668,7 +668,7 @@ export function registerBrowserHandlers() {
 
       try {
         const html = await getDocumentHTML(
-          session.view.webContents.id,
+          session.webContents.id,
           args.selector,
         );
         return { ok: true, html };
@@ -697,7 +697,7 @@ export function registerBrowserHandlers() {
 
       try {
         const result = await evaluateExpression(
-          session.view.webContents.id,
+          session.webContents.id,
           args.expression,
         );
         return { ok: true, result };
@@ -906,7 +906,7 @@ export function registerBrowserHandlers() {
         try {
           return (
             !session.closing &&
-            !session.view.webContents.isDestroyed() &&
+            !session.webContents.isDestroyed() &&
             getBrowserSession(session.workspaceId, session.lensSessionId) ===
               session
           );
@@ -935,7 +935,7 @@ export function registerBrowserHandlers() {
           webContentsId: session.webContentsId,
           workspaceId: session.workspaceId,
           lensSessionId: session.lensSessionId,
-          url: session.view.webContents.getURL(),
+          url: session.webContents.getURL(),
           acceptConsoleEntry: () =>
             isCurrentSession()
               ? session.consoleRateLimiter.accept()
@@ -1004,7 +1004,7 @@ export function registerBrowserHandlers() {
           extractDebugSource: args.options?.extractDebugSource ?? false,
         });
         const rawResult = await executeInLensAnnotationWorld(
-          session.view.webContents,
+          session.webContents,
           script,
         );
         if (rawResult == null) {
@@ -1046,7 +1046,7 @@ export function registerBrowserHandlers() {
           return { ok: true };
         }
         const revivedExistingOverlay = await executeInLensAnnotationWorld(
-          session.view.webContents,
+          session.webContents,
             "window.__staveSetAnnotationCaptureActive?.(true) === true",
           )
           .catch(() => false);
@@ -1062,7 +1062,7 @@ export function registerBrowserHandlers() {
           args.options?.extractDebugSource ?? false;
         await injectAnnotationOverlay(
           args.workspaceId,
-          session.view.webContents,
+          session.webContents,
           args.lensSessionId,
         );
         return { ok: true };
@@ -1096,7 +1096,7 @@ export function registerBrowserHandlers() {
       try {
         session.annotations = await readNormalizedPageAnnotations(session);
         await executeInLensAnnotationWorld(
-          session.view.webContents,
+          session.webContents,
           "window.__staveSetAnnotationCaptureActive?.(false)",
         );
       } catch {
@@ -1119,7 +1119,7 @@ export function registerBrowserHandlers() {
         session.boxInspectActive = true;
         await injectBoxInspectOverlay(
           args.workspaceId,
-          session.view.webContents,
+          session.webContents,
           args.lensSessionId,
         );
         return { ok: true };
@@ -1140,7 +1140,7 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        await session.view.webContents.executeJavaScript(
+        await session.webContents.executeJavaScript(
           "window.__staveTeardownInspect?.()",
         );
       } catch {
@@ -1205,7 +1205,7 @@ export function registerBrowserHandlers() {
       try {
         assertLensDocumentIdentity(session, args.documentId);
         const removed = await executeInLensAnnotationWorld(
-          session.view.webContents,
+          session.webContents,
           `window.__staveRemoveAnnotation?.(${JSON.stringify(args.annotationId)}) ?? false`,
         );
         if (removed) {
@@ -1241,7 +1241,7 @@ export function registerBrowserHandlers() {
 
       try {
         await executeInLensAnnotationWorld(
-          session.view.webContents,
+          session.webContents,
           "window.__staveClearAnnotations?.()",
         );
       } catch {
@@ -1277,7 +1277,7 @@ export function registerBrowserHandlers() {
       try {
         assertLensDocumentIdentity(session, args.documentId);
         const edits = await setElementStyle(
-          session.view.webContents.id,
+          session.webContents.id,
           args.selector,
           args.patch,
         );
@@ -1343,10 +1343,10 @@ export function registerBrowserHandlers() {
 
       try {
         await assertCdpAllowedForWebContentsId(
-          session.view.webContents.id,
+          session.webContents.id,
           "attach CDP debugger",
         );
-        ensureDebuggerAttached(session.view.webContents.id);
+        ensureDebuggerAttached(session.webContents.id);
         return { ok: true };
       } catch (err) {
         return {
@@ -1364,7 +1364,7 @@ export function registerBrowserHandlers() {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
-      stopLensCdpDiagnostics(session.view.webContents.id, true);
+      stopLensCdpDiagnostics(session.webContents.id, true);
       return { ok: true };
     },
   );
