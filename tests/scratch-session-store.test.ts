@@ -368,28 +368,52 @@ describe("scratch session stop", () => {
 describe("scratch session clear", () => {
   test("aborts, releases the provider task, and keeps the folder", async () => {
     await startTurnWithPendingApproval();
+    useScratchSessionStore.getState().setProvider({ provider: "codex" });
     const previousTaskId = useScratchSessionStore.getState().taskId;
     const turnId = useScratchSessionStore.getState().activeTurnId;
+    const order: string[] = [];
     const aborted: Array<Record<string, unknown>> = [];
     const cleaned: Array<Record<string, unknown>> = [];
 
     await useScratchSessionStore.getState().clear({
       abortTurn: async (args) => {
+        order.push("abort");
         aborted.push(args);
         return { ok: true };
       },
       cleanupTask: async (args) => {
+        order.push("cleanup");
         cleaned.push(args);
         return { ok: true };
       },
     });
 
     const state = useScratchSessionStore.getState();
+    expect(order).toEqual(["abort", "cleanup"]);
     expect(aborted[0]).toEqual({ turnId });
     expect(cleaned[0]).toEqual({ taskId: previousTaskId });
     expect(state.messages).toEqual([]);
     expect(state.activeTurnId).toBeNull();
     expect(state.providerSession).toEqual({});
+    expect(state.taskId).not.toBe(previousTaskId);
+    expect(state.folderPath).toBe("/tmp/scratch");
+    expect(state.provider).toBe("codex");
+  });
+
+  test("wipes the transcript even when the cleanup IPC rejects", async () => {
+    await startTurnWithPendingApproval();
+    const previousTaskId = useScratchSessionStore.getState().taskId;
+
+    await useScratchSessionStore.getState().clear({
+      abortTurn: async () => ({ ok: true }),
+      cleanupTask: async () => {
+        throw new Error("cleanup crashed");
+      },
+    });
+
+    const state = useScratchSessionStore.getState();
+    expect(state.messages).toEqual([]);
+    expect(state.activeTurnId).toBeNull();
     expect(state.taskId).not.toBe(previousTaskId);
     expect(state.folderPath).toBe("/tmp/scratch");
   });

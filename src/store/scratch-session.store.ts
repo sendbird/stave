@@ -323,11 +323,18 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
     // Unlike `reset`, this calls into the provider IPC and preserves the folder.
     clear: async (dependencies) => {
       const previousTaskId = get().taskId;
-      await get().stop(dependencies);
+      // Remote release (abort + cleanup) is best-effort: if either IPC rejects,
+      // swallow it so the local wipe below still runs — otherwise the transcript
+      // the user asked to clear would stay on screen. `clear` never rejects.
+      try {
+        await get().stop(dependencies);
 
-      const cleanupTask =
-        dependencies?.cleanupTask ?? window.api?.provider?.cleanupTask;
-      await cleanupTask?.({ taskId: previousTaskId });
+        const cleanupTask =
+          dependencies?.cleanupTask ?? window.api?.provider?.cleanupTask;
+        await cleanupTask?.({ taskId: previousTaskId });
+      } catch {
+        // Best-effort remote release; the local wipe is what matters.
+      }
 
       set({
         messages: [],
