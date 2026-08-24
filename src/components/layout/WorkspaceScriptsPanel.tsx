@@ -597,10 +597,7 @@ export function WorkspaceScriptsPanel(props: {
   };
   const lensAvailable =
     typeof window !== "undefined" &&
-    Boolean(
-      (window.api?.lens?.openSession || window.api?.lens?.createView) &&
-      window.api?.lens?.navigate,
-    );
+    Boolean(window.api?.lens?.openSession && window.api?.lens?.navigate);
 
   const openScriptSettings = useCallback(() => {
     props.onOpenSettings?.({

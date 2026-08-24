@@ -44,12 +44,6 @@ import { LensSurfacePanel } from "@/components/panes/surfaces/LensSurfacePanel";
 import { TaskSurfacePanel } from "@/components/panes/surfaces/TaskSurfacePanel";
 import { TerminalSurfacePanel } from "@/components/panes/surfaces/TerminalSurfacePanel";
 import {
-  LENS_SPLIT_GUTTERS_ATTRIBUTE,
-  formatLensSplitGutterEdges,
-  resolveLensSplitGutterEdges,
-  type LensSplitViewPlacement,
-} from "@/lib/lens/lens-split-gutters";
-import {
   buildPanePanelId,
   parsePanePanelId,
   type PaneDockLayout,
@@ -82,85 +76,6 @@ const STAVE_DOCKVIEW_THEME: DockviewTheme = {
   edgeGroupCollapsedSize: 46,
   tabGroupIndicator: "none",
 };
-
-/** Guards the ancestor walk against a malformed/cyclic Dockview DOM. */
-const MAX_SPLIT_VIEW_DEPTH = 16;
-
-/**
- * Collect the split-view chain around a Dockview leaf view: its own container
- * first, then every enclosing grid branch (`.dv-view > .dv-branch-node >
- * .dv-split-view-container > .dv-view-container > .dv-view`).
- */
-function collectLensSplitPlacements(
-  leafView: HTMLElement,
-): LensSplitViewPlacement[] {
-  const placements: LensSplitViewPlacement[] = [];
-  let view: HTMLElement | null = leafView;
-  for (let depth = 0; view && depth < MAX_SPLIT_VIEW_DEPTH; depth += 1) {
-    const splitContainer: HTMLElement | null =
-      view.parentElement?.parentElement ?? null;
-    if (
-      !(splitContainer instanceof HTMLElement) ||
-      !splitContainer.classList.contains("dv-split-view-container")
-    ) {
-      break;
-    }
-    placements.push({
-      orientation: splitContainer.classList.contains("dv-horizontal")
-        ? "horizontal"
-        : splitContainer.classList.contains("dv-vertical")
-          ? "vertical"
-          : null,
-      hasPrecedingView: Boolean(view.previousElementSibling),
-      hasFollowingView: Boolean(view.nextElementSibling),
-    });
-    view =
-      splitContainer.parentElement?.closest<HTMLElement>(".dv-view") ?? null;
-  }
-  return placements;
-}
-
-/**
- * Tag the Dockview view hosting a Lens group with the edges whose separator
- * and resize sash would otherwise disappear behind the native browser surface.
- * `src/globals.css` turns the tag into a gutter the native view is kept out of.
- */
-function syncLensSplitGutters(api: DockviewApi) {
-  for (const group of api.groups) {
-    const view = group.element.parentElement;
-    if (!(view instanceof HTMLElement) || !view.classList.contains("dv-view")) {
-      continue;
-    }
-    const lensPanels = group.panels.filter(
-      (panel) => parsePanePanelId(panel.id)?.kind === "lens",
-    );
-    const edges = lensPanels.length > 0
-      ? resolveLensSplitGutterEdges(collectLensSplitPlacements(view))
-      : [];
-    const serializedEdges =
-      edges.length > 0 ? formatLensSplitGutterEdges(edges) : null;
-    if (!serializedEdges) {
-      view.removeAttribute(LENS_SPLIT_GUTTERS_ATTRIBUTE);
-    } else {
-      view.setAttribute(LENS_SPLIT_GUTTERS_ATTRIBUTE, serializedEdges);
-    }
-
-    // Dockview renders framework panel content in its sibling overlay rather
-    // than inside `.dv-view`. Mirror the edge tag onto each Lens content
-    // wrapper so the native-view placeholder can inherit the same geometry.
-    for (const panel of lensPanels) {
-      const content = panel.view.content.element;
-      if (!(content instanceof HTMLElement)) {
-        continue;
-      }
-      if (serializedEdges) {
-        content.setAttribute(LENS_SPLIT_GUTTERS_ATTRIBUTE, serializedEdges);
-      } else {
-        content.removeAttribute(LENS_SPLIT_GUTTERS_ATTRIBUTE);
-      }
-    }
-  }
-}
 
 function PaneIconPicker(props: IContextMenuItemComponentProps) {
   const options = props.componentProps as
@@ -951,24 +866,6 @@ export function WorkspacePaneHost() {
         closeSurfaceInStoreDirect(surface);
       });
 
-      // Adjacency (not size) decides the Lens gutters, so the coalesced
-      // layout-change signal is enough — and unlike the persist path it must
-      // also run while a restore is in flight.
-      let lensGutterSyncRaf = 0;
-      const scheduleLensGutterSync = () => {
-        cancelAnimationFrame(lensGutterSyncRaf);
-        lensGutterSyncRaf = requestAnimationFrame(() => {
-          lensGutterSyncRaf = 0;
-          if (apiRef.current === api) {
-            syncLensSplitGutters(api);
-          }
-        });
-      };
-      api.onDidLayoutChange(scheduleLensGutterSync);
-      api.onDidAddPanel(scheduleLensGutterSync);
-      api.onDidRemovePanel(scheduleLensGutterSync);
-      api.onDidMovePanel(scheduleLensGutterSync);
-      api.onDidLayoutFromJSON(scheduleLensGutterSync);
 
       api.onDidLayoutChange(() => {
         if (restoringRef.current) {

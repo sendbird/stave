@@ -60,7 +60,7 @@ export function LensPreviewSurface(args: {
     <>
       <div
         ref={placeholderRef}
-        data-lens-native-view-placeholder=""
+        data-lens-guest-placeholder=""
         className="absolute inset-0 min-h-0 overflow-hidden bg-background"
       />
       {isLoading ? (

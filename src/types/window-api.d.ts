@@ -1986,7 +1986,6 @@ interface AppMetricsResult {
     consoleEntries: number;
     networkEntries: number;
     downloadEntries: number;
-    retainedViews: number;
     cdpControllers: number;
     cdpClosingControllers: number;
     cdpInFlightCommands: number;
@@ -2283,14 +2282,6 @@ interface WindowLensApi {
   respondCdpApproval?: (
     args: LensCdpApprovalResponse,
   ) => Promise<{ ok: boolean; message?: string }>;
-  createView?: (
-    args: LensSessionProfileArgs & { lensSessionId?: string },
-  ) => Promise<{
-    ok: boolean;
-    sessionScope?: LensSessionScope;
-    lensSessionId?: string;
-    message?: string;
-  }>;
   /**
    * Open or adopt a Lens session. Live by the time it resolves: main asks this
    * window for the guest page and waits for the bind before answering.
@@ -2320,25 +2311,11 @@ interface WindowLensApi {
     ok: boolean;
     sessions?: LensSessionDescriptor[];
   }>;
-  destroyView?: (args: {
-    workspaceId: string;
-    lensSessionId?: string;
-  }) => Promise<{ ok: boolean }>;
   clearSessionData?: (args: LensSessionProfileArgs) => Promise<{
     ok: boolean;
     sessionScope?: LensSessionScope;
     message?: string;
   }>;
-  setBounds?: (args: {
-    workspaceId: string;
-    lensSessionId?: string;
-    bounds: { x: number; y: number; width: number; height: number };
-  }) => Promise<{ ok: boolean; message?: string }>;
-  setVisible?: (args: {
-    workspaceId: string;
-    lensSessionId?: string;
-    visible: boolean;
-  }) => Promise<{ ok: boolean }>;
   /**
    * Report whether a panel is showing this session's page.
    *

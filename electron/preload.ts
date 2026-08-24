@@ -2294,7 +2294,6 @@ contextBridge.exposeInMainWorld("api", {
           consoleEntries: number;
           networkEntries: number;
           downloadEntries: number;
-          retainedViews: number;
           cdpControllers: number;
           cdpClosingControllers: number;
           cdpInFlightCommands: number;
@@ -2374,13 +2373,6 @@ contextBridge.exposeInMainWorld("api", {
       forgetPendingLensCdpApproval(args.requestId);
       return result;
     },
-    createView: (args: LensSessionProfileArgs & { lensSessionId?: string }) =>
-      ipcRenderer.invoke("lens:create-view", args) as Promise<{
-        ok: boolean;
-        sessionScope?: LensSessionProfileArgs["sessionScope"];
-        lensSessionId?: string;
-        message?: string;
-      }>,
     openSession: (
       args: LensSessionProfileArgs & { lensSessionId: string; url?: string },
     ) =>
@@ -2419,32 +2411,11 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         sessions?: LensSessionDescriptor[];
       }>,
-    destroyView: (args: { workspaceId: string; lensSessionId?: string }) =>
-      ipcRenderer.invoke("lens:destroy-view", args) as Promise<{
-        ok: boolean;
-      }>,
     clearSessionData: (args: LensSessionProfileArgs) =>
       ipcRenderer.invoke("lens:clear-session-data", args) as Promise<{
         ok: boolean;
         sessionScope?: LensSessionProfileArgs["sessionScope"];
         message?: string;
-      }>,
-    setBounds: (args: {
-      workspaceId: string;
-      lensSessionId?: string;
-      bounds: { x: number; y: number; width: number; height: number };
-    }) =>
-      ipcRenderer.invoke("lens:set-bounds", args) as Promise<{
-        ok: boolean;
-        message?: string;
-      }>,
-    setVisible: (args: {
-      workspaceId: string;
-      lensSessionId?: string;
-      visible: boolean;
-    }) =>
-      ipcRenderer.invoke("lens:set-visible", args) as Promise<{
-        ok: boolean;
       }>,
     setPresented: (args: {
       workspaceId: string;
