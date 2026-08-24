@@ -2,7 +2,31 @@ import { useState } from "react";
 import { Button } from "@/components/ui";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
 import { useScratchSessionStore } from "@/store/scratch-session.store";
-import type { ApprovalPart } from "@/types/chat";
+import type { ApprovalPart, ChatMessage, MessagePart } from "@/types/chat";
+
+// AssistantMessageBody renders pending interaction parts (approval / user_input)
+// through MessagePartRenderer, whose Approve/Deny and input controls are hardwired
+// to the project-scoped useAppStore. A scratch session has no task in that store,
+// so those controls would be dead *and* duplicate the scratch-owned ScratchApprovalRow.
+// Strip the requested (actionable) parts before handing the message to AssistantMessage-
+// Body; ScratchApprovalRow becomes the sole live control. Non-requested states
+// (responded / interrupted) stay for history — ConfirmationCompact renders them
+// buttonless, so they carry no misrouted actions.
+export function isStoreWiredPendingInteraction(part: MessagePart): boolean {
+  return (
+    (part.type === "approval" && part.state === "approval-requested") ||
+    (part.type === "user_input" && part.state === "input-requested")
+  );
+}
+
+export function stripStoreWiredPendingInteractions(
+  message: ChatMessage,
+): ChatMessage {
+  return {
+    ...message,
+    parts: message.parts.filter((part) => !isStoreWiredPendingInteraction(part)),
+  };
+}
 
 export function ScratchApprovalRow(props: {
   part: ApprovalPart;
@@ -36,19 +60,15 @@ export function ScratchApprovalRow(props: {
   );
 }
 
-export function ScratchTranscript() {
-  const messages = useScratchSessionStore((state) => state.messages);
-  const taskId = useScratchSessionStore((state) => state.taskId);
-  const respondApproval = useScratchSessionStore(
-    (state) => state.respondApproval,
-  );
-  const [inFlightRequestId, setInFlightRequestId] = useState<string | null>(
-    null,
-  );
-
+export function ScratchTranscriptView(props: {
+  messages: ChatMessage[];
+  taskId: string;
+  inFlightRequestId: string | null;
+  onRespond: (args: { part: ApprovalPart; approved: boolean }) => void;
+}) {
   return (
     <div className="max-h-[24rem] space-y-3 overflow-y-auto px-4 py-3">
-      {messages.map((message) => {
+      {props.messages.map((message) => {
         if (message.role === "user") {
           return (
             <p key={message.id} className="text-sm text-muted-foreground">
@@ -65,8 +85,8 @@ export function ScratchTranscript() {
         return (
           <div key={message.id} className="space-y-2">
             <AssistantMessageBody
-              message={message}
-              taskId={taskId}
+              message={stripStoreWiredPendingInteractions(message)}
+              taskId={props.taskId}
               messageId={message.id}
               streamingEnabled
             />
@@ -74,19 +94,40 @@ export function ScratchTranscript() {
               <ScratchApprovalRow
                 key={part.requestId}
                 part={part}
-                disabled={inFlightRequestId === part.requestId}
-                onRespond={({ approved }) => {
-                  setInFlightRequestId(part.requestId);
-                  void respondApproval({
-                    requestId: part.requestId,
-                    approved,
-                  }).finally(() => setInFlightRequestId(null));
-                }}
+                disabled={props.inFlightRequestId === part.requestId}
+                onRespond={({ approved }) =>
+                  props.onRespond({ part, approved })
+                }
               />
             ))}
           </div>
         );
       })}
     </div>
+  );
+}
+
+export function ScratchTranscript() {
+  const messages = useScratchSessionStore((state) => state.messages);
+  const taskId = useScratchSessionStore((state) => state.taskId);
+  const respondApproval = useScratchSessionStore(
+    (state) => state.respondApproval,
+  );
+  const [inFlightRequestId, setInFlightRequestId] = useState<string | null>(
+    null,
+  );
+
+  return (
+    <ScratchTranscriptView
+      messages={messages}
+      taskId={taskId}
+      inFlightRequestId={inFlightRequestId}
+      onRespond={({ part, approved }) => {
+        setInFlightRequestId(part.requestId);
+        void respondApproval({ requestId: part.requestId, approved }).finally(
+          () => setInFlightRequestId(null),
+        );
+      }}
+    />
   );
 }
