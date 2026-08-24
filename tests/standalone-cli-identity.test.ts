@@ -74,8 +74,9 @@ describe("standalone cli identity", () => {
 
     expect(tabs.map((tab) => tab.id)).toEqual(["claude-code", "codex"]);
     expect(tabs.every((tab) => tab.cwd === "/tmp/notes")).toBe(true);
-    expect(tabs[0].nativeSessionId).toBeUndefined();
+    expect(Object.hasOwn(tabs[0], "nativeSessionId")).toBe(false);
     expect(tabs[1].nativeSessionId).toBe("codex-session-1");
+    expect(Object.hasOwn(tabs[1], "nativeSessionId")).toBe(true);
     expect(tabs.map((tab) => tab.title)).toEqual(["Claude Code", "Codex"]);
   });
 });
