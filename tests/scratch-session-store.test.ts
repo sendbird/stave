@@ -234,8 +234,7 @@ async function startTurnWithPendingApproval() {
       { prompt: "edit the readme", settings: defaultSettings },
       { runTurn },
     );
-  // Allow async event processing to complete
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await Bun.sleep(0);
 }
 
 describe("scratch session approvals", () => {
@@ -283,6 +282,65 @@ describe("scratch session approvals", () => {
       selectScratchPendingApprovals(useScratchSessionStore.getState()),
     ).toHaveLength(1);
     expect(useScratchSessionStore.getState().error).toContain("gone");
+  });
+
+  test("does not revert approval to responded if stop runs during IPC", async () => {
+    await startTurnWithPendingApproval();
+    const turnId = useScratchSessionStore.getState().activeTurnId;
+
+    // Create a deferred respondApproval that won't resolve immediately
+    let resolveApprovalCall: (value: { ok: boolean }) => void;
+    const approvalPromise = new Promise<{ ok: boolean }>((resolve) => {
+      resolveApprovalCall = resolve;
+    });
+
+    const respondApprovalCall = useScratchSessionStore
+      .getState()
+      .respondApproval(
+        { requestId: "req-1", approved: true },
+        { respondApproval: async () => approvalPromise },
+      );
+
+    // stop() runs while respondApproval is awaiting IPC
+    await useScratchSessionStore.getState().stop({
+      abortTurn: async () => ({ ok: true }),
+    });
+
+    // Verify turn is stopped
+    expect(useScratchSessionStore.getState().activeTurnId).toBeNull();
+    expect(
+      selectScratchPendingApprovals(useScratchSessionStore.getState()),
+    ).toHaveLength(0);
+
+    // Now resolve the deferred respondApproval with success
+    resolveApprovalCall!({ ok: true });
+    await respondApprovalCall;
+
+    // Approval should still be interrupted, not responded
+    const approval = useScratchSessionStore.getState().messages
+      .flatMap((m) => m.parts)
+      .find((p) => p.type === "approval" && p.requestId === "req-1");
+    expect(approval?.type === "approval" && approval?.state).not.toBe(
+      "approval-responded",
+    );
+  });
+
+  test("records error when respondApproval rejects", async () => {
+    await startTurnWithPendingApproval();
+
+    await useScratchSessionStore.getState().respondApproval(
+      { requestId: "req-1", approved: true },
+      {
+        respondApproval: async () => {
+          throw new Error("IPC crashed");
+        },
+      },
+    );
+
+    expect(useScratchSessionStore.getState().error).toContain("IPC crashed");
+    expect(
+      selectScratchPendingApprovals(useScratchSessionStore.getState()),
+    ).toHaveLength(1);
   });
 });
 

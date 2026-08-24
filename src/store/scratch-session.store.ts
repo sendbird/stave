@@ -86,7 +86,9 @@ function isAbsolutePosixOrWindowsPath(candidate: string) {
   return candidate.startsWith("/") || /^[A-Za-z]:[\\/]/.test(candidate);
 }
 
-export function selectScratchPendingApprovals(state: ScratchSessionState) {
+export function selectScratchPendingApprovals(
+  state: ScratchSessionState,
+): Array<{ messageId: string; part: ApprovalPart }> {
   return findPendingApprovals({ messages: state.messages });
 }
 
@@ -276,9 +278,22 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
         return;
       }
 
-      const result = await respondApproval({ turnId, requestId, approved });
+      let result: { ok: boolean; message?: string };
+      try {
+        result = await respondApproval({ turnId, requestId, approved });
+      } catch (error) {
+        set({ error: `Approval delivery failed: ${String(error)}` });
+        return;
+      }
+
       if (!result.ok) {
         set({ error: `Approval delivery failed: ${result.message ?? "unknown"}` });
+        return;
+      }
+
+      // Re-check that the turn is still live after the async IPC call.
+      // If stop() ran between the call and this point, don't revert the interruption.
+      if (get().activeTurnId !== turnId) {
         return;
       }
 
