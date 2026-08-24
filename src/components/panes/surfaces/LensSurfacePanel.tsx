@@ -2,7 +2,6 @@ import type { IDockviewPanelProps } from "dockview-react";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -58,21 +57,18 @@ import {
   isLensCommentImageAttachment,
   upsertLensAnnotationsAttachment,
 } from "@/lib/lens/lens-annotation-attachment";
-import { hasLensOccludingFloatingSurface } from "@/lib/lens/lens-occlusion";
 import {
   type LensAnnotation,
   type LensAnnotationEventPayload,
   type BrowserNavigationEventPayload,
   type BrowserNavigationState,
   type ElementPickerResult,
-  type LensBounds,
   type LensDownloadEntry,
   type LensDownloadEventPayload,
   type LensSourceMappingConfig,
 } from "@/lib/lens/lens.types";
 import {
   LENS_LOG_LIMIT,
-  areLensBoundsEqual,
   matchesSession,
   mergeAnnotationEntry,
   mergeDownloadEntry,
@@ -86,10 +82,10 @@ import {
 import { LensConsoleWorkbench } from "@/components/panes/surfaces/lens/LensConsoleWorkbench";
 import { LensNetworkWorkbench } from "@/components/panes/surfaces/lens/LensNetworkWorkbench";
 import { useLensDiagnosticsLog } from "@/components/panes/surfaces/lens/useLensDiagnosticsLog";
+import { useLensSurfaceHost } from "@/components/panes/surfaces/lens/useLensSurfaceHost";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import {
   DEFAULT_VISUAL_COMMENT_SHORTCUT,
   isVisualCommentShortcut,
@@ -102,14 +98,6 @@ const DEFAULT_NAVIGATION_STATE: BrowserNavigationState = {
   canGoForward: false,
   isLoading: false,
 };
-
-/**
- * Lens sessions whose surface panel is currently visible. Workspace-level
- * events that carry no lensSessionId (visual-comment shortcut relayed while
- * the page has focus) are fielded by exactly one mounted panel picked
- * deterministically from this registry / the store.
- */
-const visibleLensSessionIds = new Set<string>();
 
 /**
  * Dockview panel wrapper for one lens (embedded browser) session. The panel
@@ -182,51 +170,10 @@ function LensSessionSurface(args: {
 
   const hasLensApi = Boolean(window.api?.lens);
 
-  const placeholderRef = useRef<HTMLDivElement>(null);
-  const measureRafRef = useRef<number>(0);
-  const flushRafRef = useRef<number>(0);
   const urlInputRef = useRef<HTMLInputElement>(null);
-  const pendingBoundsRef = useRef<LensBounds | null>(null);
-  const lastSentBoundsRef = useRef<LensBounds | null>(null);
-  const boundsRequestInFlightRef = useRef(false);
-  const isViewReadyRef = useRef(false);
   // Track whether the URL address bar is focused so navigation events don't
   // clobber text the user is actively editing.
   const isUrlInputFocused = useRef(false);
-
-  // Dockview panel visibility drives per-session WebContentsView visibility:
-  // a hidden tab keeps its DOM (renderer "always") and its session alive but
-  // must release the native view's screen real estate.
-  const [isPanelVisible, setIsPanelVisible] = useState(
-    () => panelApi.isVisible,
-  );
-  const isPanelActiveRef = useRef(panelApi.isActive);
-
-  useEffect(() => {
-    setIsPanelVisible(panelApi.isVisible);
-    isPanelActiveRef.current = panelApi.isActive;
-    const visibilityDisposable = panelApi.onDidVisibilityChange((event) => {
-      setIsPanelVisible(event.isVisible);
-    });
-    const activeDisposable = panelApi.onDidActiveChange((event) => {
-      isPanelActiveRef.current = event.isActive;
-    });
-    return () => {
-      visibilityDisposable.dispose();
-      activeDisposable.dispose();
-    };
-  }, [panelApi]);
-
-  useEffect(() => {
-    if (isPanelVisible) {
-      visibleLensSessionIds.add(lensSessionId);
-    } else {
-      visibleLensSessionIds.delete(lensSessionId);
-    }
-    return () => {
-      visibleLensSessionIds.delete(lensSessionId);
-    };
-  }, [isPanelVisible, lensSessionId]);
 
   const [url, setUrl] = useState(DEFAULT_NAVIGATION_STATE.url);
   const [inputUrl, setInputUrl] = useState("");
@@ -239,74 +186,8 @@ function LensSessionSurface(args: {
   const [annotations, setAnnotations] = useState<LensAnnotation[]>([]);
   const [isAnnotationModeActive, setIsAnnotationModeActive] = useState(false);
   const [isBoxInspectActive, setIsBoxInspectActive] = useState(false);
-  const [isLensFloatingSurfaceOpen, setIsLensFloatingSurfaceOpen] =
-    useState(false);
   const [lensPanelTab, setLensPanelTab] = useState<LensPanelTab>("preview");
   const [lastLoadError, setLastLoadError] = useState<string | null>(null);
-  const [hasExternalFloatingSurface, setHasExternalFloatingSurface] =
-    useState(false);
-  const isLensSuppressed =
-    !isPanelVisible ||
-    isLensFloatingSurfaceOpen ||
-    hasExternalFloatingSurface ||
-    lensPanelTab !== "preview";
-  const isLensSuppressedRef = useRef(isLensSuppressed);
-  isLensSuppressedRef.current = isLensSuppressed;
-
-  useEffect(() => {
-    if (!isPanelVisible || lensPanelTab !== "preview") {
-      setHasExternalFloatingSurface(false);
-      return;
-    }
-    if (typeof document === "undefined" || !document.body) {
-      return;
-    }
-
-    let frame = 0;
-    const sync = () => {
-      frame = 0;
-      const next = hasLensOccludingFloatingSurface(
-        document,
-        placeholderRef.current?.getBoundingClientRect() ?? null,
-      );
-      setHasExternalFloatingSurface((current) =>
-        current === next ? current : next,
-      );
-    };
-    const scheduleSync = () => {
-      if (frame !== 0) {
-        return;
-      }
-      frame = window.requestAnimationFrame(sync);
-    };
-
-    sync();
-    const observer = new MutationObserver(scheduleSync);
-    observer.observe(document.body, {
-      attributes: true,
-      childList: true,
-      subtree: true,
-    });
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(scheduleSync);
-    const placeholder = placeholderRef.current;
-    if (placeholder) {
-      resizeObserver?.observe(placeholder);
-    }
-    window.addEventListener("resize", scheduleSync);
-
-    return () => {
-      if (frame !== 0) {
-        window.cancelAnimationFrame(frame);
-      }
-      observer.disconnect();
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", scheduleSync);
-    };
-  }, [isPanelVisible, lensPanelTab, workspaceId]);
 
   const applyNavigationState = useCallback((state: BrowserNavigationState) => {
     setUrl(state.url);
@@ -324,131 +205,79 @@ function LensSessionSurface(args: {
     setCanGoForward(state.canGoForward);
   }, []);
 
-  const flushPendingBounds = useCallback(() => {
-    if (!workspaceId || !hasLensApi || boundsRequestInFlightRef.current) {
+  const startAnnotationMode = useCallback(async () => {
+    if (!workspaceId || !hasLensApi) {
       return;
     }
 
-    const bounds = pendingBoundsRef.current;
-    if (!bounds) {
+    if (isAnnotationModeActive) {
       return;
     }
 
-    if (areLensBoundsEqual(bounds, lastSentBoundsRef.current)) {
-      pendingBoundsRef.current = null;
-      return;
+    // Annotation and inspect overlays both capture pointer events - keep them
+    // mutually exclusive so they never fight over the same hover/click.
+    if (isBoxInspectActive) {
+      await window.api?.lens?.stopBoxInspect?.({ workspaceId, lensSessionId });
+      setIsBoxInspectActive(false);
     }
 
-    pendingBoundsRef.current = null;
-    boundsRequestInFlightRef.current = true;
-
-    const request = window.api?.lens?.setBounds?.({
+    const result = await window.api?.lens?.startAnnotationMode?.({
       workspaceId,
       lensSessionId,
-      bounds,
+      options: {
+        extractDebugSource: sourceMappingConfig.reactDebugSource,
+      },
     });
-    if (!request) {
-      boundsRequestInFlightRef.current = false;
-      return;
-    }
-
-    void request
-      .then((result) => {
-        if (result?.ok) {
-          lastSentBoundsRef.current = bounds;
-        }
-      })
-      .catch(() => {
-        // Bounds sync is best-effort; the next layout change retries.
-      })
-      .finally(() => {
-        boundsRequestInFlightRef.current = false;
-
-        if (!pendingBoundsRef.current) {
-          return;
-        }
-
-        cancelAnimationFrame(flushRafRef.current);
-        flushRafRef.current = requestAnimationFrame(() => {
-          flushPendingBounds();
-        });
+    if (!result?.ok) {
+      toast.error("Annotation mode failed", {
+        description: result?.message ?? "Lens could not start annotation mode.",
       });
-  }, [hasLensApi, lensSessionId, workspaceId]);
-
-  const syncBounds = useCallback(
-    (options?: { immediate?: boolean }) => {
-      const el = placeholderRef.current;
-      if (
-        !workspaceId ||
-        !el ||
-        !hasLensApi ||
-        !isViewReadyRef.current ||
-        isLensSuppressedRef.current
-      ) {
-        return;
-      }
-
-      const measureBounds = () => {
-        const rect = el.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) {
-          return;
-        }
-
-        // Keep the measured CSS-pixel rectangle intact. The main process
-        // converts its scaled edges inward so the native view cannot overlap
-        // Dockview's renderer-owned resize sash by a rounding pixel.
-        pendingBoundsRef.current = {
-          x: rect.left,
-          y: rect.top,
-          width: rect.width,
-          height: rect.height,
-        };
-
-        cancelAnimationFrame(flushRafRef.current);
-        if (options?.immediate) {
-          flushPendingBounds();
-          return;
-        }
-
-        flushRafRef.current = requestAnimationFrame(() => {
-          flushPendingBounds();
-        });
-      };
-
-      cancelAnimationFrame(measureRafRef.current);
-      if (options?.immediate) {
-        measureBounds();
-        return;
-      }
-
-      measureRafRef.current = requestAnimationFrame(measureBounds);
-    },
-    [flushPendingBounds, hasLensApi, workspaceId],
-  );
-
-  useLayoutEffect(() => {
-    if (!workspaceId || !hasLensApi || isLensSuppressed) {
       return;
     }
-
-    syncBounds({ immediate: true });
+    setIsAnnotationModeActive(true);
   }, [
-    annotations.length,
     hasLensApi,
     isAnnotationModeActive,
-    isLensSuppressed,
-    isPanelVisible,
-    syncBounds,
+    isBoxInspectActive,
+    lensSessionId,
+    sourceMappingConfig.reactDebugSource,
     workspaceId,
   ]);
 
+  const stopAnnotationMode = useCallback(async () => {
+    if (!workspaceId || !hasLensApi) {
+      return;
+    }
+
+    const result = await window.api?.lens?.stopAnnotationMode?.({
+      workspaceId,
+      lensSessionId,
+    });
+    if (!result?.ok) {
+      toast.error("Annotation mode failed", {
+        description: result?.message ?? "Lens could not stop annotation mode.",
+      });
+      return;
+    }
+    setIsAnnotationModeActive(false);
+  }, [hasLensApi, lensSessionId, workspaceId]);
+
+  const toggleAnnotationMode = useCallback(async () => {
+    if (isAnnotationModeActive) {
+      await stopAnnotationMode();
+      return;
+    }
+    await startAnnotationMode();
+  }, [isAnnotationModeActive, startAnnotationMode, stopAnnotationMode]);
+
   // Must stay above the session-lifecycle effect below, which resets the
   // diagnostics state and pause buffers and therefore needs this hook's
-  // setters. The diagnostics effects consequently run before the bounds,
-  // visibility, and subscription effects that stay in this file. That is safe
-  // because the lifecycle reset is synchronous while every diagnostics load is
-  // async IPC: the reset always commits before a load resolves, so both
-  // orderings converge on the same final state. Preserve this invariant.
+  // setters. The diagnostics effects consequently run before the surface-host
+  // bounds and visibility effects and before the subscription effects below.
+  // That is safe because the lifecycle reset is synchronous while every
+  // diagnostics load is async IPC: the reset always commits before a load
+  // resolves, so both orderings converge on the same final state. Preserve
+  // this invariant.
   const diagnostics = useLensDiagnosticsLog({
     hasLensApi,
     lensPanelTab,
@@ -478,15 +307,36 @@ function LensSessionSurface(args: {
     setSelectedNetworkEntryId,
   } = diagnostics;
 
+  // Native-surface placement: bounds mirroring, visibility suppression, and the
+  // key round-trip that only exist because the guest composites above the whole
+  // renderer. `useLensSurfaceHost` is the intended swap point for that.
+  const {
+    collapseSurface,
+    getIsSuppressed,
+    markSurfaceReady,
+    placeholderRef,
+    releaseSurface,
+    requestBoundsSync,
+    resetSurfaceTracking,
+    setFloatingSurfaceOpen,
+  } = useLensSurfaceHost({
+    annotationCount: annotations.length,
+    hasLensApi,
+    isAnnotationModeActive,
+    lensPanelTab,
+    lensSessionId,
+    onVisualCommentShortcut: toggleAnnotationMode,
+    panelApi,
+    visualCommentShortcut,
+    workspaceId,
+  });
+
   // Session lifecycle. Opening is idempotent (`openSession` reuses a live
   // session, so re-showing a hidden tab or remounting the panel restores the
   // same page). The cleanup only hides the native view; the session itself is
   // destroyed exclusively when its tab has been removed from the store.
   useEffect(() => {
-    pendingBoundsRef.current = null;
-    lastSentBoundsRef.current = null;
-    boundsRequestInFlightRef.current = false;
-    isViewReadyRef.current = false;
+    resetSurfaceTracking();
     setAnnotations([]);
     setIsAnnotationModeActive(false);
     setIsBoxInspectActive(false);
@@ -541,11 +391,11 @@ function LensSessionSurface(args: {
         return;
       }
 
-      isViewReadyRef.current = true;
+      markSurfaceReady();
       await lensApi?.setVisible?.({
         workspaceId,
         lensSessionId,
-        visible: !isLensSuppressedRef.current,
+        visible: !getIsSuppressed(),
       });
 
       const stateResult = await lensApi?.getState?.({
@@ -566,37 +416,17 @@ function LensSessionSurface(args: {
         setAnnotations(annotationsResult.annotations ?? []);
       }
 
-      if (isLensSuppressedRef.current) {
-        await lensApi?.setBounds?.({
-          workspaceId,
-          lensSessionId,
-          bounds: { x: 0, y: 0, width: 0, height: 0 },
-        });
+      if (getIsSuppressed()) {
+        await collapseSurface();
         return;
       }
 
-      syncBounds();
+      requestBoundsSync();
     })();
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(measureRafRef.current);
-      cancelAnimationFrame(flushRafRef.current);
-      pendingBoundsRef.current = null;
-      lastSentBoundsRef.current = null;
-      boundsRequestInFlightRef.current = false;
-      isViewReadyRef.current = false;
-      // Reset bounds first so the view doesn't occlude other panels while hidden.
-      void window.api?.lens?.setBounds?.({
-        workspaceId,
-        lensSessionId,
-        bounds: { x: 0, y: 0, width: 0, height: 0 },
-      });
-      void window.api?.lens?.setVisible?.({
-        workspaceId,
-        lensSessionId,
-        visible: false,
-      });
+      releaseSurface();
       // Hidden ≠ closed: the session survives unmounts (workspace switches,
       // layout churn). Destroy it only when its tab is gone from the SAME
       // workspace — this also covers close paths that bypassed
@@ -615,76 +445,19 @@ function LensSessionSurface(args: {
     };
   }, [
     applyNavigationState,
+    collapseSurface,
+    getIsSuppressed,
     hasLensApi,
     isTabOpen,
     lensSessionId,
     lensSessionScope,
+    markSurfaceReady,
     projectPath,
-    syncBounds,
+    releaseSurface,
+    requestBoundsSync,
+    resetSurfaceTracking,
     workspaceId,
   ]);
-
-  useEffect(() => {
-    const el = placeholderRef.current;
-    if (!workspaceId || !el || !hasLensApi) {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver(() => {
-      syncBounds();
-    });
-    resizeObserver.observe(el);
-
-    const handleWindowResize = () => {
-      syncBounds();
-    };
-
-    window.addEventListener("resize", handleWindowResize);
-    const unsubscribeZoom = window.api?.window?.subscribeZoomChanges?.(() => {
-      syncBounds();
-    });
-
-    syncBounds();
-
-    return () => {
-      cancelAnimationFrame(measureRafRef.current);
-      cancelAnimationFrame(flushRafRef.current);
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", handleWindowResize);
-      unsubscribeZoom?.();
-    };
-  }, [hasLensApi, syncBounds, workspaceId]);
-
-  useEffect(() => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    if (isLensSuppressed) {
-      cancelAnimationFrame(measureRafRef.current);
-      cancelAnimationFrame(flushRafRef.current);
-      pendingBoundsRef.current = null;
-      lastSentBoundsRef.current = null;
-      void window.api?.lens?.setBounds?.({
-        workspaceId,
-        lensSessionId,
-        bounds: { x: 0, y: 0, width: 0, height: 0 },
-      });
-      void window.api?.lens?.setVisible?.({
-        workspaceId,
-        lensSessionId,
-        visible: false,
-      });
-      return;
-    }
-
-    void window.api?.lens?.setVisible?.({
-      workspaceId,
-      lensSessionId,
-      visible: true,
-    });
-    syncBounds();
-  }, [hasLensApi, isLensSuppressed, lensSessionId, syncBounds, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
@@ -1059,130 +832,6 @@ function LensSessionSurface(args: {
   const openDownloadInFinder = useCallback((savePath: string) => {
     void window.api?.shell?.showInFinder?.({ path: savePath });
   }, []);
-
-  const startAnnotationMode = useCallback(async () => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    if (isAnnotationModeActive) {
-      return;
-    }
-
-    // Annotation and inspect overlays both capture pointer events - keep them
-    // mutually exclusive so they never fight over the same hover/click.
-    if (isBoxInspectActive) {
-      await window.api?.lens?.stopBoxInspect?.({ workspaceId, lensSessionId });
-      setIsBoxInspectActive(false);
-    }
-
-    const result = await window.api?.lens?.startAnnotationMode?.({
-      workspaceId,
-      lensSessionId,
-      options: {
-        extractDebugSource: sourceMappingConfig.reactDebugSource,
-      },
-    });
-    if (!result?.ok) {
-      toast.error("Annotation mode failed", {
-        description: result?.message ?? "Lens could not start annotation mode.",
-      });
-      return;
-    }
-    setIsAnnotationModeActive(true);
-  }, [
-    hasLensApi,
-    isAnnotationModeActive,
-    isBoxInspectActive,
-    lensSessionId,
-    sourceMappingConfig.reactDebugSource,
-    workspaceId,
-  ]);
-
-  const stopAnnotationMode = useCallback(async () => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    const result = await window.api?.lens?.stopAnnotationMode?.({
-      workspaceId,
-      lensSessionId,
-    });
-    if (!result?.ok) {
-      toast.error("Annotation mode failed", {
-        description: result?.message ?? "Lens could not stop annotation mode.",
-      });
-      return;
-    }
-    setIsAnnotationModeActive(false);
-  }, [hasLensApi, lensSessionId, workspaceId]);
-
-  const toggleAnnotationMode = useCallback(async () => {
-    if (isAnnotationModeActive) {
-      await stopAnnotationMode();
-      return;
-    }
-    await startAnnotationMode();
-  }, [isAnnotationModeActive, startAnnotationMode, stopAnnotationMode]);
-
-  useEffect(() => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (isEditableShortcutTarget(event.target)) {
-        return;
-      }
-      if (
-        !isVisualCommentShortcut({
-          shortcut: visualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
-          key: event.key,
-          code: event.code,
-          shiftKey: event.shiftKey,
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          metaKey: event.metaKey,
-          isComposing: event.isComposing,
-        })
-      ) {
-        return;
-      }
-      // The shortcut is window-global while every lens panel is mounted
-      // (keep-alive), so exactly one session may claim it: the active lens
-      // panel if there is one, otherwise the first *visible* lens tab.
-      if (!isPanelActiveRef.current) {
-        const state = useAppStore.getState();
-        const activePanelSessionId =
-          state.activeSurface.kind === "lens"
-            ? state.activeSurface.lensSessionId
-            : null;
-        if (activePanelSessionId) {
-          if (activePanelSessionId !== lensSessionId) {
-            return;
-          }
-        } else {
-          const firstVisible = state.lensTabs.find((tab) =>
-            visibleLensSessionIds.has(tab.id),
-          );
-          if (firstVisible?.id !== lensSessionId) {
-            return;
-          }
-        }
-      }
-      event.preventDefault();
-      void toggleAnnotationMode();
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    hasLensApi,
-    lensSessionId,
-    toggleAnnotationMode,
-    visualCommentShortcut,
-    workspaceId,
-  ]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {
@@ -1603,7 +1252,7 @@ function LensSessionSurface(args: {
               </TooltipContent>
             </Tooltip>
 
-            <DropdownMenu onOpenChange={setIsLensFloatingSurfaceOpen}>
+            <DropdownMenu onOpenChange={setFloatingSurfaceOpen}>
               <Tooltip>
                 <TooltipTrigger
                   render={
@@ -1647,7 +1296,7 @@ function LensSessionSurface(args: {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <DropdownMenu onOpenChange={setIsLensFloatingSurfaceOpen}>
+            <DropdownMenu onOpenChange={setFloatingSurfaceOpen}>
               <Tooltip>
                 <TooltipTrigger
                   render={
