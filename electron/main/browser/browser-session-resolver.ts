@@ -1,10 +1,9 @@
 import {
   DEFAULT_LENS_SESSION_ID,
   resolvePreferredBrowserSession,
-  setViewVisible,
   type BrowserSessionState,
 } from "./browser-manager";
-import { ensureBrowserSessionWithEvents } from "./browser-session-events";
+import { ensureBrowserSessionGuest } from "./browser-guest-broker";
 import { listKnownProjects } from "../stave-mcp-service";
 import { findLensProjectKeyForWorkspace } from "../../../src/lib/lens/lens-session-selection";
 import type {
@@ -64,14 +63,23 @@ export async function acquireMcpBrowserSession(
   }
 
   const profile = await resolveCreationProfile(args);
-  const lensSessionId = args.lensSessionId?.trim() || DEFAULT_LENS_SESSION_ID;
-  const result = ensureBrowserSessionWithEvents(args.workspaceId, {
+
+  /*
+   * Main cannot create the page. A Lens guest is a `<webview>` element, which
+   * only the renderer can mount, so an agent-opened session is a request to the
+   * Stave window rather than a local construction.
+   *
+   * The renderer parks it hidden. That is not a compromise for the agent path —
+   * a parked guest keeps compositing, so screenshots and layout reads answer
+   * normally — and it is what lets `stave_lens_*` work without taking over the
+   * user's foreground.
+   */
+  const result = await ensureBrowserSessionGuest(args.workspaceId, {
     ...profile,
-    managedByMcp: true,
-    lensSessionId,
+    lensSessionId: args.lensSessionId?.trim() || DEFAULT_LENS_SESSION_ID,
   });
   if (result.created) {
-    setViewVisible(args.workspaceId, false, result.session.lensSessionId);
+    result.session.managedByMcp = true;
   }
   return result;
 }

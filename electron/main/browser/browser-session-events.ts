@@ -9,14 +9,17 @@ import {
   type LensStateChangedPayload,
 } from "../../../src/lib/lens/lens.types";
 import {
+  bindBrowserSessionGuest,
   browserSessionUsesProfile,
   createBrowserSession,
   getBrowserSession,
   pushConsoleEntry,
   pushGuestConsoleEntry,
   updateNavigationState,
+  type BindBrowserSessionGuestResult,
   type BrowserSessionState,
 } from "./browser-manager";
+import { notifyLensGuestBound } from "./browser-guest-broker";
 import { getAnnotationOverlayScript } from "./browser-annotation-overlay";
 import { getBoxInspectScript } from "./browser-box-inspect";
 import { fillLensCredentialForWebContents } from "./lens-credential-service";
@@ -521,4 +524,43 @@ export function ensureBrowserSessionWithEvents(
     session.lensSessionId,
   );
   return { session, created: true };
+}
+
+/**
+ * Adopt a renderer-created `<webview>` guest and start listening to its page.
+ *
+ * The events half is why this exists next to `ensureBrowserSessionWithEvents`
+ * rather than in the manager: navigation, console, network, annotation, and
+ * credential listeners are what make a bound WebContents an observable Lens
+ * session, and a guest bound without them would look alive and report nothing.
+ */
+export function bindBrowserSessionGuestWithEvents(args: {
+  workspaceId: string;
+  lensSessionId?: string;
+  guestWebContentsId: number;
+  managedByMcp?: boolean;
+} & Omit<LensSessionProfileArgs, "workspaceId">): BindBrowserSessionGuestResult {
+  const result = bindBrowserSessionGuest({
+    workspaceId: args.workspaceId,
+    lensSessionId: args.lensSessionId,
+    guestWebContentsId: args.guestWebContentsId,
+    sessionScope: args.sessionScope,
+    projectKey: args.projectKey,
+  });
+
+  if (!result.ok || !result.created) {
+    return result;
+  }
+
+  result.session.managedByMcp = args.managedByMcp === true;
+  result.session.detachEventListeners = attachBrowserSessionEventListeners(
+    args.workspaceId,
+    result.session.webContents,
+    result.session.lensSessionId,
+  );
+
+  // Only after the listeners are attached: a main-initiated caller resumes the
+  // moment this resolves, and the first thing it does is navigate.
+  notifyLensGuestBound(result.session);
+  return result;
 }

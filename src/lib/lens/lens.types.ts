@@ -88,6 +88,49 @@ export interface LensSessionClosedPayload {
   lensSessionId: string;
 }
 
+/**
+ * Main-to-renderer request to mount a guest for a session the renderer did not
+ * ask for.
+ *
+ * A `<webview>` guest can only be created by the renderer, but not every Lens
+ * session starts there: an agent calling `stave_lens_*` opens sessions that no
+ * panel is showing. Main resolves the identity and partition as usual and then
+ * asks the renderer for the page, which parks it hidden until something
+ * presents it.
+ *
+ * The profile fields travel with the request so the renderer can echo them back
+ * on bind; main re-resolves them and never trusts the echo.
+ */
+export interface LensGuestRequiredPayload {
+  workspaceId: string;
+  lensSessionId: string;
+  /** Partition main resolved. The renderer sets it verbatim on the tag. */
+  partition: string;
+  sessionScope: LensSessionScope;
+  projectKey: string | null;
+}
+
+/**
+ * Main-to-renderer request to give a session's guest native DOM focus.
+ *
+ * CDP input only reaches a guest that holds native focus; otherwise Chromium
+ * delivers it to whatever does hold focus **and the CDP call still resolves
+ * ok**. `webContents.focus()` is a no-op for a guest — only the embedding
+ * renderer can focus one — so agent input has to borrow focus through the
+ * renderer first, and hear back that it worked.
+ */
+export interface LensGuestFocusRequestPayload {
+  requestId: string;
+  workspaceId: string;
+  lensSessionId: string;
+}
+
+export interface LensGuestFocusResultPayload {
+  requestId: string;
+  ok: boolean;
+  message?: string;
+}
+
 export interface ElementPickerResult {
   selector: string;
   tagName: string;

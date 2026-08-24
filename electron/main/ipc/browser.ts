@@ -16,15 +16,22 @@ import {
   listBrowserSessions,
   pushConsoleEntry,
   pushNetworkEntry,
+  setSessionPresented,
   setViewBounds,
   setViewVisible,
 } from "../browser/browser-manager";
 import {
+  bindBrowserSessionGuestWithEvents,
   ensureBrowserSessionWithEvents,
   injectAnnotationOverlay,
   injectBoxInspectOverlay,
   sendAnnotationEvent,
 } from "../browser/browser-session-events";
+import {
+  ensureBrowserSessionGuest,
+  notifyLensGuestFailed,
+  resolveLensGuestFocus,
+} from "../browser/browser-guest-broker";
 import {
   assertLensDocumentIdentity,
   LENS_ANNOTATION_BEACON_MARKER,
@@ -90,6 +97,7 @@ import type {
   LensBounds,
   LensCdpApprovalResponse,
   LensDownloadEntry,
+  LensGuestFocusResultPayload,
   LensSecurityConfig,
   LensSessionDescriptor,
   LensSessionProfileArgs,
@@ -259,25 +267,36 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Session lifecycle (multi-session lens tabs) ----
+  //
+  // Still one call for the caller, but no longer one hop. A `<webview>` guest
+  // can only be created by the renderer, so main resolves the session's
+  // identity and partition, asks the window for a page, and resolves this
+  // invoke once that page has come back through `lens:bind-guest`. Panels and
+  // agent tools go through the same `ensureBrowserSessionGuest`, so "the
+  // session is open" means the same thing to both.
   ipcMain.handle(
     "lens:open-session",
     async (
-      _event,
+      event,
       args: LensSessionProfileArgs & {
         lensSessionId: string;
         url?: string;
       },
     ) => {
+      if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
       try {
-        const { session, created } = ensureBrowserSessionWithEvents(
+        const { session, created } = await ensureBrowserSessionGuest(
           args.workspaceId,
           {
             sessionScope: args.sessionScope,
             projectKey: args.projectKey,
             lensSessionId: args.lensSessionId,
-            reuseExisting: true,
           },
         );
+        // Adopting an agent-opened session into a panel is how a hidden page
+        // becomes a visible tab; it stops being MCP-owned at that point.
         session.managedByMcp = false;
 
         if (args.url?.trim()) {
@@ -305,6 +324,131 @@ export function registerBrowserHandlers() {
           message: err instanceof Error ? err.message : String(err),
         };
       }
+    },
+  );
+
+  // ---- Bind a renderer-created guest to its session ----
+  ipcMain.handle(
+    "lens:bind-guest",
+    async (
+      event,
+      args: LensSessionProfileArgs & {
+        lensSessionId: string;
+        guestWebContentsId: number;
+        managedByMcp?: boolean;
+      },
+    ) => {
+      if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      if (!Number.isInteger(args?.guestWebContentsId)) {
+        return { ok: false, message: "Invalid guest WebContents id" };
+      }
+      try {
+        const result = bindBrowserSessionGuestWithEvents({
+          workspaceId: args.workspaceId,
+          lensSessionId: args.lensSessionId,
+          guestWebContentsId: args.guestWebContentsId,
+          sessionScope: args.sessionScope,
+          projectKey: args.projectKey,
+          managedByMcp: args.managedByMcp,
+        });
+
+        if (!result.ok) {
+          // A main-initiated open is blocked on this bind; it has to hear the
+          // refusal rather than wait out its timeout.
+          notifyLensGuestFailed(
+            args.workspaceId,
+            args.lensSessionId,
+            result.message,
+          );
+          return { ok: false, message: result.message };
+        }
+
+        return { ok: true, created: result.created };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        notifyLensGuestFailed(args.workspaceId, args.lensSessionId, message);
+        return { ok: false, message };
+      }
+    },
+  );
+
+  // ---- Report which sessions a renderer panel is showing ----
+  //
+  // A report, not a command: the renderer has already shown or hidden the
+  // element. Main keeps the answer so an agent call with no explicit session id
+  // can target the tab the user is actually looking at.
+  ipcMain.handle(
+    "lens:set-presented",
+    async (
+      event,
+      args: {
+        workspaceId: string;
+        lensSessionId?: string;
+        presented: boolean;
+      },
+    ) => {
+      if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+        return { ok: false, message: "Unauthorized Lens renderer" };
+      }
+      setSessionPresented(
+        args.workspaceId,
+        args.presented === true,
+        args.lensSessionId,
+      );
+      return { ok: true };
+    },
+  );
+
+  // ---- Renderer could not mount a guest at all ----
+  //
+  // Distinct from a refused bind: nothing was ever nominated, so there is no id
+  // to judge. Without this channel a mount failure would only surface as the
+  // broker's 15s timeout, which is a long time for an agent tool call to hang
+  // on something that already failed.
+  ipcMain.on(
+    "lens:guest-mount-failed",
+    (
+      event,
+      payload: {
+        workspaceId: string;
+        lensSessionId: string;
+        message?: string;
+      },
+    ) => {
+      if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+        return;
+      }
+      if (
+        typeof payload?.workspaceId !== "string" ||
+        typeof payload?.lensSessionId !== "string"
+      ) {
+        return;
+      }
+      notifyLensGuestFailed(
+        payload.workspaceId,
+        payload.lensSessionId,
+        payload.message?.trim() || "The Stave window could not open a Lens page",
+      );
+    },
+  );
+
+  // ---- Renderer's answer to a focus borrow ----
+  ipcMain.on(
+    "lens:guest-focus-result",
+    (event, payload: LensGuestFocusResultPayload) => {
+      if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+        return;
+      }
+      if (typeof payload?.requestId !== "string") {
+        return;
+      }
+      resolveLensGuestFocus({
+        requestId: payload.requestId,
+        ok: payload.ok === true,
+        message: payload.message,
+      });
     },
   );
 

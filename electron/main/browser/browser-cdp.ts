@@ -11,6 +11,7 @@ import type {
   LensStyleEdit,
 } from "../../../src/lib/lens/lens.types";
 import { getSessionIdentityForWebContentsId } from "./browser-manager";
+import { borrowLensGuestFocus } from "./browser-guest-broker";
 import { assertCdpAllowed } from "./browser-security";
 import { getLensBoxModelScript } from "./browser-style-capture";
 import {
@@ -316,11 +317,46 @@ export async function getAccessibilitySnapshot(
 // Click / Type helpers (via CDP Input domain)
 // ---------------------------------------------------------------------------
 
+/**
+ * Make sure a guest holds native DOM focus before input is synthesized into it.
+ *
+ * `Input.dispatch*` is delivered to whatever currently has focus, not to the
+ * target the CDP session is attached to — and when it lands somewhere else the
+ * command still resolves successfully. That is the whole failure mode: an agent
+ * click that silently typed into the app's own prompt box, reported as a
+ * success. `webContents.focus()` cannot fix it either, because focusing a guest
+ * is something only the embedding renderer can do.
+ *
+ * So this asks the renderer and refuses to continue if the answer is no. A
+ * loud failure is the point; the alternative is input landing anywhere.
+ */
+async function requireLensGuestFocus(
+  webContentsId: number,
+  action: string,
+): Promise<void> {
+  const identity = getSessionIdentityForWebContentsId(webContentsId);
+  if (!identity) {
+    throw new Error(
+      `Cannot ${action}: webContents ${webContentsId} is not a Lens session`,
+    );
+  }
+
+  const result = await borrowLensGuestFocus(identity);
+  if (!result.ok) {
+    throw new Error(
+      `Cannot ${action}: the Lens page could not be focused, so input would be delivered elsewhere. ${
+        result.message ?? ""
+      }`.trim(),
+    );
+  }
+}
+
 export async function clickElement(
   webContentsId: number,
   selector: string,
 ): Promise<void> {
   await assertCdpAllowedForWebContentsId(webContentsId, "click page element");
+  await requireLensGuestFocus(webContentsId, "click page element");
 
   // Scroll the element into view first so getBoundingClientRect returns
   // non-negative viewport-relative coordinates, then get the center point.
@@ -364,6 +400,7 @@ export async function typeText(
   selector?: string,
 ): Promise<void> {
   await assertCdpAllowedForWebContentsId(webContentsId, "type into page");
+  await requireLensGuestFocus(webContentsId, "type into page");
 
   // Focus element first if selector provided
   if (selector) {
