@@ -20,6 +20,11 @@ import {
 import type { LensSurfaceHostHandle } from "@/components/panes/surfaces/lens/lens-surface-host";
 import { useAppStore } from "@/store/app.store";
 
+/** Most automatic rebuilds a session may draw before it stops trying. */
+const MAX_REBUILD_ATTEMPTS = 4;
+/** How long a session must stay open before its rebuild budget resets. */
+const STABLE_MS = 4_000;
+
 export const DEFAULT_LENS_NAVIGATION_STATE: BrowserNavigationState = {
   url: "about:blank",
   title: "",
@@ -165,16 +170,39 @@ export function useLensSession(args: {
   isTabOpenRef.current = isTabOpen;
 
   /*
-   * Consecutive failed opens for the current generation.
+   * One bounded budget for *every* automatic rebuild of this session, whether
+   * the trigger was a failed open or a session that opened and then died.
    *
-   * A failed `openSession` (main busy, a guest that lost its attach race) would
-   * otherwise leave the panel mounted and permanently sessionless, since a
-   * failure emits no `lens:session-closed` to recover from. A few bounded
-   * retries turn a transient failure into a short delay; the cap stops a
-   * genuinely broken open from looping forever. Reset whenever an open
-   * succeeds.
+   * Both need a circuit breaker and they must share one, because the dangerous
+   * case is a page that loads and immediately crashes: each crash emits
+   * `lens:session-closed`, recovery rebuilds, the rebuild opens fine, and the
+   * page crashes again — an unbounded open/destroy loop if success alone reset
+   * the count. So the count is reset not on success but after the session has
+   * stayed open a while (`STABLE_MS`); a session that never survives that long
+   * exhausts the budget and stops with a toast instead of churning forever.
    */
-  const openAttemptsRef = useRef(0);
+  const rebuildAttemptsRef = useRef(0);
+  /** Pending rebuild/stability timers, cleared when the effect re-runs. */
+  const rebuildTimersRef = useRef(new Set<number>());
+  const stableResetTimerRef = useRef<number | null>(null);
+
+  const scheduleRebuild = useCallback((delayMs: number): boolean => {
+    if (
+      !isTabOpenRef.current ||
+      rebuildAttemptsRef.current >= MAX_REBUILD_ATTEMPTS
+    ) {
+      return false;
+    }
+    rebuildAttemptsRef.current += 1;
+    const timer = window.setTimeout(() => {
+      rebuildTimersRef.current.delete(timer);
+      if (isTabOpenRef.current) {
+        setSessionGeneration((generation) => generation + 1);
+      }
+    }, delayMs);
+    rebuildTimersRef.current.add(timer);
+    return true;
+  }, []);
 
   useEffect(() => {
     callbacksRef.current.onSessionReset();
@@ -205,14 +233,9 @@ export function useLensSession(args: {
         return;
       }
       if (!openResult?.ok) {
-        const MAX_OPEN_ATTEMPTS = 4;
-        if (isTabOpenRef.current && openAttemptsRef.current < MAX_OPEN_ATTEMPTS) {
-          openAttemptsRef.current += 1;
-          window.setTimeout(() => {
-            if (isTabOpenRef.current) {
-              setSessionGeneration((generation) => generation + 1);
-            }
-          }, 150 * openAttemptsRef.current);
+        // Back off a little more each attempt; the budget is shared with the
+        // crash-recovery path below.
+        if (scheduleRebuild(150 * (rebuildAttemptsRef.current + 1))) {
           return;
         }
         toast.error("Lens failed to start", {
@@ -222,7 +245,16 @@ export function useLensSession(args: {
         });
         return;
       }
-      openAttemptsRef.current = 0;
+
+      // Do not reset the budget yet: a session that opens and dies immediately
+      // must keep drawing it down. Reset only once it has stayed open.
+      if (stableResetTimerRef.current !== null) {
+        window.clearTimeout(stableResetTimerRef.current);
+      }
+      stableResetTimerRef.current = window.setTimeout(() => {
+        stableResetTimerRef.current = null;
+        rebuildAttemptsRef.current = 0;
+      }, STABLE_MS);
 
       await attachGuest();
 
@@ -252,6 +284,18 @@ export function useLensSession(args: {
     return () => {
       cancelled = true;
       detachGuest();
+
+      // Drop any rebuild timers queued for this generation; the fresh effect
+      // run (or the unmount) supersedes them. The stability-reset timer goes
+      // too — a stale reset must not zero the budget mid-churn.
+      for (const timer of rebuildTimersRef.current) {
+        window.clearTimeout(timer);
+      }
+      rebuildTimersRef.current.clear();
+      if (stableResetTimerRef.current !== null) {
+        window.clearTimeout(stableResetTimerRef.current);
+        stableResetTimerRef.current = null;
+      }
 
       /*
        * Hidden is not closed: the session survives unmounts — workspace
@@ -292,6 +336,7 @@ export function useLensSession(args: {
     lensSessionId,
     lensSessionScope,
     projectPath,
+    scheduleRebuild,
     sessionGeneration,
     workspaceId,
   ]);
@@ -308,25 +353,28 @@ export function useLensSession(args: {
       /*
        * A session ended under a tab that is still open — a crashed guest, an
        * agent force-close, or a teardown from a panel generation that raced
-       * this one's remount. Rebuild it. The panel is still here, so leaving it
-       * sessionless would strand it with no page and no path back.
+       * this one's remount. Rebuild it, through the shared bounded budget: the
+       * panel is still here, so leaving it sessionless would strand it, but a
+       * page that dies on every load must not loop forever.
        *
        * Deferred one macrotask so a genuine tab close (which fires this event
        * too, just before the tab leaves) settles first: by the next tick this
        * panel has either unmounted or confirmed, through its own prop, that its
-       * tab is still open.
+       * tab is still open. A `setTimeout(0)` inside `scheduleRebuild` provides
+       * that same settle.
        */
-      window.setTimeout(() => {
-        if (isTabOpenRef.current) {
-          setSessionGeneration((generation) => generation + 1);
-        }
-      }, 0);
+      if (!scheduleRebuild(0) && isTabOpenRef.current) {
+        toast.error("Lens keeps closing", {
+          description:
+            "The page ended repeatedly right after opening. Reload the tab to try again.",
+        });
+      }
     });
 
     return () => {
       unsubscribe?.();
     };
-  }, [hasLensApi, isTabOpen, lensSessionId, workspaceId]);
+  }, [hasLensApi, isTabOpen, lensSessionId, scheduleRebuild, workspaceId]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {

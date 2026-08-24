@@ -1,11 +1,11 @@
 // ---------------------------------------------------------------------------
 // Browser session manager – singleton per Electron main process
-// Manages WebContentsViews keyed by (workspaceId, lensSessionId) so a
-// workspace can host multiple lens tabs. Callers that omit lensSessionId
-// transparently target the "default" session, preserving the historical
-// one-view-per-workspace behavior. The views are native Electron objects
-// positioned over the renderer via IPC-driven bounds synchronization
-// (ResizeObserver → setBounds).
+// Tracks Lens sessions keyed by (workspaceId, lensSessionId) so a workspace can
+// host multiple lens tabs. Callers that omit lensSessionId transparently target
+// the "default" session, preserving the historical one-session-per-workspace
+// behavior. Each session wraps a `<webview>` guest the renderer created and
+// bound by WebContents id; the guest's geometry and visibility are CSS in the
+// renderer, so main holds no positioning state.
 // ---------------------------------------------------------------------------
 
 import {
@@ -35,7 +35,6 @@ import {
   type BrowserNavigationState,
   type BrowserNetworkEntry,
   type BrowserNetworkEventPayload,
-  type LensBounds,
   type LensSessionClosedPayload,
   type LensSessionDescriptor,
   type LensSessionProfileArgs,
@@ -127,10 +126,9 @@ export interface BrowserSessionState {
    * The guest page itself, which is what every feature actually talks to:
    * navigation, CDP, console/network capture, downloads, annotations.
    *
-   * Held directly rather than reached through `view`, because the wrapper that
-   * owns a guest is a property of how the surface is hosted and nothing above
-   * this line cares. Reading `view.webContents` also throws once the native
-   * wrapper is gone, while this reference stays inspectable (`isDestroyed()`).
+   * Held directly because every feature reads it and none cares that the guest
+   * is a renderer-owned `<webview>`. It stays inspectable via `isDestroyed()`
+   * even after the guest is gone.
    */
   webContents: Electron.WebContents;
   /** webContents id of the guest, captured at creation (survives destroy). */
@@ -151,9 +149,9 @@ export interface BrowserSessionState {
   boxInspectActive: boolean;
   /** True when the session was opened only for MCP/headless inspection. */
   managedByMcp: boolean;
-  /** Whether the native view is currently presented in a renderer Lens tab. */
+  /** Whether a renderer Lens tab is currently presenting this session. */
   visible: boolean;
-  /** Prevents new work from entering while native teardown is in progress. */
+  /** Prevents new work from entering while the session is being torn down. */
   closing: boolean;
   /** Stops guest events before closing the WebContents. */
   detachEventListeners: (() => void) | null;
@@ -274,7 +272,7 @@ function queueNetworkIpcEntry(args: {
   }
 }
 
-function normalizeLensSessionId(lensSessionId?: string | null): string {
+export function normalizeLensSessionId(lensSessionId?: string | null): string {
   const trimmed = lensSessionId?.trim();
   return trimmed ? trimmed : DEFAULT_LENS_SESSION_ID;
 }
@@ -1009,6 +1007,26 @@ export function bindBrowserSessionGuest(args: {
     return {
       ok: false,
       message: `No WebContents with id ${args.guestWebContentsId}`,
+    };
+  }
+
+  // Refuse a guest that already backs a different live session. Sessions share
+  // partitions, so `decideLensGuestBind`'s partition check cannot catch this;
+  // without it a renderer could point a second session at a live guest, and the
+  // last writer to `webContentsSessionIndex` would silently steal its event
+  // routing and traffic dispatch from the first.
+  const currentOwner = getSessionForWebContentsId(args.guestWebContentsId);
+  if (
+    currentOwner &&
+    !currentOwner.webContents.isDestroyed() &&
+    !(
+      currentOwner.workspaceId === args.workspaceId &&
+      currentOwner.lensSessionId === lensSessionId
+    )
+  ) {
+    return {
+      ok: false,
+      message: `Refused Lens guest: webContents ${args.guestWebContentsId} already backs session ${currentOwner.lensSessionId}`,
     };
   }
 

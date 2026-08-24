@@ -42,6 +42,10 @@ export function useLensGuestHost(): void {
               partition: payload.partition,
             });
             if (disposed) {
+              // The host tore down while the guest was attaching. It is mounted
+              // now and bound to nothing, so release it rather than leave a
+              // live WebContents orphaned in the document.
+              releaseLensGuest(payload);
               return;
             }
 
