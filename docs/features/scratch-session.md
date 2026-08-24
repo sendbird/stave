@@ -68,6 +68,7 @@
 - **No plans, advisor, or child tasks.** Scratch sessions run a plain turn with the advisor disabled; use a full project for those workflows.
 - **No saved history.** The transcript is gone when you clear the session or close the app.
 - **Not a project.** The folder never appears in the project list or recents, and scratch sessions do not use worktrees.
+- **Switching providers starts fresh.** Each provider keeps its own session, so changing from Claude Code to Codex (or back) begins a new thread for that provider — the other provider's earlier conversation is not carried over.
 
 ## Troubleshooting
 

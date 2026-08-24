@@ -156,7 +156,7 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
           </Button>
           <ScratchProviderToggle
             provider={provider}
-            disabled={Boolean(activeTurnId)}
+            disabled={Boolean(activeTurnId) || pendingApprovalCount > 0}
             onSelect={(next) => setProvider({ provider: next })}
           />
         </PopoverHeader>
