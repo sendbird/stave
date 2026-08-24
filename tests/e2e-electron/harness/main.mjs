@@ -13,7 +13,8 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const clampModule = process.env.LENS_HARNESS_CLAMP_MODULE;
 const guestPreloadPath =
-  process.env.LENS_HARNESS_GUEST_PRELOAD ?? path.join(here, "guest-preload.cjs");
+  process.env.LENS_HARNESS_GUEST_PRELOAD ??
+  path.join(here, "guest-preload.cjs");
 
 const refusals = [];
 

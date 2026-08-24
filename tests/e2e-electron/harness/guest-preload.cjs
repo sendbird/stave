@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld("__lensGuestPreload", {
   loaded: true,
   // Present only if node integration leaked into the guest, which the clamp
   // forbids. Read from the guest page and asserted to be false.
-  sawNodeGlobals: typeof process !== "undefined" && Boolean(process?.versions?.node),
+  sawNodeGlobals:
+    typeof process !== "undefined" && Boolean(process?.versions?.node),
 });
