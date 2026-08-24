@@ -13,24 +13,11 @@ export function buildStandaloneCliEmptyStateText() {
   return "Set a Standalone CLI folder in Settings to run Claude Code and Codex here. Nothing is added to your projects.";
 }
 
-export function StandaloneCliOverlay() {
-  const open = useStandaloneCliStore((state) => state.open);
-  const closeOverlay = useStandaloneCliStore((state) => state.closeOverlay);
-  const adoptFolder = useStandaloneCliStore((state) => state.adoptFolder);
-  const folderPath = useAppStore(
-    (state) => state.settings.standaloneCliFolderPath,
-  );
-
-  // Reconcile the Settings folder with the folder the live sessions were
-  // booted against. adoptFolder is a no-op when they already agree.
-  useEffect(() => {
-    void adoptFolder({ folderPath });
-  }, [adoptFolder, folderPath]);
-
-  if (!open) {
-    return null;
-  }
-
+export function StandaloneCliOverlayView(props: {
+  folderPath: string;
+  onClose: () => void;
+}) {
+  const { folderPath, onClose } = props;
   const folderLabel = folderPath
     ? resolvePathBaseName({ path: folderPath, fallback: folderPath })
     : "No folder set";
@@ -45,7 +32,7 @@ export function StandaloneCliOverlay() {
       // Closing happens through the header button and the top-bar toggle only.
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) {
-          closeOverlay();
+          onClose();
         }
       }}
     >
@@ -70,13 +57,13 @@ export function StandaloneCliOverlay() {
             size="sm"
             aria-label="Close Standalone CLI"
             className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-            onClick={closeOverlay}
+            onClick={onClose}
           >
             <X className="size-4" />
           </Button>
         </header>
         {folderPath ? (
-          <StandaloneCliTerminal folderPath={folderPath} visible={open} />
+          <StandaloneCliTerminal folderPath={folderPath} visible={true} />
         ) : (
           <p className="px-4 py-6 text-sm text-muted-foreground">
             {buildStandaloneCliEmptyStateText()}
@@ -84,5 +71,28 @@ export function StandaloneCliOverlay() {
         )}
       </section>
     </div>
+  );
+}
+
+export function StandaloneCliOverlay() {
+  const open = useStandaloneCliStore((state) => state.open);
+  const closeOverlay = useStandaloneCliStore((state) => state.closeOverlay);
+  const adoptFolder = useStandaloneCliStore((state) => state.adoptFolder);
+  const folderPath = useAppStore(
+    (state) => state.settings.standaloneCliFolderPath,
+  );
+
+  // Reconcile the Settings folder with the folder the live sessions were
+  // booted against. adoptFolder is a no-op when they already agree.
+  useEffect(() => {
+    void adoptFolder({ folderPath });
+  }, [adoptFolder, folderPath]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <StandaloneCliOverlayView folderPath={folderPath} onClose={closeOverlay} />
   );
 }
