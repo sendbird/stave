@@ -302,7 +302,10 @@ describe("scratch session turn dispatch", () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0]?.cwd).toBe("/tmp/scratch");
-    expect("workspaceId" in (calls[0] ?? {})).toBe(false);
+    // `runProviderTurn` forwards the key unconditionally
+    // (src/store/provider-turn-runtime.ts:36), so assert the VALUE is absent —
+    // not the key. What matters is that no workspace binding reaches the runtime.
+    expect(calls[0]?.workspaceId).toBeUndefined();
     expect(calls[0]?.taskId).toBe(useScratchSessionStore.getState().taskId);
   });
 
@@ -491,14 +494,12 @@ ingestEvent: ({ event }) => {
 `ScratchSessionDependencies`에 다음을 추가한다:
 
 ```ts
-  runTurn?: Parameters<typeof runProviderTurn>[1] extends
-    | { runTurn?: infer TRunTurn }
-    | undefined
-    ? TRunTurn
-    : never;
-```
+import type { ProviderAdapter } from "@/lib/providers/provider.types";
 
-이 조건부 타입이 읽기 어려우면 `src/store/provider-turn-runtime.ts`에서 `ProviderAdapter["runTurn"]` 타입을 직접 import해 쓴다.
+// ...
+
+  runTurn?: ProviderAdapter["runTurn"];
+```
 
 `runProviderTurn`은 Promise를 돌려주지 않으므로 `send`의 `await`는 디스패치까지만 보장한다. 테스트는 가짜 generator가 동기적으로 소진되는 점에 의존하지 않도록, 이벤트 검증은 Task 3에서 `await` 가능한 지점을 만든 뒤 수행한다. 이 태스크의 테스트는 **호출 인자만** 검증한다.
 
