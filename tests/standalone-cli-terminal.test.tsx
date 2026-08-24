@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { buildStandaloneCliCreateSessionArgs } from "@/components/layout/standalone-cli/StandaloneCliTerminal";
+import { buildCliTerminalRestartToken } from "@/components/layout/useCliTerminalInstance";
 import {
-  buildStandaloneCliCreateSessionArgs,
-  buildStandaloneCliRendererKey,
-} from "@/components/layout/standalone-cli/StandaloneCliTerminal";
-import {
+  getStandaloneCliTabKey,
   STANDALONE_CLI_TAB_IDS,
   STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
   STANDALONE_CLI_WORKSPACE_ID,
@@ -80,35 +79,62 @@ describe("buildStandaloneCliCreateSessionArgs", () => {
   });
 });
 
-describe("buildStandaloneCliRendererKey", () => {
-  // The mount div is keyed by tab, so React throws its DOM subtree away on a
-  // tab switch. The renderer hook only rebuilds xterm into the container when
-  // its restartToken changes, so the token has to move with the tab or the
-  // viewport stays permanently blank.
+describe("buildCliTerminalRestartToken", () => {
+  // Every CLI surface keys its mount div by the active tab, so React throws the
+  // DOM subtree away on a tab switch. The renderer hook only rebuilds xterm
+  // when its restartToken changes, so the token has to move with the tab or the
+  // viewport stays permanently blank. Folding the tab in lives in the shared
+  // hook so the docked CLI panel gets the same guarantee as the overlay.
   test("changes when the active tab changes", () => {
     expect(
-      buildStandaloneCliRendererKey({ restartCount: 0, tabId: "claude-code" }),
+      buildCliTerminalRestartToken({
+        instanceKey: getStandaloneCliTabKey("claude-code"),
+        restartToken: 0,
+      }),
     ).not.toBe(
-      buildStandaloneCliRendererKey({ restartCount: 0, tabId: "codex" }),
+      buildCliTerminalRestartToken({
+        instanceKey: getStandaloneCliTabKey("codex"),
+        restartToken: 0,
+      }),
     );
   });
 
   test("changes when the manual restart counter changes", () => {
     expect(
-      buildStandaloneCliRendererKey({ restartCount: 0, tabId: "codex" }),
+      buildCliTerminalRestartToken({
+        instanceKey: "cli:codex",
+        restartToken: 0,
+      }),
     ).not.toBe(
-      buildStandaloneCliRendererKey({ restartCount: 1, tabId: "codex" }),
+      buildCliTerminalRestartToken({
+        instanceKey: "cli:codex",
+        restartToken: 1,
+      }),
     );
   });
 
   test("never collides across (counter, tab) pairs", () => {
-    const keys = new Set<number>();
-    for (let restartCount = 0; restartCount < 25; restartCount += 1) {
+    const tokens = new Set<string>();
+    for (let restartToken = 0; restartToken < 25; restartToken += 1) {
       for (const tabId of STANDALONE_CLI_TAB_IDS) {
-        keys.add(buildStandaloneCliRendererKey({ restartCount, tabId }));
+        tokens.add(
+          buildCliTerminalRestartToken({
+            instanceKey: getStandaloneCliTabKey(tabId),
+            restartToken,
+          }),
+        );
       }
     }
 
-    expect(keys.size).toBe(25 * STANDALONE_CLI_TAB_IDS.length);
+    expect(tokens.size).toBe(25 * STANDALONE_CLI_TAB_IDS.length);
+  });
+
+  test("cannot alias a tab key that already ends in the counter separator", () => {
+    // A naive `${key}:${count}` join lets ("a:1", 2) and ("a", "1:2") collide.
+    expect(
+      buildCliTerminalRestartToken({ instanceKey: "a:1", restartToken: 2 }),
+    ).not.toBe(
+      buildCliTerminalRestartToken({ instanceKey: "a", restartToken: 12 }),
+    );
   });
 });

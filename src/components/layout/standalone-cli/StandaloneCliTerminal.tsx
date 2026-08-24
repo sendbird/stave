@@ -25,32 +25,12 @@ import {
   buildStandaloneCliSlotKey,
   buildStandaloneCliTabs,
   getStandaloneCliTabKey,
-  STANDALONE_CLI_TAB_IDS,
   STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
   STANDALONE_CLI_WORKSPACE_ID,
   type StandaloneCliTab,
-  type StandaloneCliTabId,
 } from "@/lib/terminal/standalone-cli";
 import { useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
-
-/**
- * React discards the mount node whenever its `key` changes, and the renderer
- * hook only rebuilds xterm into the container when `restartToken` changes. Both
- * therefore have to move together: a tab switch changes the mount key, so it
- * must change the restart token too, otherwise xterm keeps rendering into the
- * detached node and the visible viewport stays blank forever.
- *
- * `restartToken` is a number, so the tab is folded in by index. Multiplying the
- * manual counter by the tab count keeps every (counter, tab) pair distinct.
- */
-export function buildStandaloneCliRendererKey(args: {
-  restartCount: number;
-  tabId: StandaloneCliTabId;
-}) {
-  const tabIndex = Math.max(STANDALONE_CLI_TAB_IDS.indexOf(args.tabId), 0);
-  return args.restartCount * STANDALONE_CLI_TAB_IDS.length + tabIndex;
-}
 
 /** Pure so the payload contract can be asserted without a DOM. */
 export function buildStandaloneCliCreateSessionArgs(args: {
@@ -137,10 +117,6 @@ export function StandaloneCliTerminal(props: { folderPath: string }) {
     [activeTabId, tabs],
   );
   const activeTabKey = getStandaloneCliTabKey(activeTabId);
-  const rendererKey = buildStandaloneCliRendererKey({
-    restartCount: rendererRestartToken,
-    tabId: activeTabId,
-  });
 
   const getTabKey = useCallback(
     (tab: StandaloneCliTab) => getStandaloneCliTabKey(tab.id),
@@ -195,7 +171,10 @@ export function StandaloneCliTerminal(props: { folderPath: string }) {
     // needs no separate visibility term.
     enabled: true,
     visible: true,
-    restartToken: rendererKey,
+    // `useCliTerminalInstance` folds `instanceKey` into the token it hands the
+    // renderer, so a tab switch rebuilds xterm into the freshly keyed mount
+    // node instead of painting into the detached one.
+    restartToken: rendererRestartToken,
     fontFamily: terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY,
     fontSize: terminalFontSize || DEFAULT_TERMINAL_FONT_SIZE,
     lineHeight: terminalLineHeight,

@@ -10,6 +10,22 @@ import { isAbsolutePosixOrWindowsPath } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
 
 export const STANDALONE_CLI_SETTING_FIELD_ID = "settings-standalone-cli-folder";
+export const STANDALONE_CLI_FOLDER_ERROR_ID = `${STANDALONE_CLI_SETTING_FIELD_ID}-error`;
+
+/**
+ * `role="alert"` announces the message once, but leaves the input itself
+ * reading as valid and unrelated to it. Wiring these two attributes is what
+ * makes a screen reader tie the message to the field the user is still in.
+ */
+export function buildStandaloneCliFolderFieldAria(error: string | null) {
+  if (!error) {
+    return {};
+  }
+  return {
+    "aria-invalid": true,
+    "aria-describedby": STANDALONE_CLI_FOLDER_ERROR_ID,
+  } as const;
+}
 
 export function buildStandaloneCliFolderError(candidate: string) {
   const trimmed = candidate.trim();
@@ -70,6 +86,7 @@ export function StandaloneCliSettingsCard() {
             placeholder="/Users/me/notes"
             value={standaloneCliFolderPath}
             onCommit={commit}
+            {...buildStandaloneCliFolderFieldAria(error)}
           />
           <Button
             type="button"
@@ -83,7 +100,11 @@ export function StandaloneCliSettingsCard() {
           </Button>
         </div>
         {error ? (
-          <p role="alert" className="mt-2 text-xs text-destructive">
+          <p
+            id={STANDALONE_CLI_FOLDER_ERROR_ID}
+            role="alert"
+            className="mt-2 text-xs text-destructive"
+          >
             {error}
           </p>
         ) : null}

@@ -51,6 +51,7 @@
 
 1. Close the overlay with the header's close button, or by clicking the dimmed backdrop outside the panel. The CLI process keeps running in the background.
 2. Reopen the overlay at any time. The terminal screen is restored from where you left it, not restarted.
+3. The restored screen is re-laid-out to the reopened panel's width before it is drawn, so lines do not pick up stray wrapping when the panel comes back at a different size. Scrollback written before the close keeps the width it was produced at.
 
 ### Start Over In The Same Folder
 
