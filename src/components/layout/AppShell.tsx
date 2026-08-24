@@ -46,6 +46,7 @@ import {
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { RightRail } from "@/components/layout/RightRail";
 import { StatusBar } from "@/components/layout/StatusBar";
+import { StandaloneCliOverlay } from "@/components/layout/standalone-cli/StandaloneCliOverlay";
 import { dispatchExplorerSearchRequest } from "@/components/layout/explorer-search-events";
 import {
   MIN_CHAT_PANEL_WIDTH,
@@ -1485,6 +1486,7 @@ export function AppShell() {
         ) : null}
       </div>
       <StatusBar />
+      <StandaloneCliOverlay />
     </div>
   );
 }
