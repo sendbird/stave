@@ -4,6 +4,10 @@ import {
   restoreSuspendedBrowserSessions,
   suspendVisibleBrowserSessions,
 } from "./browser/browser-manager";
+import {
+  applyLensWebviewPreferences,
+  decideLensWebviewAttach,
+} from "./browser/browser-webview-attach";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
 import {
   recordRendererProcessGone,
@@ -12,6 +16,7 @@ import {
 } from "./runtime-health-metrics";
 import { openExternalWithFallback } from "./utils/external-url";
 import {
+  resolveLensGuestPreloadScriptPath,
   resolvePreloadScriptPath,
   resolveRendererEntryPath,
 } from "./window-paths";
@@ -65,8 +70,33 @@ export function createMainWindow() {
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
+      // Lens guests are `<webview>` tags in this window's DOM, which is the
+      // only way an embedded page can participate in renderer stacking. The
+      // tag is inert on its own: `will-attach-webview` below refuses anything
+      // not pointed at a Lens partition and forces every preference for the
+      // ones it lets through.
+      webviewTag: true,
     },
   });
+
+  window.webContents.on(
+    "will-attach-webview",
+    (event, webPreferences, params) => {
+      const decision = decideLensWebviewAttach({
+        requestedPartition: params.partition,
+        guestPreloadPath: resolveLensGuestPreloadScriptPath(runtimeDir),
+      });
+      if (!decision.allow) {
+        console.warn(`[lens] refused a <webview> attach: ${decision.reason}`);
+        event.preventDefault();
+        return;
+      }
+      applyLensWebviewPreferences(
+        webPreferences as unknown as Record<string, unknown>,
+        decision.webPreferences,
+      );
+    },
+  );
   mainWindow = window;
   window.on("closed", () => {
     mainWindow = null;

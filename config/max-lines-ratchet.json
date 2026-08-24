@@ -2,6 +2,7 @@
   "version": 1,
   "files": {
     "electron/host-service/terminal-runtime.ts": 1170,
+    "electron/main/browser/browser-webview-attach.ts": 800,
     "electron/providers/codex-app-server-runtime.ts": 4030,
     "src/components/layout/useTerminalInstance.ts": 895,
     "src/components/panes/surfaces/LensSurfacePanel.tsx": 409,
