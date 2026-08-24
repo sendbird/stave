@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { ScratchComposer } from "@/components/layout/scratch-session/ScratchComposer";
+import { ScratchProviderToggle } from "@/components/layout/scratch-session/ScratchProviderToggle";
 import { ScratchTranscript } from "@/components/layout/scratch-session/ScratchTranscript";
 import {
   selectScratchPendingApprovals,
@@ -54,6 +55,8 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
   const pendingApprovalCount = useScratchSessionStore(
     (state) => selectScratchPendingApprovals(state).length,
   );
+  const provider = useScratchSessionStore((state) => state.provider);
+  const setProvider = useScratchSessionStore((state) => state.setProvider);
   const pickDirectory = useScratchSessionStore((state) => state.pickDirectory);
   const setFolder = useScratchSessionStore((state) => state.setFolder);
   const clear = useScratchSessionStore((state) => state.clear);
@@ -151,6 +154,11 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
           >
             {folderPath ?? "Pick a folder"}
           </Button>
+          <ScratchProviderToggle
+            provider={provider}
+            disabled={Boolean(activeTurnId)}
+            onSelect={(next) => setProvider({ provider: next })}
+          />
         </PopoverHeader>
         {folderPath ? (
           <ScratchTranscript />
