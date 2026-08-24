@@ -243,17 +243,14 @@ The store must accept a late `nativeSessionId` write, which the injected
 
 ## 6. Removal
 
-Delete: `src/store/scratch-session.store.ts`,
-`src/components/layout/TopBarScratchSession.tsx`,
-`src/components/layout/scratch-session/` (3 files),
-`tests/scratch-session-*` (5 files),
-`docs/features/scratch-session.md`.
+Completed in Task 8: the scratch-session store module, its top-bar trigger
+component, its three-file component folder, its five test files, and its
+features doc were all deleted. The public docs registry entry was replaced
+with one pointing at `docs/features/standalone-cli.md` and
+`routePath: "standalone-cli"`.
 
-Replace with a new standalone-cli.md under `docs/features/`, and update the entry in
-`site/src/public-docs.ts:89` to `routePath: "standalone-cli"`.
-
-Preserve `isAbsolutePosixOrWindowsPath` by extracting it to a shared module
-first.
+`isAbsolutePosixOrWindowsPath` was preserved by extracting it to a shared
+module first.
 
 ## 7. Guardrail compliance
 

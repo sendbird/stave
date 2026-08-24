@@ -87,11 +87,11 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Choose a docked, floating, or right-rail view for following tools, child tasks, todos, and other live turn data.",
       },
       {
-        routePath: "scratch-session",
-        sourcePath: "docs/features/scratch-session.md",
-        title: "Scratch Session",
+        routePath: "standalone-cli",
+        sourcePath: "docs/features/standalone-cli.md",
+        title: "Standalone CLI",
         description:
-          "Ask about any folder from the top bar without registering it as a project.",
+          "Run the real Claude Code and Codex CLIs against any folder from the top bar without registering it as a project.",
       },
     ],
   },

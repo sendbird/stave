@@ -38,13 +38,12 @@ describe("StandaloneCliOverlay", () => {
   // renderToStaticMarkup is a *server* render, and zustand v5's useStore feeds
   // React the store's initial snapshot (getInitialState) during server
   // rendering -- not the live state produced by getState().openOverlay() or
-  // updateSettings() below (see tests/scratch-session-popover.test.tsx for the
-  // established precedent in this codebase). So a static render of the
-  // store-connected wrapper always evaluates its `if (!open) return null`
-  // gate against the store's frozen initial state, which is closed. That is
-  // exactly why the open/folder-populated markup lives in the prop-driven
-  // StandaloneCliOverlayView below, which needs no store and is tested with
-  // explicit props instead.
+  // updateSettings() below. This is an established precedent for
+  // store-connected wrappers in this codebase: a static render always
+  // evaluates its `if (!open) return null` gate against the store's frozen
+  // initial state, which is closed. That is exactly why the open/
+  // folder-populated markup lives in the prop-driven StandaloneCliOverlayView
+  // below, which needs no store and is tested with explicit props instead.
   // This test deliberately avoids writing to app.store: doing so would trip
   // zustand's default persist storage once another test file has installed a
   // window without localStorage.
