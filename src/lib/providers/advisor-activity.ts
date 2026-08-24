@@ -20,6 +20,8 @@ import {
 export type AdvisorActivityPhase =
   | "armed"
   | "started"
+  /** Heartbeat while the advisor works. Never settles a consult. */
+  | "progress"
   | "completed"
   | "failed"
   | "timeout"
@@ -95,6 +97,15 @@ export type AdvisorExchangeSnapshot = {
   totalCostUsd?: number;
   /** Consults of this turn that already reached a terminal outcome. */
   settledConsults: number;
+  /**
+   * Last time the advisor showed a sign of life, for a pending consult.
+   *
+   * Deliberately not a stage: a heartbeat can fire many times and would flood
+   * the bounded stage list, pushing the lifecycle steps that matter out of it.
+   */
+  lastProgressAt?: number;
+  /** What the advisor was last seen doing, when the runtime can say. */
+  progressDetail?: string;
   stages: AdvisorExchangeStage[];
 };
 
@@ -194,6 +205,23 @@ function reduceEvent(args: {
   event: AdvisorActivityEvent;
 }): AdvisorExchangeSnapshot {
   const { event } = args;
+  if (event.phase === "progress") {
+    if (isAdvisorExchangeTerminal(args.snapshot)) {
+      // A straggler from a runner that raced its own timeout/abort. The
+      // archive upserts by object identity, so returning a fresh object here
+      // would re-touch a consult the log already closed for a tick that
+      // carries no information the settled card does not already show.
+      return args.snapshot;
+    }
+    // Records that the consult is alive without touching identity, outcome, or
+    // the stage list. Folding it like a lifecycle step would evict real stages
+    // and make `settledConsults` accounting depend on heartbeat timing.
+    return {
+      ...args.snapshot,
+      lastProgressAt: event.at,
+      ...(event.detail ? { progressDetail: event.detail } : {}),
+    };
+  }
   const base: AdvisorExchangeSnapshot = {
     ...args.snapshot,
     // Identity can only be filled in, never blanked, so a later phase that

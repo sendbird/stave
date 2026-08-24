@@ -85,6 +85,53 @@ reports that same resolved deadline, so the exchange monitor countdown and the
 runtime enforcement cannot drift. The monitor's Cancel-consult control drops
 only the in-flight consult; the grant (and the turn) keep going.
 
+That deadline is only meaningful if every layer wrapping it outlasts it, so the
+consult path keeps an explicitly ordered ladder — innermost first:
+
+| Layer | Deadline | Defined in |
+| --- | --- | --- |
+| One advisor call | 2–10 min by effort tier | `resolveAdvisorTimeoutMs` |
+| Host-service backstop | 15 min | `HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS` |
+| MCP tool call (client) | 16 min | `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS` |
+
+The outermost rung is the one that has to be stated rather than inherited: the
+Claude Agent SDK defaults a tool call to a **hard 60-second** wall clock that
+progress notifications do not extend, so leaving it unset silently capped every
+Stave tool at a minute. A consult past that mark still ran to completion, still
+billed, and still emitted its `completed` trace to the turn — while the client
+had already aborted and the MCP SDK discarded the reply with no error, no log,
+and no metric. Only the UI ever saw the advice.
+
+Keeping the ladder ordered is what prevents that, and it is the *only* thing
+that prevents it: a consult cannot notice its caller leaving. The tool handler
+runs in the Electron main process while the grant registry lives in the
+host-service child, so the caller's `AbortSignal` cannot reach the run — it
+does not survive the JSON IPC hop. An abandoned consult therefore runs to its
+own deadline and bills for it, and because the grant serializes consults, it
+also blocks the rest of that turn's budget until it finishes. The fix is to
+never abandon a healthy consult, not to cancel one after the fact.
+
+Because a consult can legitimately think for minutes, the runtime also emits an
+`advisor_activity` `progress` heartbeat — throttled to one tick every 5 seconds
+— naming what the provider was last seen doing (`Codex item: reasoning`,
+`Claude event: assistant`, `Loading the Claude runtime`). Both providers resolve
+only once generation has finished, so without it a consult is indistinguishable
+from a wedged thread for its whole duration. The heartbeat is deliberately not a
+lifecycle stage: the reducer folds it into `lastProgressAt`/`progressDetail`
+rather than appending to the bounded `stages` list, so a chatty provider cannot
+evict the steps that matter or make `settledConsults` depend on tick timing. A
+late heartbeat from an abandoned runner cannot reopen a settled consult.
+
+The same ladder governs `stave-mcp-stdio-proxy`, which shares
+`STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS` rather than setting its own deadline.
+
+One tool escapes the outermost rung: `stave_create_workspace` blocks on the
+project's configured init command (typically a dependency install) with no
+deadline of its own, so a cold monorepo can exceed the server-wide cap. That is
+not a regression — the previous effective cap was 60 seconds — but the ladder
+holds by construction only for the consult path, and a per-server timeout
+cannot be right for a tool set spanning "read a note" and "run npm install".
+
 ### Per-task arming
 
 The Settings target is the **default**, not the whole story. Each task can arm

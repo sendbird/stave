@@ -22,6 +22,7 @@ import { promises as fs } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { Utf8LineBuffer } from "../shared/utf8-line-buffer";
+import { STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS } from "./stave-local-mcp-manifest";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,8 +45,14 @@ const MCP_PROXY_STDIN_LINE_MAX_BYTES = 1 * 1024 * 1024;
 /**
  * Without a deadline a wedged server leaves the request outstanding forever and
  * the MCP host sees an unresponsive server with no error it can report.
+ *
+ * Shares the ceiling the HTTP clients get rather than setting its own: at the
+ * previous 120s this proxy cut off the same slow-but-healthy tool calls the
+ * direct clients did — an Advisor consult on a high effort tier is allowed ten
+ * minutes, so a two-minute proxy deadline turned a working consult into a
+ * transport error for every runtime that reaches Stave this way.
  */
-const MCP_PROXY_REQUEST_TIMEOUT_MS = 120_000;
+const MCP_PROXY_REQUEST_TIMEOUT_MS = STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS;
 
 class McpHttpError extends Error {
   constructor(

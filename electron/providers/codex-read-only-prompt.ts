@@ -49,6 +49,12 @@ export type CodexReadOnlyPromptArgs = {
   isolated?: boolean;
   /** Caller-facing name used in failure text. See `read-only-prompt-labels.ts`. */
   label?: string;
+  /**
+   * Sign-of-life while the turn runs. `turn/start` does not resolve until the
+   * model has finished, so without this the caller cannot distinguish a model
+   * that is thinking from a wedged thread for the whole call.
+   */
+  onProgress?: (progress: { lastItemType: string }) => void;
 };
 
 export type CodexReadOnlyPromptResult = {
@@ -285,6 +291,9 @@ export async function runCodexReadOnlyPromptWithClient(
         const item = isRecord(params.item) ? params.item : null;
         if (item?.type === "agentMessage" && typeof item.text === "string") {
           latestAgentMessageText = item.text;
+        }
+        if (typeof item?.type === "string") {
+          args.onProgress?.({ lastItemType: item.type });
         }
         return;
       }

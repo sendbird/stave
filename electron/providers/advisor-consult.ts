@@ -12,6 +12,7 @@ import type {
 } from "../../src/lib/providers/provider.types";
 import {
   buildAdvisorOutcomeEvent,
+  buildAdvisorProgressEvent,
   buildAdvisorStartedEvent,
   formatAdvisorSystemTrace,
   runAdvisorCall,
@@ -265,6 +266,18 @@ export async function consultAdvisor(args: {
         if (!grant.revoked) {
           grant.addUsage(usage);
         }
+      },
+      onHeartbeat: ({ at, detail }) => {
+        emitIfLive(
+          buildAdvisorProgressEvent({
+            primaryProviderId: grant.primaryProviderId,
+            ...(grant.primaryModel ? { primaryModel: grant.primaryModel } : {}),
+            target: grant.target,
+            at,
+            ...(detail ? { detail } : {}),
+            consult,
+          }),
+        );
       },
       runners: grant.runners ?? defaultRunnersOverride,
       timeoutMs,

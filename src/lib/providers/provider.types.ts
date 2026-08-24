@@ -137,6 +137,14 @@ export type AdvisorActivityPhase =
    */
   | "armed"
   | "started"
+  /**
+   * The advisor is still working. A heartbeat rather than a lifecycle step: it
+   * can fire many times inside one consult and never settles it. Exists because
+   * a consult is otherwise completely silent for its whole duration — a high
+   * effort tier can think for minutes, and without this the UI cannot tell a
+   * working advisor from a wedged one.
+   */
+  | "progress"
   | "completed"
   | "failed"
   | "timeout"

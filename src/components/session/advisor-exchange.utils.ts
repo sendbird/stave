@@ -116,7 +116,13 @@ export function describeAdvisorExchangeStatus(
     case "armed":
       return "Armed for this turn. The primary has not consulted it yet.";
     case "pending":
-      return "The primary is waiting on the advisor's answer.";
+      // Naming what the provider was last seen doing is the whole point of the
+      // heartbeat: both providers only resolve once generation has finished, so
+      // a bare "waiting" reads identically for a model that is thinking and one
+      // that is wedged.
+      return snapshot.progressDetail
+        ? `Advisor working (${snapshot.progressDetail}).`
+        : "The primary is waiting on the advisor's answer.";
     case "completed":
       return `Advice returned to the primary${duration ? ` in ${duration}` : ""}.`;
     case "timeout":
@@ -136,6 +142,8 @@ export function describeAdvisorPhase(phase: AdvisorActivityPhase): string {
       return "Advisor armed";
     case "started":
       return "Consulting advisor";
+    case "progress":
+      return "Advisor working";
     case "completed":
       return "Advice returned";
     case "failed":
