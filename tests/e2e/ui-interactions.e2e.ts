@@ -641,9 +641,15 @@ test("lens screenshot dropdown trigger is not clipped", async ({ page }) => {
         }),
       },
       lens: {
-        createView: async () => ({ ok: true }),
-        setBounds: async () => ({ ok: true }),
-        setVisible: async () => ({ ok: true }),
+        // `openSession` is the only way a Lens session is opened now: it
+        // resolves once main has a guest page bound, so there is no
+        // create-then-attach fallback to stand in for it.
+        openSession: async (args: {
+          workspaceId: string;
+          lensSessionId: string;
+        }) => ({ ok: true, created: true, session: { ...args } }),
+        closeSession: async () => ({ ok: true, closed: true }),
+        setPresented: async () => ({ ok: true }),
         getState: async () => ({
           ok: true,
           state: {

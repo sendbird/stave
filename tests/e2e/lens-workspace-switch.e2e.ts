@@ -86,6 +86,11 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       lensSessionId?: string;
       bounds: { x: number; y: number; width: number; height: number };
     };
+    type LensPresentationCall = {
+      workspaceId: string;
+      lensSessionId?: string;
+      presented: boolean;
+    };
     type LensPresentationPayload = {
       workspaceId: string;
       lensSessionId: string;
@@ -96,6 +101,7 @@ test("workspace switch with an open Lens keeps the active task surface visible",
     };
     const lensVisibilityCalls: LensVisibilityCall[] = [];
     const lensBoundsCalls: LensBoundsCall[] = [];
+    const lensPresentationCalls: LensPresentationCall[] = [];
     const lensOpenCalls: Array<{
       workspaceId: string;
       lensSessionId: string;
@@ -109,6 +115,7 @@ test("workspace switch with an open Lens keeps the active task surface visible",
     Object.assign(window, {
       __lensVisibilityCalls: lensVisibilityCalls,
       __lensBoundsCalls: lensBoundsCalls,
+      __lensPresentationCalls: lensPresentationCalls,
       __lensOpenCalls: lensOpenCalls,
       __presentLensSession: (payload: LensPresentationPayload) => {
         if (!lensPresentationListener) {
@@ -148,6 +155,10 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       },
       setVisible: async (args: LensVisibilityCall) => {
         lensVisibilityCalls.push(args);
+        return { ok: true };
+      },
+      setPresented: async (args: LensPresentationCall) => {
+        lensPresentationCalls.push(args);
         return { ok: true };
       },
       getState: async () => ({
@@ -367,11 +378,11 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       "click",
       () => {
         const target = window as unknown as {
-          __lensVisibilityCalls: Array<{ visible: boolean }>;
+          __lensPresentationCalls: Array<{ presented: boolean }>;
           __releaseLensOpen: () => void;
           __lensVisibilityMarker: number;
         };
-        target.__lensVisibilityMarker = target.__lensVisibilityCalls.length;
+        target.__lensVisibilityMarker = target.__lensPresentationCalls.length;
         target.__releaseLensOpen();
       },
       { once: true },
@@ -390,43 +401,41 @@ test("workspace switch with an open Lens keeps the active task surface visible",
   const finalLensState = await page.evaluate(() => {
     const target = window as unknown as {
       __lensVisibilityMarker: number;
-      __lensVisibilityCalls: Array<{
+      __lensPresentationCalls: Array<{
         workspaceId: string;
         lensSessionId?: string;
-        visible: boolean;
+        presented: boolean;
       }>;
-      __lensBoundsCalls: Array<{
-        workspaceId: string;
-        lensSessionId?: string;
-        bounds: { x: number; y: number; width: number; height: number };
-      }>;
+      __lensVisibilityCalls: unknown[];
+      __lensBoundsCalls: unknown[];
     };
     return {
-      visibilityAfterTaskActivation: target.__lensVisibilityCalls.slice(
+      presentationAfterTaskActivation: target.__lensPresentationCalls.slice(
         target.__lensVisibilityMarker,
       ),
-      visibility: target.__lensVisibilityCalls
+      presentation: target.__lensPresentationCalls
         .filter((call) => call.workspaceId === "ws-alpha")
         .at(-1),
-      bounds: target.__lensBoundsCalls
-        .filter((call) => call.workspaceId === "ws-alpha")
-        .at(-1),
+      visibilityCallCount: target.__lensVisibilityCalls.length,
+      boundsCallCount: target.__lensBoundsCalls.length,
     };
   });
 
-  expect(finalLensState.visibilityAfterTaskActivation.length).toBeGreaterThan(
+  // A Lens tab that is no longer on screen stops being presented. The guest
+  // page stays alive and parked; only the panel's claim on the screen ends.
+  expect(finalLensState.presentationAfterTaskActivation.length).toBeGreaterThan(
     0,
   );
   expect(
-    finalLensState.visibilityAfterTaskActivation.every(
-      (call) => call.visible === false,
+    finalLensState.presentationAfterTaskActivation.every(
+      (call) => call.presented === false,
     ),
   ).toBe(true);
-  expect(finalLensState.visibility?.visible).toBe(false);
-  expect(finalLensState.bounds?.bounds).toEqual({
-    x: 0,
-    y: 0,
-    width: 0,
-    height: 0,
-  });
+  expect(finalLensState.presentation?.presented).toBe(false);
+
+  // And that is the whole of it. The guest is a DOM element now, so there is no
+  // rectangle for main to be told about and no native view to be switched off —
+  // the two calls this test used to be built around are never made at all.
+  expect(finalLensState.boundsCallCount).toBe(0);
+  expect(finalLensState.visibilityCallCount).toBe(0);
 });

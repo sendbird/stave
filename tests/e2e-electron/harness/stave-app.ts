@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   _electron as electron,
+  expect,
   type ElectronApplication,
   type Page,
 } from "@playwright/test";
@@ -90,47 +91,103 @@ export async function seedProject(
   page: Page,
   args: { projectPath: string },
 ): Promise<void> {
-  await page.evaluate((input) => {
-    window.localStorage.setItem(
-      "stave:workspace-fallback:v1",
-      JSON.stringify([
-        {
-          id: "ws-e2e",
-          name: "e2e",
-          updatedAt: "2026-03-06T01:00:00.000Z",
-          snapshot: { activeTaskId: null, tasks: [], messagesByTask: {} },
-        },
-      ]),
-    );
-    window.localStorage.setItem(
-      "stave-store",
-      JSON.stringify({
-        state: {
-          projectPath: input.projectPath,
-          projectName: "stave-e2e",
-          workspaces: [
-            {
-              id: "ws-e2e",
-              name: "e2e",
-              updatedAt: "2026-03-06T01:00:00.000Z",
-            },
-          ],
-          activeWorkspaceId: "ws-e2e",
-          workspaceBranchById: { "ws-e2e": "main" },
-          workspacePathById: { "ws-e2e": input.projectPath },
-          workspaceDefaultById: { "ws-e2e": true },
-        },
-        version: 0,
-      }),
-    );
-  }, args);
+  const write = () =>
+    page.evaluate((input) => {
+      window.localStorage.setItem(
+        "stave:workspace-fallback:v1",
+        JSON.stringify([
+          {
+            id: "ws-e2e",
+            name: "e2e",
+            updatedAt: "2026-03-06T01:00:00.000Z",
+            snapshot: { activeTaskId: null, tasks: [], messagesByTask: {} },
+          },
+        ]),
+      );
+      window.localStorage.setItem(
+        "stave-store",
+        JSON.stringify({
+          state: {
+            projectPath: input.projectPath,
+            projectName: "stave-e2e",
+            workspaces: [
+              {
+                id: "ws-e2e",
+                name: "e2e",
+                updatedAt: "2026-03-06T01:00:00.000Z",
+              },
+            ],
+            activeWorkspaceId: "ws-e2e",
+            workspaceBranchById: { "ws-e2e": "main" },
+            workspacePathById: { "ws-e2e": input.projectPath },
+            workspaceDefaultById: { "ws-e2e": true },
+          },
+          version: 0,
+        }),
+      );
+    }, args);
 
-  await page.reload({ waitUntil: "domcontentloaded" });
+  /*
+   * Seed, reload, and confirm the project actually stuck — retrying the whole
+   * cycle if it did not.
+   *
+   * Injecting through `localStorage` races the app's real hydration: startup
+   * rehydrates synchronously and then runs `hydrateWorkspaces`, which can, on a
+   * warm relaunch, land before the persisted project is in place and leave the
+   * store project-less. The Lens affordance is disabled without a project, so a
+   * test that proceeded here would fail for a reason unrelated to Lens. Re-
+   * seeding is idempotent and cheap, so a few attempts turn the race into a
+   * short delay instead of a flake.
+   */
+  const lensButton = page.getByRole("button", { name: "Lens", exact: true });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await write();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    try {
+      await expect(lensButton).toBeEnabled({ timeout: 15_000 });
+      return;
+    } catch {
+      // Hydration clobbered the seed; write it again and reload.
+    }
+  }
+  throw new Error("the seeded project never enabled the Lens affordance");
 }
 
-/** Open a Lens tab the way a user does: the Lens button in the right rail. */
+/**
+ * Open a Lens tab the way a user does: the Lens button in the right rail.
+ *
+ * Retried, and the reason is worth stating because it looked like a product bug
+ * for a while. Seeding through the persisted store means the app starts from a
+ * synchronous rehydrate and *then* runs `hydrateWorkspaces`, which replaces
+ * workspace state — including `lensTabs`. A Lens tab created in that window is
+ * dropped, its panel unmounts, and the session it had just opened is closed
+ * from the renderer's teardown path. Nothing about it is Lens-specific; it is a
+ * race between the test and app startup.
+ *
+ * So: click, and require the panel to still be there a moment later. A first
+ * click that lands mid-hydration is expected, not a failure.
+ */
 export async function openLensSurface(page: Page): Promise<void> {
   const lensButton = page.getByRole("button", { name: "Lens", exact: true });
-  await lensButton.waitFor({ state: "visible", timeout: 30_000 });
-  await lensButton.click();
+  await expect(lensButton).toBeEnabled({ timeout: 30_000 });
+
+  const panel = page.getByTestId("lens-surface-panel");
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    if ((await panel.count()) === 0) {
+      await lensButton.click();
+    }
+    await page.waitForTimeout(1_000);
+    if ((await panel.count()) > 0) {
+      // Still there after a settle window, so hydration is not about to take
+      // it away again.
+      await page.waitForTimeout(500);
+      if ((await panel.count()) > 0) {
+        return;
+      }
+    }
+  }
+  throw new Error("the Lens panel never stayed mounted");
 }
+
+/** The Lens session id the first Lens tab in a workspace gets. */
+export const E2E_LENS_SESSION_ID = "default";
