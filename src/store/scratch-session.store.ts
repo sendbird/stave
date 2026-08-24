@@ -7,6 +7,7 @@ import type { ProviderAdapter } from "@/lib/providers/provider.types";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import { runProviderTurn } from "@/store/provider-turn-runtime";
+import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
 import {
   buildMessageId,
   buildRecentTimestamp,
@@ -193,10 +194,32 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
       );
     },
 
-    ingestEvent: ({ event }) => {
-      if (event.type === "done") {
-        set({ activeTurnId: null });
+    ingestEvent: ({ event, turnId, provider, model }) => {
+      const state = get();
+      if (state.activeTurnId !== turnId) {
+        return;
       }
+
+      const next = replayProviderEventsToTaskState({
+        taskId: state.taskId,
+        messages: state.messages,
+        events: [event],
+        provider,
+        model,
+        turnId,
+        providerSession: state.providerSession,
+        messageCount: state.messages.length,
+      });
+
+      if (!next.changed) {
+        return;
+      }
+
+      set({
+        messages: next.messages,
+        activeTurnId: next.activeTurnId ?? null,
+        providerSession: next.providerSession ?? state.providerSession,
+      });
     },
   }),
 );

@@ -144,3 +144,66 @@ describe("scratch session turn dispatch", () => {
     expect("workerIntent" in runtimeOptions).toBe(false);
   });
 });
+
+describe("scratch session event folding", () => {
+  test("folds streamed text into the assistant message and clears the turn on done", async () => {
+    const { runTurn } = buildFakeRunTurn([
+      { type: "text", text: "the folder holds a rust crate" },
+      { type: "done" },
+    ]);
+
+    useScratchSessionStore
+      .getState()
+      .setFolder({ directoryPath: "/tmp/scratch" });
+    await useScratchSessionStore
+      .getState()
+      .send(
+        { prompt: "what is here?", settings: defaultSettings },
+        { runTurn },
+      );
+    await Bun.sleep(0);
+
+    const messages = useScratchSessionStore.getState().messages;
+    const assistant = messages[messages.length - 1];
+    expect(assistant?.content).toContain("rust crate");
+    expect(useScratchSessionStore.getState().activeTurnId).toBeNull();
+  });
+
+  test("remembers the native session id and carries it into the next turn", async () => {
+    const first = buildFakeRunTurn([
+      {
+        type: "provider_session",
+        providerId: "claude-code",
+        nativeSessionId: "session-abc",
+      },
+      { type: "done" },
+    ]);
+
+    useScratchSessionStore
+      .getState()
+      .setFolder({ directoryPath: "/tmp/scratch" });
+    await useScratchSessionStore
+      .getState()
+      .send(
+        { prompt: "first", settings: defaultSettings },
+        { runTurn: first.runTurn },
+      );
+    await Bun.sleep(0);
+
+    expect(
+      useScratchSessionStore.getState().providerSession["claude-code"],
+    ).toBeDefined();
+
+    const second = buildFakeRunTurn([{ type: "done" }]);
+    await useScratchSessionStore
+      .getState()
+      .send(
+        { prompt: "second", settings: defaultSettings },
+        { runTurn: second.runTurn },
+      );
+    await Bun.sleep(0);
+
+    expect(second.calls[0]?.runtimeOptions).toBeDefined();
+    expect(useScratchSessionStore.getState().messages).toHaveLength(4);
+  });
+});
