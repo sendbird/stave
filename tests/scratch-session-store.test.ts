@@ -364,3 +364,58 @@ describe("scratch session stop", () => {
     ).toHaveLength(0);
   });
 });
+
+describe("scratch session clear", () => {
+  test("aborts, releases the provider task, and keeps the folder", async () => {
+    await startTurnWithPendingApproval();
+    const previousTaskId = useScratchSessionStore.getState().taskId;
+    const turnId = useScratchSessionStore.getState().activeTurnId;
+    const aborted: Array<Record<string, unknown>> = [];
+    const cleaned: Array<Record<string, unknown>> = [];
+
+    await useScratchSessionStore.getState().clear({
+      abortTurn: async (args) => {
+        aborted.push(args);
+        return { ok: true };
+      },
+      cleanupTask: async (args) => {
+        cleaned.push(args);
+        return { ok: true };
+      },
+    });
+
+    const state = useScratchSessionStore.getState();
+    expect(aborted[0]).toEqual({ turnId });
+    expect(cleaned[0]).toEqual({ taskId: previousTaskId });
+    expect(state.messages).toEqual([]);
+    expect(state.activeTurnId).toBeNull();
+    expect(state.providerSession).toEqual({});
+    expect(state.taskId).not.toBe(previousTaskId);
+    expect(state.folderPath).toBe("/tmp/scratch");
+  });
+
+  test("ignores provider events that arrive after a clear", async () => {
+    const { runTurn } = buildFakeRunTurn([]);
+    useScratchSessionStore
+      .getState()
+      .setFolder({ directoryPath: "/tmp/scratch" });
+    await useScratchSessionStore
+      .getState()
+      .send({ prompt: "hi", settings: defaultSettings }, { runTurn });
+    const staleTurnId = useScratchSessionStore.getState().activeTurnId ?? "";
+
+    await useScratchSessionStore.getState().clear({
+      abortTurn: async () => ({ ok: true }),
+      cleanupTask: async () => ({ ok: true }),
+    });
+
+    useScratchSessionStore.getState().ingestEvent({
+      event: { type: "text", text: "late" },
+      turnId: staleTurnId,
+      provider: "claude-code",
+      model: defaultSettings.modelClaude,
+    });
+
+    expect(useScratchSessionStore.getState().messages).toEqual([]);
+  });
+});

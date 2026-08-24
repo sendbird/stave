@@ -32,6 +32,9 @@ export interface ScratchSessionDependencies {
     requestId: string;
     approved: boolean;
   }) => Promise<{ ok: boolean; message?: string }>;
+  cleanupTask?: (args: {
+    taskId: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
 }
 
 export interface ScratchSessionState {
@@ -67,6 +70,7 @@ export interface ScratchSessionState {
     args: { requestId: string; approved: boolean },
     dependencies?: ScratchSessionDependencies,
   ) => Promise<void>;
+  clear: (dependencies?: ScratchSessionDependencies) => Promise<void>;
 }
 
 export function createScratchTaskId() {
@@ -133,6 +137,9 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
       return get().setFolder({ directoryPath: picked.directoryPath });
     },
 
+    // Test-only, synchronous reset: also clears folderPath and issues no IPC.
+    // For the user-facing "clear" action (which aborts the turn and releases the
+    // provider task while keeping the folder), use `clear` instead.
     reset: () => {
       set({
         folderPath: null,
@@ -307,6 +314,27 @@ export const useScratchSessionStore = create<ScratchSessionState>()(
             approved,
           }),
         })),
+      });
+    },
+
+    // User-facing "clear": abort the live turn, interrupt pending approvals,
+    // release the provider task, then wipe the transcript and issue a fresh
+    // taskId — but keep folderPath and provider so the next turn stays in place.
+    // Unlike `reset`, this calls into the provider IPC and preserves the folder.
+    clear: async (dependencies) => {
+      const previousTaskId = get().taskId;
+      await get().stop(dependencies);
+
+      const cleanupTask =
+        dependencies?.cleanupTask ?? window.api?.provider?.cleanupTask;
+      await cleanupTask?.({ taskId: previousTaskId });
+
+      set({
+        messages: [],
+        activeTurnId: null,
+        providerSession: {},
+        error: null,
+        taskId: createScratchTaskId(),
       });
     },
   }),
