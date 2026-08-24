@@ -53,13 +53,24 @@ export async function launchStave(): Promise<StaveApp> {
     app,
     page,
     close: async () => {
-      const process_ = app.process();
+      const child = app.process();
       try {
         await page.close({ runBeforeUnload: false }).catch(() => {});
       } finally {
-        process_.kill("SIGKILL");
+        child.kill("SIGKILL");
       }
-      await rm(userDataDir, { recursive: true, force: true });
+      // A killed Electron leaves helper processes flushing into the profile for
+      // a moment, so an immediate remove races them and throws ENOTEMPTY. Retry
+      // briefly, then give up: this is a directory under the OS temp root, and
+      // failing a suite over cleanup would be worse than leaving it behind.
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        try {
+          await rm(userDataDir, { recursive: true, force: true });
+          return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      }
     },
   };
 }

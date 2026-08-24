@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { launchStave, seedProject, type StaveApp } from "./harness/stave-app";
 
@@ -26,17 +29,27 @@ import { launchStave, seedProject, type StaveApp } from "./harness/stave-app";
  */
 
 let stave: StaveApp;
+let projectDir: string;
 
 test.beforeAll(async () => {
+  // A throwaway directory, not this repository. Pointing the app at a real
+  // checkout makes it do real git and workspace scanning on startup, which is
+  // slow and — more to the point — variable enough to make the shell
+  // assertions flaky for reasons that have nothing to do with Lens.
+  projectDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
+
   stave = await launchStave();
   await expect(stave.page.getByTestId("workspace-pane-host")).toBeVisible({
     timeout: 30_000,
   });
-  await seedProject(stave.page, { projectPath: process.cwd() });
+  await seedProject(stave.page, { projectPath: projectDir });
 });
 
 test.afterAll(async () => {
   await stave?.close();
+  if (projectDir) {
+    await rm(projectDir, { recursive: true, force: true });
+  }
 });
 
 test("the built product boots and its shell is drivable", async () => {
