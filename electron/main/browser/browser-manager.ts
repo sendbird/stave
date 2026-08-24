@@ -12,6 +12,7 @@ import {
   BrowserWindow,
   WebContentsView,
   session as electronSession,
+  webContents,
 } from "electron";
 import { randomUUID } from "node:crypto";
 import { attachPartitionDownloadHandler } from "./browser-downloads";
@@ -19,6 +20,7 @@ import { isDevToolsShortcut } from "../keyboard-shortcuts";
 import { getMainWindow, toggleMainWindowDevTools } from "../window";
 import { openExternalWithFallback } from "../utils/external-url";
 import { assertNavigationAllowed } from "./browser-security";
+import { decideLensGuestBind } from "./browser-guest-bind";
 import { fillLensCredentialForWebContents } from "./lens-credential-service";
 import {
   resolveLensSessionProfile,
@@ -38,6 +40,7 @@ import {
   type LensSessionClosedPayload,
   type LensSessionDescriptor,
   type LensSessionProfileArgs,
+  type LensSessionScope,
 } from "../../../src/lib/lens/lens.types";
 import {
   LensNetworkRateLimiter,
@@ -121,12 +124,29 @@ export class RingBuffer<T> {
 // Session state
 // ---------------------------------------------------------------------------
 
+/**
+ * How a session's guest page is hosted.
+ *
+ * `dom-guest` is the shipping surface: the guest is a `<webview>` element the
+ * renderer owns, so its rectangle and visibility are CSS and main has no say in
+ * either. `native-view` is the previous `WebContentsView` surface, which main
+ * positions over the whole renderer through IPC.
+ *
+ * Everything else about a session — navigation, capture, CDP, downloads,
+ * annotations, the credential vault — reads `webContents` and never asks which
+ * of these it got.
+ */
+export type BrowserSessionSurface =
+  | { kind: "native-view"; view: WebContentsView }
+  | { kind: "dom-guest" };
+
 export interface BrowserSessionState {
   workspaceId: string;
   /** Session id within the workspace ("default" for legacy callers). */
   lensSessionId: string;
   sessionProfile: ResolvedLensSessionProfile;
-  view: WebContentsView;
+  /** How the guest page is hosted. See `BrowserSessionSurface`. */
+  surface: BrowserSessionSurface;
   /**
    * The guest page itself, which is what every feature actually talks to:
    * navigation, CDP, console/network capture, downloads, annotations.
@@ -794,47 +814,59 @@ function releasePartitionHandlersIfUnused(partition: string): void {
 // Public API
 // ---------------------------------------------------------------------------
 
-export function createBrowserSession(
+/**
+ * Identity and storage profile for a Lens session, resolved without creating
+ * anything.
+ *
+ * This is the first half of opening a session on the DOM-guest surface: the
+ * renderer needs the partition before it can mount a `<webview>`, and main
+ * needs to have resolved that partition itself rather than accept one the
+ * renderer chose. The guest arrives afterwards, through
+ * `bindBrowserSessionGuest`.
+ */
+export function resolveBrowserSessionReservation(
   workspaceId: string,
   options?: Omit<LensSessionProfileArgs, "workspaceId"> & {
     lensSessionId?: string;
   },
-): BrowserSessionState {
-  const lensSessionId = normalizeLensSessionId(options?.lensSessionId);
+): { lensSessionId: string; sessionProfile: ResolvedLensSessionProfile } {
+  return {
+    lensSessionId: normalizeLensSessionId(options?.lensSessionId),
+    sessionProfile: resolveLensSessionProfile({
+      workspaceId,
+      sessionScope: options?.sessionScope,
+      projectKey: options?.projectKey,
+    }),
+  };
+}
 
-  // Clean up any existing session with the same identity
-  destroyBrowserSession(workspaceId, lensSessionId);
+/**
+ * Everything a Lens session is, given a guest page that already exists.
+ *
+ * Shared by both surfaces on purpose. The only thing that differs between a
+ * `WebContentsView` main created and a `<webview>` the renderer created is who
+ * owns the wrapper; the permissions, the popup policy, the partition-level
+ * traffic dispatch, and the shortcut relay are properties of *a Lens page*, and
+ * splitting them per surface is how the two would drift.
+ */
+function wireBrowserSession(args: {
+  workspaceId: string;
+  lensSessionId: string;
+  sessionProfile: ResolvedLensSessionProfile;
+  webContents: Electron.WebContents;
+  surface: BrowserSessionSurface;
+}): BrowserSessionState {
+  const { workspaceId, lensSessionId, sessionProfile, webContents, surface } =
+    args;
+  const ses = webContents.session;
 
-  const win = getMainWindow();
-  if (!win) {
-    throw new Error("No main window available to attach WebContentsView");
-  }
-
-  const sessionProfile = resolveLensSessionProfile({
-    workspaceId,
-    sessionScope: options?.sessionScope,
-    projectKey: options?.projectKey,
-  });
-  const ses = electronSession.fromPartition(sessionProfile.partition);
-
-  const view = new WebContentsView({
-    webPreferences: {
-      preload: lensGuestPreloadPath,
-      session: ses,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-    },
-  });
-
-  // Start hidden (0-size) until the renderer sends bounds
-  view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
-
-  // Keep app DevTools shortcuts working while the native browser view holds focus.
-  view.webContents.on("before-input-event", (event, input) => {
-    const owner = getSessionForWebContentsId(view.webContents.id);
+  // Keep app DevTools shortcuts working while the guest page holds focus.
+  //
+  // Still required on the DOM-guest surface: a `<webview>` guest is a separate
+  // frame tree with its own focus, so keys pressed in the page are delivered to
+  // the guest and never reach the host document's listeners.
+  webContents.on("before-input-event", (event, input) => {
+    const owner = getSessionForWebContentsId(webContents.id);
     if (!owner || !isCurrentBrowserSession(owner)) {
       return;
     }
@@ -863,16 +895,13 @@ export function createBrowserSession(
     toggleMainWindowDevTools();
   });
 
-  // Add to the main window's content view
-  win.contentView.addChildView(view);
-
   // Lens is a browser surface, so pages must be able to play through the
   // selected system output device.
-  enableLensPageAudioOutput(view.webContents);
+  enableLensPageAudioOutput(webContents);
 
-  // Throttle background rendering when the view is not visible to reduce CPU
+  // Throttle background rendering when the page is not visible to reduce CPU
   // usage when the Lens panel is closed or another panel is active.
-  view.webContents.setBackgroundThrottling(true);
+  webContents.setBackgroundThrottling(true);
 
   // Grant only microphone and audio-output selection to a live Lens page.
   // Auth popups, stale views, camera, display capture, and every unrelated
@@ -892,16 +921,19 @@ export function createBrowserSession(
   registerPartitionNetworkDispatch(ses, sessionProfile.partition);
   ensurePartitionDownloadDispatch(ses, sessionProfile.partition);
 
-  // Open external links in system browser instead of navigating
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    openLensAuthPopup({
-      parent: win,
-      session: ses,
-      url,
-      workspaceId,
-      lensSessionId,
-      ownerWebContentsId: view.webContents.id,
-    });
+  // Open external links in system browser instead of navigating.
+  webContents.setWindowOpenHandler(({ url }) => {
+    const win = getMainWindow();
+    if (win) {
+      openLensAuthPopup({
+        parent: win,
+        session: ses,
+        url,
+        workspaceId,
+        lensSessionId,
+        ownerWebContentsId: webContents.id,
+      });
+    }
     return { action: "deny" as const };
   });
 
@@ -909,9 +941,9 @@ export function createBrowserSession(
     workspaceId,
     lensSessionId,
     sessionProfile,
-    view,
-    webContents: view.webContents,
-    webContentsId: view.webContents.id,
+    surface,
+    webContents,
+    webContentsId: webContents.id,
     authPopups: new Set(),
     consoleLog: new RingBuffer<BrowserConsoleEntry>(CONSOLE_BUFFER_SIZE),
     consoleRateLimiter: new LensConsoleRateLimiter(),
@@ -942,6 +974,169 @@ export function createBrowserSession(
   sessions.set(sessionKey(workspaceId, lensSessionId), session);
   webContentsSessionIndex.set(session.webContentsId, session);
   return session;
+}
+
+export function createBrowserSession(
+  workspaceId: string,
+  options?: Omit<LensSessionProfileArgs, "workspaceId"> & {
+    lensSessionId?: string;
+  },
+): BrowserSessionState {
+  const { lensSessionId, sessionProfile } = resolveBrowserSessionReservation(
+    workspaceId,
+    options,
+  );
+
+  // Clean up any existing session with the same identity
+  destroyBrowserSession(workspaceId, lensSessionId);
+
+  const win = getMainWindow();
+  if (!win) {
+    throw new Error("No main window available to attach WebContentsView");
+  }
+
+  const ses = electronSession.fromPartition(sessionProfile.partition);
+
+  const view = new WebContentsView({
+    webPreferences: {
+      preload: lensGuestPreloadPath,
+      session: ses,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+    },
+  });
+
+  // Start hidden (0-size) until the renderer sends bounds
+  view.setBounds({ x: 0, y: 0, width: 0, height: 0 });
+
+  // Add to the main window's content view
+  win.contentView.addChildView(view);
+
+  return wireBrowserSession({
+    workspaceId,
+    lensSessionId,
+    sessionProfile,
+    webContents: view.webContents,
+    surface: { kind: "native-view", view },
+  });
+}
+
+/**
+ * Forget a session whose guest is already gone, without announcing a close.
+ *
+ * Used only when a dead guest is being replaced by a fresh one for the same
+ * session id. `destroyBrowserSession` is the wrong tool there: it tells the
+ * renderer the session closed, which would drop the very tab that is in the
+ * middle of restoring itself.
+ */
+function forgetDeadSessionState(session: BrowserSessionState): void {
+  sessions.delete(sessionKey(session.workspaceId, session.lensSessionId));
+  suspendedVisibleSessionBounds.delete(
+    sessionKey(session.workspaceId, session.lensSessionId),
+  );
+  clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
+  if (webContentsSessionIndex.get(session.webContentsId) === session) {
+    webContentsSessionIndex.delete(session.webContentsId);
+  }
+  try {
+    session.detachEventListeners?.();
+  } catch {
+    // The listeners are attached to a WebContents that is already gone.
+  }
+  session.detachEventListeners = null;
+  session.consoleLog.clear();
+  session.networkLog.clear();
+  session.downloadLog.clear();
+}
+
+export type BindBrowserSessionGuestResult =
+  | { ok: true; session: BrowserSessionState; created: boolean }
+  | { ok: false; message: string };
+
+/**
+ * Adopt a `<webview>` guest the renderer created as the page behind a session.
+ *
+ * This is the inverted half of session creation. Main still decides the
+ * session's identity and storage profile — `resolveBrowserSessionReservation`
+ * ran before the renderer mounted anything — and everything the renderer
+ * contributes is checked before it can matter: `decideLensGuestBind` establishes
+ * that the nominated WebContents is a webview guest, embedded by the Lens host
+ * window, running in the Session object main resolved for this partition.
+ */
+export function bindBrowserSessionGuest(args: {
+  workspaceId: string;
+  lensSessionId?: string;
+  guestWebContentsId: number;
+  sessionScope?: LensSessionScope;
+  projectKey?: string | null;
+}): BindBrowserSessionGuestResult {
+  const { lensSessionId, sessionProfile } = resolveBrowserSessionReservation(
+    args.workspaceId,
+    {
+      lensSessionId: args.lensSessionId,
+      sessionScope: args.sessionScope,
+      projectKey: args.projectKey,
+    },
+  );
+
+  const host = getMainWindow()?.webContents;
+  if (!host || host.isDestroyed()) {
+    return { ok: false, message: "No main window available to host a guest" };
+  }
+
+  const guest = webContents.fromId(args.guestWebContentsId);
+  if (!guest) {
+    return {
+      ok: false,
+      message: `No WebContents with id ${args.guestWebContentsId}`,
+    };
+  }
+
+  const existing = getBrowserSession(args.workspaceId, lensSessionId);
+  const decision = decideLensGuestBind({
+    candidate: {
+      type: guest.getType(),
+      hostWebContentsId: guest.hostWebContents?.id ?? null,
+      isExpectedPartition:
+        guest.session === electronSession.fromPartition(sessionProfile.partition),
+      isDestroyed: guest.isDestroyed(),
+    },
+    candidateWebContentsId: args.guestWebContentsId,
+    hostWebContentsId: host.id,
+    incumbent: existing
+      ? {
+          webContentsId: existing.webContentsId,
+          isDestroyed: existing.webContents.isDestroyed(),
+        }
+      : null,
+  });
+
+  if (!decision.ok) {
+    return { ok: false, message: `Refused Lens guest: ${decision.reason}` };
+  }
+
+  if (existing && !decision.replacesIncumbent) {
+    return { ok: true, session: existing, created: false };
+  }
+
+  if (existing) {
+    forgetDeadSessionState(existing);
+  }
+
+  return {
+    ok: true,
+    session: wireBrowserSession({
+      workspaceId: args.workspaceId,
+      lensSessionId,
+      sessionProfile,
+      webContents: guest,
+      surface: { kind: "dom-guest" },
+    }),
+    created: true,
+  };
 }
 
 export async function clearBrowserSessionData(
@@ -1164,11 +1359,17 @@ export function destroyBrowserSession(
   // Keep the JS wrapper alive until native destruction has completed. Some
   // Electron versions can otherwise collect WebContents from a V8 second-pass
   // weak callback while its observer notification is still on the stack.
-  try {
-    retainBrowserViewUntilDestroyed(session.view);
-  } catch {
-    // The helper retains before observing destruction, so continuing is safer
-    // than abandoning the rest of teardown if WebContents is already invalid.
+  //
+  // Only the native surface owns a wrapper to retain. A DOM guest's lifetime
+  // belongs to the `<webview>` element in the renderer, which holds its own
+  // reference for as long as the element is in the document.
+  if (session.surface.kind === "native-view") {
+    try {
+      retainBrowserViewUntilDestroyed(session.surface.view);
+    } catch {
+      // The helper retains before observing destruction, so continuing is
+      // safer than abandoning teardown if WebContents is already invalid.
+    }
   }
 
   // Tombstone routing before any teardown work so late console/network events
@@ -1185,15 +1386,8 @@ export function destroyBrowserSession(
 
   session.visible = false;
   session.lastAppliedBounds = { x: 0, y: 0, width: 0, height: 0 };
-  const closePromise = closeRetainedBrowserView({
-    view: session.view,
-    removeFromParent: () => {
-      const win = getMainWindow();
-      if (win) {
-        win.contentView.removeChildView(session.view);
-      }
-    },
-    beforeClose: async () => {
+  const surface = session.surface;
+  const drainAndReleaseSideChannels = async () => {
       // The target owns its remote objects, so dispose local CDP state without
       // issuing cleanup commands that would race with WebContents.close().
       try {
@@ -1224,9 +1418,34 @@ export function destroyBrowserSession(
           // Popup may already be closing.
         }
       }
-      session.authPopups.clear();
-    },
-  });
+    session.authPopups.clear();
+  };
+
+  /*
+   * Closing the page.
+   *
+   * The native surface goes through the retention ladder: the wrapper is kept
+   * alive, detached from the window, and closed once the CDP drain has run.
+   *
+   * A DOM guest has no wrapper for main to close. Its `<webview>` element is
+   * the owner, and removing that element is what destroys the page — so main
+   * drains CDP and then relies on `lens:session-closed` below, which is what
+   * tells the renderer to drop the element. Calling `webContents.close()` here
+   * as well would race that removal for no benefit.
+   */
+  const closePromise =
+    surface.kind === "native-view"
+      ? closeRetainedBrowserView({
+          view: surface.view,
+          removeFromParent: () => {
+            const win = getMainWindow();
+            if (win) {
+              win.contentView.removeChildView(surface.view);
+            }
+          },
+          beforeClose: drainAndReleaseSideChannels,
+        })
+      : drainAndReleaseSideChannels();
 
   session.consoleLog.clear();
   session.networkLog.clear();
@@ -1347,8 +1566,13 @@ export function setViewBounds(
   ) {
     return;
   }
+  if (session.surface.kind !== "native-view") {
+    // A DOM guest's rectangle is CSS in the renderer. There is nothing for main
+    // to apply, and no round trip to spend on a layout change.
+    return;
+  }
   try {
-    session.view.setBounds(bounds);
+    session.surface.view.setBounds(bounds);
     session.lastAppliedBounds = bounds;
   } catch {
     // View may be destroyed
@@ -1362,14 +1586,42 @@ export function setViewVisible(
 ): void {
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return;
+  if (session.surface.kind !== "native-view") {
+    setSessionPresented(workspaceId, visible, lensSessionId);
+    return;
+  }
   try {
-    session.view.setVisible(visible);
+    session.surface.view.setVisible(visible);
     session.visible = visible;
     if (visible) {
       session.lastVisibleAt = ++lensVisibilitySequence;
     }
   } catch {
     // View may be destroyed
+  }
+}
+
+/**
+ * Record whether a renderer panel is currently showing this session's page.
+ *
+ * Purely a report, not a command: on the DOM-guest surface the renderer has
+ * already shown or hidden the element by the time this arrives, and main cannot
+ * override it. What main needs the answer for is session *choice* — an agent
+ * call with no explicit session id targets the Lens tab the user is looking at,
+ * falling back to the most recently shown one
+ * (`resolvePreferredBrowserSession`). Without this signal every such call would
+ * have to guess.
+ */
+export function setSessionPresented(
+  workspaceId: string,
+  presented: boolean,
+  lensSessionId?: string,
+): void {
+  const session = getBrowserSession(workspaceId, lensSessionId);
+  if (!session) return;
+  session.visible = presented;
+  if (presented) {
+    session.lastVisibleAt = ++lensVisibilitySequence;
   }
 }
 
