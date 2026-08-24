@@ -267,6 +267,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   providerDebugStream: boolean;
   providerTimeoutMs: number;
   claudeBinaryPath: string;
+  /** Absolute folder the Standalone CLI overlay runs claude and codex in. */
+  standaloneCliFolderPath: string;
   claudePermissionMode: ClaudePermissionMode;
   /** Stores the permission mode that was active before entering plan mode, so it can be restored when plan mode is exited. */
   claudePermissionModeBeforePlan: ClaudePermissionModeBeforePlan;
@@ -551,6 +553,7 @@ export const defaultSettings: AppSettings = {
   providerDebugStream: false,
   providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
   claudeBinaryPath: "",
+  standaloneCliFolderPath: "",
   claudePermissionMode: "auto",
   claudePermissionModeBeforePlan: null,
   claudePlanModeApprovalScope: DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
