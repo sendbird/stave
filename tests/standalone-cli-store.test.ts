@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
-import { STANDALONE_CLI_SLOT_PREFIX } from "@/lib/terminal/standalone-cli";
+import {
+  STANDALONE_CLI_SLOT_PREFIX,
+  STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
+} from "@/lib/terminal/standalone-cli";
 
 beforeEach(() => {
   useStandaloneCliStore.getState().reset();
@@ -132,7 +135,11 @@ describe("standalone cli folder adoption", () => {
     expect(useStandaloneCliStore.getState().nativeSessionIdByTab).toEqual({});
   });
 
-  test("still clears local state when the close IPC rejects", async () => {
+  test("does not adopt the new folder when the close IPC rejects", async () => {
+    // The old PTYs are still alive in their slots, and createCliSession returns
+    // an existing slot session while ignoring the new cwd. Committing here would
+    // permanently show folder B while the CLI runs in folder A, so the change
+    // has to stay unapplied and be retried instead.
     const deps = { closeSessionsBySlotPrefix: async () => ({ ok: true }) };
     await useStandaloneCliStore.getState().adoptFolder({ folderPath: "/tmp/a" }, deps);
     useStandaloneCliStore
@@ -148,7 +155,66 @@ describe("standalone cli folder adoption", () => {
       },
     );
 
-    expect(useStandaloneCliStore.getState().adoptedFolderPath).toBe("/tmp/b");
-    expect(useStandaloneCliStore.getState().nativeSessionIdByTab).toEqual({});
+    expect(useStandaloneCliStore.getState().adoptedFolderPath).toBe("/tmp/a");
+    expect(useStandaloneCliStore.getState().nativeSessionIdByTab).toEqual({
+      codex: "codex-1",
+    });
+  });
+
+  test("does not adopt the new folder when the close IPC reports failure", async () => {
+    const deps = { closeSessionsBySlotPrefix: async () => ({ ok: true }) };
+    await useStandaloneCliStore.getState().adoptFolder({ folderPath: "/tmp/a" }, deps);
+
+    await useStandaloneCliStore.getState().adoptFolder(
+      { folderPath: "/tmp/b" },
+      { closeSessionsBySlotPrefix: async () => ({ ok: false }) },
+    );
+
+    expect(useStandaloneCliStore.getState().adoptedFolderPath).toBe("/tmp/a");
+  });
+
+  test("drops the saved transcript when the folder changes", async () => {
+    // The transcript is keyed by tab only, so without this removal the new
+    // folder replays the previous folder's scrollback.
+    const entries = new Map<string, string>();
+    const globalWithWindow = globalThis as {
+      window?: Record<string, unknown>;
+    };
+    const previousWindow = globalWithWindow.window;
+    globalWithWindow.window = {
+      ...(previousWindow ?? {}),
+      localStorage: {
+        getItem: (key: string) => entries.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          entries.set(key, value);
+        },
+        removeItem: (key: string) => {
+          entries.delete(key);
+        },
+      },
+    };
+
+    try {
+      const deps = { closeSessionsBySlotPrefix: async () => ({ ok: true }) };
+      await useStandaloneCliStore
+        .getState()
+        .adoptFolder({ folderPath: "/tmp/a" }, deps);
+      entries.set(
+        STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
+        JSON.stringify({ "standalone-cli:codex": "old folder output" }),
+      );
+
+      await useStandaloneCliStore
+        .getState()
+        .adoptFolder({ folderPath: "/tmp/b" }, deps);
+
+      expect(entries.has(STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY)).toBe(false);
+    } finally {
+      if (previousWindow === undefined) {
+        delete globalWithWindow.window;
+      } else {
+        globalWithWindow.window = previousWindow;
+      }
+    }
   });
 });

@@ -16,8 +16,9 @@ export function buildStandaloneCliEmptyStateText() {
 export function StandaloneCliOverlayView(props: {
   folderPath: string;
   onClose: () => void;
+  onOpenSettings: () => void;
 }) {
-  const { folderPath, onClose } = props;
+  const { folderPath, onClose, onOpenSettings } = props;
   const folderLabel = folderPath
     ? resolvePathBaseName({ path: folderPath, fallback: folderPath })
     : "No folder set";
@@ -29,7 +30,8 @@ export function StandaloneCliOverlayView(props: {
         UI_LAYER_CLASS.floatingChrome,
       )}
       // Escape is the Claude Code TUI cancel key, so it must reach the PTY.
-      // Closing happens through the header button and the top-bar toggle only.
+      // Closing happens through the header button or a backdrop click; the
+      // backdrop covers the top bar, so its toggle is unreachable while open.
       onPointerDown={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -63,18 +65,32 @@ export function StandaloneCliOverlayView(props: {
           </Button>
         </header>
         {folderPath ? (
-          <StandaloneCliTerminal folderPath={folderPath} visible={true} />
+          // Closing the overlay unmounts this subtree, so the terminal needs no
+          // separate visibility flag to honour the CLI dispose-on-hide rule.
+          <StandaloneCliTerminal folderPath={folderPath} />
         ) : (
-          <p className="px-4 py-6 text-sm text-muted-foreground">
-            {buildStandaloneCliEmptyStateText()}
-          </p>
+          <div className="flex flex-col items-start gap-3 px-4 py-6">
+            <p className="text-sm text-muted-foreground">
+              {buildStandaloneCliEmptyStateText()}
+            </p>
+            {/* The backdrop covers the top bar, so this is the only route to
+                Settings while the overlay is open. */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onOpenSettings}
+            >
+              Open Settings
+            </Button>
+          </div>
         )}
       </section>
     </div>
   );
 }
 
-export function StandaloneCliOverlay() {
+export function StandaloneCliOverlay(props: { onOpenSettings: () => void }) {
   const open = useStandaloneCliStore((state) => state.open);
   const closeOverlay = useStandaloneCliStore((state) => state.closeOverlay);
   const adoptFolder = useStandaloneCliStore((state) => state.adoptFolder);
@@ -93,6 +109,10 @@ export function StandaloneCliOverlay() {
   }
 
   return (
-    <StandaloneCliOverlayView folderPath={folderPath} onClose={closeOverlay} />
+    <StandaloneCliOverlayView
+      folderPath={folderPath}
+      onClose={closeOverlay}
+      onOpenSettings={props.onOpenSettings}
+    />
   );
 }

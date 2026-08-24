@@ -30,14 +30,14 @@
 
 ### Entry Points
 
-- The top-bar terminal button toggles the overlay open and closed. It is always present, even on the empty "no project" screen, and it is disabled only in the sense that opening it without a folder set shows an empty-state message instead of a terminal.
+- The top-bar terminal button opens the overlay. It is never disabled and always present, even on the empty "no project" screen. Opening it with no folder set shows an empty state with an **Open Settings** button instead of a terminal.
 
 ### Key Controls
 
 - **Provider tabs** — the header's tab bar switches between **Claude Code** and **Codex**. Each tab is its own PTY session; switching tabs does not stop the session you switch away from.
 - **Folder label** — the header shows the current folder's name (with the full path on hover), so you always know where the active CLI is running.
-- **Restart** — a small button over each terminal ends that tab's CLI process and starts a fresh one with a new session, discarding that tab's conversation. The other tab is unaffected.
-- **Close** — the header's close button (or the top-bar toggle) hides the overlay. `Escape` is not a close shortcut here: it is sent straight to the CLI, matching what `Escape` does in that CLI's own terminal interface.
+- **Restart** — one button in the row above the terminal. It acts on the active tab: that tab's CLI process ends and a fresh one starts with a new session, discarding that tab's conversation. The other tab is unaffected.
+- **Close** — the header's close button, or a click on the dimmed backdrop outside the panel, hides the overlay. The top-bar button cannot close it: while the overlay is open, the backdrop covers the top bar. `Escape` is not a close shortcut here either: it is sent straight to the CLI, matching what `Escape` does in that CLI's own terminal interface.
 
 ## Common Workflows
 
@@ -49,12 +49,12 @@
 
 ### Close And Resume Later
 
-1. Close the overlay with the header button or the top-bar toggle. The CLI process keeps running in the background.
+1. Close the overlay with the header's close button, or by clicking the dimmed backdrop outside the panel. The CLI process keeps running in the background.
 2. Reopen the overlay at any time. The terminal screen is restored from where you left it, not restarted.
 
 ### Start Over In The Same Folder
 
-1. Click **Restart** above the tab you want to reset.
+1. Select the tab you want to reset, then click **Restart** in the row above the terminal.
 2. That tab's CLI process ends and a new one starts with a fresh session in the same folder. The other tab keeps its conversation.
 
 ### Switch Folders
@@ -82,13 +82,13 @@
 
 - Symptom: opening the overlay shows a message instead of a terminal.
 - Cause: no folder is set yet.
-- Fix: open `Settings > General > Standalone CLI` and set an absolute folder path.
+- Fix: click **Open Settings** in the empty state — or open `Settings > General > Standalone CLI` directly — and set an absolute folder path.
 
 ### Escape does not close the overlay
 
 - Symptom: pressing `Escape` inside the terminal leaves the overlay open.
 - Cause: this is expected. `Escape` is forwarded to the CLI, the same as it would behave in that CLI's own terminal.
-- Fix: close the overlay with the header's close button or the top-bar toggle.
+- Fix: close the overlay with the header's close button, or by clicking the dimmed backdrop outside the panel.
 
 ### A tab's conversation is gone after changing the folder
 

@@ -7,6 +7,7 @@ import {
 import {
   STANDALONE_CLI_SLOT_PREFIX,
   STANDALONE_CLI_TAB_IDS,
+  STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
   type StandaloneCliTabId,
 } from "@/lib/terminal/standalone-cli";
 
@@ -148,14 +149,33 @@ export const useStandaloneCliStore = create<StandaloneCliState>()(
         const closeSessionsBySlotPrefix =
           deps?.closeSessionsBySlotPrefix ??
           window.api?.terminal?.closeSessionsBySlotPrefix;
+        let closed: boolean;
         try {
-          await closeSessionsBySlotPrefix?.({
+          const result = await closeSessionsBySlotPrefix?.({
             prefix: STANDALONE_CLI_SLOT_PREFIX,
           });
+          // An absent bridge means there is no host slot to close at all.
+          closed = result?.ok ?? true;
         } catch {
-          // Best effort. Local state must still be cleared, otherwise a failed
-          // IPC would leave stale native session ids pointing at the old folder.
+          closed = false;
         }
+
+        if (!closed) {
+          // A half-applied folder change is worse than a retried one. The old
+          // PTYs are still alive in their slots, and createCliSession returns an
+          // existing slot session while ignoring the new cwd, so committing here
+          // would permanently show folder B while the CLI runs in folder A.
+          // Leaving adoptedFolderPath and the resume ids untouched keeps the
+          // mismatch visible so the next reconciliation retries the teardown.
+          return;
+        }
+
+        // Transcript entries are keyed by tab only, so they are folder
+        // independent and would otherwise replay the previous folder's
+        // scrollback above the new folder's prompt.
+        resolveBackingStorage()?.removeItem(
+          STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
+        );
 
         set({ adoptedFolderPath: normalized, nativeSessionIdByTab: {} });
       },

@@ -50,7 +50,9 @@ describe("StandaloneCliOverlay", () => {
   test("renders nothing visible while closed", () => {
     useStandaloneCliStore.getState().openOverlay();
 
-    const markup = render(createElement(StandaloneCliOverlay));
+    const markup = render(
+      createElement(StandaloneCliOverlay, { onOpenSettings: () => {} }),
+    );
 
     expect(markup).not.toContain("standalone-cli-panel");
     expect(markup).not.toContain("standalone-cli-terminal-viewport");
@@ -66,6 +68,7 @@ describe("StandaloneCliOverlayView", () => {
         createElement(StandaloneCliOverlayView, {
           folderPath: "",
           onClose: () => {},
+          onOpenSettings: () => {},
         }),
       ),
     );
@@ -73,6 +76,26 @@ describe("StandaloneCliOverlayView", () => {
     expect(markup).toContain("standalone-cli-panel");
     expect(markup).toContain(buildStandaloneCliEmptyStateText());
     expect(markup).not.toContain("standalone-cli-terminal-viewport");
+  });
+
+  // Spec 4.6: the backdrop covers the whole viewport including the top bar, so
+  // the empty state has to offer its own route into Settings.
+  test("offers a Settings button in the empty state", () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(StandaloneCliOverlayView, {
+          folderPath: "",
+          onClose: () => {},
+          onOpenSettings: () => {},
+        }),
+      ),
+    );
+
+    expect(extractButtonMarkup(markup, "Open Settings")).toContain(
+      "Open Settings",
+    );
   });
 
   test("mounts the terminal and both provider tabs once a folder is set", () => {
@@ -83,6 +106,7 @@ describe("StandaloneCliOverlayView", () => {
         createElement(StandaloneCliOverlayView, {
           folderPath: "/tmp/notes",
           onClose: () => {},
+          onOpenSettings: () => {},
         }),
       ),
     );

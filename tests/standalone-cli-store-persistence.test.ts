@@ -8,6 +8,12 @@ import { afterEach, describe, expect, test } from "bun:test";
  * persistStorage around it anyway, and the first write calls `undefined.setItem`.
  * So the hostile global has to be in place before the dynamic import below — a test
  * that swaps it inside the test body cannot reproduce the failure.
+ *
+ * That also means this file only bites while it is the FIRST file in the process to
+ * import the store: once `standalone-cli-store.test.ts` has imported it, the module
+ * is cached and the dynamic import below re-uses the already-resolved storage. The
+ * current filenames sort this file first; renaming either file so it sorts after
+ * `standalone-cli-store.test.ts` would silently neuter this guard.
  */
 describe("standalone cli persist storage resilience", () => {
   const globalWithWindow = globalThis as { window?: unknown };

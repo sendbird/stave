@@ -1,4 +1,7 @@
-import { buildTerminalSessionSlotKey } from "@/lib/terminal/types";
+import {
+  buildTerminalSessionSlotKey,
+  getWorkspaceCliSessionTabKey,
+} from "@/lib/terminal/types";
 
 /**
  * Standalone CLI has no workspace, so it borrows the workspace slot of the
@@ -11,6 +14,16 @@ import { buildTerminalSessionSlotKey } from "@/lib/terminal/types";
 export const STANDALONE_CLI_WORKSPACE_ID = "standalone-cli";
 
 export const STANDALONE_CLI_TAB_IDS = ["claude-code", "codex"] as const;
+
+/**
+ * Transcript scrollback for this surface only. Entries are keyed by tab key,
+ * which carries no folder, so the whole key has to be dropped whenever the
+ * configured folder changes (see `adoptFolder` in the standalone CLI store).
+ * Lives here rather than in the component so the store can clear it without
+ * importing UI.
+ */
+export const STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY =
+  "stave:standalone-cli-transcript:v1";
 
 export type StandaloneCliTabId = (typeof STANDALONE_CLI_TAB_IDS)[number];
 
@@ -33,7 +46,10 @@ export const STANDALONE_CLI_SLOT_PREFIX = buildTerminalSessionSlotKey({
 });
 
 export function getStandaloneCliTabKey(tabId: StandaloneCliTabId) {
-  return `${STANDALONE_CLI_WORKSPACE_ID}:${tabId}`;
+  return getWorkspaceCliSessionTabKey({
+    workspaceId: STANDALONE_CLI_WORKSPACE_ID,
+    cliSessionTabId: tabId,
+  });
 }
 
 export function getStandaloneCliTabTitle(tabId: StandaloneCliTabId) {

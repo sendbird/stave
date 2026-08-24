@@ -44,8 +44,10 @@ export function StandaloneCliSettingsCard() {
       return;
     }
     const result = await pickDirectory();
-    // Cancelling the dialog is not an error.
+    // Cancelling the dialog is not an error, so a previously shown validation
+    // message must not survive the cancellation either.
     if (!result.ok || !result.directoryPath) {
+      setError(null);
       return;
     }
     commit(result.directoryPath);

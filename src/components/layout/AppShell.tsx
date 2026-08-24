@@ -1486,7 +1486,9 @@ export function AppShell() {
         ) : null}
       </div>
       <StatusBar />
-      <StandaloneCliOverlay />
+      <StandaloneCliOverlay
+        onOpenSettings={() => handleOpenSettings({ section: "general" })}
+      />
     </div>
   );
 }
