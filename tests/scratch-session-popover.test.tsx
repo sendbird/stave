@@ -7,7 +7,6 @@ import {
   buildScratchTriggerLabel,
   TopBarScratchSession,
 } from "@/components/layout/TopBarScratchSession";
-import { useScratchSessionStore } from "@/store/scratch-session.store";
 
 function renderTrigger() {
   return renderToStaticMarkup(
@@ -49,7 +48,8 @@ describe("TopBarScratchSession", () => {
   // asserted this way. That branch is covered instead by the buildScratchTrigger-
   // Label unit test above plus selectScratchPendingApprovals in the store tests.
   test("renders a trigger even with no project context and no folder", () => {
-    useScratchSessionStore.getState().reset();
+    // No setState needed: the SSR snapshot is always getInitialState (see above),
+    // so this asserts the default/idle trigger regardless of live store state.
     const markup = renderTrigger();
     expect(markup).toContain("Scratch session");
     expect(markup).toContain("aria-label=\"Scratch session\"");

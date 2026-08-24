@@ -55,10 +55,10 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
             render={
               <Button
                 variant="ghost"
-                size="icon"
+                size="sm"
                 aria-label={label}
                 style={props.noDragStyle}
-                className="relative shrink-0"
+                className="relative h-8 w-8 shrink-0 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
               />
             }
           >
