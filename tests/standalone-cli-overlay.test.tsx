@@ -15,6 +15,22 @@ function render(element: ReturnType<typeof createElement>) {
   return renderToStaticMarkup(createElement(TooltipProvider, null, element));
 }
 
+// Isolates a single rendered <button> element's markup by locating the chunk
+// that carries the given provider label, so the aria-pressed assertion below
+// binds to the right button instead of matching any aria-pressed anywhere in
+// the markup.
+function extractButtonMarkup(markup: string, label: string) {
+  const button = markup
+    .split("<button")
+    .slice(1)
+    .map((chunk) => `<button${chunk}`)
+    .find((chunk) => chunk.includes(label));
+  if (!button) {
+    throw new Error(`No rendered button found for label: ${label}`);
+  }
+  return button;
+}
+
 afterEach(() => {
   useStandaloneCliStore.getState().reset();
   useAppStore.getState().updateSettings({ patch: { standaloneCliFolderPath: "" } });
@@ -92,8 +108,11 @@ describe("StandaloneCliTabBar", () => {
   test("marks the active tab with aria-pressed and the inactive one without", () => {
     const markup = render(createElement(StandaloneCliTabBar));
 
-    expect(markup).toContain('aria-pressed="true"');
-    expect(markup).toContain('aria-pressed="false"');
+    const claudeCodeButton = extractButtonMarkup(markup, "Claude Code");
+    const codexButton = extractButtonMarkup(markup, "Codex");
+
+    expect(claudeCodeButton).toContain('aria-pressed="true"');
+    expect(codexButton).toContain('aria-pressed="false"');
   });
 });
 

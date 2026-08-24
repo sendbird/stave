@@ -15,7 +15,7 @@ export function StandaloneCliTabBar() {
 
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label="Standalone CLI providers"
       className="flex items-center gap-1"
     >
