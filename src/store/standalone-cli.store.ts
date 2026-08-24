@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import {
+  persist,
+  type PersistStorage,
+  type StorageValue,
+} from "zustand/middleware";
 import {
   STANDALONE_CLI_SLOT_PREFIX,
   STANDALONE_CLI_TAB_IDS,
@@ -40,6 +44,53 @@ export interface StandaloneCliState {
 function isStandaloneCliTabId(candidate: string): candidate is StandaloneCliTabId {
   return (STANDALONE_CLI_TAB_IDS as readonly string[]).includes(candidate);
 }
+
+type PersistedStandaloneCliState = Pick<
+  StandaloneCliState,
+  "activeTabId" | "adoptedFolderPath" | "nativeSessionIdByTab"
+>;
+
+/**
+ * zustand's default persist storage is `createJSONStorage(() => window.localStorage)`,
+ * and `createJSONStorage` guards only against that resolver throwing — not against it
+ * returning undefined. Tests in this repository routinely install a bare
+ * `globalThis.window = { api: ... }` with no `localStorage`, after which every write
+ * would call `undefined.setItem`. Resolve and shape-check per call so an absent or
+ * partial backing store degrades to a no-op.
+ */
+function resolveBackingStorage(): Storage | null {
+  const candidate = (globalThis as { window?: { localStorage?: unknown } }).window
+    ?.localStorage as Storage | undefined;
+  if (
+    !candidate ||
+    typeof candidate.getItem !== "function" ||
+    typeof candidate.setItem !== "function" ||
+    typeof candidate.removeItem !== "function"
+  ) {
+    return null;
+  }
+  return candidate;
+}
+
+const standaloneCliStorage: PersistStorage<PersistedStandaloneCliState> = {
+  getItem: (name) => {
+    const raw = resolveBackingStorage()?.getItem(name);
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw) as StorageValue<PersistedStandaloneCliState>;
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name, value) => {
+    resolveBackingStorage()?.setItem(name, JSON.stringify(value));
+  },
+  removeItem: (name) => {
+    resolveBackingStorage()?.removeItem(name);
+  },
+};
 
 const initialState = {
   open: false,
@@ -107,6 +158,7 @@ export const useStandaloneCliStore = create<StandaloneCliState>()(
     }),
     {
       name: "stave:standalone-cli",
+      storage: standaloneCliStorage,
       partialize: (state) => ({
         activeTabId: state.activeTabId,
         adoptedFolderPath: state.adoptedFolderPath,

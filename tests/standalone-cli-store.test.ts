@@ -152,3 +152,25 @@ describe("standalone cli folder adoption", () => {
     expect(useStandaloneCliStore.getState().nativeSessionIdByTab).toEqual({});
   });
 });
+
+describe("standalone cli persistence resilience", () => {
+  test("survives a window that carries no localStorage", () => {
+    const globalWithWindow = globalThis as { window?: unknown };
+    const previousWindow = globalWithWindow.window;
+    // Many tests in this repo install a bare window with only `api`. zustand's
+    // default persist storage throws on every write in that state.
+    globalWithWindow.window = { api: {} };
+    try {
+      expect(() => {
+        useStandaloneCliStore.getState().toggleOverlay();
+      }).not.toThrow();
+      expect(useStandaloneCliStore.getState().open).toBe(true);
+    } finally {
+      if (previousWindow === undefined) {
+        delete globalWithWindow.window;
+      } else {
+        globalWithWindow.window = previousWindow;
+      }
+    }
+  });
+});

@@ -8,7 +8,6 @@ import {
   StandaloneCliOverlayView,
 } from "@/components/layout/standalone-cli/StandaloneCliOverlay";
 import { StandaloneCliTabBar } from "@/components/layout/standalone-cli/StandaloneCliTabBar";
-import { useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 
 function render(element: ReturnType<typeof createElement>) {
@@ -33,7 +32,6 @@ function extractButtonMarkup(markup: string, label: string) {
 
 afterEach(() => {
   useStandaloneCliStore.getState().reset();
-  useAppStore.getState().updateSettings({ patch: { standaloneCliFolderPath: "" } });
 });
 
 describe("StandaloneCliOverlay", () => {
@@ -47,11 +45,11 @@ describe("StandaloneCliOverlay", () => {
   // exactly why the open/folder-populated markup lives in the prop-driven
   // StandaloneCliOverlayView below, which needs no store and is tested with
   // explicit props instead.
+  // This test deliberately avoids writing to app.store: doing so would trip
+  // zustand's default persist storage once another test file has installed a
+  // window without localStorage.
   test("renders nothing visible while closed", () => {
     useStandaloneCliStore.getState().openOverlay();
-    useAppStore
-      .getState()
-      .updateSettings({ patch: { standaloneCliFolderPath: "/tmp/notes" } });
 
     const markup = render(createElement(StandaloneCliOverlay));
 
