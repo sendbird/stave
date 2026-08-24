@@ -1,5 +1,15 @@
 export const UI_LAYER_VALUE = {
+  /** The Lens guest page. A real DOM element, so everything above wins. */
   lensSurface: 10,
+  /**
+   * Pane-local Lens chrome that overlaps the guest's rectangle — the loading
+   * badge, the load-error strip.
+   *
+   * Its own band because these used to paint over an empty placeholder and now
+   * share a rectangle with an actual page. Still below `resizer`: this is pane
+   * content, and a split sash dragged across it stays on top.
+   */
+  lensPaneChrome: 15,
   resizer: 20,
   chrome: 30,
   sessionFloater: 35,
@@ -13,6 +23,7 @@ export const UI_LAYER_VALUE = {
 
 export const UI_LAYER_CLASS = {
   lensSurface: "z-10",
+  lensPaneChrome: "z-[15]",
   resizer: "z-20",
   chrome: "z-30",
   sessionFloater: "z-[35]",

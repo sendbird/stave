@@ -137,6 +137,9 @@ import type {
   LensCdpApprovalResponse,
   LensDownloadEntry,
   LensDownloadEventPayload,
+  LensGuestFocusRequestPayload,
+  LensGuestFocusResultPayload,
+  LensGuestRequiredPayload,
   BrowserNavigationEventPayload,
   LensSecurityConfig,
   LensDiagnosticsCaptureState,
@@ -507,6 +510,61 @@ ipcRenderer.on(
       return;
     }
     for (const subscriber of lensSessionPresentationSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+/*
+ * Guest mount requests from main.
+ *
+ * Queued while nobody is listening, like presentation requests: an agent can
+ * open a Lens session during app startup, before the React tree that owns the
+ * guest container has mounted, and dropping the request would strand the tool
+ * call until its timeout.
+ */
+const lensGuestRequiredSubscribers = new Set<
+  (payload: LensGuestRequiredPayload) => void
+>();
+const pendingLensGuestRequests = new Map<string, LensGuestRequiredPayload>();
+ipcRenderer.on(
+  "lens:guest-required",
+  (_event, payload: LensGuestRequiredPayload) => {
+    if (lensGuestRequiredSubscribers.size === 0) {
+      pendingLensGuestRequests.set(
+        `${payload.workspaceId}\u0000${payload.lensSessionId}`,
+        payload,
+      );
+      return;
+    }
+    for (const subscriber of lensGuestRequiredSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+/*
+ * Focus borrow requests from main.
+ *
+ * Not queued: main gives up on these in a quarter of a second, so a request
+ * that arrives with no listener has already failed by the time one appears.
+ * Answering it late would report success for input that never landed.
+ */
+const lensGuestFocusSubscribers = new Set<
+  (payload: LensGuestFocusRequestPayload) => void
+>();
+ipcRenderer.on(
+  "lens:focus-guest",
+  (_event, payload: LensGuestFocusRequestPayload) => {
+    if (lensGuestFocusSubscribers.size === 0) {
+      ipcRenderer.send("lens:guest-focus-result", {
+        requestId: payload.requestId,
+        ok: false,
+        message: "No Lens guest host is mounted in this window",
+      } satisfies LensGuestFocusResultPayload);
+      return;
+    }
+    for (const subscriber of lensGuestFocusSubscribers) {
       subscriber(payload);
     }
   },
@@ -2328,8 +2386,27 @@ contextBridge.exposeInMainWorld("api", {
     ) =>
       ipcRenderer.invoke("lens:open-session", args) as Promise<{
         ok: boolean;
+        /**
+         * True when this call is what brought the session into existence.
+         *
+         * Either way the session is live by the time this resolves: main asks
+         * this window for the guest page and waits for the bind before
+         * answering.
+         */
         created?: boolean;
         session?: LensSessionDescriptor;
+        message?: string;
+      }>,
+    bindGuest: (
+      args: LensSessionProfileArgs & {
+        lensSessionId: string;
+        guestWebContentsId: number;
+        managedByMcp?: boolean;
+      },
+    ) =>
+      ipcRenderer.invoke("lens:bind-guest", args) as Promise<{
+        ok: boolean;
+        created?: boolean;
         message?: string;
       }>,
     closeSession: (args: { workspaceId: string; lensSessionId: string }) =>
@@ -2369,6 +2446,24 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("lens:set-visible", args) as Promise<{
         ok: boolean;
       }>,
+    setPresented: (args: {
+      workspaceId: string;
+      lensSessionId?: string;
+      presented: boolean;
+    }) =>
+      ipcRenderer.invoke("lens:set-presented", args) as Promise<{
+        ok: boolean;
+      }>,
+    reportGuestFocus: (payload: LensGuestFocusResultPayload) => {
+      ipcRenderer.send("lens:guest-focus-result", payload);
+    },
+    reportGuestMountFailure: (payload: {
+      workspaceId: string;
+      lensSessionId: string;
+      message?: string;
+    }) => {
+      ipcRenderer.send("lens:guest-mount-failed", payload);
+    },
     navigate: (args: {
       workspaceId: string;
       lensSessionId?: string;
@@ -2676,6 +2771,26 @@ contextBridge.exposeInMainWorld("api", {
       lensSessionClosedSubscribers.add(listener);
       return () => {
         lensSessionClosedSubscribers.delete(listener);
+      };
+    },
+    subscribeGuestRequests: (
+      listener: (payload: LensGuestRequiredPayload) => void,
+    ) => {
+      lensGuestRequiredSubscribers.add(listener);
+      for (const payload of pendingLensGuestRequests.values()) {
+        listener(payload);
+      }
+      pendingLensGuestRequests.clear();
+      return () => {
+        lensGuestRequiredSubscribers.delete(listener);
+      };
+    },
+    subscribeGuestFocusRequests: (
+      listener: (payload: LensGuestFocusRequestPayload) => void,
+    ) => {
+      lensGuestFocusSubscribers.add(listener);
+      return () => {
+        lensGuestFocusSubscribers.delete(listener);
       };
     },
     subscribePresentationRequests: (

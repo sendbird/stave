@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
 import { CraneDispatchApprovalDialog } from "@/components/layout/CraneDispatchApprovalDialog";
+import { useLensGuestHost } from "@/components/panes/useLensGuestHost";
 import { useLensSessionClosedEvents } from "@/components/panes/useLensSessionClosedEvents";
 import { useLensSessionPresentationRequests } from "@/components/panes/useLensSessionPresentationRequests";
 import { TooltipProvider } from "@/components/ui";
@@ -31,6 +32,9 @@ function pushLensSecurityConfig(): void {
 }
 
 export default function App() {
+  // Above the pane tree on purpose: Lens pages outlive the panels that show
+  // them, and agent-opened sessions have no panel at all.
+  useLensGuestHost();
   useLensSessionPresentationRequests();
   useLensSessionClosedEvents();
 
