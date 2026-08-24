@@ -92,3 +92,50 @@ export function applyLensWebviewPreferences(
     target[key] = value;
   }
 }
+
+/**
+ * The slice of `WebContents` this clamp needs. Structural so the wiring can be
+ * exercised outside a real Electron window — the end-to-end harness installs
+ * the same function rather than a copy of it, which is the only way the harness
+ * can claim to be testing what ships.
+ */
+export type LensWebviewAttachTarget = {
+  on(
+    event: "will-attach-webview",
+    listener: (
+      event: { preventDefault: () => void },
+      webPreferences: Record<string, unknown>,
+      params: Record<string, unknown>,
+    ) => void,
+  ): unknown;
+};
+
+/**
+ * Install the attach clamp on a window's WebContents.
+ *
+ * The preload path is resolved per attach rather than captured once: it depends
+ * on the runtime directory, and a stale capture would silently hand a guest the
+ * wrong preload after a packaging-layout change instead of refusing.
+ */
+export function installLensWebviewAttachClamp(args: {
+  webContents: LensWebviewAttachTarget;
+  resolveGuestPreloadPath: () => string;
+  onRefused?: (reason: string) => void;
+}): void {
+  const { webContents, resolveGuestPreloadPath, onRefused } = args;
+
+  webContents.on("will-attach-webview", (event, webPreferences, params) => {
+    const decision = decideLensWebviewAttach({
+      requestedPartition: params.partition,
+      guestPreloadPath: resolveGuestPreloadPath(),
+    });
+
+    if (!decision.allow) {
+      onRefused?.(decision.reason);
+      event.preventDefault();
+      return;
+    }
+
+    applyLensWebviewPreferences(webPreferences, decision.webPreferences);
+  });
+}
