@@ -360,9 +360,6 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        // Store CSS-pixel bounds for zoom-change re-apply
-        session.lastCssBounds = args.bounds;
-
         // Scale CSS pixels → device pixels using the sender window's zoom factor.
         // BrowserWindow.fromWebContents should always resolve here since the
         // sender IS the main BrowserWindow renderer, but we guard defensively.

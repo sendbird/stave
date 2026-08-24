@@ -1,7 +1,19 @@
-export const LENS_OCCLUDING_FLOATING_SURFACE_SELECTOR = [
+import {
+  UI_LAYER_FLOATING_MIN_VALUE,
+  uiLayerClassSelector,
+  uiLayerClassesAtOrAbove,
+} from "@/lib/ui-layers";
+
+/**
+ * Floating surfaces identified by their own component contract rather than by
+ * z-index. These are the Base UI / Sonner / shadcn parts whose popup layers are
+ * portalled to the body and carry a stable class or data attribute.
+ */
+const LENS_OCCLUDING_COMPONENT_SELECTORS = [
   ".t-dropdown",
   ".t-modal",
   ".t-overlay",
+  ".t-tooltip",
   ".cn-toast",
   "[data-sonner-toast]",
   "[data-slot='dialog-overlay']",
@@ -12,7 +24,25 @@ export const LENS_OCCLUDING_FLOATING_SURFACE_SELECTOR = [
   "[data-slot='drawer-content']",
   "[role='dialog'][aria-modal='true']",
   "[role='alertdialog'][aria-modal='true']",
-  ".z-\\[80\\].fixed.inset-0",
+  // Dockview paints its drag-and-drop landing zone inside the pane tree, so it
+  // lands under the native Lens view during a pane drag over a Lens tab.
+  ".dv-drop-target-dropzone",
+] as const;
+
+/**
+ * Every app z-plane that floats above pane content, derived from the shared
+ * scale in `ui-layers.ts`. Deriving instead of hand-listing means a new
+ * floating layer is covered the moment it is added to the scale — the previous
+ * hardcoded `.z-\[80\]` literal silently stopped matching whenever the scale
+ * was renumbered.
+ */
+const LENS_OCCLUDING_LAYER_SELECTORS = uiLayerClassesAtOrAbove(
+  UI_LAYER_FLOATING_MIN_VALUE,
+).map(uiLayerClassSelector);
+
+export const LENS_OCCLUDING_FLOATING_SURFACE_SELECTOR = [
+  ...LENS_OCCLUDING_COMPONENT_SELECTORS,
+  ...LENS_OCCLUDING_LAYER_SELECTORS,
 ].join(", ");
 
 type RectLike = Pick<

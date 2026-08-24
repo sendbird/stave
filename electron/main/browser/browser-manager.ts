@@ -154,8 +154,6 @@ export interface BrowserSessionState {
   /** Monotonic activation order used to prefer the most recently shown tab. */
   lastVisibleAt: number;
   navigationState: BrowserNavigationState;
-  /** Last CSS-pixel bounds sent from renderer (for zoom-change re-apply). */
-  lastCssBounds: LensBounds | null;
   /** Last device-pixel bounds applied to the native view. */
   lastAppliedBounds: LensBounds | null;
 }
@@ -927,7 +925,6 @@ export function createBrowserSession(
       canGoForward: false,
       isLoading: false,
     },
-    lastCssBounds: null,
     lastAppliedBounds: null,
   };
 
