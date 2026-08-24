@@ -1,9 +1,4 @@
 import { BrowserWindow } from "electron";
-import {
-  hideAllBrowserSessions,
-  restoreSuspendedBrowserSessions,
-  suspendVisibleBrowserSessions,
-} from "./browser/browser-manager";
 import { installLensWebviewAttachClamp } from "./browser/browser-webview-attach";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
 import {
@@ -24,7 +19,7 @@ const ZOOM_STEP = 0.1;
 const runtimeDir = import.meta.dirname;
 let mainWindow: BrowserWindow | null = null;
 
-/** Return the main BrowserWindow instance (used by browser-manager for WebContentsView). */
+/** Return the main BrowserWindow instance. */
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
 }
@@ -107,24 +102,18 @@ export function createMainWindow() {
     void openExternalWithFallback({ url });
   });
 
-  // A renderer reload does not tear down Lens `WebContentsView`s: they stay
-  // attached with their last bounds and `visible: true`, painting over the new
-  // UI until their panel remounts. Hide them here so a reload can never leave a
-  // stuck Lens overlay; sessions survive and each panel restores its own view.
-  window.webContents.on("did-start-loading", () => {
-    hideAllBrowserSessions();
-  });
+  // A Lens guest is a `<webview>` in this window's document now, so a reload or
+  // a renderer hang cannot leave one painting over freshly mounted UI: the
+  // element goes away with the document, and it lives behind every overlay
+  // plane regardless. Only the renderer-health metrics remain here.
   window.on("unresponsive", () => {
     recordRendererUnresponsive();
-    suspendVisibleBrowserSessions();
   });
   window.on("responsive", () => {
     recordRendererResponsive();
-    restoreSuspendedBrowserSessions();
   });
   window.webContents.on("render-process-gone", (_event, details) => {
     recordRendererProcessGone(details.reason);
-    hideAllBrowserSessions();
   });
 
   window.webContents.session.setPermissionRequestHandler(

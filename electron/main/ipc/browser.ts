@@ -2,7 +2,7 @@
 // IPC handlers for the built-in Lens feature
 // ---------------------------------------------------------------------------
 
-import { BrowserWindow, ipcMain } from "electron";
+import { ipcMain } from "electron";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -10,19 +10,15 @@ import {
   clearBrowserSessionLog,
   clearBrowserSessionData,
   destroyBrowserSession,
-  destroyWorkspaceBrowserSessions,
   getBrowserSession,
   getWebContentsForSession,
   listBrowserSessions,
   pushConsoleEntry,
   pushNetworkEntry,
   setSessionPresented,
-  setViewBounds,
-  setViewVisible,
 } from "../browser/browser-manager";
 import {
   bindBrowserSessionGuestWithEvents,
-  ensureBrowserSessionWithEvents,
   injectAnnotationOverlay,
   injectBoxInspectOverlay,
   sendAnnotationEvent,
@@ -92,9 +88,7 @@ import {
   LensScreenshotArgsSchema,
   LensSessionTargetArgsSchema,
 } from "./schemas";
-import { scaleLensBoundsWithinContainer } from "../../../src/lib/lens/lens-bounds";
 import type {
-  LensBounds,
   LensCdpApprovalResponse,
   LensDownloadEntry,
   LensGuestFocusResultPayload,
@@ -219,51 +213,6 @@ export function registerBrowserHandlers() {
     async (_event, args: LensCdpApprovalResponse) => ({
       ok: respondCdpApproval(args),
     }),
-  );
-
-  // ---- Create view: create WebContentsView in main process (idempotent) ----
-  ipcMain.handle(
-    "lens:create-view",
-    async (
-      _event,
-      args: LensSessionProfileArgs & { lensSessionId?: string },
-    ) => {
-      try {
-        const { session } = ensureBrowserSessionWithEvents(args.workspaceId, {
-          sessionScope: args.sessionScope,
-          projectKey: args.projectKey,
-          lensSessionId: args.lensSessionId,
-          reuseExisting: true,
-        });
-        session.managedByMcp = false;
-        return {
-          ok: true,
-          sessionScope: session.sessionProfile.scope,
-          lensSessionId: session.lensSessionId,
-        };
-      } catch (err) {
-        return {
-          ok: false,
-          message: err instanceof Error ? err.message : String(err),
-        };
-      }
-    },
-  );
-
-  // ---- Destroy view: tear down session(s) and remove view(s) ----
-  // Without lensSessionId this is the workspace-level dispose path and tears
-  // down EVERY session of the workspace (legacy semantics: the workspace had
-  // exactly one). With lensSessionId it tears down only that session.
-  ipcMain.handle(
-    "lens:destroy-view",
-    async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
-      if (args.lensSessionId) {
-        await destroyBrowserSession(args.workspaceId, args.lensSessionId);
-      } else {
-        await destroyWorkspaceBrowserSessions(args.workspaceId);
-      }
-      return { ok: true };
-    },
   );
 
   // ---- Session lifecycle (multi-session lens tabs) ----
@@ -486,60 +435,6 @@ export function registerBrowserHandlers() {
           message: err instanceof Error ? err.message : String(err),
         };
       }
-    },
-  );
-
-  // ---- Set bounds: sync placeholder div bounds → WebContentsView ----
-  ipcMain.handle(
-    "lens:set-bounds",
-    async (
-      event,
-      args: {
-        workspaceId: string;
-        lensSessionId?: string;
-        bounds: LensBounds;
-      },
-    ) => {
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
-
-      try {
-        // Scale CSS pixels → device pixels using the sender window's zoom factor.
-        // BrowserWindow.fromWebContents should always resolve here since the
-        // sender IS the main BrowserWindow renderer, but we guard defensively.
-        const win = BrowserWindow.fromWebContents(event.sender);
-        if (!win) {
-          console.warn(
-            "[lens:set-bounds] Could not resolve BrowserWindow from IPC sender — " +
-              "applying bounds without zoom scaling (HiDPI may be off).",
-          );
-        }
-        const zoomFactor = win?.webContents.getZoomFactor() ?? 1;
-        const scaled = scaleLensBoundsWithinContainer({
-          bounds: args.bounds,
-          zoomFactor,
-        });
-
-        setViewBounds(args.workspaceId, scaled, args.lensSessionId);
-        return { ok: true };
-      } catch (err) {
-        return {
-          ok: false,
-          message: err instanceof Error ? err.message : String(err),
-        };
-      }
-    },
-  );
-
-  // ---- Set visible: toggle WebContentsView visibility ----
-  ipcMain.handle(
-    "lens:set-visible",
-    async (
-      _event,
-      args: { workspaceId: string; lensSessionId?: string; visible: boolean },
-    ) => {
-      setViewVisible(args.workspaceId, args.visible, args.lensSessionId);
-      return { ok: true };
     },
   );
 

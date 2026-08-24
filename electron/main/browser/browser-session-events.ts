@@ -10,8 +10,6 @@ import {
 } from "../../../src/lib/lens/lens.types";
 import {
   bindBrowserSessionGuest,
-  browserSessionUsesProfile,
-  createBrowserSession,
   getBrowserSession,
   pushConsoleEntry,
   pushGuestConsoleEntry,
@@ -483,56 +481,13 @@ export function attachBrowserSessionEventListeners(
   };
 }
 
-export function ensureBrowserSessionWithEvents(
-  workspaceId: string,
-  options?: {
-    managedByMcp?: boolean;
-    lensSessionId?: string;
-    /** Keep a live session intact while a renderer tab adopts it. */
-    reuseExisting?: boolean;
-  } & Omit<LensSessionProfileArgs, "workspaceId">,
-): {
-  session: BrowserSessionState;
-  created: boolean;
-} {
-  const lensSessionId = options?.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
-  const existing = getBrowserSession(workspaceId, lensSessionId);
-  if (
-    existing &&
-    (options?.reuseExisting === true ||
-      browserSessionUsesProfile(
-        workspaceId,
-        {
-          sessionScope: options?.sessionScope,
-          projectKey: options?.projectKey,
-        },
-        lensSessionId,
-      ))
-  ) {
-    return { session: existing, created: false };
-  }
-
-  const session = createBrowserSession(workspaceId, {
-    sessionScope: options?.sessionScope,
-    projectKey: options?.projectKey,
-    lensSessionId,
-  });
-  session.managedByMcp = options?.managedByMcp === true;
-  session.detachEventListeners = attachBrowserSessionEventListeners(
-    workspaceId,
-    session.webContents,
-    session.lensSessionId,
-  );
-  return { session, created: true };
-}
-
 /**
  * Adopt a renderer-created `<webview>` guest and start listening to its page.
  *
- * The events half is why this exists next to `ensureBrowserSessionWithEvents`
- * rather than in the manager: navigation, console, network, annotation, and
- * credential listeners are what make a bound WebContents an observable Lens
- * session, and a guest bound without them would look alive and report nothing.
+ * The events half is why this lives here rather than in the manager:
+ * navigation, console, network, annotation, and credential listeners are what
+ * make a bound WebContents an observable Lens session, and a guest bound
+ * without them would look alive and report nothing.
  */
 export function bindBrowserSessionGuestWithEvents(args: {
   workspaceId: string;
