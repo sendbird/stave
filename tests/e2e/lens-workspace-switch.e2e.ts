@@ -76,16 +76,6 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       }),
     );
 
-    type LensVisibilityCall = {
-      workspaceId: string;
-      lensSessionId?: string;
-      visible: boolean;
-    };
-    type LensBoundsCall = {
-      workspaceId: string;
-      lensSessionId?: string;
-      bounds: { x: number; y: number; width: number; height: number };
-    };
     type LensPresentationCall = {
       workspaceId: string;
       lensSessionId?: string;
@@ -99,8 +89,6 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       activityKind?: "visual" | "interaction";
       toolName?: string;
     };
-    const lensVisibilityCalls: LensVisibilityCall[] = [];
-    const lensBoundsCalls: LensBoundsCall[] = [];
     const lensPresentationCalls: LensPresentationCall[] = [];
     const lensOpenCalls: Array<{
       workspaceId: string;
@@ -113,8 +101,6 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       releaseLensOpen = resolve;
     });
     Object.assign(window, {
-      __lensVisibilityCalls: lensVisibilityCalls,
-      __lensBoundsCalls: lensBoundsCalls,
       __lensPresentationCalls: lensPresentationCalls,
       __lensOpenCalls: lensOpenCalls,
       __presentLensSession: (payload: LensPresentationPayload) => {
@@ -149,14 +135,6 @@ test("workspace switch with an open Lens keeps the active task surface visible",
         };
       },
       closeSession: async () => ({ ok: true, closed: true }),
-      setBounds: async (args: LensBoundsCall) => {
-        lensBoundsCalls.push(args);
-        return { ok: true };
-      },
-      setVisible: async (args: LensVisibilityCall) => {
-        lensVisibilityCalls.push(args);
-        return { ok: true };
-      },
       setPresented: async (args: LensPresentationCall) => {
         lensPresentationCalls.push(args);
         return { ok: true };
@@ -267,6 +245,12 @@ test("workspace switch with an open Lens keeps the active task surface visible",
   const automaticLensSurface = page.getByTestId("lens-surface-panel");
   await expect(automaticLensSurface).toBeVisible();
   await expect(sessionArea).toBeVisible();
+  // The split separator and resize sash are Dockview's own, painted just left
+  // of the Lens pane. They need no Lens cooperation anymore: the guest is a DOM
+  // element positioned over a placeholder that sits *inside* the pane content,
+  // so it cannot reach across the sash the way a native view stacked over the
+  // whole window could. This asserts the separator is present and themed, and —
+  // the point — that no gutter compensation is applied to the placeholder.
   const lensSplitBorder = await automaticLensSurface.evaluate((element) => {
     const lensRect = element.getBoundingClientRect();
     const view = Array.from(
@@ -291,20 +275,16 @@ test("workspace switch with an open Lens keeps the active task surface visible",
     const themeBorder = getComputedStyle(
       document.documentElement,
     ).getPropertyValue("--border");
-    // The native browser surface tracks this placeholder, so its inset is what
-    // keeps the separator and the resize sash visible below the toolbar.
     const placeholder = element.querySelector<HTMLElement>(
-      "[data-lens-native-view-placeholder]",
-    );
-    const gutterOwner = placeholder?.closest<HTMLElement>(
-      "[data-lens-split-gutters]",
+      "[data-lens-guest-placeholder]",
     );
     return {
       side: separatorView === view ? "left" : "right",
       separatorWidth: separatorStyle.width,
       usesThemeBorder: separatorStyle.backgroundColor === themeBorder.trim(),
       gutters: view.getAttribute("data-lens-split-gutters"),
-      contentGutters: gutterOwner?.getAttribute("data-lens-split-gutters"),
+      // The placeholder fills its pane content with no inset — there is no
+      // gutter to carve out.
       placeholderLeftInset: placeholder
         ? Math.round(placeholder.getBoundingClientRect().left - lensRect.left)
         : null,
@@ -314,9 +294,8 @@ test("workspace switch with an open Lens keeps the active task surface visible",
     side: "left",
     separatorWidth: "1px",
     usesThemeBorder: true,
-    gutters: "left",
-    contentGutters: "left",
-    placeholderLeftInset: 2,
+    gutters: null,
+    placeholderLeftInset: 0,
   });
   const [taskBounds, lensBounds, taskGroupIsActive] = await Promise.all([
     sessionArea.boundingBox(),
@@ -406,8 +385,6 @@ test("workspace switch with an open Lens keeps the active task surface visible",
         lensSessionId?: string;
         presented: boolean;
       }>;
-      __lensVisibilityCalls: unknown[];
-      __lensBoundsCalls: unknown[];
     };
     return {
       presentationAfterTaskActivation: target.__lensPresentationCalls.slice(
@@ -416,13 +393,13 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       presentation: target.__lensPresentationCalls
         .filter((call) => call.workspaceId === "ws-alpha")
         .at(-1),
-      visibilityCallCount: target.__lensVisibilityCalls.length,
-      boundsCallCount: target.__lensBoundsCalls.length,
     };
   });
 
   // A Lens tab that is no longer on screen stops being presented. The guest
-  // page stays alive and parked; only the panel's claim on the screen ends.
+  // page stays alive and parked; only the panel's claim on the screen ends —
+  // reported to main as a presentation change, the sole geometry/visibility
+  // signal that survives the move to a DOM-hosted guest.
   expect(finalLensState.presentationAfterTaskActivation.length).toBeGreaterThan(
     0,
   );
@@ -432,10 +409,4 @@ test("workspace switch with an open Lens keeps the active task surface visible",
     ),
   ).toBe(true);
   expect(finalLensState.presentation?.presented).toBe(false);
-
-  // And that is the whole of it. The guest is a DOM element now, so there is no
-  // rectangle for main to be told about and no native view to be switched off —
-  // the two calls this test used to be built around are never made at all.
-  expect(finalLensState.boundsCallCount).toBe(0);
-  expect(finalLensState.visibilityCallCount).toBe(0);
 });

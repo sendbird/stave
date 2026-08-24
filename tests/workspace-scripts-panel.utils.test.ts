@@ -114,9 +114,12 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
     expect(externalUrls).toEqual([]);
   });
 
-  test("falls back to createView when openSession is unavailable", async () => {
-    const createViewCalls: unknown[] = [];
+  test("uses the external browser when openSession is unavailable", async () => {
+    // There is no `createView` fallback anymore: `openSession` is the one way a
+    // Lens session opens, so without it the Orbit URL goes to the system
+    // browser rather than to a surface that cannot be created.
     const navigateCalls: unknown[] = [];
+    const externalUrls: string[] = [];
 
     const result = await openOrbitUrlWithLensPriority({
       url: "https://dev.stave.localhost",
@@ -124,10 +127,6 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
       projectPath: "/workspace",
       lensSessionScope: "workspace",
       lensApi: {
-        createView: async (args) => {
-          createViewCalls.push(args);
-          return { ok: true };
-        },
         navigate: async (args) => {
           navigateCalls.push(args);
           return { ok: true };
@@ -135,29 +134,18 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
       },
       resolveLensSessionId: () => "lens-2",
       focusLensSurface: () => {},
-      openExternalUrl: () => {},
+      openExternalUrl: (url) => {
+        externalUrls.push(url);
+      },
     });
 
     expect(result).toEqual({
       ok: true,
-      target: "lens",
-      lensSessionId: "lens-2",
+      target: "external",
+      reason: "lens-unavailable",
     });
-    expect(createViewCalls).toEqual([
-      {
-        workspaceId: "ws-1",
-        lensSessionId: "lens-2",
-        sessionScope: "workspace",
-        projectKey: "/workspace",
-      },
-    ]);
-    expect(navigateCalls).toEqual([
-      {
-        workspaceId: "ws-1",
-        lensSessionId: "lens-2",
-        url: "https://dev.stave.localhost",
-      },
-    ]);
+    expect(navigateCalls).toEqual([]);
+    expect(externalUrls).toEqual(["https://dev.stave.localhost"]);
   });
 
   test("falls back to the external browser when Lens is unavailable", async () => {

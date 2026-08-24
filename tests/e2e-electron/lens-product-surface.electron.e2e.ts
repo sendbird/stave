@@ -122,7 +122,7 @@ function guestGeometry() {
   return stave.page.evaluate(() => {
     const guest = document.querySelector("webview");
     const placeholder = document.querySelector(
-      "[data-lens-native-view-placeholder]",
+      "[data-lens-guest-placeholder]",
     );
     if (!(guest instanceof HTMLElement) || !placeholder) {
       return null;
