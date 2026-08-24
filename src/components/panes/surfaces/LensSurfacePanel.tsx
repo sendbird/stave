@@ -51,18 +51,9 @@ import {
   TooltipTrigger,
   toast,
 } from "@/components/ui";
-import { formatElementForChat } from "@/lib/lens/lens-element-message";
 import {
-  getLensCommentImageId,
-  isLensCommentImageAttachment,
-  upsertLensAnnotationsAttachment,
-} from "@/lib/lens/lens-annotation-attachment";
-import {
-  type LensAnnotation,
-  type LensAnnotationEventPayload,
   type BrowserNavigationEventPayload,
   type BrowserNavigationState,
-  type ElementPickerResult,
   type LensDownloadEntry,
   type LensDownloadEventPayload,
   type LensSourceMappingConfig,
@@ -70,7 +61,6 @@ import {
 import {
   LENS_LOG_LIMIT,
   matchesSession,
-  mergeAnnotationEntry,
   mergeDownloadEntry,
   type LensPanelTab,
 } from "@/lib/lens/lens-log-format";
@@ -81,15 +71,13 @@ import {
 } from "@/components/panes/surfaces/lens/LensLogDetail";
 import { LensConsoleWorkbench } from "@/components/panes/surfaces/lens/LensConsoleWorkbench";
 import { LensNetworkWorkbench } from "@/components/panes/surfaces/lens/LensNetworkWorkbench";
+import { useLensAnnotationSync } from "@/components/panes/surfaces/lens/useLensAnnotationSync";
 import { useLensDiagnosticsLog } from "@/components/panes/surfaces/lens/useLensDiagnosticsLog";
+import { useLensOverlayModes } from "@/components/panes/surfaces/lens/useLensOverlayModes";
 import { useLensSurfaceHost } from "@/components/panes/surfaces/lens/useLensSurfaceHost";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
-import {
-  DEFAULT_VISUAL_COMMENT_SHORTCUT,
-  isVisualCommentShortcut,
-} from "@/lib/visual-comment-shortcuts";
 
 const DEFAULT_NAVIGATION_STATE: BrowserNavigationState = {
   url: "about:blank",
@@ -181,11 +169,7 @@ function LensSessionSurface(args: {
   const [isLoading, setIsLoading] = useState(false);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
-  const [isPickerActive, setIsPickerActive] = useState(false);
   const [downloads, setDownloads] = useState<LensDownloadEntry[]>([]);
-  const [annotations, setAnnotations] = useState<LensAnnotation[]>([]);
-  const [isAnnotationModeActive, setIsAnnotationModeActive] = useState(false);
-  const [isBoxInspectActive, setIsBoxInspectActive] = useState(false);
   const [lensPanelTab, setLensPanelTab] = useState<LensPanelTab>("preview");
   const [lastLoadError, setLastLoadError] = useState<string | null>(null);
 
@@ -205,70 +189,39 @@ function LensSessionSurface(args: {
     setCanGoForward(state.canGoForward);
   }, []);
 
-  const startAnnotationMode = useCallback(async () => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    if (isAnnotationModeActive) {
-      return;
-    }
-
-    // Annotation and inspect overlays both capture pointer events - keep them
-    // mutually exclusive so they never fight over the same hover/click.
-    if (isBoxInspectActive) {
-      await window.api?.lens?.stopBoxInspect?.({ workspaceId, lensSessionId });
-      setIsBoxInspectActive(false);
-    }
-
-    const result = await window.api?.lens?.startAnnotationMode?.({
-      workspaceId,
-      lensSessionId,
-      options: {
-        extractDebugSource: sourceMappingConfig.reactDebugSource,
-      },
-    });
-    if (!result?.ok) {
-      toast.error("Annotation mode failed", {
-        description: result?.message ?? "Lens could not start annotation mode.",
-      });
-      return;
-    }
-    setIsAnnotationModeActive(true);
-  }, [
+  // Annotation data and in-page overlay driving. Both must stay above the
+  // session-lifecycle effect below, which resets their state for each session
+  // generation and therefore needs their setters. Their effects consequently
+  // register before the lifecycle, bounds, and subscription effects — safe for
+  // the same reason the diagnostics ordering is: every reset is a synchronous
+  // setState while every load these hooks perform is async IPC.
+  const { annotations, setAnnotations } = useLensAnnotationSync({
+    activeTaskId,
     hasLensApi,
+    lensSessionId,
+    sourceMappingConfig,
+    workspaceId,
+  });
+  const {
     isAnnotationModeActive,
     isBoxInspectActive,
+    isPickerActive,
+    pickerDisabled,
+    pickerTooltip,
+    setIsAnnotationModeActive,
+    setIsBoxInspectActive,
+    startElementPicker,
+    toggleAnnotationMode,
+    toggleBoxInspect,
+  } = useLensOverlayModes({
+    activeTaskId,
+    hasLensApi,
     lensSessionId,
-    sourceMappingConfig.reactDebugSource,
+    sourceMappingConfig,
+    url,
+    visualCommentShortcut,
     workspaceId,
-  ]);
-
-  const stopAnnotationMode = useCallback(async () => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    const result = await window.api?.lens?.stopAnnotationMode?.({
-      workspaceId,
-      lensSessionId,
-    });
-    if (!result?.ok) {
-      toast.error("Annotation mode failed", {
-        description: result?.message ?? "Lens could not stop annotation mode.",
-      });
-      return;
-    }
-    setIsAnnotationModeActive(false);
-  }, [hasLensApi, lensSessionId, workspaceId]);
-
-  const toggleAnnotationMode = useCallback(async () => {
-    if (isAnnotationModeActive) {
-      await stopAnnotationMode();
-      return;
-    }
-    await startAnnotationMode();
-  }, [isAnnotationModeActive, startAnnotationMode, stopAnnotationMode]);
+  });
 
   // Must stay above the session-lifecycle effect below, which resets the
   // diagnostics state and pause buffers and therefore needs this hook's
@@ -508,127 +461,6 @@ function LensSessionSurface(args: {
     };
   }, [hasLensApi, lensSessionId, workspaceId]);
 
-  useEffect(() => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    const captureAnnotationScreenshot = async (annotation: LensAnnotation) => {
-      if (!activeTaskId) {
-        return;
-      }
-      const imageId = getLensCommentImageId({
-        workspaceId,
-        lensSessionId,
-        annotationId: annotation.id,
-      });
-      const storeBeforeCapture = useAppStore.getState();
-      const currentDraftBeforeCapture =
-        storeBeforeCapture.promptDraftByTask[activeTaskId];
-      if (
-        currentDraftBeforeCapture?.attachments.some(
-          (attachment) =>
-            attachment.kind === "image" && attachment.id === imageId,
-        )
-      ) {
-        return;
-      }
-      const result = await window.api?.lens?.screenshot?.({
-        workspaceId,
-        lensSessionId,
-        options: {
-          clip: {
-            x: Math.max(0, Math.round(annotation.rect.x)),
-            y: Math.max(0, Math.round(annotation.rect.y)),
-            width: Math.max(1, Math.round(annotation.rect.width)),
-            height: Math.max(1, Math.round(annotation.rect.height)),
-          },
-          documentId: annotation.review.page.documentId,
-        },
-      });
-      if (
-        !result?.ok ||
-        !result.dataUrl ||
-        result.documentId !== annotation.review.page.documentId
-      ) {
-        return;
-      }
-      const store = useAppStore.getState();
-      const currentDraft = store.promptDraftByTask[activeTaskId];
-      const currentAttachments = currentDraft?.attachments ?? [];
-      if (
-        currentAttachments.some(
-          (attachment) =>
-            attachment.kind === "image" && attachment.id === imageId,
-        )
-      ) {
-        return;
-      }
-      store.updatePromptDraft({
-        taskId: activeTaskId,
-        patch: {
-          attachments: [
-            ...currentAttachments,
-            {
-              kind: "image",
-              id: imageId,
-              dataUrl: result.dataUrl,
-              label:
-                annotation.comment.trim() || `Visual comment ${annotation.pin}`,
-            },
-          ],
-        },
-      });
-    };
-
-    const unsubscribe = window.api?.lens?.subscribeAnnotationEvents?.(
-      (payload: LensAnnotationEventPayload) => {
-        if (!matchesSession(payload, workspaceId, lensSessionId)) {
-          return;
-        }
-
-        if (payload.type === "clear") {
-          setAnnotations([]);
-          return;
-        }
-        if (
-          payload.type === "remove" &&
-          payload.annotation &&
-          payload.documentId === payload.annotation.review.page.documentId
-        ) {
-          setAnnotations((current) =>
-            current.filter(
-              (annotation) => annotation.id !== payload.annotation?.id,
-            ),
-          );
-          return;
-        }
-        if (
-          (payload.type === "add" || payload.type === "update") &&
-          payload.annotation &&
-          payload.documentId === payload.annotation.review.page.documentId
-        ) {
-          setAnnotations((current) =>
-            mergeAnnotationEntry(
-              current.filter(
-                (annotation) =>
-                  annotation.review.page.documentId === payload.documentId,
-              ),
-              payload.annotation!,
-            ),
-          );
-          if (payload.type === "add") {
-            void captureAnnotationScreenshot(payload.annotation);
-          }
-        }
-      },
-    );
-
-    return () => {
-      unsubscribe?.();
-    };
-  }, [activeTaskId, hasLensApi, lensSessionId, workspaceId]);
-
   const navigate = useCallback(
     async (targetUrl: string) => {
       if (!workspaceId || !targetUrl.trim()) {
@@ -694,88 +526,6 @@ function LensSessionSurface(args: {
     }
   }, [lensSessionId, workspaceId]);
 
-  const startElementPicker = useCallback(async () => {
-    if (isPickerActive) {
-      return;
-    }
-    if (!workspaceId) {
-      return;
-    }
-    if (!hasLensApi) {
-      toast.error("Lens is unavailable", {
-        description:
-          "The embedded browser only works in the Electron desktop runtime.",
-      });
-      return;
-    }
-    if (!activeTaskId) {
-      toast.warning("Select a task first", {
-        description: "Lens sends element context into the active task draft.",
-      });
-      return;
-    }
-
-    setIsPickerActive(true);
-    try {
-      const result = await window.api?.lens?.startElementPicker?.({
-        workspaceId,
-        lensSessionId,
-        options: {
-          extractDebugSource: sourceMappingConfig.reactDebugSource,
-        },
-      });
-
-      if (!result?.ok) {
-        toast.error("Element picker failed", {
-          description:
-            result?.message ?? "Lens could not start the element picker.",
-        });
-        return;
-      }
-
-      if (!result.result) {
-        return;
-      }
-
-      const selectionText = formatElementForChat(
-        result.result as ElementPickerResult,
-        sourceMappingConfig,
-      );
-
-      // updatePromptDraft + promptFocusNonce both call zustand set(). In
-      // React 18, event-handler updates are auto-batched so this is one
-      // render, but we call through the store action to preserve its equality
-      // guards and field merging logic.
-      const currentText =
-        useAppStore.getState().promptDraftByTask[activeTaskId]?.text?.trim() ??
-        "";
-      useAppStore.getState().updatePromptDraft({
-        taskId: activeTaskId,
-        patch: {
-          text: currentText
-            ? `${currentText}\n\n${selectionText}`
-            : selectionText,
-        },
-      });
-      useAppStore.setState((state) => ({
-        promptFocusNonce: state.promptFocusNonce + 1,
-      }));
-
-      toast.success("Lens selection added", {
-        description: "Element details were appended to the active task draft.",
-      });
-    } finally {
-      setIsPickerActive(false);
-    }
-  }, [
-    activeTaskId,
-    hasLensApi,
-    isPickerActive,
-    lensSessionId,
-    sourceMappingConfig,
-    workspaceId,
-  ]);
-
   const saveScreenshot = useCallback(
     async (fullPage: boolean) => {
       if (!workspaceId || !hasLensApi) {
@@ -833,158 +583,7 @@ function LensSessionSurface(args: {
     void window.api?.shell?.showInFinder?.({ path: savePath });
   }, []);
 
-  useEffect(() => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    const unsubscribe =
-      window.api?.lens?.subscribeVisualCommentShortcutEvents?.((payload) => {
-        if (!matchesSession(payload, workspaceId, lensSessionId)) {
-          return;
-        }
-        if (
-          !isVisualCommentShortcut({
-            shortcut: visualCommentShortcut ?? DEFAULT_VISUAL_COMMENT_SHORTCUT,
-            key: payload.key,
-            code: payload.code,
-            shiftKey: payload.shiftKey,
-            altKey: payload.altKey,
-            ctrlKey: payload.ctrlKey,
-            metaKey: payload.metaKey,
-            isComposing: payload.isComposing,
-          })
-        ) {
-          return;
-        }
-        void toggleAnnotationMode();
-      });
-
-    return () => {
-      unsubscribe?.();
-    };
-  }, [
-    hasLensApi,
-    lensSessionId,
-    toggleAnnotationMode,
-    visualCommentShortcut,
-    workspaceId,
-  ]);
-
-  const toggleBoxInspect = useCallback(async () => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    if (isBoxInspectActive) {
-      const result = await window.api?.lens?.stopBoxInspect?.({
-        workspaceId,
-        lensSessionId,
-      });
-      if (!result?.ok) {
-        toast.error("Inspect mode failed", {
-          description: result?.message ?? "Lens could not stop inspect mode.",
-        });
-        return;
-      }
-      setIsBoxInspectActive(false);
-      return;
-    }
-
-    // Inspect and annotation overlays are mutually exclusive (see above).
-    if (isAnnotationModeActive) {
-      await stopAnnotationMode();
-    }
-
-    const result = await window.api?.lens?.startBoxInspect?.({
-      workspaceId,
-      lensSessionId,
-    });
-    if (!result?.ok) {
-      toast.error("Inspect mode failed", {
-        description: result?.message ?? "Lens could not start inspect mode.",
-      });
-      return;
-    }
-    setIsBoxInspectActive(true);
-  }, [
-    hasLensApi,
-    isAnnotationModeActive,
-    isBoxInspectActive,
-    lensSessionId,
-    stopAnnotationMode,
-    workspaceId,
-  ]);
-
-  useEffect(() => {
-    if (!activeTaskId || !workspaceId) {
-      return;
-    }
-
-    const store = useAppStore.getState();
-    const currentDraft = store.promptDraftByTask[activeTaskId];
-    const currentAttachments = currentDraft?.attachments ?? [];
-    const currentAnnotationIds = new Set(
-      annotations.map((annotation) =>
-        getLensCommentImageId({
-          workspaceId,
-          lensSessionId,
-          annotationId: annotation.id,
-        }),
-      ),
-    );
-    const retainedAttachments = currentAttachments.filter((attachment) => {
-      if (
-        attachment.kind !== "image" ||
-        !isLensCommentImageAttachment(attachment, workspaceId, lensSessionId)
-      ) {
-        return true;
-      }
-      return currentAnnotationIds.has(attachment.id);
-    });
-    const nextAttachments = upsertLensAnnotationsAttachment({
-      attachments: retainedAttachments,
-      workspaceId,
-      lensSessionId,
-      annotations,
-      sourceMappingConfig,
-    });
-    if (
-      JSON.stringify(currentAttachments) === JSON.stringify(nextAttachments)
-    ) {
-      return;
-    }
-    store.updatePromptDraft({
-      taskId: activeTaskId,
-      patch: {
-        attachments: nextAttachments,
-      },
-    });
-  }, [
-    activeTaskId,
-    annotations,
-    lensSessionId,
-    sourceMappingConfig,
-    workspaceId,
-  ]);
-
-  const pickerDisabled = !hasLensApi || !activeTaskId || url === "about:blank";
   const lensPageActionDisabled = !hasLensApi || url === "about:blank";
-  const pickerTooltip = useMemo(() => {
-    if (isPickerActive) {
-      return "Pick mode is active. Click an element in the page or press Escape to cancel.";
-    }
-    if (!hasLensApi) {
-      return "Lens is only available in the Electron desktop runtime.";
-    }
-    if (!activeTaskId) {
-      return "Select a task first so Lens can append element context to its draft.";
-    }
-    if (url === "about:blank") {
-      return "Open a page first.";
-    }
-    return "Pick an element and append a compact selector, style, and source summary to the active task.";
-  }, [activeTaskId, hasLensApi, isPickerActive, url]);
 
   return (
     <TooltipProvider delay={120}>
