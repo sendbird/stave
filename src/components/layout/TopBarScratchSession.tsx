@@ -12,6 +12,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { ScratchComposer } from "@/components/layout/scratch-session/ScratchComposer";
 import { ScratchTranscript } from "@/components/layout/scratch-session/ScratchTranscript";
 import {
   selectScratchPendingApprovals,
@@ -37,16 +39,32 @@ export function buildScratchEmptyStateText() {
 
 export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
   const [open, setOpen] = useState(false);
+  const [clearPromptOpen, setClearPromptOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const folderPath = useScratchSessionStore((state) => state.folderPath);
   const activeTurnId = useScratchSessionStore((state) => state.activeTurnId);
   const pendingApprovalCount = useScratchSessionStore(
     (state) => selectScratchPendingApprovals(state).length,
   );
+  const pickFolder = useScratchSessionStore((state) => state.pickFolder);
+  const clear = useScratchSessionStore((state) => state.clear);
 
   const label = buildScratchTriggerLabel({
     pendingApprovalCount,
     turnActive: Boolean(activeTurnId),
   });
+
+  // A live turn or a waiting approval means clearing would interrupt work, so
+  // confirm first. An idle session clears immediately.
+  const needsClearConfirm = Boolean(activeTurnId) || pendingApprovalCount > 0;
+
+  const handleClearClick = () => {
+    if (needsClearConfirm) {
+      setClearPromptOpen(true);
+    } else {
+      void clear();
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -80,8 +98,28 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
         align="end"
         className="w-[min(32rem,calc(100vw-1rem))] overflow-hidden rounded-xl border-border/80 bg-card p-0"
       >
-        <PopoverHeader>
-          <PopoverTitle>Scratch session</PopoverTitle>
+        <PopoverHeader className="gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <PopoverTitle>Scratch session</PopoverTitle>
+            {folderPath ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={handleClearClick}
+              >
+                Clear
+              </Button>
+            ) : null}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full justify-start truncate font-mono text-xs"
+            onClick={() => void pickFolder()}
+          >
+            {folderPath ?? "Pick a folder"}
+          </Button>
         </PopoverHeader>
         {folderPath ? (
           <ScratchTranscript />
@@ -90,6 +128,24 @@ export function TopBarScratchSession(props: { noDragStyle: CSSProperties }) {
             {buildScratchEmptyStateText()}
           </p>
         )}
+        <ScratchComposer />
+        <ConfirmDialog
+          open={clearPromptOpen}
+          title="Clear this scratch session?"
+          description="The running turn stops and any waiting approval is dropped. The folder stays selected."
+          confirmLabel="Clear"
+          loading={clearing}
+          onConfirm={async () => {
+            setClearing(true);
+            try {
+              await clear();
+            } finally {
+              setClearing(false);
+              setClearPromptOpen(false);
+            }
+          }}
+          onCancel={() => setClearPromptOpen(false)}
+        />
       </PopoverContent>
     </Popover>
   );
