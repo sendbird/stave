@@ -13,6 +13,7 @@
     "src/components/panes/surfaces/lens/useLensDiagnosticsLog.ts": 934,
     "src/components/panes/surfaces/lens/useLensOverlayModes.ts": 800,
     "src/components/panes/surfaces/lens/useLensSurfaceHost.ts": 800,
+    "src/lib/lens/lens-instrumentation.ts": 800,
     "src/lib/lens/lens-log-format.ts": 800,
     "src/store/app.store.ts": 3155
   }

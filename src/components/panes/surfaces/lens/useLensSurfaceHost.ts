@@ -8,6 +8,12 @@ import {
   type RefObject,
 } from "react";
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
+import {
+  recordLensBoundsSyncLatency,
+  recordLensOcclusionObservation,
+  setLensSurfaceAttached,
+  setLensSurfaceSuppressed,
+} from "@/lib/lens/lens-instrumentation";
 import { hasLensOccludingFloatingSurface } from "@/lib/lens/lens-occlusion";
 import {
   areLensBoundsEqual,
@@ -146,6 +152,15 @@ export function useLensSurfaceHost(args: {
     };
   }, [isPanelVisible, lensSessionId]);
 
+  // Instrumentation only. A mounted panel owns exactly one guest, so this is
+  // the guest count from the renderer's side of the boundary.
+  useEffect(() => {
+    setLensSurfaceAttached(lensSessionId, true);
+    return () => {
+      setLensSurfaceAttached(lensSessionId, false);
+    };
+  }, [lensSessionId]);
+
   const [isLensFloatingSurfaceOpen, setIsLensFloatingSurfaceOpen] =
     useState(false);
   const [hasExternalFloatingSurface, setHasExternalFloatingSurface] =
@@ -159,6 +174,10 @@ export function useLensSurfaceHost(args: {
   isLensSuppressedRef.current = isLensSuppressed;
 
   useEffect(() => {
+    setLensSurfaceSuppressed(lensSessionId, isLensSuppressed);
+  }, [isLensSuppressed, lensSessionId]);
+
+  useEffect(() => {
     if (!isPanelVisible || lensPanelTab !== "preview") {
       setHasExternalFloatingSurface(false);
       return;
@@ -168,12 +187,19 @@ export function useLensSurfaceHost(args: {
     }
 
     let frame = 0;
+    // Instrumentation baseline for this observer generation. Kept out of the
+    // setState updater, which React may run more than once per commit.
+    let lastObservedAnswer: boolean | null = null;
     const sync = () => {
       frame = 0;
       const next = hasLensOccludingFloatingSurface(
         document,
         placeholderRef.current?.getBoundingClientRect() ?? null,
       );
+      recordLensOcclusionObservation(
+        lastObservedAnswer !== null && lastObservedAnswer !== next,
+      );
+      lastObservedAnswer = next;
       setHasExternalFloatingSurface((current) =>
         current === next ? current : next,
       );
@@ -231,6 +257,7 @@ export function useLensSurfaceHost(args: {
     pendingBoundsRef.current = null;
     boundsRequestInFlightRef.current = true;
 
+    const dispatchedAtMs = performance.now();
     const request = window.api?.lens?.setBounds?.({
       workspaceId,
       lensSessionId,
@@ -251,6 +278,9 @@ export function useLensSurfaceHost(args: {
         // Bounds sync is best-effort; the next layout change retries.
       })
       .finally(() => {
+        // Dispatch to settle, so the sample covers the main-process work and
+        // the reply hop rather than just the renderer's share of the trip.
+        recordLensBoundsSyncLatency(performance.now() - dispatchedAtMs);
         boundsRequestInFlightRef.current = false;
 
         if (!pendingBoundsRef.current) {
