@@ -36,34 +36,36 @@ import { useAppStore } from "@/store/app.store";
 const visibleLensSessionIds = new Set<string>();
 
 /**
- * Handle a Lens surface panel uses to place its guest page. Deliberately says
- * nothing about how the guest is hosted: a DOM-element implementation can
- * satisfy this shape with `isSuppressed` permanently `false`, bounds syncing a
- * no-op, and the lifecycle calls reduced to bookkeeping.
+ * How a Lens panel presents the guest page for its session.
+ *
+ * Four members, and deliberately none of them describe *how* the guest is
+ * hosted. The panel says where the page goes (`placeholderRef`), when a guest
+ * exists (`attachGuest` / `detachGuest`), and when its own chrome needs the
+ * space (`setFloatingSurfaceOpen`). Everything else — whether presenting means
+ * an IPC round trip or a style write, whether "chrome is up" means anything at
+ * all — is the implementation's business.
+ *
+ * This is what makes the rendering-model change a second implementation of one
+ * interface rather than another edit to the panel.
  */
 export type LensSurfaceHostHandle = {
   /** Rectangle the panel renders for the guest page to occupy. */
   placeholderRef: RefObject<HTMLDivElement | null>;
-  isPanelVisible: boolean;
-  isSuppressed: boolean;
-  isFloatingSurfaceOpen: boolean;
-  setFloatingSurfaceOpen: (open: boolean) => void;
-  /** Re-measure the placeholder and mirror it onto the guest. */
-  requestBoundsSync: () => void;
   /**
-   * Live suppression flag for async work that outlives the render it started
-   * in (the session-lifecycle effect awaits several IPC round trips before it
-   * decides whether the guest may be shown).
+   * A guest now exists for this session and may be presented. Resolves once the
+   * host has told the guest whether it is on screen, so callers can serialize
+   * later session work behind it.
    */
-  getIsSuppressed: () => boolean;
-  /** The guest for this session exists and may be positioned. */
-  markSurfaceReady: () => void;
-  /** Forget geometry recorded for a previous session generation. */
-  resetSurfaceTracking: () => void;
-  /** Collapse the surface to zero area, leaving the session in place. */
-  collapseSurface: () => Promise<void>;
-  /** Stop syncing, collapse, and take the surface off screen. */
-  releaseSurface: () => void;
+  attachGuest: () => Promise<void>;
+  /** The panel is going away or its session is being replaced. */
+  detachGuest: () => void;
+  /**
+   * Panel-owned chrome that overlaps the preview is opening or closing.
+   *
+   * Only meaningful while the guest cannot be painted under DOM content; a
+   * host whose guest is a DOM element ignores it.
+   */
+  setFloatingSurfaceOpen: (open: boolean) => void;
 };
 
 /**
@@ -482,12 +484,6 @@ export function useLensSurfaceHost(args: {
     workspaceId,
   ]);
 
-  const getIsSuppressed = useCallback(() => isLensSuppressedRef.current, []);
-
-  const markSurfaceReady = useCallback(() => {
-    isViewReadyRef.current = true;
-  }, []);
-
   const resetSurfaceTracking = useCallback(() => {
     pendingBoundsRef.current = null;
     lastSentBoundsRef.current = null;
@@ -495,15 +491,43 @@ export function useLensSurfaceHost(args: {
     isViewReadyRef.current = false;
   }, []);
 
-  const collapseSurface = useCallback(async () => {
-    await window.api?.lens?.setBounds?.({
+  /**
+   * Presenting a freshly opened guest, in the one place that knows the
+   * suppression rules.
+   *
+   * The `await` is kept rather than fired and forgotten: the caller continues
+   * with more session IPC as soon as this resolves, and settling visibility
+   * first is what keeps a guest from being read back before it is on screen.
+   *
+   * Suppression is read from the ref, not from a render value, because the
+   * caller has already awaited an `openSession` round trip by the time it gets
+   * here and the answer may have changed underneath it. If it changes again
+   * afterwards, the suppression effect above re-applies — this is a starting
+   * position, not the last word.
+   */
+  const attachGuest = useCallback(async () => {
+    isViewReadyRef.current = true;
+    const suppressed = isLensSuppressedRef.current;
+
+    await window.api?.lens?.setVisible?.({
       workspaceId,
       lensSessionId,
-      bounds: { x: 0, y: 0, width: 0, height: 0 },
+      visible: !suppressed,
     });
-  }, [lensSessionId, workspaceId]);
 
-  const releaseSurface = useCallback(() => {
+    if (suppressed) {
+      await window.api?.lens?.setBounds?.({
+        workspaceId,
+        lensSessionId,
+        bounds: { x: 0, y: 0, width: 0, height: 0 },
+      });
+      return;
+    }
+
+    syncBounds();
+  }, [lensSessionId, syncBounds, workspaceId]);
+
+  const detachGuest = useCallback(() => {
     cancelAnimationFrame(measureRafRef.current);
     cancelAnimationFrame(flushRafRef.current);
     resetSurfaceTracking();
@@ -521,16 +545,9 @@ export function useLensSurfaceHost(args: {
   }, [lensSessionId, resetSurfaceTracking, workspaceId]);
 
   return {
-    collapseSurface,
-    getIsSuppressed,
-    isFloatingSurfaceOpen: isLensFloatingSurfaceOpen,
-    isPanelVisible,
-    isSuppressed: isLensSuppressed,
-    markSurfaceReady,
+    attachGuest,
+    detachGuest,
     placeholderRef,
-    releaseSurface,
-    requestBoundsSync: syncBounds,
-    resetSurfaceTracking,
     setFloatingSurfaceOpen: setIsLensFloatingSurfaceOpen,
   };
 }

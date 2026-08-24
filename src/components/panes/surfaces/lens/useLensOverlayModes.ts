@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "@/components/ui";
 import { formatElementForChat } from "@/lib/lens/lens-element-message";
 import { matchesSession } from "@/lib/lens/lens-log-format";
@@ -18,9 +18,6 @@ export type LensOverlayModesHandle = {
   isAnnotationModeActive: boolean;
   isBoxInspectActive: boolean;
   isPickerActive: boolean;
-  /** True when the element picker cannot run (no API, no task, blank page). */
-  pickerDisabled: boolean;
-  pickerTooltip: string;
   toggleAnnotationMode: () => Promise<void>;
   toggleBoxInspect: () => Promise<void>;
   startElementPicker: () => Promise<void>;
@@ -46,8 +43,6 @@ export function useLensOverlayModes(args: {
   hasLensApi: boolean;
   activeTaskId: string | null;
   sourceMappingConfig: LensSourceMappingConfig;
-  /** Current page URL; page-scoped modes are unavailable on `about:blank`. */
-  url: string;
   visualCommentShortcut: VisualCommentShortcut;
 }): LensOverlayModesHandle {
   const {
@@ -56,7 +51,6 @@ export function useLensOverlayModes(args: {
     hasLensApi,
     activeTaskId,
     sourceMappingConfig,
-    url,
     visualCommentShortcut,
   } = args;
 
@@ -294,29 +288,10 @@ export function useLensOverlayModes(args: {
     workspaceId,
   ]);
 
-  const pickerDisabled = !hasLensApi || !activeTaskId || url === "about:blank";
-  const pickerTooltip = useMemo(() => {
-    if (isPickerActive) {
-      return "Pick mode is active. Click an element in the page or press Escape to cancel.";
-    }
-    if (!hasLensApi) {
-      return "Lens is only available in the Electron desktop runtime.";
-    }
-    if (!activeTaskId) {
-      return "Select a task first so Lens can append element context to its draft.";
-    }
-    if (url === "about:blank") {
-      return "Open a page first.";
-    }
-    return "Pick an element and append a compact selector, style, and source summary to the active task.";
-  }, [activeTaskId, hasLensApi, isPickerActive, url]);
-
   return {
     isAnnotationModeActive,
     isBoxInspectActive,
     isPickerActive,
-    pickerDisabled,
-    pickerTooltip,
     setIsAnnotationModeActive,
     setIsBoxInspectActive,
     startElementPicker,

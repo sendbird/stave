@@ -100,6 +100,12 @@ export function LensChrome(props: {
   consoleEntryCount: number;
   networkEntryCount: number;
   overlayModes: LensOverlayModesHandle;
+  /**
+   * Whether the element picker can run, and why not when it cannot. Separate
+   * from `overlayModes` because both answers turn on the active task and the
+   * current address, neither of which the overlay modes know about.
+   */
+  picker: { disabled: boolean; tooltip: string };
   capture: LensChromeCapture;
   onFloatingSurfaceOpenChange: (open: boolean) => void;
 }) {
@@ -111,9 +117,11 @@ export function LensChrome(props: {
     consoleEntryCount,
     networkEntryCount,
     overlayModes,
+    picker,
     capture,
     onFloatingSurfaceOpenChange: setFloatingSurfaceOpen,
   } = props;
+  const { disabled: pickerDisabled, tooltip: pickerTooltip } = picker;
   const {
     url,
     inputUrl,
@@ -133,8 +141,6 @@ export function LensChrome(props: {
     isAnnotationModeActive,
     isBoxInspectActive,
     isPickerActive,
-    pickerDisabled,
-    pickerTooltip,
     startElementPicker,
     toggleAnnotationMode,
     toggleBoxInspect,

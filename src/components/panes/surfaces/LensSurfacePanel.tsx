@@ -1,13 +1,5 @@
 import type { IDockviewPanelProps } from "dockview-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Loader2, ScanSearch } from "lucide-react";
 import {
@@ -21,8 +13,6 @@ import {
   toast,
 } from "@/components/ui";
 import {
-  type BrowserNavigationEventPayload,
-  type BrowserNavigationState,
   type LensDownloadEntry,
   type LensDownloadEventPayload,
   type LensSourceMappingConfig,
@@ -38,17 +28,13 @@ import { LensNetworkWorkbench } from "@/components/panes/surfaces/lens/LensNetwo
 import { useLensAnnotationSync } from "@/components/panes/surfaces/lens/useLensAnnotationSync";
 import { useLensDiagnosticsLog } from "@/components/panes/surfaces/lens/useLensDiagnosticsLog";
 import { useLensOverlayModes } from "@/components/panes/surfaces/lens/useLensOverlayModes";
+import {
+  useLensSession,
+  type LensRestoredSessionState,
+} from "@/components/panes/surfaces/lens/useLensSession";
 import { useLensSurfaceHost } from "@/components/panes/surfaces/lens/useLensSurfaceHost";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
-
-const DEFAULT_NAVIGATION_STATE: BrowserNavigationState = {
-  url: "about:blank",
-  title: "",
-  canGoBack: false,
-  canGoForward: false,
-  isLoading: false,
-};
 
 /**
  * Dockview panel wrapper for one lens (embedded browser) session. The panel
@@ -121,43 +107,9 @@ function LensSessionSurface(args: {
 
   const hasLensApi = Boolean(window.api?.lens);
 
-  const urlInputRef = useRef<HTMLInputElement>(null);
-  // Track whether the URL address bar is focused so navigation events don't
-  // clobber text the user is actively editing.
-  const isUrlInputFocused = useRef(false);
-
-  const [url, setUrl] = useState(DEFAULT_NAVIGATION_STATE.url);
-  const [inputUrl, setInputUrl] = useState("");
-  const [title, setTitle] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [canGoBack, setCanGoBack] = useState(false);
-  const [canGoForward, setCanGoForward] = useState(false);
   const [downloads, setDownloads] = useState<LensDownloadEntry[]>([]);
   const [lensPanelTab, setLensPanelTab] = useState<LensPanelTab>("preview");
-  const [lastLoadError, setLastLoadError] = useState<string | null>(null);
 
-  const applyNavigationState = useCallback((state: BrowserNavigationState) => {
-    setUrl(state.url);
-    // Only sync the input field when the user is not actively typing in it.
-    // Without this guard, in-progress SPA redirects would erase partially typed URLs.
-    if (!isUrlInputFocused.current) {
-      setInputUrl(state.url === "about:blank" ? "" : state.url);
-    }
-    setTitle(state.title);
-    setIsLoading(state.isLoading);
-    if (state.isLoading) {
-      setLastLoadError(null);
-    }
-    setCanGoBack(state.canGoBack);
-    setCanGoForward(state.canGoForward);
-  }, []);
-
-  // Annotation data and in-page overlay driving. Both must stay above the
-  // session-lifecycle effect below, which resets their state for each session
-  // generation and therefore needs their setters. Their effects consequently
-  // register before the lifecycle, bounds, and subscription effects — safe for
-  // the same reason the diagnostics ordering is: every reset is a synchronous
-  // setState while every load these hooks perform is async IPC.
   const { annotations, setAnnotations } = useLensAnnotationSync({
     activeTaskId,
     hasLensApi,
@@ -170,7 +122,6 @@ function LensSessionSurface(args: {
     hasLensApi,
     lensSessionId,
     sourceMappingConfig,
-    url,
     visualCommentShortcut,
     workspaceId,
   });
@@ -181,56 +132,10 @@ function LensSessionSurface(args: {
     toggleAnnotationMode,
   } = overlayModes;
 
-  // Must stay above the session-lifecycle effect below, which resets the
-  // diagnostics state and pause buffers and therefore needs this hook's
-  // setters. The diagnostics effects consequently run before the surface-host
-  // bounds and visibility effects and before the subscription effects below.
-  // That is safe because the lifecycle reset is synchronous while every
-  // diagnostics load is async IPC: the reset always commits before a load
-  // resolves, so both orderings converge on the same final state. Preserve
-  // this invariant.
-  const diagnostics = useLensDiagnosticsLog({
-    hasLensApi,
-    lensPanelTab,
-    lensSessionId,
-    setLastLoadError,
-    url,
-    workspaceId,
-  });
-  const {
-    consoleBufferedCount,
-    consoleEntries,
-    consolePausedBufferRef,
-    consolePausedRef,
-    networkBufferedCount,
-    networkEntries,
-    networkPausedBufferRef,
-    networkPausedRef,
-    setConsoleBufferedCount,
-    setConsoleDetailsOpen,
-    setConsoleEntries,
-    setConsolePaused,
-    setNetworkBufferedCount,
-    setNetworkDetailsOpen,
-    setNetworkEntries,
-    setNetworkPaused,
-    setSelectedConsoleEntryId,
-    setSelectedNetworkEntryId,
-  } = diagnostics;
-
-  // Native-surface placement: bounds mirroring, visibility suppression, and the
-  // key round-trip that only exist because the guest composites above the whole
-  // renderer. `useLensSurfaceHost` is the intended swap point for that.
-  const {
-    collapseSurface,
-    getIsSuppressed,
-    markSurfaceReady,
-    placeholderRef,
-    releaseSurface,
-    requestBoundsSync,
-    resetSurfaceTracking,
-    setFloatingSurfaceOpen,
-  } = useLensSurfaceHost({
+  // How the guest page is presented. The panel never learns what presenting
+  // costs; it hands this to the session below, which reports when a guest
+  // exists.
+  const surface = useLensSurfaceHost({
     annotationCount: annotations.length,
     hasLensApi,
     isAnnotationModeActive,
@@ -242,152 +147,59 @@ function LensSessionSurface(args: {
     workspaceId,
   });
 
-  // Session lifecycle. Opening is idempotent (`openSession` reuses a live
-  // session, so re-showing a hidden tab or remounting the panel restores the
-  // same page). The cleanup only hides the native view; the session itself is
-  // destroyed exclusively when its tab has been removed from the store.
-  useEffect(() => {
-    resetSurfaceTracking();
+  // Registered a render-step late, and it has to be. The diagnostics log is
+  // keyed on this session's URL, so it cannot be created before
+  // `useLensSession` — which means its per-generation reset does not exist yet
+  // at that hook's call site. Assigning through a ref during the same render
+  // keeps the reset a single synchronous fan-out that runs before any IPC,
+  // which is the property the whole reset ordering rests on.
+  const resetDiagnosticsRef = useRef<() => void>(() => {});
+
+  const handleSessionReset = useCallback(() => {
     setAnnotations([]);
     setIsAnnotationModeActive(false);
     setIsBoxInspectActive(false);
-    setConsoleEntries([]);
-    setNetworkEntries([]);
-    setSelectedConsoleEntryId(null);
-    setSelectedNetworkEntryId(null);
-    setConsoleDetailsOpen(false);
-    setNetworkDetailsOpen(false);
-    consolePausedRef.current = false;
-    networkPausedRef.current = false;
-    consolePausedBufferRef.current = [];
-    networkPausedBufferRef.current = [];
-    setConsolePaused(false);
-    setNetworkPaused(false);
-    setConsoleBufferedCount(0);
-    setNetworkBufferedCount(0);
-    setLastLoadError(null);
+    resetDiagnosticsRef.current();
     setLensPanelTab("preview");
+  }, [setAnnotations, setIsAnnotationModeActive, setIsBoxInspectActive]);
 
-    applyNavigationState(DEFAULT_NAVIGATION_STATE);
+  const handleSessionRestored = useCallback(
+    (state: LensRestoredSessionState) => {
+      setIsAnnotationModeActive(state.annotationModeActive);
+      setIsBoxInspectActive(state.boxInspectModeActive);
+    },
+    [setIsAnnotationModeActive, setIsBoxInspectActive],
+  );
 
-    if (!workspaceId || !isTabOpen || !hasLensApi) {
-      return;
-    }
-
-    let cancelled = false;
-
-    void (async () => {
-      const lensApi = window.api?.lens;
-      const openResult = lensApi?.openSession
-        ? await lensApi.openSession({
-            workspaceId,
-            lensSessionId,
-            sessionScope: lensSessionScope,
-            projectKey: projectPath,
-          })
-        : await lensApi?.createView?.({
-            workspaceId,
-            lensSessionId,
-            sessionScope: lensSessionScope,
-            projectKey: projectPath,
-          });
-      if (cancelled || !openResult?.ok) {
-        if (!cancelled && openResult && !openResult.ok) {
-          toast.error("Lens failed to start", {
-            description:
-              openResult.message ??
-              "Could not create the embedded browser view.",
-          });
-        }
-        return;
-      }
-
-      markSurfaceReady();
-      await lensApi?.setVisible?.({
-        workspaceId,
-        lensSessionId,
-        visible: !getIsSuppressed(),
-      });
-
-      const stateResult = await lensApi?.getState?.({
-        workspaceId,
-        lensSessionId,
-      });
-      if (!cancelled && stateResult?.ok && stateResult.state) {
-        applyNavigationState(stateResult.state);
-        setIsAnnotationModeActive(Boolean(stateResult.annotationModeActive));
-        setIsBoxInspectActive(Boolean(stateResult.boxInspectModeActive));
-      }
-
-      const annotationsResult = await lensApi?.getAnnotations?.({
-        workspaceId,
-        lensSessionId,
-      });
-      if (!cancelled && annotationsResult?.ok) {
-        setAnnotations(annotationsResult.annotations ?? []);
-      }
-
-      if (getIsSuppressed()) {
-        await collapseSurface();
-        return;
-      }
-
-      requestBoundsSync();
-    })();
-
-    return () => {
-      cancelled = true;
-      releaseSurface();
-      // Hidden ≠ closed: the session survives unmounts (workspace switches,
-      // layout churn). Destroy it only when its tab is gone from the SAME
-      // workspace — this also covers close paths that bypassed
-      // `closePaneSurface` (Dockview-initiated removal, ⌘W in AppShell).
-      const store = useAppStore.getState();
-      if (
-        store.activeWorkspaceId === workspaceId &&
-        !store.lensTabs.some((tab) => tab.id === lensSessionId)
-      ) {
-        void window.api?.lens
-          ?.closeSession?.({ workspaceId, lensSessionId })
-          .catch(() => {
-            // Best-effort teardown; the main process reaps on workspace dispose.
-          });
-      }
-    };
-  }, [
-    applyNavigationState,
-    collapseSurface,
-    getIsSuppressed,
+  const session = useLensSession({
     hasLensApi,
     isTabOpen,
     lensSessionId,
     lensSessionScope,
-    markSurfaceReady,
+    onAnnotationsRestored: setAnnotations,
+    onSessionReset: handleSessionReset,
+    onSessionRestored: handleSessionRestored,
     projectPath,
-    releaseSurface,
-    requestBoundsSync,
-    resetSurfaceTracking,
+    surface,
     workspaceId,
-  ]);
+  });
+  const { isLoading, lastLoadError, setLastLoadError, url } = session;
 
-  useEffect(() => {
-    if (!workspaceId || !hasLensApi) {
-      return;
-    }
-
-    const unsubscribe = window.api?.lens?.subscribeNavigationEvents?.(
-      (payload: BrowserNavigationEventPayload) => {
-        if (!matchesSession(payload, workspaceId, lensSessionId)) {
-          return;
-        }
-        applyNavigationState(payload.state);
-      },
-    );
-
-    return () => {
-      unsubscribe?.();
-    };
-  }, [applyNavigationState, hasLensApi, lensSessionId, workspaceId]);
+  const diagnostics = useLensDiagnosticsLog({
+    hasLensApi,
+    lensPanelTab,
+    lensSessionId,
+    setLastLoadError,
+    url,
+    workspaceId,
+  });
+  resetDiagnosticsRef.current = diagnostics.resetForSession;
+  const {
+    consoleBufferedCount,
+    consoleEntries,
+    networkBufferedCount,
+    networkEntries,
+  } = diagnostics;
 
   useEffect(() => {
     setDownloads([]);
@@ -418,71 +230,6 @@ function LensSessionSurface(args: {
       unsubscribe?.();
     };
   }, [hasLensApi, lensSessionId, workspaceId]);
-
-  const navigate = useCallback(
-    async (targetUrl: string) => {
-      if (!workspaceId || !targetUrl.trim()) {
-        return;
-      }
-      if (!hasLensApi) {
-        toast.error("Lens is unavailable", {
-          description:
-            "The embedded browser only works in the Electron desktop runtime.",
-        });
-        return;
-      }
-
-      const result = await window.api?.lens?.navigate?.({
-        workspaceId,
-        lensSessionId,
-        url: targetUrl.trim(),
-      });
-
-      if (result && !result.ok) {
-        toast.error("Navigation failed", {
-          description: result.message ?? "Lens could not load that address.",
-        });
-      }
-    },
-    [hasLensApi, lensSessionId, workspaceId],
-  );
-
-  const handleSubmit = useCallback(
-    (event: FormEvent) => {
-      event.preventDefault();
-      void navigate(inputUrl);
-      urlInputRef.current?.blur();
-    },
-    [inputUrl, navigate],
-  );
-
-  const handleUrlKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Escape") {
-        setInputUrl(url === "about:blank" ? "" : url);
-        urlInputRef.current?.blur();
-      }
-    },
-    [url],
-  );
-
-  const goBack = useCallback(() => {
-    if (workspaceId) {
-      void window.api?.lens?.goBack?.({ workspaceId, lensSessionId });
-    }
-  }, [lensSessionId, workspaceId]);
-
-  const goForward = useCallback(() => {
-    if (workspaceId) {
-      void window.api?.lens?.goForward?.({ workspaceId, lensSessionId });
-    }
-  }, [lensSessionId, workspaceId]);
-
-  const reload = useCallback(() => {
-    if (workspaceId) {
-      void window.api?.lens?.reload?.({ workspaceId, lensSessionId });
-    }
-  }, [lensSessionId, workspaceId]);
 
   const saveScreenshot = useCallback(
     async (fullPage: boolean) => {
@@ -542,6 +289,22 @@ function LensSessionSurface(args: {
   }, []);
 
   const lensPageActionDisabled = !hasLensApi || url === "about:blank";
+  const pickerDisabled = lensPageActionDisabled || !activeTaskId;
+  const pickerTooltip = useMemo(() => {
+    if (overlayModes.isPickerActive) {
+      return "Pick mode is active. Click an element in the page or press Escape to cancel.";
+    }
+    if (!hasLensApi) {
+      return "Lens is only available in the Electron desktop runtime.";
+    }
+    if (!activeTaskId) {
+      return "Select a task first so Lens can append element context to its draft.";
+    }
+    if (url === "about:blank") {
+      return "Open a page first.";
+    }
+    return "Pick an element and append a compact selector, style, and source summary to the active task.";
+  }, [activeTaskId, hasLensApi, overlayModes.isPickerActive, url]);
 
   return (
     <TooltipProvider delay={120}>
@@ -560,26 +323,13 @@ function LensSessionSurface(args: {
           consoleEntryCount={consoleEntries.length + consoleBufferedCount}
           hasLensApi={hasLensApi}
           lensPageActionDisabled={lensPageActionDisabled}
-          navigation={{
-            canGoBack,
-            canGoForward,
-            goBack,
-            goForward,
-            inputUrl,
-            isLoading,
-            isUrlInputFocused,
-            onSubmit: handleSubmit,
-            onUrlKeyDown: handleUrlKeyDown,
-            reload,
-            setInputUrl,
-            url,
-            urlInputRef,
-          }}
+          navigation={session}
           networkEntryCount={networkEntries.length + networkBufferedCount}
-          onFloatingSurfaceOpenChange={setFloatingSurfaceOpen}
+          onFloatingSurfaceOpenChange={surface.setFloatingSurfaceOpen}
           onPanelTabChange={setLensPanelTab}
           overlayModes={overlayModes}
           panelTab={lensPanelTab}
+          picker={{ disabled: pickerDisabled, tooltip: pickerTooltip }}
         />
 
         {/*
@@ -596,7 +346,7 @@ function LensSessionSurface(args: {
                 resize sash.
               */}
               <div
-                ref={placeholderRef}
+                ref={surface.placeholderRef}
                 data-lens-native-view-placeholder=""
                 className="absolute inset-0 min-h-0 overflow-hidden bg-background"
               />

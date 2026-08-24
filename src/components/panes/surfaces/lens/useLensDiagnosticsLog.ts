@@ -863,6 +863,31 @@ export function useLensDiagnosticsLog(args: {
     [diagnosticsCaptureBusy, lensSessionId, workspaceId],
   );
 
+  /**
+   * Drop everything captured for the previous session generation.
+   *
+   * Synchronous by contract: the session lifecycle calls this before it issues
+   * any IPC, which is what keeps a stale generation's in-flight replies from
+   * being mistaken for the new one's. Bundled here rather than fanned out at
+   * the call site so a new buffer cannot be added without being cleared.
+   */
+  const resetForSession = useCallback(() => {
+    setConsoleEntries([]);
+    setNetworkEntries([]);
+    setSelectedConsoleEntryId(null);
+    setSelectedNetworkEntryId(null);
+    setConsoleDetailsOpen(false);
+    setNetworkDetailsOpen(false);
+    consolePausedRef.current = false;
+    networkPausedRef.current = false;
+    consolePausedBufferRef.current = [];
+    networkPausedBufferRef.current = [];
+    setConsolePaused(false);
+    setNetworkPaused(false);
+    setConsoleBufferedCount(0);
+    setNetworkBufferedCount(0);
+  }, []);
+
   return {
     autoScrollLogs,
     clearConsoleLog,
@@ -902,6 +927,7 @@ export function useLensDiagnosticsLog(args: {
     networkPausedRef,
     networkSearch,
     networkWaterfallMaxMs,
+    resetForSession,
     selectedConsoleEntry,
     selectedConsoleEntryId,
     selectedNetworkEntry,
