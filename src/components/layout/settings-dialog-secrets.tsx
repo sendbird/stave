@@ -223,7 +223,7 @@ export function SecretsSettingsCard() {
     <>
       <SettingsCard
         title="Secrets"
-        description="Store API tokens and other secret values. Values are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses. They are revealed only when you explicitly ask, or injected into a bound task's provider runtime as an environment variable."
+        description="Store API tokens and other secret values. Assign an environment variable name, then reference it in a prompt as @secret:{NAME}. Values are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses. They are revealed only when you explicitly ask, or injected into a turn's provider runtime as an environment variable."
         titleAccessory={
           <Button
             type="button"
@@ -241,10 +241,12 @@ export function SecretsSettingsCard() {
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
           <p className="text-xs leading-5 text-muted-foreground">
             A secret's value is never shown to an agent. Give a secret an
-            environment variable name to bind it to a task from the composer —
-            its value is then available to that task's shell and supported MCP
-            authentication (e.g. <code>$OPENAI_API_KEY</code>) without entering
-            the model's context. A command that echoes the variable can still
+            environment variable name, then reference it in a prompt as
+            <code className="mx-1">@secret:{"{OPENAI_API_KEY}"}</code>
+            or bind it from the composer. Its value is available to that
+            turn's shell and supported MCP authentication as
+            <code className="mx-1">$OPENAI_API_KEY</code> without entering the
+            model's context. A command that echoes the variable can still
             surface it.
           </p>
         </div>
@@ -316,7 +318,11 @@ export function SecretsSettingsCard() {
                 onChange={(event) => setEnvVarName(event.target.value)}
               />
               <span className="block font-normal leading-4 text-muted-foreground">
-                Set this to let a task inject the value into its runtime as
+                Set this to reference the secret in a prompt as
+                <code className="mx-1 rounded bg-muted px-1 py-0.5">
+                  @secret:{`{${envVarName.trim() || "NAME"}}`}
+                </code>
+                or bind it from the composer. The value is injected as
                 <code className="mx-1 rounded bg-muted px-1 py-0.5">
                   ${envVarName.trim() || "NAME"}
                 </code>

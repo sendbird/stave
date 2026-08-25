@@ -323,12 +323,20 @@ class FakeChild extends EventEmitter {
 let nextScenario: FakeScenario = "full-lifecycle";
 let nextBoundSecretEnv: Record<string, string> = {};
 let resolvedSecretRequestCount = 0;
+const resolvedSecretRequests: Array<{
+  ids: readonly string[];
+  referenceKeys?: readonly string[];
+}> = [];
 const fakeChildren: FakeChild[] = [];
 const tempDirectories: string[] = [];
 
 mock.module("../electron/main/browser/secret-service", () => ({
-  resolveBoundSecretEnv: async () => {
+  resolveBoundSecretEnv: async (args: {
+    ids: readonly string[];
+    referenceKeys?: readonly string[];
+  }) => {
     resolvedSecretRequestCount += 1;
+    resolvedSecretRequests.push(args);
     return { ...nextBoundSecretEnv };
   },
 }));
@@ -350,6 +358,7 @@ afterEach(async () => {
   nextScenario = "full-lifecycle";
   nextBoundSecretEnv = {};
   resolvedSecretRequestCount = 0;
+  resolvedSecretRequests.length = 0;
   fakeChildren.length = 0;
   mock.restore();
   await Promise.all(
@@ -624,7 +633,8 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       providerId: "codex",
       taskId: "secondary:execution-1",
       executionPolicy: "secondary-read-only",
-      prompt: "Inspect the runtime",
+      prompt:
+        "Inspect the runtime with @secret:{STAVE_TEST_BOUND_MCP_TOKEN}",
       cwd: process.cwd(),
       runtimeOptions: {
         codexBinaryPath: "/tmp/fake-codex-secondary",
@@ -698,6 +708,12 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         networkAccess: false,
       },
     });
+    expect(JSON.stringify(turnStart?.params ?? {})).toContain(
+      "STAVE_TEST_BOUND_MCP_TOKEN} is unavailable in a secondary read-only turn",
+    );
+    expect(JSON.stringify(turnStart?.params ?? {})).not.toContain(
+      "must-not-reach-secondary",
+    );
     expect(
       child.receivedMessages.some(
         (message) => message.method === "thread/delete",
@@ -747,6 +763,48 @@ describe("Codex App Server MCP lifecycle mapping", () => {
     expect(fakeChildren).toHaveLength(2);
     expect(fakeChildren[0]?.spawnEnv[envName]).toBe(process.env[envName]);
     expect(fakeChildren[0]?.killed).toBe(false);
+  });
+
+  test("resolves prompt references without putting secret values in model-visible text", async () => {
+    const envName = "STAVE_TEST_REFERENCED_TOKEN";
+    const secretValue = "reference-only-secret-value";
+    nextScenario = "completed-only";
+    nextBoundSecretEnv = { [envName]: secretValue };
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?secret-reference-test=${Date.now()}-${Math.random()}`
+    );
+
+    const events = await runtime.streamCodexWithAppServer({
+      providerId: "codex",
+      taskId: "task-secret-reference",
+      prompt: `Use @secret:{${envName}}, report @secret:{MISSING_TOKEN}, and refuse @secret:{PATH}.`,
+      cwd: process.cwd(),
+      runtimeOptions: {
+        codexBinaryPath: "/tmp/fake-codex-secret-reference",
+      },
+    });
+
+    expect(resolvedSecretRequestCount).toBe(1);
+    expect(resolvedSecretRequests).toEqual([
+      {
+        ids: [],
+        referenceKeys: [envName, "MISSING_TOKEN"],
+      },
+    ]);
+    expect(fakeChildren).toHaveLength(2);
+    expect(fakeChildren[1]?.spawnEnv[envName]).toBe(secretValue);
+
+    const turnStart = fakeChildren[1]?.receivedMessages.find(
+      (message) => message.method === "turn/start",
+    );
+    const modelVisibleText = JSON.stringify(turnStart?.params ?? {});
+    expect(modelVisibleText).toContain(`$${envName}`);
+    expect(modelVisibleText).toContain(
+      "@secret:{MISSING_TOKEN} is unavailable",
+    );
+    expect(modelVisibleText).toContain("PATH is a protected runtime variable");
+    expect(modelVisibleText).not.toContain(secretValue);
+    expect(JSON.stringify(events)).not.toContain(secretValue);
   });
 
   test("restarts App Server when project MCP config appears between turns", async () => {

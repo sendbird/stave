@@ -1,8 +1,9 @@
 /**
  * Shared types for the general secret store (API tokens and other secret
- * values). Unlike Lens saved accounts, secrets are not bound to a hostname and
- * are never auto-filled anywhere; they are stored encrypted at rest and only
- * revealed on explicit user request.
+ * values). Unlike Lens saved accounts, secrets are not bound to a hostname.
+ * They are stored encrypted at rest and only revealed on explicit user
+ * request, or injected into a primary provider runtime after an explicit task
+ * binding or `@secret:{ENV_VAR_NAME}` prompt reference.
  */
 
 /** Metadata safe to send to the renderer. Never carries the secret value. */

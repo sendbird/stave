@@ -117,6 +117,8 @@ Rules:
 - Inject secrets for the **primary user turn only** — never for introspection, aux, or secondary read-only analysis queries.
 - Claude injects at the `options.env` layer (kept out of `buildClaudeDiagnostics`); Codex injects shell variables via per-thread `shell_environment_policy.set.<KEY>` overrides, forwarded on **both** `thread/start` and `thread/resume`. Secret-bound primary Codex turns use a disposable App Server process with the same environment so `bearer_token_env_var` MCP authentication works without exposing values to shared clients.
 - Never write a secret value to `console.*`, a `BridgeEvent`, a transcript, or the thread key. Log only counts, env-var names, and skip reasons.
+- Parse `@secret:{ENV_VAR_NAME}` only from the current primary input. Resolve the key through the main-owned vault and add only value-free availability guidance to provider prompt text; never substitute plaintext into the prompt.
+- Missing, malformed, over-limit, and reserved prompt references must stay unavailable. Never satisfy an unresolved reference from the ambient process environment.
 - This is an *automatic-leak* guarantee, not a sandbox: a deliberate `echo $NAME` can still surface a bound value. Keep the Settings > Secrets copy honest about this.
 
 ## Terminal Surface Guardrails

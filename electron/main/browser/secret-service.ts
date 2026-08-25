@@ -48,9 +48,10 @@ export async function revealSecret(id: string) {
 }
 
 /**
- * Resolve a task's bound secret ids to an environment map for provider shell
- * commands and supported MCP authentication. MAIN-PROCESS ONLY: this returns
- * plaintext values, so it must never reach preload or the renderer.
+ * Resolve a task's bound secret ids and explicit prompt reference keys to an
+ * environment map for provider shell commands and supported MCP
+ * authentication. MAIN-PROCESS ONLY: this returns plaintext values, so it must
+ * never reach preload, the renderer, model-visible text, or logs.
  *
  * Returns an empty map on any resolution failure rather than throwing, so a
  * misconfigured or unavailable vault degrades to "no injected secrets" instead
@@ -59,30 +60,47 @@ export async function revealSecret(id: string) {
  */
 export async function resolveBoundSecretEnv(args: {
   ids: readonly string[];
+  referenceKeys?: readonly string[];
 }): Promise<Record<string, string>> {
   const ids = args.ids.filter(
     (id): id is string => typeof id === "string" && id.length > 0,
   );
-  if (ids.length === 0) {
+  const referenceKeys = (args.referenceKeys ?? []).filter(
+    (key): key is string => typeof key === "string" && key.trim().length > 0,
+  );
+  if (ids.length === 0 && referenceKeys.length === 0) {
     return {};
   }
   try {
-    const { env, skipped } = await getVault().resolveEnvForIds(ids);
+    const secretVault = getVault();
+    const [boundResult, referenceResult] = await Promise.all([
+      ids.length > 0
+        ? secretVault.resolveEnvForIds(ids)
+        : Promise.resolve({ env: {}, skipped: [] }),
+      referenceKeys.length > 0
+        ? secretVault.resolveEnvForReferences(referenceKeys)
+        : Promise.resolve({ env: {}, skipped: [] }),
+    ]);
+    const env = { ...boundResult.env, ...referenceResult.env };
+    const skippedLabels = [
+      ...boundResult.skipped.map((entry) =>
+        entry.envVarName
+          ? `${entry.envVarName}:${entry.reason}`
+          : entry.reason,
+      ),
+      ...referenceResult.skipped.map((entry) =>
+        entry.key ? `${entry.key}:${entry.reason}` : entry.reason,
+      ),
+    ];
     const injectedNames = Object.keys(env);
-    if (skipped.length > 0 || injectedNames.length > 0) {
+    if (skippedLabels.length > 0 || injectedNames.length > 0) {
       console.info(
-        `[secrets] resolved ${injectedNames.length}/${ids.length} bound secret(s) for injection` +
+        `[secrets] resolved ${injectedNames.length}/${ids.length + referenceKeys.length} secret binding/reference(s) for injection` +
           (injectedNames.length > 0
             ? ` (${injectedNames.join(", ")})`
             : "") +
-          (skipped.length > 0
-            ? `; skipped ${skipped
-                .map((entry) =>
-                  entry.envVarName
-                    ? `${entry.envVarName}:${entry.reason}`
-                    : entry.reason,
-                )
-                .join(", ")}`
+          (skippedLabels.length > 0
+            ? `; skipped ${skippedLabels.join(", ")}`
             : ""),
       );
     }

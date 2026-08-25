@@ -69,6 +69,11 @@ import {
 import { getCodexMcpRegistrationStatus } from "../main/codex-mcp";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
+import { MAX_BOUND_SECRETS } from "../../src/lib/secrets/secrets";
+import {
+  appendPromptSecretReferenceContext,
+  parsePromptSecretReferences,
+} from "../../src/lib/secrets/secret-references";
 import { buildCodexInstructionProfileKey, resolveCodexWorkerProfile } from "./codex-runtime-config";
 import { buildWorkerExecutionMetadata, type WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
 import {
@@ -2306,14 +2311,24 @@ export async function streamCodexWithAppServer(
   const workerExecution = workerProfile ? buildWorkerExecutionMetadata(workerProfile) : null;
   const codexCapabilities = getCodexVersionCapabilities(codexExecutablePath);
 
+  const boundSecretIds = runtimeOptions?.boundSecretIds ?? [];
+  const promptSecretReferences = parsePromptSecretReferences({
+    prompt: args.prompt,
+    maxResolvableReferences:
+      MAX_BOUND_SECRETS - new Set(boundSecretIds).size,
+  });
   // A per-turn process lets Codex resolve MCP bearer_token_env_var settings
-  // without exposing bound values to shared clients or read-only analysis.
+  // without exposing bound or explicitly referenced values to shared clients,
+  // model-visible text, or read-only analysis.
   const boundSecretEnv =
     secondaryReadOnly ||
-    !runtimeOptions?.boundSecretIds ||
-    runtimeOptions.boundSecretIds.length === 0
+    (boundSecretIds.length === 0 &&
+      promptSecretReferences.resolutionKeys.length === 0)
       ? {}
-      : await resolveBoundSecretEnv({ ids: runtimeOptions.boundSecretIds });
+      : await resolveBoundSecretEnv({
+          ids: boundSecretIds,
+          referenceKeys: promptSecretReferences.resolutionKeys,
+        });
   const codexRuntimeEnv = buildCodexCliEnv({
     executablePath: codexExecutablePath,
   });
@@ -2525,7 +2540,7 @@ export async function streamCodexWithAppServer(
       ? false
       : await hasConnectedStaveLocalMcpForCodex();
 
-    const providerPrompt =
+    const providerPromptBase =
       nativeSlashCommandInput ??
       buildProviderTurnPrompt({
         providerId: args.providerId,
@@ -2540,6 +2555,14 @@ export async function streamCodexWithAppServer(
             })
           : args.conversation,
       });
+    const providerPrompt = nativeSlashCommandInput
+      ? providerPromptBase
+      : appendPromptSecretReferenceContext({
+          prompt: providerPromptBase,
+          parsed: promptSecretReferences,
+          availableEnvNames: Object.keys(boundSecretEnv),
+          disabledForSecondaryReadOnly: secondaryReadOnly,
+        });
 
     const goalCommandEvents = await runCodexGoalSlashCommand({
       client,
