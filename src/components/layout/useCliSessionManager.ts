@@ -6,6 +6,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { attachCliSessionAtRendererSize } from "@/components/layout/cli-session-restore";
 import { createLatestAsyncDispatcher } from "@/components/layout/pty-session-surface.utils";
 import type { CliTerminalInstanceController } from "@/components/layout/useCliTerminalInstance";
 import {
@@ -263,6 +264,16 @@ export function useCliSessionManager<
             result?.stderr || "Failed to resize backend session.",
           );
         }
+
+        // PTY-first, same contract the docked PTY surface follows: the
+        // renderer only adopts a geometry the backend accepted. Without this
+        // the CLI renderer keeps its bootstrap size forever while the PTY
+        // tracks the container, so every line the CLI emits at the PTY width
+        // rewraps inside a narrower viewport.
+        if (attachedSessionIdRef.current !== sessionId) {
+          return;
+        }
+        terminalControllerRef.current.resize(cols, rows);
       },
       onError: (error, request) => {
         const lastResize = lastResizeBySessionRef.current[request.sessionId];
@@ -324,8 +335,14 @@ export function useCliSessionManager<
   );
 
   const handleTerminalResize = useCallback((cols: number, rows: number) => {
+    if (cols < 1 || rows < 1) {
+      return Promise.resolve();
+    }
+
     const sessionId = attachedSessionIdRef.current;
-    if (!sessionId || cols < 1 || rows < 1) {
+    if (!sessionId) {
+      // No PTY owns this geometry yet, so there is nothing to defer to.
+      terminalControllerRef.current.resize(cols, rows);
       return Promise.resolve();
     }
 
@@ -782,12 +799,21 @@ export function useCliSessionManager<
       const cols = measured.cols || 80;
       const rows = measured.rows || 24;
 
-      const hydrateAttachedSession = async (sessionId: string) => {
+      const hydrateAttachedSession = async (
+        sessionId: string,
+        options: { adoptsExistingSession: boolean },
+      ) => {
         streamReadyRef.current = false;
-        const attached = await attachSession({
-          sessionId,
-          deliveryMode,
-        });
+        const { attached, adoptedRendererSize } =
+          await attachCliSessionAtRendererSize({
+            sessionId,
+            cols,
+            rows,
+            deliveryMode,
+            adoptsExistingSession: options.adoptsExistingSession,
+            resizeSession: window.api?.terminal?.resizeSession,
+            attachSession,
+          });
         if (!attached.ok || !attached.attachmentId) {
           return false;
         }
@@ -801,6 +827,12 @@ export function useCliSessionManager<
         }
 
         registerSession(tabKey, sessionId, attached.attachmentId);
+        if (adoptedRendererSize) {
+          // registerSession drops the resize memo, so re-seed it: the
+          // reconciling resize below is already satisfied and must not fire a
+          // second, redundant SIGWINCH at the CLI mid-restore.
+          lastResizeBySessionRef.current[sessionId] = { cols, rows };
+        }
         if (attached.snapshotSequence !== undefined) {
           lastOutputSequenceBySessionRef.current[sessionId] =
             attached.snapshotSequence;
@@ -838,7 +870,11 @@ export function useCliSessionManager<
           terminalControllerRef.current.write(attached.screenState);
         }
 
-        await handleTerminalResize(cols, rows);
+        // Re-measure rather than replaying the pre-attach geometry: the
+        // container can be resized mid-attach, and the resize memo seeded
+        // above only suppresses this call while the size still matches.
+        const current = terminalControllerRef.current.getSize();
+        await handleTerminalResize(current.cols || cols, current.rows || rows);
         if (cancelled || rendererRevision !== terminalRevisionRef.current) {
           clearSessionRegistration(tabKey, sessionId);
           if (attachedSessionIdRef.current === sessionId) {
@@ -873,7 +909,9 @@ export function useCliSessionManager<
 
       const rememberedSessionId = sessionIdByTabKeyRef.current[tabKey];
       if (rememberedSessionId) {
-        const restored = await hydrateAttachedSession(rememberedSessionId);
+        const restored = await hydrateAttachedSession(rememberedSessionId, {
+          adoptsExistingSession: true,
+        });
         if (restored) {
           return;
         }
@@ -889,7 +927,9 @@ export function useCliSessionManager<
           slotState.sessionId &&
           (slotState.state === "running" || slotState.state === "background")
         ) {
-          const restored = await hydrateAttachedSession(slotState.sessionId);
+          const restored = await hydrateAttachedSession(slotState.sessionId, {
+            adoptsExistingSession: true,
+          });
           if (restored) {
             return;
           }
@@ -938,7 +978,11 @@ export function useCliSessionManager<
         });
         return;
       }
-      const restored = await hydrateAttachedSession(created.sessionId);
+      // A freshly created session was already spawned at this geometry, so it
+      // needs no pre-attach resize.
+      const restored = await hydrateAttachedSession(created.sessionId, {
+        adoptsExistingSession: false,
+      });
       if (restored) {
         setSessionExited(null);
       }

@@ -175,6 +175,7 @@ import { KickoffSection } from "./settings-dialog-kickoff-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
 import { LensCredentialsSettingsCard } from "./settings-dialog-lens-credentials";
 import { SecretsSettingsCard } from "./settings-dialog-secrets";
+import { StandaloneCliSettingsCard } from "@/components/layout/settings-dialog-standalone-cli-card";
 import { ToolingSection } from "./settings-dialog-tooling-section";
 import { ScriptsSection } from "./settings-dialog-scripts-section";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
@@ -1171,6 +1172,7 @@ function GeneralSection() {
             }
           />
         </SettingsCard>
+        <StandaloneCliSettingsCard />
         <SettingsCard
           title="Notification Sound"
           description="Customize the success sound played when a task turn finishes."

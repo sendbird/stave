@@ -75,7 +75,9 @@ export interface UseTerminalInstanceArgs {
   cursorStyle?: "block" | "bar" | "underline";
   isDarkMode: boolean;
   visible: boolean;
-  restartToken?: number;
+  // Rebuilds xterm on change. Strings let a caller fold a surface identity (an
+  // active tab key) in without inventing a collision-free numeric encoding.
+  restartToken?: number | string;
   onData: (data: string) => void;
   onResize: (cols: number, rows: number) => Promise<void> | void;
 }

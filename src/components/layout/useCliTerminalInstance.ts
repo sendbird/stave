@@ -9,6 +9,7 @@ export interface CliTerminalInstanceController {
   write: (data: string, onParsed?: () => void) => void;
   writeln: (data: string) => void;
   getSize: () => { cols: number; rows: number };
+  resize: (cols: number, rows: number) => void;
   focus: () => (() => void) | null;
 }
 
@@ -35,6 +36,22 @@ export interface UseCliTerminalInstanceReturn {
   writeErrorCount: number;
 }
 
+/**
+ * Every CLI surface keys its mount node by the active tab, so React throws the
+ * container away on a tab switch. The renderer hook only rebuilds xterm when
+ * `restartToken` changes, so a token that ignores tab identity leaves xterm
+ * painting into a detached node and the visible viewport stays blank. Folding
+ * the instance key in keeps the two in lockstep for every consumer instead of
+ * making each one remember the rule.
+ */
+export function buildCliTerminalRestartToken(args: {
+  instanceKey: string;
+  restartToken: number;
+}) {
+  // NUL cannot appear in a tab key, so no (key, count) pair can alias another.
+  return `${args.instanceKey}\u0000${args.restartToken}`;
+}
+
 function mapController(
   controller: TerminalInstanceController,
 ): CliTerminalInstanceController {
@@ -43,6 +60,7 @@ function mapController(
     write: controller.write,
     writeln: controller.writeln,
     getSize: controller.getSize,
+    resize: controller.resize,
     focus: controller.focus,
   };
 }
@@ -65,7 +83,10 @@ export function useCliTerminalInstance(
     cursorStyle: args.cursorStyle,
     isDarkMode: args.isDarkMode,
     visible: args.visible,
-    restartToken: args.restartToken,
+    restartToken: buildCliTerminalRestartToken({
+      instanceKey: args.instanceKey,
+      restartToken: args.restartToken,
+    }),
     onData: args.onData,
     onResize: args.onResize,
   });

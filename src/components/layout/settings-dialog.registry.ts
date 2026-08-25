@@ -13,6 +13,7 @@ import {
   DEFAULT_MARTIN_SYNC_SETTINGS,
   MartinSyncSettingsSchema,
 } from "@/lib/martin-sync/types";
+import { STANDALONE_CLI_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-standalone-cli-card";
 import type { SectionId } from "./settings-dialog.schema";
 
 export interface SettingDefinition<
@@ -258,6 +259,30 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "exclude",
   } satisfies SettingDefinition<"martinSync">,
+  {
+    key: "standaloneCliFolderPath",
+    sectionId: "general",
+    fieldId: STANDALONE_CLI_SETTING_FIELD_ID,
+    title: "Standalone CLI folder",
+    description:
+      "Absolute folder the Standalone CLI overlay runs Claude Code and Codex in, without registering it as a project.",
+    keywords: [
+      "standalone",
+      "cli",
+      "folder",
+      "scratch",
+      "unregistered",
+      "claude",
+      "codex",
+      "terminal",
+    ],
+    schema: z.string(),
+    defaultValue: "",
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "immediate",
+    importExport: "include",
+  } satisfies SettingDefinition<"standaloneCliFolderPath">,
 ] as const;
 
 export function getSettingsFieldSearchText<Key extends keyof AppSettings>(
