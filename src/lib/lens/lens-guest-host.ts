@@ -326,4 +326,3 @@ export function focusLensGuest(identity: LensGuestIdentity): boolean {
   record.element.focus();
   return true;
 }
-
