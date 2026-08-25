@@ -324,8 +324,8 @@ function LensSessionSurface(args: {
         />
 
         {/*
-          Carries the page background so the split gutters reserved around the
-          native view read as part of the page rather than as a seam.
+          Carries the page background behind the guest, so the moment before a
+          page paints reads as part of the page rather than as a hole.
         */}
         <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
           {lensPanelTab === "preview" ? (
