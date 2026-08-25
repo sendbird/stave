@@ -1,10 +1,9 @@
 import {
   DEFAULT_LENS_SESSION_ID,
   resolvePreferredBrowserSession,
-  setViewVisible,
   type BrowserSessionState,
 } from "./browser-manager";
-import { ensureBrowserSessionWithEvents } from "./browser-session-events";
+import { ensureBrowserSessionGuest } from "./browser-guest-broker";
 import { listKnownProjects } from "../stave-mcp-service";
 import { findLensProjectKeyForWorkspace } from "../../../src/lib/lens/lens-session-selection";
 import type {
@@ -17,6 +16,15 @@ export interface AcquireMcpBrowserSessionArgs {
   lensSessionId?: string;
   sessionScope?: LensSessionScope;
   projectKey?: string;
+  /**
+   * Whether a session rebuilt after its page died should return to that page.
+   *
+   * Left on by default so an agent that reaches for a session whose guest went
+   * down with the renderer finds it where it left it. Callers that navigate
+   * immediately afterwards pass `false`: their own load would abort the restore
+   * and the abort would be logged to the page's console as a failure.
+   */
+  restorePreviousUrl?: boolean;
 }
 
 async function resolveCreationProfile(
@@ -59,19 +67,50 @@ export async function acquireMcpBrowserSession(
     args.workspaceId,
     args.lensSessionId,
   );
-  if (existing) {
+  /*
+   * A dead guest is not a session to hand back.
+   *
+   * Nothing tells main that a guest page is gone — a renderer reload or crash
+   * destroys every `<webview>` at once and leaves main's registry entries
+   * pointing at destroyed WebContents. Returning one means the agent gets a
+   * corpse: every tool call after this throws "Object has been destroyed" and
+   * the session is never rebuilt, because the rebuild only happens on the path
+   * below. `ensureBrowserSessionGuest` applies the same rule one layer down;
+   * this is the same rule at the layer that can skip it.
+   */
+  if (existing && !existing.webContents.isDestroyed()) {
     return { session: existing, created: false };
   }
 
   const profile = await resolveCreationProfile(args);
-  const lensSessionId = args.lensSessionId?.trim() || DEFAULT_LENS_SESSION_ID;
-  const result = ensureBrowserSessionWithEvents(args.workspaceId, {
+
+  /*
+   * Main cannot create the page. A Lens guest is a `<webview>` element, which
+   * only the renderer can mount, so an agent-opened session is a request to the
+   * Stave window rather than a local construction.
+   *
+   * The renderer parks it invisible, which is what lets `stave_lens_*` work
+   * without taking over the user's foreground. "Invisible" is load-bearing and
+   * narrower than it sounds: parking is `opacity: 0`, because Chromium produces
+   * no compositor frame for a `visibility: hidden` or offscreen guest and
+   * `Page.captureScreenshot` then fails outright — measured, see
+   * `resolveLensGuestStyle`. Parked this way the guest keeps compositing, so
+   * screenshots and layout reads answer normally.
+   */
+  const result = await ensureBrowserSessionGuest(args.workspaceId, {
     ...profile,
-    managedByMcp: true,
-    lensSessionId,
+    lensSessionId:
+      args.lensSessionId?.trim() ||
+      // Only ever set when the preferred session's guest is dead: rebuild that
+      // session rather than opening a second one beside its corpse. The page it
+      // was on is recorded under this id too, so rebuilding it is also what
+      // makes the restore land.
+      existing?.lensSessionId ||
+      DEFAULT_LENS_SESSION_ID,
+    restorePreviousUrl: args.restorePreviousUrl,
   });
   if (result.created) {
-    setViewVisible(args.workspaceId, false, result.session.lensSessionId);
+    result.session.managedByMcp = true;
   }
   return result;
 }

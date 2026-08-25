@@ -96,7 +96,10 @@ export class LensCredentialVault {
       .map((entry) => toMetadata(entry, this.decryptSecret(entry).username))
       .sort(
         (left, right) =>
-          left.hosts[0].localeCompare(right.hosts[0]) ||
+          // A credential is normalized to at least one host on write, but the
+          // vault file is on disk and a hand-edited or truncated entry must not
+          // crash the account list — it sorts first instead.
+          (left.hosts[0] ?? "").localeCompare(right.hosts[0] ?? "") ||
           left.username.localeCompare(right.username),
       );
   }

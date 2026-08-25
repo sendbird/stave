@@ -16,12 +16,6 @@ type OrbitLensApi = {
     sessionScope?: LensSessionScope;
     projectKey?: string | null;
   }) => Promise<{ ok: boolean; message?: string }>;
-  createView?: (args: {
-    workspaceId: string;
-    lensSessionId?: string;
-    sessionScope?: LensSessionScope;
-    projectKey?: string | null;
-  }) => Promise<{ ok: boolean; message?: string }>;
   navigate?: (args: {
     workspaceId: string;
     lensSessionId?: string;
@@ -111,7 +105,7 @@ export async function openOrbitUrlWithLensPriority(args: {
   }
 
   const lensApi = args.lensApi;
-  const openLensSession = lensApi?.openSession ?? lensApi?.createView;
+  const openLensSession = lensApi?.openSession;
   if (!openLensSession || !lensApi?.navigate) {
     args.openExternalUrl(url);
     return { ok: true, target: "external", reason: "lens-unavailable" };

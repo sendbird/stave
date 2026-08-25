@@ -27,11 +27,11 @@ export function lensAnnotationNormalizationContext(
   return {
     documentId: session.documentId,
     url:
-      session.view.webContents.getURL() ||
+      session.webContents.getURL() ||
       session.navigationState.url ||
       "about:blank",
     title:
-      session.view.webContents.getTitle() || session.navigationState.title || "",
+      session.webContents.getTitle() || session.navigationState.title || "",
   };
 }
 
@@ -119,7 +119,7 @@ export async function readNormalizedPageAnnotations(
   session: BrowserSessionState,
 ): Promise<LensAnnotation[]> {
   const annotations = await executeInLensAnnotationWorld<unknown>(
-    session.view.webContents,
+    session.webContents,
     "window.__staveGetAnnotations?.() ?? []",
   );
   return normalizeLensAnnotationArray(annotations, {

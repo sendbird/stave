@@ -146,6 +146,9 @@ import type {
   GraphResult,
 } from "@/lib/git-graph/types";
 import type {
+  LensGuestFocusRequestPayload,
+  LensGuestFocusResultPayload,
+  LensGuestRequiredPayload,
   LensSessionClosedPayload,
   LensSessionPresentationRequestPayload,
 } from "@/lib/lens/lens.types";
@@ -1983,7 +1986,6 @@ interface AppMetricsResult {
     consoleEntries: number;
     networkEntries: number;
     downloadEntries: number;
-    retainedViews: number;
     cdpControllers: number;
     cdpClosingControllers: number;
     cdpInFlightCommands: number;
@@ -2280,22 +2282,27 @@ interface WindowLensApi {
   respondCdpApproval?: (
     args: LensCdpApprovalResponse,
   ) => Promise<{ ok: boolean; message?: string }>;
-  createView?: (
-    args: LensSessionProfileArgs & { lensSessionId?: string },
-  ) => Promise<{
-    ok: boolean;
-    sessionScope?: LensSessionScope;
-    lensSessionId?: string;
-    message?: string;
-  }>;
+  /**
+   * Open or adopt a Lens session. Live by the time it resolves: main asks this
+   * window for the guest page and waits for the bind before answering.
+   */
   openSession?: (
     args: LensSessionProfileArgs & { lensSessionId: string; url?: string },
   ) => Promise<{
     ok: boolean;
+    /** True when this call is what brought the session into existence. */
     created?: boolean;
     session?: LensSessionDescriptor;
     message?: string;
   }>;
+  /** Hand main the WebContents id of a `<webview>` this window just mounted. */
+  bindGuest?: (
+    args: LensSessionProfileArgs & {
+      lensSessionId: string;
+      guestWebContentsId: number;
+      managedByMcp?: boolean;
+    },
+  ) => Promise<{ ok: boolean; created?: boolean; message?: string }>;
   closeSession?: (args: {
     workspaceId: string;
     lensSessionId: string;
@@ -2304,25 +2311,28 @@ interface WindowLensApi {
     ok: boolean;
     sessions?: LensSessionDescriptor[];
   }>;
-  destroyView?: (args: {
-    workspaceId: string;
-    lensSessionId?: string;
-  }) => Promise<{ ok: boolean }>;
   clearSessionData?: (args: LensSessionProfileArgs) => Promise<{
     ok: boolean;
     sessionScope?: LensSessionScope;
     message?: string;
   }>;
-  setBounds?: (args: {
+  /**
+   * Report whether a panel is showing this session's page.
+   *
+   * A report, not a command — the element is already shown or hidden. Main uses
+   * it to decide which tab an agent call with no explicit session id targets.
+   */
+  setPresented?: (args: {
     workspaceId: string;
     lensSessionId?: string;
-    bounds: { x: number; y: number; width: number; height: number };
-  }) => Promise<{ ok: boolean; message?: string }>;
-  setVisible?: (args: {
-    workspaceId: string;
-    lensSessionId?: string;
-    visible: boolean;
+    presented: boolean;
   }) => Promise<{ ok: boolean }>;
+  reportGuestFocus?: (payload: LensGuestFocusResultPayload) => void;
+  reportGuestMountFailure?: (payload: {
+    workspaceId: string;
+    lensSessionId: string;
+    message?: string;
+  }) => void;
   navigate?: (args: {
     workspaceId: string;
     lensSessionId?: string;
@@ -2553,6 +2563,12 @@ interface WindowLensApi {
   ) => () => void;
   subscribeSessionClosed?: (
     listener: (payload: LensSessionClosedPayload) => void,
+  ) => () => void;
+  subscribeGuestRequests?: (
+    listener: (payload: LensGuestRequiredPayload) => void,
+  ) => () => void;
+  subscribeGuestFocusRequests?: (
+    listener: (payload: LensGuestFocusRequestPayload) => void,
   ) => () => void;
   subscribePresentationRequests?: (
     listener: (payload: LensSessionPresentationRequestPayload) => void,

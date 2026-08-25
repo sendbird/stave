@@ -1,9 +1,27 @@
 {
   "version": 1,
   "files": {
-    "src/components/layout/useTerminalInstance.ts": 895,
     "electron/host-service/terminal-runtime.ts": 1170,
-    "src/store/app.store.ts": 3155,
-    "electron/providers/codex-app-server-runtime.ts": 4030
+    "electron/main/browser/browser-webview-attach.ts": 800,
+    "electron/providers/codex-app-server-runtime.ts": 4030,
+    "src/components/layout/useTerminalInstance.ts": 895,
+    "src/components/panes/surfaces/LensSurfacePanel.tsx": 409,
+    "src/components/panes/surfaces/lens/LensChrome.tsx": 800,
+    "src/components/panes/surfaces/lens/LensConsoleWorkbench.tsx": 800,
+    "src/components/panes/surfaces/lens/LensLogDetail.tsx": 800,
+    "src/components/panes/surfaces/lens/LensNetworkWorkbench.tsx": 800,
+    "src/components/panes/surfaces/lens/LensPreviewSurface.tsx": 800,
+    "src/components/panes/surfaces/lens/useLensAnnotationSync.ts": 800,
+    "src/components/panes/surfaces/lens/useLensDiagnosticsLog.ts": 960,
+    "src/components/panes/surfaces/lens/useLensDomSurfaceHost.ts": 800,
+    "src/components/panes/surfaces/lens/useLensOverlayModes.ts": 800,
+    "src/components/panes/surfaces/lens/useLensSession.ts": 800,
+    "src/components/panes/surfaces/lens/useLensVisualCommentShortcut.ts": 800,
+    "src/components/panes/useLensGuestHost.ts": 800,
+    "src/lib/lens/lens-guest-host.ts": 800,
+    "src/lib/lens/lens-guest-placement.ts": 800,
+    "src/lib/lens/lens-instrumentation.ts": 800,
+    "src/lib/lens/lens-log-format.ts": 800,
+    "src/store/app.store.ts": 3155
   }
 }

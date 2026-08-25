@@ -50,6 +50,7 @@
     "package:linux:deb": "bun run rebuild:electron-deps && bun run build:desktop && electron-builder --config electron-builder.yml --linux deb",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "typecheck:lens-main": "node scripts/typecheck-lens-main.mjs",
     "test": "bun test",
     "test:isolated": "node scripts/run-tests-isolated.mjs",
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
@@ -58,9 +59,10 @@
     "check:switch-exhaustiveness": "node scripts/check-switch-exhaustiveness.mjs",
     "check:reliability-gates": "node scripts/check-reliability-gates.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:electron": "playwright test --config playwright.electron.config.ts",
     "qa:ui": "bun run test:e2e",
     "rebuild:electron-deps": "node scripts/rebuild-electron-deps.mjs",
-    "test:ci": "bun run check:licenses && bun run check:reliability-gates && bun run check:doc-paths && bun run check:max-lines-ratchet && bun run check:switch-exhaustiveness && bun run typecheck && bun run test:isolated && bun run build && bun run build:desktop"
+    "test:ci": "bun run check:licenses && bun run check:reliability-gates && bun run check:doc-paths && bun run check:max-lines-ratchet && bun run check:switch-exhaustiveness && bun run typecheck && bun run typecheck:lens-main && bun run test:isolated && bun run build && bun run build:desktop"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.197",

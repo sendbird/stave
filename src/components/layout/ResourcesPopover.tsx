@@ -44,7 +44,6 @@ interface AppMetrics {
     consoleEntries: number;
     networkEntries: number;
     downloadEntries: number;
-    retainedViews: number;
     cdpControllers: number;
     cdpClosingControllers: number;
     cdpInFlightCommands: number;
@@ -373,17 +372,10 @@ export function MemoryUsagePopover({
                     {metrics.lens.downloadEntries} D
                   </span>
                   <span className="text-muted-foreground/70">
-                    Popups / closing
+                    Auth popups
                   </span>
-                  <span
-                    className={cn(
-                      "text-right font-mono",
-                      metrics.lens.retainedViews > 0
-                        ? "text-amber-500"
-                        : "text-muted-foreground/80",
-                    )}
-                  >
-                    {metrics.lens.authPopups} / {metrics.lens.retainedViews}
+                  <span className="text-right font-mono text-muted-foreground/80">
+                    {metrics.lens.authPopups}
                   </span>
                   <span className="text-muted-foreground/70">
                     CDP active / closing

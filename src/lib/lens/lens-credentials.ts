@@ -16,7 +16,14 @@ export interface LensCredentialUpsertInput {
   autoFill: boolean;
 }
 
-export interface LensCredentialFillResult {
+/*
+ * A type alias rather than an interface on purpose. This crosses the MCP tool
+ * boundary as `structuredContent`, which the SDK types as
+ * `{ [x: string]: unknown }` — and TypeScript gives an implicit index signature
+ * to object type aliases but not to interfaces, so declaring this as an
+ * interface makes the one Lens tool that returns it fail to typecheck.
+ */
+export type LensCredentialFillResult = {
   ok: boolean;
   host?: string;
   filledUsername?: boolean;

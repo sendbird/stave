@@ -6,10 +6,10 @@ import { useAppStore } from "@/store/app.store";
  * Drop Lens tabs whose native session has been torn down in the main process.
  *
  * Sessions can die without going through the pane UI — `stave_lens_close_session`
- * with `force: true`, `lens:destroy-view`, or a workspace dispose. The tab and
- * its Dockview panel used to survive as an empty shell whose `setVisible` and
- * `setBounds` calls silently no-op, so the user was left with a Lens pane that
- * could not be revived and did not look closable.
+ * with `force: true`, a crashed guest, or a workspace dispose. The tab and its
+ * Dockview panel would otherwise survive as an empty shell pointed at a page
+ * that no longer exists, so the user was left with a Lens pane that could not be
+ * revived and did not look closable.
  *
  * This only reacts to sessions belonging to the active workspace: `lensTabs` is
  * per-workspace state, and background workspaces reconcile their own tabs when

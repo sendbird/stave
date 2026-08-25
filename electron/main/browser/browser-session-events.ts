@@ -9,14 +9,15 @@ import {
   type LensStateChangedPayload,
 } from "../../../src/lib/lens/lens.types";
 import {
-  browserSessionUsesProfile,
-  createBrowserSession,
+  bindBrowserSessionGuest,
   getBrowserSession,
   pushConsoleEntry,
   pushGuestConsoleEntry,
   updateNavigationState,
+  type BindBrowserSessionGuestResult,
   type BrowserSessionState,
 } from "./browser-manager";
+import { notifyLensGuestBound } from "./browser-guest-broker";
 import { getAnnotationOverlayScript } from "./browser-annotation-overlay";
 import { getBoxInspectScript } from "./browser-box-inspect";
 import { fillLensCredentialForWebContents } from "./lens-credential-service";
@@ -480,45 +481,41 @@ export function attachBrowserSessionEventListeners(
   };
 }
 
-export function ensureBrowserSessionWithEvents(
-  workspaceId: string,
-  options?: {
-    managedByMcp?: boolean;
-    lensSessionId?: string;
-    /** Keep a live session intact while a renderer tab adopts it. */
-    reuseExisting?: boolean;
-  } & Omit<LensSessionProfileArgs, "workspaceId">,
-): {
-  session: BrowserSessionState;
-  created: boolean;
-} {
-  const lensSessionId = options?.lensSessionId ?? DEFAULT_LENS_SESSION_ID;
-  const existing = getBrowserSession(workspaceId, lensSessionId);
-  if (
-    existing &&
-    (options?.reuseExisting === true ||
-      browserSessionUsesProfile(
-        workspaceId,
-        {
-          sessionScope: options?.sessionScope,
-          projectKey: options?.projectKey,
-        },
-        lensSessionId,
-      ))
-  ) {
-    return { session: existing, created: false };
+/**
+ * Adopt a renderer-created `<webview>` guest and start listening to its page.
+ *
+ * The events half is why this lives here rather than in the manager:
+ * navigation, console, network, annotation, and credential listeners are what
+ * make a bound WebContents an observable Lens session, and a guest bound
+ * without them would look alive and report nothing.
+ */
+export function bindBrowserSessionGuestWithEvents(args: {
+  workspaceId: string;
+  lensSessionId?: string;
+  guestWebContentsId: number;
+  managedByMcp?: boolean;
+} & Omit<LensSessionProfileArgs, "workspaceId">): BindBrowserSessionGuestResult {
+  const result = bindBrowserSessionGuest({
+    workspaceId: args.workspaceId,
+    lensSessionId: args.lensSessionId,
+    guestWebContentsId: args.guestWebContentsId,
+    sessionScope: args.sessionScope,
+    projectKey: args.projectKey,
+  });
+
+  if (!result.ok || !result.created) {
+    return result;
   }
 
-  const session = createBrowserSession(workspaceId, {
-    sessionScope: options?.sessionScope,
-    projectKey: options?.projectKey,
-    lensSessionId,
-  });
-  session.managedByMcp = options?.managedByMcp === true;
-  session.detachEventListeners = attachBrowserSessionEventListeners(
-    workspaceId,
-    session.view.webContents,
-    session.lensSessionId,
+  result.session.managedByMcp = args.managedByMcp === true;
+  result.session.detachEventListeners = attachBrowserSessionEventListeners(
+    args.workspaceId,
+    result.session.webContents,
+    result.session.lensSessionId,
   );
-  return { session, created: true };
+
+  // Only after the listeners are attached: a main-initiated caller resumes the
+  // moment this resolves, and the first thing it does is navigate.
+  notifyLensGuestBound(result.session);
+  return result;
 }

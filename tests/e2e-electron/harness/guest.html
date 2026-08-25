@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Guest page</title>
+  </head>
+  <body>
+    <h1 id="heading">guest ready</h1>
+    <button id="press" type="button">press me</button>
+    <p id="pressed">not pressed</p>
+    <input id="field" type="text" />
+    <p id="echo"></p>
+    <p id="preload-loaded"></p>
+    <p id="node-globals"></p>
+    <script>
+      document.getElementById("press").addEventListener("click", () => {
+        document.getElementById("pressed").textContent = "pressed";
+      });
+      document.getElementById("field").addEventListener("input", (event) => {
+        document.getElementById("echo").textContent = event.target.value;
+      });
+      document.getElementById("preload-loaded").textContent = String(
+        Boolean(window.__lensGuestPreload?.loaded),
+      );
+      document.getElementById("node-globals").textContent = String(
+        typeof process !== "undefined" || typeof require !== "undefined",
+      );
+    </script>
+  </body>
+</html>

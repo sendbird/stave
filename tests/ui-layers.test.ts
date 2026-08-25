@@ -19,6 +19,16 @@ describe("ui layer ordering", () => {
     expect(UI_LAYER_VALUE.dialog).toBeLessThan(UI_LAYER_VALUE.lightbox);
   });
 
+  test("puts Lens pane chrome above the guest page but below the sash", () => {
+    // A Lens guest is a DOM element now, so pane content that overlaps its
+    // rectangle has to be raised above it explicitly or the page paints over
+    // the loading badge and the load-error strip.
+    expect(UI_LAYER_VALUE.lensSurface).toBeLessThan(
+      UI_LAYER_VALUE.lensPaneChrome,
+    );
+    expect(UI_LAYER_VALUE.lensPaneChrome).toBeLessThan(UI_LAYER_VALUE.resizer);
+  });
+
   test("exposes stable class names for shared surfaces", () => {
     expect(UI_LAYER_CLASS.resizer).toBe("z-20");
     expect(UI_LAYER_CLASS.dialog).toBe("z-[80]");

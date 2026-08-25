@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Lens guest harness</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        position: relative;
+        font-family: system-ui, sans-serif;
+      }
+      #lens-surface-root {
+        position: absolute;
+        inset: 0;
+      }
+      #lens-surface-root webview {
+        position: absolute;
+        display: inline-flex;
+      }
+      /* Stands in for React chrome. Higher plane than the guest container. */
+      #overlay {
+        position: absolute;
+        z-index: 10;
+        background: rgb(255 0 0);
+        display: none;
+      }
+      #overlay[data-open="true"] {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="lens-surface-root"></div>
+    <div id="overlay"></div>
+  </body>
+</html>

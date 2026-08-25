@@ -1,4 +1,15 @@
 export const UI_LAYER_VALUE = {
+  /** The Lens guest page. A real DOM element, so everything above wins. */
+  lensSurface: 10,
+  /**
+   * Pane-local Lens chrome that overlaps the guest's rectangle — the loading
+   * badge, the load-error strip.
+   *
+   * Its own band because these used to paint over an empty placeholder and now
+   * share a rectangle with an actual page. Still below `resizer`: this is pane
+   * content, and a split sash dragged across it stays on top.
+   */
+  lensPaneChrome: 15,
   resizer: 20,
   chrome: 30,
   sessionFloater: 35,
@@ -11,6 +22,8 @@ export const UI_LAYER_VALUE = {
 } as const;
 
 export const UI_LAYER_CLASS = {
+  lensSurface: "z-10",
+  lensPaneChrome: "z-[15]",
   resizer: "z-20",
   chrome: "z-30",
   sessionFloater: "z-[35]",
@@ -21,6 +34,39 @@ export const UI_LAYER_CLASS = {
   appMenu: "z-[100]",
   lightbox: "z-[110]",
 } as const;
+
+export type UiLayerName = keyof typeof UI_LAYER_VALUE;
+
+/**
+ * The lowest layer that floats above pane content rather than being part of it.
+ * Layers at or above this value can overlap an arbitrary pane, so anything that
+ * has to yield to them (today: the native Lens view, which the compositor keeps
+ * above the whole renderer) must treat the whole band as occluding.
+ */
+export const UI_LAYER_FLOATING_MIN_VALUE = UI_LAYER_VALUE.sessionFloater;
+
+/**
+ * Convert a Tailwind z-index utility class into a CSS class selector.
+ * Arbitrary-value utilities (`z-[80]`) carry brackets that have to be escaped
+ * before the class can be handed to `querySelector`.
+ */
+export function uiLayerClassSelector(layerClass: string): string {
+  return `.${layerClass.replace(/[[\]]/g, "\\$&")}`;
+}
+
+/**
+ * Every layer class at or above `minValue`, ordered low to high. Derived from
+ * the scale itself so a newly added floating layer is covered by construction
+ * instead of by remembering to update a second hand-written list.
+ */
+export function uiLayerClassesAtOrAbove(
+  minValue: number = UI_LAYER_FLOATING_MIN_VALUE,
+): string[] {
+  return (Object.keys(UI_LAYER_VALUE) as UiLayerName[])
+    .filter((name) => UI_LAYER_VALUE[name] >= minValue)
+    .sort((left, right) => UI_LAYER_VALUE[left] - UI_LAYER_VALUE[right])
+    .map((name) => UI_LAYER_CLASS[name]);
+}
 
 /**
  * Elevation is reserved for content that physically floats above the app.
