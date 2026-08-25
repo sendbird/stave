@@ -15,6 +15,7 @@ import {
   Trash2,
   UserRound,
   X,
+  Zap,
 } from "lucide-react";
 import type {
   Attachment,
@@ -324,6 +325,19 @@ interface PromptInputProps {
    * queue drains automatically on completion instead.
    */
   onSendQueuedTurn?: (args: { itemId: string }) => void;
+  /**
+   * Push one queued turn into the response that is currently streaming, so a
+   * message that landed in the queue mid-turn does not have to wait for that
+   * turn to finish. Only offered while a turn is active and the host reports
+   * the turn as steerable via `canSteerQueuedTurn`.
+   */
+  onSteerQueuedTurn?: (args: { itemId: string }) => void;
+  /**
+   * Whether the active turn accepts mid-turn steering at all (setting on,
+   * provider supports it, turn live and not stalled). Attachment eligibility
+   * is decided per queue item, not here.
+   */
+  canSteerQueuedTurn?: boolean;
   onClearQueuedNextTurn?: () => void;
   onAbort?: () => void;
 }
@@ -680,6 +694,8 @@ export function PromptInput(args: PromptInputProps) {
     onUpdateQueuedTurn,
     onRemoveQueuedTurn,
     onSendQueuedTurn,
+    onSteerQueuedTurn,
+    canSteerQueuedTurn = false,
     onClearQueuedNextTurn,
     onAbort,
   } = args;
@@ -853,6 +869,14 @@ export function PromptInput(args: PromptInputProps) {
   const canSendQueuedTurnNow =
     Boolean(onSendQueuedTurn) &&
     submitMode === "send" &&
+    !interactionsDisabled &&
+    queuedTurns.length > 0;
+  // Steering a queued item into the live turn is the mirror image: offered
+  // only while a turn IS running, and again only for store-backed items.
+  const canSteerQueuedTurnNow =
+    Boolean(onSteerQueuedTurn) &&
+    canSteerQueuedTurn &&
+    isTurnActive &&
     !interactionsDisabled &&
     queuedTurns.length > 0;
   const modifierLabel = useMemo(
@@ -2160,7 +2184,9 @@ export function PromptInput(args: PromptInputProps) {
                   {visibleQueuedTurns.length} queued follow-up
                   {visibleQueuedTurns.length === 1 ? "" : "s"}
                   {isTurnActive
-                    ? " · next sends automatically when the current response finishes"
+                    ? canSteerQueuedTurnNow
+                      ? " · next sends automatically when the current response finishes, or steer one into it now"
+                      : " · next sends automatically when the current response finishes"
                     : canSendQueuedTurnNow
                       ? " · send one now, or it sends after your next message finishes"
                       : ""}
@@ -2272,6 +2298,22 @@ export function PromptInput(args: PromptInputProps) {
                             ) : null}
                           </div>
                           <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                            {canSteerQueuedTurnNow &&
+                            item.attachedFilePaths.length === 0 &&
+                            item.attachments.length === 0 ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-muted-foreground hover:text-primary"
+                                aria-label={`Steer queued prompt ${index + 1} into the current response`}
+                                onClick={() =>
+                                  onSteerQueuedTurn?.({ itemId: item.id })
+                                }
+                              >
+                                <Zap className="size-3.5" />
+                              </Button>
+                            ) : null}
                             {canSendQueuedTurnNow ? (
                               <Button
                                 type="button"

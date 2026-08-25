@@ -139,7 +139,8 @@ import {
   adoptRestoredTurnsIntoStallNet,
   createProviderTurnLivenessReporter,
 } from "@/store/provider-turn-stall-rearm";
-import { submitSteerWithDeadline } from "@/store/steer-submit";
+import { createSteerQueueReservations } from "@/store/steer-queue-reservations";
+import { buildFailedSteerResult } from "@/store/steer-submit";
 import {
   applyPendingProviderEventsToStoreState,
   createWorkspaceSessionStateFromAppState,
@@ -165,6 +166,7 @@ import {
   resolveTurnModelForSend,
 } from "@/store/prompt-draft-runtime";
 import {
+  applySteeredPromptDraft,
   buildPreservedQueuedDraft,
   resolvePromptDraftAfterSend,
   resolvePromptDraftSendState,
@@ -760,10 +762,13 @@ export const useAppStore = create<AppState>()(
         }),
     });
 
+    const steerQueueReservations = createSteerQueueReservations();
+
     const dispatchNextQueuedTaskTurn = createQueuedTaskTurnDispatcher({
       getSession: (workspaceId) =>
         getWorkspaceSessionForState({ state: get(), workspaceId }),
       getActions: get,
+      blocksAutoDispatch: steerQueueReservations.blocksAutoDispatch,
     });
 
     const hasAsyncIterable = (
@@ -1949,11 +1954,20 @@ export const useAppStore = create<AppState>()(
         if (activeTurnId && activeTurnStalled) {
           get().abortTaskTurn({ taskId: resolvedTaskId });
         }
-        if (queuedTurnToSend && activeTurnId && !activeTurnStalled) {
-          // Manual dispatch of a queued item only makes sense while no live
-          // turn is running — during an active turn the item is already in
-          // line to auto-dispatch, and falling through here would re-queue
-          // it as a duplicate.
+        // A queued item dispatched during a live turn is already in line to
+        // auto-dispatch, so sending it here would duplicate it — unless the
+        // caller explicitly asked to steer, which promotes it into the running
+        // turn instead of waiting (see the steer branch below). An item whose
+        // own steer is still in flight is off limits to every path, steer
+        // included: the provider may be about to accept it.
+        if (
+          queuedTurnToSend &&
+          (steerQueueReservations.blocksDispatch({
+            taskId: resolvedTaskId,
+            queuedTurnId: queuedTurnToSend.id,
+          }) ||
+            (activeTurnId && !activeTurnStalled && submitIntent !== "steer"))
+        ) {
           return { status: "blocked" } satisfies SendUserMessageResult;
         }
         if (activeTurnId && !activeTurnStalled && submitIntent === "steer") {
@@ -1991,7 +2005,9 @@ export const useAppStore = create<AppState>()(
           }
           const activeTurnProvider = steeringContext.providerId;
           const clientMessageId = crypto.randomUUID();
-          const steerResult = await submitSteerWithDeadline({
+          const steerResult = await steerQueueReservations.submitSteer({
+            taskId: resolvedTaskId,
+            queuedTurnId: queuedTurnToSend?.id,
             send: steerTurn,
             request: {
               turnId: activeTurnId,
@@ -2001,24 +2017,11 @@ export const useAppStore = create<AppState>()(
             },
           });
           if (!steerResult.ok) {
-            if (steerResult.delivery === "unknown") {
-              return {
-                status: "steer-delivery-unknown",
-                taskId: resolvedTaskId,
-                workspaceId: taskWorkspaceId,
-                message:
-                  steerResult.message ||
-                  "Steer delivery could not be confirmed. Wait for the current response before retrying or queueing.",
-              } satisfies SendUserMessageResult;
-            }
-            return {
-              status: "steer-unavailable",
+            return buildFailedSteerResult({
+              result: steerResult,
               taskId: resolvedTaskId,
               workspaceId: taskWorkspaceId,
-              message:
-                steerResult.message ||
-                "The active turn rejected the steer request — press Tab to queue instead.",
-            } satisfies SendUserMessageResult;
+            });
           }
           set((nextState) => {
             const isActiveWorkspace =
@@ -2055,21 +2058,15 @@ export const useAppStore = create<AppState>()(
             });
             const promptDraftByTask =
               cachedSession?.promptDraftByTask ?? nextState.promptDraftByTask;
-            const currentDraft = promptDraftByTask[resolvedTaskId];
-            const shouldClearSubmittedDraft =
-              !preservePromptDraft && currentDraft?.text === promptDraft.text;
-            const nextPromptDraftByTask = shouldClearSubmittedDraft
-              ? {
-                  ...promptDraftByTask,
-                  [resolvedTaskId]: normalizePromptDraftForStorage({
-                    ...(currentDraft ?? sourcePromptDraft),
-                    text: "",
-                    attachedFilePaths: [],
-                    attachments: [],
-                    promptBatch: undefined,
-                  }),
-                }
-              : promptDraftByTask;
+            const nextPromptDraftByTask = applySteeredPromptDraft({
+              promptDraftByTask,
+              taskId: resolvedTaskId,
+              storedDraft: storedPromptDraftForTask,
+              sourceDraft: sourcePromptDraft,
+              sentDraft: promptDraft,
+              preservePromptDraft,
+              steeredQueuedTurn: queuedTurnToSend,
+            });
             const activityByTask = turnStillActive
               ? startProviderTurnActivity({
                   activityByTask: nextState.providerTurnActivityByTask,

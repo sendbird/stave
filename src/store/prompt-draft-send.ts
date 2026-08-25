@@ -123,3 +123,52 @@ export function resolvePromptDraftAfterSend(args: {
     queuedTurns: args.queuedTurns,
   });
 }
+
+/**
+ * The prompt-draft map to store after a mid-turn steer succeeds.
+ *
+ * Two shapes, depending on where the steered payload came from. Steering the
+ * composer's own text clears it — but only while the composer still holds
+ * exactly what was sent, so a newer draft typed while the steer was in flight
+ * survives. Steering a staged queue item instead leaves the composer entirely
+ * alone and drops just that one item from the queue; every other queued item
+ * keeps waiting for its automatic dispatch.
+ */
+export function applySteeredPromptDraft(args: {
+  promptDraftByTask: Record<string, PromptDraft>;
+  taskId: string;
+  storedDraft?: PromptDraft;
+  sourceDraft: PromptDraft;
+  sentDraft: PromptDraft;
+  preservePromptDraft?: boolean;
+  steeredQueuedTurn?: PromptDraftQueuedTurn;
+}): Record<string, PromptDraft> {
+  const currentDraft = args.promptDraftByTask[args.taskId];
+  if (args.steeredQueuedTurn) {
+    const steeredId = args.steeredQueuedTurn.id;
+    const baseDraft = currentDraft ?? args.storedDraft ?? args.sourceDraft;
+    return {
+      ...args.promptDraftByTask,
+      [args.taskId]: normalizePromptDraftForStorage({
+        ...baseDraft,
+        queuedTurns: (baseDraft.queuedTurns ?? []).filter(
+          (item) => item.id !== steeredId,
+        ),
+        queuedNextTurn: undefined,
+      }),
+    };
+  }
+  if (args.preservePromptDraft || currentDraft?.text !== args.sentDraft.text) {
+    return args.promptDraftByTask;
+  }
+  return {
+    ...args.promptDraftByTask,
+    [args.taskId]: normalizePromptDraftForStorage({
+      ...(currentDraft ?? args.sourceDraft),
+      text: "",
+      attachedFilePaths: [],
+      attachments: [],
+      promptBatch: undefined,
+    }),
+  };
+}

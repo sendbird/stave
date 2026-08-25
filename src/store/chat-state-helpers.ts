@@ -22,6 +22,28 @@ export function buildRecentTimestamp() {
   return new Date().toISOString();
 }
 
+/**
+ * The provider actually serving `activeTurnId`.
+ *
+ * Never the composer's current selection: switching the model selector while a
+ * turn streams retargets the NEXT turn, not the running one, so steer
+ * eligibility has to follow the turn. The live activity snapshot is
+ * authoritative; history is the fallback for turns restored without one.
+ */
+export function resolveActiveTurnProviderId(args: {
+  activeTurnId: string;
+  activity?: Pick<ProviderTurnActivitySnapshot, "turnId" | "providerId">;
+  fallbackProviderId: ProviderId;
+  messages: ChatMessage[];
+}): ProviderId {
+  return args.activity?.turnId === args.activeTurnId
+    ? args.activity.providerId
+    : getRespondingProviderId({
+        fallbackProviderId: args.fallbackProviderId,
+        messages: args.messages,
+      });
+}
+
 export function resolveMidTurnSteeringContext(args: {
   activeTurnId: string;
   activity?: Pick<ProviderTurnActivitySnapshot, "turnId" | "providerId">;
@@ -29,13 +51,7 @@ export function resolveMidTurnSteeringContext(args: {
   messages: ChatMessage[];
   hasAttachments: boolean;
 }) {
-  const providerId =
-    args.activity?.turnId === args.activeTurnId
-      ? args.activity.providerId
-      : getRespondingProviderId({
-          fallbackProviderId: args.fallbackProviderId,
-          messages: args.messages,
-        });
+  const providerId = resolveActiveTurnProviderId(args);
 
   if (args.hasAttachments) {
     return {
