@@ -6,6 +6,7 @@ import {
   resolveBrowserSessionReservation,
   type BrowserSessionState,
 } from "./browser-manager";
+import { restoreLensSessionUrl } from "./browser-session-recovery";
 import type {
   LensGuestFocusRequestPayload,
   LensGuestFocusResultPayload,
@@ -221,11 +222,17 @@ export function resolveLensGuestFocus(
  *
  * A session whose guest has died — a crashed page, a reloaded renderer — counts
  * as absent. Returning it would hand the caller a session that answers nothing.
+ * A replacement guest is sent back to the page the dead one was on, so the
+ * death is recoverable rather than merely survivable; `restorePreviousUrl`
+ * turns that off for the one caller that is about to navigate somewhere else
+ * anyway, whose own load would otherwise abort the restore and log the abort as
+ * a page error.
  */
 export async function ensureBrowserSessionGuest(
   workspaceId: string,
   options?: Omit<LensSessionProfileArgs, "workspaceId"> & {
     lensSessionId?: string;
+    restorePreviousUrl?: boolean;
   },
 ): Promise<{ session: BrowserSessionState; created: boolean }> {
   const { lensSessionId, sessionProfile } = resolveBrowserSessionReservation(
@@ -245,6 +252,15 @@ export async function ensureBrowserSessionGuest(
     sessionScope: sessionProfile.scope,
     projectKey: options?.projectKey ?? null,
   });
+
+  if (options?.restorePreviousUrl !== false) {
+    restoreLensSessionUrl({
+      workspaceId,
+      lensSessionId,
+      webContents: session.webContents,
+    });
+  }
+
   return { session, created: true };
 }
 

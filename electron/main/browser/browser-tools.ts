@@ -63,9 +63,18 @@ function toStructuredResult<T>(value: T) {
   };
 }
 
-async function acquireSession(workspaceId: string, lensSessionId?: string) {
-  return (await acquireMcpBrowserSession({ workspaceId, lensSessionId }))
-    .session;
+async function acquireSession(
+  workspaceId: string,
+  lensSessionId?: string,
+  options?: { restorePreviousUrl?: boolean },
+) {
+  return (
+    await acquireMcpBrowserSession({
+      workspaceId,
+      lensSessionId,
+      restorePreviousUrl: options?.restorePreviousUrl,
+    })
+  ).session;
 }
 
 function clampPositiveInteger(
@@ -134,6 +143,7 @@ export function registerBrowserTools(server: McpServer): void {
         sessionScope,
         projectKey,
         lensSessionId,
+        restorePreviousUrl: !url?.trim(),
       });
 
       if (url?.trim()) {
@@ -280,7 +290,9 @@ export function registerBrowserTools(server: McpServer): void {
       },
     },
     async ({ workspaceId, lensSessionId, url }) => {
-      const session = await acquireSession(workspaceId, lensSessionId);
+      const session = await acquireSession(workspaceId, lensSessionId, {
+        restorePreviousUrl: false,
+      });
       const wc = session.webContents;
 
       const targetUrl = normalizeLensUrl(url);

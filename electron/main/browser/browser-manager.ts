@@ -56,6 +56,10 @@ import {
 } from "./browser-cdp-diagnostics";
 import { getCdpControllerResourceMetrics } from "./browser-cdp-controller";
 import { isLiveBrowserSessionForWebContents } from "./browser-session-identity";
+import {
+  forgetLensSessionUrl,
+  rememberLensSessionUrl,
+} from "./browser-session-recovery";
 import { appendRuntimeDiagnostic } from "../runtime-diagnostic-log";
 import { resolveLensGuestPreloadScriptPath } from "../window-paths";
 import {
@@ -1274,6 +1278,13 @@ export function destroyBrowserSession(
   // cannot enqueue more renderer IPC while the page is closing.
   const key = sessionKey(session.workspaceId, session.lensSessionId);
   sessions.delete(key);
+  /*
+   * A deliberate close forgets where the page was. Only a session whose page
+   * *died* is restored, and session ids are reused — the first Lens tab in
+   * every workspace is `default` — so keeping the record here would open the
+   * next fresh tab on the page the closed one happened to be showing.
+   */
+  forgetLensSessionUrl(session.workspaceId, session.lensSessionId);
   clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
   if (webContentsSessionIndex.get(session.webContentsId) === session) {
     webContentsSessionIndex.delete(session.webContentsId);
@@ -1391,6 +1402,21 @@ export function updateNavigationState(
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return undefined;
   Object.assign(session.navigationState, patch);
+  /*
+   * Kept outside the session object, because the session object is what dies.
+   * A guest is a renderer-owned `<webview>`, so a renderer reload or crash
+   * destroys the page and everything main holds about it; remembering the URL
+   * here is what lets the rebuilt session come back to the same page instead of
+   * `about:blank`. Recorded on every navigation rather than at teardown, since
+   * a page can die without any teardown running at all.
+   */
+  if (patch.url !== undefined) {
+    rememberLensSessionUrl(
+      session.workspaceId,
+      session.lensSessionId,
+      patch.url,
+    );
+  }
   return { ...session.navigationState };
 }
 

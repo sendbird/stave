@@ -139,19 +139,44 @@ function createGuestElement(descriptor: LensGuestDescriptor): LensGuestElement {
   return element;
 }
 
+/**
+ * Wait for a guest's WebContents id.
+ *
+ * Two events, because one is not enough. `did-attach` is usually the moment the
+ * id becomes readable and is the fast path, but `getWebContentsId` states its
+ * own precondition in the error it throws — attached to the DOM *and*
+ * `dom-ready` emitted — and the old code waited for only the first half of it.
+ *
+ * Not theoretical: reopening a session immediately after closing it failed with
+ * exactly that error, once, and a hard failure there is a session an agent
+ * cannot get back. It did not reproduce in six further runs, so the frequency is
+ * unknown and the fix is written to cost nothing when the fast path holds: the
+ * id is read on whichever event first offers one, and only a `dom-ready` that
+ * still cannot produce one is a failure. A guest that reaches neither is caught
+ * by main's mount timeout, as it was before.
+ */
 function waitForAttach(element: LensGuestElement): Promise<number> {
   return new Promise<number>((resolve, reject) => {
-    const onAttach = () => {
-      cleanup();
+    const tryResolve = (): boolean => {
+      let webContentsId: number;
       try {
-        resolve(element.getWebContentsId());
-      } catch (error) {
-        reject(
-          error instanceof Error
-            ? error
-            : new Error("Lens guest attached without a WebContents id"),
-        );
+        webContentsId = element.getWebContentsId();
+      } catch {
+        return false;
       }
+      cleanup();
+      resolve(webContentsId);
+      return true;
+    };
+    const onAttach = () => {
+      tryResolve();
+    };
+    const onDomReady = () => {
+      if (tryResolve()) {
+        return;
+      }
+      cleanup();
+      reject(new Error("Lens guest attached without a WebContents id"));
     };
     const onDestroyed = () => {
       cleanup();
@@ -159,10 +184,12 @@ function waitForAttach(element: LensGuestElement): Promise<number> {
     };
     const cleanup = () => {
       element.removeEventListener("did-attach", onAttach);
+      element.removeEventListener("dom-ready", onDomReady);
       element.removeEventListener("destroyed", onDestroyed);
     };
 
     element.addEventListener("did-attach", onAttach);
+    element.addEventListener("dom-ready", onDomReady);
     element.addEventListener("destroyed", onDestroyed);
   });
 }

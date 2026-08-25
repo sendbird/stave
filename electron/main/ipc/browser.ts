@@ -242,6 +242,9 @@ export function registerBrowserHandlers() {
             sessionScope: args.sessionScope,
             projectKey: args.projectKey,
             lensSessionId: args.lensSessionId,
+            // An explicit address is where this open wants to end up, so the
+            // recovery restore would only be a load for the one below to abort.
+            restorePreviousUrl: !args.url?.trim(),
           },
         );
         // Adopting an agent-opened session into a panel is how a hidden page
