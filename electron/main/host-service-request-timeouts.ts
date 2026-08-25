@@ -14,6 +14,16 @@ export const HOST_SERVICE_DEFAULT_REQUEST_TIMEOUT_MS = 10 * 60_000;
 export const HOST_SERVICE_READY_TIMEOUT_MS = 60_000;
 
 /**
+ * Backstop for one Advisor consult.
+ *
+ * Exported because it is a rung on a ladder, not a local detail: every caller
+ * *above* this one — the host-service client, the MCP tool-call deadline handed
+ * to primaries, the stdio proxy — has to sit above it, so the innermost layer
+ * is always the one that reports. See `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS`.
+ */
+export const HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS = 15 * 60_000;
+
+/**
  * `null` means "no backstop": user-paced turns, streaming reads, OAuth logins
  * and long-lived script runs have no meaningful upper bound.
  */
@@ -25,7 +35,7 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   // at 10 minutes for the highest effort tiers. The backstop stays bounded but
   // must sit above that ceiling, otherwise it would pre-empt the runtime's own
   // `advisor-timeout` outcome with a transport error the primary cannot read.
-  "provider.consult-advisor": 15 * 60_000,
+  "provider.consult-advisor": HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS,
   "provider.stream-turn": null,
   "provider.start-stream-turn": null,
   "provider.start-push-turn": null,

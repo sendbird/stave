@@ -127,6 +127,65 @@ describe("advisor exchange reducer", () => {
     ]);
   });
 
+  test("a heartbeat keeps the consult pending without touching the stage list", () => {
+    const snapshot = fold([
+      SUCCESSFUL_EXCHANGE[0] as NormalizedProviderEvent,
+      advisorEvent({
+        phase: "progress",
+        exchangeId: "exchange-1",
+        at: T0 + 7_000,
+        detail: "Codex item: reasoning",
+      }),
+      advisorEvent({
+        phase: "progress",
+        exchangeId: "exchange-1",
+        at: T0 + 14_000,
+        detail: "Codex item: agentMessage",
+      }),
+    ]);
+
+    // A heartbeat is not a lifecycle step. Folding it as one would evict real
+    // stages from the bounded list and make the settled count depend on how
+    // chatty the provider happened to be.
+    expect(snapshot.stages.map((stage) => stage.phase)).toEqual(["started"]);
+    expect(snapshot.outcome).toBe("pending");
+    expect(snapshot.settledConsults).toBe(0);
+
+    // Latest sign of life wins, so the UI reports what is happening now.
+    expect(snapshot.lastProgressAt).toBe(T0 + 14_000);
+    expect(snapshot.progressDetail).toBe("Codex item: agentMessage");
+    expect(describeAdvisorExchangeStatus(snapshot)).toBe(
+      "Advisor working (Codex item: agentMessage).",
+    );
+  });
+
+  test("a heartbeat cannot settle or resurrect a finished consult", () => {
+    const settled = fold([
+      ...SUCCESSFUL_EXCHANGE,
+      advisorEvent({
+        phase: "progress",
+        exchangeId: "exchange-1",
+        at: T0 + 9_000,
+        detail: "late straggler",
+      }),
+    ]);
+
+    // Late heartbeats from an abandoned runner must not reopen the card.
+    expect(settled.outcome).toBe("completed");
+    expect(settled.settledConsults).toBe(1);
+    expect(settled.durationMs).toBe(4_000);
+  });
+
+  test("the progress phase survives the provider event schema", () => {
+    // The phase crosses the IPC boundary, so the zod contract has to accept it
+    // or every heartbeat is silently dropped before it reaches the reducer.
+    expect(
+      NormalizedProviderEventSchema.safeParse(
+        advisorEvent({ phase: "progress", detail: "Claude event: assistant" }),
+      ).success,
+    ).toBe(true);
+  });
+
   test("captures the question the primary asked", () => {
     const snapshot = fold([SUCCESSFUL_EXCHANGE[0] as NormalizedProviderEvent]);
 
@@ -783,6 +842,39 @@ describe("advisor consult log", () => {
     });
 
     expect(second).toBe(first);
+  });
+
+  test("a late heartbeat after settling does not re-touch the archived entry", () => {
+    const settled = applyAdvisorActivityEvents({
+      exchangeByTask: {},
+      logByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      events: SUCCESSFUL_EXCHANGE,
+      now: T0,
+    });
+
+    // A straggler from a runner racing its own timeout/abort must be a
+    // non-event for the archive, not a refresh of `updatedAt` on a row the
+    // log already closed.
+    const restragglered = applyAdvisorActivityEvents({
+      exchangeByTask: settled.exchangeByTask,
+      logByTask: settled.logByTask,
+      taskId: "task-1",
+      turnId: "turn-1",
+      events: [
+        advisorEvent({
+          phase: "progress",
+          exchangeId: "exchange-1",
+          at: T0 + 9_000,
+          detail: "late straggler",
+        }),
+      ],
+      now: T0 + 9_000,
+    });
+
+    expect(restragglered.exchangeByTask).toBe(settled.exchangeByTask);
+    expect(restragglered.logByTask).toBe(settled.logByTask);
   });
 
   test("a maxed-out turn never truncates its own consults", () => {

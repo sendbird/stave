@@ -24,6 +24,13 @@ import type { BridgeEvent } from "./types";
 
 type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
 
+/**
+ * Floor between heartbeats. Long enough that a chatty provider cannot turn the
+ * turn stream into a firehose, short enough that a stalled consult is obvious
+ * well before its multi-minute deadline.
+ */
+const ADVISOR_HEARTBEAT_MIN_INTERVAL_MS = 5_000;
+
 export type AdvisorRunnerDependencies = {
   runClaude: typeof runClaudeReadOnlyPrompt;
   runCodex: typeof runCodexReadOnlyPrompt;
@@ -305,6 +312,30 @@ export function buildAdvisorStartedEvent(args: {
   };
 }
 
+/**
+ * Heartbeat event. Carries only identity plus the timestamp: it must never look
+ * like an outcome, and the reducer folds it without touching the stage list.
+ */
+export function buildAdvisorProgressEvent(args: {
+  primaryProviderId: ProviderId;
+  primaryModel?: string;
+  target: AdvisorTarget | null;
+  at: number;
+  detail?: string;
+  consult?: AdvisorConsultDescriptor;
+}): AdvisorActivityEvent {
+  return {
+    type: "advisor_activity",
+    phase: "progress",
+    ...(args.consult ?? {}),
+    primaryProviderId: args.primaryProviderId,
+    ...(args.primaryModel ? { primaryModel: args.primaryModel } : {}),
+    ...describeAdvisorIdentity(args.target),
+    at: args.at,
+    ...(args.detail ? { detail: args.detail } : {}),
+  };
+}
+
 export function buildAdvisorOutcomeEvent(args: {
   primaryProviderId: ProviderId;
   result: AdvisorCallResult;
@@ -381,6 +412,16 @@ export async function runAdvisorCall(args: {
    * precisely the consult that cost the most.
    */
   reportLateUsage?: (usage: UsageEvent) => void;
+  /**
+   * Sign-of-life while the advisor works, throttled to
+   * `ADVISOR_HEARTBEAT_MIN_INTERVAL_MS`.
+   *
+   * Both providers resolve only when generation has finished, so a consult is
+   * otherwise silent for its entire duration — minutes, at the effort tiers
+   * Codex models default to. `detail` names what the provider was last seen
+   * doing so the UI can distinguish thinking from wedged.
+   */
+  onHeartbeat?: (heartbeat: { at: number; detail?: string }) => void;
   runners?: AdvisorRunnerDependencies;
   timeoutMs?: number;
 }): Promise<AdvisorCallResult> {
@@ -394,6 +435,20 @@ export async function runAdvisorCall(args: {
 
   type CancellationReason = "user" | "timeout" | "skip";
   let providerProgress: ClaudeReadOnlyPromptProgress | undefined;
+  // Throttled so a chatty provider cannot flood the turn event stream: the
+  // point is "still alive", which one tick per interval conveys completely.
+  let lastHeartbeatAt = 0;
+  const heartbeat = (detail?: string) => {
+    if (!args.onHeartbeat) {
+      return;
+    }
+    const at = Date.now();
+    if (at - lastHeartbeatAt < ADVISOR_HEARTBEAT_MIN_INTERVAL_MS) {
+      return;
+    }
+    lastHeartbeatAt = at;
+    args.onHeartbeat({ at, ...(detail ? { detail } : {}) });
+  };
   const controller = new AbortController();
   let resolveCancellation = (_reason: CancellationReason) => {};
   const cancellation = new Promise<CancellationReason>((resolve) => {
@@ -539,6 +594,13 @@ export async function runAdvisorCall(args: {
             label: ADVISOR_READ_ONLY_PROMPT_LABEL,
             onProgress: (progress) => {
               providerProgress = progress;
+              heartbeat(
+                progress.stage === "loading_runtime"
+                  ? "Loading the Claude runtime"
+                  : progress.lastMessageType
+                    ? `Claude event: ${progress.lastMessageType}`
+                    : undefined,
+              );
             },
           })
         : runners.runCodex({
@@ -553,6 +615,9 @@ export async function runAdvisorCall(args: {
             signal: controller.signal,
             isolated: true,
             label: ADVISOR_READ_ONLY_PROMPT_LABEL,
+            onProgress: ({ lastItemType }) => {
+              heartbeat(`Codex item: ${lastItemType}`);
+            },
           });
     const runnerOutcome = await waitForCancellation(runnerTask);
     if (runnerOutcome.status === "cancelled") {

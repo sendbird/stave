@@ -103,6 +103,7 @@ const AdvisorActivityEventSchema = z.object({
   phase: z.union([
     z.literal("armed"),
     z.literal("started"),
+    z.literal("progress"),
     z.literal("completed"),
     z.literal("failed"),
     z.literal("timeout"),
