@@ -72,8 +72,10 @@ function PopoverContent({
   sticky,
   positionMethod,
   collisionAvoidance,
+  keepMounted,
   ...props
 }: PopoverPrimitive.Popup.Props &
+  Pick<PopoverPrimitive.Portal.Props, "keepMounted"> &
   Pick<
     PopoverPrimitive.Positioner.Props,
     | "align"
@@ -89,7 +91,10 @@ function PopoverContent({
   const context = React.useContext(PopoverContext);
 
   return (
-    <PopoverPrimitive.Portal>
+    // `keepMounted` leaves the popup in the DOM (the positioner carries the
+    // `hidden` attribute instead) so content that is expensive to rebuild --
+    // a live terminal renderer, for one -- survives a close.
+    <PopoverPrimitive.Portal keepMounted={keepMounted}>
       <PopoverPrimitive.Positioner
         data-ui-popup-positioner=""
         anchor={context?.anchorElement ?? undefined}

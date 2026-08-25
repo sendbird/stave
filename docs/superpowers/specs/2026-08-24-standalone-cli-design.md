@@ -4,6 +4,17 @@
 **Status:** Approved for implementation planning
 **Supersedes:** the SDK-based scratch session on `feat/independent-claude-codex-cli` (PR #389)
 
+> **Revised after implementation.** Two decisions in this document no longer
+> describe the shipped surface. The container is an anchored, non-blocking
+> popover rather than a backdropped overlay, so the rest of the app stays usable
+> while it is open and an outside press dismisses it. And the panel is kept
+> mounted through a close rather than unmounted, so the renderer and the host
+> attachment both survive — §6's "Close overlay" row and §9's dispose rule are
+> superseded on that point. Escape still belongs to the CLI. See
+> [terminal-regression-prevention.md](../../developer/terminal-regression-prevention.md)
+> for the current lifecycle rules and
+> [standalone-cli.md](../../features/standalone-cli.md) for the current behavior.
+
 ## 1. Summary
 
 Standalone CLI is a floating overlay panel that runs the real `claude` and

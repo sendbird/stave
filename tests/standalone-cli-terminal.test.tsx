@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildStandaloneCliCreateSessionArgs } from "@/components/layout/standalone-cli/StandaloneCliTerminal";
+import {
+  buildStandaloneCliCreateSessionArgs,
+  resolveStandaloneCliTerminalLifecycle,
+} from "@/components/layout/standalone-cli/StandaloneCliTerminal";
 import { buildCliTerminalRestartToken } from "@/components/layout/useCliTerminalInstance";
 import {
   getStandaloneCliTabKey,
@@ -135,6 +138,28 @@ describe("buildCliTerminalRestartToken", () => {
       buildCliTerminalRestartToken({ instanceKey: "a:1", restartToken: 2 }),
     ).not.toBe(
       buildCliTerminalRestartToken({ instanceKey: "a", restartToken: 12 }),
+    );
+  });
+});
+
+describe("resolveStandaloneCliTerminalLifecycle", () => {
+  test("keeps xterm alive and attached while the popover is closed", () => {
+    const lifecycle = resolveStandaloneCliTerminalLifecycle({ visible: false });
+
+    // Disposing here is what forces a snapshot replay on return, and a snapshot
+    // is serialized at the width the PTY had before the close -- which is where
+    // stray re-wrapping in the restored screen comes from.
+    expect(lifecycle.enabled).toBe(true);
+    // Detaching here would put that same snapshot replay back in the path.
+    expect(lifecycle.isVisible).toBe(true);
+  });
+
+  test("follows the popover for renderer-local work only", () => {
+    expect(resolveStandaloneCliTerminalLifecycle({ visible: false }).visible).toBe(
+      false,
+    );
+    expect(resolveStandaloneCliTerminalLifecycle({ visible: true }).visible).toBe(
+      true,
     );
   });
 });

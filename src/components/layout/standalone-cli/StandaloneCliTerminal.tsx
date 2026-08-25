@@ -63,7 +63,33 @@ export function buildStandaloneCliCreateSessionArgs(args: {
   };
 }
 
-export function StandaloneCliTerminal(props: { folderPath: string }) {
+/**
+ * The popover keeps this subtree mounted through a close, so hiding must not be
+ * confused with tearing down. Pure so the three-way split can be asserted
+ * without a DOM:
+ *
+ * - `enabled` — xterm itself. Always on: disposing it is what forces a snapshot
+ *   replay on return, and a snapshot arrives at the width the PTY had before
+ *   the close, which is where stray re-wrapping comes from.
+ * - `visible` — renderer-local work only (WebGL, cursor blink, refit on
+ *   return). This is the one that follows the popover.
+ * - `isVisible` — the host attachment. Always on, so output written while the
+ *   panel is closed lands in the live buffer instead of a snapshot.
+ */
+export function resolveStandaloneCliTerminalLifecycle(args: {
+  visible: boolean;
+}) {
+  return {
+    enabled: true,
+    visible: args.visible,
+    isVisible: true,
+  } as const;
+}
+
+export function StandaloneCliTerminal(props: {
+  folderPath: string;
+  visible: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputHandlerRef = useRef<(input: string) => void>(() => {});
   const resizeHandlerRef = useRef<
@@ -162,15 +188,15 @@ export function StandaloneCliTerminal(props: { folderPath: string }) {
     [claudeBinaryPath, codexBinaryPath, props.folderPath],
   );
 
+  const lifecycle = resolveStandaloneCliTerminalLifecycle({
+    visible: props.visible,
+  });
+
   const terminalInstance = useCliTerminalInstance({
     containerRef,
     instanceKey: activeTabKey,
-    // CLI surfaces dispose the renderer when hidden and rehydrate from the host
-    // snapshot on return. Closing the overlay unmounts this whole subtree, which
-    // is what actually implements that dispose-on-hide guardrail, so `enabled`
-    // needs no separate visibility term.
-    enabled: true,
-    visible: true,
+    enabled: lifecycle.enabled,
+    visible: lifecycle.visible,
     // `useCliTerminalInstance` folds `instanceKey` into the token it hands the
     // renderer, so a tab switch rebuilds xterm into the freshly keyed mount
     // node instead of painting into the detached one.
@@ -196,7 +222,7 @@ export function StandaloneCliTerminal(props: { folderPath: string }) {
     tabs,
     workspaceId: STANDALONE_CLI_WORKSPACE_ID,
     transcriptStorageKey: STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY,
-    isVisible: true,
+    isVisible: lifecycle.isVisible,
     getTabKey,
     createSession,
     slotKeyForTab,
@@ -211,17 +237,18 @@ export function StandaloneCliTerminal(props: { folderPath: string }) {
     resizeHandlerRef.current = handleTerminalResize;
   }, [handleTerminalInput, handleTerminalResize]);
 
-  // Opening the overlay leaves focus on the top-bar button, so claim it for the
-  // terminal instead of making the user click into it before typing.
+  // Opening the popover leaves focus on the popup, so claim it for the terminal
+  // instead of making the user click into it before typing. This re-runs on
+  // every open because the panel is never unmounted in between.
   useEffect(() => {
-    if (!terminalInstance.ready) {
+    if (!props.visible || !terminalInstance.ready) {
       return;
     }
     let cancelFocus = terminalInstance.controller.focus();
     let settleTimer: number | null = null;
     const settleFrame = window.requestAnimationFrame(() => {
       settleTimer = window.setTimeout(() => {
-        // The overlay's own mount transition can steal focus back. Re-assert it
+        // The popover's own open transition can steal focus back. Re-assert it
         // once that has settled.
         cancelFocus?.();
         cancelFocus = terminalInstance.controller.focus();
@@ -235,7 +262,12 @@ export function StandaloneCliTerminal(props: { folderPath: string }) {
       }
       cancelFocus?.();
     };
-  }, [activeTabKey, terminalInstance.controller, terminalInstance.ready]);
+  }, [
+    activeTabKey,
+    props.visible,
+    terminalInstance.controller,
+    terminalInstance.ready,
+  ]);
 
   const status = bridgeError || terminalInstance.error || null;
 

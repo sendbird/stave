@@ -2,7 +2,7 @@
 
 ## Summary
 
-- Standalone CLI is a floating overlay that runs the real `claude` and `codex` executables in a folder of your choice, without registering that folder as a project.
+- Standalone CLI is a popover, anchored to a top-bar button, that runs the real `claude` and `codex` executables in a folder of your choice, without registering that folder as a project.
 - It has two fixed tabs, **Claude Code** and **Codex**, each a full terminal session for that provider's own CLI.
 - Reach for it when you want the CLI's native interface — its own approvals, plan mode, model picker, and slash commands — instead of anything Stave renders.
 
@@ -22,36 +22,37 @@
 ## Quick Start
 
 1. Open `Settings > General`, go to the **Standalone CLI** card, and set an absolute folder path (type it or click **Browse**).
-2. Click the terminal icon on the top bar to open the overlay. It is there even with no project open.
-3. Use the tab bar in the overlay header to pick **Claude Code** or **Codex**.
+2. Click the terminal icon on the top bar to open the panel. It is there even with no project open.
+3. Use the tab bar in the panel header to pick **Claude Code** or **Codex**.
 4. Type directly into the terminal, exactly as you would in a regular shell running that CLI.
 
 ## Interface Walkthrough
 
 ### Entry Points
 
-- The top-bar terminal button opens the overlay. It is never disabled and always present, even on the empty "no project" screen. Opening it with no folder set shows an empty state with an **Open Settings** button instead of a terminal.
+- The top-bar terminal button opens the panel below itself. It is never disabled and always present, even on the empty "no project" screen. Opening it with no folder set shows an empty state with an **Open Settings** button instead of a terminal.
 
 ### Key Controls
 
 - **Provider tabs** — the header's tab bar switches between **Claude Code** and **Codex**. Each tab is its own PTY session; switching tabs does not stop the session you switch away from.
 - **Folder label** — the header shows the current folder's name (with the full path on hover), so you always know where the active CLI is running.
 - **Restart** — one button in the row above the terminal. It acts on the active tab: that tab's CLI process ends and a fresh one starts with a new session, discarding that tab's conversation. The other tab is unaffected.
-- **Close** — the header's close button, or a click on the dimmed backdrop outside the panel, hides the overlay. The top-bar button cannot close it: while the overlay is open, the backdrop covers the top bar. `Escape` is not a close shortcut here either: it is sent straight to the CLI, matching what `Escape` does in that CLI's own terminal interface.
+- **Close** — click anywhere outside the panel, press the top-bar button again, or use the header's close button. Nothing is dimmed and nothing is blocked: the rest of the app stays usable while the panel is open. `Escape` is not a close shortcut here: it is sent straight to the CLI, matching what `Escape` does in that CLI's own terminal interface.
 
 ## Common Workflows
 
 ### Ask Claude Code Or Codex About A Folder
 
 1. Set the folder in `Settings > General > Standalone CLI` if you have not already.
-2. Open the overlay from the top bar and make sure the tab you want (**Claude Code** or **Codex**) is active.
+2. Open the panel from the top bar and make sure the tab you want (**Claude Code** or **Codex**) is active.
 3. Type your prompt into the terminal and use the CLI's own controls for approvals, plan mode, model choice, or slash commands.
 
 ### Close And Resume Later
 
-1. Close the overlay with the header's close button, or by clicking the dimmed backdrop outside the panel. The CLI process keeps running in the background.
-2. Reopen the overlay at any time. The terminal screen is restored from where you left it, not restarted.
-3. The restored screen is re-laid-out to the reopened panel's width before it is drawn, so lines do not pick up stray wrapping when the panel comes back at a different size. Scrollback written before the close keeps the width it was produced at.
+1. Close the panel by clicking outside it, pressing the top-bar button again, or using the header's close button. The CLI process keeps running in the background.
+2. Reopen the panel at any time. It comes back exactly as you left it — the terminal is hidden while the panel is closed, not torn down, so reopening is a repaint rather than a restore.
+3. Output the CLI writes while the panel is closed lands in that same terminal, so you see it as soon as you reopen.
+4. After an app restart there is no live terminal to keep, so the screen is rebuilt from a saved snapshot instead. That snapshot is re-laid-out to the panel's width before it is drawn, so lines do not pick up stray wrapping. Scrollback written before the restart keeps the width it was produced at.
 
 ### Start Over In The Same Folder
 
@@ -79,17 +80,17 @@
 
 ## Troubleshooting
 
-### The overlay shows an empty state instead of a terminal
+### The panel shows an empty state instead of a terminal
 
-- Symptom: opening the overlay shows a message instead of a terminal.
+- Symptom: opening the panel shows a message instead of a terminal.
 - Cause: no folder is set yet.
 - Fix: click **Open Settings** in the empty state — or open `Settings > General > Standalone CLI` directly — and set an absolute folder path.
 
-### Escape does not close the overlay
+### Escape does not close the panel
 
-- Symptom: pressing `Escape` inside the terminal leaves the overlay open.
+- Symptom: pressing `Escape` inside the terminal leaves the panel open.
 - Cause: this is expected. `Escape` is forwarded to the CLI, the same as it would behave in that CLI's own terminal.
-- Fix: close the overlay with the header's close button, or by clicking the dimmed backdrop outside the panel.
+- Fix: close the panel by clicking outside it, pressing the top-bar button again, or using the header's close button.
 
 ### A tab's conversation is gone after changing the folder
 
