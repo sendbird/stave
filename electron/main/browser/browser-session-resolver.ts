@@ -69,10 +69,13 @@ export async function acquireMcpBrowserSession(
    * only the renderer can mount, so an agent-opened session is a request to the
    * Stave window rather than a local construction.
    *
-   * The renderer parks it hidden. That is not a compromise for the agent path —
-   * a parked guest keeps compositing, so screenshots and layout reads answer
-   * normally — and it is what lets `stave_lens_*` work without taking over the
-   * user's foreground.
+   * The renderer parks it invisible, which is what lets `stave_lens_*` work
+   * without taking over the user's foreground. "Invisible" is load-bearing and
+   * narrower than it sounds: parking is `opacity: 0`, because Chromium produces
+   * no compositor frame for a `visibility: hidden` or offscreen guest and
+   * `Page.captureScreenshot` then fails outright — measured, see
+   * `resolveLensGuestStyle`. Parked this way the guest keeps compositing, so
+   * screenshots and layout reads answer normally.
    */
   const result = await ensureBrowserSessionGuest(args.workspaceId, {
     ...profile,

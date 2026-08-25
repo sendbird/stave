@@ -20,7 +20,7 @@ export type LensGuestStyle = {
   top: string;
   width: string;
   height: string;
-  visibility: "visible" | "hidden";
+  opacity: "1" | "0";
   pointerEvents: "auto" | "none";
 };
 
@@ -51,19 +51,29 @@ function origin(value: number | undefined): number {
 /**
  * Resolve the style a guest element should carry.
  *
- * Two properties matter more than the arithmetic, and both are about a guest
- * that is *not* on screen:
+ * Three properties matter more than the arithmetic, and all three are about a
+ * guest that is *not* on screen. An agent-driven session is opened with no
+ * panel showing it and may never be shown at all, yet `stave_lens_screenshot`
+ * has to answer for it — so "parked" must mean invisible, not uncomposited.
  *
- * 1. **Never `display: none`.** Chromium does not paint inside a
- *    `display: none` subtree and stops driving the guest's compositor, so a
- *    parked guest would freeze — and un-parking it would show a stale frame
- *    until it caught up. Hiding is `visibility: hidden`, which is enough on its
- *    own: an unpainted element cannot occlude anything and cannot be hit.
- * 2. **Parked guests keep their size and their place.** They are hidden, not
+ * 1. **Park with `opacity: 0`, never `visibility: hidden` or `display: none`.**
+ *    Chromium produces no compositor frame for either of those, and with no
+ *    frame there is no surface to capture: `Page.captureScreenshot` against a
+ *    `visibility: hidden` guest fails outright with "Unable to capture
+ *    screenshot", and a guest hidden *after* having been visible answers
+ *    nothing at all until Lens's own 15s guard fires. `opacity: 0` keeps the
+ *    guest compositing — measured live, a navigation still repaints 99.9% of
+ *    the captured pixels — so the agent path keeps working while the guest
+ *    stays invisible to the user.
+ * 2. **`pointer-events: none` is what makes a parked guest untouchable**, not
+ *    the lack of paint. An `opacity: 0` element is still hit-testable; without
+ *    this, a parked guest would swallow clicks meant for the app. With it,
+ *    `elementFromPoint` over the guest's rectangle returns the app's own
+ *    chrome.
+ * 3. **Parked guests keep their size and their place.** They are hidden, not
  *    moved offscreen. Chromium throttles frame production for content outside
- *    the viewport, which is exactly the wrong behaviour for an agent-driven
- *    session that no panel is showing and that must still answer a screenshot.
- *    Staying put costs nothing, since a hidden element paints nothing.
+ *    the viewport — and an offscreen guest fails a screenshot the same way a
+ *    hidden one does, also measured. Staying put is what keeps it answerable.
  */
 export function resolveLensGuestStyle(
   placement: LensGuestPlacement,
@@ -78,7 +88,7 @@ export function resolveLensGuestStyle(
     top: `${origin(rect?.y)}px`,
     width: `${width}px`,
     height: `${height}px`,
-    visibility: presented ? "visible" : "hidden",
+    opacity: presented ? "1" : "0",
     pointerEvents: presented ? "auto" : "none",
   };
 }

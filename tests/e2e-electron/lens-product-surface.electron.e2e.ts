@@ -35,7 +35,10 @@ import {
  *   the preview leaves the guest visible. Under `WebContentsView` this was the
  *   defining limitation: the only way to draw over the page was to blank it.
  * - **A parked guest keeps compositing**, which is what lets an agent-opened
- *   session that no panel is showing still answer.
+ *   session that no panel is showing still answer. Parking is `opacity: 0`, and
+ *   the frame counter here only shows the guest's *script* still runs — that a
+ *   parked guest really returns pixels is measured in
+ *   `lens-parked-guest-agent-path.electron.e2e.ts`.
  *
  * Requires `bun run build:desktop`.
  */
@@ -109,6 +112,7 @@ function guestState() {
     return {
       rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       parentId: guest.parentElement?.id ?? null,
+      opacity: getComputedStyle(guest).opacity,
       visibility: getComputedStyle(guest).visibility,
       display: getComputedStyle(guest).display,
       pointerEvents: getComputedStyle(guest).pointerEvents,
@@ -254,7 +258,7 @@ test("the guest sits exactly on the placeholder, hoisted out of the pane tree", 
   // A guest destroyed by a pane reparent is unrecoverable, so its distance from
   // the Dockview subtree is a structural invariant, not a detail.
   expect(state!.insideDockview).toBe(false);
-  expect(state!.visibility).toBe("visible");
+  expect(state!.opacity).toBe("1");
 });
 
 test("the guest tracks the placeholder when the layout changes", async () => {
@@ -288,7 +292,7 @@ test("panel chrome opens over the page without hiding it", async () => {
   await expect(stave.page.getByRole("menuitem").first()).toBeVisible();
 
   const state = await guestState();
-  expect(state!.visibility).toBe("visible");
+  expect(state!.opacity).toBe("1");
   expect(state!.rect.width).toBeGreaterThan(0);
 
   await stave.page.keyboard.press("Escape");
@@ -321,13 +325,19 @@ test("a parked guest keeps compositing instead of freezing", async () => {
   // stays mounted; it is only hidden.
   await stave.page.getByRole("button", { name: "Show console" }).click();
   await expect
-    .poll(async () => (await guestState())?.visibility, { timeout: 10_000 })
-    .toBe("hidden");
+    .poll(async () => (await guestState())?.opacity, { timeout: 10_000 })
+    .toBe("0");
 
-  // Hidden, never detached and never `display: none` — the one CSS state that
-  // would stop Chromium driving the guest's compositor.
+  /*
+   * Invisible, never detached, and hidden by the only mechanism that leaves the
+   * guest composited. `display: none` and `visibility: hidden` both take it out
+   * of the paint tree, and a guest with no frame cannot answer a screenshot —
+   * which is measured in `lens-parked-guest-agent-path.electron.e2e.ts`, since
+   * the frame counter below cannot see the difference.
+   */
   const parked = await guestState();
   expect(parked!.display).not.toBe("none");
+  expect(parked!.visibility).not.toBe("hidden");
   expect(parked!.pointerEvents).toBe("none");
   expect(parked!.parentId).toBe("lens-surface-root");
 
@@ -339,15 +349,16 @@ test("a parked guest keeps compositing instead of freezing", async () => {
     () => (window as unknown as { __frames: number }).__frames,
   );
 
-  // Parking must never reach for `display: none`, which stops Chromium driving
-  // the guest's compositor. An agent-opened session no panel is showing depends
-  // on exactly this.
+  // A ticking counter is necessary but not sufficient: script scheduling
+  // survives `visibility: hidden` too, which is exactly how the compositor
+  // defect this parking style now avoids went unnoticed. The pixel-level proof
+  // lives in the agent-path spec.
   expect(after).toBeGreaterThan(before);
 
   await stave.page.getByRole("button", { name: "Show preview" }).click();
   await expect
-    .poll(async () => (await guestState())?.visibility, { timeout: 10_000 })
-    .toBe("visible");
+    .poll(async () => (await guestState())?.opacity, { timeout: 10_000 })
+    .toBe("1");
 
   // Same page, same document: hiding a tab is not closing a session.
   await expect(guest!.locator("#heading")).toHaveText("lens fixture");

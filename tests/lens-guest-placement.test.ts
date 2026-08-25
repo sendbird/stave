@@ -18,7 +18,7 @@ describe("Lens guest placement", () => {
       top: "64px",
       width: "900px",
       height: "600px",
-      visibility: "visible",
+      opacity: "1",
       pointerEvents: "auto",
     });
   });
@@ -32,13 +32,16 @@ describe("Lens guest placement", () => {
     expect(style.width).toBe("300.75px");
   });
 
-  test("hides a parked guest without moving or resizing it", () => {
+  test("hides a parked guest without moving, resizing, or uncompositing it", () => {
     // Parking is the case that decides whether an agent-driven session can
     // still answer a screenshot. Moving it offscreen or collapsing it would
-    // put it where Chromium throttles frame production.
+    // put it where Chromium throttles frame production; `visibility: hidden`
+    // would stop it producing a frame at all, and `Page.captureScreenshot`
+    // then fails outright. Measured in
+    // tests/e2e-electron/lens-parked-guest-agent-path.electron.e2e.ts.
     const style = resolveLensGuestStyle({ rect: RECT, presented: false });
 
-    expect(style.visibility).toBe("hidden");
+    expect(style.opacity).toBe("0");
     expect(style.pointerEvents).toBe("none");
     expect(style.left).toBe("120px");
     expect(style.top).toBe("64px");
@@ -46,13 +49,16 @@ describe("Lens guest placement", () => {
     expect(style.height).toBe("600px");
   });
 
-  test("never resolves to display:none", () => {
-    // Guarded by the type, and asserted anyway: a `display: none` ancestor is
-    // the one CSS state that stops a guest compositing altogether, so the
-    // style object must have no way to express it.
+  test("never resolves to a state Chromium refuses to composite", () => {
+    // Guarded by the type, and asserted anyway. `display: none` and
+    // `visibility: hidden` are the two CSS states that stop a guest producing
+    // a compositor frame, and a guest with no frame cannot answer
+    // `Page.captureScreenshot` — which is the whole agent path. The style
+    // object must have no way to express either.
     for (const presented of [true, false]) {
       const style = resolveLensGuestStyle({ rect: RECT, presented });
       expect(Object.keys(style)).not.toContain("display");
+      expect(Object.keys(style)).not.toContain("visibility");
     }
   });
 
@@ -61,7 +67,7 @@ describe("Lens guest placement", () => {
 
     expect(style.width).toBe(`${DEFAULT_LENS_GUEST_VIEWPORT.width}px`);
     expect(style.height).toBe(`${DEFAULT_LENS_GUEST_VIEWPORT.height}px`);
-    expect(style.visibility).toBe("hidden");
+    expect(style.opacity).toBe("0");
   });
 
   test("substitutes the default viewport for a degenerate rectangle", () => {

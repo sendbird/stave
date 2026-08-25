@@ -16,6 +16,14 @@ export type StaveApp = {
   app: ElectronApplication;
   /** The app shell window. Lens guests are separate pages, not frames of it. */
   page: Page;
+  /**
+   * The throwaway profile this launch was given.
+   *
+   * Exposed because the app writes its own local MCP manifest here, and the
+   * agent-path spec drives `stave_lens_*` over that server rather than
+   * re-implementing what the tools do.
+   */
+  userDataDir: string;
   close: () => Promise<void>;
 };
 
@@ -53,6 +61,7 @@ export async function launchStave(): Promise<StaveApp> {
   return {
     app,
     page,
+    userDataDir,
     close: async () => {
       const child = app.process();
       try {
@@ -89,7 +98,19 @@ export const E2E_WORKSPACE_ID = "ws-e2e";
  */
 export async function seedProject(
   page: Page,
-  args: { projectPath: string },
+  args: {
+    projectPath: string;
+    /**
+     * Persisted app settings to seed alongside the project.
+     *
+     * Written through the same store the settings UI writes, so the app pushes
+     * them to main itself on boot. A spec that needs, say, Lens CDP hosts
+     * pre-approved gets them the way a user who typed them in would, instead of
+     * poking main's security config behind the renderer's back — where the
+     * renderer's own startup sync would overwrite it a moment later.
+     */
+    settings?: Record<string, unknown>;
+  },
 ): Promise<void> {
   const write = () =>
     page.evaluate((input) => {
@@ -121,6 +142,7 @@ export async function seedProject(
             workspaceBranchById: { "ws-e2e": "main" },
             workspacePathById: { "ws-e2e": input.projectPath },
             workspaceDefaultById: { "ws-e2e": true },
+            ...(input.settings ? { settings: input.settings } : {}),
           },
           version: 0,
         }),
