@@ -18,12 +18,13 @@ produces a usable preview.
 3. Paste a source URL, issue key, report, or task description.
 4. Select `Resolve source`, or `Skip AI` for deterministic parsing.
 5. Review the branch, label, base branch, linked Information panel items, and
-   first task model, effort, and prompt.
+   first task model, effort, Codex Fast mode (for GPT models), and prompt.
 6. Create the workspace.
 
 The `Start now` switch controls whether Stave sends the first prompt
 immediately. When it is off, the prompt remains ready in the new task composer.
-The selected model and effort stay attached to that task in either case.
+The selected model, effort, and Codex Fast mode stay attached to that task in
+either case. The Fast dropdown appears only when the first task uses Codex.
 
 ## Source Configuration
 
@@ -76,7 +77,7 @@ The editable proposal contains:
 - branch name and workspace label
 - source summary
 - Information panel links, notes, and todos
-- first task provider model, reasoning effort, title, and prompt
+- first task provider model, reasoning effort, Codex Fast mode, title, and prompt
 - optional additional instructions for the first task
 
 ## Related Docs

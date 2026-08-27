@@ -91,6 +91,7 @@ export interface PromptDraftRuntimeOverrides {
   codexPlanMode?: boolean;
   codexReasoningEffort?:
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
+  codexFastMode?: boolean;
   autoRouting?: boolean;
   model?: string;
   /**

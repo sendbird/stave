@@ -361,14 +361,17 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
 }
 
 export function WorkspacePlansSection(args: WorkspacePlansSectionProps) {
+  // Keep async list results and destructive dialog state owned by one root.
+  // Without this boundary, a workspace switch reuses the previous plan list
+  // until the new root finishes loading.
   if (args.embedded) {
-    return <WorkspacePlansSectionBody {...args} />;
+    return <WorkspacePlansSectionBody key={args.workspacePath} {...args} />;
   }
 
   return (
     <Card size="sm" className="border border-border/70 bg-background/80">
       <CardContent className="pt-4">
-        <WorkspacePlansSectionBody {...args} />
+        <WorkspacePlansSectionBody key={args.workspacePath} {...args} />
       </CardContent>
     </Card>
   );

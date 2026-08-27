@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { canApplyKickoffDialogOpenChange } from "@/components/layout/KickoffDialog.utils";
+import {
+  buildKickoffFirstTaskRuntimeOverrides,
+  canApplyKickoffDialogOpenChange,
+} from "@/components/layout/KickoffDialog.utils";
 import {
   DEFAULT_KICKOFF_SOURCE_CONFIGS,
   buildDeterministicKickoffProposal,
@@ -25,6 +28,34 @@ describe("workspace kickoff", () => {
     expect(
       canApplyKickoffDialogOpenChange({ open: true, busy: true }),
     ).toBe(true);
+  });
+
+  test("adds Fast mode only to Codex first-task runtime overrides", () => {
+    expect(
+      buildKickoffFirstTaskRuntimeOverrides({
+        providerId: "codex",
+        model: "gpt-5.6-sol",
+        effort: "max",
+        codexFastMode: false,
+      }),
+    ).toEqual({
+      autoRouting: false,
+      model: "gpt-5.6-sol",
+      codexReasoningEffort: "max",
+      codexFastMode: false,
+    });
+    expect(
+      buildKickoffFirstTaskRuntimeOverrides({
+        providerId: "claude-code",
+        model: "claude-opus-4-8",
+        effort: "xhigh",
+        codexFastMode: true,
+      }),
+    ).toEqual({
+      autoRouting: false,
+      model: "claude-opus-4-8",
+      claudeEffort: "xhigh",
+    });
   });
 
   test("classifies Confluence before Jira on a shared host", () => {
@@ -248,6 +279,7 @@ describe("workspace kickoff", () => {
           autoRouting: false,
           model: "gpt-5.6-sol",
           codexReasoningEffort: "max",
+          codexFastMode: true,
         },
         extraInstructions: "Preserve backward compatibility.",
       },
@@ -264,10 +296,11 @@ describe("workspace kickoff", () => {
       autoRouting: false,
       model: "gpt-5.6-sol",
       codexReasoningEffort: "max",
+      codexFastMode: true,
     });
   });
 
-  test("keeps the selected model and effort with a first task draft", async () => {
+  test("keeps the selected model, effort, and Fast mode with a first task draft", async () => {
     const proposal = buildDeterministicKickoffProposal({
       classification: classifyKickoffSource({
         input: "Draft a migration plan",
@@ -301,11 +334,12 @@ describe("workspace kickoff", () => {
       input: {
         proposal,
         startFirstTask: false,
-        firstTaskProvider: "claude-code",
+        firstTaskProvider: "codex",
         firstTaskRuntimeOverrides: {
           autoRouting: false,
-          model: "claude-opus-4-8",
-          claudeEffort: "xhigh",
+          model: "gpt-5.6-terra",
+          codexReasoningEffort: "xhigh",
+          codexFastMode: false,
         },
       },
       getState: () => state,
@@ -316,8 +350,9 @@ describe("workspace kickoff", () => {
     expect(promptDraftPatch?.text).toBe(proposal.firstTaskPrompt);
     expect(promptDraftPatch?.runtimeOverrides).toEqual({
       autoRouting: false,
-      model: "claude-opus-4-8",
-      claudeEffort: "xhigh",
+      model: "gpt-5.6-terra",
+      codexReasoningEffort: "xhigh",
+      codexFastMode: false,
     });
   });
 });

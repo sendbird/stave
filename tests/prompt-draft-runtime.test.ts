@@ -22,6 +22,7 @@ describe("prompt-draft runtime state", () => {
             claudeEffort: "xhigh",
             codexPlanMode: true,
             codexReasoningEffort: "ultra",
+            codexFastMode: false,
           },
         },
         fallback: {
@@ -30,6 +31,7 @@ describe("prompt-draft runtime state", () => {
           claudeEffort: "medium",
           codexPlanMode: false,
           codexReasoningEffort: "high",
+          codexFastMode: true,
         },
       }),
     ).toEqual({
@@ -38,6 +40,7 @@ describe("prompt-draft runtime state", () => {
       claudeEffort: "xhigh",
       codexPlanMode: true,
       codexReasoningEffort: "ultra",
+      codexFastMode: false,
     });
   });
 
@@ -87,6 +90,21 @@ describe("prompt-draft runtime state", () => {
       arePromptDraftRuntimeOverridesEqual(
         { autoRouting: true, codexPlanMode: true },
         { autoRouting: true, codexPlanMode: true },
+      ),
+    ).toBe(true);
+  });
+
+  test("compares Codex Fast as part of draft runtime state", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { codexFastMode: true },
+        { codexFastMode: false },
+      ),
+    ).toBe(false);
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { codexFastMode: false },
+        { codexFastMode: false },
       ),
     ).toBe(true);
   });

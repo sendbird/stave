@@ -2580,6 +2580,9 @@ export const useAppStore = create<AppState>()(
             settings: {
               ...modelRuntimeSettings,
               ...resolvedPromptDraftRuntimeState,
+              codexFastMode:
+                resolvedPromptDraftRuntimeState.codexFastMode ??
+                modelRuntimeSettings.codexFastMode,
               ...(autoRoutingDecision?.claudeEffort
                 ? { claudeEffort: autoRoutingDecision.claudeEffort }
                 : {}),
