@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Globe2,
   Info,
+  LoaderCircle,
   Paperclip,
   Pencil,
   Send,
@@ -242,6 +243,8 @@ interface PromptInputProps {
   skillPaletteItems?: readonly SkillCatalogEntry[];
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
   onValueChange: (value: string) => void;
+  onEnhancePrompt?: () => void | Promise<void>;
+  promptEnhancementPending?: boolean;
   onSuggestionSelect?: (suggestion: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
@@ -655,6 +658,8 @@ export function PromptInput(args: PromptInputProps) {
     skillPaletteItems,
     workspaceInformationReferenceOptions,
     onValueChange,
+    onEnhancePrompt,
+    promptEnhancementPending = false,
     onSuggestionSelect,
     onFocus,
     onBlur,
@@ -1073,13 +1078,10 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [composerTrayOpen, setComposerTrayOpen] = useState(false);
   const [composerCustomizeOpen, setComposerCustomizeOpen] = useState(false);
-  const shouldShowFocusHint =
+  const shouldShowPromptEnhancement =
     !minimal &&
-    !isPromptInputFocused &&
-    !interactionsDisabled &&
-    !hasDraftPayload &&
-    visibleQueuedTurns.length === 0 &&
-    promptBatch.length === 0;
+    Boolean(onEnhancePrompt) &&
+    (promptEnhancementPending || value.trim().length > 0);
 
   useEffect(() => {
     const editorElement = promptEditorRef.current?.getRootElement();
@@ -2411,37 +2413,70 @@ export function PromptInput(args: PromptInputProps) {
                     </span>
                   ) : null}
                   <div className="relative min-w-0 flex-1">
-                    {shouldShowFocusHint ? (
+                    {shouldShowPromptEnhancement ? (
                       <div
                         className={cn(
                           "pointer-events-none absolute right-0 top-0",
                           UI_LAYER_CLASS.floatingChrome,
                         )}
                       >
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={focusComposer}
-                          className={cn(
-                            PROMPT_TOOLBAR_BUTTON,
-                            PROMPT_FLOATING_SURFACE,
-                            "pointer-events-auto h-8 gap-2 shadow-sm",
-                          )}
-                        >
-                          <span>Focus</span>
-                          <KbdGroup>
-                            <Kbd>{modifierLabel}</Kbd>
-                            <Kbd>L</Kbd>
-                          </KbdGroup>
-                          <span className="text-xs text-muted-foreground">
-                            or
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={
+                                  interactionsDisabled ||
+                                  promptEnhancementPending
+                                }
+                                aria-label={
+                                  promptEnhancementPending
+                                    ? "Enhancing prompt"
+                                    : "Enhance prompt"
+                                }
+                                aria-busy={promptEnhancementPending}
+                                onClick={() => void onEnhancePrompt?.()}
+                                className={cn(
+                                  PROMPT_TOOLBAR_BUTTON,
+                                  PROMPT_FLOATING_SURFACE,
+                                  "pointer-events-auto h-8 gap-1.5 shadow-sm focus-visible:ring-2 focus-visible:ring-ring/45",
+                                )}
+                              />
+                            }
+                          >
+                            {promptEnhancementPending ? (
+                              <LoaderCircle
+                                aria-hidden="true"
+                                className="size-3.5 motion-safe:animate-spin"
+                              />
+                            ) : (
+                              <Sparkles
+                                aria-hidden="true"
+                                className="size-3.5"
+                              />
+                            )}
+                            <span>
+                              {promptEnhancementPending
+                                ? "Enhancing…"
+                                : "Enhance"}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-64">
+                            Rewrite this draft into a clearer, execution-ready
+                            prompt.
+                          </TooltipContent>
+                        </Tooltip>
+                        {promptEnhancementPending ? (
+                          <span
+                            className="sr-only"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            Enhancing prompt
                           </span>
-                          <KbdGroup>
-                            <Kbd>{modifierLabel}</Kbd>
-                            <Kbd>J</Kbd>
-                          </KbdGroup>
-                        </Button>
+                        ) : null}
                       </div>
                     ) : null}
                     <PromptLexicalEditor
@@ -2832,6 +2867,7 @@ export function PromptInput(args: PromptInputProps) {
                         minimal
                           ? "min-h-[32px] max-h-[168px] font-mono text-[15px] leading-7 tracking-[-0.01em] caret-primary md:text-[15px]"
                           : "min-h-[104px] max-h-[240px] text-lg leading-8 md:text-lg",
+                        shouldShowPromptEnhancement && "pr-28",
                         PROMPT_SURFACE_FOCUS_VISIBLE_RESET,
                       )}
                     />

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   classifyUtilityRoute,
+  enhanceUtilityPrompt,
   suggestUtilityCommitMessage,
   suggestUtilityTaskName,
   type UtilityInferenceRunners,
@@ -145,6 +146,32 @@ describe("provider-neutral utility inference", () => {
     expect(result).toMatchObject({
       ok: true,
       message: "refactor(provider): unify utility inference",
+      utility: {
+        providerId: "codex",
+        selectionReason: "active-task",
+      },
+    });
+    expect(calls).toEqual(["codex"]);
+  });
+
+  test("rewrites prompts through the isolated utility provider", async () => {
+    const calls: string[] = [];
+    const result = await enhanceUtilityPrompt(
+      {
+        prompt: "fix terminal bug tests too",
+        activeProviderId: "codex",
+      },
+      createRunners({
+        calls,
+        codex:
+          "```text\nFix the terminal bug and add regression coverage for the affected behavior.\n```",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      prompt:
+        "Fix the terminal bug and add regression coverage for the affected behavior.",
       utility: {
         providerId: "codex",
         selectionReason: "active-task",

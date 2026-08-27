@@ -6,9 +6,11 @@ import type {
 } from "../../src/lib/providers/utility-inference";
 import {
   buildCommitMessageInferencePrompt,
+  buildPromptEnhancementInferencePrompt,
   buildRouteClassificationPrompt,
   buildTaskNameInferencePrompt,
   parseCommitMessageInference,
+  parsePromptEnhancementInference,
   parseRouteClassification,
   parseTaskNameInference,
 } from "../../src/lib/providers/utility-inference";
@@ -231,6 +233,23 @@ export async function suggestUtilityCommitMessage(
   return {
     ok: result.value !== null,
     message: result.value ?? undefined,
+    utility: result.utility,
+  };
+}
+
+export async function enhanceUtilityPrompt(
+  args: UtilityInferenceContext & { prompt: string },
+  runners?: UtilityInferenceRunners,
+) {
+  const result = await executeUtilityInference({
+    context: args,
+    prompt: buildPromptEnhancementInferencePrompt(args),
+    parse: parsePromptEnhancementInference,
+    runners,
+  });
+  return {
+    ok: result.value !== null,
+    prompt: result.value ?? undefined,
     utility: result.utility,
   };
 }

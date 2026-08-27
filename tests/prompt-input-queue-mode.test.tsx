@@ -81,7 +81,7 @@ const CLAUDE_MODEL_OPTION: ModelSelectorOption = {
 };
 
 describe("PromptInput queue mode", () => {
-  test("renders the focus hint as an overlay for an empty draft", async () => {
+  test("does not render composer chrome over an empty draft", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -104,13 +104,12 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
-    expect(html).toContain("Focus");
-    expect(html).toContain("pointer-events-none absolute right-0 top-0");
-    expect(html).toContain("pointer-events-auto h-8 gap-2 shadow-sm");
-    expect(html).toContain("z-40");
+    expect(html).not.toContain("Focus");
+    expect(html).not.toContain('aria-label="Enhance prompt"');
+    expect(html).not.toContain("pointer-events-none absolute right-0 top-0");
   });
 
-  test("hides the focus hint when the draft already has text", async () => {
+  test("renders prompt enhancement over a non-empty draft", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
       import("@/components/ai-elements/prompt-input"),
@@ -126,6 +125,7 @@ describe("PromptInput queue mode", () => {
           modelOptions: [MODEL_OPTION],
           attachedFilePaths: [],
           onValueChange: () => {},
+          onEnhancePrompt: () => {},
           onModelSelect: () => {},
           onAttachFilesChange: () => {},
           onSubmit: () => {},
@@ -133,8 +133,12 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
-    expect(html).not.toContain("Focus");
-    expect(html).not.toContain("pointer-events-none absolute right-0 top-0");
+    expect(html).toContain('aria-label="Enhance prompt"');
+    expect(html).toContain("pointer-events-none absolute right-0 top-0");
+    expect(html).toContain(
+      "pointer-events-auto h-8 gap-1.5 shadow-sm focus-visible:ring-2 focus-visible:ring-ring/45",
+    );
+    expect(html).toContain("z-40");
   });
 
   test("renders the local-change review CTA before attach with visible text", async () => {

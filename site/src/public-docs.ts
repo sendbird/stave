@@ -73,6 +73,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Add files and images to the chat composer so the model can work from exact local context.",
       },
       {
+        routePath: "prompt-enhancement",
+        sourcePath: "docs/features/prompt-enhancement.md",
+        title: "Prompt Enhancement",
+        description:
+          "Rewrite a rough task draft into a clearer, execution-ready prompt before sending it.",
+      },
+      {
         routePath: "conversation-history-actions",
         sourcePath: "docs/features/conversation-history-actions.md",
         title: "Conversation History Actions",

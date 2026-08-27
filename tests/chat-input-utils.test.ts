@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  canApplyPromptEnhancementResult,
   getLatestUserPromptMessage,
   getLatestPromptSuggestions,
   getPromptHistoryEntries,
@@ -8,6 +9,35 @@ import {
   shouldEnablePromptInputWindowShortcuts,
   shouldHandleApprovalEnterShortcut,
 } from "@/components/session/chat-input.utils";
+
+describe("canApplyPromptEnhancementResult", () => {
+  test("applies only while the same task still has the source draft", () => {
+    expect(
+      canApplyPromptEnhancementResult({
+        sourceTaskId: "task-1",
+        currentTaskId: "task-1",
+        sourceText: "rough draft",
+        currentText: "rough draft",
+      }),
+    ).toBe(true);
+    expect(
+      canApplyPromptEnhancementResult({
+        sourceTaskId: "task-1",
+        currentTaskId: "task-1",
+        sourceText: "rough draft",
+        currentText: "newer draft",
+      }),
+    ).toBe(false);
+    expect(
+      canApplyPromptEnhancementResult({
+        sourceTaskId: "task-1",
+        currentTaskId: "task-2",
+        sourceText: "rough draft",
+        currentText: "rough draft",
+      }),
+    ).toBe(false);
+  });
+});
 
 describe("getPromptHistoryEntries", () => {
   test("collects non-empty user prompts in chronological order", () => {

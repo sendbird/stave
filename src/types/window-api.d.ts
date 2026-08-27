@@ -508,6 +508,14 @@ interface WindowProviderApi {
     classification?: RouteClassification;
     utility: UtilityInferenceMetadata;
   }>;
+  /** Rewrites a draft prompt in an isolated, read-only utility turn. */
+  enhancePrompt?: (
+    args: UtilityInferenceContext & { prompt: string },
+  ) => Promise<{
+    ok: boolean;
+    prompt?: string;
+    utility: UtilityInferenceMetadata;
+  }>;
   /** Generates a conventional commit message in a read-only utility turn. */
   suggestCommitMessage?: (args: UtilityInferenceContext) => Promise<{
     ok: boolean;

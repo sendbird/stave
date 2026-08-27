@@ -1298,6 +1298,12 @@ contextBridge.exposeInMainWorld("api", {
         classification?: RouteClassification;
         utility: UtilityInferenceMetadata;
       }>,
+    enhancePrompt: (args: UtilityInferenceContext & { prompt: string }) =>
+      ipcRenderer.invoke("provider:enhance-prompt", args) as Promise<{
+        ok: boolean;
+        prompt?: string;
+        utility: UtilityInferenceMetadata;
+      }>,
     suggestCommitMessage: (args: UtilityInferenceContext) =>
       ipcRenderer.invoke("provider:suggest-commit-message", args) as Promise<{
         ok: boolean;

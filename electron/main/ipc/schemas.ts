@@ -357,6 +357,18 @@ export const ClassifyRouteArgsSchema = z
   })
   .strict();
 
+export const EnhancePromptArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    utilityProviderId: z
+      .union([z.literal("auto"), ProviderIdSchema])
+      .optional(),
+    activeProviderId: ProviderIdSchema.optional(),
+    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
+    prompt: z.string().trim().min(1).max(100_000),
+  })
+  .strict();
+
 export const SuggestCommitMessageArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),

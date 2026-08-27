@@ -63,6 +63,18 @@ export function shouldEnablePromptInputWindowShortcuts(args: {
   return Boolean(args.scopedTaskId) && args.scopedTaskId === args.activeTaskId;
 }
 
+export function canApplyPromptEnhancementResult(args: {
+  sourceTaskId: string;
+  currentTaskId: string;
+  sourceText: string;
+  currentText: string;
+}) {
+  return (
+    args.sourceTaskId === args.currentTaskId &&
+    args.sourceText === args.currentText
+  );
+}
+
 export function isStaleActiveTurnDraft(args: {
   isTurnActive: boolean;
   draftText: string;
