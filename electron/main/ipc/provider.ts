@@ -34,6 +34,7 @@ import {
   CodexThreadRenameArgsSchema,
   CodexThreadRollbackArgsSchema,
   CleanupTaskArgsSchema,
+  EnhancePromptArgsSchema,
   ProviderCommandCatalogArgsSchema,
   ReviewDiffArgsSchema,
   StreamAckArgsSchema,
@@ -854,6 +855,19 @@ export function registerProviderHandlers() {
       };
     }
     return invokeHostService("provider.classify-route", parsed.data);
+  });
+
+  ipcMain.handle("provider:enhance-prompt", (_event, args: unknown) => {
+    const parsed = EnhancePromptArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        utility: createUnavailableUtilityInferenceMetadata(
+          "Invalid prompt-enhancement request.",
+        ),
+      };
+    }
+    return invokeHostService("provider.enhance-prompt", parsed.data);
   });
 
   ipcMain.handle("provider:suggest-commit-message", (_event, args: unknown) => {

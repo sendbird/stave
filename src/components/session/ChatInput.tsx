@@ -145,6 +145,7 @@ import type { SkillCatalogEntry } from "@/lib/skills/types";
 import { cn } from "@/lib/utils";
 import { buildLocalChangeReviewPrompt } from "@/lib/local-change-review";
 import { useAppStore } from "@/store/app.store";
+import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { resolveActiveTurnProviderId } from "@/store/chat-state-helpers";
 import {
   findPendingApprovals,
@@ -155,6 +156,10 @@ import {
   shouldIncludeImageAttachmentAsProviderContext,
 } from "@/lib/lens/lens-annotation-attachment";
 import { buildWorkspaceInformationReferenceOptions } from "@/lib/workspace-information-references";
+import {
+  reportUtilityInferenceError,
+  reportUtilityInferenceOutcome,
+} from "@/lib/providers/utility-inference-notice";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
@@ -190,6 +195,7 @@ import { useScopedTaskId } from "./task-scope-context";
 import { TurnActivity } from "./TurnActivity";
 import {
   buildApprovalGuidancePrompt,
+  canApplyPromptEnhancementResult,
   getLatestPromptSuggestions,
   getLatestUserPromptMessage,
   getPromptHistoryEntries,
@@ -690,6 +696,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const [comparePrepareOpen, setComparePrepareOpen] = useState(false);
   const [compareHistoryOpen, setCompareHistoryOpen] = useState(false);
   const [compareStarting, setCompareStarting] = useState(false);
+  const [promptEnhancementPending, setPromptEnhancementPending] =
+    useState(false);
+  const promptEnhancementRequestRef = useRef(0);
+  const promptEnhancementPendingRef = useRef(false);
   const draftTextRef = useRef(promptDraft.text);
   const syncedDraftRef = useRef({
     taskId: args.providerSelectionTarget,
@@ -749,6 +759,102 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       taskId: syncedDraftRef.current.taskId,
       text: draftTextRef.current,
     });
+  }
+
+  async function handleEnhancePrompt() {
+    const sourceText = draftTextRef.current;
+    if (!sourceText.trim() || promptEnhancementPendingRef.current) {
+      return;
+    }
+    const enhancePrompt = window.api?.provider?.enhancePrompt;
+    if (!enhancePrompt) {
+      reportUtilityInferenceError({
+        feature: "prompt-enhancement",
+        error: "Prompt-enhancement bridge unavailable.",
+      });
+      return;
+    }
+
+    const targetTaskId = args.providerSelectionTarget;
+    const requestId = ++promptEnhancementRequestRef.current;
+    promptEnhancementPendingRef.current = true;
+    setPromptEnhancementPending(true);
+    commitCurrentDraftText();
+
+    try {
+      const result = await enhancePrompt({
+        ...buildUtilityInferenceContext({
+          cwd: args.workspaceCwd,
+          provider: args.activeProvider,
+          model: args.selectedModelOption.model,
+          settings: useAppStore.getState().settings,
+        }),
+        prompt: sourceText,
+      });
+      if (promptEnhancementRequestRef.current !== requestId) {
+        return;
+      }
+      reportUtilityInferenceOutcome({
+        feature: "prompt-enhancement",
+        ok: result.ok,
+        utility: result.utility,
+      });
+      if (!result.ok || !result.prompt) {
+        return;
+      }
+      if (
+        !canApplyPromptEnhancementResult({
+          sourceTaskId: targetTaskId,
+          currentTaskId: syncedDraftRef.current.taskId,
+          sourceText,
+          currentText: draftTextRef.current,
+        })
+      ) {
+        toast.info("Draft changed while the prompt was being enhanced", {
+          description: "Your newer draft was kept unchanged.",
+        });
+        return;
+      }
+
+      const enhancedPrompt = result.prompt.trim();
+      if (enhancedPrompt === sourceText.trim()) {
+        toast.info("This prompt is already clear");
+        setFocusNonce((current) => current + 1);
+        return;
+      }
+
+      adoptPromptDraftText({ taskId: targetTaskId, text: enhancedPrompt });
+      commitPromptDraftText({ taskId: targetTaskId, text: enhancedPrompt });
+      setFocusNonce((current) => current + 1);
+      toast.success("Prompt enhanced", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            if (
+              syncedDraftRef.current.taskId !== targetTaskId ||
+              draftTextRef.current !== enhancedPrompt
+            ) {
+              return;
+            }
+            adoptPromptDraftText({ taskId: targetTaskId, text: sourceText });
+            commitPromptDraftText({ taskId: targetTaskId, text: sourceText });
+            setFocusNonce((current) => current + 1);
+          },
+        },
+      });
+    } catch (error) {
+      if (promptEnhancementRequestRef.current === requestId) {
+        reportUtilityInferenceError({
+          feature: "prompt-enhancement",
+          error,
+        });
+      }
+    } finally {
+      if (promptEnhancementRequestRef.current === requestId) {
+        promptEnhancementPendingRef.current = false;
+        setPromptEnhancementPending(false);
+      }
+    }
   }
 
   function handleOpenComparePreparation() {
@@ -1089,6 +1195,12 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     }
   }, [args.providerSelectionTarget, promptDraft.text]);
 
+  useEffect(() => {
+    promptEnhancementRequestRef.current += 1;
+    promptEnhancementPendingRef.current = false;
+    setPromptEnhancementPending(false);
+  }, [args.providerSelectionTarget]);
+
   useLayoutEffect(() => {
     if (!activeTurnId) {
       staleDraftResetTurnKeyRef.current = null;
@@ -1349,6 +1461,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         <PromptInput
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
+          onEnhancePrompt={handleEnhancePrompt}
+          promptEnhancementPending={promptEnhancementPending}
           onBlur={commitCurrentDraftText}
           disabled={
             isInputBlocked ||

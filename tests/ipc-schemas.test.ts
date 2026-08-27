@@ -6,6 +6,7 @@ import {
   ClaudeMcpOauthLoginArgsSchema,
   CodexThreadForkArgsSchema,
   CreatePRArgsSchema,
+  EnhancePromptArgsSchema,
   FilesystemRepoMapArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
   McpServerConfigMutationApplyArgsSchema,
@@ -25,6 +26,23 @@ import {
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
 describe("provider IPC schemas", () => {
+  test("validates prompt-enhancement requests", () => {
+    expect(
+      EnhancePromptArgsSchema.safeParse({
+        cwd: "/tmp/workspace",
+        activeProviderId: "codex",
+        prompt: "make this clearer",
+      }).success,
+    ).toBe(true);
+    expect(EnhancePromptArgsSchema.safeParse({ prompt: "   " }).success).toBe(
+      false,
+    );
+    expect(
+      EnhancePromptArgsSchema.safeParse({ prompt: "x".repeat(100_001) })
+        .success,
+    ).toBe(false);
+  });
+
   test("validates Claude MCP OAuth login requests", () => {
     expect(
       ClaudeMcpOauthLoginArgsSchema.safeParse({

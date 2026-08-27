@@ -449,6 +449,7 @@ export function AppShell() {
       "task-name": "Task naming",
       "route-classification": "Route classification",
       "commit-message": "Commit message generation",
+      "prompt-enhancement": "Prompt enhancement",
     };
     const onUtilityInferenceNotice = (event: Event) => {
       const { feature, ok, utility } = (

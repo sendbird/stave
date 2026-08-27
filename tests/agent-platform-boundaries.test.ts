@@ -202,12 +202,13 @@ describe("Agent platform boundaries", () => {
     expect(ledgerImports).toEqual([]);
   });
 
-  test("advisor advises content while utility inference computes metadata", () => {
-    // Utility inference is the mechanical half. If an advisory kind ever lands
-    // in this list, the two surfaces have merged and the user loses the
-    // distinction between "an opinion was injected" and "a label was computed".
+  test("advisor advises while utility inference stays mechanical", () => {
+    // Utility inference owns bounded transforms and metadata. If an advisory
+    // kind ever lands in this list, the user loses the distinction between an
+    // opinion being injected and a mechanical helper being applied.
     expect([...UTILITY_INFERENCE_FEATURES].sort()).toEqual([
       "commit-message",
+      "prompt-enhancement",
       "route-classification",
       "task-name",
     ]);

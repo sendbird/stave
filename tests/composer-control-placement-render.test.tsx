@@ -68,6 +68,9 @@ async function renderToolbar(
     planMode?: boolean;
     thinkingMode?: "adaptive" | "enabled" | "disabled";
     advisorActive?: boolean;
+    value?: string;
+    onEnhancePrompt?: () => void;
+    promptEnhancementPending?: boolean;
   } = {},
 ) {
   setWindowContext();
@@ -104,6 +107,31 @@ async function renderToolbar(
 }
 
 describe("composer control placement in the toolbar", () => {
+  test("replaces the Focus hint with prompt enhancement for a draft", async () => {
+    const emptyHtml = await renderToolbar();
+    const draftHtml = await renderToolbar({
+      value: "fix this",
+      onEnhancePrompt: () => {},
+    });
+
+    expect(emptyHtml).not.toContain(">Focus<");
+    expect(draftHtml).toContain('aria-label="Enhance prompt"');
+    expect(draftHtml).toContain(">Enhance<");
+  });
+
+  test("announces prompt enhancement while it is pending", async () => {
+    const html = await renderToolbar({
+      value: "fix this",
+      onEnhancePrompt: () => {},
+      promptEnhancementPending: true,
+    });
+
+    expect(html).toContain('aria-label="Enhancing prompt"');
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain("Enhancing…");
+  });
+
   test("renders every control and no tray button by default", async () => {
     const html = await renderToolbar();
     expect(html).toContain('aria-label="Review local changes"');

@@ -126,6 +126,7 @@ import {
 } from "./providers/claude-sdk-runtime";
 import {
   classifyUtilityRoute,
+  enhanceUtilityPrompt,
   suggestUtilityCommitMessage,
   suggestUtilityTaskName,
 } from "./providers/utility-inference";
@@ -1643,6 +1644,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.classify-route":
       await respond(request.id, await classifyUtilityRoute(request.params));
+      return;
+    case "provider.enhance-prompt":
+      await respond(request.id, await enhanceUtilityPrompt(request.params));
       return;
     case "provider.suggest-commit-message":
       await respond(

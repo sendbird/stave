@@ -293,6 +293,16 @@ export interface HostProviderClassifyRouteResult {
   utility: UtilityInferenceMetadata;
 }
 
+export interface HostProviderEnhancePromptArgs extends UtilityInferenceContext {
+  prompt: string;
+}
+
+export interface HostProviderEnhancePromptResult {
+  ok: boolean;
+  prompt?: string;
+  utility: UtilityInferenceMetadata;
+}
+
 export interface HostProviderSuggestCommitMessageArgs extends UtilityInferenceContext {}
 
 export interface HostProviderSuggestCommitMessageResult {
@@ -746,6 +756,7 @@ export interface HostServiceRequestMap {
   };
   "provider.suggest-task-name": HostProviderSuggestTaskNameArgs;
   "provider.classify-route": HostProviderClassifyRouteArgs;
+  "provider.enhance-prompt": HostProviderEnhancePromptArgs;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageArgs;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionArgs;
   "provider.review-diff": HostProviderReviewDiffArgs;
@@ -1032,6 +1043,7 @@ export interface HostServiceResponseMap {
   "provider.batch-write-codex-config": CodexMutationResponse;
   "provider.suggest-task-name": HostProviderSuggestTaskNameResult;
   "provider.classify-route": HostProviderClassifyRouteResult;
+  "provider.enhance-prompt": HostProviderEnhancePromptResult;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageResult;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionResult;
   "provider.review-diff": HostProviderReviewDiffResult;
