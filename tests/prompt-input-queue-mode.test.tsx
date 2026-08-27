@@ -324,6 +324,66 @@ describe("PromptInput queue mode", () => {
     expect(html).not.toContain('aria-label="Stop responding"');
   });
 
+  test("keeps current attachments visible while queued turns exist", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "Current draft",
+          isTurnActive: true,
+          submitMode: "queue-next" as const,
+          queuedTurns: [
+            {
+              id: "queue-1",
+              queuedAt: "2026-04-09T00:00:00.000Z",
+              sourceTurnId: "turn-1",
+              content: "Queued draft",
+              attachedFilePaths: [],
+              attachments: [],
+            },
+          ],
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: ["src/current-context.ts"],
+          attachments: [
+            {
+              kind: "image" as const,
+              id: "current-image",
+              dataUrl: "data:image/png;base64,current",
+              label: "current.png",
+            },
+          ],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onOpenAttachedFile: () => {},
+          onSubmit: () => {},
+        }),
+      ),
+    );
+
+    expect(html).toContain("2 attached");
+    expect(html).toContain("src/current-context.ts");
+    expect(html).toContain(
+      'aria-label="Open attached file src/current-context.ts"',
+    );
+    expect(html).toContain(
+      'aria-label="Remove attached file src/current-context.ts"',
+    );
+    expect(html).toContain(
+      'aria-label="Preview attached image current.png"',
+    );
+    expect(html).toContain(
+      'aria-label="Remove attached image current.png"',
+    );
+  });
+
   test("offers a send-now action on queued turns when no turn is active", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([

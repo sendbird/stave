@@ -37,8 +37,6 @@ export { resolveCodexChatgptAuthTokensRefreshResponse };
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { toText } from "./utils";
 import {
-  buildProviderTurnPrompt,
-  filterPromptRetrievedContext,
   getProviderNativeSlashCommandInput,
   resolveProviderResumeSessionId,
 } from "../../src/lib/providers/provider-request-translators";
@@ -147,6 +145,7 @@ import { createCodexAppServerElicitationPauseController } from "./codex-elicitat
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 import { createProviderBrowserConnectionTracker, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
 import { buildCodexNativeBrowserTurnConfigOverrides, resolveCodexNativeBrowserPluginEnabled } from "./codex-runtime-config";
+import { prepareCodexImageAwareTurnInput } from "./native-image-input";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -2524,22 +2523,17 @@ export async function streamCodexWithAppServer(
     const hasEmbeddedStaveLocalMcp = nativeSlashCommandInput
       ? false
       : await hasConnectedStaveLocalMcpForCodex();
-
-    const providerPrompt =
-      nativeSlashCommandInput ??
-      buildProviderTurnPrompt({
-        providerId: args.providerId,
-        prompt: args.prompt,
-        activeResumeSessionId: resumedThreadId,
-        conversation: args.conversation
-          ? filterPromptRetrievedContext({
-              conversation: args.conversation,
-              excludedSourceIds: hasEmbeddedStaveLocalMcp
-                ? []
-                : ["stave:current-task-awareness"],
-            })
-          : args.conversation,
-      });
+    const turnInput = await prepareCodexImageAwareTurnInput({
+      cwd: runtimeCwd,
+      providerId: args.providerId,
+      prompt: args.prompt,
+      conversation: args.conversation,
+      activeResumeSessionId: resumedThreadId,
+      hasEmbeddedStaveLocalMcp,
+      model: runtimeOptions?.model,
+      request: (method, params) => client.request(method, params),
+    });
+    const providerPrompt = turnInput.prompt;
 
     const goalCommandEvents = await runCodexGoalSlashCommand({
       client,
@@ -3881,6 +3875,7 @@ export async function streamCodexWithAppServer(
           cwd: runtimeCwd,
           prompt: providerPrompt,
           runtimeOptions,
+          nativeImageItems: turnInput.nativeImageItems,
         }),
       );
 

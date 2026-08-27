@@ -42,3 +42,26 @@ export function toWorkspaceRelativeFilePath(args: {
 
   return normalizedAbsolute.slice(normalizedRoot.length + 1);
 }
+
+export function buildAttachedFileContext(args: {
+  filePath: string;
+  kind: "text" | "image";
+  content: string;
+  language: string;
+}) {
+  if (args.kind === "image") {
+    return {
+      filePath: args.filePath,
+      content: "[Workspace image attached by path.]",
+      language: "image",
+      instruction:
+        "Inspect the attached workspace image with an available image or file tool.",
+    };
+  }
+
+  return {
+    filePath: args.filePath,
+    content: args.content,
+    language: args.language,
+  };
+}

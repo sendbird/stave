@@ -425,6 +425,21 @@ mid-tier model at its default, which is the pattern the community Codex
 - Only per-turn and per-thread runtime configuration is used. No provider config
   file in the user's home is written.
 
+## Image attachment transport
+
+Stave keeps image attachments in the shared canonical conversation contract,
+then converts them into each provider's structured image input at the runtime
+boundary. Workspace images selected from disk stay path-backed; pasted images
+stay as data URLs until that conversion. Image bytes are omitted from the text
+prompt when the native input is available. Codex native inputs request
+low-detail processing to reduce image-token usage.
+
+Claude receives image content blocks in the initial SDK user message. Codex
+receives `localImage` or `image` items in `turn/start` after Stave confirms that
+the selected catalog model advertises image input. Unsupported inline formats,
+capability-check failures, and unreadable local paths retain the existing
+text or file-tool fallback instead of being silently discarded.
+
 ## Claude runtime
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.
@@ -593,7 +608,7 @@ High-level flow:
 Codex prompt injection note:
 
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.
-- Task history, selected file context, image attachments, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config.
+- Task history, selected text-file context, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config. Supported image attachments use the native image items described above, while the prompt keeps only their labels and fallback instructions.
 - Stave always appends browser-tooling guidance to `developer_instructions`. It directs Codex to use ordinary web search for general research, its installed native Chrome plugin for explicit interactive `@web` requests, and the Stave Lens MCP tools (`stave_lens_*`) only when the current project's rendered UI needs visual inspection or validation, or when the user explicitly requests live page inspection or interaction. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin, and records only normalized connection status in workspace Information. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
 
 Codex event mapping:
