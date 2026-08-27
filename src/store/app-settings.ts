@@ -13,6 +13,7 @@ import { normalizeLensHostList } from "@/lib/lens/lens-security";
 import type {
   AdvisorTarget,
   AdvisorTargetByProvider,
+  ClaudePluginMode,
   ClaudeSettingSource,
   ProviderId,
 } from "@/lib/providers/provider.types";
@@ -328,6 +329,14 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeFastMode: boolean;
   claudeSkills: string;
   claudePluginPaths: string;
+  /**
+   * How plugins installed through the Claude CLI (`claude plugin install`) are
+   * treated. Stave narrows Claude's `settingSources`, so it re-states the
+   * enable decision itself instead of relying on the user settings layer.
+   */
+  claudePluginMode: ClaudePluginMode;
+  /** Per-plugin overrides keyed by `<name>@<marketplace>`. */
+  claudePluginOverrides: Record<string, boolean>;
   claudeAgentName: string;
   claudeFallbackModel: string;
   claudeResumeSessionAt: string;
@@ -588,6 +597,8 @@ export const defaultSettings: AppSettings = {
   claudeFastMode: false,
   claudeSkills: "",
   claudePluginPaths: "",
+  claudePluginMode: "claude-config",
+  claudePluginOverrides: {},
   claudeAgentName: "",
   claudeFallbackModel: "",
   claudeResumeSessionAt: "",

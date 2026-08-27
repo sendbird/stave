@@ -182,6 +182,10 @@ export function buildSecondaryProviderRuntimeOptions(args: {
       claudeStrictMcpConfig: true,
       claudeSkills: [],
       claudePluginPaths: [],
+      // Secondary read-only runs load no plugins: no local paths, and no
+      // CLI-installed plugins either.
+      claudePluginMode: "off",
+      claudePluginOverrides: {},
     };
   }
   return {

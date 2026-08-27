@@ -26,9 +26,7 @@ export {
   CraneDispatchApprovalResponseSchema as CraneDispatchApproveArgsSchema,
   CraneDispatchDeclineResponseSchema as CraneDispatchDeclineArgsSchema,
 } from "../../../src/lib/crane-connector/types";
-export {
-  AtelierConnectorPairArgsSchema,
-} from "../../../src/lib/atelier-connector/types";
+export { AtelierConnectorPairArgsSchema } from "../../../src/lib/atelier-connector/types";
 export {
   MartinLinkProjectArgsSchema,
   MartinListProjectsArgsSchema,
@@ -868,6 +866,12 @@ export const RuntimeOptionsObjectSchema = z
       .union([z.literal("all"), z.array(z.string().max(200)).max(200)])
       .optional(),
     claudePluginPaths: z.array(z.string().max(4096)).max(50).optional(),
+    claudePluginMode: z
+      .union([z.literal("off"), z.literal("claude-config"), z.literal("all")])
+      .optional(),
+    claudePluginOverrides: z
+      .record(z.string().min(1).max(200), z.boolean())
+      .optional(),
     claudeAgentName: z.string().max(200).optional(),
     claudeFallbackModel: z.string().max(500).optional(),
     claudeResumeSessionId: z.string().max(200).optional(),
@@ -1040,19 +1044,30 @@ const UserInputQuestionSchema = z
   })
   .strict();
 
-const WorkerExecutionMetadataSchema = z.object({
-  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
-  primaryModel: z.string().max(200),
-  presetId: z.union([
-    z.literal("patch-hand"), z.literal("verified-patch"), z.literal("sweep"),
-    z.literal("scout"), z.literal("deep-packet"), z.literal("second-pair"),
-  ]),
-  workerModel: z.string().max(200),
-  workerEffort: z.union([
-    z.literal("low"), z.literal("medium"), z.literal("high"),
-    z.literal("xhigh"), z.literal("max"), z.literal("ultra"), z.null(),
-  ]),
-}).strict();
+const WorkerExecutionMetadataSchema = z
+  .object({
+    providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+    primaryModel: z.string().max(200),
+    presetId: z.union([
+      z.literal("patch-hand"),
+      z.literal("verified-patch"),
+      z.literal("sweep"),
+      z.literal("scout"),
+      z.literal("deep-packet"),
+      z.literal("second-pair"),
+    ]),
+    workerModel: z.string().max(200),
+    workerEffort: z.union([
+      z.literal("low"),
+      z.literal("medium"),
+      z.literal("high"),
+      z.literal("xhigh"),
+      z.literal("max"),
+      z.literal("ultra"),
+      z.null(),
+    ]),
+  })
+  .strict();
 
 const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
   z

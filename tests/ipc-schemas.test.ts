@@ -167,6 +167,8 @@ describe("provider IPC schemas", () => {
         claudeStrictMcpConfig: true,
         claudeSkills: ["review"],
         claudePluginPaths: ["/tmp/claude-plugin"],
+        claudePluginMode: "all",
+        claudePluginOverrides: { "eli5@claude-community": false },
         claudeAgentName: "code-reviewer",
         claudeFallbackModel: "claude-sonnet-4-6,claude-haiku-4-5",
         claudeResumeSessionAt: "message-uuid",
