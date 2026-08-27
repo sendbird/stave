@@ -14,6 +14,7 @@ import { buildExecutableLookupEnv } from "./executable-path";
 import { parseBooleanEnv } from "./runtime-shared";
 import { buildProjectNvmShellConfigOverrides } from "../shared/project-node-env";
 import { isRecord } from "./codex-app-server-json";
+import type { CodexNativeImageItem } from "./native-image-input";
 
 type CodexRequest = (
   method: string,
@@ -201,6 +202,7 @@ export function buildCodexTurnStartParams(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   outputSchema?: unknown;
+  nativeImageItems?: CodexNativeImageItem[];
 }) {
   const reasoningEffort = resolveCodexAppServerReasoningEffort({
     reasoningEffort: args.runtimeOptions?.codexReasoningEffort,
@@ -220,6 +222,7 @@ export function buildCodexTurnStartParams(args: {
         text: args.prompt,
         text_elements: [],
       },
+      ...(args.nativeImageItems ?? []),
     ],
     cwd: args.cwd,
     ...(approvalPolicy ? { approvalPolicy } : {}),

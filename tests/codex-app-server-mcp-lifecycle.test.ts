@@ -5,7 +5,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { applyProviderTurnActivityEvents } from "@/lib/providers/turn-status";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
-import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
+import type {
+  CanonicalConversationRequest,
+  ProviderRuntimeOptions,
+} from "@/lib/providers/provider.types";
 import { createCodexWorkerActivityMapper } from "../electron/providers/codex-worker-activity";
 
 const actualChildProcess = await import("node:child_process");
@@ -108,6 +111,20 @@ class FakeChild extends EventEmitter {
         }
         if (message.method === "thread/goal/get" && message.id != null) {
           this.emitResponse(message.id, { goal: null });
+          continue;
+        }
+        if (message.method === "model/list" && message.id != null) {
+          this.emitResponse(message.id, {
+            data: [
+              {
+                id: "gpt-5.6-terra",
+                model: "gpt-5.6-terra",
+                isDefault: true,
+                inputModalities: ["text", "image"],
+              },
+            ],
+            nextCursor: null,
+          });
           continue;
         }
         if (message.method === "turn/start" && message.id != null) {
@@ -391,6 +408,74 @@ async function streamScenario(
 }
 
 describe("Codex App Server MCP lifecycle mapping", () => {
+  test("sends current attachments as native image inputs", async () => {
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?native-image-test=${Date.now()}-${Math.random()}`
+    );
+    const conversation: CanonicalConversationRequest = {
+      target: { providerId: "codex", model: "gpt-5.6-terra" },
+      mode: "chat",
+      history: [],
+      input: {
+        role: "user",
+        providerId: "user",
+        content: "Inspect the images.",
+        parts: [{ type: "text", text: "Inspect the images." }],
+      },
+      contextParts: [
+        {
+          type: "file_context",
+          filePath: "screenshots/result.png",
+          content: "[Workspace image attached by path.]",
+          language: "image",
+        },
+        {
+          type: "image_context",
+          dataUrl: "data:image/webp;base64,aW1hZ2U=",
+          label: "clipboard.webp",
+          mimeType: "image/webp",
+        },
+      ],
+    };
+
+    await runtime.streamCodexWithAppServer({
+      providerId: "codex",
+      taskId: "task-native-image",
+      prompt: "fallback prompt",
+      conversation,
+      cwd: process.cwd(),
+      runtimeOptions: {
+        codexBinaryPath: "/tmp/fake-codex-native-image",
+        model: "gpt-5.6-terra",
+      },
+    });
+
+    const child = fakeChildren.at(-1);
+    const turnStart = child?.receivedMessages.find(
+      (message) => message.method === "turn/start",
+    );
+    const input = turnStart?.params?.input as Array<Record<string, unknown>>;
+    expect(child?.receivedMessages.some(
+      (message) => message.method === "model/list",
+    )).toBe(true);
+    expect(input).toEqual([
+      expect.objectContaining({
+        type: "text",
+        text: expect.not.stringContaining("aW1hZ2U="),
+      }),
+      {
+        type: "localImage",
+        path: path.join(process.cwd(), "screenshots/result.png"),
+        detail: "low",
+      },
+      {
+        type: "image",
+        url: "data:image/webp;base64,aW1hZ2U=",
+        detail: "low",
+      },
+    ]);
+  }, 15_000);
+
   test("emits MCP input at item start, then progress and one completion", async () => {
     const events = await streamScenario("full-lifecycle");
 

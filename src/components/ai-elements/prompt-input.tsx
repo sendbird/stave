@@ -254,6 +254,7 @@ interface PromptInputProps {
     fastMode?: boolean;
   }) => void;
   onAttachFilesChange: (args: { filePaths: string[] }) => void;
+  onOpenAttachedFile?: (args: { filePath: string }) => void | Promise<void>;
   onOpenFileSelector?: () => void;
   onAttachmentsChange?: (args: { attachments: Attachment[] }) => void;
   onPasteFiles?: (args: { files: File[] }) => void | Promise<void>;
@@ -665,6 +666,7 @@ export function PromptInput(args: PromptInputProps) {
     onBlur,
     onModelSelect,
     onAttachFilesChange,
+    onOpenAttachedFile,
     onOpenFileSelector,
     onAttachmentsChange,
     onPasteFiles,
@@ -763,6 +765,10 @@ export function PromptInput(args: PromptInputProps) {
       ),
     [attachments],
   );
+  const currentAttachmentCount =
+    attachedFilePaths.length +
+    standaloneImageAttachments.length +
+    workspaceInformationAttachments.length;
   const queuedFileCount = visibleQueuedTurns.reduce(
     (count, item) => count + item.attachedFilePaths.length,
     0,
@@ -3495,11 +3501,18 @@ export function PromptInput(args: PromptInputProps) {
               </div>
             </div>
           ) : null}
-          {visibleQueuedTurns.length === 0 &&
-          (attachedFilePaths.length > 0 ||
+          {attachedFilePaths.length > 0 ||
             standaloneImageAttachments.length > 0 ||
-            workspaceInformationAttachments.length > 0) ? (
-            <div className="flex flex-wrap gap-1.5">
+            workspaceInformationAttachments.length > 0 ? (
+            <div
+              role="group"
+              aria-label="Current prompt attachments"
+              className="flex flex-wrap items-center gap-1.5"
+            >
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Paperclip className="size-3" aria-hidden="true" />
+                {currentAttachmentCount} attached
+              </span>
               {workspaceInformationAttachments.map((attachment) => (
                 <WorkspaceInformationReferenceChip
                   key={attachment.id}
@@ -3523,16 +3536,32 @@ export function PromptInput(args: PromptInputProps) {
                 <div
                   key={filePath}
                   className={cn(
-                    "flex items-center gap-1 rounded-sm border px-2 py-1 text-sm",
+                    "flex max-w-full items-center rounded-sm border p-0.5 text-sm",
                     minimal
                       ? "border-border/60 bg-transparent font-mono text-xs text-muted-foreground"
                       : "border-border/80 bg-secondary/50",
                   )}
                 >
-                  <span className="font-medium">{filePath}</span>
-                  <button
+                  <Button
                     type="button"
+                    size="xs"
+                    variant="ghost"
+                    disabled={interactionsDisabled || !onOpenAttachedFile}
+                    aria-label={`Open attached file ${filePath}`}
+                    title="Open in editor"
+                    className="h-7 min-w-0 justify-start gap-1 rounded-sm px-1.5 font-inherit text-inherit"
+                    onClick={() => void onOpenAttachedFile?.({ filePath })}
+                  >
+                    <FileText className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate font-medium">{filePath}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
                     disabled={interactionsDisabled}
+                    aria-label={`Remove attached file ${filePath}`}
+                    title="Remove attachment"
                     onClick={() =>
                       onAttachFilesChange({
                         filePaths: attachedFilePaths.filter(
@@ -3540,10 +3569,10 @@ export function PromptInput(args: PromptInputProps) {
                         ),
                       })
                     }
-                    className="ml-0.5 rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-3" />
-                  </button>
+                  </Button>
                 </div>
               ))}
               {standaloneImageAttachments.map((img) => (
@@ -3556,21 +3585,32 @@ export function PromptInput(args: PromptInputProps) {
                       : "border-border/80 bg-secondary/50",
                   )}
                 >
-                  <img
-                    src={img.dataUrl}
-                    alt={img.label}
-                    className="max-h-16 max-w-24 cursor-zoom-in rounded-sm object-cover"
-                    title="Click to view full size"
+                  <button
+                    type="button"
+                    disabled={interactionsDisabled}
+                    aria-label={`Preview attached image ${img.label}`}
+                    title="View full size"
+                    className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
                     onClick={() =>
                       setImagePreviewSrc({
                         dataUrl: img.dataUrl,
                         label: img.label,
                       })
                     }
-                  />
-                  <button
+                  >
+                    <img
+                      src={img.dataUrl}
+                      alt={img.label}
+                      className="max-h-16 max-w-24 cursor-zoom-in rounded-sm object-cover"
+                    />
+                  </button>
+                  <Button
                     type="button"
+                    size="icon-xs"
+                    variant="ghost"
                     disabled={interactionsDisabled}
+                    aria-label={`Remove attached image ${img.label}`}
+                    title="Remove attachment"
                     onClick={() =>
                       onAttachmentsChange?.({
                         attachments: (attachments ?? []).filter(
@@ -3578,10 +3618,10 @@ export function PromptInput(args: PromptInputProps) {
                         ),
                       })
                     }
-                    className="absolute -right-1 -top-1 rounded-full bg-background p-0.5 text-muted-foreground shadow-sm hover:text-foreground"
+                    className="absolute -right-1 -top-1 rounded-full bg-background text-muted-foreground shadow-sm hover:bg-background hover:text-foreground"
                   >
                     <X className="size-3" />
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>

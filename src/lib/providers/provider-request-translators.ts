@@ -81,6 +81,7 @@ export function buildClaudePromptFromConversation(args: {
   conversation: CanonicalConversationRequest;
   fallbackPrompt: string;
   activeResumeSessionId?: string | null;
+  includeImageData?: boolean;
 }) {
   const slashCommandInput = getProviderNativeSlashCommandInput(
     args.conversation,
@@ -104,6 +105,7 @@ export function buildClaudePromptFromConversation(args: {
     },
     includeHistory: !activeResumeSessionId || selectedHistory.length > 0,
     includeSkillContext: true,
+    includeImageData: args.includeImageData,
   }) || args.fallbackPrompt;
 }
 
@@ -111,6 +113,7 @@ export function buildCodexPromptFromConversation(args: {
   conversation: CanonicalConversationRequest;
   fallbackPrompt: string;
   activeResumeSessionId?: string | null;
+  includeImageData?: boolean;
 }) {
   const slashCommandInput = getProviderNativeSlashCommandInput(
     args.conversation,
@@ -131,6 +134,7 @@ export function buildCodexPromptFromConversation(args: {
     },
     includeHistory: !activeResumeSessionId || selectedHistory.length > 0,
     includeSkillContext: true,
+    includeImageData: args.includeImageData,
   }) || args.fallbackPrompt;
 }
 
@@ -139,6 +143,7 @@ export function buildProviderTurnPrompt(args: {
   prompt: string;
   conversation?: CanonicalConversationRequest;
   activeResumeSessionId?: string | null;
+  includeImageData?: boolean;
 }) {
   if (!args.conversation) {
     return args.prompt;
@@ -149,6 +154,7 @@ export function buildProviderTurnPrompt(args: {
       conversation: args.conversation,
       fallbackPrompt: args.prompt,
       activeResumeSessionId: args.activeResumeSessionId,
+      includeImageData: args.includeImageData,
     });
   }
 
@@ -156,6 +162,7 @@ export function buildProviderTurnPrompt(args: {
     conversation: args.conversation,
     fallbackPrompt: args.prompt,
     activeResumeSessionId: args.activeResumeSessionId,
+    includeImageData: args.includeImageData,
   });
 }
 

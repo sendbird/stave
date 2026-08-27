@@ -188,6 +188,7 @@ import {
   TaskSourceContextNotice,
 } from "./TaskSourceContextNotice";
 import {
+  buildAttachedFileContext,
   resolvePastedFileAbsolutePath,
   toWorkspaceRelativeFilePath,
 } from "./chat-input.attachments";
@@ -1875,6 +1876,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onAttachFilesChange={({ filePaths }) =>
             updateNonTextPromptDraft({ attachedFilePaths: filePaths })
           }
+          onOpenAttachedFile={({ filePath }) =>
+            openFileFromTree({ filePath })
+          }
           onOpenFileSelector={handleOpenFileSelector}
           onPasteFiles={handlePasteFiles}
           onAttachmentsChange={({ attachments }) =>
@@ -1944,8 +1948,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               const fileContexts = filePaths
                 .map((fp) => latestTabs.find((item) => item.filePath === fp))
                 .filter((tab): tab is NonNullable<typeof tab> => tab != null)
-                .map((tab) => ({
+                .map((tab) => buildAttachedFileContext({
                   filePath: tab.filePath,
+                  kind: tab.kind === "image" ? "image" : "text",
                   content: tab.content,
                   language: tab.language,
                 }));

@@ -1224,6 +1224,45 @@ describe("Codex App Server plan-mode payloads", () => {
     });
   });
 
+  test("adds native image items after the text prompt", () => {
+    const params = buildCodexTurnStartParams({
+      threadId: "thread-images",
+      prompt: "Inspect the attached images.",
+      cwd: "/tmp/project",
+      nativeImageItems: [
+        {
+          type: "localImage",
+          path: "/tmp/project/screenshot.png",
+          detail: "low",
+        },
+        {
+          type: "image",
+          url: "data:image/png;base64,aW1hZ2U=",
+          detail: "low",
+        },
+      ],
+    });
+
+    expectGeneratedTurnStartParamKeys(params);
+    expect(params.input).toEqual([
+      {
+        type: "text",
+        text: "Inspect the attached images.",
+        text_elements: [],
+      },
+      {
+        type: "localImage",
+        path: "/tmp/project/screenshot.png",
+        detail: "low",
+      },
+      {
+        type: "image",
+        url: "data:image/png;base64,aW1hZ2U=",
+        detail: "low",
+      },
+    ]);
+  });
+
   test("builds a turn/steer payload wrapping text like turn/start input", () => {
     const params = buildCodexTurnSteerParams({
       threadId: "thread-1",

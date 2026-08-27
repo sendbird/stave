@@ -49,6 +49,28 @@ describe("provider request translators", () => {
     expect(prompt).toContain("Continue with the runtime refactor.");
   });
 
+  test("omits inline image data when the provider receives native images", () => {
+    const prompt = buildProviderTurnPrompt({
+      providerId: "codex",
+      prompt: "fallback prompt",
+      includeImageData: false,
+      conversation: createConversation({
+        contextParts: [
+          {
+            type: "image_context",
+            dataUrl: "data:image/png;base64,must-not-be-text",
+            label: "clipboard.png",
+            mimeType: "image/png",
+          },
+        ],
+      }),
+    });
+
+    expect(prompt).toContain("[Image Attachment]");
+    expect(prompt).toContain("label: clipboard.png");
+    expect(prompt).not.toContain("must-not-be-text");
+  });
+
   test("preserves provider-native slash commands as raw provider input", () => {
     const conversation = createConversation({
       input: {

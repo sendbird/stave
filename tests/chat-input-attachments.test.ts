@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildAttachedFileContext,
   resolvePastedFileAbsolutePath,
   toWorkspaceRelativeFilePath,
 } from "../src/components/session/chat-input.attachments";
@@ -73,5 +74,35 @@ describe("toWorkspaceRelativeFilePath", () => {
       absolutePath: "c:\\Repo\\src\\App.tsx",
       rootPath: "C:\\repo",
     })).toBe("src/App.tsx");
+  });
+});
+
+describe("buildAttachedFileContext", () => {
+  test("keeps workspace images path-backed instead of embedding base64", () => {
+    expect(buildAttachedFileContext({
+      filePath: "screenshots/example.png",
+      kind: "image",
+      content: "data:image/png;base64,large-payload",
+      language: "image",
+    })).toEqual({
+      filePath: "screenshots/example.png",
+      content: "[Workspace image attached by path.]",
+      language: "image",
+      instruction:
+        "Inspect the attached workspace image with an available image or file tool.",
+    });
+  });
+
+  test("preserves text file content", () => {
+    expect(buildAttachedFileContext({
+      filePath: "src/App.tsx",
+      kind: "text",
+      content: "export function App() {}",
+      language: "tsx",
+    })).toEqual({
+      filePath: "src/App.tsx",
+      content: "export function App() {}",
+      language: "tsx",
+    });
   });
 });

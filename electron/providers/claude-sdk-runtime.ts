@@ -68,6 +68,12 @@ import type {
   SlashCommand,
 } from "@anthropic-ai/claude-agent-sdk";
 import { toText } from "./utils";
+import {
+  buildClaudeNativeImageBlocks,
+  buildClaudeNativeUserContent,
+  collectNativeImageInputs,
+  type ClaudeNativeImageBlock,
+} from "./native-image-input";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -4653,10 +4659,19 @@ export function cleanupClaudeMcpOauthFlows() {
  * them unset defaults to normal processing (query the model), which is exactly
  * what we want for a steered follow-up.
  */
-function buildClaudeSDKUserMessage(args: { text: string }): SDKUserMessage {
+function buildClaudeSDKUserMessage(args: {
+  text: string;
+  nativeImageBlocks?: ClaudeNativeImageBlock[];
+}): SDKUserMessage {
   return {
     type: "user",
-    message: { role: "user", content: args.text },
+    message: {
+      role: "user",
+      content: buildClaudeNativeUserContent({
+        text: args.text,
+        blocks: args.nativeImageBlocks,
+      }),
+    },
     parent_tool_use_id: null,
   };
 }
@@ -4880,11 +4895,25 @@ export async function streamClaudeWithSdk(
             : ["stave:current-task-awareness"],
         })
       : args.conversation;
+    const nativeImageCollection = collectNativeImageInputs({
+      cwd: runtimeCwd,
+      conversation: promptConversation,
+    });
+    const claudeNativeImages = await buildClaudeNativeImageBlocks({
+      inputs: nativeImageCollection.inputs,
+    });
+    if (claudeNativeImages.failedLocalImageCount > 0) {
+      console.warn("[claude-sdk-runtime] Local image attachments were unavailable", {
+        count: claudeNativeImages.failedLocalImageCount,
+      });
+    }
     const providerPrompt = buildProviderTurnPrompt({
       providerId: args.providerId,
       prompt: args.prompt,
       conversation: promptConversation,
       activeResumeSessionId: existingSessionId ?? null,
+      includeImageData:
+        nativeImageCollection.unresolvedInlineImageCount > 0,
     });
     const activatedSkillSlugs = collectClaudeActivatedSkillSlugs({
       conversation: args.conversation,
@@ -5361,6 +5390,7 @@ export async function streamClaudeWithSdk(
 
     const initialPromptMessage = buildClaudeSDKUserMessage({
       text: providerPrompt,
+      nativeImageBlocks: claudeNativeImages.blocks,
     });
     if (!gateAbort.signal.aborted) {
       const accepted = inputQueue.push(initialPromptMessage);
