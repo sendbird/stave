@@ -3,6 +3,7 @@ import {
   COMMIT_GRAPH_WORKING_TREE_REVISION,
 } from "@/lib/git-graph/presentation";
 import type { EditorTab } from "@/types/chat";
+import { GITHUB_PR_DIFF_TAB_PREFIX } from "@/lib/github-pr-review";
 
 const CHAT_DIFF_TAB_PREFIX = "chat-diff:";
 
@@ -27,6 +28,7 @@ export function chatDiffTabId(args: {
  *
  * - `chat-diff:` holds the content recorded before and after an agent edit, as
  *   old as the message it belongs to.
+ * - `github-pr-diff:` holds a file patch for one immutable PR head commit.
  * - `git-graph-diff:<revision>:` holds two immutable git objects.
  *
  * Such a tab must never be refreshed from the working tree (that would swap the
@@ -47,6 +49,9 @@ export function isSnapshotDiffEditorTab(
     return false;
   }
   if (tab.id.startsWith(CHAT_DIFF_TAB_PREFIX)) {
+    return true;
+  }
+  if (tab.id.startsWith(GITHUB_PR_DIFF_TAB_PREFIX)) {
     return true;
   }
   if (!tab.id.startsWith(COMMIT_GRAPH_DIFF_TAB_PREFIX)) {

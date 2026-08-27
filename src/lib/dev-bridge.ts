@@ -5,6 +5,10 @@ import type {
 } from "@/lib/providers/provider.types";
 import type { ConnectedToolId } from "@/lib/providers/connected-tool-status";
 import type {
+  GitHubPrInboxKind,
+  GitHubPrReviewEvent,
+} from "@/lib/github-pr-review";
+import type {
   CliSessionCreateSessionArgs,
   TerminalCreateSessionArgs,
 } from "@/lib/terminal/types";
@@ -234,6 +238,20 @@ export function installDevApiBridge() {
         force?: boolean;
         cwd?: string;
       }) => postJson({ path: "/api/scm/push", body: args }),
+      listGitHubPrs: (args: {
+        kind: GitHubPrInboxKind;
+        limit?: number;
+        cwd?: string;
+      }) => postJson({ path: "/api/scm/github-prs", body: args }),
+      getGitHubPrReviewDetail: (args: { prUrl: string; cwd?: string }) =>
+        postJson({ path: "/api/scm/github-pr-review-detail", body: args }),
+      submitGitHubPrReview: (args: {
+        prUrl: string;
+        expectedHeadOid: string;
+        event: GitHubPrReviewEvent;
+        body?: string;
+        cwd?: string;
+      }) => postJson({ path: "/api/scm/github-pr-review", body: args }),
     },
   };
 }

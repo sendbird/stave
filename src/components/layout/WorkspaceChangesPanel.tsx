@@ -62,7 +62,12 @@ import {
   describeTurnVerification,
 } from "@/lib/workspace-scripts";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
+import type {
+  GitHubPrFile,
+  GitHubPrReviewDetail,
+} from "@/lib/github-pr-review";
 import { VerificationStatusIcon } from "./VerificationStatusIcon";
+import { SourceControlReviewsPanel } from "./SourceControlReviewsPanel";
 import { WorkspaceFileIcon } from "./explorer-entry-icon";
 import type {
   SourceControlItemViewModel,
@@ -71,6 +76,7 @@ import type {
 } from "./editor-panel.utils";
 
 type SourceControlPanelView = "changes" | "history" | "checks";
+type SourceControlPanelMode = "workspace" | "reviews";
 
 /**
  * Pre-merge roll-up data that is not already carried by the panel's other
@@ -642,7 +648,13 @@ export function WorkspaceChangesPanel(props: {
   onFixVerificationWithAgent?: (args?: { scriptId?: string }) => void;
   /** Pre-merge roll-up data for the Checks tab. When absent, the tab is hidden. */
   checks?: WorkspaceChecksViewModel | null;
+  reviewCwd?: string;
+  onOpenPrDiff: (args: {
+    detail: GitHubPrReviewDetail;
+    file: GitHubPrFile;
+  }) => Promise<void>;
 }) {
+  const [mode, setMode] = useState<SourceControlPanelMode>("workspace");
   const [view, setView] = useState<SourceControlPanelView>("changes");
   const verificationFailureCount = props.verification?.failures.length ?? 0;
   const showChecksTab = Boolean(props.checks);
@@ -679,6 +691,40 @@ export function WorkspaceChangesPanel(props: {
   ].filter(Boolean) as Array<{ className: string; text: string }>;
 
   return (
+    <Tabs
+      value={mode}
+      onValueChange={(nextValue) =>
+        setMode(nextValue as SourceControlPanelMode)
+      }
+      className="flex h-full min-h-0 flex-col gap-0"
+    >
+      <div className="shrink-0 border-b border-border/80 px-3 py-2">
+        <TabsList className="h-auto w-full justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
+          <TabsTrigger
+            value="workspace"
+            className="h-8 flex-1 gap-1.5 rounded-lg px-3 text-xs font-medium"
+          >
+            <GitBranch className="size-3.5" />
+            Workspace
+          </TabsTrigger>
+          <TabsTrigger
+            value="reviews"
+            className="h-8 flex-1 gap-1.5 rounded-lg px-3 text-xs font-medium"
+          >
+            <GitPullRequest className="size-3.5" />
+            Reviews
+          </TabsTrigger>
+        </TabsList>
+      </div>
+
+      <TabsContent value="reviews" className="min-h-0 flex-1">
+        <SourceControlReviewsPanel
+          cwd={props.reviewCwd}
+          onOpenDiff={props.onOpenPrDiff}
+        />
+      </TabsContent>
+
+      <TabsContent value="workspace" className="min-h-0 flex-1">
     <Tabs
       value={view}
       onValueChange={(nextValue) =>
@@ -1184,6 +1230,8 @@ export function WorkspaceChangesPanel(props: {
           />
         </TabsContent>
       ) : null}
+    </Tabs>
+      </TabsContent>
     </Tabs>
   );
 }

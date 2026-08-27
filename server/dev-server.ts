@@ -47,7 +47,15 @@ import {
   ScmCommitDiffArgsSchema,
   ScmCommitFilesArgsSchema,
   ScmGraphArgsSchema,
+  GetGitHubPrReviewDetailArgsSchema,
+  ListGitHubPrsArgsSchema,
+  SubmitGitHubPrReviewArgsSchema,
 } from "../electron/main/ipc/schemas";
+import {
+  fetchGitHubPullRequestReviewDetail,
+  listGitHubPullRequests,
+  submitGitHubPullRequestReview,
+} from "../electron/host-service/github-pr-review-runtime";
 
 // Browser-only development bridge.
 // This is not the primary desktop runtime; it exists so `bun run dev` / `bun run dev:all`
@@ -832,6 +840,64 @@ const server = Bun.serve({
         force?: boolean;
       }>(req);
       return json(await pushScmBranch(body));
+    }
+
+    if (url.pathname === "/api/scm/github-prs" && req.method === "POST") {
+      const parsed = ListGitHubPrsArgsSchema.safeParse(
+        await readJson<unknown>(req),
+      );
+      if (!parsed.success) {
+        return json(
+          {
+            ok: false,
+            items: [],
+            viewerLogin: "",
+            stderr: "Invalid pull request inbox request.",
+          },
+          400,
+        );
+      }
+      return json(await listGitHubPullRequests(parsed.data));
+    }
+
+    if (
+      url.pathname === "/api/scm/github-pr-review-detail" &&
+      req.method === "POST"
+    ) {
+      const parsed = GetGitHubPrReviewDetailArgsSchema.safeParse(
+        await readJson<unknown>(req),
+      );
+      if (!parsed.success) {
+        return json(
+          {
+            ok: false,
+            detail: null,
+            stderr: "Invalid pull request review request.",
+          },
+          400,
+        );
+      }
+      return json(await fetchGitHubPullRequestReviewDetail(parsed.data));
+    }
+
+    if (url.pathname === "/api/scm/github-pr-review" && req.method === "POST") {
+      const parsed = SubmitGitHubPrReviewArgsSchema.safeParse(
+        await readJson<unknown>(req),
+      );
+      if (!parsed.success) {
+        return json(
+          {
+            ok: false,
+            stale: false,
+            currentHeadOid: "",
+            reviewId: null,
+            reviewUrl: "",
+            stderr: "Invalid pull request review submission.",
+          },
+          400,
+        );
+      }
+      return json(await submitGitHubPullRequestReview(parsed.data));
     }
 
     if (url.pathname === "/api/terminal/create" && req.method === "POST") {

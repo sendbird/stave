@@ -9,6 +9,11 @@ import {
   formatSourceControlDiffPath,
   parseUnifiedDiffToBuffers,
 } from "@/lib/source-control-diff";
+import {
+  githubPrDiffTabId,
+  type GitHubPrFile,
+  type GitHubPrReviewDetail,
+} from "@/lib/github-pr-review";
 import { hasSourceControlStagedChanges, type SourceControlStatusItem } from "@/lib/source-control-status";
 import { resolveWorkspaceTodoStatus } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
@@ -202,6 +207,7 @@ export function EditorPanel(props: EditorPanelProps) {
   const explorerDirectoryStateRef = useRef<Record<string, ExplorerDirectoryState>>({});
   const explorerRequestTokenRef = useRef(0);
   const selectedDiffRequestIdRef = useRef(0);
+  const selectedPrDiffRequestIdRef = useRef(0);
   const scmRequestTokenRef = useRef(0);
   const previousWorkspaceTurnSnapshotRef = useRef<WorkspaceActiveTurnSnapshot | null>(null);
   const pendingExplorerCreateInputRef = useRef<HTMLInputElement | null>(null);
@@ -631,6 +637,30 @@ export function EditorPanel(props: EditorPanelProps) {
       setSourceError(result.stderr);
     }
   }
+
+  const handleOpenPrDiff = useCallback(
+    async (args: {
+      detail: GitHubPrReviewDetail;
+      file: GitHubPrFile;
+    }) => {
+      const requestId = selectedPrDiffRequestIdRef.current + 1;
+      selectedPrDiffRequestIdRef.current = requestId;
+      const parsed = parseUnifiedDiffToBuffers({ patch: args.file.patch });
+      await openDiffInEditor({
+        editorTabId: githubPrDiffTabId({
+          repositoryWithOwner: args.detail.repositoryWithOwner,
+          number: args.detail.number,
+          headOid: args.detail.headRefOid,
+          filePath: args.file.path,
+        }),
+        filePath: `${args.detail.repositoryWithOwner}#${args.detail.number}/${args.file.path}`,
+        oldContent: parsed.oldContent,
+        newContent: parsed.newContent,
+        isStale: () => selectedPrDiffRequestIdRef.current !== requestId,
+      });
+    },
+    [openDiffInEditor],
+  );
 
   function handleOpenExplorerFile(filePath: string, line?: number) {
     void openFileFromTree({ filePath, line });
@@ -1064,6 +1094,8 @@ export function EditorPanel(props: EditorPanelProps) {
               onFixVerificationWithAgent={(args) =>
                 void handleFixVerificationWithAgent(args)
               }
+              reviewCwd={workspaceCwd}
+              onOpenPrDiff={handleOpenPrDiff}
             />
           ) : null}
 
