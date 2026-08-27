@@ -84,6 +84,13 @@ import type {
 import type { ProviderSlashCommand } from "@/lib/providers/provider-command-catalog";
 import type { GitHubPrPayload } from "@/lib/pr-status";
 import type { PrCheckLogExcerpt, PrContextIndex } from "@/lib/pr-context";
+import type {
+  GitHubPrInboxKind,
+  GitHubPrInboxResult,
+  GitHubPrReviewDetailResult,
+  GitHubPrReviewEvent,
+  GitHubPrReviewSubmitResult,
+} from "@/lib/github-pr-review";
 import type { SkillCatalogResponse } from "@/lib/skills/types";
 import type {
   CliSessionCreateSessionArgs,
@@ -1470,6 +1477,22 @@ interface WindowSourceControlApi {
     excerpts: PrCheckLogExcerpt[];
     stderr: string;
   }>;
+  listGitHubPrs?: (args: {
+    kind: GitHubPrInboxKind;
+    limit?: number;
+    cwd?: string;
+  }) => Promise<GitHubPrInboxResult>;
+  getGitHubPrReviewDetail?: (args: {
+    prUrl: string;
+    cwd?: string;
+  }) => Promise<GitHubPrReviewDetailResult>;
+  submitGitHubPrReview?: (args: {
+    prUrl: string;
+    expectedHeadOid: string;
+    event: GitHubPrReviewEvent;
+    body?: string;
+    cwd?: string;
+  }) => Promise<GitHubPrReviewSubmitResult>;
   setPrReady?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
   mergePr?: (args: {
     method?: "default" | "merge" | "squash" | "rebase";

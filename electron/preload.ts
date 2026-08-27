@@ -56,6 +56,13 @@ import type {
   PrContextIndex,
 } from "../src/lib/pr-context";
 import type {
+  GitHubPrInboxKind,
+  GitHubPrInboxResult,
+  GitHubPrReviewDetailResult,
+  GitHubPrReviewEvent,
+  GitHubPrReviewSubmitResult,
+} from "../src/lib/github-pr-review";
+import type {
   CraneConnectorConfigInput,
   CraneConnectorPairInput,
   CraneConnectorPublicStatus,
@@ -2192,6 +2199,31 @@ contextBridge.exposeInMainWorld("api", {
         excerpts: PrCheckLogExcerpt[];
         stderr: string;
       }>,
+    listGitHubPrs: (args: {
+      kind: GitHubPrInboxKind;
+      limit?: number;
+      cwd?: string;
+    }) =>
+      ipcRenderer.invoke(
+        "scm:list-github-prs",
+        args,
+      ) as Promise<GitHubPrInboxResult>,
+    getGitHubPrReviewDetail: (args: { prUrl: string; cwd?: string }) =>
+      ipcRenderer.invoke(
+        "scm:get-github-pr-review-detail",
+        args,
+      ) as Promise<GitHubPrReviewDetailResult>,
+    submitGitHubPrReview: (args: {
+      prUrl: string;
+      expectedHeadOid: string;
+      event: GitHubPrReviewEvent;
+      body?: string;
+      cwd?: string;
+    }) =>
+      ipcRenderer.invoke(
+        "scm:submit-github-pr-review",
+        args,
+      ) as Promise<GitHubPrReviewSubmitResult>,
     setPrReady: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:set-pr-ready", args) as Promise<{
         ok: boolean;

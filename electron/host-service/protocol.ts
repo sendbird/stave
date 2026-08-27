@@ -6,6 +6,13 @@ import type {
   PrCheckLogExcerpt,
   PrContextIndex,
 } from "../../src/lib/pr-context";
+import type {
+  GitHubPrInboxKind,
+  GitHubPrInboxResult,
+  GitHubPrReviewDetailResult,
+  GitHubPrReviewEvent,
+  GitHubPrReviewSubmitResult,
+} from "../../src/lib/github-pr-review";
 import type { AdvisorConsultOutcome } from "../providers/advisor-consult";
 import type {
   CanonicalRetrievedContextPart,
@@ -884,6 +891,22 @@ export interface HostServiceRequestMap {
     checkIds: number[];
     cwd?: string;
   };
+  "scm.list-github-prs": {
+    kind: GitHubPrInboxKind;
+    limit?: number;
+    cwd?: string;
+  };
+  "scm.get-github-pr-review-detail": {
+    prUrl: string;
+    cwd?: string;
+  };
+  "scm.submit-github-pr-review": {
+    prUrl: string;
+    expectedHeadOid: string;
+    event: GitHubPrReviewEvent;
+    body?: string;
+    cwd?: string;
+  };
   "scm.set-pr-ready": {
     cwd?: string;
   };
@@ -1073,6 +1096,9 @@ export interface HostServiceResponseMap {
     excerpts: PrCheckLogExcerpt[];
     stderr: string;
   };
+  "scm.list-github-prs": GitHubPrInboxResult;
+  "scm.get-github-pr-review-detail": GitHubPrReviewDetailResult;
+  "scm.submit-github-pr-review": GitHubPrReviewSubmitResult;
   "scm.set-pr-ready":
     | CommandResult
     | {

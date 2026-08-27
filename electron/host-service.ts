@@ -63,6 +63,11 @@ import {
   fetchPrCheckLogs,
   fetchPrContextIndex,
 } from "./host-service/pr-context-runtime";
+import {
+  fetchGitHubPullRequestReviewDetail,
+  listGitHubPullRequests,
+  submitGitHubPullRequestReview,
+} from "./host-service/github-pr-review-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createRoutineRuntime } from "./host-service/routine-runtime";
 import { createTaskSupervisorRuntime } from "./host-service/task-supervisor-runtime";
@@ -1779,6 +1784,21 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.fetch-pr-check-logs":
       await respond(request.id, await fetchPrCheckLogs(request.params));
+      return;
+    case "scm.list-github-prs":
+      await respond(request.id, await listGitHubPullRequests(request.params));
+      return;
+    case "scm.get-github-pr-review-detail":
+      await respond(
+        request.id,
+        await fetchGitHubPullRequestReviewDetail(request.params),
+      );
+      return;
+    case "scm.submit-github-pr-review":
+      await respond(
+        request.id,
+        await submitGitHubPullRequestReview(request.params),
+      );
       return;
     case "scm.set-pr-ready":
       await respond(request.id, await setScmPrReady(request.params));

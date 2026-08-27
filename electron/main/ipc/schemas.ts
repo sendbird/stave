@@ -5,6 +5,7 @@ import {
 } from "../../../src/lib/routines";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
 import { PR_CONTEXT_LIMITS } from "../../../src/lib/pr-context";
+import { GITHUB_PR_REVIEW_LIMITS } from "../../../src/lib/github-pr-review";
 import {
   ENV_VAR_NAME_MAX_LENGTH,
   ENV_VAR_NAME_PATTERN,
@@ -679,6 +680,49 @@ export const FetchPrCheckLogsArgsSchema = z
       .max(PR_CONTEXT_LIMITS.maxSelectedChecks),
   })
   .strict();
+
+export const ListGitHubPrsArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    kind: z.enum(["review-requested", "authored"]),
+    limit: z
+      .number()
+      .int()
+      .min(1)
+      .max(GITHUB_PR_REVIEW_LIMITS.maxInboxItems)
+      .optional(),
+  })
+  .strict();
+
+export const GetGitHubPrReviewDetailArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    prUrl: z.string().url().max(GITHUB_PR_REVIEW_LIMITS.maxUrlChars),
+  })
+  .strict();
+
+export const SubmitGitHubPrReviewArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    prUrl: z.string().url().max(GITHUB_PR_REVIEW_LIMITS.maxUrlChars),
+    expectedHeadOid: z
+      .string()
+      .min(7)
+      .max(64)
+      .regex(/^[0-9a-fA-F]+$/, "expectedHeadOid must be a hex commit id"),
+    event: z.enum(["APPROVE", "REQUEST_CHANGES", "COMMENT"]),
+    body: z.string().max(GITHUB_PR_REVIEW_LIMITS.maxReviewBodyChars).optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.event === "REQUEST_CHANGES" && !value.body?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["body"],
+        message: "A change request needs a review summary.",
+      });
+    }
+  });
 
 export const SkillCatalogArgsSchema = z
   .object({

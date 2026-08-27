@@ -4,12 +4,15 @@ import {
   CreatePRArgsSchema,
   FetchPrCheckLogsArgsSchema,
   FetchPrContextIndexArgsSchema,
+  GetGitHubPrReviewDetailArgsSchema,
   GetPrStatusByUrlArgsSchema,
+  ListGitHubPrsArgsSchema,
   ScmCommitDetailsArgsSchema,
   ScmCommitDiffArgsSchema,
   ScmCommitFilesArgsSchema,
   ScmGraphArgsSchema,
   StageFilesArgsSchema,
+  SubmitGitHubPrReviewArgsSchema,
   TryAutoFixLintArgsSchema,
 } from "./schemas";
 
@@ -276,6 +279,46 @@ export function registerScmHandlers() {
       return { ok: false, excerpts: [], stderr: "Invalid check log request." };
     }
     return invokeHostService("scm.fetch-pr-check-logs", parsed.data);
+  });
+
+  ipcMain.handle("scm:list-github-prs", (_event, args: unknown) => {
+    const parsed = ListGitHubPrsArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        items: [],
+        viewerLogin: "",
+        stderr: "Invalid pull request inbox request.",
+      };
+    }
+    return invokeHostService("scm.list-github-prs", parsed.data);
+  });
+
+  ipcMain.handle("scm:get-github-pr-review-detail", (_event, args: unknown) => {
+    const parsed = GetGitHubPrReviewDetailArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        detail: null,
+        stderr: "Invalid pull request review request.",
+      };
+    }
+    return invokeHostService("scm.get-github-pr-review-detail", parsed.data);
+  });
+
+  ipcMain.handle("scm:submit-github-pr-review", (_event, args: unknown) => {
+    const parsed = SubmitGitHubPrReviewArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        stale: false,
+        currentHeadOid: "",
+        reviewId: null,
+        reviewUrl: "",
+        stderr: "Invalid pull request review submission.",
+      };
+    }
+    return invokeHostService("scm.submit-github-pr-review", parsed.data);
   });
 
   ipcMain.handle("scm:set-pr-ready", (_event, args: { cwd?: string }) =>
