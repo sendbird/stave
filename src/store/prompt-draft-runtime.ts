@@ -13,6 +13,7 @@ export interface ResolvedPromptDraftRuntimeState {
   claudeEffort?: PromptDraftRuntimeOverrides["claudeEffort"];
   codexPlanMode: boolean;
   codexReasoningEffort?: PromptDraftRuntimeOverrides["codexReasoningEffort"];
+  codexFastMode?: boolean;
   boundSecretIds?: string[];
 }
 
@@ -34,6 +35,8 @@ export function resolvePromptDraftRuntimeState(args: {
     codexReasoningEffort:
       runtimeOverrides?.codexReasoningEffort ??
       args.fallback.codexReasoningEffort,
+    codexFastMode:
+      runtimeOverrides?.codexFastMode ?? args.fallback.codexFastMode,
     boundSecretIds:
       runtimeOverrides?.boundSecretIds ?? args.fallback.boundSecretIds,
   };
@@ -254,6 +257,7 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.claudeEffort === right?.claudeEffort &&
     left?.codexPlanMode === right?.codexPlanMode &&
     left?.codexReasoningEffort === right?.codexReasoningEffort &&
+    left?.codexFastMode === right?.codexFastMode &&
     left?.autoRouting === right?.autoRouting &&
     left?.advisorEnabled === right?.advisorEnabled &&
     areAdvisorTargetsEqual(left?.advisorTarget, right?.advisorTarget) &&

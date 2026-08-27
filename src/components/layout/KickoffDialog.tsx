@@ -18,7 +18,10 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
 import { resolveDefaultCreateWorkspaceBaseBranch } from "@/components/layout/CreateWorkspaceBranchPicker.utils";
-import { canApplyKickoffDialogOpenChange } from "@/components/layout/KickoffDialog.utils";
+import {
+  buildKickoffFirstTaskRuntimeOverrides,
+  canApplyKickoffDialogOpenChange,
+} from "@/components/layout/KickoffDialog.utils";
 import {
   Accordion,
   AccordionContent,
@@ -92,6 +95,21 @@ function resolveFirstTaskEffort(args: {
   return args.providerId === "claude-code"
     ? runtimeSettings.claudeEffort
     : runtimeSettings.codexReasoningEffort;
+}
+
+function resolveFirstTaskFastMode(args: {
+  settings: AppSettings;
+  providerId: ProviderId;
+  model: string;
+}) {
+  if (args.providerId !== "codex") {
+    return false;
+  }
+  return applyModelRuntimePreference({
+    settings: args.settings,
+    providerId: args.providerId,
+    model: args.model,
+  }).codexFastMode;
 }
 
 function KickoffBusyState(props: {
@@ -197,6 +215,11 @@ export function KickoffDialog(props: {
     providerId: draftProvider,
     model: defaultFirstTaskModel,
   });
+  const defaultFirstTaskFastMode = resolveFirstTaskFastMode({
+    settings,
+    providerId: draftProvider,
+    model: defaultFirstTaskModel,
+  });
   const [phase, setPhase] = useState<KickoffPhase>("source");
   const [source, setSource] = useState("");
   const [draft, setDraft] = useState<KickoffProposalDraft | null>(null);
@@ -220,6 +243,9 @@ export function KickoffDialog(props: {
   const [firstTaskModel, setFirstTaskModel] = useState(defaultFirstTaskModel);
   const [firstTaskEffort, setFirstTaskEffort] = useState<FirstTaskEffort>(
     defaultFirstTaskEffort,
+  );
+  const [firstTaskFastMode, setFirstTaskFastMode] = useState(
+    defaultFirstTaskFastMode,
   );
   const [extraInstructions, setExtraInstructions] = useState("");
 
@@ -291,10 +317,12 @@ export function KickoffDialog(props: {
     setFirstTaskProvider(draftProvider);
     setFirstTaskModel(defaultFirstTaskModel);
     setFirstTaskEffort(defaultFirstTaskEffort);
+    setFirstTaskFastMode(defaultFirstTaskFastMode);
     setExtraInstructions("");
   }, [
     cancelKickoffResolution,
     defaultFirstTaskEffort,
+    defaultFirstTaskFastMode,
     defaultFirstTaskModel,
     draftProvider,
     props.open,
@@ -432,6 +460,13 @@ export function KickoffDialog(props: {
         model: selection.model,
       }),
     );
+    setFirstTaskFastMode(
+      resolveFirstTaskFastMode({
+        settings,
+        providerId: selection.providerId,
+        model: selection.model,
+      }),
+    );
   }
 
   async function handleCreate() {
@@ -443,15 +478,12 @@ export function KickoffDialog(props: {
     ) {
       return;
     }
-    const firstTaskRuntimeOverrides: PromptDraftRuntimeOverrides = {
-      autoRouting: false,
+    const firstTaskRuntimeOverrides = buildKickoffFirstTaskRuntimeOverrides({
+      providerId: firstTaskProvider,
       model: firstTaskModel,
-      ...(firstTaskProvider === "claude-code"
-        ? { claudeEffort: effectiveFirstTaskEffort as ClaudeTaskEffort }
-        : {
-            codexReasoningEffort: effectiveFirstTaskEffort as CodexTaskEffort,
-          }),
-    };
+      effort: effectiveFirstTaskEffort,
+      codexFastMode: firstTaskFastMode,
+    });
     setCreating(true);
     setError(null);
     try {
@@ -1000,7 +1032,13 @@ export function KickoffDialog(props: {
                       />
                     </div>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]">
+                  <div
+                    className={
+                      firstTaskProvider === "codex"
+                        ? "grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]"
+                        : "grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]"
+                    }
+                  >
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Model</p>
                       <ModelSelector
@@ -1044,6 +1082,33 @@ export function KickoffDialog(props: {
                         </SelectContent>
                       </Select>
                     </div>
+                    {firstTaskProvider === "codex" ? (
+                      <div className="space-y-2">
+                        <p
+                          id="kickoff-first-task-fast-label"
+                          className="text-sm font-medium"
+                        >
+                          Fast mode
+                        </p>
+                        <Select
+                          value={firstTaskFastMode ? "on" : "off"}
+                          onValueChange={(value) =>
+                            setFirstTaskFastMode(value === "on")
+                          }
+                        >
+                          <SelectTrigger
+                            className="w-full"
+                            aria-labelledby="kickoff-first-task-fast-label"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="off">Off</SelectItem>
+                            <SelectItem value="on">On</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
                   </div>
                   {!firstTaskProviderAvailable ? (
                     <p
@@ -1055,8 +1120,9 @@ export function KickoffDialog(props: {
                     </p>
                   ) : (
                     <p className="text-xs leading-5 text-muted-foreground">
-                      The model and effort stay attached to this task, even if
-                      you leave the prompt ready instead of starting now.
+                      {firstTaskProvider === "codex"
+                        ? "The model, effort, and Fast mode stay attached to this task, even if you leave the prompt ready instead of starting now."
+                        : "The model and effort stay attached to this task, even if you leave the prompt ready instead of starting now."}
                     </p>
                   )}
                   <label className="block space-y-2 text-sm font-medium">

@@ -253,6 +253,7 @@ const PromptDraftRuntimeOverridesSchema = z.object({
       z.literal("ultra"),
     ])
     .optional(),
+  codexFastMode: z.boolean().optional(),
   autoRouting: z.boolean().optional(),
   boundSecretIds: z.array(z.string().uuid()).optional(),
   // Per-task Advisor arming. `advisorEnabled` is stored separately from

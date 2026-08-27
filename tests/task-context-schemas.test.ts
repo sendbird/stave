@@ -365,6 +365,7 @@ describe("task-context workspace schemas", () => {
               claudePermissionMode: "auto",
               claudePermissionModeBeforePlan: "auto",
               codexPlanMode: true,
+              codexFastMode: false,
             },
             queuedNextTurn: {
               queuedAt: "2026-04-11T00:00:00.000Z",
@@ -431,6 +432,7 @@ describe("task-context workspace schemas", () => {
         claudePermissionMode: "auto",
         claudePermissionModeBeforePlan: "auto",
         codexPlanMode: true,
+        codexFastMode: false,
       },
       queuedNextTurn: {
         queuedAt: "2026-04-11T00:00:00.000Z",
