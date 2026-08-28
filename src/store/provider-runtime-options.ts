@@ -68,6 +68,8 @@ type RuntimeSettings = Pick<
   | "trustedTools"
   | "claudeSkills"
   | "claudePluginPaths"
+  | "claudePluginMode"
+  | "claudePluginOverrides"
   | "claudeAgentName"
   | "claudeFallbackModel"
   | "claudeResumeSessionAt"
@@ -105,6 +107,34 @@ function normalizeDelimitedSettingList(value?: string | null) {
       (entry, index, entries) =>
         entry.length > 0 && entries.indexOf(entry) === index,
     );
+}
+
+function normalizeClaudePluginMode(
+  value?: string | null,
+): NonNullable<ProviderRuntimeOptions["claudePluginMode"]> {
+  return value === "off" || value === "all" || value === "claude-config"
+    ? value
+    : "claude-config";
+}
+
+/**
+ * Per-plugin overrides are persisted as a plain map, so a corrupted or
+ * hand-edited settings blob must not reach the runtime. Only string→boolean
+ * entries survive.
+ */
+function normalizeClaudePluginOverrides(
+  value?: Record<string, unknown> | null,
+): Record<string, boolean> | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const entries = Object.entries(value).flatMap(([id, enabled]) => {
+    const normalizedId = id.trim();
+    return normalizedId && typeof enabled === "boolean"
+      ? [[normalizedId, enabled] as [string, boolean]]
+      : [];
+  });
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
 function normalizeClaudeSkillsSetting(
@@ -226,6 +256,9 @@ export function buildProviderRuntimeOptions(args: {
     sessions: providerSession ?? undefined,
     providerId: "codex",
   });
+  const claudePluginOverrides = normalizeClaudePluginOverrides(
+    settings.claudePluginOverrides,
+  );
   const claudeFallbackModel =
     settings.claudeFallbackModel.trim() ||
     resolveDefaultClaudeFallbackModel({ model: args.model });
@@ -308,6 +341,8 @@ export function buildProviderRuntimeOptions(args: {
           ),
         }
       : {}),
+    claudePluginMode: normalizeClaudePluginMode(settings.claudePluginMode),
+    ...(claudePluginOverrides ? { claudePluginOverrides } : {}),
     ...(settings.claudeAgentName.trim()
       ? { claudeAgentName: settings.claudeAgentName.trim() }
       : {}),

@@ -10,7 +10,10 @@ import type {
 import type { SkillPromptContext } from "@/lib/skills/types";
 // Type-only, matching the `@/types/chat` cycle above: `worker-mode` imports
 // `ProviderId` from here, so the cycle is erased at compile time.
-import type { WorkerExecutionMetadata, WorkerRuntimeIntent } from "@/lib/providers/worker-mode";
+import type {
+  WorkerExecutionMetadata,
+  WorkerRuntimeIntent,
+} from "@/lib/providers/worker-mode";
 
 export type ProviderId = "claude-code" | "codex";
 export type ClaudeSettingSource = "user" | "project" | "local";
@@ -92,12 +95,7 @@ export interface ProviderAvailabilityResponse {
  * `resolveAdvisorEffort` for the single point that validates and clamps one.
  */
 export type AdvisorEffort =
-  | "low"
-  | "medium"
-  | "high"
-  | "xhigh"
-  | "max"
-  | "ultra";
+  "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
 export interface AdvisorTarget {
   providerId: ProviderId;
@@ -153,8 +151,7 @@ export type AdvisorActivityPhase =
 
 /** How the runtime actually isolated the advisor call. */
 export type AdvisorIsolationMode =
-  | "claude-tools-disabled"
-  | "codex-ephemeral-read-only";
+  "claude-tools-disabled" | "codex-ephemeral-read-only";
 
 export interface ProviderSteerTurnRequest {
   turnId: string;
@@ -247,6 +244,31 @@ export interface ClaudeMcpOauthLoginResponse {
   authorizationUrl?: string;
   requiresUserAction?: boolean;
   callbackExpected?: boolean;
+}
+
+/** Stave policy for plugins installed through the Claude CLI. */
+export type ClaudePluginMode = "off" | "claude-config" | "all";
+
+export interface ClaudeInstalledPluginSummary {
+  id: string;
+  name: string;
+  marketplace: string;
+  version?: string;
+  installPath?: string;
+  description?: string;
+  scopes: Array<"user" | "project">;
+  /** Whether Claude's own settings cascade enables this plugin. */
+  enabledInClaudeConfig: boolean;
+  enabledSource?: "user" | "project" | "local";
+  /** Effective decision after Stave's plugin mode and overrides. */
+  enabled: boolean;
+}
+
+export interface ClaudeInstalledPluginsResponse {
+  ok: boolean;
+  detail: string;
+  configDir?: string;
+  plugins: ClaudeInstalledPluginSummary[];
 }
 
 export interface ClaudePluginReloadSnapshot {
@@ -1033,6 +1055,14 @@ export interface ProviderRuntimeOptions {
   trustedTools?: string[];
   claudeSkills?: "all" | string[];
   claudePluginPaths?: string[];
+  /**
+   * Policy for plugins installed through the Claude CLI
+   * (`claude plugin install`). `claude-config` honors Claude's own
+   * `enabledPlugins` cascade, `all` enables every install, `off` loads none.
+   */
+  claudePluginMode?: ClaudePluginMode;
+  /** Per-plugin Stave overrides keyed by `<name>@<marketplace>`. */
+  claudePluginOverrides?: Record<string, boolean>;
   claudeAgentName?: string;
   claudeFallbackModel?: string;
   claudeResumeSessionId?: string;

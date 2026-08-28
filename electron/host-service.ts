@@ -117,6 +117,7 @@ import {
   getClaudeContextUsage,
   getClaudeMcpStatus,
   prewarmClaudeSdk,
+  listClaudeInstalledPlugins,
   renameClaudeSession,
   reloadClaudePlugins,
   rewindClaudeFiles,
@@ -196,7 +197,8 @@ const HOST_SERVICE_SHUTDOWN_TIMEOUT_MS = 10_000;
  * blocks, an exit path that never settles), the process still terminates
  * instead of lingering as a ghost that keeps provider subprocesses alive.
  */
-const HOST_SERVICE_HARD_EXIT_TIMEOUT_MS = HOST_SERVICE_SHUTDOWN_TIMEOUT_MS + 5_000;
+const HOST_SERVICE_HARD_EXIT_TIMEOUT_MS =
+  HOST_SERVICE_SHUTDOWN_TIMEOUT_MS + 5_000;
 const HOST_PROVIDER_EVENT_STRING_MAX_BYTES = 128 * 1024;
 const HOST_PROVIDER_EVENT_LIST_MAX_ITEMS = 32;
 const HOST_SERVICE_STDIN_BUFFER_MAX_BYTES =
@@ -605,9 +607,7 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       );
     case "set-workspace-martin-project":
       return localMcpRuntime.setWorkspaceMartinProject(
-        args as Parameters<
-          typeof localMcpRuntime.setWorkspaceMartinProject
-        >[0],
+        args as Parameters<typeof localMcpRuntime.setWorkspaceMartinProject>[0],
       );
     case "replace-workspace-notes":
       return localMcpRuntime.replaceWorkspaceNotes(
@@ -1549,6 +1549,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "provider.reload-claude-plugins":
       await respond(request.id, await reloadClaudePlugins(request.params));
       return;
+    case "provider.list-claude-plugins":
+      await respond(
+        request.id,
+        await listClaudeInstalledPlugins(request.params),
+      );
+      return;
     case "provider.get-claude-mcp-status":
       await respond(request.id, await getClaudeMcpStatus(request.params));
       return;
@@ -1921,7 +1927,9 @@ async function main() {
   });
   process.on("unhandledRejection", (reason) => {
     const detail =
-      reason instanceof Error ? (reason.stack ?? reason.message) : String(reason);
+      reason instanceof Error
+        ? (reason.stack ?? reason.message)
+        : String(reason);
     process.stderr.write(`[host-service] unhandled rejection: ${detail}\n`);
   });
 

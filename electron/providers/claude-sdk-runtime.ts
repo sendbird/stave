@@ -30,6 +30,7 @@ import type {
   ClaudeFileRewindResponse,
   ClaudeMcpOauthLoginResponse,
   ClaudeMcpServerStatusSnapshot,
+  ClaudeInstalledPluginsResponse,
   ClaudeMcpStatusResponse,
   ClaudePluginReloadResponse,
   ClaudeSessionForkResponse,
@@ -111,6 +112,10 @@ import {
   resolveClaudeMcpServers,
   type ClaudeMcpConfigDiagnostic,
 } from "./claude-mcp-config";
+import {
+  resolveClaudeInstalledPlugins,
+  resolveClaudePluginEnablement,
+} from "./claude-plugin-config";
 import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
 import { isAlwaysAllowedStaveLocalMcpTool } from "./stave-local-mcp-approval";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
@@ -970,6 +975,67 @@ async function resolveClaudeMcpServersForQuery(args: {
     mcpServers,
     hasStaveLocalMcp: Boolean(staveServers),
   };
+}
+
+/**
+ * Resolves the `enabledPlugins` map for a query from the CLI's own plugin
+ * inventory plus Stave's plugin policy.
+ *
+ * Stave narrows `settingSources` (default `["project"]`), so the `user` layer
+ * that `claude plugin install` writes to is never read and CLI-installed
+ * plugins would silently never load. Re-stating the decision through the SDK's
+ * inline `settings` — the flag layer, which outranks user/project/local — makes
+ * marketplace installs work without dragging in unrelated user-level settings.
+ *
+ * Secondary read-only turns stay plugin-free: they already pass `plugins: []`,
+ * and a read-only observation turn must not gain extra commands, agents, or
+ * hooks.
+ */
+async function resolveClaudeEnabledPluginsForQuery(args: {
+  cwd: string;
+  claudeExecutablePath: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  claudeConfigDir?: string;
+  secondaryReadOnly?: boolean;
+}): Promise<Record<string, boolean> | undefined> {
+  if (args.secondaryReadOnly) {
+    return undefined;
+  }
+  const mode = args.runtimeOptions?.claudePluginMode ?? "claude-config";
+  const rawOverrides = args.runtimeOptions?.claudePluginOverrides;
+  const overrides =
+    rawOverrides && Object.keys(rawOverrides).length > 0
+      ? rawOverrides
+      : undefined;
+  // Nothing to state: no CLI-installed plugin may load and no per-plugin
+  // override needs re-stating, so skip the inventory read entirely.
+  if (mode === "off" && !overrides) {
+    return undefined;
+  }
+  try {
+    const claudeConfigDir =
+      args.claudeConfigDir ??
+      buildClaudeEnv({
+        executablePath: args.claudeExecutablePath,
+        cwd: args.cwd,
+      }).CLAUDE_CONFIG_DIR;
+    const inventory = await resolveClaudeInstalledPlugins({
+      cwd: args.cwd,
+      claudeConfigDir,
+    });
+    const enablement = resolveClaudePluginEnablement({
+      plugins: inventory.plugins,
+      mode,
+      ...(overrides ? { overrides } : {}),
+    });
+    return Object.keys(enablement).length > 0 ? enablement : undefined;
+  } catch (error) {
+    console.warn("[claude-sdk-runtime] Claude plugin resolution failed", {
+      cwd: args.cwd,
+      error: toText(error),
+    });
+    return undefined;
+  }
 }
 
 function buildClaudePlanModeDenyMessage(args: { toolName: string }) {
@@ -1911,6 +1977,12 @@ export function buildClaudeQueryOptions(args: {
   workerModeEligible?: boolean;
   canUseTool?: CanUseTool;
   mcpServers?: Record<string, McpServerConfig>;
+  /**
+   * Resolved `<name>@<marketplace>` → enabled map for CLI-installed plugins,
+   * from `resolveClaudeEnabledPluginsForQuery`. Applied through the SDK's inline
+   * settings so marketplace installs load without widening `settingSources`.
+   */
+  enabledPlugins?: Record<string, boolean>;
   onElicitation?: OnElicitation;
   onUserDialog?: OnUserDialog;
   secondaryReadOnly?: boolean;
@@ -2019,6 +2091,16 @@ export function buildClaudeQueryOptions(args: {
     model: args.runtimeOptions?.model,
     fallbackModel: args.runtimeOptions?.claudeFallbackModel,
   });
+  // Flag-layer settings. `enabledPlugins` lives here (not in `plugins`, which
+  // only takes local paths) so CLI/marketplace installs load with their
+  // marketplace identity intact, and so an explicit `false` can switch off a
+  // plugin that the user/project/local cascade enables.
+  const enabledPlugins =
+    !args.secondaryReadOnly &&
+    args.enabledPlugins &&
+    Object.keys(args.enabledPlugins).length > 0
+      ? args.enabledPlugins
+      : undefined;
   const settings = args.secondaryReadOnly
     ? {
         ...(args.runtimeOptions?.claudeFastMode ? { fastMode: true } : {}),
@@ -2032,8 +2114,11 @@ export function buildClaudeQueryOptions(args: {
           ],
         },
       }
-    : args.runtimeOptions?.claudeFastMode
-      ? { fastMode: true }
+    : args.runtimeOptions?.claudeFastMode || enabledPlugins
+      ? {
+          ...(args.runtimeOptions?.claudeFastMode ? { fastMode: true } : {}),
+          ...(enabledPlugins ? { enabledPlugins } : {}),
+        }
       : undefined;
   const sandbox = args.secondaryReadOnly
     ? {
@@ -2120,9 +2205,6 @@ export function buildClaudeQueryOptions(args: {
     // to stay in charge of planning and integration.
     ...(workerAgents ? { agents: workerAgents } : {}),
     ...(settingSources !== undefined ? { settingSources } : {}),
-    ...(args.runtimeOptions?.claudeFastMode
-      ? { settings: { fastMode: true } }
-      : {}),
     // Always-on: force Agent-tool subagents to run in the foreground so a
     // turn can never end waiting for a background-completion notification
     // that Stave's one-turn-at-a-time loop cannot deliver.
@@ -2349,10 +2431,7 @@ function isClaudeSubagentToolName(name: string): boolean {
  * not promote it into an id the provider never reported.
  */
 export type SubagentProgressResolvedBy =
-  | "tool_use_id"
-  | "agent_id"
-  | "positional_fallback"
-  | "unresolved";
+  "tool_use_id" | "agent_id" | "positional_fallback" | "unresolved";
 
 export type SubagentProgressResolution = {
   /** Subagent tool_use_id the progress belongs to, when one could be found. */
@@ -3412,7 +3491,10 @@ export function attachClaudeWorkerExecutionMetadata(args: {
   if (!profile) return args.events;
   const workerExecution = buildWorkerExecutionMetadata(profile);
   return args.events.map((event) => {
-    if (event.type !== "tool" || !["agent", "task"].includes(event.toolName.toLowerCase())) {
+    if (
+      event.type !== "tool" ||
+      !["agent", "task"].includes(event.toolName.toLowerCase())
+    ) {
       return event;
     }
     try {
@@ -3769,10 +3851,17 @@ function toClaudeCommandCatalogKey(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
   const settingSources = args.runtimeOptions?.claudeSettingSources;
+  const pluginOverrides = args.runtimeOptions?.claudePluginOverrides ?? {};
   return JSON.stringify([
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd(),
     args.runtimeOptions?.claudeBinaryPath ?? "",
     Array.isArray(settingSources) ? [...settingSources].sort() : null,
+    // Plugins contribute slash commands, so two probes that would load
+    // different plugin sets must not collapse onto one in-flight result.
+    args.runtimeOptions?.claudePluginMode ?? "claude-config",
+    Object.keys(pluginOverrides)
+      .sort()
+      .map((id) => [id, pluginOverrides[id]]),
   ]);
 }
 
@@ -3823,6 +3912,11 @@ async function runClaudeCommandCatalogQuery(args: {
       claudeExecutablePath,
       runtimeOptions: args.runtimeOptions,
     });
+    const enabledPlugins = await resolveClaudeEnabledPluginsForQuery({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+    });
 
     stream = queryFn({
       prompt: "",
@@ -3833,6 +3927,7 @@ async function runClaudeCommandCatalogQuery(args: {
         systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
         promptSuggestions: false,
         mcpServers,
+        ...(enabledPlugins ? { enabledPlugins } : {}),
       }),
     }) as Query;
 
@@ -3913,6 +4008,11 @@ export async function getClaudeContextUsage(args: {
       claudeExecutablePath,
       runtimeOptions: args.runtimeOptions,
     });
+    const enabledPlugins = await resolveClaudeEnabledPluginsForQuery({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+    });
     stream = queryFn({
       prompt: "",
       options: buildClaudeQueryOptions({
@@ -3922,6 +4022,7 @@ export async function getClaudeContextUsage(args: {
         systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
         promptSuggestions: false,
         mcpServers,
+        ...(enabledPlugins ? { enabledPlugins } : {}),
       }),
     }) as Query;
 
@@ -4005,6 +4106,55 @@ export async function rewindClaudeFiles(args: {
   }
 }
 
+/**
+ * Lists the Claude plugins installed through the CLI for a workspace, together
+ * with the effective enable decision after Stave's plugin mode and overrides.
+ * Backs the plugin list in Settings so any install method — marketplace or
+ * local directory — is visible and switchable from Stave.
+ */
+export async function listClaudeInstalledPlugins(args: {
+  cwd?: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+}): Promise<ClaudeInstalledPluginsResponse> {
+  const runtimeCwd =
+    args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
+  try {
+    const claudeExecutablePath = resolveClaudeRuntimeExecutablePath({
+      runtimeOptions: args.runtimeOptions,
+    });
+    const claudeConfigDir = buildClaudeEnv({
+      executablePath: claudeExecutablePath,
+      cwd: runtimeCwd,
+    }).CLAUDE_CONFIG_DIR;
+    const inventory = await resolveClaudeInstalledPlugins({
+      cwd: runtimeCwd,
+      claudeConfigDir,
+    });
+    const enablement = resolveClaudePluginEnablement({
+      plugins: inventory.plugins,
+      mode: args.runtimeOptions?.claudePluginMode ?? "claude-config",
+      ...(args.runtimeOptions?.claudePluginOverrides
+        ? { overrides: args.runtimeOptions.claudePluginOverrides }
+        : {}),
+    });
+    return {
+      ok: true,
+      detail: `Found ${inventory.plugins.length} installed Claude plugin(s) for ${runtimeCwd}.`,
+      configDir: inventory.configDir,
+      plugins: inventory.plugins.map((plugin) => ({
+        ...plugin,
+        enabled: enablement[plugin.id] === true,
+      })),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Claude plugin discovery failed: ${toText(error)}`,
+      plugins: [],
+    };
+  }
+}
+
 export async function reloadClaudePlugins(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -4034,6 +4184,11 @@ export async function reloadClaudePlugins(args: {
       claudeExecutablePath,
       runtimeOptions: args.runtimeOptions,
     });
+    const enabledPlugins = await resolveClaudeEnabledPluginsForQuery({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+    });
     stream = queryFn({
       prompt: "",
       options: buildClaudeQueryOptions({
@@ -4043,6 +4198,7 @@ export async function reloadClaudePlugins(args: {
         systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
         promptSuggestions: false,
         mcpServers,
+        ...(enabledPlugins ? { enabledPlugins } : {}),
       }),
     }) as Query;
 
@@ -4206,7 +4362,9 @@ const CLAUDE_MCP_READINESS_NOTICE_NAME_LIMIT = 5;
 function formatClaudeMcpReadinessNames(names: readonly string[]) {
   const shown = names.slice(0, CLAUDE_MCP_READINESS_NOTICE_NAME_LIMIT);
   const hidden = names.length - shown.length;
-  return hidden > 0 ? `${shown.join(", ")} (+${hidden} more)` : shown.join(", ");
+  return hidden > 0
+    ? `${shown.join(", ")} (+${hidden} more)`
+    : shown.join(", ");
 }
 
 /**
@@ -4276,8 +4434,10 @@ export async function waitForClaudeMcpReadiness(args: {
   const startedAt = now();
   const deadline = startedAt + args.timeoutMs;
 
-  let summary: Pick<ClaudeMcpReadinessResult, "pending" | "unavailable"> | null =
-    null;
+  let summary: Pick<
+    ClaudeMcpReadinessResult,
+    "pending" | "unavailable"
+  > | null = null;
   for (;;) {
     if (args.signal?.aborted) {
       break;
@@ -4433,6 +4593,11 @@ async function createClaudeMcpControlQuery(args: {
     claudeExecutablePath,
     runtimeOptions: args.runtimeOptions,
   });
+  const enabledPlugins = await resolveClaudeEnabledPluginsForQuery({
+    cwd: runtimeCwd,
+    claudeExecutablePath,
+    runtimeOptions: args.runtimeOptions,
+  });
   const stream = queryFn({
     prompt: args.prompt,
     options: buildClaudeQueryOptions({
@@ -4442,6 +4607,7 @@ async function createClaudeMcpControlQuery(args: {
       systemPrompt: args.runtimeOptions?.claudeSystemPrompt,
       promptSuggestions: false,
       mcpServers,
+      ...(enabledPlugins ? { enabledPlugins } : {}),
     }),
   }) as ClaudeMcpControlQuery;
 
@@ -4861,6 +5027,13 @@ export async function streamClaudeWithSdk(
           unattendedAutomationAuthorizationToken:
             args.unattendedAutomation?.authorizationToken,
         });
+    const turnEnabledPlugins = await resolveClaudeEnabledPluginsForQuery({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+      claudeConfigDir: claudeRuntimeEnv.CLAUDE_CONFIG_DIR,
+      secondaryReadOnly,
+    });
     const claudePermissionMode = resolveClaudePermissionMode({
       runtimeValue: args.runtimeOptions?.claudePermissionMode,
       envValue: process.env.STAVE_CLAUDE_PERMISSION_MODE?.trim(),
@@ -4941,6 +5114,7 @@ export async function streamClaudeWithSdk(
         promptSuggestions: true,
         workerModeEligible: true,
         mcpServers: resolvedMcpServers.mcpServers,
+        ...(turnEnabledPlugins ? { enabledPlugins: turnEnabledPlugins } : {}),
         secondaryReadOnly,
         providerBrowserRequested,
         secretEnv: boundSecretEnv,
@@ -5104,10 +5278,7 @@ export async function streamClaudeWithSdk(
             });
           }
 
-          if (
-            providerBrowserRequested &&
-            isClaudeChromeToolName(toolName)
-          ) {
+          if (providerBrowserRequested && isClaudeChromeToolName(toolName)) {
             return buildClaudeApprovalPermissionResult({
               approved: true,
               normalizedInput,
@@ -5455,7 +5626,9 @@ export async function streamClaudeWithSdk(
           );
         }
         if (!queryOptions) {
-          throw new Error("Claude query options were unavailable for recovery.");
+          throw new Error(
+            "Claude query options were unavailable for recovery.",
+          );
         }
         inputQueue = recoveryInputQueue;
         const recoveryQuery = queryFn({

@@ -417,6 +417,18 @@ export function registerProviderHandlers() {
     return invokeHostService("provider.reload-claude-plugins", parsedArgs.data);
   });
 
+  ipcMain.handle("provider:list-claude-plugins", (_event, args: unknown) => {
+    const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        ok: false,
+        detail: "Invalid Claude plugin list request.",
+        plugins: [],
+      };
+    }
+    return invokeHostService("provider.list-claude-plugins", parsedArgs.data);
+  });
+
   ipcMain.handle("provider:get-claude-mcp-status", (_event, args: unknown) => {
     const parsedArgs = ClaudeRuntimeActionArgsSchema.safeParse(args);
     if (!parsedArgs.success) {

@@ -15,6 +15,7 @@ import type {
   ProviderMutationResponse,
   CodexMcpStatusResponse,
   McpDiscoveryResponse,
+  ClaudeInstalledPluginsResponse,
   ClaudePluginReloadResponse,
   CodexMutationResponse,
   CodexPluginDetailResponse,
@@ -51,10 +52,7 @@ import type {
   StaveLocalMcpStatus,
 } from "../src/lib/local-mcp";
 import type { LocalMcpTaskTurnUpdate } from "../src/lib/local-mcp/task-turn-update";
-import type {
-  PrCheckLogExcerpt,
-  PrContextIndex,
-} from "../src/lib/pr-context";
+import type { PrCheckLogExcerpt, PrContextIndex } from "../src/lib/pr-context";
 import type {
   GitHubPrInboxKind,
   GitHubPrInboxResult,
@@ -1037,6 +1035,14 @@ contextBridge.exposeInMainWorld("api", {
         "provider:rename-claude-session",
         args,
       ) as Promise<ProviderMutationResponse>,
+    listClaudeInstalledPlugins: (args: {
+      cwd?: string;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:list-claude-plugins",
+        args,
+      ) as Promise<ClaudeInstalledPluginsResponse>,
     reloadClaudePlugins: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -1703,9 +1709,7 @@ contextBridge.exposeInMainWorld("api", {
         markdown?: string;
         message?: string;
       }>,
-    subscribeStatus: (
-      listener: (payload: MartinSyncPublicStatus) => void,
-    ) => {
+    subscribeStatus: (listener: (payload: MartinSyncPublicStatus) => void) => {
       martinSyncStatusSubscribers.add(listener);
       return () => {
         martinSyncStatusSubscribers.delete(listener);

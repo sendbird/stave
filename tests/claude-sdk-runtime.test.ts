@@ -131,9 +131,7 @@ describe("mapClaudeMessageToEvents", () => {
         subtype: "init",
         session_id: "session-web-1",
         uuid: "msg-init-web-1",
-        mcp_servers: [
-          { name: "claude-in-chrome", status: "connected" },
-        ],
+        mcp_servers: [{ name: "claude-in-chrome", status: "connected" }],
       } as never,
       claudeDebugStream: false,
       providerBrowserRequested: true,
@@ -1711,6 +1709,56 @@ describe("buildClaudeQueryOptions", () => {
       matcher: "^AskUserQuestion$",
       hooks: [claudeAskUserQuestionPreToolUseHook],
     });
+  });
+
+  test("states installed-plugin enablement through the flag settings layer", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      enabledPlugins: { "eli5@claude-community": true, "old@shop": false },
+    });
+
+    // `plugins` only accepts local paths, so marketplace installs have to ride
+    // on inline settings — the layer that outranks user/project/local.
+    expect(options.settings).toEqual({
+      enabledPlugins: { "eli5@claude-community": true, "old@shop": false },
+    });
+  });
+
+  test("keeps fast mode alongside installed-plugin enablement", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: { claudeFastMode: true },
+      enabledPlugins: { "eli5@claude-community": true },
+    });
+
+    expect(options.settings).toEqual({
+      fastMode: true,
+      enabledPlugins: { "eli5@claude-community": true },
+    });
+  });
+
+  test("keeps secondary read-only turns free of installed plugins", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      secondaryReadOnly: true,
+      enabledPlugins: { "eli5@claude-community": true },
+    });
+
+    expect(options.plugins).toEqual([]);
+    expect(options.settings).not.toHaveProperty("enabledPlugins");
+  });
+
+  test("omits inline settings when nothing needs stating", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      enabledPlugins: {},
+    });
+
+    expect(options).not.toHaveProperty("settings");
   });
 
   test("omits resumeSessionAt when no Claude session is being resumed", () => {

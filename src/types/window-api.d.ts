@@ -14,6 +14,7 @@ import type {
   ProviderMutationResponse,
   CodexMcpStatusResponse,
   McpDiscoveryResponse,
+  ClaudeInstalledPluginsResponse,
   ClaudePluginReloadResponse,
   CodexMutationResponse,
   CodexPluginDetailResponse,
@@ -348,6 +349,10 @@ interface WindowProviderApi {
     title: string;
     cwd?: string;
   }) => Promise<ProviderMutationResponse>;
+  listClaudeInstalledPlugins?: (args: {
+    cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  }) => Promise<ClaudeInstalledPluginsResponse>;
   reloadClaudePlugins?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];

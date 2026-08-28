@@ -60,6 +60,7 @@ import {
   ClaudeRuntimeToolsCard,
   CodexBinaryPathCard,
 } from "./settings-dialog-developer-section";
+import { ClaudeInstalledPluginsField } from "./settings-dialog-claude-plugins";
 import { SettingsAdvisorSection } from "./settings-dialog-advisor-section";
 import { SettingsWorkerSection } from "./settings-dialog-worker-section";
 import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
@@ -1186,6 +1187,7 @@ export function ProvidersSection() {
                   }
                 />
               </LabeledField>
+              <ClaudeInstalledPluginsField />
               <LabeledField
                 title="Main Agent"
                 description="Optional Claude agent name from settings or loaded plugins for the main conversation."

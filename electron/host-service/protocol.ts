@@ -24,11 +24,12 @@ import type {
   CodexThreadReadResponse,
   ClaudeContextUsageResponse,
   ClaudeFileRewindResponse,
+  ClaudeInstalledPluginsResponse,
   ClaudeMcpOauthLoginResponse,
   ClaudeMcpStatusResponse,
+  ClaudePluginReloadResponse,
   ClaudeSessionForkResponse,
   ProviderMutationResponse,
-  ClaudePluginReloadResponse,
   CodexMcpStatusResponse,
   CodexMutationResponse,
   CodexPluginDetailResponse,
@@ -468,13 +469,7 @@ export type HostLocalMcpAction =
   | "add-workspace-amplify-link";
 
 export type HostTaskSupervisorAction =
-  | "list"
-  | "get"
-  | "create"
-  | "update"
-  | "pause"
-  | "resume"
-  | "remove";
+  "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
 
 export type HostRoutineAction =
   | "list"
@@ -631,6 +626,10 @@ export interface HostServiceRequestMap {
     cwd?: string;
   };
   "provider.reload-claude-plugins": {
+    cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
+  "provider.list-claude-plugins": {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
@@ -1016,6 +1015,7 @@ export interface HostServiceResponseMap {
   "provider.rewind-claude-files": ClaudeFileRewindResponse;
   "provider.rename-claude-session": ProviderMutationResponse;
   "provider.reload-claude-plugins": ClaudePluginReloadResponse;
+  "provider.list-claude-plugins": ClaudeInstalledPluginsResponse;
   "provider.get-claude-mcp-status": ClaudeMcpStatusResponse;
   "provider.get-codex-mcp-status": CodexMcpStatusResponse;
   "provider.list-mcp-server-configs": McpServerConfigListResponse;

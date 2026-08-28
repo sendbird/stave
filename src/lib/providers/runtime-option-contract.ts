@@ -183,6 +183,8 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "trustedTools",
   "claudeSkills",
   "claudePluginPaths",
+  "claudePluginMode",
+  "claudePluginOverrides",
   "claudeAgentName",
   "claudeFallbackModel",
   "claudeResumeSessionId",

@@ -33,6 +33,8 @@ const settings = {
   claudeFastMode: false,
   claudeSkills: "",
   claudePluginPaths: "",
+  claudePluginMode: "claude-config",
+  claudePluginOverrides: {},
   claudeAgentName: "",
   claudeFallbackModel: "",
   claudeResumeSessionAt: "",
@@ -193,6 +195,47 @@ describe("buildProviderRuntimeOptions", () => {
       claudeSandboxCredentialFiles: ["/tmp/service-token", "/tmp/oauth-token"],
       claudeSandboxCredentialEnvVars: ["SERVICE_TOKEN", "OAUTH_TOKEN"],
     });
+  });
+
+  test("forwards the Claude plugin policy and per-plugin overrides", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-4-6",
+        settings: {
+          ...settings,
+          claudePluginMode: "all",
+          claudePluginOverrides: {
+            "eli5@claude-community": false,
+            " padded@shop ": true,
+            "bogus@shop": "yes",
+          },
+        },
+        providerSession: null,
+      }),
+    ).toMatchObject({
+      claudePluginMode: "all",
+      claudePluginOverrides: {
+        "eli5@claude-community": false,
+        "padded@shop": true,
+      },
+    });
+  });
+
+  test("falls back to the Claude-config plugin policy for unknown values", () => {
+    const options = buildProviderRuntimeOptions({
+      provider: "claude-code",
+      model: "claude-sonnet-4-6",
+      settings: {
+        ...settings,
+        claudePluginMode: "bogus",
+        claudePluginOverrides: {},
+      },
+      providerSession: null,
+    });
+
+    expect(options.claudePluginMode).toBe("claude-config");
+    expect(options).not.toHaveProperty("claudePluginOverrides");
   });
 
   test("uses Opus 4.8 as the automatic fallback for Opus 5", () => {
