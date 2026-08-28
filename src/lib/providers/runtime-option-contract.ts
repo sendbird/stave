@@ -177,6 +177,8 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeEnableFileCheckpointing",
   "claudeForkSession",
   "claudeStrictMcpConfig",
+  "providerBrowserAutoFallback",
+  "providerBrowserAutoFallbackDomains",
   "claudeFastMode",
   "claudeAllowedTools",
   "claudeDisallowedTools",

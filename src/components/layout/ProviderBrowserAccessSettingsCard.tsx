@@ -1,12 +1,15 @@
+import { useEffect, useState } from "react";
+
 import { ModelIcon } from "@/components/ai-elements/model-icon";
-import { Badge } from "@/components/ui";
+import { Badge, Textarea } from "@/components/ui";
 import type {
   ProviderBrowserConnectionStatus,
   WorkspaceConnectedBrowserTab,
 } from "@/lib/provider-browser";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
-import { SettingsCard } from "./settings-dialog.shared";
+import { PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS } from "@/lib/provider-browser";
+import { SettingsCard, SwitchField } from "./settings-dialog.shared";
 
 const PROVIDER_BROWSER_SETUP = {
   "claude-code": {
@@ -116,8 +119,46 @@ function ProviderBrowserStatusCard(args: {
   );
 }
 
+function AutoFallbackDomainsField(args: {
+  value: string;
+  onCommit: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(args.value);
+  useEffect(() => setDraft(args.value), [args.value]);
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor="settings-field-browser-auto-fallback-domains"
+        className="text-sm font-medium"
+      >
+        Additional auto-arm hosts
+      </label>
+      <Textarea
+        id="settings-field-browser-auto-fallback-domains"
+        value={draft}
+        rows={2}
+        placeholder="wiki.corp.example, docs.corp.example"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (draft !== args.value) {
+            args.onCommit(draft);
+          }
+        }}
+      />
+      <p className="text-xs leading-5 text-muted-foreground">
+        Comma- or space-separated; subdomains match. Always included:{" "}
+        {PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS.join(", ")}.
+      </p>
+    </div>
+  );
+}
+
 export function ProviderBrowserAccessSettingsCard(args: {
   tab: WorkspaceConnectedBrowserTab | null;
+  autoFallback: boolean;
+  onAutoFallbackChange: (enabled: boolean) => void;
+  autoFallbackDomains: string;
+  onAutoFallbackDomainsChange: (value: string) => void;
 }) {
   return (
     <SettingsCard
@@ -131,6 +172,18 @@ export function ProviderBrowserAccessSettingsCard(args: {
         <ProviderBrowserStatusCard providerId="claude-code" tab={args.tab} />
         <ProviderBrowserStatusCard providerId="codex" tab={args.tab} />
       </div>
+      <SwitchField
+        title="Automatic browser fallback"
+        description="Without an explicit @web, arm the browser up front for hosts a plain fetch cannot read, and retry once with it after a fetch is blocked by a login wall or bot check."
+        checked={args.autoFallback}
+        onCheckedChange={args.onAutoFallbackChange}
+      />
+      {args.autoFallback ? (
+        <AutoFallbackDomainsField
+          value={args.autoFallbackDomains}
+          onCommit={args.onAutoFallbackDomainsChange}
+        />
+      ) : null}
       <div className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
         <p>
           <span className="font-medium text-foreground">Recheck:</span> send a
@@ -139,8 +192,11 @@ export function ProviderBrowserAccessSettingsCard(args: {
           install, enable, or grant access on its behalf.
         </p>
         <p className="mt-1">
-          Plan mode, unattended automation, secondary analysis, and prompts
-          without <code>@web</code> keep provider-native browser access off.
+          Plan mode, unattended automation, and secondary analysis keep
+          provider-native browser access off, and automatic fallback never
+          overrides them. With fallback off, a prompt without <code>@web</code>
+          {" "}
+          also keeps it off.
         </p>
       </div>
     </SettingsCard>

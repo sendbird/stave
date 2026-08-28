@@ -327,6 +327,19 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeForkSession: boolean;
   claudeStrictMcpConfig: boolean;
   claudeFastMode: boolean;
+  /**
+   * Opt-in: let Stave arm the provider-native browser without an explicit
+   * `@web`, both up front for hosts that are unreadable without a signed-in
+   * session and as a one-shot retry after a plain fetch hits an auth wall.
+   * Off by default because it widens `@web` from a per-prompt opt-in.
+   */
+  providerBrowserAutoFallback: boolean;
+  /**
+   * Extra hosts, beyond Stave's built-in list, that arm the provider browser up
+   * front when `providerBrowserAutoFallback` is on. Whitespace- or
+   * comma-separated; subdomains of each entry match.
+   */
+  providerBrowserAutoFallbackDomains: string;
   claudeSkills: string;
   claudePluginPaths: string;
   /**
@@ -595,6 +608,8 @@ export const defaultSettings: AppSettings = {
   claudeForkSession: false,
   claudeStrictMcpConfig: false,
   claudeFastMode: false,
+  providerBrowserAutoFallback: false,
+  providerBrowserAutoFallbackDomains: "",
   claudeSkills: "",
   claudePluginPaths: "",
   claudePluginMode: "claude-config",

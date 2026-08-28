@@ -8,6 +8,7 @@ import {
   CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
   claudeAskUserQuestionPreToolUseHook,
   claudeForegroundSubagentPreToolUseHook,
+  claudeWebFetchAuthWallPostToolUseHook,
   ClaudeToolDecisionTimeoutError,
   resolveClaudeForegroundSubagentInput,
   resolveClaudeAgentProgressSummaries,
@@ -1690,6 +1691,75 @@ describe("buildClaudeQueryOptions", () => {
 
     expect(enabled.extraArgs).toEqual({ chrome: null });
     expect(disabled.extraArgs).toEqual({ "no-chrome": null });
+  });
+
+  test("watches WebFetch for auth walls only when a fallback is possible", () => {
+    const watching = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      providerBrowserAutoFallback: true,
+    });
+    expect(watching.hooks?.PostToolUse?.[0]?.matcher).toBe("^WebFetch$");
+
+    // Setting off: nothing would act on a detection.
+    expect(
+      buildClaudeQueryOptions({
+        cwd: workspaceRoot,
+        claudeExecutablePath: "",
+      }).hooks?.PostToolUse,
+    ).toBeUndefined();
+
+    // Browser already attached: the model can just use it.
+    expect(
+      buildClaudeQueryOptions({
+        cwd: workspaceRoot,
+        claudeExecutablePath: "",
+        providerBrowserRequested: true,
+        providerBrowserAutoFallback: true,
+      }).hooks?.PostToolUse,
+    ).toBeUndefined();
+  });
+
+  test("tells the model to stop re-fetching a blocked host", async () => {
+    const blocked = await claudeWebFetchAuthWallPostToolUseHook(
+      {
+        hook_event_name: "PostToolUse",
+        session_id: "s1",
+        transcript_path: "/tmp/t",
+        cwd: workspaceRoot,
+        tool_name: "WebFetch",
+        tool_input: { url: "https://claude.ai/code/artifact/abc" },
+        tool_response: "Request failed with status code 403",
+        tool_use_id: "t1",
+      },
+      "t1",
+      { signal: new AbortController().signal },
+    );
+    expect(
+      (
+        blocked.hookSpecificOutput as { additionalContext?: string } | undefined
+      )?.additionalContext,
+    ).toContain("login wall");
+
+    for (const quiet of [
+      { tool_name: "WebFetch", tool_response: "404 Not Found" },
+      { tool_name: "WebSearch", tool_response: "HTTP 403 Forbidden" },
+    ]) {
+      const result = await claudeWebFetchAuthWallPostToolUseHook(
+        {
+          hook_event_name: "PostToolUse",
+          session_id: "s1",
+          transcript_path: "/tmp/t",
+          cwd: workspaceRoot,
+          tool_input: {},
+          tool_use_id: "t2",
+          ...quiet,
+        },
+        "t2",
+        { signal: new AbortController().signal },
+      );
+      expect(result).toEqual({});
+    }
   });
 
   test("forces AskUserQuestion through Stave while preserving SDK bypass mode", () => {

@@ -143,7 +143,7 @@ import {
 import { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
-import { createProviderBrowserConnectionTracker, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
+import { createProviderBrowserConnectionTracker, parseProviderBrowserDomains, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
 import { buildCodexNativeBrowserTurnConfigOverrides, resolveCodexNativeBrowserPluginEnabled } from "./codex-runtime-config";
 import { prepareCodexImageAwareTurnInput } from "./native-image-input";
 
@@ -2300,6 +2300,8 @@ export async function streamCodexWithAppServer(
   const providerBrowserRequested = shouldActivateProviderBrowser({
     prompt: args.prompt, secondaryReadOnly,
     unattendedAutomation: Boolean(args.unattendedAutomation), planMode: runtimeOptions?.codexPlanMode === true,
+    autoFallbackEnabled: runtimeOptions?.providerBrowserAutoFallback === true,
+    autoFallbackDomains: parseProviderBrowserDomains(runtimeOptions?.providerBrowserAutoFallbackDomains),
   });
   const workerProfile = secondaryReadOnly ? null : resolveCodexWorkerProfile({ runtimeOptions });
   const workerExecution = workerProfile ? buildWorkerExecutionMetadata(workerProfile) : null;

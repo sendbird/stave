@@ -1049,6 +1049,14 @@ export interface ProviderRuntimeOptions {
   claudeEnableFileCheckpointing?: boolean;
   claudeForkSession?: boolean;
   claudeStrictMcpConfig?: boolean;
+  /**
+   * Provider-agnostic: mirrors the `providerBrowserAutoFallback` setting so the
+   * turn-start browser gate in both runtimes can arm `@web` for a host that a
+   * token-less fetch cannot read.
+   */
+  providerBrowserAutoFallback?: boolean;
+  /** Extra auto-arm hosts, unparsed; see `parseProviderBrowserDomains`. */
+  providerBrowserAutoFallbackDomains?: string;
   claudeFastMode?: boolean;
   claudeAllowedTools?: string[];
   claudeDisallowedTools?: string[];
