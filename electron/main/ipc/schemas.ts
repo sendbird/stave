@@ -858,6 +858,8 @@ export const RuntimeOptionsObjectSchema = z
     claudeEnableFileCheckpointing: z.boolean().optional(),
     claudeForkSession: z.boolean().optional(),
     claudeStrictMcpConfig: z.boolean().optional(),
+    providerBrowserAutoFallback: z.boolean().optional(),
+    providerBrowserAutoFallbackDomains: z.string().optional(),
     claudeFastMode: z.boolean().optional(),
     claudeAllowedTools: z.array(z.string().max(200)).max(200).optional(),
     claudeDisallowedTools: z.array(z.string().max(200)).max(200).optional(),

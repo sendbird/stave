@@ -15,6 +15,8 @@ const settings = {
   providerDebugStream: false,
   providerTimeoutMs: 3600000,
   claudeBinaryPath: "",
+  providerBrowserAutoFallback: false,
+  providerBrowserAutoFallbackDomains: "",
   claudePermissionMode: "acceptEdits",
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: true,
@@ -485,5 +487,36 @@ describe("advisor arming in runtime options", () => {
         settings: advisorSettings as never,
       }).advisorTarget,
     ).toBeUndefined();
+  });
+});
+
+describe("provider browser automatic fallback runtime options", () => {
+  test("forwards the fallback setting and host list to both providers", () => {
+    for (const provider of ["claude-code", "codex"] as const) {
+      expect(
+        buildProviderRuntimeOptions({
+          provider,
+          model: provider === "codex" ? "gpt-5-codex" : "claude-sonnet-4-6",
+          settings: {
+            ...settings,
+            providerBrowserAutoFallback: true,
+            providerBrowserAutoFallbackDomains: "wiki.corp.example",
+          },
+        }),
+      ).toMatchObject({
+        providerBrowserAutoFallback: true,
+        providerBrowserAutoFallbackDomains: "wiki.corp.example",
+      });
+    }
+  });
+
+  test("leaves the fallback off by default", () => {
+    expect(
+      buildProviderRuntimeOptions({
+        provider: "claude-code",
+        model: "claude-sonnet-4-6",
+        settings,
+      }),
+    ).toMatchObject({ providerBrowserAutoFallback: false });
   });
 });

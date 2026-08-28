@@ -647,6 +647,8 @@ export function ProvidersSection() {
     activeTaskProvider,
     activeTaskModelOverride,
     connectedBrowserTab,
+    providerBrowserAutoFallback,
+    providerBrowserAutoFallbackDomains,
     claudeRuntimeCapabilities,
     codexRuntimeCapabilities,
   ] = useAppStore(
@@ -701,6 +703,8 @@ export function ProvidersSection() {
           state.promptDraftByTask[state.activeTaskId]?.runtimeOverrides
             ?.model ?? null,
           state.workspaceInformation.connectedBrowserTab ?? null,
+          state.settings.providerBrowserAutoFallback,
+          state.settings.providerBrowserAutoFallbackDomains,
           state.providerRuntimeCapabilities["claude-code"],
           state.providerRuntimeCapabilities.codex,
         ] as const,
@@ -780,7 +784,19 @@ export function ProvidersSection() {
 
   return (
     <>
-      <ProviderBrowserAccessSettingsCard tab={connectedBrowserTab} />
+      <ProviderBrowserAccessSettingsCard
+        tab={connectedBrowserTab}
+        autoFallback={providerBrowserAutoFallback}
+        onAutoFallbackChange={(checked) =>
+          updateSettings({ patch: { providerBrowserAutoFallback: checked } })
+        }
+        autoFallbackDomains={providerBrowserAutoFallbackDomains}
+        onAutoFallbackDomainsChange={(value) =>
+          updateSettings({
+            patch: { providerBrowserAutoFallbackDomains: value },
+          })
+        }
+      />
       <SettingsAdvisorSection
         advisorEnabled={advisorEnabled}
         advisorTarget={advisorTarget}

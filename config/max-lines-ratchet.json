@@ -22,6 +22,6 @@
     "src/lib/lens/lens-guest-placement.ts": 800,
     "src/lib/lens/lens-instrumentation.ts": 800,
     "src/lib/lens/lens-log-format.ts": 800,
-    "src/store/app.store.ts": 3155
+    "src/store/app.store.ts": 3171
   }
 }

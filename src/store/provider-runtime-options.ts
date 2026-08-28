@@ -64,6 +64,8 @@ type RuntimeSettings = Pick<
   | "claudeEnableFileCheckpointing"
   | "claudeForkSession"
   | "claudeStrictMcpConfig"
+  | "providerBrowserAutoFallback"
+  | "providerBrowserAutoFallbackDomains"
   | "claudeFastMode"
   | "trustedTools"
   | "claudeSkills"
@@ -328,6 +330,9 @@ export function buildProviderRuntimeOptions(args: {
     claudeEnableFileCheckpointing: settings.claudeEnableFileCheckpointing,
     claudeForkSession: settings.claudeForkSession,
     claudeStrictMcpConfig: settings.claudeStrictMcpConfig,
+    providerBrowserAutoFallback: settings.providerBrowserAutoFallback,
+    providerBrowserAutoFallbackDomains:
+      settings.providerBrowserAutoFallbackDomains,
     claudeFastMode: settings.claudeFastMode,
     trustedTools,
     ...(claudeAllowedTools.length > 0 ? { claudeAllowedTools } : {}),

@@ -121,6 +121,9 @@ import { isAlwaysAllowedStaveLocalMcpTool } from "./stave-local-mcp-approval";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 import {
   isClaudeChromeToolName,
+  isPlainWebFetchToolName,
+  isProviderBrowserAuthWallOutput,
+  parseProviderBrowserDomains,
   shouldActivateProviderBrowser,
 } from "../../src/lib/provider-browser";
 
@@ -1164,6 +1167,47 @@ export const claudeAskUserQuestionPreToolUseHook: HookCallback = async (
   };
 };
 
+/**
+ * Tells the model to stop re-fetching a URL that came back as an auth wall.
+ *
+ * Detection alone would leave the model to keep hammering WebFetch with small
+ * variations for the rest of the turn, because from its side a 403 body looks
+ * like something a different request might fix. It cannot: the missing piece is
+ * a signed-in session that this turn has no browser for. Stave answers that by
+ * queueing one `@web` follow-up turn once this one ends, so the only useful
+ * thing left in *this* turn is to stop fetching and report.
+ *
+ * Registered only when the provider browser is off for the turn — with `@web`
+ * already on, the model has the browser in hand and should just use it.
+ */
+export const claudeWebFetchAuthWallPostToolUseHook: HookCallback = async (
+  input,
+) => {
+  if (
+    input.hook_event_name !== "PostToolUse" ||
+    !isPlainWebFetchToolName(input.tool_name)
+  ) {
+    return {};
+  }
+  const response = input.tool_response;
+  const output =
+    typeof response === "string" ? response : JSON.stringify(response ?? "");
+  if (!isProviderBrowserAuthWallOutput(output)) {
+    return {};
+  }
+  return {
+    hookSpecificOutput: {
+      hookEventName: "PostToolUse",
+      additionalContext:
+        "Stave: that fetch was refused by a login wall or bot check, not by a " +
+        "bad URL. A plain fetch has no signed-in session, so retrying it — or " +
+        "trying a mirror, an API path, or curl — will fail the same way. Stop " +
+        "fetching this host, finish what you can without it, and report what " +
+        "is missing. Stave will retry with the browser attached afterwards.",
+    },
+  };
+};
+
 export function buildClaudeSystemPrompt(args: {
   cwd: string;
   baseSystemPrompt?: string;
@@ -1987,6 +2031,7 @@ export function buildClaudeQueryOptions(args: {
   onUserDialog?: OnUserDialog;
   secondaryReadOnly?: boolean;
   providerBrowserRequested?: boolean;
+  providerBrowserAutoFallback?: boolean;
   /**
    * Env vars for bound vault secrets, resolved in the main process. Spread into
    * the SDK subprocess env so the agent's Bash tool can read them. Passed only
@@ -2219,6 +2264,16 @@ export function buildClaudeQueryOptions(args: {
           hooks: [claudeForegroundSubagentPreToolUseHook],
         },
       ],
+      ...(args.providerBrowserRequested || !args.providerBrowserAutoFallback
+        ? {}
+        : {
+            PostToolUse: [
+              {
+                matcher: "^WebFetch$",
+                hooks: [claudeWebFetchAuthWallPostToolUseHook],
+              },
+            ],
+          }),
     },
     ...(args.canUseTool ? { canUseTool: args.canUseTool } : {}),
     ...(!args.secondaryReadOnly && args.onElicitation
@@ -5044,6 +5099,11 @@ export async function streamClaudeWithSdk(
       secondaryReadOnly,
       unattendedAutomation: Boolean(args.unattendedAutomation),
       planMode: claudePermissionMode === "plan",
+      autoFallbackEnabled:
+        args.runtimeOptions?.providerBrowserAutoFallback === true,
+      autoFallbackDomains: parseProviderBrowserDomains(
+        args.runtimeOptions?.providerBrowserAutoFallbackDomains,
+      ),
     });
     const planModeApprovalScope = resolveClaudePlanModeApprovalScope({
       runtimeValue: args.runtimeOptions?.claudePlanModeApprovalScope,
@@ -5117,6 +5177,8 @@ export async function streamClaudeWithSdk(
         ...(turnEnabledPlugins ? { enabledPlugins: turnEnabledPlugins } : {}),
         secondaryReadOnly,
         providerBrowserRequested,
+        providerBrowserAutoFallback:
+          args.runtimeOptions?.providerBrowserAutoFallback === true,
         secretEnv: boundSecretEnv,
         onElicitation: async (request, options) => {
           const requestId =

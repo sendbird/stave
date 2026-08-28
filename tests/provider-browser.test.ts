@@ -1,10 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyProviderBrowserConnectionEvents,
+  buildProviderBrowserFallbackPrompt,
   createProviderBrowserConnectionTracker,
   isClaudeChromeToolName,
   isCodexBrowserSelectionTool,
+  isPlainWebFetchToolName,
+  isProviderBrowserAuthWallOutput,
+  parseProviderBrowserDomains,
   promptRequestsProviderBrowser,
+  promptTargetsProviderBrowserDomain,
+  resolveWebFetchToolUrl,
   shouldActivateProviderBrowser,
 } from "@/lib/provider-browser";
 
@@ -164,5 +170,176 @@ describe("provider browser workspace metadata", () => {
       requestedAt: "2026-08-11T05:00:00.000Z",
       lastUpdatedAt: "2026-08-11T05:00:02.000Z",
     });
+  });
+});
+
+describe("provider browser automatic fallback", () => {
+  test("normalizes the shapes people paste into the auto-arm host list", () => {
+    expect(
+      parseProviderBrowserDomains(
+        "https://wiki.corp.example/space/x, *.docs.corp.example\nBUILD.corp.example:8443 dup.example, dup.example",
+      ),
+    ).toEqual([
+      "wiki.corp.example",
+      "docs.corp.example",
+      "build.corp.example",
+      "dup.example",
+    ]);
+    expect(parseProviderBrowserDomains("")).toEqual([]);
+    expect(parseProviderBrowserDomains(undefined)).toEqual([]);
+  });
+
+  test("drops wildcard entries that would arm every host", () => {
+    expect(parseProviderBrowserDomains("*, *.*, a*.example")).toEqual([]);
+  });
+
+  test("matches a prompt URL against a host and its subdomains only", () => {
+    const domains = ["corp.example"];
+    expect(
+      promptTargetsProviderBrowserDomain({
+        prompt: "Read https://wiki.corp.example/page/12 for me.",
+        domains,
+      }),
+    ).toBe(true);
+    expect(
+      promptTargetsProviderBrowserDomain({ prompt: "corp.example", domains }),
+    ).toBe(false);
+    // Suffix matching must be label-aware in both directions.
+    expect(
+      promptTargetsProviderBrowserDomain({
+        prompt: "Read https://notcorp.example/page",
+        domains,
+      }),
+    ).toBe(false);
+    expect(
+      promptTargetsProviderBrowserDomain({
+        prompt: "Read https://corp.example.attacker.test/page",
+        domains,
+      }),
+    ).toBe(false);
+  });
+
+  test("ignores trailing sentence punctuation when reading the host", () => {
+    expect(
+      promptTargetsProviderBrowserDomain({
+        prompt: "Check https://wiki.corp.example/a.",
+        domains: ["corp.example"],
+      }),
+    ).toBe(true);
+  });
+
+  test("arms a known auth-walled host only when the setting is on", () => {
+    const prompt =
+      "Summarize https://claude.ai/code/artifact/8b90a8cf-eb29-463d-8a7b-a426cc840941";
+    const base = {
+      prompt,
+      secondaryReadOnly: false,
+      unattendedAutomation: false,
+      planMode: false,
+    };
+    expect(shouldActivateProviderBrowser(base)).toBe(false);
+    expect(
+      shouldActivateProviderBrowser({ ...base, autoFallbackEnabled: true }),
+    ).toBe(true);
+  });
+
+  test("keeps the three hard blocks above the auto-arm setting", () => {
+    const base = {
+      prompt: "Summarize https://claude.ai/code/artifact/abc",
+      secondaryReadOnly: false,
+      unattendedAutomation: false,
+      planMode: false,
+      autoFallbackEnabled: true,
+      autoFallbackDomains: ["corp.example"],
+    };
+    for (const blocked of [
+      { secondaryReadOnly: true },
+      { unattendedAutomation: true },
+      { planMode: true },
+    ]) {
+      expect(shouldActivateProviderBrowser({ ...base, ...blocked })).toBe(false);
+    }
+  });
+
+  test("arms user-listed hosts alongside the built-in ones", () => {
+    expect(
+      shouldActivateProviderBrowser({
+        prompt: "Read https://wiki.corp.example/x",
+        secondaryReadOnly: false,
+        unattendedAutomation: false,
+        planMode: false,
+        autoFallbackEnabled: true,
+        autoFallbackDomains: ["corp.example"],
+      }),
+    ).toBe(true);
+    expect(
+      shouldActivateProviderBrowser({
+        prompt: "Read https://unrelated.example/x",
+        secondaryReadOnly: false,
+        unattendedAutomation: false,
+        planMode: false,
+        autoFallbackEnabled: true,
+        autoFallbackDomains: ["corp.example"],
+      }),
+    ).toBe(false);
+  });
+
+  test("recognizes the plain fetch tools and nothing else", () => {
+    expect(isPlainWebFetchToolName("WebFetch")).toBe(true);
+    expect(isPlainWebFetchToolName("web_fetch")).toBe(true);
+    expect(isPlainWebFetchToolName("WebSearch")).toBe(false);
+    expect(isPlainWebFetchToolName("mcp__claude-in-chrome__navigate")).toBe(
+      false,
+    );
+  });
+
+  test("detects auth walls without firing on ordinary failures", () => {
+    for (const blocked of [
+      "Request failed with status code 403",
+      "HTTP 401 Unauthorized",
+      "<title>Just a moment...</title><script>Enable JavaScript and cookies to continue",
+      "Attention Required! | Cloudflare",
+      "Please sign in to continue reading",
+      "Authentication required",
+    ]) {
+      expect(isProviderBrowserAuthWallOutput(blocked)).toBe(true);
+    }
+    for (const allowed of [
+      "",
+      "   ",
+      "404 Not Found",
+      "The page explains how to sign in to the dashboard from the settings menu.",
+      // Long prose about authentication is documentation, not a wall.
+      `Chapter 3. Authentication is required for every endpoint. ${"x".repeat(2100)}`,
+      "Timed out after 30000ms",
+    ]) {
+      expect(isProviderBrowserAuthWallOutput(allowed)).toBe(false);
+    }
+  });
+
+  test("reads the fetched URL from either input shape", () => {
+    expect(
+      resolveWebFetchToolUrl('{"url":"https://claude.ai/x","prompt":"read"}'),
+    ).toBe("https://claude.ai/x");
+    expect(resolveWebFetchToolUrl("fetch https://claude.ai/y now")).toBe(
+      "https://claude.ai/y",
+    );
+    expect(resolveWebFetchToolUrl("   ")).toBe(null);
+    expect(resolveWebFetchToolUrl('{"prompt":"read"}')).toBe(null);
+  });
+
+  test("builds a retry prompt that re-arms the browser and cannot loop", () => {
+    const prompt = buildProviderBrowserFallbackPrompt({
+      urls: ["https://claude.ai/x", "https://claude.ai/x", " "],
+    });
+    // The @web token is both the activation trigger and the loop breaker.
+    expect(promptRequestsProviderBrowser(prompt)).toBe(true);
+    expect(prompt).toContain("- https://claude.ai/x");
+    expect(prompt.match(/https:\/\/claude\.ai\/x/g)).toHaveLength(1);
+    expect(
+      promptRequestsProviderBrowser(
+        buildProviderBrowserFallbackPrompt({ urls: [] }),
+      ),
+    ).toBe(true);
   });
 });

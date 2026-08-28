@@ -132,6 +132,10 @@ import {
 } from "@/store/host-task-turn-sync";
 import { createQueuedTaskTurnDispatcher } from "@/store/queued-task-turn-dispatch";
 import {
+  createWebFetchAuthWallTracker,
+  maybeStartProviderBrowserFallbackTurn,
+} from "@/store/provider-browser-auto-fallback";
+import {
   createProviderTurnStallTimerScheduler,
   createStalledProviderTurnAborter,
 } from "@/store/provider-turn-stall-abort";
@@ -2785,6 +2789,11 @@ export const useAppStore = create<AppState>()(
           });
 
           let lastPersistedPlanTextForTurn: string | null = null;
+          const webFetchAuthWallTracker = createWebFetchAuthWallTracker({
+            prompt,
+            turnOrigin,
+            runtimeOptions: providerRuntimeOptions,
+          });
           const providerTurnEventController = createProviderTurnEventController(
             {
               onEventArrived: () =>
@@ -2793,6 +2802,7 @@ export const useAppStore = create<AppState>()(
                   turnId,
                 }),
               flushEvents: (pendingEvents) => {
+                webFetchAuthWallTracker.observe(pendingEvents);
                 let persistInactiveWorkspaceSession: {
                   workspaceId: string;
                   session: WorkspaceSessionState;
@@ -3073,6 +3083,12 @@ export const useAppStore = create<AppState>()(
                   dispatchNextQueuedTaskTurn({
                     workspaceId: taskWorkspaceId,
                     taskId: resolvedTaskId,
+                  });
+                  maybeStartProviderBrowserFallbackTurn(get, {
+                    taskId: resolvedTaskId,
+                    events: pendingEvents,
+                    tracker: webFetchAuthWallTracker,
+                    session: latestWorkspaceSession,
                   });
                   const completedTask =
                     latestWorkspaceSession?.tasks.find(
