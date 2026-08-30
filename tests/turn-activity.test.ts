@@ -469,6 +469,42 @@ describe("turn activity presentation", () => {
     expect(second?.startOffsetSeconds).toBe(64);
   });
 
+  test("disambiguates hook handlers that share the same visible label", () => {
+    const items = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [
+        buildWorkItem({
+          id: "hook-1",
+          kind: "hook",
+          title: "command: hooks.json",
+          badge: "userPromptSubmit",
+        }),
+        buildWorkItem({
+          id: "hook-2",
+          kind: "hook",
+          title: "command: hooks.json",
+          badge: "userPromptSubmit",
+        }),
+        buildWorkItem({
+          id: "hook-3",
+          kind: "hook",
+          title: "command: project-hooks.json",
+          badge: "userPromptSubmit",
+        }),
+      ],
+    });
+
+    expect(items.map((item) => item.title)).toEqual([
+      "handler 1 · command: hooks.json",
+      "handler 2 · command: hooks.json",
+      "command: project-hooks.json",
+    ]);
+  });
+
   test("omits the timeline offset when the turn start is unknown", () => {
     const [row] = buildTurnActivityItems({
       activity: null,

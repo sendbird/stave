@@ -7,6 +7,7 @@ import {
   getProviderLabel,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
+import { truncateWorkText } from "@/lib/providers/subagent-identity";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
@@ -422,6 +423,17 @@ export function buildTurnActivityItems(args: {
   hasPendingInteractionCard?: boolean;
 }): TurnActivityItem[] {
   const items: TurnActivityItem[] = [];
+  // Providers can run several handlers from one hook file. Keep every status
+  // row while giving otherwise identical labels stable, visible ordinals.
+  const hookLabelCounts = new Map<string, number>();
+  for (const item of args.workItems) {
+    if (item.kind !== "hook") {
+      continue;
+    }
+    const key = JSON.stringify([item.title, item.badge ?? null]);
+    hookLabelCounts.set(key, (hookLabelCounts.get(key) ?? 0) + 1);
+  }
+  const hookLabelOrdinals = new Map<string, number>();
   if (args.activity?.turnError) {
     const isRecovering =
       args.activity.turnErrorRecoverable === true &&
@@ -476,6 +488,16 @@ export function buildTurnActivityItems(args: {
     );
   }
   for (const item of args.workItems) {
+    let title = item.title;
+    if (item.kind === "hook") {
+      const key = JSON.stringify([item.title, item.badge ?? null]);
+      if ((hookLabelCounts.get(key) ?? 0) > 1) {
+        const ordinal = (hookLabelOrdinals.get(key) ?? 0) + 1;
+        hookLabelOrdinals.set(key, ordinal);
+        title =
+          truncateWorkText(`handler ${ordinal} · ${item.title}`) ?? item.title;
+      }
+    }
     const elapsedSeconds = resolveWorkItemElapsedSeconds(item);
     const startOffsetSeconds = resolveWorkItemStartOffsetSeconds({
       item,
@@ -484,7 +506,7 @@ export function buildTurnActivityItems(args: {
     items.push({
       id: `work:${item.id}`,
       status: item.status,
-      title: item.title,
+      title,
       detail: item.progressMessages.at(-1) ?? item.detail,
       ...(item.badge ? { badge: item.badge } : {}),
       ...(elapsedSeconds != null ? { elapsedSeconds } : {}),
