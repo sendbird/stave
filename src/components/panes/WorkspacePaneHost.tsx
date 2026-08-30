@@ -32,7 +32,10 @@ import {
   requestEditorBulkClose,
   type EditorTabsCloseRequest,
 } from "@/components/panes/pane-surface-actions";
-import { registerPaneHostController } from "@/components/panes/pane-host-controller";
+import {
+  registerPaneHostController,
+  shouldDeferSurfaceOpenToStore,
+} from "@/components/panes/pane-host-controller";
 import {
   resolveTerminalGroupHeight,
   resolveTerminalPanelPosition,
@@ -937,11 +940,15 @@ export function WorkspacePaneHost() {
           // selectTask both ensures tab membership and focuses the surface;
           // an inactive task open is not part of wave-1 semantics.
           store.selectTask({ taskId: surface.taskId });
-          return true;
+          if (shouldDeferSurfaceOpenToStore(surface, options)) {
+            return true;
+          }
         }
         if (surface.kind === "compare-run") {
           store.openCompareRun({ compareRunId: surface.compareRunId });
-          return true;
+          if (shouldDeferSurfaceOpenToStore(surface, options)) {
+            return true;
+          }
         }
         if (!api) {
           return false;
