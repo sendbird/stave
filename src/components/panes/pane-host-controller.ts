@@ -24,9 +24,12 @@ export type PaneSplitDirection =
 export interface OpenSurfaceOptions {
   /** Activate (focus) the panel after opening. Defaults to true. */
   activate?: boolean;
-  /** Open relative to an existing panel; defaults to the active group. */
+  /**
+   * Open relative to an existing panel or group; defaults to the active group.
+   */
   position?: {
     referencePanelId?: string;
+    referenceGroupId?: string;
     direction?: PaneSplitDirection;
   };
 }
@@ -102,6 +105,33 @@ export const paneHost = {
     activeController?.toggleTerminalGroup();
   },
 };
+
+/** Open a newly created surface from a specific pane-group header. */
+export function openPaneTabInGroup(args: {
+  surface: PaneSurfaceDescriptor;
+  groupId: string;
+}): boolean {
+  return paneHost.openSurface(args.surface, {
+    position: {
+      referenceGroupId: args.groupId,
+      direction: "within",
+    },
+  });
+}
+
+/**
+ * Let store-driven reconciliation handle opens that have no explicit
+ * placement.
+ */
+export function shouldDeferSurfaceOpenToStore(
+  surface: PaneSurfaceDescriptor,
+  options?: OpenSurfaceOptions,
+): boolean {
+  return (
+    options?.position === undefined &&
+    (surface.kind === "task" || surface.kind === "compare-run")
+  );
+}
 
 /** Focus the current/recent Lens pane, creating one when none exists. */
 export function focusOrCreateLensSurface(): string | null {
