@@ -1,3 +1,18 @@
+## [0.16.1](https://github.com/sendbird/stave/compare/v0.16.0...v0.16.1) (2026-08-31)
+
+### Bug Fixes
+
+* **lens:** Keep local Lens previews painted above the opaque app shell by hosting the guest root inside the app surface stacking context.
+* **lens:** Retain the body-level guest root fallback so isolated renderer harnesses still mount Lens content.
+
+### Tests
+
+* Add host-window hit-test and pixel regression coverage that asserts Lens content is actually visible.
+
+### References
+
+* [#402](https://github.com/sendbird/stave/pull/402) — fix(lens): keep preview above app surface
+
 ## [0.16.0](https://github.com/sendbird/stave/compare/v0.15.3...v0.16.0) (2026-08-31)
 
 ### Features
