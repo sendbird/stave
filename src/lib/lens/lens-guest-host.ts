@@ -1,5 +1,12 @@
 import { UI_LAYER_VALUE } from "@/lib/ui-layers";
 import {
+  EMPTY_LENS_GUEST_FOCUS_BORROW,
+  beginLensGuestFocusBorrow,
+  finishLensGuestFocusBorrow,
+  type LensFocusableHost,
+  type LensGuestFocusBorrowState,
+} from "./lens-guest-focus-borrow";
+import {
   areLensGuestRectsEqual,
   resolveLensGuestStyle,
   type LensGuestPlacement,
@@ -60,6 +67,34 @@ type GuestRecord = {
 const guests = new Map<string, GuestRecord>();
 
 let surfaceRoot: HTMLDivElement | null = null;
+let focusBorrow: LensGuestFocusBorrowState = EMPTY_LENS_GUEST_FOCUS_BORROW;
+
+function findGuestRecordByElement(
+  element: LensFocusableHost | null,
+): GuestRecord | null {
+  if (!element) {
+    return null;
+  }
+  for (const record of guests.values()) {
+    if (record.element === element) {
+      return record;
+    }
+  }
+  return null;
+}
+
+function isLensGuestElement(element: LensFocusableHost | null): boolean {
+  return findGuestRecordByElement(element) !== null;
+}
+
+function isParkedLensGuestElement(element: LensFocusableHost): boolean {
+  const record = findGuestRecordByElement(element);
+  return record !== null && !record.placement.presented;
+}
+
+function asFocusable(element: Element | null): LensFocusableHost | null {
+  return element instanceof HTMLElement ? element : null;
+}
 
 /**
  * The one container every guest lives in.
@@ -319,12 +354,47 @@ export function setLensGuestPlacement(
  * guest, so only the embedding renderer can hand it focus — and CDP input
  * dispatched to an unfocused guest is delivered to whatever *is* focused while
  * still reporting success.
+ *
+ * This is a borrow, not a transfer. Call `restoreLensGuestFocus` after the
+ * dispatch so a parked guest in another workspace cannot keep the caret.
  */
-export function focusLensGuest(identity: LensGuestIdentity): boolean {
+export function focusLensGuest(
+  identity: LensGuestIdentity,
+  borrowId: string,
+): boolean {
   const record = guests.get(lensGuestKey(identity));
   if (!record || !record.element.isConnected) {
     return false;
   }
+  focusBorrow = beginLensGuestFocusBorrow({
+    borrowId,
+    guest: record.element,
+    activeElement: asFocusable(document.activeElement),
+    state: focusBorrow,
+  });
   record.element.focus();
   return true;
+}
+
+/**
+ * Settle the borrow `borrowId` names and return native focus to the host.
+ *
+ * Focus goes back to the control that held it before the borrow. When there is
+ * no such control left, a still-focused *parked* guest is blurred rather than
+ * left holding an invisible caret. No-op for a borrow this renderer never
+ * granted, or while an inner borrow is still outstanding.
+ */
+export function restoreLensGuestFocus(borrowId: string): void {
+  const { state, restoreTarget, blurTarget } = finishLensGuestFocusBorrow({
+    borrowId,
+    state: focusBorrow,
+    activeElement: asFocusable(document.activeElement),
+    isGuestElement: isLensGuestElement,
+    isParkedGuestElement: isParkedLensGuestElement,
+    isReturnTargetLive: (target) =>
+      target instanceof HTMLElement && target.isConnected,
+  });
+  focusBorrow = state;
+  restoreTarget?.focus({ preventScroll: true });
+  blurTarget?.blur();
 }

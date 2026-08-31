@@ -46,11 +46,13 @@ import {
  *   parking style exists to avoid and a comment cannot hold the line on it.
  *
  * - **Claim B — the focus guard in front of agent input means something. It
- *   does.** `requireLensGuestFocus` trusts `focusLensGuest`, which returns
+ *   does.** `withLensGuestFocus` trusts `focusLensGuest`, which returns
  *   `true` for any connected element without checking — so the guard looked
  *   like it might be waving through the exact case it documents. Measured, it
  *   is not: the borrow really does move `document.activeElement` onto the guest
- *   while the guest is parked, and the control here removes only the borrow and
+ *   while the guest is parked. After the dispatch, `restoreLensGuestFocus`
+ *   returns that focus to the host control that held it, so a parked guest
+ *   cannot keep the caret. The control here removes only the borrow and
  *   watches the same `Input.insertText` land in the app's own text box instead
  *   of the page. The guard is the only thing standing between an agent
  *   keystroke and the user's prompt.
@@ -269,7 +271,9 @@ function guestHitTest() {
       `webview[data-lens-session-id="agent-parked"]`,
     ) as HTMLElement | null;
     const rect = guest?.getBoundingClientRect();
-    const hit = rect ? document.elementFromPoint(rect.x + 40, rect.y + 40) : null;
+    const hit = rect
+      ? document.elementFromPoint(rect.x + 40, rect.y + 40)
+      : null;
     return {
       opacity: guest ? getComputedStyle(guest).opacity : null,
       pointerEvents: guest ? getComputedStyle(guest).pointerEvents : null,
@@ -345,9 +349,9 @@ test.beforeAll(async () => {
     )
     .toBe("ok");
 
-  await expect.poll(() => Boolean(findGuestPage()), { timeout: 30_000 }).toBe(
-    true,
-  );
+  await expect
+    .poll(() => Boolean(findGuestPage()), { timeout: 30_000 })
+    .toBe(true);
 });
 
 test.afterAll(async () => {
@@ -501,7 +505,11 @@ test("Claim A: the frame is live, not a stale one, and dwarfs a blank page", asy
   // the guest stays parked the whole time: the compositor is running, not
   // replaying one cached image from before the session was hidden.
   expectColor(pixelAtFraction(second.image, 0.25, 0.5), LEFT_B, "paint/b left");
-  expectColor(pixelAtFraction(second.image, 0.75, 0.5), RIGHT_B, "paint/b right");
+  expectColor(
+    pixelAtFraction(second.image, 0.75, 0.5),
+    RIGHT_B,
+    "paint/b right",
+  );
   expect(changed).toBeGreaterThan(0.9);
 
   // And a genuinely blank page is distinguishable from both: one colour, and a
@@ -543,7 +551,10 @@ test("Claim A: the parked guest is untouchable because pointer-events says so", 
   // one property off and the guest immediately becomes the hit target.
   await setGuestStyle({ "pointer-events": "auto" });
   const grabby = await guestHitTest();
-  console.log("[claim A] hit test with pointer-events auto", JSON.stringify(grabby));
+  console.log(
+    "[claim A] hit test with pointer-events auto",
+    JSON.stringify(grabby),
+  );
   expect(grabby.hitIsGuest).toBe(true);
 
   await setGuestStyle({ "pointer-events": "none" });
@@ -601,12 +612,14 @@ test("Claim B: stave_lens_type lands in the parked guest, not the host", async (
   expect(after.opacity).toBe("0");
 });
 
-test("Claim B: the focus borrow moves host activeElement onto the guest", async () => {
+test("Claim B: the focus borrow returns host activeElement after the dispatch", async () => {
   // Recorded as its own assertion because the guard's doc block is a claim
   // about DOM focus, not about where characters ended up. `focusLensGuest`
   // reports success for any connected element and never checks; if host focus
   // is unchanged after a borrow, the guard is passing without measuring
-  // anything, whatever the input dispatch happens to do.
+  // anything, whatever the input dispatch happens to do. After the dispatch,
+  // the same path must give that focus back — otherwise a parked guest in
+  // another workspace keeps the caret.
   const focusedBefore = await focusHostProbe();
   expect(focusedBefore).toBe("e2e-host-probe");
 
@@ -618,7 +631,7 @@ test("Claim B: the focus borrow moves host activeElement onto the guest", async 
 
   const after = await hostState();
   console.log(
-    "[claim B] focus borrow",
+    "[claim B] focus restore",
     JSON.stringify({
       hostActiveAfter: `${after.activeTag}#${after.activeId}`,
       guestElementIsActive: after.activeIsGuest,
@@ -629,16 +642,17 @@ test("Claim B: the focus borrow moves host activeElement onto the guest", async 
   );
 
   expect(
-    after.activeIsGuest,
-    `after borrowing focus for a parked guest, host document.activeElement is ${after.activeTag}#${after.activeId}`,
-  ).toBe(true);
+    after.activeId,
+    `after restoring focus from a parked guest, host document.activeElement is ${after.activeTag}#${after.activeId}`,
+  ).toBe("e2e-host-probe");
+  expect(after.activeIsGuest).toBe(false);
 });
 
 test("Claim B: without the borrow, the same input lands in the app's own box", async () => {
   /*
    * The counterfactual the guard's doc block implies but never states.
    *
-   * `requireLensGuestFocus` is justified by "input silently landing on whatever
+   * `withLensGuestFocus` is justified by "input silently landing on whatever
    * else holds focus". This dispatches the same `Input.insertText` on the same
    * debugger session with host focus deliberately parked on the app's own text
    * input and no borrow at all, so the answer to "what does the guard buy" is a

@@ -3,6 +3,7 @@ import {
   ensureLensGuest,
   focusLensGuest,
   releaseLensGuest,
+  restoreLensGuestFocus,
 } from "@/lib/lens/lens-guest-host";
 
 /**
@@ -18,6 +19,8 @@ import {
  *   destroys the page.
  * - `lens:focus-guest` — hand a guest native DOM focus before main dispatches
  *   agent input to it, and say whether it worked.
+ * - `lens:restore-guest-focus` — give that focus back so a parked guest cannot
+ *   keep the caret in another workspace's PromptInput.
  *
  * Mounted once, at the app root, above the pane tree — it must outlive every
  * panel, because a Lens tab that is not currently rendered still has a live
@@ -68,21 +71,22 @@ export function useLensGuestHost(): void {
             lens.reportGuestMountFailure?.({
               workspaceId: payload.workspaceId,
               lensSessionId: payload.lensSessionId,
-              message:
-                error instanceof Error ? error.message : String(error),
+              message: error instanceof Error ? error.message : String(error),
             });
           }
         })();
       },
     );
 
-    const unsubscribeSessionClosed = lens.subscribeSessionClosed?.((payload) => {
-      releaseLensGuest(payload);
-    });
+    const unsubscribeSessionClosed = lens.subscribeSessionClosed?.(
+      (payload) => {
+        releaseLensGuest(payload);
+      },
+    );
 
     const unsubscribeFocusRequests = lens.subscribeGuestFocusRequests?.(
       (payload) => {
-        const focused = focusLensGuest(payload);
+        const focused = focusLensGuest(payload, payload.requestId);
         lens.reportGuestFocus?.({
           requestId: payload.requestId,
           ok: focused,
@@ -93,11 +97,20 @@ export function useLensGuestHost(): void {
       },
     );
 
+    const unsubscribeFocusRestoreRequests =
+      lens.subscribeGuestFocusRestoreRequests?.((payload) => {
+        restoreLensGuestFocus(payload.borrowRequestId);
+        lens.reportGuestFocusRestore?.({
+          requestId: payload.requestId,
+        });
+      });
+
     return () => {
       disposed = true;
       unsubscribeGuestRequests?.();
       unsubscribeSessionClosed?.();
       unsubscribeFocusRequests?.();
+      unsubscribeFocusRestoreRequests?.();
     };
   }, []);
 }

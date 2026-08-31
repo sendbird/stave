@@ -9,6 +9,8 @@ import {
 import { restoreLensSessionUrl } from "./browser-session-recovery";
 import type {
   LensGuestFocusRequestPayload,
+  LensGuestFocusRestoreRequestPayload,
+  LensGuestFocusRestoreResultPayload,
   LensGuestFocusResultPayload,
   LensGuestRequiredPayload,
   LensSessionProfileArgs,
@@ -53,6 +55,11 @@ type PendingFocus = {
   timer: NodeJS.Timeout;
 };
 
+type PendingFocusRestore = {
+  resolve: () => void;
+  timer: NodeJS.Timeout;
+};
+
 function guestKey(workspaceId: string, lensSessionId: string): string {
   // Normalize both ends: the request path keys through a resolved reservation
   // (already normalized), but the refusal and mount-failure paths receive the
@@ -63,6 +70,7 @@ function guestKey(workspaceId: string, lensSessionId: string): string {
 
 const pendingGuests = new Map<string, PendingGuest>();
 const pendingFocus = new Map<string, PendingFocus>();
+const pendingFocusRestore = new Map<string, PendingFocusRestore>();
 
 /**
  * Ask the renderer to mount a guest for a session main is opening on its own.
@@ -210,6 +218,57 @@ export function resolveLensGuestFocus(
   pendingFocus.delete(payload.requestId);
   clearTimeout(pending.timer);
   pending.resolve(payload);
+}
+
+/**
+ * Give back the host focus the borrow `borrowRequestId` took for CDP input.
+ *
+ * Must be sent for every borrow *attempted*, not only for every borrow that
+ * was confirmed. A borrow whose confirmation missed the short wait below was
+ * still granted by the renderer a moment later, and without a release for it
+ * the guest keeps the caret — the exact failure the borrow/release pair
+ * exists to prevent. The renderer keys releases by borrow id, so releasing a
+ * borrow that was never granted is a no-op rather than a release of somebody
+ * else's outstanding borrow.
+ *
+ * Best-effort: a restore that times out must not fail the click or type that
+ * already landed. The renderer is expected to answer in the same budget as
+ * the borrow so the MCP tool does not return while PromptInput is still
+ * unfocused.
+ */
+export function releaseLensGuestFocus(borrowRequestId: string): Promise<void> {
+  const requestId = randomUUID();
+  const renderer = getMainWindow()?.webContents;
+  if (!renderer || renderer.isDestroyed()) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      pendingFocusRestore.delete(requestId);
+      resolve();
+    }, GUEST_FOCUS_TIMEOUT_MS);
+    timer.unref?.();
+
+    pendingFocusRestore.set(requestId, { resolve, timer });
+    renderer.send("lens:restore-guest-focus", {
+      requestId,
+      borrowRequestId,
+    } satisfies LensGuestFocusRestoreRequestPayload);
+  });
+}
+
+/** Settle a focus restore with the renderer's answer. */
+export function resolveLensGuestFocusRestore(
+  payload: LensGuestFocusRestoreResultPayload,
+): void {
+  const pending = pendingFocusRestore.get(payload.requestId);
+  if (!pending) {
+    return;
+  }
+  pendingFocusRestore.delete(payload.requestId);
+  clearTimeout(pending.timer);
+  pending.resolve();
 }
 
 /**
