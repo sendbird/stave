@@ -5,6 +5,15 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
 import {
+  formatCursorEffortLabel,
+  getCursorModelBaseId,
+  parseCursorModelParameters,
+} from "@/lib/providers/cursor-model-id";
+import {
+  type ModelVisibility,
+  readModelVisibilityOverride,
+} from "@/lib/providers/model-visibility";
+import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
@@ -51,34 +60,9 @@ export const CURSOR_MODEL_EFFORT_OPTIONS = [
   label: string;
 }[];
 
-const CURSOR_CAPABILITY_LABELS = new Map([
-  ["low", "Low"],
-  ["medium", "Medium"],
-  ["high", "High"],
-  ["xhigh", "X-High"],
-  ["extra-high", "X-High"],
-  ["max", "Max"],
-]);
+const parseModelParameters = parseCursorModelParameters;
 
-function parseModelParameters(model: string) {
-  const match = model.match(/\[([^\]]*)\]$/);
-  const parameters = new Map<string, string>();
-  for (const pair of match?.[1]?.split(",") ?? []) {
-    const separator = pair.indexOf("=");
-    if (separator <= 0) {
-      continue;
-    }
-    parameters.set(
-      pair.slice(0, separator).trim(),
-      pair.slice(separator + 1).trim(),
-    );
-  }
-  return parameters;
-}
-
-export function getCursorModelBaseId(model: string) {
-  return model.split("[")[0]?.trim() || model.trim();
-}
+export { getCursorModelBaseId };
 
 function normalizeCursorEffort(
   value: string | undefined,
@@ -217,11 +201,7 @@ export function getCursorModelPresentation(
     parameters.get("effort") ??
     parameters.get("reasoning") ??
     option.defaultEffort;
-  addCapability(
-    effort
-      ? (CURSOR_CAPABILITY_LABELS.get(effort.toLowerCase()) ?? effort)
-      : undefined,
-  );
+  addCapability(effort ? formatCursorEffortLabel(effort) : undefined);
   for (const detail of labelDetails) {
     addCapability(detail);
   }
@@ -273,6 +253,45 @@ export function listFeaturedModelOptions(args: {
     featuredKeys.add(args.selectedModelKey);
   }
   return args.options.filter((option) => featuredKeys.has(option.key));
+}
+
+/**
+ * The model rows the selector offers before the user expands the list.
+ *
+ * Baseline is the current model per lineage, so a runtime catalog that
+ * advertises its whole history does not bury the models people actually pick.
+ * Settings overrides win over the baseline in both directions, and the selected
+ * model is always kept so switching providers can never blank the trigger.
+ */
+export function listDefaultModelOptions(args: {
+  providerId: ProviderId;
+  options: readonly ModelSelectorOption[];
+  visibility?: ModelVisibility;
+  selectedModelKey?: string;
+}): ModelSelectorOption[] {
+  const featured = listFeaturedModelOptions({
+    options: args.options,
+    ...(args.selectedModelKey
+      ? { selectedModelKey: args.selectedModelKey }
+      : {}),
+  });
+  const baselineKeys = new Set(
+    (args.providerId === "cursor"
+      ? expandCursorModelFamilies({ options: args.options, featured })
+      : featured
+    ).map((option) => option.key),
+  );
+  return args.options.filter((option) => {
+    if (option.key === args.selectedModelKey) {
+      return true;
+    }
+    const override = readModelVisibilityOverride({
+      ...(args.visibility ? { visibility: args.visibility } : {}),
+      providerId: option.providerId,
+      model: option.model,
+    });
+    return override ?? baselineKeys.has(option.key);
+  });
 }
 
 export function listProviderEffortScale(

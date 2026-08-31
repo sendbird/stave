@@ -3,8 +3,17 @@ import { expect, test } from "@playwright/test";
 function seedWorkspace(
   page: import("@playwright/test").Page,
   settings: Record<string, unknown> = {},
+  /**
+   * Delays one provider's catalog so it resolves while the selector is already
+   * open. That is the only way to reproduce a late `args.options` identity
+   * change from a test.
+   */
+  lateCatalog: { providerId?: string; delayMs?: number } = {},
 ) {
-  return page.addInitScript((settingsOverride) => {
+  return page.addInitScript((seed) => {
+    const settingsOverride = seed.settings;
+    const lateCatalogProviderId = seed.lateCatalog.providerId;
+    const lateCatalogDelayMs = seed.lateCatalog.delayMs ?? 0;
     (window as unknown as { api?: Record<string, unknown> }).api = {
       provider: {
         streamTurn: async () => [],
@@ -13,7 +22,13 @@ function seedWorkspace(
           models: [],
           detail: "",
         }),
-        getModelCatalog: async ({ providerId }: { providerId: string }) => ({
+        getModelCatalog: async ({ providerId }: { providerId: string }) => {
+          if (providerId === lateCatalogProviderId && lateCatalogDelayMs > 0) {
+            await new Promise((resolve) => {
+              setTimeout(resolve, lateCatalogDelayMs);
+            });
+          }
+          return {
           providerId,
           ok: true,
           detail: "fixture catalog",
@@ -94,7 +109,8 @@ function seedWorkspace(
                     },
                   ]
                 : [],
-        }),
+          };
+        },
       },
     };
     const workspaceSnapshot = {
@@ -147,7 +163,7 @@ function seedWorkspace(
         version: 0,
       }),
     );
-  }, settings);
+  }, { settings, lateCatalog });
 }
 
 test("selects a model and effort in one click across provider tabs", async ({
@@ -205,6 +221,12 @@ test("selects a model and effort in one click across provider tabs", async ({
   );
   expect(providerTabBoxes.every((box) => box.height >= 44)).toBe(true);
   expect(providerTabBoxes[1]?.y).toBeGreaterThan(providerTabBoxes[0]?.y ?? 0);
+  expect(
+    Math.abs(
+      (await selector.evaluate((element) => element.offsetHeight)) -
+        (await providerTabs.evaluate((element) => element.offsetHeight)),
+    ),
+  ).toBeLessThanOrEqual(2);
   const claudeTab = providerTabs.getByRole("tab", { name: /Claude/ });
   const codexTab = providerTabs.getByRole("tab", { name: /Codex/ });
   await claudeTab.focus();
@@ -225,12 +247,32 @@ test("selects a model and effort in one click across provider tabs", async ({
   const cursorTab = providerTabs.getByRole("tab", { name: /Cursor/ });
   const searchInput = page.getByRole("textbox", { name: "Search models" });
   await searchInput.fill("opus");
+  const selectorHeights = [
+    await selector.evaluate((element) => element.offsetHeight),
+  ];
   await cursorTab.hover();
   await expect(cursorTab).toHaveAttribute("aria-selected", "true");
   await expect(searchInput).toHaveValue("");
   await expect(page.locator("[data-cursor-model-row]").first()).toBeVisible();
+  selectorHeights.push(
+    await selector.evaluate((element) => element.offsetHeight),
+  );
   await claudeTab.hover();
   await expect(claudeTab).toHaveAttribute("aria-selected", "true");
+  selectorHeights.push(
+    await selector.evaluate((element) => element.offsetHeight),
+  );
+  await cursorTab.hover();
+  await expect(cursorTab).toHaveAttribute("aria-selected", "true");
+  selectorHeights.push(
+    await selector.evaluate((element) => element.offsetHeight),
+  );
+  await claudeTab.hover();
+  await expect(claudeTab).toHaveAttribute("aria-selected", "true");
+  selectorHeights.push(
+    await selector.evaluate((element) => element.offsetHeight),
+  );
+  expect(new Set(selectorHeights).size).toBe(1);
 
   const effortGrid = page.getByRole("grid", {
     name: "Model and reasoning effort",
@@ -615,4 +657,204 @@ test("configures Cursor and Kiro Worker models from runtime catalogs", async ({
   await workerCard.screenshot({
     path: testInfo.outputPath("worker-provider-settings.png"),
   });
+});
+
+test("hides and pins models from Settings without losing them from the catalog", async ({
+  page,
+}) => {
+  await seedWorkspace(page, {
+    modelVisibility: {
+      cursor: { "gpt-5.4": false, "cursor-archive-5": true },
+    },
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /^Model:/ }).click();
+  const selector = page.getByRole("dialog", {
+    name: "Model and effort selector",
+  });
+  await expect(selector).toBeVisible();
+  const loadedCursorTab = selector
+    .getByRole("tablist", { name: "Model provider" })
+    .getByRole("tab", { name: "Cursor, 15 models" });
+  await expect(loadedCursorTab).toBeVisible({ timeout: 20_000 });
+  await loadedCursorTab.click();
+
+  // Hovering a provider tab switches providers and clears the query, so park the
+  // pointer off the rail before touching the search field.
+  const searchModels = page.getByRole("textbox", { name: "Search models" });
+  await searchModels.hover();
+
+  await expect(
+    page.locator('[data-cursor-model-row="cursor-archive-5"]'),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-cursor-model-row="gpt-5.4"]'),
+  ).toHaveCount(0);
+  await expect(page.locator("[data-cursor-model-row]")).toHaveCount(3);
+
+  // Turning a model off narrows the default list, never the catalog: search and
+  // the expansion still reach it.
+  await searchModels.fill("gpt 5.4");
+  await expect(
+    page.locator('[data-cursor-model-row="gpt-5.4"]'),
+  ).toBeVisible();
+  await searchModels.fill("");
+  // The footer only mounts once the query is actually empty again, so wait on
+  // the input's own value rather than on a row count that a stale render can
+  // also satisfy.
+  await expect(searchModels).toHaveValue("");
+  await expect(page.locator("[data-cursor-model-row]")).toHaveCount(3);
+  const showAllModels = selector.getByRole("button", {
+    name: /Show all models/,
+  });
+  await expect(showAllModels).toBeVisible();
+  await showAllModels.click();
+  await expect(page.locator("[data-cursor-model-row]")).toHaveCount(15);
+  await page.keyboard.press("Escape");
+  await expect(selector).toBeHidden();
+
+  await page.getByRole("button", { name: "open-settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: "Models" }).click();
+  const visibilityCard = settings.locator("#settings-field-model-visibility");
+  await expect(visibilityCard).toBeVisible();
+  await visibilityCard.getByRole("tab", { name: "Cursor" }).click();
+
+  const pinnedSwitch = visibilityCard
+    .locator('[data-model-visibility-row="cursor-archive-5"]')
+    .getByRole("switch");
+  await expect(pinnedSwitch).toHaveAttribute("aria-checked", "true");
+  const hiddenSwitch = visibilityCard
+    .locator('[data-model-visibility-row="gpt-5.4"]')
+    .getByRole("switch");
+  await expect(hiddenSwitch).toHaveAttribute("aria-checked", "false");
+
+  await hiddenSwitch.click();
+  await expect(hiddenSwitch).toHaveAttribute("aria-checked", "true");
+  await visibilityCard
+    .getByRole("button", { name: "Reset to current models" })
+    .click();
+  await expect(pinnedSwitch).toHaveAttribute("aria-checked", "false");
+  await expect(hiddenSwitch).toHaveAttribute("aria-checked", "true");
+});
+
+test("offers approval presets for Cursor and Kiro from the composer and Settings", async ({
+  page,
+}) => {
+  await seedWorkspace(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  // Switch the task onto Cursor so the composer resolves the Cursor presets.
+  await page.getByRole("button", { name: /^Model:/ }).click();
+  const selector = page.getByRole("dialog", {
+    name: "Model and effort selector",
+  });
+  await expect(selector).toBeVisible();
+  const approvalCursorTab = selector
+    .getByRole("tablist", { name: "Model provider" })
+    .getByRole("tab", { name: "Cursor, 15 models" });
+  await expect(approvalCursorTab).toBeVisible({ timeout: 20_000 });
+  await approvalCursorTab.click();
+  const cursorRow = page.locator('[data-cursor-model-row="gpt-5.4"]');
+  await expect(cursorRow).toBeVisible();
+  await cursorRow.getByRole("button", { name: /^GPT 5\.4/ }).first().click();
+  await expect(selector).toBeHidden();
+
+  // Cursor gets all three tiers; the pill starts on the conservative default.
+  const cursorPill = page.getByRole("button", {
+    name: /^Cursor (Manual|Guided|Auto|Custom):/,
+  });
+  await expect(cursorPill).toBeVisible();
+  await expect(cursorPill).toHaveAccessibleName(/^Cursor Manual:/);
+  await cursorPill.click();
+  const modePopover = page.getByRole("dialog", { name: "Cursor mode presets" });
+  await expect(modePopover).toBeVisible();
+  for (const tier of ["Manual", "Guided", "Auto"]) {
+    await expect(
+      modePopover.getByRole("button", { name: new RegExp(`^${tier}`) }),
+    ).toBeVisible();
+  }
+  await modePopover.getByRole("button", { name: /^Auto/ }).click();
+  await expect(cursorPill).toHaveAccessibleName(/^Cursor Auto:/);
+
+  await page.getByRole("button", { name: "open-settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: "Providers" }).click();
+  const providerTabs = settings.getByRole("tablist").last();
+  await providerTabs.getByRole("tab", { name: "Kiro", exact: true }).click();
+
+  // Kiro deliberately exposes two tiers, because its partial-trust flag cannot
+  // be verified. A Guided control here would promise something unenforceable.
+  const kiroApproval = settings.getByRole("radiogroup", {
+    name: /Approval Preset/,
+  });
+  await expect(
+    kiroApproval.getByRole("radio", { name: /^Manual/ }),
+  ).toBeVisible();
+  await expect(
+    kiroApproval.getByRole("radio", { name: /^Auto/ }),
+  ).toBeVisible();
+  await expect(
+    kiroApproval.getByRole("radio", { name: /^Guided/ }),
+  ).toHaveCount(0);
+
+  await providerTabs.getByRole("tab", { name: "Cursor", exact: true }).click();
+  const cursorApproval = settings.getByRole("radiogroup", {
+    name: /Approval Preset/,
+  });
+  // The composer pill writes a per-model override, so the Settings card still
+  // shows the workspace default. Same layering as Claude and Codex.
+  await expect(
+    cursorApproval.getByRole("radio", { name: /^Manual/ }),
+  ).toHaveAttribute("aria-checked", "true");
+  await cursorApproval.getByRole("radio", { name: /^Guided/ }).click();
+  await expect(
+    cursorApproval.getByRole("radio", { name: /^Guided/ }),
+  ).toHaveAttribute("aria-checked", "true");
+});
+
+test("keeps the open selector's provider tab and search when a catalog resolves late", async ({
+  page,
+}) => {
+  // Invariant: a catalog that resolves after the popover opened must not be
+  // treated as a fresh open. Only the open transition may reset the provider tab
+  // and the query, because anything else erases a search the user is mid-way
+  // through typing.
+  await seedWorkspace(page, {}, { providerId: "kiro", delayMs: 2500 });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /^Model:/ }).click();
+  const selector = page.getByRole("dialog", {
+    name: "Model and effort selector",
+  });
+  await expect(selector).toBeVisible();
+  const cursorTab = selector
+    .getByRole("tablist", { name: "Model provider" })
+    .getByRole("tab", { name: "Cursor, 15 models" });
+  await expect(cursorTab).toBeVisible({ timeout: 20_000 });
+  await cursorTab.click();
+
+  const searchModels = page.getByRole("textbox", { name: "Search models" });
+  await searchModels.hover();
+  await searchModels.fill("archive 7");
+  await expect(
+    page.locator('[data-cursor-model-row="cursor-archive-7"]'),
+  ).toBeVisible();
+
+  // Outlast the delayed catalog so its state update definitely lands.
+  await expect(
+    selector
+      .getByRole("tablist", { name: "Model provider" })
+      .getByRole("tab", { name: "Kiro, 2 models" }),
+  ).toBeVisible({ timeout: 20_000 });
+
+  await expect(cursorTab).toHaveAttribute("aria-selected", "true");
+  await expect(searchModels).toHaveValue("archive 7");
+  await expect(
+    page.locator('[data-cursor-model-row="cursor-archive-7"]'),
+  ).toBeVisible();
 });

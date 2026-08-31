@@ -32,6 +32,7 @@ import {
   getProviderLabel,
   listProviderIds,
 } from "@/lib/providers/model-catalog";
+import type { ModelVisibility } from "@/lib/providers/model-visibility";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { cn } from "@/lib/utils";
 import { CursorModelConfigList } from "./cursor-model-config-list";
@@ -39,13 +40,12 @@ import { ModelEffortGrid, PROVIDER_ACCENT_COLORS } from "./model-effort-grid";
 import { ModelIcon } from "./model-icon";
 import {
   collapseClaudeContextOptions,
-  expandCursorModelFamilies,
   getClaudeContextBaseLabel,
   getCursorModelPresentation,
   getCursorModelBaseId,
   groupCursorModelOptions,
   isClaudeContext1MModel,
-  listFeaturedModelOptions,
+  listDefaultModelOptions,
   listModelEfforts,
   resolveClaudeContextOption,
   resolveDefaultModelEffort,
@@ -73,6 +73,11 @@ interface ModelEffortSelectorProps {
   disabled?: boolean;
   openToken?: string | number;
   catalogs?: Partial<Record<ProviderId, ModelSelectorCatalogState>>;
+  /**
+   * Settings overrides for which catalog models this selector lists by default.
+   * Everything stays reachable through search and "Show all models".
+   */
+  modelVisibility?: ModelVisibility;
   onRefreshCatalogs?: () => void;
   onFastModeChange?: (enabled: boolean) => void;
   onSelect: (args: {
@@ -261,6 +266,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     isClaudeContext1MModel(args.value.model),
   );
   const handledOpenTokenRef = useRef(args.openToken);
+  const resetHandledForOpenRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const autoOption = args.options.find((option) => option.isAuto);
   const providerIds = useMemo(
@@ -280,26 +286,28 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       ? collapseClaudeContextOptions({ options, context1M })
       : options;
   }, [args.options, context1M, providerId]);
-  const featuredProviderOptions = useMemo(() => {
-    if (providerOptions.length <= 12) {
-      return providerOptions;
-    }
-    const featured = listFeaturedModelOptions({
-      options: providerOptions,
-      selectedModelKey:
-        args.value.providerId === providerId ? args.value.key : undefined,
-    });
-    return providerId === "cursor"
-      ? expandCursorModelFamilies({
-          options: providerOptions,
-          featured,
-        })
-      : featured;
-  }, [args.value.key, args.value.providerId, providerId, providerOptions]);
+  const defaultProviderOptions = useMemo(
+    () =>
+      listDefaultModelOptions({
+        providerId,
+        options: providerOptions,
+        ...(args.modelVisibility ? { visibility: args.modelVisibility } : {}),
+        ...(args.value.providerId === providerId
+          ? { selectedModelKey: args.value.key }
+          : {}),
+      }),
+    [
+      args.modelVisibility,
+      args.value.key,
+      args.value.providerId,
+      providerId,
+      providerOptions,
+    ],
+  );
   const visibleOptions = useMemo(() => {
     const queryTerms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (queryTerms.length === 0) {
-      return showAllModels ? providerOptions : featuredProviderOptions;
+      return showAllModels ? providerOptions : defaultProviderOptions;
     }
     const matches = providerOptions.filter((option) => {
       const haystack = [option.label, option.model, option.description]
@@ -318,7 +326,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       matchingBaseModels.has(getCursorModelBaseId(option.model)),
     );
   }, [
-    featuredProviderOptions,
+    defaultProviderOptions,
     providerId,
     providerOptions,
     query,
@@ -333,7 +341,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   );
   const canToggleAllModels =
     query.trim().length === 0 &&
-    featuredProviderOptions.length < providerOptions.length;
+    defaultProviderOptions.length < providerOptions.length;
   const catalog = args.catalogs?.[providerId];
   const selectedMissing =
     !args.value.isAuto &&
@@ -398,10 +406,21 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     });
   };
 
+  // Reset once per open, not on every dependency change.
+  //
+  // `providerIds` is derived from `args.options`, which gets a new identity each
+  // time a runtime model catalog resolves or refreshes. Re-running this body on
+  // that change snapped the open popover back to the selected model's provider
+  // tab and wiped whatever the user had typed, mid-search.
   useEffect(() => {
     if (!open) {
+      resetHandledForOpenRef.current = false;
       return;
     }
+    if (resetHandledForOpenRef.current) {
+      return;
+    }
+    resetHandledForOpenRef.current = true;
     setProviderId(
       args.value.isAuto
         ? (providerIds[0] ?? "claude-code")
@@ -503,18 +522,18 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           }}
           finalFocus={triggerRef}
           aria-label="Model and effort selector"
-          className="model-effort-popover flex max-h-[min(32rem,calc(100dvh-1rem))] w-[min(40rem,calc(100vw-1rem))] flex-col gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0"
+          className="model-effort-popover flex h-[min(32rem,calc(100dvh-1rem))] w-[min(40rem,calc(100vw-1rem))] flex-col gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0"
         >
           <Tabs
             value={providerId}
             onValueChange={(value) => showProvider(value as ProviderId)}
             orientation="vertical"
-            className="min-h-0 gap-0"
+            className="min-h-0 flex-1 gap-0"
           >
             <TabsList
               variant="soft"
               aria-label="Model provider"
-              className="w-12 shrink-0 justify-start gap-1 rounded-none border-r border-border/65 bg-muted/20 p-1 min-[480px]:w-32 min-[480px]:p-1.5"
+              className="w-12 shrink-0 justify-start gap-1 rounded-none border-r border-border/65 bg-muted/20 p-1 group-data-vertical/tabs:h-auto min-[480px]:w-32 min-[480px]:p-1.5"
             >
               {providerIds.map((candidate) => {
                 const selected = candidate === providerId;
@@ -609,8 +628,10 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 >
                   {candidate === providerId ? (
                     visibleOptions.length === 0 ? (
-                      <div className="flex min-h-28 items-center justify-center px-4 text-sm text-muted-foreground">
-                        No models match this search.
+                      <div className="flex min-h-28 items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                        {query.trim().length > 0
+                          ? "No models match this search."
+                          : "Every model for this provider is turned off. Show all models below, or re-enable them in Settings › Models."}
                       </div>
                     ) : (
                       <>
@@ -671,12 +692,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   >
                     <span>
                       {showAllModels
-                        ? "Show featured models"
+                        ? "Show current models"
                         : "Show all models"}
                     </span>
                     <span className="tabular-nums text-muted-foreground/75">
                       {showAllModels
-                        ? featuredProviderOptions.length
+                        ? defaultProviderOptions.length
                         : providerOptions.length}
                     </span>
                   </button>

@@ -950,6 +950,9 @@ export const RuntimeOptionsObjectSchema = z
     cursorMode: z
       .union([z.literal("agent"), z.literal("plan"), z.literal("ask")])
       .optional(),
+    cursorApprovalMode: z
+      .union([z.literal("manual"), z.literal("guided"), z.literal("auto")])
+      .optional(),
     cursorResumeSessionId: z.string().max(500).optional(),
     kiroBinaryPath: z.string().max(4096).optional(),
     kiroEffort: z
@@ -960,6 +963,9 @@ export const RuntimeOptionsObjectSchema = z
         z.literal("xhigh"),
         z.literal("max"),
       ])
+      .optional(),
+    kiroApprovalMode: z
+      .union([z.literal("manual"), z.literal("auto")])
       .optional(),
     kiroResumeSessionId: z.string().max(500).optional(),
     advisorTarget: z

@@ -6,10 +6,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  KIRO_PROVIDER_MODE_PRESETS,
+  buildKiroProviderModeSettingsPatch,
+} from "@/lib/providers/provider-mode-presets";
 import { KIRO_EFFORT_OPTIONS } from "@/lib/providers/runtime-option-contract";
 import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
 import {
+  ChoiceButtons,
   DraftInput,
   LabeledField,
   SectionStack,
@@ -17,11 +22,12 @@ import {
 } from "./settings-dialog.shared";
 
 export function SettingsKiroSection() {
-  const [modelKiro, kiroBinaryPath, kiroEffort] = useAppStore(
+  const [modelKiro, kiroBinaryPath, kiroEffort, kiroApprovalMode] = useAppStore(
     useShallow((state) => [
       state.settings.modelKiro,
       state.settings.kiroBinaryPath,
       state.settings.kiroEffort,
+      state.settings.kiroApprovalMode,
     ]),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
@@ -33,6 +39,31 @@ export function SettingsKiroSection() {
         description="Model preferences passed to interactive Kiro turns."
         titleAccessory={<Badge variant="secondary">ACP</Badge>}
       >
+        <LabeledField
+          title="Approval Preset"
+          description="How much Kiro may run without asking. Delivered as a Kiro CLI process flag, so it applies for the whole session rather than per tool call."
+        >
+          <ChoiceButtons
+            columns={2}
+            value={kiroApprovalMode}
+            options={KIRO_PROVIDER_MODE_PRESETS.map((preset) => ({
+              value: preset.id,
+              label: preset.label,
+              description: preset.description,
+            }))}
+            onChange={(presetId) =>
+              updateSettings({
+                patch: buildKiroProviderModeSettingsPatch({ presetId }),
+              })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Kiro has no partial-trust tier: its CLI accepts unknown tool names
+            for a partial grant without reporting an error, so Stave does not
+            offer a middle setting it cannot verify. Worker runs always stay on
+            Manual.
+          </p>
+        </LabeledField>
         <LabeledField
           title="Default Model"
           description="Use Auto unless the connected CLI reports another model identifier. The composer shows a warning if a saved model disappears from the runtime catalog."

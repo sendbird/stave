@@ -39,6 +39,7 @@ import {
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
 import { MartinSyncSettingsSection } from "@/components/layout/settings-dialog-martin-sync";
+import { SettingsModelVisibilitySection } from "@/components/layout/settings-dialog-model-visibility";
 import {
   COMMAND_PALETTE_GROUP_LABELS,
   getCommandPaletteCoreCommands,
@@ -2130,6 +2131,7 @@ function ModelsSection() {
   return (
     <>
       <SectionStack>
+        <SettingsModelVisibilitySection />
         <SettingsCard
           title="Model Routing"
           description="Pick the default Claude and Codex models used for new turns. Stave falls back to its verified Codex baseline if the App Server catalog is unavailable."

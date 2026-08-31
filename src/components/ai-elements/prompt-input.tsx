@@ -928,6 +928,7 @@ export function PromptInput(args: PromptInputProps) {
   const borderBeamStrength = useAppStore(
     (state) => state.settings.borderBeamStrength,
   );
+  const modelVisibility = useAppStore((state) => state.settings.modelVisibility);
   const lensSourceMappingHeuristic = useAppStore(
     (state) => state.settings.lensSourceMappingHeuristic,
   );
@@ -3784,6 +3785,7 @@ export function PromptInput(args: PromptInputProps) {
                   value={selectedModel}
                   options={modelOptions}
                   catalogs={modelCatalogs}
+                  modelVisibility={modelVisibility}
                   onRefreshCatalogs={onRefreshModelCatalogs}
                   effortValue={
                     effortValue as Exclude<ModelShortcutEffort, ""> | undefined

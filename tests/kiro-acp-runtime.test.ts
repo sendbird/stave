@@ -165,7 +165,7 @@ describe("Kiro ACP runtime", () => {
     });
   });
 
-  test("uses the shared allow-once permission contract", async () => {
+  test("answers Kiro's underscore-cased allow_once permission option", async () => {
     let responder:
       | ((args: {
           requestId: string;
@@ -193,10 +193,12 @@ describe("Kiro ACP runtime", () => {
       { ok: true },
     );
     const events = await turn;
+    // Kiro advertises `allow_once`, Cursor advertises `allow-once`. Selection
+    // keys off the protocol `kind`, so both runtimes resolve.
     expect(
       events.some(
         (event) =>
-          event.type === "text" && event.text.includes('"optionId":"allow-once"'),
+          event.type === "text" && event.text.includes('"optionId":"allow_once"'),
       ),
     ).toBe(true);
   });

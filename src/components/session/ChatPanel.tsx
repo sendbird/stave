@@ -40,7 +40,7 @@ import {
   MessageAction,
   MessageActions,
   MessageContent,
-  ModelIcon,
+  TurnModelChip,
 } from "@/components/ai-elements";
 import {
   findMessageIndexByToolUseId,
@@ -51,7 +51,10 @@ import {
 } from "@/components/session/chat-panel.utils";
 import { ConversationPlanCard } from "@/components/session/ConversationPlanCard";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
-import { getTurnModelInfoLabel } from "@/lib/providers/turn-model-info";
+import {
+  getTurnModelInfoLabel,
+  getTurnModelInfoParts,
+} from "@/lib/providers/turn-model-info";
 import { cn } from "@/lib/utils";
 import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
 import { useAppStore } from "@/store/app.store";
@@ -208,6 +211,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   );
   const userMessageSourceText = message.displayContent ?? message.content;
   const turnModelInfoLabel = getTurnModelInfoLabel(message);
+  const turnModelInfoParts = getTurnModelInfoParts(message);
   const steerDeliveryLabel =
     message.steerDeliveryState === "accepted"
       ? "Steered into active turn"
@@ -339,13 +343,15 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 <MessageAction
                   key="provider-action"
                   label={turnModelInfoLabel}
-                  className="pointer-events-none h-7 cursor-default rounded-sm border border-border/70 bg-background px-2 text-sm font-normal text-foreground opacity-100"
+                  // The chip owns its own border and fill, so the action shell
+                  // is stripped back to a positioning wrapper.
+                  className="pointer-events-none h-auto max-w-full cursor-default gap-0 rounded-sm border-0 bg-transparent p-0 font-normal opacity-100 hover:bg-transparent"
                 >
-                  <ModelIcon
+                  <TurnModelChip
                     providerId={message.providerId}
-                    className="size-3.5"
+                    model={message.model}
+                    parts={turnModelInfoParts}
                   />
-                  {turnModelInfoLabel}
                 </MessageAction>
               ) : null}
               {message.role === "assistant" && elapsedLabel ? (

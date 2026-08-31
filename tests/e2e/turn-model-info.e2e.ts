@@ -121,6 +121,28 @@ test("shows each turn's model, effort, context, and fast mode", async ({
             completedAt: "2026-07-24T00:00:04.000Z",
             parts: [{ type: "text", text: "Kiro response" }],
           },
+          {
+            // Real Cursor model ids carry their configuration in brackets, and
+            // this catalog is not primed, so the chip must humanize the base id
+            // rather than print the raw notation.
+            id: "task-turn-model-info-m-5",
+            role: "assistant",
+            providerId: "cursor",
+            model: "auto-smart[optimize_for=balanced]",
+            content: "Cursor auto response",
+            completedAt: "2026-07-24T00:00:05.000Z",
+            parts: [{ type: "text", text: "Cursor auto response" }],
+          },
+          {
+            id: "task-turn-model-info-m-6",
+            role: "assistant",
+            providerId: "cursor",
+            model:
+              "claude-opus-5[thinking=true,context=300k,effort=high,fast=false]",
+            content: "Cursor opus response",
+            completedAt: "2026-07-24T00:00:06.000Z",
+            parts: [{ type: "text", text: "Cursor opus response" }],
+          },
         ],
       },
     };
@@ -177,6 +199,27 @@ test("shows each turn's model, effort, context, and fast mode", async ({
       name: "GPT-5.6 Terra · Ultra · Fast",
     }),
   ).toBeVisible();
+
+  // Bracket notation must never reach the screen, and each parameter becomes its
+  // own inset segment inside the chip.
+  const autoChip = page
+    .locator('[data-turn-model-chip="true"]')
+    .filter({ hasText: "Auto Smart" });
+  await expect(autoChip).toBeVisible();
+  await expect(autoChip).toContainText("Balanced");
+  await expect(autoChip).not.toContainText("[");
+  await expect(autoChip).not.toContainText("optimize_for");
+
+  const opusChip = page
+    .locator('[data-turn-model-chip="true"]')
+    .filter({ hasText: "Claude Opus 5" })
+    .first();
+  await expect(opusChip.locator("[data-turn-model-detail]")).toHaveText([
+    "300K",
+    "Thinking",
+    "High",
+  ]);
+  await expect(opusChip).not.toContainText("fast=false");
 
   const usageDetails = page.getByRole("button", {
     name: "Turn usage details for Codex · gpt-5.6-terra: 120 input tokens, 18 output tokens, 2 delegated executions",

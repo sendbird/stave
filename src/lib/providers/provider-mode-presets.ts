@@ -25,6 +25,21 @@ type CodexProviderModeSettings = Pick<
   | "codexWebSearch"
 >;
 
+/**
+ * Cursor and Kiro carry autonomy in a single field rather than a combination.
+ *
+ * Both runtimes take approval autonomy as process flags on the ACP subcommand,
+ * not as per-turn protocol parameters, so there is nothing else for a preset to
+ * coordinate. `custom` is therefore unreachable for these two providers.
+ */
+type CursorProviderModeSettings = Pick<AppSettings, "cursorApprovalMode">;
+
+type KiroProviderModeSettings = Pick<AppSettings, "kiroApprovalMode">;
+
+export type CursorApprovalMode = AppSettings["cursorApprovalMode"];
+
+export type KiroApprovalMode = AppSettings["kiroApprovalMode"];
+
 export interface ProviderModePresentation {
   id: ProviderModeDisplayId;
   label: string;
@@ -70,6 +85,44 @@ export const CODEX_PROVIDER_MODE_PRESETS = [
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
+export const CURSOR_PROVIDER_MODE_PRESETS = [
+  {
+    id: "manual",
+    label: "Manual",
+    description: "Cursor asks before every tool call. Nothing runs without an explicit approval.",
+  },
+  {
+    id: "guided",
+    label: "Guided",
+    description: "Cursor's own Auto-review classifier runs the calls it judges safe and asks for the rest.",
+  },
+  {
+    id: "auto",
+    label: "Auto",
+    description: "Cursor runs every tool call and MCP server without asking. Use only in trusted workspaces.",
+  },
+] as const satisfies readonly ProviderModePresetDefinition[];
+
+/**
+ * Kiro deliberately has no Guided tier.
+ *
+ * `kiro-cli acp --trust-tools` accepts unknown tool names without an error, so a
+ * middle tier built on it could silently trust nothing and present as Guided.
+ * Two honest tiers beat three where one cannot be verified.
+ */
+export const KIRO_PROVIDER_MODE_PRESETS = [
+  {
+    id: "manual",
+    label: "Manual",
+    description: "Kiro asks before every tool call. Nothing runs without an explicit approval.",
+  },
+  {
+    id: "auto",
+    label: "Auto",
+    description: "Kiro auto-approves every tool permission request. Use only in trusted workspaces.",
+  },
+] as const satisfies readonly ProviderModePresetDefinition[];
+
 const CLAUDE_PROVIDER_MODE_PATCHES: Record<ProviderModePresetId, ClaudeProviderModeSettings> = {
   manual: {
     claudePermissionMode: "default",
@@ -112,6 +165,17 @@ const CODEX_PROVIDER_MODE_PATCHES: Record<ProviderModePresetId, CodexProviderMod
   },
 };
 
+const CURSOR_PROVIDER_MODE_PATCHES: Record<ProviderModePresetId, CursorProviderModeSettings> = {
+  manual: { cursorApprovalMode: "manual" },
+  guided: { cursorApprovalMode: "guided" },
+  auto: { cursorApprovalMode: "auto" },
+};
+
+const KIRO_PROVIDER_MODE_PATCHES: Record<KiroApprovalMode, KiroProviderModeSettings> = {
+  manual: { kiroApprovalMode: "manual" },
+  auto: { kiroApprovalMode: "auto" },
+};
+
 function findPresetDefinition(
   presets: readonly ProviderModePresetDefinition[],
   presetId: ProviderModePresetId,
@@ -139,6 +203,20 @@ function formatCodexModeDetail(settings: CodexProviderModeSettings) {
     `Network ${settings.codexNetworkAccess ? "on" : "off"}`,
     `Web ${settings.codexWebSearch}`,
   ].join(" / ");
+}
+
+function formatCursorModeDetail(settings: CursorProviderModeSettings) {
+  return settings.cursorApprovalMode === "auto"
+    ? "Approvals off / MCP auto-approved (--force --approve-mcps)"
+    : settings.cursorApprovalMode === "guided"
+      ? "Auto-review classifier (--auto-review)"
+      : "Approve every tool call";
+}
+
+function formatKiroModeDetail(settings: KiroProviderModeSettings) {
+  return settings.kiroApprovalMode === "auto"
+    ? "Approvals off (--trust-all-tools)"
+    : "Approve every tool call";
 }
 
 function toPresentation(args: {
@@ -240,5 +318,70 @@ export function resolveCodexProviderModePresentation(args: {
     planNote: args.planMode
       ? "Plan is enabled for this draft, so the next Codex turn is still forced to `read-only` + `never`."
       : undefined,
+  });
+}
+
+export function buildCursorProviderModeSettingsPatch(args: {
+  presetId: ProviderModePresetId;
+}): CursorProviderModeSettings {
+  return { ...CURSOR_PROVIDER_MODE_PATCHES[args.presetId] };
+}
+
+export function buildKiroProviderModeSettingsPatch(args: {
+  presetId: ProviderModePresetId;
+}): KiroProviderModeSettings {
+  // Kiro has no Guided tier; a preset id it cannot honor resolves to Manual so
+  // an imported or stale preference can never silently mean "trust everything".
+  return {
+    ...(KIRO_PROVIDER_MODE_PATCHES[args.presetId as KiroApprovalMode] ??
+      KIRO_PROVIDER_MODE_PATCHES.manual),
+  };
+}
+
+export function detectCursorProviderModePreset(args: {
+  settings: CursorProviderModeSettings;
+}): ProviderModePresetId | null {
+  return (
+    CURSOR_PROVIDER_MODE_PRESETS.find(
+      (preset) =>
+        CURSOR_PROVIDER_MODE_PATCHES[preset.id].cursorApprovalMode ===
+        args.settings.cursorApprovalMode,
+    )?.id ?? null
+  );
+}
+
+export function detectKiroProviderModePreset(args: {
+  settings: KiroProviderModeSettings;
+}): ProviderModePresetId | null {
+  return (
+    KIRO_PROVIDER_MODE_PRESETS.find(
+      (preset) =>
+        KIRO_PROVIDER_MODE_PATCHES[preset.id as KiroApprovalMode]
+          ?.kiroApprovalMode === args.settings.kiroApprovalMode,
+    )?.id ?? null
+  );
+}
+
+export function resolveCursorProviderModePresentation(args: {
+  settings: CursorProviderModeSettings;
+  planMode?: boolean;
+}): ProviderModePresentation {
+  return toPresentation({
+    presetId: detectCursorProviderModePreset({ settings: args.settings }),
+    presets: CURSOR_PROVIDER_MODE_PRESETS,
+    detail: formatCursorModeDetail(args.settings),
+    planNote: args.planMode
+      ? "Plan is enabled for this draft, so the next Cursor turn still runs in the read-only `plan` session mode."
+      : undefined,
+  });
+}
+
+export function resolveKiroProviderModePresentation(args: {
+  settings: KiroProviderModeSettings;
+}): ProviderModePresentation {
+  return toPresentation({
+    presetId: detectKiroProviderModePreset({ settings: args.settings }),
+    presets: KIRO_PROVIDER_MODE_PRESETS,
+    detail: formatKiroModeDetail(args.settings),
   });
 }

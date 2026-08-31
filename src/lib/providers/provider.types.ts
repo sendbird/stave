@@ -1191,9 +1191,20 @@ export interface ProviderRuntimeOptions {
   codexResumeThreadId?: string;
   cursorBinaryPath?: string;
   cursorMode?: "agent" | "plan" | "ask";
+  /**
+   * Approval autonomy for interactive Cursor turns, delivered as `agent acp`
+   * process flags: `manual` sends none, `guided` sends `--auto-review`, and
+   * `auto` sends `--force --approve-mcps`.
+   */
+  cursorApprovalMode?: "manual" | "guided" | "auto";
   cursorResumeSessionId?: string;
   kiroBinaryPath?: string;
   kiroEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /**
+   * Approval autonomy for interactive Kiro turns: `auto` adds
+   * `--trust-all-tools` to the `acp` process arguments.
+   */
+  kiroApprovalMode?: "manual" | "auto";
   kiroResumeSessionId?: string;
   /**
    * Optional Stave-managed, isolated read-only Advisor the primary model may

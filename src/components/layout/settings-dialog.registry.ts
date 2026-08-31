@@ -206,6 +206,32 @@ export const settingDefinitions = [
     importExport: "include",
   } satisfies SettingDefinition<"workerConfigByProvider">,
   {
+    key: "modelVisibility",
+    sectionId: "models",
+    fieldId: "settings-field-model-visibility",
+    title: "Selector models",
+    description:
+      "Per-provider overrides for which catalog models the model selector lists by default.",
+    keywords: [
+      "model visibility",
+      "hidden models",
+      "hide model",
+      "show model",
+      "selector models",
+      "latest models",
+      "model list",
+    ],
+    // Loose on purpose: the authoritative shape lives in `model-visibility.ts`
+    // and is re-normalized on load, so a stricter mirror here would only add a
+    // second place to forget when a provider is added.
+    schema: z.record(z.string(), z.unknown()),
+    defaultValue: {},
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "immediate",
+    importExport: "include",
+  } satisfies SettingDefinition<"modelVisibility">,
+  {
     key: "craneConnector",
     sectionId: "integrations",
     fieldId: "settings-field-crane-connector",

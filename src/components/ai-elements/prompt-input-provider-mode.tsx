@@ -129,6 +129,7 @@ export function PromptInputProviderModePill(args: {
           align="start"
           side="top"
           sideOffset={8}
+          aria-label={`${args.status.providerLabel} mode presets`}
           className="w-[22rem] gap-2 p-2"
         >
           <div className="space-y-1">

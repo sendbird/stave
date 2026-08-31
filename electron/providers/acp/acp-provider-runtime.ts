@@ -225,13 +225,16 @@ export async function streamAcpProviderTurn(args: {
       throw new AcpProtocolError("Invalid ACP permission request.");
     }
     const id = createRequestId("permission", context);
+    // Select by `kind`, never by `optionId`. `kind` is the protocol enum, while
+    // `optionId` is agent-defined free text and genuinely differs per runtime:
+    // Cursor advertises `allow-once`/`reject-once` and Kiro advertises
+    // `allow_once`/`reject_once`. Matching the id made every Kiro approval
+    // unanswerable, so the turn stalled until the decision timer rejected it.
     const allowOption = parsed.data.options.find(
-      (option) =>
-        option.optionId === "allow-once" && option.kind === "allow_once",
+      (option) => option.kind === "allow_once",
     );
     const rejectOption = parsed.data.options.find(
-      (option) =>
-        option.optionId === "reject-once" && option.kind === "reject_once",
+      (option) => option.kind === "reject_once",
     );
     if (profile.permissionPolicy === "auto-reject") {
       if (rejectOption) {

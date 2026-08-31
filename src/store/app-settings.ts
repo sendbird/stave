@@ -22,6 +22,7 @@ import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import type { PrMergeMethod } from "@/lib/pr-status";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
 import type { ModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
+import type { ModelVisibility } from "@/lib/providers/model-visibility";
 import type { AppShortcutKeys } from "@/lib/app-shortcuts";
 import { DEFAULT_APP_SHORTCUT_KEYS } from "@/lib/app-shortcuts";
 import {
@@ -169,6 +170,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   modelCursor: string;
   modelKiro: string;
   modelRuntimePreferences: ModelRuntimePreferences;
+  /**
+   * Which catalog models the model selector offers before the user expands the
+   * list. Sparse — an absent entry follows the "current models only" baseline,
+   * so a provider shipping a new model needs no migration here.
+   */
+  modelVisibility: ModelVisibility;
   /** Provider preference for isolated task-name, routing, and commit utilities. */
   utilityInferenceProvider: UtilityInferenceProvider;
   autoRoutingEnabled: boolean;
@@ -371,8 +378,15 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   codexPlanMode: boolean;
   cursorBinaryPath: string;
   cursorMode: "agent" | "plan" | "ask";
+  /**
+   * Approval autonomy for Cursor turns. Delivered as `agent acp` process flags,
+   * so it applies for the whole session rather than per tool call.
+   */
+  cursorApprovalMode: "manual" | "guided" | "auto";
   kiroBinaryPath: string;
   kiroEffort: "low" | "medium" | "high" | "xhigh" | "max";
+  /** Approval autonomy for Kiro turns. `auto` adds `acp --trust-all-tools`. */
+  kiroApprovalMode: "manual" | "auto";
   // ---------------------------------------------------------------------------
   // Customisable AI prompt templates (Settings → Prompts)
   // ---------------------------------------------------------------------------
@@ -460,6 +474,20 @@ export function normalizeCursorMode(
   return value === "plan" || value === "ask" ? value : "agent";
 }
 
+export function normalizeCursorApprovalMode(
+  value: unknown,
+): AppSettings["cursorApprovalMode"] {
+  // Unknown values fall back to the most conservative tier: a corrupt or
+  // future-build value must never be read as "approvals off".
+  return value === "guided" || value === "auto" ? value : "manual";
+}
+
+export function normalizeKiroApprovalMode(
+  value: unknown,
+): AppSettings["kiroApprovalMode"] {
+  return value === "auto" ? "auto" : "manual";
+}
+
 export function normalizeKiroEffort(value: unknown): AppSettings["kiroEffort"] {
   return value === "low" ||
     value === "high" ||
@@ -531,6 +559,7 @@ export const defaultSettings: AppSettings = {
   modelCursor: getDefaultModelForProvider({ providerId: "cursor" }),
   modelKiro: getDefaultModelForProvider({ providerId: "kiro" }),
   modelRuntimePreferences: {},
+  modelVisibility: {},
   utilityInferenceProvider: "auto",
   autoRoutingEnabled: false,
   autoRoutingUseClassifier: false,
@@ -656,8 +685,10 @@ export const defaultSettings: AppSettings = {
   codexPlanMode: false,
   cursorBinaryPath: "",
   cursorMode: "agent",
+  cursorApprovalMode: "manual",
   kiroBinaryPath: "",
   kiroEffort: "medium",
+  kiroApprovalMode: "manual",
   promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
   promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,

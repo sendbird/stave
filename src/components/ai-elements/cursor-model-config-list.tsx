@@ -20,6 +20,9 @@ import type { ModelSelectorOption } from "./model-selector.utils";
 
 const CURSOR_ACCENT_COLOR = PROVIDER_ACCENT_COLORS.cursor;
 
+const FIXED_PARAMETER_TITLE =
+  "Cursor advertises a single value for this parameter, so it cannot be changed from here.";
+
 function getEffortShortLabel(label: string) {
   if (label === "Medium") {
     return "Med";
@@ -61,6 +64,28 @@ function getSelectedControlKey(args: {
   return anchor.effort
     ? `${args.group.key}:effort:${anchor.effort}`
     : `${args.group.key}:model`;
+}
+
+/**
+ * A parameter Cursor reports but does not let the client change.
+ *
+ * Cursor ACP advertises one model id per base model, and `session/set_model`
+ * rejects any variant it did not advertise (`-32602 Invalid model value`). A
+ * segmented control with a single reachable value reads as broken, so a fixed
+ * parameter is shown as a plain label instead of a button that cannot move.
+ */
+function FixedCapabilityChip(args: { title: string; children: ReactNode }) {
+  return (
+    <span
+      data-cursor-fixed-capability="true"
+      title={args.title}
+      // Deliberately not button-shaped: no border, no 44px hit area, so it does
+      // not read as a control that failed to respond.
+      className="flex h-6 shrink-0 items-center self-center rounded bg-muted/45 px-1.5 text-[10px] leading-4 font-medium text-muted-foreground/85"
+    >
+      {args.children}
+    </span>
+  );
 }
 
 function ConfigurationButton(args: {
@@ -134,6 +159,22 @@ function CursorModelRow(args: {
   const hasEffort = args.group.variants.some(
     (variant) => variant.effort !== undefined,
   );
+  // A parameter is adjustable only when Cursor advertises a second variant that
+  // differs in that parameter. Anything else is fixed for this model, so it is
+  // rendered as a label rather than a control that cannot move.
+  const fastAdjustable = args.group.variants.some(
+    (variant) => variant.fast !== anchor?.fast,
+  );
+  const thinkingAdjustable = args.group.variants.some(
+    (variant) => variant.thinking !== anchor?.thinking,
+  );
+  const contextAdjustable = contextValues.length > 1;
+  const effortAdjustable =
+    new Set(
+      args.group.variants
+        .map((variant) => variant.effort)
+        .filter((value): value is NonNullable<typeof value> => Boolean(value)),
+    ).size > 1;
   const chooseVariant = (variant?: CursorModelVariant) => {
     if (variant) {
       args.onChoose(variant.option);
@@ -170,11 +211,6 @@ function CursorModelRow(args: {
       next.focus();
     }
   };
-  const fixedTitle =
-    args.group.variants.length === 1
-      ? "Cursor ACP currently advertises one fixed configuration for this model."
-      : undefined;
-
   if (!anchor) {
     return null;
   }
@@ -215,7 +251,16 @@ function CursorModelRow(args: {
         </button>
 
         <div className="tab-strip-scroll flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-contain">
-          {hasFast ? (
+          {hasFast && !fastAdjustable ? (
+            anchor.fast ? (
+              <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
+                <Zap className="mr-1 size-3 fill-current" aria-hidden="true" />
+                Fast
+              </FixedCapabilityChip>
+            ) : null
+          ) : null}
+
+          {hasFast && fastAdjustable ? (
             <ConfigurationButton
               controlKey={`${args.group.key}:fast`}
               tabStopKey={tabStopKey}
@@ -229,7 +274,6 @@ function CursorModelRow(args: {
                   patch: { fast: !anchor.fast },
                 })
               }
-              title={fixedTitle}
               onFocus={args.onTabStopChange}
               onKeyDown={handleKeyDown}
               onClick={() =>
@@ -251,7 +295,13 @@ function CursorModelRow(args: {
             </ConfigurationButton>
           ) : null}
 
-          {contextValues.map((context) => {
+          {!contextAdjustable && anchor.context ? (
+            <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
+              {anchor.context.toUpperCase()}
+            </FixedCapabilityChip>
+          ) : null}
+
+          {(contextAdjustable ? contextValues : []).map((context) => {
             const variant = resolveCursorModelVariant({
               group: args.group,
               anchor,
@@ -270,7 +320,6 @@ function CursorModelRow(args: {
                   !variant ||
                   (contextValues.length === 1 && anchor.context === context)
                 }
-                title={contextValues.length === 1 ? fixedTitle : undefined}
                 onFocus={args.onTabStopChange}
                 onKeyDown={handleKeyDown}
                 onClick={() => chooseVariant(variant)}
@@ -280,7 +329,15 @@ function CursorModelRow(args: {
             );
           })}
 
-          {hasThinking ? (
+          {hasThinking && !thinkingAdjustable ? (
+            anchor.thinking ? (
+              <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
+                Thinking
+              </FixedCapabilityChip>
+            ) : null
+          ) : null}
+
+          {hasThinking && thinkingAdjustable ? (
             <ConfigurationButton
               controlKey={`${args.group.key}:thinking`}
               tabStopKey={tabStopKey}
@@ -294,7 +351,6 @@ function CursorModelRow(args: {
                   patch: { thinking: !anchor.thinking },
                 })
               }
-              title={fixedTitle}
               onFocus={args.onTabStopChange}
               onKeyDown={handleKeyDown}
               onClick={() =>
@@ -311,7 +367,15 @@ function CursorModelRow(args: {
             </ConfigurationButton>
           ) : null}
 
-          {hasEffort
+          {hasEffort && !effortAdjustable && anchor.effort ? (
+            <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
+              {CURSOR_MODEL_EFFORT_OPTIONS.find(
+                (effort) => effort.value === anchor.effort,
+              )?.label ?? anchor.effort}
+            </FixedCapabilityChip>
+          ) : null}
+
+          {hasEffort && effortAdjustable
             ? CURSOR_MODEL_EFFORT_OPTIONS.map((effort, effortIndex) => {
                 const variant = resolveCursorModelVariant({
                   group: args.group,
@@ -414,7 +478,8 @@ export function CursorModelConfigList(args: {
         ))}
       </div>
       <p className="border-t border-border/65 px-3 py-2 text-xs text-muted-foreground">
-        Options not advertised by Cursor ACP are shown as unavailable.
+        Buttons change the model. Plain labels are parameters Cursor reports but
+        advertises only one value for, so they cannot be changed from here.
       </p>
     </div>
   );
