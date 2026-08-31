@@ -203,7 +203,7 @@ export async function runAcpUtilityPrompt(
         env: buildKiroCliEnv({ executablePath }),
         requestedModel,
         modelSetter: "legacy-set-model",
-        promptParameterName: "content",
+        promptParameterName: "prompt+content",
         authenticationHelp:
           "Run `kiro-cli login` if authentication has expired.",
         decisionTimeoutMs: 5_000,

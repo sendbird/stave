@@ -90,8 +90,9 @@ const UsageEventSchema = z.object({
 
 const ContextUsageEventSchema = z.object({
   type: z.literal("context_usage"),
-  usedTokens: z.number().nonnegative(),
-  sizeTokens: z.number().positive(),
+  usedTokens: z.number().nonnegative().optional(),
+  sizeTokens: z.number().positive().optional(),
+  usedPercent: z.number().min(0).max(100).optional(),
   costAmount: z.number().nonnegative().optional(),
   costCurrency: z.string().min(1).optional(),
 });
@@ -125,6 +126,7 @@ const DelegatedUsageEventSchema = z.object({
   thoughtTokens: z.number().optional(),
   contextUsedTokens: z.number().optional(),
   contextWindowTokens: z.number().optional(),
+  contextUsedPercent: z.number().optional(),
   contextCostAmount: z.number().optional(),
   contextCostCurrency: z.string().optional(),
   totalCostUsd: z.number().optional(),

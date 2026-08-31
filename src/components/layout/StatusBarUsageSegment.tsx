@@ -6,6 +6,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
+import {
+  buildUsageHeadlineWindows,
+  headlineUsagePercent,
+} from "@/components/layout/status-bar-usage.utils";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import type {
@@ -219,16 +223,12 @@ export function StatusBarUsageSegment({
   const claudeSnapshot =
     provider === "claude" ? (snapshot?.claude ?? null) : null;
   const codexSnapshot = provider === "codex" ? (snapshot?.codex ?? null) : null;
-  const codexHeadlineBucket = codexSnapshot?.buckets[0] ?? null;
-  const headlinePercent =
-    provider === "claude"
-      ? (claudeSnapshot?.session?.usedPercent ??
-        claudeSnapshot?.weekly?.usedPercent ??
-        claudeSnapshot?.fableWeekly?.usedPercent ??
-        null)
-      : (codexHeadlineBucket?.primary?.usedPercent ??
-        codexHeadlineBucket?.individualLimit?.usedPercent ??
-        null);
+  const headlineWindows = buildUsageHeadlineWindows({
+    provider,
+    claude: claudeSnapshot,
+    codex: codexSnapshot,
+  });
+  const headlinePercent = headlineUsagePercent(headlineWindows);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -251,9 +251,16 @@ export function StatusBarUsageSegment({
           )}
         />
         <span>{label}</span>
-        <span className="font-mono">
-          {headlinePercent === null ? "—" : formatPercent(headlinePercent)}
-        </span>
+        {headlineWindows.length === 0 ? (
+          <span className="font-mono">—</span>
+        ) : (
+          headlineWindows.map((window) => (
+            <span key={window.short} className="font-mono">
+              {window.short ? `${window.short} ` : ""}
+              {formatPercent(window.usedPercent)}
+            </span>
+          ))
+        )}
       </PopoverTrigger>
       <PopoverContent
         side="top"

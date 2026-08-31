@@ -138,6 +138,16 @@ describe("Kiro ACP runtime", () => {
     });
   });
 
+  test("reports Kiro's namespaced metadata as context usage", async () => {
+    const events = await streamKiroWithAcp(createTurnArgs("standard"));
+    expect(events).toContainEqual({
+      type: "context_usage",
+      usedPercent: 3.6710002422332764,
+      costAmount: 0.05413,
+      costCurrency: "credits",
+    });
+  });
+
   test("loads a saved session and selects a Kiro model", async () => {
     const events = await streamKiroWithAcp(
       createTurnArgs("standard", {

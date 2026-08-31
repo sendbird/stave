@@ -16,7 +16,10 @@ import {
   type AcpInboundRequestContext,
   type AcpInboundRequestHandler,
 } from "./acp-protocol";
-import { AcpRequestPermissionSchema } from "./acp-schemas";
+import {
+  AcpRequestPermissionSchema,
+  normalizeAcpPromptUsage,
+} from "./acp-schemas";
 
 const ACP_EVENT_RETAINED_BYTES_MAX = 512 * 1024;
 const ACP_EVENT_TAIL_BYTES = 16 * 1024;
@@ -74,7 +77,7 @@ export interface AcpProviderRuntimeProfile {
   permissionPolicy?: AcpPermissionPolicy;
   modelConfigId?: string;
   modelSetter?: "config-option" | "legacy-set-model";
-  promptParameterName?: "prompt" | "content";
+  promptParameterName?: "prompt" | "content" | "prompt+content";
   authenticationMethodId?: string;
   authenticationHelp: string;
   decisionTimeoutMs: number;
@@ -290,7 +293,10 @@ export async function streamAcpProviderTurn(args: {
     ["session/request_permission", permissionHandler],
     ...(extensionRuntime.requestHandlers ?? new Map()).entries(),
   ]);
-  const mapper = new AcpEventMapper();
+  const mapper = new AcpEventMapper({
+    onDiagnostic: (message) =>
+      console.warn(`[acp:${profile.providerId}] ${message}`),
+  });
   let activeSessionId = "";
   let abortRequested = false;
   let cancelFallback: ReturnType<typeof setTimeout> | null = null;
@@ -523,23 +529,11 @@ export async function streamAcpProviderTurn(args: {
       prompt: [{ type: "text", text: prompt }],
       parameterName: profile.promptParameterName,
     });
-    if (result.usage) {
-      const inputTokens = result.usage.input_tokens ?? 0;
-      const outputTokens = result.usage.output_tokens ?? 0;
-      emit({
-        type: "usage",
-        inputTokens,
-        outputTokens,
-        ...(result.usage.thought_tokens !== undefined
-          ? { thoughtTokens: result.usage.thought_tokens }
-          : {}),
-        ...(result.usage.cached_read_tokens !== undefined
-          ? { cacheReadTokens: result.usage.cached_read_tokens }
-          : {}),
-        ...(result.usage.cached_write_tokens !== undefined
-          ? { cacheCreationTokens: result.usage.cached_write_tokens }
-          : {}),
-      });
+    const promptUsage =
+      normalizeAcpPromptUsage(result.usage) ??
+      normalizeAcpPromptUsage(result._meta?.usage);
+    if (promptUsage) {
+      emit({ type: "usage", ...promptUsage });
     }
     if (cancelFallback) {
       clearTimeout(cancelFallback);

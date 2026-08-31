@@ -208,16 +208,25 @@ export class AcpProtocolClient {
     );
   }
 
+  /**
+   * `parameterName` exists because agents disagree on the content key.
+   * `"prompt+content"` sends both: Kiro CLI silently exits instead of
+   * answering when the spec-standard `prompt` key is missing, while older
+   * builds only read `content`, and no agent has objected to the extra key.
+   */
   prompt(args: {
     sessionId: string;
     prompt: readonly Record<string, unknown>[];
-    parameterName?: "prompt" | "content";
+    parameterName?: "prompt" | "content" | "prompt+content";
   }) {
+    const parameterName = args.parameterName ?? "prompt";
+    const blocks = [...args.prompt];
     return this.request(
       "session/prompt",
       {
         sessionId: args.sessionId,
-        [args.parameterName ?? "prompt"]: [...args.prompt],
+        ...(parameterName === "content" ? {} : { prompt: blocks }),
+        ...(parameterName === "prompt" ? {} : { content: blocks }),
       },
       AcpPromptResponseSchema,
       { timeoutMs: 0 },

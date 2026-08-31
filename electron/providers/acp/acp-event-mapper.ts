@@ -258,8 +258,15 @@ export class AcpEventMapper {
       return [
         {
           type: "context_usage",
-          usedTokens: usage.data.used,
-          sizeTokens: usage.data.size,
+          ...(usage.data.used !== undefined
+            ? { usedTokens: usage.data.used }
+            : {}),
+          ...(usage.data.size !== undefined
+            ? { sizeTokens: usage.data.size }
+            : {}),
+          ...(usage.data.usedPercent !== undefined
+            ? { usedPercent: usage.data.usedPercent }
+            : {}),
           ...(usage.data.cost
             ? {
                 costAmount: usage.data.cost.amount,

@@ -454,8 +454,15 @@ export async function runAcpWorker(args: {
           : {}),
         ...(reportedContextUsage
           ? {
-              contextUsedTokens: reportedContextUsage.usedTokens,
-              contextWindowTokens: reportedContextUsage.sizeTokens,
+              ...(reportedContextUsage.usedTokens !== undefined
+                ? { contextUsedTokens: reportedContextUsage.usedTokens }
+                : {}),
+              ...(reportedContextUsage.sizeTokens !== undefined
+                ? { contextWindowTokens: reportedContextUsage.sizeTokens }
+                : {}),
+              ...(reportedContextUsage.usedPercent !== undefined
+                ? { contextUsedPercent: reportedContextUsage.usedPercent }
+                : {}),
               ...(reportedContextUsage.costAmount !== undefined
                 ? { contextCostAmount: reportedContextUsage.costAmount }
                 : {}),

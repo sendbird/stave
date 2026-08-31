@@ -97,6 +97,12 @@ export const AcpLoadSessionResponseSchema = z.object({
   configOptions: z.array(AcpSessionConfigOptionSchema).nullish(),
 }).passthrough();
 
+/**
+ * Token counts on a `session/prompt` result. ACP does not standardise the
+ * casing, so both the snake_case and camelCase spellings are accepted and
+ * normalised by `normalizeAcpPromptUsage`. Agents that nest the same object
+ * under `_meta` are handled there too.
+ */
 export const AcpPromptUsageSchema = z
   .object({
     total_tokens: z.number().nonnegative().optional(),
@@ -105,13 +111,73 @@ export const AcpPromptUsageSchema = z
     thought_tokens: z.number().nonnegative().optional(),
     cached_read_tokens: z.number().nonnegative().optional(),
     cached_write_tokens: z.number().nonnegative().optional(),
+    totalTokens: z.number().nonnegative().optional(),
+    inputTokens: z.number().nonnegative().optional(),
+    outputTokens: z.number().nonnegative().optional(),
+    thoughtTokens: z.number().nonnegative().optional(),
+    cacheReadTokens: z.number().nonnegative().optional(),
+    cacheWriteTokens: z.number().nonnegative().optional(),
+    cachedReadTokens: z.number().nonnegative().optional(),
+    cachedWriteTokens: z.number().nonnegative().optional(),
   })
   .passthrough();
 
-export const AcpPromptResponseSchema = z.object({
-  stopReason: z.string(),
-  usage: AcpPromptUsageSchema.nullish(),
-});
+export interface AcpNormalizedPromptUsage {
+  inputTokens: number;
+  outputTokens: number;
+  thoughtTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+}
+
+/**
+ * Collapses the accepted spellings into one shape. Returns `null` when the
+ * agent sent a usage object with no recognisable token count, so callers can
+ * tell "not reported" apart from "reported as zero".
+ */
+export function normalizeAcpPromptUsage(
+  raw: z.infer<typeof AcpPromptUsageSchema> | null | undefined,
+): AcpNormalizedPromptUsage | null {
+  if (!raw) {
+    return null;
+  }
+  const input = raw.input_tokens ?? raw.inputTokens;
+  const output = raw.output_tokens ?? raw.outputTokens;
+  const thought = raw.thought_tokens ?? raw.thoughtTokens;
+  const cacheRead =
+    raw.cached_read_tokens ?? raw.cacheReadTokens ?? raw.cachedReadTokens;
+  const cacheWrite =
+    raw.cached_write_tokens ?? raw.cacheWriteTokens ?? raw.cachedWriteTokens;
+  const total = raw.total_tokens ?? raw.totalTokens;
+  if (
+    input === undefined &&
+    output === undefined &&
+    thought === undefined &&
+    cacheRead === undefined &&
+    cacheWrite === undefined &&
+    total === undefined
+  ) {
+    return null;
+  }
+  return {
+    inputTokens: input ?? 0,
+    outputTokens: output ?? 0,
+    ...(thought !== undefined ? { thoughtTokens: thought } : {}),
+    ...(cacheRead !== undefined ? { cacheReadTokens: cacheRead } : {}),
+    ...(cacheWrite !== undefined ? { cacheCreationTokens: cacheWrite } : {}),
+  };
+}
+
+export const AcpPromptResponseSchema = z
+  .object({
+    stopReason: z.string(),
+    usage: AcpPromptUsageSchema.nullish(),
+    _meta: z
+      .object({ usage: AcpPromptUsageSchema.nullish() })
+      .passthrough()
+      .nullish(),
+  })
+  .passthrough();
 
 export const AcpSessionNotificationSchema = z.object({
   sessionId: z.string(),
@@ -122,11 +188,17 @@ export const AcpSessionNotificationSchema = z.object({
     .passthrough(),
 });
 
+/**
+ * `usage_update` carries a context-window reading. `used`/`size` are optional
+ * because some agents only report one of them (or only a cost), and dropping
+ * the whole update in that case loses the reading entirely.
+ */
 export const AcpUsageUpdateSchema = z
   .object({
     sessionUpdate: z.literal("usage_update"),
-    used: z.number().nonnegative(),
-    size: z.number().positive(),
+    used: z.number().nonnegative().optional(),
+    size: z.number().positive().optional(),
+    usedPercent: z.number().min(0).max(100).optional(),
     cost: z
       .object({
         amount: z.number().nonnegative(),
@@ -135,7 +207,14 @@ export const AcpUsageUpdateSchema = z
       .passthrough()
       .optional(),
   })
-  .passthrough();
+  .passthrough()
+  .refine(
+    (value) =>
+      value.used !== undefined ||
+      value.usedPercent !== undefined ||
+      value.cost !== undefined,
+    { message: "usage_update reported no usage reading." },
+  );
 
 const AcpTextContentSchema = z
   .object({

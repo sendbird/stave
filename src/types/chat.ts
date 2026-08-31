@@ -365,6 +365,8 @@ export interface ChatMessage {
     thoughtTokens?: number;
     contextUsedTokens?: number;
     contextWindowTokens?: number;
+    /** 0-100, for providers that report a percentage instead of raw tokens. */
+    contextUsedPercent?: number;
     contextCostAmount?: number;
     contextCostCurrency?: string;
     totalCostUsd?: number;
