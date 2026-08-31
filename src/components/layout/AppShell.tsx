@@ -34,6 +34,7 @@ import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDialog";
 import { requestComparePreparation } from "@/components/compare/compare-prepare-request";
 import { listLatestWorkspaceTurns } from "@/lib/db/turns.db";
+import { LENS_SURFACE_ROOT_ID } from "@/lib/lens/lens-guest-host";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { isTaskArchived } from "@/lib/tasks";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
@@ -1382,7 +1383,21 @@ export function AppShell() {
             <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
           </div>
         ) : null}
-        <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-tl-xl">
+        <div
+          className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-tl-xl"
+          data-stave-app-surface=""
+        >
+          {/*
+            Keep Lens inside this stacking context. The app surface itself is
+            z-10 at the document root; a body-level Lens root at the same layer
+            paints behind its opaque background. Nested here, the guest stays
+            above ordinary pane content while Lens chrome and shared overlays
+            can still use the higher UI layer bands.
+          */}
+          <div
+            id={LENS_SURFACE_ROOT_ID}
+            className={`pointer-events-none fixed inset-0 ${UI_LAYER_CLASS.lensSurface}`}
+          />
           <TopBar />
           <div
             ref={panelRowRef}
