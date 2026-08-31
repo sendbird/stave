@@ -157,6 +157,8 @@ import type {
 } from "@/lib/git-graph/types";
 import type {
   LensGuestFocusRequestPayload,
+  LensGuestFocusRestoreRequestPayload,
+  LensGuestFocusRestoreResultPayload,
   LensGuestFocusResultPayload,
   LensGuestRequiredPayload,
   LensSessionClosedPayload,
@@ -2376,6 +2378,9 @@ interface WindowLensApi {
     presented: boolean;
   }) => Promise<{ ok: boolean }>;
   reportGuestFocus?: (payload: LensGuestFocusResultPayload) => void;
+  reportGuestFocusRestore?: (
+    payload: LensGuestFocusRestoreResultPayload,
+  ) => void;
   reportGuestMountFailure?: (payload: {
     workspaceId: string;
     lensSessionId: string;
@@ -2617,6 +2622,9 @@ interface WindowLensApi {
   ) => () => void;
   subscribeGuestFocusRequests?: (
     listener: (payload: LensGuestFocusRequestPayload) => void,
+  ) => () => void;
+  subscribeGuestFocusRestoreRequests?: (
+    listener: (payload: LensGuestFocusRestoreRequestPayload) => void,
   ) => () => void;
   subscribePresentationRequests?: (
     listener: (payload: LensSessionPresentationRequestPayload) => void,

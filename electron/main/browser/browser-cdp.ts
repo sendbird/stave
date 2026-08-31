@@ -11,7 +11,10 @@ import type {
   LensStyleEdit,
 } from "../../../src/lib/lens/lens.types";
 import { getSessionIdentityForWebContentsId } from "./browser-manager";
-import { borrowLensGuestFocus } from "./browser-guest-broker";
+import {
+  borrowLensGuestFocus,
+  releaseLensGuestFocus,
+} from "./browser-guest-broker";
 import { assertCdpAllowed } from "./browser-security";
 import { getLensBoxModelScript } from "./browser-style-capture";
 import {
@@ -329,11 +332,16 @@ export async function getAccessibilitySnapshot(
  *
  * So this asks the renderer and refuses to continue if the answer is no. A
  * loud failure is the point; the alternative is input landing anywhere.
+ *
+ * The focus is borrowed, not taken: it is given back once the dispatch is
+ * over, on every exit path, so a parked guest cannot keep the caret away from
+ * whatever the user was typing in.
  */
-async function requireLensGuestFocus(
+async function withLensGuestFocus<T>(
   webContentsId: number,
   action: string,
-): Promise<void> {
+  run: () => Promise<T>,
+): Promise<T> {
   const identity = getSessionIdentityForWebContentsId(webContentsId);
   if (!identity) {
     throw new Error(
@@ -341,13 +349,26 @@ async function requireLensGuestFocus(
     );
   }
 
-  const result = await borrowLensGuestFocus(identity);
-  if (!result.ok) {
-    throw new Error(
-      `Cannot ${action}: the Lens page could not be focused, so input would be delivered elsewhere. ${
-        result.message ?? ""
-      }`.trim(),
-    );
+  const borrow = await borrowLensGuestFocus(identity);
+  /*
+   * Released from here on, including when the borrow was refused. A refusal is
+   * usually a wait that expired, not a borrow that did not happen: the
+   * renderer grants it late and the guest ends up holding the caret with
+   * nothing scheduled to give it back. Releasing an ungranted borrow is a
+   * no-op on the renderer side, so paying for it unconditionally is cheaper
+   * than the focus leak.
+   */
+  try {
+    if (!borrow.ok) {
+      throw new Error(
+        `Cannot ${action}: the Lens page could not be focused, so input would be delivered elsewhere. ${
+          borrow.message ?? ""
+        }`.trim(),
+      );
+    }
+    return await run();
+  } finally {
+    await releaseLensGuestFocus(borrow.requestId);
   }
 }
 
@@ -356,41 +377,41 @@ export async function clickElement(
   selector: string,
 ): Promise<void> {
   await assertCdpAllowedForWebContentsId(webContentsId, "click page element");
-  await requireLensGuestFocus(webContentsId, "click page element");
+  await withLensGuestFocus(webContentsId, "click page element", async () => {
+    // Scroll the element into view first so getBoundingClientRect returns
+    // non-negative viewport-relative coordinates, then get the center point.
+    await sendCommand(webContentsId, "Runtime.evaluate", {
+      expression: `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center", inline: "center" })`,
+      returnByValue: true,
+    });
 
-  // Scroll the element into view first so getBoundingClientRect returns
-  // non-negative viewport-relative coordinates, then get the center point.
-  await sendCommand(webContentsId, "Runtime.evaluate", {
-    expression: `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center", inline: "center" })`,
-    returnByValue: true,
-  });
-
-  const coords = (await sendCommand(webContentsId, "Runtime.evaluate", {
-    expression: `(() => {
+    const coords = (await sendCommand(webContentsId, "Runtime.evaluate", {
+      expression: `(() => {
       const el = document.querySelector(${JSON.stringify(selector)});
       if (!el) return null;
       const r = el.getBoundingClientRect();
       return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
     })()`,
-    returnByValue: true,
-  })) as { result: { value: { x: number; y: number } | null } };
+      returnByValue: true,
+    })) as { result: { value: { x: number; y: number } | null } };
 
-  const pt = coords.result.value;
-  if (!pt) throw new Error(`Element not found: ${selector}`);
+    const pt = coords.result.value;
+    if (!pt) throw new Error(`Element not found: ${selector}`);
 
-  await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
-    type: "mousePressed",
-    x: pt.x,
-    y: pt.y,
-    button: "left",
-    clickCount: 1,
-  });
-  await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
-    type: "mouseReleased",
-    x: pt.x,
-    y: pt.y,
-    button: "left",
-    clickCount: 1,
+    await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      x: pt.x,
+      y: pt.y,
+      button: "left",
+      clickCount: 1,
+    });
+    await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      x: pt.x,
+      y: pt.y,
+      button: "left",
+      clickCount: 1,
+    });
   });
 }
 
@@ -400,16 +421,15 @@ export async function typeText(
   selector?: string,
 ): Promise<void> {
   await assertCdpAllowedForWebContentsId(webContentsId, "type into page");
-  await requireLensGuestFocus(webContentsId, "type into page");
+  await withLensGuestFocus(webContentsId, "type into page", async () => {
+    if (selector) {
+      await sendCommand(webContentsId, "Runtime.evaluate", {
+        expression: `document.querySelector(${JSON.stringify(selector)})?.focus()`,
+      });
+    }
 
-  // Focus element first if selector provided
-  if (selector) {
-    await sendCommand(webContentsId, "Runtime.evaluate", {
-      expression: `document.querySelector(${JSON.stringify(selector)})?.focus()`,
-    });
-  }
-
-  await sendCommand(webContentsId, "Input.insertText", { text });
+    await sendCommand(webContentsId, "Input.insertText", { text });
+  });
 }
 
 export async function setElementStyle(

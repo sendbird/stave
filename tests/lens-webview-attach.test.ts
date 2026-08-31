@@ -93,9 +93,19 @@ describe("webview attach decision", () => {
         webSecurity: true,
         allowRunningInsecureContent: false,
         webviewTag: false,
+        transparent: false,
         partition: `${LENS_PARTITION_PREFIX}ws-1`,
       },
     });
+  });
+
+  test("forces an opaque guest canvas so pages do not show the app through them", () => {
+    const decision = decideLensWebviewAttach({
+      requestedPartition: `${LENS_PARTITION_PREFIX}ws-1`,
+      guestPreloadPath: GUEST_PRELOAD,
+    });
+
+    expect(decision.allow && decision.webPreferences.transparent).toBe(false);
   });
 
   test("matches the preferences the native view path already runs with", () => {

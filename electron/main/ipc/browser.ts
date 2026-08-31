@@ -27,6 +27,7 @@ import {
   ensureBrowserSessionGuest,
   notifyLensGuestFailed,
   resolveLensGuestFocus,
+  resolveLensGuestFocusRestore,
 } from "../browser/browser-guest-broker";
 import {
   assertLensDocumentIdentity,
@@ -91,6 +92,7 @@ import {
 import type {
   LensCdpApprovalResponse,
   LensDownloadEntry,
+  LensGuestFocusRestoreResultPayload,
   LensGuestFocusResultPayload,
   LensSecurityConfig,
   LensSessionDescriptor,
@@ -381,7 +383,8 @@ export function registerBrowserHandlers() {
       notifyLensGuestFailed(
         payload.workspaceId,
         payload.lensSessionId,
-        payload.message?.trim() || "The Stave window could not open a Lens page",
+        payload.message?.trim() ||
+          "The Stave window could not open a Lens page",
       );
     },
   );
@@ -400,6 +403,21 @@ export function registerBrowserHandlers() {
         requestId: payload.requestId,
         ok: payload.ok === true,
         message: payload.message,
+      });
+    },
+  );
+
+  ipcMain.on(
+    "lens:guest-focus-restore-result",
+    (event, payload: LensGuestFocusRestoreResultPayload) => {
+      if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+        return;
+      }
+      if (typeof payload?.requestId !== "string") {
+        return;
+      }
+      resolveLensGuestFocusRestore({
+        requestId: payload.requestId,
       });
     },
   );
@@ -512,55 +530,47 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Screenshot ----
-  ipcMain.handle(
-    "lens:screenshot",
-    async (event, input: unknown) => {
-      if (
-        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
-      ) {
-        return { ok: false, message: "Unauthorized Lens renderer" };
-      }
-      const parsed = LensScreenshotArgsSchema.safeParse(input);
-      if (!parsed.success) {
-        return { ok: false, message: "Invalid Lens screenshot request" };
-      }
-      const args = parsed.data;
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
+  ipcMain.handle("lens:screenshot", async (event, input: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+      return { ok: false, message: "Unauthorized Lens renderer" };
+    }
+    const parsed = LensScreenshotArgsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid Lens screenshot request" };
+    }
+    const args = parsed.data;
+    const session = getBrowserSession(args.workspaceId, args.lensSessionId);
+    if (!session) return { ok: false, message: "No browser session" };
 
-      try {
-        assertLensDocumentIdentity(session, args.options?.documentId);
-        const captureDocumentId = session.documentId;
-        await executeInLensAnnotationWorld(
-          session.webContents,
-            `new Promise((resolve) => {
+    try {
+      assertLensDocumentIdentity(session, args.options?.documentId);
+      const captureDocumentId = session.documentId;
+      await executeInLensAnnotationWorld(
+        session.webContents,
+        `new Promise((resolve) => {
               window.__staveSetAnnotationScreenshotCaptureActive?.(false);
               requestAnimationFrame(() => requestAnimationFrame(() => resolve(true)));
             })`,
-          )
-          .catch(() => false);
-        const { documentId: _documentId, ...captureOptions } =
-          args.options ?? {};
-        const dataUrl = await captureScreenshot(
-          session.webContents.id,
-          captureOptions,
-        );
-        assertLensDocumentIdentity(session, captureDocumentId);
-        return { ok: true, dataUrl, documentId: captureDocumentId };
-      } catch (err) {
-        return {
-          ok: false,
-          message: err instanceof Error ? err.message : String(err),
-        };
-      } finally {
-        await executeInLensAnnotationWorld(
-          session.webContents,
-            "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
-          )
-          .catch(() => false);
-      }
-    },
-  );
+      ).catch(() => false);
+      const { documentId: _documentId, ...captureOptions } = args.options ?? {};
+      const dataUrl = await captureScreenshot(
+        session.webContents.id,
+        captureOptions,
+      );
+      assertLensDocumentIdentity(session, captureDocumentId);
+      return { ok: true, dataUrl, documentId: captureDocumentId };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    } finally {
+      await executeInLensAnnotationWorld(
+        session.webContents,
+        "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
+      ).catch(() => false);
+    }
+  });
 
   ipcMain.handle(
     "lens:save-screenshot",
@@ -659,9 +669,7 @@ export function registerBrowserHandlers() {
       if (!session) return { ok: false, message: "No browser session" };
 
       try {
-        const assetUrls = await enumeratePageAssets(
-          session.webContents.id,
-        );
+        const assetUrls = await enumeratePageAssets(session.webContents.id);
         const entries: LensDownloadEntry[] = [];
         const errors: Array<{ url: string; message: string }> = [];
 
@@ -1023,56 +1031,46 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Element picker ----
-  ipcMain.handle(
-    "lens:start-element-picker",
-    async (event, input: unknown) => {
-      if (
-        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
-      ) {
-        return { ok: false, message: "Unauthorized Lens renderer" };
-      }
-      const parsed = LensAnnotationStartArgsSchema.safeParse(input);
-      if (!parsed.success) {
-        return { ok: false, message: "Invalid Lens element picker request" };
-      }
-      const args = parsed.data;
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
+  ipcMain.handle("lens:start-element-picker", async (event, input: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+      return { ok: false, message: "Unauthorized Lens renderer" };
+    }
+    const parsed = LensAnnotationStartArgsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid Lens element picker request" };
+    }
+    const args = parsed.data;
+    const session = getBrowserSession(args.workspaceId, args.lensSessionId);
+    if (!session) return { ok: false, message: "No browser session" };
 
-      try {
-        const documentId = session.documentId;
-        const script = getElementPickerScript({
-          documentId,
-          extractDebugSource: args.options?.extractDebugSource ?? false,
-        });
-        const rawResult = await executeInLensAnnotationWorld(
-          session.webContents,
-          script,
-        );
-        if (rawResult == null) {
-          return { ok: true };
-        }
-        assertLensDocumentIdentity(session, documentId);
-        const result = normalizeElementPickerResultForSession(
-          session,
-          rawResult,
-        );
-        return { ok: true, result };
-      } catch (err) {
-        return {
-          ok: false,
-          message: err instanceof Error ? err.message : String(err),
-        };
+    try {
+      const documentId = session.documentId;
+      const script = getElementPickerScript({
+        documentId,
+        extractDebugSource: args.options?.extractDebugSource ?? false,
+      });
+      const rawResult = await executeInLensAnnotationWorld(
+        session.webContents,
+        script,
+      );
+      if (rawResult == null) {
+        return { ok: true };
       }
-    },
-  );
+      assertLensDocumentIdentity(session, documentId);
+      const result = normalizeElementPickerResultForSession(session, rawResult);
+      return { ok: true, result };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
 
   ipcMain.handle(
     "lens:start-annotation-mode",
     async (event, input: unknown) => {
-      if (
-        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
-      ) {
+      if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
         return { ok: false, message: "Unauthorized Lens renderer" };
       }
       const parsed = LensAnnotationStartArgsSchema.safeParse(input);
@@ -1089,9 +1087,8 @@ export function registerBrowserHandlers() {
         }
         const revivedExistingOverlay = await executeInLensAnnotationWorld(
           session.webContents,
-            "window.__staveSetAnnotationCaptureActive?.(true) === true",
-          )
-          .catch(() => false);
+          "window.__staveSetAnnotationCaptureActive?.(true) === true",
+        ).catch(() => false);
         if (revivedExistingOverlay && session.annotationNonce) {
           session.annotationOverlayActive = true;
           session.annotationExtractDebugSource =
@@ -1119,36 +1116,31 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
-    "lens:stop-annotation-mode",
-    async (event, input: unknown) => {
-      if (
-        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
-      ) {
-        return { ok: false, message: "Unauthorized Lens renderer" };
-      }
-      const parsed = LensSessionTargetArgsSchema.safeParse(input);
-      if (!parsed.success) {
-        return { ok: false, message: "Invalid Lens annotation request" };
-      }
-      const args = parsed.data;
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
+  ipcMain.handle("lens:stop-annotation-mode", async (event, input: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+      return { ok: false, message: "Unauthorized Lens renderer" };
+    }
+    const parsed = LensSessionTargetArgsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid Lens annotation request" };
+    }
+    const args = parsed.data;
+    const session = getBrowserSession(args.workspaceId, args.lensSessionId);
+    if (!session) return { ok: false, message: "No browser session" };
 
-      try {
-        session.annotations = await readNormalizedPageAnnotations(session);
-        await executeInLensAnnotationWorld(
-          session.webContents,
-          "window.__staveSetAnnotationCaptureActive?.(false)",
-        );
-      } catch {
-        // Ignore overlay failures; navigation may already have destroyed page state.
-      }
-      session.annotationOverlayActive = false;
-      session.annotationExtractDebugSource = false;
-      return { ok: true };
-    },
-  );
+    try {
+      session.annotations = await readNormalizedPageAnnotations(session);
+      await executeInLensAnnotationWorld(
+        session.webContents,
+        "window.__staveSetAnnotationCaptureActive?.(false)",
+      );
+    } catch {
+      // Ignore overlay failures; navigation may already have destroyed page state.
+    }
+    session.annotationOverlayActive = false;
+    session.annotationExtractDebugSource = false;
+    return { ok: true };
+  });
 
   // ---- Box-model inspect overlay ----
   ipcMain.handle(
@@ -1193,188 +1185,168 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
-    "lens:get-annotations",
-    async (event, input: unknown) => {
-      if (
-        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
-      ) {
-        return { ok: false, message: "Unauthorized Lens renderer" };
-      }
-      const parsed = LensSessionTargetArgsSchema.safeParse(input);
-      if (!parsed.success) {
-        return { ok: false, message: "Invalid Lens annotation request" };
-      }
-      const args = parsed.data;
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
+  ipcMain.handle("lens:get-annotations", async (event, input: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+      return { ok: false, message: "Unauthorized Lens renderer" };
+    }
+    const parsed = LensSessionTargetArgsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid Lens annotation request" };
+    }
+    const args = parsed.data;
+    const session = getBrowserSession(args.workspaceId, args.lensSessionId);
+    if (!session) return { ok: false, message: "No browser session" };
 
-      try {
-        const annotations = await readNormalizedPageAnnotations(session);
-        session.annotations = annotations;
-        return {
-          ok: true,
-          annotations,
-        };
-      } catch (err) {
-        return {
-          ok: true,
-          annotations: session.annotations.filter(
-            (annotation) =>
-              annotation.review.page.documentId === session.documentId,
+    try {
+      const annotations = await readNormalizedPageAnnotations(session);
+      session.annotations = annotations;
+      return {
+        ok: true,
+        annotations,
+      };
+    } catch (err) {
+      return {
+        ok: true,
+        annotations: session.annotations.filter(
+          (annotation) =>
+            annotation.review.page.documentId === session.documentId,
+        ),
+      };
+    }
+  });
+
+  ipcMain.handle("lens:remove-annotation", async (event, input: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+      return { ok: false, message: "Unauthorized Lens renderer" };
+    }
+    const parsed = LensAnnotationRemoveArgsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid Lens annotation request" };
+    }
+    const args = parsed.data;
+    const session = getBrowserSession(args.workspaceId, args.lensSessionId);
+    if (!session) return { ok: false, message: "No browser session" };
+
+    try {
+      assertLensDocumentIdentity(session, args.documentId);
+      const removed = await executeInLensAnnotationWorld(
+        session.webContents,
+        `window.__staveRemoveAnnotation?.(${JSON.stringify(args.annotationId)}) ?? false`,
+      );
+      if (removed) {
+        session.annotations = session.annotations.filter(
+          (annotation) => annotation.id !== args.annotationId,
+        );
+      }
+      return { ok: Boolean(removed) };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
+
+  ipcMain.handle("lens:clear-annotations", async (event, input: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+      return { ok: false, message: "Unauthorized Lens renderer" };
+    }
+    const parsed = LensSessionTargetArgsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid Lens annotation request" };
+    }
+    const args = parsed.data;
+    const session = getBrowserSession(args.workspaceId, args.lensSessionId);
+    if (!session) return { ok: false, message: "No browser session" };
+
+    try {
+      await executeInLensAnnotationWorld(
+        session.webContents,
+        "window.__staveClearAnnotations?.()",
+      );
+    } catch {
+      // Ignore overlay failures; navigation may already have destroyed page state.
+    }
+    session.annotations = [];
+    sendAnnotationEvent({
+      workspaceId: args.workspaceId,
+      lensSessionId: session.lensSessionId,
+      documentId: session.documentId,
+      type: "clear",
+    });
+    return { ok: true };
+  });
+
+  ipcMain.handle("lens:set-element-style", async (event, input: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+      return { ok: false, message: "Unauthorized Lens renderer" };
+    }
+    const parsed = LensAnnotationStyleArgsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid Lens style request" };
+    }
+    const args = parsed.data;
+    const session = getBrowserSession(args.workspaceId, args.lensSessionId);
+    if (!session) return { ok: false, message: "No browser session" };
+
+    try {
+      assertLensDocumentIdentity(session, args.documentId);
+      const edits = await setElementStyle(
+        session.webContents.id,
+        args.selector,
+        args.patch,
+      );
+      assertLensDocumentIdentity(session, args.documentId);
+      const target = session.annotations.find(
+        (annotation) => annotation.id === args.annotationId,
+      );
+      if (target?.review.page.documentId === session.documentId) {
+        const computedStyles = {
+          ...(target.computedStyles ?? {}),
+          ...Object.fromEntries(
+            edits.map((edit) => [edit.property, edit.after]),
           ),
         };
-      }
-    },
-  );
-
-  ipcMain.handle(
-    "lens:remove-annotation",
-    async (event, input: unknown) => {
-      if (
-        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
-      ) {
-        return { ok: false, message: "Unauthorized Lens renderer" };
-      }
-      const parsed = LensAnnotationRemoveArgsSchema.safeParse(input);
-      if (!parsed.success) {
-        return { ok: false, message: "Invalid Lens annotation request" };
-      }
-      const args = parsed.data;
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
-
-      try {
-        assertLensDocumentIdentity(session, args.documentId);
-        const removed = await executeInLensAnnotationWorld(
-          session.webContents,
-          `window.__staveRemoveAnnotation?.(${JSON.stringify(args.annotationId)}) ?? false`,
-        );
-        if (removed) {
-          session.annotations = session.annotations.filter(
-            (annotation) => annotation.id !== args.annotationId,
-          );
-        }
-        return { ok: Boolean(removed) };
-      } catch (err) {
-        return {
-          ok: false,
-          message: err instanceof Error ? err.message : String(err),
-        };
-      }
-    },
-  );
-
-  ipcMain.handle(
-    "lens:clear-annotations",
-    async (event, input: unknown) => {
-      if (
-        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
-      ) {
-        return { ok: false, message: "Unauthorized Lens renderer" };
-      }
-      const parsed = LensSessionTargetArgsSchema.safeParse(input);
-      if (!parsed.success) {
-        return { ok: false, message: "Invalid Lens annotation request" };
-      }
-      const args = parsed.data;
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
-
-      try {
-        await executeInLensAnnotationWorld(
-          session.webContents,
-          "window.__staveClearAnnotations?.()",
-        );
-      } catch {
-        // Ignore overlay failures; navigation may already have destroyed page state.
-      }
-      session.annotations = [];
-      sendAnnotationEvent({
-        workspaceId: args.workspaceId,
-        lensSessionId: session.lensSessionId,
-        documentId: session.documentId,
-        type: "clear",
-      });
-      return { ok: true };
-    },
-  );
-
-  ipcMain.handle(
-    "lens:set-element-style",
-    async (event, input: unknown) => {
-      if (
-        !isTrustedLensRenderer(event, getMainWindow()?.webContents)
-      ) {
-        return { ok: false, message: "Unauthorized Lens renderer" };
-      }
-      const parsed = LensAnnotationStyleArgsSchema.safeParse(input);
-      if (!parsed.success) {
-        return { ok: false, message: "Invalid Lens style request" };
-      }
-      const args = parsed.data;
-      const session = getBrowserSession(args.workspaceId, args.lensSessionId);
-      if (!session) return { ok: false, message: "No browser session" };
-
-      try {
-        assertLensDocumentIdentity(session, args.documentId);
-        const edits = await setElementStyle(
-          session.webContents.id,
-          args.selector,
-          args.patch,
-        );
-        assertLensDocumentIdentity(session, args.documentId);
-        const target = session.annotations.find(
-          (annotation) => annotation.id === args.annotationId,
-        );
-        if (target?.review.page.documentId === session.documentId) {
-          const computedStyles = {
-            ...(target.computedStyles ?? {}),
-            ...Object.fromEntries(
-              edits.map((edit) => [edit.property, edit.after]),
-            ),
-          };
-          const styleEdits = [...(target.styleEdits ?? []), ...edits];
-          const [annotation] = normalizeStoredAnnotationsForSession(session, [
-            {
-              ...target,
-              computedStyles,
-              styleEdits,
-              review: {
-                ...target.review,
-                anchor: {
-                  ...target.review.anchor,
-                  computedStyles,
-                },
-                evidence: {
-                  ...target.review.evidence,
-                  styleEdits,
-                },
+        const styleEdits = [...(target.styleEdits ?? []), ...edits];
+        const [annotation] = normalizeStoredAnnotationsForSession(session, [
+          {
+            ...target,
+            computedStyles,
+            styleEdits,
+            review: {
+              ...target.review,
+              anchor: {
+                ...target.review.anchor,
+                computedStyles,
+              },
+              evidence: {
+                ...target.review.evidence,
+                styleEdits,
               },
             },
-          ]);
-          if (annotation) {
-            session.annotations = session.annotations.map((candidate) =>
-              candidate.id === annotation.id ? annotation : candidate,
-            );
-            sendAnnotationEvent({
-              workspaceId: session.workspaceId,
-              lensSessionId: session.lensSessionId,
-              documentId: session.documentId,
-              type: "update",
-              annotation,
-            });
-          }
+          },
+        ]);
+        if (annotation) {
+          session.annotations = session.annotations.map((candidate) =>
+            candidate.id === annotation.id ? annotation : candidate,
+          );
+          sendAnnotationEvent({
+            workspaceId: session.workspaceId,
+            lensSessionId: session.lensSessionId,
+            documentId: session.documentId,
+            type: "update",
+            annotation,
+          });
         }
-        return { ok: true, edits };
-      } catch (err) {
-        return {
-          ok: false,
-          message: err instanceof Error ? err.message : String(err),
-        };
       }
-    },
-  );
+      return { ok: true, edits };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+  });
 
   // ---- Attach CDP debugger (for MCP tools) ----
   ipcMain.handle(

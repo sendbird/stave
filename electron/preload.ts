@@ -144,6 +144,8 @@ import type {
   LensDownloadEntry,
   LensDownloadEventPayload,
   LensGuestFocusRequestPayload,
+  LensGuestFocusRestoreRequestPayload,
+  LensGuestFocusRestoreResultPayload,
   LensGuestFocusResultPayload,
   LensGuestRequiredPayload,
   BrowserNavigationEventPayload,
@@ -571,6 +573,24 @@ ipcRenderer.on(
       return;
     }
     for (const subscriber of lensGuestFocusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
+const lensGuestFocusRestoreSubscribers = new Set<
+  (payload: LensGuestFocusRestoreRequestPayload) => void
+>();
+ipcRenderer.on(
+  "lens:restore-guest-focus",
+  (_event, payload: LensGuestFocusRestoreRequestPayload) => {
+    if (lensGuestFocusRestoreSubscribers.size === 0) {
+      ipcRenderer.send("lens:guest-focus-restore-result", {
+        requestId: payload.requestId,
+      } satisfies LensGuestFocusRestoreResultPayload);
+      return;
+    }
+    for (const subscriber of lensGuestFocusRestoreSubscribers) {
       subscriber(payload);
     }
   },
@@ -2481,6 +2501,9 @@ contextBridge.exposeInMainWorld("api", {
     reportGuestFocus: (payload: LensGuestFocusResultPayload) => {
       ipcRenderer.send("lens:guest-focus-result", payload);
     },
+    reportGuestFocusRestore: (payload: LensGuestFocusRestoreResultPayload) => {
+      ipcRenderer.send("lens:guest-focus-restore-result", payload);
+    },
     reportGuestMountFailure: (payload: {
       workspaceId: string;
       lensSessionId: string;
@@ -2815,6 +2838,14 @@ contextBridge.exposeInMainWorld("api", {
       lensGuestFocusSubscribers.add(listener);
       return () => {
         lensGuestFocusSubscribers.delete(listener);
+      };
+    },
+    subscribeGuestFocusRestoreRequests: (
+      listener: (payload: LensGuestFocusRestoreRequestPayload) => void,
+    ) => {
+      lensGuestFocusRestoreSubscribers.add(listener);
+      return () => {
+        lensGuestFocusRestoreSubscribers.delete(listener);
       };
     },
     subscribePresentationRequests: (

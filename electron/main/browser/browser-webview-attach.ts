@@ -19,6 +19,14 @@ export type LensGuestWebPreferences = {
   webSecurity: true;
   allowRunningInsecureContent: false;
   webviewTag: false;
+  /**
+   * Electron's `<webview>` default is `true`. A transparent guest has no
+   * browser canvas, so pages that rely on the default opaque background — most
+   * of them — show the Stave shell through the page. Chromium's own default
+   * for a top-level browsing context is an opaque white canvas; forcing this
+   * off restores that.
+   */
+  transparent: false;
   /** Guest partition, forced to the value main resolved for the session. */
   partition: string;
 };
@@ -71,6 +79,7 @@ export function decideLensWebviewAttach(args: {
       webSecurity: true,
       allowRunningInsecureContent: false,
       webviewTag: false,
+      transparent: false,
       partition: requestedPartition,
     },
   };

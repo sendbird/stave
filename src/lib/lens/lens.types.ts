@@ -131,6 +131,25 @@ export interface LensGuestFocusResultPayload {
   message?: string;
 }
 
+/**
+ * Main-to-renderer request to give back the host focus a guest borrowed for
+ * CDP input. Fire after the dispatch, not instead of the borrow: Chromium
+ * still needs the guest focused *during* `Input.dispatch*`.
+ *
+ * `borrowRequestId` names the borrow being settled — the `requestId` of the
+ * `lens:focus-guest` that took the focus. It is not the same as this request's
+ * own `requestId`, and it is what lets the renderer ignore a release for a
+ * borrow it never granted instead of settling somebody else's.
+ */
+export interface LensGuestFocusRestoreRequestPayload {
+  requestId: string;
+  borrowRequestId: string;
+}
+
+export interface LensGuestFocusRestoreResultPayload {
+  requestId: string;
+}
+
 export interface ElementPickerResult {
   selector: string;
   tagName: string;
