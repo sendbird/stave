@@ -2,6 +2,38 @@ import type { CommandPaletteItem } from "@/lib/commands";
 
 export const NO_COMMAND_SELECTION = -1;
 export const NO_PROMPT_HISTORY_SELECTION = -1;
+const PROMPT_ENHANCEMENT_REVEAL_MIN_DURATION_MS = 220;
+const PROMPT_ENHANCEMENT_REVEAL_MAX_DURATION_MS = 560;
+const PROMPT_ENHANCEMENT_REVEAL_MS_PER_CHARACTER = 10;
+
+export function getPromptEnhancementRevealDurationMs(characterCount: number) {
+  return Math.min(
+    PROMPT_ENHANCEMENT_REVEAL_MAX_DURATION_MS,
+    Math.max(
+      PROMPT_ENHANCEMENT_REVEAL_MIN_DURATION_MS,
+      characterCount * PROMPT_ENHANCEMENT_REVEAL_MS_PER_CHARACTER,
+    ),
+  );
+}
+
+export function getPromptEnhancementRevealText(
+  text: string,
+  progress: number,
+) {
+  if (progress <= 0 || !text) {
+    return "";
+  }
+  if (progress >= 1) {
+    return text;
+  }
+
+  const characters = Array.from(text);
+  const visibleCharacterCount = Math.max(
+    1,
+    Math.floor(characters.length * progress),
+  );
+  return characters.slice(0, visibleCharacterCount).join("");
+}
 
 export function getNextCommandSelectionIndex(args: {
   currentIndex: number;

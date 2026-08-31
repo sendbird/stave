@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
   getAcceptedCommandPaletteItem,
   getNextCommandSelectionIndex,
+  getPromptEnhancementRevealDurationMs,
+  getPromptEnhancementRevealText,
   isPromptHistoryBoundaryReached,
   navigatePromptHistory,
   NO_COMMAND_SELECTION,
@@ -133,5 +135,23 @@ describe("navigatePromptHistory", () => {
       value: "working draft",
       draftBeforeHistory: "",
     });
+  });
+});
+
+describe("prompt enhancement reveal", () => {
+  test("reveals the enhanced prompt progressively without splitting code points", () => {
+    expect(getPromptEnhancementRevealText("Ship 🚀 safely", 0)).toBe("");
+    expect(getPromptEnhancementRevealText("Ship 🚀 safely", 0.5)).toBe(
+      "Ship 🚀",
+    );
+    expect(getPromptEnhancementRevealText("Ship 🚀 safely", 1)).toBe(
+      "Ship 🚀 safely",
+    );
+  });
+
+  test("keeps short and long reveals within the composer motion range", () => {
+    expect(getPromptEnhancementRevealDurationMs(1)).toBe(220);
+    expect(getPromptEnhancementRevealDurationMs(36)).toBe(360);
+    expect(getPromptEnhancementRevealDurationMs(10_000)).toBe(560);
   });
 });

@@ -116,6 +116,8 @@ import {
   getAcceptedCommandPaletteItem,
   getAcceptedPaletteItem,
   getNextCommandSelectionIndex,
+  getPromptEnhancementRevealDurationMs,
+  getPromptEnhancementRevealText,
   isPromptHistoryBoundaryReached,
   navigatePromptHistory,
   NO_COMMAND_SELECTION,
@@ -193,6 +195,7 @@ import {
   type LocalChangeReviewRequest,
 } from "./local-change-review-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
   "fontSize",
@@ -251,6 +254,9 @@ interface PromptInputProps {
   onValueChange: (value: string) => void;
   onEnhancePrompt?: () => void | Promise<void>;
   promptEnhancementPending?: boolean;
+  promptEnhancementRevealing?: boolean;
+  promptEnhancementRevealVersion?: number;
+  onPromptEnhancementRevealComplete?: () => void;
   onSuggestionSelect?: (suggestion: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
@@ -363,6 +369,62 @@ const PROMPT_FLOATING_SURFACE =
   "border border-border/60 bg-background/90 text-foreground hover:bg-background/95";
 const PROMPT_TOOLBAR_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} h-9 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground`;
 const PROMPT_TOOLBAR_ICON_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} rounded-md border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-muted/60 hover:text-foreground`;
+
+function usePromptEnhancementReveal(args: {
+  active: boolean;
+  revealVersion: number;
+  value: string;
+  onComplete?: () => void;
+}) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [displayedValue, setDisplayedValue] = useState(args.value);
+  const onCompleteRef = useRef(args.onComplete);
+  onCompleteRef.current = args.onComplete;
+
+  useEffect(() => {
+    if (!args.active) {
+      setDisplayedValue(args.value);
+      return;
+    }
+    if (prefersReducedMotion) {
+      setDisplayedValue(args.value);
+      onCompleteRef.current?.();
+      return;
+    }
+
+    const characterCount = Array.from(args.value).length;
+    const durationMs = getPromptEnhancementRevealDurationMs(characterCount);
+    let animationFrameId = 0;
+    let startedAt: number | null = null;
+    let previousValue = "";
+    setDisplayedValue("");
+
+    const revealNextFrame = (timestamp: number) => {
+      startedAt ??= timestamp;
+      const progress = Math.min(1, (timestamp - startedAt) / durationMs);
+      const nextValue = getPromptEnhancementRevealText(args.value, progress);
+      if (nextValue !== previousValue) {
+        previousValue = nextValue;
+        setDisplayedValue(nextValue);
+      }
+      if (progress >= 1) {
+        onCompleteRef.current?.();
+        return;
+      }
+      animationFrameId = window.requestAnimationFrame(revealNextFrame);
+    };
+
+    animationFrameId = window.requestAnimationFrame(revealNextFrame);
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [
+    args.active,
+    args.revealVersion,
+    args.value,
+    prefersReducedMotion,
+  ]);
+
+  return displayedValue;
+}
 
 function tooltipTriggerButtonClassName(args: {
   variant?:
@@ -669,6 +731,9 @@ export function PromptInput(args: PromptInputProps) {
     onValueChange,
     onEnhancePrompt,
     promptEnhancementPending = false,
+    promptEnhancementRevealing = false,
+    promptEnhancementRevealVersion = 0,
+    onPromptEnhancementRevealComplete,
     onSuggestionSelect,
     onFocus,
     onBlur,
@@ -715,6 +780,12 @@ export function PromptInput(args: PromptInputProps) {
     onAbort,
   } = args;
   const isMobile = useIsMobile();
+  const displayedPromptValue = usePromptEnhancementReveal({
+    active: promptEnhancementRevealing,
+    revealVersion: promptEnhancementRevealVersion,
+    value,
+    onComplete: onPromptEnhancementRevealComplete,
+  });
   const legacyQueuedTurns = useMemo<readonly PromptDraftQueuedTurn[]>(
     () =>
       queuedNextTurn?.content?.trim()
@@ -872,6 +943,18 @@ export function PromptInput(args: PromptInputProps) {
   );
   const showBorderBeam = borderBeamEnabled && !minimal && Boolean(isTurnActive);
   const interactionsDisabled = Boolean(disabled);
+  const promptEnhancementBusy =
+    promptEnhancementPending || promptEnhancementRevealing;
+  const promptEnhancementState = promptEnhancementPending
+    ? "enhancing"
+    : promptEnhancementRevealing
+      ? "applying"
+      : "idle";
+  const promptEnhancementLabel = promptEnhancementPending
+    ? "Enhancing..."
+    : promptEnhancementRevealing
+      ? "Applying..."
+      : "Enhance";
   const hasDraftPayload =
     value.trim().length > 0 ||
     attachedFilePaths.length > 0 ||
@@ -1095,7 +1178,7 @@ export function PromptInput(args: PromptInputProps) {
   const shouldShowPromptEnhancement =
     !minimal &&
     Boolean(onEnhancePrompt) &&
-    (promptEnhancementPending || value.trim().length > 0);
+    (promptEnhancementBusy || value.trim().length > 0);
 
   useEffect(() => {
     const editorElement = promptEditorRef.current?.getRootElement();
@@ -2429,6 +2512,7 @@ export function PromptInput(args: PromptInputProps) {
                   <div className="relative min-w-0 flex-1">
                     {shouldShowPromptEnhancement ? (
                       <div
+                        data-prompt-enhancement-state={promptEnhancementState}
                         className={cn(
                           "pointer-events-none absolute right-0 top-0",
                           UI_LAYER_CLASS.floatingChrome,
@@ -2442,62 +2526,69 @@ export function PromptInput(args: PromptInputProps) {
                                 variant="ghost"
                                 size="sm"
                                 disabled={
-                                  interactionsDisabled ||
-                                  promptEnhancementPending
+                                  interactionsDisabled || promptEnhancementBusy
                                 }
                                 aria-label={
                                   promptEnhancementPending
                                     ? "Enhancing prompt"
-                                    : "Enhance prompt"
+                                    : promptEnhancementRevealing
+                                      ? "Applying enhanced prompt"
+                                      : "Enhance prompt"
                                 }
-                                aria-busy={promptEnhancementPending}
+                                aria-busy={promptEnhancementBusy}
                                 onClick={() => void onEnhancePrompt?.()}
                                 className={cn(
                                   PROMPT_TOOLBAR_BUTTON,
-                                  PROMPT_FLOATING_SURFACE,
-                                  "pointer-events-auto h-8 gap-1.5 shadow-sm focus-visible:ring-2 focus-visible:ring-ring/45",
+                                  "pointer-events-auto h-8 gap-1.5 border-primary/20 bg-primary/[0.07] px-2 text-primary focus-visible:ring-2 focus-visible:ring-ring/45 disabled:opacity-100",
+                                  promptEnhancementBusy
+                                    ? "border-primary/25 bg-primary/10"
+                                    : "hover:border-primary/35 hover:bg-primary/[0.12]",
                                 )}
                               />
                             }
                           >
-                            {promptEnhancementPending ? (
-                              <LoaderCircle
-                                aria-hidden="true"
-                                className="size-3.5 motion-safe:animate-spin"
-                              />
-                            ) : (
-                              <Sparkles
-                                aria-hidden="true"
-                                className="size-3.5"
-                              />
-                            )}
-                            <span>
-                              {promptEnhancementPending
-                                ? "Enhancing…"
-                                : "Enhance"}
+                            <span className="flex size-5 items-center justify-center rounded-md bg-primary/10">
+                              {promptEnhancementPending ? (
+                                <LoaderCircle
+                                  aria-hidden="true"
+                                  className="size-3.5 motion-safe:animate-spin"
+                                />
+                              ) : (
+                                <Sparkles
+                                  aria-hidden="true"
+                                  className={cn(
+                                    "size-3.5",
+                                    promptEnhancementRevealing &&
+                                      "motion-safe:animate-pulse",
+                                  )}
+                                />
+                              )}
                             </span>
+                            <span>{promptEnhancementLabel}</span>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-64">
                             Rewrite this draft into a clearer, execution-ready
                             prompt.
                           </TooltipContent>
                         </Tooltip>
-                        {promptEnhancementPending ? (
+                        {promptEnhancementBusy ? (
                           <span
                             className="sr-only"
                             role="status"
                             aria-live="polite"
                           >
-                            Enhancing prompt
+                            {promptEnhancementPending
+                              ? "Enhancing prompt"
+                              : "Applying enhanced prompt"}
                           </span>
                         ) : null}
                       </div>
                     ) : null}
                     <PromptLexicalEditor
                       ref={promptEditorRef}
-                      value={value}
+                      value={displayedPromptValue}
                       selectionRange={editorSelectionRange}
-                      disabled={interactionsDisabled}
+                      disabled={interactionsDisabled || promptEnhancementBusy}
                       minimal={minimal}
                       commandPaletteItems={commandPaletteItems}
                       skillPaletteItems={skillPaletteItems}
@@ -2882,6 +2973,8 @@ export function PromptInput(args: PromptInputProps) {
                           ? "min-h-[32px] max-h-[168px] font-mono text-[15px] leading-7 tracking-[-0.01em] caret-primary md:text-[15px]"
                           : "min-h-[104px] max-h-[240px] text-lg leading-8 md:text-lg",
                         shouldShowPromptEnhancement && "pr-28",
+                        promptEnhancementRevealing &&
+                          "after:ml-0.5 after:inline-block after:h-[1em] after:w-px after:bg-primary after:align-[-0.1em] after:content-[''] motion-safe:after:animate-terminal-caret",
                         PROMPT_SURFACE_FOCUS_VISIBLE_RESET,
                       )}
                     />

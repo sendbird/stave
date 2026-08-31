@@ -762,8 +762,18 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const [compareStarting, setCompareStarting] = useState(false);
   const [promptEnhancementPending, setPromptEnhancementPending] =
     useState(false);
+  const [promptEnhancementRevealing, setPromptEnhancementRevealing] =
+    useState(false);
+  const [promptEnhancementRevealVersion, setPromptEnhancementRevealVersion] =
+    useState(0);
   const promptEnhancementRequestRef = useRef(0);
   const promptEnhancementPendingRef = useRef(false);
+  const promptEnhancementRevealingRef = useRef(false);
+  const promptEnhancementResultRef = useRef<{
+    targetTaskId: string;
+    sourceText: string;
+    enhancedPrompt: string;
+  } | null>(null);
   const draftTextRef = useRef(promptDraft.text);
   const syncedDraftRef = useRef({
     taskId: args.providerSelectionTarget,
@@ -827,7 +837,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
 
   async function handleEnhancePrompt() {
     const sourceText = draftTextRef.current;
-    if (!sourceText.trim() || promptEnhancementPendingRef.current) {
+    if (
+      !sourceText.trim() ||
+      promptEnhancementPendingRef.current ||
+      promptEnhancementRevealingRef.current
+    ) {
       return;
     }
     const enhancePrompt = window.api?.provider?.enhancePrompt;
@@ -889,23 +903,14 @@ function ChatInputComposer(args: ChatInputComposerProps) {
 
       adoptPromptDraftText({ taskId: targetTaskId, text: enhancedPrompt });
       commitPromptDraftText({ taskId: targetTaskId, text: enhancedPrompt });
-      setFocusNonce((current) => current + 1);
-      toast.success("Prompt enhanced", {
-        action: {
-          label: "Undo",
-          onClick: () => {
-            if (
-              syncedDraftRef.current.taskId !== targetTaskId ||
-              draftTextRef.current !== enhancedPrompt
-            ) {
-              return;
-            }
-            adoptPromptDraftText({ taskId: targetTaskId, text: sourceText });
-            commitPromptDraftText({ taskId: targetTaskId, text: sourceText });
-            setFocusNonce((current) => current + 1);
-          },
-        },
-      });
+      promptEnhancementResultRef.current = {
+        targetTaskId,
+        sourceText,
+        enhancedPrompt,
+      };
+      promptEnhancementRevealingRef.current = true;
+      setPromptEnhancementRevealing(true);
+      setPromptEnhancementRevealVersion((current) => current + 1);
     } catch (error) {
       if (promptEnhancementRequestRef.current === requestId) {
         reportUtilityInferenceError({
@@ -919,6 +924,47 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         setPromptEnhancementPending(false);
       }
     }
+  }
+
+  function handlePromptEnhancementRevealComplete() {
+    const enhancementResult = promptEnhancementResultRef.current;
+    if (!enhancementResult || !promptEnhancementRevealingRef.current) {
+      return;
+    }
+
+    promptEnhancementResultRef.current = null;
+    promptEnhancementRevealingRef.current = false;
+    setPromptEnhancementRevealing(false);
+    if (
+      syncedDraftRef.current.taskId !== enhancementResult.targetTaskId ||
+      draftTextRef.current !== enhancementResult.enhancedPrompt
+    ) {
+      return;
+    }
+
+    setFocusNonce((current) => current + 1);
+    toast.success("Prompt enhanced", {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          if (
+            syncedDraftRef.current.taskId !== enhancementResult.targetTaskId ||
+            draftTextRef.current !== enhancementResult.enhancedPrompt
+          ) {
+            return;
+          }
+          adoptPromptDraftText({
+            taskId: enhancementResult.targetTaskId,
+            text: enhancementResult.sourceText,
+          });
+          commitPromptDraftText({
+            taskId: enhancementResult.targetTaskId,
+            text: enhancementResult.sourceText,
+          });
+          setFocusNonce((current) => current + 1);
+        },
+      },
+    });
   }
 
   function handleOpenComparePreparation() {
@@ -1262,7 +1308,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   useEffect(() => {
     promptEnhancementRequestRef.current += 1;
     promptEnhancementPendingRef.current = false;
+    promptEnhancementRevealingRef.current = false;
+    promptEnhancementResultRef.current = null;
     setPromptEnhancementPending(false);
+    setPromptEnhancementRevealing(false);
   }, [args.providerSelectionTarget]);
 
   useLayoutEffect(() => {
@@ -1527,6 +1576,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           value={draftText}
           onEnhancePrompt={handleEnhancePrompt}
           promptEnhancementPending={promptEnhancementPending}
+          promptEnhancementRevealing={promptEnhancementRevealing}
+          promptEnhancementRevealVersion={promptEnhancementRevealVersion}
+          onPromptEnhancementRevealComplete={
+            handlePromptEnhancementRevealComplete
+          }
           onBlur={commitCurrentDraftText}
           disabled={
             isInputBlocked ||
