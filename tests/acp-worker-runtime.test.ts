@@ -147,6 +147,32 @@ describe("turn-scoped ACP Worker runtime", () => {
     );
   });
 
+  test("does not publish a usage row when the provider session never starts", async () => {
+    const emitted: BridgeEvent[] = [];
+    createGrant({
+      emitted,
+      runCursor: async (args) => {
+        const events: BridgeEvent[] = [
+          {
+            type: "error",
+            message: "Login required.",
+            recoverable: false,
+          },
+          { type: "done", stop_reason: "runtime_failure" },
+        ];
+        events.forEach((event) => args.onEvent?.(event));
+        return events;
+      },
+    });
+
+    await expect(
+      runAcpWorker({ workerKey: "worker-key", task: "Try the worker." }),
+    ).resolves.toMatchObject({ ok: false });
+    expect(
+      emitted.some((event) => event.type === "delegated_usage"),
+    ).toBe(false);
+  });
+
   test("resumes the same task and profile Worker lane", async () => {
     const resumeIds: Array<string | undefined> = [];
     let call = 0;

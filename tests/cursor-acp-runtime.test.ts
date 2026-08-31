@@ -149,6 +149,21 @@ describe("Cursor ACP runtime", () => {
       content: "Explored fixture",
       agentId: "agent-1",
     });
+    expect(events).toContainEqual({
+      type: "usage",
+      inputTokens: 34,
+      outputTokens: 21,
+      thoughtTokens: 7,
+      cacheReadTokens: 13,
+      cacheCreationTokens: 5,
+    });
+    expect(events).toContainEqual({
+      type: "context_usage",
+      usedTokens: 233,
+      sizeTokens: 2048,
+      costAmount: 0.003,
+      costCurrency: "USD",
+    });
     expect(events.filter((event) => event.type === "done")).toHaveLength(1);
   });
 

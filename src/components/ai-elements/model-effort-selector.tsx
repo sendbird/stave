@@ -34,12 +34,16 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { cn } from "@/lib/utils";
+import { CursorModelConfigList } from "./cursor-model-config-list";
 import { ModelEffortGrid, PROVIDER_ACCENT_COLORS } from "./model-effort-grid";
 import { ModelIcon } from "./model-icon";
 import {
   collapseClaudeContextOptions,
+  expandCursorModelFamilies,
   getClaudeContextBaseLabel,
   getCursorModelPresentation,
+  getCursorModelBaseId,
+  groupCursorModelOptions,
   isClaudeContext1MModel,
   listFeaturedModelOptions,
   listModelEfforts,
@@ -276,37 +280,56 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       ? collapseClaudeContextOptions({ options, context1M })
       : options;
   }, [args.options, context1M, providerId]);
-  const featuredProviderOptions = useMemo(
-    () =>
-      providerOptions.length > 12
-        ? listFeaturedModelOptions({
-            options: providerOptions,
-            selectedModelKey:
-              args.value.providerId === providerId ? args.value.key : undefined,
-          })
-        : providerOptions,
-    [args.value.key, args.value.providerId, providerId, providerOptions],
-  );
+  const featuredProviderOptions = useMemo(() => {
+    if (providerOptions.length <= 12) {
+      return providerOptions;
+    }
+    const featured = listFeaturedModelOptions({
+      options: providerOptions,
+      selectedModelKey:
+        args.value.providerId === providerId ? args.value.key : undefined,
+    });
+    return providerId === "cursor"
+      ? expandCursorModelFamilies({
+          options: providerOptions,
+          featured,
+        })
+      : featured;
+  }, [args.value.key, args.value.providerId, providerId, providerOptions]);
   const visibleOptions = useMemo(() => {
     const queryTerms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     if (queryTerms.length === 0) {
       return showAllModels ? providerOptions : featuredProviderOptions;
     }
-    return providerOptions.filter((option) => {
+    const matches = providerOptions.filter((option) => {
       const haystack = [option.label, option.model, option.description]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return queryTerms.every((term) => haystack.includes(term));
     });
-  }, [featuredProviderOptions, providerOptions, query, showAllModels]);
+    if (providerId !== "cursor") {
+      return matches;
+    }
+    const matchingBaseModels = new Set(
+      matches.map((option) => getCursorModelBaseId(option.model)),
+    );
+    return providerOptions.filter((option) =>
+      matchingBaseModels.has(getCursorModelBaseId(option.model)),
+    );
+  }, [
+    featuredProviderOptions,
+    providerId,
+    providerOptions,
+    query,
+    showAllModels,
+  ]);
   const effortfulOptions = visibleOptions.filter(
-    (option) =>
-      providerId !== "cursor" && listModelEfforts(option).length > 0,
+    (option) => providerId !== "cursor" && listModelEfforts(option).length > 0,
   );
   const effortlessOptions = visibleOptions.filter(
     (option) =>
-      providerId === "cursor" || listModelEfforts(option).length === 0,
+      providerId !== "cursor" && listModelEfforts(option).length === 0,
   );
   const canToggleAllModels =
     query.trim().length === 0 &&
@@ -334,7 +357,18 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const displayLabel =
     args.value.providerId === "claude-code"
       ? getClaudeContextBaseLabel(args.value.label)
-      : args.value.label;
+      : args.value.providerId === "cursor"
+        ? getCursorModelPresentation(args.value).label
+        : args.value.label;
+
+  const showProvider = (nextProviderId: ProviderId) => {
+    if (nextProviderId === providerId) {
+      return;
+    }
+    setProviderId(nextProviderId);
+    setQuery("");
+    setShowAllModels(false);
+  };
 
   const chooseModel = (
     option: ModelSelectorOption,
@@ -473,11 +507,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         >
           <Tabs
             value={providerId}
-            onValueChange={(value) => {
-              setProviderId(value as ProviderId);
-              setQuery("");
-              setShowAllModels(false);
-            }}
+            onValueChange={(value) => showProvider(value as ProviderId)}
             orientation="vertical"
             className="min-h-0 gap-0"
           >
@@ -488,14 +518,23 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             >
               {providerIds.map((candidate) => {
                 const selected = candidate === providerId;
-                const count = args.options.filter(
+                const providerModels = args.options.filter(
                   (option) => !option.isAuto && option.providerId === candidate,
-                ).length;
+                );
+                const count =
+                  candidate === "cursor"
+                    ? groupCursorModelOptions(providerModels).length
+                    : providerModels.length;
                 return (
                   <TabsTrigger
                     key={candidate}
                     value={candidate}
                     aria-label={`${getProviderLabel({ providerId: candidate })}, ${count} models`}
+                    onPointerEnter={(event) => {
+                      if (event.pointerType === "mouse") {
+                        showProvider(candidate);
+                      }
+                    }}
                     className="h-11 min-h-11 w-full flex-none justify-center gap-2 px-2 min-[480px]:justify-start"
                     style={
                       selected
@@ -575,6 +614,19 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                       </div>
                     ) : (
                       <>
+                        {providerId === "cursor" ? (
+                          <CursorModelConfigList
+                            options={visibleOptions}
+                            selectedModelKey={
+                              !args.value.isAuto &&
+                              args.value.providerId === providerId
+                                ? args.value.key
+                                : undefined
+                            }
+                            disabled={args.disabled}
+                            onChoose={chooseModel}
+                          />
+                        ) : null}
                         <ModelEffortGrid
                           providerId={providerId}
                           options={effortfulOptions}
@@ -618,7 +670,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     className="flex min-h-11 w-full items-center justify-between rounded-md px-2.5 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <span>
-                      {showAllModels ? "Show featured models" : "Show all models"}
+                      {showAllModels
+                        ? "Show featured models"
+                        : "Show all models"}
                     </span>
                     <span className="tabular-nums text-muted-foreground/75">
                       {showAllModels

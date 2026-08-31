@@ -24,6 +24,33 @@ export interface CursorModelPresentation {
   capabilities: readonly string[];
 }
 
+export type CursorModelEffort = "none" | ModelEffortValue;
+
+export interface CursorModelVariant {
+  option: ModelSelectorOption;
+  baseModel: string;
+  label: string;
+  context?: string;
+  thinking?: boolean;
+  fast?: boolean;
+  effort?: CursorModelEffort;
+}
+
+export interface CursorModelGroup {
+  key: string;
+  baseModel: string;
+  label: string;
+  variants: readonly CursorModelVariant[];
+}
+
+export const CURSOR_MODEL_EFFORT_OPTIONS = [
+  { value: "none", label: "None" },
+  ...KIRO_EFFORT_OPTIONS,
+] as const satisfies readonly {
+  value: CursorModelEffort;
+  label: string;
+}[];
+
 const CURSOR_CAPABILITY_LABELS = new Map([
   ["low", "Low"],
   ["medium", "Medium"],
@@ -47,6 +74,120 @@ function parseModelParameters(model: string) {
     );
   }
   return parameters;
+}
+
+export function getCursorModelBaseId(model: string) {
+  return model.split("[")[0]?.trim() || model.trim();
+}
+
+function normalizeCursorEffort(
+  value: string | undefined,
+): CursorModelEffort | undefined {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "none") {
+    return "none";
+  }
+  return normalizeCatalogEffort(normalized);
+}
+
+export function getCursorModelVariant(
+  option: ModelSelectorOption,
+): CursorModelVariant {
+  const parameters = parseModelParameters(option.model);
+  const presentation = getCursorModelPresentation(option);
+  const effort = normalizeCursorEffort(
+    parameters.get("effort") ??
+      parameters.get("reasoning") ??
+      option.defaultEffort,
+  );
+  return {
+    option,
+    baseModel: getCursorModelBaseId(option.model),
+    label: presentation.label,
+    ...(parameters.has("context")
+      ? { context: parameters.get("context") }
+      : {}),
+    ...(parameters.has("thinking")
+      ? { thinking: parameters.get("thinking") === "true" }
+      : {}),
+    ...(parameters.has("fast")
+      ? { fast: parameters.get("fast") === "true" }
+      : {}),
+    ...(effort ? { effort } : {}),
+  };
+}
+
+export function groupCursorModelOptions(
+  options: readonly ModelSelectorOption[],
+): CursorModelGroup[] {
+  const groups = new Map<
+    string,
+    { label: string; variants: CursorModelVariant[] }
+  >();
+  for (const option of options) {
+    const variant = getCursorModelVariant(option);
+    const group = groups.get(variant.baseModel);
+    if (group) {
+      group.variants.push(variant);
+    } else {
+      groups.set(variant.baseModel, {
+        label: variant.label,
+        variants: [variant],
+      });
+    }
+  }
+  return [...groups.entries()].map(([baseModel, group]) => ({
+    key: baseModel,
+    baseModel,
+    label: group.label,
+    variants: group.variants,
+  }));
+}
+
+type CursorVariantPatch = Partial<
+  Pick<CursorModelVariant, "context" | "thinking" | "fast" | "effort">
+>;
+
+const CURSOR_VARIANT_KEYS = ["context", "thinking", "fast", "effort"] as const;
+
+export function resolveCursorModelVariant(args: {
+  group: CursorModelGroup;
+  anchor?: CursorModelVariant;
+  patch: CursorVariantPatch;
+}) {
+  const patchEntries = Object.entries(args.patch) as [
+    keyof CursorVariantPatch,
+    CursorVariantPatch[keyof CursorVariantPatch],
+  ][];
+  const candidates = args.group.variants.filter((variant) =>
+    patchEntries.every(([key, value]) => variant[key] === value),
+  );
+  if (candidates.length === 0 || !args.anchor) {
+    return candidates[0];
+  }
+  return candidates.reduce((best, candidate) => {
+    const score = CURSOR_VARIANT_KEYS.reduce(
+      (total, key) => total + Number(candidate[key] === args.anchor?.[key]),
+      0,
+    );
+    const bestScore = CURSOR_VARIANT_KEYS.reduce(
+      (total, key) => total + Number(best[key] === args.anchor?.[key]),
+      0,
+    );
+    return score > bestScore ? candidate : best;
+  });
+}
+
+export function expandCursorModelFamilies(args: {
+  options: readonly ModelSelectorOption[];
+  featured: readonly ModelSelectorOption[];
+}) {
+  const featuredBaseModels = new Set(
+    args.featured.map((option) => getCursorModelBaseId(option.model)),
+  );
+  return args.options.filter((option) =>
+    featuredBaseModels.has(getCursorModelBaseId(option.model)),
+  );
 }
 
 export function getCursorModelPresentation(
@@ -90,7 +231,9 @@ export function getCursorModelPresentation(
 function getModelLineage(model: string) {
   const bareModel = model.split("[")[0]?.trim().toLowerCase() ?? "";
   if (/^claude-(opus|sonnet|fable|haiku)-/.test(bareModel)) {
-    return bareModel.match(/^claude-(opus|sonnet|fable|haiku)/)?.[0] ?? bareModel;
+    return (
+      bareModel.match(/^claude-(opus|sonnet|fable|haiku)/)?.[0] ?? bareModel
+    );
   }
   if (bareModel.startsWith("gpt-")) {
     const variant = ["sol", "terra", "luna", "codex", "mini", "nano"].find(

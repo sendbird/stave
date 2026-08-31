@@ -421,7 +421,10 @@ export async function runAcpWorker(args: {
         (event): event is Extract<BridgeEvent, { type: "provider_session" }> =>
           event.type === "provider_session",
       )?.nativeSessionId;
-    if (!grant.revoked) {
+    const providerSessionEstablished = Boolean(
+      reportedSessionId || reportedUsage || reportedContextUsage,
+    );
+    if (!grant.revoked && providerSessionEstablished) {
       if (reportedUsage) {
         grant.addUsage(reportedUsage);
       }

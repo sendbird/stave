@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
   collapseClaudeContextOptions,
+  expandCursorModelFamilies,
   getClaudeContextBaseLabel,
   getCursorModelPresentation,
+  getCursorModelVariant,
+  groupCursorModelOptions,
   isClaudeContext1MModel,
   listFeaturedModelOptions,
   listModelEfforts,
   resolveClaudeContextOption,
+  resolveCursorModelVariant,
   supportsClaudeContextToggle,
 } from "@/components/ai-elements/model-effort-selector.utils";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
@@ -143,8 +147,7 @@ describe("model effort selector utilities", () => {
   test("separates Cursor model names from runtime capability labels", () => {
     const cursor = option({
       providerId: "cursor",
-      model:
-        "claude-opus-5[thinking=true,context=300k,effort=high,fast=true]",
+      model: "claude-opus-5[thinking=true,context=300k,effort=high,fast=true]",
       label: "Claude Opus 5 · 300K · Thinking · High · Fast",
       defaultEffort: "high",
     });
@@ -153,6 +156,62 @@ describe("model effort selector utilities", () => {
       label: "Claude Opus 5",
       capabilities: ["300K", "Thinking", "Fast", "High"],
     });
+  });
+
+  test("groups Cursor ACP variants and resolves one-click configuration changes", () => {
+    const medium = option({
+      providerId: "cursor",
+      model: "gpt-5.4[context=272k,reasoning=medium,fast=false]",
+      label: "GPT 5.4 · 272K · Medium",
+      defaultEffort: "medium",
+    });
+    const highFast = option({
+      providerId: "cursor",
+      model: "gpt-5.4[context=272k,reasoning=high,fast=true]",
+      label: "GPT 5.4 · 272K · High · Fast",
+      defaultEffort: "high",
+    });
+    const [group] = groupCursorModelOptions([medium, highFast]);
+    const anchor = getCursorModelVariant(medium);
+
+    expect(group).toMatchObject({
+      baseModel: "gpt-5.4",
+      label: "GPT 5.4",
+    });
+    expect(group?.variants).toHaveLength(2);
+    expect(
+      resolveCursorModelVariant({
+        group: group!,
+        anchor,
+        patch: { effort: "high" },
+      })?.option,
+    ).toBe(highFast);
+    expect(
+      resolveCursorModelVariant({
+        group: group!,
+        anchor,
+        patch: { effort: "xhigh" },
+      }),
+    ).toBeUndefined();
+  });
+
+  test("keeps every advertised Cursor variant for a featured model family", () => {
+    const medium = option({
+      providerId: "cursor",
+      model: "gpt-5.4[reasoning=medium,fast=false]",
+    });
+    const high = option({
+      providerId: "cursor",
+      model: "gpt-5.4[reasoning=high,fast=false]",
+    });
+    const grok = option({ providerId: "cursor", model: "grok-4.6" });
+
+    expect(
+      expandCursorModelFamilies({
+        options: [medium, high, grok],
+        featured: [medium],
+      }),
+    ).toEqual([medium, high]);
   });
 
   test("keeps one current model per lineage in the featured catalog", () => {

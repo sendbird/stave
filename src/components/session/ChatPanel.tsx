@@ -396,6 +396,8 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 <MessageUsageSummary
                   usage={message.usage}
                   delegatedUsage={message.delegatedUsage}
+                  providerId={message.providerId}
+                  model={message.model}
                 />
               ) : null}
               {message.role === "assistant" && threadActionState ? (
