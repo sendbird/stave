@@ -49,6 +49,17 @@ viewer. Approval option ids are selected by the protocol `kind`, not by id text,
 because Cursor advertises `allow-once`/`reject-once` while Kiro advertises
 `allow_once`/`reject_once`.
 
+When a runtime also advertises an `allow_always` option, the approval card shows
+an `Always allow` action alongside approve and reject, and the decision is sent
+with `scope: "always"`. Cursor persists that choice as a rule in its own
+permissions allowlist, so later turns stop asking for the same command. Stave
+never synthesizes the scope: the button appears only when the option was
+advertised, and an `always` scope for a request that did not advertise it
+narrows to allow-once rather than failing the turn. For those approvals Stave
+hides its own client-side trusted-tools shortcut. That shortcut keys on the
+serialized tool input, so it re-matches only that exact payload, while the
+provider rule generalizes to the command.
+
 Cursor parameters that the session advertises only one value for render as plain
 labels instead of controls. `session/set_model` rejects any value the session
 did not advertise, so a segmented control with one reachable value would imply a
@@ -57,16 +68,36 @@ choice the runtime does not accept.
 Cursor approval autonomy is a process flag on the ACP subcommand, not an ACP
 parameter, so it applies for the whole session:
 
-- `Manual`: no flags. Every tool call raises `session/request_permission`.
+- `Manual`: no flags. Every tool call raises `session/request_permission`
+  unless it matches Cursor's own permissions allowlist.
 - `Guided`: `--auto-review`. Cursor's server-side classifier runs what it judges
   safe and asks for the rest. Which calls that covers is decided by Cursor, so
   Stave cannot predict it; shell execution was still prompted when this was
-  verified.
+  verified with an empty allowlist.
 - `Auto`: `--force --approve-mcps`. No permission requests are sent at all.
 
-These flags are accepted by `agent acp` even though `agent acp --help` does not
-list them. Verify them against the installed CLI on upgrade. Worker runs always
-use `Manual` so a nested Worker cannot inherit the primary turn's grant.
+Cursor's config carries a third, finer lever that is independent of the preset:
+`approvalMode` (`allowlist` by default, plus `unrestricted` and `auto-review`)
+and a `permissions.allow` / `permissions.deny` rule list. Rules parse as
+`/^\s*(Shell|Bash)\s*\((.*)\)\s*$/`; a `:` splits the body into a command
+glob and an argument glob, and otherwise the body matches as a glob, a command
+prefix, or the bare base command. `Shell(echo)` therefore covers
+`echo anything`. A matching rule suppresses the prompt under `Manual` and under
+`Guided` alike, which is why an `Always allow` answer makes a later identical
+command run unattended. `Read`, `Write`, `Grep`, `WebFetch`, `WebSearch`, and
+`Task` are the other rule kinds.
+
+Rules live in the CLI's global config, and a project may add
+`<repo>/.cursor/cli.json`, whose schema is strict and carries only
+`permissions`. Project files are merged from the git root down to the working
+directory, and the merge replaces arrays rather than unioning them, so a project
+file that declares `deny: []` clears the user's global deny list for that
+project. Stave does not write either file; it lets Cursor persist its own rules.
+
+The preset flags are accepted by `agent acp` even though `agent acp --help` does
+not list them. Verify them against the installed CLI on upgrade. Worker runs
+always use `Manual` and never advertise `Always allow`, so a nested Worker can
+neither inherit the primary turn's grant nor write a persistent rule.
 
 The composer consumes a provider-neutral model-catalog interface. Static
 catalogs and runtime adapters are normalized before the searchable provider

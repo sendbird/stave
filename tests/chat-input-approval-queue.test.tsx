@@ -47,6 +47,49 @@ describe("ChatInputApprovalQueue", () => {
     expect(html.indexOf("Run npm test")).toBeLessThan(html.indexOf("Open .env"));
   });
 
+  test("offers Always allow only when the runtime advertised it", () => {
+    const withSupport = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
+      approvals: [
+        {
+          messageId: "message-1",
+          part: {
+            type: "approval",
+            toolName: "`npm test`",
+            description: "Run npm test",
+            requestId: "req-1",
+            state: "approval-requested" as const,
+            supportsAllowAlways: true,
+          },
+        },
+      ],
+      onResolveApproval: () => {},
+      onTrustAndApprove: () => {},
+    }));
+    const withoutSupport = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
+      approvals: [
+        {
+          messageId: "message-1",
+          part: {
+            type: "approval",
+            toolName: "`npm test`",
+            description: "Run npm test",
+            requestId: "req-1",
+            state: "approval-requested" as const,
+          },
+        },
+      ],
+      onResolveApproval: () => {},
+      onTrustAndApprove: () => {},
+    }));
+
+    expect(withSupport).toContain("Always allow");
+    expect(withoutSupport).not.toContain("Always allow");
+    // The provider owns persistence here, so Stave must not also offer its own
+    // weaker client-side trusted-tools copy of the same decision.
+    expect(withSupport).not.toContain("approve and always allow");
+    expect(withoutSupport).toContain("approve and always allow");
+  });
+
   test("omits guidance and keyboard hint when disabled", () => {
     const html = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
       approvals: [

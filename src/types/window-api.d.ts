@@ -299,6 +299,7 @@ interface WindowProviderApi {
     requestId: string;
     approved: boolean;
     reason?: string;
+    scope?: "once" | "always";
   }) => Promise<{
     ok: boolean;
     message?: string;

@@ -127,6 +127,7 @@ type ActiveRuntimeSession = {
     requestId: string;
     approved: boolean;
     reason?: string;
+    scope?: "once" | "always";
   }) => ProviderResponderResult;
   respondUserInput?: (args: {
     requestId: string;
@@ -1443,12 +1444,12 @@ export const providerRuntime: ProviderRuntime = {
       message: `Cleaned provider runtime state for task ${taskId}.`,
     };
   },
-  respondApproval: ({ turnId, requestId, approved, reason }) =>
+  respondApproval: ({ turnId, requestId, approved, reason, scope }) =>
     deliverResponderResult({
       kind: "approval",
       turnId,
       requestId,
-      invoke: (responder) => responder({ requestId, approved, reason }),
+      invoke: (responder) => responder({ requestId, approved, reason, scope }),
       selectResponder: (session) => session.respondApproval,
       timeoutMs: PROVIDER_STEER_ACK_TIMEOUT_MS,
     }),

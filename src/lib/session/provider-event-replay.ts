@@ -126,6 +126,7 @@ function createApprovalPart(args: {
   toolName: string;
   description: string;
   input?: string;
+  supportsAllowAlways?: boolean;
   workerExecution?: ApprovalPart["workerExecution"];
 }): ApprovalPart {
   return sanitizeMessagePartPayload({
@@ -134,6 +135,7 @@ function createApprovalPart(args: {
     requestId: args.requestId,
     description: args.description,
     ...(args.input ? { input: args.input } : {}),
+    ...(args.supportsAllowAlways ? { supportsAllowAlways: true } : {}),
     ...(args.workerExecution
       ? { workerExecution: args.workerExecution }
       : {}),
@@ -369,6 +371,7 @@ function normalizeEventToPart(args: {
         toolName: event.toolName,
         description: event.description,
         input: event.input,
+        supportsAllowAlways: event.supportsAllowAlways,
         workerExecution: event.workerExecution,
       });
     case "user_input":

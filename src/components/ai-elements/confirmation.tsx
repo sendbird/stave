@@ -12,6 +12,11 @@ interface ConfirmationCompactProps {
     | "approval-interrupted"
     | "output-denied";
   onApprove?: () => void;
+  /**
+   * Present only when the runtime advertised an "allow always" option, so the
+   * button never claims a persistence the provider will not actually perform.
+   */
+  onApproveAlways?: () => void;
   onReject?: () => void;
   disabled?: boolean;
   disabledReason?: string;
@@ -39,6 +44,7 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
     description,
     state,
     onApprove,
+    onApproveAlways,
     onReject,
     disabled,
     disabledReason,
@@ -88,6 +94,22 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
             >
               Approve
             </Button>
+            {onApproveAlways ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className={
+                  comfortableActions
+                    ? "min-h-9 px-3 text-xs"
+                    : "h-7 px-2.5 text-xs"
+                }
+                disabled={disabled}
+                onClick={onApproveAlways}
+                title="Approve and let the provider remember this decision."
+              >
+                Always allow
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="outline"

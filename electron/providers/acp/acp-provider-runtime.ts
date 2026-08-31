@@ -27,6 +27,14 @@ type ApprovalResponseArgs = {
   requestId: string;
   approved: boolean;
   reason?: string;
+  /**
+   * `always` asks the runtime to remember the decision beyond this call.
+   *
+   * Only meaningful together with `approved`, and only when the runtime
+   * advertised an `allow_always` option; otherwise it degrades to `once` so a
+   * missing option can never widen a decision.
+   */
+  scope?: "once" | "always";
 };
 
 type UserInputResponseArgs = {
@@ -37,6 +45,7 @@ type UserInputResponseArgs = {
 
 type PendingPermission = {
   allowOptionId?: string;
+  allowAlwaysOptionId?: string;
   rejectOptionId?: string;
   settle: (result: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -247,6 +256,13 @@ export async function streamAcpProviderTurn(args: {
       }
       return { outcome: { outcome: "cancelled" } };
     }
+    // Cursor and Kiro both advertise `allow_always`, and Cursor persists the
+    // choice as a rule in its own permissions allowlist, so later turns stop
+    // asking. Surfacing it is what lets an approval be answered once instead of
+    // every turn; without it the allowlist stays empty forever.
+    const allowAlwaysOption = parsed.data.options.find(
+      (option) => option.kind === "allow_always",
+    );
     const input = serializeApprovalInput(parsed.data.toolCall.rawInput);
     emit({
       type: "approval",
@@ -259,6 +275,7 @@ export async function streamAcpProviderTurn(args: {
         parsed.data.toolCall.title?.trim() ||
         `${profile.displayName} requests permission.`,
       ...(input ? { input } : {}),
+      ...(allowAlwaysOption ? { supportsAllowAlways: true } : {}),
     });
     return await new Promise<unknown>((resolve) => {
       const timer = createDecisionTimer(() => {
@@ -275,6 +292,7 @@ export async function streamAcpProviderTurn(args: {
       });
       pendingPermissions.set(id, {
         allowOptionId: allowOption?.optionId,
+        allowAlwaysOptionId: allowAlwaysOption?.optionId,
         rejectOptionId: rejectOption?.optionId,
         settle: resolve,
         timer,
@@ -333,8 +351,14 @@ export async function streamAcpProviderTurn(args: {
   turn.registerApprovalResponder?.((response) => {
     const permission = pendingPermissions.get(response.requestId);
     if (permission) {
+      // `allowAlwaysOptionId` is only reached when the caller asked for it and
+      // the runtime advertised it. Falling back to allow-once keeps a missing
+      // option from silently downgrading into "no decision at all", while never
+      // letting it widen one.
       const optionId = response.approved
-        ? permission.allowOptionId
+        ? (response.scope === "always"
+            ? permission.allowAlwaysOptionId
+            : undefined) ?? permission.allowOptionId
         : permission.rejectOptionId;
       if (!optionId) {
         emit({

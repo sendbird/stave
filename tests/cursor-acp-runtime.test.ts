@@ -204,6 +204,50 @@ describe("Cursor ACP runtime", () => {
     ).toBe(true);
   });
 
+  test("selects allow-always only when the caller asks for the always scope", async () => {
+    let responder:
+      | ((args: {
+          requestId: string;
+          approved: boolean;
+          reason?: string;
+          scope?: "once" | "always";
+        }) => ProviderResponderResult)
+      | undefined;
+    let turn!: Promise<BridgeEvent[]>;
+    const approval = await waitForEvent(
+      (onEvent) => {
+        turn = streamCursorWithAcp({
+          ...createTurnArgs("permission"),
+          onEvent,
+          registerApprovalResponder: (next) => {
+            responder = next;
+          },
+        });
+      },
+      (event) => event.type === "approval",
+    );
+    if (approval.type !== "approval") {
+      throw new Error("Expected an approval event.");
+    }
+    // The card can only offer the button when the runtime advertised the option.
+    expect(approval.supportsAllowAlways).toBe(true);
+    expect(
+      responder?.({
+        requestId: approval.requestId,
+        approved: true,
+        scope: "always",
+      }),
+    ).toEqual({ ok: true });
+    const events = await turn;
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" &&
+          event.text.includes('"optionId":"allow-always"'),
+      ),
+    ).toBe(true);
+  });
+
   test("submits stable option ids for Cursor questions", async () => {
     let responder:
       | ((args: {

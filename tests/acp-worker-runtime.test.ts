@@ -82,6 +82,7 @@ describe("turn-scoped ACP Worker runtime", () => {
           toolName: "Bash",
           description: "Run tests",
           input: { command: "bun test" },
+          supportsAllowAlways: true,
         };
         const events: BridgeEvent[] = [
           {
@@ -120,6 +121,10 @@ describe("turn-scoped ACP Worker runtime", () => {
       expect.objectContaining({
         type: "approval",
         description: "Worker · Run tests",
+        // The worker lane is Manual by design, so a nested worker must never
+        // offer to write a persistent allow rule into the user's provider
+        // config on behalf of the turn that spawned it.
+        supportsAllowAlways: false,
         workerExecution: expect.objectContaining({
           providerId: "cursor",
           workerModel: "worker-model",

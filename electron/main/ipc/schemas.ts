@@ -1652,6 +1652,7 @@ export const ApprovalResponseArgsSchema = z
     requestId: z.string().min(1).max(200),
     approved: z.boolean(),
     reason: z.string().max(10_000).optional(),
+    scope: z.enum(["once", "always"]).optional(),
   })
   .strict();
 
