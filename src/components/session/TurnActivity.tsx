@@ -1275,6 +1275,10 @@ const TurnActivityRow = memo(function TurnActivityRow({
 }) {
   const detail =
     item.detail && item.detail !== item.title ? item.detail : undefined;
+  const providerDetail =
+    item.providerDetail && item.providerDetail !== item.title
+      ? item.providerDetail
+      : undefined;
   const isCompleted = item.status === "completed";
   const activation = resolveTurnActivityRowActivation(item);
   const handler =
@@ -1283,7 +1287,9 @@ const TurnActivityRow = memo(function TurnActivityRow({
       : activation?.kind === "advisor-log" && onOpenAdvisorLog
         ? { onClick: onOpenAdvisorLog, reveal: false }
         : null;
-  const baseTitle = detail ? `${item.title} · ${detail}` : item.title;
+  const baseTitle = [item.title, detail, providerDetail]
+    .filter((segment): segment is string => Boolean(segment))
+    .join(" · ");
   const startOffsetLabel =
     showStartOffset && item.startOffsetSeconds != null
       ? formatStartOffsetSeconds(item.startOffsetSeconds)
@@ -1307,9 +1313,22 @@ const TurnActivityRow = memo(function TurnActivityRow({
             </span>
           ) : null}
         </p>
-        {detail ? (
-          <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-            {detail}
+        {detail || providerDetail ? (
+          // Normalized detail and raw provider detail share one line so a row
+          // never grows past two, but they are typographically distinct: the
+          // provider half is monospaced, dimmer, and fenced off by a hairline
+          // rule, so it reads as the provider talking rather than as Stave's
+          // own description of the step.
+          <p className="flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
+            {detail ? <span className="truncate">{detail}</span> : null}
+            {detail && providerDetail ? (
+              <span aria-hidden className="h-2.5 w-px shrink-0 bg-border" />
+            ) : null}
+            {providerDetail ? (
+              <span className="truncate font-mono text-[10px] text-muted-foreground/70">
+                {providerDetail}
+              </span>
+            ) : null}
           </p>
         ) : null}
       </div>

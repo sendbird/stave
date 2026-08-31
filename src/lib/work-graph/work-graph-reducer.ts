@@ -77,12 +77,19 @@ function resolveNodeLabel(
   toolName: string,
   input: string,
   existingLabel: string | undefined,
+  /**
+   * Passed through to `resolveToolTitle` so the graph and the flat shelf apply
+   * the same rule about which model-authored fields may name a row. A plain
+   * tool call must not be titled from an MCP argument that happens to be called
+   * `name`.
+   */
+  isSubagent?: boolean,
 ) {
   const current =
     existingLabel && existingLabel !== UNNAMED_AGENT_LABEL
       ? existingLabel
       : undefined;
-  return resolveToolTitle(toolName, input, current);
+  return resolveToolTitle(toolName, input, current, { isSubagent });
 }
 
 /**
@@ -915,6 +922,7 @@ export function reduceWorkGraphEvent(
                 event.toolName,
                 event.input,
                 next.nodesByKey[spawned.key]?.label,
+                true,
               ),
               badge: resolveSubagentBadge(event.input),
               status,

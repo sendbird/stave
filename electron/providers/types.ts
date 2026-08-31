@@ -193,6 +193,14 @@ export type BridgeEvent =
       hookId: string;
       hookName: string;
       hookEvent: string;
+      /**
+       * Where the handler was declared, when the provider reports it (Codex
+       * names the hooks file; Claude does not). Kept out of `hookName` so the
+       * activity shelf can title a row from the normalized event and show the
+       * provider's own identifiers as separate, clearly provider-specific
+       * detail.
+       */
+      hookSource?: string;
       status: "running" | "completed" | "failed" | "cancelled" | "blocked";
     }
   | {

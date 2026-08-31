@@ -737,7 +737,8 @@ describe("provider turn status helpers", () => {
         {
           type: "hook_activity",
           hookId: "hook-1",
-          hookName: "command: hooks.json",
+          hookName: "command",
+          hookSource: "/tmp/hooks.json",
           hookEvent: "user_prompt_submit",
           status: "running",
         },
@@ -753,7 +754,8 @@ describe("provider turn status helpers", () => {
         {
           type: "hook_activity",
           hookId: "hook-1",
-          hookName: "command: hooks.json",
+          hookName: "command",
+          hookSource: "/tmp/hooks.json",
           hookEvent: "user_prompt_submit",
           status: "completed",
         },
@@ -765,11 +767,12 @@ describe("provider turn status helpers", () => {
       id: "hook:hook-1",
       kind: "hook",
       status: "running",
-      title: "command: hooks.json",
-      badge: "user_prompt_submit",
+      title: "command",
       progressMessages: [],
       startedAt: 2000,
       updatedAt: 2000,
+      hookEvent: "user_prompt_submit",
+      hookSource: "/tmp/hooks.json",
     });
     expect(completed["task-1"]?.workItemsById["hook:hook-1"]).toMatchObject({
       status: "completed",
@@ -942,6 +945,211 @@ describe("provider turn status helpers", () => {
     expect(tracked["task-1"]?.orderedWorkItemIds).toContain("agent-14");
   });
 
+  test("titles the same operation identically across providers", () => {
+    const buildToolRow = (toolName: string, input: string) => {
+      const started = startProviderTurnActivity({
+        activityByTask: {},
+        taskId: "task-1",
+        turnId: "turn-1",
+        providerId: "codex",
+        now: 1000,
+      });
+      const tracked = applyProviderTurnActivityEvents({
+        activityByTask: started,
+        taskId: "task-1",
+        turnId: "turn-1",
+        providerId: "codex",
+        now: 2000,
+        events: [
+          {
+            type: "tool",
+            toolUseId: "tool-1",
+            toolName,
+            input,
+            state: "input-available",
+          },
+        ],
+      });
+      return tracked["task-1"]?.workItemsById["tool-1"];
+    };
+
+    // Claude sends `Bash` with JSON input; Codex sends `bash` with the bare
+    // command. Both rows must name the same operation.
+    expect(buildToolRow("bash", "bun test").title).toBe("Run command");
+    expect(
+      buildToolRow("Bash", JSON.stringify({ command: "bun test" })).title,
+    ).toBe("Run command");
+    expect(buildToolRow("web_search", "stave releases").title).toBe(
+      "Web search",
+    );
+    expect(buildToolRow("WebSearch", JSON.stringify({ query: "x" })).title).toBe(
+      "Web search",
+    );
+    // Codex namespaces MCP tools with `:` where Claude uses `__`; the leaf must
+    // survive both spellings.
+    expect(buildToolRow("ibis:ibis_create_page", "{}").title).toBe(
+      "ibis create page",
+    );
+    expect(buildToolRow("mcp__ibis__ibis_create_page", "{}").title).toBe(
+      "ibis create page",
+    );
+    // A runtime placeholder is not a tool name.
+    expect(buildToolRow("tool_use", "").title).toBe("Background work");
+  });
+
+  test("renders a Codex file edit like a Claude one, counting extra files", () => {
+    const buildRow = (toolName: string, input: string) => {
+      const started = startProviderTurnActivity({
+        activityByTask: {},
+        taskId: "task-1",
+        turnId: "turn-1",
+        providerId: "codex",
+        now: 1000,
+      });
+      const tracked = applyProviderTurnActivityEvents({
+        activityByTask: started,
+        taskId: "task-1",
+        turnId: "turn-1",
+        providerId: "codex",
+        now: 2000,
+        events: [
+          {
+            type: "tool",
+            toolUseId: "edit-1",
+            toolName,
+            input,
+            state: "input-available",
+          },
+        ],
+      });
+      return tracked["task-1"]?.workItemsById["edit-1"];
+    };
+
+    // Codex reports a whole patch as one item; Claude reports one edit per file.
+    // Both name the same operation.
+    const codex = buildRow(
+      "fileChange",
+      JSON.stringify({
+        paths: ["/repo/src/lib/providers/turn-status.ts", "/repo/src/App.tsx"],
+      }),
+    );
+    expect(codex?.title).toBe("Edit file");
+    expect(codex?.detail).toBe("providers/turn-status.ts +1 more");
+    expect(codex?.toolName).toBe("fileChange");
+
+    const claude = buildRow(
+      "Edit",
+      JSON.stringify({ file_path: "/repo/src/lib/providers/turn-status.ts" }),
+    );
+    expect(claude?.title).toBe("Edit file");
+    expect(claude?.detail).toBe("providers/turn-status.ts");
+  });
+
+  test("keeps MCP argument keys out of plain tool titles", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 1000,
+    });
+    const tracked = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "mcp-1",
+          toolName: "ibis:ibis_create_page",
+          // `name` is this MCP tool's own argument, not a label for the row.
+          input: JSON.stringify({ name: "Q3 planning", spaceId: "abc" }),
+          state: "input-available",
+        },
+      ],
+    });
+
+    expect(tracked["task-1"]?.workItemsById["mcp-1"]?.title).toBe(
+      "ibis create page",
+    );
+  });
+
+  test("drops todo bookkeeping rows that duplicate the todo list", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 1000,
+    });
+    const tracked = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "todo-1",
+          toolName: "TodoWrite",
+          input: JSON.stringify({ todos: [] }),
+          state: "input-available",
+        },
+        {
+          type: "tool",
+          toolUseId: "bash-1",
+          toolName: "bash",
+          input: "bun test",
+          state: "input-available",
+        },
+      ],
+    });
+
+    expect(tracked["task-1"]?.orderedWorkItemIds).toEqual(["bash-1"]);
+  });
+
+  test("does not prefix a delegation already named Worker", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "cursor",
+      now: 1000,
+    });
+    const tracked = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "cursor",
+      now: 2000,
+      events: [
+        {
+          type: "tool",
+          toolUseId: "worker-1",
+          // ACP agents name the delegation tool `Worker`, which used to yield
+          // a row reading `Worker · Worker`.
+          toolName: "Worker",
+          input: "Sweep the callers",
+          state: "input-available",
+          workerExecution: {
+            providerId: "codex",
+            primaryModel: "gpt-5.6-sol",
+            presetId: "verified-patch",
+            workerModel: "gpt-5.6-terra",
+            workerEffort: "max",
+          },
+        },
+      ],
+    });
+
+    const item = tracked["task-1"]?.workItemsById["worker-1"];
+    expect(item?.title).toBe("Worker");
+    expect(item?.kind).toBe("subagent");
+  });
+
   test("tracks plain tool calls with input-derived detail and a bounded tail", () => {
     const started = startProviderTurnActivity({
       activityByTask: {},
@@ -982,8 +1190,11 @@ describe("provider turn status helpers", () => {
     expect(tracked["task-1"]?.workItemsById["tool-read"]).toMatchObject({
       kind: "tool",
       status: "completed",
-      title: "Read",
+      // Normalized operation, not the provider's `Read` token; the token is
+      // kept alongside for the row's provider-specific slot.
+      title: "Read file",
       detail: "session/TurnActivity.tsx",
+      toolName: "Read",
     });
     expect(tracked["task-1"]?.workItemsById["tool-bash"]).toMatchObject({
       kind: "tool",

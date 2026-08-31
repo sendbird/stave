@@ -59,6 +59,63 @@ need more room to follow a busy turn.
 - In `Panel`, each work row also shows how far into the turn it started, such
   as `+1m 30s`. The docked shelf is one composer width and omits that column.
 
+### Provider-Specific Detail
+
+Row titles use one vocabulary for every provider, so the same turn reads the
+same way whichever agent ran it. A hook row is titled by the moment in the turn
+it fired — `Session start hook`, `Before tool use hook` — rather than by the
+provider's own identifier, which is spelled differently by each of them.
+
+Tool rows work the same way. One shell command is `Run command` whether the
+provider called the tool `Bash` or `bash`; a web lookup is `Web search` for both
+`WebSearch` and `web_search`; an MCP call reads `ibis create page` whether the
+provider namespaced it as `mcp__ibis__ibis_create_page` or
+`ibis:ibis_create_page`. When the agent wrote its own description of a step,
+that description is still the title — Stave cannot invent one for a provider
+that sends none, and the agent's own words beat any derived label.
+
+File edits get a row on every provider. Codex applies a whole patch as one
+operation, so its row names the first file and counts the rest —
+`Edit file · providers/turn-status.ts +1 more` — where Claude, which reports one
+edit per file, gets one row each.
+
+What only that provider can say still appears, in its own slot on the second
+line: monospaced, dimmer, and separated from the normalized text by a thin
+rule. For a hook that is the provider's raw event token when it differs from the
+title, the handler kind, and the file the handler was declared in, such as
+`command · codex/hooks.json`. So a row never presents a provider identifier as
+if it were Stave's own description of the step, and the provider's exact
+spelling is still there when a misbehaving hook has to be traced back to its
+config.
+
+Hook commands and hook output are never shown. Providers report them, and Stave
+drops them before they reach the window.
+
+### Rows That Are Left Out
+
+- Todo bookkeeping calls get no row of their own. Every provider makes them, and
+  the todos they write already have rows further down the list.
+- A row is never titled from a tool's arguments. Only fields a provider defines
+  as labels can name a row, so an MCP call carrying a `name` argument shows the
+  tool it called rather than that argument's value.
+- A delegation that ran as a configured Worker is marked once. The `Worker`
+  prefix is added only when the title names the delegated task, so a provider
+  that reports nothing but "worker" gives a row reading `Worker`, not
+  `Worker · Worker`.
+
+### Hooks That Run More Than Once
+
+One hooks file usually declares several handlers for the same event, and the
+provider reports every handler run separately. Turn Activity states the moment
+once and counts the handlers — `Session start hooks` with a `2 handlers`
+badge — instead of listing a row per run.
+
+- The row's status is the most urgent of its handlers, so one failure among
+  several is still visible at a glance.
+- When a handler fails, the row says so — `1 of 2 handlers failed`.
+- The duration is the longest handler's, and in `Panel` the start offset is the
+  earliest handler's, so the row spans the whole group rather than one member.
+
 ### The Last Turn
 
 When a turn ends, `Panel` keeps it on screen instead of emptying. The header

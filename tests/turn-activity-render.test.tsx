@@ -751,4 +751,50 @@ describe("TurnActivity", () => {
       expect(html).not.toContain("Turn finished");
     });
   });
+  test("renders a hook row's provider detail in its own distinct slot", () => {
+    const hookWorkItem = {
+      kind: "hook" as const,
+      status: "completed" as const,
+      title: "command",
+      progressMessages: [],
+      startedAt: 1_000,
+      updatedAt: 2_000,
+      hookEvent: "sessionStart",
+      hookSource: "/Users/dev/.agents/codex/hooks.json",
+    };
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-hooks",
+        activity: {
+          turnId: "turn-hooks",
+          providerId: "codex",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [
+          { ...hookWorkItem, id: "hook:1" },
+          { ...hookWorkItem, id: "hook:2" },
+        ],
+        todos: [],
+      }),
+    );
+
+    // Normalized: one row for the moment, with the handler count beside it.
+    expect(html).toContain("Session start hooks");
+    expect(html).toContain("2 handlers");
+    // Provider-specific: monospaced and dimmed, so it cannot be mistaken for
+    // the normalized half of the row.
+    expect(html).toContain(
+      '<span class="truncate font-mono text-[10px] text-muted-foreground/70">command · codex/hooks.json</span>',
+    );
+    // The old presentation's invented ordinals are gone, and the absolute path
+    // never reaches the title.
+    expect(html).not.toContain("handler 1");
+    expect(html).not.toContain("/Users/dev/.agents");
+  });
 });
