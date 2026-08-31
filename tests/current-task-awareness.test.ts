@@ -114,9 +114,13 @@ describe("buildCurrentTaskAwarenessRetrievedContext", () => {
     expect(context.content).toContain(
       "main | https://main.d123abc456.amplifyapp.com | Preview deploy",
     );
+    // The static conventions must stay universal: no service-specific
+    // auto-register directive (e.g. AWS Amplify) is injected for every user.
+    expect(context.content).not.toContain("stave_add_workspace_amplify_link");
     expect(context.content).toContain(
-      "immediately register it with `stave_add_workspace_amplify_link`",
+      "register it with the matching `stave_add_workspace_*` tool",
     );
+    expect(context.content).toContain("deploy preview URL");
     expect(context.content).toContain(
       "Summarise the latest workspace activity in the Information panel. | Prepared the UI plan and identified the Information panel integration points.",
     );

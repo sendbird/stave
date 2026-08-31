@@ -115,6 +115,29 @@ export function isReservedEnvVarName(value: string): boolean {
 }
 
 /**
+ * Drop every reserved name from a resolved bound-secret env map so an injected
+ * secret can never claim a Stave runtime variable. Provider runtimes merge this
+ * result with their runtime-owned env; relying on merge order alone is not
+ * enough, because order only decides the winner for keys the runtime-owned env
+ * actually emits. Returns a fresh object and never mutates the input.
+ */
+export function stripReservedSecretEnvNames(
+  secretEnv: Record<string, string> | undefined | null,
+): Record<string, string> {
+  if (!secretEnv) {
+    return {};
+  }
+  const safeEnv: Record<string, string> = {};
+  for (const [name, value] of Object.entries(secretEnv)) {
+    if (isReservedEnvVarName(name)) {
+      continue;
+    }
+    safeEnv[name] = value;
+  }
+  return safeEnv;
+}
+
+/**
  * Normalize an optional environment-variable name. Returns:
  * - `undefined` when the input is blank (secret is simply not injectable),
  * - the trimmed name when it is a valid, non-reserved POSIX identifier.

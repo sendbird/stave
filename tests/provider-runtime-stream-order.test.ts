@@ -29,13 +29,11 @@ mock.module("../electron/providers/claude-sdk-runtime", () => ({
   resolveClaudeExecutablePath: () => "/tmp/claude",
   streamClaudeWithSdk: async (args: { prompt?: string }) =>
     args.prompt === "runtime-fallback" ? [] : [{ type: "done" }],
-  suggestClaudeCommitMessage: async () => "fix: stub",
   suggestClaudePRDescription: async () => ({
     ok: true,
     title: "fix: stub",
     body: "stub",
   }),
-  suggestClaudeTaskName: async () => "stub",
 }));
 
 mock.module("../electron/providers/codex-app-server-runtime", () => ({
