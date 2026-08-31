@@ -10,7 +10,7 @@ import {
 describe("model selector utils", () => {
   test("can build prompt-input options across all providers", () => {
     const options = buildModelSelectorOptions({
-      providerIds: ["claude-code", "codex"],
+      providerIds: ["claude-code", "codex", "cursor"],
     });
 
     expect(options).toEqual(
@@ -24,6 +24,11 @@ describe("model selector utils", () => {
           key: "codex:gpt-5.6-terra",
           model: "gpt-5.6-terra",
           providerId: "codex",
+        }),
+        expect.objectContaining({
+          key: "cursor:auto",
+          model: "auto",
+          providerId: "cursor",
         }),
       ]),
     );
@@ -167,5 +172,25 @@ describe("model selector utils", () => {
     const luna = options.find((option) => option.model === "gpt-5.6-luna");
     expect(luna?.description).toBeUndefined();
     expect(luna?.isDefault).toBeUndefined();
+  });
+
+  test("keeps overlapping runtime model ids scoped to their provider", () => {
+    const enrichment = new Map([
+      ["codex:gpt-shared", { label: "Codex Shared" }],
+      ["cursor:gpt-shared", { label: "Cursor Shared High Fast" }],
+    ]);
+    const options = buildModelSelectorOptions({
+      providerIds: ["codex", "cursor"],
+      modelsByProvider: {
+        codex: ["gpt-shared"],
+        cursor: ["gpt-shared"],
+      },
+      enrichmentByModel: enrichment,
+    });
+
+    expect(options.map(({ key, label }) => ({ key, label }))).toEqual([
+      { key: "codex:gpt-shared", label: "Codex Shared" },
+      { key: "cursor:gpt-shared", label: "Cursor Shared High Fast" },
+    ]);
   });
 });

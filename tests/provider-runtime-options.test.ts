@@ -390,6 +390,48 @@ describe("buildProviderRuntimeOptions", () => {
     expect(runtimeOptions).not.toHaveProperty("advisorTarget");
   });
 
+  test("forwards a Cursor Worker intent only for a primary conversation turn", () => {
+    const primary = buildProviderRuntimeOptions({
+      provider: "cursor",
+      model: "cursor-worker-model",
+      settings: {
+        ...settings,
+        workerEnabled: false,
+        workerConfigByProvider: {},
+      },
+      providerSession: null,
+      includeAdvisor: true,
+      workerRuntimeOverrides: {
+        workerEnabled: true,
+        workerConfigByProvider: {
+          cursor: {
+            presetId: "scout",
+            model: "cursor-worker-model",
+          },
+        },
+      },
+    });
+    expect(primary.workerIntent).toMatchObject({
+      mode: "task-executor",
+      presetId: "scout",
+      workerModel: "cursor-worker-model",
+    });
+
+    const utility = buildProviderRuntimeOptions({
+      provider: "cursor",
+      model: "cursor-worker-model",
+      settings: {
+        ...settings,
+        workerEnabled: true,
+        workerConfigByProvider: {},
+      },
+      providerSession: null,
+      includeAdvisor: false,
+      workerRuntimeOverrides: { workerEnabled: true },
+    });
+    expect(utility.workerIntent).toBeUndefined();
+  });
+
   test("limits resume ids to the active provider in direct turns", () => {
     expect(
       buildProviderRuntimeOptions({

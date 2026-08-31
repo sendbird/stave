@@ -4,6 +4,7 @@ import type { LensAnnotation } from "@/lib/lens/lens.types";
 import type {
   AdvisorTarget,
   AdvisorTargetByProvider,
+  DelegatedExecutionUsage,
   ProviderId,
 } from "@/lib/providers/provider.types";
 import type { WorkerExecutionMetadata, WorkerProviderConfig } from "@/lib/providers/worker-mode";
@@ -92,8 +93,16 @@ export interface PromptDraftRuntimeOverrides {
   codexReasoningEffort?:
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   codexFastMode?: boolean;
+  cursorMode?: "agent" | "plan" | "ask";
+  kiroEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   autoRouting?: boolean;
   model?: string;
+  /**
+   * Provider identity for `model`. Required for catalogs whose model ids
+   * overlap another provider (for example a provider routing GPT or Claude
+   * families). Legacy drafts without it still use model-name inference.
+   */
+  modelProviderId?: ProviderId;
   /**
    * Per-task Advisor arming. Absent inherits the Settings default (a configured
    * `settings.advisorTarget` means "armed by default"). `false` disarms only
@@ -121,8 +130,8 @@ export interface PromptDraftRuntimeOverrides {
   workerEnabled?: boolean;
   /**
    * Per-task worker configuration, keyed by provider. Keyed rather than flat so
-   * switching Codex↔Claude and back never overwrites the other provider's
-   * choice — the two have different worker models and different effort scales.
+   * switching providers never overwrites another provider's choice — their
+   * worker catalogs, effort scales, and execution adapters differ.
    */
   workerConfigByProvider?: Partial<Record<ProviderId, WorkerProviderConfig>>;
   /**
@@ -135,6 +144,7 @@ export interface PromptDraftRuntimeOverrides {
 export type TurnModelEffort = NonNullable<
   | PromptDraftRuntimeOverrides["claudeEffort"]
   | PromptDraftRuntimeOverrides["codexReasoningEffort"]
+  | PromptDraftRuntimeOverrides["kiroEffort"]
 >;
 
 export interface TurnModelInfo {
@@ -243,6 +253,7 @@ export interface ApprovalPart extends MessagePartBase {
   toolName: string;
   description: string;
   input?: string;
+  workerExecution?: WorkerExecutionMetadata;
   requestId: string;
   state:
     | "approval-requested"
@@ -254,6 +265,7 @@ export interface ApprovalPart extends MessagePartBase {
 export interface UserInputOption {
   label: string;
   description: string;
+  value?: string;
 }
 
 export interface UserInputQuestion {
@@ -320,7 +332,7 @@ export interface ChatMessage {
   id: string;
   role: MessageRole;
   model: string;
-  providerId: "claude-code" | "codex" | "user";
+  providerId: ProviderId | "user";
   /**
    * Native provider session/thread that produced this assistant response.
    * Kept on the message so point-in-time actions cannot accidentally target a
@@ -341,18 +353,29 @@ export interface ChatMessage {
   isStreaming?: boolean;
   isPlanResponse?: boolean;
   planText?: string;
+  planReview?: {
+    requestId: string;
+    responseMode: "blocking";
+  };
   usage?: {
     inputTokens: number;
     outputTokens: number;
     cacheReadTokens?: number;
     cacheCreationTokens?: number;
+    thoughtTokens?: number;
+    contextUsedTokens?: number;
+    contextWindowTokens?: number;
+    contextCostAmount?: number;
+    contextCostCurrency?: string;
     totalCostUsd?: number;
     ttftMs?: number;
   };
+  /** Per-execution breakdown; already included in the turn-level usage total. */
+  delegatedUsage?: DelegatedExecutionUsage[];
   promptSuggestions?: string[];
   /** Provider-native history boundary used for branch and rewind actions. */
   providerBoundary?: {
-    providerId: "claude-code" | "codex";
+    providerId: ProviderId;
     kind: "thread" | "turn" | "message";
     nativeId: string;
   };
@@ -393,7 +416,7 @@ export interface TaskTakeoverResult {
 export interface Task {
   id: string;
   title: string;
-  provider: "claude-code" | "codex";
+  provider: ProviderId;
   updatedAt: string;
   unread: boolean;
   archivedAt?: string | null;

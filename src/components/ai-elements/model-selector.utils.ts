@@ -15,6 +15,8 @@ export interface ModelSelectorOption {
   isDefault?: boolean;
   isAuto?: boolean;
   available: boolean;
+  defaultEffort?: string;
+  supportedEfforts?: readonly string[];
 }
 
 export function shouldOpenModelSelector(args: {
@@ -35,17 +37,22 @@ const DEFAULT_RECOMMENDED_MODEL_SELECTOR_KEYS = [
 function buildModelSelectorOption(args: {
   providerId: ProviderId;
   model: string;
+  label?: string;
   available?: boolean;
   description?: string;
   isDefault?: boolean;
+  defaultEffort?: string;
+  supportedEfforts?: readonly string[];
 }): ModelSelectorOption {
   return {
     key: `${args.providerId}:${args.model}`,
     providerId: args.providerId,
     model: args.model,
-    label: toHumanModelName({ model: args.model }),
+    label: args.label ?? toHumanModelName({ model: args.model }),
     description: args.description,
     isDefault: args.isDefault,
+    defaultEffort: args.defaultEffort,
+    supportedEfforts: args.supportedEfforts,
     available: args.available ?? true,
   };
 }
@@ -53,12 +60,14 @@ function buildModelSelectorOption(args: {
 export function buildModelSelectorValue(args: {
   model: string;
   providerId?: ProviderId;
+  label?: string;
   available?: boolean;
 }): ModelSelectorOption {
   return buildModelSelectorOption({
     providerId:
       args.providerId ?? inferProviderIdFromModel({ model: args.model }),
     model: args.model,
+    label: args.label,
     available: args.available,
   });
 }
@@ -79,8 +88,11 @@ export function buildAutoModelSelectorOption(args: {
 }
 
 export interface ModelEnrichment {
+  label?: string;
   description?: string;
   isDefault?: boolean;
+  defaultEffort?: string;
+  supportedEfforts?: readonly string[];
 }
 
 export function buildModelSelectorOptions(args: {
@@ -93,13 +105,18 @@ export function buildModelSelectorOptions(args: {
     (
       args.modelsByProvider?.[providerId] ?? getSdkModelOptions({ providerId })
     ).map((model) => {
-      const enrichment = args.enrichmentByModel?.get(model);
+      const enrichment =
+        args.enrichmentByModel?.get(`${providerId}:${model}`) ??
+        args.enrichmentByModel?.get(model);
       return buildModelSelectorOption({
         providerId,
         model,
+        label: enrichment?.label,
         available: args.availabilityByProvider?.[providerId] ?? true,
         description: enrichment?.description,
         isDefault: enrichment?.isDefault,
+        defaultEffort: enrichment?.defaultEffort,
+        supportedEfforts: enrichment?.supportedEfforts,
       });
     }),
   );

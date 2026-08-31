@@ -36,6 +36,7 @@ import {
   CleanupTaskArgsSchema,
   EnhancePromptArgsSchema,
   ProviderCommandCatalogArgsSchema,
+  ProviderModelCatalogArgsSchema,
   ReviewDiffArgsSchema,
   StreamAckArgsSchema,
   StreamReadArgsSchema,
@@ -555,6 +556,19 @@ export function registerProviderHandlers() {
       );
     },
   );
+
+  ipcMain.handle("provider:get-model-catalog", (_event, args: unknown) => {
+    const parsedArgs = ProviderModelCatalogArgsSchema.safeParse(args);
+    if (!parsedArgs.success) {
+      return {
+        providerId: "claude-code",
+        ok: false,
+        detail: "Invalid provider model catalog request.",
+        models: [],
+      };
+    }
+    return invokeHostService("provider.get-model-catalog", parsedArgs.data);
+  });
 
   ipcMain.handle(
     "provider:get-codex-app-server-snapshot",

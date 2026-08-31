@@ -349,6 +349,8 @@ function ConsultDetail(props: {
               {formatAdvisorSpend({
                 inputTokens: snapshot.inputTokens ?? 0,
                 outputTokens: snapshot.outputTokens ?? 0,
+                cacheReadTokens: snapshot.cacheReadTokens,
+                cacheCreationTokens: snapshot.cacheCreationTokens,
                 totalCostUsd: snapshot.totalCostUsd ?? null,
               })}
             </dd>

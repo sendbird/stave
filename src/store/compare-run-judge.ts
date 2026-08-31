@@ -12,7 +12,7 @@ import {
   type ModelEffort,
 } from "@/lib/providers/model-effort";
 import type {
-  ProviderId,
+  ManagedExecutionProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import type {
@@ -43,7 +43,7 @@ interface CompareJudgeStoreSnapshot {
 
 interface CompareJudgeBridge extends Partial<SecondaryRunBridge> {
   checkAvailability?: (args: {
-    providerId: ProviderId;
+    providerId: ManagedExecutionProviderId;
     runtimeOptions?: ProviderRuntimeOptions;
   }) => Promise<{
     ok: boolean;
@@ -123,7 +123,7 @@ export function buildCompareJudgePrompt(run: CompareRun) {
 }
 
 export function buildCompareJudgeRuntimeOptions(args: {
-  provider: ProviderId;
+  provider: ManagedExecutionProviderId;
   model: string;
   effort?: ModelEffort;
   settings: CompareJudgeRuntimeSettings;
@@ -180,7 +180,7 @@ export function buildCompareJudgeRunIdentity(compareRunId: string) {
 }
 
 function buildCompareJudgeRuntimeHints(args: {
-  provider: ProviderId;
+  provider: ManagedExecutionProviderId;
   runtimeOptions: ProviderRuntimeOptions;
 }): SecondaryRunRuntimeHints {
   if (args.provider === "claude-code") {

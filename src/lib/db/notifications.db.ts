@@ -13,7 +13,12 @@ import {
 
 const ProviderIdSchema = z.preprocess(
   (value) => (value === "stave" ? "claude-code" : value),
-  z.union([z.literal("claude-code"), z.literal("codex")]),
+  z.union([
+    z.literal("claude-code"),
+    z.literal("codex"),
+    z.literal("cursor"),
+    z.literal("kiro"),
+  ]),
 );
 
 const AppNotificationActionSchema = z.discriminatedUnion("type", [

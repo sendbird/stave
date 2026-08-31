@@ -11,6 +11,7 @@ const settings: ModelRuntimePreferenceSettings = {
   modelRuntimePreferences: {},
   modelClaude: "claude-sonnet-5",
   modelCodex: "gpt-5.6-terra",
+  modelKiro: "auto",
   claudePermissionMode: "acceptEdits",
   claudeAllowDangerouslySkipPermissions: false,
   claudeSandboxEnabled: false,
@@ -23,6 +24,7 @@ const settings: ModelRuntimePreferenceSettings = {
   codexWebSearch: "cached",
   codexReasoningEffort: "xhigh",
   codexFastMode: false,
+  kiroEffort: "medium",
 };
 
 describe("model runtime preferences", () => {
@@ -138,6 +140,10 @@ describe("model runtime preferences", () => {
         effort: "max",
         fastMode: false,
       },
+      "kiro:kiro-model": {
+        effort: "xhigh",
+        fastMode: true,
+      },
       invalid: { mode: "auto", effort: "high" },
     });
 
@@ -150,6 +156,27 @@ describe("model runtime preferences", () => {
         providerId: "codex",
         model: "gpt-5.6-luna",
       })]: { mode: "guided", effort: "max", fastMode: false },
+      [buildModelRuntimePreferenceKey({
+        providerId: "kiro",
+        model: "kiro-model",
+      })]: { effort: "xhigh" },
     });
+  });
+
+  test("remembers Kiro effort per model without changing Codex settings", () => {
+    const preferences = mergeModelRuntimePreference({
+      preferences: {},
+      providerId: "kiro",
+      model: "kiro-model",
+      patch: { effort: "high" },
+    });
+    const scoped = applyModelRuntimePreference({
+      settings: { ...settings, modelRuntimePreferences: preferences },
+      providerId: "kiro",
+      model: "kiro-model",
+    });
+
+    expect(scoped.kiroEffort).toBe("high");
+    expect(scoped.codexReasoningEffort).toBe(settings.codexReasoningEffort);
   });
 });

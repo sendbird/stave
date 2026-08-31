@@ -78,6 +78,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     return [
       { value: "claude-code", label: "Claude Code" },
       { value: "codex", label: "Codex" },
+      { value: "cursor", label: "Cursor Agent" },
     ];
   }, [kind]);
 
@@ -85,11 +86,22 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     const nextKind: TaskPresetKind =
       nextKindValue === "cli-session" ? "cli-session" : "task";
     setKind(nextKind);
+    if (
+      nextKind === "cli-session" &&
+      provider !== "claude-code" &&
+      provider !== "codex"
+    ) {
+      setProvider("claude-code");
+      setModel(getDefaultModelForProvider({ providerId: "claude-code" }));
+      setEffort(DEFAULT_EFFORT_VALUE);
+    }
   }
 
   function handleProviderChange(nextProvider: string) {
     const providerId =
-      nextProvider === "claude-code" || nextProvider === "codex"
+      nextProvider === "claude-code" ||
+      nextProvider === "codex" ||
+      (kind === "task" && nextProvider === "cursor")
         ? (nextProvider as ProviderId)
         : "claude-code";
     setProvider(providerId);
@@ -191,7 +203,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
           </SelectContent>
         </Select>
       </div>
-      {kind === "task" ? (
+      {kind === "task" && effortOptions.length > 0 ? (
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-muted-foreground">
             Model

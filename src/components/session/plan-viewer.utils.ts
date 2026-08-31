@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import type { ChatMessage } from "@/types/chat";
+import type { ProviderId } from "@/lib/providers/provider.types";
 
 const PLAN_VIEWER_COLLAPSED_GAP_PX = 8;
 const PLAN_VIEWER_EXPANDED_TOP_PX = 12;
@@ -22,7 +23,12 @@ interface PlanViewerDragPosition {
 
 type PlanMessage = Pick<
   ChatMessage,
-  "role" | "providerId" | "isPlanResponse" | "isStreaming" | "planText"
+  | "role"
+  | "providerId"
+  | "isPlanResponse"
+  | "isStreaming"
+  | "planText"
+  | "planReview"
 >;
 
 function hasPlanContent(message?: PlanMessage | null) {
@@ -34,7 +40,7 @@ function hasPlanContent(message?: PlanMessage | null) {
 }
 
 export function resolvePlanViewerState(args: {
-  activeProvider: "claude-code" | "codex";
+  activeProvider: ProviderId;
   claudePermissionMode:
     | "default"
     | "acceptEdits"
@@ -59,6 +65,10 @@ export function resolvePlanViewerState(args: {
   const isPlanModeActive = isClaudePlanMode || isCodexPlanMode;
   const lastMessageHasPlan = hasPlanContent(args.lastMessage);
   const hasHistoricalPlan = hasPlanContent(args.latestPlanMessage);
+  const blockingReview =
+    args.latestPlanMessage?.planReview?.responseMode === "blocking"
+      ? args.latestPlanMessage.planReview
+      : null;
   const shouldDelayCodexPendingViewer =
     isCodexPlanMode &&
     args.isTurnActive &&
@@ -77,15 +87,19 @@ export function resolvePlanViewerState(args: {
   const isPlanPending =
     hasHistoricalPlan &&
     !shouldDelayCodexPendingViewer &&
-    (isPlanModeActive ||
+    ((blockingReview !== null && args.isTurnActive) ||
+      isPlanModeActive ||
       (args.activeProvider !== "codex" && lastMessageHasPlan));
-  const canReplyToPlan = isPlanPending && !args.isTurnActive;
+  const canReplyToPlan =
+    isPlanPending &&
+    (blockingReview !== null ? args.isTurnActive : !args.isTurnActive);
 
   return {
     planText,
     isPlanPreparing,
     isPlanPending,
     canReplyToPlan,
+    ...(blockingReview ? { blockingReview } : {}),
   };
 }
 

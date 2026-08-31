@@ -6,7 +6,7 @@ import type {
   ProviderBrowserConnectionStatus,
   WorkspaceConnectedBrowserTab,
 } from "@/lib/provider-browser";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS } from "@/lib/provider-browser";
 import { SettingsCard, SwitchField } from "./settings-dialog.shared";
@@ -22,7 +22,10 @@ const PROVIDER_BROWSER_SETUP = {
     setup:
       "Install and enable chrome@openai-bundled in the Codex CLI environment used by Stave, connect its Chrome extension, then try @web again.",
   },
-} as const satisfies Record<ProviderId, { label: string; setup: string }>;
+} as const satisfies Record<
+  ManagedExecutionProviderId,
+  { label: string; setup: string }
+>;
 
 const STATUS_LABELS = {
   connecting: "Connecting",
@@ -38,7 +41,7 @@ type SettingsBrowserStatus =
   | "superseded";
 
 function resolveSettingsBrowserStatus(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   tab: WorkspaceConnectedBrowserTab | null;
 }): SettingsBrowserStatus {
   if (!args.tab) {
@@ -69,7 +72,7 @@ function statusDescription(args: {
 }
 
 function ProviderBrowserStatusCard(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   tab: WorkspaceConnectedBrowserTab | null;
 }) {
   const provider = PROVIDER_BROWSER_SETUP[args.providerId];

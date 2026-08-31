@@ -28,6 +28,7 @@ import {
 } from "@/components/session/chat-panel.utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
@@ -42,7 +43,7 @@ import {
 export { toToolDisplayName } from "@/lib/tool-display-name";
 
 export function toProviderStartCase(args: {
-  providerId: "claude-code" | "codex";
+  providerId: ProviderId;
 }) {
   return args.providerId
     .split("-")
@@ -51,7 +52,7 @@ export function toProviderStartCase(args: {
 }
 
 export function toProviderWaveToneClass(args: {
-  providerId: "claude-code" | "codex" | "user";
+  providerId: ProviderId | "user";
   model?: string;
 }) {
   if (args.providerId === "user") {

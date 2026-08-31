@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
@@ -1132,7 +1133,7 @@ export function AppShell() {
         },
         saveActiveEditor: () => saveActiveEditorTab().then(() => undefined),
         selectTask: (taskId: string) => selectTask({ taskId }),
-        setTaskProvider: (taskId: string, provider: "claude-code" | "codex") =>
+        setTaskProvider: (taskId: string, provider: ProviderId) =>
           setTaskProvider({ taskId, provider }),
         startCompareRun: handleStartCompareRun,
         splitActivePanel: (direction: "right" | "below") =>

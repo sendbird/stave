@@ -16,10 +16,11 @@ import type { ClaudePermissionMode } from "@/types/chat";
 
 type ClaudeEffort = NonNullable<ProviderRuntimeOptions["claudeEffort"]>;
 type CodexEffort = NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>;
+type KiroEffort = NonNullable<ProviderRuntimeOptions["kiroEffort"]>;
 
 export interface ModelRuntimePreference {
   mode?: ProviderModePresetId;
-  effort?: ClaudeEffort | CodexEffort;
+  effort?: ClaudeEffort | CodexEffort | KiroEffort;
   fastMode?: boolean;
 }
 
@@ -35,6 +36,7 @@ export interface ModelRuntimePreferenceSettings {
   modelRuntimePreferences: ModelRuntimePreferences;
   modelClaude: string;
   modelCodex: string;
+  modelKiro: string;
   claudePermissionMode: ClaudePermissionMode;
   claudeAllowDangerouslySkipPermissions: boolean;
   claudeSandboxEnabled: boolean;
@@ -49,6 +51,7 @@ export interface ModelRuntimePreferenceSettings {
   codexWebSearch: NonNullable<ProviderRuntimeOptions["codexWebSearch"]>;
   codexReasoningEffort: CodexEffort;
   codexFastMode: boolean;
+  kiroEffort: KiroEffort;
 }
 
 const CLAUDE_EFFORTS = new Set<ClaudeEffort>([
@@ -67,6 +70,13 @@ const CODEX_EFFORTS = new Set<CodexEffort>([
   "max",
   "ultra",
 ]);
+const KIRO_EFFORTS = new Set<KiroEffort>([
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
 const MODE_PRESETS = new Set<ProviderModePresetId>([
   "manual",
   "guided",
@@ -80,20 +90,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isProviderEffort(
   providerId: ProviderId,
   value: unknown,
-): value is ClaudeEffort | CodexEffort {
+): value is ClaudeEffort | CodexEffort | KiroEffort {
   if (typeof value !== "string") {
     return false;
   }
-  return providerId === "claude-code"
-    ? CLAUDE_EFFORTS.has(value as ClaudeEffort)
-    : CODEX_EFFORTS.has(value as CodexEffort);
+  if (providerId === "claude-code") {
+    return CLAUDE_EFFORTS.has(value as ClaudeEffort);
+  }
+  if (providerId === "codex") {
+    return CODEX_EFFORTS.has(value as CodexEffort);
+  }
+  return providerId === "kiro" && KIRO_EFFORTS.has(value as KiroEffort);
 }
 
 function parseModelRuntimePreferenceKey(key: string): {
   providerId: ProviderId;
   model: string;
 } | null {
-  for (const providerId of ["claude-code", "codex"] as const) {
+  for (const providerId of ["claude-code", "codex", "kiro"] as const) {
     const prefix = `${providerId}:`;
     if (key.startsWith(prefix) && key.length > prefix.length) {
       return { providerId, model: key.slice(prefix.length) };
@@ -111,13 +125,19 @@ function normalizeModelRuntimePreference(args: {
   }
 
   const preference: ModelRuntimePreference = {};
-  if (MODE_PRESETS.has(args.value.mode as ProviderModePresetId)) {
+  if (
+    (args.providerId === "claude-code" || args.providerId === "codex") &&
+    MODE_PRESETS.has(args.value.mode as ProviderModePresetId)
+  ) {
     preference.mode = args.value.mode as ProviderModePresetId;
   }
   if (isProviderEffort(args.providerId, args.value.effort)) {
     preference.effort = args.value.effort;
   }
-  if (typeof args.value.fastMode === "boolean") {
+  if (
+    (args.providerId === "claude-code" || args.providerId === "codex") &&
+    typeof args.value.fastMode === "boolean"
+  ) {
     preference.fastMode = args.value.fastMode;
   }
 
@@ -241,6 +261,21 @@ export function applyModelRuntimePreference<
         ? {}
         : { claudeFastMode: preference.fastMode }),
     };
+  }
+
+  if (args.providerId === "cursor") {
+    return args.settings;
+  }
+
+  if (args.providerId === "kiro") {
+    const kiroEffort =
+      preference?.effort && KIRO_EFFORTS.has(preference.effort as KiroEffort)
+        ? (preference.effort as KiroEffort)
+        : args.settings.kiroEffort;
+    if (!preference && kiroEffort === args.settings.kiroEffort) {
+      return args.settings;
+    }
+    return { ...args.settings, kiroEffort };
   }
 
   const codexReasoningEffort = clampCodexEffortToModel({

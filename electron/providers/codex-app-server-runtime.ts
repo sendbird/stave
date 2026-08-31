@@ -2194,6 +2194,7 @@ export async function runCodexReadOnlyPrompt(
       client.respond(requestId as JsonRpcId, result),
     subscribe: (listener) => client.subscribe(listener),
     buildThreadStartParams: buildCodexThreadStartParams,
+    buildThreadResumeParams: buildCodexThreadResumeParams,
     buildTurnStartParams: buildCodexTurnStartParams,
   });
 }

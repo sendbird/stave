@@ -88,6 +88,7 @@ import type {
   HostServiceResponseMap,
 } from "./host-service/protocol";
 import { providerRuntime } from "./providers/runtime";
+import { getProviderModelCatalog } from "./providers/provider-model-catalog";
 import {
   archiveCodexThread,
   batchWriteCodexConfig,
@@ -1495,6 +1496,12 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         await providerRuntime.consultAdvisor(request.params),
       );
       return;
+    case "provider.run-acp-worker":
+      await respond(
+        request.id,
+        await providerRuntime.runAcpWorker(request.params),
+      );
+      return;
     case "provider.cleanup-task":
       await respond(request.id, providerRuntime.cleanupTask(request.params));
       return;
@@ -1578,6 +1585,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.get-codex-model-catalog":
       await respond(request.id, await getCodexModelCatalog(request.params));
+      return;
+    case "provider.get-model-catalog":
+      await respond(request.id, await getProviderModelCatalog(request.params));
       return;
     case "provider.get-codex-app-server-snapshot":
       await respond(

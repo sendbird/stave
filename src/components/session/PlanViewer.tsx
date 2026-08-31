@@ -9,8 +9,10 @@ import {
   ArrowRightCircle,
   ClipboardCheck,
   Copy,
+  LoaderCircle,
   Minus,
   Maximize2,
+  XCircle,
 } from "lucide-react";
 import { Button, Textarea } from "@/components/ui";
 import { MessageResponse } from "@/components/ai-elements";
@@ -20,6 +22,7 @@ import {
   isTaskArchived,
 } from "@/lib/tasks";
 import { APPROVE_PLAN_MESSAGE } from "@/lib/providers/plan-response";
+import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -62,6 +65,9 @@ export function PlanViewer() {
   const [revisionText, setRevisionText] = useState("");
   const [viewState, setViewState] = useState<PlanViewerViewState>("normal");
   const [copied, setCopied] = useState(false);
+  const [planResponsePending, setPlanResponsePending] = useState(false);
+  const [planResponseSent, setPlanResponseSent] = useState(false);
+  const [planResponseError, setPlanResponseError] = useState("");
   /** Absolute pixel position of the minimised pill within the chat content div. */
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
 
@@ -114,13 +120,13 @@ export function PlanViewer() {
   const effectiveClaudePermissionModeBeforePlan =
     taskRuntimeState.claudePermissionModeBeforePlan;
   const effectiveCodexPlanMode = taskRuntimeState.codexPlanMode;
-  const providerLabel = activeProvider === "codex" ? "Codex" : "Claude";
+  const providerLabel = getProviderLabel({ providerId: activeProvider });
   const isManagedTask = isExternallyManagedTask(activeTask);
   const managedNotice = isManagedTask
     ? `Plan responses are managed by ${getTaskControlOwner(activeTask) === "external" ? "an external controller" : "Stave"}. Take over to reply here.`
     : null;
 
-  const [latestPlanMessage, lastMessage, isTurnActive] = useAppStore(
+  const [latestPlanMessage, lastMessage, activeTurnId] = useAppStore(
     useShallow((state) => {
       const messages = state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES;
       const lastMessage = messages.at(-1) ?? null;
@@ -140,24 +146,28 @@ export function PlanViewer() {
       return [
         latestPlanMessage,
         lastMessage,
-        Boolean(state.activeTurnIdsByTask[activeTaskId]),
+        state.activeTurnIdsByTask[activeTaskId] ?? null,
       ] as const;
     }),
   );
 
   // Use the latest plan message for the plan text and pending state
-  const { planText, isPlanPending, canReplyToPlan } = resolvePlanViewerState({
-    activeProvider,
-    claudePermissionMode: effectiveClaudePermissionMode,
-    codexPlanMode: effectiveCodexPlanMode,
-    latestPlanMessage,
-    lastMessage,
-    isTurnActive,
-  });
+  const { planText, isPlanPending, canReplyToPlan, blockingReview } =
+    resolvePlanViewerState({
+      activeProvider,
+      claudePermissionMode: effectiveClaudePermissionMode,
+      codexPlanMode: effectiveCodexPlanMode,
+      latestPlanMessage,
+      lastMessage,
+      isTurnActive: Boolean(activeTurnId),
+    });
   const planReplyNotice =
-    !isManagedTask && isPlanPending && !canReplyToPlan
-      ? `Wait for ${providerLabel} to finish the current turn before replying to the plan.`
-      : null;
+    planResponseError ||
+    (planResponseSent
+      ? `Response sent. Waiting for ${providerLabel} to continue.`
+      : !isManagedTask && isPlanPending && !canReplyToPlan
+        ? `Wait for ${providerLabel} to finish the current turn before replying to the plan.`
+        : null);
   const replyNotice = managedNotice ?? planReplyNotice;
   const planViewerContextKey = buildPlanViewerContextKey({
     activeWorkspaceId,
@@ -174,6 +184,9 @@ export function PlanViewer() {
     setRevising(false);
     setRevisionText("");
     setCopied(false);
+    setPlanResponsePending(false);
+    setPlanResponseSent(false);
+    setPlanResponseError("");
     setDragPos(null);
   }, [planViewerContextKey]);
 
@@ -185,6 +198,9 @@ export function PlanViewer() {
       setRevising(false);
       setRevisionText("");
       setCopied(false);
+      setPlanResponsePending(false);
+      setPlanResponseSent(false);
+      setPlanResponseError("");
       setDragPos(null);
     }
   }, [isPlanPending]);
@@ -196,8 +212,53 @@ export function PlanViewer() {
     }
   }, [viewState]);
 
+  const respondToBlockingPlan = useCallback(
+    async (response: { approved: boolean; reason?: string }) => {
+      if (!blockingReview || !activeTurnId || planResponsePending) {
+        return false;
+      }
+      const responder = window.api?.provider?.respondApproval;
+      if (!responder) {
+        setPlanResponseError("Plan response is unavailable in this build.");
+        return false;
+      }
+      setPlanResponsePending(true);
+      setPlanResponseError("");
+      try {
+        const result = await responder({
+          turnId: activeTurnId,
+          requestId: blockingReview.requestId,
+          approved: response.approved,
+          ...(response.reason ? { reason: response.reason } : {}),
+        });
+        if (!result.ok) {
+          setPlanResponseError(
+            result.message || "The plan response could not be delivered.",
+          );
+          return false;
+        }
+        setPlanResponseSent(true);
+        return true;
+      } catch (error) {
+        setPlanResponseError(
+          error instanceof Error
+            ? error.message
+            : "The plan response could not be delivered.",
+        );
+        return false;
+      } finally {
+        setPlanResponsePending(false);
+      }
+    },
+    [activeTurnId, blockingReview, planResponsePending],
+  );
+
   const handleApprove = useCallback(() => {
     if (isManagedTask || !canReplyToPlan) {
+      return;
+    }
+    if (blockingReview) {
+      void respondToBlockingPlan({ approved: true });
       return;
     }
     const nextPlanModeState = resolvePromptDraftPlanModeChange({
@@ -229,6 +290,7 @@ export function PlanViewer() {
   }, [
     activeProvider,
     activeTaskId,
+    blockingReview,
     canReplyToPlan,
     clearTaskProviderSession,
     effectiveClaudePermissionMode,
@@ -236,6 +298,7 @@ export function PlanViewer() {
     effectiveCodexPlanMode,
     isManagedTask,
     promptDraft.runtimeOverrides,
+    respondToBlockingPlan,
     sendUserMessage,
     updatePromptDraft,
   ]);
@@ -260,8 +323,19 @@ export function PlanViewer() {
     }
   }
 
-  function handleRevise() {
+  async function handleRevise() {
     if (isManagedTask || !canReplyToPlan || !revisionText.trim()) return;
+    if (blockingReview) {
+      const delivered = await respondToBlockingPlan({
+        approved: false,
+        reason: revisionText.trim(),
+      });
+      if (delivered) {
+        setRevising(false);
+        setRevisionText("");
+      }
+      return;
+    }
     void sendUserMessage({
       taskId: activeTaskId,
       content: revisionText.trim(),
@@ -269,6 +343,19 @@ export function PlanViewer() {
     });
     setRevising(false);
     setRevisionText("");
+  }
+
+  function handleCancelPlan() {
+    if (
+      isManagedTask ||
+      !blockingReview ||
+      !canReplyToPlan ||
+      planResponsePending ||
+      planResponseSent
+    ) {
+      return;
+    }
+    void respondToBlockingPlan({ approved: false });
   }
 
   // ---------------------------------------------------------------------------
@@ -398,7 +485,11 @@ export function PlanViewer() {
                 <Textarea
                   autoFocus
                   value={revisionText}
-                  disabled={!canReplyToPlan}
+                  disabled={
+                    !canReplyToPlan ||
+                    planResponsePending ||
+                    planResponseSent
+                  }
                   onChange={(e) => setRevisionText(e.target.value)}
                   onKeyDown={(e) => {
                     if (
@@ -407,7 +498,7 @@ export function PlanViewer() {
                       !e.nativeEvent.isComposing
                     ) {
                       e.preventDefault();
-                      handleRevise();
+                      void handleRevise();
                     }
                     if (e.key === "Escape") {
                       setRevising(false);
@@ -420,8 +511,13 @@ export function PlanViewer() {
                 <div className="mt-2 flex items-center gap-2">
                   <Button
                     size="sm"
-                    onClick={handleRevise}
-                    disabled={!canReplyToPlan || !revisionText.trim()}
+                    onClick={() => void handleRevise()}
+                    disabled={
+                      !canReplyToPlan ||
+                      !revisionText.trim() ||
+                      planResponsePending ||
+                      planResponseSent
+                    }
                   >
                     Send
                   </Button>
@@ -459,20 +555,50 @@ export function PlanViewer() {
                 </Button>
                 <Button
                   size="sm"
-                  disabled={isManagedTask || !canReplyToPlan}
+                  disabled={
+                    isManagedTask ||
+                    !canReplyToPlan ||
+                    planResponsePending ||
+                    planResponseSent
+                  }
                   onClick={handleApprove}
                 >
-                  <ClipboardCheck className="size-3.5" />
+                  {planResponsePending ? (
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                  ) : (
+                    <ClipboardCheck className="size-3.5" />
+                  )}
                   Approve
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={isManagedTask || !canReplyToPlan}
+                  disabled={
+                    isManagedTask ||
+                    !canReplyToPlan ||
+                    planResponsePending ||
+                    planResponseSent
+                  }
                   onClick={() => setRevising(true)}
                 >
                   Revise
                 </Button>
+                {blockingReview ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={
+                      isManagedTask ||
+                      !canReplyToPlan ||
+                      planResponsePending ||
+                      planResponseSent
+                    }
+                    onClick={handleCancelPlan}
+                  >
+                    <XCircle className="size-3.5" />
+                    Cancel plan
+                  </Button>
+                ) : null}
                 {replyNotice ? (
                   <p className="text-xs text-muted-foreground">{replyNotice}</p>
                 ) : null}

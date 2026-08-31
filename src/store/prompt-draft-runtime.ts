@@ -14,12 +14,16 @@ export interface ResolvedPromptDraftRuntimeState {
   codexPlanMode: boolean;
   codexReasoningEffort?: PromptDraftRuntimeOverrides["codexReasoningEffort"];
   codexFastMode?: boolean;
+  cursorMode: "agent" | "plan" | "ask";
+  kiroEffort?: PromptDraftRuntimeOverrides["kiroEffort"];
   boundSecretIds?: string[];
 }
 
 export function resolvePromptDraftRuntimeState(args: {
   promptDraft?: { runtimeOverrides?: PromptDraftRuntimeOverrides } | null;
-  fallback: ResolvedPromptDraftRuntimeState;
+  fallback: Omit<ResolvedPromptDraftRuntimeState, "cursorMode"> & {
+    cursorMode?: ResolvedPromptDraftRuntimeState["cursorMode"];
+  };
 }): ResolvedPromptDraftRuntimeState {
   const runtimeOverrides = args.promptDraft?.runtimeOverrides;
   return {
@@ -37,6 +41,9 @@ export function resolvePromptDraftRuntimeState(args: {
       args.fallback.codexReasoningEffort,
     codexFastMode:
       runtimeOverrides?.codexFastMode ?? args.fallback.codexFastMode,
+    cursorMode:
+      runtimeOverrides?.cursorMode ?? args.fallback.cursorMode ?? "agent",
+    kiroEffort: runtimeOverrides?.kiroEffort ?? args.fallback.kiroEffort,
     boundSecretIds:
       runtimeOverrides?.boundSecretIds ?? args.fallback.boundSecretIds,
   };
@@ -52,7 +59,12 @@ export function resolvePromptDraftModelForProvider(args: {
     return args.fallbackModel;
   }
 
-  const overrideProviderId = inferProviderIdFromModel({ model: overrideModel });
+  const overrideProviderId =
+    args.runtimeOverrides?.modelProviderId ??
+    ((args.providerId === "cursor" || args.providerId === "kiro") &&
+    overrideModel.toLowerCase() === "auto"
+      ? args.providerId
+      : inferProviderIdFromModel({ model: overrideModel }));
   return overrideProviderId === args.providerId
     ? overrideModel
     : args.fallbackModel;
@@ -69,18 +81,38 @@ export function resolveTurnModelForSend(args: {
   providerId: ProviderId;
   queuedTurnModel?: string;
   runtimeOverrides?: PromptDraftRuntimeOverrides;
-  settings: { modelClaude: string; modelCodex: string };
+  settings: {
+    modelClaude: string;
+    modelCodex: string;
+    modelCursor: string;
+    modelKiro: string;
+  };
 }) {
   return resolvePromptDraftModelForProvider({
     providerId: args.providerId,
     runtimeOverrides: args.queuedTurnModel
-      ? { model: args.queuedTurnModel }
+      ? { model: args.queuedTurnModel, modelProviderId: args.providerId }
       : args.runtimeOverrides,
-    fallbackModel:
-      args.providerId === "claude-code"
-        ? args.settings.modelClaude
-        : args.settings.modelCodex,
+    fallbackModel: getConfiguredModelForProvider(args.providerId, args.settings),
   });
+}
+
+export function getConfiguredModelForProvider(
+  providerId: ProviderId,
+  settings: {
+    modelClaude: string;
+    modelCodex: string;
+    modelCursor: string;
+    modelKiro: string;
+  },
+) {
+  return providerId === "claude-code"
+    ? settings.modelClaude
+    : providerId === "codex"
+      ? settings.modelCodex
+      : providerId === "cursor"
+        ? settings.modelCursor
+        : settings.modelKiro;
 }
 
 export function transitionClaudePromptDraftPermissionMode(args: {
@@ -156,6 +188,17 @@ export function resolvePromptDraftPlanModeChange(args: {
           beforePlan: args.claudePermissionModeBeforePlan,
         }),
       },
+      shouldClearCodexSession: false,
+      shouldAbortActiveTurn: false,
+    };
+  }
+
+  if (args.providerId === "cursor") {
+    return {
+      runtimeOverrides: {
+        ...args.runtimeOverrides,
+        cursorMode: args.enabled ? "plan" : "agent",
+      } satisfies PromptDraftRuntimeOverrides,
       shouldClearCodexSession: false,
       shouldAbortActiveTurn: false,
     };
@@ -240,7 +283,7 @@ function areWorkerConfigsByProviderEqual(
   if (left === right) {
     return true;
   }
-  return (["claude-code", "codex"] as const).every((providerId) =>
+  return (["claude-code", "codex", "cursor", "kiro"] as const).every((providerId) =>
     areWorkerProviderConfigsEqual(left?.[providerId], right?.[providerId]),
   );
 }
@@ -251,6 +294,7 @@ export function arePromptDraftRuntimeOverridesEqual(
 ) {
   return (
     left?.model === right?.model &&
+    left?.modelProviderId === right?.modelProviderId &&
     left?.claudePermissionMode === right?.claudePermissionMode &&
     left?.claudePermissionModeBeforePlan ===
       right?.claudePermissionModeBeforePlan &&
@@ -258,6 +302,8 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.codexPlanMode === right?.codexPlanMode &&
     left?.codexReasoningEffort === right?.codexReasoningEffort &&
     left?.codexFastMode === right?.codexFastMode &&
+    left?.cursorMode === right?.cursorMode &&
+    left?.kiroEffort === right?.kiroEffort &&
     left?.autoRouting === right?.autoRouting &&
     left?.advisorEnabled === right?.advisorEnabled &&
     areAdvisorTargetsEqual(left?.advisorTarget, right?.advisorTarget) &&

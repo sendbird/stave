@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { buildExecutableLookupEnv } from "./executable-path";
 
@@ -126,4 +126,109 @@ export function probeExecutableVersion(args: {
     stderr,
     text: `${stdout}\n${stderr}`.trim(),
   };
+}
+
+export interface ExecutableProbeResult {
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  error: string;
+  stdout: string;
+  stderr: string;
+  text: string;
+  timedOut: boolean;
+}
+
+/**
+ * Run a small CLI capability probe without blocking the provider host loop.
+ * Output is capped because availability and catalog probes must never become
+ * an unbounded logging or memory surface.
+ */
+export function runExecutableProbe(args: {
+  executablePath: string;
+  commandArgs: readonly string[];
+  env: Record<string, string | undefined>;
+  cwd?: string;
+  timeoutMs?: number;
+  maxBytes?: number;
+}): Promise<ExecutableProbeResult> {
+  const timeoutMs = args.timeoutMs ?? 5_000;
+  const maxBytes = args.maxBytes ?? 256 * 1024;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let timedOut = false;
+    let stdout = "";
+    let stderr = "";
+    let outputBytes = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (result: {
+      status: number | null;
+      signal: NodeJS.Signals | null;
+      error?: string;
+    }) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      const normalizedStdout = stdout.trim();
+      const normalizedStderr = stderr.trim();
+      resolve({
+        status: result.status,
+        signal: result.signal,
+        error: result.error ?? "",
+        stdout: normalizedStdout,
+        stderr: normalizedStderr,
+        text: `${normalizedStdout}\n${normalizedStderr}`.trim(),
+        timedOut,
+      });
+    };
+
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(args.executablePath, [...args.commandArgs], {
+        cwd: args.cwd,
+        env: args.env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (error) {
+      finish({
+        status: null,
+        signal: null,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+
+    const appendOutput = (target: "stdout" | "stderr", chunk: Buffer) => {
+      if (outputBytes >= maxBytes) {
+        return;
+      }
+      const remaining = maxBytes - outputBytes;
+      const bounded = chunk.subarray(0, remaining);
+      outputBytes += bounded.byteLength;
+      if (target === "stdout") {
+        stdout += bounded.toString("utf8");
+      } else {
+        stderr += bounded.toString("utf8");
+      }
+    };
+    child.stdout.on("data", (chunk: Buffer) => appendOutput("stdout", chunk));
+    child.stderr.on("data", (chunk: Buffer) => appendOutput("stderr", chunk));
+    child.once("error", (error) => {
+      finish({ status: null, signal: null, error: error.message });
+    });
+    child.once("close", (status, signal) => finish({ status, signal }));
+
+    timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+      const killTimer = setTimeout(() => child.kill("SIGKILL"), 750);
+      killTimer.unref?.();
+    }, timeoutMs);
+    timer.unref?.();
+  });
 }

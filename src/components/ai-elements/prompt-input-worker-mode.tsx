@@ -55,6 +55,9 @@ export function PromptInputWorkerPill(args: {
   resolution: WorkerResolution;
   primaryProviderId: ProviderId;
   primaryModel: string;
+  runtimeModels?: readonly string[];
+  /** Local MCP delivery failure for providers using the ACP Worker adapter. */
+  executionBlock?: string | null;
   disabled?: boolean;
   /**
    * Picker visibility, controlled by the host. The pill can be demoted to the
@@ -248,6 +251,8 @@ export function PromptInputWorkerPill(args: {
               {buildWorkerModelOptions({
                 providerId: args.primaryProviderId,
                 presetId,
+                runtimeModels: args.runtimeModels,
+                selectedModel: requestedModel,
               }).map((option) => {
                 const isActive = requestedModel === option.value;
                 return (
@@ -352,13 +357,15 @@ export function PromptInputWorkerPill(args: {
             </p>
           ) : null}
 
-          {presentation.warning ? (
+          {args.executionBlock || presentation.warning ? (
             <p
               className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs leading-5 text-warning"
               data-testid="worker-mode-warning"
             >
               <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1">{presentation.warning}</span>
+              <span className="min-w-0 flex-1">
+                {args.executionBlock ?? presentation.warning}
+              </span>
             </p>
           ) : null}
 

@@ -27,13 +27,16 @@ import {
   type CompareRunJudgeConfig,
   type CompareRunVariantConfig,
 } from "@/lib/compare-runs";
-import { listProviderIds } from "@/lib/providers/model-catalog";
+import {
+  isManagedExecutionProviderId,
+  listManagedExecutionProviderIds,
+} from "@/lib/providers/model-catalog";
 import { resolveModelEffortFromSettings } from "@/lib/providers/model-effort";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { useAppStore } from "@/store/app.store";
 
-const COMPARE_PROVIDER_IDS = listProviderIds();
+const COMPARE_PROVIDER_IDS = listManagedExecutionProviderIds();
 
 export interface CompareRunPreparation {
   seedPrompt: string;
@@ -240,13 +243,16 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                       options={modelOptions}
                       effort={candidate.effort}
                       disabled={props.submitting}
-                      onSelect={({ selection, effort }) =>
+                      onSelect={({ selection, effort }) => {
+                        if (!isManagedExecutionProviderId(selection.providerId)) {
+                          return;
+                        }
                         updateCandidate(index, {
                           provider: selection.providerId,
                           model: selection.model,
                           effort,
                         })
-                      }
+                      }}
                       className="w-full"
                       triggerAriaLabel={`${candidateName} model and effort: ${candidateModel.label}${candidate.effort ? ` · ${candidate.effort}` : ""}`}
                       triggerClassName="h-9 w-full max-w-none border-input bg-background px-3"
@@ -282,13 +288,16 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                 options={modelOptions}
                 effort={judge.effort}
                 disabled={props.submitting}
-                onSelect={({ selection, effort }) =>
+                onSelect={({ selection, effort }) => {
+                  if (!isManagedExecutionProviderId(selection.providerId)) {
+                    return;
+                  }
                   setJudge({
                     provider: selection.providerId,
                     model: selection.model,
                     effort,
                   })
-                }
+                }}
                 className="w-full"
                 triggerAriaLabel={`Independent judge model and effort: ${buildSelectorValue(judge).label}${judge.effort ? ` · ${judge.effort}` : ""}`}
                 triggerClassName="h-9 w-full max-w-none border-input bg-background px-3"

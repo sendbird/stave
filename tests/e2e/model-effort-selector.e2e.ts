@@ -13,6 +13,70 @@ function seedWorkspace(
           models: [],
           detail: "",
         }),
+        getModelCatalog: async ({ providerId }: { providerId: string }) => ({
+          providerId,
+          ok: true,
+          detail: "fixture catalog",
+          models:
+            providerId === "cursor"
+              ? [
+                  {
+                    model: "auto",
+                    displayName: "Auto",
+                    description: "",
+                    hidden: false,
+                    isDefault: true,
+                    defaultEffort: null,
+                    supportedEfforts: [],
+                  },
+                  {
+                    model: "cursor-fixture-high-fast",
+                    displayName: "Cursor Fixture · High · Fast",
+                    description: "",
+                    hidden: false,
+                    isDefault: false,
+                    defaultEffort: "high",
+                    supportedEfforts: [],
+                  },
+                  ...Array.from({ length: 13 }, (_, index) => ({
+                    model: `cursor-archive-${index + 1}`,
+                    displayName: `Cursor Archive ${index + 1}`,
+                    description: "",
+                    hidden: false,
+                    isDefault: false,
+                    defaultEffort: null,
+                    supportedEfforts: [],
+                  })),
+                ]
+              : providerId === "kiro"
+                ? [
+                    {
+                      model: "auto",
+                      displayName: "Auto",
+                      description: "",
+                      hidden: false,
+                      isDefault: true,
+                      defaultEffort: null,
+                      supportedEfforts: [],
+                    },
+                    {
+                      model: "kiro-fixture-model",
+                      displayName: "Kiro Fixture Model",
+                      description: "",
+                      hidden: false,
+                      isDefault: false,
+                      defaultEffort: "medium",
+                      supportedEfforts: [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max",
+                      ],
+                    },
+                  ]
+                : [],
+        }),
       },
     };
     const workspaceSnapshot = {
@@ -68,250 +132,429 @@ function seedWorkspace(
   }, settings);
 }
 
-test("selects model and effort from the provider heatmaps", async ({
+test("selects a model and effort in one click across provider tabs", async ({
   page,
 }, testInfo) => {
   await seedWorkspace(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  const trigger = page.getByRole("button", { name: /Model and effort:/ });
-  await expect(trigger).toBeVisible();
+  const modelTrigger = page.getByRole("button", { name: /^Model:/ });
+  await expect(modelTrigger).toBeVisible();
+  await modelTrigger.focus();
+  await modelTrigger.press("Enter");
 
-  await trigger.focus();
-  await trigger.press("Enter");
-  await expect(trigger).toBeFocused();
+  const selector = page.getByRole("dialog", {
+    name: "Model and effort selector",
+  });
+  await expect(selector).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "1M context" }),
-  ).not.toBeFocused();
-  await page.keyboard.press("Escape");
-
-  await trigger.hover();
-
-  const claudeGrid = page.getByRole("grid", {
-    name: "Claude model effort matrix",
-  });
-  const codexGrid = page.getByRole("grid", {
-    name: "Codex model effort matrix",
-  });
-  await expect(claudeGrid).toBeVisible();
-  await expect(codexGrid).toBeVisible();
-  const selectorSurface = page.locator(
-    '[data-slot="popover-content"][aria-label="Model and effort selector"]',
-  );
-  const selectorSurfaceStyle = await selectorSurface.evaluate((surface) => ({
+    page.getByRole("textbox", { name: "Search models" }),
+  ).toBeFocused();
+  const selectorStyle = await selector.evaluate((surface) => ({
     backdropFilter: getComputedStyle(surface).backdropFilter,
     shadow: getComputedStyle(surface).boxShadow,
   }));
-  expect(selectorSurfaceStyle.backdropFilter).toBe("none");
-  expect(selectorSurfaceStyle.shadow).toContain("0px 18px 48px");
-  expect(selectorSurfaceStyle.shadow).toContain("0px 4px 12px");
-  await expect
-    .poll(() =>
-      claudeGrid.evaluate((grid) =>
-        getComputedStyle(grid.closest("section")!)
-          .getPropertyValue("--model-effort-provider")
-          .trim(),
-      ),
-    )
-    .toBe("#d97757");
-  await expect
-    .poll(() =>
-      codexGrid.evaluate((grid) =>
-        getComputedStyle(grid.closest("section")!)
-          .getPropertyValue("--model-effort-provider")
-          .trim(),
-      ),
-    )
-    .toBe("#3941ff");
-  const autoCell = codexGrid.getByRole("gridcell", {
-    name: "Stave Auto · Let Stave choose model and effort",
-  });
-  await expect(autoCell).toBeVisible();
-  await expect(codexGrid.locator('[data-orb="max"]').first()).toBeVisible();
-  await expect(codexGrid.locator('[data-orb="ultra"]').first()).toBeVisible();
-  await expect(
-    codexGrid.locator('[data-orb-state="solving"]').first(),
-  ).toBeVisible();
-  await expect(
-    codexGrid.locator('[data-orb-state="composing"]').first(),
-  ).toBeVisible();
-  await expect
-    .poll(() =>
-      codexGrid
-        .locator(".model-effort-cell-orb")
-        .first()
-        .evaluate((orb) => ({
-          filter: getComputedStyle(orb).filter,
-          width: getComputedStyle(orb).width,
-          height: getComputedStyle(orb).height,
-          opacity: getComputedStyle(orb).opacity,
-        })),
-    )
-    .toEqual({
-      filter: "brightness(1.22) contrast(1.08)",
-      width: "23px",
-      height: "23px",
-      opacity: "1",
-    });
-  await expect(autoCell.locator('img[src*="stave-logo.svg"]')).toBeVisible();
-  const claudeOrbTone = await claudeGrid
-    .locator('[data-orb="max"]')
-    .first()
-    .evaluate((cell) => ({
-      background: getComputedStyle(cell).backgroundColor,
-      edge: getComputedStyle(cell).boxShadow,
-    }));
-  const codexOrbTone = await codexGrid
-    .locator('[data-orb="ultra"]')
-    .first()
-    .evaluate((cell) => ({
-      background: getComputedStyle(cell).backgroundColor,
-      edge: getComputedStyle(cell).boxShadow,
-    }));
-  expect(claudeOrbTone.background).not.toBe(codexOrbTone.background);
-  expect(claudeOrbTone.edge).not.toBe(codexOrbTone.edge);
+  expect(selectorStyle.backdropFilter).toBe("none");
+  expect(selectorStyle.shadow).toContain("0px 18px 48px");
+  expect(await selector.evaluate((surface) => surface.offsetWidth)).toBe(640);
 
-  await autoCell.hover();
-  await expect(
-    page.locator('[data-slot="tooltip-content"]', {
-      hasText: "Stave chooses the provider, model, and effort",
-    }),
-  ).toBeVisible();
-  await expect(page.locator(".model-effort-preview-value")).toContainText(
-    "Stave Auto",
+  const providerTabs = page.getByRole("tablist", { name: "Model provider" });
+  const autoButton = page.getByRole("button", { name: "Stave Auto" });
+  await expect(autoButton).toBeVisible();
+  const providerTabsBox = await providerTabs.boundingBox();
+  const autoButtonBox = await autoButton.boundingBox();
+  expect(providerTabsBox).not.toBeNull();
+  expect(autoButtonBox).not.toBeNull();
+  expect(autoButtonBox?.x).toBeGreaterThanOrEqual(
+    (providerTabsBox?.x ?? 0) + (providerTabsBox?.width ?? 0),
   );
-  await expect
-    .poll(() =>
-      page
-        .locator(".model-effort-preview-value")
-        .evaluate((preview) => getComputedStyle(preview).animationName),
-    )
-    .toBe("model-effort-preview-swap");
-  await expect
-    .poll(() =>
-      page
-        .locator(".model-effort-preview-value")
-        .evaluate((preview) => getComputedStyle(preview).animationDuration),
-    )
-    .toBe("0.15s");
+  const providerTabBoxes = await providerTabs
+    .getByRole("tab")
+    .evaluateAll((tabs) =>
+      tabs.map((tab) => {
+        const box = tab.getBoundingClientRect();
+        return {
+          x: box.x,
+          y: box.y,
+          height: tab instanceof HTMLElement ? tab.offsetHeight : 0,
+        };
+      }),
+    );
+  expect(providerTabBoxes).toHaveLength(4);
+  expect(new Set(providerTabBoxes.map((box) => Math.round(box.x))).size).toBe(
+    1,
+  );
+  expect(providerTabBoxes.every((box) => box.height >= 44)).toBe(true);
+  expect(providerTabBoxes[1]?.y).toBeGreaterThan(providerTabBoxes[0]?.y ?? 0);
+  const claudeTab = providerTabs.getByRole("tab", { name: /Claude/ });
+  const codexTab = providerTabs.getByRole("tab", { name: /Codex/ });
+  await claudeTab.focus();
+  await claudeTab.press("ArrowDown");
+  await expect(codexTab).toBeFocused();
+  await codexTab.press("Enter");
+  await expect(codexTab).toHaveAttribute("aria-selected", "true");
+  await codexTab.press("ArrowUp");
+  await expect(claudeTab).toBeFocused();
+  await claudeTab.press("Enter");
+  await expect(claudeTab).toHaveAttribute("aria-selected", "true");
+  await expect(
+    providerTabs.getByRole("tab", { name: /Cursor/ }).locator("img"),
+  ).toHaveAttribute("src", /cursor-color\.svg$/);
+  await expect(
+    providerTabs.getByRole("tab", { name: /Kiro/ }).locator("img"),
+  ).toHaveAttribute("src", /kiro-color\.svg$/);
 
+  const effortGrid = page.getByRole("grid", {
+    name: "Model and reasoning effort",
+  });
+  expect(
+    await effortGrid
+      .getByRole("rowheader")
+      .first()
+      .evaluate((rowHeader) => rowHeader.offsetWidth),
+  ).toBe(264);
+  const opusMax = effortGrid.getByRole("gridcell", {
+    name: "Claude Opus 5, Max effort",
+  });
+  const cellGeometry = await opusMax.evaluate((cell) => {
+    const swatch = cell.firstElementChild;
+    return {
+      button: { width: cell.offsetWidth, height: cell.offsetHeight },
+      swatch: {
+        width: swatch instanceof HTMLElement ? swatch.offsetWidth : 0,
+        height: swatch instanceof HTMLElement ? swatch.offsetHeight : 0,
+      },
+    };
+  });
+  expect(cellGeometry).toEqual({
+    button: { width: 44, height: 44 },
+    swatch: { width: 32, height: 32 },
+  });
+  await opusMax.click();
+  await expect(selector).toBeHidden();
+  await expect(modelTrigger).toHaveAccessibleName(/Claude Opus 5.*Effort: Max/);
+  const contextButton = page.getByRole("button", { name: /^1M context:/ });
+  await expect(contextButton).toHaveAttribute("aria-pressed", "false");
+  await contextButton.click();
+  await expect(contextButton).toHaveAttribute("aria-pressed", "true");
+  await expect(modelTrigger).toHaveAccessibleName(/Claude Opus 5.*Effort: Max/);
+  await contextButton.click();
+  await expect(contextButton).toHaveAttribute("aria-pressed", "false");
+
+  await modelTrigger.click();
+  await codexTab.click();
+  await effortGrid
+    .getByRole("gridcell", { name: "GPT-5.6 Sol, Ultra effort" })
+    .click();
+  await expect(modelTrigger).toHaveAccessibleName(
+    /GPT-5\.6 Sol.*Effort: Ultra/,
+  );
+  const fastButton = page.getByRole("button", { name: /^Fast mode:/ });
+  await expect(fastButton).toHaveAttribute("aria-pressed", "false");
+  await fastButton.click();
+  await expect(fastButton).toHaveAttribute("aria-pressed", "true");
+
+  await modelTrigger.click();
+  await providerTabs.getByRole("tab", { name: /Cursor/ }).click();
+  await page.getByRole("textbox", { name: "Search models" }).fill("high fast");
+  const cursorHigh = page.getByRole("option", {
+    name: /Cursor Fixture.*High.*Fast/,
+  });
+  await expect(cursorHigh).toContainText("High");
+  await expect(cursorHigh).toContainText("Fast");
+  await cursorHigh.click();
+  await expect(modelTrigger).toHaveAccessibleName(
+    /Cursor Fixture · High · Fast/,
+  );
+  await expect(page.getByRole("button", { name: /^Fast mode:/ })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: /^1M context:/ })).toHaveCount(
+    0,
+  );
+
+  await modelTrigger.click();
+  await providerTabs.getByRole("tab", { name: /Cursor/ }).click();
+  const showAllModels = page.getByRole("button", {
+    name: /Show all models/,
+  });
+  await expect(showAllModels).toBeVisible();
+  await showAllModels.click();
+  await expect(page.getByRole("option")).toHaveCount(15);
+  expect(
+    await selector.evaluate((element) => element.getBoundingClientRect().height),
+  ).toBeLessThanOrEqual(512);
+  await providerTabs.getByRole("tab", { name: /Kiro/ }).click();
+  const kiroHigh = effortGrid.getByRole("gridcell", {
+    name: "Kiro Fixture Model, High effort",
+  });
+  await kiroHigh.focus();
+  await kiroHigh.press("ArrowRight");
+  await expect(
+    effortGrid.getByRole("gridcell", {
+      name: "Kiro Fixture Model, X-High effort",
+    }),
+  ).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(
+    effortGrid.getByRole("gridcell", {
+      name: "Kiro Fixture Model, Low effort",
+    }),
+  ).toBeFocused();
+  await kiroHigh.click();
+  await expect(modelTrigger).toHaveAccessibleName(
+    /Kiro Fixture Model.*Effort: High/,
+  );
+
+  const modelControl = page.locator('[data-model-effort-control="true"]');
+  const controlGeometry = await modelControl.evaluate((group) => {
+    const buttons = Array.from(
+      group.querySelectorAll<HTMLButtonElement>(":scope > button"),
+    );
+    return {
+      groupHeight: group.getBoundingClientRect().height,
+      buttonHeights: buttons.map(
+        (button) => button.getBoundingClientRect().height,
+      ),
+    };
+  });
+  expect(controlGeometry.groupHeight).toBe(36);
+  expect(controlGeometry.buttonHeights.every((height) => height === 34)).toBe(
+    true,
+  );
+  await modelControl.screenshot({
+    path: testInfo.outputPath("model-capability-control.png"),
+  });
+
+  await modelTrigger.click();
+  await expect(selector).toBeVisible();
+  await expect
+    .poll(() =>
+      selector.evaluate((element) => getComputedStyle(element).opacity),
+    )
+    .toBe("1");
   await page.screenshot({
-    path: testInfo.outputPath("model-effort-selector.png"),
+    path: testInfo.outputPath("model-effort-matrix.png"),
     fullPage: true,
   });
-
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await codexGrid
-    .getByRole("gridcell", {
-      name: "GPT-5.6 Sol, Ultra effort",
-    })
-    .hover();
-  await expect
-    .poll(() =>
-      page
-        .locator(".model-effort-preview-value")
-        .evaluate((preview) => getComputedStyle(preview).animationName),
-    )
-    .toBe("none");
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-
-  await claudeGrid
-    .getByRole("gridcell", {
-      name: "Claude Opus 5, X-High effort",
-    })
-    .click();
-  await expect(trigger).toHaveAccessibleName(/Claude Opus 5 · X-High/);
-
-  await trigger.click();
-  await expect(claudeGrid.locator('[data-orb="selected"]')).toBeVisible();
-  await expect(claudeGrid.locator('[data-orb-state="working"]')).toBeVisible();
-  await page.getByRole("button", { name: "1M context" }).click();
-  await expect(trigger).toHaveAccessibleName(/Claude Opus 5 \(1M\) · X-High/);
-
-  await page.getByRole("button", { name: "Fast" }).click();
-  await codexGrid
-    .getByRole("gridcell", {
-      name: "GPT-5.6 Sol, Ultra effort",
-    })
-    .click();
-  await expect(trigger).toHaveAccessibleName(/GPT-5\.6 Sol · Ultra · Fast/);
-
-  await trigger.click();
-  const selectedUltraCell = codexGrid.getByRole("gridcell", {
-    name: "GPT-5.6 Sol, Ultra effort",
-  });
-  await selectedUltraCell.focus();
-  await selectedUltraCell.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
-  await expect(autoCell).toBeFocused();
-  await autoCell.click();
-  await expect(trigger).toHaveAccessibleName(
+  await page.getByRole("button", { name: /Stave Auto/ }).click();
+  await expect(selector).toBeHidden();
+  await expect(modelTrigger).toBeFocused();
+  await expect(modelTrigger).toHaveAccessibleName(
     /Stave chooses the provider, model, and effort/,
+  );
+  await expect(page.getByRole("button", { name: /^Fast mode:/ })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: /^1M context:/ })).toHaveCount(
+    0,
   );
 });
 
-test("stacks the provider heatmaps without viewport overflow", async ({
+test("keeps the searchable model list within a narrow viewport", async ({
   page,
-}) => {
+}, testInfo) => {
   await seedWorkspace(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  await page.getByRole("button", { name: /Model and effort:/ }).click();
+  await page.getByRole("button", { name: /^Model:/ }).click();
+  const selector = page.getByRole("dialog", {
+    name: "Model and effort selector",
+  });
+  await expect(selector).toBeVisible();
+  await expect
+    .poll(() =>
+      selector.evaluate((element) => getComputedStyle(element).opacity),
+    )
+    .toBe("1");
   await expect(
-    page.getByRole("grid", { name: "Claude model effort matrix" }),
+    page.getByRole("textbox", { name: "Search models" }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stave Auto" })).toBeVisible();
   await expect(
-    page.getByRole("grid", { name: "Codex model effort matrix" }),
+    page
+      .getByRole("tablist", { name: "Model provider" })
+      .getByRole("tab", { name: /Kiro/ }),
   ).toBeVisible();
-
-  for (const grid of await page.getByRole("grid").all()) {
-    expect(
-      await grid.evaluate(
-        (element) => element.scrollWidth <= element.clientWidth,
-      ),
-    ).toBe(true);
-  }
-
-  const hasHorizontalOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > window.innerWidth,
+  expect(
+    await selector.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+  const selectorBox = await selector.boundingBox();
+  expect(selectorBox).not.toBeNull();
+  expect((selectorBox?.x ?? 0) + (selectorBox?.width ?? 0)).toBeLessThanOrEqual(
+    390,
   );
-  expect(hasHorizontalOverflow).toBe(false);
+  expect(selectorBox?.y ?? -1).toBeGreaterThanOrEqual(0);
+  expect(
+    (selectorBox?.y ?? 0) + (selectorBox?.height ?? 0),
+  ).toBeLessThanOrEqual(844);
+  const gridScroller = page
+    .getByRole("grid", { name: "Model and reasoning effort" })
+    .locator("..");
+  expect(
+    await gridScroller.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath("model-effort-matrix-narrow.png"),
+    fullPage: true,
+  });
+  await page.keyboard.press("Escape");
+  const splitControl = page.locator('[data-model-effort-control="true"]');
+  expect(
+    await splitControl.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  await splitControl.screenshot({
+    path: testInfo.outputPath("model-capability-control-narrow.png"),
+  });
 });
 
-test("removes Fast from the model selector when its control is off", async ({
+test("preserves the selector surface and contrast in light mode", async ({
+  page,
+}, testInfo) => {
+  await seedWorkspace(page, { themeMode: "light" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /^Model:/ }).click();
+  const selector = page.getByRole("dialog", {
+    name: "Model and effort selector",
+  });
+  await expect(selector).toBeVisible();
+  await expect
+    .poll(() =>
+      selector.evaluate((element) => getComputedStyle(element).opacity),
+    )
+    .toBe("1");
+  await expect(page.locator("html")).not.toHaveClass(/\bdark\b/);
+  await expect(
+    page.getByRole("textbox", { name: "Search models" }),
+  ).toBeFocused();
+  expect(
+    await selector.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+
+  const colors = await selector.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      foreground: style.color,
+    };
+  });
+  expect(colors.background).not.toBe(colors.foreground);
+  await page.screenshot({
+    path: testInfo.outputPath("model-effort-selector-light.png"),
+    fullPage: true,
+  });
+});
+
+test("keeps the Kiro provider settings usable at a narrow viewport", async ({
   page,
 }) => {
-  await seedWorkspace(page, {
-    composerControlPlacements: { fast: "hidden" },
-  });
+  await seedWorkspace(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.getByRole("button", { name: /Model and effort:/ }).click();
+  await page.getByRole("button", { name: "open-settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: "Providers" }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settings
+    .getByRole("tablist")
+    .last()
+    .getByRole("tab", { name: "Kiro", exact: true })
+    .click();
+
   await expect(
-    page.getByRole("button", { name: "Fast", exact: true }),
-  ).toHaveCount(0);
+    settings.getByRole("heading", { name: "Kiro Runtime Controls" }),
+  ).toBeVisible();
+  await expect(settings.getByPlaceholder("kiro-cli")).toBeVisible();
+  await expect(
+    settings.getByRole("combobox", { name: "Settings section" }),
+  ).toBeVisible();
+  expect(
+    await settings.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+  const runtimeCardWidth = await settings
+    .getByRole("heading", { name: "Kiro Runtime Controls" })
+    .evaluate(
+      (heading) =>
+        heading.closest("section")?.getBoundingClientRect().width ?? 0,
+    );
+  expect(runtimeCardWidth).toBeGreaterThan(320);
 });
 
-test("selects composer control placement with Arrow keys", async ({ page }) => {
+test("configures Cursor and Kiro Worker models from runtime catalogs", async ({
+  page,
+}, testInfo) => {
   await seedWorkspace(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.locator('[data-composer-toolbar="true"]').click({
-    button: "right",
-    position: { x: 4, y: 4 },
-  });
-  const fastPlacement = page.getByRole("radiogroup", {
-    name: "Fast mode placement",
-  });
-  const bar = fastPlacement.getByRole("radio", { name: "Bar" });
-  const off = fastPlacement.getByRole("radio", { name: "Off" });
+  await page.getByRole("button", { name: "open-settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: "Providers" }).click();
+  const workerCard = settings.locator("#settings-field-worker");
+  await expect(workerCard).toBeVisible();
 
-  await bar.focus();
-  await bar.press("ArrowRight");
-  await expect(off).toBeFocused();
-  await expect(off).toBeChecked();
-  await expect(bar).toHaveAttribute("tabindex", "-1");
-  await expect(off).toHaveAttribute("tabindex", "0");
+  const cursorTab = workerCard.getByRole("tab", { name: "Cursor" });
+  const kiroTab = workerCard.getByRole("tab", { name: "Kiro" });
+  await expect(cursorTab).toBeVisible();
+  await expect(kiroTab).toBeVisible();
+  await cursorTab.click();
+
+  let modelTrigger = workerCard.getByRole("combobox", {
+    name: "Worker model",
+  });
+  await modelTrigger.click();
+  await page.getByRole("option", { name: /Cursor Fixture High Fast/ }).click();
+  await expect(modelTrigger).toContainText("Cursor Fixture High Fast");
+  await expect(workerCard).toContainText("has no selectable reasoning effort");
+
+  await cursorTab.focus();
+  await cursorTab.press("ArrowRight");
+  await expect(kiroTab).toBeFocused();
+  await kiroTab.press("Enter");
+  await expect(kiroTab).toHaveAttribute("aria-selected", "true");
+  modelTrigger = workerCard.getByRole("combobox", { name: "Worker model" });
+  await modelTrigger.click();
+  await page.getByRole("option", { name: /Kiro Fixture Model/ }).click();
+  await expect(modelTrigger).toContainText("Kiro Fixture Model");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await workerCard.scrollIntoViewIfNeeded();
+  expect(
+    await settings.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    ),
+  ).toBe(false);
+  await workerCard.screenshot({
+    path: testInfo.outputPath("worker-provider-settings.png"),
+  });
 });

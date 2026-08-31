@@ -123,6 +123,8 @@ export interface AdvisorTurnSpend {
   consults: number;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
   /** `null` when no consult of the turn reported a cost at all. */
   totalCostUsd: number | null;
 }
@@ -141,6 +143,8 @@ export function summarizeAdvisorTurnSpend(args: {
   let consults = 0;
   let inputTokens = 0;
   let outputTokens = 0;
+  let cacheReadTokens = 0;
+  let cacheCreationTokens = 0;
   let totalCostUsd: number | null = null;
   for (const entry of args.entries) {
     if (entry.snapshot.turnId !== args.turnId) {
@@ -149,21 +153,40 @@ export function summarizeAdvisorTurnSpend(args: {
     consults += 1;
     inputTokens += entry.snapshot.inputTokens ?? 0;
     outputTokens += entry.snapshot.outputTokens ?? 0;
+    cacheReadTokens += entry.snapshot.cacheReadTokens ?? 0;
+    cacheCreationTokens += entry.snapshot.cacheCreationTokens ?? 0;
     if (entry.snapshot.totalCostUsd !== undefined) {
       totalCostUsd = (totalCostUsd ?? 0) + entry.snapshot.totalCostUsd;
     }
   }
-  return { consults, inputTokens, outputTokens, totalCostUsd };
+  return {
+    consults,
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheCreationTokens,
+    totalCostUsd,
+  };
 }
 
 export function formatAdvisorSpend(args: {
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
   totalCostUsd: number | null;
 }): string {
   const cost =
     args.totalCostUsd === null ? "" : ` · $${args.totalCostUsd.toFixed(4)}`;
-  return `${args.inputTokens} in · ${args.outputTokens} out${cost}`;
+  const cache = [
+    args.cacheReadTokens ? `${args.cacheReadTokens} cache read` : null,
+    args.cacheCreationTokens ? `${args.cacheCreationTokens} cache write` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return `${args.inputTokens} in · ${args.outputTokens} out${
+    cache ? ` · ${cache}` : ""
+  }${cost}`;
 }
 
 export const ADVISOR_VERDICT_OPTIONS: Array<{

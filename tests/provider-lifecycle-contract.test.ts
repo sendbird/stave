@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { BridgeEvent, ProviderId } from "../electron/providers/types";
+import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types";
 
 type Scenario =
   | "duplicate-terminal"
@@ -9,6 +10,8 @@ type Scenario =
   | "wait-for-timeout";
 
 type AdapterArgs = {
+  prompt?: string;
+  staveLocalMcpToolNames?: readonly string[];
   onEvent?: (event: BridgeEvent) => void;
   registerAbort?: (abort: () => void) => void;
   registerApprovalResponder?: (responder: () => { ok: true }) => void;
@@ -18,9 +21,11 @@ type AdapterArgs = {
 const adapterState = {
   scenario: "duplicate-terminal" as Scenario,
   pendingDecisionCount: 0,
+  lastArgs: undefined as AdapterArgs | undefined,
 };
 
 async function runMockAdapter(args: AdapterArgs) {
+  adapterState.lastArgs = args;
   if (adapterState.scenario === "throw") {
     throw new Error("provider process exited");
   }
@@ -104,6 +109,26 @@ mock.module("../electron/providers/codex-app-server-runtime", () => ({
   streamCodexWithAppServer: runMockAdapter,
 }));
 
+mock.module("../electron/providers/cursor/cursor-acp-profile", () => ({
+  describeCursorAvailability: () => ({
+    available: true,
+    detail: "available",
+    capabilities: {},
+  }),
+  streamCursorWithAcp: runMockAdapter,
+  streamCursorWorkerWithAcp: runMockAdapter,
+}));
+
+mock.module("../electron/providers/kiro/kiro-acp-profile", () => ({
+  describeKiroAvailability: () => ({
+    available: true,
+    detail: "available",
+    capabilities: {},
+  }),
+  streamKiroWithAcp: runMockAdapter,
+  streamKiroWorkerWithAcp: runMockAdapter,
+}));
+
 mock.module("../electron/providers/connected-tool-status", () => ({
   getProviderConnectedToolStatus: async () => ({
     ok: true,
@@ -113,10 +138,42 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   }),
 }));
 
+mock.module("../electron/providers/provider-model-catalog", () => ({
+  getProviderModelCatalog: async ({ providerId }: { providerId: ProviderId }) => ({
+    providerId,
+    ok: true,
+    detail: "fixture catalog",
+    models: [
+      {
+        model: "auto",
+        displayName: "Auto",
+        description: "",
+        hidden: false,
+        isDefault: true,
+        defaultEffort: null,
+        supportedEfforts: [],
+      },
+      {
+        model: `${providerId}-fixture-model`,
+        displayName: `${providerId} fixture model`,
+        description: "",
+        hidden: false,
+        isDefault: false,
+        defaultEffort: null,
+        supportedEfforts: [],
+      },
+    ],
+  }),
+}));
+
 const { getProviderRuntimeLifecycleSnapshot, providerRuntime } =
   await import("../electron/providers/runtime");
 
-function runStream(args: { providerId: ProviderId; timeoutMs?: number }) {
+function runStream(args: {
+  providerId: ProviderId;
+  timeoutMs?: number;
+  runtimeOptions?: ProviderRuntimeOptions;
+}) {
   const events: BridgeEvent[] = [];
   let finish: (() => void) | undefined;
   const done = new Promise<void>((resolve) => {
@@ -128,9 +185,10 @@ function runStream(args: { providerId: ProviderId; timeoutMs?: number }) {
       providerId: args.providerId,
       prompt: "test lifecycle",
       turnId,
-      runtimeOptions: args.timeoutMs
-        ? { providerTimeoutMs: args.timeoutMs }
-        : undefined,
+      runtimeOptions: {
+        ...args.runtimeOptions,
+        ...(args.timeoutMs ? { providerTimeoutMs: args.timeoutMs } : {}),
+      },
     },
     {
       onEvent: (event) => events.push(event),
@@ -142,10 +200,11 @@ function runStream(args: { providerId: ProviderId; timeoutMs?: number }) {
 
 afterEach(async () => {
   adapterState.pendingDecisionCount = 0;
+  adapterState.lastArgs = undefined;
   await providerRuntime.shutdown();
 });
 
-for (const providerId of ["claude-code", "codex"] as const) {
+for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
   describe(`${providerId} lifecycle contract`, () => {
     test("deduplicates terminal events", async () => {
       adapterState.scenario = "duplicate-terminal";
@@ -232,5 +291,40 @@ for (const providerId of ["claude-code", "codex"] as const) {
         },
       });
     });
+  });
+}
+
+for (const providerId of ["cursor", "kiro"] as const) {
+  test(`${providerId} primary receives a turn-scoped Worker tool grant`, async () => {
+    adapterState.scenario = "duplicate-terminal";
+    const model = `${providerId}-fixture-model`;
+    const turn = runStream({
+      providerId,
+      runtimeOptions: {
+        model,
+        workerIntent: {
+          mode: "task-executor",
+          presetId: "verified-patch",
+          workerModel: model,
+          workerEffort: "auto",
+        },
+      },
+    });
+    await turn.done;
+
+    expect(adapterState.lastArgs?.staveLocalMcpToolNames).toEqual([
+      "stave_run_worker",
+    ]);
+    expect(adapterState.lastArgs?.prompt).toContain("stave_run_worker");
+    const workerKey = adapterState.lastArgs?.prompt?.match(
+      /workerKey: `([^`]+)`/,
+    )?.[1];
+    expect(workerKey).toBeTruthy();
+    expect(
+      await providerRuntime.runAcpWorker({
+        workerKey: workerKey!,
+        task: "Attempt reuse after the parent turn",
+      }),
+    ).toMatchObject({ ok: false, code: "unknown-worker-key" });
   });
 }

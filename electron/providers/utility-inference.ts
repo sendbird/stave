@@ -15,7 +15,7 @@ import {
   parseTaskNameInference,
 } from "../../src/lib/providers/utility-inference";
 import { getUtilityInferenceCapability } from "../../src/lib/providers/model-catalog";
-import type { ProviderId } from "./types";
+import type { ManagedExecutionProviderId } from "./types";
 import { runClaudeReadOnlyPrompt } from "./claude-sdk-runtime";
 import { runCodexReadOnlyPrompt } from "./codex-app-server-runtime";
 
@@ -27,7 +27,7 @@ type ReadOnlyPromptResult = {
 };
 
 export type UtilityInferenceRunners = Record<
-  ProviderId,
+  ManagedExecutionProviderId,
   (args: {
     cwd?: string;
     prompt: string;
@@ -37,13 +37,16 @@ export type UtilityInferenceRunners = Record<
 >;
 
 type Candidate = {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   reason: UtilityInferenceSelectionReason;
 };
 
 function resolveCandidates(args: UtilityInferenceContext): Candidate[] {
   const candidates: Candidate[] = [];
-  const add = (providerId: ProviderId, reason: Candidate["reason"]) => {
+  const add = (
+    providerId: ManagedExecutionProviderId,
+    reason: Candidate["reason"],
+  ) => {
     if (!candidates.some((candidate) => candidate.providerId === providerId)) {
       candidates.push({ providerId, reason });
     }
@@ -55,7 +58,10 @@ function resolveCandidates(args: UtilityInferenceContext): Candidate[] {
   ) {
     add(args.utilityProviderId, "explicit");
   }
-  if (args.activeProviderId) {
+  if (
+    args.activeProviderId === "claude-code" ||
+    args.activeProviderId === "codex"
+  ) {
     add(args.activeProviderId, "active-task");
   }
   add("claude-code", "fallback");

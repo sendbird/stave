@@ -90,9 +90,8 @@ export function buildClaudePromptFromConversation(args: {
     return slashCommandInput;
   }
 
-  // Include full activated skill instructions in the prompt body for both
-  // providers. Stave-managed `$skill` activations are prompt-context based,
-  // not native slash-skill registrations.
+  // Stave-managed `$skill` activations are prompt-context based, not native
+  // slash-skill registrations.
   const selectedHistory = selectHistoryForProviderPrompt({
     conversation: args.conversation,
     activeResumeSessionId: args.activeResumeSessionId,
@@ -109,7 +108,7 @@ export function buildClaudePromptFromConversation(args: {
   }) || args.fallbackPrompt;
 }
 
-export function buildCodexPromptFromConversation(args: {
+function buildCanonicalProviderPromptFromConversation(args: {
   conversation: CanonicalConversationRequest;
   fallbackPrompt: string;
   activeResumeSessionId?: string | null;
@@ -138,6 +137,18 @@ export function buildCodexPromptFromConversation(args: {
   }) || args.fallbackPrompt;
 }
 
+export function buildCodexPromptFromConversation(
+  args: Parameters<typeof buildCanonicalProviderPromptFromConversation>[0],
+) {
+  return buildCanonicalProviderPromptFromConversation(args);
+}
+
+export function buildAcpPromptFromConversation(
+  args: Parameters<typeof buildCanonicalProviderPromptFromConversation>[0],
+) {
+  return buildCanonicalProviderPromptFromConversation(args);
+}
+
 export function buildProviderTurnPrompt(args: {
   providerId: ProviderId;
   prompt: string;
@@ -158,7 +169,16 @@ export function buildProviderTurnPrompt(args: {
     });
   }
 
-  return buildCodexPromptFromConversation({
+  if (args.providerId === "codex") {
+    return buildCodexPromptFromConversation({
+      conversation: args.conversation,
+      fallbackPrompt: args.prompt,
+      activeResumeSessionId: args.activeResumeSessionId,
+      includeImageData: args.includeImageData,
+    });
+  }
+
+  return buildAcpPromptFromConversation({
     conversation: args.conversation,
     fallbackPrompt: args.prompt,
     activeResumeSessionId: args.activeResumeSessionId,

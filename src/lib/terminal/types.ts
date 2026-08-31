@@ -1,4 +1,5 @@
 import type {
+  ManagedExecutionProviderId,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
@@ -27,7 +28,7 @@ export type CliSessionContextMode = "workspace" | "active-task";
 export interface WorkspaceCliSessionTab {
   id: string;
   title: string;
-  provider: ProviderId;
+  provider: ManagedExecutionProviderId;
   contextMode: CliSessionContextMode;
   nativeSessionId?: string;
   linkedTaskId: string | null;
@@ -64,7 +65,7 @@ export interface CliSessionCreateSessionArgs {
   workspaceId: string;
   workspacePath: string;
   cliSessionTabId: string;
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   contextMode: CliSessionContextMode;
   nativeSessionId?: string;
   taskId: string | null;
@@ -89,7 +90,7 @@ export function getTerminalTabDefaultTitle(args: {
 }
 
 export function getCliSessionProviderLabel(
-  providerId: ProviderId,
+  providerId: ManagedExecutionProviderId,
 ) {
   return providerId === "claude-code" ? "Claude" : "Codex";
 }
@@ -99,7 +100,7 @@ export function getCliSessionContextLabel(contextMode: CliSessionContextMode) {
 }
 
 export function getCliSessionTabDefaultTitle(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   contextMode: CliSessionContextMode;
   linkedTaskTitle?: string | null;
 }) {

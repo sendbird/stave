@@ -730,6 +730,27 @@ describe("workspace persistence fallback", () => {
             isStreaming: false,
             parts: [{ type: "text", text: "hello" }],
           },
+          {
+            id: "m-2",
+            role: "assistant" as const,
+            model: "gpt-5.6-terra",
+            providerId: "codex" as const,
+            content: "done",
+            delegatedUsage: [
+              {
+                executionId: "advisor-1",
+                role: "advisor" as const,
+                providerId: "claude-code" as const,
+                model: "claude-fable-5",
+                inputTokens: 80,
+                outputTokens: 12,
+                cacheReadTokens: 64,
+                sessionReused: true,
+              },
+            ],
+            isStreaming: false,
+            parts: [{ type: "text" as const, text: "done" }],
+          },
         ],
       },
       reviewCommentsByTask: {
@@ -758,6 +779,13 @@ describe("workspace persistence fallback", () => {
       "Persist this review.",
     );
     expect(loaded?.providerSessionByTask).toEqual({});
+    expect(loaded?.messagesByTask["task-1"]?.[1]?.delegatedUsage).toEqual([
+      expect.objectContaining({
+        executionId: "advisor-1",
+        cacheReadTokens: 64,
+        sessionReused: true,
+      }),
+    ]);
   });
 
   test("supports workspace shell summaries without electron persistence bridge", async () => {

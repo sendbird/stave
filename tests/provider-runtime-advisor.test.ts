@@ -445,7 +445,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       advisorProviderId: "codex",
       advisorModel: "gpt-5.6-terra",
       advisorEffort: expect.any(String),
-      isolation: "codex-ephemeral-read-only",
+      isolation: "codex-role-session-read-only",
       exchangeId: expect.any(String),
       consultIndex: 1,
       consultLimit: 5,
@@ -461,6 +461,15 @@ describe("provider runtime on-demand Advisor integration", () => {
 
     // Advisor tokens are billed exactly once, merged into the turn's usage.
     expect(withoutAdvisorActivity(events)).toEqual([
+      {
+        type: "delegated_usage",
+        executionId: expect.any(String),
+        role: "advisor",
+        providerId: "codex",
+        model: "gpt-5.6-terra",
+        inputTokens: 10,
+        outputTokens: 4,
+      },
       {
         type: "system",
         content: expect.stringContaining(
@@ -665,6 +674,15 @@ describe("provider runtime on-demand Advisor integration", () => {
     });
 
     expect(withoutAdvisorActivity(events)).toEqual([
+      {
+        type: "delegated_usage",
+        executionId: expect.any(String),
+        role: "advisor",
+        providerId: "codex",
+        model: "gpt-5.6-terra",
+        inputTokens: 10,
+        outputTokens: 4,
+      },
       {
         type: "system",
         content: expect.stringContaining(

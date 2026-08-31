@@ -50,6 +50,13 @@ describe("provider marks", () => {
     expect(getProviderIconUrl({ providerId: "claude-code" })).not.toBe(
       getProviderIconUrl({ providerId: "codex" }),
     );
+    expect(
+      new Set(
+        (["claude-code", "codex", "cursor", "kiro"] as const).map(
+          (providerId) => getProviderIconUrl({ providerId }),
+        ),
+      ).size,
+    ).toBe(4);
   });
 
   test("keeps marks out of accessible names", () => {
@@ -66,6 +73,18 @@ describe("provider marks", () => {
     expect(html).toContain('alt=""');
     expect(html).toContain("aria-hidden");
     expect(html).toContain("codex-color.svg");
+  });
+
+  test("uses provider marks for ACP-backed model choices", () => {
+    const cursor = renderToStaticMarkup(
+      createElement(ModelIcon, { providerId: "cursor" }),
+    );
+    const kiro = renderToStaticMarkup(
+      createElement(ModelIcon, { providerId: "kiro" }),
+    );
+
+    expect(cursor).toContain("cursor-color.svg");
+    expect(kiro).toContain("kiro-color.svg");
   });
 
   test("marks a provider choice without changing its label or labelling", () => {

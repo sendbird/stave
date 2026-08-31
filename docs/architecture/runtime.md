@@ -10,7 +10,7 @@ This is the primary app architecture:
 - `electron/preload.ts` exposes the safe `window.api` bridge
 - `electron/main.ts` handles window lifecycle, IPC registration, and the host-service bridge
 - `electron/host-service.ts` owns isolated terminal, workspace script, provider, source-control, and local MCP task/session execution
-- `electron/providers/*` owns Claude, Codex, and Stave routing SDK execution plus event mapping used by the host-service runtime
+- `electron/providers/*` owns Claude SDK, Codex App Server, shared ACP profiles for Cursor and Kiro, and Stave routing execution plus event mapping used by the host-service runtime
 - `electron/main/lsp/*` owns optional stdio language-server sessions for Monaco
 - `electron/persistence/*` owns SQLite persistence
 

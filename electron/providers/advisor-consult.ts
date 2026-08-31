@@ -25,6 +25,74 @@ type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
 
 /** Bounded copy of the question shown in the exchange monitor. */
 const CONSULT_QUESTION_DISPLAY_MAX_CHARS = 600;
+const ADVISOR_SESSION_LANE_TTL_MS = 30 * 60_000;
+const ADVISOR_SESSION_LANE_LIMIT = 64;
+
+type AdvisorSessionLane = {
+  taskId: string;
+  nativeSessionId: string;
+  updatedAt: number;
+};
+
+const advisorSessionLaneByKey = new Map<string, AdvisorSessionLane>();
+
+function buildAdvisorSessionLaneKey(grant: AdvisorConsultGrant) {
+  if (!grant.taskId) {
+    return null;
+  }
+  return JSON.stringify([
+    grant.taskId,
+    grant.target.providerId,
+    grant.target.model,
+    resolveAdvisorEffort(grant.target),
+    grant.cwd,
+  ]);
+}
+
+function readAdvisorSessionLane(key: string | null) {
+  if (!key) {
+    return undefined;
+  }
+  const lane = advisorSessionLaneByKey.get(key);
+  if (!lane) {
+    return undefined;
+  }
+  if (Date.now() - lane.updatedAt > ADVISOR_SESSION_LANE_TTL_MS) {
+    advisorSessionLaneByKey.delete(key);
+    return undefined;
+  }
+  return lane.nativeSessionId;
+}
+
+function rememberAdvisorSessionLane(args: {
+  key: string | null;
+  taskId?: string;
+  nativeSessionId: string;
+}) {
+  if (!args.key || !args.taskId) {
+    return;
+  }
+  advisorSessionLaneByKey.set(args.key, {
+    taskId: args.taskId,
+    nativeSessionId: args.nativeSessionId,
+    updatedAt: Date.now(),
+  });
+  if (advisorSessionLaneByKey.size <= ADVISOR_SESSION_LANE_LIMIT) {
+    return;
+  }
+  const oldest = [...advisorSessionLaneByKey.entries()].sort(
+    (left, right) => left[1].updatedAt - right[1].updatedAt,
+  )[0];
+  if (oldest) {
+    advisorSessionLaneByKey.delete(oldest[0]);
+  }
+}
+
+function forgetAdvisorSessionLane(key: string | null) {
+  if (key) {
+    advisorSessionLaneByKey.delete(key);
+  }
+}
 
 /**
  * A turn-scoped capability that lets the primary model consult the armed
@@ -68,6 +136,8 @@ type ActiveGrant = AdvisorConsultGrant & {
   /** Cancel handle for the single in-flight consult, if any. */
   inFlightSkip: (() => void) | null;
   inFlightAbort: (() => void) | null;
+  sessionLaneKey: string | null;
+  nativeSessionId?: string;
 };
 
 const grantsByKey = new Map<string, ActiveGrant>();
@@ -90,12 +160,16 @@ export type AdvisorConsultGrantHandle = {
 export function registerAdvisorConsultGrant(
   grant: AdvisorConsultGrant,
 ): AdvisorConsultGrantHandle {
+  const sessionLaneKey = buildAdvisorSessionLaneKey(grant);
+  const nativeSessionId = readAdvisorSessionLane(sessionLaneKey);
   const active: ActiveGrant = {
     ...grant,
     used: 0,
     revoked: false,
     inFlightSkip: null,
     inFlightAbort: null,
+    sessionLaneKey,
+    ...(nativeSessionId ? { nativeSessionId } : {}),
   };
   grantsByKey.set(grant.consultKey, active);
   return {
@@ -118,6 +192,15 @@ export function registerAdvisorConsultGrant(
 /** Test hook: drop every grant so suites cannot leak keys into each other. */
 export function clearAdvisorConsultGrantsForTest() {
   grantsByKey.clear();
+  advisorSessionLaneByKey.clear();
+}
+
+export function cleanupAdvisorSessionsForTask(taskId: string) {
+  for (const [key, lane] of advisorSessionLaneByKey) {
+    if (lane.taskId === taskId) {
+      advisorSessionLaneByKey.delete(key);
+    }
+  }
 }
 
 let defaultRunnersOverride: AdvisorRunnerDependencies | undefined;
@@ -225,6 +308,34 @@ export async function consultAdvisor(args: {
       grant.emit(event);
     }
   };
+  const emitDelegatedUsage = (
+    usage?: UsageEvent,
+    sessionReused?: boolean,
+  ) => {
+    emitIfLive({
+      type: "delegated_usage",
+      executionId: consult.exchangeId,
+      role: "advisor",
+      providerId: grant.target.providerId,
+      model: grant.target.model,
+      ...(usage
+        ? {
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            ...(usage.cacheReadTokens !== undefined
+              ? { cacheReadTokens: usage.cacheReadTokens }
+              : {}),
+            ...(usage.cacheCreationTokens !== undefined
+              ? { cacheCreationTokens: usage.cacheCreationTokens }
+              : {}),
+            ...(usage.totalCostUsd !== undefined
+              ? { totalCostUsd: usage.totalCostUsd }
+              : {}),
+          }
+        : {}),
+      ...(sessionReused !== undefined ? { sessionReused } : {}),
+    });
+  };
   emitIfLive(
     buildAdvisorStartedEvent({
       primaryProviderId: grant.primaryProviderId,
@@ -251,6 +362,7 @@ export async function consultAdvisor(args: {
       }),
       cwd: grant.cwd,
       runtimeOptions: grant.runtimeOptions,
+      resumeSessionId: grant.nativeSessionId,
       registerAbort: (aborter) => {
         grant.inFlightAbort = aborter;
         if (grant.revoked) {
@@ -265,6 +377,7 @@ export async function consultAdvisor(args: {
       reportLateUsage: (usage) => {
         if (!grant.revoked) {
           grant.addUsage(usage);
+          emitDelegatedUsage(usage);
         }
       },
       onHeartbeat: ({ at, detail }) => {
@@ -285,6 +398,20 @@ export async function consultAdvisor(args: {
     if (result.usage && !grant.revoked) {
       grant.addUsage(result.usage);
     }
+    if (result.nativeSessionId && result.status === "completed") {
+      grant.nativeSessionId = result.nativeSessionId;
+      rememberAdvisorSessionLane({
+        key: grant.sessionLaneKey,
+        taskId: grant.taskId,
+        nativeSessionId: result.nativeSessionId,
+      });
+    } else if (grant.nativeSessionId && result.status === "failed") {
+      // A persisted provider session can disappear outside Stave. Do not pin
+      // the role lane to a stale id forever; the next consult starts clean.
+      grant.nativeSessionId = undefined;
+      forgetAdvisorSessionLane(grant.sessionLaneKey);
+    }
+    emitDelegatedUsage(result.usage, result.sessionReused);
     emitIfLive(
       buildAdvisorOutcomeEvent({
         primaryProviderId: grant.primaryProviderId,

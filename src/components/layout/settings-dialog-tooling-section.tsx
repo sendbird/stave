@@ -32,12 +32,16 @@ const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
   gh: "Pull request creation, PR status refresh, merge, and branch update flows.",
   claude: "Claude Code turns, plugin refresh, and Claude-native diagnostics.",
   codex: "Codex turns and Codex-native execution flows.",
+  cursor: "Cursor Agent turns over the Agent Client Protocol.",
+  kiro: "Kiro turns over the Agent Client Protocol.",
 };
 
 const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
   gh: "gh auth login",
   claude: "claude auth login",
   codex: "codex login",
+  cursor: "agent login",
+  kiro: "kiro-cli login",
 };
 
 function AuthBadge(args: { tool: ToolingStatusEntry }) {
@@ -241,6 +245,8 @@ export function ToolingSection() {
     workspacePathById,
     claudeBinaryPath,
     codexBinaryPath,
+    cursorBinaryPath,
+    kiroBinaryPath,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -250,6 +256,8 @@ export function ToolingSection() {
           state.workspacePathById,
           state.settings.claudeBinaryPath,
           state.settings.codexBinaryPath,
+          state.settings.cursorBinaryPath,
+          state.settings.kiroBinaryPath,
         ] as const,
     ),
   );
@@ -290,6 +298,8 @@ export function ToolingSection() {
           cwd: workspaceCwd ?? undefined,
           claudeBinaryPath: claudeBinaryPath || undefined,
           codexBinaryPath: codexBinaryPath || undefined,
+          cursorBinaryPath: cursorBinaryPath || undefined,
+          kiroBinaryPath: kiroBinaryPath || undefined,
         });
         if (cancelled) {
           return;
@@ -317,7 +327,14 @@ export function ToolingSection() {
     return () => {
       cancelled = true;
     };
-  }, [claudeBinaryPath, codexBinaryPath, refreshNonce, workspaceCwd]);
+  }, [
+    claudeBinaryPath,
+    codexBinaryPath,
+    cursorBinaryPath,
+    kiroBinaryPath,
+    refreshNonce,
+    workspaceCwd,
+  ]);
 
   async function handleOpenTerminal() {
     const openInTerminal = window.api?.shell?.openInTerminal;

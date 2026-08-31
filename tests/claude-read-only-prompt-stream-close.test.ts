@@ -22,15 +22,11 @@ describe("runClaudeReadOnlyPrompt stream lifetime", () => {
       new URL(`../${RUNTIME_FILE}`, import.meta.url),
     ).text();
 
-    const calls = [
-      ...source.matchAll(
-        /(return\s+(?:await\s+)?)consumeClaudeReadOnlyPromptStream\(/g,
-      ),
-    ];
-
-    expect(calls.length).toBeGreaterThan(0);
-    for (const call of calls) {
-      expect(call[1]).toBe("return await ");
-    }
+    expect(source).toMatch(
+      /(?:return\s+await\s+|=\s+await\s+)consumeClaudeReadOnlyPromptStream\(/,
+    );
+    expect(source).not.toMatch(
+      /return\s+(?!await\b)consumeClaudeReadOnlyPromptStream\(/,
+    );
   });
 });

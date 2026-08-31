@@ -1,4 +1,8 @@
-import type { NormalizedProviderEvent, ProviderId } from "./providers/provider.types";
+import type {
+  ManagedExecutionProviderId,
+  NormalizedProviderEvent,
+  ProviderId,
+} from "./providers/provider.types";
 
 export type ProviderBrowserConnectionStatus =
   | "connecting"
@@ -6,7 +10,7 @@ export type ProviderBrowserConnectionStatus =
   | "failed";
 
 export interface WorkspaceConnectedBrowserTab {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   status: ProviderBrowserConnectionStatus;
   requestedAt: string;
   lastUpdatedAt: string;
@@ -171,7 +175,7 @@ export function isCodexBrowserSelectionTool(args: {
 }
 
 export function createProviderBrowserConnectionTracker(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   requested: boolean;
   available?: boolean;
 }) {

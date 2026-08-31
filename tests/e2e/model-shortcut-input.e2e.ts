@@ -75,7 +75,7 @@ test("model shortcuts do not type their digit into the prompt", async ({
   });
 
   await expect(
-    page.getByRole("button", { name: /^Model and effort: GPT-5\.6 Terra/ }),
+    page.getByRole("button", { name: /^Model: GPT-5\.6 Terra/ }),
   ).toBeVisible();
   await expect(prompt).toHaveText("keep this text");
 });

@@ -15,20 +15,33 @@ const TextEventSchema = z.object({
 
 const ProviderSessionEventSchema = z.object({
   type: z.literal("provider_session"),
-  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  providerId: z.union([
+    z.literal("claude-code"),
+    z.literal("codex"),
+    z.literal("cursor"),
+    z.literal("kiro"),
+  ]),
   nativeSessionId: z.string(),
 });
 
 const ProviderTurnEventSchema = z.object({
   type: z.literal("provider_turn"),
-  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  providerId: z.union([
+    z.literal("claude-code"),
+    z.literal("codex"),
+    z.literal("cursor"),
+    z.literal("kiro"),
+  ]),
   nativeSessionId: z.string(),
   nativeTurnId: z.string(),
 });
 
 const BrowserConnectionEventSchema = z.object({
   type: z.literal("browser_connection"),
-  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  providerId: z.union([
+    z.literal("claude-code"),
+    z.literal("codex"),
+  ]),
   status: z.union([
     z.literal("connecting"),
     z.literal("connected"),
@@ -70,8 +83,17 @@ const UsageEventSchema = z.object({
   outputTokens: z.number(),
   cacheReadTokens: z.number().optional(),
   cacheCreationTokens: z.number().optional(),
+  thoughtTokens: z.number().optional(),
   totalCostUsd: z.number().optional(),
   ttftMs: z.number().optional(),
+});
+
+const ContextUsageEventSchema = z.object({
+  type: z.literal("context_usage"),
+  usedTokens: z.number().nonnegative(),
+  sizeTokens: z.number().positive(),
+  costAmount: z.number().nonnegative().optional(),
+  costCurrency: z.string().min(1).optional(),
 });
 
 const PromptSuggestionsEventSchema = z.object({
@@ -82,7 +104,32 @@ const PromptSuggestionsEventSchema = z.object({
 const ProviderIdSchema = z.union([
   z.literal("claude-code"),
   z.literal("codex"),
+  z.literal("cursor"),
+  z.literal("kiro"),
 ]);
+const ManagedExecutionProviderIdSchema = z.union([
+  z.literal("claude-code"),
+  z.literal("codex"),
+]);
+
+const DelegatedUsageEventSchema = z.object({
+  type: z.literal("delegated_usage"),
+  executionId: z.string().min(1),
+  role: z.union([z.literal("advisor"), z.literal("worker")]),
+  providerId: ProviderIdSchema,
+  model: z.string(),
+  inputTokens: z.number().optional(),
+  outputTokens: z.number().optional(),
+  cacheReadTokens: z.number().optional(),
+  cacheCreationTokens: z.number().optional(),
+  thoughtTokens: z.number().optional(),
+  contextUsedTokens: z.number().optional(),
+  contextWindowTokens: z.number().optional(),
+  contextCostAmount: z.number().optional(),
+  contextCostCurrency: z.string().optional(),
+  totalCostUsd: z.number().optional(),
+  sessionReused: z.boolean().optional(),
+});
 
 /**
  * Both providers' effort scales. Codex's legacy `"minimal"` is deliberately
@@ -114,15 +161,16 @@ const AdvisorActivityEventSchema = z.object({
   consultIndex: z.number().optional(),
   consultLimit: z.number().optional(),
   question: z.string().optional(),
-  primaryProviderId: ProviderIdSchema,
+  primaryProviderId: ManagedExecutionProviderIdSchema,
   primaryModel: z.string().optional(),
-  advisorProviderId: ProviderIdSchema.optional(),
+  advisorProviderId: ManagedExecutionProviderIdSchema.optional(),
   advisorModel: z.string().optional(),
   advisorEffort: AdvisorEffortSchema.optional(),
   isolation: z
     .union([
       z.literal("claude-tools-disabled"),
       z.literal("codex-ephemeral-read-only"),
+      z.literal("codex-role-session-read-only"),
     ])
     .optional(),
   at: z.number(),
@@ -133,12 +181,15 @@ const AdvisorActivityEventSchema = z.object({
   detail: z.string().optional(),
   inputTokens: z.number().optional(),
   outputTokens: z.number().optional(),
+  cacheReadTokens: z.number().optional(),
+  cacheCreationTokens: z.number().optional(),
   totalCostUsd: z.number().optional(),
+  sessionReused: z.boolean().optional(),
 });
 
 const HistoryBoundaryEventSchema = z.object({
   type: z.literal("history_boundary"),
-  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  providerId: ProviderIdSchema,
   boundaryKind: z.union([
     z.literal("thread"),
     z.literal("turn"),
@@ -178,7 +229,7 @@ const ToolStateSchema = z.union([
 ]);
 
 const WorkerExecutionMetadataSchema = z.object({
-  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  providerId: ProviderIdSchema,
   primaryModel: z.string(),
   presetId: z.union([
     z.literal("patch-hand"), z.literal("verified-patch"), z.literal("sweep"),
@@ -239,6 +290,7 @@ const ApprovalEventSchema = z.object({
   requestId: z.string(),
   description: z.string(),
   input: z.string().optional(),
+  workerExecution: WorkerExecutionMetadataSchema.optional(),
   ownerAgentId: z.string().optional(),
 });
 
@@ -251,6 +303,7 @@ const UserInputQuestionSchema = z.object({
       .object({
         label: z.string(),
         description: z.string().optional(),
+        value: z.string().optional(),
       })
       // `description` is optional on the wire; backfill it from the label so a
       // valid question is never dropped in validation just for missing it.
@@ -259,6 +312,7 @@ const UserInputQuestionSchema = z.object({
         description: option.description?.trim()
           ? option.description
           : option.label,
+        ...(option.value ? { value: option.value } : {}),
       })),
   ),
   multiSelect: z.boolean().optional(),
@@ -290,6 +344,12 @@ const PlanReadyEventSchema = z.object({
   type: z.literal("plan_ready"),
   planText: z.string(),
   sourceSegmentId: z.string().optional(),
+  review: z
+    .object({
+      requestId: z.string(),
+      responseMode: z.literal("blocking"),
+    })
+    .optional(),
 });
 
 const SystemEventSchema = z.object({
@@ -316,7 +376,7 @@ const DoneEventSchema = z.object({
 
 const ModelResolvedEventSchema = z.object({
   type: z.literal("model_resolved"),
-  resolvedProviderId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  resolvedProviderId: ProviderIdSchema,
   resolvedModel: z.string(),
 });
 
@@ -337,6 +397,8 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   browser_connection: BrowserConnectionEventSchema,
   goal_status: GoalStatusEventSchema,
   usage: UsageEventSchema,
+  context_usage: ContextUsageEventSchema,
+  delegated_usage: DelegatedUsageEventSchema,
   prompt_suggestions: PromptSuggestionsEventSchema,
   advisor_activity: AdvisorActivityEventSchema,
   history_boundary: HistoryBoundaryEventSchema,
@@ -364,6 +426,8 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.browser_connection,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.goal_status,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.usage,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.context_usage,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.delegated_usage,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.prompt_suggestions,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.advisor_activity,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.history_boundary,

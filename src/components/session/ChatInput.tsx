@@ -107,8 +107,10 @@ import {
 import {
   clampCodexEffortToModel,
   getDefaultModelForProvider,
+  getProviderDescriptor,
   getProviderLabel,
   getSdkModelOptions,
+  isManagedExecutionProviderId,
   listProviderIds,
   normalizeModelSelection,
   providerSupportsMidTurnSteering,
@@ -125,9 +127,11 @@ import {
   buildTrustedToolEntryForApproval,
 } from "@/lib/providers/trusted-tools";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
+import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
 import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
+  KIRO_EFFORT_OPTIONS,
   findOptionLabel,
 } from "@/lib/providers/runtime-option-contract";
 import {
@@ -269,6 +273,17 @@ interface ChatInputComposerProps {
   onTakeOverManagedTask: () => void;
   selectedModelOption: ModelSelectorOption;
   modelOptions: ModelSelectorOption[];
+  modelCatalogs?: Partial<
+    Record<
+      ModelSelectorOption["providerId"],
+      {
+        status: "idle" | "loading" | "ready" | "error";
+        detail?: string;
+        isDynamic?: boolean;
+      }
+    >
+  >;
+  onRefreshModelCatalogs?: () => void;
   modelShortcutKeys: readonly string[];
   modelShortcutEfforts: readonly ModelShortcutEffort[];
   commandPaletteItems: readonly CommandPaletteItem[];
@@ -414,13 +429,33 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       settingsAdvisorTargetByProvider,
     ],
   );
+  const managedActiveProvider = isManagedExecutionProviderId(
+    args.activeProvider,
+  )
+    ? args.activeProvider
+    : "claude-code";
+  const workerActiveProvider = args.activeProvider;
+  const workerRuntimeModels = useMemo(
+    () =>
+      args.modelOptions
+        .filter(
+          (option) =>
+            !option.isAuto &&
+            option.available &&
+            option.providerId === workerActiveProvider,
+        )
+        .map((option) => option.model),
+    [args.modelOptions, workerActiveProvider],
+  );
   const [advisorPickerOpen, setAdvisorPickerOpen] = useState(false);
   // Consults travel over Local MCP, so an armed Advisor with a broken link is
   // silently inert. Read only while the Advisor is armed or being configured —
   // there is nothing to warn about otherwise.
   const localMcpReadiness = useLocalMcpReadiness({
-    enabled: advisorArm.enabled || advisorPickerOpen,
-    primaryProviderId: args.activeProvider,
+    enabled:
+      isManagedExecutionProviderId(args.activeProvider) &&
+      (advisorArm.enabled || advisorPickerOpen),
+    primaryProviderId: managedActiveProvider,
     refreshKey: advisorPickerOpen,
   });
   const advisorConsultBlock = useMemo(
@@ -464,13 +499,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const workerArm = useMemo(
     () =>
       resolveWorkerArmState({
-        providerId: args.activeProvider,
+        providerId: workerActiveProvider,
         overrides: promptDraft.runtimeOverrides,
-        settingsConfig: settingsWorkerConfigByProvider?.[args.activeProvider],
+        settingsConfig: settingsWorkerConfigByProvider?.[workerActiveProvider],
         settingsEnabled: settingsWorkerEnabled,
       }),
     [
-      args.activeProvider,
+      workerActiveProvider,
       promptDraft.runtimeOverrides,
       settingsWorkerConfigByProvider,
       settingsWorkerEnabled,
@@ -481,13 +516,41 @@ function ChatInputComposer(args: ChatInputComposerProps) {
   const workerResolution = useMemo(
     () =>
       resolveWorkerProfile({
-        providerId: args.activeProvider,
+        providerId: workerActiveProvider,
         primaryModel: args.selectedModelOption.model,
         intent: buildWorkerRuntimeIntent(workerArm),
+        runtimeModels: workerRuntimeModels,
       }),
-    [args.activeProvider, args.selectedModelOption.model, workerArm],
+    [
+      args.selectedModelOption.model,
+      workerActiveProvider,
+      workerArm,
+      workerRuntimeModels,
+    ],
   );
   const [workerPickerOpen, setWorkerPickerOpen] = useState(false);
+  const workerLocalMcpReadiness = useLocalMcpReadiness({
+    enabled:
+      (workerActiveProvider === "cursor" || workerActiveProvider === "kiro") &&
+      (workerArm.enabled || workerPickerOpen),
+    primaryProviderId: workerActiveProvider,
+    refreshKey: workerPickerOpen,
+  });
+  const workerExecutionBlock = useMemo(
+    () =>
+      workerArm.enabled &&
+      (workerActiveProvider === "cursor" || workerActiveProvider === "kiro")
+        ? describeLocalMcpBlock({
+            readiness: workerLocalMcpReadiness.readiness,
+            capability: "Worker calls",
+          })
+        : null,
+    [
+      workerActiveProvider,
+      workerArm.enabled,
+      workerLocalMcpReadiness.readiness,
+    ],
+  );
 
   // Shared by the Advisor and Worker controls: both write task-local runtime
   // overrides through the same merge, so they must share the commit-first fix.
@@ -1476,12 +1539,20 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           onComposerControlPlacementsChange={(next) =>
             updateSettings({ patch: { composerControlPlacements: next } })
           }
-          advisorActive={advisorArm.enabled || advisorPickerOpen}
-          workerActive={workerArm.enabled || workerPickerOpen}
+          advisorActive={
+            isManagedExecutionProviderId(args.activeProvider) &&
+            (advisorArm.enabled || advisorPickerOpen)
+          }
+          workerActive={
+            getProviderDescriptor({ providerId: args.activeProvider })
+              .capabilities.worker &&
+            (workerArm.enabled || workerPickerOpen)
+          }
           secretsActive={
             (promptDraft.runtimeOverrides?.boundSecretIds?.length ?? 0) > 0
           }
           advisorControl={
+            isManagedExecutionProviderId(args.activeProvider) ? (
             <PromptInputAdvisorPill
               arm={advisorArm}
               primaryProviderId={args.activeProvider}
@@ -1540,13 +1611,18 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                 );
               }}
             />
+            ) : null
           }
           workerControl={
+            getProviderDescriptor({ providerId: args.activeProvider })
+              .capabilities.worker ? (
             <PromptInputWorkerPill
               arm={workerArm}
               resolution={workerResolution}
-              primaryProviderId={args.activeProvider}
+              primaryProviderId={workerActiveProvider}
               primaryModel={args.selectedModelOption.model}
+              runtimeModels={workerRuntimeModels}
+              executionBlock={workerExecutionBlock}
               disabled={isInputBlocked}
               open={workerPickerOpen}
               onOpenChange={setWorkerPickerOpen}
@@ -1555,7 +1631,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                 applyRuntimeOverrides(
                   buildWorkerPresetPatch({
                     overrides: promptDraft.runtimeOverrides,
-                    providerId: args.activeProvider,
+                    providerId: workerActiveProvider,
                     presetId,
                   }),
                 );
@@ -1564,7 +1640,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                 applyRuntimeOverrides(
                   buildWorkerModelPatch({
                     overrides: promptDraft.runtimeOverrides,
-                    providerId: args.activeProvider,
+                    providerId: workerActiveProvider,
                     model,
                   }),
                 );
@@ -1573,12 +1649,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                 applyRuntimeOverrides(
                   buildWorkerEffortPatch({
                     overrides: promptDraft.runtimeOverrides,
-                    providerId: args.activeProvider,
+                    providerId: workerActiveProvider,
                     effort,
                   }),
                 );
               }}
             />
+            ) : null
           }
           secretsControl={
             args.isTurnActive ? null : (
@@ -1751,6 +1828,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           selectedModel={args.selectedModelOption}
           modelOptions={args.modelOptions}
+          modelCatalogs={args.modelCatalogs}
+          onRefreshModelCatalogs={args.onRefreshModelCatalogs}
           modelShortcutKeys={args.modelShortcutKeys}
           modelShortcutEfforts={args.modelShortcutEfforts}
           attachedFilePaths={promptDraft.attachedFilePaths}
@@ -2063,11 +2142,20 @@ function BaseChatInput() {
   );
   const draftProvider = useAppStore((state) => state.draftProvider);
   const activeProvider = activeTask?.provider ?? draftProvider;
+  const managedExecutionProvider = isManagedExecutionProviderId(activeProvider)
+    ? activeProvider
+    : null;
   const activeProviderGoal = useAppStore(
     (state) => state.providerGoalByTask[activeTaskId] ?? null,
   );
   const codexBinaryPathForCatalog = useAppStore(
     (state) => state.settings.codexBinaryPath,
+  );
+  const cursorBinaryPathForCatalog = useAppStore(
+    (state) => state.settings.cursorBinaryPath,
+  );
+  const kiroBinaryPathForCatalog = useAppStore(
+    (state) => state.settings.kiroBinaryPath,
   );
   const promptDraftRuntimeOverrides = useAppStore(
     (state) =>
@@ -2128,6 +2216,8 @@ function BaseChatInput() {
   const [
     modelClaude,
     modelCodex,
+    modelCursor,
+    modelKiro,
     skillsEnabled,
     skillsAutoSuggest,
     providerTimeoutMs,
@@ -2140,6 +2230,8 @@ function BaseChatInput() {
         [
           state.settings.modelClaude,
           state.settings.modelCodex,
+          state.settings.modelCursor,
+          state.settings.modelKiro,
           state.settings.skillsEnabled,
           state.settings.skillsAutoSuggest,
           state.settings.providerTimeoutMs,
@@ -2160,8 +2252,24 @@ function BaseChatInput() {
       : resolvePromptDraftModelForProvider({
           providerId: activeProvider,
           runtimeOverrides: promptDraftRuntimeOverrides,
-          fallbackModel: modelCodex,
+          fallbackModel:
+            activeProvider === "codex"
+              ? modelCodex
+              : activeProvider === "cursor"
+                ? modelCursor
+                : modelKiro,
         });
+  const cursorMode = useAppStore((state) => state.settings.cursorMode);
+  const kiroEffort = useAppStore((state) => {
+    if (activeProvider !== "kiro") {
+      return "medium" as const;
+    }
+    return applyModelRuntimePreference({
+      settings: state.settings,
+      providerId: activeProvider,
+      model: activeModel,
+    }).kiroEffort;
+  });
   const [
     claudePermissionMode,
     claudePermissionModeBeforePlan,
@@ -2250,12 +2358,16 @@ function BaseChatInput() {
           claudePermissionMode,
           claudePermissionModeBeforePlan,
           codexPlanMode,
+          cursorMode,
+          kiroEffort,
         },
       }),
     [
       claudePermissionMode,
       claudePermissionModeBeforePlan,
       codexPlanMode,
+      cursorMode,
+      kiroEffort,
       promptDraftRuntimeOverrides,
     ],
   );
@@ -2263,6 +2375,31 @@ function BaseChatInput() {
   const effectiveClaudePermissionModeBeforePlan =
     taskRuntimeState.claudePermissionModeBeforePlan;
   const effectiveCodexPlanMode = taskRuntimeState.codexPlanMode;
+  const effectiveCursorMode = taskRuntimeState.cursorMode;
+  const effectiveKiroEffort = taskRuntimeState.kiroEffort ?? kiroEffort;
+  const catalogRuntimeOptions = useMemo(
+    () => ({
+      ...(codexBinaryPathForCatalog
+        ? { codexBinaryPath: codexBinaryPathForCatalog }
+        : {}),
+      ...(cursorBinaryPathForCatalog
+        ? { cursorBinaryPath: cursorBinaryPathForCatalog }
+        : {}),
+      ...(kiroBinaryPathForCatalog
+        ? { kiroBinaryPath: kiroBinaryPathForCatalog }
+        : {}),
+    }),
+    [
+      codexBinaryPathForCatalog,
+      cursorBinaryPathForCatalog,
+      kiroBinaryPathForCatalog,
+    ],
+  );
+  const providerModelCatalogs = useProviderModelCatalogs({
+    enabled: true,
+    cwd: workspaceCwd,
+    runtimeOptions: catalogRuntimeOptions,
+  });
   const isEmpty = activeMessageCount === 0;
   const activeProviderAvailable = providerAvailability[activeProvider];
   const isAutoRoutingSelected =
@@ -2275,46 +2412,45 @@ function BaseChatInput() {
       }),
     [activeProvider, autoRoutingEnabled],
   );
-  const selectedModelOption = useMemo<ModelSelectorOption>(
-    () =>
-      isAutoRoutingSelected
-        ? autoModelOption
-        : buildModelSelectorValue({
-            providerId: activeProvider,
-            model: activeModel,
-            available: activeProviderAvailable,
-          }),
-    [
-      activeModel,
-      activeProvider,
-      activeProviderAvailable,
-      autoModelOption,
-      isAutoRoutingSelected,
-    ],
-  );
-  const codexModelCatalog = useCodexModelCatalog({
-    enabled: true,
-    codexBinaryPath: codexBinaryPathForCatalog,
-  });
-  const codexModelEnrichment = useMemo(() => {
-    if (codexModelCatalog.entries.length === 0) {
-      return undefined;
-    }
+  const selectedModelOption = isAutoRoutingSelected
+    ? autoModelOption
+    : buildModelSelectorValue({
+        providerId: activeProvider,
+        model: activeModel,
+        label: providerModelCatalogs.catalogs[
+          activeProvider
+        ].entries.find((entry) => entry.model === activeModel)?.displayName,
+        available: activeProviderAvailable,
+      });
+  const modelEnrichment = useMemo(() => {
     const map = new Map<
       string,
-      { description?: string; isDefault?: boolean }
+      {
+        label?: string;
+        description?: string;
+        isDefault?: boolean;
+        defaultEffort?: string;
+        supportedEfforts?: readonly string[];
+      }
     >();
-    for (const entry of codexModelCatalog.entries) {
-      const id = entry.model.trim();
-      if (id) {
-        map.set(id, {
-          description: entry.description || undefined,
-          isDefault: entry.isDefault || undefined,
-        });
+    for (const [providerId, catalog] of Object.entries(
+      providerModelCatalogs.catalogs,
+    )) {
+      for (const entry of catalog.entries) {
+        const id = entry.model.trim();
+        if (id) {
+          map.set(`${providerId}:${id}`, {
+            label: entry.displayName || undefined,
+            description: entry.description || undefined,
+            isDefault: entry.isDefault || undefined,
+            defaultEffort: entry.defaultEffort || undefined,
+            supportedEfforts: entry.supportedEfforts,
+          });
+        }
       }
     }
     return map.size > 0 ? map : undefined;
-  }, [codexModelCatalog.entries]);
+  }, [providerModelCatalogs.catalogs]);
   const modelOptions = useMemo<ModelSelectorOption[]>(
     () => [
       autoModelOption,
@@ -2322,15 +2458,18 @@ function BaseChatInput() {
         providerIds: PROVIDER_IDS,
         availabilityByProvider: providerAvailability,
         modelsByProvider: {
-          codex: codexModelCatalog.models,
+          "claude-code": providerModelCatalogs.catalogs["claude-code"].models,
+          codex: providerModelCatalogs.catalogs.codex.models,
+          cursor: providerModelCatalogs.catalogs.cursor.models,
+          kiro: providerModelCatalogs.catalogs.kiro.models,
         },
-        enrichmentByModel: codexModelEnrichment,
+        enrichmentByModel: modelEnrichment,
       }),
     ],
     [
       autoModelOption,
-      codexModelCatalog.models,
-      codexModelEnrichment,
+      modelEnrichment,
+      providerModelCatalogs.catalogs,
       providerAvailability,
     ],
   );
@@ -2355,14 +2494,24 @@ function BaseChatInput() {
     if (activeProvider === "codex") {
       return findOptionLabel(CODEX_EFFORT_OPTIONS, codexReasoningEffort);
     }
+    if (activeProvider === "kiro") {
+      return findOptionLabel(KIRO_EFFORT_OPTIONS, effectiveKiroEffort);
+    }
     return undefined;
-  }, [activeProvider, claudeEffort, codexReasoningEffort]);
+  }, [
+    activeProvider,
+    claudeEffort,
+    codexReasoningEffort,
+    effectiveKiroEffort,
+  ]);
   const effortValue =
     activeProvider === "claude-code"
       ? claudeEffort
       : activeProvider === "codex"
         ? codexReasoningEffort
-        : undefined;
+        : activeProvider === "kiro"
+          ? effectiveKiroEffort
+          : undefined;
   const goalStatus = useMemo(
     () =>
       buildChatInputGoalStatus({
@@ -2371,16 +2520,21 @@ function BaseChatInput() {
     [activeProvider, activeProviderGoal],
   );
   const advisorRuntimeSummary = useMemo(
-    () =>
-      formatAdvisorRuntimeStatusValue(
+    () => {
+      if (!managedExecutionProvider) {
+        return "Unavailable";
+      }
+      return formatAdvisorRuntimeStatusValue(
         resolveAdvisorArmState({
           overrides: promptDraftRuntimeOverrides,
           settingsTarget: settingsAdvisorTarget,
           settingsEnabled: settingsAdvisorEnabled,
           settingsTargetByProvider: settingsAdvisorTargetByProvider,
         }),
-      ),
+      );
+    },
     [
+      managedExecutionProvider,
       promptDraftRuntimeOverrides,
       settingsAdvisorEnabled,
       settingsAdvisorTarget,
@@ -2391,8 +2545,14 @@ function BaseChatInput() {
   // different component, and reporting a stale shape here would contradict the
   // pill sitting a few pixels away.
   const workerRuntimeSummary = useMemo(
-    () =>
-      formatWorkerRuntimeStatusValue(
+    () => {
+      if (
+        !getProviderDescriptor({ providerId: activeProvider }).capabilities
+          .worker
+      ) {
+        return "Unavailable";
+      }
+      return formatWorkerRuntimeStatusValue(
         resolveWorkerProfile({
           providerId: activeProvider,
           primaryModel: activeModel,
@@ -2400,16 +2560,20 @@ function BaseChatInput() {
             resolveWorkerArmState({
               providerId: activeProvider,
               overrides: promptDraftRuntimeOverrides,
-              settingsConfig: settingsWorkerConfigByProvider?.[activeProvider],
+              settingsConfig:
+                settingsWorkerConfigByProvider?.[activeProvider],
               settingsEnabled: settingsWorkerEnabled,
             }),
           ),
+          runtimeModels: providerModelCatalogs.catalogs[activeProvider].models,
         }),
-      ),
+      );
+    },
     [
-      activeProvider,
       activeModel,
+      activeProvider,
       promptDraftRuntimeOverrides,
+      providerModelCatalogs.catalogs,
       settingsWorkerConfigByProvider,
       settingsWorkerEnabled,
     ],
@@ -2726,15 +2890,20 @@ function BaseChatInput() {
     return null;
   });
   const suggestedReviewProvider = useMemo<"claude-code" | "codex">(() => {
-    if (!lastAssistantProviderId) return activeProvider;
+    if (!lastAssistantProviderId) {
+      return managedExecutionProvider ?? "claude-code";
+    }
     if (lastAssistantProviderId === "claude-code") return "codex";
     return "claude-code";
-  }, [activeProvider, lastAssistantProviderId]);
+  }, [lastAssistantProviderId, managedExecutionProvider]);
   const reviewModelOptions = useMemo(
     () =>
       modelOptions
         .filter(
           (option) => option.available && !option.isAuto && option.model.trim(),
+        )
+        .filter((option) =>
+          isManagedExecutionProviderId(option.providerId),
         )
         .map((option) => {
           const configuredModel =
@@ -2878,6 +3047,8 @@ function BaseChatInput() {
       }}
       selectedModelOption={selectedModelOption}
       modelOptions={modelOptions}
+      modelCatalogs={providerModelCatalogs.catalogs}
+      onRefreshModelCatalogs={providerModelCatalogs.refresh}
       modelShortcutKeys={normalizedModelShortcutKeys}
       modelShortcutEfforts={normalizedModelShortcutEfforts}
       commandPaletteItems={deferredCommandPaletteItems}
@@ -2898,8 +3069,11 @@ function BaseChatInput() {
       onLocalChangeReview={handleLocalChangeReview}
       onModelSelect={({ selection, effort, fastMode: nextFastMode }) => {
         if (selection.isAuto) {
-          const { model: _model, ...restRuntimeOverrides } =
-            promptDraftRuntimeOverrides ?? {};
+          const {
+            model: _model,
+            modelProviderId: _modelProviderId,
+            ...restRuntimeOverrides
+          } = promptDraftRuntimeOverrides ?? {};
           updatePromptDraft({
             taskId: providerSelectionTarget,
             patch: {
@@ -2928,6 +3102,7 @@ function BaseChatInput() {
               ...(promptDraftRuntimeOverrides ?? {}),
               autoRouting: false,
               model: nextModel,
+              modelProviderId: selection.providerId,
             },
           },
         });
@@ -2979,6 +3154,13 @@ function BaseChatInput() {
           }
           return;
         }
+        if (selection.providerId === "kiro" && effort) {
+          updateModelRuntimePreference({
+            providerId: selection.providerId,
+            model: nextModel,
+            patch: { effort },
+          });
+        }
       }}
       fastMode={activeProvider === "codex" ? codexFastMode : undefined}
       onFastModeChange={
@@ -2995,11 +3177,12 @@ function BaseChatInput() {
       planMode={
         activeProvider === "codex"
           ? effectiveCodexPlanMode
-          : activeProvider === "claude-code" &&
-            effectiveClaudePermissionMode === "plan"
+          : activeProvider === "claude-code"
+            ? effectiveClaudePermissionMode === "plan"
+            : activeProvider === "cursor" && effectiveCursorMode === "plan"
       }
       onPlanModeChange={
-        activeProvider === "codex"
+        activeProvider === "codex" || activeProvider === "cursor"
           ? (enabled) => {
               const nextPlanModeState = resolvePromptDraftPlanModeChange({
                 providerId: activeProvider,

@@ -10,6 +10,7 @@ import type {
   ProviderSteerTurnResponse,
 } from "../../src/lib/providers/provider.types";
 import type { AdvisorConsultOutcome } from "./advisor-consult";
+import type { AcpWorkerOutcome } from "./acp/acp-worker-runtime";
 import type { UserInputQuestion } from "../../src/types/chat";
 import type { WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
 import type {
@@ -17,7 +18,11 @@ import type {
   ConnectedToolStatusResponse,
 } from "../../src/lib/providers/connected-tool-status";
 
-export type ProviderId = "claude-code" | "codex";
+export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro";
+export type ManagedExecutionProviderId = Exclude<
+  ProviderId,
+  "cursor" | "kiro"
+>;
 
 export interface ProviderSlashCommand {
   name: string;
@@ -104,8 +109,34 @@ export type BridgeEvent =
       outputTokens: number;
       cacheReadTokens?: number;
       cacheCreationTokens?: number;
+      thoughtTokens?: number;
       totalCostUsd?: number;
       ttftMs?: number;
+    }
+  | {
+      type: "context_usage";
+      usedTokens: number;
+      sizeTokens: number;
+      costAmount?: number;
+      costCurrency?: string;
+    }
+  | {
+      type: "delegated_usage";
+      executionId: string;
+      role: "advisor" | "worker";
+      providerId: ProviderId;
+      model: string;
+      inputTokens?: number;
+      outputTokens?: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+      thoughtTokens?: number;
+      contextUsedTokens?: number;
+      contextWindowTokens?: number;
+      contextCostAmount?: number;
+      contextCostCurrency?: string;
+      totalCostUsd?: number;
+      sessionReused?: boolean;
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
   | {
@@ -138,7 +169,10 @@ export type BridgeEvent =
       detail?: string;
       inputTokens?: number;
       outputTokens?: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
       totalCostUsd?: number;
+      sessionReused?: boolean;
     }
   | {
       type: "history_boundary";
@@ -218,6 +252,7 @@ export type BridgeEvent =
       requestId: string;
       description: string;
       input?: string;
+      workerExecution?: WorkerExecutionMetadata;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this
        * is answered. Absent means the main loop asked.
@@ -238,7 +273,12 @@ export type BridgeEvent =
       toolName: string;
       elapsedSeconds: number;
     }
-  | { type: "plan_ready"; planText: string; sourceSegmentId?: string }
+  | {
+      type: "plan_ready";
+      planText: string;
+      sourceSegmentId?: string;
+      review?: { requestId: string; responseMode: "blocking" };
+    }
   | {
       type: "system";
       content: string;
@@ -266,7 +306,7 @@ export type BridgeEvent =
     }
   | {
       type: "model_resolved";
-      resolvedProviderId: "claude-code" | "codex";
+      resolvedProviderId: ProviderId;
       resolvedModel: string;
     }
   | { type: "error"; message: string; recoverable: boolean }
@@ -314,11 +354,18 @@ export interface ProviderRuntime {
     question: string;
     context?: string;
   }) => Promise<AdvisorConsultOutcome>;
+  /** Executes one task through an active turn-scoped ACP Worker grant. */
+  runAcpWorker: (args: {
+    workerKey: string;
+    task: string;
+    context?: string;
+  }) => Promise<AcpWorkerOutcome>;
   cleanupTask: (args: { taskId: string }) => { ok: boolean; message: string };
   respondApproval: (args: {
     turnId: string;
     requestId: string;
     approved: boolean;
+    reason?: string;
   }) => Promise<{ ok: boolean; message: string }>;
   respondUserInput: (args: {
     turnId: string;

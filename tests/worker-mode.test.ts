@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { buildWorkerModelOptions } from "@/components/ai-elements/prompt-input-worker-mode.utils";
 import {
   DEFAULT_WORKER_PRESET_ID,
   WORKER_AGENT_NAME,
   WORKER_AUTO_VALUE,
   WORKER_PRESETS,
   buildWorkerPrimaryInstructions,
+  buildAcpWorkerPrompt,
   buildWorkerRuntimeIntent,
   canPrimaryOrchestrateWorker,
   formatWorkerRuntimeStatusValue,
@@ -73,6 +75,47 @@ describe("worker preset catalog", () => {
 });
 
 describe("worker capability table", () => {
+  test("Cursor and Kiro accept only their runtime-advertised Worker models", () => {
+    for (const providerId of ["cursor", "kiro"] as const) {
+      const resolution = resolveWorkerProfile({
+          providerId,
+          primaryModel: "runtime-primary",
+          runtimeModels: ["runtime-primary", "runtime-worker"],
+          intent: {
+            mode: "task-executor",
+            presetId: "verified-patch",
+            workerModel: "runtime-worker",
+            workerEffort: "auto",
+          },
+        });
+      expect(resolution).toMatchObject({
+        status: "ready",
+        profile: {
+          provider: providerId,
+          executionAdapter: "acp-tool",
+          resolvedWorkerModel: "runtime-worker",
+          resolvedWorkerEffort: providerId === "kiro" ? "medium" : null,
+        },
+      });
+      expect(
+        resolveWorkerProfile({
+          providerId,
+          primaryModel: "runtime-primary",
+          runtimeModels: ["runtime-primary"],
+          intent: {
+            mode: "task-executor",
+            presetId: "verified-patch",
+            workerModel: "missing-worker",
+            workerEffort: "high",
+          },
+        }),
+      ).toMatchObject({
+        status: "unavailable",
+        reason: "worker_model_not_found",
+      });
+    }
+  });
+
   test("only Sol and Terra can orchestrate on Codex", () => {
     // codex-cli 0.145.0 advertises `ultra` (auto task delegation) for these two
     // models only.
@@ -442,6 +485,27 @@ describe("worker presentation", () => {
     expect(getWorkerPreset(DEFAULT_WORKER_PRESET_ID).maxTurns).toBe(60);
   });
 
+  test("ACP worker prompt carries an unenforced max-turn budget", () => {
+    const resolution = resolveWorkerProfile({
+      providerId: "kiro",
+      primaryModel: "runtime-primary",
+      runtimeModels: ["runtime-primary", "runtime-worker"],
+      intent: intent({
+        workerModel: "runtime-worker",
+        workerEffort: "high",
+        maxTurns: 7,
+      }),
+    });
+    expect(resolution.status).toBe("ready");
+    if (resolution.status !== "ready") return;
+    expect(
+      buildAcpWorkerPrompt({
+        profile: resolution.profile,
+        task: "Apply and verify the patch.",
+      }),
+    ).toContain("7 agentic round-trips as the maximum budget");
+  });
+
   test("Codex instructions carry the tool list as prose since it is unenforced", () => {
     const resolution = resolveWorkerProfile({
       providerId: "codex",
@@ -476,5 +540,20 @@ describe("worker model options", () => {
     for (const model of listWorkerModelOptions("claude-code")) {
       expect(model.startsWith("claude-")).toBe(true);
     }
+  });
+
+  test("keeps a removed dynamic model visible until the user reselects", () => {
+    expect(
+      buildWorkerModelOptions({
+        providerId: "cursor",
+        presetId: "verified-patch",
+        runtimeModels: ["current-model"],
+        selectedModel: "removed-model",
+      }),
+    ).toContainEqual({
+      value: "removed-model",
+      label: "Removed Model",
+      description: "No longer advertised by the provider runtime",
+    });
   });
 });

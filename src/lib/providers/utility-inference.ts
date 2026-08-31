@@ -1,6 +1,10 @@
-import type { ProviderId, ProviderRuntimeOptions } from "./provider.types";
+import type {
+  ManagedExecutionProviderId,
+  ProviderId,
+  ProviderRuntimeOptions,
+} from "./provider.types";
 
-export type UtilityInferenceProvider = "auto" | ProviderId;
+export type UtilityInferenceProvider = "auto" | ManagedExecutionProviderId;
 /**
  * The mechanical meta calls. Advisory work belongs to Advisor, not here — the
  * boundary is asserted in `tests/agent-platform-boundaries.test.ts`, which is
@@ -18,14 +22,14 @@ export type UtilityInferenceSelectionReason =
   "explicit" | "active-task" | "fallback";
 
 export type UtilityInferenceAttempt = {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   model: string;
   ok: boolean;
   detail?: string;
 };
 
 export type UtilityInferenceMetadata = {
-  providerId: ProviderId | null;
+  providerId: ManagedExecutionProviderId | null;
   model: string | null;
   selectionReason: UtilityInferenceSelectionReason | "unavailable";
   degraded: boolean;

@@ -4,7 +4,9 @@ import {
   parseClaudeAuthState,
   parseCodexAuthState,
   parseCodexMcpServerList,
+  parseCursorAuthState,
   parseGhAuthState,
+  parseKiroAuthState,
 } from "../electron/main/utils/tooling-status";
 
 describe("tooling status helpers", () => {
@@ -61,6 +63,58 @@ describe("tooling status helpers", () => {
     })).toEqual({
       authState: "authenticated",
       authDetail: "Authenticated · dev@example.com · org: Acme",
+    });
+  });
+
+  test("recognizes Cursor Agent login without retaining account output", () => {
+    expect(
+      parseCursorAuthState({
+        ok: true,
+        stdout: "Logged in as person@example.com",
+        stderr: "",
+      }),
+    ).toEqual({
+      authState: "authenticated",
+      authDetail: "Cursor Agent CLI is authenticated.",
+    });
+  });
+
+  test("recognizes a Cursor Agent login requirement", () => {
+    expect(
+      parseCursorAuthState({
+        ok: false,
+        stdout: "",
+        stderr: "Not logged in. Run `agent login`.",
+      }),
+    ).toEqual({
+      authState: "unauthenticated",
+      authDetail: "Cursor Agent CLI login is required.",
+    });
+  });
+
+  test("recognizes Kiro login without retaining account output", () => {
+    expect(
+      parseKiroAuthState({
+        ok: true,
+        stdout: "Authenticated as person@example.com",
+        stderr: "",
+      }),
+    ).toEqual({
+      authState: "authenticated",
+      authDetail: "Kiro CLI is authenticated.",
+    });
+  });
+
+  test("recognizes a Kiro login requirement", () => {
+    expect(
+      parseKiroAuthState({
+        ok: false,
+        stdout: "",
+        stderr: "Not logged in. Run `kiro-cli login`.",
+      }),
+    ).toEqual({
+      authState: "unauthenticated",
+      authDetail: "Kiro CLI login is required.",
     });
   });
 

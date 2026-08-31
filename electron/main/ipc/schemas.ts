@@ -47,6 +47,13 @@ export const RoutineProviderTimeoutArgsSchema = z
 export const ProviderIdSchema = z.union([
   z.literal("claude-code"),
   z.literal("codex"),
+  z.literal("cursor"),
+  z.literal("kiro"),
+]);
+
+export const ManagedExecutionProviderIdSchema = z.union([
+  z.literal("claude-code"),
+  z.literal("codex"),
 ]);
 
 export const McpDiscoveryArgsSchema = z
@@ -578,7 +585,7 @@ export const CliSessionCreateSessionArgsSchema = z
     workspaceId: z.string().min(1).max(200),
     workspacePath: z.string().min(1).max(4096),
     cliSessionTabId: z.string().min(1).max(200),
-    providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+    providerId: ManagedExecutionProviderIdSchema,
     contextMode: z.union([z.literal("workspace"), z.literal("active-task")]),
     nativeSessionId: z.string().max(200).optional(),
     taskId: z.string().min(1).max(200).nullable(),
@@ -939,9 +946,25 @@ export const RuntimeOptionsObjectSchema = z
     codexFastMode: z.boolean().optional(),
     codexPlanMode: z.boolean().optional(),
     codexResumeThreadId: z.string().max(200).optional(),
+    cursorBinaryPath: z.string().max(4096).optional(),
+    cursorMode: z
+      .union([z.literal("agent"), z.literal("plan"), z.literal("ask")])
+      .optional(),
+    cursorResumeSessionId: z.string().max(500).optional(),
+    kiroBinaryPath: z.string().max(4096).optional(),
+    kiroEffort: z
+      .union([
+        z.literal("low"),
+        z.literal("medium"),
+        z.literal("high"),
+        z.literal("xhigh"),
+        z.literal("max"),
+      ])
+      .optional(),
+    kiroResumeSessionId: z.string().max(500).optional(),
     advisorTarget: z
       .object({
-        providerId: ProviderIdSchema,
+        providerId: ManagedExecutionProviderIdSchema,
         model: z.string().trim().min(1).max(200),
         // Optional: absent means the Advisor follows the model's provider
         // default. Codex's legacy "minimal" is not accepted here because it is
@@ -1019,6 +1042,7 @@ const UserInputOptionSchema = z
   .object({
     label: z.string().max(500),
     description: z.string().max(5000),
+    value: z.string().max(500).optional(),
   })
   .strict();
 
@@ -1048,7 +1072,7 @@ const UserInputQuestionSchema = z
 
 const WorkerExecutionMetadataSchema = z
   .object({
-    providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+    providerId: ProviderIdSchema,
     primaryModel: z.string().max(200),
     presetId: z.union([
       z.literal("patch-hand"),
@@ -1130,6 +1154,7 @@ const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
       toolName: z.string().max(200),
       description: z.string().max(5000),
       input: z.string().max(500_000).optional(),
+      workerExecution: WorkerExecutionMetadataSchema.optional(),
       requestId: z.string().max(200),
       state: z.union([
         z.literal("approval-requested"),
@@ -1409,6 +1434,14 @@ export const McpServerConfigMutationApplyArgsSchema = z.discriminatedUnion(
 );
 export const CodexRuntimeActionArgsSchema = ClaudeRuntimeActionArgsSchema;
 
+export const ProviderModelCatalogArgsSchema = z
+  .object({
+    providerId: ProviderIdSchema,
+    cwd: z.string().max(4096).optional(),
+    runtimeOptions: RuntimeOptionsSchema,
+  })
+  .strict();
+
 export const RateLimitsSnapshotArgsSchema = ClaudeRuntimeActionArgsSchema;
 
 export const CodexPluginDetailArgsSchema = z
@@ -1612,6 +1645,7 @@ export const ApprovalResponseArgsSchema = z
     turnId: z.string().min(1).max(200),
     requestId: z.string().min(1).max(200),
     approved: z.boolean(),
+    reason: z.string().max(10_000).optional(),
   })
   .strict();
 
@@ -1818,6 +1852,17 @@ export const ToolingStatusArgsSchema = z
     cwd: z.string().max(4096).optional(),
     claudeBinaryPath: z.string().max(4096).optional(),
     codexBinaryPath: z.string().max(4096).optional(),
+    cursorBinaryPath: z.string().max(4096).optional(),
+    kiroBinaryPath: z.string().max(4096).optional(),
+    kiroEffort: z
+      .union([
+        z.literal("low"),
+        z.literal("medium"),
+        z.literal("high"),
+        z.literal("xhigh"),
+        z.literal("max"),
+      ])
+      .optional(),
   })
   .strict();
 

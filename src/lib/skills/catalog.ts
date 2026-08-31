@@ -16,6 +16,8 @@ const SKILL_SCOPE_PRIORITY = {
 const SKILL_PROVIDER_PRIORITY = {
   "claude-code": 2,
   codex: 2,
+  cursor: 2,
+  kiro: 2,
   shared: 1,
 } as const;
 

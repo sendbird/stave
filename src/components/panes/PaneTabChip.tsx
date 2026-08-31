@@ -22,6 +22,7 @@ import { Badge, WaveIndicator } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
 import { getRespondingProviderId, isTaskManaged } from "@/lib/tasks";
 import {
@@ -54,7 +55,7 @@ interface TaskChipState {
   isStalled: boolean;
   isManaged: boolean;
   toneClass: string;
-  provider: "claude-code" | "codex" | null;
+  provider: ProviderId | null;
 }
 
 /** Row-local subscription: each chip only tracks its own entity. */

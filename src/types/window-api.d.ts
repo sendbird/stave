@@ -11,6 +11,7 @@ import type {
   ClaudeMcpOauthLoginResponse,
   ClaudeMcpStatusResponse,
   ClaudeSessionForkResponse,
+  DelegatedExecutionUsage,
   ProviderMutationResponse,
   CodexMcpStatusResponse,
   McpDiscoveryResponse,
@@ -21,6 +22,7 @@ import type {
   CodexPluginInstallResponse,
   ProviderId,
   ProviderAvailabilityResponse,
+  ProviderModelCatalogResponse,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
@@ -294,6 +296,7 @@ interface WindowProviderApi {
     turnId: string;
     requestId: string;
     approved: boolean;
+    reason?: string;
   }) => Promise<{
     ok: boolean;
     message?: string;
@@ -381,6 +384,11 @@ interface WindowProviderApi {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexModelCatalogResponse>;
+  getModelCatalog?: (args: {
+    providerId: ProviderId;
+    cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<ProviderModelCatalogResponse>;
   getCodexAppServerSnapshot?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
@@ -1691,6 +1699,7 @@ interface WindowPersistenceApi {
             totalCostUsd?: number;
             ttftMs?: number;
           };
+          delegatedUsage?: DelegatedExecutionUsage[];
           promptSuggestions?: string[];
           parts: unknown[];
         }>
@@ -1747,6 +1756,7 @@ interface WindowPersistenceApi {
           totalCostUsd?: number;
           ttftMs?: number;
         };
+        delegatedUsage?: DelegatedExecutionUsage[];
         promptSuggestions?: string[];
         parts: unknown[];
       }>;
@@ -1812,6 +1822,7 @@ interface WindowPersistenceApi {
             totalCostUsd?: number;
             ttftMs?: number;
           };
+          delegatedUsage?: DelegatedExecutionUsage[];
           promptSuggestions?: string[];
           parts: unknown[];
         }>
@@ -1967,6 +1978,7 @@ interface WindowPersistenceApi {
             totalCostUsd?: number;
             ttftMs?: number;
           };
+          delegatedUsage?: DelegatedExecutionUsage[];
           promptSuggestions?: string[];
           parts: unknown[];
         }>

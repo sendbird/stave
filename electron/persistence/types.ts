@@ -47,6 +47,7 @@ export interface PersistenceChatMessageRow {
     cacheCreationTokens?: number;
     totalCostUsd?: number;
   };
+  delegatedUsage?: ChatMessage["delegatedUsage"];
   promptSuggestions?: string[];
   parts: unknown[];
 }
@@ -194,7 +195,7 @@ export interface PersistenceTurnSummary {
   id: string;
   workspaceId: string;
   taskId: string;
-  providerId: "claude-code" | "codex";
+  providerId: ProviderId;
   createdAt: string;
   completedAt: string | null;
 }

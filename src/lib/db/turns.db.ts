@@ -2,7 +2,12 @@ import { z } from "zod";
 
 const ProviderIdSchema = z.preprocess(
   (value) => (value === "stave" ? "claude-code" : value),
-  z.union([z.literal("claude-code"), z.literal("codex")]),
+  z.union([
+    z.literal("claude-code"),
+    z.literal("codex"),
+    z.literal("cursor"),
+    z.literal("kiro"),
+  ]),
 );
 
 const PersistedTurnSummarySchema = z.object({

@@ -77,6 +77,67 @@ describe("task-context workspace schemas", () => {
     });
   });
 
+  test("preserves Kiro messages and native sessions across workspace parsing", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        activeTaskId: "task-kiro",
+        tasks: [
+          {
+            id: "task-kiro",
+            title: "Kiro task",
+            provider: "kiro",
+            updatedAt: "2026-08-30T00:00:00.000Z",
+            unread: false,
+          },
+        ],
+        messagesByTask: {
+          "task-kiro": [
+            {
+              id: "kiro-message-1",
+              role: "assistant",
+              model: "kiro-model-1",
+              providerId: "kiro",
+              nativeProviderSessionId: "kiro-session-1",
+              content: "Done.",
+              delegatedUsage: [
+                {
+                  executionId: "worker-1",
+                  role: "worker",
+                  providerId: "kiro",
+                  model: "kiro-model-1",
+                  inputTokens: 120,
+                  outputTokens: 18,
+                  cacheReadTokens: 90,
+                  sessionReused: true,
+                },
+              ],
+              parts: [{ type: "text", text: "Done." }],
+            },
+          ],
+        },
+        providerSessionByTask: {
+          "task-kiro": { kiro: "kiro-session-1" },
+        },
+      },
+    });
+
+    expect(parsed?.messagesByTask["task-kiro"]?.[0]).toMatchObject({
+      providerId: "kiro",
+      nativeProviderSessionId: "kiro-session-1",
+      delegatedUsage: [
+        expect.objectContaining({
+          executionId: "worker-1",
+          cacheReadTokens: 90,
+          sessionReused: true,
+        }),
+      ],
+    });
+    expect(parsed?.providerSessionByTask["task-kiro"]?.kiro).toBe(
+      "kiro-session-1",
+    );
+  });
+
   test("preserves the manual task-title marker across workspace parsing", () => {
     const parsed = parseWorkspaceShell({
       payload: {

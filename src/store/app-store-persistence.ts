@@ -56,6 +56,8 @@ import {
 } from "@/store/auto-routing";
 import {
   defaultSettings,
+  normalizeCursorMode,
+  normalizeKiroEffort,
   normalizeBorderBeamSize,
   normalizeBorderBeamStrength,
   normalizeBorderBeamVariant,
@@ -436,6 +438,22 @@ export function createAppStorePersistenceOptions() {
       state.settings.reasoningExpansionMode = normalizeReasoningExpansionMode(
         state.settings.reasoningExpansionMode,
       );
+      state.settings.cursorMode = normalizeCursorMode(
+        state.settings.cursorMode,
+      );
+      state.settings.kiroEffort = normalizeKiroEffort(
+        state.settings.kiroEffort,
+      );
+      state.settings.modelCursor =
+        typeof state.settings.modelCursor === "string" &&
+        state.settings.modelCursor.trim()
+          ? state.settings.modelCursor.trim()
+          : defaultSettings.modelCursor;
+      state.settings.modelKiro =
+        typeof state.settings.modelKiro === "string" &&
+        state.settings.modelKiro.trim()
+          ? state.settings.modelKiro.trim()
+          : defaultSettings.modelKiro;
       state.settings.modelClaude = upgradeSettingsScopedClaudeModel({
         model: state.settings.modelClaude,
       });

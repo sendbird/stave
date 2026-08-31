@@ -20,8 +20,9 @@ interface ModelIconProps {
 export function ModelIcon(args: ModelIconProps) {
   const { providerId, className } = args;
   const [failed, setFailed] = useState(false);
+  const iconUrl = getProviderIconUrl({ providerId });
 
-  if (failed) {
+  if (failed || !iconUrl) {
     return (
       <span
         className={cn(
@@ -37,7 +38,7 @@ export function ModelIcon(args: ModelIconProps) {
 
   return (
     <img
-      src={getProviderIconUrl({ providerId })}
+      src={iconUrl}
       alt=""
       aria-hidden
       className={cn("size-4 shrink-0 object-contain", className)}

@@ -15,13 +15,43 @@ import type {
   WorkerRuntimeIntent,
 } from "@/lib/providers/worker-mode";
 
-export type ProviderId = "claude-code" | "codex";
+export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro";
+export type ManagedExecutionProviderId = Exclude<
+  ProviderId,
+  "cursor" | "kiro"
+>;
 export type ClaudeSettingSource = "user" | "project" | "local";
 
 export type ProviderHistoryForkBoundary = "thread" | "turn" | "message";
 export type ProviderAppToolApprovalMode =
   "auto" | "prompt" | "writes" | "approve";
 export type ProviderWebSearchMode = "disabled" | "cached" | "live" | "indexed";
+
+/**
+ * Usage attributable to one delegated Advisor or Worker execution.
+ *
+ * The turn-level `usage` event remains the billing total. These records are a
+ * persisted breakdown only, so consumers must never add them to that total a
+ * second time. Token fields stay optional because several native and ACP
+ * runtimes expose the execution identity without reporting delegated usage.
+ */
+export interface DelegatedExecutionUsage {
+  executionId: string;
+  role: "advisor" | "worker";
+  providerId: ProviderId;
+  model: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  thoughtTokens?: number;
+  contextUsedTokens?: number;
+  contextWindowTokens?: number;
+  contextCostAmount?: number;
+  contextCostCurrency?: string;
+  totalCostUsd?: number;
+  sessionReused?: boolean;
+}
 
 /**
  * Features that Stave has wired end-to-end for the selected runtime version.
@@ -98,7 +128,7 @@ export type AdvisorEffort =
   "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
 export interface AdvisorTarget {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   model: string;
   /**
    * Explicit effort for the Advisor call. Omitted means "follow the model's
@@ -119,7 +149,7 @@ export interface AdvisorProviderPreference {
 }
 
 export type AdvisorTargetByProvider = Partial<
-  Record<ProviderId, AdvisorProviderPreference>
+  Record<ManagedExecutionProviderId, AdvisorProviderPreference>
 >;
 
 /**
@@ -151,7 +181,9 @@ export type AdvisorActivityPhase =
 
 /** How the runtime actually isolated the advisor call. */
 export type AdvisorIsolationMode =
-  "claude-tools-disabled" | "codex-ephemeral-read-only";
+  | "claude-tools-disabled"
+  | "codex-ephemeral-read-only"
+  | "codex-role-session-read-only";
 
 export interface ProviderSteerTurnRequest {
   turnId: string;
@@ -399,6 +431,23 @@ export interface CodexModelCatalogResponse {
   ok: boolean;
   detail: string;
   models: CodexModelCatalogEntry[];
+}
+
+export interface ProviderModelCatalogEntry {
+  model: string;
+  displayName: string;
+  description: string;
+  hidden: boolean;
+  isDefault: boolean;
+  defaultEffort: string | null;
+  supportedEfforts: string[];
+}
+
+export interface ProviderModelCatalogResponse {
+  providerId: ProviderId;
+  ok: boolean;
+  detail: string;
+  models: ProviderModelCatalogEntry[];
 }
 
 export interface CodexSkillSnapshot {
@@ -801,7 +850,7 @@ export type NormalizedProviderEvent =
     }
   | {
       type: "browser_connection";
-      providerId: ProviderId;
+      providerId: ManagedExecutionProviderId;
       status: "connecting" | "connected" | "failed";
       at: number;
     }
@@ -816,8 +865,34 @@ export type NormalizedProviderEvent =
       outputTokens: number;
       cacheReadTokens?: number;
       cacheCreationTokens?: number;
+      thoughtTokens?: number;
       totalCostUsd?: number;
       ttftMs?: number;
+    }
+  | {
+      type: "context_usage";
+      usedTokens: number;
+      sizeTokens: number;
+      costAmount?: number;
+      costCurrency?: string;
+    }
+  | {
+      type: "delegated_usage";
+      executionId: string;
+      role: "advisor" | "worker";
+      providerId: ProviderId;
+      model: string;
+      inputTokens?: number;
+      outputTokens?: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+      thoughtTokens?: number;
+      contextUsedTokens?: number;
+      contextWindowTokens?: number;
+      contextCostAmount?: number;
+      contextCostCurrency?: string;
+      totalCostUsd?: number;
+      sessionReused?: boolean;
     }
   | { type: "prompt_suggestions"; suggestions: string[] }
   | {
@@ -840,11 +915,11 @@ export type NormalizedProviderEvent =
       /** Question the primary asked, bounded by the runtime. Only on `started`. */
       question?: string;
       /** Provider running the primary turn that asked for advice. */
-      primaryProviderId: ProviderId;
+      primaryProviderId: ManagedExecutionProviderId;
       /** Primary model id, so "a different model answered" is verifiable. */
       primaryModel?: string;
       /** Advisor provider. Absent when the configured target was unusable. */
-      advisorProviderId?: ProviderId;
+      advisorProviderId?: ManagedExecutionProviderId;
       advisorModel?: string;
       /**
        * Effort the runtime actually requested, after defaulting and clamping.
@@ -865,7 +940,10 @@ export type NormalizedProviderEvent =
       detail?: string;
       inputTokens?: number;
       outputTokens?: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
       totalCostUsd?: number;
+      sessionReused?: boolean;
     }
   | {
       type: "history_boundary";
@@ -947,6 +1025,7 @@ export type NormalizedProviderEvent =
       requestId: string;
       description: string;
       input?: string;
+      workerExecution?: WorkerExecutionMetadata;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this
        * is answered. Absent means the main loop asked.
@@ -965,7 +1044,12 @@ export type NormalizedProviderEvent =
       /** See `approval.ownerAgentId`. */
       ownerAgentId?: string;
     }
-  | { type: "plan_ready"; planText: string; sourceSegmentId?: string }
+  | {
+      type: "plan_ready";
+      planText: string;
+      sourceSegmentId?: string;
+      review?: { requestId: string; responseMode: "blocking" };
+    }
   | {
       type: "system";
       content: string;
@@ -1097,6 +1181,12 @@ export interface ProviderRuntimeOptions {
   codexFastMode?: boolean;
   codexPlanMode?: boolean;
   codexResumeThreadId?: string;
+  cursorBinaryPath?: string;
+  cursorMode?: "agent" | "plan" | "ask";
+  cursorResumeSessionId?: string;
+  kiroBinaryPath?: string;
+  kiroEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  kiroResumeSessionId?: string;
   /**
    * Optional Stave-managed, isolated read-only Advisor the primary model may
    * consult on demand during the turn. Runtimes must clear this before invoking

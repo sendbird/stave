@@ -5,6 +5,7 @@ import { buildPanePanelId } from "@/lib/panes/types";
 import {
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
+  isManagedExecutionProviderId,
 } from "@/lib/providers/model-catalog";
 import { mergeModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
@@ -544,6 +545,9 @@ export function createTaskLifecycleActions(args: {
         return;
       }
       if (preset.kind === "cli-session") {
+        if (!isManagedExecutionProviderId(preset.provider)) {
+          return;
+        }
         get().createCliSessionTab({
           provider: preset.provider,
           contextMode: preset.contextMode ?? "workspace",
@@ -567,12 +571,18 @@ export function createTaskLifecycleActions(args: {
           settingsPatch.codexReasoningEffort =
             (preset.effort as
               AppSettings["codexReasoningEffort"] | undefined) ??
-            resolveDefaultCodexEffortForModel({ model: preset.model });
+              resolveDefaultCodexEffortForModel({ model: preset.model });
+        } else if (preset.provider === "cursor") {
+          settingsPatch.modelCursor = preset.model;
+        } else {
+          settingsPatch.modelKiro = preset.model;
         }
         const effort =
           preset.provider === "claude-code"
             ? settingsPatch.claudeEffort
-            : settingsPatch.codexReasoningEffort;
+            : preset.provider === "codex"
+              ? settingsPatch.codexReasoningEffort
+              : undefined;
         if (effort) {
           settingsPatch.modelRuntimePreferences = mergeModelRuntimePreference({
             preferences: stateBefore.settings.modelRuntimePreferences,

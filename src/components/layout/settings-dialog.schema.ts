@@ -90,7 +90,7 @@ export const settingsSections = [
     id: "providers",
     label: "Providers",
     icon: Wrench,
-    description: "Claude and Codex provider runtime settings.",
+    description: "Claude, Codex, Cursor, and Kiro provider runtime settings.",
     keywords: [
       "claude",
       "codex",

@@ -23,6 +23,7 @@ describe("prompt-draft runtime state", () => {
             codexPlanMode: true,
             codexReasoningEffort: "ultra",
             codexFastMode: false,
+            cursorMode: "ask",
           },
         },
         fallback: {
@@ -32,6 +33,7 @@ describe("prompt-draft runtime state", () => {
           codexPlanMode: false,
           codexReasoningEffort: "high",
           codexFastMode: true,
+          cursorMode: "agent",
         },
       }),
     ).toEqual({
@@ -41,6 +43,7 @@ describe("prompt-draft runtime state", () => {
       codexPlanMode: true,
       codexReasoningEffort: "ultra",
       codexFastMode: false,
+      cursorMode: "ask",
     });
   });
 
@@ -77,6 +80,64 @@ describe("prompt-draft runtime state", () => {
         fallbackModel: "gpt-5.4",
       }),
     ).toBe("gpt-5.4");
+
+    expect(
+      resolvePromptDraftModelForProvider({
+        providerId: "cursor",
+        runtimeOverrides: { model: "auto" },
+        fallbackModel: "auto",
+      }),
+    ).toBe("auto");
+
+    expect(
+      resolvePromptDraftModelForProvider({
+        providerId: "kiro",
+        runtimeOverrides: { model: "auto" },
+        fallbackModel: "auto",
+      }),
+    ).toBe("auto");
+
+    expect(
+      resolvePromptDraftModelForProvider({
+        providerId: "cursor",
+        runtimeOverrides: {
+          model: "gpt-5.6-sol-high-fast",
+          modelProviderId: "cursor",
+        },
+        fallbackModel: "auto",
+      }),
+    ).toBe("gpt-5.6-sol-high-fast");
+
+    expect(
+      resolvePromptDraftModelForProvider({
+        providerId: "codex",
+        runtimeOverrides: {
+          model: "gpt-5.6-sol-high-fast",
+          modelProviderId: "cursor",
+        },
+        fallbackModel: "gpt-5.6-terra",
+      }),
+    ).toBe("gpt-5.6-terra");
+
+    expect(
+      resolvePromptDraftModelForProvider({
+        providerId: "kiro",
+        runtimeOverrides: {
+          model: "kiro-model-1",
+          modelProviderId: "kiro",
+        },
+        fallbackModel: "auto",
+      }),
+    ).toBe("kiro-model-1");
+  });
+
+  test("compares the explicit model provider as part of draft runtime state", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { model: "shared-model", modelProviderId: "cursor" },
+        { model: "shared-model", modelProviderId: "codex" },
+      ),
+    ).toBe(false);
   });
 
   test("compares auto routing overrides as part of draft runtime state", () => {
@@ -107,6 +168,15 @@ describe("prompt-draft runtime state", () => {
         { codexFastMode: false },
       ),
     ).toBe(true);
+  });
+
+  test("compares Cursor mode as part of draft runtime state", () => {
+    expect(
+      arePromptDraftRuntimeOverridesEqual(
+        { cursorMode: "plan" },
+        { cursorMode: "agent" },
+      ),
+    ).toBe(false);
   });
 
   test("carries bound secret ids from draft overrides then fallback", () => {
@@ -251,6 +321,23 @@ describe("prompt-draft runtime state", () => {
     });
   });
 
+  test("maps the plan toggle to a task-local Cursor session mode", () => {
+    expect(
+      resolvePromptDraftPlanModeChange({
+        providerId: "cursor",
+        enabled: true,
+        runtimeOverrides: { model: "auto", cursorMode: "ask" },
+        claudePermissionMode: "default",
+        claudePermissionModeBeforePlan: null,
+        codexPlanMode: false,
+      }),
+    ).toEqual({
+      runtimeOverrides: { model: "auto", cursorMode: "plan" },
+      shouldClearCodexSession: false,
+      shouldAbortActiveTurn: false,
+    });
+  });
+
   test("aborts an active Codex planning turn when leaving plan mode after a plan arrived", () => {
     expect(
       resolvePromptDraftPlanModeChange({
@@ -297,11 +384,13 @@ describe("prompt-draft runtime state", () => {
             attachments: [],
             runtimeOverrides: {
               model: "claude-opus-4-6",
+              modelProviderId: "claude-code",
               claudePermissionMode: "plan",
               claudePermissionModeBeforePlan: "acceptEdits",
               claudeEffort: "xhigh",
               codexPlanMode: true,
               codexReasoningEffort: "ultra",
+              cursorMode: "plan",
               autoRouting: true,
               advisorEnabled: true,
               advisorTarget: {
@@ -320,11 +409,13 @@ describe("prompt-draft runtime state", () => {
 
     expect(parsed?.promptDraftByTask["task-1"]?.runtimeOverrides).toEqual({
       model: "claude-opus-4-6",
+      modelProviderId: "claude-code",
       claudePermissionMode: "plan",
       claudePermissionModeBeforePlan: "acceptEdits",
       claudeEffort: "xhigh",
       codexPlanMode: true,
       codexReasoningEffort: "ultra",
+      cursorMode: "plan",
       autoRouting: true,
       advisorEnabled: true,
       advisorTarget: {
@@ -333,6 +424,55 @@ describe("prompt-draft runtime state", () => {
         effort: "high",
       },
     });
+  });
+
+  test("preserves a blocking Cursor plan review in a workspace snapshot", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        activeTaskId: "task-1",
+        tasks: [
+          {
+            id: "task-1",
+            title: "Task 1",
+            provider: "cursor",
+            updatedAt: "2026-08-30T00:00:00.000Z",
+            unread: false,
+          },
+        ],
+        messagesByTask: {
+          "task-1": [
+            {
+              id: "task-1-m-1",
+              role: "assistant",
+              model: "auto",
+              providerId: "cursor",
+              content: "1. Inspect\n2. Patch",
+              parts: [],
+              isPlanResponse: true,
+              planText: "1. Inspect\n2. Patch",
+              planReview: {
+                requestId: "cursor:plan:3",
+                responseMode: "blocking",
+              },
+            },
+          ],
+        },
+        promptDraftByTask: {},
+        providerSessionByTask: {
+          "task-1": { cursor: "cursor-session-1" },
+        },
+        editorTabs: [],
+        activeEditorTabId: null,
+      },
+    });
+
+    expect(parsed?.messagesByTask["task-1"]?.[0]?.planReview).toEqual({
+      requestId: "cursor:plan:3",
+      responseMode: "blocking",
+    });
+    expect(parsed?.providerSessionByTask["task-1"]?.cursor).toBe(
+      "cursor-session-1",
+    );
   });
 
   // A snapshot is parsed all-or-nothing: any rejection here returns null for the

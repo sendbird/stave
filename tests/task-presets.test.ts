@@ -70,6 +70,30 @@ describe("normalizeTaskPreset", () => {
     expect(listModelsForPresetProvider("codex")).toContain(preset.model!);
   });
 
+  test("accepts ACP providers for task presets but not standalone CLI presets", () => {
+    for (const provider of ["cursor", "kiro"] as const) {
+      expect(
+        normalizeTaskPreset({
+          kind: "task",
+          provider,
+          model: "auto",
+        }),
+      ).toMatchObject({
+        kind: "task",
+        provider,
+        model: "auto",
+        effort: undefined,
+      });
+      expect(
+        normalizeTaskPreset({ kind: "cli-session", provider }),
+      ).toMatchObject({
+        kind: "cli-session",
+        provider: "claude-code",
+        model: undefined,
+      });
+    }
+  });
+
   test("upgrades a persisted Opus 4.8 preset to Opus 5", () => {
     const preset = normalizeTaskPreset({
       id: "default-claude-opus-4-8-task",
