@@ -2265,7 +2265,7 @@ function ModelsSection() {
           </LabeledField>
           <LabeledField
             title="Utility AI"
-            description="Provider used for task names, low-confidence route classification, and commit messages. Auto prefers the active task provider and falls back safely."
+            description="Provider used for task names, route classification, commit messages, and prompt enhancement. Auto prefers Claude or Codex from the active task, then falls back through installed utility runners."
           >
             <Select
               value={utilityInferenceProvider}

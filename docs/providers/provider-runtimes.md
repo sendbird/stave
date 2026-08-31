@@ -54,7 +54,8 @@ matrix in the composer.
 
 Cursor is intentionally excluded from Advisor, secondary and unattended runs,
 routines, standalone CLI tabs, native thread actions, and mid-turn steering.
-Worker mode is the one delegated exception: an interactive primary can call a
+Utility inference can still use Cursor Ask as a last-resort read-only runner when
+Claude and Codex are unavailable. Worker mode is the one delegated exception: an interactive primary can call a
 turn-scoped Local MCP tool that starts or resumes a same-provider, task-scoped
 ACP Worker session. Bound
 secrets are resolved only in the main runtime path and injected into the
@@ -80,7 +81,8 @@ effort is independent of the model value and is passed to the ACP process with
 
 Kiro is intentionally excluded from Advisor, secondary and unattended runs,
 routines, standalone CLI tabs, native thread actions, and mid-turn steering.
-Worker mode uses the same bounded, turn-scoped Local MCP bridge as Cursor and a
+Utility inference can still use Kiro as a last-resort read-only runner when
+Claude and Codex are unavailable. Worker mode uses the same bounded, turn-scoped Local MCP bridge as Cursor and a
 task-scoped same-provider ACP session. Bound secrets are resolved only for the
 disposable interactive primary-turn process; the Worker receives none. Runtime
 upgrades should recheck ACP initialization, session create/load, prompt,

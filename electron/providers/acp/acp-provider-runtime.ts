@@ -56,6 +56,8 @@ export interface AcpProviderExtensionRuntime {
   pendingUserInputRequestIds?: () => string[];
 }
 
+export type AcpPermissionPolicy = "interactive" | "auto-reject";
+
 export interface AcpProviderRuntimeProfile {
   providerId: ProviderId;
   displayName: string;
@@ -65,7 +67,11 @@ export interface AcpProviderRuntimeProfile {
   env: Record<string, string | undefined>;
   resumeSessionId?: string;
   requestedMode?: string;
+  /** When false, a missing requested mode is skipped instead of failing the turn. */
+  requestedModeRequired?: boolean;
   requestedModel: string;
+  /** Reject tool permissions immediately instead of waiting on UI approval. */
+  permissionPolicy?: AcpPermissionPolicy;
   modelConfigId?: string;
   modelSetter?: "config-option" | "legacy-set-model";
   promptParameterName?: "prompt" | "content";
@@ -82,7 +88,9 @@ export interface AcpProviderRuntimeProfile {
       kind: string,
       context: AcpInboundRequestContext,
     ) => string;
-    createDecisionTimer: (callback: () => void) => ReturnType<typeof setTimeout>;
+    createDecisionTimer: (
+      callback: () => void,
+    ) => ReturnType<typeof setTimeout>;
   }) => AcpProviderExtensionRuntime;
 }
 
@@ -181,10 +189,7 @@ export async function streamAcpProviderTurn(args: {
     timer.unref?.();
     return timer;
   };
-  const createRequestId = (
-    kind: string,
-    context: AcpInboundRequestContext,
-  ) =>
+  const createRequestId = (kind: string, context: AcpInboundRequestContext) =>
     [
       profile.providerId,
       profile.requestIdScope?.trim(),
@@ -204,11 +209,12 @@ export async function streamAcpProviderTurn(args: {
     pending.settle(outcome);
     return true;
   };
-  const extensionRuntime = profile.createExtensionRuntime?.({
-    emit,
-    createRequestId,
-    createDecisionTimer,
-  }) ?? {};
+  const extensionRuntime =
+    profile.createExtensionRuntime?.({
+      emit,
+      createRequestId,
+      createDecisionTimer,
+    }) ?? {};
 
   const permissionHandler: AcpInboundRequestHandler = async (
     params,
@@ -227,6 +233,17 @@ export async function streamAcpProviderTurn(args: {
       (option) =>
         option.optionId === "reject-once" && option.kind === "reject_once",
     );
+    if (profile.permissionPolicy === "auto-reject") {
+      if (rejectOption) {
+        return {
+          outcome: {
+            outcome: "selected",
+            optionId: rejectOption.optionId,
+          },
+        };
+      }
+      return { outcome: { outcome: "cancelled" } };
+    }
     const input = serializeApprovalInput(parsed.data.toolCall.rawInput);
     emit({
       type: "approval",
@@ -363,8 +380,7 @@ export async function streamAcpProviderTurn(args: {
     return {
       ok: false,
       reason: "unknown-request",
-      pendingRequestIds:
-        extensionRuntime.pendingUserInputRequestIds?.() ?? [],
+      pendingRequestIds: extensionRuntime.pendingUserInputRequestIds?.() ?? [],
     };
   });
 
@@ -433,16 +449,19 @@ export async function streamAcpProviderTurn(args: {
         session.modes?.availableModes.map((mode) => mode.id) ?? [],
       );
       if (!availableModeIds.has(profile.requestedMode)) {
-        throw new AcpProtocolError(
-          `${profile.displayName} session did not advertise the requested ${profile.requestedMode} mode.`,
-        );
-      }
-      mapper.setExpectedMode(profile.requestedMode);
-      if (session.modes?.currentModeId !== profile.requestedMode) {
-        await client.setMode({
-          sessionId: session.sessionId,
-          modeId: profile.requestedMode,
-        });
+        if (profile.requestedModeRequired !== false) {
+          throw new AcpProtocolError(
+            `${profile.displayName} session did not advertise the requested ${profile.requestedMode} mode.`,
+          );
+        }
+      } else {
+        mapper.setExpectedMode(profile.requestedMode);
+        if (session.modes?.currentModeId !== profile.requestedMode) {
+          await client.setMode({
+            sessionId: session.sessionId,
+            modeId: profile.requestedMode,
+          });
+        }
       }
     }
 
@@ -454,10 +473,7 @@ export async function streamAcpProviderTurn(args: {
         ? modelConfig.currentValue
         : "auto";
     if (profile.requestedModel !== "auto") {
-      if (
-        profile.modelSetter === "legacy-set-model" &&
-        !modelConfig
-      ) {
+      if (profile.modelSetter === "legacy-set-model" && !modelConfig) {
         await client.setModel({
           sessionId: session.sessionId,
           modelId: profile.requestedModel,
