@@ -20,6 +20,7 @@ import {
 } from "@/lib/providers/advisor";
 import { normalizeWorkerConfigByProvider } from "@/lib/providers/worker-mode";
 import { normalizeModelRuntimePreferences } from "@/lib/providers/model-runtime-preferences";
+import { normalizeModelVisibility } from "@/lib/providers/model-visibility";
 import {
   normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
@@ -56,7 +57,9 @@ import {
 } from "@/store/auto-routing";
 import {
   defaultSettings,
+  normalizeCursorApprovalMode,
   normalizeCursorMode,
+  normalizeKiroApprovalMode,
   normalizeKiroEffort,
   normalizeBorderBeamSize,
   normalizeBorderBeamStrength,
@@ -158,6 +161,9 @@ export function createAppStorePersistenceOptions() {
       });
       state.settings.modelRuntimePreferences = normalizeModelRuntimePreferences(
         raw.modelRuntimePreferences,
+      );
+      state.settings.modelVisibility = normalizeModelVisibility(
+        raw.modelVisibility,
       );
       state.settings.infoPanelSectionVisibility =
         normalizeWorkspaceInformationSectionVisibility(
@@ -443,6 +449,12 @@ export function createAppStorePersistenceOptions() {
       );
       state.settings.kiroEffort = normalizeKiroEffort(
         state.settings.kiroEffort,
+      );
+      state.settings.cursorApprovalMode = normalizeCursorApprovalMode(
+        state.settings.cursorApprovalMode,
+      );
+      state.settings.kiroApprovalMode = normalizeKiroApprovalMode(
+        state.settings.kiroApprovalMode,
       );
       state.settings.modelCursor =
         typeof state.settings.modelCursor === "string" &&

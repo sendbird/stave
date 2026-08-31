@@ -45,7 +45,28 @@ remains the offline fallback; a configured model is applied only when the
 active ACP session advertises the same value. Tool permissions use one-turn
 allow or reject choices, questions preserve provider option ids, and plan
 creation can pause the active turn for approval or revision in the plan
-viewer.
+viewer. Approval option ids are selected by the protocol `kind`, not by id text,
+because Cursor advertises `allow-once`/`reject-once` while Kiro advertises
+`allow_once`/`reject_once`.
+
+Cursor parameters that the session advertises only one value for render as plain
+labels instead of controls. `session/set_model` rejects any value the session
+did not advertise, so a segmented control with one reachable value would imply a
+choice the runtime does not accept.
+
+Cursor approval autonomy is a process flag on the ACP subcommand, not an ACP
+parameter, so it applies for the whole session:
+
+- `Manual`: no flags. Every tool call raises `session/request_permission`.
+- `Guided`: `--auto-review`. Cursor's server-side classifier runs what it judges
+  safe and asks for the rest. Which calls that covers is decided by Cursor, so
+  Stave cannot predict it; shell execution was still prompted when this was
+  verified.
+- `Auto`: `--force --approve-mcps`. No permission requests are sent at all.
+
+These flags are accepted by `agent acp` even though `agent acp --help` does not
+list them. Verify them against the installed CLI on upgrade. Worker runs always
+use `Manual` so a nested Worker cannot inherit the primary turn's grant.
 
 The composer consumes a provider-neutral model-catalog interface. Static
 catalogs and runtime adapters are normalized before the searchable provider
@@ -74,9 +95,24 @@ the normalized runtime catalog bridge after a non-interactive authentication
 check. `Auto` is the offline fallback. When the
 active ACP session exposes a stable model configuration option, Stave uses it;
 otherwise the Kiro profile uses the documented `session/set_model` method.
-Prompt content uses Kiro's documented ACP `content` parameter. Kiro reasoning
-effort is independent of the model value and is passed to the ACP process with
-`--effort`; the composer remembers that choice per Kiro model.
+Prompt content uses the ACP `prompt` parameter. `kiro-cli 2.20.1` never answers
+a `session/prompt` request that carries `content` instead, so that request shape
+stalls the turn until the decision timer fires rather than failing loudly. Kiro
+reasoning effort is independent of the model value and is passed to the ACP
+process with `--effort`; the composer remembers that choice per Kiro model.
+
+Kiro approval autonomy is also a process flag:
+
+- `Manual`: no flag. Every tool call raises `session/request_permission`.
+- `Auto`: `--trust-all-tools`. No permission requests are sent at all.
+
+There is deliberately no middle tier. `--trust-tools` accepts unknown tool names
+without reporting an error, so a partial-trust preset could silently trust
+nothing while presenting as a middle ground. Worker runs always use `Manual`.
+
+Kiro's ACP `modes` are agent personas (`kiro_default`, `kiro_planner`,
+`kiro_guide`, and any user-defined agents), not approval modes, and depend on the
+user's own Kiro configuration. Stave does not map its plan toggle onto them.
 
 Kiro is intentionally excluded from Advisor, secondary and unattended runs,
 routines, standalone CLI tabs, native thread actions, and mid-turn steering.
@@ -653,10 +689,12 @@ If you want the user-facing setup workflow instead of the runtime internals, use
   - `high`: more deliberate, slower, better for hard tasks.
   - `xhigh`: deeper than `high` when supported by the active Claude model.
   - `max`: highest deliberation and the most latency on models that support it.
-- Example mode presets
-  - `Manual`: `acceptEdits` + sandbox on + unsandboxed off
-  - `Guided`: `auto` + sandbox off + unsandboxed on
-  - `Auto`: `bypassPermissions` + dangerous skip on + unsandboxed on
+- Mode presets
+  - `Manual`: `default` + sandbox on + unsandboxed off + dangerous skip off
+  - `Guided`: `acceptEdits` + sandbox off + unsandboxed on + dangerous skip off
+  - `Auto`: `auto` + sandbox off + unsandboxed on + dangerous skip off
+  - `bypassPermissions`, `plan`, and `dontAsk` are reachable only from the
+    Permission Mode field and always present as `Custom`.
 
 In the chat composer, Stave now shows the active provider mode as a pill beside the model selector and keeps the detailed runtime values in the `Runtime` drawer. Inline runtime adjustments no longer happen there; the editable controls live in Settings.
 

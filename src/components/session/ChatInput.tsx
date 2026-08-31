@@ -78,10 +78,16 @@ import {
 import {
   CLAUDE_PROVIDER_MODE_PRESETS,
   CODEX_PROVIDER_MODE_PRESETS,
+  CURSOR_PROVIDER_MODE_PRESETS,
+  KIRO_PROVIDER_MODE_PRESETS,
   detectClaudeProviderModePreset,
   detectCodexProviderModePreset,
+  detectCursorProviderModePreset,
+  detectKiroProviderModePreset,
   resolveClaudeProviderModePresentation,
   resolveCodexProviderModePresentation,
+  resolveCursorProviderModePresentation,
+  resolveKiroProviderModePresentation,
   type ProviderModePresetDefinition,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
@@ -2260,6 +2266,24 @@ function BaseChatInput() {
                 : modelKiro,
         });
   const cursorMode = useAppStore((state) => state.settings.cursorMode);
+  const cursorApprovalMode = useAppStore((state) =>
+    activeProvider === "cursor"
+      ? applyModelRuntimePreference({
+          settings: state.settings,
+          providerId: activeProvider,
+          model: activeModel,
+        }).cursorApprovalMode
+      : state.settings.cursorApprovalMode,
+  );
+  const kiroApprovalMode = useAppStore((state) =>
+    activeProvider === "kiro"
+      ? applyModelRuntimePreference({
+          settings: state.settings,
+          providerId: activeProvider,
+          model: activeModel,
+        }).kiroApprovalMode
+      : state.settings.kiroApprovalMode,
+  );
   const kiroEffort = useAppStore((state) => {
     if (activeProvider !== "kiro") {
       return "medium" as const;
@@ -2667,6 +2691,25 @@ function BaseChatInput() {
         };
       }
 
+      if (activeProvider === "cursor") {
+        return {
+          providerLabel: "Cursor",
+          ...resolveCursorProviderModePresentation({
+            settings: { cursorApprovalMode },
+            planMode: effectiveCursorMode === "plan",
+          }),
+        };
+      }
+
+      if (activeProvider === "kiro") {
+        return {
+          providerLabel: "Kiro",
+          ...resolveKiroProviderModePresentation({
+            settings: { kiroApprovalMode },
+          }),
+        };
+      }
+
       return null;
     }, [
       activeProvider,
@@ -2678,8 +2721,11 @@ function BaseChatInput() {
       codexFileAccess,
       codexNetworkAccess,
       codexWebSearch,
+      cursorApprovalMode,
       effectiveClaudePermissionMode,
       effectiveCodexPlanMode,
+      effectiveCursorMode,
+      kiroApprovalMode,
     ]);
   const activeProviderModePresetId =
     useMemo<ProviderModePresetId | null>(() => {
@@ -2705,6 +2751,18 @@ function BaseChatInput() {
         });
       }
 
+      if (activeProvider === "cursor") {
+        return detectCursorProviderModePreset({
+          settings: { cursorApprovalMode },
+        });
+      }
+
+      if (activeProvider === "kiro") {
+        return detectKiroProviderModePreset({
+          settings: { kiroApprovalMode },
+        });
+      }
+
       return null;
     }, [
       activeProvider,
@@ -2716,6 +2774,8 @@ function BaseChatInput() {
       codexFileAccess,
       codexNetworkAccess,
       codexWebSearch,
+      cursorApprovalMode,
+      kiroApprovalMode,
     ]);
   const providerModePresets = useMemo(() => {
     if (activeProvider === "claude-code") {
@@ -2724,27 +2784,23 @@ function BaseChatInput() {
     if (activeProvider === "codex") {
       return CODEX_PROVIDER_MODE_PRESETS;
     }
+    if (activeProvider === "cursor") {
+      return CURSOR_PROVIDER_MODE_PRESETS;
+    }
+    if (activeProvider === "kiro") {
+      return KIRO_PROVIDER_MODE_PRESETS;
+    }
     return EMPTY_PROVIDER_MODE_PRESETS;
   }, [activeProvider]);
-  const onProviderModeSelect = useMemo(() => {
-    if (activeProvider === "claude-code") {
-      return (presetId: ProviderModePresetId) =>
-        updateModelRuntimePreference({
-          providerId: activeProvider,
-          model: activeModel,
-          patch: { mode: presetId },
-        });
-    }
-    if (activeProvider === "codex") {
-      return (presetId: ProviderModePresetId) =>
-        updateModelRuntimePreference({
-          providerId: activeProvider,
-          model: activeModel,
-          patch: { mode: presetId },
-        });
-    }
-    return undefined;
-  }, [activeModel, activeProvider, updateModelRuntimePreference]);
+  const onProviderModeSelect = useMemo(
+    () => (presetId: ProviderModePresetId) =>
+      updateModelRuntimePreference({
+        providerId: activeProvider,
+        model: activeModel,
+        patch: { mode: presetId },
+      }),
+    [activeModel, activeProvider, updateModelRuntimePreference],
+  );
 
   useEffect(() => {
     let cancelled = false;

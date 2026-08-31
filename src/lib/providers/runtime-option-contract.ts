@@ -98,6 +98,28 @@ export const CODEX_EFFORT_OPTIONS = [
   NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
 >[];
 
+// Verified against `agent 2026.08.25-3e8eec8`: these map to CLI flags on
+// `agent acp`. The flags are absent from `agent acp --help` but are accepted,
+// and `--force` was confirmed to suppress every `session/request_permission`.
+export const CURSOR_APPROVAL_MODE_OPTIONS = [
+  { value: "manual", label: "Manual" },
+  { value: "guided", label: "Guided" },
+  { value: "auto", label: "Auto" },
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["cursorApprovalMode"]>
+>[];
+
+// Verified against `kiro-cli 2.20.1`: `acp --trust-all-tools` suppresses every
+// permission request. There is deliberately no middle tier — `--trust-tools`
+// accepts unknown tool names without error, so a Guided preset built on it
+// would silently degrade to Manual instead of failing loudly.
+export const KIRO_APPROVAL_MODE_OPTIONS = [
+  { value: "manual", label: "Manual" },
+  { value: "auto", label: "Auto" },
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["kiroApprovalMode"]>
+>[];
+
 export const KIRO_EFFORT_OPTIONS = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
@@ -217,9 +239,11 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexResumeThreadId",
   "cursorBinaryPath",
   "cursorMode",
+  "cursorApprovalMode",
   "cursorResumeSessionId",
   "kiroBinaryPath",
   "kiroEffort",
+  "kiroApprovalMode",
   "kiroResumeSessionId",
   "advisorTarget",
   "advisorConsultLimit",

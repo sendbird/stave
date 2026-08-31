@@ -87,6 +87,35 @@ Use Codex controls when you want to decide:
 - whether network access should remain off
 - whether the turn should stay in planning mode
 
+### Cursor
+
+Cursor exposes approval autonomy as a single Approval Preset, because its CLI
+takes the setting as a process flag for the whole session rather than per tool
+call.
+
+- `Manual`: Cursor asks before every tool call.
+- `Guided`: Cursor's own Auto-review classifier runs the calls it judges safe
+  and asks for the rest. Cursor decides which calls those are, so Stave cannot
+  list them in advance.
+- `Auto`: Cursor runs every tool call and trusts MCP servers without asking.
+
+Cursor has no separate sandbox control in Stave, and the read-only `plan` session
+mode is still driven by the composer's Plan toggle.
+
+### Kiro
+
+Kiro exposes the same Approval Preset with two tiers.
+
+- `Manual`: Kiro asks before every tool call.
+- `Auto`: Kiro auto-approves every tool permission request.
+
+There is no partial-trust tier: Kiro's CLI accepts unknown tool names for a
+partial grant without reporting an error, so Stave does not offer a setting it
+cannot verify.
+
+For both Cursor and Kiro, a Worker run always stays on `Manual` even when the
+primary turn is set to `Auto`, and its approvals surface in the parent turn.
+
 ## Quick Start
 
 1. Open `Settings → Providers`.

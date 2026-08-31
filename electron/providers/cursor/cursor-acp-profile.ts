@@ -38,6 +38,32 @@ import {
 const CURSOR_AUTH_METHOD_ID = "cursor_login";
 const CURSOR_APPROVAL_TIMEOUT_DEFAULT_MS = 45 * 60 * 1000;
 
+/**
+ * Builds the `agent` argument list for one ACP session.
+ *
+ * Approval autonomy is a process flag, not an ACP parameter: the protocol has no
+ * "auto approve" field, so the only lever is how the CLI was started. Verified
+ * against `agent 2026.08.25-3e8eec8` — these flags are accepted by the `acp`
+ * subcommand even though `agent acp --help` does not list them, and `--force`
+ * was observed to stop `session/request_permission` from being sent at all.
+ *
+ * `--approve-mcps` rides with `auto` because a run that cannot stop for a tool
+ * approval also cannot stop for an MCP server trust prompt.
+ */
+export function buildCursorAcpCommandArgs(
+  approvalMode: NonNullable<
+    StreamTurnArgs["runtimeOptions"]
+  >["cursorApprovalMode"],
+) {
+  if (approvalMode === "auto") {
+    return ["acp", "--force", "--approve-mcps"];
+  }
+  if (approvalMode === "guided") {
+    return ["acp", "--auto-review"];
+  }
+  return ["acp"];
+}
+
 type PendingPlan = {
   settle: (result: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -295,7 +321,9 @@ export async function streamCursorWithAcp(
       providerId: "cursor",
       displayName: "Cursor",
       command: executablePath,
-      commandArgs: args.acpArgsForTest ?? ["acp"],
+      commandArgs:
+        args.acpArgsForTest ??
+        buildCursorAcpCommandArgs(args.runtimeOptions?.cursorApprovalMode),
       cwd: runtimeCwd,
       env: buildCursorAgentEnv({ executablePath, baseEnv: secretEnv }),
       resumeSessionId: args.runtimeOptions?.cursorResumeSessionId,
@@ -356,7 +384,9 @@ export async function streamCursorWorkerWithAcp(args: {
       providerId: "cursor",
       displayName: "Cursor Worker",
       command: executablePath,
-      commandArgs: args.acpArgsForTest ?? ["acp"],
+      // Manual on purpose: a nested Worker must not inherit the primary turn's
+      // blanket approval grant. Worker approvals surface in the parent UI.
+      commandArgs: args.acpArgsForTest ?? buildCursorAcpCommandArgs("manual"),
       cwd: runtimeCwd,
       env: buildCursorAgentEnv({ executablePath }),
       resumeSessionId: args.resumeSessionId,

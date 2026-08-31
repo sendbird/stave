@@ -14,6 +14,7 @@ import {
   normalizeAdvisorTargetByProvider,
 } from "@/lib/providers/advisor";
 import { mergeModelRuntimePreferenceSettings } from "@/lib/providers/model-runtime-preferences";
+import { normalizeModelVisibility } from "@/lib/providers/model-visibility";
 import {
   normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
@@ -420,6 +421,11 @@ export function createSettingsActions(args: {
               autoRoutingObjective: normalizeAutoRoutingObjective(
                 patch.autoRoutingObjective,
               ),
+            }),
+        ...(patch.modelVisibility === undefined
+          ? {}
+          : {
+              modelVisibility: normalizeModelVisibility(patch.modelVisibility),
             }),
         ...(patch.autoRoutingEligibleClaudeModels === undefined
           ? {}

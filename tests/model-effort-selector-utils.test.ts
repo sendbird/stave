@@ -7,6 +7,7 @@ import {
   getCursorModelVariant,
   groupCursorModelOptions,
   isClaudeContext1MModel,
+  listDefaultModelOptions,
   listFeaturedModelOptions,
   listModelEfforts,
   resolveClaudeContextOption,
@@ -237,6 +238,87 @@ describe("model effort selector utilities", () => {
       "gpt-5.6-sol",
       "gpt-5.5",
     ]);
+  });
+
+  test("lists only the current model per family before the list is expanded", () => {
+    const options = [
+      option({ providerId: "codex", model: "gpt-5.6-sol" }),
+      option({ providerId: "codex", model: "gpt-5.5" }),
+      option({ providerId: "codex", model: "gpt-5.4" }),
+    ];
+
+    expect(
+      listDefaultModelOptions({ providerId: "codex", options }).map(
+        (candidate) => candidate.model,
+      ),
+    ).toEqual(["gpt-5.6-sol", "gpt-5.5"]);
+  });
+
+  test("applies settings visibility overrides in both directions", () => {
+    const options = [
+      option({ providerId: "codex", model: "gpt-5.6-sol" }),
+      option({ providerId: "codex", model: "gpt-5.5" }),
+      option({ providerId: "codex", model: "gpt-5.4" }),
+    ];
+
+    expect(
+      listDefaultModelOptions({
+        providerId: "codex",
+        options,
+        visibility: {
+          codex: { "gpt-5.6-sol": false, "gpt-5.4": true },
+        },
+      }).map((candidate) => candidate.model),
+    ).toEqual(["gpt-5.5", "gpt-5.4"]);
+  });
+
+  test("keeps the selected model listed even when it is turned off", () => {
+    const options = [
+      option({ providerId: "codex", model: "gpt-5.6-sol" }),
+      option({ providerId: "codex", model: "gpt-5.4" }),
+    ];
+
+    expect(
+      listDefaultModelOptions({
+        providerId: "codex",
+        options,
+        visibility: { codex: { "gpt-5.4": false } },
+        selectedModelKey: "codex:gpt-5.4",
+      }).map((candidate) => candidate.model),
+    ).toEqual(["gpt-5.6-sol", "gpt-5.4"]);
+  });
+
+  test("turns a Cursor row on or off across every advertised variant", () => {
+    const options = [
+      option({ providerId: "cursor", model: "gpt-5.6-sol" }),
+      option({
+        providerId: "cursor",
+        model: "gpt-5.4[context=272k,reasoning=medium,fast=false]",
+      }),
+      option({
+        providerId: "cursor",
+        model: "gpt-5.4[context=272k,reasoning=high,fast=true]",
+      }),
+    ];
+
+    expect(
+      listDefaultModelOptions({
+        providerId: "cursor",
+        options,
+        visibility: { cursor: { "gpt-5.4": true } },
+      }).map((candidate) => candidate.model),
+    ).toEqual([
+      "gpt-5.6-sol",
+      "gpt-5.4[context=272k,reasoning=medium,fast=false]",
+      "gpt-5.4[context=272k,reasoning=high,fast=true]",
+    ]);
+    expect(
+      listDefaultModelOptions({
+        providerId: "cursor",
+        options,
+        visibility: { cursor: { "gpt-5.6-sol": false, "gpt-5.4": false } },
+      }),
+    ).toEqual([]);
   });
 
   test("normalizes context labels without changing ordinary names", () => {

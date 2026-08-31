@@ -90,11 +90,13 @@ input.on("line", (line) => {
   }
 
   const params = message.params as Record<string, unknown> | undefined;
-  if (!Array.isArray(params?.content)) {
+  // Verified against kiro-cli 2.20.1: `session/prompt` takes `prompt`, and a
+  // request carrying `content` instead is never answered at all.
+  if (!Array.isArray(params?.prompt)) {
     send({
       jsonrpc: "2.0",
       id,
-      error: { code: -32602, message: "content is required" },
+      error: { code: -32602, message: "prompt is required" },
     });
     return;
   }
@@ -118,12 +120,12 @@ input.on("line", (line) => {
         },
         options: [
           {
-            optionId: "allow-once",
+            optionId: "allow_once",
             name: "Allow once",
             kind: "allow_once",
           },
           {
-            optionId: "reject-once",
+            optionId: "reject_once",
             name: "Reject once",
             kind: "reject_once",
           },

@@ -1,6 +1,8 @@
 import {
   buildClaudeProviderModeSettingsPatch,
   buildCodexProviderModeSettingsPatch,
+  buildCursorProviderModeSettingsPatch,
+  buildKiroProviderModeSettingsPatch,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
 import {
@@ -107,7 +109,12 @@ function parseModelRuntimePreferenceKey(key: string): {
   providerId: ProviderId;
   model: string;
 } | null {
-  for (const providerId of ["claude-code", "codex", "kiro"] as const) {
+  for (const providerId of [
+    "claude-code",
+    "codex",
+    "cursor",
+    "kiro",
+  ] as const) {
     const prefix = `${providerId}:`;
     if (key.startsWith(prefix) && key.length > prefix.length) {
       return { providerId, model: key.slice(prefix.length) };
@@ -125,10 +132,10 @@ function normalizeModelRuntimePreference(args: {
   }
 
   const preference: ModelRuntimePreference = {};
-  if (
-    (args.providerId === "claude-code" || args.providerId === "codex") &&
-    MODE_PRESETS.has(args.value.mode as ProviderModePresetId)
-  ) {
+  // Every provider now carries an approval preset, so `mode` is no longer
+  // claude/codex-only. Kiro has no `guided` tier; the patch builder collapses it
+  // to `manual` rather than silently widening a stale preference.
+  if (MODE_PRESETS.has(args.value.mode as ProviderModePresetId)) {
     preference.mode = args.value.mode as ProviderModePresetId;
   }
   if (isProviderEffort(args.providerId, args.value.effort)) {
@@ -264,7 +271,13 @@ export function applyModelRuntimePreference<
   }
 
   if (args.providerId === "cursor") {
-    return args.settings;
+    if (!preference?.mode) {
+      return args.settings;
+    }
+    return {
+      ...args.settings,
+      ...buildCursorProviderModeSettingsPatch({ presetId: preference.mode }),
+    };
   }
 
   if (args.providerId === "kiro") {
@@ -275,7 +288,13 @@ export function applyModelRuntimePreference<
     if (!preference && kiroEffort === args.settings.kiroEffort) {
       return args.settings;
     }
-    return { ...args.settings, kiroEffort };
+    return {
+      ...args.settings,
+      ...(preference?.mode
+        ? buildKiroProviderModeSettingsPatch({ presetId: preference.mode })
+        : {}),
+      kiroEffort,
+    };
   }
 
   const codexReasoningEffort = clampCodexEffortToModel({

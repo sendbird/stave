@@ -17,10 +17,29 @@ import { createKiroExtensionRuntime } from "./kiro-acp-extensions";
 
 const KIRO_APPROVAL_TIMEOUT_DEFAULT_MS = 45 * 60 * 1000;
 
+/**
+ * Builds the `kiro-cli` argument list for one ACP session.
+ *
+ * Approval autonomy is a process flag rather than an ACP parameter. Verified
+ * against `kiro-cli 2.20.1`: `--trust-all-tools` stops every
+ * `session/request_permission` from being sent.
+ *
+ * There is no Guided tier. `--trust-tools` accepts unknown tool names without
+ * an error, so a partial-trust tier could silently trust nothing while
+ * presenting as a middle ground.
+ */
 export function buildKiroAcpCommandArgs(
   effort: NonNullable<StreamTurnArgs["runtimeOptions"]>["kiroEffort"],
+  approvalMode?: NonNullable<
+    StreamTurnArgs["runtimeOptions"]
+  >["kiroApprovalMode"],
 ) {
-  return ["acp", "--effort", effort ?? "medium"];
+  return [
+    "acp",
+    "--effort",
+    effort ?? "medium",
+    ...(approvalMode === "auto" ? ["--trust-all-tools"] : []),
+  ];
 }
 
 function unavailableEvents(message: string): BridgeEvent[] {
@@ -125,13 +144,15 @@ export async function streamKiroWithAcp(
       command: executablePath,
       commandArgs:
         args.acpArgsForTest ??
-        buildKiroAcpCommandArgs(args.runtimeOptions?.kiroEffort),
+        buildKiroAcpCommandArgs(
+          args.runtimeOptions?.kiroEffort,
+          args.runtimeOptions?.kiroApprovalMode,
+        ),
       cwd: runtimeCwd,
       env: buildKiroCliEnv({ executablePath, baseEnv: secretEnv }),
       resumeSessionId: args.runtimeOptions?.kiroResumeSessionId,
       requestedModel: args.runtimeOptions?.model?.trim() || "auto",
       modelSetter: "legacy-set-model",
-      promptParameterName: "content",
       authenticationHelp:
         "Run `kiro-cli login` if authentication has expired.",
       decisionTimeoutMs: parsePositiveIntEnv({
@@ -184,14 +205,16 @@ export async function streamKiroWorkerWithAcp(args: {
       providerId: "kiro",
       displayName: "Kiro Worker",
       command: executablePath,
+      // Manual on purpose: a nested Worker must not inherit the primary turn's
+      // blanket approval grant. Worker approvals surface in the parent UI.
       commandArgs:
-        args.acpArgsForTest ?? buildKiroAcpCommandArgs(args.effort),
+        args.acpArgsForTest ??
+        buildKiroAcpCommandArgs(args.effort, "manual"),
       cwd: runtimeCwd,
       env: buildKiroCliEnv({ executablePath }),
       resumeSessionId: args.resumeSessionId,
       requestedModel: args.model.trim() || "auto",
       modelSetter: "legacy-set-model",
-      promptParameterName: "content",
       authenticationHelp:
         "Run `kiro-cli login` if authentication has expired.",
       decisionTimeoutMs: parsePositiveIntEnv({

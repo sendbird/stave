@@ -1,4 +1,5 @@
 import { resolveCodexAppServerReasoningEffort } from "@/lib/providers/codex-runtime-options";
+import { describeCursorModel } from "@/lib/providers/cursor-model-id";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import {
   CLAUDE_EFFORT_OPTIONS,
@@ -46,12 +47,32 @@ export function resolveTurnModelInfo(args: {
   };
 }
 
-export function getTurnModelInfoLabel(
+export interface TurnModelInfoParts {
+  /** Model name on its own, with no configuration suffix. */
+  name: string;
+  /** Configuration this turn ran with, one short label per value. */
+  details: string[];
+}
+
+/**
+ * Splits a turn's model notation into a name plus its configuration labels.
+ *
+ * Cursor is the reason this is structured rather than a single string: it
+ * carries effort, context, thinking, and fast inside the model id, so the only
+ * way to avoid printing `auto-smart[optimize_for=balanced]` verbatim is to parse
+ * the id and render the pieces separately. Every other provider reports
+ * configuration through `modelInfo`, which was already separate.
+ */
+export function getTurnModelInfoParts(
   message: Pick<ChatMessage, "model" | "providerId" | "modelInfo">,
-) {
-  const labels = [toHumanModelName({ model: message.model })];
+): TurnModelInfoParts {
+  if (message.providerId === "cursor") {
+    return describeCursorModel(message.model);
+  }
+
+  const name = toHumanModelName({ model: message.model });
   if (!message.modelInfo || message.providerId === "user") {
-    return labels[0] ?? message.model;
+    return { name: name || message.model, details: [] };
   }
 
   const effortOptions =
@@ -60,10 +81,21 @@ export function getTurnModelInfoLabel(
       : message.providerId === "kiro"
         ? KIRO_EFFORT_OPTIONS
         : CODEX_EFFORT_OPTIONS;
-  labels.push(findOptionLabel(effortOptions, message.modelInfo.effort));
+  const details = [findOptionLabel(effortOptions, message.modelInfo.effort)];
   if (message.modelInfo.fastMode) {
-    labels.push("Fast");
+    details.push("Fast");
   }
 
-  return labels.join(" · ");
+  return { name, details };
+}
+
+/**
+ * Flattened form of {@link getTurnModelInfoParts}, used for accessible names and
+ * tooltips where a single string is required.
+ */
+export function getTurnModelInfoLabel(
+  message: Pick<ChatMessage, "model" | "providerId" | "modelInfo">,
+) {
+  const { name, details } = getTurnModelInfoParts(message);
+  return [name, ...details].join(" · ");
 }

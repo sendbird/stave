@@ -92,8 +92,10 @@ type RuntimeSettings = Pick<
   | "codexPlanMode"
   | "cursorBinaryPath"
   | "cursorMode"
+  | "cursorApprovalMode"
   | "kiroBinaryPath"
   | "kiroEffort"
+  | "kiroApprovalMode"
   | "promptResponseStyle"
   | "promptPrDescription"
   | "promptInlineCompletion"
@@ -398,11 +400,13 @@ export function buildProviderRuntimeOptions(args: {
       : {}),
     cursorBinaryPath: settings.cursorBinaryPath || undefined,
     cursorMode: settings.cursorMode,
+    cursorApprovalMode: settings.cursorApprovalMode,
     ...(args.provider === "cursor" && cursorResumeSessionId
       ? { cursorResumeSessionId }
       : {}),
     kiroBinaryPath: settings.kiroBinaryPath || undefined,
     kiroEffort: settings.kiroEffort,
+    kiroApprovalMode: settings.kiroApprovalMode,
     ...(args.provider === "kiro" && kiroResumeSessionId
       ? { kiroResumeSessionId }
       : {}),
