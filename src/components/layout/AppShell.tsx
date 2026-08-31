@@ -469,7 +469,7 @@ export function AppShell() {
         id: `utility-inference:${feature}`,
         description:
           utility.detail ||
-          "Neither configured provider could complete the read-only utility request.",
+          "No utility runner completed the read-only utility request.",
       });
     };
     window.addEventListener(
@@ -1242,8 +1242,7 @@ export function AppShell() {
     ],
   );
   const showFleetView = activeAppSurface.kind === "fleet-view";
-  const showAutomationCenter =
-    activeAppSurface.kind === "automation-center";
+  const showAutomationCenter = activeAppSurface.kind === "automation-center";
   const showWorkspaceSurface = !showFleetView && !showAutomationCenter;
 
   return (

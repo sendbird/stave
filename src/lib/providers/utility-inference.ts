@@ -5,6 +5,17 @@ import type {
 } from "./provider.types";
 
 export type UtilityInferenceProvider = "auto" | ManagedExecutionProviderId;
+
+/** Mechanical utility runners. Cursor and Kiro are last-resort compatibility tiers. */
+export type UtilityRunnerProviderId =
+  ManagedExecutionProviderId | "cursor" | "kiro";
+
+export const UTILITY_RUNNER_PROVIDER_IDS = [
+  "claude-code",
+  "codex",
+  "cursor",
+  "kiro",
+] as const satisfies readonly UtilityRunnerProviderId[];
 /**
  * The mechanical meta calls. Advisory work belongs to Advisor, not here — the
  * boundary is asserted in `tests/agent-platform-boundaries.test.ts`, which is
@@ -17,19 +28,20 @@ export const UTILITY_INFERENCE_FEATURES = [
   "prompt-enhancement",
 ] as const;
 
-export type UtilityInferenceFeature = (typeof UTILITY_INFERENCE_FEATURES)[number];
+export type UtilityInferenceFeature =
+  (typeof UTILITY_INFERENCE_FEATURES)[number];
 export type UtilityInferenceSelectionReason =
   "explicit" | "active-task" | "fallback";
 
 export type UtilityInferenceAttempt = {
-  providerId: ManagedExecutionProviderId;
+  providerId: UtilityRunnerProviderId;
   model: string;
   ok: boolean;
   detail?: string;
 };
 
 export type UtilityInferenceMetadata = {
-  providerId: ManagedExecutionProviderId | null;
+  providerId: UtilityRunnerProviderId | null;
   model: string | null;
   selectionReason: UtilityInferenceSelectionReason | "unavailable";
   degraded: boolean;

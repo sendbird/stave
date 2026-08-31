@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   classifyUtilityRoute,
   enhanceUtilityPrompt,
+  resolveUtilityInferenceCandidates,
   suggestUtilityCommitMessage,
   suggestUtilityTaskName,
   type UtilityInferenceRunners,
@@ -11,10 +12,12 @@ import { parseRouteClassification } from "../src/lib/providers/utility-inference
 function createRunners(args: {
   claude?: string | Error;
   codex?: string | Error;
+  cursor?: string | Error;
+  kiro?: string | Error;
   calls: string[];
 }): UtilityInferenceRunners {
   const run = async (
-    providerId: "claude-code" | "codex",
+    providerId: "claude-code" | "codex" | "cursor" | "kiro",
     value?: string | Error,
   ) => {
     args.calls.push(providerId);
@@ -28,8 +31,29 @@ function createRunners(args: {
   return {
     "claude-code": () => run("claude-code", args.claude),
     codex: () => run("codex", args.codex),
+    cursor: () => run("cursor", args.cursor),
+    kiro: () => run("kiro", args.kiro),
   };
 }
+
+describe("resolveUtilityInferenceCandidates", () => {
+  test("prefers Claude and Codex before Cursor and Kiro compatibility tiers", () => {
+    expect(
+      resolveUtilityInferenceCandidates({
+        activeProviderId: "cursor",
+      }).map((candidate) => candidate.providerId),
+    ).toEqual(["claude-code", "codex", "cursor", "kiro"]);
+  });
+
+  test("does not treat an active Cursor task as the primary utility runner", () => {
+    const candidates = resolveUtilityInferenceCandidates({
+      activeProviderId: "cursor",
+    });
+    expect(
+      candidates.find((candidate) => candidate.reason === "active-task"),
+    ).toBe(undefined);
+  });
+});
 
 describe("parseRouteClassification", () => {
   test("parses strict route classification JSON", () => {
@@ -123,7 +147,32 @@ describe("provider-neutral utility inference", () => {
     expect(calls).toEqual(["claude-code", "codex"]);
   });
 
-  test("returns diagnostic attempts when neither provider is available", async () => {
+  test("uses Cursor as a last-resort compatibility runner", async () => {
+    const calls: string[] = [];
+    const result = await enhanceUtilityPrompt(
+      {
+        prompt: "fix terminal bug tests too",
+        activeProviderId: "cursor",
+      },
+      createRunners({
+        calls,
+        cursor: "Fix the terminal bug and add regression coverage.",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      prompt: "Fix the terminal bug and add regression coverage.",
+      utility: {
+        providerId: "cursor",
+        selectionReason: "fallback",
+        degraded: true,
+      },
+    });
+    expect(calls).toEqual(["claude-code", "codex", "cursor"]);
+  });
+
+  test("returns diagnostic attempts when no runner is available", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
       { prompt: "fix the terminal" },
@@ -132,8 +181,8 @@ describe("provider-neutral utility inference", () => {
 
     expect(result.ok).toBe(false);
     expect(result.utility.providerId).toBeNull();
-    expect(result.utility.attempts).toHaveLength(2);
-    expect(calls).toEqual(["claude-code", "codex"]);
+    expect(result.utility.attempts).toHaveLength(4);
+    expect(calls).toEqual(["claude-code", "codex", "cursor", "kiro"]);
   });
 
   test("parses route classification through the same provider selection", async () => {

@@ -92,8 +92,7 @@ export interface ProviderDescriptor {
 }
 
 export type ProviderThreadActionCapability =
-  | { supported: true }
-  | { supported: false; reason: string };
+  { supported: true } | { supported: false; reason: string };
 
 export const PROVIDER_DESCRIPTORS = [
   {
@@ -196,7 +195,7 @@ export const PROVIDER_DESCRIPTORS = [
         },
       },
       utilityInference: {
-        supported: false,
+        supported: true,
         defaultModel: "auto",
       },
     },
@@ -237,7 +236,7 @@ export const PROVIDER_DESCRIPTORS = [
         },
       },
       utilityInference: {
-        supported: false,
+        supported: true,
         defaultModel: "auto",
       },
     },
