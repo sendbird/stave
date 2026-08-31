@@ -763,6 +763,7 @@ export const PromptLexicalEditor = forwardRef<
             <ContentEditable
               aria-label="Prompt"
               aria-multiline="true"
+              aria-disabled={props.disabled}
               className={cn(
                 "whitespace-pre-wrap break-words [overflow-wrap:anywhere] outline-none",
                 props.className,

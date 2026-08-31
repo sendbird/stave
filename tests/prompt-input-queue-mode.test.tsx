@@ -136,7 +136,7 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain('aria-label="Enhance prompt"');
     expect(html).toContain("pointer-events-none absolute right-0 top-0");
     expect(html).toContain(
-      "pointer-events-auto h-8 gap-1.5 shadow-sm focus-visible:ring-2 focus-visible:ring-ring/45",
+      "pointer-events-auto h-8 gap-1.5 border-primary/20 bg-primary/[0.07]",
     );
     expect(html).toContain("z-40");
   });

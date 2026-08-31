@@ -71,6 +71,8 @@ async function renderToolbar(
     value?: string;
     onEnhancePrompt?: () => void;
     promptEnhancementPending?: boolean;
+    promptEnhancementRevealing?: boolean;
+    promptEnhancementRevealVersion?: number;
   } = {},
 ) {
   setWindowContext();
@@ -129,7 +131,23 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('aria-label="Enhancing prompt"');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('role="status"');
-    expect(html).toContain("Enhancing…");
+    expect(html).toContain("Enhancing...");
+    expect(html).toContain('data-prompt-enhancement-state="enhancing"');
+    expect(html).toContain('contentEditable="false"');
+  });
+
+  test("keeps the editor locked while the enhanced prompt is revealed", async () => {
+    const html = await renderToolbar({
+      value: "A clearer execution-ready prompt",
+      onEnhancePrompt: () => {},
+      promptEnhancementRevealing: true,
+      promptEnhancementRevealVersion: 1,
+    });
+
+    expect(html).toContain('aria-label="Applying enhanced prompt"');
+    expect(html).toContain("Applying...");
+    expect(html).toContain('data-prompt-enhancement-state="applying"');
+    expect(html).toContain('contentEditable="false"');
   });
 
   test("renders every control and no tray button by default", async () => {
