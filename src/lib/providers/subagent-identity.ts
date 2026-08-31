@@ -1,3 +1,7 @@
+import {
+  describeToolOperationLabel,
+  isPlaceholderToolName,
+} from "@/lib/providers/tool-activity";
 import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
 
 /**
@@ -54,19 +58,28 @@ export function isSubagentToolName(toolName: string) {
   return (
     normalized === "agent" ||
     normalized === "task" ||
+    // ACP agents (Cursor, Kiro) name the delegation tool `Worker`. Without this
+    // the row kept the plain-tool icon and the work graph never grew a node for
+    // a delegation it was told about.
+    normalized === "worker" ||
     normalized.endsWith("spawnagent")
   );
 }
 
 /** `mcp__server__do_thing` / `collaboration.spawn_agent` → action-oriented copy. */
 export function formatToolDisplayName(toolName: string) {
-  if (!toolName.trim()) {
+  // A placeholder is what a runtime sends when the provider named no tool. It
+  // is not a name, so it must not become a row reading "tool".
+  if (!toolName.trim() || isPlaceholderToolName(toolName)) {
     return undefined;
   }
   if (isStaveToolName(toolName)) {
     return truncateWorkText(toStaveToolDisplayName(toolName));
   }
-  const segments = toolName.trim().split(/__|\./).filter(Boolean);
+  // `:` splits alongside `__` and `.` because Codex namespaces MCP tools as
+  // `server:tool` where Claude uses `mcp__server__tool`. Without it a Codex MCP
+  // row read `ibis:ibis create page` against Claude's `ibis create page`.
+  const segments = toolName.trim().split(/__|:|\./).filter(Boolean);
   const lastSegment = segments.at(-1) ?? toolName;
   return truncateWorkText(lastSegment.replace(/_/g, " "));
 }
@@ -75,15 +88,29 @@ export function resolveToolTitle(
   toolName: string,
   input: string,
   currentTitle?: string,
+  options?: {
+    /**
+     * Delegation rows may take their name from the delegated task. Plain tool
+     * rows may not: `task_name` and `name` are ordinary argument keys for
+     * third-party MCP tools, so honoring them there turned an argument value
+     * into the row title with nothing marking it as such.
+     */
+    isSubagent?: boolean;
+  },
 ) {
   const parsed = parseToolInput(input);
-  const title =
+  const authored =
     truncateWorkText(parsed?.description) ??
-    truncateWorkText(parsed?.task_name) ??
-    truncateWorkText(parsed?.name);
+    (options?.isSubagent
+      ? (truncateWorkText(parsed?.task_name) ?? truncateWorkText(parsed?.name))
+      : undefined);
   return (
-    title ??
+    authored ??
     currentTitle ??
+    // The normalized operation comes before the provider's own token, so one
+    // shell call reads `Run command` whether the provider called it `Bash` or
+    // `bash`. The token itself still reaches the row's provider-specific slot.
+    describeToolOperationLabel(toolName) ??
     formatToolDisplayName(toolName) ??
     "Background work"
   );

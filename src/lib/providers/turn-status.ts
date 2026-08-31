@@ -11,6 +11,11 @@ import {
   resolveToolTitle,
   truncateWorkText,
 } from "@/lib/providers/subagent-identity";
+import {
+  describeToolOperationLabel,
+  isTodoToolName,
+  TOOL_DELEGATION_LABEL,
+} from "@/lib/providers/tool-activity";
 import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import type { ChildTaskSummary } from "@/lib/runs/child-task";
 import {
@@ -73,6 +78,21 @@ export interface ProviderTurnWorkItem {
   updatedAt: number;
   elapsedSeconds?: number;
   workerExecution?: WorkerExecutionMetadata;
+  /**
+   * Hook rows only: the provider's own lifecycle identifiers, kept raw.
+   *
+   * The activity shelf normalizes `hookEvent` into a provider-agnostic row
+   * title and renders these beside it as provider-specific detail, so they are
+   * stored unmapped rather than pre-formatted into `title`/`badge`.
+   */
+  hookEvent?: string;
+  hookSource?: string;
+  /**
+   * Tool rows only: the provider's own tool token, kept raw. The shelf titles
+   * the row from the normalized operation and shows this beside it as
+   * provider-specific detail.
+   */
+  toolName?: string;
 }
 
 export const PROVIDER_TURN_WORK_ITEM_LIMIT = 12;
@@ -608,10 +628,34 @@ function resolveToolDetail(input: string) {
  * What a plain tool call is acting on: the command, the file, or the query.
  * Keeps the shelf informative for edit/run turns that never spawn a subagent.
  */
+/**
+ * `src/foo.ts` for one file, `src/foo.ts +2 more` for a batch.
+ *
+ * A single edit touching several files is one operation, not several: Codex
+ * reports a whole patch as one item and Claude's `MultiEdit` does the same. The
+ * row names the first file and counts the rest rather than growing a row per
+ * path or naming only one of them.
+ */
+function formatPathListPreview(values: unknown) {
+  const paths = Array.isArray(values)
+    ? values.filter((value): value is string => typeof value === "string" && Boolean(value.trim()))
+    : [];
+  const [first] = paths;
+  if (!first) {
+    return undefined;
+  }
+  const preview = formatPathPreview(first);
+  return paths.length > 1 ? `${preview} +${paths.length - 1} more` : preview;
+}
+
 function resolveGeneralToolDetail(input: string) {
   const parsed = parseToolInput(input);
   if (!parsed) {
     return truncateWorkText(input);
+  }
+  const pathList = formatPathListPreview(parsed.paths);
+  if (pathList) {
+    return truncateWorkText(pathList);
   }
   const path =
     typeof parsed.file_path === "string"
@@ -631,6 +675,30 @@ function resolveGeneralToolDetail(input: string) {
   );
 }
 
+/**
+ * Mark a delegation that ran as a configured Worker, without saying it twice.
+ *
+ * The prefix exists because a Worker run is not an ordinary subagent — it has a
+ * preset, a model and an effort of its own, shown in the badge. But it only
+ * earns its place when the title names the delegated work. ACP agents name the
+ * delegation tool `Worker`, and a provider that names nothing leaves the
+ * generic delegation label, so both used to produce a row that said the same
+ * word twice (`Worker · Worker`, `Worker · Delegate work`).
+ */
+function formatWorkerTitle(args: {
+  title: string;
+  workerExecution?: WorkerExecutionMetadata;
+}) {
+  if (!args.workerExecution) {
+    return args.title;
+  }
+  const title = args.title.trim();
+  if (/^worker\b/i.test(title) || title === TOOL_DELEGATION_LABEL) {
+    return "Worker";
+  }
+  return `Worker · ${title}`;
+}
+
 function resolveToolResultDetail(output: string) {
   const parsed = parseToolInput(output);
   const content = Array.isArray(parsed?.content) ? parsed.content : [];
@@ -646,7 +714,11 @@ function resolveToolResultDetail(output: string) {
   return (
     truncateWorkText(contentText) ??
     truncateWorkText(parsed?.message) ??
-    truncateWorkText(output)
+    // A parsed object that matched no known text field is a provider's internal
+    // result payload (Codex returns thread ids and agent state). Showing it raw
+    // put a JSON blob in the detail line, so the row keeps its input-derived
+    // detail instead.
+    (parsed ? undefined : truncateWorkText(output))
   );
 }
 
@@ -824,7 +896,8 @@ function applyTurnWorkEvents(args: {
     if (event.type === "hook_activity") {
       const id = `hook:${event.hookId}`;
       const currentItem = workItemsById[id];
-      const badge = truncateWorkText(event.hookEvent);
+      const hookEvent = truncateWorkText(event.hookEvent);
+      const hookSource = truncateWorkText(event.hookSource ?? "");
       upsertItem({
         id,
         kind: "hook",
@@ -835,10 +908,11 @@ function applyTurnWorkEvents(args: {
               ? "completed"
               : "failed",
         title: truncateWorkText(event.hookName) ?? "Provider hook",
-        ...(badge ? { badge } : {}),
         progressMessages: [],
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
+        ...(hookEvent ? { hookEvent } : {}),
+        ...(hookSource ? { hookSource } : {}),
       });
       continue;
     }
@@ -870,6 +944,12 @@ function applyTurnWorkEvents(args: {
     }
 
     if (event.type === "tool" && event.toolUseId) {
+      // Todos already have their own rows in the shelf, built from the todo
+      // list itself. A `TodoWrite` row would say the same thing a second time
+      // while consuming one of the three plain-tool slots.
+      if (isTodoToolName(event.toolName)) {
+        continue;
+      }
       const currentItem = workItemsById[event.toolUseId];
       const isSubagent = isSubagentToolName(event.toolName);
       const kind = isSubagent ? "subagent" : (currentItem?.kind ?? "tool");
@@ -882,12 +962,18 @@ function applyTurnWorkEvents(args: {
       const badge = workerExecution
         ? formatWorkerExecutionMetadata(workerExecution)
         : resolveSubagentBadge(event.input) ?? currentItem?.badge;
-      const resolvedTitle = resolveToolTitle(event.toolName, event.input, currentItem?.title);
+      const resolvedTitle = resolveToolTitle(
+        event.toolName,
+        event.input,
+        currentItem?.title,
+        { isSubagent: kind === "subagent" },
+      );
+      const toolName = truncateWorkText(event.toolName);
       upsertItem({
         id: event.toolUseId,
         kind,
         status: resolveToolStatus(event.state),
-        title: workerExecution ? `Worker · ${resolvedTitle}` : resolvedTitle,
+        title: formatWorkerTitle({ title: resolvedTitle, workerExecution }),
         detail: eventDetail ?? currentItem?.detail,
         ...(badge ? { badge } : {}),
         toolUseId: event.toolUseId,
@@ -896,6 +982,7 @@ function applyTurnWorkEvents(args: {
         updatedAt: args.now,
         elapsedSeconds: currentItem?.elapsedSeconds,
         ...(workerExecution ? { workerExecution } : {}),
+        ...(toolName ? { toolName } : {}),
       });
       continue;
     }
@@ -909,6 +996,7 @@ function applyTurnWorkEvents(args: {
         status: "running",
         title:
           currentItem?.title ??
+          describeToolOperationLabel(event.toolName) ??
           formatToolDisplayName(event.toolName) ??
           "Background work",
         detail: currentItem?.detail,

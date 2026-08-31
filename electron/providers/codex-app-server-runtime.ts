@@ -142,6 +142,10 @@ import {
   getCodexVersionCapabilities,
 } from "./codex-runtime-capabilities";
 import { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
+import {
+  buildCodexFileChangeToolEvent,
+  emitCodexFileChangeEvents,
+} from "./codex-file-change-mapping";
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 import { createProviderBrowserConnectionTracker, parseProviderBrowserDomains, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
@@ -2585,6 +2589,8 @@ export async function streamCodexWithAppServer(
     // update) and a long-running command stays invisible until it finishes —
     // exactly the window where "what is it doing" matters most.
     const startedCommandExecutionIds = new Set<string>();
+    /** Same opener contract as commands, for Codex's file edits. */
+    const startedFileChangeIds = new Set<string>();
     const workerActivity = createCodexWorkerActivityMapper({
       workerExecution,
       inputMaxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
@@ -3277,6 +3283,20 @@ export async function streamCodexWithAppServer(
             });
             return;
           }
+          if (startedItem?.type === "fileChange") {
+            if (!startedItemId || startedFileChangeIds.has(startedItemId)) {
+              return;
+            }
+            const openEvent = buildCodexFileChangeToolEvent({
+              itemId: startedItemId,
+              item: params.item as { changes?: Array<{ path?: string }> },
+            });
+            if (openEvent) {
+              startedFileChangeIds.add(startedItemId);
+              emitBridgeEvent(openEvent);
+            }
+            return;
+          }
           const item = params.item as CodexMcpToolCallItem | undefined;
           if (item?.type !== "mcpToolCall") {
             return;
@@ -3679,40 +3699,13 @@ export async function streamCodexWithAppServer(
               return;
             }
             case "fileChange": {
-              const fileChangeItem = item as {
-                changes?: Array<{ path?: string }>;
-                status?: string;
-              };
-              if (fileChangeItem.status === "failed") {
-                emitBridgeEvent({
-                  type: "error",
-                  message: `File change failed: ${(fileChangeItem.changes ?? [])
-                    .map((change) => change.path ?? "")
-                    .filter(Boolean)
-                    .join(", ")}`,
-                  recoverable: false,
-                });
-                return;
-              }
-              const changedPaths = (fileChangeItem.changes ?? [])
-                .map((change) => change.path ?? "")
-                .filter(Boolean);
-              void diffTracker
-                .buildDiffEvents({ changedPaths })
-                .then(({ diffEvents, unresolvedPaths }) => {
-                  const fallbackEvents = diffTracker.buildFallbackEvents({
-                    appliedPaths: diffEvents.length === 0 ? changedPaths : [],
-                    skippedPaths: unresolvedPaths,
-                  });
-                  emitBridgeEvents([...diffEvents, ...fallbackEvents]);
-                })
-                .catch(() => {
-                  emitBridgeEvents(
-                    diffTracker.buildFallbackEvents({
-                      appliedPaths: changedPaths,
-                    }),
-                  );
-                });
+              emitCodexFileChangeEvents({
+                itemId,
+                item: item as { changes?: Array<{ path?: string }>; status?: string },
+                alreadyStarted: Boolean(itemId && startedFileChangeIds.delete(itemId)),
+                diffTracker,
+                emit: emitBridgeEvents,
+              });
               return;
             }
             case "todo_list": {

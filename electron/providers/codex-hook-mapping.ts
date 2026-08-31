@@ -27,11 +27,18 @@ export function mapCodexHookNotificationToBridgeEvent(
           : rawStatus === "stopped"
             ? "cancelled"
             : "running";
+  // `hookName` carries the handler's kind and `hookSource` the file it came
+  // from, rather than one pre-joined `command: /abs/path` string. The activity
+  // shelf titles rows from the normalized hook event and renders these as
+  // provider-specific detail, so it needs them apart. `run.command` and
+  // `run.entries` stay omitted: hook commands and output must not reach the
+  // renderer.
   return {
     type: "hook_activity",
     hookId,
-    hookName: sourcePath ? `${handlerType}: ${sourcePath}` : handlerType,
+    hookName: handlerType,
     hookEvent,
+    ...(sourcePath ? { hookSource: sourcePath } : {}),
     status,
   };
 }

@@ -4,10 +4,16 @@ import {
   type AdvisorExchangeSnapshot,
 } from "@/lib/providers/advisor-activity";
 import {
+  describeHookEventLabel,
+  formatHookSourcePreview,
+  normalizeHookEventToken,
+} from "@/lib/providers/hook-activity";
+import {
   getProviderLabel,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import { truncateWorkText } from "@/lib/providers/subagent-identity";
+import { resolveToolProviderDetail } from "@/lib/providers/tool-activity";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
@@ -47,6 +53,17 @@ export interface TurnActivityItem {
   status: TurnActivityRowStatus;
   title: string;
   detail?: string;
+  /**
+   * Content only this provider can express, kept out of `title` and `detail`.
+   *
+   * `title` and `detail` are normalized so the same turn reads the same way on
+   * every provider. Raw provider vocabulary — a hook's own event token, the
+   * file a handler was declared in — still matters when something misbehaves,
+   * so it rides in its own field and the row gives it its own visually
+   * distinct slot. A reader can then tell which half of a row is Stave's
+   * normalization and which half is the provider talking.
+   */
+  providerDetail?: string;
   badge?: string;
   elapsedSeconds?: number;
   /**
@@ -376,6 +393,177 @@ function resolveWorkItemStartOffsetSeconds(args: {
   return offsetMs > 0 ? offsetMs / 1000 : 0;
 }
 
+/** At most this many distinct provider values are named before a `+N` tail. */
+const HOOK_PROVIDER_DETAIL_VALUE_LIMIT = 2;
+
+interface HookActivityGroup {
+  /** The work item whose position in the list the group row inherits. */
+  leader: ProviderTurnWorkItem;
+  items: ProviderTurnWorkItem[];
+}
+
+/**
+ * Fold a turn's hook runs into one row per lifecycle moment.
+ *
+ * A single hooks file routinely declares several handlers for the same event, and
+ * providers report each handler run separately. Rendering one row per run filled
+ * the shelf with rows whose labels were identical — the old presentation had to
+ * invent `handler 1 ·` / `handler 2 ·` ordinals just to keep them apart, which
+ * spent the row's most valuable characters on a number that means nothing to the
+ * reader. Grouping states the moment once and counts the handlers instead, which
+ * is both shorter and the thing someone actually wants to know.
+ *
+ * Grouping is by canonical event so it behaves identically across providers.
+ * Runs the provider left unnamed fall back to their own label, so they never
+ * collapse into one meaningless bucket with unrelated hooks.
+ */
+function groupHookWorkItems(workItems: ProviderTurnWorkItem[]) {
+  const groups = new Map<string, HookActivityGroup>();
+  const groupKeyByItemId = new Map<string, string>();
+  for (const item of workItems) {
+    if (item.kind !== "hook") {
+      continue;
+    }
+    const token = item.hookEvent ?? "";
+    const key = describeHookEventLabel(token)
+      ? `event:${normalizeHookEventToken(token)}`
+      : `label:${item.title}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      groups.set(key, { leader: item, items: [item] });
+    }
+    groupKeyByItemId.set(item.id, key);
+  }
+  return { groups, groupKeyByItemId };
+}
+
+/** `a, b (+2)` — distinct values, capped so the provider line stays one line. */
+function joinDistinctHookValues(values: (string | null | undefined)[]) {
+  const distinct = [
+    ...new Set(
+      values.filter((value): value is string => Boolean(value && value.trim())),
+    ),
+  ];
+  if (distinct.length === 0) {
+    return null;
+  }
+  const shown = distinct.slice(0, HOOK_PROVIDER_DETAIL_VALUE_LIMIT);
+  const hidden = distinct.length - shown.length;
+  return hidden > 0 ? `${shown.join(", ")} (+${hidden})` : shown.join(", ");
+}
+
+function resolveHookGroupStatus(
+  items: ProviderTurnWorkItem[],
+): TurnActivityRowStatus {
+  let status: TurnActivityRowStatus = "completed";
+  for (const item of items) {
+    if (
+      TURN_ACTIVITY_STATUS_ORDER[item.status] <
+      TURN_ACTIVITY_STATUS_ORDER[status]
+    ) {
+      status = item.status;
+    }
+  }
+  return status;
+}
+
+/**
+ * One hook row: a normalized title and count, then the provider's own tokens.
+ *
+ * The title names the moment in the turn (`Session start hook`), the badge
+ * counts the handlers, and everything the provider phrased itself — its event
+ * token, the handler kind, the declaring file — goes to `providerDetail` so the
+ * row never presents a provider identifier as if it were normalized content.
+ */
+function describeHookActivityItem(args: {
+  group: HookActivityGroup;
+  turnStartedAt: number | null;
+}): TurnActivityItem {
+  const { leader, items } = args.group;
+  const count = items.length;
+  const eventLabel = describeHookEventLabel(leader.hookEvent ?? "");
+  const status = resolveHookGroupStatus(items);
+  const failedCount = items.filter((item) => item.status === "failed").length;
+
+  // A provider that names no event still gets a readable row. Claude labels
+  // such runs descriptively ("Hook feedback"), so that label is kept; a run
+  // that instead reports the file it was declared in is identified by its own
+  // label only in `providerDetail`, because that label is a handler *kind*
+  // ("command") and reads as nothing on its own.
+  const title = eventLabel
+    ? `${eventLabel} ${count > 1 ? "hooks" : "hook"}`
+    : count > 1 || leader.hookSource
+      ? `Provider hook${count > 1 ? "s" : ""}`
+      : leader.title;
+  const detail =
+    failedCount === 0
+      ? undefined
+      : count > 1
+        ? `${failedCount} of ${count} handlers failed`
+        : "Handler failed";
+  // Raw token first: it is the string that appears in the provider's own logs
+  // and hook config. Dropped when the normalized label is only a re-casing of
+  // it (`sessionStart` -> `Session start`), because then it adds a second
+  // spelling of the row title and no information.
+  const rawEventToken =
+    eventLabel &&
+    leader.hookEvent &&
+    normalizeHookEventToken(leader.hookEvent) !==
+      normalizeHookEventToken(eventLabel)
+      ? leader.hookEvent
+      : null;
+  const providerDetailSegments = [
+    rawEventToken,
+    joinDistinctHookValues(items.map((item) => item.title)),
+    joinDistinctHookValues(
+      items.map((item) =>
+        item.hookSource ? formatHookSourcePreview(item.hookSource) : null,
+      ),
+    ),
+  ].filter((segment): segment is string => Boolean(segment));
+  const joinedProviderDetail = providerDetailSegments.join(" · ");
+  // A provider whose only extra vocabulary is the label already used as the
+  // title has nothing provider-specific left to show.
+  const providerDetail =
+    joinedProviderDetail && joinedProviderDetail !== title
+      ? joinedProviderDetail
+      : null;
+
+  const elapsedCandidates = items
+    .map((item) => resolveWorkItemElapsedSeconds(item))
+    .filter((value): value is number => value != null);
+  const startOffsetCandidates = items
+    .map((item) =>
+      resolveWorkItemStartOffsetSeconds({
+        item,
+        turnStartedAt: args.turnStartedAt,
+      }),
+    )
+    .filter((value): value is number => value != null);
+
+  return {
+    id: `work:${leader.id}`,
+    status,
+    title: truncateWorkText(title) ?? "Provider hook",
+    ...(detail ? { detail } : {}),
+    ...(providerDetail
+      ? { providerDetail: truncateWorkText(providerDetail) ?? providerDetail }
+      : {}),
+    ...(count > 1 ? { badge: `${count} handlers` } : {}),
+    // The group spans every handler run, so it reports the longest handler and
+    // the earliest start rather than an arbitrary member's numbers.
+    ...(elapsedCandidates.length > 0
+      ? { elapsedSeconds: Math.max(...elapsedCandidates) }
+      : {}),
+    ...(startOffsetCandidates.length > 0
+      ? { startOffsetSeconds: Math.min(...startOffsetCandidates) }
+      : {}),
+    iconKey: "hook",
+  };
+}
+
 function resolveTodoStatus(todo: TurnActivityTodo): TurnActivityRowStatus {
   if (todo.status === "completed") {
     return "completed";
@@ -423,17 +611,8 @@ export function buildTurnActivityItems(args: {
   hasPendingInteractionCard?: boolean;
 }): TurnActivityItem[] {
   const items: TurnActivityItem[] = [];
-  // Providers can run several handlers from one hook file. Keep every status
-  // row while giving otherwise identical labels stable, visible ordinals.
-  const hookLabelCounts = new Map<string, number>();
-  for (const item of args.workItems) {
-    if (item.kind !== "hook") {
-      continue;
-    }
-    const key = JSON.stringify([item.title, item.badge ?? null]);
-    hookLabelCounts.set(key, (hookLabelCounts.get(key) ?? 0) + 1);
-  }
-  const hookLabelOrdinals = new Map<string, number>();
+  const { groups: hookGroups, groupKeyByItemId: hookGroupKeyByItemId } =
+    groupHookWorkItems(args.workItems);
   if (args.activity?.turnError) {
     const isRecovering =
       args.activity.turnErrorRecoverable === true &&
@@ -488,16 +667,32 @@ export function buildTurnActivityItems(args: {
     );
   }
   for (const item of args.workItems) {
-    let title = item.title;
     if (item.kind === "hook") {
-      const key = JSON.stringify([item.title, item.badge ?? null]);
-      if ((hookLabelCounts.get(key) ?? 0) > 1) {
-        const ordinal = (hookLabelOrdinals.get(key) ?? 0) + 1;
-        hookLabelOrdinals.set(key, ordinal);
-        title =
-          truncateWorkText(`handler ${ordinal} · ${item.title}`) ?? item.title;
+      // Hook runs render as one row per lifecycle moment. The group takes the
+      // slot of its first member so hook rows keep their place in the turn's
+      // timeline; later members are already folded into it.
+      const groupKey = hookGroupKeyByItemId.get(item.id);
+      const group = groupKey ? hookGroups.get(groupKey) : undefined;
+      if (!group || group.leader.id !== item.id) {
+        continue;
       }
+      items.push(
+        describeHookActivityItem({
+          group,
+          turnStartedAt: args.turnStartedAt ?? null,
+        }),
+      );
+      continue;
     }
+    const title = item.title;
+    // The provider's own tool token, in the slot reserved for content the
+    // normalized half of the row cannot express. Suppressed when the title was
+    // derived from that same token, so it never reads as an echo.
+    const providerDetail = item.toolName
+      ? truncateWorkText(
+          resolveToolProviderDetail({ toolName: item.toolName, title }) ?? "",
+        )
+      : undefined;
     const elapsedSeconds = resolveWorkItemElapsedSeconds(item);
     const startOffsetSeconds = resolveWorkItemStartOffsetSeconds({
       item,
@@ -508,16 +703,12 @@ export function buildTurnActivityItems(args: {
       status: item.status,
       title,
       detail: item.progressMessages.at(-1) ?? item.detail,
+      ...(providerDetail ? { providerDetail } : {}),
       ...(item.badge ? { badge: item.badge } : {}),
       ...(elapsedSeconds != null ? { elapsedSeconds } : {}),
       ...(startOffsetSeconds != null ? { startOffsetSeconds } : {}),
       ...(item.toolUseId ? { toolUseId: item.toolUseId } : {}),
-      iconKey:
-        item.kind === "subagent"
-          ? "subagent"
-          : item.kind === "hook"
-            ? "hook"
-            : "tool",
+      iconKey: item.kind === "subagent" ? "subagent" : "tool",
     });
   }
   args.todos.forEach((todo, index) => {

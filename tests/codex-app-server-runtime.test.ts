@@ -28,6 +28,11 @@ import {
   toCodexConfigLayerDisplayValue,
 } from "../electron/providers/codex-app-server-runtime";
 import {
+  buildCodexFileChangeToolEvent,
+  collectCodexFileChangePaths,
+  emitCodexFileChangeEvents,
+} from "../electron/providers/codex-file-change-mapping";
+import {
   parseCodexMcpRuntimeNotification,
   resolveCodexMcpOauthAuthorizationUrl,
 } from "../electron/providers/codex-mcp-management";
@@ -1023,7 +1028,8 @@ describe("Codex H1 runtime capability guards", () => {
     expect(event).toEqual({
       type: "hook_activity",
       hookId: "hook-1",
-      hookName: "command: /tmp/hooks.json",
+      hookName: "command",
+      hookSource: "/tmp/hooks.json",
       hookEvent: "user_prompt_submit",
       status: "completed",
     });
@@ -1042,6 +1048,111 @@ describe("Codex H1 runtime capability guards", () => {
         },
       }),
     ).toMatchObject({ status: "cancelled" });
+  });
+
+  test("gives a Codex file edit the activity row every other item type gets", () => {
+    const item = {
+      changes: [
+        { path: "/repo/src/components/session/TurnActivity.tsx" },
+        { path: "/repo/src/lib/providers/turn-status.ts" },
+        // Repeats are the same edit reported twice, not two files.
+        { path: "/repo/src/lib/providers/turn-status.ts" },
+        { path: "  " },
+      ],
+    };
+
+    expect(collectCodexFileChangePaths(item)).toEqual([
+      "/repo/src/components/session/TurnActivity.tsx",
+      "/repo/src/lib/providers/turn-status.ts",
+    ]);
+    expect(buildCodexFileChangeToolEvent({ itemId: "item-1", item })).toEqual({
+      type: "tool",
+      toolUseId: "item-1",
+      // The provider's own token: the shelf normalizes it to the same
+      // `Edit file` label Claude's `Edit` resolves to.
+      toolName: "fileChange",
+      input: JSON.stringify({
+        paths: [
+          "/repo/src/components/session/TurnActivity.tsx",
+          "/repo/src/lib/providers/turn-status.ts",
+        ],
+      }),
+      state: "input-available",
+    });
+    // A patch that named no file never opens a row.
+    expect(
+      buildCodexFileChangeToolEvent({ itemId: "item-2", item: { changes: [] } }),
+    ).toBeNull();
+  });
+
+  test("settles a completed file change and still emits its diffs", async () => {
+    const emitted: unknown[] = [];
+    const diffEvents = [
+      { type: "code_diff" as const, filePath: "src/a.ts", oldContent: "", newContent: "a" },
+    ];
+    let resolveDiffs: () => void = () => {};
+    const diffsDone = new Promise<void>((resolve) => {
+      resolveDiffs = resolve;
+    });
+
+    emitCodexFileChangeEvents({
+      itemId: "item-1",
+      item: { changes: [{ path: "/repo/src/a.ts" }], status: "completed" },
+      alreadyStarted: false,
+      diffTracker: {
+        buildDiffEvents: async () => ({ diffEvents, unresolvedPaths: [] }),
+        buildFallbackEvents: () => [],
+      } as never,
+      emit: (events) => {
+        emitted.push(...events);
+        if (events.some((event) => event.type === "code_diff")) {
+          resolveDiffs();
+        }
+      },
+    });
+    await diffsDone;
+
+    expect(emitted).toEqual([
+      {
+        type: "tool",
+        toolUseId: "item-1",
+        toolName: "fileChange",
+        input: JSON.stringify({ paths: ["/repo/src/a.ts"] }),
+        state: "input-available",
+      },
+      { type: "tool_result", tool_use_id: "item-1", output: "/repo/src/a.ts" },
+      diffEvents[0],
+    ]);
+  });
+
+  test("closes an already-opened file change without re-announcing it", () => {
+    const emitted: unknown[] = [];
+    emitCodexFileChangeEvents({
+      itemId: "item-1",
+      item: { changes: [{ path: "/repo/src/a.ts" }], status: "failed" },
+      alreadyStarted: true,
+      diffTracker: {
+        buildDiffEvents: async () => ({ diffEvents: [], unresolvedPaths: [] }),
+        buildFallbackEvents: () => [],
+      } as never,
+      emit: (events) => emitted.push(...events),
+    });
+
+    // No second `tool` event, a failed result for the row, and the turn-level
+    // error the runtime has always reported for a failed patch.
+    expect(emitted).toEqual([
+      {
+        type: "tool_result",
+        tool_use_id: "item-1",
+        output: "[error] File change failed",
+        isError: true,
+      },
+      {
+        type: "error",
+        message: "File change failed: /repo/src/a.ts",
+        recoverable: false,
+      },
+    ]);
   });
 
   test("maps a read-only hook inventory without returning commands", () => {

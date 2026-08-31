@@ -212,6 +212,7 @@ const HookActivityEventSchema = z.object({
   hookId: z.string(),
   hookName: z.string(),
   hookEvent: z.string(),
+  hookSource: z.string().optional(),
   status: z.union([
     z.literal("running"),
     z.literal("completed"),

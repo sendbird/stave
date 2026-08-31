@@ -490,8 +490,9 @@ describe("host task turn synchronization", () => {
       ],
     ).toMatchObject({
       status: "completed",
-      title: "Bash",
+      title: "Run command",
       detail: "bun test tests/host.test.ts",
+      toolName: "Bash",
     });
 
     const steerResult = await useAppStore.getState().sendUserMessage({

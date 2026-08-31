@@ -469,7 +469,7 @@ describe("turn activity presentation", () => {
     expect(second?.startOffsetSeconds).toBe(64);
   });
 
-  test("disambiguates hook handlers that share the same visible label", () => {
+  test("folds hook handler runs into one provider-agnostic row per event", () => {
     const items = buildTurnActivityItems({
       activity: null,
       idleLabel: null,
@@ -478,31 +478,191 @@ describe("turn activity presentation", () => {
       todos: [],
       workItems: [
         buildWorkItem({
-          id: "hook-1",
+          id: "hook:1",
           kind: "hook",
-          title: "command: hooks.json",
-          badge: "userPromptSubmit",
+          status: "completed",
+          title: "command",
+          hookEvent: "sessionStart",
+          hookSource: "/Users/dev/.agents/codex/hooks.json",
         }),
         buildWorkItem({
-          id: "hook-2",
+          id: "hook:2",
           kind: "hook",
-          title: "command: hooks.json",
-          badge: "userPromptSubmit",
+          status: "completed",
+          title: "command",
+          hookEvent: "sessionStart",
+          hookSource: "/Users/dev/.agents/codex/hooks.json",
         }),
         buildWorkItem({
-          id: "hook-3",
+          id: "hook:3",
           kind: "hook",
-          title: "command: project-hooks.json",
-          badge: "userPromptSubmit",
+          status: "running",
+          title: "command",
+          hookEvent: "user_prompt_submit",
+          hookSource: "/Users/dev/project/hooks.json",
         }),
       ],
     });
 
-    expect(items.map((item) => item.title)).toEqual([
-      "handler 1 · command: hooks.json",
-      "handler 2 · command: hooks.json",
-      "command: project-hooks.json",
-    ]);
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      id: "work:hook:1",
+      status: "completed",
+      title: "Session start hooks",
+      badge: "2 handlers",
+      // `sessionStart` is dropped: the title is the same word re-cased.
+      providerDetail: "command · codex/hooks.json",
+      iconKey: "hook",
+    });
+    expect(items[0]?.detail).toBeUndefined();
+    expect(items[1]).toMatchObject({
+      id: "work:hook:3",
+      status: "running",
+      title: "Prompt submit hook",
+      providerDetail: "user_prompt_submit · command · project/hooks.json",
+    });
+    expect(items[1]?.badge).toBeUndefined();
+  });
+
+  test("titles the same hook event identically across providers", () => {
+    const buildHookRow = (hookEvent: string) =>
+      buildTurnActivityItems({
+        activity: null,
+        idleLabel: null,
+        isPlanPreparing: false,
+        isStalled: false,
+        todos: [],
+        workItems: [
+          buildWorkItem({
+            id: "hook:1",
+            kind: "hook",
+            status: "completed",
+            title: "command",
+            hookEvent,
+          }),
+        ],
+      })[0];
+
+    // Claude reports PascalCase, Codex camelCase or snake_case, for the same
+    // moment in the turn. The row must not read as a different feature.
+    expect(buildHookRow("UserPromptSubmit")?.title).toBe("Prompt submit hook");
+    expect(buildHookRow("userPromptSubmit")?.title).toBe("Prompt submit hook");
+    expect(buildHookRow("user_prompt_submit")?.title).toBe(
+      "Prompt submit hook",
+    );
+    expect(buildHookRow("PreToolUse")?.title).toBe("Before tool use hook");
+    // An event no map entry covers still renders readably rather than raw.
+    expect(buildHookRow("someFutureEvent")?.title).toBe(
+      "Some future event hook",
+    );
+  });
+
+  test("keeps a descriptive hook label when the provider names no event", () => {
+    const [row] = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [
+        buildWorkItem({
+          id: "hook:feedback",
+          kind: "hook",
+          status: "failed",
+          title: "Hook feedback",
+          hookEvent: "unknown",
+        }),
+      ],
+    });
+
+    expect(row).toMatchObject({
+      title: "Hook feedback",
+      status: "failed",
+      detail: "Handler failed",
+    });
+    expect(row?.providerDetail).toBeUndefined();
+  });
+
+  test("reports a failed handler on the grouped hook row", () => {
+    const [row] = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [
+        buildWorkItem({
+          id: "hook:1",
+          kind: "hook",
+          status: "completed",
+          title: "command",
+          hookEvent: "stop",
+        }),
+        buildWorkItem({
+          id: "hook:2",
+          kind: "hook",
+          status: "failed",
+          title: "command",
+          hookEvent: "stop",
+        }),
+      ],
+    });
+
+    expect(row).toMatchObject({
+      title: "Turn stop hooks",
+      status: "failed",
+      badge: "2 handlers",
+      detail: "1 of 2 handlers failed",
+    });
+  });
+
+  test("shows the provider's tool token in its own slot, not the title", () => {
+    const [row] = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [
+        buildWorkItem({
+          id: "tool-1",
+          kind: "tool",
+          status: "completed",
+          title: "Run command",
+          detail: "bun test",
+          toolName: "bash",
+        }),
+      ],
+    });
+
+    expect(row).toMatchObject({
+      title: "Run command",
+      detail: "bun test",
+      providerDetail: "bash",
+    });
+  });
+
+  test("omits the tool token when the title was derived from it", () => {
+    const [row] = buildTurnActivityItems({
+      activity: null,
+      idleLabel: null,
+      isPlanPreparing: false,
+      isStalled: false,
+      todos: [],
+      workItems: [
+        buildWorkItem({
+          id: "tool-1",
+          kind: "tool",
+          status: "running",
+          // What `formatToolDisplayName` produces for this very token: a second
+          // copy in the provider slot would say nothing new.
+          title: "ibis create page",
+          toolName: "ibis:ibis_create_page",
+        }),
+      ],
+    });
+
+    expect(row?.providerDetail).toBeUndefined();
   });
 
   test("omits the timeline offset when the turn start is unknown", () => {
