@@ -20,7 +20,6 @@ import {
   extractClaudeRequestedSkillSlug,
   mapClaudeMessageToEvents,
   parseClaudeQuestionList,
-  parseClaudeRouteClassificationJson,
   recoverClaudeStreamBeforeInitialTurnWork,
   resolveClaudeStreamTerminalStopReason,
   resolveClaudeTurnStopReason,
@@ -37,6 +36,7 @@ import {
   SubagentProgressTracker,
   waitForClaudeToolDecision,
 } from "../electron/providers/claude-sdk-runtime";
+import { RESERVED_ENV_VAR_NAMES } from "../src/lib/secrets/secrets";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
 const workspaceRoot = "/workspace/stave";
@@ -70,37 +70,6 @@ describe("Claude MCP OAuth", () => {
       requiresUserAction: false,
       callbackExpected: false,
     });
-  });
-});
-
-describe("parseClaudeRouteClassificationJson", () => {
-  test("parses strict route classification JSON", () => {
-    expect(
-      parseClaudeRouteClassificationJson(
-        '{"taskType":"plan","complexity":"high","recommendedTier":"heavy","confidence":0.82,"rationale":"planning","stick":false}',
-      ),
-    ).toEqual({
-      ok: true,
-      classification: {
-        taskType: "plan",
-        complexity: "high",
-        recommendedTier: "heavy",
-        confidence: 0.82,
-        rationale: "planning",
-        stick: false,
-      },
-    });
-  });
-
-  test("returns ok false for malformed route classification JSON", () => {
-    expect(parseClaudeRouteClassificationJson("not json")).toEqual({
-      ok: false,
-    });
-    expect(
-      parseClaudeRouteClassificationJson(
-        '{"taskType":"unknown","complexity":"high","recommendedTier":"heavy","confidence":0.82}',
-      ),
-    ).toEqual({ ok: false });
   });
 });
 
@@ -1913,6 +1882,26 @@ describe("buildClaudeQueryOptions", () => {
     });
 
     expect(options.env?.PATH).not.toBe("attacker-controlled");
+    expect(options.env?.SAFE_SERVICE_TOKEN).toBe("placeholder-value");
+  });
+
+  test("drops reserved secret names instead of relying on env merge order", () => {
+    // The guarantee must not depend on the runtime-owned env happening to emit
+    // the reserved key: spread order only decides the winner for keys that env
+    // actually contains. Reserved names are stripped from the bound secrets, so
+    // every reserved name is absent no matter what the env builder returns.
+    const reservedSecretEnv = Object.fromEntries(
+      RESERVED_ENV_VAR_NAMES.map((name) => [name, `attacker-controlled-${name}`]),
+    );
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      secretEnv: { ...reservedSecretEnv, SAFE_SERVICE_TOKEN: "placeholder-value" },
+    });
+
+    for (const name of RESERVED_ENV_VAR_NAMES) {
+      expect(options.env?.[name]).not.toBe(`attacker-controlled-${name}`);
+    }
     expect(options.env?.SAFE_SERVICE_TOKEN).toBe("placeholder-value");
   });
 

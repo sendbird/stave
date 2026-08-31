@@ -34,6 +34,7 @@ import {
 } from "./codex-chatgpt-auth-tokens";
 
 export { resolveCodexChatgptAuthTokensRefreshResponse };
+import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { toText } from "./utils";
 import {
@@ -753,9 +754,12 @@ class CodexAppServerClient {
       ["app-server", "--listen", "stdio://"],
       {
         stdio: ["pipe", "pipe", "pipe"],
+        // Runtime-owned env is spread last, and reserved names are stripped
+        // from the bound secrets first, so an injected secret can never claim a
+        // Stave runtime variable. Mirrors `buildClaudeQueryOptions`.
         env: {
+          ...stripReservedSecretEnvNames(this.secretEnv),
           ...buildCodexEnv({ executablePath: this.executablePath }),
-          ...this.secretEnv,
         },
         cwd: process.cwd(),
       },

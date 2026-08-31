@@ -6,6 +6,7 @@ import {
   suggestUtilityTaskName,
   type UtilityInferenceRunners,
 } from "../electron/providers/utility-inference";
+import { parseRouteClassification } from "../src/lib/providers/utility-inference";
 
 function createRunners(args: {
   claude?: string | Error;
@@ -29,6 +30,32 @@ function createRunners(args: {
     codex: () => run("codex", args.codex),
   };
 }
+
+describe("parseRouteClassification", () => {
+  test("parses strict route classification JSON", () => {
+    expect(
+      parseRouteClassification(
+        '{"taskType":"plan","complexity":"high","recommendedTier":"heavy","confidence":0.82,"rationale":"planning","stick":false}',
+      ),
+    ).toEqual({
+      taskType: "plan",
+      complexity: "high",
+      recommendedTier: "heavy",
+      confidence: 0.82,
+      rationale: "planning",
+      stick: false,
+    });
+  });
+
+  test("returns null for malformed route classification JSON", () => {
+    expect(parseRouteClassification("not json")).toBeNull();
+    expect(
+      parseRouteClassification(
+        '{"taskType":"unknown","complexity":"high","recommendedTier":"heavy","confidence":0.82}',
+      ),
+    ).toBeNull();
+  });
+});
 
 describe("provider-neutral utility inference", () => {
   test("uses Claude when only Claude is available", async () => {
