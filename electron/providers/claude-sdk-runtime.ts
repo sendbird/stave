@@ -1797,6 +1797,16 @@ export function waitForClaudeToolDecision<T>(args: {
   signal: AbortSignal;
   register: (resolve: (value: T) => void) => () => void;
   /**
+   * Emits the request event, called only after the resolver is registered.
+   *
+   * Emission is synchronous all the way to whoever is listening, so announcing
+   * before registering left a window where an answer produced inside that call
+   * found no resolver and was reported as an unknown request. Announcing here
+   * also means an already-aborted request is never announced at all, instead
+   * of posting a card that can no longer be answered.
+   */
+  announce?: () => void;
+  /**
    * Maximum time in milliseconds to wait for the responder to resolve the
    * decision. When exceeded, the promise rejects with a
    * {@link ClaudeToolDecisionTimeoutError}. Pass `0` (or omit) to disable.
@@ -1839,6 +1849,16 @@ export function waitForClaudeToolDecision<T>(args: {
         cleanup();
         reject(new ClaudeToolDecisionTimeoutError(timeoutMs));
       }, timeoutMs);
+    }
+    try {
+      args.announce?.();
+    } catch (error) {
+      // Nothing can answer a request nobody was told about, so unwind the
+      // registration instead of leaving it to time out the turn.
+      clearTimeoutHandle();
+      args.signal.removeEventListener("abort", handleAbort);
+      cleanup();
+      reject(error);
     }
   });
 }
@@ -5228,8 +5248,6 @@ export async function streamClaudeWithSdk(
             requestId,
             questions: elicitation.questions,
           };
-          eventCollector.append(userInputEvent);
-          args.onEvent?.(userInputEvent);
 
           try {
             const response = await waitForClaudeToolDecision({
@@ -5239,6 +5257,10 @@ export async function streamClaudeWithSdk(
                 return () => {
                   pendingUserInputResolvers.delete(requestId);
                 };
+              },
+              announce: () => {
+                eventCollector.append(userInputEvent);
+                args.onEvent?.(userInputEvent);
               },
               timeoutMs: approvalDecisionTimeoutMs,
             });
@@ -5290,8 +5312,6 @@ export async function streamClaudeWithSdk(
             requestId,
             questions: dialog.questions,
           };
-          eventCollector.append(userInputEvent);
-          args.onEvent?.(userInputEvent);
 
           try {
             const response = await waitForClaudeToolDecision({
@@ -5301,6 +5321,10 @@ export async function streamClaudeWithSdk(
                 return () => {
                   pendingUserInputResolvers.delete(requestId);
                 };
+              },
+              announce: () => {
+                eventCollector.append(userInputEvent);
+                args.onEvent?.(userInputEvent);
               },
               timeoutMs: approvalDecisionTimeoutMs,
             });
@@ -5451,8 +5475,6 @@ export async function streamClaudeWithSdk(
               // that asked instead of reading as the whole turn being stuck.
               ...(options.agentID ? { ownerAgentId: options.agentID } : {}),
             };
-            eventCollector.append(userInputEvent);
-            args.onEvent?.(userInputEvent);
 
             try {
               const response = await waitForClaudeToolDecision({
@@ -5462,6 +5484,10 @@ export async function streamClaudeWithSdk(
                   return () => {
                     pendingUserInputResolvers.delete(requestId);
                   };
+                },
+                announce: () => {
+                  eventCollector.append(userInputEvent);
+                  args.onEvent?.(userInputEvent);
                 },
                 timeoutMs: approvalDecisionTimeoutMs,
               });
@@ -5565,8 +5591,6 @@ export async function streamClaudeWithSdk(
             // worker of the fan-out whose progress this prompt is holding up.
             ...(options.agentID ? { ownerAgentId: options.agentID } : {}),
           };
-          eventCollector.append(approvalEvent);
-          args.onEvent?.(approvalEvent);
 
           try {
             const approved = await waitForClaudeToolDecision({
@@ -5576,6 +5600,10 @@ export async function streamClaudeWithSdk(
                 return () => {
                   pendingApprovalResolvers.delete(requestId);
                 };
+              },
+              announce: () => {
+                eventCollector.append(approvalEvent);
+                args.onEvent?.(approvalEvent);
               },
               timeoutMs: approvalDecisionTimeoutMs,
             });

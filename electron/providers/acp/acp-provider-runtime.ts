@@ -264,20 +264,7 @@ export async function streamAcpProviderTurn(args: {
       (option) => option.kind === "allow_always",
     );
     const input = serializeApprovalInput(parsed.data.toolCall.rawInput);
-    emit({
-      type: "approval",
-      toolName:
-        parsed.data.toolCall.title?.trim() ||
-        parsed.data.toolCall.kind?.trim() ||
-        "Tool",
-      requestId: id,
-      description:
-        parsed.data.toolCall.title?.trim() ||
-        `${profile.displayName} requests permission.`,
-      ...(input ? { input } : {}),
-      ...(allowAlwaysOption ? { supportsAllowAlways: true } : {}),
-    });
-    return await new Promise<unknown>((resolve) => {
+    return await new Promise<unknown>((resolve, reject) => {
       const timer = createDecisionTimer(() => {
         if (rejectOption) {
           settlePermission(id, {
@@ -302,6 +289,32 @@ export async function streamAcpProviderTurn(args: {
         () => settlePermission(id, { outcome: { outcome: "cancelled" } }),
         { once: true },
       );
+      // Register first, then announce. `emit` is synchronous all the way to
+      // whoever is listening, so a caller that answers inside that call — a
+      // test harness, or an auto-approver — reached the responder before this
+      // entry existed and got `unknown-request` for a request that was
+      // genuinely in flight.
+      try {
+        emit({
+          type: "approval",
+          toolName:
+            parsed.data.toolCall.title?.trim() ||
+            parsed.data.toolCall.kind?.trim() ||
+            "Tool",
+          requestId: id,
+          description:
+            parsed.data.toolCall.title?.trim() ||
+            `${profile.displayName} requests permission.`,
+          ...(input ? { input } : {}),
+          ...(allowAlwaysOption ? { supportsAllowAlways: true } : {}),
+        });
+      } catch (error) {
+        // Nothing can answer an approval nobody was told about, so drop the
+        // registration instead of leaving it to time out the turn.
+        pendingPermissions.delete(id);
+        clearTimeout(timer);
+        reject(error);
+      }
     });
   };
   const requestHandlers = new Map<string, AcpInboundRequestHandler>([

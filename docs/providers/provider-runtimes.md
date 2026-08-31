@@ -49,6 +49,15 @@ viewer. Approval option ids are selected by the protocol `kind`, not by id text,
 because Cursor advertises `allow-once`/`reject-once` while Kiro advertises
 `allow_once`/`reject_once`.
 
+Any request that blocks a turn — a permission, a question, or a plan review —
+registers its resolver before the event is announced. Announcement is
+synchronous all the way to the listener, so a listener that decides inside that
+call would otherwise reach the responder before the request existed and be told
+the request is unknown, leaving the turn to hang until the decision timer fired.
+The Claude runtime takes the same ordering through the `announce` hook on
+`waitForClaudeToolDecision`, which additionally skips announcing a request whose
+signal already aborted.
+
 When a runtime also advertises an `allow_always` option, the approval card shows
 an `Always allow` action alongside approve and reject, and the decision is sent
 with `scope: "always"`. Cursor persists that choice as a rule in its own
