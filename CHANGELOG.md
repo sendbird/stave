@@ -1,3 +1,22 @@
+## [0.16.0](https://github.com/sendbird/stave/compare/v0.15.3...v0.16.0) (2026-08-31)
+
+### Features
+
+* Add interactive Cursor Agent and Kiro CLI runtimes with bounded ACP transport, approvals, cancellation, session resume, runtime model catalogs, provider-specific controls, and delegated usage details.
+* Add pull request review inboxes with Files, Conversation, and Checks views plus guarded approve, request-changes, and comment actions.
+* Host Lens browser pages as renderer guests with ownership validation, focus handling, and session recovery, plus optional browser fallback for sign-in-blocked pages.
+* Add a standalone CLI terminal overlay and policy controls for plugins installed through the Claude CLI.
+* Improve the composer with prompt enhancement, native image inputs, and steering for queued text follow-ups.
+
+### Bug Fixes
+
+* Keep long-running Advisor consults visible and distinguish hook activity rows that share the same handler label.
+* Isolate workspace plans, preserve kickoff fast mode, create tabs in their source pane group, and reveal button-group chrome only during interaction.
+
+### References
+
+* [#386](https://github.com/sendbird/stave/pull/386), [#387](https://github.com/sendbird/stave/pull/387), [#388](https://github.com/sendbird/stave/pull/388), [#389](https://github.com/sendbird/stave/pull/389), [#390](https://github.com/sendbird/stave/pull/390), [#391](https://github.com/sendbird/stave/pull/391), [#392](https://github.com/sendbird/stave/pull/392), [#393](https://github.com/sendbird/stave/pull/393), [#394](https://github.com/sendbird/stave/pull/394), [#395](https://github.com/sendbird/stave/pull/395), [#396](https://github.com/sendbird/stave/pull/396), [#397](https://github.com/sendbird/stave/pull/397), [#398](https://github.com/sendbird/stave/pull/398), [#399](https://github.com/sendbird/stave/pull/399), [#400](https://github.com/sendbird/stave/pull/400)
+
 ## [0.15.3](https://github.com/sendbird/stave/compare/v0.15.2...v0.15.3) (2026-08-21)
 
 ### Features
