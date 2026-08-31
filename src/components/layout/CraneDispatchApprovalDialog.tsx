@@ -79,12 +79,13 @@ import {
 import {
   getProviderLabel,
   getSdkModelOptions,
-  listProviderIds,
+  isManagedExecutionProviderId,
+  listManagedExecutionProviderIds,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type {
   AdvisorEffort,
-  ProviderId,
+  ManagedExecutionProviderId,
 } from "@/lib/providers/provider.types";
 import {
   CLAUDE_PERMISSION_MODE_OPTIONS,
@@ -98,7 +99,7 @@ import { useAppStore } from "@/store/app.store";
 
 type WorkspaceStrategy = "new" | "existing";
 
-const CRANE_DISPATCH_PROVIDER_IDS = listProviderIds();
+const CRANE_DISPATCH_PROVIDER_IDS = listManagedExecutionProviderIds();
 
 /**
  * Models offered for an Advisor provider, with the current pick forced in.
@@ -107,7 +108,10 @@ const CRANE_DISPATCH_PROVIDER_IDS = listProviderIds();
  * silently snapping to a different one: the row then shows what will actually
  * run, and switching away from it is the user's decision.
  */
-function advisorModelsForProvider(providerId: ProviderId, selected: string) {
+function advisorModelsForProvider(
+  providerId: ManagedExecutionProviderId,
+  selected: string,
+) {
   return Array.from(
     new Set([selected, ...getSdkModelOptions({ providerId })]),
   ).filter(Boolean);
@@ -323,6 +327,9 @@ export function CraneDispatchApprovalDialog() {
     fastMode?: boolean;
   }) => {
     if (args.selection.isAuto) {
+      return;
+    }
+    if (!isManagedExecutionProviderId(args.selection.providerId)) {
       return;
     }
     const providerId = args.selection.providerId;

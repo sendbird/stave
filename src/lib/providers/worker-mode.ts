@@ -12,21 +12,26 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ModelTier } from "@/lib/providers/model-catalog";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import type {
+  CanonicalConversationRequest,
+  ProviderId,
+} from "@/lib/providers/provider.types";
 
 /**
- * Worker mode: a high-capability primary orchestrates one provider-native
- * task-executor subagent.
+ * Worker mode: a high-capability primary orchestrates one same-provider,
+ * turn-scoped task executor.
  *
  * This module is the provider-neutral domain core. It owns the vocabulary, the
  * preset catalog, the capability table, and the single resolver both the
  * renderer (for labels and availability) and the main process (for the actual
- * provider call) go through. Provider mechanics live in the adapters — nothing
- * here knows about `Options.agents` or `agents.default_subagent_model`.
+ * provider call) go through. Provider mechanics live in the adapters — native
+ * subagents for Claude/Codex and disposable ACP sessions for Cursor/Kiro.
  */
 
 /** The one worker Stave registers. Named so a trace can attribute work to it. */
 export const WORKER_AGENT_NAME = "stave-task-executor";
+export const WORKER_DELEGATE_TOOL_NAME = "stave_run_worker";
+export const WORKER_BRIEFING_SOURCE_ID = "stave:worker";
 
 /** MVP ceiling: one foreground worker, so the parent turn stays interruptible. */
 export const WORKER_MAX_CONCURRENCY = 1;
@@ -37,16 +42,24 @@ export const WORKER_MODEL_MAX_CHARS = 200;
 export const WORKER_MAX_TOOLS = 40;
 export const WORKER_TURNS_MIN = 1;
 export const WORKER_TURNS_MAX = 200;
+export const WORKER_TASK_MAX_CHARS = 32_000;
+export const WORKER_CONTEXT_MAX_CHARS = 32_000;
 
 export type WorkerMode = "off" | "task-executor";
+
+/** Providers with an end-to-end Worker adapter. */
+export type WorkerProviderId = ProviderId;
+
+export type WorkerExecutionAdapter = "native" | "acp-tool";
 
 /** `"auto"` defers to the preset's per-provider recommendation. */
 export type WorkerModelPreference = "auto" | string;
 
 /**
- * Worker effort scale. Union of both providers so one persisted value survives
- * a provider switch; `resolveWorkerProfile` clamps per provider and per model
- * rather than rejecting, and drops it entirely for models that reject effort.
+ * Worker effort scale. Union of provider-native scales so one persisted value
+ * survives a provider switch; `resolveWorkerProfile` clamps per provider and
+ * per model rather than rejecting, and drops it entirely for models that
+ * reject effort.
  */
 export type WorkerEffort = "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
@@ -75,7 +88,7 @@ export const DEFAULT_WORKER_PRESET_ID: WorkerPresetId = "verified-patch";
 
 /**
  * Per-provider worker configuration. Stored per provider so switching
- * Codex↔Claude and back never overwrites the other provider's choice.
+ * providers never overwrites another provider's choice.
  *
  * `description`, `instructions`, `tools` and `maxTurns` are optional overrides
  * of the selected preset. Absent means "use the preset value", which is what
@@ -98,7 +111,7 @@ export interface WorkerProviderConfig {
  */
 export type WorkerArmOverrides = {
   workerEnabled?: boolean;
-  workerConfigByProvider?: Partial<Record<ProviderId, WorkerProviderConfig>>;
+  workerConfigByProvider?: Partial<Record<WorkerProviderId, WorkerProviderConfig>>;
 };
 
 /** What one turn actually sends. Only the active provider's intent crosses IPC. */
@@ -114,7 +127,8 @@ export interface WorkerRuntimeIntent {
 }
 
 export interface ResolvedWorkerProfile {
-  provider: ProviderId;
+  provider: WorkerProviderId;
+  executionAdapter: WorkerExecutionAdapter;
   primaryModel: string;
   workerName: string;
   presetId: WorkerPresetId;
@@ -130,6 +144,8 @@ export interface ResolvedWorkerProfile {
   tools: readonly string[] | null;
   /** False when the provider cannot hard-enforce `tools` (Codex). */
   toolsEnforced: boolean;
+  /** False when the adapter can only carry the turn cap as instructions. */
+  maxTurnsEnforced: boolean;
   maxTurns: number | null;
   maxConcurrency: typeof WORKER_MAX_CONCURRENCY;
   foreground: true;
@@ -137,9 +153,9 @@ export interface ResolvedWorkerProfile {
   costWarning: string | null;
 }
 
-/** Immutable provider-call configuration attached to a native Worker spawn. */
+/** Immutable provider-call configuration attached to a Worker execution. */
 export interface WorkerExecutionMetadata {
-  providerId: ProviderId;
+  providerId: WorkerProviderId;
   primaryModel: string;
   presetId: WorkerPresetId;
   workerModel: string;
@@ -190,12 +206,15 @@ export type WorkerResolution =
 /* -------------------------------------------------------------------------- */
 
 interface WorkerProviderCapability {
-  /** Models that can orchestrate a native worker as the primary. */
+  executionAdapter: WorkerExecutionAdapter;
+  /** Models that can orchestrate a worker as the primary. */
   primaries: readonly string[];
   /** Models that can be pinned as the worker. */
   workers: readonly string[];
   /** Whether the provider can hard-enforce a worker tool allowlist. */
   toolsEnforced: boolean;
+  /** Whether the provider can hard-enforce the requested agent-turn cap. */
+  maxTurnsEnforced: boolean;
   /**
    * Models that reject an explicit effort value. Claude's API errors on
    * `effort` for Haiku-class models, so the field is dropped rather than
@@ -213,9 +232,10 @@ interface WorkerProviderCapability {
  * though Luna remains a valid top-level model.
  */
 const WORKER_CAPABILITIES: Readonly<
-  Record<ProviderId, WorkerProviderCapability>
+  Record<WorkerProviderId, WorkerProviderCapability>
 > = {
   "claude-code": {
+    executionAdapter: "native",
     primaries: [
       CLAUDE_FABLE_MODEL,
       DEFAULT_CLAUDE_OPUS_MODEL,
@@ -231,51 +251,107 @@ const WORKER_CAPABILITIES: Readonly<
       CLAUDE_FABLE_MODEL,
     ],
     toolsEnforced: true,
+    maxTurnsEnforced: true,
     modelsRejectingEffort: ["claude-haiku-4-5"],
   },
   codex: {
+    executionAdapter: "native",
     primaries: ["gpt-5.6-sol", "gpt-5.6-terra"],
     workers: ["gpt-5.6-terra", "gpt-5.6-sol"],
     // Codex carries worker copy through developer instructions; there is no
     // per-subagent tool allowlist, so a preset's tool list is advisory prose.
     toolsEnforced: false,
+    maxTurnsEnforced: false,
+    modelsRejectingEffort: [],
+  },
+  cursor: {
+    executionAdapter: "acp-tool",
+    primaries: ["auto"],
+    workers: ["auto"],
+    toolsEnforced: false,
+    maxTurnsEnforced: false,
+    modelsRejectingEffort: ["auto"],
+  },
+  kiro: {
+    executionAdapter: "acp-tool",
+    primaries: ["auto"],
+    workers: ["auto"],
+    toolsEnforced: false,
+    maxTurnsEnforced: false,
     modelsRejectingEffort: [],
   },
 };
 
 /** Deterministic `auto` worker per provider, used when a preset has no opinion. */
-const DEFAULT_WORKER_MODEL: Readonly<Record<ProviderId, string>> = {
+const DEFAULT_WORKER_MODEL: Readonly<
+  Record<WorkerProviderId, string>
+> = {
   "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
   codex: "gpt-5.6-terra",
+  cursor: "auto",
+  kiro: "auto",
 };
 
-export function listWorkerPrimaryModels(providerId: ProviderId) {
-  return WORKER_CAPABILITIES[providerId].primaries;
+function mergeRuntimeModels(args: {
+  providerId: WorkerProviderId;
+  configured: readonly string[];
+  runtimeModels?: readonly string[];
+}) {
+  if (args.providerId !== "cursor" && args.providerId !== "kiro") {
+    return args.configured;
+  }
+  return Array.from(
+    new Set(
+      [...args.configured, ...(args.runtimeModels ?? [])]
+        .map((model) => model.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
-export function listWorkerModelOptions(providerId: ProviderId) {
-  return WORKER_CAPABILITIES[providerId].workers;
+export function listWorkerPrimaryModels(
+  providerId: WorkerProviderId,
+  runtimeModels?: readonly string[],
+) {
+  return mergeRuntimeModels({
+    providerId,
+    configured: WORKER_CAPABILITIES[providerId].primaries,
+    runtimeModels,
+  });
+}
+
+export function listWorkerModelOptions(
+  providerId: WorkerProviderId,
+  runtimeModels?: readonly string[],
+) {
+  return mergeRuntimeModels({
+    providerId,
+    configured: WORKER_CAPABILITIES[providerId].workers,
+    runtimeModels,
+  });
 }
 
 export function canPrimaryOrchestrateWorker(args: {
-  providerId: ProviderId;
+  providerId: WorkerProviderId;
   model: string;
+  runtimeModels?: readonly string[];
 }) {
-  return WORKER_CAPABILITIES[args.providerId].primaries.includes(
+  return listWorkerPrimaryModels(args.providerId, args.runtimeModels).includes(
     args.model.trim(),
   );
 }
 
 export function isWorkerCapableModel(args: {
-  providerId: ProviderId;
+  providerId: WorkerProviderId;
   model: string;
+  runtimeModels?: readonly string[];
 }) {
-  return WORKER_CAPABILITIES[args.providerId].workers.includes(
+  return listWorkerModelOptions(args.providerId, args.runtimeModels).includes(
     args.model.trim(),
   );
 }
 
-export function workerToolsEnforced(providerId: ProviderId) {
+export function workerToolsEnforced(providerId: WorkerProviderId) {
   return WORKER_CAPABILITIES[providerId].toolsEnforced;
 }
 
@@ -286,13 +362,19 @@ export function workerToolsEnforced(providerId: ProviderId) {
  * UI renders as "follows the model default" rather than as a broken select.
  */
 export function listWorkerEffortsForModel(args: {
-  providerId: ProviderId;
+  providerId: WorkerProviderId;
   model: string;
 }): readonly WorkerEffort[] {
   const capability = WORKER_CAPABILITIES[args.providerId];
   const model = args.model.trim();
   if (capability.modelsRejectingEffort.includes(model)) {
     return [];
+  }
+  if (args.providerId === "cursor") {
+    return [];
+  }
+  if (args.providerId === "kiro") {
+    return WORKER_EFFORT_ORDER.filter((effort) => effort !== "ultra");
   }
   if (args.providerId === "codex") {
     return listCodexReasoningEffortsForModel({ model }).filter(
@@ -345,9 +427,11 @@ export interface WorkerPreset {
   tools?: readonly string[];
   maxTurns?: number;
   /** Model each provider uses when the user leaves the model on `auto`. */
-  autoModel: Readonly<Record<ProviderId, string>>;
+  autoModel: Readonly<Record<WorkerProviderId, string>>;
   /** Effort each provider uses when the user leaves effort on `auto`. */
-  autoEffort: Readonly<Record<ProviderId, WorkerEffort>>;
+  autoEffort: Readonly<
+    Record<WorkerProviderId, WorkerEffort | null>
+  >;
 }
 
 const READ_ONLY_TOOLS = ["Read", "Grep", "Glob"] as const;
@@ -385,8 +469,15 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoModel: {
       "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
       codex: "gpt-5.6-terra",
+      cursor: "auto",
+      kiro: "auto",
     },
-    autoEffort: { "claude-code": "medium", codex: "high" },
+    autoEffort: {
+      "claude-code": "medium",
+      codex: "high",
+      cursor: null,
+      kiro: null,
+    },
   },
   {
     id: "verified-patch",
@@ -407,8 +498,15 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoModel: {
       "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
       codex: "gpt-5.6-terra",
+      cursor: "auto",
+      kiro: "auto",
     },
-    autoEffort: { "claude-code": "high", codex: "max" },
+    autoEffort: {
+      "claude-code": "high",
+      codex: "max",
+      cursor: null,
+      kiro: null,
+    },
   },
   {
     id: "sweep",
@@ -428,8 +526,15 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoModel: {
       "claude-code": "claude-haiku-4-5",
       codex: "gpt-5.6-terra",
+      cursor: "auto",
+      kiro: "auto",
     },
-    autoEffort: { "claude-code": "medium", codex: "xhigh" },
+    autoEffort: {
+      "claude-code": "medium",
+      codex: "xhigh",
+      cursor: null,
+      kiro: null,
+    },
   },
   {
     id: "scout",
@@ -449,8 +554,15 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoModel: {
       "claude-code": "claude-haiku-4-5",
       codex: "gpt-5.6-terra",
+      cursor: "auto",
+      kiro: "auto",
     },
-    autoEffort: { "claude-code": "medium", codex: "high" },
+    autoEffort: {
+      "claude-code": "medium",
+      codex: "high",
+      cursor: null,
+      kiro: null,
+    },
   },
   {
     id: "deep-packet",
@@ -470,8 +582,15 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoModel: {
       "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
       codex: "gpt-5.6-terra",
+      cursor: "auto",
+      kiro: "auto",
     },
-    autoEffort: { "claude-code": "max", codex: "max" },
+    autoEffort: {
+      "claude-code": "max",
+      codex: "max",
+      cursor: null,
+      kiro: null,
+    },
   },
   {
     id: "second-pair",
@@ -492,8 +611,15 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoModel: {
       "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
       codex: "gpt-5.6-terra",
+      cursor: "auto",
+      kiro: "auto",
     },
-    autoEffort: { "claude-code": "high", codex: "high" },
+    autoEffort: {
+      "claude-code": "high",
+      codex: "high",
+      cursor: null,
+      kiro: null,
+    },
   },
 ];
 
@@ -614,13 +740,13 @@ export function normalizeWorkerProviderConfig(
 
 export function normalizeWorkerConfigByProvider(
   value: unknown,
-): Partial<Record<ProviderId, WorkerProviderConfig>> {
+): Partial<Record<WorkerProviderId, WorkerProviderConfig>> {
   if (!value || typeof value !== "object") {
     return {};
   }
   const source = value as Record<string, unknown>;
-  const result: Partial<Record<ProviderId, WorkerProviderConfig>> = {};
-  for (const providerId of ["claude-code", "codex"] as const) {
+  const result: Partial<Record<WorkerProviderId, WorkerProviderConfig>> = {};
+  for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
     if (source[providerId] !== undefined) {
       result[providerId] = normalizeWorkerProviderConfig(source[providerId]);
     }
@@ -650,7 +776,7 @@ export interface WorkerArmState {
  * destructive edit.
  */
 export function resolveWorkerArmState(args: {
-  providerId: ProviderId;
+  providerId: WorkerProviderId;
   overrides?: WorkerArmOverrides | null;
   settingsConfig?: WorkerProviderConfig | null;
   settingsEnabled?: boolean;
@@ -699,7 +825,7 @@ function tierIndex(model: string): number {
 }
 
 function buildCostWarning(args: {
-  providerId: ProviderId;
+  providerId: WorkerProviderId;
   primaryModel: string;
   workerModel: string;
 }): string | null {
@@ -721,10 +847,10 @@ function buildCostWarning(args: {
 }
 
 function resolveWorkerEffort(args: {
-  providerId: ProviderId;
+  providerId: WorkerProviderId;
   model: string;
   requested: WorkerEffortPreference;
-  presetEffort: WorkerEffort;
+  presetEffort: WorkerEffort | null;
 }): WorkerEffort | null {
   const supported = listWorkerEffortsForModel({
     providerId: args.providerId,
@@ -735,7 +861,13 @@ function resolveWorkerEffort(args: {
     return null;
   }
   const desired =
-    args.requested === WORKER_AUTO_VALUE ? args.presetEffort : args.requested;
+    args.requested === WORKER_AUTO_VALUE
+      ? (args.presetEffort ??
+        (args.providerId === "kiro" ? "medium" : null))
+      : args.requested;
+  if (!desired) {
+    return null;
+  }
   if (supported.includes(desired)) {
     return desired;
   }
@@ -772,9 +904,11 @@ function resolveWorkerEffort(args: {
  * tier than the one on screen.
  */
 export function resolveWorkerProfile(args: {
-  providerId: ProviderId;
+  providerId: WorkerProviderId;
   primaryModel: string;
   intent?: WorkerRuntimeIntent | null;
+  /** Runtime-advertised models for providers whose catalog is not static. */
+  runtimeModels?: readonly string[];
 }): WorkerResolution {
   if (!args.intent || args.intent.mode !== "task-executor") {
     return { status: "off" };
@@ -790,7 +924,13 @@ export function resolveWorkerProfile(args: {
   }
 
   const primaryModel = args.primaryModel.trim();
-  if (!canPrimaryOrchestrateWorker({ providerId, model: primaryModel })) {
+  if (
+    !canPrimaryOrchestrateWorker({
+      providerId,
+      model: primaryModel,
+      runtimeModels: args.runtimeModels,
+    })
+  ) {
     return {
       status: "unavailable",
       reason: "primary_not_supported",
@@ -809,13 +949,20 @@ export function resolveWorkerProfile(args: {
       ? (preset.autoModel[providerId] ?? DEFAULT_WORKER_MODEL[providerId])
       : requestedWorkerModel;
 
-  if (!isWorkerCapableModel({ providerId, model: resolvedWorkerModel })) {
+  if (
+    !isWorkerCapableModel({
+      providerId,
+      model: resolvedWorkerModel,
+      runtimeModels: args.runtimeModels,
+    })
+  ) {
     // Distinguish "never existed for this provider" from "exists but cannot
     // work", so the UI can say whether reselection or a provider switch is the
     // fix.
-    const knownForProvider = (
-      getSdkModelOptions({ providerId }) as readonly string[]
-    ).includes(resolvedWorkerModel);
+    const knownForProvider = [
+      ...(getSdkModelOptions({ providerId }) as readonly string[]),
+      ...(args.runtimeModels ?? []),
+    ].includes(resolvedWorkerModel);
     return {
       status: "unavailable",
       reason: knownForProvider
@@ -844,6 +991,7 @@ export function resolveWorkerProfile(args: {
     status: "ready",
     profile: {
       provider: providerId,
+      executionAdapter: capability.executionAdapter,
       primaryModel,
       workerName: WORKER_AGENT_NAME,
       presetId: preset.id,
@@ -859,6 +1007,7 @@ export function resolveWorkerProfile(args: {
         preset.instructions,
       tools: tools ? [...tools] : null,
       toolsEnforced: capability.toolsEnforced,
+      maxTurnsEnforced: capability.maxTurnsEnforced,
       maxTurns:
         normalizeMaxTurns(args.intent.maxTurns) ?? preset.maxTurns ?? null,
       maxConcurrency: WORKER_MAX_CONCURRENCY,
@@ -900,7 +1049,7 @@ export function formatWorkerRuntimeStatusValue(
 /**
  * The primary-facing instruction that makes delegation actually happen.
  *
- * Both adapters inject this, so the two providers describe the same contract:
+ * Every adapter injects this, so all providers describe the same contract:
  * plan, delegate one bounded brief, then review and integrate. Kept here rather
  * than duplicated per adapter so the two can never drift.
  */
@@ -926,7 +1075,9 @@ export function buildWorkerPrimaryInstructions(
     `2. Delegate that part to ${
       profile.provider === "claude-code"
         ? `the \`${profile.workerName}\` agent`
-        : "one spawned worker agent"
+        : profile.executionAdapter === "native"
+          ? "one spawned worker agent"
+          : `the \`${WORKER_DELEGATE_TOOL_NAME}\` tool`
     } as a single, complete, unambiguous brief. Name the files it may touch and how to verify the result. The worker starts with no view of this conversation, so the brief must stand alone.`,
     `3. Run at most ${profile.maxConcurrency} worker at a time, and do not edit the files it is working on while it runs.`,
     "4. When it returns, review its diff and its verification evidence yourself. Do not forward its claims to the user unchecked.",
@@ -942,4 +1093,68 @@ export function buildWorkerPrimaryInstructions(
     );
   }
   return lines.join("\n");
+}
+
+/** Turn-specific addendum for the Stave-owned ACP Worker adapter. */
+export function buildAcpWorkerPrimaryInstructions(args: {
+  profile: ResolvedWorkerProfile;
+  workerKey: string;
+}) {
+  return [
+    buildWorkerPrimaryInstructions(args.profile),
+    "",
+    `Call \`${WORKER_DELEGATE_TOOL_NAME}\` with this exact turn-scoped workerKey: \`${args.workerKey}\`.`,
+    "Put the complete delegated brief in `task`. Use `context` only for small excerpts or constraints the worker cannot discover from the workspace. Wait for the tool result before reviewing the worker's changes.",
+  ].join("\n");
+}
+
+/** Appends the turn-scoped ACP Worker grant as provider-neutral context. */
+export function appendAcpWorkerBriefing(args: {
+  conversation: CanonicalConversationRequest;
+  profile: ResolvedWorkerProfile;
+  workerKey: string;
+}) {
+  const content = buildAcpWorkerPrimaryInstructions({
+    profile: args.profile,
+    workerKey: args.workerKey,
+  });
+  return {
+    ...args.conversation,
+    contextParts: [
+      ...args.conversation.contextParts,
+      {
+        type: "retrieved_context" as const,
+        sourceId: WORKER_BRIEFING_SOURCE_ID,
+        title: `Worker · ${getWorkerPreset(args.profile.presetId).label}`,
+        content,
+      },
+    ],
+  };
+}
+
+/** Standalone prompt for a fresh ACP Worker session. */
+export function buildAcpWorkerPrompt(args: {
+  profile: ResolvedWorkerProfile;
+  task: string;
+  context?: string;
+}) {
+  const context = args.context?.trim();
+  const maxTurnsGuidance =
+    args.profile.maxTurns && !args.profile.maxTurnsEnforced
+      ? ` Treat ${args.profile.maxTurns} agentic round-trips as the maximum budget; if the task cannot finish within it, stop and report the remaining work.`
+      : "";
+  return [
+    `# Worker role\n\n${args.profile.instructions}`,
+    `# Execution bounds\n\nWork only inside the current workspace. Stay within the delegated task. ${
+      args.profile.tools?.length
+        ? `Use only the equivalent of these tool capabilities: ${args.profile.tools.join(", ")}. `
+        : ""
+    }Do not launch another Worker or a durable child task. Never ask the user a question; report a blocker in the result instead.${maxTurnsGuidance}`,
+    `# Delegated task\n\n${args.task.trim().slice(0, WORKER_TASK_MAX_CHARS)}`,
+    ...(context
+      ? [
+          `# Supplied context\n\n${context.slice(0, WORKER_CONTEXT_MAX_CHARS)}`,
+        ]
+      : []),
+  ].join("\n\n");
 }

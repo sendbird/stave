@@ -51,6 +51,28 @@ afterEach(() => {
 });
 
 describe("notification retention", () => {
+  test("preserves Kiro notification ownership", async () => {
+    await createNotification({
+      notification: {
+        id: "kiro-completed",
+        kind: "task.turn_completed",
+        title: "Completed",
+        body: "Done",
+        workspaceId: "workspace-1",
+        taskId: "task-kiro",
+        turnId: "turn-kiro",
+        providerId: "kiro",
+        action: null,
+        payload: {},
+        createdAt: "2026-08-30T00:00:00.000Z",
+      },
+    });
+
+    expect(await listNotifications()).toMatchObject([
+      { id: "kiro-completed", providerId: "kiro" },
+    ]);
+  });
+
   test("prunes read history after seven days but preserves unresolved attention", async () => {
     await createNotification({
       notification: {

@@ -2001,6 +2001,19 @@ describe("buildClaudeReadOnlyPromptOptions", () => {
     expect(options).not.toHaveProperty("agent");
     expect(options).not.toHaveProperty("fallbackModel");
   });
+
+  test("resumes only the isolated role session supplied by the caller", () => {
+    const options = buildClaudeReadOnlyPromptOptions({
+      cwd: workspaceRoot,
+      model: "claude-fable-5",
+      effort: "xhigh",
+      abortController: new AbortController(),
+      claudeExecutablePath: "/opt/claude",
+      resumeSessionId: "advisor-session-1",
+    });
+
+    expect(options).toMatchObject({ resume: "advisor-session-1" });
+  });
 });
 
 describe("consumeClaudeReadOnlyPromptStream", () => {

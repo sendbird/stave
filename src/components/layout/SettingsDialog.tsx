@@ -4,6 +4,13 @@ import { ArrowLeft, Folder, Search, X } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, Input } from "@/components/ui";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -239,7 +246,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
           >
             <Sidebar
               collapsible="none"
-              className="border-r border-sidebar-border/80 bg-sidebar"
+              className="hidden border-r border-sidebar-border/80 bg-sidebar sm:flex"
             >
               <SidebarContent
                 className="pt-2"
@@ -426,8 +433,13 @@ export function SettingsDialog(args: SettingsDialogProps) {
             </Sidebar>
 
             <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
-              <header className="flex min-h-20 shrink-0 items-center border-b border-border/65 px-8 py-4">
-                <div className="min-w-0">
+              <header
+                className={cn(
+                  "flex min-h-20 shrink-0 items-center border-b border-border/65 px-4 py-3 sm:px-8 sm:py-4",
+                  IS_MAC && "pt-10 sm:py-4",
+                )}
+              >
+                <div className="hidden min-w-0 sm:block">
                   <div className="flex items-baseline gap-2">
                     <span className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
                       Settings
@@ -446,9 +458,67 @@ export function SettingsDialog(args: SettingsDialogProps) {
                     {activeSectionData.description}
                   </p>
                 </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-2 sm:hidden">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <DialogPrimitive.Close
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-9 shrink-0"
+                          aria-label="back-to-app"
+                        />
+                      }
+                    >
+                      <ArrowLeft className="size-4" />
+                    </DialogPrimitive.Close>
+                    <Select
+                      value={activeSection}
+                      onValueChange={(value) =>
+                        setActiveSection(value as SectionId)
+                      }
+                    >
+                      <SelectTrigger
+                        aria-label="Settings section"
+                        className="h-9 min-w-0 flex-1"
+                      >
+                        <SelectValue>{activeSectionData.label}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {settingsSections.map((section) => (
+                          <SelectItem key={section.id} value={section.id}>
+                            {section.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search settings"
+                      aria-label="Search settings"
+                      className="h-9 pl-8 pr-8"
+                    />
+                    {searchQuery ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2"
+                        aria-label="Clear settings search"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
               </header>
 
-              <div className="min-h-0 flex-1 overflow-auto px-8 py-7">
+              <div className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-8 sm:py-7">
                 <div className="w-full max-w-[70rem]">
                   <SettingsDialogSectionContent
                     sectionId={activeSection}

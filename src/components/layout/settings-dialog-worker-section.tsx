@@ -1,6 +1,13 @@
 import { RotateCcw } from "lucide-react";
-import { useState } from "react";
-import { Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
+import { useMemo, useState } from "react";
+import {
+  Badge,
+  Button,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui";
 import {
   Select,
   SelectContent,
@@ -37,16 +44,19 @@ import {
 } from "@/lib/providers/worker-mode";
 import {
   getProviderLabel,
-  listProviderIds,
+  listProviderIdsForCapability,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
+import { useAppStore } from "@/store/app.store";
+import { useShallow } from "zustand/react/shallow";
 
 /**
  * Per-provider Worker mode defaults.
  *
  * Provider-tabbed rather than one flat form because almost nothing is shared:
- * the two providers have different worker models, different effort scales, and
+ * providers have different worker models, different effort scales, and
  * different enforcement guarantees for the preset's tool list. Presenting them
  * together would imply a symmetry the runtimes do not have.
  *
@@ -56,13 +66,41 @@ import type { ProviderId } from "@/lib/providers/provider.types";
  */
 export function SettingsWorkerSection(args: {
   workerEnabled: boolean;
-  workerConfigByProvider: Partial<Record<ProviderId, WorkerProviderConfig>>;
+  workerConfigByProvider: Partial<
+    Record<ProviderId, WorkerProviderConfig>
+  >;
   onChange: (args: {
     workerEnabled?: boolean;
-    workerConfigByProvider?: Partial<Record<ProviderId, WorkerProviderConfig>>;
+    workerConfigByProvider?: Partial<
+      Record<ProviderId, WorkerProviderConfig>
+    >;
   }) => void;
 }) {
-  const providerIds = listProviderIds();
+  const providerIds = listProviderIdsForCapability({ capability: "worker" });
+  const [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, workspaceCwd] =
+    useAppStore(
+      useShallow((state) => [
+        state.settings.codexBinaryPath,
+        state.settings.cursorBinaryPath,
+        state.settings.kiroBinaryPath,
+        state.workspacePathById[state.activeWorkspaceId] ??
+          state.projectPath ??
+          undefined,
+      ] as const),
+    );
+  const catalogRuntimeOptions = useMemo(
+    () => ({
+      ...(codexBinaryPath ? { codexBinaryPath } : {}),
+      ...(cursorBinaryPath ? { cursorBinaryPath } : {}),
+      ...(kiroBinaryPath ? { kiroBinaryPath } : {}),
+    }),
+    [codexBinaryPath, cursorBinaryPath, kiroBinaryPath],
+  );
+  const modelCatalogs = useProviderModelCatalogs({
+    enabled: true,
+    cwd: workspaceCwd,
+    runtimeOptions: catalogRuntimeOptions,
+  });
   const [activeProviderId, setActiveProviderId] = useState<ProviderId>(
     providerIds[0] ?? "claude-code",
   );
@@ -87,7 +125,7 @@ export function SettingsWorkerSection(args: {
       id="settings-field-worker"
       tabIndex={-1}
       title="Worker mode"
-      description="Let a high-tier primary delegate bounded implementation work to a cheaper same-provider worker, then review and integrate the result."
+      description="Let a primary delegate bounded implementation work to a same-provider worker, then review and integrate the result."
       titleAccessory={
         <Badge variant={args.workerEnabled ? "secondary" : "outline"}>
           {args.workerEnabled ? "On by default" : "Off by default"}
@@ -105,9 +143,13 @@ export function SettingsWorkerSection(args: {
         value={activeProviderId}
         onValueChange={(value) => setActiveProviderId(value as ProviderId)}
       >
-        <TabsList>
+        <TabsList className="max-w-full justify-start overflow-x-auto">
           {providerIds.map((providerId) => (
-            <TabsTrigger key={providerId} value={providerId}>
+            <TabsTrigger
+              key={providerId}
+              value={providerId}
+              className="shrink-0"
+            >
               <ModelIcon providerId={providerId} className="size-3.5" />
               {getProviderLabel({ providerId })}
             </TabsTrigger>
@@ -118,6 +160,7 @@ export function SettingsWorkerSection(args: {
             <WorkerProviderForm
               providerId={providerId}
               config={args.workerConfigByProvider[providerId] ?? {}}
+              runtimeModels={modelCatalogs.catalogs[providerId].models}
               onPatch={(patch) => patchProvider(providerId, patch)}
             />
           </TabsContent>
@@ -130,12 +173,18 @@ export function SettingsWorkerSection(args: {
 function WorkerProviderForm(args: {
   providerId: ProviderId;
   config: WorkerProviderConfig;
+  runtimeModels: readonly string[];
   onPatch: (patch: Partial<WorkerProviderConfig>) => void;
 }) {
   const presetId = args.config.presetId ?? DEFAULT_WORKER_PRESET_ID;
   const preset = getWorkerPreset(presetId);
   const requestedModel = args.config.model ?? WORKER_AUTO_VALUE;
-  const primaryModels = listWorkerPrimaryModels(args.providerId);
+  const primaryModels = listWorkerPrimaryModels(
+    args.providerId,
+    args.runtimeModels,
+  );
+  const usesRuntimeCatalog =
+    args.providerId === "cursor" || args.providerId === "kiro";
   // Previewed against a supported primary so the preview reports the worker the
   // preset would actually resolve to, rather than "unavailable" just because the
   // Settings pane has no active task.
@@ -158,6 +207,7 @@ function WorkerProviderForm(args: {
         ? { maxTurns: args.config.maxTurns }
         : {}),
     },
+    runtimeModels: args.runtimeModels,
   });
   const effectiveWorkerModel =
     preview.status === "ready"
@@ -189,7 +239,7 @@ function WorkerProviderForm(args: {
             })
           }
         >
-          <SelectTrigger>
+          <SelectTrigger aria-label="Worker preset">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -210,13 +260,15 @@ function WorkerProviderForm(args: {
           value={requestedModel}
           onValueChange={(value) => args.onPatch({ model: value })}
         >
-          <SelectTrigger>
+          <SelectTrigger aria-label="Worker model">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {buildWorkerModelOptions({
               providerId: args.providerId,
               presetId,
+              runtimeModels: args.runtimeModels,
+              selectedModel: requestedModel,
             }).map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
@@ -238,7 +290,7 @@ function WorkerProviderForm(args: {
               args.onPatch({ effort: value as WorkerEffortPreference })
             }
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label="Worker effort">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -262,7 +314,7 @@ function WorkerProviderForm(args: {
         description={
           args.providerId === "claude-code"
             ? "What the primary reads to decide whether to delegate. Write it as a trigger. Empty uses the preset's text."
-            : "Describes the worker's role in the primary's developer instructions. Empty uses the preset's text."
+            : "Describes the worker's role in the primary's delegation briefing. Empty uses the preset's text."
         }
       >
         <div className="space-y-1.5">
@@ -330,9 +382,10 @@ function WorkerProviderForm(args: {
 
       <LabeledField
         title="Max worker turns"
-        description={`Caps the worker's agentic round-trips. Empty uses the preset's value (${preset.maxTurns ?? "unset"}).`}
+        description={`${preview.status === "ready" && preview.profile.maxTurnsEnforced ? "Caps" : "Guides"} the worker's agentic round-trips. Empty uses the preset's value (${preset.maxTurns ?? "unset"}).`}
       >
         <input
+          aria-label="Max worker turns"
           type="number"
           inputMode="numeric"
           min={WORKER_TURNS_MIN}
@@ -367,24 +420,35 @@ function WorkerProviderForm(args: {
         {preview.status === "ready" && preview.profile.costWarning ? (
           <p className="mt-1 text-warning">{preview.profile.costWarning}</p>
         ) : null}
-        <p className="mt-1">
-          Orchestrating primaries on this provider:{" "}
-          {primaryModels.map((model) => toHumanModelName({ model })).join(", ")}.
-          Other primaries show Worker mode as unavailable instead of silently
-          running solo.
-        </p>
+        {usesRuntimeCatalog ? (
+          <p className="mt-1">
+            Runtime catalog: {primaryModels.length} selectable model
+            {primaryModels.length === 1 ? "" : "s"}. The catalog is refreshed
+            from the installed provider runtime.
+          </p>
+        ) : (
+          <p className="mt-1">
+            Orchestrating primaries on this provider:{" "}
+            {primaryModels
+              .map((model) => toHumanModelName({ model }))
+              .join(", ")}
+            . Other primaries show Worker mode as unavailable instead of
+            silently running solo.
+          </p>
+        )}
         {preview.status === "ready" && preview.profile.tools ? (
           <p className="mt-1">
             Tools: {preview.profile.tools.join(", ")}
             {workerToolsEnforced(args.providerId)
               ? "."
-              : " — passed as guidance, since Codex cannot hard-limit a worker's tools."}
+              : " — passed as guidance because this adapter cannot hard-limit a worker's tools."}
           </p>
         ) : null}
         <p className="mt-1">
-          One foreground worker runs at a time. It inherits this turn&apos;s
-          sandbox and approval policy, so a plan or read-only turn cannot gain
-          write access by delegating.
+          {preview.status === "ready" &&
+          preview.profile.executionAdapter === "acp-tool"
+            ? "One ACP worker runs at a time in the same workspace. Its role session is reused for the same task and profile, while bound secrets and nested Worker tools stay unavailable; permission requests return to this task."
+            : "One foreground worker runs at a time. It inherits this turn's sandbox and approval policy, so a plan or read-only turn cannot gain write access by delegating."}
         </p>
       </div>
     </>

@@ -35,7 +35,8 @@ export type AdvisorActivityPhase =
  */
 export type AdvisorIsolationMode =
   | "claude-tools-disabled"
-  | "codex-ephemeral-read-only";
+  | "codex-ephemeral-read-only"
+  | "codex-role-session-read-only";
 
 export type AdvisorActivityEvent = Extract<
   NormalizedProviderEvent,
@@ -94,7 +95,10 @@ export type AdvisorExchangeSnapshot = {
   adviceChars?: number;
   inputTokens?: number;
   outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
   totalCostUsd?: number;
+  sessionReused?: boolean;
   /** Consults of this turn that already reached a terminal outcome. */
   settledConsults: number;
   /**
@@ -271,8 +275,17 @@ function reduceEvent(args: {
     ...(event.outputTokens !== undefined
       ? { outputTokens: event.outputTokens }
       : {}),
+    ...(event.cacheReadTokens !== undefined
+      ? { cacheReadTokens: event.cacheReadTokens }
+      : {}),
+    ...(event.cacheCreationTokens !== undefined
+      ? { cacheCreationTokens: event.cacheCreationTokens }
+      : {}),
     ...(event.totalCostUsd !== undefined
       ? { totalCostUsd: event.totalCostUsd }
+      : {}),
+    ...(event.sessionReused !== undefined
+      ? { sessionReused: event.sessionReused }
       : {}),
   };
 }

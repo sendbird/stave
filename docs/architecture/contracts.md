@@ -32,6 +32,21 @@ Any change to `window.api` must be checked across:
 - `electron/main/ipc/*`
 - renderer call sites under `src/`
 
+## Provider Model Catalog Contract
+
+Runtime model catalogs cross the same process seam as provider turns:
+
+- `src/lib/providers/provider.types.ts` defines the normalized catalog entry
+- `electron/providers/provider-model-catalog.ts` routes provider adapters
+- `electron/host-service/protocol.ts` and `electron/host-service.ts` transport it
+- `electron/main/ipc/schemas.ts` validates the provider and runtime paths
+- `electron/preload.ts` and `src/types/window-api.d.ts` expose the bridge
+- `src/lib/providers/use-provider-model-catalogs.ts` caches and normalizes the result
+
+Keep provider-specific catalog payloads behind the adapter. The composer must
+consume normalized entries and must retain a static fallback when a runtime is
+missing or unavailable.
+
 ## Secondary Run Contract
 
 When changing durable secondary execution, inspect the complete chain:
@@ -165,4 +180,4 @@ When changing project selection, workspace hydration, worktree import, notificat
 
 - run `bun run typecheck` after provider or IPC contract changes
 - run `bun run check:doc-paths` after changing repository path references in `AGENTS.md`, `CLAUDE.md`, `docs/`, or `skills/`
-- if a runtime path changed, smoke-check both Claude and Codex entry flows
+- if a runtime path changed, smoke-check Claude, Codex, Cursor, and Kiro entry flows

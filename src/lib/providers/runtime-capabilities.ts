@@ -81,6 +81,10 @@ export function resolveProviderRuntimeCapabilities(args: {
     return createEmptyProviderRuntimeCapabilities();
   }
 
+  if (args.providerId === "cursor" || args.providerId === "kiro") {
+    return createEmptyProviderRuntimeCapabilities();
+  }
+
   const version = parseVersion(args.versionText);
   if (args.providerId === "claude-code") {
     const hasSdkMutationSurface = isAtLeast(version, {
@@ -203,5 +207,7 @@ export function createDefaultProviderRuntimeCapabilities(): Record<
   return {
     "claude-code": createEmptyProviderRuntimeCapabilities(),
     codex: createEmptyProviderRuntimeCapabilities(),
+    cursor: createEmptyProviderRuntimeCapabilities(),
+    kiro: createEmptyProviderRuntimeCapabilities(),
   };
 }

@@ -1,0 +1,247 @@
+import { createInterface } from "node:readline";
+
+const scenario = process.argv[2] ?? "standard";
+const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
+let pendingPromptId: unknown;
+let pendingServerRequestId: string | null = null;
+
+function send(message: Record<string, unknown>) {
+  process.stdout.write(`${JSON.stringify(message)}\n`);
+}
+
+function result(id: unknown, value: unknown) {
+  send({ jsonrpc: "2.0", id, result: value });
+}
+
+function update(value: Record<string, unknown>) {
+  send({
+    jsonrpc: "2.0",
+    method: "session/update",
+    params: { sessionId: "cursor-fixture-session", update: value },
+  });
+}
+
+function finishPrompt(stopReason = "end_turn") {
+  result(pendingPromptId, { stopReason });
+  pendingPromptId = undefined;
+  pendingServerRequestId = null;
+}
+
+const modes = {
+  currentModeId: "agent",
+  availableModes: [
+    { id: "agent", name: "Agent" },
+    { id: "plan", name: "Plan" },
+    { id: "ask", name: "Ask" },
+  ],
+};
+const configOptions = [
+  {
+    id: "model",
+    name: "Model",
+    type: "select",
+    currentValue: "auto",
+    options: [
+      { value: "auto", name: "Auto" },
+      { value: "fixture-model", name: "Fixture Model" },
+    ],
+  },
+];
+
+input.on("line", (line) => {
+  const message = JSON.parse(line) as Record<string, unknown>;
+  const method = typeof message.method === "string" ? message.method : "";
+  const id = message.id;
+
+  if (!method && pendingServerRequestId && id === pendingServerRequestId) {
+    const response = message.result as Record<string, unknown> | undefined;
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: `response:${JSON.stringify(response?.outcome ?? {})}`,
+      },
+    });
+    finishPrompt();
+    return;
+  }
+
+  if (method === "initialize") {
+    result(id, {
+      protocolVersion: 1,
+      agentCapabilities: { loadSession: true },
+      authMethods: [{ id: "cursor_login", name: "Cursor login" }],
+    });
+    return;
+  }
+  if (method === "authenticate") {
+    result(id, {});
+    return;
+  }
+  if (method === "session/new") {
+    result(id, {
+      sessionId: "cursor-fixture-session",
+      modes,
+      configOptions,
+    });
+    return;
+  }
+  if (method === "session/load") {
+    result(id, { modes, configOptions });
+    return;
+  }
+  if (method === "session/set_mode" || method === "session/set_config_option") {
+    result(id, {});
+    return;
+  }
+  if (method === "session/cancel") {
+    finishPrompt("cancelled");
+    return;
+  }
+  if (method !== "session/prompt") {
+    return;
+  }
+
+  pendingPromptId = id;
+  if (scenario === "cancel") {
+    return;
+  }
+  if (scenario === "permission") {
+    pendingServerRequestId = "permission-1";
+    send({
+      jsonrpc: "2.0",
+      id: pendingServerRequestId,
+      method: "session/request_permission",
+      params: {
+        sessionId: "cursor-fixture-session",
+        toolCall: {
+          toolCallId: "tool-permission",
+          title: "Run fixture",
+          kind: "execute",
+          rawInput: { command: "fixture" },
+        },
+        options: [
+          {
+            optionId: "allow-once",
+            name: "Allow once",
+            kind: "allow_once",
+          },
+          {
+            optionId: "allow-always",
+            name: "Always allow",
+            kind: "allow_always",
+          },
+          {
+            optionId: "reject-once",
+            name: "Reject once",
+            kind: "reject_once",
+          },
+        ],
+      },
+    });
+    return;
+  }
+  if (scenario === "question") {
+    pendingServerRequestId = "question-1";
+    send({
+      jsonrpc: "2.0",
+      id: pendingServerRequestId,
+      method: "cursor/ask_question",
+      params: {
+        toolCallId: "tool-question",
+        title: "Choose mode",
+        questions: [
+          {
+            id: "mode",
+            prompt: "Which mode?",
+            options: [
+              { id: "agent", label: "Agent" },
+              { id: "plan", label: "Plan" },
+            ],
+          },
+        ],
+      },
+    });
+    return;
+  }
+  if (scenario === "plan") {
+    pendingServerRequestId = "plan-1";
+    send({
+      jsonrpc: "2.0",
+      id: pendingServerRequestId,
+      method: "cursor/create_plan",
+      params: {
+        toolCallId: "tool-plan",
+        name: "Fixture plan",
+        plan: "1. Inspect\n2. Change",
+        todos: [
+          { id: "one", content: "Inspect", status: "completed" },
+          { id: "two", content: "Change", status: "pending" },
+        ],
+      },
+    });
+    return;
+  }
+
+  update({
+    sessionUpdate: "agent_thought_chunk",
+    content: { type: "text", text: "Thinking" },
+  });
+  update({
+    sessionUpdate: "agent_message_chunk",
+    content: { type: "text", text: "Fixture response" },
+    messageId: "message-1",
+  });
+  update({
+    sessionUpdate: "tool_call",
+    toolCallId: "tool-1",
+    title: "Edit file",
+    status: "in_progress",
+    rawInput: { path: "/tmp/fixture.txt" },
+  });
+  update({
+    sessionUpdate: "tool_call_update",
+    toolCallId: "tool-1",
+    status: "completed",
+    content: [
+      {
+        type: "diff",
+        path: "/tmp/fixture.txt",
+        oldText: "before",
+        newText: "after",
+      },
+      {
+        type: "content",
+        content: { type: "text", text: "Updated fixture" },
+      },
+    ],
+  });
+  update({
+    sessionUpdate: "plan",
+    entries: [
+      { content: "Inspect", priority: "high", status: "completed" },
+      { content: "Change", priority: "medium", status: "in_progress" },
+    ],
+  });
+  send({
+    jsonrpc: "2.0",
+    method: "cursor/update_todos",
+    params: {
+      toolCallId: "todo-1",
+      todos: [{ id: "one", content: "Finish", status: "pending" }],
+      merge: false,
+    },
+  });
+  send({
+    jsonrpc: "2.0",
+    method: "cursor/task",
+    params: {
+      toolCallId: "task-1",
+      description: "Explored fixture",
+      prompt: "Explore",
+      subagentType: "explore",
+      agentId: "agent-1",
+    },
+  });
+  finishPrompt();
+});

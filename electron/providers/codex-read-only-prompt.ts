@@ -31,6 +31,14 @@ type BuildThreadStartParams = (args: {
   isolated?: boolean;
 }) => unknown;
 
+type BuildThreadResumeParams = (args: {
+  threadId: string;
+  cwd: string;
+  runtimeOptions?: RuntimeOptions;
+  configOverrides?: CodexConfigOverrides;
+  secondaryReadOnly?: boolean;
+}) => unknown;
+
 type BuildTurnStartParams = (args: {
   threadId: string;
   prompt: string;
@@ -47,6 +55,10 @@ export type CodexReadOnlyPromptArgs = {
   runtimeOptions?: RuntimeOptions;
   signal?: AbortSignal;
   isolated?: boolean;
+  /** Native session for the same isolated role lane, never the primary. */
+  resumeSessionId?: string;
+  /** Keeps a successful role lane available for a later bounded call. */
+  preserveSession?: boolean;
   /** Caller-facing name used in failure text. See `read-only-prompt-labels.ts`. */
   label?: string;
   /**
@@ -61,6 +73,8 @@ export type CodexReadOnlyPromptResult = {
   ok: boolean;
   text?: string;
   usage?: UsageEvent;
+  nativeSessionId?: string;
+  sessionReused?: boolean;
   aborted?: boolean;
   detail?: string;
 };
@@ -134,6 +148,7 @@ export async function runCodexReadOnlyPromptWithClient(
     respond?: Respond;
     subscribe: (listener: (message: JsonRpcMessage) => void) => () => void;
     buildThreadStartParams: BuildThreadStartParams;
+    buildThreadResumeParams?: BuildThreadResumeParams;
     buildTurnStartParams: BuildTurnStartParams;
     cleanupTimeoutMs?: number;
   },
@@ -159,6 +174,8 @@ export async function runCodexReadOnlyPromptWithClient(
   let aborted = false;
   let resolveCompletion: (() => void) | null = null;
   let interruptRequest: Promise<unknown> | null = null;
+  let keepThread = false;
+  let sessionReused = false;
   const requestInterrupt = () => {
     if (!threadId || !turnId || interruptRequest) {
       return;
@@ -228,21 +245,38 @@ export async function runCodexReadOnlyPromptWithClient(
       return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
 
-    const threadResponse = await args.request<{ thread: { id: string } }>(
-      "thread/start",
-      args.buildThreadStartParams({
-        cwd: args.runtimeCwd,
-        runtimeOptions: readOnlyRuntimeOptions,
-        ephemeral: true,
-        sandbox: "read-only",
-        approvalPolicy: "never",
-        ...(isolatedConfigOverrides
-          ? { configOverrides: isolatedConfigOverrides }
-          : {}),
-        isolated: args.isolated,
-      }),
-    );
+    const resumeSessionId = args.resumeSessionId?.trim();
+    const threadResponse = resumeSessionId && args.buildThreadResumeParams
+      ? await args.request<{ thread: { id: string } }>(
+          "thread/resume",
+          args.buildThreadResumeParams({
+            threadId: resumeSessionId,
+            cwd: args.runtimeCwd,
+            runtimeOptions: readOnlyRuntimeOptions,
+            ...(isolatedConfigOverrides
+              ? { configOverrides: isolatedConfigOverrides }
+              : {}),
+            secondaryReadOnly: true,
+          }),
+        )
+      : await args.request<{ thread: { id: string } }>(
+          "thread/start",
+          args.buildThreadStartParams({
+            cwd: args.runtimeCwd,
+            runtimeOptions: readOnlyRuntimeOptions,
+            ephemeral: !args.preserveSession,
+            sandbox: "read-only",
+            approvalPolicy: "never",
+            ...(isolatedConfigOverrides
+              ? { configOverrides: isolatedConfigOverrides }
+              : {}),
+            isolated: args.isolated,
+          }),
+        );
     threadId = threadResponse.thread.id;
+    sessionReused = Boolean(
+      resumeSessionId && threadId === resumeSessionId,
+    );
     if (aborted) {
       return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
@@ -404,10 +438,13 @@ export async function runCodexReadOnlyPromptWithClient(
     if (failureMessage) {
       return { ok: false, usage: latestUsage, detail: failureMessage };
     }
+    keepThread = args.preserveSession === true;
     return {
       ok: true,
       text: latestAgentMessageText,
       usage: latestUsage,
+      nativeSessionId: threadId,
+      sessionReused,
     };
   } catch (error) {
     if (aborted) {
@@ -433,7 +470,7 @@ export async function runCodexReadOnlyPromptWithClient(
         timeoutMs: cleanupTimeoutMs,
       });
     }
-    if (threadId) {
+    if (threadId && !keepThread) {
       await waitForCleanup({
         task: args
           .request("thread/delete", { threadId })

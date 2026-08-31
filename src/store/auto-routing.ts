@@ -495,11 +495,13 @@ function buildDecision(args: {
             model: args.model,
           }),
         }
-      : {
-          codexReasoningEffort: resolveDefaultCodexEffortForModel({
-            model: args.model,
-          }),
-        }),
+      : args.providerId === "codex"
+        ? {
+            codexReasoningEffort: resolveDefaultCodexEffortForModel({
+              model: args.model,
+            }),
+          }
+        : {}),
   };
 }
 
@@ -508,7 +510,9 @@ export async function resolveAutoRoutingDecision(
 ): Promise<AutoRoutingDecision> {
   const manualModel = args.runtimeOverrides?.model?.trim();
   if (manualModel) {
-    const providerId = inferProviderIdFromModel({ model: manualModel });
+    const providerId =
+      args.runtimeOverrides?.modelProviderId ??
+      inferProviderIdFromModel({ model: manualModel });
     return buildDecision({
       providerId,
       model: manualModel,

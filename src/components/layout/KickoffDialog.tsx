@@ -50,7 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  listProviderIds,
+  listProviderIdsForCapability,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
 } from "@/lib/providers/model-catalog";
@@ -80,7 +80,9 @@ type CodexTaskEffort = NonNullable<
   PromptDraftRuntimeOverrides["codexReasoningEffort"]
 >;
 type FirstTaskEffort = ClaudeTaskEffort | CodexTaskEffort;
-const KICKOFF_PROVIDER_IDS = listProviderIds();
+const KICKOFF_PROVIDER_IDS = listProviderIdsForCapability({
+  capability: "unattendedRuns",
+});
 
 function resolveFirstTaskEffort(args: {
   settings: AppSettings;

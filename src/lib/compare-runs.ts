@@ -6,11 +6,11 @@ import {
 } from "@/lib/providers/model-effort";
 import type {
   NormalizedProviderEvent,
-  ProviderId,
+  ManagedExecutionProviderId,
 } from "@/lib/providers/provider.types";
 
 export interface CompareRunVariantConfig {
-  provider: ProviderId;
+  provider: ManagedExecutionProviderId;
   model?: string;
   /** Reasoning effort for this candidate. Missing on pre-effort runs. */
   effort?: ModelEffort;
@@ -18,7 +18,7 @@ export interface CompareRunVariantConfig {
 }
 
 export interface CompareRunJudgeConfig {
-  provider: ProviderId;
+  provider: ManagedExecutionProviderId;
   model?: string;
   /** Reasoning effort for the judge turn. Missing on pre-effort runs. */
   effort?: ModelEffort;
@@ -44,7 +44,7 @@ export interface CompareRunJudgeCandidateScore {
 
 export interface CompareRunJudgeProvenance {
   rubricVersion: string;
-  judgeProvider: ProviderId;
+  judgeProvider: ManagedExecutionProviderId;
   judgeModel: string;
   attempt: number;
 }
@@ -200,7 +200,7 @@ export function buildDefaultCompareVariants(args: {
  * to that provider's configured effort instead of a guessed tier.
  */
 function normalizeCompareEffort(args: {
-  provider: ProviderId;
+  provider: ManagedExecutionProviderId;
   model: string | undefined;
   effort: ModelEffort | undefined;
 }): ModelEffort | undefined {

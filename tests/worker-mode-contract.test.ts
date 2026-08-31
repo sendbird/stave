@@ -18,6 +18,7 @@ import {
   buildWorkerTogglePatch,
 } from "@/components/ai-elements/prompt-input-worker-mode.utils";
 import { resolveWorkerArmState } from "@/lib/providers/worker-mode";
+import { NormalizedProviderEventSchema } from "@/lib/providers/schemas";
 
 const validIntent = {
   mode: "task-executor",
@@ -116,6 +117,28 @@ describe("worker intent IPC schema", () => {
 
   test("workerIntent is declared in the runtime option key contract", () => {
     expect(PROVIDER_RUNTIME_OPTION_KEYS).toContain("workerIntent");
+  });
+});
+
+describe("ACP Worker approval metadata", () => {
+  test("survives the normalized event schema for Cursor and Kiro", () => {
+    for (const providerId of ["cursor", "kiro"] as const) {
+      expect(
+        NormalizedProviderEventSchema.safeParse({
+          type: "approval",
+          requestId: `worker:${providerId}:permission-1`,
+          toolName: "Bash",
+          description: "Worker · Run tests",
+          workerExecution: {
+            providerId,
+            primaryModel: "primary-model",
+            presetId: "verified-patch",
+            workerModel: "worker-model",
+            workerEffort: null,
+          },
+        }).success,
+      ).toBe(true);
+    }
   });
 });
 

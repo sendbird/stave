@@ -124,6 +124,23 @@ describe("local MCP service bridge", () => {
     }]);
   });
 
+  test("routes an ACP Worker call to the process that minted the grant", async () => {
+    await localMcpService.runAcpWorker({
+      workerKey: "worker-grant-1",
+      task: "Implement the bounded change",
+      context: "Only touch the named files.",
+    });
+
+    expect(invokeCalls).toEqual([{
+      method: "provider.run-acp-worker",
+      params: {
+        workerKey: "worker-grant-1",
+        task: "Implement the bounded change",
+        context: "Only touch the named files.",
+      },
+    }]);
+  });
+
   test("routes approved Crane work through the trusted kickoff action", async () => {
     const retrievedContextParts = [{
       type: "retrieved_context" as const,

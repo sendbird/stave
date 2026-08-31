@@ -14,7 +14,9 @@ import {
   resolveCodexCliExecutablePath,
 } from "../electron/providers/cli-path-env";
 import { resolveCodexExecutablePath as resolveCodexAppServerExecutablePath } from "../electron/providers/codex-app-server-runtime";
+import { resolveCursorAgentExecutablePath } from "../electron/providers/cursor-cli-env";
 import { __resetExecutablePathCachesForTests } from "../electron/providers/executable-path";
+import { resolveKiroExecutablePath } from "../electron/providers/kiro-cli-env";
 
 const createdDirectories: string[] = [];
 
@@ -257,6 +259,96 @@ describe("provider executable resolution", () => {
         expect(resolveCodexAppServerExecutablePath()).toBe(
           fixture.executablePath,
         );
+      },
+    );
+  });
+
+  test("normalizes Cursor Agent binary overrides", () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const fixture = createHomeExecutable({
+      prefix: ".stave-cursor-agent-bin-",
+      commandName: "agent",
+    });
+    if (!fixture) {
+      return;
+    }
+
+    expect(
+      resolveCursorAgentExecutablePath({ explicitPath: fixture.tildePath }),
+    ).toBe(fixture.executablePath);
+    expect(
+      resolveCursorAgentExecutablePath({ explicitPath: fixture.aliasPath }),
+    ).toBe(fixture.executablePath);
+  });
+
+  test("uses the Cursor Agent path override without treating the editor launcher as the agent", () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const fixture = createHomeExecutable({
+      prefix: ".stave-cursor-agent-env-bin-",
+      commandName: "agent",
+    });
+    if (!fixture) {
+      return;
+    }
+
+    withTemporaryEnv(
+      {
+        STAVE_CURSOR_AGENT_PATH: fixture.tildePath,
+        STAVE_CURSOR_AGENT_CMD: "cursor",
+      },
+      () => {
+        expect(resolveCursorAgentExecutablePath()).toBe(fixture.executablePath);
+      },
+    );
+  });
+
+  test("normalizes Kiro CLI binary overrides", () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const fixture = createHomeExecutable({
+      prefix: ".stave-kiro-cli-bin-",
+      commandName: "kiro-cli",
+    });
+    if (!fixture) {
+      return;
+    }
+
+    expect(resolveKiroExecutablePath({ explicitPath: fixture.tildePath })).toBe(
+      fixture.executablePath,
+    );
+    expect(resolveKiroExecutablePath({ explicitPath: fixture.aliasPath })).toBe(
+      fixture.executablePath,
+    );
+  });
+
+  test("uses the Kiro CLI path override", () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const fixture = createHomeExecutable({
+      prefix: ".stave-kiro-cli-env-bin-",
+      commandName: "kiro-cli",
+    });
+    if (!fixture) {
+      return;
+    }
+
+    withTemporaryEnv(
+      {
+        STAVE_KIRO_CLI_PATH: fixture.tildePath,
+        STAVE_KIRO_CLI_CMD: "ignored-kiro-cli",
+      },
+      () => {
+        expect(resolveKiroExecutablePath()).toBe(fixture.executablePath);
       },
     );
   });

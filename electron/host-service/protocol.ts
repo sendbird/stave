@@ -14,6 +14,7 @@ import type {
   GitHubPrReviewSubmitResult,
 } from "../../src/lib/github-pr-review";
 import type { AdvisorConsultOutcome } from "../providers/advisor-consult";
+import type { AcpWorkerOutcome } from "../providers/acp/acp-worker-runtime";
 import type {
   CanonicalRetrievedContextPart,
   CodexAppServerSnapshotResponse,
@@ -36,6 +37,7 @@ import type {
   CodexPluginInstallResponse,
   CodexReviewStartResponse,
   ProviderRuntimeOptions,
+  ProviderModelCatalogResponse,
   ProviderAvailabilityResponse,
   ProviderSteerTurnResponse,
   RateLimitsSnapshotResponse,
@@ -573,6 +575,11 @@ export interface HostServiceRequestMap {
     question: string;
     context?: string;
   };
+  "provider.run-acp-worker": {
+    workerKey: string;
+    task: string;
+    context?: string;
+  };
   "provider.cleanup-task": {
     taskId: string;
   };
@@ -580,6 +587,7 @@ export interface HostServiceRequestMap {
     turnId: string;
     requestId: string;
     approved: boolean;
+    reason?: string;
   };
   "provider.respond-user-input": {
     turnId: string;
@@ -645,6 +653,11 @@ export interface HostServiceRequestMap {
   "provider.preview-mcp-server-config-mutation": McpServerConfigMutationRequest;
   "provider.apply-mcp-server-config-mutation": McpServerConfigMutationApplyRequest;
   "provider.get-codex-model-catalog": {
+    cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
+  "provider.get-model-catalog": {
+    providerId: StreamTurnArgs["providerId"];
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
@@ -1003,6 +1016,7 @@ export interface HostServiceResponseMap {
   "provider.abort-turn": HostProviderMutationResult;
   "provider.skip-advisor": HostProviderMutationResult;
   "provider.consult-advisor": AdvisorConsultOutcome;
+  "provider.run-acp-worker": AcpWorkerOutcome;
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;
@@ -1022,6 +1036,7 @@ export interface HostServiceResponseMap {
   "provider.preview-mcp-server-config-mutation": McpServerConfigMutationPreviewResponse;
   "provider.apply-mcp-server-config-mutation": McpServerConfigMutationResponse;
   "provider.get-codex-model-catalog": CodexModelCatalogResponse;
+  "provider.get-model-catalog": ProviderModelCatalogResponse;
   "provider.get-codex-app-server-snapshot": CodexAppServerSnapshotResponse;
   "provider.get-rate-limits-snapshot": RateLimitsSnapshotResponse;
   "provider.get-codex-plugin-detail": CodexPluginDetailResponse;

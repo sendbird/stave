@@ -105,6 +105,7 @@ export function createSupportActions(args: {
     incrementWorkspaceSnapshotVersion,
     normalizeSharedSkillsHomeSetting,
   } = args;
+  let providerAvailabilityRefreshInFlight: Promise<void> | null = null;
 
   const openNotificationContextInternal = async (
     notification: AppNotification,
@@ -469,43 +470,69 @@ export function createSupportActions(args: {
         });
       }
     },
-    refreshProviderAvailability: async () => {
+    refreshProviderAvailability: () => {
       const checkAvailability = window.api?.provider?.checkAvailability;
       if (!checkAvailability) {
-        return;
+        return Promise.resolve();
       }
-      const claudeBinaryPath = get().settings.claudeBinaryPath || undefined;
-      const codexBinaryPath = get().settings.codexBinaryPath || undefined;
-      const availabilityEntries = await Promise.all(
-        listProviderIds().map(async (providerId) => {
-          const result = await checkAvailability({
-            providerId,
-            runtimeOptions: {
-              ...(claudeBinaryPath ? { claudeBinaryPath } : {}),
-              ...(codexBinaryPath ? { codexBinaryPath } : {}),
-            },
-          });
-          return [
-            providerId,
-            result.ok && result.available,
-            result.capabilities,
-          ] as const;
-        }),
-      );
+      if (providerAvailabilityRefreshInFlight) {
+        return providerAvailabilityRefreshInFlight;
+      }
+      const refresh = (async () => {
+        const state = get();
+        const claudeBinaryPath = state.settings.claudeBinaryPath || undefined;
+        const codexBinaryPath = state.settings.codexBinaryPath || undefined;
+        const cursorBinaryPath = state.settings.cursorBinaryPath || undefined;
+        const kiroBinaryPath = state.settings.kiroBinaryPath || undefined;
+        const availabilityEntries = await Promise.all(
+          listProviderIds().map(async (providerId) => {
+            try {
+              const result = await checkAvailability({
+                providerId,
+                runtimeOptions: {
+                  ...(claudeBinaryPath ? { claudeBinaryPath } : {}),
+                  ...(codexBinaryPath ? { codexBinaryPath } : {}),
+                  ...(cursorBinaryPath ? { cursorBinaryPath } : {}),
+                  ...(kiroBinaryPath ? { kiroBinaryPath } : {}),
+                },
+              });
+              return [
+                providerId,
+                result.ok && result.available,
+                result.capabilities,
+              ] as const;
+            } catch {
+              return [
+                providerId,
+                state.providerAvailability[providerId],
+                state.providerRuntimeCapabilities[providerId],
+              ] as const;
+            }
+          }),
+        );
 
-      const providerAvailability = createDefaultProviderAvailability();
-      const providerRuntimeCapabilities =
-        createDefaultProviderRuntimeCapabilities();
-      availabilityEntries.forEach(([providerId, available, capabilities]) => {
-        providerAvailability[providerId] = available;
-        providerRuntimeCapabilities[providerId] =
-          capabilities ?? createEmptyProviderRuntimeCapabilities();
+        const providerAvailability = createDefaultProviderAvailability();
+        const providerRuntimeCapabilities =
+          createDefaultProviderRuntimeCapabilities();
+        availabilityEntries.forEach(
+          ([providerId, available, capabilities]) => {
+            providerAvailability[providerId] = available;
+            providerRuntimeCapabilities[providerId] =
+              capabilities ?? createEmptyProviderRuntimeCapabilities();
+          },
+        );
+
+        set(() => ({
+          providerAvailability,
+          providerRuntimeCapabilities,
+        }));
+      })().finally(() => {
+        if (providerAvailabilityRefreshInFlight === refresh) {
+          providerAvailabilityRefreshInFlight = null;
+        }
       });
-
-      set(() => ({
-        providerAvailability,
-        providerRuntimeCapabilities,
-      }));
+      providerAvailabilityRefreshInFlight = refresh;
+      return refresh;
     },
     refreshSkillCatalog: async (args = {}) => {
       const getCatalog = window.api?.skills?.getCatalog;

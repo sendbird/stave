@@ -34,7 +34,7 @@ function getQuestionKey(question: UserInputQuestion) {
 function parseAnswerValue(args: {
   value?: string;
   multiSelect?: boolean;
-  optionLabels: string[];
+  optionValues: string[];
 }): QuestionSelection {
   const raw = args.value?.trim() ?? "";
   if (!raw) {
@@ -46,9 +46,9 @@ function parseAnswerValue(args: {
         .map((part) => part.trim())
         .filter(Boolean)
     : [raw];
-  const selected = parts.filter((part) => args.optionLabels.includes(part));
+  const selected = parts.filter((part) => args.optionValues.includes(part));
   const custom = parts
-    .filter((part) => !args.optionLabels.includes(part))
+    .filter((part) => !args.optionValues.includes(part))
     .join(", ");
   return { selected, custom };
 }
@@ -127,6 +127,16 @@ function UserInputSummary(args: {
                   (question.inputType === "url_notice"
                     ? "Accepted"
                     : "No answer");
+                const displayAnswer = answer
+                  .split(",")
+                  .map((value) => value.trim())
+                  .map(
+                    (value) =>
+                      question.options.find(
+                        (option) => (option.value ?? option.label) === value,
+                      )?.label ?? value,
+                  )
+                  .join(", ");
                 return (
                   <div
                     key={getQuestionKey(question)}
@@ -136,7 +146,7 @@ function UserInputSummary(args: {
                       {question.header}
                     </dt>
                     <dd className="min-w-0 text-foreground break-words">
-                      {answer}
+                      {displayAnswer}
                     </dd>
                   </div>
                 );
@@ -168,7 +178,9 @@ export function UserInputCard(args: UserInputCardProps) {
           const parsed = parseAnswerValue({
             value: answers?.[getQuestionKey(question)] ?? question.defaultValue,
             multiSelect: question.multiSelect,
-            optionLabels: question.options.map((option) => option.label),
+            optionValues: question.options.map(
+              (option) => option.value ?? option.label,
+            ),
           });
           return [getQuestionKey(question), parsed];
         }),
@@ -338,12 +350,13 @@ export function UserInputCard(args: UserInputCardProps) {
                   {question.options.length > 0 ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {question.options.map((option) => {
+                        const optionValue = option.value ?? option.label;
                         const isSelected = selection.selected.includes(
-                          option.label,
+                          optionValue,
                         );
                         return (
                           <label
-                            key={option.label}
+                            key={optionValue}
                             className={cn(
                               "relative flex min-h-11 min-w-0 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5",
                               "bg-background/45 transition-[background-color,border-color,box-shadow] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
@@ -360,7 +373,7 @@ export function UserInputCard(args: UserInputCardProps) {
                               className="sr-only"
                               type={question.multiSelect ? "checkbox" : "radio"}
                               name={`${formId}-question-${questionIndex}`}
-                              value={option.label}
+                              value={optionValue}
                               checked={isSelected}
                               disabled={disabled}
                               onChange={() => {
@@ -372,10 +385,10 @@ export function UserInputCard(args: UserInputCardProps) {
                                   const nextSelected = question.multiSelect
                                     ? isSelected
                                       ? previous.selected.filter(
-                                          (label) => label !== option.label,
+                                          (value) => value !== optionValue,
                                         )
-                                      : [...previous.selected, option.label]
-                                    : [option.label];
+                                      : [...previous.selected, optionValue]
+                                    : [optionValue];
                                   return {
                                     ...current,
                                     [questionKey]: {

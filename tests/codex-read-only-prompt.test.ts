@@ -102,6 +102,8 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         outputTokens: 5,
         cacheReadTokens: 3,
       },
+      nativeSessionId: "advisor-thread",
+      sessionReused: false,
     });
     // `isolated` only *instructs* the model to avoid MCP; every registered
     // server stays reachable unless disabled per thread, so the isolated call
@@ -150,6 +152,76 @@ describe("runCodexReadOnlyPromptWithClient", () => {
           .configOverrides ?? {},
       ).some((key) => key.includes('"')),
     ).toBe(false);
+  });
+
+  test("resumes and preserves an isolated role session", async () => {
+    const methods: string[] = [];
+    let resumeArgs: unknown;
+
+    const result = await runCodexReadOnlyPromptWithClient({
+      runtimeCwd: "/workspace/stave",
+      prompt: "Review the follow-up.",
+      isolated: true,
+      resumeSessionId: "advisor-thread",
+      preserveSession: true,
+      request: async <T>(method: string): Promise<T> => {
+        methods.push(method);
+        if (method === "account/read") {
+          return {
+            account: { type: "chatgpt" },
+            requiresOpenaiAuth: true,
+          } as T;
+        }
+        if (method === "config/read") {
+          return { config: { mcp_servers: {} } } as T;
+        }
+        if (method === "thread/resume") {
+          return { thread: { id: "advisor-thread" } } as T;
+        }
+        if (method === "turn/start") {
+          return {
+            turn: {
+              id: "advisor-turn-2",
+              status: "completed",
+              items: [{ type: "agentMessage", text: "Reuse it." }],
+            },
+          } as T;
+        }
+        return {} as T;
+      },
+      subscribe: () => () => {},
+      buildThreadStartParams: () => {
+        throw new Error("A resumed lane must not start a fresh thread.");
+      },
+      buildThreadResumeParams: (args) => {
+        resumeArgs = args;
+        return args;
+      },
+      buildTurnStartParams: (args) => args,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      text: "Reuse it.",
+      nativeSessionId: "advisor-thread",
+      sessionReused: true,
+    });
+    expect(resumeArgs).toMatchObject({
+      threadId: "advisor-thread",
+      cwd: "/workspace/stave",
+      secondaryReadOnly: true,
+      runtimeOptions: {
+        codexFileAccess: "read-only",
+        codexNetworkAccess: false,
+        codexApprovalPolicy: "never",
+      },
+    });
+    expect(methods).toEqual([
+      "account/read",
+      "config/read",
+      "thread/resume",
+      "turn/start",
+    ]);
   });
 
   test("refuses an isolated call when the effective config cannot be read", async () => {

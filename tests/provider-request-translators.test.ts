@@ -49,6 +49,22 @@ describe("provider request translators", () => {
     expect(prompt).toContain("Continue with the runtime refactor.");
   });
 
+  test("builds ACP text from the same canonical conversation contract", () => {
+    for (const providerId of ["cursor", "kiro"] as const) {
+      const prompt = buildProviderTurnPrompt({
+        providerId,
+        prompt: "fallback prompt",
+        conversation: createConversation({
+          target: { providerId, model: "auto" },
+        }),
+      });
+
+      expect(prompt).toContain("[Task Shared Context]");
+      expect(prompt).toContain("user: Summarize the current repo status.");
+      expect(prompt).toContain("Continue with the runtime refactor.");
+    }
+  });
+
   test("omits inline image data when the provider receives native images", () => {
     const prompt = buildProviderTurnPrompt({
       providerId: "codex",

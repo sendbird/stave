@@ -376,7 +376,9 @@ describe("model catalog", () => {
 
   test("cycles provider order from the descriptor registry", () => {
     expect(getNextProviderId({ providerId: "claude-code" })).toBe("codex");
-    expect(getNextProviderId({ providerId: "codex" })).toBe("claude-code");
+    expect(getNextProviderId({ providerId: "codex" })).toBe("cursor");
+    expect(getNextProviderId({ providerId: "cursor" })).toBe("kiro");
+    expect(getNextProviderId({ providerId: "kiro" })).toBe("claude-code");
   });
 
   // ── Dynamic display-name registry ─────────────────────────────────────────

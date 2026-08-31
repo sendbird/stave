@@ -1,53 +1,62 @@
-import { Minus, Sparkles, Zap } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  Loader2,
+  RefreshCcw,
+  Search,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import {
   type CSSProperties,
   type KeyboardEvent,
-  type ReactNode,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { ThinkingOrb, type OrbState } from "thinking-orbs";
 import {
   Button,
+  ButtonGroup,
+  ButtonGroupSeparator,
+  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@/components/ui";
 import {
   getProviderLabel,
-  listCodexReasoningEffortsForModel,
-  STAVE_LOGO_URL,
+  listProviderIds,
 } from "@/lib/providers/model-catalog";
-import type { ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
-import {
-  CLAUDE_EFFORT_OPTIONS,
-  CODEX_EFFORT_OPTIONS,
-} from "@/lib/providers/runtime-option-contract";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { cn } from "@/lib/utils";
+import { ModelEffortGrid, PROVIDER_ACCENT_COLORS } from "./model-effort-grid";
 import { ModelIcon } from "./model-icon";
 import {
-  buildClaudeModelEffortRows,
-  buildCodexModelEffortRows,
+  collapseClaudeContextOptions,
+  getClaudeContextBaseLabel,
+  getCursorModelPresentation,
   isClaudeContext1MModel,
-  resolveClaudeMatrixOption,
-  type ModelEffortMatrixRow,
+  listFeaturedModelOptions,
+  listModelEfforts,
+  resolveClaudeContextOption,
+  resolveDefaultModelEffort,
+  supportsClaudeContextToggle,
+  type ModelEffortValue,
 } from "./model-effort-selector.utils";
 import {
   shouldOpenModelSelector,
   type ModelSelectorOption,
 } from "./model-selector.utils";
 
-type ModelEffortValue = Exclude<ModelShortcutEffort, "">;
-
-interface ModelEffortPreview {
-  modelLabel: string;
-  effortLabel: string;
+export interface ModelSelectorCatalogState {
+  status: "idle" | "loading" | "ready" | "error";
+  detail?: string;
+  isDynamic?: boolean;
 }
 
 interface ModelEffortSelectorProps {
@@ -56,10 +65,11 @@ interface ModelEffortSelectorProps {
   effortValue?: ModelEffortValue;
   effortLabel?: string;
   fastMode?: boolean;
-  /** Whether the Codex Fast control is available in the selector header. */
   showFastMode?: boolean;
   disabled?: boolean;
   openToken?: string | number;
+  catalogs?: Partial<Record<ProviderId, ModelSelectorCatalogState>>;
+  onRefreshCatalogs?: () => void;
   onFastModeChange?: (enabled: boolean) => void;
   onSelect: (args: {
     selection: ModelSelectorOption;
@@ -68,525 +78,311 @@ interface ModelEffortSelectorProps {
   }) => void;
 }
 
-const PROVIDER_CELL_COLORS: Record<ProviderId, readonly string[]> = {
-  "claude-code": [
-    "color-mix(in srgb, #d97757 24%, var(--popover))",
-    "color-mix(in srgb, #d97757 40%, var(--popover))",
-    "color-mix(in srgb, #d97757 56%, var(--popover))",
-    "color-mix(in srgb, #d97757 76%, var(--popover))",
-    "#d97757",
-  ],
-  codex: [
-    "color-mix(in srgb, #4169c1 24%, var(--popover))",
-    "color-mix(in srgb, #4169c1 38%, var(--popover))",
-    "color-mix(in srgb, #4169c1 52%, var(--popover))",
-    "color-mix(in srgb, #4169c1 68%, var(--popover))",
-    "color-mix(in srgb, #4169c1 84%, var(--popover))",
-    "#4169c1",
-  ],
-};
-
-interface CellOrbPresentation {
-  state: OrbState;
-  speed: number;
-  kind: "selected" | "max" | "ultra";
-}
-
-function resolveCellOrbPresentation(args: {
-  effort: string;
-  selected: boolean;
-}): CellOrbPresentation | null {
-  if (args.effort === "ultra") {
-    return { state: "composing", speed: 1.25, kind: "ultra" };
-  }
-  if (args.effort === "max") {
-    return { state: "solving", speed: 1, kind: "max" };
-  }
-  if (args.selected) {
-    return { state: "working", speed: 0.72, kind: "selected" };
-  }
-  return null;
-}
-
-function getCellKey(args: {
+function ModelOnlyList(args: {
   providerId: ProviderId;
-  model: string;
-  effort: string;
-}) {
-  return `${args.providerId}:${args.model}:${args.effort}`;
-}
-
-function isStaveAutoSlot(args: {
-  providerId: ProviderId;
-  row: ModelEffortMatrixRow;
-  effort: string;
-}) {
-  return (
-    args.providerId === "codex" &&
-    args.row.shortLabel === "Luna" &&
-    args.effort === "ultra"
-  );
-}
-
-function ModelEffortMatrix(args: {
-  providerId: ProviderId;
-  rows: readonly ModelEffortMatrixRow[];
-  selectedModelKey: string;
-  selectedEffort?: ModelEffortValue;
-  autoOption?: ModelSelectorOption;
-  autoSelected: boolean;
-  context1M: boolean;
-  fastMode: boolean;
+  options: readonly ModelSelectorOption[];
+  selectedModelKey?: string;
   disabled?: boolean;
-  headerAction?: ReactNode;
-  onPreview: (preview: ModelEffortPreview | null) => void;
-  onSelect: ModelEffortSelectorProps["onSelect"];
-  onClose: () => void;
+  onChoose: (option: ModelSelectorOption) => void;
 }) {
-  const cellRefs = useRef(new Map<string, HTMLButtonElement>());
-  const effortOptions =
-    args.providerId === "claude-code"
-      ? CLAUDE_EFFORT_OPTIONS
-      : CODEX_EFFORT_OPTIONS;
-  const selectedRowIndex = args.rows.findIndex((row) => {
-    const option =
-      args.providerId === "claude-code"
-        ? resolveClaudeMatrixOption({ row, context1M: args.context1M })
-        : row.option;
-    return option.key === args.selectedModelKey;
-  });
-  const selectedTabStop = `${Math.max(selectedRowIndex, 0)}:${Math.max(
-    effortOptions.findIndex((option) => option.value === args.selectedEffort),
-    0,
-  )}`;
-  const autoTabStop = `${args.rows.length - 1}:${effortOptions.length - 1}`;
-  const fallbackTabStop =
-    args.autoSelected && args.providerId === "codex"
-      ? autoTabStop
-      : selectedTabStop;
+  const optionRefs = useRef(new Map<string, HTMLButtonElement>());
+  const selectedIndex = args.options.findIndex(
+    (option) => option.key === args.selectedModelKey,
+  );
+  const tabStopIndex = Math.max(selectedIndex, 0);
 
-  const focusCell = (rowIndex: number, effortIndex: number) => {
-    const row = args.rows[rowIndex];
-    const effort = effortOptions[effortIndex];
-    if (!row || !effort) {
-      return false;
-    }
-    const option =
-      args.providerId === "claude-code"
-        ? resolveClaudeMatrixOption({ row, context1M: args.context1M })
-        : row.option;
-    if (
-      isStaveAutoSlot({
-        providerId: args.providerId,
-        row,
-        effort: effort.value,
-      }) &&
-      args.autoOption?.available
-    ) {
-      cellRefs.current.get("stave:auto")?.focus();
-      return true;
-    }
-    const supported =
-      args.providerId === "claude-code" ||
-      listCodexReasoningEffortsForModel({ model: option.model }).includes(
-        effort.value as never,
-      );
-    if (!option.available || !supported) {
-      return false;
-    }
-    cellRefs.current
-      .get(
-        getCellKey({
-          providerId: args.providerId,
-          model: option.model,
-          effort: effort.value,
-        }),
-      )
-      ?.focus();
-    return true;
-  };
-
-  const handleCellKeyDown = (
+  const moveFocus = (
     event: KeyboardEvent<HTMLButtonElement>,
-    rowIndex: number,
-    effortIndex: number,
+    optionIndex: number,
   ) => {
-    const key = event.key;
     if (
-      ![
-        "ArrowLeft",
-        "ArrowRight",
-        "ArrowUp",
-        "ArrowDown",
-        "Home",
-        "End",
-      ].includes(key)
+      !["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key) ||
+      args.options.length === 0
     ) {
       return;
     }
     event.preventDefault();
-
-    if (key === "Home" || key === "End") {
-      const start = key === "Home" ? 0 : effortOptions.length - 1;
-      const step = key === "Home" ? 1 : -1;
-      for (
-        let nextEffort = start;
-        nextEffort >= 0 && nextEffort < effortOptions.length;
-        nextEffort += step
-      ) {
-        if (focusCell(rowIndex, nextEffort)) {
-          return;
-        }
-      }
-      return;
-    }
-
-    const rowStep = key === "ArrowUp" ? -1 : key === "ArrowDown" ? 1 : 0;
-    const effortStep = key === "ArrowLeft" ? -1 : key === "ArrowRight" ? 1 : 0;
-    let nextRow = rowIndex + rowStep;
-    let nextEffort = effortIndex + effortStep;
-    while (
-      nextRow >= 0 &&
-      nextRow < args.rows.length &&
-      nextEffort >= 0 &&
-      nextEffort < effortOptions.length
-    ) {
-      if (focusCell(nextRow, nextEffort)) {
-        return;
-      }
-      nextRow += rowStep;
-      nextEffort += effortStep;
-    }
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? args.options.length - 1
+          : (optionIndex +
+              (event.key === "ArrowDown" ? 1 : -1) +
+              args.options.length) %
+            args.options.length;
+    optionRefs.current.get(args.options[nextIndex]?.key ?? "")?.focus();
   };
 
+  if (args.options.length === 0) {
+    return null;
+  }
+
   return (
-    <section
-      aria-label={`${getProviderLabel({ providerId: args.providerId })} model and effort`}
-      data-provider={args.providerId}
-      className="min-w-0"
+    <div
+      role="listbox"
+      aria-label={`${getProviderLabel({ providerId: args.providerId })} models`}
+      className="space-y-1 p-2"
     >
-      <div className="mb-1 flex min-h-10 items-center justify-between gap-2 px-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <ModelIcon providerId={args.providerId} className="size-4" />
-          <h3 className="model-effort-provider-title text-sm font-semibold tracking-tight">
-            {getProviderLabel({ providerId: args.providerId })}
-          </h3>
-        </div>
-        {args.headerAction}
-      </div>
-      <div
-        role="grid"
-        aria-label={`${getProviderLabel({ providerId: args.providerId })} model effort matrix`}
-        className="grid items-center gap-0.5 min-[500px]:gap-1"
-        style={{
-          gridTemplateColumns: `4rem repeat(${effortOptions.length}, 2.75rem)`,
-        }}
-      >
-        <div role="row" className="contents">
-          <span role="columnheader" aria-label="Model" />
-          {effortOptions.map((effort) => (
-            <span
-              key={effort.value}
-              role="columnheader"
-              className="text-center text-xs font-medium text-muted-foreground"
-            >
-              {effort.label === "X-High" ? "XH" : effort.label}
-            </span>
-          ))}
-        </div>
-        {args.rows.map((row, rowIndex) => {
-          const option =
-            args.providerId === "claude-code"
-              ? resolveClaudeMatrixOption({
-                  row,
-                  context1M: args.context1M,
-                })
-              : row.option;
-          const supportedEfforts =
-            args.providerId === "codex"
-              ? listCodexReasoningEffortsForModel({ model: option.model })
-              : null;
-
-          return (
-            <div key={option.key} role="row" className="contents">
-              <span
-                role="rowheader"
-                className="truncate pr-2 text-right text-sm font-medium text-foreground/85"
-              >
-                {row.shortLabel}
+      {args.options.map((option, optionIndex) => {
+        const selected = option.key === args.selectedModelKey;
+        const presentation = getCursorModelPresentation(option);
+        return (
+          <button
+            key={option.key}
+            ref={(element) => {
+              if (element) {
+                optionRefs.current.set(option.key, element);
+              } else {
+                optionRefs.current.delete(option.key);
+              }
+            }}
+            type="button"
+            role="option"
+            aria-selected={selected}
+            disabled={args.disabled || !option.available}
+            tabIndex={optionIndex === tabStopIndex ? 0 : -1}
+            onKeyDown={(event) => moveFocus(event, optionIndex)}
+            onClick={() => args.onChoose(option)}
+            className={cn(
+              "flex min-h-11 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45",
+              selected
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            )}
+          >
+            <ModelIcon
+              providerId={option.providerId}
+              model={option.model}
+              className="size-4"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-medium text-foreground">
+                  {presentation.label}
+                </span>
+                {option.isDefault ? (
+                  <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    Default
+                  </span>
+                ) : null}
               </span>
-              {effortOptions.map((effort, effortIndex) => {
-                const autoSlot = isStaveAutoSlot({
-                  providerId: args.providerId,
-                  row,
-                  effort: effort.value,
-                });
-                const supported =
-                  supportedEfforts === null ||
-                  (supportedEfforts as readonly string[]).includes(
-                    effort.value,
-                  );
-                const tabStopKey = `${rowIndex}:${effortIndex}`;
-                const autoOption = autoSlot ? args.autoOption : undefined;
-                if (autoOption) {
-                  return (
-                    <Tooltip key="stave:auto">
-                      <TooltipTrigger
-                        render={
-                          <span
-                            className="flex size-11"
-                            onPointerEnter={() =>
-                              args.onPreview({
-                                modelLabel: "Stave Auto",
-                                effortLabel: "chooses model + effort",
-                              })
-                            }
-                          />
-                        }
-                      >
-                        <button
-                          ref={(element) => {
-                            if (element) {
-                              cellRefs.current.set("stave:auto", element);
-                            } else {
-                              cellRefs.current.delete("stave:auto");
-                            }
-                          }}
-                          type="button"
-                          role="gridcell"
-                          aria-selected={args.autoSelected}
-                          aria-label="Stave Auto · Let Stave choose model and effort"
-                          disabled={args.disabled || !autoOption.available}
-                          tabIndex={
-                            args.autoSelected || tabStopKey === fallbackTabStop
-                              ? 0
-                              : -1
-                          }
-                          onFocus={() =>
-                            args.onPreview({
-                              modelLabel: "Stave Auto",
-                              effortLabel: "chooses model + effort",
-                            })
-                          }
-                          onKeyDown={(event) =>
-                            handleCellKeyDown(event, rowIndex, effortIndex)
-                          }
-                          onClick={() => {
-                            args.onSelect({ selection: autoOption });
-                            args.onClose();
-                          }}
-                          className="model-effort-cell flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-popover disabled:cursor-not-allowed disabled:opacity-45"
-                        >
-                          <span
-                            className={cn(
-                              "model-effort-auto-cell-visual relative flex size-9 items-center justify-center overflow-hidden rounded-md transition-transform",
-                              args.autoSelected &&
-                                "scale-105 ring-2 ring-offset-1 ring-offset-popover",
-                            )}
-                          >
-                            <img
-                              src={STAVE_LOGO_URL}
-                              alt=""
-                              aria-hidden
-                              draggable={false}
-                              className="relative z-10 size-5"
-                            />
-                          </span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" sideOffset={6}>
-                        Stave chooses the provider, model, and effort
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                }
-                if (!supported) {
-                  return (
+              {presentation.capabilities.length > 0 ? (
+                <span className="mt-1 flex flex-wrap gap-1">
+                  {presentation.capabilities.map((capability) => (
                     <span
-                      key={`${option.key}:${effort.value}`}
-                      role="gridcell"
-                      aria-disabled="true"
-                      aria-label={`${row.shortLabel} does not support ${effort.label} effort`}
-                      className="flex size-11 items-center justify-center text-muted-foreground/50"
+                      key={capability}
+                      className="rounded-md border border-border/60 bg-muted/35 px-1.5 py-0.5 text-[10px] leading-4 font-medium text-muted-foreground"
                     >
-                      <span className="flex size-9 items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/30">
-                        <Minus className="size-3.5" />
-                      </span>
+                      {capability}
                     </span>
-                  );
-                }
+                  ))}
+                </span>
+              ) : (
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground/80">
+                  {option.description || option.model}
+                </span>
+              )}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
-                const selected =
-                  option.key === args.selectedModelKey &&
-                  effort.value === args.selectedEffort;
-                const orb = resolveCellOrbPresentation({
-                  effort: effort.value,
-                  selected,
-                });
-                const cellKey = getCellKey({
-                  providerId: args.providerId,
-                  model: option.model,
-                  effort: effort.value,
-                });
-                return (
-                  <button
-                    key={cellKey}
-                    ref={(element) => {
-                      if (element) {
-                        cellRefs.current.set(cellKey, element);
-                      } else {
-                        cellRefs.current.delete(cellKey);
-                      }
-                    }}
-                    type="button"
-                    role="gridcell"
-                    aria-selected={selected}
-                    aria-label={`${option.label}, ${effort.label} effort`}
-                    disabled={args.disabled || !option.available}
-                    tabIndex={
-                      selected || tabStopKey === fallbackTabStop ? 0 : -1
-                    }
-                    onFocus={() =>
-                      args.onPreview({
-                        modelLabel: option.label,
-                        effortLabel: effort.label,
-                      })
-                    }
-                    onMouseEnter={() =>
-                      args.onPreview({
-                        modelLabel: option.label,
-                        effortLabel: effort.label,
-                      })
-                    }
-                    onKeyDown={(event) =>
-                      handleCellKeyDown(event, rowIndex, effortIndex)
-                    }
-                    onClick={() => {
-                      args.onSelect({
-                        selection: option,
-                        effort: effort.value,
-                        ...(args.providerId === "codex"
-                          ? { fastMode: args.fastMode }
-                          : {}),
-                      });
-                      args.onClose();
-                    }}
-                    className={cn(
-                      "model-effort-cell flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-popover disabled:cursor-not-allowed disabled:opacity-45",
-                    )}
-                  >
-                    <span
-                      data-selected={selected || undefined}
-                      data-orb={orb?.kind}
-                      style={
-                        {
-                          "--model-effort-cell-color":
-                            PROVIDER_CELL_COLORS[args.providerId][effortIndex],
-                        } as CSSProperties
-                      }
-                      className={cn(
-                        "model-effort-cell-visual relative flex size-9 items-center justify-center overflow-hidden rounded-md border border-foreground/5 text-foreground shadow-xs transition-transform",
-                        selected && "scale-105",
-                      )}
-                    >
-                      {orb ? (
-                        <ThinkingOrb
-                          state={orb.state}
-                          size={20}
-                          speed={orb.speed}
-                          theme="dark"
-                          style={{ width: 23, height: 23 }}
-                          aria-hidden="true"
-                          data-orb-state={orb.state}
-                          className="model-effort-cell-orb"
-                        />
-                      ) : null}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
-      </div>
-    </section>
+function CatalogNotice(args: {
+  catalog?: ModelSelectorCatalogState;
+  selectedMissing: boolean;
+  onRefresh?: () => void;
+}) {
+  return (
+    <>
+      {args.catalog?.status === "loading" ? (
+        <div
+          role="status"
+          className="flex shrink-0 items-center gap-2 border-b border-border/65 px-3 py-2 text-xs text-muted-foreground"
+        >
+          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          Loading the runtime model catalog…
+        </div>
+      ) : null}
+      {args.catalog?.status === "error" ? (
+        <div
+          role="alert"
+          className="flex shrink-0 items-start gap-2 border-b border-border/65 px-3 py-2 text-xs text-muted-foreground"
+        >
+          <AlertCircle
+            className="mt-0.5 size-3.5 shrink-0 text-destructive"
+            aria-hidden="true"
+          />
+          <span className="min-w-0 flex-1">
+            {args.catalog.detail || "The runtime model catalog is unavailable."}
+          </span>
+          {args.onRefresh ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={args.onRefresh}
+              className="h-7 shrink-0 px-2 text-xs"
+            >
+              <RefreshCcw className="size-3" />
+              Retry
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {args.selectedMissing ? (
+        <div
+          role="alert"
+          className="shrink-0 border-b border-border/65 px-3 py-2 text-xs text-destructive"
+        >
+          The selected model is no longer in this runtime catalog. Choose
+          another model before sending.
+        </div>
+      ) : null}
+    </>
   );
 }
 
 export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [showAllModels, setShowAllModels] = useState(false);
+  const [providerId, setProviderId] = useState<ProviderId>(
+    args.value.providerId,
+  );
   const [context1M, setContext1M] = useState(() =>
     isClaudeContext1MModel(args.value.model),
   );
-  const [nextFastMode, setNextFastMode] = useState(args.fastMode ?? false);
-  const [preview, setPreview] = useState<ModelEffortPreview | null>(null);
-  const handledOpenTokenRef = useRef<string | number | undefined>(
-    args.openToken,
-  );
-  const openTimerRef = useRef<number | null>(null);
-  const closeTimerRef = useRef<number | null>(null);
-  const claudeRows = useMemo(
-    () => buildClaudeModelEffortRows(args.options),
-    [args.options],
-  );
-  const codexRows = useMemo(
-    () => buildCodexModelEffortRows(args.options),
-    [args.options],
-  );
+  const handledOpenTokenRef = useRef(args.openToken);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const autoOption = args.options.find((option) => option.isAuto);
-  const selectedSummary = args.value.isAuto
-    ? "Stave chooses the provider, model, and effort."
-    : `${args.value.label}${args.effortLabel ? ` · ${args.effortLabel}` : ""}${
-        args.fastMode ? " · Fast" : ""
-      }`;
-  const activePreview =
-    preview ??
-    (args.value.isAuto
-      ? {
-          modelLabel: "Stave Auto",
-          effortLabel: "chooses model + effort",
-        }
-      : args.effortLabel
-        ? {
-            modelLabel: args.value.label,
-            effortLabel: args.effortLabel,
-          }
-        : null);
+  const providerIds = useMemo(
+    () =>
+      listProviderIds().filter((candidate) =>
+        args.options.some(
+          (option) => !option.isAuto && option.providerId === candidate,
+        ),
+      ),
+    [args.options],
+  );
+  const providerOptions = useMemo(() => {
+    const options = args.options.filter(
+      (option) => !option.isAuto && option.providerId === providerId,
+    );
+    return providerId === "claude-code"
+      ? collapseClaudeContextOptions({ options, context1M })
+      : options;
+  }, [args.options, context1M, providerId]);
+  const featuredProviderOptions = useMemo(
+    () =>
+      providerOptions.length > 12
+        ? listFeaturedModelOptions({
+            options: providerOptions,
+            selectedModelKey:
+              args.value.providerId === providerId ? args.value.key : undefined,
+          })
+        : providerOptions,
+    [args.value.key, args.value.providerId, providerId, providerOptions],
+  );
+  const visibleOptions = useMemo(() => {
+    const queryTerms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (queryTerms.length === 0) {
+      return showAllModels ? providerOptions : featuredProviderOptions;
+    }
+    return providerOptions.filter((option) => {
+      const haystack = [option.label, option.model, option.description]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return queryTerms.every((term) => haystack.includes(term));
+    });
+  }, [featuredProviderOptions, providerOptions, query, showAllModels]);
+  const effortfulOptions = visibleOptions.filter(
+    (option) =>
+      providerId !== "cursor" && listModelEfforts(option).length > 0,
+  );
+  const effortlessOptions = visibleOptions.filter(
+    (option) =>
+      providerId === "cursor" || listModelEfforts(option).length === 0,
+  );
+  const canToggleAllModels =
+    query.trim().length === 0 &&
+    featuredProviderOptions.length < providerOptions.length;
+  const catalog = args.catalogs?.[providerId];
+  const selectedMissing =
+    !args.value.isAuto &&
+    args.value.providerId === providerId &&
+    catalog?.status === "ready" &&
+    !args.options.some((option) => option.key === args.value.key);
+  const selectedEffort =
+    args.value.isAuto || listModelEfforts(args.value).length === 0
+      ? undefined
+      : (args.effortValue ?? resolveDefaultModelEffort(args.value));
+  const selectedEffortLabel =
+    args.value.providerId === "cursor"
+      ? undefined
+      : (listModelEfforts(args.value).find(
+          (effort) => effort.value === selectedEffort,
+        )?.label ?? args.effortLabel);
+  const supportsContext1M = supportsClaudeContextToggle({
+    options: args.options,
+    option: args.value,
+  });
+  const displayLabel =
+    args.value.providerId === "claude-code"
+      ? getClaudeContextBaseLabel(args.value.label)
+      : args.value.label;
 
-  const clearTimer = (ref: typeof openTimerRef) => {
-    if (ref.current !== null) {
-      window.clearTimeout(ref.current);
-      ref.current = null;
-    }
+  const chooseModel = (
+    option: ModelSelectorOption,
+    effort?: ModelEffortValue,
+  ) => {
+    args.onSelect({
+      selection: option,
+      ...(effort ? { effort } : {}),
+      ...(option.providerId === "codex"
+        ? { fastMode: args.fastMode ?? false }
+        : {}),
+    });
+    setOpen(false);
   };
-  const supportsHover = () =>
-    typeof window !== "undefined" &&
-    window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  const scheduleOpen = () => {
-    if (args.disabled || !supportsHover()) {
-      return;
-    }
-    clearTimer(closeTimerRef);
-    clearTimer(openTimerRef);
-    openTimerRef.current = window.setTimeout(() => setOpen(true), 120);
-  };
-  const scheduleClose = () => {
-    if (!supportsHover()) {
-      return;
-    }
-    clearTimer(openTimerRef);
-    clearTimer(closeTimerRef);
-    closeTimerRef.current = window.setTimeout(() => setOpen(false), 180);
+
+  const toggleContext1M = () => {
+    const enabled = !isClaudeContext1MModel(args.value.model);
+    const selection = resolveClaudeContextOption({
+      options: args.options,
+      option: args.value,
+      context1M: enabled,
+    });
+    setContext1M(enabled);
+    args.onSelect({
+      selection,
+      ...(args.effortValue ? { effort: args.effortValue } : {}),
+    });
   };
 
   useEffect(() => {
     if (!open) {
       return;
     }
+    setProviderId(
+      args.value.isAuto
+        ? (providerIds[0] ?? "claude-code")
+        : args.value.providerId,
+    );
     setContext1M(isClaudeContext1MModel(args.value.model));
-    setNextFastMode(args.fastMode ?? false);
-    setPreview(null);
-  }, [args.fastMode, args.value.model, open]);
+    setQuery("");
+    setShowAllModels(false);
+  }, [
+    args.value.isAuto,
+    args.value.model,
+    args.value.providerId,
+    open,
+    providerIds,
+  ]);
 
   useEffect(() => {
     if (
@@ -602,187 +398,285 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     setOpen(true);
   }, [args.disabled, args.openToken]);
 
-  useEffect(
-    () => () => {
-      clearTimer(openTimerRef);
-      clearTimer(closeTimerRef);
-    },
-    [],
-  );
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <div onPointerEnter={scheduleOpen} onPointerLeave={scheduleClose}>
+    <ButtonGroup
+      className="h-9 max-w-full"
+      data-model-effort-control="true"
+      aria-label="Model controls"
+    >
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
             <button
+              ref={triggerRef}
               type="button"
               disabled={args.disabled}
-              aria-label={`Model and effort: ${selectedSummary}`}
+              aria-label={
+                args.value.isAuto
+                  ? "Model: Stave Auto. Stave chooses the provider, model, and effort."
+                  : `Model: ${displayLabel}${
+                      selectedEffortLabel
+                        ? `. Effort: ${selectedEffortLabel}`
+                        : ""
+                    }`
+              }
               title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
               className={cn(
-                "inline-flex h-9 max-w-[300px] items-center gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-colors hover:bg-muted/60 focus-visible:border-border/60 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60",
-                open && "bg-muted/70 focus-visible:border-primary/50",
+                "inline-flex h-full min-w-0 max-w-[320px] items-center gap-1.5 bg-transparent px-2.5 text-sm text-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50",
+                open && "bg-accent/65",
               )}
             />
           }
         >
-          <span className="flex min-w-0 items-center gap-1.5">
-            {args.value.isAuto ? (
-              <Sparkles className="size-3.5 shrink-0 text-primary" />
-            ) : (
-              <ModelIcon
-                providerId={args.value.providerId}
-                model={args.value.model}
-                className="size-3.5"
-              />
-            )}
-            <span className="truncate">
-              {args.value.label}
-              {!args.value.isAuto && args.effortLabel
-                ? ` · ${args.effortLabel}`
-                : ""}
-            </span>
-            {!args.value.isAuto && args.fastMode ? (
-              <Zap className="size-3.5 shrink-0 fill-current text-prompt-role-fast" />
-            ) : null}
-          </span>
-        </PopoverTrigger>
-      </div>
-      <PopoverContent
-        align="start"
-        side="top"
-        sideOffset={8}
-        onPointerEnter={() => {
-          clearTimer(openTimerRef);
-          clearTimer(closeTimerRef);
-        }}
-        onPointerLeave={scheduleClose}
-        initialFocus={false}
-        aria-label="Model and effort selector"
-        className="model-effort-popover w-[min(47rem,calc(100vw-1rem))] gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0"
-      >
-        <div className="grid grid-cols-1 gap-2 p-2 min-[820px]:grid-cols-2">
-          <ModelEffortMatrix
-            providerId="claude-code"
-            rows={claudeRows}
-            selectedModelKey={args.value.key}
-            selectedEffort={args.effortValue}
-            autoSelected={Boolean(args.value.isAuto)}
-            context1M={context1M}
-            fastMode={nextFastMode}
-            disabled={args.disabled}
-            headerAction={
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label="1M context"
-                aria-pressed={context1M}
-                onClick={() => {
-                  const enabled = !context1M;
-                  setContext1M(enabled);
-                  if (
-                    args.value.providerId !== "claude-code" ||
-                    args.value.isAuto
-                  ) {
-                    return;
-                  }
-                  const selectedRow = claudeRows.find(
-                    (row) =>
-                      row.option.key === args.value.key ||
-                      row.context1MOption?.key === args.value.key,
-                  );
-                  if (!selectedRow) {
-                    return;
-                  }
-                  args.onSelect({
-                    selection: resolveClaudeMatrixOption({
-                      row: selectedRow,
-                      context1M: enabled,
-                    }),
-                    effort: args.effortValue,
-                  });
-                }}
-                className={cn(
-                  "model-effort-provider-toggle relative h-10 min-w-11 px-2 text-xs font-semibold text-muted-foreground before:absolute before:-inset-y-0.5 before:inset-x-0 before:content-['']",
-                )}
-              >
-                1M
-              </Button>
-            }
-            onPreview={setPreview}
-            onSelect={args.onSelect}
-            onClose={() => setOpen(false)}
-          />
-          <ModelEffortMatrix
-            providerId="codex"
-            rows={codexRows}
-            selectedModelKey={args.value.key}
-            selectedEffort={args.effortValue}
-            autoOption={autoOption}
-            autoSelected={Boolean(args.value.isAuto)}
-            context1M={context1M}
-            fastMode={nextFastMode}
-            disabled={args.disabled}
-            headerAction={
-              args.showFastMode === false ? null : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-pressed={nextFastMode}
-                  onClick={() => {
-                    const enabled = !nextFastMode;
-                    setNextFastMode(enabled);
-                    args.onFastModeChange?.(enabled);
-                  }}
-                  className={cn(
-                    "relative h-10 min-w-11 px-2 text-xs font-semibold before:absolute before:-inset-y-0.5 before:inset-x-0 before:content-['']",
-                    nextFastMode
-                      ? "bg-prompt-role-fast/10 text-prompt-role-fast"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  <Zap
-                    className={cn("size-3.5", nextFastMode && "fill-current")}
-                  />
-                  Fast
-                </Button>
-              )
-            }
-            onPreview={setPreview}
-            onSelect={args.onSelect}
-            onClose={() => setOpen(false)}
-          />
-        </div>
-
-        <div
-          aria-live="polite"
-          className="flex min-h-10 items-center justify-center px-3"
-        >
-          {activePreview ? (
-            <span
-              key={`${activePreview.modelLabel}:${activePreview.effortLabel}`}
-              className="model-effort-preview-value flex items-center justify-center gap-2"
-            >
-              <span className="text-sm font-semibold text-foreground">
-                {activePreview.modelLabel}
-              </span>
-              <span aria-hidden="true" className="text-muted-foreground/40">
-                ×
-              </span>
-              <span className="text-sm font-medium text-muted-foreground">
-                {activePreview.effortLabel}
-              </span>
-            </span>
+          {args.value.isAuto ? (
+            <Sparkles className="size-3.5 shrink-0 text-primary" />
           ) : (
-            <span className="text-sm text-muted-foreground">
-              {selectedSummary}
-            </span>
+            <ModelIcon
+              providerId={args.value.providerId}
+              model={args.value.model}
+              className="size-3.5"
+            />
           )}
-        </div>
-      </PopoverContent>
-    </Popover>
+          <span className="min-w-0 truncate">{displayLabel}</span>
+          {selectedEffortLabel ? (
+            <>
+              <span aria-hidden="true" className="text-muted-foreground/35">
+                ·
+              </span>
+              <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                {selectedEffortLabel}
+              </span>
+            </>
+          ) : null}
+          <ChevronDown
+            className={cn(
+              "size-3.5 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-180",
+            )}
+            aria-hidden="true"
+          />
+        </PopoverTrigger>
+
+        <PopoverContent
+          align="start"
+          side="top"
+          sideOffset={8}
+          collisionPadding={8}
+          collisionAvoidance={{
+            side: "shift",
+            align: "shift",
+            fallbackAxisSide: "none",
+          }}
+          finalFocus={triggerRef}
+          aria-label="Model and effort selector"
+          className="model-effort-popover flex max-h-[min(32rem,calc(100dvh-1rem))] w-[min(40rem,calc(100vw-1rem))] flex-col gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0"
+        >
+          <Tabs
+            value={providerId}
+            onValueChange={(value) => {
+              setProviderId(value as ProviderId);
+              setQuery("");
+              setShowAllModels(false);
+            }}
+            orientation="vertical"
+            className="min-h-0 gap-0"
+          >
+            <TabsList
+              variant="soft"
+              aria-label="Model provider"
+              className="w-12 shrink-0 justify-start gap-1 rounded-none border-r border-border/65 bg-muted/20 p-1 min-[480px]:w-32 min-[480px]:p-1.5"
+            >
+              {providerIds.map((candidate) => {
+                const selected = candidate === providerId;
+                const count = args.options.filter(
+                  (option) => !option.isAuto && option.providerId === candidate,
+                ).length;
+                return (
+                  <TabsTrigger
+                    key={candidate}
+                    value={candidate}
+                    aria-label={`${getProviderLabel({ providerId: candidate })}, ${count} models`}
+                    className="h-11 min-h-11 w-full flex-none justify-center gap-2 px-2 min-[480px]:justify-start"
+                    style={
+                      selected
+                        ? ({
+                            color: `color-mix(in oklch, ${PROVIDER_ACCENT_COLORS[candidate]} 78%, var(--foreground))`,
+                            backgroundColor: `color-mix(in oklch, ${PROVIDER_ACCENT_COLORS[candidate]} 12%, var(--popover))`,
+                          } as CSSProperties)
+                        : undefined
+                    }
+                  >
+                    <ModelIcon providerId={candidate} className="size-4" />
+                    <span className="hidden min-w-0 flex-1 truncate min-[480px]:inline">
+                      {getProviderLabel({ providerId: candidate })}
+                    </span>
+                    <span className="hidden text-[10px] tabular-nums text-muted-foreground/75 min-[480px]:inline">
+                      {count}
+                    </span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="flex shrink-0 items-center gap-2 border-b border-border/65 p-2">
+                <div className="relative min-w-0 flex-1">
+                  <Search
+                    className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    autoFocus
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    aria-label="Search models"
+                    placeholder="Search models"
+                    className="h-9 pl-8"
+                  />
+                </div>
+                {autoOption ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Stave Auto"
+                    aria-pressed={Boolean(args.value.isAuto)}
+                    disabled={args.disabled || !autoOption.available}
+                    onClick={() => chooseModel(autoOption)}
+                    className={cn(
+                      "h-9 shrink-0 gap-1.5 px-2 text-xs",
+                      args.value.isAuto
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    <Sparkles className="size-3.5" aria-hidden="true" />
+                    Auto
+                  </Button>
+                ) : null}
+              </div>
+
+              <CatalogNotice
+                catalog={catalog}
+                selectedMissing={selectedMissing}
+                onRefresh={args.onRefreshCatalogs}
+              />
+
+              {providerIds.map((candidate) => (
+                <TabsContent
+                  key={candidate}
+                  value={candidate}
+                  className="min-h-0 overflow-y-auto overscroll-contain"
+                >
+                  {candidate === providerId ? (
+                    visibleOptions.length === 0 ? (
+                      <div className="flex min-h-28 items-center justify-center px-4 text-sm text-muted-foreground">
+                        No models match this search.
+                      </div>
+                    ) : (
+                      <>
+                        <ModelEffortGrid
+                          providerId={providerId}
+                          options={effortfulOptions}
+                          selectedModelKey={
+                            !args.value.isAuto &&
+                            args.value.providerId === providerId
+                              ? args.value.key
+                              : undefined
+                          }
+                          selectedEffort={
+                            args.value.providerId === providerId
+                              ? selectedEffort
+                              : undefined
+                          }
+                          disabled={args.disabled}
+                          onChoose={chooseModel}
+                        />
+                        <ModelOnlyList
+                          providerId={providerId}
+                          options={effortlessOptions}
+                          selectedModelKey={
+                            !args.value.isAuto &&
+                            args.value.providerId === providerId
+                              ? args.value.key
+                              : undefined
+                          }
+                          disabled={args.disabled}
+                          onChoose={chooseModel}
+                        />
+                      </>
+                    )
+                  ) : null}
+                </TabsContent>
+              ))}
+
+              {canToggleAllModels ? (
+                <div className="shrink-0 border-t border-border/65 p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllModels((value) => !value)}
+                    className="flex min-h-11 w-full items-center justify-between rounded-md px-2.5 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span>
+                      {showAllModels ? "Show featured models" : "Show all models"}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground/75">
+                      {showAllModels
+                        ? featuredProviderOptions.length
+                        : providerOptions.length}
+                    </span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </Tabs>
+        </PopoverContent>
+      </Popover>
+
+      {!args.value.isAuto &&
+      args.value.providerId === "codex" &&
+      args.showFastMode !== false ? (
+        <>
+          <ButtonGroupSeparator />
+          <button
+            type="button"
+            aria-label={`Fast mode: ${args.fastMode ? "On" : "Off"}`}
+            aria-pressed={args.fastMode ?? false}
+            disabled={args.disabled}
+            onClick={() => args.onFastModeChange?.(!(args.fastMode ?? false))}
+            className={cn(
+              "inline-flex h-full shrink-0 items-center gap-1 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50",
+              args.fastMode && "bg-prompt-role-fast/10 text-prompt-role-fast",
+            )}
+          >
+            <Zap
+              className={cn("size-3.5", args.fastMode && "fill-current")}
+              aria-hidden="true"
+            />
+            Fast
+          </button>
+        </>
+      ) : null}
+
+      {supportsContext1M ? (
+        <>
+          <ButtonGroupSeparator />
+          <button
+            type="button"
+            aria-label={`1M context: ${isClaudeContext1MModel(args.value.model) ? "On" : "Off"}`}
+            aria-pressed={isClaudeContext1MModel(args.value.model)}
+            disabled={args.disabled}
+            onClick={toggleContext1M}
+            className={cn(
+              "inline-flex h-full shrink-0 items-center px-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50",
+              isClaudeContext1MModel(args.value.model) &&
+                "bg-primary/10 text-primary",
+            )}
+          >
+            1M
+          </button>
+        </>
+      ) : null}
+    </ButtonGroup>
   );
 }

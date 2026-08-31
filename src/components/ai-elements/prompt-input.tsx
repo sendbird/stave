@@ -155,7 +155,11 @@ import {
   removeLensCommentImageAttachments,
 } from "@/lib/lens/lens-annotation-attachment";
 import { resolveLensAnnotationReview } from "@/lib/lens/lens-element-message";
-import { ModelEffortSelector } from "./model-effort-selector";
+import {
+  ModelEffortSelector,
+  type ModelSelectorCatalogState,
+} from "./model-effort-selector";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ModelSelectorOption } from "./model-selector";
 import {
   PromptInputProviderModePill,
@@ -224,6 +228,8 @@ interface PromptInputProps {
   focusToken?: string;
   selectedModel: ModelSelectorOption;
   modelOptions: readonly ModelSelectorOption[];
+  modelCatalogs?: Partial<Record<ProviderId, ModelSelectorCatalogState>>;
+  onRefreshModelCatalogs?: () => void;
   modelShortcutKeys?: readonly string[];
   modelShortcutEfforts?: readonly ModelShortcutEffort[];
   windowShortcutsEnabled?: boolean;
@@ -640,6 +646,8 @@ export function PromptInput(args: PromptInputProps) {
     value,
     selectedModel,
     modelOptions,
+    modelCatalogs,
+    onRefreshModelCatalogs,
     modelShortcutKeys,
     modelShortcutEfforts,
     windowShortcutsEnabled = true,
@@ -3682,6 +3690,8 @@ export function PromptInput(args: PromptInputProps) {
                 <ModelEffortSelector
                   value={selectedModel}
                   options={modelOptions}
+                  catalogs={modelCatalogs}
+                  onRefreshCatalogs={onRefreshModelCatalogs}
                   effortValue={
                     effortValue as Exclude<ModelShortcutEffort, ""> | undefined
                   }
@@ -3701,7 +3711,6 @@ export function PromptInput(args: PromptInputProps) {
                       effort,
                       fastMode: nextFastMode,
                     });
-                    window.requestAnimationFrame(() => focusComposer());
                   }}
                 />
                 {composerControlLayout.toolbar.map((id) => (

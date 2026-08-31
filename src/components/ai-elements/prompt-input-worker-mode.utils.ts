@@ -62,7 +62,7 @@ export function describeWorkerPill(args: {
       label: "Worker",
       effortLabel: null,
       tooltip:
-        "Worker mode is off. Turn it on to let this model delegate bounded implementation work to a cheaper worker.",
+        "Worker mode is off. Turn it on to let this model delegate bounded implementation work to a same-provider worker.",
       toggleAriaLabel: "Turn on Worker mode for this task",
       canToggle: true,
       note: null,
@@ -84,7 +84,9 @@ export function describeWorkerPill(args: {
     canToggle: true,
     note: profile.toolsEnforced
       ? null
-      : "Codex cannot hard-limit a worker's tools, so the preset's tool list is passed as guidance.",
+      : profile.executionAdapter === "acp-tool"
+        ? "This ACP Worker cannot hard-limit tools or turn count, so those preset bounds are passed as instructions."
+        : "Codex cannot hard-limit a worker's tools, so the preset's tool list is passed as guidance.",
     warning: profile.costWarning,
   };
 }
@@ -122,9 +124,22 @@ export interface WorkerModelOption {
 export function buildWorkerModelOptions(args: {
   providerId: ProviderId;
   presetId: WorkerPresetId;
+  runtimeModels?: readonly string[];
+  selectedModel?: string;
 }): WorkerModelOption[] {
   const preset = getWorkerPreset(args.presetId);
   const autoModel = preset.autoModel[args.providerId];
+  const runtimeOptions = listWorkerModelOptions(
+    args.providerId,
+    args.runtimeModels,
+  ).filter((model) => model !== WORKER_AUTO_VALUE);
+  const selectedModel = args.selectedModel?.trim();
+  const missingSelection =
+    selectedModel &&
+    selectedModel !== WORKER_AUTO_VALUE &&
+    !runtimeOptions.includes(selectedModel)
+      ? selectedModel
+      : null;
   return [
     {
       value: WORKER_AUTO_VALUE,
@@ -133,7 +148,16 @@ export function buildWorkerModelOptions(args: {
         { model: autoModel },
       )}`,
     },
-    ...listWorkerModelOptions(args.providerId).map((model) => ({
+    ...(missingSelection
+      ? [
+          {
+            value: missingSelection,
+            label: toHumanModelName({ model: missingSelection }),
+            description: "No longer advertised by the provider runtime",
+          },
+        ]
+      : []),
+    ...runtimeOptions.map((model) => ({
       value: model,
       label: toHumanModelName({ model }),
       description: "",

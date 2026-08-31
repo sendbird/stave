@@ -3605,6 +3605,7 @@ export function buildClaudeReadOnlyPromptOptions(args: {
   >;
   abortController: AbortController;
   claudeExecutablePath: string;
+  resumeSessionId?: string;
 }): Options {
   return {
     abortController: args.abortController,
@@ -3630,6 +3631,7 @@ export function buildClaudeReadOnlyPromptOptions(args: {
     ...(args.claudeExecutablePath
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
       : {}),
+    ...(args.resumeSessionId ? { resume: args.resumeSessionId } : {}),
   };
 }
 
@@ -3642,6 +3644,8 @@ type ClaudeReadOnlyPromptResult = {
   ok: boolean;
   text?: string;
   usage?: Extract<BridgeEvent, { type: "usage" }>;
+  nativeSessionId?: string;
+  sessionReused?: boolean;
   aborted?: boolean;
   detail?: string;
 };
@@ -3674,6 +3678,7 @@ export async function consumeClaudeReadOnlyPromptStream(args: {
       return {
         ok: false,
         usage,
+        nativeSessionId: result.session_id,
         detail:
           result.subtype === "success"
             ? `Claude ${args.label} returned an error result.`
@@ -3685,6 +3690,7 @@ export async function consumeClaudeReadOnlyPromptStream(args: {
       ok: true,
       text: result.result,
       usage,
+      nativeSessionId: result.session_id,
     };
   }
   return {
@@ -3702,6 +3708,8 @@ export async function runClaudeReadOnlyPrompt(args: {
   >;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   signal?: AbortSignal;
+  /** Reuses the isolated Advisor lane without sharing the primary session. */
+  resumeSessionId?: string;
   /**
    * Caller-facing name used in failure text. This helper is shared by the
    * Advisor, commit-message generation, task naming, and route classification,
@@ -3744,6 +3752,7 @@ export async function runClaudeReadOnlyPrompt(args: {
       model: args.model,
       effort: args.effort,
       claudeExecutablePath,
+      resumeSessionId: args.resumeSessionId,
     });
     stream = queryFn({ prompt: args.prompt, options }) as Query;
     args.onProgress?.({ stage: "waiting_for_result" });
@@ -3753,11 +3762,22 @@ export async function runClaudeReadOnlyPrompt(args: {
     // consumed, killing the query mid-flight so every read-only prompt
     // resolved to "ended without a result" — silently, which left auto task
     // titles stuck on "New Task".
-    return await consumeClaudeReadOnlyPromptStream({
+    const result = await consumeClaudeReadOnlyPromptStream({
       stream,
       label,
       onProgress: args.onProgress,
     });
+    return {
+      ...result,
+      ...(result.nativeSessionId
+        ? {
+            sessionReused: Boolean(
+              args.resumeSessionId &&
+                result.nativeSessionId === args.resumeSessionId,
+            ),
+          }
+        : {}),
+    };
   } catch (error) {
     if (
       abortController.signal.aborted ||

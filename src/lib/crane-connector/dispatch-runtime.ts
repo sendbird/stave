@@ -17,6 +17,7 @@ import {
 import type {
   AdvisorTarget,
   AdvisorTargetByProvider,
+  ManagedExecutionProviderId,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
@@ -70,13 +71,15 @@ export interface CraneDispatchAccessState {
 }
 
 export interface CraneDispatchModelState {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   model: string;
   effort: CraneDispatchEffort;
   codexFastMode: boolean;
 }
 
-export function listCraneAutonomyOptions(args: { providerId: ProviderId }) {
+export function listCraneAutonomyOptions(args: {
+  providerId: ManagedExecutionProviderId;
+}) {
   const presets =
     args.providerId === "claude-code"
       ? CLAUDE_PROVIDER_MODE_PRESETS
@@ -89,7 +92,7 @@ export function listCraneAutonomyOptions(args: { providerId: ProviderId }) {
 }
 
 export function applyCraneAutonomyPreset(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   presetId: ProviderModePresetId;
   access: CraneDispatchAccessState;
 }): CraneDispatchAccessState {
@@ -111,7 +114,7 @@ export function applyCraneAutonomyPreset(args: {
  * borrowing a preset's name.
  */
 export function detectCraneAutonomyPreset(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   access: CraneDispatchAccessState;
 }): ProviderModePresetId | null {
   const presets =
@@ -146,7 +149,7 @@ export function detectCraneAutonomyPreset(args: {
 }
 
 export function describeCraneAccess(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   access: CraneDispatchAccessState;
 }) {
   if (args.providerId === "claude-code") {
@@ -168,7 +171,7 @@ export function describeCraneAccess(args: {
 }
 
 export function listCraneEffortOptions(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   model: string;
 }): readonly { value: CraneDispatchEffort; label: string }[] {
   return args.providerId === "claude-code"
@@ -183,7 +186,7 @@ export function listCraneEffortOptions(args: {
  */
 export function resolveCraneDispatchEffort(args: {
   settings: ModelRuntimePreferenceSettings;
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   model: string;
 }): CraneDispatchEffort {
   const runtimeSettings = applyModelRuntimePreference({
@@ -203,7 +206,7 @@ export function resolveCraneDispatchEffort(args: {
  */
 export function clampCraneDispatchEffort(args: {
   settings: ModelRuntimePreferenceSettings;
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   model: string;
   effort: CraneDispatchEffort;
 }): CraneDispatchEffort {
@@ -231,7 +234,7 @@ export function clampCraneDispatchEffort(args: {
  */
 export function resolveCraneDispatchAccessDefaults(args: {
   settings: ModelRuntimePreferenceSettings;
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   model: string;
 }): CraneDispatchAccessState {
   const settings = applyModelRuntimePreference({
@@ -260,8 +263,11 @@ export function resolveCraneDispatchAccessDefaults(args: {
  */
 export function reseedCraneAccessForProvider(args: {
   settings: ModelRuntimePreferenceSettings;
-  previous: { providerId: ProviderId; access: CraneDispatchAccessState };
-  next: { providerId: ProviderId; model: string };
+  previous: {
+    providerId: ManagedExecutionProviderId;
+    access: CraneDispatchAccessState;
+  };
+  next: { providerId: ManagedExecutionProviderId; model: string };
 }): CraneDispatchAccessState {
   if (args.previous.providerId === args.next.providerId) {
     return args.previous.access;
@@ -309,7 +315,11 @@ export function resolveCraneDispatchModelDefaults(args: {
       args.availableModels.includes(args.memory.model))
       ? args.memory
       : null;
-  const providerId = memory?.provider ?? args.draftProvider;
+  const providerId: ManagedExecutionProviderId =
+    memory?.provider ??
+    (args.draftProvider === "claude-code" || args.draftProvider === "codex"
+      ? args.draftProvider
+      : "claude-code");
   const model =
     memory?.model ??
     (providerId === "claude-code"
@@ -348,9 +358,9 @@ export interface CraneDispatchAdvisorState {
   /** Whether this dispatch actually pays for an Advisor. */
   enabled: boolean;
   /** Provider the dialog is configuring, armed or not. */
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   /** Fully populated, so an unarmed provider still has a model and tier. */
-  targetByProvider: Record<ProviderId, AdvisorTarget>;
+  targetByProvider: Record<ManagedExecutionProviderId, AdvisorTarget>;
 }
 
 /** The Advisor fields this seeding reads out of Stave settings. */
@@ -373,7 +383,7 @@ export function resolveCraneDispatchAdvisorDefaults(args: {
   settings: CraneDispatchAdvisorSettings;
   memory?: CraneTeamRuntimeMemory | null;
   /** Provider that will run the dispatched turn, for the opposite-side default. */
-  primaryProviderId: ProviderId;
+  primaryProviderId: ManagedExecutionProviderId;
 }): CraneDispatchAdvisorState {
   const remembered = args.memory ? args.memory.advisor : undefined;
   const arm = resolveAdvisorArmState({

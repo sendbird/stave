@@ -3,7 +3,10 @@ import {
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "@/lib/providers/codex-runtime-options";
-import { resolveDefaultClaudeFallbackModel } from "@/lib/providers/model-catalog";
+import {
+  isManagedExecutionProviderId,
+  resolveDefaultClaudeFallbackModel,
+} from "@/lib/providers/model-catalog";
 import {
   type AdvisorArmOverrides,
   normalizeAdvisorConsultLimit,
@@ -87,6 +90,10 @@ type RuntimeSettings = Pick<
   | "codexReasoningSummarySupport"
   | "codexFastMode"
   | "codexPlanMode"
+  | "cursorBinaryPath"
+  | "cursorMode"
+  | "kiroBinaryPath"
+  | "kiroEffort"
   | "promptResponseStyle"
   | "promptPrDescription"
   | "promptInlineCompletion"
@@ -227,7 +234,10 @@ export function buildProviderRuntimeOptions(args: {
   const claudeTaskBudgetTokens = normalizeClaudeTaskBudgetTokens({
     value: settings.claudeTaskBudgetTokens,
   });
-  const advisorTarget = args.includeAdvisor
+  const managedProvider = isManagedExecutionProviderId(args.provider)
+    ? args.provider
+    : null;
+  const advisorTarget = args.includeAdvisor && managedProvider
     ? resolveAdvisorArmState({
         overrides: args.advisorRuntimeOverrides,
         settingsTarget: settings.advisorTarget,
@@ -257,6 +267,14 @@ export function buildProviderRuntimeOptions(args: {
   const codexResumeThreadId = getProviderSessionId({
     sessions: providerSession ?? undefined,
     providerId: "codex",
+  });
+  const cursorResumeSessionId = getProviderSessionId({
+    sessions: providerSession ?? undefined,
+    providerId: "cursor",
+  });
+  const kiroResumeSessionId = getProviderSessionId({
+    sessions: providerSession ?? undefined,
+    providerId: "kiro",
   });
   const claudePluginOverrides = normalizeClaudePluginOverrides(
     settings.claudePluginOverrides,
@@ -377,6 +395,16 @@ export function buildProviderRuntimeOptions(args: {
     codexPlanMode: settings.codexPlanMode,
     ...(args.provider === "codex" && codexResumeThreadId
       ? { codexResumeThreadId }
+      : {}),
+    cursorBinaryPath: settings.cursorBinaryPath || undefined,
+    cursorMode: settings.cursorMode,
+    ...(args.provider === "cursor" && cursorResumeSessionId
+      ? { cursorResumeSessionId }
+      : {}),
+    kiroBinaryPath: settings.kiroBinaryPath || undefined,
+    kiroEffort: settings.kiroEffort,
+    ...(args.provider === "kiro" && kiroResumeSessionId
+      ? { kiroResumeSessionId }
       : {}),
     responseStylePrompt: settings.promptResponseStyle || undefined,
     promptPrDescription: settings.promptPrDescription || undefined,

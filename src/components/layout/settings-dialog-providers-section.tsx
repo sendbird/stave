@@ -65,6 +65,8 @@ import { SettingsAdvisorSection } from "./settings-dialog-advisor-section";
 import { SettingsWorkerSection } from "./settings-dialog-worker-section";
 import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
 import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
+import { SettingsCursorSection } from "./settings-dialog-cursor-section";
+import { SettingsKiroSection } from "./settings-dialog-kiro-section";
 type ExplainedSelectOption<T extends string> = {
   value: T;
   label: string;
@@ -602,6 +604,7 @@ function ProviderModePresetButtons(args: {
 export function ProvidersSection() {
   const [
     modelClaude,
+    modelCursor,
     claudePermissionMode,
     claudePlanModeApprovalScope,
     claudeAllowDangerouslySkipPermissions,
@@ -656,6 +659,7 @@ export function ProvidersSection() {
       (state) =>
         [
           state.settings.modelClaude,
+          state.settings.modelCursor,
           state.settings.claudePermissionMode,
           state.settings.claudePlanModeApprovalScope,
           state.settings.claudeAllowDangerouslySkipPermissions,
@@ -770,7 +774,11 @@ export function ProvidersSection() {
       ? { model: activeTaskModelOverride }
       : undefined,
     fallbackModel:
-      executorProvider === "claude-code" ? modelClaude : modelCodex,
+      executorProvider === "claude-code"
+        ? modelClaude
+        : executorProvider === "codex"
+          ? modelCodex
+          : modelCursor,
   });
   const toggleClaudeSettingSource = (source: "user" | "project" | "local") => {
     updateSettings({
@@ -874,6 +882,18 @@ export function ProvidersSection() {
             className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
           >
             Codex
+          </TabsTrigger>
+          <TabsTrigger
+            value="cursor"
+            className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
+          >
+            Cursor
+          </TabsTrigger>
+          <TabsTrigger
+            value="kiro"
+            className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
+          >
+            Kiro
           </TabsTrigger>
         </TabsList>
 
@@ -1494,6 +1514,12 @@ export function ProvidersSection() {
             </SettingsCard>
             <CodexBinaryPathCard />
           </SectionStack>
+        </TabsContent>
+        <TabsContent value="cursor">
+          <SettingsCursorSection />
+        </TabsContent>
+        <TabsContent value="kiro">
+          <SettingsKiroSection />
         </TabsContent>
       </Tabs>
     </>

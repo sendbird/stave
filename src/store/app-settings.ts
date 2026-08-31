@@ -166,6 +166,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   composerControlPlacements: ComposerControlPlacements;
   modelClaude: string;
   modelCodex: string;
+  modelCursor: string;
+  modelKiro: string;
   modelRuntimePreferences: ModelRuntimePreferences;
   /** Provider preference for isolated task-name, routing, and commit utilities. */
   utilityInferenceProvider: UtilityInferenceProvider;
@@ -310,7 +312,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /**
    * Default worker configuration per provider: preset, model, effort, and any
    * user-edited description/instructions/tools. Keyed by provider because the
-   * two providers have different worker models and effort scales.
+   * providers have different worker catalogs, effort scales, and adapters.
    */
   workerConfigByProvider: Partial<Record<ProviderId, WorkerProviderConfig>>;
   /** Optional outbound-only Crane dispatch connector. Secrets stay in Electron main. */
@@ -367,6 +369,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   codexReasoningSummarySupport: "auto" | "enabled" | "disabled";
   codexFastMode: boolean;
   codexPlanMode: boolean;
+  cursorBinaryPath: string;
+  cursorMode: "agent" | "plan" | "ask";
+  kiroBinaryPath: string;
+  kiroEffort: "low" | "medium" | "high" | "xhigh" | "max";
   // ---------------------------------------------------------------------------
   // Customisable AI prompt templates (Settings → Prompts)
   // ---------------------------------------------------------------------------
@@ -448,6 +454,21 @@ export function normalizeReasoningExpansionMode(
   return value === "auto" ? "auto" : "manual";
 }
 
+export function normalizeCursorMode(
+  value: unknown,
+): AppSettings["cursorMode"] {
+  return value === "plan" || value === "ask" ? value : "agent";
+}
+
+export function normalizeKiroEffort(value: unknown): AppSettings["kiroEffort"] {
+  return value === "low" ||
+    value === "high" ||
+    value === "xhigh" ||
+    value === "max"
+    ? value
+    : "medium";
+}
+
 export function normalizeBorderBeamSize(
   value: unknown,
 ): AppSettings["borderBeamSize"] {
@@ -507,6 +528,8 @@ export const defaultSettings: AppSettings = {
   composerControlPlacements: {},
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
+  modelCursor: getDefaultModelForProvider({ providerId: "cursor" }),
+  modelKiro: getDefaultModelForProvider({ providerId: "kiro" }),
   modelRuntimePreferences: {},
   utilityInferenceProvider: "auto",
   autoRoutingEnabled: false,
@@ -631,6 +654,10 @@ export const defaultSettings: AppSettings = {
   codexReasoningSummarySupport: "auto",
   codexFastMode: false,
   codexPlanMode: false,
+  cursorBinaryPath: "",
+  cursorMode: "agent",
+  kiroBinaryPath: "",
+  kiroEffort: "medium",
   promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
   promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,

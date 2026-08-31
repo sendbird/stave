@@ -3,6 +3,7 @@ import { toHumanModelName } from "@/lib/providers/model-catalog";
 import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
+  KIRO_EFFORT_OPTIONS,
   findOptionLabel,
 } from "@/lib/providers/runtime-option-contract";
 import type {
@@ -18,7 +19,11 @@ export function resolveTurnModelInfo(args: {
   const requestedEffort =
     args.providerId === "claude-code"
       ? args.runtimeOptions.claudeEffort
-      : args.runtimeOptions.codexReasoningEffort;
+      : args.providerId === "codex"
+        ? args.runtimeOptions.codexReasoningEffort
+        : args.providerId === "kiro"
+          ? args.runtimeOptions.kiroEffort
+          : undefined;
   const effort =
     args.providerId === "codex"
       ? resolveCodexAppServerReasoningEffort({
@@ -35,7 +40,9 @@ export function resolveTurnModelInfo(args: {
     fastMode:
       args.providerId === "claude-code"
         ? args.runtimeOptions.claudeFastMode === true
-        : args.runtimeOptions.codexFastMode === true,
+        : args.providerId === "codex"
+          ? args.runtimeOptions.codexFastMode === true
+          : false,
   };
 }
 
@@ -50,7 +57,9 @@ export function getTurnModelInfoLabel(
   const effortOptions =
     message.providerId === "claude-code"
       ? CLAUDE_EFFORT_OPTIONS
-      : CODEX_EFFORT_OPTIONS;
+      : message.providerId === "kiro"
+        ? KIRO_EFFORT_OPTIONS
+        : CODEX_EFFORT_OPTIONS;
   labels.push(findOptionLabel(effortOptions, message.modelInfo.effort));
   if (message.modelInfo.fastMode) {
     labels.push("Fast");

@@ -26,6 +26,10 @@ import {
 } from "../../src/lib/routines";
 import { TaskHeartbeatUpsertInputSchema } from "../../src/lib/automation/task-supervisor";
 import {
+  WORKER_CONTEXT_MAX_CHARS,
+  WORKER_TASK_MAX_CHARS,
+} from "../../src/lib/providers/worker-mode";
+import {
   getStaveLocalMcpConfigPath,
   readStaveLocalMcpConfig,
   updateStaveLocalMcpConfig,
@@ -77,6 +81,7 @@ import {
   registerProject,
   respondApproval,
   respondUserInput,
+  runAcpWorker,
   runTask,
   setWorkspaceCustomField,
   updateWorkspaceStorybookResourceAccess,
@@ -521,6 +526,44 @@ function createToolServer() {
         consult: await consultAdvisor({
           consultKey,
           question,
+          ...(context ? { context } : {}),
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_run_worker",
+    {
+      description:
+        "Run one bounded task through the same-provider Worker armed for the current turn. The Worker gets a fresh session in the current workspace and returns its result to the primary for review.",
+      inputSchema: {
+        workerKey: z
+          .string()
+          .min(1)
+          .describe(
+            "The exact turn-scoped worker key from the Worker briefing in your context.",
+          ),
+        task: z
+          .string()
+          .min(1)
+          .max(WORKER_TASK_MAX_CHARS)
+          .describe(
+            "A complete, standalone delegated task including file scope and verification requirements.",
+          ),
+        context: z
+          .string()
+          .max(WORKER_CONTEXT_MAX_CHARS)
+          .optional()
+          .describe(
+            "Optional small excerpts or constraints the Worker cannot discover from the workspace.",
+          ),
+      },
+    },
+    async ({ workerKey, task, context }) =>
+      toStructuredResult({
+        worker: await runAcpWorker({
+          workerKey,
+          task,
           ...(context ? { context } : {}),
         }),
       }),

@@ -26,12 +26,14 @@ import {
 import {
   getProviderLabel,
   getSdkModelOptions,
+  isManagedExecutionProviderId,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type {
   AdvisorEffort,
   AdvisorTarget,
   AdvisorTargetByProvider,
+  ManagedExecutionProviderId,
   ProviderId,
 } from "@/lib/providers/provider.types";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
@@ -49,7 +51,9 @@ import {
  * place a user decides what "isolated" actually means for each provider, and
  * it has the width for a sentence.
  */
-const ADVISOR_PROVIDER_DESCRIPTIONS: Readonly<Record<ProviderId, string>> = {
+const ADVISOR_PROVIDER_DESCRIPTIONS: Readonly<
+  Record<ManagedExecutionProviderId, string>
+> = {
   "claude-code": "Use an isolated Claude SDK turn with tools disabled.",
   codex: "Use an ephemeral, read-only Codex App Server thread.",
 };
@@ -213,7 +217,10 @@ export function SettingsAdvisorSection(args: {
           })}`}
           triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
           menuClassName="sm:max-w-lg"
-          onSelect={({ selection }) =>
+          onSelect={({ selection }) => {
+            if (!isManagedExecutionProviderId(selection.providerId)) {
+              return;
+            }
             selectTarget({
               providerId: selection.providerId,
               model: selection.model,
@@ -221,7 +228,7 @@ export function SettingsAdvisorSection(args: {
               // unsupported one is clamped at resolution time.
               ...(selectedTarget.effort ? { effort: selectedTarget.effort } : {}),
             })
-          }
+          }}
         />
         {!selectedModelSupported ? (
           <p className="mt-2 text-xs leading-5 text-destructive">

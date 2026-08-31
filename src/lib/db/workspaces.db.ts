@@ -33,6 +33,8 @@ export type TaskProviderSessionEntry = string | ProviderSessionCursor;
 export interface TaskProviderSessionState {
   "claude-code"?: TaskProviderSessionEntry;
   codex?: TaskProviderSessionEntry;
+  cursor?: TaskProviderSessionEntry;
+  kiro?: TaskProviderSessionEntry;
 }
 
 export interface WorkspaceSnapshot {

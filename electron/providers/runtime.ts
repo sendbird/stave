@@ -14,6 +14,14 @@ import {
   streamCodexWithAppServer,
 } from "./codex-app-server-runtime";
 import {
+  describeCursorAvailability,
+  streamCursorWithAcp,
+} from "./cursor/cursor-acp-profile";
+import {
+  describeKiroAvailability,
+  streamKiroWithAcp,
+} from "./kiro/kiro-acp-profile";
+import {
   appendBoundedBridgeEvent,
   createBoundedBridgeEventCollector,
   dropBufferedBridgeEvents,
@@ -53,9 +61,25 @@ import {
   mergeAdvisorUsage,
 } from "./advisor-runtime";
 import {
+  cleanupAdvisorSessionsForTask,
   consultAdvisor,
   registerAdvisorConsultGrant,
 } from "./advisor-consult";
+import {
+  cleanupAcpWorkerSessionsForTask,
+  disposeAllAcpWorkerGrants,
+  registerAcpWorkerGrant,
+  runAcpWorker,
+} from "./acp/acp-worker-runtime";
+import { getProviderModelCatalog } from "./provider-model-catalog";
+import { createProviderApprovalRouter } from "./provider-approval-router";
+import {
+  WORKER_DELEGATE_TOOL_NAME,
+  appendAcpWorkerBriefing,
+  buildAcpWorkerPrimaryInstructions,
+  resolveWorkerProfile,
+  type ResolvedWorkerProfile,
+} from "../../src/lib/providers/worker-mode";
 import {
   createProviderTurnLifecycle,
   type ProviderTurnLifecycleSnapshot,
@@ -102,6 +126,7 @@ type ActiveRuntimeSession = {
   respondApproval?: (args: {
     requestId: string;
     approved: boolean;
+    reason?: string;
   }) => ProviderResponderResult;
   respondUserInput?: (args: {
     requestId: string;
@@ -183,6 +208,13 @@ function toClaudeErrorEvents(args: { message: string }): BridgeEvent[] {
 }
 
 function toCodexErrorEvents(args: { message: string }): BridgeEvent[] {
+  return [
+    { type: "error", message: args.message, recoverable: true },
+    { type: "done", stop_reason: "runtime_failure" },
+  ];
+}
+
+function toInteractiveAcpErrorEvents(args: { message: string }): BridgeEvent[] {
   return [
     { type: "error", message: args.message, recoverable: true },
     { type: "done", stop_reason: "runtime_failure" },
@@ -390,6 +422,8 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 }
 
 function cleanupProviderTaskState(taskId: string) {
+  cleanupAdvisorSessionsForTask(taskId);
+  cleanupAcpWorkerSessionsForTask(taskId);
   cleanupClaudeTask(taskId);
   cleanupCodexAppServerTask(taskId);
 }
@@ -490,7 +524,7 @@ function describeCodexAvailability(
 
 /**
  * Turn-level timeout that can be paused while the UI is waiting on a user
- * decision (approval / user_input elicitation).
+ * decision (approval, user-input elicitation, or blocking plan review).
  *
  * Why pausing matters: without this, an unattended approval prompt that sits
  * idle for longer than `sdkTurnTimeoutMs` (5 min by default) silently aborts
@@ -500,8 +534,8 @@ function describeCodexAvailability(
  *
  * Semantics:
  * - The timer starts when the turn is created.
- * - `pauseForDecision({ key })` is called each time the bridge emits `approval`
- *   or `user_input`, keyed by the decision's `requestId`.
+ * - `pauseForDecision({ key })` is called each time the bridge emits `approval`,
+ *   `user_input`, or a blocking `plan_ready`, keyed by the decision's request id.
  * - `resumeAfterDecision({ key })` is called when a responder fires
  *   successfully (via respondApproval/respondUserInput) OR on a `tool_result`
  *   whose `tool_use_id` matches the request.
@@ -685,6 +719,19 @@ export function createTurnTimeoutController(args: {
   };
 }
 
+export function getProviderDecisionRequestId(event: BridgeEvent) {
+  if (event.type === "approval" || event.type === "user_input") {
+    return event.requestId;
+  }
+  if (
+    event.type === "plan_ready" &&
+    event.review?.responseMode === "blocking"
+  ) {
+    return event.review.requestId;
+  }
+  return null;
+}
+
 async function runProviderTurn(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
 ) {
@@ -739,17 +786,20 @@ async function runProviderTurn(
       ...patch,
     });
   };
+  const approvalRouter = createProviderApprovalRouter();
   upsertActiveSession({
     turnId,
     providerId: args.providerId,
     taskId: args.taskId,
     abort: abortTurn,
+    respondApproval: approvalRouter.respond,
   });
   const turnTimeoutMs =
     args.runtimeOptions?.providerTimeoutMs ?? sdkTurnTimeoutMs;
 
-  // Shared across Claude + Codex: a pausable timeout controller keeps the
-  // approval/user_input wait from silently timing out the turn. See
+  // Shared across every primary provider: a pausable timeout controller keeps
+  // approval, user-input, and blocking-plan waits from silently timing out the
+  // turn. See
   // `createTurnTimeoutController` for the full rationale.
   const timeoutController = createTurnTimeoutController({
     timeoutMs: turnTimeoutMs,
@@ -779,8 +829,9 @@ async function runProviderTurn(
       // decision's request id. Resume is driven by the responder delivery in
       // `deliverResponderResult`, with defensive fallbacks below so a crashed
       // adapter can't leave the controller paused forever.
-      if (event.type === "approval" || event.type === "user_input") {
-        timeoutController.pauseForDecision({ key: event.requestId });
+      const decisionRequestId = getProviderDecisionRequestId(event);
+      if (decisionRequestId) {
+        timeoutController.pauseForDecision({ key: decisionRequestId });
       } else if (event.type === "tool_result") {
         // "Decision processed" fallback: Claude's approval `requestId` *is* the
         // tool use id, so a tool finishing releases its own approval pause and
@@ -798,10 +849,10 @@ async function runProviderTurn(
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
   };
-  // Sum of every consult's usage this turn (plus late usage from cancelled
-  // consults). Read lazily by the usage merger below so consults that land
-  // while the primary is still streaming are billed into the turn total.
-  let accumulatedAdvisorUsage:
+  // Sum of delegated model usage this turn. This includes Advisor consults and
+  // ACP Workers, and is read lazily so late usage is included in the primary
+  // turn's final total.
+  let accumulatedDelegatedUsage:
     | Extract<BridgeEvent, { type: "usage" }>
     | undefined;
   let advisorGrantHandle: ReturnType<typeof registerAdvisorConsultGrant> | null =
@@ -856,8 +907,8 @@ async function runProviderTurn(
       pausePhase: (pauseArgs) => timeoutController.pausePhase(pauseArgs),
       resumePhase: (pauseArgs) => timeoutController.resumePhase(pauseArgs),
       addUsage: (usage) => {
-        accumulatedAdvisorUsage = accumulatedAdvisorUsage
-          ? mergeAdvisorUsage(accumulatedAdvisorUsage, usage)
+        accumulatedDelegatedUsage = accumulatedDelegatedUsage
+          ? mergeAdvisorUsage(accumulatedDelegatedUsage, usage)
           : usage;
       },
     });
@@ -894,8 +945,82 @@ async function runProviderTurn(
     };
   }
 
+  let acpWorkerGrant:
+    | {
+        workerKey: string;
+        profile: ResolvedWorkerProfile & { provider: "cursor" | "kiro" };
+      }
+    | null = null;
+  let acpWorkerUnavailableDetail: string | null = null;
+  if (
+    (args.providerId === "cursor" || args.providerId === "kiro") &&
+    args.runtimeOptions?.workerIntent
+  ) {
+    try {
+      const catalog = await getProviderModelCatalog({
+        providerId: args.providerId,
+        cwd: args.cwd,
+        runtimeOptions: {
+          ...(args.runtimeOptions.cursorBinaryPath
+            ? { cursorBinaryPath: args.runtimeOptions.cursorBinaryPath }
+            : {}),
+          ...(args.runtimeOptions.kiroBinaryPath
+            ? { kiroBinaryPath: args.runtimeOptions.kiroBinaryPath }
+            : {}),
+        },
+      });
+      const resolution = resolveWorkerProfile({
+        providerId: args.providerId,
+        primaryModel: args.runtimeOptions.model?.trim() || "auto",
+        intent: args.runtimeOptions.workerIntent,
+        runtimeModels: catalog.models
+          .filter((model) => !model.hidden)
+          .map((model) => model.model),
+      });
+      if (
+        resolution.status === "ready" &&
+        resolution.profile.executionAdapter === "acp-tool"
+      ) {
+        const workerKey = randomUUID();
+        acpWorkerGrant = {
+          workerKey,
+          profile: {
+            ...resolution.profile,
+            provider: args.providerId,
+          },
+        };
+        effectiveArgs = effectiveArgs.conversation
+          ? {
+              ...effectiveArgs,
+              conversation: appendAcpWorkerBriefing({
+                conversation: effectiveArgs.conversation,
+                profile: resolution.profile,
+                workerKey,
+              }),
+            }
+          : {
+              ...effectiveArgs,
+              prompt: [
+                effectiveArgs.prompt,
+                buildAcpWorkerPrimaryInstructions({
+                  profile: resolution.profile,
+                  workerKey,
+                }),
+              ]
+                .filter(Boolean)
+                .join("\n\n"),
+            };
+      } else if (resolution.status === "unavailable") {
+        acpWorkerUnavailableDetail = resolution.detail;
+      }
+    } catch {
+      acpWorkerUnavailableDetail =
+        "The runtime model catalog could not be loaded. Refresh provider availability and try again.";
+    }
+  }
+
   const mapUsageForDownstream = createAdvisorUsageMerger(
-    () => accumulatedAdvisorUsage,
+    () => accumulatedDelegatedUsage,
   );
   flushAdvisorUsage = mapUsageForDownstream.flush;
   const emittedPrimaryEvents: BridgeEvent[] = [];
@@ -905,6 +1030,45 @@ async function runProviderTurn(
       lifecycle.emit(mappedEvent);
     }
   };
+  let acpWorkerGrantHandle: ReturnType<typeof registerAcpWorkerGrant> | null =
+    null;
+  const revokeAcpWorkerGrant = () => {
+    acpWorkerGrantHandle?.revoke();
+    acpWorkerGrantHandle = null;
+  };
+  if (acpWorkerUnavailableDetail) {
+    emitPrimaryEvent({
+      type: "error",
+      message: `Worker is unavailable for this turn: ${acpWorkerUnavailableDetail}`,
+      recoverable: true,
+    });
+  }
+  if (acpWorkerGrant) {
+    acpWorkerGrantHandle = registerAcpWorkerGrant({
+      workerKey: acpWorkerGrant.workerKey,
+      turnId,
+      ...(args.taskId ? { taskId: args.taskId } : {}),
+      profile: acpWorkerGrant.profile,
+      cwd: args.cwd,
+      runtimeOptions: {
+        ...(args.runtimeOptions?.cursorBinaryPath
+          ? { cursorBinaryPath: args.runtimeOptions.cursorBinaryPath }
+          : {}),
+        ...(args.runtimeOptions?.kiroBinaryPath
+          ? { kiroBinaryPath: args.runtimeOptions.kiroBinaryPath }
+          : {}),
+      },
+      emit: wrapStreamOnEvent(emitPrimaryEvent),
+      pausePhase: (pauseArgs) => timeoutController.pausePhase(pauseArgs),
+      resumePhase: (pauseArgs) => timeoutController.resumePhase(pauseArgs),
+      addUsage: (usage) => {
+        accumulatedDelegatedUsage = accumulatedDelegatedUsage
+          ? mergeAdvisorUsage(accumulatedDelegatedUsage, usage)
+          : usage;
+      },
+      registerApprovalResponder: approvalRouter.registerNested,
+    });
+  }
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
     const emittedCounts = new Map<string, number>();
     for (const event of emittedPrimaryEvents) {
@@ -936,7 +1100,7 @@ async function runProviderTurn(
           onEvent: wrapStreamOnEvent(emitPrimaryEvent),
           registerAbort: registerPhaseAborter,
           registerApprovalResponder: (responder) => {
-            updateActiveSession({ respondApproval: responder });
+            approvalRouter.registerPrimary(responder);
           },
           registerUserInputResponder: (responder) => {
             updateActiveSession({ respondUserInput: responder });
@@ -987,6 +1151,77 @@ async function runProviderTurn(
       return finishLifecycle("runtime_failure");
     } finally {
       revokeAdvisorGrant();
+      revokeAcpWorkerGrant();
+      timeoutController.dispose();
+      clearActiveTurnState({ turnId });
+    }
+  }
+
+  if (
+    effectiveArgs.providerId === "cursor" ||
+    effectiveArgs.providerId === "kiro"
+  ) {
+    const isCursor = effectiveArgs.providerId === "cursor";
+    const providerLabel = isCursor ? "Cursor" : "Kiro";
+    try {
+      const events = await runStreamWithPausableTimeout(
+        (isCursor ? streamCursorWithAcp : streamKiroWithAcp)({
+          ...effectiveArgs,
+          ...(acpWorkerGrantHandle
+            ? { staveLocalMcpToolNames: [WORKER_DELEGATE_TOOL_NAME] }
+            : {}),
+          onEvent: wrapStreamOnEvent(emitPrimaryEvent),
+          registerAbort: registerPhaseAborter,
+          registerApprovalResponder: (responder) => {
+            approvalRouter.registerPrimary(responder);
+          },
+          registerUserInputResponder: (responder) => {
+            updateActiveSession({ respondUserInput: responder });
+          },
+        }),
+      );
+      if (events && events.length > 0) {
+        emitMissingReturnedEvents(events);
+        return finishLifecycle(
+          abortRequested
+            ? timeoutController.timedOut
+              ? "runtime_failure"
+              : "user_abort"
+            : "completed",
+        );
+      }
+      if (abortRequested) {
+        if (timeoutController.timedOut) {
+          emitPrimaryEvent({
+            type: "error",
+            message: `Provider turn timed out. timeout=${turnTimeoutMs}ms`,
+            recoverable: true,
+          });
+          return finishLifecycle("runtime_failure");
+        }
+        return finishLifecycle("user_abort");
+      }
+      const fallback = toInteractiveAcpErrorEvents({
+        message: `${providerLabel} unavailable/timeout. Check CLI authentication and ACP support. timeout=${turnTimeoutMs}ms`,
+      });
+      fallback.forEach((event) => emitPrimaryEvent(event));
+      lastCompletedLifecycleSnapshot = lifecycle.snapshot();
+      return lifecycle.events();
+    } catch (error) {
+      if (abortRequested && !timeoutController.timedOut) {
+        return finishLifecycle("user_abort");
+      }
+      emitPrimaryEvent({
+        type: "error",
+        message: timeoutController.timedOut
+          ? `Provider turn timed out. timeout=${turnTimeoutMs}ms`
+          : `${providerLabel} provider stream failed: ${String(error)}`,
+        recoverable: true,
+      });
+      return finishLifecycle("runtime_failure");
+    } finally {
+      revokeAdvisorGrant();
+      revokeAcpWorkerGrant();
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
     }
@@ -999,7 +1234,7 @@ async function runProviderTurn(
         onEvent: wrapStreamOnEvent(emitPrimaryEvent),
         registerAbort: registerPhaseAborter,
         registerApprovalResponder: (responder) => {
-          updateActiveSession({ respondApproval: responder });
+          approvalRouter.registerPrimary(responder);
         },
         registerUserInputResponder: (responder) => {
           updateActiveSession({ respondUserInput: responder });
@@ -1050,6 +1285,7 @@ async function runProviderTurn(
     return finishLifecycle("runtime_failure");
   } finally {
     revokeAdvisorGrant();
+    revokeAcpWorkerGrant();
     timeoutController.dispose();
     clearActiveTurnState({ turnId });
   }
@@ -1198,6 +1434,7 @@ export const providerRuntime: ProviderRuntime = {
   // The grant registry lives in this process because this is where grants are
   // minted; the Local MCP tool reaches it through `provider.consult-advisor`.
   consultAdvisor: (args) => consultAdvisor(args),
+  runAcpWorker: (args) => runAcpWorker(args),
   cleanupTask: ({ taskId }) => {
     clearActiveTaskSessions({ taskId });
     cleanupProviderTaskState(taskId);
@@ -1206,13 +1443,14 @@ export const providerRuntime: ProviderRuntime = {
       message: `Cleaned provider runtime state for task ${taskId}.`,
     };
   },
-  respondApproval: ({ turnId, requestId, approved }) =>
+  respondApproval: ({ turnId, requestId, approved, reason }) =>
     deliverResponderResult({
       kind: "approval",
       turnId,
       requestId,
-      invoke: (responder) => responder({ requestId, approved }),
+      invoke: (responder) => responder({ requestId, approved, reason }),
       selectResponder: (session) => session.respondApproval,
+      timeoutMs: PROVIDER_STEER_ACK_TIMEOUT_MS,
     }),
   respondUserInput: ({ turnId, requestId, answers, denied }) =>
     deliverResponderResult({
@@ -1221,6 +1459,7 @@ export const providerRuntime: ProviderRuntime = {
       requestId,
       invoke: (responder) => responder({ requestId, answers, denied }),
       selectResponder: (session) => session.respondUserInput,
+      timeoutMs: PROVIDER_STEER_ACK_TIMEOUT_MS,
     }),
   steerTurn: async ({ turnId, text, enabled, clientMessageId }) => {
     // `enabled` is the renderer's `settings.midTurnSteeringEnabled` toggle —
@@ -1265,6 +1504,14 @@ export const providerRuntime: ProviderRuntime = {
       const result = describeCodexAvailability({ runtimeOptions });
       return { ok: true, ...result };
     }
+    if (providerId === "cursor") {
+      const result = await describeCursorAvailability({ runtimeOptions });
+      return { ok: true, ...result };
+    }
+    if (providerId === "kiro") {
+      const result = await describeKiroAvailability({ runtimeOptions });
+      return { ok: true, ...result };
+    }
     return {
       ok: false,
       available: false,
@@ -1278,6 +1525,15 @@ export const providerRuntime: ProviderRuntime = {
       // timed-out probe actually tears down its `claude` subprocess instead of
       // leaking one that still holds MCP connector sessions.
       return await getClaudeCommandCatalog({ cwd, runtimeOptions });
+    }
+
+    if (providerId === "cursor" || providerId === "kiro") {
+      return {
+        ok: true,
+        supported: false,
+        commands: [],
+        detail: `${providerId === "cursor" ? "Cursor" : "Kiro"} command catalog integration is not available.`,
+      };
     }
 
     return {
@@ -1297,6 +1553,7 @@ export const providerRuntime: ProviderRuntime = {
         taskIds.add(session.taskId);
       }
     }
+    disposeAllAcpWorkerGrants();
 
     // Wait for in-flight turn promises so their `.finally()` → `onDone()`
     // callbacks complete *before* the caller closes the persistence layer.

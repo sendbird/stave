@@ -25,7 +25,7 @@ describe("turn summary data access", () => {
             id: "turn-1",
             workspaceId: "ws-1",
             taskId: "task-1",
-            providerId: "codex",
+            providerId: "kiro",
             createdAt: "2026-03-09T00:00:00.000Z",
             completedAt: "2026-03-09T00:00:02.000Z",
           }],
@@ -40,6 +40,7 @@ describe("turn summary data access", () => {
 
     expect(turns).toHaveLength(1);
     expect(turns[0]?.id).toBe("turn-1");
+    expect(turns[0]?.providerId).toBe("kiro");
   });
 
   test("lists the latest turn for each task in a workspace", async () => {

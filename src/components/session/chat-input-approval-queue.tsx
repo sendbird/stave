@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,9 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   } = args;
   const [guidanceMessageId, setGuidanceMessageId] = useState<string | null>(null);
   const [guidanceText, setGuidanceText] = useState("");
+  const [pendingDecisionRequestId, setPendingDecisionRequestId] = useState<
+    string | null
+  >(null);
   const guidanceTextareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingGuidanceFocusRef = useRef(false);
   const handledGuidanceFocusNonceRef = useRef(0);
@@ -56,6 +60,22 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   const latestMessageId = latest?.messageId ?? null;
   const guidanceOpen = latestMessageId !== null && guidanceMessageId === latestMessageId;
   const queuedCount = approvals.length - 1;
+  const decisionPending = pendingDecisionRequestId !== null;
+
+  function resolveApproval(args: {
+    messageId: string;
+    requestId: string;
+    approved: boolean;
+  }) {
+    if (disabled || pendingDecisionRequestId) {
+      return;
+    }
+    setPendingDecisionRequestId(args.requestId);
+    onResolveApproval({
+      messageId: args.messageId,
+      approved: args.approved,
+    });
+  }
 
   function openGuidanceDraft(args: { focusComposer?: boolean }) {
     if (!latest || disabled || !onDraftGuidance) {
@@ -84,6 +104,30 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
       pendingGuidanceFocusRef.current = false;
     }
   }, [approvals, guidanceMessageId, latestMessageId]);
+
+  useEffect(() => {
+    if (
+      pendingDecisionRequestId &&
+      !approvals.some(
+        (approval) => approval.part.requestId === pendingDecisionRequestId,
+      )
+    ) {
+      setPendingDecisionRequestId(null);
+      return;
+    }
+    if (!pendingDecisionRequestId) {
+      return;
+    }
+
+    // The provider acknowledgement is bounded to 30 seconds. Re-enable the
+    // decision controls just after that deadline so a failed delivery can be
+    // retried instead of leaving the approval surface permanently disabled.
+    const timeoutId = window.setTimeout(
+      () => setPendingDecisionRequestId(null),
+      32_000,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [approvals, pendingDecisionRequestId]);
 
   useEffect(() => {
     if (!latest || disabled || guidanceFocusNonce <= 0 || !onDraftGuidance) {
@@ -137,13 +181,37 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
         toolName={current.part.toolName}
         description={current.part.description}
         state={current.part.state}
-        disabled={disabled}
-        disabledReason={disabledReason}
-        showShortcutHint={!disabled}
-        onApprove={() => onResolveApproval({ messageId: current.messageId, approved: true })}
-        onReject={() => onResolveApproval({ messageId: current.messageId, approved: false })}
+        disabled={disabled || decisionPending}
+        disabledReason={
+          decisionPending ? "Sending decision to the provider…" : disabledReason
+        }
+        showShortcutHint={!disabled && !decisionPending}
+        onApprove={() =>
+          resolveApproval({
+            messageId: current.messageId,
+            requestId: current.part.requestId,
+            approved: true,
+          })
+        }
+        onReject={() =>
+          resolveApproval({
+            messageId: current.messageId,
+            requestId: current.part.requestId,
+            approved: false,
+          })
+        }
       />
-      {!disabled && onTrustAndApprove && trustedEntry ? (
+      {decisionPending ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-1.5 flex items-center gap-1.5 px-1 text-[0.6875rem] text-muted-foreground"
+        >
+          <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+          Waiting for the provider to accept the decision…
+        </p>
+      ) : null}
+      {!disabled && !decisionPending && onTrustAndApprove && trustedEntry ? (
         <button
           type="button"
           className="mt-1.5 rounded px-1 py-0.5 text-left text-[0.6875rem] text-muted-foreground/70 transition-colors hover:text-muted-foreground"
@@ -160,7 +228,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
       ) : null}
 
       {/* Guidance inline */}
-      {!disabled && onDraftGuidance ? (
+      {!disabled && !decisionPending && onDraftGuidance ? (
         guidanceOpen ? (
           <div className="mt-2 space-y-1.5 px-0.5">
             <Textarea
@@ -234,11 +302,27 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                   toolName={approval.part.toolName}
                   description={approval.part.description}
                   state={approval.part.state}
-                  disabled={disabled}
-                  disabledReason={disabledReason}
+                  disabled={disabled || decisionPending}
+                  disabledReason={
+                    decisionPending
+                      ? "Another decision is being delivered."
+                      : disabledReason
+                  }
                   showShortcutHint={false}
-                  onApprove={() => onResolveApproval({ messageId: approval.messageId, approved: true })}
-                  onReject={() => onResolveApproval({ messageId: approval.messageId, approved: false })}
+                  onApprove={() =>
+                    resolveApproval({
+                      messageId: approval.messageId,
+                      requestId: approval.part.requestId,
+                      approved: true,
+                    })
+                  }
+                  onReject={() =>
+                    resolveApproval({
+                      messageId: approval.messageId,
+                      requestId: approval.part.requestId,
+                      approved: false,
+                    })
+                  }
                 />
               ))}
             </div>

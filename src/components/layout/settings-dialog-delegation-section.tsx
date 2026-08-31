@@ -6,7 +6,7 @@ import {
 } from "@/lib/local-mcp-readiness";
 import {
   getProviderLabel,
-  listProviderIds,
+  listProviderIdsForCapability,
 } from "@/lib/providers/model-catalog";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
 
@@ -70,7 +70,9 @@ const DELEGATION_PARAMETERS: ReadonlyArray<{
  * absent UI leaves open: what can be asked for, and would it work right now.
  */
 export function SettingsDelegationSection() {
-  const providerIds = listProviderIds();
+  const providerIds = listProviderIdsForCapability({
+    capability: "unattendedRuns",
+  });
   const { status } = useLocalMcpReadiness({
     // No task context here, so readiness is resolved per provider below rather
     // than for one "current" primary.

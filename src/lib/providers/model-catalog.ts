@@ -1,10 +1,13 @@
 import type {
+  ManagedExecutionProviderId,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 
 const CLAUDE_COLOR_ICON_URL = `${import.meta.env.BASE_URL}claude-color.svg`;
 const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
+const CURSOR_COLOR_ICON_URL = `${import.meta.env.BASE_URL}cursor-color.svg`;
+const KIRO_COLOR_ICON_URL = `${import.meta.env.BASE_URL}kiro-color.svg`;
 export const STAVE_LOGO_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
 export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-5";
 export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5[1m]";
@@ -61,12 +64,19 @@ export interface ProviderDescriptor {
   id: ProviderId;
   label: string;
   shortLabel: string;
-  iconUrl: string;
+  iconUrl: string | null;
   fallbackLabel: string;
   models: readonly string[];
+  modelCatalogSource: "static" | "runtime";
   defaultModel: string;
   sessionLabel: string;
   capabilities: {
+    primaryTurns: boolean;
+    advisor: boolean;
+    worker: boolean;
+    secondaryRuns: boolean;
+    unattendedRuns: boolean;
+    prePrReview: boolean;
     nativeCommandCatalog: boolean;
     supportsMidTurnSteering: boolean;
     threadActions: {
@@ -93,9 +103,16 @@ export const PROVIDER_DESCRIPTORS = [
     iconUrl: CLAUDE_COLOR_ICON_URL,
     fallbackLabel: "C",
     models: CLAUDE_SDK_MODEL_OPTIONS,
+    modelCatalogSource: "static",
     defaultModel: DEFAULT_CLAUDE_SONNET_MODEL,
     sessionLabel: "Claude session ID",
     capabilities: {
+      primaryTurns: true,
+      advisor: true,
+      worker: true,
+      secondaryRuns: true,
+      unattendedRuns: true,
+      prePrReview: true,
       nativeCommandCatalog: true,
       supportsMidTurnSteering: true,
       threadActions: {
@@ -120,9 +137,16 @@ export const PROVIDER_DESCRIPTORS = [
     iconUrl: CODEX_COLOR_ICON_URL,
     fallbackLabel: "O",
     models: CODEX_MODEL_OPTIONS,
+    modelCatalogSource: "runtime",
     defaultModel: "gpt-5.6-terra",
     sessionLabel: "Codex thread ID",
     capabilities: {
+      primaryTurns: true,
+      advisor: true,
+      worker: true,
+      secondaryRuns: true,
+      unattendedRuns: true,
+      prePrReview: true,
       nativeCommandCatalog: true,
       supportsMidTurnSteering: true,
       threadActions: {
@@ -136,6 +160,88 @@ export const PROVIDER_DESCRIPTORS = [
       },
     },
   },
+  {
+    id: "cursor",
+    label: "Cursor Agent",
+    shortLabel: "Cursor",
+    iconUrl: CURSOR_COLOR_ICON_URL,
+    fallbackLabel: "Cu",
+    models: ["auto"],
+    modelCatalogSource: "runtime",
+    defaultModel: "auto",
+    sessionLabel: "Cursor session ID",
+    capabilities: {
+      primaryTurns: true,
+      advisor: false,
+      worker: true,
+      secondaryRuns: false,
+      unattendedRuns: false,
+      prePrReview: false,
+      nativeCommandCatalog: false,
+      supportsMidTurnSteering: false,
+      threadActions: {
+        forkFromTurn: {
+          supported: false,
+          reason:
+            "Cursor Agent does not expose point-in-time session forks through Stave.",
+        },
+        rollbackToTurn: {
+          supported: false,
+          reason:
+            "Cursor Agent does not expose in-place session rollback through Stave.",
+        },
+        renameNativeSession: {
+          supported: false,
+          reason: "Cursor Agent session rename is not wired through Stave.",
+        },
+      },
+      utilityInference: {
+        supported: false,
+        defaultModel: "auto",
+      },
+    },
+  },
+  {
+    id: "kiro",
+    label: "Kiro CLI",
+    shortLabel: "Kiro",
+    iconUrl: KIRO_COLOR_ICON_URL,
+    fallbackLabel: "Ki",
+    models: ["auto"],
+    modelCatalogSource: "runtime",
+    defaultModel: "auto",
+    sessionLabel: "Kiro session ID",
+    capabilities: {
+      primaryTurns: true,
+      advisor: false,
+      worker: true,
+      secondaryRuns: false,
+      unattendedRuns: false,
+      prePrReview: false,
+      nativeCommandCatalog: false,
+      supportsMidTurnSteering: false,
+      threadActions: {
+        forkFromTurn: {
+          supported: false,
+          reason:
+            "Kiro does not expose point-in-time session forks through Stave.",
+        },
+        rollbackToTurn: {
+          supported: false,
+          reason:
+            "Kiro does not expose in-place session rollback through Stave.",
+        },
+        renameNativeSession: {
+          supported: false,
+          reason: "Kiro session rename is not wired through Stave.",
+        },
+      },
+      utilityInference: {
+        supported: false,
+        defaultModel: "auto",
+      },
+    },
+  },
 ] as const satisfies readonly ProviderDescriptor[];
 
 export function listProviderDescriptors() {
@@ -144,6 +250,35 @@ export function listProviderDescriptors() {
 
 export function listProviderIds(): ProviderId[] {
   return PROVIDER_DESCRIPTORS.map((descriptor) => descriptor.id);
+}
+
+export type ProviderEligibilityCapability =
+  | "primaryTurns"
+  | "advisor"
+  | "worker"
+  | "secondaryRuns"
+  | "unattendedRuns"
+  | "prePrReview";
+
+export function listProviderIdsForCapability(args: {
+  capability: ProviderEligibilityCapability;
+}): ProviderId[] {
+  return PROVIDER_DESCRIPTORS.filter(
+    (descriptor) => descriptor.capabilities[args.capability],
+  ).map((descriptor) => descriptor.id);
+}
+
+export function listManagedExecutionProviderIds(): ManagedExecutionProviderId[] {
+  return listProviderIdsForCapability({ capability: "secondaryRuns" }).filter(
+    (providerId): providerId is ManagedExecutionProviderId =>
+      providerId === "claude-code" || providerId === "codex",
+  );
+}
+
+export function isManagedExecutionProviderId(
+  providerId: ProviderId,
+): providerId is ManagedExecutionProviderId {
+  return providerId === "claude-code" || providerId === "codex";
 }
 
 export function getProviderDescriptor(args: { providerId: ProviderId }) {

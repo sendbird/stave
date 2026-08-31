@@ -462,6 +462,17 @@ export async function consultAdvisor(args: {
   return invokeHostService("provider.consult-advisor", args);
 }
 
+/** The Worker grant registry lives beside provider turns in the host service. */
+export async function runAcpWorker(args: {
+  workerKey: string;
+  task: string;
+  context?: string;
+}) {
+  return invokeHostService("provider.run-acp-worker", args, {
+    timeoutMs: null,
+  });
+}
+
 export async function respondApproval(args: {
   workspaceId: string;
   taskId: string;

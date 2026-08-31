@@ -40,6 +40,22 @@ describe("turn model info", () => {
     });
   });
 
+  test("captures and labels the Kiro effort", () => {
+    expect(
+      resolveTurnModelInfo({
+        providerId: "kiro",
+        runtimeOptions: { kiroEffort: "xhigh" },
+      }),
+    ).toEqual({ effort: "xhigh", fastMode: false });
+    expect(
+      getTurnModelInfoLabel({
+        providerId: "kiro",
+        model: "kiro-model",
+        modelInfo: { effort: "xhigh", fastMode: false },
+      }),
+    ).toBe("Kiro Model · X-High");
+  });
+
   test("formats Claude 1M context and effort in the model chip", () => {
     expect(
       getTurnModelInfoLabel({

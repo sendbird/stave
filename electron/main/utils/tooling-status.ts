@@ -6,6 +6,14 @@ import {
 import { resolveCodexExecutablePath } from "../../providers/codex-app-server-runtime";
 import { buildCodexCliEnv } from "../../providers/cli-path-env";
 import {
+  buildCursorAgentEnv,
+  resolveCursorAgentExecutablePath,
+} from "../../providers/cursor-cli-env";
+import {
+  buildKiroCliEnv,
+  resolveKiroExecutablePath,
+} from "../../providers/kiro-cli-env";
+import {
   canExecutePath,
   resolveExecutablePath,
 } from "../../providers/executable-path";
@@ -240,6 +248,66 @@ export function parseClaudeAuthState(args: {
   return {
     authState: args.ok ? "unknown" : "unauthenticated",
     authDetail: detail || "Unable to determine Claude CLI authentication state.",
+  };
+}
+
+export function parseCursorAuthState(args: {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+}): { authState: ToolingAuthState; authDetail: string | null } {
+  const combined = `${args.stderr}\n${args.stdout}`.toLowerCase();
+  if (
+    combined.includes("not logged in") ||
+    combined.includes("agent login") ||
+    combined.includes("authentication failed") ||
+    combined.includes("unauthorized")
+  ) {
+    return {
+      authState: "unauthenticated",
+      authDetail: "Cursor Agent CLI login is required.",
+    };
+  }
+  if (args.ok && combined.includes("logged in")) {
+    return {
+      authState: "authenticated",
+      authDetail: "Cursor Agent CLI is authenticated.",
+    };
+  }
+  return {
+    authState: args.ok ? "unknown" : "unauthenticated",
+    authDetail: args.ok
+      ? "Unable to determine Cursor Agent CLI authentication state."
+      : "Run `agent login` to authenticate Cursor Agent CLI.",
+  };
+}
+
+export function parseKiroAuthState(args: {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+}): { authState: ToolingAuthState; authDetail: string | null } {
+  const combined = `${args.stderr}\n${args.stdout}`.toLowerCase();
+  if (
+    combined.includes("not logged in") ||
+    combined.includes("kiro-cli login") ||
+    combined.includes("authentication failed") ||
+    combined.includes("unauthorized")
+  ) {
+    return {
+      authState: "unauthenticated",
+      authDetail: "Kiro CLI login is required.",
+    };
+  }
+  if (args.ok) {
+    return {
+      authState: "authenticated",
+      authDetail: "Kiro CLI is authenticated.",
+    };
+  }
+  return {
+    authState: "unauthenticated",
+    authDetail: "Run `kiro-cli login` to authenticate Kiro CLI.",
   };
 }
 
@@ -629,6 +697,145 @@ async function inspectCodexStatus(args: { codexBinaryPath?: string }) {
   });
 }
 
+async function inspectCursorStatus(args: { cursorBinaryPath?: string }) {
+  const executablePath =
+    resolveCursorAgentExecutablePath({
+      explicitPath: args.cursorBinaryPath,
+    }) || null;
+  if (!executablePath) {
+    return makeToolEntry({
+      id: "cursor",
+      label: "Cursor Agent CLI",
+      state: "error",
+      available: false,
+      summary: "Cursor Agent CLI is unavailable.",
+      detail:
+        "Install Cursor Agent CLI or configure its binary path. The Cursor editor launcher does not provide ACP.",
+      version: null,
+      executablePath: null,
+      authState: "unauthenticated",
+      authDetail: "Install Cursor Agent CLI and run `agent login`.",
+    });
+  }
+
+  const env = buildCursorAgentEnv({ executablePath });
+  const [versionResult, acpResult, authResult] = await Promise.all([
+    runCommandArgs({
+      command: executablePath,
+      commandArgs: ["--version"],
+      env,
+    }),
+    runCommandArgs({
+      command: executablePath,
+      commandArgs: ["acp", "--help"],
+      env,
+    }),
+    runCommandArgs({
+      command: executablePath,
+      commandArgs: ["status"],
+      env,
+    }),
+  ]);
+
+  const version = firstMeaningfulLine(
+    versionResult.stdout || versionResult.stderr,
+  );
+  const available = versionResult.ok && acpResult.ok;
+  const { authState, authDetail } = parseCursorAuthState(authResult);
+
+  return makeToolEntry({
+    id: "cursor",
+    label: "Cursor Agent CLI",
+    state: stateFromAvailability({ available, authState }),
+    available,
+    summary: formatToolSummary({
+      label: "Cursor Agent CLI",
+      available,
+      version,
+      authState,
+    }),
+    detail: formatToolDetail({
+      executablePath,
+      version,
+      authDetail,
+      failureDetail:
+        combineCommandDetail(versionResult) || combineCommandDetail(acpResult),
+      available,
+    }),
+    version,
+    executablePath,
+    authState,
+    authDetail,
+  });
+}
+
+async function inspectKiroStatus(args: { kiroBinaryPath?: string }) {
+  const executablePath =
+    resolveKiroExecutablePath({ explicitPath: args.kiroBinaryPath }) || null;
+  if (!executablePath) {
+    return makeToolEntry({
+      id: "kiro",
+      label: "Kiro CLI",
+      state: "error",
+      available: false,
+      summary: "Kiro CLI is unavailable.",
+      detail: "Install Kiro CLI or configure its binary path.",
+      version: null,
+      executablePath: null,
+      authState: "unauthenticated",
+      authDetail: "Install Kiro CLI and run `kiro-cli login`.",
+    });
+  }
+
+  const env = buildKiroCliEnv({ executablePath });
+  const [versionResult, acpResult, authResult] = await Promise.all([
+    runCommandArgs({
+      command: executablePath,
+      commandArgs: ["--version"],
+      env,
+    }),
+    runCommandArgs({
+      command: executablePath,
+      commandArgs: ["acp", "--help"],
+      env,
+    }),
+    runCommandArgs({
+      command: executablePath,
+      commandArgs: ["whoami"],
+      env,
+    }),
+  ]);
+  const version = firstMeaningfulLine(
+    versionResult.stdout || versionResult.stderr,
+  );
+  const available = versionResult.ok && acpResult.ok;
+  const { authState, authDetail } = parseKiroAuthState(authResult);
+  return makeToolEntry({
+    id: "kiro",
+    label: "Kiro CLI",
+    state: stateFromAvailability({ available, authState }),
+    available,
+    summary: formatToolSummary({
+      label: "Kiro CLI",
+      available,
+      version,
+      authState,
+    }),
+    detail: formatToolDetail({
+      executablePath,
+      version,
+      authDetail,
+      failureDetail:
+        combineCommandDetail(versionResult) || combineCommandDetail(acpResult),
+      available,
+    }),
+    version,
+    executablePath,
+    authState,
+    authDetail,
+  });
+}
+
 export async function getCodexMcpStatus(args: {
   codexBinaryPath?: string;
 }): Promise<CodexMcpStatusResponse> {
@@ -858,6 +1065,8 @@ export async function getToolingStatusSnapshot(
     inspectGhStatus(),
     inspectClaudeStatus({ claudeBinaryPath: args.claudeBinaryPath }),
     inspectCodexStatus({ codexBinaryPath: args.codexBinaryPath }),
+    inspectCursorStatus({ cursorBinaryPath: args.cursorBinaryPath }),
+    inspectKiroStatus({ kiroBinaryPath: args.kiroBinaryPath }),
   ]);
 
   return {

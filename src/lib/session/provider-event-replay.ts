@@ -8,6 +8,7 @@ import {
 } from "@/lib/providers/provider-sessions";
 import { appendProviderOutputTruncationNotice } from "@/lib/truncation-visibility";
 import type {
+  DelegatedExecutionUsage,
   NormalizedProviderEvent,
   ProviderGoalSnapshot,
   ProviderId,
@@ -125,6 +126,7 @@ function createApprovalPart(args: {
   toolName: string;
   description: string;
   input?: string;
+  workerExecution?: ApprovalPart["workerExecution"];
 }): ApprovalPart {
   return sanitizeMessagePartPayload({
     type: "approval",
@@ -132,6 +134,9 @@ function createApprovalPart(args: {
     requestId: args.requestId,
     description: args.description,
     ...(args.input ? { input: args.input } : {}),
+    ...(args.workerExecution
+      ? { workerExecution: args.workerExecution }
+      : {}),
     state: "approval-requested",
   });
 }
@@ -180,6 +185,8 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
   switch (event.type) {
     case "thinking":
     case "usage":
+    case "context_usage":
+    case "delegated_usage":
     case "prompt_suggestions":
     case "provider_session":
     case "provider_turn":
@@ -194,6 +201,22 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     default:
       return true;
   }
+}
+
+function upsertDelegatedUsage(args: {
+  existing?: readonly DelegatedExecutionUsage[];
+  incoming: DelegatedExecutionUsage;
+}) {
+  const current = args.existing ?? [];
+  const index = current.findIndex(
+    (entry) => entry.executionId === args.incoming.executionId,
+  );
+  if (index < 0) {
+    return [...current, args.incoming];
+  }
+  const next = current.slice();
+  next[index] = { ...current[index], ...args.incoming };
+  return next;
 }
 
 /**
@@ -308,6 +331,7 @@ function normalizeEventToPart(args: {
     case "provider_turn":
     case "browser_connection":
     case "goal_status":
+    case "delegated_usage":
     case "history_boundary":
     case "hook_activity":
     // Advisor lifecycle lives in its own store slice, never in the transcript:
@@ -345,6 +369,7 @@ function normalizeEventToPart(args: {
         toolName: event.toolName,
         description: event.description,
         input: event.input,
+        workerExecution: event.workerExecution,
       });
     case "user_input":
       return createUserInputPart({
@@ -380,6 +405,7 @@ function normalizeEventToPart(args: {
     case "tool_progress":
     case "tool_result":
     case "usage":
+    case "context_usage":
     case "prompt_suggestions":
     case "plan_ready":
     case "model_resolved":
@@ -590,6 +616,7 @@ function createPlanAssistantMessage(args: {
   model: string;
   modelInfo?: TurnModelInfo;
   planText: string;
+  planReview?: ChatMessage["planReview"];
   isStreaming?: boolean;
 }): ChatMessage {
   const startedAt = buildRecentTimestamp();
@@ -605,6 +632,7 @@ function createPlanAssistantMessage(args: {
     isStreaming: args.isStreaming ?? true,
     isPlanResponse: true,
     planText: normalizedPlanText,
+    ...(args.planReview ? { planReview: args.planReview } : {}),
     parts: [],
   };
 }
@@ -679,11 +707,44 @@ export function appendProviderEventToAssistant(args: {
         ...(args.event.cacheCreationTokens != null
           ? { cacheCreationTokens: args.event.cacheCreationTokens }
           : {}),
+        ...(args.event.thoughtTokens != null
+          ? { thoughtTokens: args.event.thoughtTokens }
+          : {}),
         ...(args.event.totalCostUsd != null
           ? { totalCostUsd: args.event.totalCostUsd }
           : {}),
         ...(args.event.ttftMs != null ? { ttftMs: args.event.ttftMs } : {}),
       },
+    };
+  }
+
+  if (args.event.type === "context_usage") {
+    return {
+      ...args.message,
+      usage: {
+        inputTokens: args.message.usage?.inputTokens ?? 0,
+        outputTokens: args.message.usage?.outputTokens ?? 0,
+        ...args.message.usage,
+        contextUsedTokens: args.event.usedTokens,
+        contextWindowTokens: args.event.sizeTokens,
+        ...(args.event.costAmount !== undefined
+          ? { contextCostAmount: args.event.costAmount }
+          : {}),
+        ...(args.event.costCurrency
+          ? { contextCostCurrency: args.event.costCurrency }
+          : {}),
+      },
+    };
+  }
+
+  if (args.event.type === "delegated_usage") {
+    const { type: _type, ...usage } = args.event;
+    return {
+      ...args.message,
+      delegatedUsage: upsertDelegatedUsage({
+        existing: args.message.delegatedUsage,
+        incoming: usage,
+      }),
     };
   }
 
@@ -698,6 +759,26 @@ export function appendProviderEventToAssistant(args: {
   }
 
   let message = args.message;
+
+  if (
+    args.event.type === "tool" &&
+    args.event.workerExecution &&
+    (args.event.agentId || args.event.toolUseId)
+  ) {
+    const execution = args.event.workerExecution;
+    message = {
+      ...message,
+      delegatedUsage: upsertDelegatedUsage({
+        existing: message.delegatedUsage,
+        incoming: {
+          executionId: args.event.agentId ?? args.event.toolUseId!,
+          role: "worker",
+          providerId: execution.providerId,
+          model: execution.workerModel,
+        },
+      }),
+    };
+  }
   if (shouldFinalizeThinkingBeforeEvent(args.event)) {
     const finalizedParts = finalizeTrailingThinkingPart({
       parts: message.parts,
@@ -802,6 +883,7 @@ export function appendProviderEventToAssistant(args: {
       content: normalizedPlanText,
       isPlanResponse: true,
       planText: normalizedPlanText,
+      planReview: args.event.review,
     };
   }
 
@@ -1178,6 +1260,7 @@ export function replayProviderEventsToTaskState(args: {
             model: args.model,
             modelInfo: target.modelInfo,
             planText: event.planText,
+            planReview: event.review,
           }),
           from: finalizedTarget,
         });

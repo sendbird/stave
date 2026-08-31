@@ -22,6 +22,7 @@ import type {
   CodexPluginInstallResponse,
   ProviderId,
   ProviderAvailabilityResponse,
+  ProviderModelCatalogResponse,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
@@ -961,6 +962,7 @@ contextBridge.exposeInMainWorld("api", {
       turnId: string;
       requestId: string;
       approved: boolean;
+      reason?: string;
     }) => ipcRenderer.invoke("provider:respond-approval", args),
     respondUserInput: (args: {
       turnId: string;
@@ -1095,6 +1097,15 @@ contextBridge.exposeInMainWorld("api", {
         "provider:get-codex-model-catalog",
         args,
       ) as Promise<CodexModelCatalogResponse>,
+    getModelCatalog: (args: {
+      providerId: ProviderId;
+      cwd?: string;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:get-model-catalog",
+        args,
+      ) as Promise<ProviderModelCatalogResponse>,
     getCodexAppServerSnapshot: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];

@@ -63,6 +63,9 @@ export function listEffortsForPresetProvider(
   providerId: ProviderId,
   model?: string,
 ): readonly { value: TaskPresetEffort; label: string }[] {
+  if (providerId === "cursor" || providerId === "kiro") {
+    return [];
+  }
   if (providerId === "codex") {
     return model ? listCodexEffortOptionsForModel({ model }) : CODEX_EFFORT_OPTIONS;
   }
@@ -132,7 +135,7 @@ function getAllModelOptionsForProvider(providerId: ProviderId): string[] {
   if (providerId === "codex") {
     return [...CODEX_MODEL_OPTIONS];
   }
-  return [];
+  return [getDefaultModelForProvider({ providerId: "cursor" })];
 }
 
 export function listModelsForPresetProvider(
@@ -151,7 +154,12 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
     input.kind === "cli-session" ? "cli-session" : "task";
 
   let provider: ProviderId;
-  if (input.provider === "claude-code" || input.provider === "codex") {
+  if (
+    input.provider === "claude-code" ||
+    input.provider === "codex" ||
+    (kind === "task" &&
+      (input.provider === "cursor" || input.provider === "kiro"))
+  ) {
     provider = input.provider;
   } else {
     provider = "claude-code";

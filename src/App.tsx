@@ -16,6 +16,7 @@ import {
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
+import { primeProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
 
 function buildLensSecurityConfig(): LensSecurityConfig {
   const settings = useAppStore.getState().settings;
@@ -303,6 +304,25 @@ export default function App() {
       if (cancelled) {
         return;
       }
+      const state = useAppStore.getState();
+      const runtimeOptions = {
+        ...(state.settings.codexBinaryPath
+          ? { codexBinaryPath: state.settings.codexBinaryPath }
+          : {}),
+        ...(state.settings.cursorBinaryPath
+          ? { cursorBinaryPath: state.settings.cursorBinaryPath }
+          : {}),
+        ...(state.settings.kiroBinaryPath
+          ? { kiroBinaryPath: state.settings.kiroBinaryPath }
+          : {}),
+      };
+      void primeProviderModelCatalogs({
+        cwd:
+          state.workspacePathById[state.activeWorkspaceId] ??
+          state.projectPath ??
+          undefined,
+        runtimeOptions,
+      });
       void useAppStore.getState().hydrateNotifications();
       if (cancelled) {
         return;
@@ -311,7 +331,7 @@ export default function App() {
     })();
     const providerTimer = window.setInterval(() => {
       void useAppStore.getState().refreshProviderAvailability();
-    }, 10000);
+    }, 60000);
     const workspaceTimer = window.setInterval(() => {
       void useAppStore.getState().refreshWorkspaces();
     }, 30000);

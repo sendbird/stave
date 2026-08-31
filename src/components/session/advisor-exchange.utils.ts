@@ -197,6 +197,9 @@ export function describeAdvisorIsolation(
   if (isolation === "codex-ephemeral-read-only") {
     return "Ephemeral read-only thread";
   }
+  if (isolation === "codex-role-session-read-only") {
+    return "Read-only Advisor session";
+  }
   return "Unknown";
 }
 
@@ -311,6 +314,14 @@ export function buildAdvisorChecks(
         snapshot.inputTokens === undefined && snapshot.outputTokens === undefined
           ? "No advisor usage was reported."
           : `${snapshot.inputTokens ?? 0} in · ${snapshot.outputTokens ?? 0} out${
+              snapshot.cacheReadTokens === undefined
+                ? ""
+                : ` · ${snapshot.cacheReadTokens} cache read`
+            }${
+              snapshot.cacheCreationTokens === undefined
+                ? ""
+                : ` · ${snapshot.cacheCreationTokens} cache write`
+            }${
               snapshot.totalCostUsd === undefined
                 ? ""
                 : ` · $${snapshot.totalCostUsd.toFixed(4)}`

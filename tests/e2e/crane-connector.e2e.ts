@@ -429,11 +429,11 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
     dialog.getByText("Run the focused connector checks."),
   ).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Decline" })).toBeFocused();
-  // The runtime picker is the same model x effort control as the composer, and
-  // it must surface the effort the approval will actually run at.
-  await expect(
-    dialog.getByRole("button", { name: /^Model and effort:/ }),
-  ).toContainText("X-High");
+  // The runtime picker exposes the exact model and effort the approval will
+  // run at from the same control used by the composer.
+  await expect(dialog.getByRole("button", { name: /^Model:/ })).toHaveAccessibleName(
+    /GPT 5\.6.*Effort: X-High/,
+  );
   await expect(
     dialog.getByText(
       "Run approval is job-scoped; only these local team defaults are remembered.",
@@ -695,23 +695,21 @@ test("Crane approval can pick a different model and reasoning effort", async ({
   });
   await expect(dialog).toBeVisible();
 
-  const runtimePill = dialog.getByRole("button", {
-    name: /^Model and effort:/,
+  const modelTrigger = dialog.getByRole("button", {
+    name: /^Model:/,
   });
-  await expect(runtimePill).toContainText("X-High");
-  await runtimePill.click();
+  await expect(modelTrigger).toHaveAccessibleName(/GPT 5\.6.*Effort: X-High/);
+  await modelTrigger.click();
 
-  // The picker is portalled out of the dialog, so scope from the page.
-  const claudeMatrix = page.getByRole("grid", {
-    name: /Claude.*model effort matrix/,
-  });
-  await expect(claudeMatrix).toBeVisible();
-  await claudeMatrix
-    .getByRole("gridcell", { name: /, Max effort$/ })
-    .first()
+  // The model picker is portalled out of the dialog, so scope from the page.
+  await page
+    .getByRole("tablist", { name: "Model provider" })
+    .getByRole("tab", { name: /Claude/ })
     .click();
-
-  await expect(runtimePill).toContainText("Max");
+  await page
+    .getByRole("gridcell", { name: "Claude Opus 5, Max effort" })
+    .click();
+  await expect(modelTrigger).toHaveAccessibleName(/Claude Opus 5.*Effort: Max/);
   // Switching provider must also swap the access controls Crane can send.
   await dialog.getByRole("button", { name: "Advanced" }).click();
   await expect(

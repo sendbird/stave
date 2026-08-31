@@ -98,6 +98,16 @@ export const CODEX_EFFORT_OPTIONS = [
   NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
 >[];
 
+export const KIRO_EFFORT_OPTIONS = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "X-High" },
+  { value: "max", label: "Max" },
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["kiroEffort"]>
+>[];
+
 /**
  * `CODEX_EFFORT_OPTIONS` filtered to the values the given Codex model
  * actually accepts (e.g. GPT-5.6 Luna has no "ultra" tier), preserving the
@@ -205,6 +215,12 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexFastMode",
   "codexPlanMode",
   "codexResumeThreadId",
+  "cursorBinaryPath",
+  "cursorMode",
+  "cursorResumeSessionId",
+  "kiroBinaryPath",
+  "kiroEffort",
+  "kiroResumeSessionId",
   "advisorTarget",
   "advisorConsultLimit",
   "workerIntent",
@@ -231,6 +247,8 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "browser_connection",
   "goal_status",
   "usage",
+  "context_usage",
+  "delegated_usage",
   "prompt_suggestions",
   "advisor_activity",
   "history_boundary",

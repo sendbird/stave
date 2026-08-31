@@ -36,7 +36,10 @@ import {
   getProviderWaveToneClass,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import type {
+  ManagedExecutionProviderId,
+  ProviderId,
+} from "@/lib/providers/provider.types";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +63,7 @@ export function PromptInputAdvisorPill(args: {
   primaryProviderId: ProviderId;
   primaryModel: string;
   /** Provider the picker configures, armed or not. Resolved by the host. */
-  selectedProviderId: ProviderId;
+  selectedProviderId: ManagedExecutionProviderId;
   /** Selectable models for {@link selectedProviderId}. */
   advisorModelOptions: readonly string[];
   /** True while this task's turn is blocked waiting on the Advisor. */
@@ -75,7 +78,7 @@ export function PromptInputAdvisorPill(args: {
   open: boolean;
   onToggle: () => void;
   onSetEnabled: (enabled: boolean) => void;
-  onSelectProvider: (providerId: ProviderId) => void;
+  onSelectProvider: (providerId: ManagedExecutionProviderId) => void;
   onSelectModel: (model: string) => void;
   onSelectEffort: (effort: AdvisorEffortOptionValue) => void;
   /** Fires on open so the host can lazily load a provider model catalog. */

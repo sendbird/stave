@@ -17,6 +17,7 @@ import type {
   AdvisorTarget,
   AdvisorTargetByProvider,
   CanonicalConversationRequest,
+  ManagedExecutionProviderId,
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
@@ -66,7 +67,10 @@ const ADVISOR_TIMEOUT_MS_BY_EFFORT: Readonly<Record<AdvisorEffort, number>> = {
   ultra: 10 * 60_000,
 };
 
-const PROVIDER_IDS = new Set<ProviderId>(["claude-code", "codex"]);
+const PROVIDER_IDS = new Set<ManagedExecutionProviderId>([
+  "claude-code",
+  "codex",
+]);
 const LEGACY_CLAUDE_ADVISOR_TARGET_BY_SOURCE = new Map<string, string>([
   ["claude-haiku-4-5", DEFAULT_CLAUDE_SONNET_MODEL],
   ["claude-sonnet-4-6", DEFAULT_CLAUDE_OPUS_MODEL],
@@ -159,7 +163,7 @@ export function buildAdvisorAdviceContent(args: {
  * `resolveAdvisorEffort` handles by clamping rather than rejecting.
  */
 const ADVISOR_EFFORTS_BY_PROVIDER: Readonly<
-  Record<ProviderId, readonly AdvisorEffort[]>
+  Record<ManagedExecutionProviderId, readonly AdvisorEffort[]>
 > = {
   "claude-code": ["low", "medium", "high", "xhigh", "max"],
   codex: ["low", "medium", "high", "xhigh", "max", "ultra"],
@@ -168,12 +172,14 @@ const ADVISOR_EFFORTS_BY_PROVIDER: Readonly<
 /** Claude's effort scale: the shared union minus Codex's `ultra` tier. */
 export type ClaudeAdvisorEffort = Exclude<AdvisorEffort, "ultra">;
 
-export function listAdvisorEffortsForProvider(providerId: ProviderId) {
+export function listAdvisorEffortsForProvider(
+  providerId: ManagedExecutionProviderId,
+) {
   return ADVISOR_EFFORTS_BY_PROVIDER[providerId];
 }
 
 function normalizeAdvisorEffort(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   value: unknown;
 }): AdvisorEffort | null {
   if (typeof args.value !== "string") {
@@ -196,7 +202,7 @@ export function normalizeAdvisorTarget(value: unknown): AdvisorTarget | null {
   };
   if (
     typeof candidate.providerId !== "string" ||
-    !PROVIDER_IDS.has(candidate.providerId as ProviderId) ||
+    !PROVIDER_IDS.has(candidate.providerId as ManagedExecutionProviderId) ||
     typeof candidate.model !== "string"
   ) {
     return null;
@@ -205,7 +211,7 @@ export function normalizeAdvisorTarget(value: unknown): AdvisorTarget | null {
   if (!model) {
     return null;
   }
-  const providerId = candidate.providerId as ProviderId;
+  const providerId = candidate.providerId as ManagedExecutionProviderId;
   // A bad effort drops to the provider default instead of invalidating the
   // whole target: losing the tier costs latency, losing the target silently
   // disarms an Advisor the user believes is on.
@@ -373,11 +379,11 @@ export type AdvisorArmState = {
    * provider so the composer can offer a model and effort for a provider that
    * is not armed — configuring the Advisor must not require turning it on.
    */
-  targetByProvider: Record<ProviderId, AdvisorTarget>;
+  targetByProvider: Record<ManagedExecutionProviderId, AdvisorTarget>;
 };
 
 function toRememberedAdvisorTarget(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   byProvider: AdvisorTargetByProvider;
 }): AdvisorTarget | null {
   const preference = args.byProvider[args.providerId];
@@ -401,7 +407,7 @@ function toRememberedAdvisorTarget(args: {
  * every provider always has something to offer even when nothing is armed.
  */
 function resolveAdvisorTargetForProvider(args: {
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   candidates: readonly (AdvisorTarget | null | undefined)[];
 }): AdvisorTarget {
   const candidate = args.candidates.find(
@@ -452,7 +458,7 @@ export function resolveAdvisorArmState(args: {
   const settingsRemembered = normalizeAdvisorTargetByProvider(
     args.settingsTargetByProvider,
   );
-  const resolveForProvider = (providerId: ProviderId) =>
+  const resolveForProvider = (providerId: ManagedExecutionProviderId) =>
     resolveAdvisorTargetForProvider({
       providerId,
       // Most specific first: the task's own memory, then its current pick,
@@ -493,7 +499,7 @@ export function resolveAdvisorArmState(args: {
 export function resolveAdvisorSelectedProviderId(args: {
   arm: AdvisorArmState;
   primaryProviderId: ProviderId;
-}): ProviderId {
+}): ManagedExecutionProviderId {
   return (
     args.arm.target?.providerId ??
     (args.primaryProviderId === "codex" ? "claude-code" : "codex")
@@ -647,10 +653,13 @@ export function buildAdvisorConsultPrompt(args: {
     : "another coding agent";
   return truncatePromptText(
     [
-      `You are a read-only Advisor consulted mid-task by ${asker}.`,
+      "You are a read-only Advisor consulted mid-task by another coding agent.",
       "Answer the question below with concise, actionable advice: the recommended approach, likely risks, and any checks the asker is missing.",
-      "You cannot see the repository or run tools — reason only from what is quoted. Say so explicitly when the provided context is insufficient.",
+      "You cannot inspect the repository or run tools. Earlier Advisor exchanges from this same Stave task may be present; treat the current quoted context and question as authoritative, and say explicitly when they are insufficient.",
       "Do not claim to have changed files and do not address the end user.",
+      "",
+      "[Consulting Agent]",
+      asker,
       ...(context ? ["", "[Consult Context]", context] : []),
       "",
       "[Consult Question]",

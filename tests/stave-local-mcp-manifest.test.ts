@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS,
+  toAcpStdioMcpServerConfig,
   toClaudeCodeSettingsMcpServerEntry,
   toClaudeSdkMcpServerConfig,
   withUnattendedAutomationAuthorization,
@@ -27,6 +28,25 @@ const manifest = {
 };
 
 describe("Stave Local MCP unattended automation authorization", () => {
+  test("scopes an ACP stdio connection to the Worker tool", () => {
+    expect(
+      toAcpStdioMcpServerConfig(manifest, {
+        allowedToolNames: ["stave_run_worker", "stave_run_worker"],
+      }),
+    ).toEqual({
+      name: "stave-local-mcp",
+      command: process.execPath,
+      args: ["/tmp/stave-mcp-stdio-proxy.js"],
+      env: [
+        { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+        {
+          name: "STAVE_MCP_ALLOWED_TOOLS",
+          value: "stave_run_worker",
+        },
+      ],
+    });
+  });
+
   test("adds the authorization only to the scoped URL", () => {
     expect(
       withUnattendedAutomationAuthorization({

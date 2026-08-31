@@ -52,6 +52,31 @@ test("shows each turn's model, effort, context, and fast mode", async ({
               effort: "ultra",
               fastMode: true,
             },
+            usage: {
+              inputTokens: 120,
+              outputTokens: 18,
+              cacheReadTokens: 90,
+              totalCostUsd: 0.012,
+            },
+            delegatedUsage: [
+              {
+                executionId: "advisor-1",
+                role: "advisor",
+                providerId: "codex",
+                model: "gpt-5.6-terra",
+                inputTokens: 80,
+                outputTokens: 12,
+                cacheReadTokens: 64,
+                sessionReused: true,
+              },
+              {
+                executionId: "worker-1",
+                role: "worker",
+                providerId: "cursor",
+                model: "cursor-fixture-model",
+                sessionReused: false,
+              },
+            ],
             content: "Codex response",
             completedAt: "2026-07-24T00:00:02.000Z",
             parts: [{ type: "text", text: "Codex response" }],
@@ -112,6 +137,29 @@ test("shows each turn's model, effort, context, and fast mode", async ({
       name: "GPT-5.6 Terra · Ultra · Fast",
     }),
   ).toBeVisible();
+
+  const usageDetails = page.getByRole("button", {
+    name: "Turn usage details: 120 input tokens, 18 output tokens, 2 delegated executions",
+  });
+  await usageDetails.focus();
+  const tooltip = page.getByRole("tooltip");
+  await expect(tooltip).toContainText("Turn total");
+  await expect(tooltip).toContainText("Delegated breakdown");
+  await expect(tooltip).toContainText("Included in the turn total above.");
+  await expect(tooltip).toContainText(/Cache read\s*64 tokens/);
+  await expect(tooltip).toContainText("Session resumed");
+  await expect(tooltip).toContainText(
+    "This provider did not report delegated token usage.",
+  );
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await usageDetails.focus();
+  const tooltipBox = await tooltip.boundingBox();
+  expect(tooltipBox).not.toBeNull();
+  expect(tooltipBox?.x).toBeGreaterThanOrEqual(0);
+  expect((tooltipBox?.x ?? 0) + (tooltipBox?.width ?? 0)).toBeLessThanOrEqual(
+    390,
+  );
 
   await page.screenshot({
     path: testInfo.outputPath("turn-model-info.png"),

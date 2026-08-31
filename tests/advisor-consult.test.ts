@@ -53,6 +53,7 @@ type GrantHarness = {
 
 function createGrant(args: {
   consultKey: string;
+  taskId?: string;
   consultLimit?: number;
   runners: AdvisorRunnerDependencies;
 }): GrantHarness {
@@ -64,6 +65,7 @@ function createGrant(args: {
     grant: {
       consultKey: args.consultKey,
       turnId: "turn-1",
+      ...(args.taskId ? { taskId: args.taskId } : {}),
       target: TARGET,
       primaryProviderId: "codex",
       primaryModel: "gpt-5.6-terra",
@@ -179,6 +181,67 @@ describe("consultAdvisor", () => {
     });
 
     expect(harness.usage).toEqual([runnerUsage]);
+    expect(harness.events).toContainEqual(
+      expect.objectContaining({
+        type: "delegated_usage",
+        role: "advisor",
+        providerId: "claude-code",
+        model: "claude-fable-5",
+        inputTokens: 42,
+        outputTokens: 7,
+      }),
+    );
+  });
+
+  test("resumes an Advisor role session across turns in the same task", async () => {
+    const resumeSessionIds: Array<string | undefined> = [];
+    const runners = {
+      runClaude: async (args: Parameters<AdvisorRunnerDependencies["runClaude"]>[0]) => {
+        resumeSessionIds.push(args.resumeSessionId);
+        return {
+          ok: true,
+          text: "Keep the role session scoped to this task.",
+          nativeSessionId: "advisor-session-1",
+          sessionReused: args.resumeSessionId === "advisor-session-1",
+        };
+      },
+      runCodex: createUnusedRunner("Codex runner must not be called."),
+    } satisfies AdvisorRunnerDependencies;
+
+    const first = createGrant({
+      consultKey: "grant-session-first",
+      taskId: "task-session",
+      runners,
+    });
+    registerAdvisorConsultGrant(first.grant);
+    expect(
+      await consultAdvisor({
+        consultKey: "grant-session-first",
+        question: "First turn?",
+      }),
+    ).toMatchObject({ ok: true });
+
+    const second = createGrant({
+      consultKey: "grant-session-second",
+      taskId: "task-session",
+      runners,
+    });
+    registerAdvisorConsultGrant(second.grant);
+    expect(
+      await consultAdvisor({
+        consultKey: "grant-session-second",
+        question: "Next turn?",
+      }),
+    ).toMatchObject({ ok: true });
+
+    expect(resumeSessionIds).toEqual([undefined, "advisor-session-1"]);
+    expect(second.events).toContainEqual(
+      expect.objectContaining({
+        type: "delegated_usage",
+        role: "advisor",
+        sessionReused: true,
+      }),
+    );
   });
 
   test("pause and resume bracket the consult with the same per-exchange key", async () => {

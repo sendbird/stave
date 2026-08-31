@@ -4,6 +4,18 @@ import type {
   WorkspaceShellLite,
   WorkspaceSnapshot,
 } from "@/lib/db/workspaces.db";
+
+const ProviderIdSchema = z.union([
+  z.literal("claude-code"),
+  z.literal("codex"),
+  z.literal("cursor"),
+  z.literal("kiro"),
+]);
+const ManagedExecutionProviderIdSchema = z.union([
+  z.literal("claude-code"),
+  z.literal("codex"),
+]);
+
 const TextPartSchema = z.object({
   type: z.literal("text"),
   text: z.string(),
@@ -19,7 +31,7 @@ const ThinkingPartSchema = z.object({
 });
 
 const WorkerExecutionMetadataSchema = z.object({
-  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  providerId: ManagedExecutionProviderIdSchema,
   primaryModel: z.string(),
   presetId: z.union([
     z.literal("patch-hand"), z.literal("verified-patch"), z.literal("sweep"),
@@ -95,6 +107,7 @@ const UserInputPartSchema = z.object({
         z.object({
           label: z.string(),
           description: z.string(),
+          value: z.string().optional(),
         }),
       ),
       multiSelect: z.boolean().optional(),
@@ -212,6 +225,7 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
 
 const PromptDraftRuntimeOverridesSchema = z.object({
   model: z.string().optional(),
+  modelProviderId: ProviderIdSchema.optional(),
   claudePermissionMode: z
     .union([
       z.literal("default"),
@@ -254,6 +268,18 @@ const PromptDraftRuntimeOverridesSchema = z.object({
     ])
     .optional(),
   codexFastMode: z.boolean().optional(),
+  cursorMode: z
+    .union([z.literal("agent"), z.literal("plan"), z.literal("ask")])
+    .optional(),
+  kiroEffort: z
+    .union([
+      z.literal("low"),
+      z.literal("medium"),
+      z.literal("high"),
+      z.literal("xhigh"),
+      z.literal("max"),
+    ])
+    .optional(),
   autoRouting: z.boolean().optional(),
   boundSecretIds: z.array(z.string().uuid()).optional(),
   // Per-task Advisor arming. `advisorEnabled` is stored separately from
@@ -264,7 +290,7 @@ const PromptDraftRuntimeOverridesSchema = z.object({
   advisorEnabled: z.boolean().optional().catch(undefined),
   advisorTarget: z
     .object({
-      providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+      providerId: ManagedExecutionProviderIdSchema,
       model: z.string().trim().min(1).max(200),
       // Absent means "follow the model's provider default". Codex's legacy
       // "minimal" is not accepted; `resolveAdvisorEffort` collapses it to
@@ -288,7 +314,7 @@ const PromptDraftRuntimeOverridesSchema = z.object({
   // entry must degrade to "unset" instead of rejecting the snapshot.
   advisorTargetByProvider: z
     .record(
-      z.union([z.literal("claude-code"), z.literal("codex")]),
+      ManagedExecutionProviderIdSchema,
       z
         .object({
           model: z.string().trim().min(1).max(200),
@@ -317,7 +343,7 @@ const PromptDraftRuntimeOverridesSchema = z.object({
   workerEnabled: z.boolean().optional().catch(undefined),
   workerConfigByProvider: z
     .record(
-      z.union([z.literal("claude-code"), z.literal("codex")]),
+      ProviderIdSchema,
       // Every field catches independently: a corrupt tool list must not
       // discard a good model choice sitting beside it.
       z
@@ -393,10 +419,7 @@ const PromptDraftQueuedTurnSchema = z
     // Queue-time provider/model pin. `.catch(undefined)` so an unknown
     // provider id from a newer build degrades to "follow the task provider"
     // instead of rejecting the entire workspace snapshot.
-    providerId: z
-      .union([z.literal("claude-code"), z.literal("codex")])
-      .optional()
-      .catch(undefined),
+    providerId: ProviderIdSchema.optional().catch(undefined),
     model: z.string().optional().catch(undefined),
   })
   .strict();
@@ -411,6 +434,21 @@ const PromptDraftBatchItemSchema = z
   })
   .strict();
 
+const DelegatedExecutionUsageSchema = z
+  .object({
+    executionId: z.string().min(1),
+    role: z.union([z.literal("advisor"), z.literal("worker")]),
+    providerId: ProviderIdSchema,
+    model: z.string(),
+    inputTokens: z.number().optional(),
+    outputTokens: z.number().optional(),
+    cacheReadTokens: z.number().optional(),
+    cacheCreationTokens: z.number().optional(),
+    totalCostUsd: z.number().optional(),
+    sessionReused: z.boolean().optional(),
+  })
+  .strict();
+
 const ChatMessageSchema = z.object({
   id: z.string(),
   role: z.union([z.literal("user"), z.literal("assistant")]),
@@ -418,6 +456,8 @@ const ChatMessageSchema = z.object({
   providerId: z.union([
     z.literal("claude-code"),
     z.literal("codex"),
+    z.literal("cursor"),
+    z.literal("kiro"),
     z.literal("user"),
   ]),
   nativeProviderSessionId: z.string().optional(),
@@ -444,6 +484,13 @@ const ChatMessageSchema = z.object({
   isStreaming: z.boolean().optional(),
   isPlanResponse: z.boolean().optional(),
   planText: z.string().optional(),
+  planReview: z
+    .object({
+      requestId: z.string(),
+      responseMode: z.literal("blocking"),
+    })
+    .strict()
+    .optional(),
   usage: z
     .object({
       inputTokens: z.number(),
@@ -454,10 +501,11 @@ const ChatMessageSchema = z.object({
       ttftMs: z.number().optional(),
     })
     .optional(),
+  delegatedUsage: z.array(DelegatedExecutionUsageSchema).optional(),
   promptSuggestions: z.array(z.string()).optional(),
   providerBoundary: z
     .object({
-      providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+      providerId: ProviderIdSchema,
       kind: z.union([
         z.literal("thread"),
         z.literal("turn"),
@@ -493,7 +541,7 @@ const TaskSchema = z.object({
   id: z.string(),
   title: z.string(),
   titleManuallySet: z.boolean().optional(),
-  provider: z.union([z.literal("claude-code"), z.literal("codex")]),
+  provider: ProviderIdSchema,
   updatedAt: z.string(),
   unread: z.boolean(),
   archivedAt: z
@@ -530,6 +578,8 @@ const TaskProviderSessionEntrySchema = z.union([
 const TaskProviderSessionStateSchema = z.object({
   "claude-code": TaskProviderSessionEntrySchema.optional(),
   codex: TaskProviderSessionEntrySchema.optional(),
+  cursor: TaskProviderSessionEntrySchema.optional(),
+  kiro: TaskProviderSessionEntrySchema.optional(),
   stave: z.string().optional(),
 });
 
@@ -583,7 +633,7 @@ const WorkspaceTerminalTabSchema = z
 const WorkspaceCliSessionTabSchema = z.object({
   id: z.string(),
   title: z.string(),
-  provider: z.union([z.literal("claude-code"), z.literal("codex")]),
+  provider: ManagedExecutionProviderIdSchema,
   contextMode: z.union([z.literal("workspace"), z.literal("active-task")]),
   nativeSessionId: z.string().optional(),
   linkedTaskId: z.string().nullable(),
@@ -805,7 +855,7 @@ const WorkspaceTurnSummarySchema = z.object({
 });
 
 const WorkspaceConnectedBrowserTabSchema = z.object({
-  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
+  providerId: ManagedExecutionProviderIdSchema,
   status: z.union([
     z.literal("connecting"),
     z.literal("connected"),

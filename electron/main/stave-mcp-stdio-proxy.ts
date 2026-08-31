@@ -53,6 +53,58 @@ const MCP_PROXY_STDIN_LINE_MAX_BYTES = 1 * 1024 * 1024;
  * transport error for every runtime that reaches Stave this way.
  */
 const MCP_PROXY_REQUEST_TIMEOUT_MS = STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS;
+const ALLOWED_TOOL_NAMES = new Set(
+  (process.env.STAVE_MCP_ALLOWED_TOOLS ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean),
+);
+
+function isAllowedToolCall(body: Record<string, unknown>) {
+  if (ALLOWED_TOOL_NAMES.size === 0 || body.method !== "tools/call") {
+    return true;
+  }
+  const params =
+    body.params && typeof body.params === "object"
+      ? (body.params as Record<string, unknown>)
+      : null;
+  return typeof params?.name === "string" && ALLOWED_TOOL_NAMES.has(params.name);
+}
+
+function filterToolList(
+  body: Record<string, unknown>,
+  response: unknown,
+): unknown {
+  if (
+    ALLOWED_TOOL_NAMES.size === 0 ||
+    body.method !== "tools/list" ||
+    !response ||
+    typeof response !== "object"
+  ) {
+    return response;
+  }
+  const envelope = response as Record<string, unknown>;
+  if (!envelope.result || typeof envelope.result !== "object") {
+    return response;
+  }
+  const result = envelope.result as Record<string, unknown>;
+  if (!Array.isArray(result.tools)) {
+    return response;
+  }
+  return {
+    ...envelope,
+    result: {
+      ...result,
+      tools: result.tools.filter((tool) => {
+        if (!tool || typeof tool !== "object") {
+          return false;
+        }
+        const name = (tool as Record<string, unknown>).name;
+        return typeof name === "string" && ALLOWED_TOOL_NAMES.has(name);
+      }),
+    },
+  };
+}
 
 class McpHttpError extends Error {
   constructor(
@@ -265,7 +317,19 @@ async function main() {
 
         pendingRequests += 1;
         try {
-          const result = await forward(body);
+          if (!isAllowedToolCall(body)) {
+            const denied = {
+              jsonrpc: "2.0",
+              error: {
+                code: -32601,
+                message: "This tool is not available in the current Stave capability scope.",
+              },
+              id: body.id ?? null,
+            };
+            await writeLine(process.stdout, JSON.stringify(denied));
+            return;
+          }
+          const result = filterToolList(body, await forward(body));
           if (result !== null) {
             await writeLine(process.stdout, JSON.stringify(result));
           }

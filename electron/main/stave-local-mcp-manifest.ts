@@ -96,6 +96,54 @@ export function toClaudeSdkMcpServerConfig(
 }
 
 /**
+ * ACP v1 stdio server descriptor. Stdio is mandatory for every ACP agent, so
+ * this is the portable path for turn-scoped Stave tools even when an agent does
+ * not advertise the optional HTTP MCP transport.
+ */
+export function toAcpStdioMcpServerConfig(
+  manifest: StaveLocalMcpManifest,
+  options?: { allowedToolNames?: readonly string[] },
+) {
+  const allowedToolNames = Array.from(
+    new Set(
+      (options?.allowedToolNames ?? [])
+        .map((name) => name.trim())
+        .filter(Boolean),
+    ),
+  );
+  return {
+    name: STAVE_LOCAL_MCP_SERVER_NAME,
+    command: process.execPath,
+    args: [manifest.stdioProxyScript],
+    env: [
+      { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+      ...(allowedToolNames.length > 0
+        ? [
+            {
+              name: "STAVE_MCP_ALLOWED_TOOLS",
+              value: allowedToolNames.join(","),
+            },
+          ]
+        : []),
+    ],
+  };
+}
+
+export async function resolveAcpStaveLocalMcpServers(args: {
+  allowedToolNames: readonly string[];
+}) {
+  const manifest = await readPrimaryStaveLocalMcpManifest();
+  if (!manifest?.stdioProxyScript?.trim()) {
+    return [];
+  }
+  return [
+    toAcpStdioMcpServerConfig(manifest, {
+      allowedToolNames: args.allowedToolNames,
+    }),
+  ];
+}
+
+/**
  * Entry for a user's Claude Code settings file.
  *
  * Deliberately carries no `timeout`. The field is confirmed only for the SDK's

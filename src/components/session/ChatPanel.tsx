@@ -8,12 +8,9 @@ import {
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import {
-  ArrowDownRight,
-  ArrowUpRight,
   LoaderCircle,
   MessageSquareIcon,
   Undo2,
-  Zap,
 } from "lucide-react";
 import {
   Button,
@@ -22,10 +19,6 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
   WaveIndicator,
   toast,
 } from "@/components/ui";
@@ -75,6 +68,7 @@ import {
   toProviderWaveToneClass,
 } from "./chat-panel-message-parts";
 import { ConversationTurnActions } from "./ConversationTurnActions";
+import { MessageUsageSummary } from "./message-usage-summary";
 import {
   ConversationTurnRail,
   type ConversationTurnRailHandle,
@@ -129,21 +123,6 @@ function getMessageElapsedLabel(args: {
   return formatElapsedLabel(Math.max(0, (endMs ?? startedAt) - startedAt));
 }
 
-function formatTokenCount(count: number): string {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-  if (count >= 10_000) return `${(count / 1_000).toFixed(0)}k`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
-  return String(count);
-}
-
-function formatCostUsd(usd: number): string {
-  if (usd >= 1) return `$${usd.toFixed(2)}`;
-  if (usd >= 0.01) return `$${usd.toFixed(3)}`;
-  return `$${usd.toFixed(4)}`;
-}
-
-type MessageUsage = NonNullable<ChatMessage["usage"]>;
-
 interface MessageRowProps {
   taskId: string;
   activeTurnId?: string;
@@ -157,7 +136,7 @@ interface MessageRowProps {
   message: {
     id: string;
     role: "user" | "assistant";
-    providerId: "claude-code" | "codex" | "user";
+    providerId: ChatMessage["providerId"];
     nativeProviderSessionId?: string;
     nativeProviderTurnId?: string;
     model: string;
@@ -173,7 +152,8 @@ interface MessageRowProps {
     isStreaming?: boolean;
     steerDeliveryState?: ChatMessage["steerDeliveryState"];
     providerBoundary?: ChatMessage["providerBoundary"];
-    usage?: MessageUsage;
+    usage?: ChatMessage["usage"];
+    delegatedUsage?: ChatMessage["delegatedUsage"];
   };
 }
 
@@ -411,87 +391,12 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 </MessageAction>
               ) : null}
               {message.role === "assistant" &&
-              message.usage &&
+              (message.usage || message.delegatedUsage?.length) &&
               !showRespondingWave ? (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <span className="flex cursor-default items-center gap-1.5 pl-1 text-[11px] leading-none text-muted-foreground/40" />
-                      }
-                    >
-                      <span className="inline-flex items-center gap-0.5">
-                        <ArrowUpRight className="size-2.5" />
-                        {formatTokenCount(message.usage.inputTokens)}
-                      </span>
-                      <span className="inline-flex items-center gap-0.5">
-                        <ArrowDownRight className="size-2.5" />
-                        {formatTokenCount(message.usage.outputTokens)}
-                      </span>
-                      {message.usage.cacheReadTokens ? (
-                        <span className="inline-flex items-center gap-0.5">
-                          <Zap className="size-2.5" />
-                          {formatTokenCount(message.usage.cacheReadTokens)}
-                        </span>
-                      ) : null}
-                      {message.usage.totalCostUsd != null ? (
-                        <span>{formatCostUsd(message.usage.totalCostUsd)}</span>
-                      ) : null}
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-                        <span className="text-background/70">Input</span>
-                        <span className="text-right font-mono">
-                          {message.usage.inputTokens.toLocaleString()} tokens
-                        </span>
-                        <span className="text-background/70">Output</span>
-                        <span className="text-right font-mono">
-                          {message.usage.outputTokens.toLocaleString()} tokens
-                        </span>
-                        {message.usage.cacheReadTokens ? (
-                          <>
-                            <span className="text-background/70">
-                              Cache read
-                            </span>
-                            <span className="text-right font-mono">
-                              {message.usage.cacheReadTokens.toLocaleString()}{" "}
-                              tokens
-                            </span>
-                          </>
-                        ) : null}
-                        {message.usage.cacheCreationTokens ? (
-                          <>
-                            <span className="text-background/70">
-                              Cache write
-                            </span>
-                            <span className="text-right font-mono">
-                              {message.usage.cacheCreationTokens.toLocaleString()}{" "}
-                              tokens
-                            </span>
-                          </>
-                        ) : null}
-                        {message.usage.totalCostUsd != null ? (
-                          <>
-                            <span className="text-background/70">Cost</span>
-                            <span className="text-right font-mono">
-                              {formatCostUsd(message.usage.totalCostUsd)}
-                            </span>
-                          </>
-                        ) : null}
-                        {message.usage.ttftMs != null ? (
-                          <>
-                            <span className="text-background/70">TTFT</span>
-                            <span className="text-right font-mono">
-                              {message.usage.ttftMs >= 1000
-                                ? `${(message.usage.ttftMs / 1000).toFixed(1)}s`
-                                : `${Math.round(message.usage.ttftMs)}ms`}
-                            </span>
-                          </>
-                        ) : null}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <MessageUsageSummary
+                  usage={message.usage}
+                  delegatedUsage={message.delegatedUsage}
+                />
               ) : null}
               {message.role === "assistant" && threadActionState ? (
                 <ConversationTurnActions

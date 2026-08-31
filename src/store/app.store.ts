@@ -166,6 +166,7 @@ import {
   buildPromptDraftDisplayPartsForSend,
 } from "@/store/prompt-draft-message-content";
 import {
+  getConfiguredModelForProvider,
   resolvePromptDraftRuntimeState,
   resolveTurnModelForSend,
 } from "@/store/prompt-draft-runtime";
@@ -2045,10 +2046,7 @@ export const useAppStore = create<AppState>()(
               nextState.activeTurnIdsByTask;
             const turnStillActive =
               activeTurnIdsByTask[resolvedTaskId] === activeTurnId;
-            const activeModel =
-              activeTurnProvider === "claude-code"
-                ? nextState.settings.modelClaude
-                : nextState.settings.modelCodex;
+            const activeModel = getConfiguredModelForProvider(activeTurnProvider, nextState.settings);
             const steeredState = buildSteeredUserMessageState({
               messagesByTask,
               messageCountByTask,
@@ -2573,6 +2571,8 @@ export const useAppStore = create<AppState>()(
                 claudeEffort: modelRuntimeSettings.claudeEffort,
                 codexPlanMode: modelRuntimeSettings.codexPlanMode,
                 codexReasoningEffort: modelRuntimeSettings.codexReasoningEffort,
+                cursorMode: modelRuntimeSettings.cursorMode,
+                kiroEffort: modelRuntimeSettings.kiroEffort,
               },
             });
           const providerRuntimeOptions = buildProviderRuntimeOptions({

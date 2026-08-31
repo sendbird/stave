@@ -23,6 +23,28 @@ function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 }
 
 describe("appendProviderEventToAssistant", () => {
+  test("persists ACP context usage independently from turn tokens", () => {
+    const message = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: {
+        type: "context_usage",
+        usedTokens: 144,
+        sizeTokens: 1024,
+        costAmount: 0.002,
+        costCurrency: "USD",
+      },
+    });
+
+    expect(message.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      contextUsedTokens: 144,
+      contextWindowTokens: 1024,
+      contextCostAmount: 0.002,
+      contextCostCurrency: "USD",
+    });
+  });
+
   test("persists Worker execution metadata on the spawned tool part", () => {
     const message = appendProviderEventToAssistant({
       message: createMessage(),
@@ -49,6 +71,58 @@ describe("appendProviderEventToAssistant", () => {
         workerEffort: "max",
       },
     });
+    expect(message.delegatedUsage).toEqual([
+      expect.objectContaining({
+        executionId: "worker-1",
+        role: "worker",
+        providerId: "codex",
+        model: "gpt-5.6-terra",
+      }),
+    ]);
+  });
+
+  test("persists and incrementally enriches delegated cache usage", () => {
+    let message = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: {
+        type: "delegated_usage",
+        executionId: "advisor-1",
+        role: "advisor",
+        providerId: "claude-code",
+        model: "claude-fable-5",
+        sessionReused: true,
+      },
+    });
+
+    message = appendProviderEventToAssistant({
+      message,
+      event: {
+        type: "delegated_usage",
+        executionId: "advisor-1",
+        role: "advisor",
+        providerId: "claude-code",
+        model: "claude-fable-5",
+        inputTokens: 80,
+        outputTokens: 12,
+        cacheReadTokens: 64,
+        cacheCreationTokens: 8,
+      },
+    });
+
+    expect(message.delegatedUsage).toEqual([
+      {
+        executionId: "advisor-1",
+        role: "advisor",
+        providerId: "claude-code",
+        model: "claude-fable-5",
+        inputTokens: 80,
+        outputTokens: 12,
+        cacheReadTokens: 64,
+        cacheCreationTokens: 8,
+        sessionReused: true,
+      },
+    ]);
+    expect(message.parts).toEqual([]);
   });
 
   test("stores native provider turn metadata on the assistant message", () => {
@@ -841,6 +915,34 @@ describe("plan response replay", () => {
       isPlanResponse: true,
       planText: "1. Reproduce\n2. Fix",
       isStreaming: false,
+    });
+  });
+
+  test("persists blocking review metadata on a Cursor plan response", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "plan_ready",
+          planText: "1. Inspect\n2. Patch",
+          review: {
+            requestId: "cursor:plan:3",
+            responseMode: "blocking",
+          },
+        },
+      ],
+      provider: "cursor",
+      model: "auto",
+    });
+
+    expect(replayed.messages[0]).toMatchObject({
+      providerId: "cursor",
+      isPlanResponse: true,
+      planReview: {
+        requestId: "cursor:plan:3",
+        responseMode: "blocking",
+      },
     });
   });
 

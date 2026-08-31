@@ -17,6 +17,7 @@ import {
 import type {
   AdvisorEffort,
   AdvisorTarget,
+  ManagedExecutionProviderId,
   ProviderId,
 } from "@/lib/providers/provider.types";
 import {
@@ -26,7 +27,7 @@ import {
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 export interface AdvisorProviderOption {
-  id: ProviderId;
+  id: ManagedExecutionProviderId;
   label: string;
   /** One line under the label; the card is two columns wide, so it is short. */
   summary: string;
@@ -339,7 +340,7 @@ export function buildAdvisorTargetPatch(args: {
 export function buildAdvisorProviderPatch(args: {
   overrides?: PromptDraftRuntimeOverrides;
   arm: AdvisorArmState;
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
 }): PromptDraftRuntimeOverrides {
   return buildAdvisorTargetPatch({
     overrides: args.overrides,
@@ -357,7 +358,7 @@ export function buildAdvisorProviderPatch(args: {
 export function buildAdvisorEnabledPatch(args: {
   overrides?: PromptDraftRuntimeOverrides;
   arm: AdvisorArmState;
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   enabled: boolean;
 }): PromptDraftRuntimeOverrides {
   if (!args.enabled) {
@@ -383,7 +384,7 @@ export function buildAdvisorEnabledPatch(args: {
 export function buildAdvisorModelPatch(args: {
   overrides?: PromptDraftRuntimeOverrides;
   arm: AdvisorArmState;
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   model: string;
 }): PromptDraftRuntimeOverrides {
   const current = args.arm.targetByProvider[args.providerId];
@@ -401,7 +402,7 @@ export function buildAdvisorModelPatch(args: {
 export function buildAdvisorEffortPatch(args: {
   overrides?: PromptDraftRuntimeOverrides;
   arm: AdvisorArmState;
-  providerId: ProviderId;
+  providerId: ManagedExecutionProviderId;
   effort: AdvisorEffortOptionValue;
 }): PromptDraftRuntimeOverrides {
   const current = args.arm.targetByProvider[args.providerId];

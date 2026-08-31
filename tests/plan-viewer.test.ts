@@ -136,6 +136,48 @@ describe("resolvePlanViewerState", () => {
     });
   });
 
+  test("allows a blocking Cursor plan review while its turn is active", () => {
+    const state = resolvePlanViewerState({
+      activeProvider: "cursor",
+      claudePermissionMode: "default",
+      codexPlanMode: false,
+      isTurnActive: true,
+      latestPlanMessage: {
+        role: "assistant",
+        providerId: "cursor",
+        isPlanResponse: true,
+        isStreaming: true,
+        planText: "1. Inspect\n2. Patch",
+        planReview: {
+          requestId: "cursor:plan:3",
+          responseMode: "blocking",
+        },
+      },
+      lastMessage: {
+        role: "assistant",
+        providerId: "cursor",
+        isPlanResponse: true,
+        isStreaming: true,
+        planText: "1. Inspect\n2. Patch",
+        planReview: {
+          requestId: "cursor:plan:3",
+          responseMode: "blocking",
+        },
+      },
+    });
+
+    expect(state).toEqual({
+      planText: "1. Inspect\n2. Patch",
+      isPlanPreparing: false,
+      isPlanPending: true,
+      canReplyToPlan: true,
+      blockingReview: {
+        requestId: "cursor:plan:3",
+        responseMode: "blocking",
+      },
+    });
+  });
+
   test("keeps Codex plan viewer in preparing state until the turn fully completes", () => {
     const state = resolvePlanViewerState({
       activeProvider: "codex",

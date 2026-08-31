@@ -43,7 +43,12 @@ const DEFAULT_ADVISOR_RUNNERS: AdvisorRunnerDependencies = {
   getCodexModelCatalog,
 };
 
-export type AdvisorCallResult =
+type AdvisorSessionOutcome = {
+  nativeSessionId?: string;
+  sessionReused?: boolean;
+};
+
+export type AdvisorCallResult = (
   | {
       status: "completed";
       target: AdvisorTarget;
@@ -85,7 +90,8 @@ export type AdvisorCallResult =
       durationMs: number;
       usage?: UsageEvent;
       shouldTrace: false;
-    };
+    }
+) & AdvisorSessionOutcome;
 
 function sumOptional(left?: number, right?: number) {
   if (left === undefined && right === undefined) {
@@ -182,7 +188,7 @@ export function resolveAdvisorIsolationMode(
 ): AdvisorIsolationMode {
   return providerId === "claude-code"
     ? "claude-tools-disabled"
-    : "codex-ephemeral-read-only";
+    : "codex-role-session-read-only";
 }
 
 function describeTarget(target: AdvisorTarget | null) {
@@ -371,10 +377,19 @@ export function buildAdvisorOutcomeEvent(args: {
       ? {
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
+          ...(result.usage.cacheReadTokens !== undefined
+            ? { cacheReadTokens: result.usage.cacheReadTokens }
+            : {}),
+          ...(result.usage.cacheCreationTokens !== undefined
+            ? { cacheCreationTokens: result.usage.cacheCreationTokens }
+            : {}),
           ...(result.usage.totalCostUsd !== undefined
             ? { totalCostUsd: result.usage.totalCostUsd }
             : {}),
         }
+      : {}),
+    ...(result.sessionReused !== undefined
+      ? { sessionReused: result.sessionReused }
       : {}),
   };
 }
@@ -395,6 +410,8 @@ export async function runAdvisorCall(args: {
     claudeBinaryPath?: string;
     codexBinaryPath?: string;
   };
+  /** Session owned by this Advisor lane, never a primary task session. */
+  resumeSessionId?: string;
   registerAbort: (aborter: () => void) => void;
   /**
    * Registers a *consult-scoped* cancel. Unlike `registerAbort` this drops the
@@ -591,6 +608,7 @@ export async function runAdvisorCall(args: {
               claudeBinaryPath: args.runtimeOptions?.claudeBinaryPath,
             },
             signal: controller.signal,
+            resumeSessionId: args.resumeSessionId,
             label: ADVISOR_READ_ONLY_PROMPT_LABEL,
             onProgress: (progress) => {
               providerProgress = progress;
@@ -614,6 +632,8 @@ export async function runAdvisorCall(args: {
             },
             signal: controller.signal,
             isolated: true,
+            resumeSessionId: args.resumeSessionId,
+            preserveSession: true,
             label: ADVISOR_READ_ONLY_PROMPT_LABEL,
             onProgress: ({ lastItemType }) => {
               heartbeat(`Codex item: ${lastItemType}`);
@@ -649,6 +669,14 @@ export async function runAdvisorCall(args: {
     }
     const result = runnerOutcome.value;
     const durationMs = Date.now() - startedAt;
+    const sessionOutcome: AdvisorSessionOutcome = {
+      ...(result.nativeSessionId
+        ? { nativeSessionId: result.nativeSessionId }
+        : {}),
+      ...(result.sessionReused !== undefined
+        ? { sessionReused: result.sessionReused }
+        : {}),
+    };
 
     if (cancellationReason) {
       // Tokens were still spent before the cancellation landed, so they must
@@ -665,6 +693,7 @@ export async function runAdvisorCall(args: {
         durationMs,
         usage: result.usage,
         shouldTrace: true,
+        ...sessionOutcome,
       };
     }
     return {
@@ -674,6 +703,7 @@ export async function runAdvisorCall(args: {
       durationMs,
       usage: result.usage,
       shouldTrace: true,
+      ...sessionOutcome,
     };
   } catch (error) {
     if (cancellationReason) {
