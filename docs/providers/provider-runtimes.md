@@ -33,6 +33,16 @@ and namespaced question, plan, todo, task, and image notifications. Renderer
 and IPC contracts continue to use normalized Stave events rather than exposing
 ACP wire payloads.
 
+ACP tool calls are also renamed before they reach the renderer. Agents put prose
+in `toolCall.title` — usually the whole shell command or an absolute path —
+while Claude and Codex send a canonical tool name and leave the target to the
+input. `acp-tool-naming.ts` maps the ACP `kind` onto the same canonical names
+(`execute` → `Bash`, `read` → `Read`, `search` → `Search`, …), renames
+agent-specific input keys onto the keys the trace chip reads, and moves the
+title into the input when the agent sent no structured target. Trace rows and
+approval headers therefore read as a short title plus one target chip on every
+provider. Short label-like titles (MCP tool names) stay as the tool name.
+
 Cursor supports `agent`, `plan`, and `ask` session modes. At app startup, Stave
 loads the model values advertised by an authenticated ACP session and shows
 the effort, context, thinking, and fast parameters encoded in those accepted

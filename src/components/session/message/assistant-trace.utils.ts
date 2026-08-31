@@ -141,7 +141,13 @@ export function deriveTraceToolSummary(args: {
       return fromFileField(matchStringField(parsed, ["file_path", "path"]));
     case "glob":
     case "grep":
-      return fromField("search", matchStringField(parsed, ["pattern"]), TRACE_SUMMARY_MAX_LENGTH);
+    /* `search` is the canonical name ACP providers (Cursor, Kiro) map onto. */
+    case "search":
+      return fromField(
+        "search",
+        matchStringField(parsed, ["pattern", "query", "q"]),
+        TRACE_SUMMARY_MAX_LENGTH,
+      );
     case "websearch":
       return fromField("web", matchStringField(parsed, ["query", "q"]), TRACE_SUMMARY_MAX_LENGTH);
     case "webfetch":

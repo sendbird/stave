@@ -20,6 +20,7 @@ import {
   AcpRequestPermissionSchema,
   normalizeAcpPromptUsage,
 } from "./acp-schemas";
+import { deriveAcpToolPresentation } from "./acp-tool-naming";
 
 const ACP_EVENT_RETAINED_BYTES_MAX = 512 * 1024;
 const ACP_EVENT_TAIL_BYTES = 16 * 1024;
@@ -266,7 +267,15 @@ export async function streamAcpProviderTurn(args: {
     const allowAlwaysOption = parsed.data.options.find(
       (option) => option.kind === "allow_always",
     );
-    const input = serializeApprovalInput(parsed.data.toolCall.rawInput);
+    /* Same split as the trace mapper: the canonical name titles the approval
+       row, and the agent's prose title stays in the description instead of
+       becoming an oversized "Approval: cd /long/path && …" header. */
+    const presentation = deriveAcpToolPresentation({
+      title: parsed.data.toolCall.title,
+      kind: parsed.data.toolCall.kind,
+      rawInput: parsed.data.toolCall.rawInput,
+    });
+    const input = serializeApprovalInput(presentation.input);
     return await new Promise<unknown>((resolve, reject) => {
       const timer = createDecisionTimer(() => {
         if (rejectOption) {
@@ -300,10 +309,7 @@ export async function streamAcpProviderTurn(args: {
       try {
         emit({
           type: "approval",
-          toolName:
-            parsed.data.toolCall.title?.trim() ||
-            parsed.data.toolCall.kind?.trim() ||
-            "Tool",
+          toolName: presentation.toolName,
           requestId: id,
           description:
             parsed.data.toolCall.title?.trim() ||
