@@ -69,10 +69,10 @@ let surfaceRoot: HTMLDivElement | null = null;
  * child's `left`/`top` unchanged — no scroll offset, no zoom factor, no
  * device-pixel conversion.
  *
- * It is inserted as the document's first element so that, among siblings whose
- * z-index does not separate them, DOM order also puts it behind. The real
- * ordering guarantee is `UI_LAYER_VALUE.lensSurface`, which every floating app
- * layer sits above.
+ * The product shell owns this root inside its main stacking context. That
+ * placement is load-bearing: a body-level root at the same z-index as the
+ * opaque app surface paints behind the app and makes a live guest invisible.
+ * Isolated harnesses without the shell use the body-level fallback below.
  */
 function ensureSurfaceRoot(): HTMLDivElement {
   if (surfaceRoot?.isConnected) {
@@ -85,6 +85,8 @@ function ensureSurfaceRoot(): HTMLDivElement {
     return existing;
   }
 
+  // Isolated renderer harnesses do not mount AppShell, so retain a complete
+  // fallback rather than making the guest host product-DOM-only.
   const root = document.createElement("div");
   root.id = LENS_SURFACE_ROOT_ID;
   root.style.position = "fixed";

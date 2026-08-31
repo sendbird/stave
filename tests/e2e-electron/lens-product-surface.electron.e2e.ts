@@ -11,6 +11,7 @@ import {
   seedProject,
   type StaveApp,
 } from "./harness/stave-app";
+import { decodePng, pixelAt } from "./harness/png";
 
 /**
  * The built product, opening a real Lens session and driving its page — no IPC
@@ -116,6 +117,9 @@ function guestState() {
       visibility: getComputedStyle(guest).visibility,
       display: getComputedStyle(guest).display,
       pointerEvents: getComputedStyle(guest).pointerEvents,
+      insideAppSurface: Boolean(
+        guest.parentElement?.closest("[data-stave-app-surface]"),
+      ),
       insideDockview: Boolean(guest.closest(".dv-dockview")),
     };
   });
@@ -255,10 +259,55 @@ test("the guest sits exactly on the placeholder, hoisted out of the pane tree", 
 
   const state = await guestState();
   expect(state!.parentId).toBe("lens-surface-root");
+  expect(state!.insideAppSurface).toBe(true);
   // A guest destroyed by a pane reparent is unrecoverable, so its distance from
   // the Dockview subtree is a structural invariant, not a detail.
   expect(state!.insideDockview).toBe(false);
   expect(state!.opacity).toBe("1");
+});
+
+test("the product window paints and hit-tests the guest above the app surface", async () => {
+  const geometry = await guestGeometry();
+  expect(geometry).not.toBeNull();
+
+  const samplePoint = {
+    x: geometry!.placeholder.x + geometry!.placeholder.width * 0.5,
+    y: geometry!.placeholder.y + geometry!.placeholder.height * 0.5,
+  };
+  const hit = await stave.page.evaluate(({ x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    return {
+      tagName: target?.tagName.toLowerCase() ?? null,
+      lensSessionId:
+        target instanceof HTMLElement
+          ? (target.dataset.lensSessionId ?? null)
+          : null,
+    };
+  }, samplePoint);
+
+  expect(hit).toEqual({
+    tagName: "webview",
+    lensSessionId: E2E_LENS_SESSION_ID,
+  });
+
+  // Electron windows do not have a Playwright-emulated viewport, so
+  // `page.viewportSize()` is null. Read the renderer's CSS viewport instead
+  // and scale it to the captured device pixels.
+  const viewport = await stave.page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  }));
+  const screenshot = decodePng(await stave.page.screenshot());
+  const sample = pixelAt(
+    screenshot,
+    samplePoint.x * (screenshot.width / viewport.width),
+    samplePoint.y * (screenshot.height / viewport.height),
+  );
+
+  // The fixture is a solid #123456 away from its heading. Sampling the host
+  // window, rather than the guest directly, proves the user can see the page
+  // instead of an opaque Stave surface painted over it.
+  expect(sample).toEqual({ r: 18, g: 52, b: 86, a: 255 });
 });
 
 test("the guest tracks the placeholder when the layout changes", async () => {
