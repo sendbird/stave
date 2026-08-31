@@ -22,7 +22,17 @@ function update(value: Record<string, unknown>) {
 }
 
 function finishPrompt(stopReason = "end_turn") {
-  result(pendingPromptId, { stopReason });
+  result(pendingPromptId, {
+    stopReason,
+    usage: {
+      total_tokens: 55,
+      input_tokens: 34,
+      output_tokens: 21,
+      thought_tokens: 7,
+      cached_read_tokens: 13,
+      cached_write_tokens: 5,
+    },
+  });
   pendingPromptId = undefined;
   pendingServerRequestId = null;
 }
@@ -242,6 +252,12 @@ input.on("line", (line) => {
       subagentType: "explore",
       agentId: "agent-1",
     },
+  });
+  update({
+    sessionUpdate: "usage_update",
+    used: 233,
+    size: 2048,
+    cost: { amount: 0.003, currency: "USD" },
   });
   finishPrompt();
 });

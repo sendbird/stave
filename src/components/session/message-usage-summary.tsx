@@ -26,6 +26,15 @@ function formatCostUsd(usd: number): string {
   return `$${usd.toFixed(4)}`;
 }
 
+function formatReportedCost(amount: number, currency: string): string {
+  const normalizedCurrency = currency.trim().toUpperCase();
+  if (normalizedCurrency === "USD") {
+    return formatCostUsd(amount);
+  }
+  const digits = amount >= 1 ? 2 : 4;
+  return `${normalizedCurrency} ${amount.toFixed(digits)}`;
+}
+
 function hasReportedDelegatedTokens(usage: DelegatedExecutionUsage) {
   return (
     usage.inputTokens !== undefined ||
@@ -34,6 +43,7 @@ function hasReportedDelegatedTokens(usage: DelegatedExecutionUsage) {
     usage.cacheCreationTokens !== undefined ||
     usage.thoughtTokens !== undefined ||
     usage.contextUsedTokens !== undefined ||
+    usage.contextCostAmount !== undefined ||
     usage.totalCostUsd !== undefined
   );
 }
@@ -113,6 +123,17 @@ function DelegatedUsageDetails(props: {
                     {formatCostUsd(entry.totalCostUsd)}
                   </span>
                 </>
+              ) : entry.contextCostAmount !== undefined &&
+                entry.contextCostCurrency ? (
+                <>
+                  <span className="text-background/70">Session cost</span>
+                  <span className="text-right font-mono">
+                    {formatReportedCost(
+                      entry.contextCostAmount,
+                      entry.contextCostCurrency,
+                    )}
+                  </span>
+                </>
               ) : null}
             </div>
           ) : (
@@ -131,11 +152,22 @@ function DelegatedUsageDetails(props: {
   );
 }
 
-function TurnUsageDetails(props: { usage: MessageUsage }) {
+function TurnUsageDetails(props: {
+  usage: MessageUsage;
+  providerId?: ChatMessage["providerId"];
+  model?: string;
+}) {
   const { usage } = props;
   return (
     <div className="space-y-1">
-      <p className="font-medium">Turn total</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-medium">Turn total</p>
+        {props.providerId && props.providerId !== "user" && props.model ? (
+          <span className="min-w-0 break-all text-right text-background/70">
+            {getProviderLabel({ providerId: props.providerId })} · {props.model}
+          </span>
+        ) : null}
+      </div>
       <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
         <span className="text-background/70">Input</span>
         <span className="text-right font-mono">
@@ -185,6 +217,17 @@ function TurnUsageDetails(props: { usage: MessageUsage }) {
               {formatCostUsd(usage.totalCostUsd)}
             </span>
           </>
+        ) : usage.contextCostAmount !== undefined &&
+          usage.contextCostCurrency ? (
+          <>
+            <span className="text-background/70">Session cost</span>
+            <span className="text-right font-mono">
+              {formatReportedCost(
+                usage.contextCostAmount,
+                usage.contextCostCurrency,
+              )}
+            </span>
+          </>
         ) : null}
         {usage.ttftMs != null ? (
           <>
@@ -204,16 +247,25 @@ function TurnUsageDetails(props: { usage: MessageUsage }) {
 export function MessageUsageSummary(props: {
   usage?: MessageUsage;
   delegatedUsage?: readonly DelegatedExecutionUsage[];
+  providerId?: ChatMessage["providerId"];
+  model?: string;
 }) {
   const tooltipId = useId();
-  const delegatedUsage = props.delegatedUsage ?? [];
+  const delegatedUsage = (props.delegatedUsage ?? []).filter(
+    (entry) =>
+      hasReportedDelegatedTokens(entry) || entry.sessionReused !== undefined,
+  );
   if (!props.usage && delegatedUsage.length === 0) {
     return null;
   }
   const delegatedLabel = `${delegatedUsage.length} delegated ${delegatedUsage.length === 1 ? "execution" : "executions"}`;
+  const providerLabel =
+    props.providerId && props.providerId !== "user" && props.model
+      ? ` for ${getProviderLabel({ providerId: props.providerId })} · ${props.model}`
+      : "";
   const accessibleLabel = props.usage
-    ? `Turn usage details: ${props.usage.inputTokens.toLocaleString()} input tokens, ${props.usage.outputTokens.toLocaleString()} output tokens${delegatedUsage.length ? `, ${delegatedLabel}` : ""}`
-    : `Turn usage details: ${delegatedLabel}`;
+    ? `Turn usage details${providerLabel}: ${props.usage.inputTokens.toLocaleString()} input tokens, ${props.usage.outputTokens.toLocaleString()} output tokens${delegatedUsage.length ? `, ${delegatedLabel}` : ""}`
+    : `Turn usage details${providerLabel}: ${delegatedLabel}`;
 
   return (
     <TooltipProvider>
@@ -248,6 +300,14 @@ export function MessageUsageSummary(props: {
           ) : null}
           {props.usage?.totalCostUsd != null ? (
             <span>{formatCostUsd(props.usage.totalCostUsd)}</span>
+          ) : props.usage?.contextCostAmount !== undefined &&
+            props.usage.contextCostCurrency ? (
+            <span>
+              {formatReportedCost(
+                props.usage.contextCostAmount,
+                props.usage.contextCostCurrency,
+              )}
+            </span>
           ) : null}
           {delegatedUsage.length ? (
             <span>{delegatedUsage.length} delegated</span>
@@ -259,7 +319,13 @@ export function MessageUsageSummary(props: {
           side="top"
           className="max-h-80 w-72 max-w-[calc(100vw-2rem)] flex-col items-stretch gap-0 overflow-y-auto text-xs"
         >
-          {props.usage ? <TurnUsageDetails usage={props.usage} /> : null}
+          {props.usage ? (
+            <TurnUsageDetails
+              usage={props.usage}
+              providerId={props.providerId}
+              model={props.model}
+            />
+          ) : null}
           <DelegatedUsageDetails
             entries={delegatedUsage}
             includedInTurnTotal={Boolean(props.usage)}

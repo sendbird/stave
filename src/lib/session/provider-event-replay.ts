@@ -760,25 +760,6 @@ export function appendProviderEventToAssistant(args: {
 
   let message = args.message;
 
-  if (
-    args.event.type === "tool" &&
-    args.event.workerExecution &&
-    (args.event.agentId || args.event.toolUseId)
-  ) {
-    const execution = args.event.workerExecution;
-    message = {
-      ...message,
-      delegatedUsage: upsertDelegatedUsage({
-        existing: message.delegatedUsage,
-        incoming: {
-          executionId: args.event.agentId ?? args.event.toolUseId!,
-          role: "worker",
-          providerId: execution.providerId,
-          model: execution.workerModel,
-        },
-      }),
-    };
-  }
   if (shouldFinalizeThinkingBeforeEvent(args.event)) {
     const finalizedParts = finalizeTrailingThinkingPart({
       parts: message.parts,

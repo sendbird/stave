@@ -444,6 +444,11 @@ const DelegatedExecutionUsageSchema = z
     outputTokens: z.number().optional(),
     cacheReadTokens: z.number().optional(),
     cacheCreationTokens: z.number().optional(),
+    thoughtTokens: z.number().optional(),
+    contextUsedTokens: z.number().optional(),
+    contextWindowTokens: z.number().optional(),
+    contextCostAmount: z.number().optional(),
+    contextCostCurrency: z.string().optional(),
     totalCostUsd: z.number().optional(),
     sessionReused: z.boolean().optional(),
   })
@@ -497,6 +502,11 @@ const ChatMessageSchema = z.object({
       outputTokens: z.number(),
       cacheReadTokens: z.number().optional(),
       cacheCreationTokens: z.number().optional(),
+      thoughtTokens: z.number().optional(),
+      contextUsedTokens: z.number().optional(),
+      contextWindowTokens: z.number().optional(),
+      contextCostAmount: z.number().optional(),
+      contextCostCurrency: z.string().optional(),
       totalCostUsd: z.number().optional(),
       ttftMs: z.number().optional(),
     })

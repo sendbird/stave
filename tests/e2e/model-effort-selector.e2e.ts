@@ -30,8 +30,26 @@ function seedWorkspace(
                     supportedEfforts: [],
                   },
                   {
-                    model: "cursor-fixture-high-fast",
-                    displayName: "Cursor Fixture · High · Fast",
+                    model: "gpt-5.4[context=272k,reasoning=medium,fast=false]",
+                    displayName: "GPT 5.4 · 272K · Medium",
+                    description: "",
+                    hidden: false,
+                    isDefault: false,
+                    defaultEffort: "medium",
+                    supportedEfforts: [],
+                  },
+                  {
+                    model: "gpt-5.4[context=272k,reasoning=high,fast=false]",
+                    displayName: "GPT 5.4 · 272K · High",
+                    description: "",
+                    hidden: false,
+                    isDefault: false,
+                    defaultEffort: "high",
+                    supportedEfforts: [],
+                  },
+                  {
+                    model: "gpt-5.4[context=272k,reasoning=high,fast=true]",
+                    displayName: "GPT 5.4 · 272K · High · Fast",
                     description: "",
                     hidden: false,
                     isDefault: false,
@@ -204,6 +222,15 @@ test("selects a model and effort in one click across provider tabs", async ({
   await expect(
     providerTabs.getByRole("tab", { name: /Kiro/ }).locator("img"),
   ).toHaveAttribute("src", /kiro-color\.svg$/);
+  const cursorTab = providerTabs.getByRole("tab", { name: /Cursor/ });
+  const searchInput = page.getByRole("textbox", { name: "Search models" });
+  await searchInput.fill("opus");
+  await cursorTab.hover();
+  await expect(cursorTab).toHaveAttribute("aria-selected", "true");
+  await expect(searchInput).toHaveValue("");
+  await expect(page.locator("[data-cursor-model-row]").first()).toBeVisible();
+  await claudeTab.hover();
+  await expect(claudeTab).toHaveAttribute("aria-selected", "true");
 
   const effortGrid = page.getByRole("grid", {
     name: "Model and reasoning effort",
@@ -257,16 +284,39 @@ test("selects a model and effort in one click across provider tabs", async ({
 
   await modelTrigger.click();
   await providerTabs.getByRole("tab", { name: /Cursor/ }).click();
-  await page.getByRole("textbox", { name: "Search models" }).fill("high fast");
-  const cursorHigh = page.getByRole("option", {
-    name: /Cursor Fixture.*High.*Fast/,
+  await page.getByRole("textbox", { name: "Search models" }).fill("gpt 5.4");
+  const cursorRow = page.locator('[data-cursor-model-row="gpt-5.4"]');
+  const cursorToolbar = cursorRow.getByRole("toolbar", {
+    name: "GPT 5.4 configuration",
   });
-  await expect(cursorHigh).toContainText("High");
-  await expect(cursorHigh).toContainText("Fast");
+  await expect(cursorToolbar.locator('button[tabindex="0"]')).toHaveCount(1);
+  await expect(cursorRow).toContainText("272K");
+  await expect(cursorRow).toContainText("Fast");
+  await selector.screenshot({
+    path: testInfo.outputPath("cursor-model-configurations.png"),
+  });
+  const cursorHigh = cursorRow.getByRole("button", {
+    name: "GPT 5.4, High effort",
+  });
   await cursorHigh.click();
-  await expect(modelTrigger).toHaveAccessibleName(
-    /Cursor Fixture · High · Fast/,
-  );
+  await expect(modelTrigger).toHaveAccessibleName(/Model: GPT 5.4/);
+
+  await modelTrigger.click();
+  await providerTabs.getByRole("tab", { name: /Cursor/ }).click();
+  await page.getByRole("textbox", { name: "Search models" }).fill("gpt 5.4");
+  const cursorFast = page
+    .locator('[data-cursor-model-row="gpt-5.4"]')
+    .getByRole("button", { name: "GPT 5.4, Fast off" });
+  await expect(cursorFast).toBeEnabled();
+  const cursorModelButton = page
+    .locator('[data-cursor-model-row="gpt-5.4"]')
+    .getByRole("button", { name: "GPT 5.4, selected" });
+  await cursorModelButton.focus();
+  await cursorModelButton.press("ArrowRight");
+  await expect(cursorFast).toBeFocused();
+  await cursorFast.click();
+  await expect(modelTrigger).toHaveAccessibleName(/Model: GPT 5.4/);
+  await expect(modelTrigger).not.toHaveAccessibleName(/High.*Fast/);
   await expect(page.getByRole("button", { name: /^Fast mode:/ })).toHaveCount(
     0,
   );
@@ -281,9 +331,11 @@ test("selects a model and effort in one click across provider tabs", async ({
   });
   await expect(showAllModels).toBeVisible();
   await showAllModels.click();
-  await expect(page.getByRole("option")).toHaveCount(15);
+  await expect(page.locator("[data-cursor-model-row]")).toHaveCount(15);
   expect(
-    await selector.evaluate((element) => element.getBoundingClientRect().height),
+    await selector.evaluate(
+      (element) => element.getBoundingClientRect().height,
+    ),
   ).toBeLessThanOrEqual(512);
   await providerTabs.getByRole("tab", { name: /Kiro/ }).click();
   const kiroHigh = effortGrid.getByRole("gridcell", {
@@ -528,8 +580,14 @@ test("configures Cursor and Kiro Worker models from runtime catalogs", async ({
     name: "Worker model",
   });
   await modelTrigger.click();
-  await page.getByRole("option", { name: /Cursor Fixture High Fast/ }).click();
-  await expect(modelTrigger).toContainText("Cursor Fixture High Fast");
+  await page
+    .getByRole("option", {
+      name: /GPT 5\.4\[context=272k,reasoning=high,fast=true\]/,
+    })
+    .click();
+  await expect(modelTrigger).toContainText(
+    "GPT 5.4[context=272k,reasoning=high,fast=true]",
+  );
   await expect(workerCard).toContainText("has no selectable reasoning effort");
 
   await cursorTab.focus();

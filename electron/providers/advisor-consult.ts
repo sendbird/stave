@@ -411,7 +411,13 @@ export async function consultAdvisor(args: {
       grant.nativeSessionId = undefined;
       forgetAdvisorSessionLane(grant.sessionLaneKey);
     }
-    emitDelegatedUsage(result.usage, result.sessionReused);
+    if (
+      result.status === "completed" ||
+      result.usage ||
+      result.nativeSessionId
+    ) {
+      emitDelegatedUsage(result.usage, result.sessionReused);
+    }
     emitIfLive(
       buildAdvisorOutcomeEvent({
         primaryProviderId: grant.primaryProviderId,

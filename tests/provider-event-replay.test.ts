@@ -71,14 +71,7 @@ describe("appendProviderEventToAssistant", () => {
         workerEffort: "max",
       },
     });
-    expect(message.delegatedUsage).toEqual([
-      expect.objectContaining({
-        executionId: "worker-1",
-        role: "worker",
-        providerId: "codex",
-        model: "gpt-5.6-terra",
-      }),
-    ]);
+    expect(message.delegatedUsage).toBeUndefined();
   });
 
   test("persists and incrementally enriches delegated cache usage", () => {

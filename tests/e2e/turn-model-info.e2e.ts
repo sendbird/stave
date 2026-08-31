@@ -81,6 +81,46 @@ test("shows each turn's model, effort, context, and fast mode", async ({
             completedAt: "2026-07-24T00:00:02.000Z",
             parts: [{ type: "text", text: "Codex response" }],
           },
+          {
+            id: "task-turn-model-info-m-3",
+            role: "assistant",
+            providerId: "cursor",
+            model: "cursor-fixture-model",
+            usage: {
+              inputTokens: 34,
+              outputTokens: 21,
+              cacheReadTokens: 13,
+              cacheCreationTokens: 5,
+              thoughtTokens: 7,
+              contextUsedTokens: 233,
+              contextWindowTokens: 2048,
+              contextCostAmount: 0.003,
+              contextCostCurrency: "USD",
+            },
+            content: "Cursor response",
+            completedAt: "2026-07-24T00:00:03.000Z",
+            parts: [{ type: "text", text: "Cursor response" }],
+          },
+          {
+            id: "task-turn-model-info-m-4",
+            role: "assistant",
+            providerId: "kiro",
+            model: "kiro-fixture-model",
+            usage: {
+              inputTokens: 21,
+              outputTokens: 13,
+              cacheReadTokens: 8,
+              cacheCreationTokens: 3,
+              thoughtTokens: 5,
+              contextUsedTokens: 144,
+              contextWindowTokens: 1024,
+              contextCostAmount: 0.002,
+              contextCostCurrency: "USD",
+            },
+            content: "Kiro response",
+            completedAt: "2026-07-24T00:00:04.000Z",
+            parts: [{ type: "text", text: "Kiro response" }],
+          },
         ],
       },
     };
@@ -139,10 +179,10 @@ test("shows each turn's model, effort, context, and fast mode", async ({
   ).toBeVisible();
 
   const usageDetails = page.getByRole("button", {
-    name: "Turn usage details: 120 input tokens, 18 output tokens, 2 delegated executions",
+    name: "Turn usage details for Codex · gpt-5.6-terra: 120 input tokens, 18 output tokens, 2 delegated executions",
   });
   await usageDetails.focus();
-  const tooltip = page.getByRole("tooltip");
+  const tooltip = page.getByRole("tooltip", { name: /Turn total Codex/ });
   await expect(tooltip).toContainText("Turn total");
   await expect(tooltip).toContainText("Delegated breakdown");
   await expect(tooltip).toContainText("Included in the turn total above.");
@@ -152,9 +192,37 @@ test("shows each turn's model, effort, context, and fast mode", async ({
     "This provider did not report delegated token usage.",
   );
 
+  const cursorUsageDetails = page.getByRole("button", {
+    name: "Turn usage details for Cursor · cursor-fixture-model: 34 input tokens, 21 output tokens",
+  });
+  await expect(cursorUsageDetails).toContainText("$0.0030");
+  await cursorUsageDetails.focus();
+  const cursorTooltip = page.getByRole("tooltip", {
+    name: /Turn total Cursor/,
+  });
+  await expect(cursorTooltip).toContainText("Cursor · cursor-fixture-model");
+  await expect(cursorTooltip).toContainText(/Cache write\s*5 tokens/);
+  await expect(cursorTooltip).toContainText(/Context\s*233 \/ 2,048/);
+  await expect(cursorTooltip).toContainText(/Session cost\s*\$0\.0030/);
+
+  const kiroUsageDetails = page.getByRole("button", {
+    name: "Turn usage details for Kiro · kiro-fixture-model: 21 input tokens, 13 output tokens",
+  });
+  await expect(kiroUsageDetails).toContainText("$0.0020");
+  await kiroUsageDetails.focus();
+  const kiroTooltip = page.getByRole("tooltip", { name: /Turn total Kiro/ });
+  await expect(kiroTooltip).toContainText("Kiro · kiro-fixture-model");
+  await expect(kiroTooltip).toContainText(/Cache read\s*8 tokens/);
+  await expect(kiroTooltip).toContainText(/Context\s*144 \/ 1,024/);
+  await expect(kiroTooltip).toContainText(/Session cost\s*\$0\.0020/);
+
   await page.setViewportSize({ width: 390, height: 844 });
-  await usageDetails.focus();
-  const tooltipBox = await tooltip.boundingBox();
+  await kiroUsageDetails.focus();
+  await expect(kiroTooltip).not.toHaveAttribute("data-starting-style", "");
+  await expect
+    .poll(() => kiroTooltip.evaluate((element) => getComputedStyle(element).opacity))
+    .toBe("1");
+  const tooltipBox = await kiroTooltip.boundingBox();
   expect(tooltipBox).not.toBeNull();
   expect(tooltipBox?.x).toBeGreaterThanOrEqual(0);
   expect((tooltipBox?.x ?? 0) + (tooltipBox?.width ?? 0)).toBeLessThanOrEqual(
@@ -163,6 +231,5 @@ test("shows each turn's model, effort, context, and fast mode", async ({
 
   await page.screenshot({
     path: testInfo.outputPath("turn-model-info.png"),
-    fullPage: true,
   });
 });

@@ -36,10 +36,13 @@ ACP wire payloads.
 Cursor supports `agent`, `plan`, and `ask` session modes. At app startup, Stave
 loads the model values advertised by an authenticated ACP session and shows
 the effort, context, thinking, and fast parameters encoded in those accepted
-values. The broader `agent --list-models` output is not used because the ACP
-server rejects variants it did not advertise. `Auto` remains the offline
-fallback; a configured model is applied only when the active ACP session
-advertises the same value. Tool permissions use one-turn
+values. The composer groups accepted values with the same base model into one
+row and selects the exact advertised value when a context, thinking, fast, or
+effort control is used. Unsupported combinations remain visibly unavailable;
+Stave does not synthesize them. The broader `agent --list-models` output is not
+used because the ACP server rejects variants it did not advertise. `Auto`
+remains the offline fallback; a configured model is applied only when the
+active ACP session advertises the same value. Tool permissions use one-turn
 allow or reject choices, questions preserve provider option ids, and plan
 creation can pause the active turn for approval or revision in the plan
 viewer.
@@ -342,7 +345,9 @@ per-task `advisorExchangeSnapshot` held in its own store slice, never in
 `messagesByTask`, so the advice text is not persisted as an assistant response
 and the surface does not depend on transcript rendering.
 
-Completed assistant messages also persist each `delegated_usage` receipt. The
+Completed assistant messages also persist each confirmed `delegated_usage`
+receipt. Authentication failures and pre-session Worker placeholders do not
+create usage rows. The
 post-turn usage control shows a delegated count and exposes the per-execution
 breakdown on focus or hover. When a provider does not expose per-execution token
 or cache counters, the receipt still shows its role, provider, model, and
@@ -433,12 +438,14 @@ correlated back to the receipt, so a completed card means the Worker returned
 control to the primary. It does not claim that the primary reviewed the result,
 because provider events cannot prove that semantic step.
 
-Every Worker execution also creates a persisted `delegated_usage` receipt. ACP
+Every Worker execution that establishes a provider session also creates a
+persisted `delegated_usage` receipt. ACP
 workers resume only a matching task/provider/model/effort/preset/instructions/
 tools/turn-budget/workspace lane, bounded to 64 recently used lanes and 30
 minutes. If the ACP agent reports prompt usage or the optional ACP session usage
 update, Stave records its input, output, reasoning, context-window, cache-read,
-cache-write, and cost fields and folds them into the turn total once. Native Worker runtimes
+cache-write, and cost fields, preserves them across workspace reloads, and folds
+them into the turn total once. Native Worker runtimes
 whose usage is only available as part of the parent total retain the execution
 receipt without claiming an unreported per-worker cache count.
 
