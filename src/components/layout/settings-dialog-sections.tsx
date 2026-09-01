@@ -122,6 +122,8 @@ import {
   VISUAL_COMMENT_SHORTCUT_OPTIONS,
 } from "@/lib/visual-comment-shortcuts";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
+import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   BOOLEAN_TOGGLE_OPTIONS,
   CLAUDE_EFFORT_OPTIONS,
@@ -438,7 +440,12 @@ function NotificationSoundControls({
 }
 
 const PROMPT_MODEL_PROVIDER_IDS = ["claude-code", "codex"] as const;
-const MODEL_SHORTCUT_PROVIDER_IDS = PROMPT_MODEL_PROVIDER_IDS;
+const MODEL_SHORTCUT_PROVIDER_IDS = [
+  "claude-code",
+  "codex",
+  "cursor",
+  "kiro",
+] as const;
 const UNASSIGNED_APP_SHORTCUT_VALUE = "__shortcut_unassigned__";
 const UNASSIGNED_MODEL_SHORTCUT_VALUE = "__unassigned__";
 
@@ -4085,44 +4092,83 @@ function PromptModelField(args: {
 }
 
 function useSettingsModelSelectorOptions(args: {
-  providerIds: readonly (typeof MODEL_SHORTCUT_PROVIDER_IDS)[number][];
+  providerIds: readonly ProviderId[];
 }) {
-  const codexBinaryPath = useAppStore(
-    (state) => state.settings.codexBinaryPath,
-  );
-  const codexModelCatalog = useCodexModelCatalog({
-    enabled: true,
+  const [
     codexBinaryPath,
+    cursorBinaryPath,
+    kiroBinaryPath,
+    workspaceCwd,
+  ] = useAppStore(
+    useShallow((state) => [
+      state.settings.codexBinaryPath,
+      state.settings.cursorBinaryPath,
+      state.settings.kiroBinaryPath,
+      state.workspacePathById[state.activeWorkspaceId] ??
+        state.projectPath ??
+        undefined,
+    ] as const),
+  );
+  const catalogRuntimeOptions = useMemo(
+    () => ({
+      ...(codexBinaryPath ? { codexBinaryPath } : {}),
+      ...(cursorBinaryPath ? { cursorBinaryPath } : {}),
+      ...(kiroBinaryPath ? { kiroBinaryPath } : {}),
+    }),
+    [codexBinaryPath, cursorBinaryPath, kiroBinaryPath],
+  );
+  const modelCatalogs = useProviderModelCatalogs({
+    enabled: true,
+    cwd: workspaceCwd,
+    runtimeOptions: catalogRuntimeOptions,
   });
-  const codexModelEnrichmentForPrompt = useMemo(() => {
-    if (codexModelCatalog.entries.length === 0) {
-      return undefined;
-    }
+  const modelEnrichmentForPrompt = useMemo(() => {
     const map = new Map<
       string,
-      { description?: string; isDefault?: boolean }
+      {
+        label?: string;
+        description?: string;
+        isDefault?: boolean;
+        defaultEffort?: string;
+        supportedEfforts?: readonly string[];
+      }
     >();
-    for (const entry of codexModelCatalog.entries) {
-      const id = entry.model.trim();
-      if (id) {
-        map.set(id, {
+    for (const providerId of args.providerIds) {
+      for (const entry of modelCatalogs.catalogs[providerId].entries) {
+        const id = entry.model.trim();
+        if (!id) {
+          continue;
+        }
+        map.set(`${providerId}:${id}`, {
+          label: entry.displayName || undefined,
           description: entry.description || undefined,
           isDefault: entry.isDefault || undefined,
+          defaultEffort: entry.defaultEffort || undefined,
+          supportedEfforts: entry.supportedEfforts,
         });
+        if (providerId === "codex") {
+          map.set(id, {
+            description: entry.description || undefined,
+            isDefault: entry.isDefault || undefined,
+          });
+        }
       }
     }
     return map.size > 0 ? map : undefined;
-  }, [codexModelCatalog.entries]);
+  }, [args.providerIds, modelCatalogs.catalogs]);
   const promptModelOptions = useMemo(
     () =>
       buildModelSelectorOptions({
         providerIds: args.providerIds,
-        modelsByProvider: {
-          codex: codexModelCatalog.models,
-        },
-        enrichmentByModel: codexModelEnrichmentForPrompt,
+        modelsByProvider: Object.fromEntries(
+          args.providerIds.map((providerId) => [
+            providerId,
+            modelCatalogs.catalogs[providerId].models,
+          ]),
+        ),
+        enrichmentByModel: modelEnrichmentForPrompt,
       }),
-    [args.providerIds, codexModelCatalog.models, codexModelEnrichmentForPrompt],
+    [args.providerIds, modelCatalogs.catalogs, modelEnrichmentForPrompt],
   );
   const promptRecommendedModelOptions = useMemo(
     () => buildRecommendedModelSelectorOptions({ options: promptModelOptions }),

@@ -239,9 +239,10 @@ function CursorModelRow(args: {
           onFocus={() => args.onTabStopChange(`${args.group.key}:model`)}
           onKeyDown={handleKeyDown}
           onClick={() => chooseVariant(anchor)}
-          className="flex min-h-11 w-24 shrink-0 items-center gap-2 rounded-md px-2 text-left text-sm font-medium text-foreground outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45 min-[480px]:w-32"
+          title={args.group.label}
+          className="flex min-h-11 min-w-[10rem] max-w-[min(44%,14rem)] shrink-0 items-center gap-2 rounded-md px-2 text-left text-sm font-medium text-foreground outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45 min-[480px]:min-w-[11rem] min-[480px]:max-w-[min(42%,16rem)]"
         >
-          <ModelIcon providerId="cursor" className="size-3.5" />
+          <ModelIcon providerId="cursor" className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{args.group.label}</span>
           {anchor.option.isDefault ? (
             <span className="hidden text-[10px] text-muted-foreground min-[560px]:inline">
