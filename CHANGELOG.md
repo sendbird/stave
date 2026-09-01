@@ -1,3 +1,18 @@
+## [0.16.3](https://github.com/sendbird/stave/compare/v0.16.2...v0.16.3) (2026-09-01)
+
+### Bug Fixes
+
+* Keep Hangul IME composition and English caret order intact while typing in the composer: the prompt-enhancement typewriter no longer routes the live editor value through React state, and it pins the tail of a long enhanced prompt in view while it reveals.
+* Stop a follow-up Cursor or Kiro prompt from attaching the previous turn's transcript. ACP v1 `session/load` must replay history before answering, and Stave already holds that transcript, so the replay window is now discarded — while provider-namespaced notifications outside it, such as Kiro MCP startup reports during `session/new`, keep flowing.
+* Report Cursor and Kiro usage honestly: a provider that reports context and cost but no token counts no longer prints a fabricated zero-token pair, and the Headroom tile states how much context is left instead of how much was used.
+* Limit the model picker to about five visible rows and keep the Codex picker to the current GPT-5.6 catalog, so a runtime advertising older or experimental ids cannot lengthen the list.
+* Let model shortcuts target Cursor and Kiro, and give the Cursor model row a fluid name column so long model names stop being clipped.
+* Default Cursor and Kiro approvals to Auto on fresh settings and show Auto as the leftmost approval preset for every provider. Existing persisted settings are unchanged.
+
+### References
+
+* [#416](https://github.com/sendbird/stave/pull/416), [#417](https://github.com/sendbird/stave/pull/417), [#418](https://github.com/sendbird/stave/pull/418), [#419](https://github.com/sendbird/stave/pull/419), [#420](https://github.com/sendbird/stave/pull/420), [#421](https://github.com/sendbird/stave/pull/421), [#422](https://github.com/sendbird/stave/pull/422)
+
 ## [0.16.2](https://github.com/sendbird/stave/compare/v0.16.1...v0.16.2) (2026-09-01)
 
 ### Features
