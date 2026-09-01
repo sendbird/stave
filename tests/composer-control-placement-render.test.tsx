@@ -118,8 +118,11 @@ describe("composer control placement in the toolbar", () => {
 
     expect(emptyHtml).not.toContain(">Focus<");
     expect(draftHtml).toContain('aria-label="Enhance prompt"');
-    // The enhance affordance is icon-only, so it must not render a text label.
+    // The idle enhance affordance is icon-only; only the busy states get a
+    // visible label.
     expect(draftHtml).not.toContain(">Enhance<");
+    expect(draftHtml).not.toContain(">Enhancing<");
+    expect(draftHtml).toContain('data-prompt-enhancement-surface="idle"');
   });
 
   test("announces prompt enhancement while it is pending", async () => {
@@ -135,6 +138,13 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain("Enhancing prompt");
     expect(html).toContain('data-prompt-enhancement-state="enhancing"');
     expect(html).toContain('contentEditable="false"');
+    // A locked composer has to look locked. The spinner alone read as an
+    // editable input, so the affordance grows a visible label and the editable
+    // is dimmed while the rewrite is in flight.
+    expect(html).toContain(">Enhancing<");
+    expect(html).toContain('data-prompt-enhancement-surface="enhancing"');
+    expect(html).toContain("cursor-progress");
+    expect(html).toContain("text-muted-foreground/70");
   });
 
   test("keeps the editor locked while the enhanced prompt is revealed", async () => {
@@ -149,6 +159,9 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain("Applying enhanced prompt");
     expect(html).toContain('data-prompt-enhancement-state="applying"');
     expect(html).toContain('contentEditable="false"');
+    expect(html).toContain(">Applying<");
+    expect(html).toContain('data-prompt-enhancement-surface="applying"');
+    expect(html).toContain("cursor-progress");
   });
 
   test("renders every control and no tray button by default", async () => {

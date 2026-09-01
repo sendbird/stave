@@ -772,6 +772,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     useState(false);
   const [promptEnhancementRevealVersion, setPromptEnhancementRevealVersion] =
     useState(0);
+  // The draft the rewrite replaced. The composer diffs the enhanced prompt
+  // against it so the reveal can highlight what actually changed.
+  const [promptEnhancementSourceText, setPromptEnhancementSourceText] =
+    useState("");
   const promptEnhancementRequestRef = useRef(0);
   const promptEnhancementPendingRef = useRef(false);
   const promptEnhancementRevealingRef = useRef(false);
@@ -915,6 +919,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         enhancedPrompt,
       };
       promptEnhancementRevealingRef.current = true;
+      setPromptEnhancementSourceText(sourceText);
       setPromptEnhancementRevealing(true);
       setPromptEnhancementRevealVersion((current) => current + 1);
     } catch (error) {
@@ -1318,6 +1323,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     promptEnhancementResultRef.current = null;
     setPromptEnhancementPending(false);
     setPromptEnhancementRevealing(false);
+    setPromptEnhancementSourceText("");
   }, [args.providerSelectionTarget]);
 
   useLayoutEffect(() => {
@@ -1585,6 +1591,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           promptEnhancementPending={promptEnhancementPending}
           promptEnhancementRevealing={promptEnhancementRevealing}
           promptEnhancementRevealVersion={promptEnhancementRevealVersion}
+          promptEnhancementSourceText={promptEnhancementSourceText}
           onPromptEnhancementRevealComplete={
             handlePromptEnhancementRevealComplete
           }

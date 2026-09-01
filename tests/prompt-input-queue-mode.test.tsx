@@ -135,7 +135,7 @@ describe("PromptInput queue mode", () => {
 
     expect(html).toContain('aria-label="Enhance prompt"');
     expect(html).toContain("pointer-events-none absolute right-0 top-0");
-    expect(html).toContain("pointer-events-auto size-7");
+    expect(html).toContain("pointer-events-auto disabled:opacity-100 size-7");
     expect(html).toContain("lucide-wand-sparkles");
     expect(html).toContain("z-40");
   });

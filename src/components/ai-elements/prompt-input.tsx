@@ -28,6 +28,7 @@ import type {
 } from "@/types/chat";
 import {
   Fragment,
+  type CSSProperties,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -118,15 +119,15 @@ import {
   getAcceptedCommandPaletteItem,
   getAcceptedPaletteItem,
   getNextCommandSelectionIndex,
-  getPromptEnhancementRevealDurationMs,
-  getPromptEnhancementRevealText,
-  getPromptRevealScrollTop,
+  getPromptEnhancementRevealSegments,
+  getPromptEnhancementRevealTimings,
   isPromptHistoryBoundaryReached,
+  isShortcutEchoInsertion,
   navigatePromptHistory,
   NO_COMMAND_SELECTION,
   NO_PROMPT_HISTORY_SELECTION,
-  resolvePromptEnhancementDisplayText,
 } from "./prompt-input.utils";
+import type { PromptEnhancementRevealSegment } from "./prompt-input.utils";
 import {
   findModelShortcutEffort,
   findModelShortcutOption,
@@ -260,6 +261,8 @@ interface PromptInputProps {
   promptEnhancementPending?: boolean;
   promptEnhancementRevealing?: boolean;
   promptEnhancementRevealVersion?: number;
+  /** The draft the enhancement replaced; the reveal diffs against it. */
+  promptEnhancementSourceText?: string;
   onPromptEnhancementRevealComplete?: () => void;
   onSuggestionSelect?: (suggestion: string) => void;
   onFocus?: () => void;
@@ -363,6 +366,13 @@ interface PromptInputProps {
 }
 
 const PALETTE_ITEM_INDEX_ATTRIBUTE = "data-palette-index";
+/**
+ * How long a claimed keyboard chord keeps rejecting a stray one-character
+ * insertion. Long enough to cover the input method echo that follows the
+ * `keydown`, short enough that the next real keystroke is never swallowed.
+ */
+const SHORTCUT_ECHO_GUARD_WINDOW_MS = 120;
+
 const PROMPT_SURFACE_FOCUS_VISIBLE_RESET =
   "focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
 type WorkspaceInformationTokenMatch = NonNullable<
@@ -374,113 +384,153 @@ const PROMPT_FLOATING_SURFACE =
 const PROMPT_TOOLBAR_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} h-9 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground`;
 const PROMPT_TOOLBAR_ICON_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} rounded-md border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-muted/60 hover:text-foreground`;
 
+/*
+ * Typography the enhancement reveal has to mirror exactly. The overlay is a
+ * plain `div` drawn on top of the Lexical editable, so any difference in font,
+ * size, leading or tracking would make it wrap on different words than the
+ * editor it is standing in for.
+ */
+const PROMPT_EDITOR_TYPOGRAPHY_MINIMAL =
+  "font-mono text-[15px] leading-7 tracking-[-0.01em] md:text-[15px]";
+const PROMPT_EDITOR_TYPOGRAPHY_DEFAULT = "text-lg leading-8 md:text-lg";
+
 /**
- * Returns the text the editor should display.
+ * Drives the enhancement reveal.
  *
- * While a prompt enhancement is being revealed this returns a growing prefix of
- * the enhanced prompt (typewriter effect). At every other time it returns the
- * live `value` synchronously, so normal typing, IME composition and caret
- * position never round-trip through React state. Routing the live value through
- * state here would hand the editor a one-render-stale value on every keystroke,
- * which rewrites the editor content and breaks Hangul composition.
+ * Enhancement is a single request/response - nothing streams - so there is no
+ * honest progress to replay. What the reveal shows instead is the *diff*: the
+ * words the rewrite left alone are already on screen, and only the new ones
+ * fade in with an accent afterglow. That is the question the user actually
+ * has after pressing Enhance ("what did it change?"), and it finishes in about
+ * a second instead of holding the composer hostage for a typewriter.
+ *
+ * Returns `null` whenever nothing should be overlaid, which is also the
+ * reduced-motion path: the enhanced draft is simply there, immediately.
  */
 function usePromptEnhancementReveal(args: {
   active: boolean;
   revealVersion: number;
+  sourceText: string;
   value: string;
   onComplete?: () => void;
 }) {
   const prefersReducedMotion = usePrefersReducedMotion();
-  const [revealedValue, setRevealedValue] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<{
+    segments: readonly PromptEnhancementRevealSegment[];
+    stepMs: number;
+  } | null>(null);
   const onCompleteRef = useRef(args.onComplete);
   onCompleteRef.current = args.onComplete;
   const targetValueRef = useRef(args.value);
   targetValueRef.current = args.value;
+  const sourceTextRef = useRef(args.sourceText);
+  sourceTextRef.current = args.sourceText;
   const { active, revealVersion } = args;
 
   useEffect(() => {
     if (!active) {
-      setRevealedValue(null);
+      setReveal(null);
       return;
     }
 
     const targetValue = targetValueRef.current;
     if (prefersReducedMotion || !targetValue) {
-      setRevealedValue(null);
+      setReveal(null);
       onCompleteRef.current?.();
       return;
     }
 
-    const characterCount = Array.from(targetValue).length;
-    const durationMs = getPromptEnhancementRevealDurationMs(characterCount);
-    let animationFrameId = 0;
-    let startedAt: number | null = null;
-    let previousValue = "";
-    setRevealedValue("");
+    const segments = getPromptEnhancementRevealSegments({
+      previous: sourceTextRef.current,
+      next: targetValue,
+    });
+    const changedSegmentCount = segments.reduce(
+      (count, segment) => (segment.changed ? count + 1 : count),
+      0,
+    );
+    const { stepMs, durationMs } =
+      getPromptEnhancementRevealTimings(changedSegmentCount);
+    setReveal({ segments, stepMs });
 
-    const revealNextFrame = (timestamp: number) => {
-      startedAt ??= timestamp;
-      const progress = Math.min(1, (timestamp - startedAt) / durationMs);
-      const nextValue = getPromptEnhancementRevealText(targetValue, progress);
-      if (nextValue !== previousValue) {
-        previousValue = nextValue;
-        setRevealedValue(nextValue);
-      }
-      if (progress >= 1) {
-        setRevealedValue(null);
-        onCompleteRef.current?.();
-        return;
-      }
-      animationFrameId = window.requestAnimationFrame(revealNextFrame);
-    };
-
-    animationFrameId = window.requestAnimationFrame(revealNextFrame);
-    return () => window.cancelAnimationFrame(animationFrameId);
+    const timeoutId = window.setTimeout(() => {
+      setReveal(null);
+      onCompleteRef.current?.();
+    }, durationMs);
+    return () => window.clearTimeout(timeoutId);
   }, [active, revealVersion, prefersReducedMotion]);
 
-  return resolvePromptEnhancementDisplayText({
-    revealing: active,
-    revealedText: revealedValue,
-    value: args.value,
-  });
+  return reveal;
 }
 
 /**
- * Keeps the tail of the enhanced prompt in view while it is being revealed.
+ * Puts the top of the enhanced prompt in view for the reveal.
  *
- * Lexical scrolls the caret into view only as part of reconciling the DOM
- * selection, and it skips that entirely while the editor is non-editable. The
- * editor stays non-editable for the whole reveal, so without this the
- * typewriter runs past the bottom of a `max-h` box and the user watches a
- * blank tail. Normal typing is untouched: this does nothing unless a reveal is
- * running.
+ * The overlay cannot scroll with the editor (it is not the editor), and the
+ * changed words are worth reading from the start anyway, so both are pinned to
+ * the top for the duration. Lexical does not do this itself: it scrolls the
+ * caret into view only while the editable is editable, and it is not during an
+ * enhancement.
  */
-function usePromptEnhancementScrollPin(args: {
+function usePromptEnhancementScrollReset(args: {
   editorRef: RefObject<PromptLexicalEditorHandle | null>;
   revealing: boolean;
-  revealedText: string;
 }) {
-  const { editorRef, revealing, revealedText } = args;
+  const { editorRef, revealing } = args;
 
   useEffect(() => {
     if (!revealing) {
       return;
     }
-    // The external-sync plugin writes the text in a child effect, which has
-    // already run by the time this parent effect fires, but Lexical reconciles
-    // the DOM asynchronously - so measure on the next frame.
+    // The enhanced text is written by a child effect and reconciled by Lexical
+    // asynchronously, so the scroll box only exists next frame.
     const frameId = window.requestAnimationFrame(() => {
       const element = editorRef.current?.getRootElement();
-      if (!element) {
-        return;
+      if (element) {
+        element.scrollTop = 0;
       }
-      element.scrollTop = getPromptRevealScrollTop({
-        scrollHeight: element.scrollHeight,
-        clientHeight: element.clientHeight,
-      });
     });
     return () => window.cancelAnimationFrame(frameId);
-  }, [editorRef, revealedText, revealing]);
+  }, [editorRef, revealing]);
+}
+
+/**
+ * The reveal itself: a non-interactive mirror of the enhanced prompt, drawn
+ * over the (hidden, locked) editor so the changed words can be individual
+ * animated spans. Lexical owns its own DOM and renders prompt tokens as chips,
+ * so per-word animation cannot live inside the editable.
+ */
+function PromptEnhancementRevealOverlay(args: {
+  segments: readonly PromptEnhancementRevealSegment[];
+  stepMs: number;
+  className?: string;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      data-prompt-enhancement-reveal="true"
+      className={cn(
+        "pointer-events-none absolute inset-0 select-none overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+        args.className,
+      )}
+      style={
+        { "--prompt-diff-step": `${args.stepMs}ms` } as CSSProperties
+      }
+    >
+      {args.segments.map((segment, index) =>
+        segment.changed ? (
+          <span
+            key={index}
+            className="rounded-[3px] [box-decoration-break:clone] motion-safe:animate-prompt-diff-word"
+            style={{ "--prompt-diff-i": segment.order } as CSSProperties}
+          >
+            {segment.text}
+          </span>
+        ) : (
+          <span key={index}>{segment.text}</span>
+        ),
+      )}
+    </div>
+  );
 }
 
 function tooltipTriggerButtonClassName(args: {
@@ -790,6 +840,7 @@ export function PromptInput(args: PromptInputProps) {
     promptEnhancementPending = false,
     promptEnhancementRevealing = false,
     promptEnhancementRevealVersion = 0,
+    promptEnhancementSourceText = "",
     onPromptEnhancementRevealComplete,
     onSuggestionSelect,
     onFocus,
@@ -837,9 +888,10 @@ export function PromptInput(args: PromptInputProps) {
     onAbort,
   } = args;
   const isMobile = useIsMobile();
-  const displayedPromptValue = usePromptEnhancementReveal({
+  const promptEnhancementReveal = usePromptEnhancementReveal({
     active: promptEnhancementRevealing,
     revealVersion: promptEnhancementRevealVersion,
+    sourceText: promptEnhancementSourceText,
     value,
     onComplete: onPromptEnhancementRevealComplete,
   });
@@ -957,17 +1009,15 @@ export function PromptInput(args: PromptInputProps) {
     () => ({ start: caretIndex, end: caretIndex }),
     [caretIndex],
   );
-  // While the enhanced prompt is being revealed the caret trails the growing
-  // text so a long prompt scrolls along with the typewriter.
+  // The enhanced draft replaces the whole document, so the caret the composer
+  // was tracking no longer points anywhere meaningful; park it at the end,
+  // which is where the user resumes typing once the reveal unlocks the editor.
   const promptEditorSelectionRange = useMemo(
     () =>
       promptEnhancementRevealing
-        ? {
-            start: displayedPromptValue.length,
-            end: displayedPromptValue.length,
-          }
+        ? { start: value.length, end: value.length }
         : editorSelectionRange,
-    [displayedPromptValue, editorSelectionRange, promptEnhancementRevealing],
+    [editorSelectionRange, promptEnhancementRevealing, value.length],
   );
   const [isPromptInputFocused, setIsPromptInputFocused] = useState(false);
   const [modelSelectorOpenNonce, setModelSelectorOpenNonce] = useState(0);
@@ -976,10 +1026,9 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [editingQueuedTurnContent, setEditingQueuedTurnContent] = useState("");
   const promptEditorRef = useRef<PromptLexicalEditorHandle | null>(null);
-  usePromptEnhancementScrollPin({
+  usePromptEnhancementScrollReset({
     editorRef: promptEditorRef,
     revealing: promptEnhancementRevealing,
-    revealedText: displayedPromptValue,
   });
   const valueRef = useRef(value);
   const caretIndexRef = useRef(caretIndex);
@@ -987,9 +1036,16 @@ export function PromptInput(args: PromptInputProps) {
   const pendingSkillTokenRef = useRef<SkillTokenMatch | null>(null);
   const pendingWorkspaceInformationTokenRef =
     useRef<WorkspaceInformationTokenMatch | null>(null);
-  const textareaAutosizeFrameRef = useRef<number | null>(null);
   const commandListRef = useRef<HTMLDivElement | null>(null);
   const wasTurnActiveRef = useRef(Boolean(isTurnActive));
+  // See `isShortcutEchoInsertion`: a claimed Option chord can still leak one
+  // composed character into the editor, so claiming one arms a brief guard that
+  // rejects exactly that insertion and re-syncs the editor from `value`.
+  const shortcutEchoGuardRef = useRef<{
+    value: string;
+    expiresAt: number;
+  } | null>(null);
+  const [editorSyncNonce, setEditorSyncNonce] = useState(0);
   valueRef.current = value;
   caretIndexRef.current = caretIndex;
   const borderBeamEnabled = useAppStore(
@@ -1064,7 +1120,6 @@ export function PromptInput(args: PromptInputProps) {
         : "Ctrl",
     [],
   );
-  const maxTextareaHeight = 240;
   const normalizedPromptHistoryEntries = useMemo(
     () =>
       (promptHistoryEntries ?? []).filter((entry) => entry.trim().length > 0),
@@ -1256,33 +1311,6 @@ export function PromptInput(args: PromptInputProps) {
     (promptEnhancementBusy || value.trim().length > 0);
 
   useEffect(() => {
-    const editorElement = promptEditorRef.current?.getRootElement();
-    if (!editorElement) return;
-    const measureHeight = () => {
-      editorElement.style.height = "auto";
-      const scrollHeight = editorElement.scrollHeight;
-      const nextHeight = Math.min(scrollHeight, maxTextareaHeight);
-      const nextOverflowY =
-        scrollHeight > maxTextareaHeight ? "auto" : "hidden";
-      if (editorElement.style.height !== `${nextHeight}px`) {
-        editorElement.style.height = `${nextHeight}px`;
-      }
-      if (editorElement.style.overflowY !== nextOverflowY) {
-        editorElement.style.overflowY = nextOverflowY;
-      }
-      textareaAutosizeFrameRef.current = null;
-    };
-    textareaAutosizeFrameRef.current =
-      window.requestAnimationFrame(measureHeight);
-    return () => {
-      if (textareaAutosizeFrameRef.current !== null) {
-        window.cancelAnimationFrame(textareaAutosizeFrameRef.current);
-        textareaAutosizeFrameRef.current = null;
-      }
-    };
-  }, [value, maxTextareaHeight]);
-
-  useEffect(() => {
     if (interactionsDisabled) {
       return;
     }
@@ -1323,6 +1351,13 @@ export function PromptInput(args: PromptInputProps) {
           rootElement.contains(document.activeElement),
         ),
     );
+  }, []);
+
+  const armShortcutEchoGuard = useCallback(() => {
+    shortcutEchoGuardRef.current = {
+      value: valueRef.current,
+      expiresAt: Date.now() + SHORTCUT_ECHO_GUARD_WINDOW_MS,
+    };
   }, []);
 
   const handleShiftTabShortcut = useCallback(
@@ -1380,6 +1415,7 @@ export function PromptInput(args: PromptInputProps) {
       }
 
       event.preventDefault();
+      armShortcutEchoGuard();
       onModelSelect({
         selection: shortcutOption,
         effort: findModelShortcutEffort({
@@ -1392,6 +1428,7 @@ export function PromptInput(args: PromptInputProps) {
       return true;
     },
     [
+      armShortcutEchoGuard,
       focusComposer,
       interactionsDisabled,
       modelOptions,
@@ -1444,6 +1481,7 @@ export function PromptInput(args: PromptInputProps) {
         (event.code === "KeyP" || event.key.toLowerCase() === "p");
       if (isAltP) {
         event.preventDefault();
+        armShortcutEchoGuard();
         setModelSelectorOpenNonce((current) => current + 1);
         return;
       }
@@ -1454,6 +1492,7 @@ export function PromptInput(args: PromptInputProps) {
     window.addEventListener("keydown", onWindowKeyDown);
     return () => window.removeEventListener("keydown", onWindowKeyDown);
   }, [
+    armShortcutEchoGuard,
     focusComposer,
     handleModelShortcut,
     handleShiftTabShortcut,
@@ -2584,7 +2623,10 @@ export function PromptInput(args: PromptInputProps) {
                       &gt;
                     </span>
                   ) : null}
-                  <div className="relative min-w-0 flex-1">
+                  <div
+                    className="relative min-w-0 flex-1"
+                    data-prompt-enhancement-surface={promptEnhancementState}
+                  >
                     {shouldShowPromptEnhancement ? (
                       <div
                         data-prompt-enhancement-state={promptEnhancementState}
@@ -2599,7 +2641,7 @@ export function PromptInput(args: PromptInputProps) {
                               <Button
                                 type="button"
                                 variant="ghost"
-                                size="icon-sm"
+                                size={promptEnhancementBusy ? "sm" : "icon-sm"}
                                 disabled={
                                   interactionsDisabled || promptEnhancementBusy
                                 }
@@ -2608,10 +2650,10 @@ export function PromptInput(args: PromptInputProps) {
                                 onClick={() => void onEnhancePrompt?.()}
                                 className={cn(
                                   PROMPT_TOOLBAR_ICON_BUTTON,
-                                  "pointer-events-auto size-7 disabled:opacity-100",
+                                  "pointer-events-auto disabled:opacity-100",
                                   promptEnhancementBusy
-                                    ? "text-foreground/70"
-                                    : "opacity-70 hover:opacity-100",
+                                    ? "h-7 gap-1.5 rounded-full border-primary/25 bg-primary/10 px-2 text-xs font-medium text-primary"
+                                    : "size-7 opacity-70 hover:opacity-100",
                                 )}
                               />
                             }
@@ -2619,18 +2661,25 @@ export function PromptInput(args: PromptInputProps) {
                             {promptEnhancementPending ? (
                               <LoaderCircle
                                 aria-hidden="true"
-                                className="size-3.5 motion-safe:animate-spin"
+                                className="size-3.5 shrink-0 motion-safe:animate-spin"
                               />
                             ) : (
                               <WandSparkles
                                 aria-hidden="true"
                                 className={cn(
-                                  "size-3.5",
+                                  "size-3.5 shrink-0",
                                   promptEnhancementRevealing &&
                                     "motion-safe:animate-pulse",
                                 )}
                               />
                             )}
+                            {promptEnhancementBusy ? (
+                              <span aria-hidden="true">
+                                {promptEnhancementPending
+                                  ? "Enhancing"
+                                  : "Applying"}
+                              </span>
+                            ) : null}
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-64">
                             {promptEnhancementBusy
@@ -2653,7 +2702,7 @@ export function PromptInput(args: PromptInputProps) {
                     ) : null}
                     <PromptLexicalEditor
                       ref={promptEditorRef}
-                      value={displayedPromptValue}
+                      value={value}
                       selectionRange={promptEditorSelectionRange}
                       disabled={interactionsDisabled || promptEnhancementBusy}
                       minimal={minimal}
@@ -2662,7 +2711,23 @@ export function PromptInput(args: PromptInputProps) {
                       workspaceInformationReferenceOptions={
                         workspaceInformationReferenceOptions
                       }
+                      syncNonce={editorSyncNonce}
                       onChange={(nextValue) => {
+                        const guard = shortcutEchoGuardRef.current;
+                        if (guard) {
+                          shortcutEchoGuardRef.current = null;
+                          if (
+                            Date.now() <= guard.expiresAt &&
+                            isShortcutEchoInsertion({
+                              previous: guard.value,
+                              next: nextValue,
+                            })
+                          ) {
+                            // Drop the echo and roll the editor back to `value`.
+                            setEditorSyncNonce((current) => current + 1);
+                            return;
+                          }
+                        }
                         onValueChange(nextValue);
                       }}
                       onSelectionChange={syncCaretPosition}
@@ -3035,16 +3100,50 @@ export function PromptInput(args: PromptInputProps) {
                                 : "Use / for commands, $ for skills, @ for Information"
                       }
                       className={cn(
+                        // Height and overflow belong to these classes alone.
+                        // The editor is a `contenteditable` div, not a
+                        // `<textarea>`, so it grows with its content natively.
+                        // An imperative autosize pass used to write inline
+                        // `height` / `overflow-y` here, keyed on `value` - and
+                        // a trailing newline never changes `value` (see
+                        // `getEditorTextContent`), so a Shift+Enter at the end
+                        // of a draft left the height frozen and `overflow-y:
+                        // hidden` pinned: the box stopped growing and the wheel
+                        // could not reach the clipped lines.
                         "resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 shadow-none dark:bg-transparent",
                         minimal
-                          ? "min-h-[32px] max-h-[168px] font-mono text-[15px] leading-7 tracking-[-0.01em] caret-primary md:text-[15px]"
-                          : "min-h-[104px] max-h-[240px] text-lg leading-8 md:text-lg",
-                        shouldShowPromptEnhancement && "pr-9",
+                          ? `min-h-[32px] max-h-[168px] caret-primary ${PROMPT_EDITOR_TYPOGRAPHY_MINIMAL}`
+                          : `min-h-[104px] max-h-[240px] ${PROMPT_EDITOR_TYPOGRAPHY_DEFAULT}`,
+                        shouldShowPromptEnhancement &&
+                          (promptEnhancementBusy ? "pr-28" : "pr-9"),
+                        // The editable is held non-editable for the whole
+                        // enhancement, so it has to *look* non-editable too -
+                        // otherwise only the spinner distinguishes a locked
+                        // composer from an editable one.
+                        promptEnhancementPending &&
+                          "cursor-progress select-none text-muted-foreground/70 motion-safe:animate-pulse",
                         promptEnhancementRevealing &&
-                          "after:ml-0.5 after:inline-block after:h-[1em] after:w-px after:bg-primary after:align-[-0.1em] after:content-[''] motion-safe:after:animate-terminal-caret",
+                          "cursor-progress select-none",
+                        // The reveal overlay stands in for the editor while the
+                        // diff animates, so the editor itself has to get out of
+                        // the way - it keeps its box (and therefore the
+                        // overlay's) but shows nothing.
+                        promptEnhancementReveal !== null && "opacity-0",
                         PROMPT_SURFACE_FOCUS_VISIBLE_RESET,
                       )}
                     />
+                    {promptEnhancementReveal ? (
+                      <PromptEnhancementRevealOverlay
+                        segments={promptEnhancementReveal.segments}
+                        stepMs={promptEnhancementReveal.stepMs}
+                        className={cn(
+                          minimal
+                            ? PROMPT_EDITOR_TYPOGRAPHY_MINIMAL
+                            : PROMPT_EDITOR_TYPOGRAPHY_DEFAULT,
+                          shouldShowPromptEnhancement && "pr-28",
+                        )}
+                      />
+                    ) : null}
                     {minimal && isPromptInputFocused && value.length === 0 ? (
                       <span
                         aria-hidden="true"
