@@ -153,6 +153,7 @@ export async function streamKiroWithAcp(
       resumeSessionId: args.runtimeOptions?.kiroResumeSessionId,
       requestedModel: args.runtimeOptions?.model?.trim() || "auto",
       modelSetter: "legacy-set-model",
+      promptParameterName: "prompt+content",
       authenticationHelp:
         "Run `kiro-cli login` if authentication has expired.",
       decisionTimeoutMs: parsePositiveIntEnv({
@@ -215,6 +216,7 @@ export async function streamKiroWorkerWithAcp(args: {
       resumeSessionId: args.resumeSessionId,
       requestedModel: args.model.trim() || "auto",
       modelSetter: "legacy-set-model",
+      promptParameterName: "prompt+content",
       authenticationHelp:
         "Run `kiro-cli login` if authentication has expired.",
       decisionTimeoutMs: parsePositiveIntEnv({

@@ -73,6 +73,16 @@ catalogs and runtime adapters are normalized before the searchable provider
 list is rendered, so adding another provider does not require another fixed
 matrix in the composer.
 
+Cursor Agent does not report turn usage over ACP: its `session/prompt` result
+carries only a stop reason, and it never sends a `usage_update`. Token counts
+exist in the CLI's non-ACP print mode, which Stave does not drive. The post-turn
+usage control therefore states that the provider reported no usage rather than
+showing a zero-token turn. That fallback is scoped to the ACP providers; the
+native runtimes keep rendering whatever usage record they report, including a
+zero one. The shared ACP layer accepts prompt usage in either
+the snake_case or camelCase spelling and under `_meta`, so a later Cursor build
+that starts reporting usage is picked up without a runtime change.
+
 Cursor is intentionally excluded from Advisor, secondary and unattended runs,
 routines, standalone CLI tabs, native thread actions, and mid-turn steering.
 Utility inference can still use Cursor Ask as a last-resort read-only runner when
@@ -96,9 +106,11 @@ the normalized runtime catalog bridge after a non-interactive authentication
 check. `Auto` is the offline fallback. When the
 active ACP session exposes a stable model configuration option, Stave uses it;
 otherwise the Kiro profile uses the documented `session/set_model` method.
-Prompt content uses the ACP `prompt` parameter. `kiro-cli 2.20.1` never answers
-a `session/prompt` request that carries `content` instead, so that request shape
-stalls the turn until the decision timer fires rather than failing loudly. Kiro
+`session/prompt` carries the blocks under both the spec-standard `prompt` key
+and Kiro's documented `content` key. `kiro-cli 2.20.1` reads `prompt` and never
+answers a request that carries only `content`, so that request shape stalls the
+turn until the decision timer fires rather than failing loudly; older builds
+read only `content`. Sending both keys keeps either build working. Kiro
 reasoning effort is independent of the model value and is passed to the ACP
 process with `--effort`; the composer remembers that choice per Kiro model.
 
@@ -114,6 +126,12 @@ nothing while presenting as a middle ground. Worker runs always use `Manual`.
 Kiro's ACP `modes` are agent personas (`kiro_default`, `kiro_planner`,
 `kiro_guide`, and any user-defined agents), not approval modes, and depend on the
 user's own Kiro configuration. Stave does not map its plan toggle onto them.
+
+Kiro reports turn usage on its namespaced `_kiro.dev/metadata` notification
+rather than the stable ACP `usage_update`: a context-window percentage without
+the window size, plus metered spend in the plan's own unit (credits). The
+extension mapper normalizes that into a `context_usage` event, so the post-turn
+usage control shows a percentage and a credit amount instead of token counts.
 
 Kiro is intentionally excluded from Advisor, secondary and unattended runs,
 routines, standalone CLI tabs, native thread actions, and mid-turn steering.

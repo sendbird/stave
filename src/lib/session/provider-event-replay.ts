@@ -725,8 +725,15 @@ export function appendProviderEventToAssistant(args: {
         inputTokens: args.message.usage?.inputTokens ?? 0,
         outputTokens: args.message.usage?.outputTokens ?? 0,
         ...args.message.usage,
-        contextUsedTokens: args.event.usedTokens,
-        contextWindowTokens: args.event.sizeTokens,
+        ...(args.event.usedTokens !== undefined
+          ? { contextUsedTokens: args.event.usedTokens }
+          : {}),
+        ...(args.event.sizeTokens !== undefined
+          ? { contextWindowTokens: args.event.sizeTokens }
+          : {}),
+        ...(args.event.usedPercent !== undefined
+          ? { contextUsedPercent: args.event.usedPercent }
+          : {}),
         ...(args.event.costAmount !== undefined
           ? { contextCostAmount: args.event.costAmount }
           : {}),

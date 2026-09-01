@@ -71,7 +71,10 @@ import {
   toProviderWaveToneClass,
 } from "./chat-panel-message-parts";
 import { ConversationTurnActions } from "./ConversationTurnActions";
-import { MessageUsageSummary } from "./message-usage-summary";
+import {
+  MessageUsageSummary,
+  providerMayOmitTurnUsage,
+} from "./message-usage-summary";
 import {
   ConversationTurnRail,
   type ConversationTurnRailHandle,
@@ -396,8 +399,14 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   )}
                 </MessageAction>
               ) : null}
+              {/* ACP providers render even with no usage: an explicit "not
+                  reported" badge distinguishes a provider that never reports
+                  tokens (Cursor over ACP) from a turn that used none. Native
+                  runtimes keep the original usage-present condition. */}
               {message.role === "assistant" &&
-              (message.usage || message.delegatedUsage?.length) &&
+              (message.usage ||
+                message.delegatedUsage?.length ||
+                providerMayOmitTurnUsage(message.providerId)) &&
               !showRespondingWave ? (
                 <MessageUsageSummary
                   usage={message.usage}

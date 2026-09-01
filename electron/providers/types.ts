@@ -115,9 +115,13 @@ export type BridgeEvent =
     }
   | {
       type: "context_usage";
-      usedTokens: number;
-      sizeTokens: number;
+      /** Absent when the provider only reports a percentage (e.g. Kiro). */
+      usedTokens?: number;
+      sizeTokens?: number;
+      /** 0-100. Reported directly by providers that hide the window size. */
+      usedPercent?: number;
       costAmount?: number;
+      /** ISO currency code, or a provider-native unit such as "credits". */
       costCurrency?: string;
     }
   | {
@@ -133,6 +137,7 @@ export type BridgeEvent =
       thoughtTokens?: number;
       contextUsedTokens?: number;
       contextWindowTokens?: number;
+      contextUsedPercent?: number;
       contextCostAmount?: number;
       contextCostCurrency?: string;
       totalCostUsd?: number;

@@ -90,13 +90,18 @@ input.on("line", (line) => {
   }
 
   const params = message.params as Record<string, unknown> | undefined;
-  // Verified against kiro-cli 2.20.1: `session/prompt` takes `prompt`, and a
-  // request carrying `content` instead is never answered at all.
-  if (!Array.isArray(params?.prompt)) {
+  // Verified against kiro-cli 2.20.1: `session/prompt` reads the spec-standard
+  // `prompt` key and never answers a request that carries only `content`,
+  // while older builds read only `content`. Requiring both here pins the
+  // runtime to sending both.
+  if (!Array.isArray(params?.content) || !Array.isArray(params?.prompt)) {
     send({
       jsonrpc: "2.0",
       id,
-      error: { code: -32602, message: "prompt is required" },
+      error: {
+        code: -32602,
+        message: "prompt and content are required",
+      },
     });
     return;
   }
@@ -149,6 +154,18 @@ input.on("line", (line) => {
     used: 144,
     size: 1024,
     cost: { amount: 0.002, currency: "USD" },
+  });
+  send({
+    jsonrpc: "2.0",
+    method: "_kiro.dev/metadata",
+    params: {
+      sessionId: "kiro-fixture-session",
+      contextUsagePercentage: 3.6710002422332764,
+      meteringUsage: [
+        { value: 0.05413, unit: "credit", unitPlural: "credits" },
+      ],
+      turnDurationMs: 2077,
+    },
   });
   send({
     jsonrpc: "2.0",

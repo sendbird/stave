@@ -71,4 +71,64 @@ describe("MessageUsageSummary", () => {
       'aria-label="Turn usage details for Kiro · kiro-model: 21 input tokens, 13 output tokens"',
     );
   });
+
+  test("shows a percentage and credit spend when no token counts arrive", () => {
+    const html = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "kiro",
+        model: "auto",
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          contextUsedPercent: 3.671,
+          contextCostAmount: 0.05413,
+          contextCostCurrency: "credits",
+        },
+      }),
+    );
+
+    expect(html).toContain("3.7%");
+    expect(html).toContain("0.0541 credits");
+    // A 0/0 token pair means "not reported", not a zero-token turn.
+    expect(html).not.toContain("0 input tokens");
+  });
+
+  test("says so explicitly when the provider reports no usage", () => {
+    const html = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "cursor",
+        model: "composer-2.5",
+      }),
+    );
+
+    expect(html).toContain("usage not reported");
+    expect(html).toContain(
+      'aria-label="Turn usage details for Cursor · composer-2.5: token usage not reported by the provider"',
+    );
+  });
+
+  test("leaves native runtimes on their literal rendering", () => {
+    // Scoped to ACP: a Claude turn that reports 0/0 still says 0/0, and a
+    // Claude message with no usage record renders no badge at all.
+    const zeroed = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "claude-code",
+        model: "opus",
+        usage: { inputTokens: 0, outputTokens: 0 },
+      }),
+    );
+    expect(zeroed).not.toContain("usage not reported");
+    expect(zeroed).toContain(
+      'aria-label="Turn usage details for Claude · opus: 0 input tokens, 0 output tokens"',
+    );
+
+    expect(
+      renderToStaticMarkup(
+        createElement(MessageUsageSummary, {
+          providerId: "codex",
+          model: "gpt-5.6-terra",
+        }),
+      ),
+    ).toBe("");
+  });
 });
