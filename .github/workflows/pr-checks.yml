@@ -21,4 +21,5 @@ jobs:
       - run: bun run check:max-lines-ratchet
       - run: bun run check:switch-exhaustiveness
       - run: bun run typecheck
+      - run: bun run typecheck:lens-main
       - run: bun run test:isolated

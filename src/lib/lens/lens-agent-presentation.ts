@@ -12,6 +12,7 @@ const LENS_AGENT_ACTIVITY_BY_TOOL = {
   stave_lens_measure: "visual",
   stave_lens_click: "interaction",
   stave_lens_type: "interaction",
+  stave_lens_set_appearance: "visual",
 } as const satisfies Record<string, LensAgentActivityKind>;
 
 export type LensAgentActivityToolName =

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   resolveAutomaticLensPresentationPlacement,
   resolveLensAgentActivityKind,
@@ -31,6 +33,9 @@ describe("Lens agent activity presentation", () => {
     expect(
       resolveLensAgentActivityKind("stave_lens_fill_saved_account"),
     ).toBe("interaction");
+    expect(resolveLensAgentActivityKind("stave_lens_set_appearance")).toBe(
+      "visual",
+    );
   });
 
   test("does not classify navigation or read-only diagnostics as presentation triggers", () => {
@@ -53,8 +58,40 @@ describe("Lens agent activity presentation", () => {
       "stave_lens_list_downloads",
       "stave_lens_get_annotations",
       "stave_lens_list_sessions",
+      "stave_lens_reload",
     ]) {
       expect(resolveLensAgentActivityKind(toolName)).toBeNull();
+    }
+  });
+
+  /*
+   * The classification table and its call sites live in different programs:
+   * `bun run typecheck` covers `src` only, so a tool wired up in
+   * `electron/main/browser` with no entry here compiles in every gate CI runs
+   * and then silently never presents. That is exactly how
+   * `stave_lens_set_appearance` shipped inert. Read the call sites back.
+   */
+  test("every tool that asks for activity presentation is classified", () => {
+    const source = readFileSync(
+      path.join(
+        import.meta.dir,
+        "..",
+        "electron",
+        "main",
+        "browser",
+        "browser-tools.ts",
+      ),
+      "utf8",
+    );
+    const callSites = [
+      ...source.matchAll(
+        /requestLensAgentActivityPresentation\(\s*[^,)]+,\s*"([^"]+)"/g,
+      ),
+    ].map((match) => match[1]);
+
+    expect(callSites.length).toBeGreaterThan(0);
+    for (const toolName of callSites) {
+      expect(resolveLensAgentActivityKind(toolName)).not.toBeNull();
     }
   });
 
