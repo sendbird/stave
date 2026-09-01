@@ -2,6 +2,7 @@ import type {
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
 } from "@/lib/providers/provider.types";
+import type { QueuedTurnAutoDispatchHold } from "@/store/queued-task-turn-dispatch";
 import { submitSteerWithDeadline } from "@/store/steer-submit";
 
 /**
@@ -52,9 +53,21 @@ export function createSteerQueueReservations() {
     blocksDispatch(target: SteerQueueReservationTarget) {
       return getHold(target) === "in-flight";
     },
-    /** True while turn-completion queue draining must skip the item. */
-    blocksAutoDispatch(target: SteerQueueReservationTarget) {
-      return getHold(target) !== undefined;
+    /**
+     * How turn-completion queue draining must treat the item.
+     *
+     * An in-flight steer resolves on a deadline, so the queue waits in place
+     * and keeps FIFO order. An unconfirmed steer only clears when the user
+     * acts, so draining moves past it instead of stalling the whole queue.
+     */
+    getAutoDispatchHold(
+      target: SteerQueueReservationTarget,
+    ): QueuedTurnAutoDispatchHold | undefined {
+      const hold = getHold(target);
+      if (hold === "in-flight") {
+        return "wait";
+      }
+      return hold === "unconfirmed" ? "skip" : undefined;
     },
     /**
      * Submit a steer, reserving `queuedTurnId` (when the payload came from the
