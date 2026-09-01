@@ -2,12 +2,10 @@ import {
   AlertTriangle,
   ArrowRight,
   CircleDashed,
-  Cpu,
   GitBranch,
   Moon,
   Radio,
   ShieldCheck,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -17,7 +15,9 @@ import {
   type FleetTaskControlTarget,
 } from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { Badge, Button } from "@/components/ui";
+import { getProviderLabel } from "@/lib/providers/model-catalog";
 import {
   loadWorkspaceShellSummary,
   type WorkspaceShellSummary,
@@ -160,17 +160,13 @@ const FLEET_STATUS_VISUAL: Record<
 };
 
 function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
-  const Icon = provider === "codex" ? Cpu : Sparkles;
-  const label = provider === "codex" ? "Codex" : "Claude";
+  const label = getProviderLabel({ providerId: provider });
   return (
     <span
-      className={cn(
-        "inline-flex size-3.5 shrink-0 items-center justify-center",
-        provider === "codex" ? "text-provider-codex" : "text-provider-claude",
-      )}
+      className="inline-flex size-3.5 shrink-0 items-center justify-center"
       title={`${label} provider`}
     >
-      <Icon className="size-3" aria-hidden="true" />
+      <ModelIcon providerId={provider} className="size-3" />
       <span className="sr-only">{label} provider</span>
     </span>
   );

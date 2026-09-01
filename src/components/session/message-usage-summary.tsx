@@ -11,6 +11,18 @@ import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { DelegatedExecutionUsage } from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
 
+/**
+ * An explicit "not reported" badge is only useful when a provider sometimes
+ * reports usage and this turn did not. That applies to Kiro. Cursor never
+ * reports usage over ACP, so the same badge on every Cursor turn is noise.
+ * Native runtimes keep their original literal rendering.
+ */
+export function providerMayOmitTurnUsage(
+  providerId?: ChatMessage["providerId"],
+): boolean {
+  return providerId === "kiro";
+}
+
 type MessageUsage = NonNullable<ChatMessage["usage"]>;
 
 function formatTokenCount(count: number): string {
@@ -48,18 +60,6 @@ function formatReportedCost(amount: number, currency: string): string {
 
 function formatContextPercent(usedPercent: number): string {
   return `${usedPercent < 10 ? usedPercent.toFixed(1) : Math.round(usedPercent)}%`;
-}
-
-/**
- * ACP providers can finish a turn while reporting no usage at all (Cursor
- * never reports any) or only a percentage/cost. Only for those is an explicit
- * "not reported" badge informative; for the native runtimes a missing or
- * all-zero usage record keeps its original literal rendering.
- */
-export function providerMayOmitTurnUsage(
-  providerId?: ChatMessage["providerId"],
-): boolean {
-  return providerId === "cursor" || providerId === "kiro";
 }
 
 /**
@@ -336,8 +336,8 @@ export function MessageUsageSummary(props: {
     (entry) =>
       hasReportedDelegatedTokens(entry) || entry.sessionReused !== undefined,
   );
-  // Scoped to ACP: elsewhere a usage record is trusted as-is, so a native
-  // runtime that reports 0/0 still renders 0/0 the way it always has.
+  // Kiro-only empty-state: elsewhere a usage record is trusted as-is, so a
+  // native runtime that reports 0/0 still renders 0/0 the way it always has.
   const mayOmitUsage = providerMayOmitTurnUsage(props.providerId);
   const tokensReported = usage ? !mayOmitUsage || hasTokenCounts(usage) : false;
   // "Not reported" is a claim about a specific provider, so it needs

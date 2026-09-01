@@ -399,10 +399,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   )}
                 </MessageAction>
               ) : null}
-              {/* ACP providers render even with no usage: an explicit "not
-                  reported" badge distinguishes a provider that never reports
-                  tokens (Cursor over ACP) from a turn that used none. Native
-                  runtimes keep the original usage-present condition. */}
+              {/* Kiro can finish a turn with no usage record; the summary
+                  still mounts so it can say so. Cursor never reports over
+                  ACP, so an empty Cursor turn stays badge-less. */}
               {message.role === "assistant" &&
               (message.usage ||
                 message.delegatedUsage?.length ||

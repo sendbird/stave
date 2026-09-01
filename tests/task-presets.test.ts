@@ -83,6 +83,7 @@ describe("normalizeTaskPreset", () => {
         provider,
         model: "auto",
         effort: undefined,
+        label: "auto",
       });
       expect(
         normalizeTaskPreset({ kind: "cli-session", provider }),

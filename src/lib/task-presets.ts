@@ -4,6 +4,7 @@ import {
   DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDefaultModelForProvider,
+  getProviderLabel,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -45,13 +46,7 @@ export interface TaskPreset {
 export type TaskPresetKind = "task" | "cli-session";
 
 export type TaskPresetEffort =
-  | "minimal"
-  | "low"
-  | "medium"
-  | "high"
-  | "xhigh"
-  | "max"
-  | "ultra";
+  "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
 /**
  * Effort options selectable for a `task` preset, scoped to the provider's
@@ -67,7 +62,9 @@ export function listEffortsForPresetProvider(
     return [];
   }
   if (providerId === "codex") {
-    return model ? listCodexEffortOptionsForModel({ model }) : CODEX_EFFORT_OPTIONS;
+    return model
+      ? listCodexEffortOptionsForModel({ model })
+      : CODEX_EFFORT_OPTIONS;
   }
   return CLAUDE_EFFORT_OPTIONS;
 }
@@ -267,13 +264,14 @@ function buildDefaultPresetLabel(args: {
   provider: ProviderId;
   model?: string;
 }) {
+  const providerLabel = getProviderLabel({ providerId: args.provider });
   if (args.kind === "cli-session") {
-    return args.provider === "claude-code" ? "Claude CLI" : "Codex CLI";
+    return `${providerLabel} CLI`;
   }
   if (args.model) {
     return args.model;
   }
-  return args.provider === "claude-code" ? "Claude" : "Codex";
+  return providerLabel;
 }
 
 /**
