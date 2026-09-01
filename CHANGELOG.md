@@ -1,3 +1,19 @@
+## [0.16.4](https://github.com/sendbird/stave/compare/v0.16.3...v0.16.4) (2026-09-01)
+
+### Bug Fixes
+
+* Keep multiline prompt drafts growing after a trailing `Shift+Enter`, restore wheel scrolling, protect the editor from shortcut echo insertions, and make prompt enhancement visibly locked with a reduced-motion-safe diff reveal.
+* Keep the model picker to about five visible rows, preserve Cursor's advertised model order, and parse Kiro's snake_case runtime catalog.
+* Keep queued follow-ups draining after steers, serialize automatic dispatch per task, retry failed dispatch once, and show each queued turn's pinned provider/model and sent-from-queue status.
+* Send native ACP image blocks when the selected runtime supports them, with bounded local reads and text or path fallbacks for unsupported and oversized images.
+* Allow Kiro mid-turn steering through its `_session/steer` extension and fail closed when the runtime does not support it.
+* Show Cursor and Kiro account usage in the global status bar, including plan or credit buckets and reset details when available.
+* Refresh runtime-backed model catalogs on demand and retain Kiro entries that report only a model name.
+
+### References
+
+* [#424](https://github.com/sendbird/stave/pull/424), [#425](https://github.com/sendbird/stave/pull/425), [#426](https://github.com/sendbird/stave/pull/426), [#428](https://github.com/sendbird/stave/pull/428), [#429](https://github.com/sendbird/stave/pull/429), [#430](https://github.com/sendbird/stave/pull/430)
+
 ## [0.16.3](https://github.com/sendbird/stave/compare/v0.16.2...v0.16.3) (2026-09-01)
 
 ### Bug Fixes
