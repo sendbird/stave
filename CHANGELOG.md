@@ -1,3 +1,32 @@
+## [0.16.2](https://github.com/sendbird/stave/compare/v0.16.1...v0.16.2) (2026-09-01)
+
+### Features
+
+* Add Manual, Guided, and Auto approval presets for the Cursor and Kiro runtimes, and show only current models in the selector while Settings controls the rest per provider.
+* Normalize Task Activity rows into provider-agnostic titles with a separate slot for provider-specific detail, fold repeated hook runs into one row, and give Codex file edits the activity rows they never produced.
+* Return an accessibility outline carrying a document-scoped `ref` for every actionable element from `stave_lens_snapshot`, accept `target: ref | selector` on every Lens action tool, and add `stave_lens_reload` and `stave_lens_set_appearance`.
+* Let a Cursor or Kiro approval be answered once for good: the card offers `Always allow` when — and only when — the runtime advertised the option, and Cursor persists that choice as a rule in its own allowlist so the prompt stops coming back.
+* Fall back to Cursor and Kiro for utility inference through a shared read-only ACP runner, only after Claude Haiku and Codex Luna are unavailable.
+* Lock the composer while a prompt enhancement runs and reveal the result progressively with explicit `Enhancing` and `Applying` states and reduced-motion support.
+
+### Bug Fixes
+
+* Track the Lens placeholder through a ref callback and re-measure until the rectangle settles, so panel resizes and same-size pane moves stop leaving the guest painted over its old position.
+* Report a close reason on `lens:session-closed`, observe guest death in main, cap hidden guests at three with least-recently-presented eviction, and keep Lens pages muted until a tab shows them.
+* Route every `lens:*` invoke handler through a sender-authorization wrapper, closing gaps on `lens:evaluate`, session close and clear, and the saved-account channels.
+* Host the Lens loading badge and load-error strip in a sibling chrome plane so Dockview's render overlay can no longer bury them behind an opaque guest page.
+* Borrow host-window focus for the duration of an agent-driven Lens click or keystroke and release it by id, so an action on a parked page no longer steals the caret from another workspace's composer.
+* Check file size before reading and bound the turn-diff walk with realpath containment, cutting a normal repository scan from 3,358 ms and 414 MB to 111 ms and 68 MB, and stop provider-reported paths escaping the workspace root.
+* Render Cursor and Kiro tool calls the way Claude and Codex already render: a canonical tool name titles the row and the command or path becomes a single chip, instead of the whole shell command being the title and then repeating itself as a chip.
+* Register the resolver for a permission, question, or plan review before emitting its event. Emission is synchronous all the way to the listener, so anything that decided inside that call reached the responder before the entry existed, got `unknown-request` for a request genuinely in flight, and hung the turn until the decision timer fired.
+* Send Kiro `session/prompt` under both `prompt` and `content` and select permission options by protocol kind, so Kiro turns no longer hang until the decision timer fires.
+* Surface Kiro context usage and metered spend, state that Cursor reports no usage over ACP instead of rendering a false zero-token turn, and show every Claude usage window inline on the status bar including the weekly limit.
+* Strip reserved runtime environment variable names from bound secrets and keep task-awareness guidance provider-neutral.
+
+### References
+
+* [#404](https://github.com/sendbird/stave/pull/404), [#405](https://github.com/sendbird/stave/pull/405), [#406](https://github.com/sendbird/stave/pull/406), [#407](https://github.com/sendbird/stave/pull/407), [#408](https://github.com/sendbird/stave/pull/408), [#409](https://github.com/sendbird/stave/pull/409), [#410](https://github.com/sendbird/stave/pull/410), [#411](https://github.com/sendbird/stave/pull/411), [#412](https://github.com/sendbird/stave/pull/412), [#413](https://github.com/sendbird/stave/pull/413), [#414](https://github.com/sendbird/stave/pull/414)
+
 ## [0.16.1](https://github.com/sendbird/stave/compare/v0.16.0...v0.16.1) (2026-08-31)
 
 ### Bug Fixes
