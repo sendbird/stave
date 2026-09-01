@@ -78,6 +78,7 @@ import {
   toast,
 } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
+import { PromptInputQueuedTurns } from "./prompt-input-queued-turns";
 import { UserInputCard } from "./user-input-card";
 import type {
   CommandPaletteItem,
@@ -2385,194 +2386,39 @@ export function PromptInput(args: PromptInputProps) {
             </Suggestions>
           ) : null}
           {visibleQueuedTurns.length > 0 ? (
-            <div className="space-y-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 shadow-[0_10px_28px_-18px_oklch(0_0_0/0.28),0_2px_7px_-4px_oklch(0_0_0/0.16)]">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="secondary"
-                  className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
-                >
-                  Queue
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {visibleQueuedTurns.length} queued follow-up
-                  {visibleQueuedTurns.length === 1 ? "" : "s"}
-                  {isTurnActive
-                    ? canSteerQueuedTurnNow
-                      ? " · next sends automatically when the current response finishes, or steer one into it now"
-                      : " · next sends automatically when the current response finishes"
-                    : canSendQueuedTurnNow
-                      ? " · send one now, or it sends after your next message finishes"
-                      : ""}
-                </span>
-                {queuedFileCount > 0 ? (
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                    {queuedFileCount} {queuedFileCount === 1 ? "file" : "files"}
-                  </Badge>
-                ) : null}
-                {queuedImageCount > 0 ? (
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                    {queuedImageCount}{" "}
-                    {queuedImageCount === 1 ? "image" : "images"}
-                  </Badge>
-                ) : null}
-                {onClearQueuedNextTurn ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onClearQueuedNextTurn()}
-                    className="ml-auto h-7 px-2 text-xs"
-                  >
-                    Clear all
-                  </Button>
-                ) : null}
-              </div>
-              <div className="space-y-1.5">
-                {visibleQueuedTurns.map((item, index) => {
-                  const isEditing = editingQueuedTurnId === item.id;
-                  const summary =
-                    item.content.replace(/\s+/g, " ").trim() ||
-                    "Queued follow-up with attached context.";
-                  return (
-                    <div
-                      key={item.id}
-                      className={cn(
-                        "group relative rounded-lg border border-border/50 bg-background/80 px-2.5 py-2 shadow-sm transition-all hover:border-border hover:shadow-md",
-                        index === 0 && !isEditing && "border-primary/30",
-                      )}
-                    >
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            value={editingQueuedTurnContent}
-                            onChange={(event) =>
-                              setEditingQueuedTurnContent(event.target.value)
-                            }
-                            onKeyDown={(event) => {
-                              if (
-                                event.key === "Enter" &&
-                                !event.shiftKey &&
-                                !event.altKey &&
-                                !event.ctrlKey &&
-                                !event.metaKey
-                              ) {
-                                event.preventDefault();
-                                onUpdateQueuedTurn?.({
-                                  itemId: item.id,
-                                  content: editingQueuedTurnContent.trim(),
-                                });
-                                setEditingQueuedTurnId(null);
-                                setEditingQueuedTurnContent("");
-                              }
-                            }}
-                            className="min-h-20 resize-y text-sm"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingQueuedTurnId(null);
-                                setEditingQueuedTurnContent("");
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => {
-                                onUpdateQueuedTurn?.({
-                                  itemId: item.id,
-                                  content: editingQueuedTurnContent.trim(),
-                                });
-                                setEditingQueuedTurnId(null);
-                                setEditingQueuedTurnContent("");
-                              }}
-                            >
-                              Save
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex min-w-0 items-start gap-2">
-                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
-                            {index + 1}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 text-sm font-medium text-foreground">
-                              {summary}
-                            </p>
-                            {index === 0 ? (
-                              <p className="mt-0.5 text-xs font-medium text-primary/80">
-                                Next to send
-                              </p>
-                            ) : null}
-                          </div>
-                          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                            {canSteerQueuedTurnNow &&
-                            item.attachedFilePaths.length === 0 &&
-                            item.attachments.length === 0 ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                className="text-muted-foreground hover:text-primary"
-                                aria-label={`Steer queued prompt ${index + 1} into the current response`}
-                                onClick={() =>
-                                  onSteerQueuedTurn?.({ itemId: item.id })
-                                }
-                              >
-                                <Zap className="size-3.5" />
-                              </Button>
-                            ) : null}
-                            {canSendQueuedTurnNow ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                className="text-muted-foreground hover:text-primary"
-                                aria-label={`Send queued prompt ${index + 1} now`}
-                                onClick={() =>
-                                  onSendQueuedTurn?.({ itemId: item.id })
-                                }
-                              >
-                                <Send className="size-3.5" />
-                              </Button>
-                            ) : null}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-xs"
-                              aria-label={`Edit queued prompt ${index + 1}`}
-                              onClick={() => {
-                                setEditingQueuedTurnId(item.id);
-                                setEditingQueuedTurnContent(item.content);
-                              }}
-                            >
-                              <Pencil className="size-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-xs"
-                              className="text-muted-foreground hover:text-destructive"
-                              aria-label={`Delete queued prompt ${index + 1}`}
-                              onClick={() =>
-                                onRemoveQueuedTurn?.({ itemId: item.id })
-                              }
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <PromptInputQueuedTurns
+              queuedTurns={visibleQueuedTurns}
+              selectedModel={selectedModel}
+              modelOptions={modelOptions}
+              isTurnActive={Boolean(isTurnActive)}
+              canSteerQueuedTurnNow={Boolean(canSteerQueuedTurnNow)}
+              canSendQueuedTurnNow={canSendQueuedTurnNow}
+              queuedFileCount={queuedFileCount}
+              queuedImageCount={queuedImageCount}
+              editingQueuedTurnId={editingQueuedTurnId}
+              editingQueuedTurnContent={editingQueuedTurnContent}
+              onEditingQueuedTurnContentChange={setEditingQueuedTurnContent}
+              onStartEdit={(item) => {
+                setEditingQueuedTurnId(item.id);
+                setEditingQueuedTurnContent(item.content);
+              }}
+              onCancelEdit={() => {
+                setEditingQueuedTurnId(null);
+                setEditingQueuedTurnContent("");
+              }}
+              onSaveEdit={(itemId) => {
+                onUpdateQueuedTurn?.({
+                  itemId,
+                  content: editingQueuedTurnContent.trim(),
+                });
+                setEditingQueuedTurnId(null);
+                setEditingQueuedTurnContent("");
+              }}
+              onClearAll={onClearQueuedNextTurn}
+              onSteer={(itemId) => onSteerQueuedTurn?.({ itemId })}
+              onSend={(itemId) => onSendQueuedTurn?.({ itemId })}
+              onRemove={(itemId) => onRemoveQueuedTurn?.({ itemId })}
+            />
           ) : null}
           <Popover
             open={activePalette !== null}

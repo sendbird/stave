@@ -20,6 +20,8 @@ const KIRO_STATUS_METHODS = new Set([
 const KIRO_IGNORED_METHODS = new Set([
   "_kiro.dev/commands/available",
   "_kiro.dev/mcp/oauth_request",
+  "session/steer",
+  "session/steer/clear",
 ]);
 
 /**

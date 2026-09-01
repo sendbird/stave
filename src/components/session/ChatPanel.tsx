@@ -7,11 +7,7 @@ import {
   type ClipboardEvent as ReactClipboardEvent,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
-import {
-  LoaderCircle,
-  MessageSquareIcon,
-  Undo2,
-} from "lucide-react";
+import { LoaderCircle, MessageSquareIcon, Undo2 } from "lucide-react";
 import {
   Button,
   Empty,
@@ -157,6 +153,7 @@ interface MessageRowProps {
     planText?: string;
     isStreaming?: boolean;
     steerDeliveryState?: ChatMessage["steerDeliveryState"];
+    dispatchedFromQueue?: ChatMessage["dispatchedFromQueue"];
     providerBoundary?: ChatMessage["providerBoundary"];
     usage?: ChatMessage["usage"];
     delegatedUsage?: ChatMessage["delegatedUsage"];
@@ -224,7 +221,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ? "Steer delivery unconfirmed"
           : message.steerDeliveryState === "rejected"
             ? "Steer rejected"
-            : null;
+            : message.dispatchedFromQueue
+              ? "Sent from queue"
+              : null;
 
   function handleUserMessageCopy(event: ReactClipboardEvent<HTMLDivElement>) {
     if (message.role !== "user") {
@@ -751,7 +750,8 @@ function ChatPanelMessageList(props: {
     if (
       !focusTranscriptToolRequest ||
       focusTranscriptToolRequest.taskId !== taskId ||
-      handledFocusTranscriptNonceRef.current === focusTranscriptToolRequest.nonce
+      handledFocusTranscriptNonceRef.current ===
+        focusTranscriptToolRequest.nonce
     ) {
       return;
     }

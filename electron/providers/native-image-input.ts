@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type {
   CanonicalConversationRequest,
@@ -10,13 +10,12 @@ import {
 } from "../../src/lib/providers/provider-request-translators";
 
 const IMAGE_DETAIL = "low" as const;
+const ACP_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const ACP_IMAGES_TOTAL_MAX_BYTES = 10 * 1024 * 1024;
 
 /** Image MIME types accepted by both native provider adapters. */
 export type NativeImageMimeType =
-  | "image/jpeg"
-  | "image/png"
-  | "image/gif"
-  | "image/webp";
+  "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 
 /** Provider-neutral image input resolved from canonical conversation context. */
 export type NativeImageInput =
@@ -55,6 +54,13 @@ export interface ClaudeNativeImageBlock {
     media_type: NativeImageMimeType;
     data: string;
   };
+}
+
+/** ACP image block used when the agent advertises prompt image support. */
+export interface AcpNativeImageBlock {
+  type: "image";
+  mimeType: NativeImageMimeType;
+  data: string;
 }
 
 /** Keeps text-only Claude turns compact while adding structured image blocks when present. */
@@ -106,7 +112,7 @@ function parseSupportedImageDataUrl(dataUrl: string) {
     return null;
   }
   const mimeType = toNativeImageMimeType(match[1] ?? "");
-  const base64Data = match[2]?.trim();
+  const base64Data = match[2]?.replaceAll(/\s/g, "");
   return mimeType && base64Data
     ? { dataUrl: dataUrl.trim(), mimeType, base64Data }
     : null;
@@ -167,21 +173,122 @@ export function collectNativeImageInputs(args: {
   return { inputs, inlineImageCount, unresolvedInlineImageCount };
 }
 
+/** Removes data URLs that will be sent as native blocks while retaining unsupported fallbacks. */
+export function withoutNativeInlineImageData(args: {
+  conversation?: CanonicalConversationRequest;
+  inputs: NativeImageInput[];
+}) {
+  if (!args.conversation) {
+    return undefined;
+  }
+  const nativeDataUrls = new Set(
+    args.inputs.flatMap((input) =>
+      input.source === "data-url" ? [input.dataUrl] : [],
+    ),
+  );
+  if (nativeDataUrls.size === 0) {
+    return args.conversation;
+  }
+  return {
+    ...args.conversation,
+    contextParts: args.conversation.contextParts.map((part) =>
+      part.type === "image_context" && nativeDataUrls.has(part.dataUrl.trim())
+        ? { ...part, dataUrl: "" }
+        : part,
+    ),
+  };
+}
+
 /** Converts common native images into Codex App Server turn input items. */
 export function buildCodexNativeImageItems(
   inputs: NativeImageInput[],
 ): CodexNativeImageItem[] {
-  return inputs.map((input) => input.source === "local-file"
-    ? {
-        type: "localImage",
-        path: input.path,
-        detail: IMAGE_DETAIL,
+  return inputs.map((input) =>
+    input.source === "local-file"
+      ? {
+          type: "localImage",
+          path: input.path,
+          detail: IMAGE_DETAIL,
+        }
+      : {
+          type: "image",
+          url: input.dataUrl,
+          detail: IMAGE_DETAIL,
+        },
+  );
+}
+
+async function resolveBase64NativeImages(args: {
+  inputs: NativeImageInput[];
+  readLocalFile?: (filePath: string) => Promise<Uint8Array>;
+  statLocalFile?: (filePath: string) => Promise<{ size: number }>;
+  maxImageBytes?: number;
+  maxTotalBytes?: number;
+}) {
+  const images: Array<{ mimeType: NativeImageMimeType; data: string }> = [];
+  const acceptedInputs: NativeImageInput[] = [];
+  let failedLocalImageCount = 0;
+  let skippedOversizedImageCount = 0;
+  let totalBytes = 0;
+  const readLocalFile = args.readLocalFile ?? readFile;
+  const statLocalFile =
+    args.statLocalFile ??
+    (args.readLocalFile
+      ? undefined
+      : async (filePath: string) => {
+          const result = await stat(filePath);
+          return { size: result.size };
+        });
+  const canAccept = (size: number) =>
+    (args.maxImageBytes === undefined || size <= args.maxImageBytes) &&
+    (args.maxTotalBytes === undefined ||
+      totalBytes + size <= args.maxTotalBytes);
+
+  for (const input of args.inputs) {
+    if (input.source === "data-url") {
+      const size = Buffer.byteLength(input.base64Data, "base64");
+      if (!canAccept(size)) {
+        skippedOversizedImageCount += 1;
+        continue;
       }
-    : {
-        type: "image",
-        url: input.dataUrl,
-        detail: IMAGE_DETAIL,
+      totalBytes += size;
+      acceptedInputs.push(input);
+      images.push({
+        mimeType: input.mimeType,
+        data: input.base64Data,
       });
+      continue;
+    }
+    try {
+      if (statLocalFile) {
+        const file = await statLocalFile(input.path);
+        if (!canAccept(file.size)) {
+          skippedOversizedImageCount += 1;
+          continue;
+        }
+      }
+      const bytes = await readLocalFile(input.path);
+      if (!canAccept(bytes.byteLength)) {
+        skippedOversizedImageCount += 1;
+        continue;
+      }
+      totalBytes += bytes.byteLength;
+      acceptedInputs.push(input);
+      images.push({
+        mimeType: input.mimeType,
+        data: Buffer.from(bytes).toString("base64"),
+      });
+    } catch {
+      failedLocalImageCount += 1;
+    }
+  }
+
+  return {
+    images,
+    acceptedInputs,
+    failedLocalImageCount,
+    skippedOversizedImageCount,
+  };
 }
 
 /** Resolves native images into Claude message blocks only at the SDK boundary. */
@@ -189,38 +296,41 @@ export async function buildClaudeNativeImageBlocks(args: {
   inputs: NativeImageInput[];
   readLocalFile?: (filePath: string) => Promise<Uint8Array>;
 }) {
-  const blocks: ClaudeNativeImageBlock[] = [];
-  let failedLocalImageCount = 0;
-  const readLocalFile = args.readLocalFile ?? readFile;
+  const resolved = await resolveBase64NativeImages(args);
+  return {
+    blocks: resolved.images.map<ClaudeNativeImageBlock>((image) => ({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: image.mimeType,
+        data: image.data,
+      },
+    })),
+    failedLocalImageCount: resolved.failedLocalImageCount,
+  };
+}
 
-  for (const input of args.inputs) {
-    if (input.source === "data-url") {
-      blocks.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: input.mimeType,
-          data: input.base64Data,
-        },
-      });
-      continue;
-    }
-    try {
-      const bytes = await readLocalFile(input.path);
-      blocks.push({
-        type: "image",
-        source: {
-          type: "base64",
-          media_type: input.mimeType,
-          data: Buffer.from(bytes).toString("base64"),
-        },
-      });
-    } catch {
-      failedLocalImageCount += 1;
-    }
-  }
-
-  return { blocks, failedLocalImageCount };
+/** Resolves native images into ACP v1 prompt blocks at the provider boundary. */
+export async function buildAcpNativeImageBlocks(args: {
+  inputs: NativeImageInput[];
+  readLocalFile?: (filePath: string) => Promise<Uint8Array>;
+  statLocalFile?: (filePath: string) => Promise<{ size: number }>;
+}) {
+  const resolved = await resolveBase64NativeImages({
+    ...args,
+    maxImageBytes: ACP_IMAGE_MAX_BYTES,
+    maxTotalBytes: ACP_IMAGES_TOTAL_MAX_BYTES,
+  });
+  return {
+    blocks: resolved.images.map<AcpNativeImageBlock>((image) => ({
+      type: "image",
+      mimeType: image.mimeType,
+      data: image.data,
+    })),
+    failedLocalImageCount: resolved.failedLocalImageCount,
+    skippedOversizedImageCount: resolved.skippedOversizedImageCount,
+    acceptedInputs: resolved.acceptedInputs,
+  };
 }
 
 /** Checks image modality support for a selected raw Codex model catalog entry. */
@@ -229,11 +339,12 @@ export function codexModelCatalogSupportsImages(args: {
   models: unknown[];
 }) {
   const selectedModel = args.model?.trim();
-  const candidate = args.models.find((model) => {
-    if (!isRecord(model)) return false;
-    if (!selectedModel) return model.isDefault === true;
-    return model.id === selectedModel || model.model === selectedModel;
-  }) ?? (!selectedModel ? args.models[0] : undefined);
+  const candidate =
+    args.models.find((model) => {
+      if (!isRecord(model)) return false;
+      if (!selectedModel) return model.isDefault === true;
+      return model.id === selectedModel || model.model === selectedModel;
+    }) ?? (!selectedModel ? args.models[0] : undefined);
 
   if (!isRecord(candidate)) {
     return false;
@@ -241,8 +352,10 @@ export function codexModelCatalogSupportsImages(args: {
   if (!("inputModalities" in candidate)) {
     return true;
   }
-  return Array.isArray(candidate.inputModalities) &&
-    candidate.inputModalities.includes("image");
+  return (
+    Array.isArray(candidate.inputModalities) &&
+    candidate.inputModalities.includes("image")
+  );
 }
 
 /** Queries the current App Server catalog before using model-specific image input. */
@@ -254,9 +367,8 @@ export async function queryCodexModelImageSupport(args: {
     includeHidden: true,
     limit: 100,
   });
-  const models = isRecord(response) && Array.isArray(response.data)
-    ? response.data
-    : [];
+  const models =
+    isRecord(response) && Array.isArray(response.data) ? response.data : [];
   return codexModelCatalogSupportsImages({
     model: args.model,
     models,

@@ -4,9 +4,11 @@ import {
   resolveProviderResumeSessionId,
 } from "../../../src/lib/providers/provider-request-translators";
 import { createBoundedBridgeEventCollector } from "../provider-buffering";
+import { PROVIDER_STEER_ACK_TIMEOUT_MS } from "../../../src/lib/providers/steer-delivery";
 import type {
   BridgeEvent,
   ProviderResponderResult,
+  ProviderSteerResponder,
   StreamTurnArgs,
 } from "../types";
 import { AcpEventMapper } from "./acp-event-mapper";
@@ -21,6 +23,11 @@ import {
   normalizeAcpPromptUsage,
 } from "./acp-schemas";
 import { deriveAcpToolPresentation } from "./acp-tool-naming";
+import {
+  buildAcpNativeImageBlocks,
+  collectNativeImageInputs,
+  withoutNativeInlineImageData,
+} from "../native-image-input";
 
 const ACP_EVENT_RETAINED_BYTES_MAX = 512 * 1024;
 const ACP_EVENT_TAIL_BYTES = 16 * 1024;
@@ -88,6 +95,11 @@ export interface AcpProviderRuntimeProfile {
   modelConfigId?: string;
   modelSetter?: "config-option" | "legacy-set-model";
   promptParameterName?: "prompt" | "content" | "prompt+content";
+  /**
+   * When true, register a mid-turn steer responder that calls `_session/steer`.
+   * Cursor ACP does not implement that method; only Kiro primary turns set this.
+   */
+  supportsMidTurnSteering?: boolean;
   authenticationMethodId?: string;
   authenticationHelp: string;
   decisionTimeoutMs: number;
@@ -116,6 +128,7 @@ export type AcpProviderStreamTurnArgs = StreamTurnArgs & {
   registerUserInputResponder?: (
     responder: (args: UserInputResponseArgs) => ProviderResponderResult,
   ) => void;
+  registerSteerResponder?: (responder: ProviderSteerResponder) => void;
   /** Internal-only scoped Stave tools to attach through the ACP session. */
   staveLocalMcpToolNames?: readonly string[];
 };
@@ -578,18 +591,94 @@ export async function streamAcpProviderTurn(args: {
       );
     }
 
+    const supportsNativeImages =
+      initialized.agentCapabilities.promptCapabilities?.image === true;
+    const nativeImageCollection = collectNativeImageInputs({
+      cwd: profile.cwd,
+      conversation: turn.conversation,
+    });
+    const nativeImages = supportsNativeImages
+      ? await buildAcpNativeImageBlocks({
+          inputs: nativeImageCollection.inputs,
+        })
+      : {
+          blocks: [],
+          acceptedInputs: [],
+          failedLocalImageCount: 0,
+          skippedOversizedImageCount: 0,
+        };
+    if (nativeImages.failedLocalImageCount > 0) {
+      emit({
+        type: "error",
+        message: `${profile.displayName} could not read ${nativeImages.failedLocalImageCount} local image attachment${nativeImages.failedLocalImageCount === 1 ? "" : "s"}.`,
+        recoverable: true,
+      });
+    }
+    if (nativeImages.skippedOversizedImageCount > 0) {
+      emit({
+        type: "error",
+        message: `${profile.displayName} skipped native transfer for ${nativeImages.skippedOversizedImageCount} oversized image attachment${nativeImages.skippedOversizedImageCount === 1 ? "" : "s"} and retained the text or path fallback.`,
+        recoverable: true,
+      });
+    }
+    const promptConversation = supportsNativeImages
+      ? withoutNativeInlineImageData({
+          conversation: turn.conversation,
+          inputs: nativeImages.acceptedInputs,
+        })
+      : turn.conversation;
     const prompt = buildProviderTurnPrompt({
       providerId: profile.providerId,
       prompt: turn.prompt,
-      conversation: turn.conversation,
+      conversation: promptConversation,
       activeResumeSessionId: session.resumed ? session.sessionId : null,
-      includeImageData: false,
+      includeImageData:
+        !supportsNativeImages ||
+        nativeImageCollection.unresolvedInlineImageCount > 0 ||
+        nativeImages.skippedOversizedImageCount > 0,
     });
-    const result = await client.prompt({
-      sessionId: session.sessionId,
-      prompt: [{ type: "text", text: prompt }],
-      parameterName: profile.promptParameterName,
-    });
+    let promptInFlight = false;
+    if (profile.supportsMidTurnSteering) {
+      turn.registerSteerResponder?.(async ({ text }) => {
+        if (!promptInFlight || abortRequested || !text.trim()) {
+          return {
+            ok: false,
+            reason: "turn-not-steerable",
+            pendingRequestIds: [],
+          };
+        }
+        try {
+          await client.steer({
+            sessionId: session.sessionId,
+            prompt: [{ type: "text", text }],
+            timeoutMs: PROVIDER_STEER_ACK_TIMEOUT_MS,
+          });
+          return { ok: true };
+        } catch (error) {
+          console.warn("[acp-provider-runtime] _session/steer rejected", {
+            providerId: profile.providerId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return {
+            ok: false,
+            reason: "turn-not-steerable",
+            pendingRequestIds: [],
+          };
+        }
+      });
+    }
+    promptInFlight = true;
+    let result;
+    try {
+      result = await client.prompt({
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: prompt }, ...nativeImages.blocks],
+        legacyContentPrompt: [{ type: "text", text: prompt }],
+        parameterName: profile.promptParameterName,
+      });
+    } finally {
+      promptInFlight = false;
+    }
     const promptUsage =
       normalizeAcpPromptUsage(result.usage) ??
       normalizeAcpPromptUsage(result._meta?.usage);

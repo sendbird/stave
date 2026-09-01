@@ -265,6 +265,31 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.terminalDocked).toBe(true);
   });
 
+  test("preserves queued-dispatch metadata in workspace snapshots", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        messagesByTask: {
+          "task-1": [
+            {
+              id: "queued-1",
+              role: "user",
+              model: "user",
+              providerId: "user",
+              content: "Continue after the last turn",
+              parts: [{ type: "text", text: "Continue after the last turn" }],
+              dispatchedFromQueue: true,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(parsed?.messagesByTask["task-1"]?.[0]).toMatchObject({
+      dispatchedFromQueue: true,
+    });
+  });
+
   test("preserves steer delivery metadata in workspace snapshots", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildAcpNativeImageBlocks,
   buildClaudeNativeImageBlocks,
   buildClaudeNativeUserContent,
   buildCodexNativeImageItems,
@@ -178,35 +179,119 @@ describe("native provider image input", () => {
       ],
       failedLocalImageCount: 0,
     });
-    expect(buildClaudeNativeUserContent({
-      text: "Inspect the images.",
-      blocks: result.blocks,
-    })).toEqual([
+    expect(
+      buildClaudeNativeUserContent({
+        text: "Inspect the images.",
+        blocks: result.blocks,
+      }),
+    ).toEqual([
       { type: "text", text: "Inspect the images." },
       ...result.blocks,
     ]);
   });
 
+  test("builds ACP image blocks from inline and local images", async () => {
+    const collection = collectNativeImageInputs({
+      cwd: "/tmp/project",
+      conversation: createConversation([
+        {
+          type: "file_context",
+          filePath: "screenshots/result.png",
+          content: "[Workspace image attached by path.]",
+          language: "image",
+        },
+        {
+          type: "image_context",
+          dataUrl: "data:image/webp;base64,aW1hZ2U=",
+          label: "clipboard.webp",
+          mimeType: "image/webp",
+        },
+      ]),
+    });
+
+    const result = await buildAcpNativeImageBlocks({
+      inputs: collection.inputs,
+      readLocalFile: async (filePath) => {
+        expect(filePath).toBe("/tmp/project/screenshots/result.png");
+        return Buffer.from("local-image");
+      },
+    });
+
+    expect(result).toEqual({
+      blocks: [
+        {
+          type: "image",
+          mimeType: "image/png",
+          data: Buffer.from("local-image").toString("base64"),
+        },
+        {
+          type: "image",
+          mimeType: "image/webp",
+          data: "aW1hZ2U=",
+        },
+      ],
+      failedLocalImageCount: 0,
+      skippedOversizedImageCount: 0,
+      acceptedInputs: collection.inputs,
+    });
+  });
+
+  test("skips oversized local images before reading their bytes", async () => {
+    const collection = collectNativeImageInputs({
+      cwd: "/tmp/project",
+      conversation: createConversation([
+        {
+          type: "file_context",
+          filePath: "screenshots/oversized.png",
+          content: "[Workspace image attached by path.]",
+          language: "image",
+        },
+      ]),
+    });
+    let readAttempted = false;
+
+    const result = await buildAcpNativeImageBlocks({
+      inputs: collection.inputs,
+      statLocalFile: async () => ({ size: 5 * 1024 * 1024 + 1 }),
+      readLocalFile: async () => {
+        readAttempted = true;
+        return Buffer.alloc(0);
+      },
+    });
+
+    expect(readAttempted).toBe(false);
+    expect(result).toEqual({
+      blocks: [],
+      failedLocalImageCount: 0,
+      skippedOversizedImageCount: 1,
+      acceptedInputs: [],
+    });
+  });
+
   test("checks the selected Codex model image modality", () => {
-    expect(codexModelCatalogSupportsImages({
-      model: "gpt-5.6-terra",
-      models: [
-        {
-          id: "gpt-5.6-terra",
-          model: "gpt-5.6-terra",
-          inputModalities: ["text", "image"],
-        },
-      ],
-    })).toBe(true);
-    expect(codexModelCatalogSupportsImages({
-      model: "text-only",
-      models: [
-        {
-          id: "text-only",
-          model: "text-only",
-          inputModalities: ["text"],
-        },
-      ],
-    })).toBe(false);
+    expect(
+      codexModelCatalogSupportsImages({
+        model: "gpt-5.6-terra",
+        models: [
+          {
+            id: "gpt-5.6-terra",
+            model: "gpt-5.6-terra",
+            inputModalities: ["text", "image"],
+          },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      codexModelCatalogSupportsImages({
+        model: "text-only",
+        models: [
+          {
+            id: "text-only",
+            model: "text-only",
+            inputModalities: ["text"],
+          },
+        ],
+      }),
+    ).toBe(false);
   });
 });

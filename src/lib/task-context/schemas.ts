@@ -34,13 +34,22 @@ const WorkerExecutionMetadataSchema = z.object({
   providerId: ManagedExecutionProviderIdSchema,
   primaryModel: z.string(),
   presetId: z.union([
-    z.literal("patch-hand"), z.literal("verified-patch"), z.literal("sweep"),
-    z.literal("scout"), z.literal("deep-packet"), z.literal("second-pair"),
+    z.literal("patch-hand"),
+    z.literal("verified-patch"),
+    z.literal("sweep"),
+    z.literal("scout"),
+    z.literal("deep-packet"),
+    z.literal("second-pair"),
   ]),
   workerModel: z.string(),
   workerEffort: z.union([
-    z.literal("low"), z.literal("medium"), z.literal("high"),
-    z.literal("xhigh"), z.literal("max"), z.literal("ultra"), z.null(),
+    z.literal("low"),
+    z.literal("medium"),
+    z.literal("high"),
+    z.literal("xhigh"),
+    z.literal("max"),
+    z.literal("ultra"),
+    z.null(),
   ]),
 });
 
@@ -545,6 +554,7 @@ const ChatMessageSchema = z.object({
       z.literal("rejected"),
     ])
     .optional(),
+  dispatchedFromQueue: z.boolean().optional(),
 });
 
 const TaskSourceContextSchema = z
