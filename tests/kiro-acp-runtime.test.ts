@@ -140,6 +140,31 @@ describe("Kiro ACP runtime", () => {
     ]);
   });
 
+  test("keeps entries that only report model_name without a model_id", () => {
+    expect(
+      parseKiroModelCatalog(
+        JSON.stringify({
+          models: [
+            { model_name: "auto", description: "Auto" },
+            { model_name: "claude-opus-5", description: "Opus" },
+          ],
+          default_model: "auto",
+        }),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        model: "auto",
+        displayName: "Auto",
+        isDefault: true,
+      }),
+      expect.objectContaining({
+        model: "claude-opus-5",
+        displayName: "Claude Opus 5",
+        isDefault: false,
+      }),
+    ]);
+  });
+
   test("maps stable ACP updates and isolated Kiro notifications", async () => {
     const events = await streamKiroWithAcp(createTurnArgs("standard"));
     expect(events).toContainEqual({

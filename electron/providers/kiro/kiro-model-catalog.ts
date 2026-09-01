@@ -97,8 +97,18 @@ export function parseKiroModelCatalog(
         },
       ];
     }
+    // Kiro CLI's canonical id fields are `model_id`/`modelId`/`id`. Some CLI
+    // builds omit those and only report `model_name` (or `name`/`displayName`).
+    // Falling back to those keeps such entries in the catalog instead of
+    // dropping every model and surfacing an empty catalog.
     const model =
-      entry.id?.trim() || entry.modelId?.trim() || entry.model_id?.trim() || "";
+      entry.id?.trim() ||
+      entry.modelId?.trim() ||
+      entry.model_id?.trim() ||
+      entry.model_name?.trim() ||
+      entry.name?.trim() ||
+      entry.displayName?.trim() ||
+      "";
     if (!model) {
       return [];
     }
