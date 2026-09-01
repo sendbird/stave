@@ -2646,6 +2646,7 @@ export const useAppStore = create<AppState>()(
                   resolvedImageContexts.length > 0
                     ? resolvedImageContexts
                     : undefined,
+                ...(queuedTurnToSend ? { dispatchedFromQueue: true } : {}),
               });
 
               return {
@@ -2703,6 +2704,7 @@ export const useAppStore = create<AppState>()(
                   resolvedImageContexts.length > 0
                     ? resolvedImageContexts
                     : undefined,
+                ...(queuedTurnToSend ? { dispatchedFromQueue: true } : {}),
               });
 
               return {

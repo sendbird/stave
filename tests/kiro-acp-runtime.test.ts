@@ -190,6 +190,38 @@ describe("Kiro ACP runtime", () => {
     });
   });
 
+  test("sends images natively without duplicating bytes on Kiro's legacy key", async () => {
+    const events = await streamKiroWithAcp(
+      createTurnArgs("image", {
+        conversation: {
+          target: { providerId: "kiro", model: "auto" },
+          mode: "chat",
+          history: [],
+          input: {
+            role: "user",
+            providerId: "user",
+            content: "Inspect the image.",
+            parts: [{ type: "text", text: "Inspect the image." }],
+          },
+          contextParts: [
+            {
+              type: "image_context",
+              dataUrl: "data:image/png;base64,aW1hZ2U=",
+              label: "clipboard.png",
+              mimeType: "image/png",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(events).toContainEqual({
+      type: "text",
+      text: "Kiro received image",
+      segmentId: "kiro-image-message-1",
+    });
+  });
+
   test("loads a saved session and selects a Kiro model", async () => {
     const events = await streamKiroWithAcp(
       createTurnArgs("standard", {
@@ -299,6 +331,71 @@ describe("Kiro ACP runtime", () => {
           event.text.includes('"optionId":"allow_once"'),
       ),
     ).toBe(true);
+  });
+
+  test("injects a mid-turn steer into the in-flight ACP prompt", async () => {
+    let responder:
+      | ((args: { text: string }) => Promise<ProviderResponderResult>)
+      | undefined;
+    let turn!: Promise<BridgeEvent[]>;
+    await waitForEvent(
+      (onEvent) => {
+        turn = streamKiroWithAcp({
+          ...createTurnArgs("steer"),
+          onEvent,
+          registerSteerResponder: (next) => {
+            responder = next;
+          },
+        });
+      },
+      (event) => event.type === "thinking",
+    );
+    await expect(responder?.({ text: "change course" })).resolves.toEqual({
+      ok: true,
+    });
+    const events = await turn;
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" && event.text === "steered:change course",
+      ),
+    ).toBe(true);
+    expect(events.filter((event) => event.type === "done")).toEqual([
+      { type: "done", stop_reason: "end_turn" },
+    ]);
+  });
+
+  test("rejects a steer when the agent does not implement _session/steer", async () => {
+    let responder:
+      | ((args: { text: string }) => Promise<ProviderResponderResult>)
+      | undefined;
+    let abort: (() => void) | undefined;
+    let turn!: Promise<BridgeEvent[]>;
+    await waitForEvent(
+      (onEvent) => {
+        turn = streamKiroWithAcp({
+          ...createTurnArgs("steer-unsupported"),
+          onEvent,
+          registerAbort: (next) => {
+            abort = next;
+          },
+          registerSteerResponder: (next) => {
+            responder = next;
+          },
+        });
+      },
+      (event) => event.type === "thinking",
+    );
+    await expect(responder?.({ text: "change course" })).resolves.toEqual({
+      ok: false,
+      reason: "turn-not-steerable",
+      pendingRequestIds: [],
+    });
+    abort?.();
+    const events = await turn;
+    expect(events.filter((event) => event.type === "done")).toEqual([
+      { type: "done", stop_reason: "user_abort" },
+    ]);
   });
 
   test("cancels the ACP prompt and emits one terminal event", async () => {

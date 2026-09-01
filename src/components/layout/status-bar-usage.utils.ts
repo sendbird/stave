@@ -1,6 +1,8 @@
 import type {
   ClaudeUsageSnapshot,
   CodexUsageSnapshot,
+  CursorUsageSnapshot,
+  KiroUsageSnapshot,
 } from "@/lib/providers/provider.types";
 
 export interface UsageHeadlineWindow {
@@ -18,9 +20,11 @@ export interface UsageHeadlineWindow {
  * because their names only make sense next to the full breakdown.
  */
 export function buildUsageHeadlineWindows(args: {
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "cursor" | "kiro";
   claude?: ClaudeUsageSnapshot | null;
   codex?: CodexUsageSnapshot | null;
+  cursor?: CursorUsageSnapshot | null;
+  kiro?: KiroUsageSnapshot | null;
 }): UsageHeadlineWindow[] {
   if (args.provider === "claude") {
     const claude = args.claude;
@@ -39,9 +43,17 @@ export function buildUsageHeadlineWindows(args: {
         : []),
     ];
   }
+  if (args.provider === "cursor" || args.provider === "kiro") {
+    const provider = args[args.provider];
+    return provider?.source !== "unavailable" && provider?.monthly
+      ? [{ short: "", usedPercent: provider.monthly.usedPercent }]
+      : [];
+  }
   const bucket = args.codex?.buckets[0] ?? null;
   const usedPercent =
-    bucket?.primary?.usedPercent ?? bucket?.individualLimit?.usedPercent ?? null;
+    bucket?.primary?.usedPercent ??
+    bucket?.individualLimit?.usedPercent ??
+    null;
   return usedPercent === null ? [] : [{ short: "", usedPercent }];
 }
 

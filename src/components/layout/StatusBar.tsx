@@ -8,7 +8,7 @@ const RATE_LIMITS_POLL_INTERVAL_MS = 60_000;
 /**
  * Global, VSCode-style bottom status bar. Spans the full window width below
  * the project sidebar, chat/editor column, and right rail — a persistent
- * home for Claude/Codex usage plus other bottom-of-window info (memory today,
+ * home for provider usage plus other bottom-of-window info (memory today,
  * more segments later).
  */
 export function StatusBar() {
@@ -33,6 +33,8 @@ export function StatusBar() {
       <div className="flex items-center gap-0.5">
         <StatusBarUsageSegment provider="claude" />
         <StatusBarUsageSegment provider="codex" />
+        <StatusBarUsageSegment provider="cursor" />
+        <StatusBarUsageSegment provider="kiro" />
       </div>
       <div className="flex items-center gap-0.5">
         <StatusBarMemorySegment />

@@ -79,7 +79,12 @@ input.on("line", (line) => {
   if (method === "initialize") {
     result(id, {
       protocolVersion: 1,
-      agentCapabilities: { loadSession: true },
+      agentCapabilities: {
+        loadSession: true,
+        ...(scenario === "image" || scenario === "image-mixed"
+          ? { promptCapabilities: { image: true } }
+          : {}),
+      },
       authMethods: [{ id: "cursor_login", name: "Cursor login" }],
     });
     return;
@@ -153,6 +158,115 @@ input.on("line", (line) => {
   }
 
   pendingPromptId = id;
+  if (scenario === "image-unsupported") {
+    const params = message.params as Record<string, unknown> | undefined;
+    const prompt = Array.isArray(params?.prompt) ? params.prompt : [];
+    const hasImageBlock = prompt.some(
+      (block) =>
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "image",
+    );
+    const hasTextFallback = prompt.some(
+      (block) =>
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "text" &&
+        typeof (block as Record<string, unknown>).text === "string" &&
+        ((block as Record<string, unknown>).text as string).includes(
+          "data:image/png;base64,aW1hZ2U=",
+        ),
+    );
+    if (hasImageBlock || !hasTextFallback) {
+      send({
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32602, message: "invalid image fallback" },
+      });
+      return;
+    }
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "Cursor received image fallback" },
+      messageId: "image-fallback-message-1",
+    });
+    finishPrompt();
+    return;
+  }
+  if (scenario === "image") {
+    const params = message.params as Record<string, unknown> | undefined;
+    const prompt = Array.isArray(params?.prompt) ? params.prompt : [];
+    const text = prompt.find(
+      (block) =>
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "text",
+    ) as Record<string, unknown> | undefined;
+    const image = prompt.find(
+      (block) =>
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "image",
+    );
+    const validImage =
+      image &&
+      typeof image === "object" &&
+      (image as Record<string, unknown>).mimeType === "image/png" &&
+      (image as Record<string, unknown>).data === "aW1hZ2U=";
+    const textContainsDataUrl =
+      typeof text?.text === "string" && text.text.includes("data:image/");
+    if (!validImage || textContainsDataUrl) {
+      send({
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32602, message: "invalid image prompt" },
+      });
+      return;
+    }
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "Cursor received image" },
+      messageId: "image-message-1",
+    });
+    finishPrompt();
+    return;
+  }
+  if (scenario === "image-mixed") {
+    const params = message.params as Record<string, unknown> | undefined;
+    const prompt = Array.isArray(params?.prompt) ? params.prompt : [];
+    const text = prompt.find(
+      (block) =>
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "text",
+    ) as Record<string, unknown> | undefined;
+    const imageCount = prompt.filter(
+      (block) =>
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "image",
+    ).length;
+    const textValue = typeof text?.text === "string" ? text.text : "";
+    if (
+      imageCount !== 1 ||
+      textValue.includes("data:image/png;base64,aW1hZ2U=") ||
+      !textValue.includes("data:image/svg+xml;base64,PHN2Zy8+")
+    ) {
+      send({
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32602, message: "invalid mixed image prompt" },
+      });
+      return;
+    }
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "Cursor received mixed images" },
+      messageId: "mixed-image-message-1",
+    });
+    finishPrompt();
+    return;
+  }
   if (scenario === "cancel") {
     return;
   }

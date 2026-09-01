@@ -71,7 +71,9 @@ export async function describeKiroAvailability(
     runExecutableProbe({ executablePath, commandArgs: ["whoami"], env }),
   ]);
   const available =
-    versionProbe.status === 0 && acpProbe.status === 0 && authProbe.status === 0;
+    versionProbe.status === 0 &&
+    acpProbe.status === 0 &&
+    authProbe.status === 0;
   const version = extractRuntimeVersion(versionProbe.text);
   const detail = available
     ? `Resolved authenticated Kiro CLI: ${executablePath}`
@@ -119,10 +121,9 @@ export async function streamKiroWithAcp(
 
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
-  const secretEnv =
-    args.runtimeOptions?.boundSecretIds?.length
-      ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
-      : {};
+  const secretEnv = args.runtimeOptions?.boundSecretIds?.length
+    ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
+    : {};
   const mcpServers = args.staveLocalMcpToolNames?.length
     ? await resolveAcpStaveLocalMcpServers({
         allowedToolNames: args.staveLocalMcpToolNames,
@@ -154,8 +155,8 @@ export async function streamKiroWithAcp(
       requestedModel: args.runtimeOptions?.model?.trim() || "auto",
       modelSetter: "legacy-set-model",
       promptParameterName: "prompt+content",
-      authenticationHelp:
-        "Run `kiro-cli login` if authentication has expired.",
+      supportsMidTurnSteering: true,
+      authenticationHelp: "Run `kiro-cli login` if authentication has expired.",
       decisionTimeoutMs: parsePositiveIntEnv({
         value: process.env.STAVE_KIRO_APPROVAL_TIMEOUT_MS,
         fallback: KIRO_APPROVAL_TIMEOUT_DEFAULT_MS,
@@ -209,16 +210,14 @@ export async function streamKiroWorkerWithAcp(args: {
       // Manual on purpose: a nested Worker must not inherit the primary turn's
       // blanket approval grant. Worker approvals surface in the parent UI.
       commandArgs:
-        args.acpArgsForTest ??
-        buildKiroAcpCommandArgs(args.effort, "manual"),
+        args.acpArgsForTest ?? buildKiroAcpCommandArgs(args.effort, "manual"),
       cwd: runtimeCwd,
       env: buildKiroCliEnv({ executablePath }),
       resumeSessionId: args.resumeSessionId,
       requestedModel: args.model.trim() || "auto",
       modelSetter: "legacy-set-model",
       promptParameterName: "prompt+content",
-      authenticationHelp:
-        "Run `kiro-cli login` if authentication has expired.",
+      authenticationHelp: "Run `kiro-cli login` if authentication has expired.",
       decisionTimeoutMs: parsePositiveIntEnv({
         value: process.env.STAVE_KIRO_APPROVAL_TIMEOUT_MS,
         fallback: KIRO_APPROVAL_TIMEOUT_DEFAULT_MS,

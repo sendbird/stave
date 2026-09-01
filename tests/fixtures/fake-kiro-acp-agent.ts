@@ -95,7 +95,52 @@ input.on("line", (line) => {
     finishPrompt("cancelled");
     return;
   }
+  if (method === "_session/steer") {
+    if (scenario === "steer-unsupported") {
+      send({
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32601, message: "Method not found: _session/steer" },
+      });
+      return;
+    }
+    const params = message.params as Record<string, unknown> | undefined;
+    const prompt = params?.prompt;
+    const text =
+      Array.isArray(prompt) &&
+      prompt[0] !== null &&
+      typeof prompt[0] === "object" &&
+      (prompt[0] as Record<string, unknown>).type === "text" &&
+      typeof (prompt[0] as Record<string, unknown>).text === "string"
+        ? ((prompt[0] as Record<string, unknown>).text as string)
+        : "";
+    if (params?.sessionId !== "kiro-fixture-session" || !text.trim()) {
+      send({
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32602, message: "invalid steer payload" },
+      });
+      return;
+    }
+    result(id, {});
+    if (pendingPromptId !== undefined) {
+      update({
+        sessionUpdate: "agent_message_chunk",
+        content: { type: "text", text: `steered:${text}` },
+        messageId: "kiro-steer-message-1",
+      });
+      finishPrompt();
+    }
+    return;
+  }
   if (method !== "session/prompt") {
+    if (id !== undefined) {
+      send({
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32601, message: `Method not found: ${method}` },
+      });
+    }
     return;
   }
 
@@ -116,7 +161,58 @@ input.on("line", (line) => {
     return;
   }
   pendingPromptId = id;
+  if (scenario === "steer" || scenario === "steer-unsupported") {
+    update({
+      sessionUpdate: "agent_thought_chunk",
+      content: { type: "text", text: "Kiro thinking" },
+    });
+    return;
+  }
   if (scenario === "cancel") {
+    return;
+  }
+  if (scenario === "image") {
+    const prompt = params.prompt as unknown[];
+    const content = params.content as unknown[];
+    const hasValidImage = (blocks: unknown[]) =>
+      blocks.some(
+        (block) =>
+          block !== null &&
+          typeof block === "object" &&
+          (block as Record<string, unknown>).type === "image" &&
+          (block as Record<string, unknown>).mimeType === "image/png" &&
+          (block as Record<string, unknown>).data === "aW1hZ2U=",
+      );
+    const textContainsDataUrl = (blocks: unknown[]) =>
+      blocks.some(
+        (block) =>
+          block !== null &&
+          typeof block === "object" &&
+          (block as Record<string, unknown>).type === "text" &&
+          typeof (block as Record<string, unknown>).text === "string" &&
+          ((block as Record<string, unknown>).text as string).includes(
+            "data:image/",
+          ),
+      );
+    if (
+      !hasValidImage(prompt) ||
+      hasValidImage(content) ||
+      textContainsDataUrl(prompt) ||
+      textContainsDataUrl(content)
+    ) {
+      send({
+        jsonrpc: "2.0",
+        id,
+        error: { code: -32602, message: "invalid image prompt" },
+      });
+      return;
+    }
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "Kiro received image" },
+      messageId: "kiro-image-message-1",
+    });
+    finishPrompt();
     return;
   }
   if (scenario === "permission") {

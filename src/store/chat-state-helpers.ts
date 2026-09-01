@@ -141,8 +141,14 @@ export function buildLocalCommandResponseState(args: {
     current.length,
     args.messageCountByTask[args.taskId] ?? 0,
   );
-  const userMessageId = buildMessageId({ taskId: args.taskId, count: baseMessageCount });
-  const assistantMessageId = buildMessageId({ taskId: args.taskId, count: baseMessageCount + 1 });
+  const userMessageId = buildMessageId({
+    taskId: args.taskId,
+    count: baseMessageCount,
+  });
+  const assistantMessageId = buildMessageId({
+    taskId: args.taskId,
+    count: baseMessageCount + 1,
+  });
   const timestamp = buildRecentTimestamp();
 
   const userMessage: ChatMessage = {
@@ -163,7 +169,9 @@ export function buildLocalCommandResponseState(args: {
     startedAt: timestamp,
     completedAt: timestamp,
     isStreaming: false,
-    parts: args.responseText ? [createUserTextPart({ text: args.responseText })] : [],
+    parts: args.responseText
+      ? [createUserTextPart({ text: args.responseText })]
+      : [],
   };
   const nextMessages = args.shouldClearProviderSession
     ? [userMessage, assistantMessage]
@@ -173,7 +181,7 @@ export function buildLocalCommandResponseState(args: {
     tasks: args.tasks.map((taskItem) =>
       taskItem.id === args.taskId
         ? { ...taskItem, archivedAt: null, updatedAt: buildRecentTimestamp() }
-        : taskItem
+        : taskItem,
     ),
     messagesByTask: {
       ...args.messagesByTask,
@@ -183,7 +191,8 @@ export function buildLocalCommandResponseState(args: {
       ...args.messageCountByTask,
       [args.taskId]: Math.max(
         nextMessages.length,
-        (args.messageCountByTask[args.taskId] ?? current.length) + (nextMessages.length - current.length),
+        (args.messageCountByTask[args.taskId] ?? current.length) +
+          (nextMessages.length - current.length),
       ),
     },
     activeTurnIdsByTask: {
@@ -198,7 +207,9 @@ export function buildLocalCommandResponseState(args: {
       : args.nativeSessionReadyByTask,
     providerSessionByTask: args.shouldClearProviderSession
       ? Object.fromEntries(
-          Object.entries(args.providerSessionByTask).filter(([key]) => key !== args.taskId)
+          Object.entries(args.providerSessionByTask).filter(
+            ([key]) => key !== args.taskId,
+          ),
         )
       : args.providerSessionByTask,
     taskWorkspaceIdById: {
@@ -236,6 +247,7 @@ export function buildPendingProviderTurnState(args: {
     label: string;
     mimeType: string;
   }>;
+  dispatchedFromQueue?: boolean;
 }) {
   const current = args.messagesByTask[args.taskId] ?? [];
   // Anchor new IDs to the durable total; `current` may be a trimmed tail window.
@@ -243,18 +255,26 @@ export function buildPendingProviderTurnState(args: {
     current.length,
     args.messageCountByTask[args.taskId] ?? 0,
   );
-  const userMessageId = buildMessageId({ taskId: args.taskId, count: baseMessageCount });
-  const assistantMessageId = buildMessageId({ taskId: args.taskId, count: baseMessageCount + 1 });
+  const userMessageId = buildMessageId({
+    taskId: args.taskId,
+    count: baseMessageCount,
+  });
+  const assistantMessageId = buildMessageId({
+    taskId: args.taskId,
+    count: baseMessageCount + 1,
+  });
   const userParts: MessagePart[] = [];
 
   if (args.fileContexts) {
     for (const fileContext of args.fileContexts) {
-      userParts.push(createFileContextPart({
-        filePath: fileContext.filePath,
-        content: fileContext.content,
-        language: fileContext.language,
-        instruction: fileContext.instruction,
-      }));
+      userParts.push(
+        createFileContextPart({
+          filePath: fileContext.filePath,
+          content: fileContext.content,
+          language: fileContext.language,
+          instruction: fileContext.instruction,
+        }),
+      );
     }
   }
 
@@ -299,8 +319,12 @@ export function buildPendingProviderTurnState(args: {
     providerId: "user",
     content: args.content,
     ...(displayContent ? { displayContent } : {}),
-    parts: userParts.length > 0 ? userParts : [createUserTextPart({ text: args.content })],
+    parts:
+      userParts.length > 0
+        ? userParts
+        : [createUserTextPart({ text: args.content })],
     ...(displayParts && displayParts.length > 0 ? { displayParts } : {}),
+    ...(args.dispatchedFromQueue ? { dispatchedFromQueue: true } : {}),
   };
 
   const assistantMessage: ChatMessage = {
@@ -324,7 +348,7 @@ export function buildPendingProviderTurnState(args: {
             archivedAt: null,
             updatedAt: buildRecentTimestamp(),
           }
-        : taskItem
+        : taskItem,
     ),
     messagesByTask: {
       ...args.messagesByTask,
@@ -334,7 +358,8 @@ export function buildPendingProviderTurnState(args: {
       ...args.messageCountByTask,
       [args.taskId]: Math.max(
         nextMessages.length,
-        (args.messageCountByTask[args.taskId] ?? current.length) + (nextMessages.length - current.length),
+        (args.messageCountByTask[args.taskId] ?? current.length) +
+          (nextMessages.length - current.length),
       ),
     },
     activeTurnIdsByTask: {

@@ -232,7 +232,7 @@ export const PROVIDER_DESCRIPTORS = [
       unattendedRuns: false,
       prePrReview: false,
       nativeCommandCatalog: false,
-      supportsMidTurnSteering: false,
+      supportsMidTurnSteering: true,
       threadActions: {
         forkFromTurn: {
           supported: false,

@@ -279,6 +279,8 @@ describe("PromptInput queue mode", () => {
               queuedAt: "2026-04-09T00:00:00.000Z",
               sourceTurnId: "turn-1",
               content: "Follow up after this finishes",
+              providerId: "cursor",
+              model: "auto",
               attachedFilePaths: ["README.md"],
               attachments: [
                 {
@@ -290,8 +292,8 @@ describe("PromptInput queue mode", () => {
               ],
             },
           ],
-          selectedModel: MODEL_OPTION,
-          modelOptions: [MODEL_OPTION],
+          selectedModel: CLAUDE_MODEL_OPTION,
+          modelOptions: [MODEL_OPTION, CLAUDE_MODEL_OPTION],
           attachedFilePaths: [],
           attachments: [],
           onValueChange: () => {},
@@ -308,6 +310,7 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain("Follow up after this finishes");
     expect(html).toContain("1 queued follow-up");
     expect(html).toContain("Next to send");
+    expect(html).toContain("Sends as Cursor Auto, not Claude Opus 4.6");
     expect(html).toContain("1 file");
     expect(html).toContain("1 image");
     expect(html).toContain("Clear all");
@@ -375,12 +378,8 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain(
       'aria-label="Remove attached file src/current-context.ts"',
     );
-    expect(html).toContain(
-      'aria-label="Preview attached image current.png"',
-    );
-    expect(html).toContain(
-      'aria-label="Remove attached image current.png"',
-    );
+    expect(html).toContain('aria-label="Preview attached image current.png"');
+    expect(html).toContain('aria-label="Remove attached image current.png"');
   });
 
   test("offers a send-now action on queued turns when no turn is active", async () => {

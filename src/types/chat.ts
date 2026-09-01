@@ -7,7 +7,10 @@ import type {
   DelegatedExecutionUsage,
   ProviderId,
 } from "@/lib/providers/provider.types";
-import type { WorkerExecutionMetadata, WorkerProviderConfig } from "@/lib/providers/worker-mode";
+import type {
+  WorkerExecutionMetadata,
+  WorkerProviderConfig,
+} from "@/lib/providers/worker-mode";
 import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
 export type MessageRole = "user" | "assistant";
@@ -396,6 +399,13 @@ export interface ChatMessage {
    * transcript can distinguish them from new user turns.
    */
   steerDeliveryState?: "pending" | "accepted" | "unknown" | "rejected";
+  /**
+   * Set on a user message that started a turn because a queued follow-up
+   * dispatched, not because the composer sent a new draft. The composer
+   * selection can change after the item was queued, so the transcript has
+   * to keep this mark.
+   */
+  dispatchedFromQueue?: boolean;
 }
 
 export type EditorTabContentState =

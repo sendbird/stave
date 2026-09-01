@@ -31,6 +31,9 @@ baseline or its ACP integration.
    this session; do not substitute the broader non-ACP CLI model list.
 4. Run one representative prompt and verify stable ACP updates for text,
    reasoning, tool calls, tool results, diffs, plans, and usage metadata.
+   When `promptCapabilities.image` is advertised, attach an image and confirm
+   the prompt carries one native image block without repeating its data URL in
+   the text block.
 5. Verify `cursor/ask_question`, `cursor/create_plan`,
    `cursor/update_todos`, `cursor/task`, and `cursor/generate_image` still use
    the schemas expected by the Cursor profile.
@@ -47,6 +50,9 @@ baseline or its ACP integration.
 
 ## Product boundaries
 
+- Do not advertise mid-turn steering for Cursor. The ACP method table in this
+  baseline is `session/prompt` plus `session/cancel`; there is no inject or
+  steer request, and a cancel-then-reprompt is not steering.
 - Cursor remains limited to interactive primary task turns until each broader
   execution surface has its own capability and safety review.
 - Do not infer token counts from ACP context-usage data.
