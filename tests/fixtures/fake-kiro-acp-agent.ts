@@ -68,6 +68,16 @@ input.on("line", (line) => {
     return;
   }
   if (method === "session/new") {
+    // MCP servers start while `session/new` is still in flight, so this
+    // namespaced notification always precedes the session result.
+    send({
+      jsonrpc: "2.0",
+      method: "_kiro.dev/mcp/server_initialized",
+      params: {
+        status: "completed",
+        message: "MCP server ready.",
+      },
+    });
     result(id, { sessionId: "kiro-fixture-session" });
     return;
   }

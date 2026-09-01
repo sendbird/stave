@@ -113,6 +113,41 @@ describe("MessageUsageSummary", () => {
     ).toBe("");
   });
 
+  test("does not print a fabricated zero token pair for Cursor", () => {
+    // Cursor reports context and cost but never token counts, so the usage
+    // record it produces is seeded with 0/0.
+    const html = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "cursor",
+        model: "composer-2.5",
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          contextUsedPercent: 12.5,
+          contextCostAmount: 0.002,
+          contextCostCurrency: "USD",
+        },
+      }),
+    );
+
+    expect(html).toContain("13%");
+    expect(html).not.toContain("0 input tokens");
+    expect(html).toContain(
+      'aria-label="Turn usage details for Cursor · composer-2.5: token usage not reported by the provider"',
+    );
+
+    // Nothing reported at all still renders nothing rather than an empty chip.
+    expect(
+      renderToStaticMarkup(
+        createElement(MessageUsageSummary, {
+          providerId: "cursor",
+          model: "composer-2.5",
+          usage: { inputTokens: 0, outputTokens: 0 },
+        }),
+      ),
+    ).toBe("");
+  });
+
   test("says so explicitly when Kiro reports no usage", () => {
     const html = renderToStaticMarkup(
       createElement(MessageUsageSummary, {

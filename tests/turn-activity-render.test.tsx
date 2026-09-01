@@ -165,7 +165,10 @@ describe("TurnActivity", () => {
       }),
     );
 
-    expect(html).toContain("3.7% ctx");
+    // The Headroom tile reports what is left, so a 3.671% used report reads as
+    // 96% remaining rather than repeating the used figure.
+    expect(html).toContain("96% ctx left");
+    expect(html).not.toContain("3.7% ctx");
     expect(html).toContain("0.0541 credits");
     expect(html).not.toContain("0 tokens");
   });

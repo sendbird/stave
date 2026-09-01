@@ -120,6 +120,12 @@ describe("Kiro ACP runtime", () => {
       type: "system",
       content: "Context compaction completed.",
     });
+    // Emitted before `session/new` resolves, so the session/load replay guard
+    // must not swallow it.
+    expect(events).toContainEqual({
+      type: "system",
+      content: "MCP server ready.",
+    });
     expect(events.filter((event) => event.type === "done")).toHaveLength(1);
     expect(events).toContainEqual({
       type: "usage",

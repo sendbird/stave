@@ -352,11 +352,17 @@ export async function streamAcpProviderTurn(args: {
     onNotification: (method, params) => {
       const isSessionUpdate =
         method === "session/update" || method === "session/notification";
-      if (!acceptLiveSessionUpdates) {
-        return isSessionUpdate || Boolean(extensionRuntime.onNotification);
-      }
       if (isSessionUpdate) {
-        mapper.mapNotification(params).forEach(emit);
+        if (acceptLiveSessionUpdates) {
+          mapper.mapNotification(params).forEach(emit);
+        }
+        return true;
+      }
+      // Namespaced notifications are only dropped inside the `session/load`
+      // replay window, where they describe the previous turn. Outside it they
+      // must keep flowing: MCP startup reports arrive while `session/new` is
+      // still in flight, before live session updates are accepted.
+      if (client.replayingSession) {
         return true;
       }
       return extensionRuntime.onNotification?.(method, params) ?? false;
