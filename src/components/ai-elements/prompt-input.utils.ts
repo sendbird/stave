@@ -55,6 +55,22 @@ export function resolvePromptEnhancementDisplayText(args: {
   return args.revealedText;
 }
 
+/**
+ * Returns the `scrollTop` that keeps the tail of the prompt in view.
+ *
+ * Lexical only reconciles the DOM selection - and therefore only scrolls the
+ * caret into view - while `editor.isEditable()` is true. The editor is held
+ * non-editable for the whole enhancement reveal, so nothing scrolls the
+ * growing text into view and a long enhanced prompt types itself off the
+ * bottom of the box. Pinning the scroll offset manually restores that.
+ */
+export function getPromptRevealScrollTop(args: {
+  scrollHeight: number;
+  clientHeight: number;
+}) {
+  return Math.max(0, args.scrollHeight - args.clientHeight);
+}
+
 export function getNextCommandSelectionIndex(args: {
   currentIndex: number;
   itemCount: number;

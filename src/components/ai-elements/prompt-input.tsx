@@ -31,6 +31,7 @@ import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type RefObject,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -119,6 +120,7 @@ import {
   getNextCommandSelectionIndex,
   getPromptEnhancementRevealDurationMs,
   getPromptEnhancementRevealText,
+  getPromptRevealScrollTop,
   isPromptHistoryBoundaryReached,
   navigatePromptHistory,
   NO_COMMAND_SELECTION,
@@ -441,6 +443,44 @@ function usePromptEnhancementReveal(args: {
     revealedText: revealedValue,
     value: args.value,
   });
+}
+
+/**
+ * Keeps the tail of the enhanced prompt in view while it is being revealed.
+ *
+ * Lexical scrolls the caret into view only as part of reconciling the DOM
+ * selection, and it skips that entirely while the editor is non-editable. The
+ * editor stays non-editable for the whole reveal, so without this the
+ * typewriter runs past the bottom of a `max-h` box and the user watches a
+ * blank tail. Normal typing is untouched: this does nothing unless a reveal is
+ * running.
+ */
+function usePromptEnhancementScrollPin(args: {
+  editorRef: RefObject<PromptLexicalEditorHandle | null>;
+  revealing: boolean;
+  revealedText: string;
+}) {
+  const { editorRef, revealing, revealedText } = args;
+
+  useEffect(() => {
+    if (!revealing) {
+      return;
+    }
+    // The external-sync plugin writes the text in a child effect, which has
+    // already run by the time this parent effect fires, but Lexical reconciles
+    // the DOM asynchronously - so measure on the next frame.
+    const frameId = window.requestAnimationFrame(() => {
+      const element = editorRef.current?.getRootElement();
+      if (!element) {
+        return;
+      }
+      element.scrollTop = getPromptRevealScrollTop({
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight,
+      });
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [editorRef, revealedText, revealing]);
 }
 
 function tooltipTriggerButtonClassName(args: {
@@ -936,6 +976,11 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [editingQueuedTurnContent, setEditingQueuedTurnContent] = useState("");
   const promptEditorRef = useRef<PromptLexicalEditorHandle | null>(null);
+  usePromptEnhancementScrollPin({
+    editorRef: promptEditorRef,
+    revealing: promptEnhancementRevealing,
+    revealedText: displayedPromptValue,
+  });
   const valueRef = useRef(value);
   const caretIndexRef = useRef(caretIndex);
   const pendingCommandTokenRef = useRef<SlashCommandTokenMatch | null>(null);

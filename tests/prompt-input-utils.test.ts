@@ -4,6 +4,7 @@ import {
   getNextCommandSelectionIndex,
   getPromptEnhancementRevealDurationMs,
   getPromptEnhancementRevealText,
+  getPromptRevealScrollTop,
   resolvePromptEnhancementDisplayText,
   isPromptHistoryBoundaryReached,
   navigatePromptHistory,
@@ -190,5 +191,20 @@ describe("prompt enhancement reveal", () => {
         value: "Ship 🚀 safely",
       }),
     ).toBe("");
+  });
+
+  test("pins the reveal scroll offset to the tail of a long prompt", () => {
+    // Regression guard: Lexical skips its own scroll-into-view while the editor
+    // is non-editable, which it is for the whole reveal.
+    expect(
+      getPromptRevealScrollTop({ scrollHeight: 960, clientHeight: 240 }),
+    ).toBe(720);
+    // A prompt that still fits must not be scrolled at all.
+    expect(
+      getPromptRevealScrollTop({ scrollHeight: 120, clientHeight: 240 }),
+    ).toBe(0);
+    expect(
+      getPromptRevealScrollTop({ scrollHeight: 240, clientHeight: 240 }),
+    ).toBe(0);
   });
 });
