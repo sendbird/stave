@@ -127,9 +127,7 @@ function LensSessionSurface(args: {
   // costs; it hands this to the session below, which reports when a guest
   // exists.
   const surface = useLensDomSurfaceHost({
-    annotationCount: annotations.length,
     hasLensApi,
-    isAnnotationModeActive,
     lensPanelTab,
     lensSessionId,
     onVisualCommentShortcut: toggleAnnotationMode,
@@ -330,6 +328,7 @@ function LensSessionSurface(args: {
         <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
           {lensPanelTab === "preview" ? (
             <LensPreviewSurface
+              chromeLayer={surface.chromeLayer}
               hasLensApi={hasLensApi}
               isLoading={isLoading}
               lastLoadError={lastLoadError}

@@ -26,6 +26,14 @@ import { normalizeLensUrl } from "./browser-url";
 import { readNormalizedPageAnnotations } from "./browser-annotation-ingestion";
 
 import {
+  applyLensAppearance,
+  captureLensSnapshot,
+  getLensActionTimeline,
+  getLensAppearanceState,
+  recordLensAction,
+} from "./browser-lens-snapshot";
+import {
+  assertCdpAllowedForWebContentsId,
   captureScreenshot,
   clickElement,
   evaluateExpression,
@@ -47,6 +55,8 @@ import {
 } from "./lens-credential-service";
 
 const NAVIGATE_TIMEOUT_MS = 30_000;
+const DEFAULT_SNAPSHOT_MAX_NODES = 800;
+const MAX_SNAPSHOT_MAX_NODES = 4_000;
 const DEFAULT_HTML_MAX_CHARS = 20_000;
 const MAX_HTML_CHARS = 50_000;
 const DEFAULT_LOG_LIMIT = 25;
@@ -61,6 +71,36 @@ function toStructuredResult<T>(value: T) {
     content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
     structuredContent: value,
   };
+}
+
+/**
+ * Run an agent action and remember that it happened.
+ *
+ * The timeline is what stops a model re-deriving its own turn. Failures are
+ * recorded too, and that is the more valuable half: without it, an action that
+ * cannot succeed is retried on every subsequent turn because nothing in the
+ * context says it was already tried. The error is re-thrown unchanged — this
+ * observes, it does not swallow.
+ */
+async function withLensAction<T>(
+  webContentsId: number,
+  tool: string,
+  target: string | undefined,
+  run: () => Promise<T>,
+): Promise<T> {
+  try {
+    const result = await run();
+    recordLensAction(webContentsId, { tool, target, status: "succeeded" });
+    return result;
+  } catch (error) {
+    recordLensAction(webContentsId, {
+      tool,
+      target,
+      status: "failed",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }
 
 async function acquireSession(
@@ -559,12 +599,17 @@ export function registerBrowserTools(server: McpServer): void {
           .describe(
             "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
-        selector: z.string().describe("CSS selector of the target element"),
+        target: z.string().describe("Element to act on. Prefer a `ref` from stave_lens_snapshot (`d1e12`, `d1f1e3`): it is keyed to the element the snapshot described, so a page that changed underneath fails loudly instead of acting on the wrong element. A CSS selector is also accepted as an escape hatch for what a snapshot cannot name."),
       },
     },
-    async ({ workspaceId, lensSessionId, selector }) => {
+    async ({ workspaceId, lensSessionId, target }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
-      const text = await getTextContent(session.webContents.id, selector);
+      const text = await withLensAction(
+        session.webContents.id,
+        "stave_lens_get_text",
+        target,
+        () => getTextContent(session.webContents.id, target),
+      );
       return toStructuredResult({ ok: true, text });
     },
   );
@@ -794,7 +839,7 @@ export function registerBrowserTools(server: McpServer): void {
           .describe(
             "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
-        selector: z.string().describe("CSS selector of the target element"),
+        target: z.string().describe("Element to act on. Prefer a `ref` from stave_lens_snapshot (`d1e12`, `d1f1e3`): it is keyed to the element the snapshot described, so a page that changed underneath fails loudly instead of acting on the wrong element. A CSS selector is also accepted as an escape hatch for what a snapshot cannot name."),
         style: z
           .record(z.string(), z.string())
           .describe(
@@ -802,13 +847,14 @@ export function registerBrowserTools(server: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, lensSessionId, selector, style }) => {
+    async ({ workspaceId, lensSessionId, target, style }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_set_style");
-      const edits = await setElementStyle(
+      const edits = await withLensAction(
         session.webContents.id,
-        selector,
-        style,
+        "stave_lens_set_style",
+        target,
+        () => setElementStyle(session.webContents.id, target, style),
       );
       return toStructuredResult({ ok: true, edits });
     },
@@ -828,15 +874,17 @@ export function registerBrowserTools(server: McpServer): void {
           .describe(
             "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
-        selector: z.string().describe("CSS selector of the element to inspect"),
+        target: z.string().describe("Element to act on. Prefer a `ref` from stave_lens_snapshot (`d1e12`, `d1f1e3`): it is keyed to the element the snapshot described, so a page that changed underneath fails loudly instead of acting on the wrong element. A CSS selector is also accepted as an escape hatch for what a snapshot cannot name."),
       },
     },
-    async ({ workspaceId, lensSessionId, selector }) => {
+    async ({ workspaceId, lensSessionId, target }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_inspect");
-      const box = await getElementBoxModel(
+      const box = await withLensAction(
         session.webContents.id,
-        selector,
+        "stave_lens_inspect",
+        target,
+        () => getElementBoxModel(session.webContents.id, target),
       );
       return toStructuredResult({ ok: true, box });
     },
@@ -856,17 +904,18 @@ export function registerBrowserTools(server: McpServer): void {
           .describe(
             "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
-        selectorA: z.string().describe("CSS selector of the first element"),
-        selectorB: z.string().describe("CSS selector of the second element"),
+        targetA: z.string().describe("Element to measure from, as a snapshot `ref` (`d1e12`) or a CSS selector."),
+        targetB: z.string().describe("Element to measure to, as a snapshot `ref` (`d1e12`) or a CSS selector."),
       },
     },
-    async ({ workspaceId, lensSessionId, selectorA, selectorB }) => {
+    async ({ workspaceId, lensSessionId, targetA, targetB }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_measure");
-      const result = await measureElements(
+      const result = await withLensAction(
         session.webContents.id,
-        selectorA,
-        selectorB,
+        "stave_lens_measure",
+        `${targetA} -> ${targetB}`,
+        () => measureElements(session.webContents.id, targetA, targetB),
       );
       return toStructuredResult({ ok: true, ...result });
     },
@@ -886,13 +935,18 @@ export function registerBrowserTools(server: McpServer): void {
           .describe(
             "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
-        selector: z.string().describe("CSS selector of the element to click"),
+        target: z.string().describe("Element to act on. Prefer a `ref` from stave_lens_snapshot (`d1e12`, `d1f1e3`): it is keyed to the element the snapshot described, so a page that changed underneath fails loudly instead of acting on the wrong element. A CSS selector is also accepted as an escape hatch for what a snapshot cannot name."),
       },
     },
-    async ({ workspaceId, lensSessionId, selector }) => {
+    async ({ workspaceId, lensSessionId, target }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_click");
-      await clickElement(session.webContents.id, selector);
+      await withLensAction(
+        session.webContents.id,
+        "stave_lens_click",
+        target,
+        () => clickElement(session.webContents.id, target),
+      );
       return toStructuredResult({ ok: true });
     },
   );
@@ -912,26 +966,33 @@ export function registerBrowserTools(server: McpServer): void {
             "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
         text: z.string().describe("Text to type"),
-        selector: z
+        target: z
           .string()
           .optional()
-          .describe("CSS selector of the element to focus before typing"),
+          .describe(
+            "Element to focus before typing, as a snapshot `ref` or a CSS selector. Omit to type into whatever already has focus.",
+          ),
       },
     },
-    async ({ workspaceId, lensSessionId, text, selector }) => {
+    async ({ workspaceId, lensSessionId, text, target }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
       requestLensAgentActivityPresentation(session, "stave_lens_type");
-      await typeText(session.webContents.id, text, selector);
+      await withLensAction(
+        session.webContents.id,
+        "stave_lens_type",
+        target,
+        () => typeText(session.webContents.id, text, target),
+      );
       return toStructuredResult({ ok: true });
     },
   );
 
-  // ---- Accessibility snapshot ----
+  // ---- Page snapshot: the addressable view of the page ----
   server.registerTool(
     "stave_lens_snapshot",
     {
       description:
-        "Get a compact accessibility tree snapshot of the current page. Use this as the first Lens read before raw HTML, console, or network dumps.",
+        "Snapshot the current page as an indented accessibility outline with a `ref` on every element you can act on. Use this as the first Lens read, before raw HTML, console, or network dumps, and pass the refs it returns to stave_lens_click, _type, _inspect, _get_text, and _set_style. Refs are minted per snapshot and die with the document, so a ref that no longer describes the page fails loudly instead of acting on the wrong element. Nodes new since the previous snapshot of the same page are marked `*`.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         lensSessionId: z
@@ -940,12 +1001,218 @@ export function registerBrowserTools(server: McpServer): void {
           .describe(
             "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
           ),
+        depth: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe("Maximum tree depth to render. Lower is cheaper."),
+        maxNodes: z
+          .number()
+          .int()
+          .min(20)
+          .max(MAX_SNAPSHOT_MAX_NODES)
+          .optional()
+          .describe(
+            `Token budget as a node count (default ${DEFAULT_SNAPSHOT_MAX_NODES}). What is cut is reported, never silently dropped.`,
+          ),
+        interactableOnly: z
+          .boolean()
+          .optional()
+          .describe(
+            "Render only elements that carry a ref. Much cheaper, and enough for most act-on-the-page work.",
+          ),
+        includeFrames: z
+          .boolean()
+          .optional()
+          .describe(
+            "Include subframes. Their refs are prefixed (`d1f1e3`) so they can never resolve against the wrong document.",
+          ),
+        includeConsole: z
+          .boolean()
+          .optional()
+          .describe("Include recent console entries in the same call."),
+        includeNetwork: z
+          .boolean()
+          .optional()
+          .describe("Include recent network entries in the same call."),
+        includeActions: z
+          .boolean()
+          .optional()
+          .describe(
+            "Include this session's recent Lens actions and their outcomes, so prior work in this turn does not have to be re-derived.",
+          ),
       },
     },
-    async ({ workspaceId, lensSessionId }) => {
+    async ({
+      workspaceId,
+      lensSessionId,
+      depth,
+      maxNodes,
+      interactableOnly,
+      includeFrames,
+      includeConsole,
+      includeNetwork,
+      includeActions,
+    }) => {
       const session = await acquireSession(workspaceId, lensSessionId);
-      const tree = await getAccessibilitySnapshot(session.webContents.id);
-      return toStructuredResult({ ok: true, tree });
+      const webContentsId = session.webContents.id;
+
+      let snapshot;
+      try {
+        snapshot = await captureLensSnapshot(webContentsId, {
+          maxDepth: depth,
+          maxNodes: maxNodes ?? DEFAULT_SNAPSHOT_MAX_NODES,
+          interactableOnly,
+          includeFrames,
+        });
+      } catch (error) {
+        // The accessibility domain is not guaranteed in every Chromium build,
+        // and a snapshot that hard-errors would strand an agent with no read
+        // path at all. Fall back to the raw tree and say so.
+        const tree = await getAccessibilitySnapshot(webContentsId);
+        return toStructuredResult({
+          ok: true,
+          degraded: true,
+          message: `Ref-based snapshot unavailable, returning the raw tree: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          tree,
+        });
+      }
+
+      return toStructuredResult({
+        ok: true,
+        url: snapshot.url,
+        title: snapshot.title,
+        loading: session.navigationState.isLoading,
+        refCount: snapshot.refCount,
+        truncated: snapshot.truncated,
+        omitted: snapshot.omitted,
+        snapshot: snapshot.text,
+        /*
+         * Always reported, never opt-in. An emulated appearance changes what
+         * every visual read means, and an agent that set one twenty tool calls
+         * ago and has since forgotten would otherwise read a forced dark theme
+         * as the page's real one.
+         */
+        ...(() => {
+          const appearance = getLensAppearanceState(webContentsId);
+          return appearance.colorScheme || appearance.reducedMotion
+            ? { appearance }
+            : {};
+        })(),
+        ...(includeConsole
+          ? { console: session.consoleLog.toArray().slice(-DEFAULT_LOG_LIMIT) }
+          : {}),
+        ...(includeNetwork
+          ? { network: session.networkLog.toArray().slice(-DEFAULT_LOG_LIMIT) }
+          : {}),
+        ...(includeActions
+          ? { actionTimeline: getLensActionTimeline(webContentsId) }
+          : {}),
+      });
+    },
+  );
+
+  // ---- Reload ----
+  server.registerTool(
+    "stave_lens_reload",
+    {
+      description:
+        "Reload the current page in the workspace Lens browser. Use this after changing code that the page renders and the dev server has no hot reload — a read taken against the previous bundle looks like the fix did not work. Prefer it over navigating to the URL the tab is already on, which destroys in-progress page state such as a filled form or an open dialog.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
+          ),
+        ignoreCache: z
+          .boolean()
+          .optional()
+          .describe(
+            "Bypass the HTTP cache. Needed when a dev server serves a stale bundle with a long-lived cache header.",
+          ),
+      },
+    },
+    async ({ workspaceId, lensSessionId, ignoreCache }) => {
+      const session = await acquireSession(workspaceId, lensSessionId);
+      await withLensAction(
+        session.webContents.id,
+        "stave_lens_reload",
+        undefined,
+        async () => {
+          if (ignoreCache) {
+            session.webContents.reloadIgnoringCache();
+          } else {
+            session.webContents.reload();
+          }
+        },
+      );
+      /*
+       * The reload discards the document the refs were minted against. Nothing
+       * here can renumber them — `captureLensSnapshot` does that on the next
+       * snapshot — but saying so is what stops an agent reusing a ref across a
+       * reload and reading the resulting error as a bug.
+       */
+      return toStructuredResult({
+        ok: true,
+        message:
+          "Reload started. Refs from earlier snapshots are no longer valid; take a new stave_lens_snapshot once the page has loaded.",
+      });
+    },
+  );
+
+  // ---- Appearance emulation ----
+  server.registerTool(
+    "stave_lens_set_appearance",
+    {
+      description:
+        "Emulate `prefers-color-scheme` and `prefers-reduced-motion` for the workspace Lens page, so a dark theme or a reduced-motion layout can be checked without changing the user's machine settings. Incremental: setting one keeps the other. Survives a page reload, and is dropped when a session is rebuilt. Call with `reset: true` to return the page to the machine's own settings. Note that viewport size is not emulable for a Lens page — Electron sizes the guest from its element and overrides any CDP metrics override.",
+      inputSchema: {
+        workspaceId: z.string().describe("Target workspace ID"),
+        lensSessionId: z
+          .string()
+          .optional()
+          .describe(
+            "Exact Lens session id. When omitted, reuses the visible/recent session or creates a hidden default.",
+          ),
+        colorScheme: z
+          .enum(["light", "dark", "no-preference"])
+          .optional()
+          .describe("Value reported to `prefers-color-scheme`."),
+        reducedMotion: z
+          .enum(["reduce", "no-preference"])
+          .optional()
+          .describe("Value reported to `prefers-reduced-motion`."),
+        reset: z
+          .boolean()
+          .optional()
+          .describe("Drop every override instead of applying one."),
+      },
+    },
+    async ({ workspaceId, lensSessionId, ...request }) => {
+      const session = await acquireSession(workspaceId, lensSessionId);
+      // Emulation is a CDP write like any other, and it was the one path that
+      // reached the debugger without asking. Every other tool goes through this.
+      await assertCdpAllowedForWebContentsId(
+        session.webContents.id,
+        "emulate page appearance",
+      );
+      requestLensAgentActivityPresentation(
+        session,
+        "stave_lens_set_appearance",
+      );
+      const appearance = await withLensAction(
+        session.webContents.id,
+        "stave_lens_set_appearance",
+        request.reset ? "reset" : (request.colorScheme ?? request.reducedMotion),
+        () => applyLensAppearance(session.webContents.id, request),
+      );
+      return toStructuredResult({ ok: true, appearance });
     },
   );
 

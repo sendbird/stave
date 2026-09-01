@@ -155,8 +155,10 @@ If the workflow also needs live UI inspection:
 7. If sign-in is required and a matching account is saved, call `stave_lens_fill_saved_account`; leave `submit` false unless the user asked the agent to sign in
 8. Let the user's `Agent Activity` preference handle visual inspection and page interaction; call `stave_lens_present_session` only if immediate interaction, sign-in, or explicit display is required
 9. Prefer low-token reads first: `stave_lens_snapshot` for page structure, scoped `stave_lens_get_text` for copy, and selector screenshots for visual checks
-10. Use raw or high-volume reads only when needed: pass `selector` and `maxChars` to `stave_lens_get_html`, and keep `limit` small for `stave_lens_get_console`, `stave_lens_get_network`, and `stave_lens_list_downloads`
-11. Call `stave_lens_close_session` to close MCP-managed sessions when the workflow is done
+10. Act on elements by the `ref` the snapshot returned (`d1e12`, `d1f1e3`) rather than a CSS selector. A ref dies with the page that minted it, so a stale one errors instead of clicking the wrong element; re-snapshot after anything that changes the page. Pass `interactableOnly` and `maxNodes` to keep a snapshot cheap, and `includeConsole`/`includeNetwork`/`includeActions` to avoid extra round trips
+11. To check a dark theme or a reduced-motion layout, call `stave_lens_set_appearance` rather than asking the user to change machine settings; after changing code the page renders, call `stave_lens_reload` rather than navigating to the URL the tab is already on. Viewport size is not emulable for a Lens page — resize the pane instead
+12. Use raw or high-volume reads only when needed: pass `selector` and `maxChars` to `stave_lens_get_html`, and keep `limit` small for `stave_lens_get_console`, `stave_lens_get_network`, and `stave_lens_list_downloads`
+13. Call `stave_lens_close_session` to close MCP-managed sessions when the workflow is done
 
 CDP-backed calls pause for up to 60 seconds while Stave waits for approval. Choose `Allow once` for temporary access, or `Always allow` to save the hostname. You can also pre-approve it under `Settings > Lens > Developer Mode > Approved CDP Hosts`. Host approval ignores ports and paths, so `localhost` covers every localhost development port.
 

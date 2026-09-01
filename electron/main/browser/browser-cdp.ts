@@ -15,6 +15,11 @@ import {
   borrowLensGuestFocus,
   releaseLensGuestFocus,
 } from "./browser-guest-broker";
+import {
+  describeLensRef,
+  resolveLensRefToObjectId,
+} from "./browser-lens-snapshot";
+import { resolveLensTarget } from "../../../src/lib/lens/lens-snapshot";
 import { assertCdpAllowed } from "./browser-security";
 import { getLensBoxModelScript } from "./browser-style-capture";
 import {
@@ -159,17 +164,16 @@ export async function getDocumentHTML(
 
 export async function getTextContent(
   webContentsId: number,
-  selector: string,
+  target: string,
 ): Promise<string> {
   await assertCdpAllowedForWebContentsId(webContentsId, "read text content");
 
-  const expression = `(() => { const el = document.querySelector(${JSON.stringify(selector)}); return el ? el.textContent : null; })()`;
-  const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
-    expression,
-    returnByValue: true,
-  })) as { result: { value: unknown } };
-
-  return (result.result.value as string) ?? "";
+  const value = await callOnLensTarget<string | null>(
+    webContentsId,
+    target,
+    `function () { return this.textContent; }`,
+  );
+  return value ?? "";
 }
 
 interface RuntimeEvaluateResult {
@@ -197,47 +201,141 @@ export async function evaluateExpression(
   return result.result.value;
 }
 
+
+// ---------------------------------------------------------------------------
+// Target resolution: ref or selector
+// ---------------------------------------------------------------------------
+
+/**
+ * Run a function with `this` bound to the element a target names.
+ *
+ * The two addressing modes converge here rather than in each caller, and they
+ * are not equally trustworthy. A **ref** was minted by a snapshot and is keyed
+ * to node identity, so resolving it either returns the element the agent saw or
+ * fails loudly. A **selector** is re-run against the live document, so it
+ * returns whatever matches *now* — which may be a different element than the
+ * one the agent meant, with nothing anywhere able to tell. Selectors stay as a
+ * permanent escape hatch for what a snapshot cannot name; refs are the
+ * documented default precisely because they can be invalidated.
+ *
+ * Returns `null` when a selector matched nothing. A ref that cannot be resolved
+ * throws instead: "not found" is ambiguous for a selector and unambiguous for a
+ * ref, and the error should say which one happened.
+ */
+export async function callOnLensTarget<T>(
+  webContentsId: number,
+  target: string,
+  functionDeclaration: string,
+): Promise<T | null> {
+  const resolved = resolveLensTarget(target);
+
+  if (resolved.kind === "ref") {
+    const objectId = await resolveLensRefToObjectId(
+      webContentsId,
+      resolved.ref,
+    );
+    const result = (await sendCommand(webContentsId, "Runtime.callFunctionOn", {
+      objectId,
+      functionDeclaration,
+      returnByValue: true,
+    })) as RuntimeEvaluateResult;
+    if (result.exceptionDetails) {
+      throw new Error(
+        `Action on ${resolved.ref} failed: ${JSON.stringify(result.exceptionDetails)}`,
+      );
+    }
+    return (result.result.value as T) ?? null;
+  }
+
+  const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
+    expression: `(() => {
+      const el = document.querySelector(${JSON.stringify(resolved.selector)});
+      if (!el) return null;
+      return (${functionDeclaration}).call(el);
+    })()`,
+    returnByValue: true,
+  })) as RuntimeEvaluateResult;
+  if (result.exceptionDetails) {
+    throw new Error(
+      `Action on "${resolved.selector}" failed: ${JSON.stringify(result.exceptionDetails)}`,
+    );
+  }
+  return (result.result.value as T) ?? null;
+}
+
+/**
+ * Resolve a target to a live CDP object handle.
+ *
+ * Needed where one call has to hold two elements at once — measuring a gap —
+ * because two separate `querySelector` evaluations against a page that
+ * re-rendered in between measure two elements that were never on screen
+ * together. Refs get the staleness check for free; a selector that matches
+ * nothing returns null.
+ */
+export async function resolveLensTargetObjectId(
+  webContentsId: number,
+  target: string,
+): Promise<string | null> {
+  const resolved = resolveLensTarget(target);
+  if (resolved.kind === "ref") {
+    return resolveLensRefToObjectId(webContentsId, resolved.ref);
+  }
+  const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
+    expression: `document.querySelector(${JSON.stringify(resolved.selector)})`,
+    returnByValue: false,
+  })) as { result?: { objectId?: string; subtype?: string } };
+  return result.result?.subtype === "null"
+    ? null
+    : (result.result?.objectId ?? null);
+}
+
+/** How to name a target in an error, without leaking which mode resolved it. */
+export function describeLensTarget(
+  webContentsId: number,
+  target: string,
+): string {
+  const resolved = resolveLensTarget(target);
+  if (resolved.kind === "selector") {
+    return `"${resolved.selector}"`;
+  }
+  const described = describeLensRef(webContentsId, resolved.ref);
+  return described ? `${resolved.ref} (${described})` : resolved.ref;
+}
+
 // ---------------------------------------------------------------------------
 // Box model inspection (Figma/DevTools-style padding / border / margin)
 // ---------------------------------------------------------------------------
 
 export async function getElementBoxModel(
   webContentsId: number,
-  selector: string,
+  target: string,
 ): Promise<LensBoxModel> {
   await assertCdpAllowedForWebContentsId(
     webContentsId,
     "read element box model",
   );
 
-  const expression = `(() => {
-    ${getLensBoxModelScript()}
-    const el = document.querySelector(${JSON.stringify(selector)});
-    if (!el) return null;
-    return staveBoxModelForElement(el);
-  })()`;
+  const value = await callOnLensTarget<LensBoxModel | null>(
+    webContentsId,
+    target,
+    `function () {
+      ${getLensBoxModelScript()}
+      return staveBoxModelForElement(this);
+    }`,
+  );
 
-  const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
-    expression,
-    returnByValue: true,
-  })) as RuntimeEvaluateResult;
-
-  if (result.exceptionDetails) {
-    throw new Error(
-      `Box model error: ${JSON.stringify(result.exceptionDetails)}`,
-    );
-  }
-  const value = result.result.value as LensBoxModel | null;
   if (!value) {
-    throw new Error(`Element not found: ${selector}`);
+    throw new Error(
+      `Cannot inspect ${describeLensTarget(webContentsId, target)}: no element matched.`,
+    );
   }
   return value;
 }
 
 export async function measureElements(
   webContentsId: number,
-  selectorA: string,
-  selectorB: string,
+  targetA: string,
+  targetB: string,
 ): Promise<{
   measurement: LensMeasurement;
   from: LensBoxModel;
@@ -245,23 +343,33 @@ export async function measureElements(
 }> {
   await assertCdpAllowedForWebContentsId(webContentsId, "measure elements");
 
-  const expression = `(() => {
-    ${getLensBoxModelScript()}
-    const a = document.querySelector(${JSON.stringify(selectorA)});
-    const b = document.querySelector(${JSON.stringify(selectorB)});
-    if (!a || !b) {
-      return { ok: false, missing: [a ? null : ${JSON.stringify(selectorA)}, b ? null : ${JSON.stringify(selectorB)}].filter(Boolean) };
-    }
-    return {
-      ok: true,
-      measurement: staveMeasureRects(a.getBoundingClientRect(), b.getBoundingClientRect()),
-      from: staveBoxModelForElement(a),
-      to: staveBoxModelForElement(b),
-    };
-  })()`;
+  const [objectA, objectB] = await Promise.all([
+    resolveLensTargetObjectId(webContentsId, targetA),
+    resolveLensTargetObjectId(webContentsId, targetB),
+  ]);
 
-  const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
-    expression,
+  const missing = [
+    objectA ? null : describeLensTarget(webContentsId, targetA),
+    objectB ? null : describeLensTarget(webContentsId, targetB),
+  ].filter(Boolean);
+  if (missing.length > 0) {
+    throw new Error(`Element(s) not found: ${missing.join(", ")}`);
+  }
+
+  // Both elements are held as handles across one call, so a page that
+  // re-renders cannot leave the measurement describing a pair that was never
+  // laid out together.
+  const result = (await sendCommand(webContentsId, "Runtime.callFunctionOn", {
+    objectId: objectA,
+    functionDeclaration: `function (other) {
+      ${getLensBoxModelScript()}
+      return {
+        measurement: staveMeasureRects(this.getBoundingClientRect(), other.getBoundingClientRect()),
+        from: staveBoxModelForElement(this),
+        to: staveBoxModelForElement(other),
+      };
+    }`,
+    arguments: [{ objectId: objectB }],
     returnByValue: true,
   })) as RuntimeEvaluateResult;
 
@@ -270,24 +378,15 @@ export async function measureElements(
       `Measure error: ${JSON.stringify(result.exceptionDetails)}`,
     );
   }
-  const value = result.result.value as
-    | {
-        ok: true;
-        measurement: LensMeasurement;
-        from: LensBoxModel;
-        to: LensBoxModel;
-      }
-    | { ok: false; missing: string[] }
-    | null;
-  if (!value?.ok) {
-    const missing = value && "missing" in value ? value.missing.join(", ") : "";
-    throw new Error(
-      missing
-        ? `Element(s) not found: ${missing}`
-        : "Unable to measure elements.",
-    );
+  const value = result.result.value as {
+    measurement: LensMeasurement;
+    from: LensBoxModel;
+    to: LensBoxModel;
+  } | null;
+  if (!value) {
+    throw new Error("Unable to measure elements.");
   }
-  return { measurement: value.measurement, from: value.from, to: value.to };
+  return value;
 }
 
 // ---------------------------------------------------------------------------
@@ -374,29 +473,36 @@ async function withLensGuestFocus<T>(
 
 export async function clickElement(
   webContentsId: number,
-  selector: string,
+  target: string,
 ): Promise<void> {
   await assertCdpAllowedForWebContentsId(webContentsId, "click page element");
   await withLensGuestFocus(webContentsId, "click page element", async () => {
-    // Scroll the element into view first so getBoundingClientRect returns
-    // non-negative viewport-relative coordinates, then get the center point.
-    await sendCommand(webContentsId, "Runtime.evaluate", {
-      expression: `document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({ block: "center", inline: "center" })`,
-      returnByValue: true,
-    });
+    /*
+     * Scroll into view and measure in one call, against one resolution of the
+     * target.
+     *
+     * Splitting them was a real hazard: the old code resolved the selector
+     * twice, so a page that re-rendered between the two evaluations scrolled
+     * one element into view and clicked the coordinates of another. One
+     * resolution also means a ref is checked for staleness once, at the moment
+     * it is used.
+     */
+    const pt = await callOnLensTarget<{ x: number; y: number } | null>(
+      webContentsId,
+      target,
+      `function () {
+        this.scrollIntoView({ block: "center", inline: "center" });
+        const r = this.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) return null;
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+      }`,
+    );
 
-    const coords = (await sendCommand(webContentsId, "Runtime.evaluate", {
-      expression: `(() => {
-      const el = document.querySelector(${JSON.stringify(selector)});
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    })()`,
-      returnByValue: true,
-    })) as { result: { value: { x: number; y: number } | null } };
-
-    const pt = coords.result.value;
-    if (!pt) throw new Error(`Element not found: ${selector}`);
+    if (!pt) {
+      throw new Error(
+        `Cannot click ${describeLensTarget(webContentsId, target)}: no element matched, or it has no layout box.`,
+      );
+    }
 
     await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
       type: "mousePressed",
@@ -418,14 +524,36 @@ export async function clickElement(
 export async function typeText(
   webContentsId: number,
   text: string,
-  selector?: string,
+  target?: string,
 ): Promise<void> {
   await assertCdpAllowedForWebContentsId(webContentsId, "type into page");
   await withLensGuestFocus(webContentsId, "type into page", async () => {
-    if (selector) {
-      await sendCommand(webContentsId, "Runtime.evaluate", {
-        expression: `document.querySelector(${JSON.stringify(selector)})?.focus()`,
-      });
+    if (target) {
+      /*
+       * Focus is checked, not assumed. The old version fired `?.focus()` and
+       * dropped the result, so typing into a target that matched nothing — or a
+       * ref whose element had been removed — inserted the text wherever the
+       * caret happened to be. For an agent filling a form that is a silent
+       * write into the wrong field.
+       *
+       * This is the *page's* focus, inside a guest whose native focus
+       * `withLensGuestFocus` has already borrowed. Both are needed: the borrow
+       * decides which WebContents Chromium delivers to, this decides which
+       * element inside it receives.
+       */
+      const focused = await callOnLensTarget<boolean>(
+        webContentsId,
+        target,
+        `function () {
+          this.focus();
+          return document.activeElement === this;
+        }`,
+      );
+      if (focused !== true) {
+        throw new Error(
+          `Cannot type into ${describeLensTarget(webContentsId, target)}: it could not take focus, so the text would land elsewhere.`,
+        );
+      }
     }
 
     await sendCommand(webContentsId, "Input.insertText", { text });
@@ -434,7 +562,7 @@ export async function typeText(
 
 export async function setElementStyle(
   webContentsId: number,
-  selector: string,
+  target: string,
   patch: Record<string, string>,
 ): Promise<LensStyleEdit[]> {
   await assertCdpAllowedForWebContentsId(webContentsId, "edit element style");
@@ -454,37 +582,28 @@ export async function setElementStyle(
     ),
   );
 
-  const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
-    expression: `(() => {
-      const el = document.querySelector(${JSON.stringify(selector)});
-      if (!el) {
-        return { ok: false, message: "Element not found: ${selector.replace(/"/g, '\\"')}" };
-      }
+  const edits = await callOnLensTarget<LensStyleEdit[]>(
+    webContentsId,
+    target,
+    `function () {
       const patch = ${JSON.stringify(safePatch)};
       const edits = [];
-      const computed = window.getComputedStyle(el);
+      const computed = window.getComputedStyle(this);
       for (const [property, after] of Object.entries(patch)) {
         const cssProperty = property.replace(/[A-Z]/g, (match) => "-" + match.toLowerCase());
         const before = computed.getPropertyValue(cssProperty);
-        el.style[property] = String(after);
+        this.style[property] = String(after);
         edits.push({ property, before, after: String(after) });
       }
-      return { ok: true, edits };
-    })()`,
-    returnByValue: true,
-  })) as {
-    result: {
-      value:
-        | { ok: true; edits: LensStyleEdit[] }
-        | { ok: false; message: string }
-        | undefined;
-    };
-  };
+      return edits;
+    }`,
+  );
 
-  const value = result.result.value;
-  if (!value?.ok) {
-    throw new Error(value?.message ?? "Unable to edit element style.");
+  if (!edits) {
+    throw new Error(
+      `Cannot restyle ${describeLensTarget(webContentsId, target)}: no element matched.`,
+    );
   }
 
-  return value.edits;
+  return edits;
 }

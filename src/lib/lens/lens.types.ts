@@ -86,7 +86,25 @@ export interface LensSessionPresentationRequestPayload {
 export interface LensSessionClosedPayload {
   workspaceId: string;
   lensSessionId: string;
+  /**
+   * Why the session ended. Absent on payloads from older builds, which only
+   * ever emitted the deliberate case.
+   *
+   * The three are not interchangeable and the renderer must not treat them
+   * alike: `"closed"` means the tab should go away too, while the other two are
+   * a page that vanished under a tab the user still has open — dropping the tab
+   * there is how a crash turns into a Lens pane that silently disappears.
+   */
+  reason?: LensSessionCloseReason;
 }
+
+export type LensSessionCloseReason =
+  /** Deliberate teardown: a closed tab, an agent close, a workspace dispose. */
+  | "closed"
+  /** The page died on its own — a guest crash, or a host renderer reload. */
+  | "guest-gone"
+  /** Reclaimed by the hidden-guest cap. Rebuildable from the remembered URL. */
+  | "evicted";
 
 /**
  * Main-to-renderer request to mount a guest for a session the renderer did not
@@ -403,7 +421,7 @@ export interface BrowserScreenshotOptions {
 }
 
 // ---------------------------------------------------------------------------
-// WebContentsView bounds
+// Lens guest bounds, in host-document CSS pixels
 // ---------------------------------------------------------------------------
 
 export interface LensBounds {

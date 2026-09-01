@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Shared Lens style capture helpers for scripts injected into WebContentsView.
+// Shared Lens style capture helpers for scripts injected into a Lens guest page.
 // ---------------------------------------------------------------------------
 
 export const LENS_CAPTURED_STYLE_KEYS = [
