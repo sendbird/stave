@@ -15,15 +15,15 @@ import { buildKiroAcpCommandArgs } from "../electron/providers/kiro/kiro-acp-pro
 describe("Cursor and Kiro approval presets", () => {
   test("offers three Cursor tiers and only the two Kiro tiers the CLI can honor", () => {
     expect(CURSOR_PROVIDER_MODE_PRESETS.map((preset) => preset.id)).toEqual([
-      "manual",
-      "guided",
       "auto",
+      "guided",
+      "manual",
     ]);
     // `--trust-tools` accepts unknown tool names silently, so a Kiro Guided
     // tier could present as partial trust while trusting nothing.
     expect(KIRO_PROVIDER_MODE_PRESETS.map((preset) => preset.id)).toEqual([
-      "manual",
       "auto",
+      "manual",
     ]);
   });
 
