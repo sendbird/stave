@@ -544,7 +544,7 @@ test("Crane approval inherits the Advisor default and configures it while off", 
       advisorEnabled: false,
       advisorTarget: null,
       advisorTargetByProvider: {
-        "claude-code": { model: "claude-fable-5", effort: "max" },
+        "claude-code": { model: "claude-fable-5-1", effort: "max" },
       },
       advisorConsultLimit: 3,
     },
@@ -640,7 +640,7 @@ test("Crane approval inherits the Advisor default and configures it while off", 
     .toMatchObject({
       advisorTarget: {
         providerId: "claude-code",
-        model: "claude-fable-5",
+        model: "claude-fable-5-1",
         // Previously stripped by the strict IPC schema, which had no effort
         // field at all.
         effort: "max",

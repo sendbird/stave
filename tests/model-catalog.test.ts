@@ -28,7 +28,7 @@ import {
 } from "@/lib/providers/model-catalog";
 
 describe("model catalog", () => {
-  test("includes Claude Fable 5 without making it the Claude default", () => {
+  test("includes Claude Fable 5.1 without making it the Claude default", () => {
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(CLAUDE_FABLE_MODEL);
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
       "claude-sonnet-5",
@@ -46,7 +46,7 @@ describe("model catalog", () => {
     ]);
   });
 
-  test("includes Fable 5 and Sonnet 5 variants in the Claude SDK options", () => {
+  test("includes Fable 5.1 and Sonnet 5 in the Claude SDK options", () => {
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(CLAUDE_FABLE_MODEL);
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5");
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5[1m]");
@@ -74,8 +74,12 @@ describe("model catalog", () => {
     );
   });
 
-  test("formats Claude Fable 5 with canonical labels", () => {
+  test("formats Claude Fable models with canonical labels", () => {
     expect(toHumanModelName({ model: CLAUDE_FABLE_MODEL })).toBe(
+      "Claude Fable 5.1",
+    );
+    // Historical records keep the retired id and still render a real name.
+    expect(toHumanModelName({ model: "claude-fable-5" })).toBe(
       "Claude Fable 5",
     );
   });
@@ -299,6 +303,9 @@ describe("model catalog", () => {
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-4-6[1m]" }),
     ).toBe("claude-sonnet-5[1m]");
+    expect(upgradeSettingsScopedClaudeModel({ model: "claude-fable-5" })).toBe(
+      CLAUDE_FABLE_MODEL,
+    );
     // Already-current Sonnet 5 ids pass through unchanged.
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-5" }),

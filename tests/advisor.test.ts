@@ -67,7 +67,10 @@ describe("Advisor settings migration", () => {
       "claude-opus-5[1m]",
       { providerId: "claude-code", model: "claude-opus-5" },
     ],
-    ["claude-fable-5", { providerId: "claude-code", model: "claude-fable-5" }],
+    [
+      "claude-fable-5-1",
+      { providerId: "claude-code", model: "claude-fable-5-1" },
+    ],
     [
       "claude-sonnet-5[1m]",
       { providerId: "claude-code", model: "claude-sonnet-5[1m]" },
@@ -124,7 +127,7 @@ describe("Advisor turn preparation", () => {
   test("supports every Claude/Codex executor and Advisor pairing", () => {
     for (const executor of ["claude-code", "codex"] as const) {
       for (const target of [
-        { providerId: "claude-code", model: "claude-fable-5" },
+        { providerId: "claude-code", model: "claude-fable-5-1" },
         { providerId: "codex", model: "gpt-5.6-terra" },
       ] as const) {
         const conversation = {
@@ -178,7 +181,7 @@ describe("Advisor turn preparation", () => {
       conversation,
       target: {
         providerId: "claude-code",
-        model: "claude-fable-5",
+        model: "claude-fable-5-1",
       },
       consultKey: "consult-key-123",
       consultLimit: 3,
@@ -190,7 +193,7 @@ describe("Advisor turn preparation", () => {
     expect(next.contextParts[0]).toMatchObject({
       type: "retrieved_context",
       sourceId: ADVISOR_BRIEFING_SOURCE_ID,
-      title: "On-demand Advisor · claude-fable-5",
+      title: "On-demand Advisor · claude-fable-5-1",
     });
     // The injection report is the evidence the overlay renders: "advisor is
     // armed" and "briefing reached the prompt" must be separately observable.
@@ -291,7 +294,7 @@ describe("Advisor turn preparation", () => {
         model: "gpt-5.6-terra",
         advisorTarget: {
           providerId: "claude-code",
-          model: "claude-fable-5",
+          model: "claude-fable-5-1",
         },
         advisorConsultLimit: 3,
       }),
@@ -361,7 +364,7 @@ describe("advisor arming", () => {
   test("a task can arm the Advisor while Settings leaves it off", () => {
     const taskTarget = {
       providerId: "claude-code" as const,
-      model: "claude-fable-5",
+      model: "claude-fable-5-1",
     };
     expect(
       resolveAdvisorArmState({
@@ -384,14 +387,14 @@ describe("advisor arming", () => {
       overrides: {
         advisorEnabled: false,
         advisorTargetByProvider: {
-          "claude-code": { model: "claude-fable-5", effort: "low" },
+          "claude-code": { model: "claude-fable-5-1", effort: "low" },
         },
       },
       settingsTarget,
     });
     expect(state.targetByProvider["claude-code"]).toEqual({
       providerId: "claude-code",
-      model: "claude-fable-5",
+      model: "claude-fable-5-1",
       effort: "low",
     });
     // Nothing remembered for Codex, so the settings pick stands in.
@@ -458,12 +461,12 @@ describe("advisor arming", () => {
       settingsTarget,
       settingsEnabled: false,
       settingsTargetByProvider: {
-        "claude-code": { model: "claude-fable-5", effort: "high" },
+        "claude-code": { model: "claude-fable-5-1", effort: "high" },
       },
     });
     expect(state.targetByProvider["claude-code"]).toEqual({
       providerId: "claude-code",
-      model: "claude-fable-5",
+      model: "claude-fable-5-1",
       effort: "high",
     });
     expect(state.targetByProvider.codex).toEqual(settingsTarget);
@@ -478,7 +481,7 @@ describe("advisor arming", () => {
       },
       settingsTarget,
       settingsTargetByProvider: {
-        "claude-code": { model: "claude-fable-5", effort: "high" },
+        "claude-code": { model: "claude-fable-5-1", effort: "high" },
       },
     });
     expect(state.targetByProvider["claude-code"]).toEqual({
@@ -637,7 +640,7 @@ describe("advisor settings defaults", () => {
     const patch = buildAdvisorSettingsTargetPatch({
       defaults: {
         advisorTargetByProvider: {
-          "claude-code": { model: "claude-fable-5", effort: "high" },
+          "claude-code": { model: "claude-fable-5-1", effort: "high" },
         },
       },
       target: { providerId: "codex", model: "gpt-5.6-sol", effort: "xhigh" },
@@ -650,7 +653,7 @@ describe("advisor settings defaults", () => {
     // The other provider's configured default must survive the write, or
     // switching provider back would silently reset it.
     expect(patch.advisorTargetByProvider).toEqual({
-      "claude-code": { model: "claude-fable-5", effort: "high" },
+      "claude-code": { model: "claude-fable-5-1", effort: "high" },
       codex: { model: "gpt-5.6-sol", effort: "xhigh" },
     });
   });

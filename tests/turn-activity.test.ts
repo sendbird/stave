@@ -803,7 +803,7 @@ describe("turn activity presentation", () => {
         turnId: "turn-1",
         primaryProviderId: "codex",
         advisorProviderId: "claude-code",
-        advisorModel: "claude-fable-5",
+        advisorModel: "claude-fable-5-1",
         advisorEffort: "xhigh",
         consultLimit: 5,
         startedAt: 1_000,

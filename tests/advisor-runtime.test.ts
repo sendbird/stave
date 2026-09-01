@@ -43,12 +43,12 @@ describe("runAdvisorCall", () => {
     } satisfies AdvisorRunnerDependencies;
 
     const result = await runAdvisorCall({
-      ...callArgs({ providerId: "claude-code", model: "claude-fable-5" }),
+      ...callArgs({ providerId: "claude-code", model: "claude-fable-5-1" }),
       runners,
     });
 
     expect(result.status).toBe("completed");
-    expect(selectedModel).toBe("claude-fable-5");
+    expect(selectedModel).toBe("claude-fable-5-1");
   });
 
   test("routes a Codex target with isolated read-only runtime options", async () => {
@@ -340,7 +340,7 @@ describe("advisor effort", () => {
     } satisfies AdvisorRunnerDependencies;
 
     await runAdvisorCall({
-      ...callArgs({ providerId: "claude-code", model: "claude-fable-5" }),
+      ...callArgs({ providerId: "claude-code", model: "claude-fable-5-1" }),
       runners,
     });
     await runAdvisorCall({

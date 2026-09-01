@@ -530,8 +530,8 @@ before building the call.
 
 | | Claude | Codex | Cursor | Kiro |
 | --- | --- | --- | --- | --- |
-| orchestrating primaries | Fable 5, Opus 5 (+1M), Sonnet 5 (+1M) | GPT-5.6 Sol, GPT-5.6 Terra | runtime ACP catalog | runtime model catalog |
-| worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5 | Terra, Sol | runtime ACP catalog | runtime model catalog |
+| orchestrating primaries | Fable 5.1, Opus 5 (+1M), Sonnet 5 (+1M) | GPT-5.6 Sol, GPT-5.6 Terra | runtime ACP catalog | runtime model catalog |
+| worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5.1 | Terra, Sol | runtime ACP catalog | runtime model catalog |
 | execution adapter | native named agent | native spawned agent | task-scoped ACP role session | task-scoped ACP role session |
 | worker model pinning | `AgentDefinition.model` | `agents.default_subagent_model` | ACP config option | ACP model selection |
 | worker effort pinning | `AgentDefinition.effort` | `agents.default_subagent_reasoning_effort` | encoded in the selected model variant | ACP process `--effort` |

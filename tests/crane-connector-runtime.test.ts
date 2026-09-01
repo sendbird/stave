@@ -369,7 +369,7 @@ describe("CraneConnectorRuntime", () => {
         codexFastMode: false,
         advisorTarget: {
           providerId: "claude-code",
-          model: "claude-fable-5",
+          model: "claude-fable-5-1",
           effort: "max",
         },
         advisorConsultLimit: 3,
@@ -401,7 +401,7 @@ describe("CraneConnectorRuntime", () => {
         codexFastMode: false,
         advisorTarget: {
           providerId: "claude-code",
-          model: "claude-fable-5",
+          model: "claude-fable-5-1",
           effort: "max",
         },
         // Regression guard alongside the effort one above: a Crane dispatch

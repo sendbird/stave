@@ -149,7 +149,7 @@ test("Advisor settings configure per-provider defaults while off, then arm", asy
   await modelPicker.getByPlaceholder("Search model").fill("Fable");
   await modelPicker.getByRole("option", { name: /Claude Fable 5/ }).click();
   await expect(modelSelector()).toHaveAccessibleName(
-    "Advisor model: Claude Fable 5",
+    "Advisor model: Claude Fable 5.1",
   );
 
   await codexChoice.click();
@@ -166,7 +166,7 @@ test("Advisor settings configure per-provider defaults while off, then arm", asy
   // default: each provider remembers its own model and tier.
   await claudeChoice.click();
   await expect(modelSelector()).toHaveAccessibleName(
-    "Advisor model: Claude Fable 5",
+    "Advisor model: Claude Fable 5.1",
   );
   await codexChoice.click();
 
@@ -204,7 +204,7 @@ test("Advisor settings configure per-provider defaults while off, then arm", asy
       enabled: true,
       target: { providerId: "codex", model: "gpt-6-preview" },
       byProvider: {
-        "claude-code": { model: "claude-fable-5" },
+        "claude-code": { model: "claude-fable-5-1" },
         codex: { model: "gpt-6-preview" },
       },
     });
@@ -245,6 +245,6 @@ test("Advisor settings configure per-provider defaults while off, then arm", asy
     .click();
   await expect(
     reloadedAdvisorCard.getByRole("button", { name: /^Advisor model:/ }),
-  ).toHaveAccessibleName("Advisor model: Claude Fable 5");
+  ).toHaveAccessibleName("Advisor model: Claude Fable 5.1");
   expect(pageErrors.map((error) => error.message)).toEqual([]);
 });

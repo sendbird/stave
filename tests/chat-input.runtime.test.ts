@@ -205,13 +205,13 @@ describe("advisor row in the runtime summary", () => {
             activeProvider,
             claudeSettingSources: ["project"],
             claudeTaskBudgetTokens: 0,
-            advisorSummary: "Claude · Claude Fable 5",
+            advisorSummary: "Claude · Claude Fable 5.1",
           }),
         ),
       ).toEqual({
         id: "advisor",
         label: "Advisor",
-        value: "Claude · Claude Fable 5",
+        value: "Claude · Claude Fable 5.1",
       });
     }
   });

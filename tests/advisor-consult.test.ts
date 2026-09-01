@@ -11,7 +11,10 @@ import type { BridgeEvent } from "../electron/providers/types";
 type UsageEvent = Extract<BridgeEvent, { type: "usage" }>;
 type AdvisorActivityEvent = Extract<BridgeEvent, { type: "advisor_activity" }>;
 
-const TARGET = { providerId: "claude-code", model: "claude-fable-5" } as const;
+const TARGET = {
+  providerId: "claude-code",
+  model: "claude-fable-5-1",
+} as const;
 
 function createUnusedRunner(message: string) {
   return async () => {
@@ -145,7 +148,7 @@ describe("consultAdvisor", () => {
     expect(outcome).toMatchObject({
       ok: true,
       advisorProviderId: "claude-code",
-      advisorModel: "claude-fable-5",
+      advisorModel: "claude-fable-5-1",
       consultIndex: 1,
       consultLimit: 2,
       remainingConsults: 1,
@@ -169,7 +172,7 @@ describe("consultAdvisor", () => {
       consultLimit: 2,
       question: "Which API should the worker use?",
       primaryProviderId: "codex",
-      advisorModel: "claude-fable-5",
+      advisorModel: "claude-fable-5-1",
     });
     expect(typeof started?.exchangeId).toBe("string");
     expect(completed?.exchangeId).toBe(started?.exchangeId);
@@ -186,7 +189,7 @@ describe("consultAdvisor", () => {
         type: "delegated_usage",
         role: "advisor",
         providerId: "claude-code",
-        model: "claude-fable-5",
+        model: "claude-fable-5-1",
         inputTokens: 42,
         outputTokens: 7,
       }),
