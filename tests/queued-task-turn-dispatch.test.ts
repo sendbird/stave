@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { createQueuedTaskTurnDispatcher } from "@/store/queued-task-turn-dispatch";
+import {
+  createQueuedTaskTurnDispatcher,
+  type QueuedTurnAutoDispatchHold,
+} from "@/store/queued-task-turn-dispatch";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import type { PromptDraft } from "@/types/chat";
 
@@ -8,6 +11,18 @@ function buildSessionWithDraft(draft: PromptDraft | undefined) {
     promptDraftByTask: draft ? { "task-1": draft } : {},
   } as unknown as WorkspaceSessionState;
 }
+
+function buildQueuedTurn(id: string, content: string, queuedAt: string) {
+  return {
+    id,
+    queuedAt,
+    content,
+    attachedFilePaths: [],
+    attachments: [],
+  };
+}
+
+const TARGET = { workspaceId: "ws-1", taskId: "task-1" };
 
 describe("queued task turn dispatcher", () => {
   test("dispatches the queue head through the queued-turn path so its stored provider/model apply", () => {
@@ -52,10 +67,10 @@ describe("queued task turn dispatcher", () => {
           return Promise.resolve({ status: "started" });
         },
       }),
-      blocksAutoDispatch: () => false,
+      getAutoDispatchHold: () => undefined,
     });
 
-    dispatch({ workspaceId: "ws-1", taskId: "task-1" });
+    dispatch(TARGET);
 
     // FIFO: only the head is dispatched, by id, so `sendUserMessage` resolves
     // the stored providerId/model from the queued item itself and leaves the
@@ -87,62 +102,231 @@ describe("queued task turn dispatcher", () => {
           attachments: [],
         }),
       getActions: () => actions,
-      blocksAutoDispatch: () => false,
-    })({ workspaceId: "ws-1", taskId: "task-1" });
+      getAutoDispatchHold: () => undefined,
+    })(TARGET);
 
     createQueuedTaskTurnDispatcher({
       getSession: () => null,
       getActions: () => actions,
-      blocksAutoDispatch: () => false,
-    })({ workspaceId: "ws-1", taskId: "task-1" });
+      getAutoDispatchHold: () => undefined,
+    })(TARGET);
 
     expect(sent).toEqual([]);
   });
 
-  test("skips items reserved by an in-flight steer so an accepted steer never runs twice", () => {
+  test("waits in place for an in-flight steer instead of letting the item behind it jump the line", async () => {
     const sent: Array<{ queuedTurnId: string }> = [];
     const draft: PromptDraft = {
       text: "",
       attachedFilePaths: [],
       attachments: [],
       queuedTurns: [
-        {
-          id: "queued-steering",
-          queuedAt: "2026-08-01T00:00:00.000Z",
-          content: "Being steered into the running turn",
-          attachedFilePaths: [],
-          attachments: [],
-        },
-        {
-          id: "queued-waiting",
-          queuedAt: "2026-08-01T00:00:01.000Z",
-          content: "Still waiting its turn",
-          attachedFilePaths: [],
-          attachments: [],
-        },
+        buildQueuedTurn(
+          "queued-steering",
+          "Being steered into the running turn",
+          "2026-08-01T00:00:00.000Z",
+        ),
+        buildQueuedTurn(
+          "queued-waiting",
+          "Still waiting its turn",
+          "2026-08-01T00:00:01.000Z",
+        ),
       ],
     };
-    const actions = {
-      sendUserMessage: (args: { queuedTurnId: string }) => {
-        sent.push(args);
-        return Promise.resolve({ status: "started" });
-      },
-    };
-    const reserved = new Set(["queued-steering"]);
+    const holds = new Map<string, QueuedTurnAutoDispatchHold>([
+      ["queued-steering", "wait"],
+    ]);
     const dispatch = createQueuedTaskTurnDispatcher({
       getSession: () => buildSessionWithDraft(draft),
-      getActions: () => actions,
-      blocksAutoDispatch: ({ queuedTurnId }) => reserved.has(queuedTurnId),
+      getActions: () => ({
+        sendUserMessage: (args: { queuedTurnId: string }) => {
+          sent.push(args);
+          return Promise.resolve({ status: "started" });
+        },
+      }),
+      getAutoDispatchHold: ({ queuedTurnId }) => holds.get(queuedTurnId),
     });
 
-    // The head is mid-steer: the turn that just settled must not start it as a
-    // fresh turn, so draining moves on to the next unreserved item.
-    dispatch({ workspaceId: "ws-1", taskId: "task-1" });
-    expect(sent.map((item) => item.queuedTurnId)).toEqual(["queued-waiting"]);
+    // The head is mid-steer and that hold resolves on a deadline, so the queue
+    // holds its order rather than running the user's second prompt first.
+    dispatch(TARGET);
+    expect(sent).toEqual([]);
+
+    // Steer rejected: the hold lifts and the head runs, still ahead of the
+    // item queued after it.
+    holds.delete("queued-steering");
+    dispatch(TARGET);
+    await Promise.resolve();
+    expect(sent.map((item) => item.queuedTurnId)).toEqual(["queued-steering"]);
+  });
+
+  test("skips an unconfirmed steer, which only a user action can clear", async () => {
+    const sent: Array<{ queuedTurnId: string }> = [];
+    const draft: PromptDraft = {
+      text: "",
+      attachedFilePaths: [],
+      attachments: [],
+      queuedTurns: [
+        buildQueuedTurn(
+          "queued-unconfirmed",
+          "Delivery never acknowledged",
+          "2026-08-01T00:00:00.000Z",
+        ),
+        buildQueuedTurn(
+          "queued-waiting",
+          "Still waiting its turn",
+          "2026-08-01T00:00:01.000Z",
+        ),
+      ],
+    };
+    const holds = new Map<string, QueuedTurnAutoDispatchHold>([
+      ["queued-unconfirmed", "skip"],
+      ["queued-waiting", "skip"],
+    ]);
+    const dispatch = createQueuedTaskTurnDispatcher({
+      getSession: () => buildSessionWithDraft(draft),
+      getActions: () => ({
+        sendUserMessage: (args: { queuedTurnId: string }) => {
+          sent.push(args);
+          return Promise.resolve({ status: "started" });
+        },
+      }),
+      getAutoDispatchHold: ({ queuedTurnId }) => holds.get(queuedTurnId),
+    });
 
     // Nothing dispatchable at all: the queue simply waits.
-    reserved.add("queued-waiting");
-    dispatch({ workspaceId: "ws-1", taskId: "task-1" });
+    dispatch(TARGET);
+    expect(sent).toEqual([]);
+
+    // Nothing will resolve an unconfirmed hold on its own, so the queue must
+    // not stall behind it — draining moves on to the next item.
+    holds.delete("queued-waiting");
+    dispatch(TARGET);
+    await Promise.resolve();
     expect(sent.map((item) => item.queuedTurnId)).toEqual(["queued-waiting"]);
+  });
+
+  test("never runs two dispatches for one task at once, even when completion is signalled twice", async () => {
+    const sent: Array<{ queuedTurnId: string }> = [];
+    let resolveFirstSend: (value: { status: string }) => void = () => {};
+    const queuedTurns = [
+      buildQueuedTurn("queued-1", "First", "2026-08-01T00:00:00.000Z"),
+      buildQueuedTurn("queued-2", "Second", "2026-08-01T00:00:01.000Z"),
+    ];
+    const draft: PromptDraft = {
+      text: "",
+      attachedFilePaths: [],
+      attachments: [],
+      queuedTurns,
+    };
+    const dispatch = createQueuedTaskTurnDispatcher({
+      getSession: () => buildSessionWithDraft(draft),
+      getActions: () => ({
+        sendUserMessage: (args: { queuedTurnId: string }) => {
+          sent.push(args);
+          // Mirror the real send: the item leaves the queue immediately, long
+          // before the provider turn is registered in the store.
+          draft.queuedTurns = (draft.queuedTurns ?? []).filter(
+            (item) => item.id !== args.queuedTurnId,
+          );
+          return new Promise<{ status: string }>((resolve) => {
+            resolveFirstSend = resolve;
+          });
+        },
+      }),
+      getAutoDispatchHold: () => undefined,
+    });
+
+    dispatch(TARGET);
+    // Provider events and host turn sync can both report the same completion.
+    // The first dispatch has not registered a turn yet, so the second signal
+    // would otherwise start "queued-2" concurrently with "queued-1".
+    dispatch(TARGET);
+    expect(sent.map((item) => item.queuedTurnId)).toEqual(["queued-1"]);
+
+    resolveFirstSend({ status: "started" });
+    await Promise.resolve();
+    await Promise.resolve();
+    // The started turn owns the drain from here; its completion dispatches the
+    // rest of the queue.
+    expect(sent.map((item) => item.queuedTurnId)).toEqual(["queued-1"]);
+  });
+
+  test("resumes the drain when a mid-flight completion signal arrives and the send never started a turn", async () => {
+    const sent: Array<{ queuedTurnId: string }> = [];
+    let resolveFirstSend: (value: { status: string }) => void = () => {};
+    let sendCount = 0;
+    const draft: PromptDraft = {
+      text: "",
+      attachedFilePaths: [],
+      attachments: [],
+      queuedTurns: [
+        buildQueuedTurn("queued-1", "First", "2026-08-01T00:00:00.000Z"),
+      ],
+    };
+    const dispatch = createQueuedTaskTurnDispatcher({
+      getSession: () => buildSessionWithDraft(draft),
+      getActions: () => ({
+        sendUserMessage: (args: { queuedTurnId: string }) => {
+          sent.push(args);
+          sendCount += 1;
+          if (sendCount === 1) {
+            return new Promise<{ status: string }>((resolve) => {
+              resolveFirstSend = resolve;
+            });
+          }
+          return Promise.resolve({ status: "started" });
+        },
+      }),
+      getAutoDispatchHold: () => undefined,
+    });
+
+    dispatch(TARGET);
+    dispatch(TARGET);
+    // The send lost a race (a turn was already active) and put the item back,
+    // so the completion seen mid-flight has to be honoured after it settles.
+    resolveFirstSend({ status: "blocked" });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(sent.map((item) => item.queuedTurnId)).toEqual([
+      "queued-1",
+      "queued-1",
+    ]);
+  });
+
+  test("reports and retries once when the send rejects, then stops", async () => {
+    const failures: Array<{ queuedTurnId: string; error: unknown }> = [];
+    let sendCount = 0;
+    const draft: PromptDraft = {
+      text: "",
+      attachedFilePaths: [],
+      attachments: [],
+      queuedTurns: [
+        buildQueuedTurn("queued-1", "First", "2026-08-01T00:00:00.000Z"),
+      ],
+    };
+    const dispatch = createQueuedTaskTurnDispatcher({
+      getSession: () => buildSessionWithDraft(draft),
+      getActions: () => ({
+        sendUserMessage: () => {
+          sendCount += 1;
+          return Promise.reject(new Error("context resolution failed"));
+        },
+      }),
+      getAutoDispatchHold: () => undefined,
+      onDispatchFailed: ({ queuedTurnId, error }) =>
+        failures.push({ queuedTurnId, error }),
+    });
+
+    dispatch(TARGET);
+    // A crashed dispatch restores the item but leaves no completion event to
+    // wake it, so exactly one retry runs — and a deterministic failure stops
+    // there instead of spinning.
+    for (let tick = 0; tick < 8; tick += 1) {
+      await Promise.resolve();
+    }
+    expect(sendCount).toBe(2);
+    expect(failures).toHaveLength(2);
+    expect(failures[0]?.queuedTurnId).toBe("queued-1");
   });
 });

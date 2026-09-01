@@ -118,7 +118,6 @@ import {
 } from "@/store/utility-inference-runtime";
 import {
   buildPendingProviderTurnState,
-  buildSteeredUserMessageState,
   buildRecentTimestamp,
   resolveMidTurnSteeringContext,
 } from "@/store/chat-state-helpers";
@@ -131,6 +130,7 @@ import {
   loadHostTaskTurn,
 } from "@/store/host-task-turn-sync";
 import { createQueuedTaskTurnDispatcher } from "@/store/queued-task-turn-dispatch";
+import { applySteeredTurnState } from "@/store/steer-turn-state";
 import {
   createWebFetchAuthWallTracker,
   maybeStartProviderBrowserFallbackTurn,
@@ -166,12 +166,10 @@ import {
   buildPromptDraftDisplayPartsForSend,
 } from "@/store/prompt-draft-message-content";
 import {
-  getConfiguredModelForProvider,
   resolvePromptDraftRuntimeState,
   resolveTurnModelForSend,
 } from "@/store/prompt-draft-runtime";
 import {
-  applySteeredPromptDraft,
   buildPreservedQueuedDraft,
   resolvePromptDraftAfterSend,
   resolvePromptDraftSendState,
@@ -773,8 +771,39 @@ export const useAppStore = create<AppState>()(
       getSession: (workspaceId) =>
         getWorkspaceSessionForState({ state: get(), workspaceId }),
       getActions: get,
-      blocksAutoDispatch: steerQueueReservations.blocksAutoDispatch,
+      getAutoDispatchHold: steerQueueReservations.getAutoDispatchHold,
+      onDispatchFailed: ({ taskId, queuedTurnId, error }) => {
+        console.error("[queued-turn] auto-dispatch failed", {
+          taskId,
+          queuedTurnId,
+          error,
+        });
+      },
     });
+
+    /**
+     * Re-drain a task's queue after a steer settles.
+     *
+     * A steer awaits the provider for up to the ack deadline, and the running
+     * turn frequently completes inside that window. Completion is what
+     * normally drains the queue, but it skipped this task because the steered
+     * item was reserved — so once the reservation lifts, nothing else would
+     * ever start the remaining items. Only drain when the task is genuinely
+     * idle; a still-running turn will drain on its own completion.
+     */
+    const drainQueueAfterSteerSettled = (target: {
+      workspaceId: string;
+      taskId: string;
+    }) => {
+      const session = getWorkspaceSessionForState({
+        state: get(),
+        workspaceId: target.workspaceId,
+      });
+      if (!session || session.activeTurnIdsByTask[target.taskId]) {
+        return;
+      }
+      dispatchNextQueuedTaskTurn(target);
+    };
 
     const hasAsyncIterable = (
       value: unknown,
@@ -2022,81 +2051,42 @@ export const useAppStore = create<AppState>()(
             },
           });
           if (!steerResult.ok) {
+            // The steered item is back in the queue (rejected) or held out of
+            // automatic dispatch (unconfirmed). Either way the turn it was
+            // aimed at may have finished while the provider was deciding, so
+            // re-check the queue: turn completion already ran and skipped it.
+            drainQueueAfterSteerSettled({
+              workspaceId: taskWorkspaceId,
+              taskId: resolvedTaskId,
+            });
             return buildFailedSteerResult({
               result: steerResult,
               taskId: resolvedTaskId,
               workspaceId: taskWorkspaceId,
             });
           }
-          set((nextState) => {
-            const isActiveWorkspace =
-              taskWorkspaceId === nextState.activeWorkspaceId;
-            const cachedSession = isActiveWorkspace
-              ? null
-              : nextState.workspaceRuntimeCacheById[taskWorkspaceId];
-            if (!isActiveWorkspace && !cachedSession) {
-              return nextState;
-            }
-            const messagesByTask =
-              cachedSession?.messagesByTask ?? nextState.messagesByTask;
-            const messageCountByTask =
-              cachedSession?.messageCountByTask ?? nextState.messageCountByTask;
-            const activeTurnIdsByTask =
-              cachedSession?.activeTurnIdsByTask ??
-              nextState.activeTurnIdsByTask;
-            const turnStillActive =
-              activeTurnIdsByTask[resolvedTaskId] === activeTurnId;
-            const activeModel = getConfiguredModelForProvider(activeTurnProvider, nextState.settings);
-            const steeredState = buildSteeredUserMessageState({
-              messagesByTask,
-              messageCountByTask,
+          set((nextState) =>
+            applySteeredTurnState({
+              state: nextState,
+              workspaceId: taskWorkspaceId,
               taskId: resolvedTaskId,
+              turnId: activeTurnId,
+              providerId: activeTurnProvider,
               content: promptContent,
-              steeredIntoTurnId: activeTurnId,
               clientMessageId,
-              provider: activeTurnProvider,
-              activeModel,
-              turnStillActive,
-            });
-            const promptDraftByTask =
-              cachedSession?.promptDraftByTask ?? nextState.promptDraftByTask;
-            const nextPromptDraftByTask = applySteeredPromptDraft({
-              promptDraftByTask,
-              taskId: resolvedTaskId,
               storedDraft: storedPromptDraftForTask,
               sourceDraft: sourcePromptDraft,
               sentDraft: promptDraft,
               preservePromptDraft,
               steeredQueuedTurn: queuedTurnToSend,
-            });
-            const activityByTask = turnStillActive
-              ? startProviderTurnActivity({
-                  activityByTask: nextState.providerTurnActivityByTask,
-                  taskId: resolvedTaskId,
-                  turnId: activeTurnId,
-                  providerId: activeTurnProvider,
-                })
-              : nextState.providerTurnActivityByTask;
-            if (cachedSession) {
-              return {
-                workspaceRuntimeCacheById: {
-                  ...nextState.workspaceRuntimeCacheById,
-                  [taskWorkspaceId]: {
-                    ...cachedSession,
-                    ...steeredState,
-                    promptDraftByTask: nextPromptDraftByTask,
-                  },
-                },
-                providerTurnActivityByTask: activityByTask,
-              };
-            }
-            return {
-              ...steeredState,
-              promptDraftByTask: nextPromptDraftByTask,
-              providerTurnActivityByTask: activityByTask,
-              workspaceSnapshotVersion:
-                incrementWorkspaceSnapshotVersion(nextState),
-            };
+              incrementWorkspaceSnapshotVersion,
+            }),
+          );
+          // Runs after the state update above has taken the steered item out
+          // of the queue, so a drain here can never re-send it.
+          drainQueueAfterSteerSettled({
+            workspaceId: taskWorkspaceId,
+            taskId: resolvedTaskId,
           });
           return {
             status: "steered",
