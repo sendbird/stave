@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { registerCursorModelDisplayNames } from "@/lib/providers/cursor-model-id";
 import {
   getSdkModelOptions,
   getProviderDescriptor,
@@ -132,6 +133,17 @@ function registerCatalogMetadata(args: {
   providerId: ProviderId;
   entries: readonly ProviderModelCatalogEntry[];
 }) {
+  if (args.providerId === "cursor") {
+    registerCursorModelDisplayNames(
+      new Map(
+        args.entries.flatMap((entry) =>
+          entry.displayName && entry.displayName !== entry.model
+            ? [[entry.model, entry.displayName] as const]
+            : [],
+        ),
+      ),
+    );
+  }
   if (args.providerId !== "codex") {
     return;
   }
@@ -211,7 +223,12 @@ export async function loadProviderModelCatalog(args: {
         providerId: args.providerId,
         dynamicEntries: result.models,
       });
-      registerCatalogMetadata({ providerId: args.providerId, entries });
+      registerCatalogMetadata({
+        providerId: args.providerId,
+        // Preserve the runtime's wire-id -> display-name mapping as well as
+        // aliases introduced by merging, such as Cursor's `auto` row.
+        entries: [...result.models, ...entries],
+      });
       const next: CachedProviderModelCatalog = {
         status: result.ok ? "ready" : "error",
         models: entries.map((entry) => entry.model),

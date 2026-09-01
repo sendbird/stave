@@ -1,5 +1,19 @@
 import { toHumanModelName } from "./model-catalog";
 
+const cursorDisplayNames = new Map<string, string>();
+
+export function registerCursorModelDisplayNames(
+  displayNames: ReadonlyMap<string, string>,
+) {
+  for (const [model, displayName] of displayNames) {
+    const normalizedModel = model.trim();
+    const normalizedDisplayName = displayName.trim();
+    if (normalizedModel && normalizedDisplayName) {
+      cursorDisplayNames.set(normalizedModel, normalizedDisplayName);
+    }
+  }
+}
+
 /**
  * Cursor encodes a model's configuration inside the model id itself, for
  * example `claude-opus-5[thinking=true,context=300k,effort=high,fast=false]`
@@ -100,7 +114,8 @@ export function listCursorModelParameterLabels(args: {
  */
 export function describeCursorModel(model: string) {
   const trimmed = model.trim();
-  const displayName = toHumanModelName({ model: trimmed });
+  const displayName =
+    cursorDisplayNames.get(trimmed) ?? toHumanModelName({ model: trimmed });
   const runtimeNamed = !displayName.includes("[");
   if (runtimeNamed) {
     const [name, ...details] = displayName.split(" · ");

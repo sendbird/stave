@@ -162,13 +162,13 @@ describe("model effort selector utilities", () => {
   test("keeps bracket syntax out of a model missing from the catalog", () => {
     const cursor = option({
       providerId: "cursor",
-      model: "auto-smart[optimize_for=balanced]",
-      label: "Auto Smart[optimize_for=balanced]",
+      model: "auto-smart[optimize_for=fallback]",
+      label: "Auto Smart[optimize_for=fallback]",
     });
 
     expect(getCursorModelPresentation(cursor)).toEqual({
       label: "Auto Smart",
-      capabilities: ["Balanced"],
+      capabilities: ["Fallback"],
     });
   });
 
