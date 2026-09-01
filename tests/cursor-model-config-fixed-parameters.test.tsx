@@ -47,6 +47,23 @@ describe("Cursor model configuration rows", () => {
     expect(singleVariant).not.toContain(">Fast<");
   });
 
+  test("gives the model name enough horizontal room before truncating", () => {
+    const longLabel = renderToStaticMarkup(
+      createElement(CursorModelConfigList, {
+        options: [
+          option(
+            "composer-2-5-fast[context=200k,reasoning=high,fast=true]",
+            "Composer 2.5 Fast",
+          ),
+        ],
+        onChoose: () => {},
+      }),
+    );
+    expect(longLabel).toContain('title="Composer 2.5 Fast"');
+    expect(longLabel).toContain("min-w-[10rem]");
+    expect(longLabel).not.toContain("w-24");
+  });
+
   test("keeps real controls where Cursor advertises a second variant", () => {
     const twoVariants = renderToStaticMarkup(
       createElement(CursorModelConfigList, {

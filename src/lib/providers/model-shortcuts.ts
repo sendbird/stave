@@ -7,6 +7,7 @@ import {
 } from "@/lib/providers/model-catalog";
 import {
   CLAUDE_EFFORT_OPTIONS,
+  KIRO_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 import type {
@@ -182,9 +183,16 @@ export function listModelShortcutEffortOptions(args: {
     return [];
   }
 
-  return parsed.providerId === "claude-code"
-    ? CLAUDE_EFFORT_OPTIONS
-    : listCodexEffortOptionsForModel({ model: parsed.model });
+  if (parsed.providerId === "claude-code") {
+    return CLAUDE_EFFORT_OPTIONS;
+  }
+  if (parsed.providerId === "kiro") {
+    return KIRO_EFFORT_OPTIONS;
+  }
+  if (parsed.providerId === "cursor") {
+    return [];
+  }
+  return listCodexEffortOptionsForModel({ model: parsed.model });
 }
 
 export function resolveModelShortcutEffort(args: {

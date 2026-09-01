@@ -118,6 +118,16 @@ describe("model shortcuts", () => {
         shortcutKey: "codex:gpt-5.6-luna",
       }).map((option) => option.value),
     ).toEqual(["low", "medium", "high", "xhigh", "max"]);
+    expect(
+      listModelShortcutEffortOptions({
+        shortcutKey: "kiro:auto",
+      }).map((option) => option.value),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
+    expect(
+      listModelShortcutEffortOptions({
+        shortcutKey: "cursor:auto",
+      }),
+    ).toEqual([]);
   });
 
   test("resolves only supported effort overrides for a shortcut slot", () => {
