@@ -1,3 +1,18 @@
+## [0.16.4](https://github.com/sendbird/stave/compare/v0.16.3...v0.16.4) (2026-09-01)
+
+### Bug Fixes
+
+* Keep multiline prompt drafts growing after a trailing `Shift+Enter`, restore wheel scrolling, and protect the editor from shortcut echo insertions.
+* Lock prompt enhancement while it runs, show explicit enhancing/applying states, reveal only changed words, and honor reduced-motion preferences.
+* Keep the model picker to about five visible rows, preserve Cursor's advertised model order, and parse Kiro's snake_case runtime catalog.
+* Resume queued follow-ups when a steer settles after the running turn has already completed, so rejected steers no longer strand the queue.
+* Serialize automatic dispatch per task and preserve FIFO order around in-flight steers, preventing duplicate or out-of-order follow-up turns.
+* Report automatic-dispatch failures and retry once, while keeping the extracted steer state transition logic covered by regression tests.
+
+### References
+
+* [#424](https://github.com/sendbird/stave/pull/424), [#425](https://github.com/sendbird/stave/pull/425), [#426](https://github.com/sendbird/stave/pull/426)
+
 ## [0.16.3](https://github.com/sendbird/stave/compare/v0.16.2...v0.16.3) (2026-09-01)
 
 ### Bug Fixes
