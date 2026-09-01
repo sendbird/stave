@@ -106,6 +106,39 @@ describe("Cursor ACP runtime", () => {
     ]);
   });
 
+  test("keeps the advertised Cursor catalog order", () => {
+    expect(
+      mapCursorAcpModelCatalog({
+        configOptions: [
+          {
+            id: "model",
+            name: "Model",
+            type: "select",
+            currentValue: "auto-smart[optimize_for=balanced]",
+            options: [
+              {
+                value: "auto-smart[optimize_for=balanced]",
+                name: "Auto Balance",
+              },
+              { value: "grok-4.6", name: "grok-4.6" },
+              { value: "composer-2.5", name: "composer-2.5" },
+              { value: "claude-fable-5", name: "claude-fable-5" },
+              { value: "gpt-5.6-sol", name: "gpt-5.6-sol" },
+              { value: "claude-opus-5", name: "claude-opus-5" },
+            ],
+          },
+        ],
+      }).map((entry) => entry.model),
+    ).toEqual([
+      "auto-smart[optimize_for=balanced]",
+      "grok-4.6",
+      "composer-2.5",
+      "claude-fable-5",
+      "gpt-5.6-sol",
+      "claude-opus-5",
+    ]);
+  });
+
   test("maps stable ACP updates and Cursor notifications", async () => {
     const events = await streamCursorWithAcp(createTurnArgs("standard"));
 

@@ -378,7 +378,7 @@ test("selects a model and effort in one click across provider tabs", async ({
     await selector.evaluate(
       (element) => element.getBoundingClientRect().height,
     ),
-  ).toBeLessThanOrEqual(512);
+  ).toBeLessThanOrEqual(400);
   await providerTabs.getByRole("tab", { name: /Kiro/ }).click();
   const kiroHigh = effortGrid.getByRole("gridcell", {
     name: "Kiro Fixture Model, High effort",

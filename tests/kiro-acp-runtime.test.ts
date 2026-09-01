@@ -104,6 +104,42 @@ describe("Kiro ACP runtime", () => {
     ]);
   });
 
+  test("reads the snake_case catalog kiro-cli chat --list-models prints", () => {
+    expect(
+      parseKiroModelCatalog(
+        JSON.stringify({
+          models: [
+            {
+              model_name: "auto",
+              description: "Models chosen by task",
+              model_id: "auto",
+              context_window_tokens: 1_000_000,
+            },
+            {
+              model_name: "claude-opus-5",
+              description: "Claude Opus 5 model with 1M context window",
+              model_id: "claude-opus-5",
+            },
+          ],
+          default_model: "auto",
+        }),
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        model: "auto",
+        displayName: "Auto",
+        isDefault: true,
+        description: "Models chosen by task",
+      }),
+      expect.objectContaining({
+        model: "claude-opus-5",
+        displayName: "Claude Opus 5",
+        isDefault: false,
+        description: "Claude Opus 5 model with 1M context window",
+      }),
+    ]);
+  });
+
   test("maps stable ACP updates and isolated Kiro notifications", async () => {
     const events = await streamKiroWithAcp(createTurnArgs("standard"));
     expect(events).toContainEqual({
@@ -205,16 +241,17 @@ describe("Kiro ACP runtime", () => {
     if (approval.type !== "approval") {
       throw new Error("Expected an approval event.");
     }
-    expect(responder?.({ requestId: approval.requestId, approved: true })).toEqual(
-      { ok: true },
-    );
+    expect(
+      responder?.({ requestId: approval.requestId, approved: true }),
+    ).toEqual({ ok: true });
     const events = await turn;
     // Kiro advertises `allow_once`, Cursor advertises `allow-once`. Selection
     // keys off the protocol `kind`, so both runtimes resolve.
     expect(
       events.some(
         (event) =>
-          event.type === "text" && event.text.includes('"optionId":"allow_once"'),
+          event.type === "text" &&
+          event.text.includes('"optionId":"allow_once"'),
       ),
     ).toBe(true);
   });
@@ -258,7 +295,8 @@ describe("Kiro ACP runtime", () => {
     expect(
       events.some(
         (event) =>
-          event.type === "text" && event.text.includes('"optionId":"allow_once"'),
+          event.type === "text" &&
+          event.text.includes('"optionId":"allow_once"'),
       ),
     ).toBe(true);
   });

@@ -522,7 +522,10 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           }}
           finalFocus={triggerRef}
           aria-label="Model and effort selector"
-          className="model-effort-popover flex h-[min(32rem,calc(100dvh-1rem))] w-[min(40rem,calc(100vw-1rem))] flex-col gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0"
+          // Search + footer chrome is ~7.5rem. Each model row is ~3.5rem
+          // (min-h-11 plus row padding/gap), so 25rem keeps five rows in
+          // view and everything below reachable by scrolling.
+          className="model-effort-popover flex h-[min(25rem,calc(100dvh-1rem))] w-[min(40rem,calc(100vw-1rem))] flex-col gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0"
         >
           <Tabs
             value={providerId}
