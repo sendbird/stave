@@ -97,6 +97,46 @@ input.on("line", (line) => {
     return;
   }
   if (method === "session/load") {
+    // ACP v1 requires session/load to replay the prior conversation as
+    // session/update notifications before answering. Distinct copy so a
+    // leaked replay cannot be mistaken for this turn's prompt response.
+    update({
+      sessionUpdate: "user_message_chunk",
+      content: { type: "text", text: "Previous user prompt" },
+    });
+    update({
+      sessionUpdate: "agent_thought_chunk",
+      content: { type: "text", text: "Previous thinking" },
+    });
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: { type: "text", text: "Previous turn response" },
+      messageId: "previous-message-1",
+    });
+    update({
+      sessionUpdate: "tool_call",
+      toolCallId: "previous-tool-1",
+      title: "Edit previous file",
+      status: "completed",
+      rawInput: { path: "/tmp/previous.txt" },
+      content: [
+        {
+          type: "content",
+          content: { type: "text", text: "Previous tool output" },
+        },
+      ],
+    });
+    send({
+      jsonrpc: "2.0",
+      method: "cursor/task",
+      params: {
+        toolCallId: "previous-task-1",
+        description: "Previous subagent work",
+        prompt: "Explore previous",
+        subagentType: "explore",
+        agentId: "previous-agent-1",
+      },
+    });
     result(id, { modes, configOptions });
     return;
   }

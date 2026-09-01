@@ -37,7 +37,9 @@ baseline or its ACP integration.
 6. Verify permission option ids and kinds before changing any approval mapping.
    Missing one-turn allow or reject options must fail closed.
 7. Resume the session in a fresh ACP process and confirm `session/load`
-   preserves its native identity.
+   preserves its native identity. The required history replay must not appear
+   on the follow-up turn; only updates after the load response belong to that
+   turn.
 8. Cancel an active prompt and confirm the provider returns `cancelled` before
    the process-kill fallback is needed.
 9. Run the ACP protocol, Cursor runtime, IPC, persistence, replay, secret, and

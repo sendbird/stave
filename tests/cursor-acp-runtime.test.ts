@@ -85,8 +85,7 @@ describe("Cursor ACP runtime", () => {
                 name: "Auto Balance",
               },
               {
-                value:
-                  "gpt-5.6-sol[context=272k,reasoning=high,fast=true]",
+                value: "gpt-5.6-sol[context=272k,reasoning=high,fast=true]",
                 name: "gpt-5.6-sol",
               },
             ],
@@ -192,14 +191,15 @@ describe("Cursor ACP runtime", () => {
     if (approval.type !== "approval") {
       throw new Error("Expected an approval event.");
     }
-    expect(responder?.({ requestId: approval.requestId, approved: true })).toEqual(
-      { ok: true },
-    );
+    expect(
+      responder?.({ requestId: approval.requestId, approved: true }),
+    ).toEqual({ ok: true });
     const events = await turn;
     expect(
       events.some(
         (event) =>
-          event.type === "text" && event.text.includes('"optionId":"allow-once"'),
+          event.type === "text" &&
+          event.text.includes('"optionId":"allow-once"'),
       ),
     ).toBe(true);
   });
@@ -410,7 +410,8 @@ describe("Cursor ACP runtime", () => {
     expect(decision).toEqual({ ok: true });
     expect(
       events.some(
-        (event) => event.type === "text" && event.text.includes("selectedOptionIds"),
+        (event) =>
+          event.type === "text" && event.text.includes("selectedOptionIds"),
       ),
     ).toBe(true);
   });
@@ -463,6 +464,40 @@ describe("Cursor ACP runtime", () => {
       type: "model_resolved",
       resolvedProviderId: "cursor",
       resolvedModel: "fixture-model",
+    });
+  });
+
+  test("does not attach session/load history replay to the follow-up turn", async () => {
+    const events = await streamCursorWithAcp(
+      createTurnArgs("standard", {
+        runtimeOptions: {
+          model: "auto",
+          cursorMode: "agent",
+          cursorBinaryPath: process.execPath,
+          cursorResumeSessionId: "saved-session",
+        },
+      }),
+    );
+
+    expect(
+      events.some(
+        (event) =>
+          (event.type === "text" && event.text === "Previous turn response") ||
+          (event.type === "thinking" && event.text === "Previous thinking") ||
+          (event.type === "tool" && event.toolUseId === "previous-tool-1") ||
+          (event.type === "subagent_progress" &&
+            event.toolUseId === "previous-task-1"),
+      ),
+    ).toBe(false);
+    expect(events).toContainEqual({
+      type: "text",
+      text: "Fixture response",
+      segmentId: "message-1",
+    });
+    const firstText = events.find((event) => event.type === "text");
+    expect(firstText).toMatchObject({
+      type: "text",
+      text: "Fixture response",
     });
   });
 
