@@ -161,7 +161,9 @@ namespaced extension mapper instead of leaking into shared schemas.
 
 At app startup, Stave reads `kiro-cli chat --list-models --format json` through
 the normalized runtime catalog bridge after a non-interactive authentication
-check. `Auto` is the offline fallback. When the
+check. The CLI 2.20 catalog uses snake_case keys (`model_id`, `model_name`,
+`default_model`); the parser accepts those alongside camelCase. `Auto` is the
+offline fallback. When the
 active ACP session exposes a stable model configuration option, Stave uses it;
 otherwise the Kiro profile uses the documented `session/set_model` method.
 `session/prompt` carries the blocks under both the spec-standard `prompt` key

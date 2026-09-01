@@ -159,6 +159,19 @@ describe("model effort selector utilities", () => {
     });
   });
 
+  test("keeps bracket syntax out of a model missing from the catalog", () => {
+    const cursor = option({
+      providerId: "cursor",
+      model: "auto-smart[optimize_for=fallback]",
+      label: "Auto Smart[optimize_for=fallback]",
+    });
+
+    expect(getCursorModelPresentation(cursor)).toEqual({
+      label: "Auto Smart",
+      capabilities: ["Fallback"],
+    });
+  });
+
   test("groups Cursor ACP variants and resolves one-click configuration changes", () => {
     const medium = option({
       providerId: "cursor",
@@ -236,6 +249,30 @@ describe("model effort selector utilities", () => {
       "grok-4.5",
       "claude-opus-5",
       "gpt-5.6-sol",
+      "gpt-5.5",
+    ]);
+  });
+
+  test("keeps Cursor catalog order instead of re-ranking by version number", () => {
+    const options = [
+      option({ providerId: "cursor", model: "auto-smart" }),
+      option({ providerId: "cursor", model: "grok-4.6" }),
+      option({ providerId: "cursor", model: "composer-2.5" }),
+      option({ providerId: "cursor", model: "claude-fable-5" }),
+      option({ providerId: "cursor", model: "gpt-5.6-sol" }),
+      option({ providerId: "cursor", model: "claude-opus-5" }),
+      option({ providerId: "cursor", model: "gpt-5.5" }),
+    ];
+
+    expect(
+      listFeaturedModelOptions({ options }).map((candidate) => candidate.model),
+    ).toEqual([
+      "auto-smart",
+      "grok-4.6",
+      "composer-2.5",
+      "claude-fable-5",
+      "gpt-5.6-sol",
+      "claude-opus-5",
       "gpt-5.5",
     ]);
   });

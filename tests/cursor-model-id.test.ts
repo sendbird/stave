@@ -5,6 +5,7 @@ import {
   getCursorModelBaseId,
   listCursorModelParameterLabels,
   parseCursorModelParameters,
+  registerCursorModelDisplayNames,
 } from "@/lib/providers/cursor-model-id";
 import { getTurnModelInfoLabel, getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
 
@@ -51,6 +52,23 @@ describe("Cursor model ids", () => {
     expect(described.name).toBe("Auto Smart");
     expect(described.details).toEqual(["Balanced"]);
     expect(`${described.name}${described.details.join()}`).not.toContain("[");
+  });
+
+  test("uses the display name advertised by the Cursor catalog", () => {
+    registerCursorModelDisplayNames(
+      new Map([["auto-smart[optimize_for=balanced]", "Auto Balance"]]),
+    );
+
+    expect(describeCursorModel("auto-smart[optimize_for=balanced]")).toEqual({
+      name: "Auto Balance",
+      details: [],
+    });
+    expect(
+      getTurnModelInfoLabel({
+        providerId: "cursor",
+        model: "auto-smart[optimize_for=balanced]",
+      }),
+    ).toBe("Auto Balance");
   });
 
   test("splits a runtime display name into its name and detail segments", () => {

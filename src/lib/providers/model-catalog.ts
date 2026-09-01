@@ -634,6 +634,18 @@ export function normalizeModelSelection(args: {
   return trimmed;
 }
 
+/**
+ * Whether a model id belongs to a provider's own "let the agent pick" family,
+ * for example `auto` or Cursor's `auto-smart[optimize_for=balanced]`.
+ *
+ * Stave offers a single `auto` row for providers that default to it, so every
+ * surface has to agree on which advertised ids that row stands for.
+ */
+export function isAutoModelId(args: { model: string }) {
+  const bareModel = args.model.split("[")[0]?.trim().toLowerCase() ?? "";
+  return bareModel === "auto" || bareModel.startsWith("auto-");
+}
+
 export function upgradeSettingsScopedClaudeModel(args: { model: string }) {
   const normalizedModel = args.model.trim().toLowerCase();
   const upgraded = LEGACY_AUTOMATIC_CLAUDE_MODELS[normalizedModel];

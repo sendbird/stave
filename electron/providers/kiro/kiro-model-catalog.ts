@@ -18,21 +18,32 @@ const KiroModelEntrySchema = z.union([
     .object({
       id: z.string().optional(),
       modelId: z.string().optional(),
+      model_id: z.string().optional(),
       name: z.string().optional(),
+      model_name: z.string().optional(),
       displayName: z.string().optional(),
       description: z.string().optional(),
       isDefault: z.boolean().optional(),
       default: z.boolean().optional(),
       defaultEffort: z.string().optional(),
+      default_effort: z.string().optional(),
       supportedEfforts: z.array(z.string()).optional(),
+      supported_efforts: z.array(z.string()).optional(),
       reasoningEfforts: z.array(z.string()).optional(),
+      reasoning_efforts: z.array(z.string()).optional(),
     })
     .passthrough(),
 ]);
 
 const KiroModelCatalogSchema = z.union([
   z.array(KiroModelEntrySchema),
-  z.object({ models: z.array(KiroModelEntrySchema) }).passthrough(),
+  z
+    .object({
+      models: z.array(KiroModelEntrySchema),
+      defaultModel: z.string().optional(),
+      default_model: z.string().optional(),
+    })
+    .passthrough(),
 ]);
 
 function parseJsonOutput(value: string): unknown {
@@ -64,42 +75,64 @@ function humanizeModelId(model: string) {
     .join(" ");
 }
 
-export function parseKiroModelCatalog(value: string): ProviderModelCatalogEntry[] {
+export function parseKiroModelCatalog(
+  value: string,
+): ProviderModelCatalogEntry[] {
   const parsed = KiroModelCatalogSchema.parse(parseJsonOutput(value));
   const entries = Array.isArray(parsed) ? parsed : parsed.models;
+  const defaultModel = Array.isArray(parsed)
+    ? undefined
+    : parsed.defaultModel?.trim() || parsed.default_model?.trim();
   return entries.flatMap((entry) => {
     if (typeof entry === "string") {
-      return [{
-        model: entry,
-        displayName: humanizeModelId(entry),
-        description: "",
-        hidden: false,
-        isDefault: entry === "auto",
-        defaultEffort: null,
-        supportedEfforts: [],
-      }];
+      return [
+        {
+          model: entry,
+          displayName: humanizeModelId(entry),
+          description: "",
+          hidden: false,
+          isDefault: entry === (defaultModel || "auto"),
+          defaultEffort: null,
+          supportedEfforts: [],
+        },
+      ];
     }
-    const model = entry.id?.trim() || entry.modelId?.trim() || "";
+    const model =
+      entry.id?.trim() || entry.modelId?.trim() || entry.model_id?.trim() || "";
     if (!model) {
       return [];
     }
-    const supportedEfforts = (entry.supportedEfforts ?? entry.reasoningEfforts ?? [])
-      .filter((effort) => KIRO_EFFORTS.has(effort));
-    return [{
-      model,
-      displayName:
-        entry.displayName?.trim() ||
-        entry.name?.trim() ||
-        humanizeModelId(model),
-      description: entry.description?.trim() || "",
-      hidden: false,
-      isDefault: entry.isDefault ?? entry.default ?? model === "auto",
-      defaultEffort:
-        entry.defaultEffort && KIRO_EFFORTS.has(entry.defaultEffort)
-          ? entry.defaultEffort
-          : null,
-      supportedEfforts,
-    }];
+    const supportedEfforts = (
+      entry.supportedEfforts ??
+      entry.supported_efforts ??
+      entry.reasoningEfforts ??
+      entry.reasoning_efforts ??
+      []
+    ).filter((effort) => KIRO_EFFORTS.has(effort));
+    const explicitLabel = entry.displayName?.trim() || entry.name?.trim();
+    const snakeLabel = entry.model_name?.trim();
+    const defaultEffort = entry.defaultEffort ?? entry.default_effort;
+    return [
+      {
+        model,
+        displayName:
+          explicitLabel ||
+          (snakeLabel && snakeLabel !== model
+            ? snakeLabel
+            : humanizeModelId(model)),
+        description: entry.description?.trim() || "",
+        hidden: false,
+        isDefault:
+          entry.isDefault ??
+          entry.default ??
+          model === (defaultModel || "auto"),
+        defaultEffort:
+          defaultEffort && KIRO_EFFORTS.has(defaultEffort)
+            ? defaultEffort
+            : null,
+        supportedEfforts,
+      },
+    ];
   });
 }
 

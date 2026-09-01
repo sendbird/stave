@@ -5,6 +5,7 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
 import {
+  describeCursorModel,
   formatCursorEffortLabel,
   getCursorModelBaseId,
   parseCursorModelParameters,
@@ -180,7 +181,15 @@ export function getCursorModelPresentation(
   if (option.providerId !== "cursor") {
     return { label: option.label, capabilities: [] };
   }
-  const [label, ...labelDetails] = option.label.split(" · ");
+  // A label still carrying bracket syntax is the humanized raw id, which is
+  // what a model outside the loaded catalog falls back to. Describing the id
+  // keeps the wire format out of the trigger and the rows.
+  const described = option.label.includes("[")
+    ? describeCursorModel(option.model)
+    : null;
+  const [label, ...labelDetails] = described
+    ? [described.name, ...described.details]
+    : option.label.split(" · ");
   const parameters = parseModelParameters(option.model);
   const capabilities: string[] = [];
   const addCapability = (value: string | undefined) => {
