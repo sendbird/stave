@@ -468,9 +468,7 @@ export function normalizeReasoningExpansionMode(
   return value === "auto" ? "auto" : "manual";
 }
 
-export function normalizeCursorMode(
-  value: unknown,
-): AppSettings["cursorMode"] {
+export function normalizeCursorMode(value: unknown): AppSettings["cursorMode"] {
   return value === "plan" || value === "ask" ? value : "agent";
 }
 
@@ -685,10 +683,10 @@ export const defaultSettings: AppSettings = {
   codexPlanMode: false,
   cursorBinaryPath: "",
   cursorMode: "agent",
-  cursorApprovalMode: "manual",
+  cursorApprovalMode: "auto",
   kiroBinaryPath: "",
   kiroEffort: "medium",
-  kiroApprovalMode: "manual",
+  kiroApprovalMode: "auto",
   promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
   promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,

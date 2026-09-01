@@ -51,55 +51,64 @@ export interface ProviderModePresentation {
 
 export const CLAUDE_PROVIDER_MODE_PRESETS = [
   {
-    id: "manual",
-    label: "Manual",
-    description: "Guarded Claude mode for review, audit, and explicit checkpoints.",
+    id: "auto",
+    label: "Auto",
+    description:
+      "Highest-autonomy Claude mode for trusted local automation with minimal interruptions.",
   },
   {
     id: "guided",
     label: "Guided",
-    description: "Balanced default for normal Claude work without forcing a fully hands-off path.",
+    description:
+      "Balanced default for normal Claude work without forcing a fully hands-off path.",
   },
   {
-    id: "auto",
-    label: "Auto",
-    description: "Highest-autonomy Claude mode for trusted local automation with minimal interruptions.",
+    id: "manual",
+    label: "Manual",
+    description:
+      "Guarded Claude mode for review, audit, and explicit checkpoints.",
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
 export const CODEX_PROVIDER_MODE_PRESETS = [
   {
-    id: "manual",
-    label: "Manual",
-    description: "Inspect-first Codex mode with strict checkpoints and no write access.",
+    id: "auto",
+    label: "Auto",
+    description:
+      "Highest-autonomy Codex mode for trusted runs that should move without routine approval stops.",
   },
   {
     id: "guided",
     label: "Guided",
-    description: "Recommended App Server-style baseline for day-to-day implementation work.",
+    description:
+      "Recommended App Server-style baseline for day-to-day implementation work.",
   },
   {
-    id: "auto",
-    label: "Auto",
-    description: "Highest-autonomy Codex mode for trusted runs that should move without routine approval stops.",
+    id: "manual",
+    label: "Manual",
+    description:
+      "Inspect-first Codex mode with strict checkpoints and no write access.",
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
 export const CURSOR_PROVIDER_MODE_PRESETS = [
   {
-    id: "manual",
-    label: "Manual",
-    description: "Cursor asks before every tool call. Nothing runs without an explicit approval.",
+    id: "auto",
+    label: "Auto",
+    description:
+      "Cursor runs every tool call and MCP server without asking. Use only in trusted workspaces.",
   },
   {
     id: "guided",
     label: "Guided",
-    description: "Cursor's own Auto-review classifier runs the calls it judges safe and asks for the rest.",
+    description:
+      "Cursor's own Auto-review classifier runs the calls it judges safe and asks for the rest.",
   },
   {
-    id: "auto",
-    label: "Auto",
-    description: "Cursor runs every tool call and MCP server without asking. Use only in trusted workspaces.",
+    id: "manual",
+    label: "Manual",
+    description:
+      "Cursor asks before every tool call. Nothing runs without an explicit approval.",
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
@@ -112,18 +121,23 @@ export const CURSOR_PROVIDER_MODE_PRESETS = [
  */
 export const KIRO_PROVIDER_MODE_PRESETS = [
   {
-    id: "manual",
-    label: "Manual",
-    description: "Kiro asks before every tool call. Nothing runs without an explicit approval.",
-  },
-  {
     id: "auto",
     label: "Auto",
-    description: "Kiro auto-approves every tool permission request. Use only in trusted workspaces.",
+    description:
+      "Kiro auto-approves every tool permission request. Use only in trusted workspaces.",
+  },
+  {
+    id: "manual",
+    label: "Manual",
+    description:
+      "Kiro asks before every tool call. Nothing runs without an explicit approval.",
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
-const CLAUDE_PROVIDER_MODE_PATCHES: Record<ProviderModePresetId, ClaudeProviderModeSettings> = {
+const CLAUDE_PROVIDER_MODE_PATCHES: Record<
+  ProviderModePresetId,
+  ClaudeProviderModeSettings
+> = {
   manual: {
     claudePermissionMode: "default",
     claudeAllowDangerouslySkipPermissions: false,
@@ -144,7 +158,10 @@ const CLAUDE_PROVIDER_MODE_PATCHES: Record<ProviderModePresetId, ClaudeProviderM
   },
 };
 
-const CODEX_PROVIDER_MODE_PATCHES: Record<ProviderModePresetId, CodexProviderModeSettings> = {
+const CODEX_PROVIDER_MODE_PATCHES: Record<
+  ProviderModePresetId,
+  CodexProviderModeSettings
+> = {
   manual: {
     codexFileAccess: "read-only",
     codexApprovalPolicy: "on-request",
@@ -165,13 +182,19 @@ const CODEX_PROVIDER_MODE_PATCHES: Record<ProviderModePresetId, CodexProviderMod
   },
 };
 
-const CURSOR_PROVIDER_MODE_PATCHES: Record<ProviderModePresetId, CursorProviderModeSettings> = {
+const CURSOR_PROVIDER_MODE_PATCHES: Record<
+  ProviderModePresetId,
+  CursorProviderModeSettings
+> = {
   manual: { cursorApprovalMode: "manual" },
   guided: { cursorApprovalMode: "guided" },
   auto: { cursorApprovalMode: "auto" },
 };
 
-const KIRO_PROVIDER_MODE_PATCHES: Record<KiroApprovalMode, KiroProviderModeSettings> = {
+const KIRO_PROVIDER_MODE_PATCHES: Record<
+  KiroApprovalMode,
+  KiroProviderModeSettings
+> = {
   manual: { kiroApprovalMode: "manual" },
   auto: { kiroApprovalMode: "auto" },
 };
@@ -229,7 +252,8 @@ function toPresentation(args: {
     return {
       id: "custom",
       label: "Custom",
-      description: "This settings combination no longer matches a built-in preset.",
+      description:
+        "This settings combination no longer matches a built-in preset.",
       detail: args.detail,
       tone: "warning",
       planNote: args.planNote,
@@ -242,7 +266,12 @@ function toPresentation(args: {
     label: preset.label,
     description: preset.description,
     detail: args.detail,
-    tone: preset.id === "guided" ? "accent" : preset.id === "auto" ? "warning" : "default",
+    tone:
+      preset.id === "guided"
+        ? "accent"
+        : preset.id === "auto"
+          ? "warning"
+          : "default",
     planNote: args.planNote,
   };
 }
@@ -265,10 +294,12 @@ export function detectClaudeProviderModePreset(args: {
   for (const preset of CLAUDE_PROVIDER_MODE_PRESETS) {
     const expected = CLAUDE_PROVIDER_MODE_PATCHES[preset.id];
     if (
-      expected.claudePermissionMode === args.settings.claudePermissionMode
-      && expected.claudeAllowDangerouslySkipPermissions === args.settings.claudeAllowDangerouslySkipPermissions
-      && expected.claudeSandboxEnabled === args.settings.claudeSandboxEnabled
-      && expected.claudeAllowUnsandboxedCommands === args.settings.claudeAllowUnsandboxedCommands
+      expected.claudePermissionMode === args.settings.claudePermissionMode &&
+      expected.claudeAllowDangerouslySkipPermissions ===
+        args.settings.claudeAllowDangerouslySkipPermissions &&
+      expected.claudeSandboxEnabled === args.settings.claudeSandboxEnabled &&
+      expected.claudeAllowUnsandboxedCommands ===
+        args.settings.claudeAllowUnsandboxedCommands
     ) {
       return preset.id;
     }
@@ -282,10 +313,10 @@ export function detectCodexProviderModePreset(args: {
   for (const preset of CODEX_PROVIDER_MODE_PRESETS) {
     const expected = CODEX_PROVIDER_MODE_PATCHES[preset.id];
     if (
-      expected.codexFileAccess === args.settings.codexFileAccess
-      && expected.codexApprovalPolicy === args.settings.codexApprovalPolicy
-      && expected.codexNetworkAccess === args.settings.codexNetworkAccess
-      && expected.codexWebSearch === args.settings.codexWebSearch
+      expected.codexFileAccess === args.settings.codexFileAccess &&
+      expected.codexApprovalPolicy === args.settings.codexApprovalPolicy &&
+      expected.codexNetworkAccess === args.settings.codexNetworkAccess &&
+      expected.codexWebSearch === args.settings.codexWebSearch
     ) {
       return preset.id;
     }
