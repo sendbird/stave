@@ -441,7 +441,7 @@ describe("Crane dispatch runtime", () => {
           advisorEnabled: false,
           advisorTarget: null,
           advisorTargetByProvider: {
-            "claude-code": { model: "claude-fable-5", effort: "max" },
+            "claude-code": { model: "claude-fable-5-1", effort: "max" },
           },
           advisorConsultLimit: 5,
         },
@@ -453,7 +453,7 @@ describe("Crane dispatch runtime", () => {
       expect(advisor.enabled).toBe(false);
       expect(advisor.providerId).toBe("claude-code");
       expect(advisor.targetByProvider["claude-code"]).toMatchObject({
-        model: "claude-fable-5",
+        model: "claude-fable-5-1",
         effort: "max",
       });
     });
@@ -496,14 +496,14 @@ describe("Crane dispatch runtime", () => {
         settings,
         memory: {
           ...memory,
-          advisor: { providerId: "claude-code", model: "claude-fable-5" },
+          advisor: { providerId: "claude-code", model: "claude-fable-5-1" },
         },
         primaryProviderId: "codex",
       });
       expect(remembered.enabled).toBe(true);
       expect(resolveCraneDispatchAdvisorTarget(remembered)).toMatchObject({
         providerId: "claude-code",
-        model: "claude-fable-5",
+        model: "claude-fable-5-1",
       });
     });
 
@@ -520,7 +520,7 @@ describe("Crane dispatch runtime", () => {
         advisor,
         target: {
           providerId: "claude-code",
-          model: "claude-fable-5",
+          model: "claude-fable-5-1",
           effort: "max",
         },
       });
@@ -532,7 +532,7 @@ describe("Crane dispatch runtime", () => {
         effort: "high",
       });
       expect(advisor.targetByProvider["claude-code"]).toMatchObject({
-        model: "claude-fable-5",
+        model: "claude-fable-5-1",
         effort: "max",
       });
     });
@@ -569,11 +569,11 @@ describe("Crane dispatch runtime", () => {
 
       const armed = selectCraneDispatchAdvisorTarget({
         advisor: { ...off, enabled: true },
-        target: { providerId: "claude-code", model: "claude-fable-5" },
+        target: { providerId: "claude-code", model: "claude-fable-5-1" },
       });
       expect(
         buildCraneTeamRuntimeMemory({ model, advisor: armed }).advisor,
-      ).toMatchObject({ providerId: "claude-code", model: "claude-fable-5" });
+      ).toMatchObject({ providerId: "claude-code", model: "claude-fable-5-1" });
     });
 
     test("sends the advisor effort and consult budget through the IPC schema", () => {
@@ -597,7 +597,7 @@ describe("Crane dispatch runtime", () => {
             },
             target: {
               providerId: "claude-code",
-              model: "claude-fable-5",
+              model: "claude-fable-5-1",
               effort: "max",
             },
           }),
@@ -611,7 +611,7 @@ describe("Crane dispatch runtime", () => {
       expect(runtime).toMatchObject({
         advisorTarget: {
           providerId: "claude-code",
-          model: "claude-fable-5",
+          model: "claude-fable-5-1",
           effort: "max",
         },
         advisorConsultLimit: 2,

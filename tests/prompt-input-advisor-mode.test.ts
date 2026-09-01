@@ -21,7 +21,7 @@ import {
 const CODEX_TARGET = { providerId: "codex" as const, model: "gpt-5.6-sol" };
 const CLAUDE_TARGET = {
   providerId: "claude-code" as const,
-  model: "claude-fable-5",
+  model: "claude-fable-5-1",
 };
 
 const CLAUDE_PRIMARY = {
@@ -129,10 +129,13 @@ describe("advisor pill presentation", () => {
   test("warns when the advisor would consult the model running the turn", () => {
     const presentation = describeAdvisorPill({
       arm: arm({
-        settingsTarget: { providerId: "claude-code", model: "claude-fable-5" },
+        settingsTarget: {
+          providerId: "claude-code",
+          model: "claude-fable-5-1",
+        },
       }),
       primaryProviderId: "claude-code",
-      primaryModel: "claude-fable-5",
+      primaryModel: "claude-fable-5-1",
     });
     expect(presentation.tone).toBe("warning");
     expect(presentation.warning).toContain("same model");
@@ -186,7 +189,7 @@ describe("advisor pill presentation", () => {
       isAdvisorSelfAdvising({
         target: CLAUDE_TARGET,
         primaryProviderId: "claude-code",
-        primaryModel: "claude-fable-5",
+        primaryModel: "claude-fable-5-1",
       }),
     ).toBe(true);
     expect(

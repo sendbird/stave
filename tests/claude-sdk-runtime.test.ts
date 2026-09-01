@@ -1961,7 +1961,7 @@ describe("buildClaudeReadOnlyPromptOptions", () => {
   test("uses a fresh one-turn sandbox with no tools or inherited state", () => {
     const options = buildClaudeReadOnlyPromptOptions({
       cwd: workspaceRoot,
-      model: "claude-fable-5",
+      model: "claude-fable-5-1",
       effort: "xhigh",
       abortController: new AbortController(),
       claudeExecutablePath: "/opt/claude",
@@ -1969,7 +1969,7 @@ describe("buildClaudeReadOnlyPromptOptions", () => {
 
     expect(options).toMatchObject({
       cwd: workspaceRoot,
-      model: "claude-fable-5",
+      model: "claude-fable-5-1",
       effort: "xhigh",
       maxTurns: 1,
       permissionMode: "dontAsk",
@@ -1994,7 +1994,7 @@ describe("buildClaudeReadOnlyPromptOptions", () => {
   test("resumes only the isolated role session supplied by the caller", () => {
     const options = buildClaudeReadOnlyPromptOptions({
       cwd: workspaceRoot,
-      model: "claude-fable-5",
+      model: "claude-fable-5-1",
       effort: "xhigh",
       abortController: new AbortController(),
       claudeExecutablePath: "/opt/claude",

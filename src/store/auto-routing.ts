@@ -603,7 +603,6 @@ export async function resolveAutoRoutingDecision(
       tier,
       providerId,
       eligibleModels,
-      // TODO(fable): when available, frontier should resolve to claude-fable-5.
     }) ?? getDefaultModelForProvider({ providerId });
 
   return buildDecision({

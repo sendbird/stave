@@ -75,7 +75,7 @@ describe("model effort selector utilities", () => {
   test("keeps unmatched Claude models available without inventing a 1M pair", () => {
     const fable = option({
       providerId: "claude-code",
-      model: "claude-fable-5",
+      model: "claude-fable-5-1",
     });
 
     expect(
@@ -258,7 +258,7 @@ describe("model effort selector utilities", () => {
       option({ providerId: "cursor", model: "auto-smart" }),
       option({ providerId: "cursor", model: "grok-4.6" }),
       option({ providerId: "cursor", model: "composer-2.5" }),
-      option({ providerId: "cursor", model: "claude-fable-5" }),
+      option({ providerId: "cursor", model: "claude-fable-5-1" }),
       option({ providerId: "cursor", model: "gpt-5.6-sol" }),
       option({ providerId: "cursor", model: "claude-opus-5" }),
       option({ providerId: "cursor", model: "gpt-5.5" }),
@@ -270,7 +270,7 @@ describe("model effort selector utilities", () => {
       "auto-smart",
       "grok-4.6",
       "composer-2.5",
-      "claude-fable-5",
+      "claude-fable-5-1",
       "gpt-5.6-sol",
       "claude-opus-5",
       "gpt-5.5",

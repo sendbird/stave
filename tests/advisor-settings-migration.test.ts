@@ -136,7 +136,7 @@ describe("Advisor settings rehydration", () => {
             advisorEnabled: false,
             advisorTarget: { providerId: "codex", model: "gpt-5.6-sol" },
             advisorTargetByProvider: {
-              "claude-code": { model: "claude-fable-5", effort: "high" },
+              "claude-code": { model: "claude-fable-5-1", effort: "high" },
               // Junk is dropped rather than trusted: a newer build could have
               // written a provider or tier this build does not know.
               codex: { model: "   " },
@@ -157,7 +157,7 @@ describe("Advisor settings rehydration", () => {
       model: "gpt-5.6-sol",
     });
     expect(settings.advisorTargetByProvider).toEqual({
-      "claude-code": { model: "claude-fable-5", effort: "high" },
+      "claude-code": { model: "claude-fable-5-1", effort: "high" },
     });
   });
 });

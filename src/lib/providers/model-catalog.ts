@@ -13,7 +13,7 @@ export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-5";
 export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5[1m]";
 export const DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL = "claude-opus-4-8";
 export const DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL = "claude-opus-4-8[1m]";
-export const CLAUDE_FABLE_MODEL = "claude-fable-5";
+export const CLAUDE_FABLE_MODEL = "claude-fable-5-1";
 // Claude Sonnet 5 surfaced in the Claude CLI picker from 2.1.197, but the
 // model ID is passed straight through to the Anthropic API, which decides
 // availability — so no CLI-version gating is needed on our side.
@@ -31,6 +31,7 @@ const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
   "claude-opus-4-6[1m]": DEFAULT_CLAUDE_OPUS_1M_MODEL,
   "claude-sonnet-4-6": DEFAULT_CLAUDE_SONNET_MODEL,
   "claude-sonnet-4-6[1m]": DEFAULT_CLAUDE_SONNET_1M_MODEL,
+  "claude-fable-5": CLAUDE_FABLE_MODEL,
 };
 
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
@@ -675,7 +676,6 @@ export function resolveDefaultClaudeEffortForModel(args: {
   if (normalizedModel.includes("fable") || normalizedModel.includes("opus")) {
     return "xhigh";
   }
-  // TODO(fable): return "xhigh" for claude-fable-5 once the model is available.
   if (normalizedModel.includes("sonnet")) {
     return "high";
   }
@@ -919,7 +919,8 @@ export function toHumanModelName(args: { model: string }) {
 
   // 2. Static known names
   const known: Record<string, string> = {
-    [CLAUDE_FABLE_MODEL]: "Claude Fable 5",
+    [CLAUDE_FABLE_MODEL]: "Claude Fable 5.1",
+    "claude-fable-5": "Claude Fable 5",
     [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 5",
     [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 5 (1M)",
     // Legacy labels kept so historical chat/turn records still render a

@@ -279,7 +279,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       primaryProviderId: "claude-code" as const,
       advisorTarget: {
         providerId: "claude-code" as const,
-        model: "claude-fable-5",
+        model: "claude-fable-5-1",
       },
     },
     {
@@ -293,7 +293,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       primaryProviderId: "codex" as const,
       advisorTarget: {
         providerId: "claude-code" as const,
-        model: "claude-fable-5",
+        model: "claude-fable-5-1",
       },
     },
     {

@@ -381,7 +381,7 @@ describe("buildProviderRuntimeOptions", () => {
         ...settings,
         advisorTarget: {
           providerId: "claude-code",
-          model: "claude-fable-5",
+          model: "claude-fable-5-1",
         },
       },
       providerSession: null,
@@ -510,11 +510,14 @@ describe("advisor arming in runtime options", () => {
         includeAdvisor: true,
         advisorRuntimeOverrides: {
           advisorEnabled: true,
-          advisorTarget: { providerId: "claude-code", model: "claude-fable-5" },
+          advisorTarget: {
+            providerId: "claude-code",
+            model: "claude-fable-5-1",
+          },
         },
         settings: settings as never,
       }).advisorTarget,
-    ).toEqual({ providerId: "claude-code", model: "claude-fable-5" });
+    ).toEqual({ providerId: "claude-code", model: "claude-fable-5-1" });
   });
 
   test("utility turns stay advisor-free even with a task override", () => {
