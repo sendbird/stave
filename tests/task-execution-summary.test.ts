@@ -13,9 +13,7 @@ import {
 } from "@/lib/providers/turn-status";
 import type { ChatMessage } from "@/types/chat";
 
-function assistantMessage(
-  overrides: Partial<ChatMessage> = {},
-): ChatMessage {
+function assistantMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   return {
     id: "assistant-1",
     role: "assistant",
@@ -45,7 +43,11 @@ const rateLimits: RateLimitsSnapshotResponse = {
         limitName: "Standard",
         planType: "pro",
         primary: { usedPercent: 42, windowDurationMins: 300, resetsAt: 30 },
-        secondary: { usedPercent: 67, windowDurationMins: 10_080, resetsAt: 40 },
+        secondary: {
+          usedPercent: 67,
+          windowDurationMins: 10_080,
+          resetsAt: 40,
+        },
         individualLimit: null,
         credits: null,
       },
@@ -157,8 +159,7 @@ describe("task execution summary", () => {
     expect(summary.latestActivity).toMatchObject({
       provenance: "derived",
       value: {
-        label:
-          "Waiting for approval · Bash: Run the production deployment.",
+        label: "Waiting for approval · Bash: Run the production deployment.",
       },
       sourceRefs: ["message:assistant-1"],
     });
@@ -183,6 +184,116 @@ describe("task execution summary", () => {
     expect(claude.accountLimit.value?.label).toBe("Weekly");
     expect(claude.accountLimit.value?.usedPercent).toBe(72);
     expect(codex.accountLimit.value?.usedPercent).toBe(67);
+  });
+
+  it("does not attribute Codex account limits to Cursor or Kiro turns", () => {
+    // Rate-limit snapshots only exist for Claude and Codex. The Headroom tile
+    // used to fall through every other provider to Codex, so a Cursor turn
+    // showed GPT plan percentages that belonged to a different runtime.
+    const cursor = buildTaskExecutionSummary({
+      providerId: "cursor",
+      messages: [],
+      rateLimits,
+    });
+    const kiro = buildTaskExecutionSummary({
+      providerId: "kiro",
+      messages: [],
+      rateLimits,
+    });
+
+    expect(cursor.accountLimit.value).toBeNull();
+    expect(cursor.accountLimit.provenance).toBe("unavailable");
+    expect(cursor.accountLimit.detail).toBe(
+      "Cursor does not report an account limit.",
+    );
+    expect(kiro.accountLimit.value).toBeNull();
+    expect(kiro.accountLimit.detail).toBe(
+      "Kiro does not report an account limit.",
+    );
+  });
+
+  it("reads context headroom from the latest reported window instead of leaving the tile empty", () => {
+    const tokenWindow = buildTaskExecutionSummary({
+      providerId: "claude-code",
+      messages: [
+        assistantMessage({
+          id: "older",
+          providerId: "claude-code",
+          model: "opus",
+          usage: {
+            inputTokens: 10,
+            outputTokens: 4,
+            contextUsedTokens: 100,
+            contextWindowTokens: 200,
+          },
+        }),
+        assistantMessage({
+          id: "newer",
+          providerId: "claude-code",
+          model: "opus",
+          usage: {
+            inputTokens: 8,
+            outputTokens: 2,
+            contextUsedTokens: 750,
+            contextWindowTokens: 1_000,
+          },
+        }),
+      ],
+    });
+    expect(tokenWindow.contextHeadroom).toMatchObject({
+      provenance: "reported",
+      value: { remainingTokens: 250, totalTokens: 1_000, usedPercent: 75 },
+    });
+
+    const kiro = buildTaskExecutionSummary({
+      providerId: "kiro",
+      messages: [
+        assistantMessage({
+          providerId: "kiro",
+          model: "auto",
+          usage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            contextUsedPercent: 3.671,
+            contextCostAmount: 0.05413,
+            contextCostCurrency: "credits",
+          },
+        }),
+      ],
+    });
+    expect(kiro.contextHeadroom).toMatchObject({
+      provenance: "reported",
+      value: { usedPercent: 3.671 },
+    });
+    expect(kiro.usage.value).toMatchObject({
+      inputTokens: 0,
+      outputTokens: 0,
+      costAmount: 0.05413,
+      costCurrency: "credits",
+    });
+    expect(
+      kiro.usage.value?.inputTokens + (kiro.usage.value?.outputTokens ?? 0),
+    ).toBe(0);
+  });
+
+  it("does not treat a Kiro percentage-only record as a zero-token turn", () => {
+    const summary = buildTaskExecutionSummary({
+      providerId: "kiro",
+      messages: [
+        assistantMessage({
+          providerId: "kiro",
+          model: "auto",
+          usage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            contextUsedPercent: 12,
+          },
+        }),
+      ],
+    });
+    expect(summary.usage.value).toBeNull();
+    expect(summary.usage.provenance).toBe("unavailable");
+    expect(summary.contextHeadroom.value?.usedPercent).toBe(12);
   });
 
   it("keeps cumulative persisted metrics across a compact boundary and restart", () => {
@@ -392,8 +503,6 @@ describe("task execution summary — agents", () => {
     );
 
     expect(artifact.facts).toContain("1 agent · 1 blocked");
-    expect(artifact.cautions).toContain(
-      "1 agent is waiting on an answer.",
-    );
+    expect(artifact.cautions).toContain("1 agent is waiting on an answer.");
   });
 });

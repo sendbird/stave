@@ -124,7 +124,10 @@ function SummaryMetricTile(args: {
     >
       <div className="flex min-w-0 items-center gap-1.5">
         <Icon
-          className={cn("size-3.5 shrink-0", toneIconClassName(descriptor.tone))}
+          className={cn(
+            "size-3.5 shrink-0",
+            toneIconClassName(descriptor.tone),
+          )}
           aria-hidden="true"
         />
         <dt className="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
@@ -158,27 +161,47 @@ function joinDetails(parts: Array<string | undefined>) {
  * tiles they read as unrelated gauges, and they were the pair that pushed the
  * grid to an awkward seven.
  */
+function formatContextPercent(usedPercent: number): string {
+  return `${usedPercent < 10 ? usedPercent.toFixed(1) : Math.round(usedPercent)}%`;
+}
+
+function formatReportedCost(amount: number, currency: string): string {
+  const trimmed = currency.trim();
+  if (trimmed.toUpperCase() === "USD") {
+    return `$${amount.toFixed(4)}`;
+  }
+  const digits = amount >= 1 ? 2 : 4;
+  return `${amount.toFixed(digits)} ${trimmed}`;
+}
+
 function buildHeadroomDescriptor(
   summary: TaskExecutionSummary,
 ): SummaryMetricDescriptor {
   const accountLimit = summary.accountLimit.value;
   const contextHeadroom = summary.contextHeadroom.value;
-  const contextRatio =
-    contextHeadroom && contextHeadroom.totalTokens
+  const remainingRatio =
+    contextHeadroom?.remainingTokens !== undefined &&
+    contextHeadroom.totalTokens
       ? contextHeadroom.remainingTokens / contextHeadroom.totalTokens
-      : null;
+      : contextHeadroom?.usedPercent !== undefined
+        ? (100 - contextHeadroom.usedPercent) / 100
+        : null;
   const tone: MetricTone =
     (accountLimit && accountLimit.usedPercent >= 90) ||
-    (contextRatio != null && contextRatio <= 0.1)
+    (remainingRatio != null && remainingRatio <= 0.1)
       ? "danger"
       : (accountLimit && accountLimit.usedPercent >= 75) ||
-          (contextRatio != null && contextRatio <= 0.2)
+          (remainingRatio != null && remainingRatio <= 0.2)
         ? "warning"
         : "default";
-  const segments = [
-    contextHeadroom
+  const contextLabel =
+    contextHeadroom?.remainingTokens !== undefined
       ? `${formatCount(contextHeadroom.remainingTokens)} ctx left`
-      : null,
+      : contextHeadroom?.usedPercent !== undefined
+        ? `${formatContextPercent(contextHeadroom.usedPercent)} ctx`
+        : null;
+  const segments = [
+    contextLabel,
     accountLimit ? `${Math.round(accountLimit.usedPercent)}% limit` : null,
   ].filter(Boolean) as string[];
   const provenance: TaskExecutionMetricProvenance =
@@ -258,13 +281,29 @@ function buildMetricDescriptors(
       tone: "default",
       provenance: summary.usage.provenance,
       detail: summary.usage.detail,
-      value: usage
-        ? `${formatCount(usage.inputTokens + usage.outputTokens)} tokens${
-            usage.totalCostUsd == null
-              ? ""
-              : ` · $${usage.totalCostUsd.toFixed(4)}`
-          }`
-        : "Not reported",
+      value: (() => {
+        if (!usage) {
+          return "Not reported";
+        }
+        const hasTokens = Boolean(
+          usage.inputTokens ||
+          usage.outputTokens ||
+          usage.cacheReadTokens ||
+          usage.cacheCreationTokens,
+        );
+        const tokenLabel = hasTokens
+          ? `${formatCount(usage.inputTokens + usage.outputTokens)} tokens`
+          : null;
+        const costLabel =
+          usage.totalCostUsd != null
+            ? `$${usage.totalCostUsd.toFixed(4)}`
+            : usage.costAmount !== undefined && usage.costCurrency
+              ? formatReportedCost(usage.costAmount, usage.costCurrency)
+              : null;
+        return (
+          [tokenLabel, costLabel].filter(Boolean).join(" · ") || "Not reported"
+        );
+      })(),
     },
     {
       key: "agents",

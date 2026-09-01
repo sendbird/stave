@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { MessageUsageSummary } from "../src/components/session/message-usage-summary";
+import {
+  MessageUsageSummary,
+  providerMayOmitTurnUsage,
+} from "../src/components/session/message-usage-summary";
 
 describe("MessageUsageSummary", () => {
   test("exposes the turn and delegated execution summary to keyboard users", () => {
@@ -93,17 +96,34 @@ describe("MessageUsageSummary", () => {
     expect(html).not.toContain("0 input tokens");
   });
 
-  test("says so explicitly when the provider reports no usage", () => {
+  test("does not keep an empty-state badge for Cursor", () => {
+    // Cursor never reports over ACP. An always-on "not reported" badge would
+    // just decorate every Cursor turn, so the control stays off until numbers
+    // actually arrive.
+    expect(providerMayOmitTurnUsage("cursor")).toBe(false);
+    expect(providerMayOmitTurnUsage("kiro")).toBe(true);
+    expect(providerMayOmitTurnUsage("claude-code")).toBe(false);
+    expect(
+      renderToStaticMarkup(
+        createElement(MessageUsageSummary, {
+          providerId: "cursor",
+          model: "composer-2.5",
+        }),
+      ),
+    ).toBe("");
+  });
+
+  test("says so explicitly when Kiro reports no usage", () => {
     const html = renderToStaticMarkup(
       createElement(MessageUsageSummary, {
-        providerId: "cursor",
-        model: "composer-2.5",
+        providerId: "kiro",
+        model: "auto",
       }),
     );
 
     expect(html).toContain("usage not reported");
     expect(html).toContain(
-      'aria-label="Turn usage details for Cursor · composer-2.5: token usage not reported by the provider"',
+      'aria-label="Turn usage details for Kiro · auto: token usage not reported by the provider"',
     );
   });
 

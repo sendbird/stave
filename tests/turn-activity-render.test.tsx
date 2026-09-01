@@ -61,6 +61,115 @@ describe("TurnActivity", () => {
     expect(html.match(/data-metric="/g)).toHaveLength(6);
   });
 
+  test("keeps Cursor headroom free of Codex account-limit numbers", () => {
+    const executionSummary = buildTaskExecutionSummary({
+      providerId: "cursor",
+      messages: [],
+      rateLimits: {
+        claude: {
+          source: "oauth",
+          session: { usedPercent: 18, resetsAt: 10 },
+          weekly: { usedPercent: 72, resetsAt: 20 },
+          fableWeekly: null,
+          error: null,
+        },
+        codex: {
+          source: "rpc",
+          buckets: [
+            {
+              limitId: "standard",
+              limitName: "Standard",
+              planType: "pro",
+              primary: {
+                usedPercent: 42,
+                windowDurationMins: 300,
+                resetsAt: 30,
+              },
+              secondary: {
+                usedPercent: 67,
+                windowDurationMins: 10_080,
+                resetsAt: 40,
+              },
+              individualLimit: null,
+              credits: null,
+            },
+          ],
+          error: null,
+        },
+      },
+    });
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-cursor",
+        activity: {
+          turnId: "turn-cursor",
+          providerId: "cursor",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [],
+        todos: [],
+        executionSummary,
+      }),
+    );
+
+    expect(html).toContain("Headroom");
+    expect(html).toContain("Not reported");
+    expect(html).not.toContain("67% limit");
+    expect(html).not.toContain("Standard");
+  });
+
+  test("surfaces Kiro context percent and credits instead of a zero-token turn", () => {
+    const executionSummary = buildTaskExecutionSummary({
+      providerId: "kiro",
+      messages: [
+        {
+          id: "kiro-assistant",
+          role: "assistant",
+          model: "auto",
+          providerId: "kiro",
+          content: "Done.",
+          usage: {
+            inputTokens: 0,
+            outputTokens: 0,
+            contextUsedPercent: 3.671,
+            contextCostAmount: 0.05413,
+            contextCostCurrency: "credits",
+          },
+          parts: [{ type: "text", text: "Done." }],
+        },
+      ],
+    });
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-kiro",
+        activity: {
+          turnId: "turn-kiro",
+          providerId: "kiro",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [],
+        todos: [],
+        executionSummary,
+      }),
+    );
+
+    expect(html).toContain("3.7% ctx");
+    expect(html).toContain("0.0541 credits");
+    expect(html).not.toContain("0 tokens");
+  });
+
   test("renders live agent work in the stacked activity shelf", () => {
     const html = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
@@ -582,7 +691,7 @@ describe("TurnActivity", () => {
     expect(html).toContain("Advisor armed · 0 consults");
     expect(html).toContain("0/5");
     // No archived consults yet, so the row has nothing to open.
-    expect(html).not.toContain('data-turn-activity-opens');
+    expect(html).not.toContain("data-turn-activity-opens");
   });
 
   describe("the advisor row as a consult log entry point", () => {
@@ -645,9 +754,9 @@ describe("TurnActivity", () => {
       const advisorRow = html.slice(
         html.indexOf('data-turn-activity-item-id="advisor"'),
       );
-      expect(advisorRow.slice(0, advisorRow.indexOf("</button>"))).not.toContain(
-        "data-turn-activity-revealable",
-      );
+      expect(
+        advisorRow.slice(0, advisorRow.indexOf("</button>")),
+      ).not.toContain("data-turn-activity-revealable");
       // The activation refactor must not have cost the tool rows their reveal.
       expect(html).toContain('data-turn-activity-revealable="true"');
     });

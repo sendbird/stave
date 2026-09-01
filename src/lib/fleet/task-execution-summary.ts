@@ -8,9 +8,7 @@ import type { TurnVerificationResult } from "@/lib/workspace-scripts";
 import type { ChatMessage, CodeDiffPart } from "@/types/chat";
 
 export type TaskExecutionMetricProvenance =
-  | "reported"
-  | "derived"
-  | "unavailable";
+  "reported" | "derived" | "unavailable";
 
 export interface TaskExecutionMetric<T> {
   value: T | null;
@@ -43,6 +41,8 @@ export interface TaskExecutionUsage {
   cacheReadTokens: number;
   cacheCreationTokens: number;
   totalCostUsd: number | null;
+  costAmount?: number;
+  costCurrency?: string;
 }
 
 export interface TaskExecutionAccountLimit {
@@ -53,8 +53,9 @@ export interface TaskExecutionAccountLimit {
 }
 
 export interface TaskExecutionContextHeadroom {
-  remainingTokens: number;
+  remainingTokens?: number;
   totalTokens?: number;
+  usedPercent?: number;
 }
 
 /**
@@ -207,9 +208,7 @@ function summarizeMessageActivity(message: ChatMessage) {
               ? "Question declined"
               : "Question interrupted";
       const question = part.questions[0]?.question.trim();
-      return boundActivityText(
-        `${label} · ${question || part.toolName}`,
-      );
+      return boundActivityText(`${label} · ${question || part.toolName}`);
     }
     if (part?.type === "text" && part.text.trim()) {
       return boundActivityText(part.text);
@@ -259,9 +258,10 @@ function buildLatestActivityMetric(args: {
         return {
           value: {
             label: item.title,
-            detail: boundActivityText(
-              item.detail ?? item.progressMessages.at(-1) ?? "",
-            ) || undefined,
+            detail:
+              boundActivityText(
+                item.detail ?? item.progressMessages.at(-1) ?? "",
+              ) || undefined,
             occurredAt: item.updatedAt,
           },
           provenance: "reported",
@@ -330,10 +330,7 @@ function countChangedLines(oldContent: string, newContent: string) {
       deletions: oldMiddle.length,
     };
   }
-  if (
-    oldMiddle.length * newMiddle.length >
-    MAX_DIFF_LCS_CELL_COUNT
-  ) {
+  if (oldMiddle.length * newMiddle.length > MAX_DIFF_LCS_CELL_COUNT) {
     return null;
   }
 
@@ -433,12 +430,36 @@ function buildChangesMetric(
   };
 }
 
+function usageHasTokenCounts(usage: NonNullable<ChatMessage["usage"]>) {
+  return Boolean(
+    usage.inputTokens ||
+    usage.outputTokens ||
+    usage.cacheReadTokens ||
+    usage.cacheCreationTokens,
+  );
+}
+
+function usageHasReportedCost(usage: NonNullable<ChatMessage["usage"]>) {
+  return (
+    usage.totalCostUsd != null ||
+    (usage.contextCostAmount !== undefined &&
+      Boolean(usage.contextCostCurrency))
+  );
+}
+
 function buildUsageMetric(
   messages: readonly ChatMessage[],
 ): TaskExecutionMetric<TaskExecutionUsage> {
-  const withUsage = messages.filter((message) => message.usage);
+  const withUsage = messages.filter((message) => {
+    const usage = message.usage;
+    return Boolean(
+      usage && (usageHasTokenCounts(usage) || usageHasReportedCost(usage)),
+    );
+  });
   if (withUsage.length === 0) {
-    return unavailableMetric("The provider did not report token or cost usage.");
+    return unavailableMetric(
+      "The provider did not report token or cost usage.",
+    );
   }
   const value = withUsage.reduce<TaskExecutionUsage>(
     (total, message) => {
@@ -451,8 +472,11 @@ function buildUsageMetric(
       total.cacheReadTokens += usage.cacheReadTokens ?? 0;
       total.cacheCreationTokens += usage.cacheCreationTokens ?? 0;
       if (usage.totalCostUsd != null) {
-        total.totalCostUsd =
-          (total.totalCostUsd ?? 0) + usage.totalCostUsd;
+        total.totalCostUsd = (total.totalCostUsd ?? 0) + usage.totalCostUsd;
+      }
+      if (usage.contextCostAmount !== undefined && usage.contextCostCurrency) {
+        total.costAmount = usage.contextCostAmount;
+        total.costCurrency = usage.contextCostCurrency;
       }
       return total;
     },
@@ -470,6 +494,45 @@ function buildUsageMetric(
     detail: `Cumulative usage from ${withUsage.length} persisted message${withUsage.length === 1 ? "" : "s"}.`,
     sourceRefs: withUsage.map((message) => `message:${message.id}`),
   };
+}
+
+function resolveContextHeadroomFromMessages(
+  messages: readonly ChatMessage[],
+): { value: TaskExecutionContextHeadroom; sourceRef: string } | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    const usage = message?.usage;
+    if (!usage) {
+      continue;
+    }
+    const usedTokens = usage.contextUsedTokens;
+    const totalTokens = usage.contextWindowTokens;
+    const usedPercent = usage.contextUsedPercent;
+    if (
+      usedTokens === undefined &&
+      totalTokens === undefined &&
+      usedPercent === undefined
+    ) {
+      continue;
+    }
+    const value: TaskExecutionContextHeadroom = {};
+    if (
+      usedTokens !== undefined &&
+      totalTokens !== undefined &&
+      totalTokens > 0
+    ) {
+      value.remainingTokens = Math.max(0, totalTokens - usedTokens);
+      value.totalTokens = totalTokens;
+      value.usedPercent =
+        usedPercent ?? Math.min(100, (usedTokens / totalTokens) * 100);
+    } else if (usedPercent !== undefined) {
+      value.usedPercent = usedPercent;
+    } else {
+      continue;
+    }
+    return { value, sourceRef: `message:${message.id}` };
+  }
+  return null;
 }
 
 function resolveClaudeAccountLimit(
@@ -532,9 +595,23 @@ function resolveCodexAccountLimit(
       });
     }
   }
-  return candidates.sort(
-    (left, right) => right.usedPercent - left.usedPercent,
-  )[0] ?? null;
+  return (
+    candidates.sort((left, right) => right.usedPercent - left.usedPercent)[0] ??
+    null
+  );
+}
+
+function accountLimitProviderLabel(providerId: ProviderId): string {
+  switch (providerId) {
+    case "claude-code":
+      return "Claude";
+    case "codex":
+      return "Codex";
+    case "cursor":
+      return "Cursor";
+    case "kiro":
+      return "Kiro";
+  }
 }
 
 function buildAccountLimitMetric(args: {
@@ -547,7 +624,9 @@ function buildAccountLimitMetric(args: {
   const value =
     args.providerId === "claude-code"
       ? resolveClaudeAccountLimit(args.rateLimits)
-      : resolveCodexAccountLimit(args.rateLimits);
+      : args.providerId === "codex"
+        ? resolveCodexAccountLimit(args.rateLimits)
+        : null;
   return value
     ? {
         value,
@@ -555,7 +634,34 @@ function buildAccountLimitMetric(args: {
         sourceRefs: [`account-limit:${args.providerId}`],
       }
     : unavailableMetric(
-        `${args.providerId === "claude-code" ? "Claude" : "Codex"} did not report an account limit.`,
+        args.providerId === "claude-code" || args.providerId === "codex"
+          ? `${accountLimitProviderLabel(args.providerId)} did not report an account limit.`
+          : `${accountLimitProviderLabel(args.providerId)} does not report an account limit.`,
+      );
+}
+
+
+function buildContextHeadroomMetric(args: {
+  providerId: ProviderId;
+  messages: readonly ChatMessage[];
+  contextHeadroom?: TaskExecutionContextHeadroom | null;
+}): TaskExecutionMetric<TaskExecutionContextHeadroom> {
+  if (args.contextHeadroom) {
+    return {
+      value: args.contextHeadroom,
+      provenance: "reported",
+      sourceRefs: [`context:${args.providerId}`],
+    };
+  }
+  const derived = resolveContextHeadroomFromMessages(args.messages);
+  return derived
+    ? {
+        value: derived.value,
+        provenance: "reported",
+        sourceRefs: [derived.sourceRef],
+      }
+    : unavailableMetric(
+        "Live context headroom is not reliably reported for this provider turn.",
       );
 }
 
@@ -602,15 +708,11 @@ export function buildTaskExecutionSummary(args: {
       rateLimits: args.rateLimits,
     }),
     agents: buildAgentsMetric(args.activity),
-    contextHeadroom: args.contextHeadroom
-      ? {
-          value: args.contextHeadroom,
-          provenance: "reported",
-          sourceRefs: [`context:${args.providerId}`],
-        }
-      : unavailableMetric(
-          "Live context headroom is not reliably reported for this provider turn.",
-        ),
+    contextHeadroom: buildContextHeadroomMetric({
+      providerId: args.providerId,
+      messages: args.messages,
+      contextHeadroom: args.contextHeadroom,
+    }),
   };
 }
 
@@ -699,9 +801,25 @@ export function buildTaskReviewArtifact(
   }
   const usage = summary.usage.value;
   if (usage) {
-    facts.push(
-      `${formatCount(usage.inputTokens + usage.outputTokens)} tokens${usage.totalCostUsd == null ? "" : ` · $${usage.totalCostUsd.toFixed(4)}`}`,
+    const hasTokens = Boolean(
+      usage.inputTokens ||
+        usage.outputTokens ||
+        usage.cacheReadTokens ||
+        usage.cacheCreationTokens,
     );
+    const tokenLabel = hasTokens
+      ? `${formatCount(usage.inputTokens + usage.outputTokens)} tokens`
+      : null;
+    const costLabel =
+      usage.totalCostUsd != null
+        ? `$${usage.totalCostUsd.toFixed(4)}`
+        : usage.costAmount !== undefined && usage.costCurrency
+          ? `${usage.costAmount.toFixed(usage.costAmount >= 1 ? 2 : 4)} ${usage.costCurrency}`
+          : null;
+    const usageLabel = [tokenLabel, costLabel].filter(Boolean).join(" · ");
+    if (usageLabel) {
+      facts.push(usageLabel);
+    }
   }
   if (!summary.contextHeadroom.value) {
     cautions.push("Live context headroom is unavailable.");
@@ -712,9 +830,7 @@ export function buildTaskReviewArtifact(
     facts,
     cautions,
     sourceRefs: [
-      ...new Set(
-        Object.values(summary).flatMap((metric) => metric.sourceRefs),
-      ),
+      ...new Set(Object.values(summary).flatMap((metric) => metric.sourceRefs)),
     ].slice(0, 32),
   };
 }

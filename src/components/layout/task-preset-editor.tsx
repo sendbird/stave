@@ -41,9 +41,9 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       getDefaultModelForProvider({ providerId: initialPreset.provider }),
   );
   const [label, setLabel] = useState<string>(initialPreset.label);
-  const [effort, setEffort] = useState<TaskPresetEffort | typeof DEFAULT_EFFORT_VALUE>(
-    initialPreset.effort ?? DEFAULT_EFFORT_VALUE,
-  );
+  const [effort, setEffort] = useState<
+    TaskPresetEffort | typeof DEFAULT_EFFORT_VALUE
+  >(initialPreset.effort ?? DEFAULT_EFFORT_VALUE);
 
   useEffect(() => {
     setKind(initialPreset.kind);
@@ -79,6 +79,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       { value: "claude-code", label: "Claude Code" },
       { value: "codex", label: "Codex" },
       { value: "cursor", label: "Cursor Agent" },
+      { value: "kiro", label: "Kiro CLI" },
     ];
   }, [kind]);
 
@@ -101,7 +102,8 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     const providerId =
       nextProvider === "claude-code" ||
       nextProvider === "codex" ||
-      (kind === "task" && nextProvider === "cursor")
+      (kind === "task" &&
+        (nextProvider === "cursor" || nextProvider === "kiro"))
         ? (nextProvider as ProviderId)
         : "claude-code";
     setProvider(providerId);
@@ -112,10 +114,9 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     if (nextModel !== model) {
       setModel(nextModel);
     }
-    const nextEfforts = listEffortsForPresetProvider(
-      providerId,
-      nextModel,
-    ).map((option) => option.value);
+    const nextEfforts = listEffortsForPresetProvider(providerId, nextModel).map(
+      (option) => option.value,
+    );
     if (
       effort !== DEFAULT_EFFORT_VALUE &&
       !nextEfforts.includes(effort as TaskPresetEffort)

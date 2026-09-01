@@ -126,12 +126,13 @@ matrix in the composer.
 Cursor Agent does not report turn usage over ACP: its `session/prompt` result
 carries only a stop reason, and it never sends a `usage_update`. Token counts
 exist in the CLI's non-ACP print mode, which Stave does not drive. The post-turn
-usage control therefore states that the provider reported no usage rather than
-showing a zero-token turn. That fallback is scoped to the ACP providers; the
-native runtimes keep rendering whatever usage record they report, including a
-zero one. The shared ACP layer accepts prompt usage in either
-the snake_case or camelCase spelling and under `_meta`, so a later Cursor build
-that starts reporting usage is picked up without a runtime change.
+usage control stays hidden on those turns rather than repeating "usage not
+reported" on every Cursor message. That empty-state badge is reserved for
+providers that sometimes report usage (Kiro); the native runtimes keep
+rendering whatever usage record they report, including a zero one. The shared
+ACP layer accepts prompt usage in either the snake_case or camelCase spelling
+and under `_meta`, so a later Cursor build that starts reporting usage is
+picked up without a runtime change.
 
 Cursor is intentionally excluded from Advisor, secondary and unattended runs,
 routines, standalone CLI tabs, native thread actions, and mid-turn steering.
@@ -181,7 +182,8 @@ Kiro reports turn usage on its namespaced `_kiro.dev/metadata` notification
 rather than the stable ACP `usage_update`: a context-window percentage without
 the window size, plus metered spend in the plan's own unit (credits). The
 extension mapper normalizes that into a `context_usage` event, so the post-turn
-usage control shows a percentage and a credit amount instead of token counts.
+usage control and the turn-activity Headroom/Usage tiles show a percentage and
+a credit amount instead of a zero-token turn.
 
 Kiro is intentionally excluded from Advisor, secondary and unattended runs,
 routines, standalone CLI tabs, native thread actions, and mid-turn steering.
