@@ -60,6 +60,20 @@ export const CODEX_MODEL_OPTIONS = [
   "gpt-5.6-luna",
 ] as const;
 
+const CODEX_PICKER_MODEL_SET: ReadonlySet<string> = new Set(
+  CODEX_MODEL_OPTIONS,
+);
+
+/**
+ * True only for the GPT-5.6 trio Stave surfaces in model pickers. A runtime
+ * `model/list` response still ships previous- and next-generation entries; we
+ * keep them resolvable for historical records and manual overrides, but they
+ * must never widen the picker beyond this catalog.
+ */
+export function isCodexPickerModel(model: string) {
+  return CODEX_PICKER_MODEL_SET.has(model.trim().toLowerCase());
+}
+
 export interface ProviderDescriptor {
   id: ProviderId;
   label: string;

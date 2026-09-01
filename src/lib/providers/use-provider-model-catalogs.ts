@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getSdkModelOptions,
   getProviderDescriptor,
+  isCodexPickerModel,
   listProviderDescriptors,
   registerDynamicDefaultReasoningEfforts,
   registerDynamicDisplayNames,
@@ -96,6 +97,13 @@ function mergeEntries(args: {
       (getProviderDescriptor({ providerId: args.providerId }).defaultModel ===
         "auto" && entry.isDefault)
     ) {
+      continue;
+    }
+    // Codex pickers stay pinned to the GPT-5.6 trio in the static catalog.
+    // A runtime `model/list` may still advertise previous-generation or
+    // experimental IDs; they may enrich the three catalog entries but must
+    // never add rows of their own.
+    if (args.providerId === "codex" && !isCodexPickerModel(model)) {
       continue;
     }
     merged.set(model, { ...entry, model });
