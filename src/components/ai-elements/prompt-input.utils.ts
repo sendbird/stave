@@ -35,6 +35,26 @@ export function getPromptEnhancementRevealText(
   return characters.slice(0, visibleCharacterCount).join("");
 }
 
+/**
+ * Picks the text the prompt editor should render.
+ *
+ * The editor is a controlled component, so this must return the live `value`
+ * verbatim whenever an enhancement reveal is not running. Returning a value
+ * that lags behind the user's keystrokes makes the editor rewrite its own
+ * content mid-input, which breaks IME (e.g. Hangul) composition and moves the
+ * caret to the end of the draft.
+ */
+export function resolvePromptEnhancementDisplayText(args: {
+  revealing: boolean;
+  revealedText: string | null;
+  value: string;
+}) {
+  if (!args.revealing || args.revealedText === null) {
+    return args.value;
+  }
+  return args.revealedText;
+}
+
 export function getNextCommandSelectionIndex(args: {
   currentIndex: number;
   itemCount: number;

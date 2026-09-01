@@ -118,7 +118,8 @@ describe("composer control placement in the toolbar", () => {
 
     expect(emptyHtml).not.toContain(">Focus<");
     expect(draftHtml).toContain('aria-label="Enhance prompt"');
-    expect(draftHtml).toContain(">Enhance<");
+    // The enhance affordance is icon-only, so it must not render a text label.
+    expect(draftHtml).not.toContain(">Enhance<");
   });
 
   test("announces prompt enhancement while it is pending", async () => {
@@ -131,7 +132,7 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('aria-label="Enhancing prompt"');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('role="status"');
-    expect(html).toContain("Enhancing...");
+    expect(html).toContain("Enhancing prompt");
     expect(html).toContain('data-prompt-enhancement-state="enhancing"');
     expect(html).toContain('contentEditable="false"');
   });
@@ -145,7 +146,7 @@ describe("composer control placement in the toolbar", () => {
     });
 
     expect(html).toContain('aria-label="Applying enhanced prompt"');
-    expect(html).toContain("Applying...");
+    expect(html).toContain("Applying enhanced prompt");
     expect(html).toContain('data-prompt-enhancement-state="applying"');
     expect(html).toContain('contentEditable="false"');
   });

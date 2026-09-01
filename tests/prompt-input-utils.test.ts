@@ -4,6 +4,7 @@ import {
   getNextCommandSelectionIndex,
   getPromptEnhancementRevealDurationMs,
   getPromptEnhancementRevealText,
+  resolvePromptEnhancementDisplayText,
   isPromptHistoryBoundaryReached,
   navigatePromptHistory,
   NO_COMMAND_SELECTION,
@@ -153,5 +154,41 @@ describe("prompt enhancement reveal", () => {
     expect(getPromptEnhancementRevealDurationMs(1)).toBe(220);
     expect(getPromptEnhancementRevealDurationMs(36)).toBe(360);
     expect(getPromptEnhancementRevealDurationMs(10_000)).toBe(560);
+  });
+
+  test("passes the live draft through whenever no reveal is running", () => {
+    // Regression guard: a lagging display value rewrites the editor content on
+    // every keystroke and breaks Hangul composition.
+    expect(
+      resolvePromptEnhancementDisplayText({
+        revealing: false,
+        revealedText: "stale",
+        value: "안녕하세",
+      }),
+    ).toBe("안녕하세");
+    expect(
+      resolvePromptEnhancementDisplayText({
+        revealing: true,
+        revealedText: null,
+        value: "/rev",
+      }),
+    ).toBe("/rev");
+  });
+
+  test("shows the partially revealed prompt while a reveal is running", () => {
+    expect(
+      resolvePromptEnhancementDisplayText({
+        revealing: true,
+        revealedText: "Ship 🚀",
+        value: "Ship 🚀 safely",
+      }),
+    ).toBe("Ship 🚀");
+    expect(
+      resolvePromptEnhancementDisplayText({
+        revealing: true,
+        revealedText: "",
+        value: "Ship 🚀 safely",
+      }),
+    ).toBe("");
   });
 });
