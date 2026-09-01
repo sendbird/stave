@@ -141,6 +141,10 @@ picked up without a runtime change.
 
 Cursor is intentionally excluded from Advisor, secondary and unattended runs,
 routines, standalone CLI tabs, native thread actions, and mid-turn steering.
+ACP v1 `session/prompt` is blocking, and the Cursor Agent ACP dispatcher
+(`2026.08.25-3e8eec8`) has no steer or inject method. Cancelling the prompt
+and sending a new one aborts in-flight work, so Stave does not present that
+as steering.
 Utility inference can still use Cursor Ask as a last-resort read-only runner when
 Claude and Codex are unavailable. Worker mode is the one delegated exception: an interactive primary can call a
 turn-scoped Local MCP tool that starts or resumes a same-provider, task-scoped
@@ -195,14 +199,22 @@ usage control and the turn-activity Headroom/Usage tiles show a percentage and
 a credit amount instead of a zero-token turn.
 
 Kiro is intentionally excluded from Advisor, secondary and unattended runs,
-routines, standalone CLI tabs, native thread actions, and mid-turn steering.
+routines, standalone CLI tabs, and native thread actions. Interactive primary
+turns can steer mid-turn: while `session/prompt` is in flight, Stave sends the
+Kiro ACP extension `_session/steer` with the session id and a text prompt
+block. That method is present in `kiro-cli` 2.20.2; if the agent answers
+method-not-found or any other error, the steer is rejected and the original
+turn keeps running. Steers are text-only. Cursor stays excluded because its
+ACP agent has no equivalent method. Worker sessions do not register a steer
+responder.
 Utility inference can still use Kiro as a last-resort read-only runner when
 Claude and Codex are unavailable. Worker mode uses the same bounded, turn-scoped Local MCP bridge as Cursor and a
 task-scoped same-provider ACP session. Bound secrets are resolved only for the
 disposable interactive primary-turn process; the Worker receives none. Runtime
 upgrades should recheck ACP initialization, session create/load, prompt,
-cancellation, permissions, model selection, and the JSON model-catalog shape
-against the installed CLI before broadening this capability boundary.
+`_session/steer`, cancellation, permissions, model selection, and the JSON
+model-catalog shape against the installed CLI before broadening this
+capability boundary.
 
 ## On-demand Advisor consults
 
@@ -671,6 +683,14 @@ receives `localImage` or `image` items in `turn/start` after Stave confirms that
 the selected catalog model advertises image input. Unsupported inline formats,
 capability-check failures, and unreadable local paths retain the existing
 text or file-tool fallback instead of being silently discarded.
+
+Cursor and Kiro receive ACP `image` prompt blocks only when initialization
+advertises `promptCapabilities.image`. Supported image data is removed from the
+text prompt so it is not sent twice; unsupported formats retain their data URL
+fallback. ACP path-backed images are limited to 5 MiB each and 10 MiB per turn,
+with oversized files left path-backed for the agent's file tools. Kiro's legacy
+`content` compatibility key stays text-only so image bytes are not duplicated
+on the wire.
 
 ## Claude runtime
 

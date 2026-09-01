@@ -205,11 +205,7 @@ export class AcpProtocolClient {
   }
 
   setMode(args: { sessionId: string; modeId: string }) {
-    return this.request(
-      "session/set_mode",
-      args,
-      z.object({}).passthrough(),
-    );
+    return this.request("session/set_mode", args, z.object({}).passthrough());
   }
 
   setConfigOption(args: {
@@ -233,16 +229,19 @@ export class AcpProtocolClient {
   prompt(args: {
     sessionId: string;
     prompt: readonly Record<string, unknown>[];
+    /** Text-only compatibility payload for agents that still read `content`. */
+    legacyContentPrompt?: readonly Record<string, unknown>[];
     parameterName?: "prompt" | "content" | "prompt+content";
   }) {
     const parameterName = args.parameterName ?? "prompt";
     const blocks = [...args.prompt];
+    const legacyContentBlocks = [...(args.legacyContentPrompt ?? args.prompt)];
     return this.request(
       "session/prompt",
       {
         sessionId: args.sessionId,
         ...(parameterName === "content" ? {} : { prompt: blocks }),
-        ...(parameterName === "prompt" ? {} : { content: blocks }),
+        ...(parameterName === "prompt" ? {} : { content: legacyContentBlocks }),
       },
       AcpPromptResponseSchema,
       { timeoutMs: 0 },
@@ -250,15 +249,31 @@ export class AcpProtocolClient {
   }
 
   setModel(args: { sessionId: string; modelId: string }) {
-    return this.request(
-      "session/set_model",
-      args,
-      z.object({}).passthrough(),
-    );
+    return this.request("session/set_model", args, z.object({}).passthrough());
   }
 
   cancel(sessionId: string) {
     return this.notify("session/cancel", { sessionId });
+  }
+
+  /**
+   * Kiro-only ACP extension. The agent injects text into the in-flight
+   * `session/prompt` at a tool boundary. Cursor ACP has no equivalent method.
+   */
+  steer(args: {
+    sessionId: string;
+    prompt: readonly Record<string, unknown>[];
+    timeoutMs?: number;
+  }) {
+    return this.request(
+      "_session/steer",
+      {
+        sessionId: args.sessionId,
+        prompt: [...args.prompt],
+      },
+      z.unknown(),
+      { timeoutMs: args.timeoutMs },
+    );
   }
 
   request<T>(
@@ -273,17 +288,22 @@ export class AcpProtocolClient {
       );
     }
     const id = this.nextRequestId++;
-    const timeoutMs = options.timeoutMs ?? this.options.requestTimeoutMs ??
+    const timeoutMs =
+      options.timeoutMs ??
+      this.options.requestTimeoutMs ??
       DEFAULT_REQUEST_TIMEOUT_MS;
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pendingRequests.delete(id);
-        reject(
-          new AcpProtocolError(
-            `ACP request ${method} timed out after ${timeoutMs}ms.`,
-          ),
-        );
-      }, timeoutMs > 0 ? timeoutMs : 2 ** 31 - 1);
+      const timer = setTimeout(
+        () => {
+          this.pendingRequests.delete(id);
+          reject(
+            new AcpProtocolError(
+              `ACP request ${method} timed out after ${timeoutMs}ms.`,
+            ),
+          );
+        },
+        timeoutMs > 0 ? timeoutMs : 2 ** 31 - 1,
+      );
       timer.unref?.();
       this.pendingRequests.set(id, {
         method,
@@ -322,10 +342,7 @@ export class AcpProtocolClient {
     }
     if (this.child.exitCode === null && this.child.signalCode === null) {
       const timer = setTimeout(() => {
-        if (
-          this.child.exitCode === null &&
-          this.child.signalCode === null
-        ) {
+        if (this.child.exitCode === null && this.child.signalCode === null) {
           this.child.kill("SIGKILL");
         }
       }, ACP_KILL_ESCALATION_MS);
@@ -346,8 +363,7 @@ export class AcpProtocolClient {
       }
     });
     this.child.stderr.on("data", (chunk: Buffer) => {
-      const maxBytes =
-        this.options.maxStderrBytes ?? DEFAULT_MAX_STDERR_BYTES;
+      const maxBytes = this.options.maxStderrBytes ?? DEFAULT_MAX_STDERR_BYTES;
       if (Buffer.byteLength(this.stderrText, "utf8") >= maxBytes) {
         return;
       }

@@ -854,10 +854,10 @@ async function runProviderTurn(
   // ACP Workers, and is read lazily so late usage is included in the primary
   // turn's final total.
   let accumulatedDelegatedUsage:
-    | Extract<BridgeEvent, { type: "usage" }>
-    | undefined;
-  let advisorGrantHandle: ReturnType<typeof registerAdvisorConsultGrant> | null =
-    null;
+    Extract<BridgeEvent, { type: "usage" }> | undefined;
+  let advisorGrantHandle: ReturnType<
+    typeof registerAdvisorConsultGrant
+  > | null = null;
   const revokeAdvisorGrant = () => {
     advisorGrantHandle?.revoke();
     advisorGrantHandle = null;
@@ -946,12 +946,10 @@ async function runProviderTurn(
     };
   }
 
-  let acpWorkerGrant:
-    | {
-        workerKey: string;
-        profile: ResolvedWorkerProfile & { provider: "cursor" | "kiro" };
-      }
-    | null = null;
+  let acpWorkerGrant: {
+    workerKey: string;
+    profile: ResolvedWorkerProfile & { provider: "cursor" | "kiro" };
+  } | null = null;
   let acpWorkerUnavailableDetail: string | null = null;
   if (
     (args.providerId === "cursor" || args.providerId === "kiro") &&
@@ -1178,6 +1176,9 @@ async function runProviderTurn(
           },
           registerUserInputResponder: (responder) => {
             updateActiveSession({ respondUserInput: responder });
+          },
+          registerSteerResponder: (responder) => {
+            updateActiveSession({ steer: responder });
           },
         }),
       );

@@ -129,8 +129,22 @@ describe("buildPendingProviderTurnState — message IDs", () => {
     const taskId = "task-1";
     // Only the last 2 of a 10-message history are resident in memory.
     const resident: ChatMessage[] = [
-      { id: `${taskId}-m-9`, role: "assistant", model: "gpt-5.4", providerId: "codex", content: "older", parts: [] },
-      { id: `${taskId}-m-10`, role: "user", model: "user", providerId: "user", content: "prior", parts: [] },
+      {
+        id: `${taskId}-m-9`,
+        role: "assistant",
+        model: "gpt-5.4",
+        providerId: "codex",
+        content: "older",
+        parts: [],
+      },
+      {
+        id: `${taskId}-m-10`,
+        role: "user",
+        model: "user",
+        providerId: "user",
+        content: "prior",
+        parts: [],
+      },
     ];
 
     const next = buildPendingProviderTurnState({
@@ -144,15 +158,32 @@ describe("buildPendingProviderTurnState — message IDs", () => {
     const appended = (next.messagesByTask[taskId] ?? []).slice(-2);
     // Pre-fix scheme used window length (2) -> m-3/m-4, colliding with the real
     // on-disk m-3/m-4 (silently overwritten by the additive upsert).
-    expect(appended.map((m) => m.id)).toEqual([`${taskId}-m-11`, `${taskId}-m-12`]);
+    expect(appended.map((m) => m.id)).toEqual([
+      `${taskId}-m-11`,
+      `${taskId}-m-12`,
+    ]);
     expect(next.messageCountByTask[taskId]).toBe(12);
   });
 
   test("matches positional IDs for a fully-resident history (backward compatible)", () => {
     const taskId = "task-2";
     const resident: ChatMessage[] = [
-      { id: `${taskId}-m-1`, role: "user", model: "user", providerId: "user", content: "hi", parts: [] },
-      { id: `${taskId}-m-2`, role: "assistant", model: "gpt-5.4", providerId: "codex", content: "yo", parts: [] },
+      {
+        id: `${taskId}-m-1`,
+        role: "user",
+        model: "user",
+        providerId: "user",
+        content: "hi",
+        parts: [],
+      },
+      {
+        id: `${taskId}-m-2`,
+        role: "assistant",
+        model: "gpt-5.4",
+        providerId: "codex",
+        content: "yo",
+        parts: [],
+      },
     ];
 
     const next = buildPendingProviderTurnState({
@@ -164,7 +195,26 @@ describe("buildPendingProviderTurnState — message IDs", () => {
     });
 
     const appended = (next.messagesByTask[taskId] ?? []).slice(-2);
-    expect(appended.map((m) => m.id)).toEqual([`${taskId}-m-3`, `${taskId}-m-4`]);
+    expect(appended.map((m) => m.id)).toEqual([
+      `${taskId}-m-3`,
+      `${taskId}-m-4`,
+    ]);
+  });
+});
+
+describe("buildPendingProviderTurnState — queued dispatch", () => {
+  test("marks a user message that started from a queued follow-up", () => {
+    const taskId = "task-queued";
+    const next = buildPendingProviderTurnState({
+      ...sharedArgs,
+      tasks: [task(taskId)],
+      messagesByTask: { [taskId]: [] },
+      messageCountByTask: { [taskId]: 0 },
+      taskId,
+      dispatchedFromQueue: true,
+    });
+
+    expect(next.messagesByTask[taskId]?.[0]?.dispatchedFromQueue).toBe(true);
   });
 });
 
@@ -213,9 +263,9 @@ describe("buildPendingProviderTurnState — display content", () => {
       "1. Element Comment",
       "",
       "Comment: 구글검색",
-      "Selector: input[aria-label=\"Google 검색\"]",
+      'Selector: input[aria-label="Google 검색"]',
       "HTML:",
-      "<input aria-label=\"Google 검색\" />",
+      '<input aria-label="Google 검색" />',
     ].join("\n");
     const next = buildPendingProviderTurnState({
       ...sharedArgs,

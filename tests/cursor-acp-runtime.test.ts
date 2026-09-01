@@ -9,6 +9,7 @@ import type {
   BridgeEvent,
   ProviderResponderResult,
 } from "../electron/providers/types";
+import type { CanonicalConversationRequest } from "../src/lib/providers/provider.types";
 
 const fixturePath = path.join(
   import.meta.dir,
@@ -31,6 +32,28 @@ function createTurnArgs(
     },
     acpArgsForTest: [fixturePath, scenario],
     ...overrides,
+  };
+}
+
+function createImageConversation(): CanonicalConversationRequest {
+  return {
+    target: { providerId: "cursor", model: "auto" },
+    mode: "chat",
+    history: [],
+    input: {
+      role: "user",
+      providerId: "user",
+      content: "Inspect the image.",
+      parts: [{ type: "text", text: "Inspect the image." }],
+    },
+    contextParts: [
+      {
+        type: "image_context",
+        dataUrl: "data:image/png;base64,aW1hZ2U=",
+        label: "clipboard.png",
+        mimeType: "image/png",
+      },
+    ],
   };
 }
 
@@ -197,6 +220,60 @@ describe("Cursor ACP runtime", () => {
       costCurrency: "USD",
     });
     expect(events.filter((event) => event.type === "done")).toHaveLength(1);
+  });
+
+  test("sends image attachments as native ACP prompt blocks", async () => {
+    const events = await streamCursorWithAcp(
+      createTurnArgs("image", {
+        conversation: createImageConversation(),
+      }),
+    );
+
+    expect(events).toContainEqual({
+      type: "text",
+      text: "Cursor received image",
+      segmentId: "image-message-1",
+    });
+  });
+
+  test("keeps image data in text when the ACP agent lacks image support", async () => {
+    const events = await streamCursorWithAcp(
+      createTurnArgs("image-unsupported", {
+        conversation: createImageConversation(),
+      }),
+    );
+
+    expect(events).toContainEqual({
+      type: "text",
+      text: "Cursor received image fallback",
+      segmentId: "image-fallback-message-1",
+    });
+  });
+
+  test("keeps only unsupported image formats in the text fallback", async () => {
+    const conversation = createImageConversation();
+    const events = await streamCursorWithAcp(
+      createTurnArgs("image-mixed", {
+        conversation: {
+          ...conversation,
+          contextParts: [
+            ...conversation.contextParts,
+            {
+              type: "image_context",
+              dataUrl: "data:image/svg+xml;base64,PHN2Zy8+",
+              label: "diagram.svg",
+              mimeType: "image/svg+xml",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(events).toContainEqual({
+      type: "text",
+      text: "Cursor received mixed images",
+      segmentId: "mixed-image-message-1",
+    });
   });
 
   test("selects allow-once for an approved permission", async () => {
