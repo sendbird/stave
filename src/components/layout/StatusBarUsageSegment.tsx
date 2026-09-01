@@ -13,9 +13,14 @@ import {
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import type {
+  AccountUsageWindow,
   ClaudeUsageSnapshot,
   CodexUsageSnapshot,
+  CursorUsageSnapshot,
+  KiroUsageSnapshot,
 } from "@/lib/providers/provider.types";
+
+type UsageProvider = "claude" | "codex" | "cursor" | "kiro";
 
 function formatPercent(usedPercent: number): string {
   return `${Math.round(usedPercent)}%`;
@@ -202,8 +207,110 @@ function CodexDetail({ snapshot }: { snapshot: CodexUsageSnapshot | null }) {
   );
 }
 
+function UsageAmount({
+  usage,
+  label,
+  provider,
+}: {
+  usage: AccountUsageWindow;
+  label: string;
+  provider: "cursor" | "kiro";
+}) {
+  if (usage.used === null || usage.limit === null) {
+    return null;
+  }
+  const amount =
+    provider === "cursor"
+      ? `$${usage.used.toFixed(2)} / $${usage.limit.toFixed(2)}`
+      : `${formatCredits(usage.used)} / ${formatCredits(usage.limit)}`;
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-mono text-foreground/80">{amount}</span>
+    </div>
+  );
+}
+
+function AccountDetail({
+  provider,
+  snapshot,
+}: {
+  provider: "cursor" | "kiro";
+  snapshot: CursorUsageSnapshot | KiroUsageSnapshot | null;
+}) {
+  if (!snapshot || snapshot.source === "unavailable" || !snapshot.monthly) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        {snapshot?.error ??
+          `${provider === "cursor" ? "Cursor" : "Kiro"} usage unavailable.`}
+      </p>
+    );
+  }
+  const plan =
+    provider === "cursor"
+      ? (snapshot as CursorUsageSnapshot).planType
+      : (snapshot as KiroUsageSnapshot).planName;
+  return (
+    <div className="space-y-3">
+      {plan ? (
+        <p className="text-xs font-medium text-foreground">{plan}</p>
+      ) : null}
+      {provider === "cursor" ? (
+        <div className="space-y-1.5">
+          <UsageWindowRow
+            label="Included plan"
+            usedPercent={snapshot.monthly.usedPercent}
+            resetsAt={snapshot.monthly.resetsAt}
+          />
+          <UsageAmount
+            usage={snapshot.monthly}
+            label="Included spend"
+            provider="cursor"
+          />
+        </div>
+      ) : null}
+      {snapshot.buckets.length > 0 ? (
+        snapshot.buckets.map((bucket) => (
+          <div key={bucket.id} className="space-y-1.5">
+            <UsageWindowRow
+              label={bucket.label}
+              usedPercent={bucket.usedPercent}
+              resetsAt={bucket.resetsAt}
+            />
+            {provider === "kiro" ? (
+              <UsageAmount
+                usage={bucket}
+                label={bucket.unit ?? "Usage"}
+                provider="kiro"
+              />
+            ) : null}
+          </div>
+        ))
+      ) : provider === "kiro" ? (
+        <UsageWindowRow
+          label="Monthly"
+          usedPercent={snapshot.monthly.usedPercent}
+          resetsAt={snapshot.monthly.resetsAt}
+        />
+      ) : null}
+      {provider === "kiro" &&
+      (snapshot as KiroUsageSnapshot).overagesEnabled !== null ? (
+        <p className="text-[10px] text-muted-foreground/70">
+          overages:{" "}
+          {(snapshot as KiroUsageSnapshot).overagesEnabled
+            ? "enabled"
+            : "disabled"}
+        </p>
+      ) : null}
+      <p className="text-[10px] text-muted-foreground/70">
+        source: {snapshot.source}
+      </p>
+    </div>
+  );
+}
+
 /**
- * Compact Claude/Codex usage meter for the bottom status bar. Clicking it
+ * Compact provider usage meter for the bottom status bar. Clicking it
  * opens a detail popover anchored near the bottom-right of its trigger
  * (session/weekly or rate-limit-bucket breakdown, reset countdowns, data
  * source, and a manual refresh button). Polling itself is owned by the
@@ -212,21 +319,31 @@ function CodexDetail({ snapshot }: { snapshot: CodexUsageSnapshot | null }) {
 export function StatusBarUsageSegment({
   provider,
 }: {
-  provider: "claude" | "codex";
+  provider: UsageProvider;
 }) {
   const [open, setOpen] = useState(false);
   const snapshot = useAppStore((state) => state.rateLimitsSnapshot);
   const loading = useAppStore((state) => state.rateLimitsLoading);
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
 
-  const label = provider === "claude" ? "Claude" : "Codex";
+  const label: Record<UsageProvider, string> = {
+    claude: "Claude",
+    codex: "Codex",
+    cursor: "Cursor",
+    kiro: "Kiro",
+  };
   const claudeSnapshot =
     provider === "claude" ? (snapshot?.claude ?? null) : null;
   const codexSnapshot = provider === "codex" ? (snapshot?.codex ?? null) : null;
+  const cursorSnapshot =
+    provider === "cursor" ? (snapshot?.cursor ?? null) : null;
+  const kiroSnapshot = provider === "kiro" ? (snapshot?.kiro ?? null) : null;
   const headlineWindows = buildUsageHeadlineWindows({
     provider,
     claude: claudeSnapshot,
     codex: codexSnapshot,
+    cursor: cursorSnapshot,
+    kiro: kiroSnapshot,
   });
   const headlinePercent = headlineUsagePercent(headlineWindows);
 
@@ -238,7 +355,7 @@ export function StatusBarUsageSegment({
             variant="ghost"
             size="sm"
             className="h-6 gap-1.5 rounded-none px-2 text-xs text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
-            aria-label={`${label.toLowerCase()}-usage`}
+            aria-label={`${label[provider].toLowerCase()}-usage`}
           />
         }
       >
@@ -250,7 +367,7 @@ export function StatusBarUsageSegment({
               : usageToneClass(clampUsagePercent(headlinePercent)),
           )}
         />
-        <span>{label}</span>
+        <span>{label[provider]}</span>
         {headlineWindows.length === 0 ? (
           <span className="font-mono">—</span>
         ) : (
@@ -270,7 +387,7 @@ export function StatusBarUsageSegment({
         initialFocus={false}
       >
         <div className="flex items-center justify-between border-b border-border/70 px-3 py-2.5">
-          <span className="text-sm font-medium">{label} Usage</span>
+          <span className="text-sm font-medium">{label[provider]} Usage</span>
           <Button
             variant="ghost"
             size="sm"
@@ -284,8 +401,12 @@ export function StatusBarUsageSegment({
         <div className="p-3">
           {provider === "claude" ? (
             <ClaudeDetail snapshot={claudeSnapshot} />
-          ) : (
+          ) : provider === "codex" ? (
             <CodexDetail snapshot={codexSnapshot} />
+          ) : provider === "cursor" ? (
+            <AccountDetail provider="cursor" snapshot={cursorSnapshot} />
+          ) : (
+            <AccountDetail provider="kiro" snapshot={kiroSnapshot} />
           )}
         </div>
       </PopoverContent>

@@ -2,9 +2,11 @@ import type { RateLimitsSnapshotResponse } from "../../../src/lib/providers/prov
 import type { StreamTurnArgs } from "../types";
 import { fetchClaudeUsageSnapshot } from "./claude-usage-fetcher";
 import { fetchCodexUsageSnapshot } from "./codex-usage-fetcher";
+import { fetchCursorUsageSnapshot } from "./cursor-usage-fetcher";
+import { fetchKiroUsageSnapshot } from "./kiro-usage-fetcher";
 
 /**
- * Combined Claude + Codex usage snapshot for the global status bar. Each
+ * Combined provider usage snapshot for the global status bar. Each
  * provider is fetched independently so one provider being unavailable never
  * blocks the other from reporting.
  */
@@ -12,9 +14,11 @@ export async function getRateLimitsSnapshot(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Promise<RateLimitsSnapshotResponse> {
-  const [claude, codex] = await Promise.all([
+  const [claude, codex, cursor, kiro] = await Promise.all([
     fetchClaudeUsageSnapshot(),
     fetchCodexUsageSnapshot({ runtimeOptions: args.runtimeOptions }),
+    fetchCursorUsageSnapshot(),
+    fetchKiroUsageSnapshot(args),
   ]);
-  return { claude, codex };
+  return { claude, codex, cursor, kiro };
 }

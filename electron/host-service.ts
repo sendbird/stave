@@ -113,6 +113,7 @@ import {
   writeCodexConfigValue,
 } from "./providers/codex-app-server-runtime";
 import { getRateLimitsSnapshot } from "./providers/rate-limits/rate-limits-snapshot";
+import { closeKiroUsageConnection } from "./providers/rate-limits/kiro-usage-fetcher";
 import {
   forkClaudeSession,
   getClaudeContextUsage,
@@ -1257,7 +1258,10 @@ async function shutdown() {
   const cleanup = (async () => {
     // Provider shutdown can emit final error/done events into the local MCP
     // queue. Drain that queue only after every provider has settled.
-    await Promise.allSettled([providerRuntime.shutdown()]);
+    await Promise.allSettled([
+      providerRuntime.shutdown(),
+      closeKiroUsageConnection(),
+    ]);
     await Promise.allSettled([localMcpRuntime.cleanupLocalMcpRuntime()]);
     await infrastructureCleanup;
   })();

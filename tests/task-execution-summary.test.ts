@@ -54,6 +54,21 @@ const rateLimits: RateLimitsSnapshotResponse = {
     ],
     error: null,
   },
+  cursor: {
+    source: "unavailable",
+    planType: null,
+    monthly: null,
+    buckets: [],
+    error: "not loaded",
+  },
+  kiro: {
+    source: "unavailable",
+    planName: null,
+    monthly: null,
+    buckets: [],
+    overagesEnabled: null,
+    error: "not loaded",
+  },
 };
 
 describe("task execution summary", () => {
