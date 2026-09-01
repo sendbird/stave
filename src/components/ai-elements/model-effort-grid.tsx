@@ -151,7 +151,7 @@ export function ModelEffortGrid(args: {
   }
 
   return (
-    <div className="min-w-0 overflow-x-auto overscroll-contain p-1 min-[480px]:p-2">
+    <div className="min-w-0 overflow-x-auto overscroll-x-contain p-1 min-[480px]:p-2">
       <div
         role="grid"
         aria-label="Model and reasoning effort"

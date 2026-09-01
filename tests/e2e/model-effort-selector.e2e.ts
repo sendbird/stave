@@ -107,6 +107,15 @@ function seedWorkspace(
                         "max",
                       ],
                     },
+                    ...Array.from({ length: 13 }, (_, index) => ({
+                      model: `kiro-archive-${index + 1}`,
+                      displayName: `Kiro Archive ${index + 1}`,
+                      description: "",
+                      hidden: false,
+                      isDefault: false,
+                      defaultEffort: "medium",
+                      supportedEfforts: ["medium"],
+                    })),
                   ]
                 : [],
           };
@@ -380,6 +389,28 @@ test("selects a model and effort in one click across provider tabs", async ({
     ),
   ).toBeLessThanOrEqual(400);
   await providerTabs.getByRole("tab", { name: /Kiro/ }).click();
+  await page.getByRole("button", { name: /Show all models/ }).click();
+  await expect
+    .poll(() =>
+      effortGrid.evaluate((element) => Number(element.getAttribute("aria-rowcount"))),
+    )
+    .toBeGreaterThan(6);
+  const kiroListScroller = effortGrid.locator("..").locator("..");
+  const kiroScrollState = await kiroListScroller.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    overflowY: getComputedStyle(element).overflowY,
+    scrollHeight: element.scrollHeight,
+    scrollTop: element.scrollTop,
+  }));
+  expect(kiroScrollState.overflowY).toBe("auto");
+  expect(kiroScrollState.scrollHeight).toBeGreaterThan(
+    kiroScrollState.clientHeight,
+  );
+  await kiroListScroller.hover();
+  await page.mouse.wheel(0, 800);
+  await expect
+    .poll(() => kiroListScroller.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(kiroScrollState.scrollTop);
   const kiroHigh = effortGrid.getByRole("gridcell", {
     name: "Kiro Fixture Model, High effort",
   });
@@ -849,7 +880,7 @@ test("keeps the open selector's provider tab and search when a catalog resolves 
   await expect(
     selector
       .getByRole("tablist", { name: "Model provider" })
-      .getByRole("tab", { name: "Kiro, 2 models" }),
+      .getByRole("tab", { name: /^Kiro, \d+ models$/ }),
   ).toBeVisible({ timeout: 20_000 });
 
   await expect(cursorTab).toHaveAttribute("aria-selected", "true");
