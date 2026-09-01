@@ -24,7 +24,10 @@ Cursor is available for interactive primary task turns. Stave starts a
 disposable `agent acp` process for each prompt, negotiates ACP v1, reuses the
 Agent CLI login, and creates or loads the task's native session. The process is
 closed after the turn while the native session id remains in workspace
-persistence for the next prompt.
+persistence for the next prompt. ACP v1 `session/load` replays the prior
+conversation as `session/update` notifications before it answers; Stave already
+has that transcript, so the shared ACP runtime discards the replay and only
+maps updates that arrive after the session is open.
 
 The shared ACP layer used by Cursor and Kiro owns bounded NDJSON framing, JSON-RPC request lifecycle,
 schema validation, cancellation, and stable session-update mapping. The Cursor
@@ -146,7 +149,9 @@ disposable primary-turn process environment; the Worker receives none.
 
 Kiro is available for interactive primary task turns. Stave resolves an
 authenticated `kiro-cli`, starts `kiro-cli acp` as a disposable ACP v1 process,
-and creates or loads the task's native session. Stable ACP updates pass through
+and creates or loads the task's native session. `session/load` history replay is
+discarded by the shared ACP runtime, the same way Cursor follow-up turns drop
+it. Stable ACP updates pass through
 the same bounded transport, lifecycle, permission, cancellation, and normalized
 event contracts as Cursor. Kiro-specific `_kiro.dev/*` notifications stay in a
 namespaced extension mapper instead of leaking into shared schemas.

@@ -337,6 +337,12 @@ export async function streamAcpProviderTurn(args: {
   let activeSessionId = "";
   let abortRequested = false;
   let cancelFallback: ReturnType<typeof setTimeout> | null = null;
+  // ACP v1 `session/load` MUST replay the prior conversation as
+  // `session/update` notifications before answering. Each Cursor/Kiro turn
+  // is a disposable process that reloads the native session, and Stave
+  // already persisted that transcript on the earlier turn. Accepting the
+  // replay here would append the previous turn onto this one.
+  let acceptLiveSessionUpdates = false;
   const client = new AcpProtocolClient({
     command: profile.command,
     args: profile.commandArgs,
@@ -344,7 +350,12 @@ export async function streamAcpProviderTurn(args: {
     env: profile.env,
     requestHandlers,
     onNotification: (method, params) => {
-      if (method === "session/update" || method === "session/notification") {
+      const isSessionUpdate =
+        method === "session/update" || method === "session/notification";
+      if (!acceptLiveSessionUpdates) {
+        return isSessionUpdate || Boolean(extensionRuntime.onNotification);
+      }
+      if (isSessionUpdate) {
         mapper.mapNotification(params).forEach(emit);
         return true;
       }
@@ -381,9 +392,9 @@ export async function streamAcpProviderTurn(args: {
       // option from silently downgrading into "no decision at all", while never
       // letting it widen one.
       const optionId = response.approved
-        ? (response.scope === "always"
+        ? ((response.scope === "always"
             ? permission.allowAlwaysOptionId
-            : undefined) ?? permission.allowOptionId
+            : undefined) ?? permission.allowOptionId)
         : permission.rejectOptionId;
       if (!optionId) {
         emit({
@@ -489,6 +500,7 @@ export async function streamAcpProviderTurn(args: {
       });
     }
     activeSessionId = session.sessionId;
+    acceptLiveSessionUpdates = true;
     emit({
       type: "provider_session",
       providerId: profile.providerId,
