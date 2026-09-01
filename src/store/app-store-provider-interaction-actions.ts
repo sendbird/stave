@@ -339,7 +339,7 @@ export function createProviderInteractionActions(args: {
         endedTurnId: activeTurnId,
       });
     },
-    resolveApproval: ({ taskId, messageId, requestId, approved }) => {
+    resolveApproval: ({ taskId, messageId, requestId, approved, scope }) => {
       const stateBefore = get();
       const task = findTaskById(stateBefore, taskId);
       const runtimeTarget = resolveTaskRuntimeTarget({
@@ -508,6 +508,14 @@ export function createProviderInteractionActions(args: {
             turnId: activeTurnId,
             requestId: approvalPart.requestId,
             approved,
+            // Only forward `always` when this request advertised it. A stale
+            // caller must not be able to widen an approval the runtime never
+            // offered to persist.
+            ...(approved &&
+            scope === "always" &&
+            approvalPart.supportsAllowAlways
+              ? { scope: "always" as const }
+              : {}),
           })
             .then((result) => {
               if (!result.ok) {

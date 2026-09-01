@@ -1499,11 +1499,12 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           <ChatInputApprovalQueue
             approvals={pendingApprovals}
             guidanceFocusNonce={guidanceFocusNonce}
-            onResolveApproval={({ messageId, approved }) => {
+            onResolveApproval={({ messageId, approved, scope }) => {
               resolveApproval({
                 taskId: args.activeTaskId,
                 messageId,
                 approved,
+                ...(scope ? { scope } : {}),
               });
             }}
             onTrustAndApprove={({ messageId, toolName, input }) => {

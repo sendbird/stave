@@ -204,6 +204,50 @@ describe("Cursor ACP runtime", () => {
     ).toBe(true);
   });
 
+  test("selects allow-always only when the caller asks for the always scope", async () => {
+    let responder:
+      | ((args: {
+          requestId: string;
+          approved: boolean;
+          reason?: string;
+          scope?: "once" | "always";
+        }) => ProviderResponderResult)
+      | undefined;
+    let turn!: Promise<BridgeEvent[]>;
+    const approval = await waitForEvent(
+      (onEvent) => {
+        turn = streamCursorWithAcp({
+          ...createTurnArgs("permission"),
+          onEvent,
+          registerApprovalResponder: (next) => {
+            responder = next;
+          },
+        });
+      },
+      (event) => event.type === "approval",
+    );
+    if (approval.type !== "approval") {
+      throw new Error("Expected an approval event.");
+    }
+    // The card can only offer the button when the runtime advertised the option.
+    expect(approval.supportsAllowAlways).toBe(true);
+    expect(
+      responder?.({
+        requestId: approval.requestId,
+        approved: true,
+        scope: "always",
+      }),
+    ).toEqual({ ok: true });
+    const events = await turn;
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" &&
+          event.text.includes('"optionId":"allow-always"'),
+      ),
+    ).toBe(true);
+  });
+
   test("submits stable option ids for Cursor questions", async () => {
     let responder:
       | ((args: {
@@ -291,6 +335,105 @@ describe("Cursor ACP runtime", () => {
           event.type === "text" && event.text.includes('"reason":"Add tests"'),
       ),
     ).toBe(true);
+  });
+
+  /*
+    Registration used to happen after the event was announced, and announcement
+    is synchronous all the way to the listener. Answering from inside that call
+    therefore reached the responder before the request existed and came back as
+    `unknown-request`, which then hung the turn until the decision timer fired.
+    These three cover each request kind that blocks a turn.
+  */
+  test("answers a permission decided inside the announcing call", async () => {
+    let responder:
+      | ((args: {
+          requestId: string;
+          approved: boolean;
+        }) => ProviderResponderResult)
+      | undefined;
+    let decision: ProviderResponderResult | undefined;
+    const events = await streamCursorWithAcp({
+      ...createTurnArgs("permission"),
+      onEvent: (event) => {
+        if (event.type !== "approval" || decision) {
+          return;
+        }
+        decision = responder?.({
+          requestId: event.requestId,
+          approved: true,
+        });
+      },
+      registerApprovalResponder: (next) => {
+        responder = next;
+      },
+    });
+    expect(decision).toEqual({ ok: true });
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" &&
+          event.text.includes('"optionId":"allow-once"'),
+      ),
+    ).toBe(true);
+  });
+
+  test("answers a question decided inside the announcing call", async () => {
+    let responder:
+      | ((args: {
+          requestId: string;
+          answers?: Record<string, string>;
+        }) => ProviderResponderResult)
+      | undefined;
+    let decision: ProviderResponderResult | undefined;
+    const events = await streamCursorWithAcp({
+      ...createTurnArgs("question"),
+      onEvent: (event) => {
+        if (event.type !== "user_input" || decision) {
+          return;
+        }
+        decision = responder?.({
+          requestId: event.requestId,
+          answers: { [event.questions[0]?.id ?? "q"]: "plan" },
+        });
+      },
+      registerUserInputResponder: (next) => {
+        responder = next;
+      },
+    });
+    expect(decision).toEqual({ ok: true });
+    expect(
+      events.some(
+        (event) => event.type === "text" && event.text.includes("selectedOptionIds"),
+      ),
+    ).toBe(true);
+  });
+
+  test("answers a plan review decided inside the announcing call", async () => {
+    let responder:
+      | ((args: {
+          requestId: string;
+          approved: boolean;
+          reason?: string;
+        }) => ProviderResponderResult)
+      | undefined;
+    let decision: ProviderResponderResult | undefined;
+    const events = await streamCursorWithAcp({
+      ...createTurnArgs("plan"),
+      onEvent: (event) => {
+        if (event.type !== "plan_ready" || !event.review || decision) {
+          return;
+        }
+        decision = responder?.({
+          requestId: event.review.requestId,
+          approved: true,
+        });
+      },
+      registerApprovalResponder: (next) => {
+        responder = next;
+      },
+    });
+    expect(decision).toEqual({ ok: true });
+    expect(events.some((event) => event.type === "done")).toBe(true);
   });
 
   test("loads a persisted session id", async () => {

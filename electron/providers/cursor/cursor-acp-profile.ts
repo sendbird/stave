@@ -127,10 +127,7 @@ function createCursorExtensionRuntime(
           });
         }
         const id = args.createRequestId("question", context);
-        args.emit(
-          mapCursorAskQuestionEvent({ requestId: id, request: parsed.data }),
-        );
-        return await new Promise<unknown>((resolve) => {
+        return await new Promise<unknown>((resolve, reject) => {
           const timer = args.createDecisionTimer(() => {
             settleQuestion(id, { outcome: { outcome: "skipped" } });
           });
@@ -144,6 +141,21 @@ function createCursorExtensionRuntime(
             () => settleQuestion(id, { outcome: { outcome: "cancelled" } }),
             { once: true },
           );
+          // Same ordering rule as the shared permission handler: an answer can
+          // arrive inside the synchronous `emit`, so the entry has to exist
+          // first or the responder rejects a live request.
+          try {
+            args.emit(
+              mapCursorAskQuestionEvent({
+                requestId: id,
+                request: parsed.data,
+              }),
+            );
+          } catch (error) {
+            pendingQuestions.delete(id);
+            clearTimeout(timer);
+            reject(error);
+          }
         });
       },
     ],
@@ -158,10 +170,7 @@ function createCursorExtensionRuntime(
           return buildCursorPlanResponse({ approved: true });
         }
         const id = args.createRequestId("plan", context);
-        args.emit(
-          mapCursorCreatePlanEvent({ requestId: id, request: parsed.data }),
-        );
-        return await new Promise<unknown>((resolve) => {
+        return await new Promise<unknown>((resolve, reject) => {
           const timer = args.createDecisionTimer(() => {
             settlePlan(id, { outcome: { outcome: "cancelled" } });
           });
@@ -171,6 +180,15 @@ function createCursorExtensionRuntime(
             () => settlePlan(id, { outcome: { outcome: "cancelled" } }),
             { once: true },
           );
+          try {
+            args.emit(
+              mapCursorCreatePlanEvent({ requestId: id, request: parsed.data }),
+            );
+          } catch (error) {
+            pendingPlans.delete(id);
+            clearTimeout(timer);
+            reject(error);
+          }
         });
       },
     ],

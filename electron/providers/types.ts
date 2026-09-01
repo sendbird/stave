@@ -265,6 +265,12 @@ export type BridgeEvent =
       requestId: string;
       description: string;
       input?: string;
+      /**
+       * The runtime advertised an "allow always" option, so answering can also
+       * persist a rule in the provider's own permission store instead of only
+       * unblocking this one call.
+       */
+      supportsAllowAlways?: boolean;
       workerExecution?: WorkerExecutionMetadata;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this
@@ -379,6 +385,7 @@ export interface ProviderRuntime {
     requestId: string;
     approved: boolean;
     reason?: string;
+    scope?: "once" | "always";
   }) => Promise<{ ok: boolean; message: string }>;
   respondUserInput: (args: {
     turnId: string;

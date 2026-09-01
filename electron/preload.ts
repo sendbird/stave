@@ -983,6 +983,7 @@ contextBridge.exposeInMainWorld("api", {
       requestId: string;
       approved: boolean;
       reason?: string;
+      scope?: "once" | "always";
     }) => ipcRenderer.invoke("provider:respond-approval", args),
     respondUserInput: (args: {
       turnId: string;

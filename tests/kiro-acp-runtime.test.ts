@@ -213,6 +213,50 @@ describe("Kiro ACP runtime", () => {
     ).toBe(true);
   });
 
+  test("falls back to allow_once when the runtime advertises no allow_always", async () => {
+    let responder:
+      | ((args: {
+          requestId: string;
+          approved: boolean;
+          reason?: string;
+          scope?: "once" | "always";
+        }) => ProviderResponderResult)
+      | undefined;
+    let turn!: Promise<BridgeEvent[]>;
+    const approval = await waitForEvent(
+      (onEvent) => {
+        turn = streamKiroWithAcp({
+          ...createTurnArgs("permission"),
+          onEvent,
+          registerApprovalResponder: (next) => {
+            responder = next;
+          },
+        });
+      },
+      (event) => event.type === "approval",
+    );
+    if (approval.type !== "approval") {
+      throw new Error("Expected an approval event.");
+    }
+    // No advertised option means no button, and an `always` scope that arrives
+    // anyway must narrow to allow-once rather than stall the turn.
+    expect(approval.supportsAllowAlways).toBeUndefined();
+    expect(
+      responder?.({
+        requestId: approval.requestId,
+        approved: true,
+        scope: "always",
+      }),
+    ).toEqual({ ok: true });
+    const events = await turn;
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" && event.text.includes('"optionId":"allow_once"'),
+      ),
+    ).toBe(true);
+  });
+
   test("cancels the ACP prompt and emits one terminal event", async () => {
     let abort: (() => void) | undefined;
     const turn = streamKiroWithAcp({

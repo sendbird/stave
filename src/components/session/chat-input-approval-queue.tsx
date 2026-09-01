@@ -22,7 +22,11 @@ interface ChatInputApprovalQueueProps {
   disabled?: boolean;
   disabledReason?: string;
   guidanceFocusNonce?: number;
-  onResolveApproval: (args: { messageId: string; approved: boolean }) => void;
+  onResolveApproval: (args: {
+    messageId: string;
+    approved: boolean;
+    scope?: "once" | "always";
+  }) => void;
   onTrustAndApprove?: (args: {
     messageId: string;
     toolName: string;
@@ -66,6 +70,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     messageId: string;
     requestId: string;
     approved: boolean;
+    scope?: "once" | "always";
   }) {
     if (disabled || pendingDecisionRequestId) {
       return;
@@ -74,6 +79,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     onResolveApproval({
       messageId: args.messageId,
       approved: args.approved,
+      ...(args.scope ? { scope: args.scope } : {}),
     });
   }
 
@@ -193,6 +199,17 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
             approved: true,
           })
         }
+        onApproveAlways={
+          current.part.supportsAllowAlways
+            ? () =>
+                resolveApproval({
+                  messageId: current.messageId,
+                  requestId: current.part.requestId,
+                  approved: true,
+                  scope: "always",
+                })
+            : undefined
+        }
         onReject={() =>
           resolveApproval({
             messageId: current.messageId,
@@ -211,7 +228,18 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
           Waiting for the provider to accept the decision…
         </p>
       ) : null}
-      {!disabled && !decisionPending && onTrustAndApprove && trustedEntry ? (
+      {/*
+        When the runtime persists the rule itself, Stave's client-side trusted
+        list would be a second, weaker copy of the same decision. It is also the
+        weaker one for ACP: the trusted entry is keyed on the serialized tool
+        input, so it re-matches only that exact payload, while the provider rule
+        generalizes to the command.
+      */}
+      {!disabled &&
+      !decisionPending &&
+      !current.part.supportsAllowAlways &&
+      onTrustAndApprove &&
+      trustedEntry ? (
         <button
           type="button"
           className="mt-1.5 rounded px-1 py-0.5 text-left text-[0.6875rem] text-muted-foreground/70 transition-colors hover:text-muted-foreground"
@@ -315,6 +343,17 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                       requestId: approval.part.requestId,
                       approved: true,
                     })
+                  }
+                  onApproveAlways={
+                    approval.part.supportsAllowAlways
+                      ? () =>
+                          resolveApproval({
+                            messageId: approval.messageId,
+                            requestId: approval.part.requestId,
+                            approved: true,
+                            scope: "always",
+                          })
+                      : undefined
                   }
                   onReject={() =>
                     resolveApproval({

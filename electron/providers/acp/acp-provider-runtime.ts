@@ -30,6 +30,14 @@ type ApprovalResponseArgs = {
   requestId: string;
   approved: boolean;
   reason?: string;
+  /**
+   * `always` asks the runtime to remember the decision beyond this call.
+   *
+   * Only meaningful together with `approved`, and only when the runtime
+   * advertised an `allow_always` option; otherwise it degrades to `once` so a
+   * missing option can never widen a decision.
+   */
+  scope?: "once" | "always";
 };
 
 type UserInputResponseArgs = {
@@ -40,6 +48,7 @@ type UserInputResponseArgs = {
 
 type PendingPermission = {
   allowOptionId?: string;
+  allowAlwaysOptionId?: string;
   rejectOptionId?: string;
   settle: (result: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -250,20 +259,15 @@ export async function streamAcpProviderTurn(args: {
       }
       return { outcome: { outcome: "cancelled" } };
     }
+    // Cursor and Kiro both advertise `allow_always`, and Cursor persists the
+    // choice as a rule in its own permissions allowlist, so later turns stop
+    // asking. Surfacing it is what lets an approval be answered once instead of
+    // every turn; without it the allowlist stays empty forever.
+    const allowAlwaysOption = parsed.data.options.find(
+      (option) => option.kind === "allow_always",
+    );
     const input = serializeApprovalInput(parsed.data.toolCall.rawInput);
-    emit({
-      type: "approval",
-      toolName:
-        parsed.data.toolCall.title?.trim() ||
-        parsed.data.toolCall.kind?.trim() ||
-        "Tool",
-      requestId: id,
-      description:
-        parsed.data.toolCall.title?.trim() ||
-        `${profile.displayName} requests permission.`,
-      ...(input ? { input } : {}),
-    });
-    return await new Promise<unknown>((resolve) => {
+    return await new Promise<unknown>((resolve, reject) => {
       const timer = createDecisionTimer(() => {
         if (rejectOption) {
           settlePermission(id, {
@@ -278,6 +282,7 @@ export async function streamAcpProviderTurn(args: {
       });
       pendingPermissions.set(id, {
         allowOptionId: allowOption?.optionId,
+        allowAlwaysOptionId: allowAlwaysOption?.optionId,
         rejectOptionId: rejectOption?.optionId,
         settle: resolve,
         timer,
@@ -287,6 +292,32 @@ export async function streamAcpProviderTurn(args: {
         () => settlePermission(id, { outcome: { outcome: "cancelled" } }),
         { once: true },
       );
+      // Register first, then announce. `emit` is synchronous all the way to
+      // whoever is listening, so a caller that answers inside that call — a
+      // test harness, or an auto-approver — reached the responder before this
+      // entry existed and got `unknown-request` for a request that was
+      // genuinely in flight.
+      try {
+        emit({
+          type: "approval",
+          toolName:
+            parsed.data.toolCall.title?.trim() ||
+            parsed.data.toolCall.kind?.trim() ||
+            "Tool",
+          requestId: id,
+          description:
+            parsed.data.toolCall.title?.trim() ||
+            `${profile.displayName} requests permission.`,
+          ...(input ? { input } : {}),
+          ...(allowAlwaysOption ? { supportsAllowAlways: true } : {}),
+        });
+      } catch (error) {
+        // Nothing can answer an approval nobody was told about, so drop the
+        // registration instead of leaving it to time out the turn.
+        pendingPermissions.delete(id);
+        clearTimeout(timer);
+        reject(error);
+      }
     });
   };
   const requestHandlers = new Map<string, AcpInboundRequestHandler>([
@@ -339,8 +370,14 @@ export async function streamAcpProviderTurn(args: {
   turn.registerApprovalResponder?.((response) => {
     const permission = pendingPermissions.get(response.requestId);
     if (permission) {
+      // `allowAlwaysOptionId` is only reached when the caller asked for it and
+      // the runtime advertised it. Falling back to allow-once keeps a missing
+      // option from silently downgrading into "no decision at all", while never
+      // letting it widen one.
       const optionId = response.approved
-        ? permission.allowOptionId
+        ? (response.scope === "always"
+            ? permission.allowAlwaysOptionId
+            : undefined) ?? permission.allowOptionId
         : permission.rejectOptionId;
       if (!optionId) {
         emit({

@@ -192,6 +192,17 @@ export function MessagePartRenderer(args: {
           onApprove={() =>
             resolveApproval({ taskId, messageId, approved: true })
           }
+          onApproveAlways={
+            part.supportsAllowAlways
+              ? () =>
+                  resolveApproval({
+                    taskId,
+                    messageId,
+                    approved: true,
+                    scope: "always",
+                  })
+              : undefined
+          }
           onReject={() =>
             resolveApproval({ taskId, messageId, approved: false })
           }

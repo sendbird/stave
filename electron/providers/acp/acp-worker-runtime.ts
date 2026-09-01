@@ -31,6 +31,7 @@ type ApprovalResponder = (args: {
   requestId: string;
   approved: boolean;
   reason?: string;
+  scope?: "once" | "always";
 }) => ProviderResponderResult;
 
 export type AcpWorkerGrant = {
@@ -261,6 +262,10 @@ function emitWorkerEvent(args: {
       description: `Worker · ${event.description}`,
       workerExecution: args.workerExecution,
       ownerAgentId: event.ownerAgentId ?? args.workerAgentId,
+      // Workers run the Manual approval lane on purpose, so a nested worker
+      // must not be able to write a persistent allow rule into the user's
+      // provider config from inside someone else's turn.
+      supportsAllowAlways: false,
     });
     return;
   }

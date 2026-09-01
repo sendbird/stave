@@ -1039,6 +1039,8 @@ export type NormalizedProviderEvent =
       requestId: string;
       description: string;
       input?: string;
+      /** See the main-process `approval` event: an allow-always option exists. */
+      supportsAllowAlways?: boolean;
       workerExecution?: WorkerExecutionMetadata;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this

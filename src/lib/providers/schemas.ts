@@ -293,6 +293,7 @@ const ApprovalEventSchema = z.object({
   requestId: z.string(),
   description: z.string(),
   input: z.string().optional(),
+  supportsAllowAlways: z.boolean().optional(),
   workerExecution: WorkerExecutionMetadataSchema.optional(),
   ownerAgentId: z.string().optional(),
 });

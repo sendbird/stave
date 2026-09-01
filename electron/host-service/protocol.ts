@@ -588,6 +588,7 @@ export interface HostServiceRequestMap {
     requestId: string;
     approved: boolean;
     reason?: string;
+    scope?: "once" | "always";
   };
   "provider.respond-user-input": {
     turnId: string;

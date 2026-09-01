@@ -2548,6 +2548,47 @@ describe("waitForClaudeToolDecision", () => {
     expect(cleaned).toBe(true);
   });
 
+  test("announces only after the resolver is registered", async () => {
+    const controller = new AbortController();
+    let resolver: ((value: boolean) => void) | null = null;
+    // An answer produced inside the announcing call is the whole point: the
+    // event reaches its listener synchronously, so a listener that decides
+    // immediately used to find no resolver at all.
+    const promise = waitForClaudeToolDecision<boolean>({
+      signal: controller.signal,
+      register: (resolve) => {
+        resolver = resolve;
+        return () => {};
+      },
+      announce: () => {
+        resolver?.(true);
+      },
+      timeoutMs: 1_000,
+    });
+    await expect(promise).resolves.toBe(true);
+  });
+
+  test("does not announce a request that is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    let announced = false;
+    const promise = waitForClaudeToolDecision<boolean>({
+      signal: controller.signal,
+      register: (resolve) => {
+        void resolve;
+        return () => {};
+      },
+      announce: () => {
+        announced = true;
+      },
+      timeoutMs: 1_000,
+    });
+    await expect(promise).rejects.toThrow(
+      "Claude tool permission request aborted.",
+    );
+    expect(announced).toBe(false);
+  });
+
   test("never times out when timeoutMs is 0", async () => {
     const controller = new AbortController();
     let resolver: ((value: boolean) => void) | null = null;

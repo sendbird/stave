@@ -642,6 +642,8 @@ export interface AppState
     messageId: string;
     requestId?: string;
     approved: boolean;
+    /** `always` also persists the decision in the provider's own permission store. */
+    scope?: "once" | "always";
   }) => void;
   resolveUserInput: (args: {
     taskId: string;

@@ -4,6 +4,7 @@ export type ProviderApprovalResponder = (args: {
   requestId: string;
   approved: boolean;
   reason?: string;
+  scope?: "once" | "always";
 }) => ProviderResponderResult;
 
 /**

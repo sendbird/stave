@@ -253,6 +253,8 @@ export interface ApprovalPart extends MessagePartBase {
   toolName: string;
   description: string;
   input?: string;
+  /** See the `approval` provider event: an allow-always option exists. */
+  supportsAllowAlways?: boolean;
   workerExecution?: WorkerExecutionMetadata;
   requestId: string;
   state:
