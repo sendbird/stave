@@ -4,6 +4,8 @@ import {
   getNextCommandSelectionIndex,
   getPromptEnhancementRevealDurationMs,
   getPromptEnhancementRevealText,
+  getPromptRevealScrollTop,
+  resolvePromptEnhancementDisplayText,
   isPromptHistoryBoundaryReached,
   navigatePromptHistory,
   NO_COMMAND_SELECTION,
@@ -153,5 +155,56 @@ describe("prompt enhancement reveal", () => {
     expect(getPromptEnhancementRevealDurationMs(1)).toBe(220);
     expect(getPromptEnhancementRevealDurationMs(36)).toBe(360);
     expect(getPromptEnhancementRevealDurationMs(10_000)).toBe(560);
+  });
+
+  test("passes the live draft through whenever no reveal is running", () => {
+    // Regression guard: a lagging display value rewrites the editor content on
+    // every keystroke and breaks Hangul composition.
+    expect(
+      resolvePromptEnhancementDisplayText({
+        revealing: false,
+        revealedText: "stale",
+        value: "안녕하세",
+      }),
+    ).toBe("안녕하세");
+    expect(
+      resolvePromptEnhancementDisplayText({
+        revealing: true,
+        revealedText: null,
+        value: "/rev",
+      }),
+    ).toBe("/rev");
+  });
+
+  test("shows the partially revealed prompt while a reveal is running", () => {
+    expect(
+      resolvePromptEnhancementDisplayText({
+        revealing: true,
+        revealedText: "Ship 🚀",
+        value: "Ship 🚀 safely",
+      }),
+    ).toBe("Ship 🚀");
+    expect(
+      resolvePromptEnhancementDisplayText({
+        revealing: true,
+        revealedText: "",
+        value: "Ship 🚀 safely",
+      }),
+    ).toBe("");
+  });
+
+  test("pins the reveal scroll offset to the tail of a long prompt", () => {
+    // Regression guard: Lexical skips its own scroll-into-view while the editor
+    // is non-editable, which it is for the whole reveal.
+    expect(
+      getPromptRevealScrollTop({ scrollHeight: 960, clientHeight: 240 }),
+    ).toBe(720);
+    // A prompt that still fits must not be scrolled at all.
+    expect(
+      getPromptRevealScrollTop({ scrollHeight: 120, clientHeight: 240 }),
+    ).toBe(0);
+    expect(
+      getPromptRevealScrollTop({ scrollHeight: 240, clientHeight: 240 }),
+    ).toBe(0);
   });
 });

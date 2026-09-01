@@ -35,6 +35,42 @@ export function getPromptEnhancementRevealText(
   return characters.slice(0, visibleCharacterCount).join("");
 }
 
+/**
+ * Picks the text the prompt editor should render.
+ *
+ * The editor is a controlled component, so this must return the live `value`
+ * verbatim whenever an enhancement reveal is not running. Returning a value
+ * that lags behind the user's keystrokes makes the editor rewrite its own
+ * content mid-input, which breaks IME (e.g. Hangul) composition and moves the
+ * caret to the end of the draft.
+ */
+export function resolvePromptEnhancementDisplayText(args: {
+  revealing: boolean;
+  revealedText: string | null;
+  value: string;
+}) {
+  if (!args.revealing || args.revealedText === null) {
+    return args.value;
+  }
+  return args.revealedText;
+}
+
+/**
+ * Returns the `scrollTop` that keeps the tail of the prompt in view.
+ *
+ * Lexical only reconciles the DOM selection - and therefore only scrolls the
+ * caret into view - while `editor.isEditable()` is true. The editor is held
+ * non-editable for the whole enhancement reveal, so nothing scrolls the
+ * growing text into view and a long enhanced prompt types itself off the
+ * bottom of the box. Pinning the scroll offset manually restores that.
+ */
+export function getPromptRevealScrollTop(args: {
+  scrollHeight: number;
+  clientHeight: number;
+}) {
+  return Math.max(0, args.scrollHeight - args.clientHeight);
+}
+
 export function getNextCommandSelectionIndex(args: {
   currentIndex: number;
   itemCount: number;
