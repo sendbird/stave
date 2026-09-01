@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   getSdkModelOptions,
+  isCodexPickerModel,
   registerDynamicDefaultReasoningEfforts,
   registerDynamicDisplayNames,
   registerDynamicSupportedReasoningEfforts,
@@ -11,18 +12,13 @@ const FALLBACK_CODEX_MODELS = [
   ...getSdkModelOptions({ providerId: "codex" }),
 ] as string[];
 const CODEX_MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
-const LEGACY_CODEX_PICKER_MODELS =
-  /^gpt-5\.(?:3|4|5)(?:$|[-.])|^gpt-5-codex(?:$|-)/;
-
-export function isLegacyCodexPickerModel(model: string) {
-  return LEGACY_CODEX_PICKER_MODELS.test(model.trim().toLowerCase());
-}
 
 /**
- * Union of the Stave model catalog and the App Server's dynamic `model/list`
- * result. The static catalog comes first so newly adopted families (e.g.
- * GPT-5.6) are always selectable even when the installed Codex binary still
- * reports an older lineup; server-only models are appended after.
+ * Intersection of the Stave model catalog and the App Server's dynamic
+ * `model/list` result. The picker is pinned to the GPT-5.6 trio: the static
+ * catalog keeps all three selectable even when the installed Codex binary
+ * still reports an older lineup, and server-only models (previous
+ * generations, experimental IDs) are dropped instead of appended.
  */
 export function mergeCodexModelsWithCatalog(
   dynamicModels: readonly string[],
@@ -32,7 +28,7 @@ export function mergeCodexModelsWithCatalog(
     const normalizedModel = model.trim();
     if (
       normalizedModel &&
-      !isLegacyCodexPickerModel(normalizedModel) &&
+      isCodexPickerModel(normalizedModel) &&
       !merged.includes(normalizedModel)
     ) {
       merged.push(normalizedModel);

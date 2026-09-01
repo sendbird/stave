@@ -9,12 +9,7 @@ describe("mergeCodexModelsWithCatalog", () => {
       "gpt-5.4",
       "gpt-5-codex",
     ]);
-    for (const model of CODEX_MODEL_OPTIONS) {
-      expect(merged).toContain(model);
-    }
-    expect(merged).not.toContain("gpt-5.5");
-    expect(merged).not.toContain("gpt-5.4");
-    expect(merged).not.toContain("gpt-5-codex");
+    expect(merged).toEqual([...CODEX_MODEL_OPTIONS]);
   });
 
   test("does not duplicate models present in both lists", () => {
@@ -22,8 +17,8 @@ describe("mergeCodexModelsWithCatalog", () => {
     expect(merged).toEqual([...CODEX_MODEL_OPTIONS]);
   });
 
-  test("preserves catalog order first, then dynamic extras in server order", () => {
+  test("drops server-only models outside the GPT-5.6 catalog", () => {
     const merged = mergeCodexModelsWithCatalog(["gpt-7", "gpt-6"]);
-    expect(merged).toEqual([...CODEX_MODEL_OPTIONS, "gpt-7", "gpt-6"]);
+    expect(merged).toEqual([...CODEX_MODEL_OPTIONS]);
   });
 });

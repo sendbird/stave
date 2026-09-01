@@ -251,7 +251,12 @@ export function ModelSelector(args: ModelSelectorProps) {
         </DialogHeader>
         <Command className="rounded-none bg-transparent p-0">
           <CommandInput autoFocus placeholder="Search model" />
-          <CommandList className="max-h-[22rem] px-1 pb-1">
+          {/*
+            Each option row is 3.5rem tall (py-2.5 + a 20px label and a 16px
+            description line), so the 17.5rem cap keeps roughly five rows in
+            view and everything below reachable by scrolling.
+          */}
+          <CommandList className="max-h-[17.5rem] px-1 pb-1">
             <CommandEmpty>No models found.</CommandEmpty>
             {autoOptions.length > 0 ? (
               <CommandGroup>{autoOptions.map(renderOption)}</CommandGroup>
