@@ -27,7 +27,10 @@ import {
 } from "@/lib/providers/model-shortcuts";
 import { normalizeResponseStylePrompt } from "@/lib/providers/prompt-defaults";
 import { normalizeUtilityInferenceProvider } from "@/lib/providers/utility-inference";
-import { upgradeSettingsScopedClaudeModel } from "@/lib/providers/model-catalog";
+import {
+  isAutoModelId,
+  upgradeSettingsScopedClaudeModel,
+} from "@/lib/providers/model-catalog";
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
@@ -93,6 +96,23 @@ const APP_STORE_KEY = "stave-store";
 
 export function normalizeSharedSkillsHomeSetting(value?: string | null) {
   return value?.trim() ?? "";
+}
+
+/**
+ * Settles a stored model for a provider whose default is `auto`.
+ *
+ * Those providers advertise their own auto model, and the catalog exposes it
+ * as the single `auto` row, so an id from that family is stored as `auto`.
+ */
+export function normalizeAutoDefaultProviderModel(args: {
+  value: unknown;
+  fallback: string;
+}) {
+  const trimmed = typeof args.value === "string" ? args.value.trim() : "";
+  if (!trimmed) {
+    return args.fallback;
+  }
+  return isAutoModelId({ model: trimmed }) ? "auto" : trimmed;
 }
 
 export function createAppStorePersistenceOptions() {
@@ -456,16 +476,17 @@ export function createAppStorePersistenceOptions() {
       state.settings.kiroApprovalMode = normalizeKiroApprovalMode(
         state.settings.kiroApprovalMode,
       );
-      state.settings.modelCursor =
-        typeof state.settings.modelCursor === "string" &&
-        state.settings.modelCursor.trim()
-          ? state.settings.modelCursor.trim()
-          : defaultSettings.modelCursor;
-      state.settings.modelKiro =
-        typeof state.settings.modelKiro === "string" &&
-        state.settings.modelKiro.trim()
-          ? state.settings.modelKiro.trim()
-          : defaultSettings.modelKiro;
+      // Snapshots written before the catalog folded the auto family into a
+      // single `auto` row can hold a provider auto id such as
+      // `auto-smart[optimize_for=balanced]`, which no longer names a row.
+      state.settings.modelCursor = normalizeAutoDefaultProviderModel({
+        value: state.settings.modelCursor,
+        fallback: defaultSettings.modelCursor,
+      });
+      state.settings.modelKiro = normalizeAutoDefaultProviderModel({
+        value: state.settings.modelKiro,
+        fallback: defaultSettings.modelKiro,
+      });
       state.settings.modelClaude = upgradeSettingsScopedClaudeModel({
         model: state.settings.modelClaude,
       });

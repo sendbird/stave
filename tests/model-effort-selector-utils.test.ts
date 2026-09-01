@@ -159,6 +159,19 @@ describe("model effort selector utilities", () => {
     });
   });
 
+  test("keeps bracket syntax out of a model missing from the catalog", () => {
+    const cursor = option({
+      providerId: "cursor",
+      model: "auto-smart[optimize_for=balanced]",
+      label: "Auto Smart[optimize_for=balanced]",
+    });
+
+    expect(getCursorModelPresentation(cursor)).toEqual({
+      label: "Auto Smart",
+      capabilities: ["Balanced"],
+    });
+  });
+
   test("groups Cursor ACP variants and resolves one-click configuration changes", () => {
     const medium = option({
       providerId: "cursor",

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getSdkModelOptions,
   getProviderDescriptor,
+  isAutoModelId,
   isCodexPickerModel,
   listProviderDescriptors,
   registerDynamicDefaultReasoningEfforts,
@@ -60,7 +61,7 @@ function cacheKey(args: {
         ? args.runtimeOptions?.cursorBinaryPath
         : args.providerId === "kiro"
           ? args.runtimeOptions?.kiroBinaryPath
-        : "";
+          : "";
   return [
     args.providerId,
     binaryPath?.trim() || "<default-binary>",
@@ -68,21 +69,32 @@ function cacheKey(args: {
   ].join(":");
 }
 
-function mergeEntries(args: {
+export function mergeProviderModelCatalogEntries(args: {
   providerId: ProviderId;
   dynamicEntries: readonly ProviderModelCatalogEntry[];
 }) {
   const merged = new Map<string, ProviderModelCatalogEntry>();
-  const runtimeDefault = args.dynamicEntries.find((entry) => entry.isDefault);
+  const defaultsToAuto =
+    getProviderDescriptor({ providerId: args.providerId }).defaultModel ===
+    "auto";
+  // The `auto` row stands in for the provider's own auto model, so that entry
+  // is folded into it instead of being listed twice. It is matched by id
+  // family rather than by the runtime's `isDefault`, because `isDefault`
+  // mirrors whichever model the session currently has selected and Stave moves
+  // that selection itself. Folding on it dropped a different real model id
+  // from the catalog after every switch, and a task still pinned to the
+  // dropped id rendered from the raw id and reported itself as missing.
+  const runtimeAuto = defaultsToAuto
+    ? args.dynamicEntries.find(
+        (entry) => !entry.hidden && isAutoModelId({ model: entry.model }),
+      )
+    : undefined;
   for (const entry of fallbackEntries(args.providerId)) {
     merged.set(
       entry.model,
-      getProviderDescriptor({ providerId: args.providerId }).defaultModel ===
-          "auto" &&
-        entry.model === "auto" &&
-        runtimeDefault
+      entry.model === "auto" && runtimeAuto
         ? {
-            ...runtimeDefault,
+            ...runtimeAuto,
             model: "auto",
             isDefault: true,
           }
@@ -91,12 +103,10 @@ function mergeEntries(args: {
   }
   for (const entry of args.dynamicEntries) {
     const model = entry.model.trim();
-    if (
-      !model ||
-      entry.hidden ||
-      (getProviderDescriptor({ providerId: args.providerId }).defaultModel ===
-        "auto" && entry.isDefault)
-    ) {
+    // Only the folded entry is dropped. Should the runtime ever advertise more
+    // than one auto variant, the rest stay reachable as their own rows rather
+    // than disappearing the way the old `isDefault` fold made models disappear.
+    if (!model || entry.hidden || model === runtimeAuto?.model.trim()) {
       continue;
     }
     // Codex pickers stay pinned to the GPT-5.6 trio in the static catalog.
@@ -106,7 +116,14 @@ function mergeEntries(args: {
     if (args.providerId === "codex" && !isCodexPickerModel(model)) {
       continue;
     }
-    merged.set(model, { ...entry, model });
+    merged.set(model, {
+      ...entry,
+      model,
+      // `auto` is the default row for these providers; leaving the runtime's
+      // moving default set here would reshuffle the picker's featured rows
+      // every time the session's selection changed.
+      isDefault: defaultsToAuto ? false : entry.isDefault,
+    });
   }
   return [...merged.values()];
 }
@@ -190,7 +207,7 @@ export async function loadProviderModelCatalog(args: {
         ...(args.cwd ? { cwd: args.cwd } : {}),
         ...(args.runtimeOptions ? { runtimeOptions: args.runtimeOptions } : {}),
       });
-      const entries = mergeEntries({
+      const entries = mergeProviderModelCatalogEntries({
         providerId: args.providerId,
         dynamicEntries: result.models,
       });
