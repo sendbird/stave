@@ -10,6 +10,10 @@ describe("toToolDisplayName", () => {
       "Capture screen",
     );
     expect(toToolDisplayName("stave_lens_navigate")).toBe("Open page");
+    expect(toToolDisplayName("stave_lens_reload")).toBe("Reload page");
+    expect(toToolDisplayName("stave_lens_set_appearance")).toBe(
+      "Change page appearance",
+    );
   });
 
   test("also recognizes the already-formatted MCP namespace", () => {

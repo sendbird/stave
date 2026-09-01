@@ -23,6 +23,8 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_lens_click: "Click element",
   stave_lens_type: "Enter text",
   stave_lens_snapshot: "Inspect page",
+  stave_lens_reload: "Reload page",
+  stave_lens_set_appearance: "Change page appearance",
   stave_lens_list_sessions: "View browser sessions",
 
   stave_list_projects: "View projects",
