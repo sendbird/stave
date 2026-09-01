@@ -7,6 +7,8 @@ import {
 import type {
   ClaudeUsageSnapshot,
   CodexUsageSnapshot,
+  CursorUsageSnapshot,
+  KiroUsageSnapshot,
 } from "../src/lib/providers/provider.types";
 
 function claudeSnapshot(
@@ -25,7 +27,10 @@ function claudeSnapshot(
 describe("status bar usage headline", () => {
   test("shows the weekly window alongside the 5h window", () => {
     expect(
-      buildUsageHeadlineWindows({ provider: "claude", claude: claudeSnapshot() }),
+      buildUsageHeadlineWindows({
+        provider: "claude",
+        claude: claudeSnapshot(),
+      }),
     ).toEqual([
       { short: "5h", usedPercent: 45 },
       { short: "7d", usedPercent: 72 },
@@ -82,11 +87,49 @@ describe("status bar usage headline", () => {
     ]);
   });
 
+  test("shows monthly Cursor and Kiro usage", () => {
+    const cursor: CursorUsageSnapshot = {
+      source: "dashboard",
+      planType: "pro",
+      monthly: {
+        usedPercent: 38,
+        resetsAt: null,
+        used: 7.6,
+        limit: 20,
+      },
+      buckets: [],
+      error: null,
+    };
+    const kiro: KiroUsageSnapshot = {
+      source: "acp",
+      planName: "Pro",
+      monthly: {
+        usedPercent: 64,
+        resetsAt: null,
+        used: 640,
+        limit: 1_000,
+      },
+      buckets: [],
+      overagesEnabled: false,
+      error: null,
+    };
+    expect(buildUsageHeadlineWindows({ provider: "cursor", cursor })).toEqual([
+      { short: "", usedPercent: 38 },
+    ]);
+    expect(buildUsageHeadlineWindows({ provider: "kiro", kiro })).toEqual([
+      { short: "", usedPercent: 64 },
+    ]);
+  });
+
   test("tones the dot by the window closest to its limit", () => {
-    expect(headlineUsagePercent(buildUsageHeadlineWindows({
-      provider: "claude",
-      claude: claudeSnapshot(),
-    }))).toBe(72);
+    expect(
+      headlineUsagePercent(
+        buildUsageHeadlineWindows({
+          provider: "claude",
+          claude: claudeSnapshot(),
+        }),
+      ),
+    ).toBe(72);
     expect(headlineUsagePercent([])).toBeNull();
   });
 });

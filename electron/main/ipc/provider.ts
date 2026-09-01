@@ -606,6 +606,21 @@ export function registerProviderHandlers() {
             buckets: [],
             error: "Invalid rate-limits snapshot request.",
           },
+          cursor: {
+            source: "unavailable",
+            planType: null,
+            monthly: null,
+            buckets: [],
+            error: "Invalid rate-limits snapshot request.",
+          },
+          kiro: {
+            source: "unavailable",
+            planName: null,
+            monthly: null,
+            buckets: [],
+            overagesEnabled: null,
+            error: "Invalid rate-limits snapshot request.",
+          },
         };
       }
       return invokeHostService(

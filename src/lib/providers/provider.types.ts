@@ -16,10 +16,7 @@ import type {
 } from "@/lib/providers/worker-mode";
 
 export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro";
-export type ManagedExecutionProviderId = Exclude<
-  ProviderId,
-  "cursor" | "kiro"
->;
+export type ManagedExecutionProviderId = Exclude<ProviderId, "cursor" | "kiro">;
 export type ClaudeSettingSource = "user" | "project" | "local";
 
 export type ProviderHistoryForkBoundary = "thread" | "turn" | "message";
@@ -635,9 +632,45 @@ export interface CodexUsageSnapshot {
   error: string | null;
 }
 
+export interface AccountUsageWindow {
+  usedPercent: number;
+  resetsAt: number | null;
+  used: number | null;
+  limit: number | null;
+}
+
+export interface AccountUsageBucket extends AccountUsageWindow {
+  id: string;
+  label: string;
+  unit: string | null;
+}
+
+export type CursorUsageSource = "dashboard" | "unavailable";
+
+export interface CursorUsageSnapshot {
+  source: CursorUsageSource;
+  planType: string | null;
+  monthly: AccountUsageWindow | null;
+  buckets: AccountUsageBucket[];
+  error: string | null;
+}
+
+export type KiroUsageSource = "acp" | "unavailable";
+
+export interface KiroUsageSnapshot {
+  source: KiroUsageSource;
+  planName: string | null;
+  monthly: AccountUsageWindow | null;
+  buckets: AccountUsageBucket[];
+  overagesEnabled: boolean | null;
+  error: string | null;
+}
+
 export interface RateLimitsSnapshotResponse {
   claude: ClaudeUsageSnapshot;
   codex: CodexUsageSnapshot;
+  cursor: CursorUsageSnapshot;
+  kiro: KiroUsageSnapshot;
 }
 
 export interface CodexThreadSnapshot {
