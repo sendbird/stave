@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Element picker – injectable script for WebContentsView
+// Element picker – injectable script for a Lens guest page
 // Returns a stringified JS to inject via webContents.executeJavaScript().
 // The script creates an overlay, highlights on hover, and resolves with
 // element info on click.

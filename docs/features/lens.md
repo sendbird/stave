@@ -65,6 +65,7 @@ OAuth and SSO popup windows opened from a page use the same Lens browser profile
 ### Use Page Audio And A Microphone
 
 - Lens plays page audio through the current system output and lets the active Lens page enumerate or select an audio output device.
+- A Lens page stays muted until a tab shows it for the first time, then keeps playing when you switch away. A page an agent opened but no tab has ever displayed never plays audio.
 - When an active Lens page requests microphone access, Stave grants only the audio portion of the media request. Camera, screen capture, notifications, and unrelated permissions remain blocked.
 - On macOS, the first microphone request also shows the system permission prompt for Stave. If access was denied, enable Stave under `System Settings > Privacy & Security > Microphone`, then restart Stave before retrying.
 - Permission requests from stale Lens views, cross-origin frames without an owned Lens page, and sign-in popups are rejected.
@@ -159,7 +160,7 @@ Automatic presentation is limited to actions that are inherently visual or inter
 
 - Saved Lens accounts are stored separately under the app's `userData` directory in `lens-credentials.v1.json`. Usernames and passwords are kept together in OS-encrypted ciphertext; the file keeps only matching metadata such as the exact host outside that ciphertext, uses owner-only permissions where supported, and is never part of persisted renderer settings.
 
-- External tooling accesses Lens through the Local MCP tool family:
+- External tooling accesses Lens through the Local MCP tool family. `stave_lens_snapshot` returns an indented accessibility outline with a `ref` on every element an agent can act on, and `stave_lens_click`, `_type`, `_inspect`, `_measure`, `_get_text`, and `_set_style` accept either a ref or a CSS selector. A ref is minted per snapshot and keyed to the document that produced it, so acting through a ref after the page changed fails with an instruction to re-snapshot instead of acting on whatever now matches. Selectors remain supported for anything a snapshot cannot name.
 
 ```json
 {
@@ -182,7 +183,9 @@ Automatic presentation is limited to actions that are inherently visual or inter
     "stave_lens_get_annotations",
     "stave_lens_set_style",
     "stave_lens_inspect",
-    "stave_lens_measure"
+    "stave_lens_measure",
+    "stave_lens_reload",
+    "stave_lens_set_appearance"
   ]
 }
 ```
@@ -249,9 +252,11 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 
 ## Limitations And Advanced Options
 
-- Lens uses Electron's `WebContentsView` plus Stave's own CDP bridge. It does not embed the `chrome-devtools-mcp` server directly because Stave already owns the browser process and can talk to CDP natively without launching a separate Chrome target.
+- Lens renders each page as an Electron `<webview>` guest hosted in the Stave window, plus Stave's own CDP bridge. It does not embed the `chrome-devtools-mcp` server directly because Stave already owns the browser process and can talk to CDP natively without launching a separate Chrome target.
 - External agents need Local MCP because the Lens browser lives inside the desktop app. Without MCP, only the current renderer UI can access it.
 - Saved accounts match one exact hostname. Wildcards and parent-domain matching are intentionally unsupported. Multiple accounts can share a hostname, but only one account per hostname can be enabled for automatic fill; enabling another account switches the previous one to on-demand use.
+- `stave_lens_set_appearance` emulates `prefers-color-scheme` and `prefers-reduced-motion` so a dark theme or a reduced-motion layout can be checked without changing the user's machine settings. It is incremental, survives a reload, and is dropped when a session is rebuilt. Every snapshot reports the emulation in force, so a forced dark theme is never read as the page's real one.
+- Viewport size cannot be emulated for a Lens page. Electron sizes a `<webview>` guest from its element and re-asserts that size over a CDP metrics override, so `Emulation.setDeviceMetricsOverride` reports success and changes nothing — measured against the product both plainly and with `dontSetVisibleSize`. Resize the Lens pane to check a responsive layout.
 - Automatic account use fills visible username and password fields but does not submit. JavaScript-heavy pages that render the form later can use `stave_lens_fill_saved_account` on demand.
 - Operational MCP tools acquire a session automatically. With no explicit id they prefer the visible/recent UI tab, then the hidden `default`; if none exists they create `default` hidden.
 - The first user-created Lens tab also uses `default`, so a hidden MCP session can be adopted without losing its page. Additional tabs keep distinct ids.
@@ -263,7 +268,9 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 - Download history is buffered in memory, while saved files remain on disk until the user removes them.
 - Lens console messages are shown in the Lens Console tab and mirrored into the Stave window DevTools console with a `[Lens:<workspaceId>]` prefix.
 - Annotation events use a per-session nonce and a 256,000-byte event cap. Current, stale, and malformed Lens beacons are filtered out of both the user-visible Lens console and full diagnostics.
-- Lens hides while blocking overlays such as Settings are open so the native `WebContentsView` does not render above dialogs.
+- Dialogs, dropdowns, tooltips, and toasts paint over a Lens page normally. The page is a DOM element, so showing app UI above it no longer hides the page.
+- Stave keeps at most three hidden Lens pages alive at once. Beyond that, the least recently viewed one is reclaimed and its tab stays; opening that tab rebuilds the page on the URL it was showing. Pages an agent opened are never reclaimed.
+- A Lens page that crashes is rebuilt in place. Its tab stays open, and its console, network, and download history for that page are lost.
 - Lens is ideal for runtime inspection, but exact DOM-to-source mapping is still framework-dependent outside React dev mode.
 
 ### CDP actions fail with a Developer Mode message

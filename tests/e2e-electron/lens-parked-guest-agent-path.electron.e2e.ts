@@ -578,7 +578,10 @@ test("Claim B: stave_lens_type lands in the parked guest, not the host", async (
   const typed = "agent-typed-here";
   const result = await callTool("stave_lens_type", {
     text: typed,
-    selector: "#field",
+    // A selector, deliberately: this spec is about a parked guest taking input
+    // at all, which must keep working through the escape-hatch addressing mode
+    // as well as through a snapshot ref.
+    target: "#field",
   });
 
   const after = await hostState();
@@ -625,7 +628,7 @@ test("Claim B: the focus borrow returns host activeElement after the dispatch", 
 
   const result = await callTool("stave_lens_type", {
     text: "second-pass",
-    selector: "#field",
+    target: "#field",
   });
   expect(result.isError, result.text).toBe(false);
 
@@ -715,7 +718,7 @@ test("Claim B: stave_lens_click reaches the parked guest", async () => {
   const focusedBefore = await focusHostProbe();
   expect(focusedBefore).toBe("e2e-host-probe");
 
-  const result = await callTool("stave_lens_click", { selector: "#press" });
+  const result = await callTool("stave_lens_click", { target: "#press" });
   const pressed = await guest!.locator("#pressed").textContent();
   const after = await hostState();
 

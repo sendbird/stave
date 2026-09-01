@@ -141,9 +141,39 @@ function pngDataUrlToBuffer(dataUrl: string): Buffer {
 // Handler registration
 // ---------------------------------------------------------------------------
 
+/**
+ * Register a Lens `invoke` handler that only the app's own main frame may call.
+ *
+ * Applied at registration rather than inside each handler on purpose. The
+ * previous arrangement checked the sender in eleven of forty-four handlers, and
+ * the gaps were the dangerous ones: `lens:evaluate` runs arbitrary JavaScript in
+ * any Lens session by workspace id, `lens:close-session` kills a user's tab,
+ * `lens:clear-session-data` drops their site sign-ins, and the saved-account
+ * channels reach the credential vault. A list someone has to remember to extend
+ * fails silently the next time a channel is added; a wrapper cannot.
+ *
+ * The host window now runs with `webviewTag: true`, which widens the set of
+ * frames that can reach `ipcMain` from that renderer, so "the sender is this
+ * window" is no longer the same statement as "the sender is the app".
+ *
+ * Refusals answer in the `{ ok: false }` shape every caller here already
+ * handles, rather than rejecting the invoke.
+ */
+function handleLens(
+  channel: string,
+  handler: Parameters<typeof ipcMain.handle>[1],
+): void {
+  ipcMain.handle(channel, async (event, ...args) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
+      return { ok: false, message: "Unauthorized Lens renderer" };
+    }
+    return handler(event, ...args);
+  });
+}
+
 export function registerBrowserHandlers() {
   // ---- Saved accounts: secrets stay in the Electron main-process vault ----
-  ipcMain.handle("lens:list-credentials", async () => {
+  handleLens("lens:list-credentials", async () => {
     try {
       return { ok: true, credentials: await listLensCredentials() };
     } catch (err) {
@@ -155,7 +185,7 @@ export function registerBrowserHandlers() {
     }
   });
 
-  ipcMain.handle("lens:upsert-credential", async (_event, args: unknown) => {
+  handleLens("lens:upsert-credential", async (_event, args: unknown) => {
     const parsed = LensCredentialUpsertArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, message: "Invalid Lens account details." };
@@ -173,7 +203,7 @@ export function registerBrowserHandlers() {
     }
   });
 
-  ipcMain.handle("lens:delete-credential", async (_event, args: unknown) => {
+  handleLens("lens:delete-credential", async (_event, args: unknown) => {
     const parsed = LensCredentialDeleteArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, message: "Invalid saved Lens account id." };
@@ -195,7 +225,7 @@ export function registerBrowserHandlers() {
   });
 
   // ---- Security settings: renderer pushes persisted Lens settings to main ----
-  ipcMain.handle(
+  handleLens(
     "lens:set-security-config",
     async (_event, args: LensSecurityConfig) => {
       try {
@@ -210,7 +240,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:respond-cdp-approval",
     async (_event, args: LensCdpApprovalResponse) => ({
       ok: respondCdpApproval(args),
@@ -225,7 +255,7 @@ export function registerBrowserHandlers() {
   // invoke once that page has come back through `lens:bind-guest`. Panels and
   // agent tools go through the same `ensureBrowserSessionGuest`, so "the
   // session is open" means the same thing to both.
-  ipcMain.handle(
+  handleLens(
     "lens:open-session",
     async (
       event,
@@ -282,7 +312,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Bind a renderer-created guest to its session ----
-  ipcMain.handle(
+  handleLens(
     "lens:bind-guest",
     async (
       event,
@@ -333,7 +363,7 @@ export function registerBrowserHandlers() {
   // A report, not a command: the renderer has already shown or hidden the
   // element. Main keeps the answer so an agent call with no explicit session id
   // can target the tab the user is actually looking at.
-  ipcMain.handle(
+  handleLens(
     "lens:set-presented",
     async (
       event,
@@ -422,7 +452,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:close-session",
     async (_event, args: { workspaceId: string; lensSessionId: string }) => {
       const existed = Boolean(
@@ -433,7 +463,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:list-sessions",
     async (_event, args: { workspaceId?: string }) => ({
       ok: true,
@@ -441,7 +471,7 @@ export function registerBrowserHandlers() {
     }),
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:clear-session-data",
     async (_event, args: LensSessionProfileArgs) => {
       try {
@@ -460,7 +490,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Navigate ----
-  ipcMain.handle(
+  handleLens(
     "lens:navigate",
     async (
       _event,
@@ -484,7 +514,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Navigation controls ----
-  ipcMain.handle(
+  handleLens(
     "lens:go-back",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
@@ -494,7 +524,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:go-forward",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
@@ -504,7 +534,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:reload",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
@@ -515,7 +545,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Get current state ----
-  ipcMain.handle(
+  handleLens(
     "lens:get-state",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
@@ -530,7 +560,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Screenshot ----
-  ipcMain.handle("lens:screenshot", async (event, input: unknown) => {
+  handleLens("lens:screenshot", async (event, input: unknown) => {
     if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
       return { ok: false, message: "Unauthorized Lens renderer" };
     }
@@ -565,14 +595,25 @@ export function registerBrowserHandlers() {
         message: err instanceof Error ? err.message : String(err),
       };
     } finally {
-      await executeInLensAnnotationWorld(
-        session.webContents,
-        "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
-      ).catch(() => false);
+      /*
+       * Wrapped, not just `.catch`-ed. `executeInLensAnnotationWorld` reaches
+       * into `webContents` synchronously, so a guest destroyed mid-capture
+       * throws *before* there is a promise to reject — and a throw from a
+       * `finally` replaces the result the caller was about to get, turning a
+       * `{ ok: false, message }` into a rejected invoke.
+       */
+      try {
+        await executeInLensAnnotationWorld(
+          session.webContents,
+          "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
+        ).catch(() => false);
+      } catch {
+        // The page the overlay belonged to is already gone.
+      }
     }
   });
 
-  ipcMain.handle(
+  handleLens(
     "lens:save-screenshot",
     async (
       _event,
@@ -630,7 +671,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:download-url",
     async (
       _event,
@@ -662,7 +703,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:download-page-assets",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
@@ -697,7 +738,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:list-downloads",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
@@ -707,7 +748,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Get DOM HTML ----
-  ipcMain.handle(
+  handleLens(
     "lens:get-dom",
     async (
       _event,
@@ -732,7 +773,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Evaluate JS ----
-  ipcMain.handle(
+  handleLens(
     "lens:evaluate",
     async (
       _event,
@@ -761,7 +802,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Console log ----
-  ipcMain.handle("lens:get-console-log", async (_event, args: unknown) => {
+  handleLens("lens:get-console-log", async (_event, args: unknown) => {
     const parsed = LensLogQueryArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, entries: [], message: "Invalid log request" };
@@ -777,7 +818,7 @@ export function registerBrowserHandlers() {
     return { ok: true, entries: entries.slice(-limit) };
   });
 
-  ipcMain.handle("lens:clear-console-log", async (_event, args: unknown) => {
+  handleLens("lens:clear-console-log", async (_event, args: unknown) => {
     const parsed = LensLogClearArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, message: "Invalid log request" };
@@ -793,7 +834,7 @@ export function registerBrowserHandlers() {
     };
   });
 
-  ipcMain.handle(
+  handleLens(
     "lens:get-console-entry-detail",
     async (_event, args: unknown) => {
       const parsed = LensConsoleEntryDetailArgsSchema.safeParse(args);
@@ -815,7 +856,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:get-console-object-properties",
     async (_event, args: unknown) => {
       const parsed = LensConsoleObjectPropertiesArgsSchema.safeParse(args);
@@ -847,7 +888,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Network log ----
-  ipcMain.handle("lens:get-network-log", async (_event, args: unknown) => {
+  handleLens("lens:get-network-log", async (_event, args: unknown) => {
     const parsed = LensLogQueryArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, entries: [], message: "Invalid log request" };
@@ -863,7 +904,7 @@ export function registerBrowserHandlers() {
     return { ok: true, entries: entries.slice(-limit) };
   });
 
-  ipcMain.handle("lens:clear-network-log", async (_event, args: unknown) => {
+  handleLens("lens:clear-network-log", async (_event, args: unknown) => {
     const parsed = LensLogClearArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, message: "Invalid log request" };
@@ -879,7 +920,7 @@ export function registerBrowserHandlers() {
     };
   });
 
-  ipcMain.handle(
+  handleLens(
     "lens:get-network-entry-detail",
     async (_event, args: unknown) => {
       const parsed = LensNetworkEntryDetailArgsSchema.safeParse(args);
@@ -901,7 +942,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle("lens:get-network-body", async (_event, args: unknown) => {
+  handleLens("lens:get-network-body", async (_event, args: unknown) => {
     const parsed = LensNetworkBodyArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, message: "Invalid network body request" };
@@ -921,7 +962,7 @@ export function registerBrowserHandlers() {
       : { ok: false, message: "Network body is no longer available" };
   });
 
-  ipcMain.handle(
+  handleLens(
     "lens:get-diagnostics-capture-state",
     async (_event, args: unknown) => {
       const parsed = LensLogClearArgsSchema.safeParse(args);
@@ -940,7 +981,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:set-diagnostics-capture",
     async (_event, args: unknown) => {
       const parsed = LensDiagnosticsCaptureArgsSchema.safeParse(args);
@@ -1031,7 +1072,7 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Element picker ----
-  ipcMain.handle("lens:start-element-picker", async (event, input: unknown) => {
+  handleLens("lens:start-element-picker", async (event, input: unknown) => {
     if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
       return { ok: false, message: "Unauthorized Lens renderer" };
     }
@@ -1067,7 +1108,7 @@ export function registerBrowserHandlers() {
     }
   });
 
-  ipcMain.handle(
+  handleLens(
     "lens:start-annotation-mode",
     async (event, input: unknown) => {
       if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
@@ -1116,7 +1157,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle("lens:stop-annotation-mode", async (event, input: unknown) => {
+  handleLens("lens:stop-annotation-mode", async (event, input: unknown) => {
     if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
       return { ok: false, message: "Unauthorized Lens renderer" };
     }
@@ -1143,7 +1184,7 @@ export function registerBrowserHandlers() {
   });
 
   // ---- Box-model inspect overlay ----
-  ipcMain.handle(
+  handleLens(
     "lens:start-box-inspect",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
@@ -1167,7 +1208,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle(
+  handleLens(
     "lens:stop-box-inspect",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
@@ -1185,7 +1226,7 @@ export function registerBrowserHandlers() {
     },
   );
 
-  ipcMain.handle("lens:get-annotations", async (event, input: unknown) => {
+  handleLens("lens:get-annotations", async (event, input: unknown) => {
     if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
       return { ok: false, message: "Unauthorized Lens renderer" };
     }
@@ -1215,7 +1256,7 @@ export function registerBrowserHandlers() {
     }
   });
 
-  ipcMain.handle("lens:remove-annotation", async (event, input: unknown) => {
+  handleLens("lens:remove-annotation", async (event, input: unknown) => {
     if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
       return { ok: false, message: "Unauthorized Lens renderer" };
     }
@@ -1247,7 +1288,7 @@ export function registerBrowserHandlers() {
     }
   });
 
-  ipcMain.handle("lens:clear-annotations", async (event, input: unknown) => {
+  handleLens("lens:clear-annotations", async (event, input: unknown) => {
     if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
       return { ok: false, message: "Unauthorized Lens renderer" };
     }
@@ -1277,7 +1318,7 @@ export function registerBrowserHandlers() {
     return { ok: true };
   });
 
-  ipcMain.handle("lens:set-element-style", async (event, input: unknown) => {
+  handleLens("lens:set-element-style", async (event, input: unknown) => {
     if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) {
       return { ok: false, message: "Unauthorized Lens renderer" };
     }
@@ -1349,7 +1390,7 @@ export function registerBrowserHandlers() {
   });
 
   // ---- Attach CDP debugger (for MCP tools) ----
-  ipcMain.handle(
+  handleLens(
     "lens:attach-debugger",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
@@ -1372,13 +1413,16 @@ export function registerBrowserHandlers() {
   );
 
   // ---- Detach CDP debugger ----
-  ipcMain.handle(
+  handleLens(
     "lens:detach-debugger",
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const session = getBrowserSession(args.workspaceId, args.lensSessionId);
       if (!session) return { ok: false, message: "No browser session" };
 
-      stopLensCdpDiagnostics(session.webContents.id, true);
+      // `webContentsId` is the captured copy, which survives the page. Reading
+      // `session.webContents.id` throws once the guest is destroyed, and every
+      // caller here expects a result shape rather than a rejection.
+      stopLensCdpDiagnostics(session.webContentsId, true);
       return { ok: true };
     },
   );

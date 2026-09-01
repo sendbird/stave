@@ -1,4 +1,5 @@
 import { BrowserWindow } from "electron";
+import { abortPendingLensGuestRequests } from "./browser/browser-guest-broker";
 import { installLensWebviewAttachClamp } from "./browser/browser-webview-attach";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
 import {
@@ -83,6 +84,15 @@ export function createMainWindow() {
   mainWindow = window;
   window.on("closed", () => {
     mainWindow = null;
+    /*
+     * Every outstanding Lens request was waiting on this renderer. Without this
+     * they sit out their full timeout — 15s for a guest mount — and then fail
+     * with "the Stave window did not answer", which is a worse description of
+     * "the window closed" and blocks an agent tool call for the whole interval.
+     */
+    abortPendingLensGuestRequests(
+      "The Stave window closed before Lens could answer",
+    );
   });
   window.maximize();
 
@@ -114,6 +124,11 @@ export function createMainWindow() {
   });
   window.webContents.on("render-process-gone", (_event, details) => {
     recordRendererProcessGone(details.reason);
+    // The renderer that owed these answers is gone, and every Lens guest died
+    // with it. Waiting for a reply from it is waiting for nothing.
+    abortPendingLensGuestRequests(
+      "The Stave window's renderer stopped before Lens could answer",
+    );
   });
 
   window.webContents.session.setPermissionRequestHandler(

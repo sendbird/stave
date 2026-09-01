@@ -412,3 +412,89 @@ test("a parked guest keeps compositing instead of freezing", async () => {
   // Same page, same document: hiding a tab is not closing a session.
   await expect(guest!.locator("#heading")).toHaveText("lens fixture");
 });
+
+test("the guest still tracks the placeholder after a tab round trip", async () => {
+  /*
+   * Declared last on purpose: it depends on the preceding test having left the
+   * panel through Console and back.
+   *
+   * The placeholder is rendered only on the Preview tab, so that round trip
+   * destroys it and mounts a *different* element. A host that binds its
+   * `ResizeObserver` once, in a mount-time effect, keeps observing the detached
+   * one — the panel still looks right, because returning to Preview re-measures
+   * once, and then every subsequent layout change is silently missed. The
+   * asymmetry that gives it away is below: a window resize keeps working the
+   * whole time, because that path re-reads the element on each call.
+   */
+  const before = await guestGeometry();
+  expect(before!.guest).toEqual(before!.placeholder);
+
+  const size = stave.page.viewportSize();
+  await stave.page.setViewportSize({
+    width: Math.max(820, (size?.width ?? 1000) - 140),
+    height: Math.max(640, (size?.height ?? 800) - 120),
+  });
+
+  await expect
+    .poll(async () => {
+      const geometry = await guestGeometry();
+      return geometry ? geometry.guest.width !== before?.guest.width : false;
+    }, { timeout: 10_000 })
+    .toBe(true);
+
+  const after = await guestGeometry();
+  expect(after!.guest).toEqual(after!.placeholder);
+});
+
+test("pane chrome that must be seen shares the guest's plane, not the pane's", async () => {
+  /*
+   * The loading badge and the load-error strip overlap a real page. They cannot
+   * win that with a `z-index` in the pane: Dockview renders keep-alive panels
+   * inside `.dv-render-overlay`, which sets `isolation: isolate`,
+   * `contain: layout paint` and a `transform`, and carries `z-index: 1` — so
+   * any layer the pane claims is scoped below the guest plane and the chrome is
+   * painted behind an opaque page. Here it is a sibling of the guest instead.
+   */
+  const chrome = await stave.page.evaluate(() => {
+    const layer = document.querySelector("[data-lens-guest-chrome]");
+    const guest = document.querySelector("webview");
+    if (!(layer instanceof HTMLElement) || !(guest instanceof HTMLElement)) {
+      return null;
+    }
+    const layerRect = layer.getBoundingClientRect();
+    const guestRect = guest.getBoundingClientRect();
+    return {
+      parentId: layer.parentElement?.id ?? null,
+      insideDockview: Boolean(layer.closest(".dv-dockview")),
+      sharesGuestParent: layer.parentElement === guest.parentElement,
+      // Later in the flat root and explicitly above it, so nothing rests on
+      // document order alone settling a paint against an out-of-process frame.
+      aboveGuest:
+        Number(getComputedStyle(layer).zIndex) >
+        Number(getComputedStyle(guest).zIndex),
+      pointerEvents: getComputedStyle(layer).pointerEvents,
+      rect: {
+        x: layerRect.x,
+        y: layerRect.y,
+        width: layerRect.width,
+        height: layerRect.height,
+      },
+      guestRect: {
+        x: guestRect.x,
+        y: guestRect.y,
+        width: guestRect.width,
+        height: guestRect.height,
+      },
+    };
+  });
+
+  expect(chrome).not.toBeNull();
+  expect(chrome!.parentId).toBe("lens-surface-root");
+  expect(chrome!.insideDockview).toBe(false);
+  expect(chrome!.sharesGuestParent).toBe(true);
+  expect(chrome!.aboveGuest).toBe(true);
+  // A sheet over the whole page must not take the page's clicks; only the
+  // elements a panel puts inside it opt back in.
+  expect(chrome!.pointerEvents).toBe("none");
+  expect(chrome!.rect).toEqual(chrome!.guestRect);
+});

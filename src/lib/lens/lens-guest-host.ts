@@ -57,6 +57,21 @@ export function lensGuestKey(identity: LensGuestIdentity): string {
 type GuestRecord = {
   descriptor: LensGuestDescriptor;
   element: LensGuestElement;
+  /**
+   * Pane chrome that has to paint *over* the page.
+   *
+   * It cannot live in the panel. A Lens panel is rendered through Dockview's
+   * `renderer: "always"` path into `.dv-render-overlay`, which is a stacking
+   * context three times over (`isolation: isolate`, `contain: layout paint`,
+   * `transform: translate3d(0,0,0)`) with its own `z-index: 1`. Any z-index the
+   * panel gives its own chrome is scoped inside that context and can never
+   * exceed the guest plane's, so a loading badge or a load-error strip drawn in
+   * the pane is painted *behind* an opaque page and is simply never seen.
+   *
+   * Here it is a sibling of the guest in the same flat root, carrying the same
+   * rectangle, so ordinary stacking applies and the chrome wins.
+   */
+  chromeLayer: HTMLDivElement;
   /** Resolves with the guest's WebContents id once it has attached. */
   attached: Promise<number>;
   placement: LensGuestPlacement;
@@ -172,8 +187,33 @@ function createGuestElement(descriptor: LensGuestDescriptor): LensGuestElement {
 
   element.dataset.lensWorkspaceId = descriptor.workspaceId;
   element.dataset.lensSessionId = descriptor.lensSessionId;
+  // Explicit, so the chrome layer below can state a higher one rather than
+  // relying on document order to settle a paint against an OOPIF.
+  element.style.zIndex = "0";
 
   return element;
+}
+
+/**
+ * The pane-chrome plane for one guest.
+ *
+ * `pointer-events: none` by default: this rectangle covers the whole page, and
+ * chrome that wants clicks opts in per element. `overflow: hidden` keeps it
+ * clipped to the pane, which the pane's own ancestors would otherwise have done.
+ */
+function createChromeLayer(descriptor: LensGuestDescriptor): HTMLDivElement {
+  const layer = document.createElement("div");
+  layer.dataset.lensGuestChrome = "";
+  layer.dataset.lensWorkspaceId = descriptor.workspaceId;
+  layer.dataset.lensSessionId = descriptor.lensSessionId;
+  layer.style.position = "absolute";
+  layer.style.margin = "0";
+  layer.style.border = "0";
+  layer.style.overflow = "hidden";
+  layer.style.pointerEvents = "none";
+  layer.style.opacity = "0";
+  layer.style.zIndex = "1";
+  return layer;
 }
 
 /**
@@ -248,17 +288,19 @@ export function ensureLensGuest(
   releaseLensGuest(descriptor);
 
   const element = createGuestElement(descriptor);
+  const chromeLayer = createChromeLayer(descriptor);
   const attached = waitForAttach(element);
   guests.set(key, {
     descriptor,
     element,
+    chromeLayer,
     attached,
     placement: { rect: null, presented: false },
     appliedStyle: null,
   });
 
   applyPlacement(key);
-  ensureSurfaceRoot().append(element);
+  ensureSurfaceRoot().append(element, chromeLayer);
 
   return attached.catch((error: unknown) => {
     // A guest that never attached is not a guest. Drop it so the next attempt
@@ -284,6 +326,19 @@ export function releaseLensGuest(identity: LensGuestIdentity): void {
   }
   guests.delete(key);
   record.element.remove();
+  record.chromeLayer.remove();
+}
+
+/**
+ * The element a panel portals its over-the-page chrome into.
+ *
+ * `null` until a guest exists, which is also the only time such chrome has
+ * anything to sit over.
+ */
+export function getLensGuestChromeLayer(
+  identity: LensGuestIdentity,
+): HTMLDivElement | null {
+  return guests.get(lensGuestKey(identity))?.chromeLayer ?? null;
 }
 
 function applyPlacement(key: string): void {
@@ -314,6 +369,16 @@ function applyPlacement(key: string): void {
   target.height = style.height;
   target.opacity = style.opacity;
   target.pointerEvents = style.pointerEvents;
+
+  // The chrome plane shares the guest's rectangle and its visibility, but never
+  // its hit-testing: it is a sheet over the page, and only the elements a panel
+  // puts inside it opt back into pointer events.
+  const chrome = record.chromeLayer.style;
+  chrome.left = style.left;
+  chrome.top = style.top;
+  chrome.width = style.width;
+  chrome.height = style.height;
+  chrome.opacity = style.opacity;
 }
 
 /**

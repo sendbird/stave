@@ -25,6 +25,8 @@ import {
   resolveLensSessionProfile,
   type ResolvedLensSessionProfile,
 } from "./browser-session-profile";
+import { disposeLensSnapshotState } from "./browser-lens-snapshot";
+import { selectEvictableLensGuests } from "../../../src/lib/lens/lens-guest-eviction";
 import { selectPreferredLensSession } from "../../../src/lib/lens/lens-session-selection";
 import {
   DEFAULT_LENS_SESSION_ID,
@@ -35,6 +37,7 @@ import {
   type BrowserNavigationState,
   type BrowserNetworkEntry,
   type BrowserNetworkEventPayload,
+  type LensSessionCloseReason,
   type LensSessionClosedPayload,
   type LensSessionDescriptor,
   type LensSessionProfileArgs,
@@ -161,6 +164,17 @@ export interface BrowserSessionState {
   detachEventListeners: (() => void) | null;
   /** Monotonic activation order used to prefer the most recently shown tab. */
   lastVisibleAt: number;
+  /**
+   * Monotonic creation order.
+   *
+   * Only the hidden-guest cap reads it, and only to break ties between sessions
+   * that have never been shown — they all carry `lastVisibleAt: 0`, so without
+   * this the eviction victim among them is whatever the Map happens to yield.
+   * Kept separate from `lastVisibleAt` on purpose: that field also drives which
+   * session an agent call with no id targets, and seeding it at creation would
+   * make a brand-new hidden session outrank a tab the user actually used.
+   */
+  createdSequence: number;
   navigationState: BrowserNavigationState;
 }
 
@@ -172,6 +186,22 @@ const lensGuestPreloadPath = resolveLensGuestPreloadScriptPath(
   import.meta.dirname,
 );
 let lensVisibilitySequence = 0;
+let lensCreationSequence = 0;
+
+/**
+ * How many bound-but-hidden guests are kept alive at once.
+ *
+ * Every guest is a full renderer process, and Lens parks hidden ones with
+ * `opacity: 0` rather than `visibility: hidden` precisely so they keep
+ * compositing and can still answer a screenshot — which means a hidden guest
+ * costs very nearly what a visible one costs. Nothing else bounds the count:
+ * switching workspaces leaves every Lens tab's session open, so without a cap
+ * an afternoon of normal use accumulates helper processes monotonically.
+ *
+ * Agent-driven sessions are exempt: an agent opens a session no panel is
+ * showing and then expects to keep addressing it.
+ */
+const MAX_HIDDEN_LENS_GUESTS = 3;
 
 /** Registry keyed by sessionKey(workspaceId, lensSessionId). */
 const sessions = new Map<string, BrowserSessionState>();
@@ -867,13 +897,47 @@ function wireBrowserSession(args: {
     toggleMainWindowDevTools();
   });
 
-  // Lens is a browser surface, so pages must be able to play through the
-  // selected system output device.
-  enableLensPageAudioOutput(webContents);
+  /*
+   * Silent until someone looks at it.
+   *
+   * Lens is a browser surface, so a page the user is watching must be able to
+   * play through the selected system output device — but a guest is created
+   * hidden, and an agent-opened session may never be shown at all. Unmuting at
+   * wire time meant a page with an autoplaying video played out of the
+   * speakers from a tab that does not exist, with nothing in the app to point
+   * at and nothing to pause. Unmuted on first presentation, and left unmuted
+   * after that, so switching tabs does not cut audio the user started.
+   */
+  webContents.setAudioMuted(true);
 
-  // Throttle background rendering when the page is not visible to reduce CPU
-  // usage when the Lens panel is closed or another panel is active.
+  /*
+   * Not a CPU control, despite how it reads.
+   *
+   * `backgroundThrottling` already defaults to `true`, and it only engages when
+   * Chromium considers the page backgrounded — which a Lens guest never is:
+   * parking is `opacity: 0` specifically so the compositor keeps producing
+   * frames and `Page.captureScreenshot` keeps working. The knob that actually
+   * bounds hidden-guest cost is `MAX_HIDDEN_LENS_GUESTS`. Kept explicit so a
+   * future default flip cannot silently change the guest's behaviour.
+   */
   webContents.setBackgroundThrottling(true);
+
+  /*
+   * A guest can die without main doing anything.
+   *
+   * It is owned by a `<webview>` element in the host renderer, so a host reload,
+   * a host crash, a dev-time hot restart, or the guest's own renderer going away
+   * all destroy the page while main's registry still points at it. Nothing else
+   * observes that: the session would keep reporting itself to `list_sessions`,
+   * keep winning `selectPreferredLensSession` on a frozen `visible: true`, and
+   * keep answering `get-state` with a pre-death URL, forever for an agent-opened
+   * session that has no tab to rebuild it.
+   */
+  const handleGuestGone = () => {
+    reapDeadBrowserSession(webContents.id, "guest-gone");
+  };
+  webContents.once("destroyed", handleGuestGone);
+  webContents.on("render-process-gone", handleGuestGone);
 
   // Grant only microphone and audio-output selection to a live Lens page.
   // Auth popups, stale views, camera, display capture, and every unrelated
@@ -932,6 +996,7 @@ function wireBrowserSession(args: {
     closing: false,
     detachEventListeners: null,
     lastVisibleAt: 0,
+    createdSequence: ++lensCreationSequence,
     navigationState: {
       url: "about:blank",
       title: "",
@@ -1063,18 +1128,27 @@ export function bindBrowserSessionGuest(args: {
 
   if (existing) {
     forgetDeadSessionState(existing);
+    // The replacement is a different WebContents with a fresh CDP session, so
+    // the outgoing one's refs and emulation overrides describe a page that is
+    // gone. Keeping them would let a ref resolve, and would report an override
+    // the new page does not have.
+    disposeLensSnapshotState(existing.webContentsId);
   }
 
-  return {
-    ok: true,
-    session: wireBrowserSession({
-      workspaceId: args.workspaceId,
-      lensSessionId,
-      sessionProfile,
-      webContents: guest,
-    }),
-    created: true,
-  };
+  const session = wireBrowserSession({
+    workspaceId: args.workspaceId,
+    lensSessionId,
+    sessionProfile,
+    webContents: guest,
+  });
+
+  // Enforced here rather than at open time because this is the moment a new
+  // renderer process actually exists. The session being bound is exempt: it is
+  // hidden until a panel reports otherwise, so a cap applied blindly would
+  // evict the very tab the user just opened.
+  enforceHiddenLensGuestCap(session);
+
+  return { ok: true, session, created: true };
 }
 
 export async function clearBrowserSessionData(
@@ -1265,9 +1339,93 @@ export function getSessionIdentityForWebContentsId(
   return undefined;
 }
 
+/** Tell the renderer a session ended, and why. Never throws. */
+function notifyLensSessionClosed(
+  session: BrowserSessionState,
+  reason: LensSessionCloseReason,
+): void {
+  try {
+    const renderer = getMainWindow()?.webContents;
+    if (renderer && !renderer.isDestroyed()) {
+      renderer.send("lens:session-closed", {
+        workspaceId: session.workspaceId,
+        lensSessionId: session.lensSessionId,
+        reason,
+      } satisfies LensSessionClosedPayload);
+    }
+  } catch {
+    // A closing window must not block session teardown.
+  }
+}
+
+/**
+ * Drop a session whose page is already gone.
+ *
+ * Distinct from `destroyBrowserSession`, which tears a *live* page down: there
+ * is nothing to close here, and issuing CDP cleanup at a destroyed target would
+ * only throw. Distinct from `forgetDeadSessionState`, which is the rebind path
+ * and deliberately stays silent because the tab it belongs to is mid-restore —
+ * here the renderer has to hear about it, with a reason that says the tab should
+ * survive.
+ */
+function reapDeadBrowserSession(
+  guestWebContentsId: number,
+  reason: LensSessionCloseReason,
+): void {
+  const session = webContentsSessionIndex.get(guestWebContentsId);
+  if (!session || session.webContentsId !== guestWebContentsId) {
+    return;
+  }
+  const key = sessionKey(session.workspaceId, session.lensSessionId);
+  if (sessions.get(key) !== session || session.closing) {
+    // Already being torn down deliberately, or already replaced by a rebind.
+    return;
+  }
+  session.closing = true;
+  sessions.delete(key);
+  forgetDeadSessionState(session);
+  session.visible = false;
+  /*
+   * The remembered URL is kept, unlike a deliberate close: this session's tab
+   * is expected to come back, and landing it on `about:blank` is the one
+   * behaviour the guest-hosting model would otherwise take away.
+   */
+  void disposeLensCdpDiagnostics(guestWebContentsId).catch(() => undefined);
+  disposeLensSnapshotState(guestWebContentsId);
+  releasePartitionHandlersIfUnused(session.sessionProfile.partition);
+  notifyLensSessionClosed(session, reason);
+}
+
+/**
+ * Keep the number of bound-but-hidden guests under {@link MAX_HIDDEN_LENS_GUESTS}.
+ *
+ * Eviction is a close, so it goes out as `lens:session-closed` with reason
+ * `"evicted"` and the remembered-URL record is deliberately left in place: the
+ * tab stays, and the next time a panel presents it the session is rebuilt on the
+ * page it was on. Least-recently-presented first; a session that has never been
+ * presented ranks by creation order, oldest first.
+ */
+function enforceHiddenLensGuestCap(exempt: BrowserSessionState): void {
+  const victims = selectEvictableLensGuests([...sessions.values()], {
+    maxHidden: MAX_HIDDEN_LENS_GUESTS,
+    exempt: {
+      workspaceId: exempt.workspaceId,
+      lensSessionId: exempt.lensSessionId,
+    },
+  });
+  for (const victim of victims) {
+    void destroyBrowserSession(
+      victim.workspaceId,
+      victim.lensSessionId,
+      "evicted",
+    );
+  }
+}
+
 export function destroyBrowserSession(
   workspaceId: string,
   lensSessionId?: string,
+  reason: LensSessionCloseReason = "closed",
 ): Promise<void> {
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session || session.closing) return Promise.resolve();
@@ -1284,7 +1442,9 @@ export function destroyBrowserSession(
    * every workspace is `default` — so keeping the record here would open the
    * next fresh tab on the page the closed one happened to be showing.
    */
-  forgetLensSessionUrl(session.workspaceId, session.lensSessionId);
+  if (reason !== "evicted") {
+    forgetLensSessionUrl(session.workspaceId, session.lensSessionId);
+  }
   clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
   if (webContentsSessionIndex.get(session.webContentsId) === session) {
     webContentsSessionIndex.delete(session.webContentsId);
@@ -1307,6 +1467,7 @@ export function destroyBrowserSession(
     // The target owns its remote objects, so dispose local CDP state without
     // issuing cleanup commands that would race with the guest's destruction.
     try {
+      disposeLensSnapshotState(session.webContentsId);
       const drainResult = await disposeLensCdpDiagnostics(
         session.webContentsId,
       );
@@ -1342,19 +1503,10 @@ export function destroyBrowserSession(
   session.downloadLog.clear();
   releasePartitionHandlersIfUnused(session.sessionProfile.partition);
 
-  // Tell the renderer the view is gone so it can drop the matching tab/panel.
-  // Emitted last so no renderer reaction can observe a half-torn-down session.
-  try {
-    const renderer = getMainWindow()?.webContents;
-    if (renderer && !renderer.isDestroyed()) {
-      renderer.send("lens:session-closed", {
-        workspaceId: session.workspaceId,
-        lensSessionId: session.lensSessionId,
-      } satisfies LensSessionClosedPayload);
-    }
-  } catch {
-    // A closing window must not block session teardown.
-  }
+  // Tell the renderer the view is gone so it can release the guest element, and
+  // drop the matching tab only when the close was deliberate. Emitted last so no
+  // renderer reaction can observe a half-torn-down session.
+  notifyLensSessionClosed(session, reason);
   return closePromise;
 }
 
@@ -1387,6 +1539,15 @@ export function setSessionPresented(
   session.visible = presented;
   if (presented) {
     session.lastVisibleAt = ++lensVisibilitySequence;
+    // First sight of the page is what earns it the speakers. See the mute in
+    // `wireBrowserSession`.
+    try {
+      if (!session.webContents.isDestroyed()) {
+        enableLensPageAudioOutput(session.webContents);
+      }
+    } catch {
+      // A page that is already gone cannot be unmuted, and need not be.
+    }
   }
 }
 

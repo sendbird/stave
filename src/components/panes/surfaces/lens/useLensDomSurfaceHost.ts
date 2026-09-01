@@ -4,13 +4,28 @@ import {
   setLensSurfaceAttached,
   setLensSurfaceSuppressed,
 } from "@/lib/lens/lens-instrumentation";
-import { setLensGuestPlacement } from "@/lib/lens/lens-guest-host";
-import { isMeasurableLensGuestRect } from "@/lib/lens/lens-guest-placement";
+import {
+  getLensGuestChromeLayer,
+  setLensGuestPlacement,
+} from "@/lib/lens/lens-guest-host";
+import {
+  areLensGuestRectsEqual,
+  isMeasurableLensGuestRect,
+} from "@/lib/lens/lens-guest-placement";
 import type { LensPanelTab } from "@/lib/lens/lens-log-format";
 import type { LensBounds } from "@/lib/lens/lens.types";
 import type { VisualCommentShortcut } from "@/lib/visual-comment-shortcuts";
 import { useLensVisualCommentShortcut } from "@/components/panes/surfaces/lens/useLensVisualCommentShortcut";
 import type { LensSurfaceHostHandle } from "@/components/panes/surfaces/lens/lens-surface-host";
+
+/**
+ * How many consecutive unchanged frames end a tracking burst.
+ *
+ * Long enough to ride out a stalled drag frame or the tail of a CSS transition,
+ * short enough that an idle window is not kept awake by an animation frame
+ * callback. ~333ms at 60Hz.
+ */
+const TRACKING_SETTLE_FRAMES = 20;
 
 /**
  * DOM-hosted surface for one Lens session.
@@ -30,12 +45,21 @@ import type { LensSurfaceHostHandle } from "@/components/panes/surfaces/lens/len
  * - reporting that answer to main, which uses it to pick the session an agent
  *   call with no explicit id should target.
  *
- * Measurement is triggered by the same signals the `WebContentsView` host used
- * — a `ResizeObserver` on the placeholder, window resize, zoom change, and the
- * panel-state layout effect — because those are what actually move a pane. The
- * difference is what a trigger costs: a style write on one element, applied in
- * the same frame, instead of a cross-process round trip whose reply lands a
- * frame or more later.
+ * **Tracking is deliberately not just a `ResizeObserver`**, and the two reasons
+ * are the whole design of the section below.
+ *
+ * 1. *The placeholder element is not stable.* It lives in `LensPreviewSurface`,
+ *    which the panel unmounts whenever the Console or Network tab is selected,
+ *    so an observer bound once at mount ends up watching a detached node while
+ *    the live placeholder is watched by nothing. Observation therefore follows
+ *    the element through a ref callback, not through a mount-time effect.
+ * 2. *A `ResizeObserver` never fires on movement.* A pane that is translated
+ *    without being resized — a Lens tab dragged between two equally sized
+ *    groups, a neighbouring pane collapsing — leaves the guest painting over its
+ *    old rectangle, where it also keeps taking the clicks. So a settle-based
+ *    animation-frame burst runs alongside the observer: it re-measures until
+ *    the rectangle has held still for {@link TRACKING_SETTLE_FRAMES}, and stops.
+ *    Idle costs nothing; a drag costs one `getBoundingClientRect` per frame.
  */
 export function useLensDomSurfaceHost(args: {
   workspaceId: string;
@@ -43,9 +67,6 @@ export function useLensDomSurfaceHost(args: {
   hasLensApi: boolean;
   panelApi: IDockviewPanelProps["api"];
   lensPanelTab: LensPanelTab;
-  /** Panel state that changes the placeholder's rectangle. */
-  annotationCount: number;
-  isAnnotationModeActive: boolean;
   visualCommentShortcut: VisualCommentShortcut;
   onVisualCommentShortcut: () => void;
 }): LensSurfaceHostHandle {
@@ -55,39 +76,21 @@ export function useLensDomSurfaceHost(args: {
     hasLensApi,
     panelApi,
     lensPanelTab,
-    annotationCount,
-    isAnnotationModeActive,
     visualCommentShortcut,
     onVisualCommentShortcut,
   } = args;
-
-  const placeholderRef = useRef<HTMLDivElement>(null);
 
   // A guest exists only once the session has been opened and bound. Before
   // that there is nothing to place, and measuring would be a rectangle for a
   // page that does not exist.
   const [hasGuest, setHasGuest] = useState(false);
   const hasGuestRef = useRef(false);
+  const [chromeLayer, setChromeLayer] = useState<HTMLElement | null>(null);
 
   const [isPanelVisible, setIsPanelVisible] = useState(
     () => panelApi.isVisible,
   );
   const isPanelActiveRef = useRef(panelApi.isActive);
-
-  useEffect(() => {
-    setIsPanelVisible(panelApi.isVisible);
-    isPanelActiveRef.current = panelApi.isActive;
-    const visibilityDisposable = panelApi.onDidVisibilityChange((event) => {
-      setIsPanelVisible(event.isVisible);
-    });
-    const activeDisposable = panelApi.onDidActiveChange((event) => {
-      isPanelActiveRef.current = event.isActive;
-    });
-    return () => {
-      visibilityDisposable.dispose();
-      activeDisposable.dispose();
-    };
-  }, [panelApi]);
 
   /*
    * Whether this panel is showing the page.
@@ -100,6 +103,208 @@ export function useLensDomSurfaceHost(args: {
   const isPresentedRef = useRef(isPresented);
   isPresentedRef.current = isPresented;
 
+  // ---- Geometry -----------------------------------------------------------
+
+  const placeholderElementRef = useRef<HTMLDivElement | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const trackingFrameRef = useRef<number | null>(null);
+  const settledFramesRef = useRef(0);
+  const lastRectRef = useRef<LensBounds | null>(null);
+
+  /**
+   * Measure and publish. Reports whether the *measured* rectangle moved, which
+   * is what decides whether a tracking burst keeps going.
+   */
+  const syncPlacement = useCallback((): boolean => {
+    if (!hasGuestRef.current) {
+      return false;
+    }
+
+    const domRect = placeholderElementRef.current?.getBoundingClientRect();
+    const measured: LensBounds | null = domRect
+      ? {
+          x: domRect.left,
+          y: domRect.top,
+          width: domRect.width,
+          height: domRect.height,
+        }
+      : null;
+    // A rectangle measured while the pane is collapsed, mid-teardown, or in a
+    // group being dragged is zero-sized. Keeping the previous one is what lets
+    // the guest re-show without relaying out its page — and it carries no new
+    // information, so it must not count as movement either.
+    const adoptable = isMeasurableLensGuestRect(measured) ? measured : null;
+    const moved = adoptable
+      ? !areLensGuestRectsEqual(lastRectRef.current, adoptable)
+      : false;
+    if (adoptable) {
+      lastRectRef.current = adoptable;
+    }
+
+    setLensGuestPlacement(
+      { workspaceId, lensSessionId },
+      { rect: adoptable ?? undefined, presented: isPresentedRef.current },
+    );
+    return moved;
+  }, [lensSessionId, workspaceId]);
+
+  const stopTracking = useCallback(() => {
+    if (trackingFrameRef.current !== null) {
+      cancelAnimationFrame(trackingFrameRef.current);
+      trackingFrameRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Sync now, then keep syncing until the rectangle holds still.
+   *
+   * Every trigger goes through here rather than calling `syncPlacement`
+   * directly, because a trigger tells us the layout is *starting* to change,
+   * not that it has finished: a sash grab, a `width` transition, and a Dockview
+   * relayout all settle over many frames, and Dockview positions
+   * `.dv-render-overlay` a further animation frame behind its own layout.
+   */
+  const trackPlacement = useCallback(() => {
+    syncPlacement();
+    settledFramesRef.current = 0;
+    if (trackingFrameRef.current !== null || !hasGuestRef.current) {
+      return;
+    }
+    const step = () => {
+      trackingFrameRef.current = null;
+      if (!hasGuestRef.current) {
+        return;
+      }
+      settledFramesRef.current = syncPlacement()
+        ? 0
+        : settledFramesRef.current + 1;
+      if (settledFramesRef.current >= TRACKING_SETTLE_FRAMES) {
+        return;
+      }
+      trackingFrameRef.current = requestAnimationFrame(step);
+    };
+    trackingFrameRef.current = requestAnimationFrame(step);
+  }, [syncPlacement]);
+
+  // Indirection so the ResizeObserver and the DOM listeners can be created once
+  // and still call the current closure.
+  const trackPlacementRef = useRef(trackPlacement);
+  trackPlacementRef.current = trackPlacement;
+
+  /**
+   * Follow the placeholder element itself.
+   *
+   * A ref callback rather than an effect, because the element is replaced
+   * whenever the panel leaves and re-enters the Preview tab and a ref write does
+   * not re-run effects. Binding once at mount is exactly the bug this replaces.
+   */
+  const placeholderRef = useCallback((element: HTMLDivElement | null) => {
+    placeholderElementRef.current = element;
+
+    let observer = resizeObserverRef.current;
+    if (!observer && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => {
+        trackPlacementRef.current();
+      });
+      resizeObserverRef.current = observer;
+    }
+    observer?.disconnect();
+    if (element) {
+      observer?.observe(element);
+      trackPlacementRef.current();
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
+      stopTracking();
+    };
+  }, [stopTracking]);
+
+  useEffect(() => {
+    setIsPanelVisible(panelApi.isVisible);
+    isPanelActiveRef.current = panelApi.isActive;
+    const track = () => {
+      trackPlacementRef.current();
+    };
+    const disposables = [
+      panelApi.onDidVisibilityChange((event) => {
+        setIsPanelVisible(event.isVisible);
+        track();
+      }),
+      panelApi.onDidActiveChange((event) => {
+        isPanelActiveRef.current = event.isActive;
+        track();
+      }),
+      // Fires for this pane's own resize. Cheap, and it starts the burst that
+      // catches the frames Dockview applies after its own layout pass.
+      panelApi.onDidDimensionsChange(track),
+      // A pane moved between groups keeps its size, so nothing else would fire.
+      panelApi.onDidLocationChange?.(track),
+    ];
+    return () => {
+      for (const disposable of disposables) {
+        disposable?.dispose();
+      }
+    };
+  }, [panelApi]);
+
+  useEffect(() => {
+    const track = () => {
+      trackPlacementRef.current();
+    };
+    window.addEventListener("resize", track);
+    const unsubscribeZoom = window.api?.window?.subscribeZoomChanges?.(track);
+    return () => {
+      window.removeEventListener("resize", track);
+      unsubscribeZoom?.();
+    };
+  }, []);
+
+  /*
+   * Pointer drags, for the presented panel only.
+   *
+   * A sash drag, a sidebar resize, and a tab drag all move this pane without
+   * necessarily resizing it, and none of them are visible to any Dockview event
+   * this panel subscribes to. Gated on `isPresented` so N mounted-but-hidden
+   * Lens tabs do not each measure on every pointer move.
+   */
+  useEffect(() => {
+    if (!isPresented) {
+      return;
+    }
+    const track = () => {
+      trackPlacementRef.current();
+    };
+    const onPointerUp = () => {
+      window.removeEventListener("pointermove", track, true);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
+      track();
+    };
+    const onPointerDown = () => {
+      window.addEventListener("pointermove", track, true);
+      window.addEventListener("pointerup", onPointerUp, true);
+      window.addEventListener("pointercancel", onPointerUp, true);
+      track();
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      onPointerUp();
+    };
+  }, [isPresented]);
+
+  // Before paint, so a panel-state change that resizes the placeholder moves
+  // the guest in the same frame that moves the placeholder.
+  useLayoutEffect(() => {
+    trackPlacement();
+  }, [isPresented, lensPanelTab, trackPlacement]);
+
+  // ---- Reporting ----------------------------------------------------------
+
   useEffect(() => {
     setLensSurfaceAttached(lensSessionId, true);
     return () => {
@@ -111,87 +316,48 @@ export function useLensDomSurfaceHost(args: {
     setLensSurfaceSuppressed(lensSessionId, !isPresented);
   }, [isPresented, lensSessionId]);
 
-  const syncPlacement = useCallback(() => {
-    if (!hasGuestRef.current) {
-      return;
-    }
-
-    const element = placeholderRef.current;
-    const domRect = element?.getBoundingClientRect() ?? null;
-    const rect: LensBounds | null = domRect
-      ? {
-          x: domRect.left,
-          y: domRect.top,
-          width: domRect.width,
-          height: domRect.height,
-        }
-      : null;
-
-    setLensGuestPlacement(
-      { workspaceId, lensSessionId },
-      {
-        // A rectangle measured while the pane is collapsed, mid-teardown, or
-        // in a group being dragged is zero-sized. Keeping the previous one is
-        // what lets the guest re-show without relaying out its page.
-        rect: isMeasurableLensGuestRect(rect) ? rect : undefined,
-        presented: isPresentedRef.current,
-      },
-    );
-  }, [lensSessionId, workspaceId]);
-
-  // Before paint, so a panel-state change that resizes the placeholder moves
-  // the guest in the same frame that moves the placeholder.
-  useLayoutEffect(() => {
-    syncPlacement();
-  }, [
-    annotationCount,
-    isAnnotationModeActive,
-    isPresented,
-    lensPanelTab,
-    syncPlacement,
-  ]);
+  /*
+   * Main keeps this to answer "which Lens tab is the user looking at" for agent
+   * calls that name no session. It is a report about a change that has already
+   * happened in the DOM, so nothing waits on it.
+   *
+   * It is a plain function rather than an effect because the message that
+   * matters most — `presented: false` — is sent from teardown, when `hasGuest`
+   * has already gone false. An effect guarded on `hasGuest` drops exactly that
+   * one, leaving main believing a parked session is still on screen and routing
+   * agent calls with no session id to a page nobody is looking at.
+   */
+  const lastReportedPresentedRef = useRef<boolean | null>(null);
+  const reportPresented = useCallback(
+    (presented: boolean) => {
+      if (!workspaceId || !hasLensApi) {
+        return;
+      }
+      if (lastReportedPresentedRef.current === presented) {
+        return;
+      }
+      lastReportedPresentedRef.current = presented;
+      void window.api?.lens?.setPresented?.({
+        workspaceId,
+        lensSessionId,
+        presented,
+      });
+    },
+    [hasLensApi, lensSessionId, workspaceId],
+  );
 
   useEffect(() => {
-    const element = placeholderRef.current;
-    if (!element) {
+    if (!hasGuest) {
       return;
     }
+    reportPresented(isPresented);
+  }, [hasGuest, isPresented, reportPresented]);
 
-    const resizeObserver = new ResizeObserver(() => {
-      syncPlacement();
-    });
-    resizeObserver.observe(element);
-
-    const handleWindowResize = () => {
-      syncPlacement();
-    };
-    window.addEventListener("resize", handleWindowResize);
-    const unsubscribeZoom = window.api?.window?.subscribeZoomChanges?.(() => {
-      syncPlacement();
-    });
-
-    syncPlacement();
-
+  useEffect(() => {
     return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", handleWindowResize);
-      unsubscribeZoom?.();
+      reportPresented(false);
     };
-  }, [syncPlacement]);
-
-  // Main keeps this to answer "which Lens tab is the user looking at" for agent
-  // calls that name no session. It is a report about a change that has already
-  // happened in the DOM, so nothing waits on it.
-  useEffect(() => {
-    if (!workspaceId || !hasLensApi || !hasGuest) {
-      return;
-    }
-    void window.api?.lens?.setPresented?.({
-      workspaceId,
-      lensSessionId,
-      presented: isPresented,
-    });
-  }, [hasGuest, hasLensApi, isPresented, lensSessionId, workspaceId]);
+  }, [reportPresented]);
 
   useLensVisualCommentShortcut({
     enabled: Boolean(workspaceId) && hasLensApi,
@@ -202,18 +368,31 @@ export function useLensDomSurfaceHost(args: {
     visualCommentShortcut,
   });
 
+  // ---- Attachment ---------------------------------------------------------
+
   const attachGuest = useCallback(async () => {
     hasGuestRef.current = true;
     setHasGuest(true);
+    // A rebuilt session is a new session as far as main is concerned: it starts
+    // hidden and knows nothing about what this panel reported for the previous
+    // one, so the report has to be allowed through again.
+    lastReportedPresentedRef.current = null;
+    // Read on every attach, not only the first: a rebuilt session gets a fresh
+    // element, and a panel still portaling into the previous one would be
+    // rendering its chrome into a detached node.
+    setChromeLayer(getLensGuestChromeLayer({ workspaceId, lensSessionId }));
     // Place it before the caller continues. The session effect goes straight on
     // to reading state back, and a guest that has not been positioned yet would
     // answer viewport questions about a rectangle no panel chose.
-    syncPlacement();
-  }, [syncPlacement]);
+    trackPlacement();
+  }, [lensSessionId, trackPlacement, workspaceId]);
 
   const detachGuest = useCallback(() => {
     hasGuestRef.current = false;
     setHasGuest(false);
+    setChromeLayer(null);
+    stopTracking();
+    lastRectRef.current = null;
     // Park, do not release. The page belongs to the session, which outlives
     // this panel: a hidden tab, a workspace switch, and layout churn all unmount
     // the panel while the session stays open.
@@ -221,11 +400,14 @@ export function useLensDomSurfaceHost(args: {
       { workspaceId, lensSessionId },
       { presented: false },
     );
-  }, [lensSessionId, workspaceId]);
+    reportPresented(false);
+  }, [lensSessionId, reportPresented, stopTracking, workspaceId]);
 
   return {
     attachGuest,
+    chromeLayer,
     detachGuest,
+    isPresented,
     placeholderRef,
     // Panel chrome no longer has to be traded against the page: it paints over
     // the guest like any other DOM content.

@@ -18,6 +18,7 @@ import {
   type LensSessionScope,
 } from "@/lib/lens/lens.types";
 import type { LensSurfaceHostHandle } from "@/components/panes/surfaces/lens/lens-surface-host";
+import { resolveLensSessionCloseRecovery } from "@/lib/lens/lens-session-close";
 import { useAppStore } from "@/store/app.store";
 
 /** Most automatic rebuilds a session may draw before it stops trying. */
@@ -159,7 +160,9 @@ export function useLensSession(args: {
     onAnnotationsRestored,
   };
 
-  const { attachGuest, detachGuest } = surface;
+  const { attachGuest, detachGuest, isPresented } = surface;
+  const isPresentedRef = useRef(isPresented);
+  isPresentedRef.current = isPresented;
 
   // The panel's own truth about whether its tab still exists, read from the
   // latest render. Recovery keys on this rather than a store snapshot: during
@@ -182,6 +185,8 @@ export function useLensSession(args: {
    * exhausts the budget and stops with a toast instead of churning forever.
    */
   const rebuildAttemptsRef = useRef(0);
+  /** An eviction waiting for this panel to be looked at again. */
+  const deferredRebuildRef = useRef(false);
   /** Pending rebuild/stability timers, cleared when the effect re-runs. */
   const rebuildTimersRef = useRef(new Set<number>());
   const stableResetTimerRef = useRef<number | null>(null);
@@ -363,6 +368,24 @@ export function useLensSession(args: {
        * tab is still open. A `setTimeout(0)` inside `scheduleRebuild` provides
        * that same settle.
        */
+      const recovery = resolveLensSessionCloseRecovery({
+        reason: payload.reason,
+        isPresented: isPresentedRef.current,
+      });
+      if (recovery === "none") {
+        // The tab is going away with it; there is nothing to restore onto.
+        return;
+      }
+      if (recovery === "rebuild-when-presented") {
+        /*
+         * Reclaimed by the hidden-guest cap, under a tab nobody is looking at.
+         * The rebuild waits until this panel is presented, which is also the
+         * first moment the page matters. Not charged to the recovery budget: an
+         * eviction is a policy decision, not a failure.
+         */
+        deferredRebuildRef.current = true;
+        return;
+      }
       if (!scheduleRebuild(0) && isTabOpenRef.current) {
         toast.error("Lens keeps closing", {
           description:
@@ -375,6 +398,14 @@ export function useLensSession(args: {
       unsubscribe?.();
     };
   }, [hasLensApi, isTabOpen, lensSessionId, scheduleRebuild, workspaceId]);
+
+  useEffect(() => {
+    if (!isPresented || !deferredRebuildRef.current || !isTabOpen) {
+      return;
+    }
+    deferredRebuildRef.current = false;
+    setSessionGeneration((generation) => generation + 1);
+  }, [isPresented, isTabOpen]);
 
   useEffect(() => {
     if (!workspaceId || !hasLensApi) {

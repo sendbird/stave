@@ -503,7 +503,20 @@ export function bindBrowserSessionGuestWithEvents(args: {
     projectKey: args.projectKey,
   });
 
-  if (!result.ok || !result.created) {
+  if (!result.ok) {
+    return result;
+  }
+
+  if (!result.created) {
+    /*
+     * The renderer re-bound a guest that already backs this session — a retry,
+     * or the preload replaying a queued `lens:guest-required`. There is nothing
+     * to wire, but the request main is waiting on has been answered, and
+     * leaving it pending made a caller sit out the full mount timeout while a
+     * perfectly good guest was already bound. The refusal path was wired for
+     * this; the success-but-not-created path was not.
+     */
+    notifyLensGuestBound(result.session);
     return result;
   }
 

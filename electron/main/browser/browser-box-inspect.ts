@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Box-model inspect overlay - injectable script for WebContentsView.
+// Box-model inspect overlay - injectable script for a Lens guest page.
 //
 // Renders a Figma/DevTools-style box-model overlay (content / padding / border
 // / margin rings) for the element under the cursor, plus a measurement mode:
