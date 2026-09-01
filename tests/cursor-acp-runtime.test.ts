@@ -231,6 +231,13 @@ describe("Cursor ACP runtime", () => {
     }
     // The card can only offer the button when the runtime advertised the option.
     expect(approval.supportsAllowAlways).toBe(true);
+    // Two independent changes meet in this one handler: the canonical tool name
+    // comes from the ACP tool-naming split, `supportsAllowAlways` from the
+    // approval-scope work. Assert them on the same event so a future merge
+    // cannot keep one and quietly drop the other.
+    expect(approval.toolName).toBe("Bash");
+    expect(approval.description).toBe("Run fixture");
+    expect(approval.input).toContain("fixture");
     expect(
       responder?.({
         requestId: approval.requestId,
