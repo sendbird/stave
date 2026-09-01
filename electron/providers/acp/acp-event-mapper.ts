@@ -9,6 +9,7 @@ import {
   AcpUsageUpdateSchema,
   type AcpSessionConfigOption,
 } from "./acp-schemas";
+import { deriveAcpToolPresentation } from "./acp-tool-naming";
 import type { BridgeEvent } from "../types";
 import { truncateBufferedText } from "../provider-buffering";
 
@@ -298,12 +299,20 @@ export class AcpEventMapper {
     const extracted = extractToolContent(tool.content);
     const output = extracted.output ||
       serializeBounded(tool.rawOutput, ACP_TOOL_OUTPUT_MAX_BYTES);
+    /* ACP titles are prose ("cd /long/path && git status"), so the canonical
+       name goes in the title and the target moves into the input chip — the
+       same shape Claude and Codex traces already render. */
+    const presentation = deriveAcpToolPresentation({
+      title: tool.title,
+      kind: tool.kind,
+      rawInput: tool.rawInput,
+    });
     const events: BridgeEvent[] = [
       {
         type: "tool",
         toolUseId: toolCallId,
-        toolName: tool.title.trim() || tool.kind?.trim() || "Tool",
-        input: serializeBounded(tool.rawInput, ACP_TOOL_INPUT_MAX_BYTES),
+        toolName: presentation.toolName,
+        input: serializeBounded(presentation.input, ACP_TOOL_INPUT_MAX_BYTES),
         ...(output ? { output } : {}),
         state: mapToolState(tool.status),
       },

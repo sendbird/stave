@@ -106,6 +106,8 @@ function getToolIcon(toolName: string): ReactNode {
     case "edit": return <Pencil />;
     case "glob": return <Search />;
     case "grep": return <Search />;
+    /* ACP `search` kind — the canonical name ACP providers map onto. */
+    case "search": return <Search />;
     case "websearch": return <Globe />;
     case "webfetch": return <Globe />;
     default: return <Wrench />;
@@ -256,6 +258,7 @@ const TOOL_CATEGORIES: Record<string, { label: string; iconKey: string }> = {
   edit: { label: "edits", iconKey: "pencil" },
   glob: { label: "searches", iconKey: "search" },
   grep: { label: "searches", iconKey: "search" },
+  search: { label: "searches", iconKey: "search" },
   websearch: { label: "web", iconKey: "globe" },
   webfetch: { label: "web", iconKey: "globe" },
 };
