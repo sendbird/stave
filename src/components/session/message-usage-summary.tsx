@@ -23,6 +23,18 @@ export function providerMayOmitTurnUsage(
   return providerId === "kiro";
 }
 
+/**
+ * ACP providers land in `usage` as soon as they report a context percentage or
+ * a cost, with `inputTokens`/`outputTokens` seeded to 0. Neither reports token
+ * counts, so an all-zero pair there is "not reported" rather than a 0-token
+ * turn. Native runtimes keep their original literal rendering.
+ */
+function providerMaySeedZeroTokenUsage(
+  providerId?: ChatMessage["providerId"],
+): boolean {
+  return providerId === "kiro" || providerId === "cursor";
+}
+
 type MessageUsage = NonNullable<ChatMessage["usage"]>;
 
 function formatTokenCount(count: number): string {
@@ -339,11 +351,24 @@ export function MessageUsageSummary(props: {
   // Kiro-only empty-state: elsewhere a usage record is trusted as-is, so a
   // native runtime that reports 0/0 still renders 0/0 the way it always has.
   const mayOmitUsage = providerMayOmitTurnUsage(props.providerId);
-  const tokensReported = usage ? !mayOmitUsage || hasTokenCounts(usage) : false;
+  const tokensReported = usage
+    ? !providerMaySeedZeroTokenUsage(props.providerId) || hasTokenCounts(usage)
+    : false;
+  const contextOrCostReported = Boolean(
+    usage &&
+      (usage.contextUsedPercent !== undefined ||
+        usage.totalCostUsd != null ||
+        usage.contextCostAmount !== undefined),
+  );
   // "Not reported" is a claim about a specific provider, so it needs
   // attribution. Without it there is nothing honest to show.
   const attributed = Boolean(props.providerId && props.providerId !== "user");
-  if (!usage && delegatedUsage.length === 0 && !(mayOmitUsage && attributed)) {
+  if (
+    !tokensReported &&
+    !contextOrCostReported &&
+    delegatedUsage.length === 0 &&
+    !(mayOmitUsage && attributed)
+  ) {
     return null;
   }
   const delegatedLabel = `${delegatedUsage.length} delegated ${delegatedUsage.length === 1 ? "execution" : "executions"}`;

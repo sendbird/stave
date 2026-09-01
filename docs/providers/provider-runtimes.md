@@ -26,8 +26,10 @@ Agent CLI login, and creates or loads the task's native session. The process is
 closed after the turn while the native session id remains in workspace
 persistence for the next prompt. ACP v1 `session/load` replays the prior
 conversation as `session/update` notifications before it answers; Stave already
-has that transcript, so the shared ACP runtime discards the replay and only
-maps updates that arrive after the session is open.
+has that transcript, so the shared ACP runtime discards everything the agent
+sends while that load request is in flight and only maps updates that arrive
+after the session is open. Provider-namespaced notifications outside the load
+window are unaffected, because MCP startup reports arrive during `session/new`.
 
 The shared ACP layer used by Cursor and Kiro owns bounded NDJSON framing, JSON-RPC request lifecycle,
 schema validation, cancellation, and stable session-update mapping. The Cursor

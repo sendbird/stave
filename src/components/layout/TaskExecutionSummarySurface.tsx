@@ -198,7 +198,7 @@ function buildHeadroomDescriptor(
     contextHeadroom?.remainingTokens !== undefined
       ? `${formatCount(contextHeadroom.remainingTokens)} ctx left`
       : contextHeadroom?.usedPercent !== undefined
-        ? `${formatContextPercent(contextHeadroom.usedPercent)} ctx`
+        ? `${formatContextPercent(100 - contextHeadroom.usedPercent)} ctx left`
         : null;
   const segments = [
     contextLabel,

@@ -86,6 +86,16 @@ export class AcpProtocolClient {
   >;
   private nextRequestId = 1;
   private initialized: AcpInitializeResponse | null = null;
+  private sessionLoadInFlight = false;
+
+  /**
+   * True only while a `session/load` request is awaiting its result. ACP v1
+   * requires the agent to replay the prior conversation in that window, so
+   * every notification it emits describes an earlier turn.
+   */
+  get replayingSession(): boolean {
+    return this.sessionLoadInFlight;
+  }
   private stderrText = "";
   private closed = false;
   private closeError: Error | null = null;
@@ -155,15 +165,21 @@ export class AcpProtocolClient {
       args.resumeSessionId && this.initialized?.agentCapabilities.loadSession,
     );
     if (canResume) {
-      const result = await this.request(
-        "session/load",
-        {
-          sessionId: args.resumeSessionId,
-          cwd: args.cwd,
-          mcpServers: [...(args.mcpServers ?? [])],
-        },
-        AcpLoadSessionResponseSchema,
-      );
+      this.sessionLoadInFlight = true;
+      let result;
+      try {
+        result = await this.request(
+          "session/load",
+          {
+            sessionId: args.resumeSessionId,
+            cwd: args.cwd,
+            mcpServers: [...(args.mcpServers ?? [])],
+          },
+          AcpLoadSessionResponseSchema,
+        );
+      } finally {
+        this.sessionLoadInFlight = false;
+      }
       return {
         sessionId: args.resumeSessionId!,
         resumed: true,
