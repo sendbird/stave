@@ -31,7 +31,8 @@ The **Enhance** action appears in the upper-right corner of a non-empty task dra
 ### Key Controls
 
 - **Enhance**: starts an isolated utility request that rewrites the current draft.
-- **Enhancing…**: indicates that a rewrite is running and prevents duplicate requests.
+- **Enhancing**: indicates that the rewrite request is running. The composer is locked and dimmed for the whole request, so the draft cannot be edited into an inconsistent state.
+- **Applying**: indicates that the rewritten prompt is being revealed. Words the rewrite left unchanged stay in place, and new or rewritten words fade in with a short accent highlight so the edit is visible as an edit. The reveal takes about a second and is skipped entirely when the system prefers reduced motion.
 - **Undo**: restores the original draft after a successful rewrite, provided the enhanced text has not been edited again.
 
 ## Common Workflows

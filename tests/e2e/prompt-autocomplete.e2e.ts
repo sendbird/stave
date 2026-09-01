@@ -106,3 +106,48 @@ test("clicking an @ autocomplete popover item inserts the reference token", asyn
   await webItem.click();
   await expect(editor).toContainText("Connected browser");
 });
+
+test("grows and scrolls the prompt after multiline input", async ({ page }) => {
+  await seedWorkspace(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const editor = page.locator('[data-prompt-lexical-editor="true"]');
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await page.keyboard.type("line 1");
+
+  const initialHeight = await editor.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+
+  for (let line = 2; line <= 8; line += 1) {
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.type(`line ${line}`);
+  }
+
+  const grownHeight = await editor.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+  expect(grownHeight).toBeGreaterThan(initialHeight);
+
+  for (let line = 9; line <= 16; line += 1) {
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.type(`line ${line}`);
+  }
+
+  const scrollState = await editor.evaluate((element) => ({
+    overflowY: getComputedStyle(element).overflowY,
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    scrollTop: element.scrollTop,
+  }));
+  expect(scrollState.overflowY).toBe("auto");
+  expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+
+  await editor.hover();
+  await page.mouse.wheel(0, 800);
+  await expect
+    .poll(() => editor.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(scrollState.scrollTop);
+});

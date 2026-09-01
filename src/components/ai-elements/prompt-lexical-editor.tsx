@@ -75,6 +75,15 @@ export interface PromptLexicalEditorHandle {
 interface PromptLexicalEditorProps {
   value: string;
   selectionRange?: PromptLexicalEditorSelectionRange;
+  /**
+   * Bump to force a re-sync of `value` into the editor.
+   *
+   * The sync below is a no-op when the editor text already matches `value`, so
+   * a caller that *rejects* an editor change (leaving the DOM ahead of the
+   * controlled value) has no other way to ask for the rejected edit to be
+   * rolled back.
+   */
+  syncNonce?: number;
   disabled?: boolean;
   minimal?: boolean;
   placeholder?: string;
@@ -617,6 +626,7 @@ function PromptLexicalImperativePlugin(args: {
 function PromptLexicalExternalSyncPlugin(args: {
   value: string;
   selectionRange?: PromptLexicalEditorSelectionRange;
+  syncNonce?: number;
   tokenOptions: PromptTokenParseOptions;
 }) {
   const [editor] = useLexicalComposerContext();
@@ -653,7 +663,13 @@ function PromptLexicalExternalSyncPlugin(args: {
       },
       { tag: PROMPT_SYNC_TAG },
     );
-  }, [args.selectionRange, args.tokenOptions, args.value, editor]);
+  }, [
+    args.selectionRange,
+    args.syncNonce,
+    args.tokenOptions,
+    args.value,
+    editor,
+  ]);
 
   return null;
 }
@@ -805,6 +821,7 @@ export const PromptLexicalEditor = forwardRef<
       <PromptLexicalExternalSyncPlugin
         value={props.value}
         selectionRange={props.selectionRange}
+        syncNonce={props.syncNonce}
         tokenOptions={tokenOptions}
       />
       <PromptLexicalChangePlugin

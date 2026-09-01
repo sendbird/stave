@@ -2,10 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   getAcceptedCommandPaletteItem,
   getNextCommandSelectionIndex,
-  getPromptEnhancementRevealDurationMs,
-  getPromptEnhancementRevealText,
-  getPromptRevealScrollTop,
-  resolvePromptEnhancementDisplayText,
+  getPromptEnhancementRevealSegments,
+  getPromptEnhancementRevealTimings,
+  isShortcutEchoInsertion,
   isPromptHistoryBoundaryReached,
   navigatePromptHistory,
   NO_COMMAND_SELECTION,
@@ -141,70 +140,136 @@ describe("navigatePromptHistory", () => {
 });
 
 describe("prompt enhancement reveal", () => {
-  test("reveals the enhanced prompt progressively without splitting code points", () => {
-    expect(getPromptEnhancementRevealText("Ship 🚀 safely", 0)).toBe("");
-    expect(getPromptEnhancementRevealText("Ship 🚀 safely", 0.5)).toBe(
-      "Ship 🚀",
+  test("highlights only the words the rewrite actually changed", () => {
+    const segments = getPromptEnhancementRevealSegments({
+      previous: "fix the login bug",
+      next: "fix the login bug in src/auth",
+    });
+
+    expect(segments.map((segment) => segment.text).join("")).toBe(
+      "fix the login bug in src/auth",
     );
-    expect(getPromptEnhancementRevealText("Ship 🚀 safely", 1)).toBe(
-      "Ship 🚀 safely",
+    expect(
+      segments
+        .filter((segment) => segment.changed)
+        .map((segment) => segment.text),
+    // The gap between untouched text and the first new word stays untouched:
+    // a highlighted space there reads as a stray coloured bar.
+    ).toEqual(["in", " src/auth"]);
+  });
+
+  test("keeps a word that only moved out of the highlight", () => {
+    const segments = getPromptEnhancementRevealSegments({
+      previous: "deploy the worker",
+      next: "carefully deploy the worker to staging",
+    });
+
+    expect(
+      segments
+        .filter((segment) => segment.changed)
+        .map((segment) => segment.text.trim()),
+    ).toEqual(["carefully", "to", "staging"]);
+  });
+
+  test("never highlights a line break or a gap next to untouched text", () => {
+    const segments = getPromptEnhancementRevealSegments({
+      previous: "one\n\nthree",
+      next: "one\n\ntwo\n\nthree",
+    });
+
+    for (const segment of segments) {
+      if (segment.changed) {
+        expect(segment.text).not.toContain("\n");
+      }
+    }
+    expect(segments.map((segment) => segment.text).join("")).toBe(
+      "one\n\ntwo\n\nthree",
     );
   });
 
-  test("keeps short and long reveals within the composer motion range", () => {
-    expect(getPromptEnhancementRevealDurationMs(1)).toBe(220);
-    expect(getPromptEnhancementRevealDurationMs(36)).toBe(360);
-    expect(getPromptEnhancementRevealDurationMs(10_000)).toBe(560);
+  test("numbers the changed segments so they can be staggered", () => {
+    const segments = getPromptEnhancementRevealSegments({
+      previous: "ship it",
+      next: "ship it now, please",
+    });
+    const changed = segments.filter((segment) => segment.changed);
+
+    expect(changed.map((segment) => segment.order)).toEqual([0, 1]);
+    for (const segment of segments) {
+      if (!segment.changed) {
+        expect(segment.order).toBe(-1);
+      }
+    }
   });
 
-  test("passes the live draft through whenever no reveal is running", () => {
-    // Regression guard: a lagging display value rewrites the editor content on
-    // every keystroke and breaks Hangul composition.
+  test("treats an empty rewrite and a first draft sensibly", () => {
+    expect(getPromptEnhancementRevealSegments({ previous: "x", next: "" }))
+      .toEqual([]);
     expect(
-      resolvePromptEnhancementDisplayText({
-        revealing: false,
-        revealedText: "stale",
-        value: "안녕하세",
-      }),
-    ).toBe("안녕하세");
-    expect(
-      resolvePromptEnhancementDisplayText({
-        revealing: true,
-        revealedText: null,
-        value: "/rev",
-      }),
-    ).toBe("/rev");
+      getPromptEnhancementRevealSegments({ previous: "", next: "brand new" }),
+    ).toEqual([
+      { text: "brand", changed: true, order: 0 },
+      { text: " new", changed: true, order: 1 },
+    ]);
   });
 
-  test("shows the partially revealed prompt while a reveal is running", () => {
+  test("paces the reveal so a full rewrite is not slower than a small edit", () => {
+    // A couple of new words: a visible beat between them, and the reveal ends
+    // once the last afterglow has faded.
+    expect(getPromptEnhancementRevealTimings(2)).toEqual({
+      stepMs: 28,
+      durationMs: 928,
+    });
+    // A wholesale rewrite compresses the stagger instead of holding the
+    // composer locked for several seconds.
+    const wholesale = getPromptEnhancementRevealTimings(200);
+    expect(wholesale.stepMs).toBe(3);
+    expect(wholesale.durationMs).toBeLessThanOrEqual(1500);
+    expect(getPromptEnhancementRevealTimings(0)).toEqual({
+      stepMs: 0,
+      durationMs: 700,
+    });
+  });
+});
+
+describe("isShortcutEchoInsertion", () => {
+  test("claims the single character an Option chord leaks into the draft", () => {
     expect(
-      resolvePromptEnhancementDisplayText({
-        revealing: true,
-        revealedText: "Ship 🚀",
-        value: "Ship 🚀 safely",
-      }),
-    ).toBe("Ship 🚀");
+      isShortcutEchoInsertion({ previous: "ship it", next: "ship it1" }),
+    ).toBe(true);
+    // macOS composes Option+1 as "¡" on a US layout.
     expect(
-      resolvePromptEnhancementDisplayText({
-        revealing: true,
-        revealedText: "",
-        value: "Ship 🚀 safely",
-      }),
-    ).toBe("");
+      isShortcutEchoInsertion({ previous: "ship it", next: "ship it¡" }),
+    ).toBe(true);
+    // The caret is not always at the end of the draft.
+    expect(
+      isShortcutEchoInsertion({ previous: "ship it", next: "ship1 it" }),
+    ).toBe(true);
   });
 
-  test("pins the reveal scroll offset to the tail of a long prompt", () => {
-    // Regression guard: Lexical skips its own scroll-into-view while the editor
-    // is non-editable, which it is for the whole reveal.
-    expect(
-      getPromptRevealScrollTop({ scrollHeight: 960, clientHeight: 240 }),
-    ).toBe(720);
-    // A prompt that still fits must not be scrolled at all.
-    expect(
-      getPromptRevealScrollTop({ scrollHeight: 120, clientHeight: 240 }),
-    ).toBe(0);
-    expect(
-      getPromptRevealScrollTop({ scrollHeight: 240, clientHeight: 240 }),
-    ).toBe(0);
+  test("leaves every edit that is not a one-character echo alone", () => {
+    expect(isShortcutEchoInsertion({ previous: "ship", next: "ship" })).toBe(
+      false,
+    );
+    expect(isShortcutEchoInsertion({ previous: "ship", next: "shi" })).toBe(
+      false,
+    );
+    expect(isShortcutEchoInsertion({ previous: "ship", next: "ship it" })).toBe(
+      false,
+    );
+    // A newline is a deliberate Shift+Enter, never a chord echo.
+    expect(isShortcutEchoInsertion({ previous: "ship", next: "ship\n" })).toBe(
+      false,
+    );
+    // A replacement is not an insertion.
+    expect(isShortcutEchoInsertion({ previous: "ship", next: "shop1" })).toBe(
+      false,
+    );
+  });
+
+  test("treats an astral character as one character", () => {
+    expect(isShortcutEchoInsertion({ previous: "ship", next: "ship🚀" })).toBe(
+      true,
+    );
   });
 });

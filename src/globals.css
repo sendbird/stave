@@ -734,6 +734,22 @@
   animation-delay: calc(var(--cascade-i, 0) * 25ms);
 }
 
+/*
+ * Prompt enhancement reveal. Only the words the rewrite actually changed are
+ * animated: they materialise out of a blur and carry a brief accent afterglow
+ * so the edit is legible as an edit. No transform - the spans sit inline inside
+ * a mirror of the composer text, and any layout-affecting property would make
+ * the mirror wrap differently from the editor underneath it.
+ */
+@utility animate-prompt-diff-word {
+  animation:
+    prompt-diff-word 320ms var(--ease-agent-out) backwards,
+    prompt-diff-afterglow 900ms var(--ease-agent-out) backwards;
+  animation-delay: calc(
+    var(--prompt-diff-i, 0) * var(--prompt-diff-step, 26ms)
+  );
+}
+
 @utility animate-text-shimmer {
   animation: text-shimmer 2s linear infinite;
 }
@@ -1016,6 +1032,32 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes prompt-diff-word {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes prompt-diff-afterglow {
+  0% {
+    background-color: color-mix(in oklch, var(--primary) 24%, transparent);
+  }
+
+  45% {
+    background-color: color-mix(in oklch, var(--primary) 20%, transparent);
+  }
+
+  100% {
+    background-color: transparent;
   }
 }
 
