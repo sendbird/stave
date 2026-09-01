@@ -343,6 +343,14 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     query.trim().length === 0 &&
     defaultProviderOptions.length < providerOptions.length;
   const catalog = args.catalogs?.[providerId];
+  // The refresh control only makes sense for runtime-backed catalogs (the ones
+  // fetched from a provider CLI). A static built-in catalog stays "ready" and
+  // non-dynamic, so refreshing it would be a no-op; loading/error states also
+  // only occur for runtime catalogs.
+  const isRuntimeCatalog =
+    catalog?.isDynamic === true ||
+    catalog?.status === "loading" ||
+    catalog?.status === "error";
   const selectedMissing =
     !args.value.isAuto &&
     args.value.providerId === providerId &&
@@ -595,6 +603,27 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     className="h-9 pl-8"
                   />
                 </div>
+                {args.onRefreshCatalogs && catalog && isRuntimeCatalog ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Refresh model catalog"
+                    title="Refresh model catalog"
+                    disabled={args.disabled || catalog.status === "loading"}
+                    onClick={() => args.onRefreshCatalogs?.()}
+                    className="h-9 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground"
+                  >
+                    <RefreshCcw
+                      className={cn(
+                        "size-3.5",
+                        catalog.status === "loading" && "animate-spin",
+                      )}
+                      aria-hidden="true"
+                    />
+                    <span className="hidden min-[480px]:inline">Refresh</span>
+                  </Button>
+                ) : null}
                 {autoOption ? (
                   <Button
                     type="button"
