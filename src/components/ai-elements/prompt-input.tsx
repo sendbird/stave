@@ -3847,6 +3847,13 @@ export function PromptInput(args: PromptInputProps) {
                       align="start"
                       side="top"
                       sideOffset={10}
+                      // The tray hosts controls that open dialogs (Review,
+                      // Advisor, Compare, ...). Base UI portals those dialogs
+                      // into this popover's portal node, so a tray on the
+                      // popover band (`z-[90]`) would paint over the dialog
+                      // band (`z-[80]`) it just opened. Composer-anchored
+                      // chrome is the honest band for it anyway.
+                      layer="floatingChrome"
                       className="w-auto min-w-56 max-w-[min(26rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10"
                     >
                       <div className="flex flex-col items-stretch gap-1 [&>*]:justify-start">

@@ -8,6 +8,14 @@ describe("ui layer ordering", () => {
     expect(UI_LAYER_VALUE.popover).toBeLessThan(UI_LAYER_VALUE.lightbox);
   });
 
+  test("keeps anchored composer chrome below the dialog band", () => {
+    // The composer control tray hosts triggers that open dialogs (Review,
+    // Advisor, Compare). Base UI portals a nested dialog into the tray's own
+    // portal node, so a tray above the dialog band paints over the dialog it
+    // just opened.
+    expect(UI_LAYER_VALUE.floatingChrome).toBeLessThan(UI_LAYER_VALUE.dialog);
+  });
+
   test("keeps muse above chrome but below modal surfaces", () => {
     expect(UI_LAYER_VALUE.chrome).toBeLessThan(UI_LAYER_VALUE.muse);
     expect(UI_LAYER_VALUE.muse).toBeLessThan(UI_LAYER_VALUE.dialog);

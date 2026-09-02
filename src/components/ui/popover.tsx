@@ -3,7 +3,11 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { useRender } from "@base-ui/react/use-render";
 
-import { UI_ELEVATION_CLASS, UI_LAYER_CLASS } from "@/lib/ui-layers";
+import {
+  UI_ELEVATION_CLASS,
+  UI_LAYER_CLASS,
+  type UiLayerName,
+} from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 
 type PopoverContextValue = {
@@ -73,10 +77,19 @@ function PopoverContent({
   positionMethod,
   collisionAvoidance,
   keepMounted,
+  layer = "popover",
   ...props
 }: PopoverPrimitive.Popup.Props &
-  Pick<PopoverPrimitive.Portal.Props, "keepMounted"> &
-  Pick<
+  Pick<PopoverPrimitive.Portal.Props, "keepMounted"> & {
+    /**
+     * Stacking band for the positioner. `popover` keeps the popup above the
+     * dialog band, which is what an anchored menu inside a dialog needs. A
+     * popover that instead *hosts* dialog triggers has to drop below the
+     * dialog band, or the dialog it opens (portalled inside this popover's
+     * portal node) paints underneath it.
+     */
+    layer?: UiLayerName;
+  } & Pick<
     PopoverPrimitive.Positioner.Props,
     | "align"
     | "alignOffset"
@@ -107,7 +120,7 @@ function PopoverContent({
         sticky={sticky}
         positionMethod={positionMethod}
         collisionAvoidance={collisionAvoidance}
-        className={cn("isolate", UI_LAYER_CLASS.popover)}
+        className={cn("isolate", UI_LAYER_CLASS[layer])}
       >
         <PopoverPrimitive.Popup
           data-slot="popover-content"
