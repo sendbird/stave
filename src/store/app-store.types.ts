@@ -27,6 +27,7 @@ import type { WorkspacePrInfo } from "@/lib/pr-status";
 import type { ChildTaskSummary } from "@/lib/runs/child-task";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import type { SkillCatalogEntry, SkillCatalogRoot } from "@/lib/skills/types";
+import type { Macro, MacroTokenMatch } from "@/lib/macros/types";
 import type { TaskPreset } from "@/lib/task-presets";
 import type { TaskFilter } from "@/lib/tasks";
 import type {
@@ -478,6 +479,15 @@ export interface AppState
     toPresetId: string;
   }) => void;
   resetTaskPresetsToDefault: () => void;
+  upsertMacro: (args: { macro: Macro }) => { ok: boolean; error?: string };
+  removeMacro: (args: { macroId: string }) => void;
+  reorderMacros: (args: { orderedIds: string[] }) => void;
+  applyMacroToDraft: (args: {
+    taskId: string;
+    macroId: string;
+    draftText?: string;
+    tokenMatch?: Pick<MacroTokenMatch, "start" | "end">;
+  }) => { ok: boolean; text?: string; caretIndex?: number; error?: string };
   setActiveCliSessionTab: (args: { tabId: string | null }) => void;
   setCliSessionTabNativeSession: (args: {
     tabId: string;

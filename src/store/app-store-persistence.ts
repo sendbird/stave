@@ -34,6 +34,7 @@ import {
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
+import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -288,6 +289,7 @@ export function createAppStorePersistenceOptions() {
       state.settings.taskPresets = normalizePersistedTaskPresets(
         raw.taskPresets,
       );
+      state.settings.macros = normalizePersistedMacros(raw.macros);
       state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
         raw.modelShortcutKeys,
       );

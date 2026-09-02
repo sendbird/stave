@@ -1,4 +1,5 @@
 import { PromptInput } from "@/components/ai-elements";
+import { MacroControl } from "@/components/session/MacroControl";
 import {
   useCallback,
   useDeferredValue,
@@ -353,6 +354,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     composerControlPlacements,
     settingsWorkerEnabled,
     settingsWorkerConfigByProvider,
+    macros,
+    applyMacroToDraft,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -382,6 +385,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.settings.composerControlPlacements,
           state.settings.workerEnabled,
           state.settings.workerConfigByProvider,
+          state.settings.macros,
+          state.applyMacroToDraft,
         ] as const,
     ),
   );
@@ -568,6 +573,30 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       taskId: args.providerSelectionTarget,
       patch: { runtimeOverrides },
     });
+  }
+
+  function handleApplyMacro(request: {
+    macroId: string;
+    draftText: string;
+    tokenMatch?: { start: number; end: number };
+  }) {
+    const result = applyMacroToDraft({
+      taskId: args.providerSelectionTarget,
+      macroId: request.macroId,
+      draftText: request.draftText,
+      tokenMatch: request.tokenMatch,
+    });
+    if (!result.ok || result.text == null) {
+      return null;
+    }
+    adoptPromptDraftText({
+      taskId: args.providerSelectionTarget,
+      text: result.text,
+    });
+    return {
+      text: result.text,
+      caretIndex: result.caretIndex ?? result.text.length,
+    };
   }
   const pendingApprovals = useMemo(
     () => findPendingApprovals({ messages: activeTaskMessages }),
@@ -1725,6 +1754,25 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             />
             ) : null
           }
+          macroControl={
+            args.isTurnActive ? null : (
+              <div
+                className="inline-flex h-9 items-stretch"
+                data-macro-control="true"
+              >
+                <MacroControl
+                  macros={macros}
+                  disabled={isInputBlocked}
+                  onSelect={(macro) => {
+                    handleApplyMacro({
+                      macroId: macro.id,
+                      draftText: draftTextRef.current,
+                    });
+                  }}
+                />
+              </div>
+            )
+          }
           secretsControl={
             args.isTurnActive ? null : (
               <div
@@ -1908,6 +1956,14 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           skillsEnabled={args.skillsEnabled}
           skillsAutoSuggest={args.skillsAutoSuggest}
           skillPaletteItems={args.skillPaletteItems}
+          macros={macros}
+          onMacroSelect={({ macro, match, draftText }) =>
+            handleApplyMacro({
+              macroId: macro.id,
+              draftText,
+              tokenMatch: match ?? undefined,
+            })
+          }
           workspaceInformationReferenceOptions={
             workspaceInformationReferenceOptions
           }

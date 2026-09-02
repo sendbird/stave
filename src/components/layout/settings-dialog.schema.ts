@@ -18,6 +18,7 @@ import {
   Sparkles,
   TerminalSquare,
   Wrench,
+  Zap,
 } from "lucide-react";
 import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
 
@@ -35,6 +36,13 @@ export const settingsSections = [
     icon: SlidersHorizontal,
     description: "Reusable prompt and provider presets.",
     keywords: ["defaults", "templates", "profiles"],
+  },
+  {
+    id: "macros",
+    label: "Macros",
+    icon: Zap,
+    description: "Reusable prompt snippets with optional model and effort pins.",
+    keywords: ["snippet", "prompt", "shortcut", "insert"],
   },
   {
     id: "projects",
@@ -270,6 +278,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
       ids: [
         "providers",
         "presets",
+        "macros",
         "models",
         "mcp",
         "integrations",
