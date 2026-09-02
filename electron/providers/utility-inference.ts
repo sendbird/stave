@@ -6,6 +6,9 @@ import type {
   UtilityRunnerProviderId,
 } from "../../src/lib/providers/utility-inference";
 import {
+  UTILITY_CODEX_FAST_MODE,
+  UTILITY_CODEX_REASONING_EFFORT,
+  UTILITY_RUNNER_PROVIDER_IDS,
   buildCommitMessageInferencePrompt,
   buildPromptEnhancementInferencePrompt,
   buildRouteClassificationPrompt,
@@ -16,9 +19,11 @@ import {
   parseTaskNameInference,
 } from "../../src/lib/providers/utility-inference";
 import { getUtilityInferenceCapability } from "../../src/lib/providers/model-catalog";
+import { inspectUtilityRunnerReadiness } from "../main/utils/tooling-status";
 import { runAcpUtilityPrompt } from "./acp/acp-utility-prompt";
 import { runClaudeReadOnlyPrompt } from "./claude-sdk-runtime";
 import { runCodexReadOnlyPrompt } from "./codex-app-server-runtime";
+import type { ProviderId } from "../../src/lib/providers/provider.types";
 
 type ReadOnlyPromptResult = {
   ok: boolean;
@@ -38,10 +43,31 @@ export type UtilityInferenceRunners = Record<
   }) => Promise<ReadOnlyPromptResult>
 >;
 
+export type UtilityInferenceAuthGate = (args: {
+  providerId: UtilityRunnerProviderId;
+  runtimeOptions?: UtilityInferenceContext["runtimeOptions"];
+}) => Promise<{ ready: boolean; detail?: string }>;
+
 type Candidate = {
   providerId: UtilityRunnerProviderId;
   reason: UtilityInferenceSelectionReason;
 };
+
+export function buildUtilityCodexRuntimeOptions(args: {
+  model: string;
+  runtimeOptions?: UtilityInferenceContext["runtimeOptions"];
+}): NonNullable<UtilityInferenceContext["runtimeOptions"]> {
+  return {
+    ...args.runtimeOptions,
+    model: args.model,
+    codexApprovalPolicy: "never",
+    codexFileAccess: "read-only",
+    codexNetworkAccess: false,
+    codexReasoningEffort: UTILITY_CODEX_REASONING_EFFORT,
+    codexFastMode: UTILITY_CODEX_FAST_MODE,
+    codexWebSearch: "disabled",
+  };
+}
 
 export function resolveUtilityInferenceCandidates(
   args: UtilityInferenceContext,
@@ -62,39 +88,51 @@ export function resolveUtilityInferenceCandidates(
   ) {
     add(args.utilityProviderId, "explicit");
   }
-  if (
-    args.activeProviderId === "claude-code" ||
-    args.activeProviderId === "codex"
-  ) {
-    add(args.activeProviderId, "active-task");
+  for (const providerId of UTILITY_RUNNER_PROVIDER_IDS) {
+    add(providerId, "fallback");
   }
-  add("claude-code", "fallback");
-  add("codex", "fallback");
-  add("cursor", "fallback");
-  add("kiro", "fallback");
   return candidates;
+}
+
+export async function defaultUtilityAuthGate(args: {
+  providerId: UtilityRunnerProviderId;
+  runtimeOptions?: UtilityInferenceContext["runtimeOptions"];
+}) {
+  return inspectUtilityRunnerReadiness({
+    providerId: args.providerId,
+    claudeBinaryPath: args.runtimeOptions?.claudeBinaryPath,
+    codexBinaryPath: args.runtimeOptions?.codexBinaryPath,
+    cursorBinaryPath: args.runtimeOptions?.cursorBinaryPath,
+    kiroBinaryPath: args.runtimeOptions?.kiroBinaryPath,
+  });
+}
+
+function allowAllAuthGate(): Promise<{ ready: boolean }> {
+  return Promise.resolve({ ready: true });
+}
+
+function resolveAuthGate(args: {
+  runners?: UtilityInferenceRunners;
+  authGate?: UtilityInferenceAuthGate;
+}): UtilityInferenceAuthGate {
+  if (args.authGate) {
+    return args.authGate;
+  }
+  if (args.runners) {
+    return allowAllAuthGate;
+  }
+  return defaultUtilityAuthGate;
 }
 
 function defaultRunners(): UtilityInferenceRunners {
   return {
-    "claude-code": (args) =>
-      runClaudeReadOnlyPrompt({
-        ...args,
-        effort: "low",
-      }),
+    // Haiku 4.5 rejects `effort` (400). Worker mode already drops the field.
+    "claude-code": (args) => runClaudeReadOnlyPrompt(args),
     codex: (args) =>
       runCodexReadOnlyPrompt({
         ...args,
         isolated: true,
-        runtimeOptions: {
-          ...args.runtimeOptions,
-          model: args.model,
-          codexApprovalPolicy: "never",
-          codexFileAccess: "read-only",
-          codexNetworkAccess: false,
-          codexReasoningEffort: "low",
-          codexWebSearch: "disabled",
-        },
+        runtimeOptions: buildUtilityCodexRuntimeOptions(args),
       }),
     cursor: async (args) => {
       const result = await runAcpUtilityPrompt({
@@ -136,9 +174,12 @@ async function executeUtilityInference<T>(args: {
   prompt: string;
   parse: (text: string) => T | null;
   runners?: UtilityInferenceRunners;
+  authGate?: UtilityInferenceAuthGate;
 }): Promise<{ value: T | null; utility: UtilityInferenceMetadata }> {
   const attempts: UtilityInferenceMetadata["attempts"] = [];
   const runners = args.runners ?? defaultRunners();
+  const authGate = resolveAuthGate(args);
+  let hasAttemptedRunner = false;
 
   for (const candidate of resolveUtilityInferenceCandidates(args.context)) {
     const capability = getUtilityInferenceCapability({
@@ -154,7 +195,23 @@ async function executeUtilityInference<T>(args: {
       continue;
     }
     const model = capability.defaultModel;
+    if (hasAttemptedRunner) {
+      const auth = await authGate({
+        providerId: candidate.providerId,
+        runtimeOptions: args.context.runtimeOptions,
+      });
+      if (!auth.ready) {
+        attempts.push({
+          providerId: candidate.providerId,
+          model,
+          ok: false,
+          detail: auth.detail || "Provider is not authenticated.",
+        });
+        continue;
+      }
+    }
     try {
+      hasAttemptedRunner = true;
       const result = await runners[candidate.providerId]({
         cwd: args.context.cwd,
         prompt: args.prompt,
@@ -218,12 +275,14 @@ export async function suggestUtilityTaskName(
     history?: Array<{ role: string; content: string }>;
   },
   runners?: UtilityInferenceRunners,
+  authGate?: UtilityInferenceAuthGate,
 ) {
   const result = await executeUtilityInference({
     context: args,
     prompt: buildTaskNameInferencePrompt(args),
     parse: parseTaskNameInference,
     runners,
+    authGate,
   });
   return {
     ok: result.value !== null,
@@ -244,6 +303,7 @@ export async function classifyUtilityRoute(
     fileContextCount?: number;
   },
   runners?: UtilityInferenceRunners,
+  authGate?: UtilityInferenceAuthGate,
 ): Promise<{
   ok: boolean;
   classification?: RouteClassification;
@@ -254,6 +314,7 @@ export async function classifyUtilityRoute(
     prompt: buildRouteClassificationPrompt(args),
     parse: parseRouteClassification,
     runners,
+    authGate,
   });
   return {
     ok: result.value !== null,
@@ -268,12 +329,14 @@ export async function suggestUtilityCommitMessage(
     fileList: string;
   },
   runners?: UtilityInferenceRunners,
+  authGate?: UtilityInferenceAuthGate,
 ) {
   const result = await executeUtilityInference({
     context: args,
     prompt: buildCommitMessageInferencePrompt(args),
     parse: parseCommitMessageInference,
     runners,
+    authGate,
   });
   return {
     ok: result.value !== null,
@@ -285,12 +348,14 @@ export async function suggestUtilityCommitMessage(
 export async function enhanceUtilityPrompt(
   args: UtilityInferenceContext & { prompt: string },
   runners?: UtilityInferenceRunners,
+  authGate?: UtilityInferenceAuthGate,
 ) {
   const result = await executeUtilityInference({
     context: args,
     prompt: buildPromptEnhancementInferencePrompt(args),
     parse: parsePromptEnhancementInference,
     runners,
+    authGate,
   });
   return {
     ok: result.value !== null,

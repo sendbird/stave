@@ -22,6 +22,7 @@ import type {
   CodexMcpServerStatusSnapshot,
   CodexMcpStatusResponse,
 } from "../../../src/lib/providers/provider.types";
+import type { UtilityRunnerProviderId } from "../../../src/lib/providers/utility-inference";
 import type {
   SyncOriginMainRequest,
   SyncOriginMainResult,
@@ -43,10 +44,12 @@ const UNUSED_ABSOLUTE_PATH_ENV_VAR = "__STAVE_UNUSED_ABSOLUTE_PATH__";
 const UNUSED_COMMAND_ENV_VAR = "__STAVE_UNUSED_COMMAND__";
 
 function firstMeaningfulLine(value: string) {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .find(Boolean) ?? null;
+  return (
+    value
+      .split("\n")
+      .map((line) => line.trim())
+      .find(Boolean) ?? null
+  );
 }
 
 function findJsonStart(value: string) {
@@ -67,10 +70,7 @@ function summarizeCommandOutput(value: string, maxLines = 6, maxChars = 1_200) {
   if (!trimmed) {
     return "";
   }
-  const limitedLines = trimmed
-    .split("\n")
-    .slice(0, maxLines)
-    .join("\n");
+  const limitedLines = trimmed.split("\n").slice(0, maxLines).join("\n");
   return limitedLines.length > maxChars
     ? `${limitedLines.slice(0, maxChars).trimEnd()}…`
     : limitedLines;
@@ -86,11 +86,13 @@ function combineCommandDetail(args: { stdout?: string; stderr?: string }) {
 }
 
 function resolveSystemExecutablePath(command: string) {
-  return resolveExecutablePath({
-    absolutePathEnvVar: UNUSED_ABSOLUTE_PATH_ENV_VAR,
-    commandEnvVar: UNUSED_COMMAND_ENV_VAR,
-    defaultCommand: command,
-  }) ?? "";
+  return (
+    resolveExecutablePath({
+      absolutePathEnvVar: UNUSED_ABSOLUTE_PATH_ENV_VAR,
+      commandEnvVar: UNUSED_COMMAND_ENV_VAR,
+      defaultCommand: command,
+    }) ?? ""
+  );
 }
 
 function makeToolEntry(args: {
@@ -143,10 +145,10 @@ export function parseGhAuthState(args: {
     };
   }
   if (
-    combined.includes("not logged into")
-    || combined.includes("gh auth login")
-    || combined.includes("authentication failed")
-    || combined.includes("no oauth token")
+    combined.includes("not logged into") ||
+    combined.includes("gh auth login") ||
+    combined.includes("authentication failed") ||
+    combined.includes("no oauth token")
   ) {
     return {
       authState: "unauthenticated",
@@ -155,7 +157,8 @@ export function parseGhAuthState(args: {
   }
   return {
     authState: args.ok ? "unknown" : "unauthenticated",
-    authDetail: detail || "Unable to determine GitHub CLI authentication state.",
+    authDetail:
+      detail || "Unable to determine GitHub CLI authentication state.",
   };
 }
 
@@ -167,12 +170,12 @@ export function parseCodexAuthState(args: {
   const detail = combineCommandDetail(args);
   const combined = `${args.stderr}\n${args.stdout}`.toLowerCase();
   if (
-    combined.includes("not logged in")
-    || combined.includes("codex login")
-    || combined.includes("credential")
-    || combined.includes("api key")
-    || combined.includes("unauthorized")
-    || combined.includes("authentication")
+    combined.includes("not logged in") ||
+    combined.includes("codex login") ||
+    combined.includes("credential") ||
+    combined.includes("api key") ||
+    combined.includes("unauthorized") ||
+    combined.includes("authentication")
   ) {
     return {
       authState: "unauthenticated",
@@ -216,7 +219,8 @@ export function parseClaudeAuthState(args: {
       };
       if (typeof parsed.loggedIn === "boolean") {
         const email = typeof parsed.email === "string" ? parsed.email : null;
-        const orgName = typeof parsed.orgName === "string" ? parsed.orgName : null;
+        const orgName =
+          typeof parsed.orgName === "string" ? parsed.orgName : null;
         const parts = [
           parsed.loggedIn ? "Authenticated" : "Not authenticated",
           email,
@@ -234,10 +238,10 @@ export function parseClaudeAuthState(args: {
 
   const combined = `${args.stderr}\n${args.stdout}`.toLowerCase();
   if (
-    combined.includes("not logged in")
-    || combined.includes("claude auth login")
-    || combined.includes("authentication failed")
-    || combined.includes("unauthorized")
+    combined.includes("not logged in") ||
+    combined.includes("claude auth login") ||
+    combined.includes("authentication failed") ||
+    combined.includes("unauthorized")
   ) {
     return {
       authState: "unauthenticated",
@@ -247,7 +251,8 @@ export function parseClaudeAuthState(args: {
 
   return {
     authState: args.ok ? "unknown" : "unauthenticated",
-    authDetail: detail || "Unable to determine Claude CLI authentication state.",
+    authDetail:
+      detail || "Unable to determine Claude CLI authentication state.",
   };
 }
 
@@ -311,28 +316,45 @@ export function parseKiroAuthState(args: {
   };
 }
 
-function toCodexMcpServerStatusSnapshot(value: unknown): CodexMcpServerStatusSnapshot | null {
+function toCodexMcpServerStatusSnapshot(
+  value: unknown,
+): CodexMcpServerStatusSnapshot | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
 
   const record = value as Record<string, unknown>;
-  const transport = record.transport && typeof record.transport === "object" && !Array.isArray(record.transport)
-    ? record.transport as Record<string, unknown>
-    : null;
+  const transport =
+    record.transport &&
+    typeof record.transport === "object" &&
+    !Array.isArray(record.transport)
+      ? (record.transport as Record<string, unknown>)
+      : null;
 
   return {
     name: typeof record.name === "string" ? record.name : "unknown",
     enabled: record.enabled === true,
-    disabledReason: typeof record.disabled_reason === "string" ? record.disabled_reason : null,
-    transportType: typeof transport?.type === "string" ? transport.type : "unknown",
+    disabledReason:
+      typeof record.disabled_reason === "string"
+        ? record.disabled_reason
+        : null,
+    transportType:
+      typeof transport?.type === "string" ? transport.type : "unknown",
     url: typeof transport?.url === "string" ? transport.url : null,
-    bearerTokenEnvVar: typeof transport?.bearer_token_env_var === "string"
-      ? transport.bearer_token_env_var
-      : null,
-    authStatus: typeof record.auth_status === "string" ? record.auth_status : null,
-    startupTimeoutSec: typeof record.startup_timeout_sec === "number" ? record.startup_timeout_sec : null,
-    toolTimeoutSec: typeof record.tool_timeout_sec === "number" ? record.tool_timeout_sec : null,
+    bearerTokenEnvVar:
+      typeof transport?.bearer_token_env_var === "string"
+        ? transport.bearer_token_env_var
+        : null,
+    authStatus:
+      typeof record.auth_status === "string" ? record.auth_status : null,
+    startupTimeoutSec:
+      typeof record.startup_timeout_sec === "number"
+        ? record.startup_timeout_sec
+        : null,
+    toolTimeoutSec:
+      typeof record.tool_timeout_sec === "number"
+        ? record.tool_timeout_sec
+        : null,
   };
 }
 
@@ -423,24 +445,22 @@ function stateFromAvailability(args: {
   if (!args.available) {
     return "error" satisfies ToolingStatusState;
   }
-  if (
-    args.authState === "unauthenticated"
-    || args.authState === "unknown"
-  ) {
+  if (args.authState === "unauthenticated" || args.authState === "unknown") {
     return "warning" satisfies ToolingStatusState;
   }
   return "ready" satisfies ToolingStatusState;
 }
 
 async function inspectShellStatus() {
-  const fallbackShell = process.platform === "win32"
-    ? process.env.ComSpec?.trim() || "cmd.exe"
-    : process.env.SHELL?.trim() || "/bin/bash";
+  const fallbackShell =
+    process.platform === "win32"
+      ? process.env.ComSpec?.trim() || "cmd.exe"
+      : process.env.SHELL?.trim() || "/bin/bash";
   const executablePath = fallbackShell || null;
   const available = executablePath
-    ? (path.isAbsolute(executablePath)
-        ? canExecutePath({ path: executablePath })
-        : true)
+    ? path.isAbsolute(executablePath)
+      ? canExecutePath({ path: executablePath })
+      : true
     : false;
 
   return makeToolEntry({
@@ -451,9 +471,10 @@ async function inspectShellStatus() {
     summary: available
       ? `Terminal sessions default to ${path.basename(executablePath ?? fallbackShell)}.`
       : "No interactive shell was resolved for terminal sessions.",
-    detail: available && executablePath
-      ? `Terminal sessions launch from ${executablePath}.`
-      : "Terminal sessions rely on the current process shell. Configure SHELL or the platform shell defaults before using Stave's terminal features.",
+    detail:
+      available && executablePath
+        ? `Terminal sessions launch from ${executablePath}.`
+        : "Terminal sessions rely on the current process shell. Configure SHELL or the platform shell defaults before using Stave's terminal features.",
     version: null,
     executablePath,
     authState: "not-required",
@@ -469,7 +490,8 @@ async function inspectGitStatus() {
       state: "error",
       available: false,
       summary: "Git CLI is unavailable.",
-      detail: "Stave could not resolve `git` from the login-shell PATH or bundled lookup locations.",
+      detail:
+        "Stave could not resolve `git` from the login-shell PATH or bundled lookup locations.",
       version: null,
       executablePath: null,
       authState: "not-required",
@@ -514,7 +536,8 @@ async function inspectGhStatus() {
       state: "error",
       available: false,
       summary: "GitHub CLI is unavailable.",
-      detail: "Stave cannot create PRs, refresh PR status, or inspect GitHub auth until `gh` is installed.",
+      detail:
+        "Stave cannot create PRs, refresh PR status, or inspect GitHub auth until `gh` is installed.",
       version: null,
       executablePath: null,
       authState: "unauthenticated",
@@ -536,7 +559,9 @@ async function inspectGhStatus() {
     }),
   ]);
 
-  const version = firstMeaningfulLine(versionResult.stdout || versionResult.stderr);
+  const version = firstMeaningfulLine(
+    versionResult.stdout || versionResult.stderr,
+  );
   const available = versionResult.ok;
   const { authState, authDetail } = parseGhAuthState(authResult);
 
@@ -566,9 +591,10 @@ async function inspectGhStatus() {
 }
 
 async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
-  const executablePath = resolveClaudeExecutablePath({
-    explicitPath: args.claudeBinaryPath,
-  }) || null;
+  const executablePath =
+    resolveClaudeExecutablePath({
+      explicitPath: args.claudeBinaryPath,
+    }) || null;
   if (!executablePath) {
     return makeToolEntry({
       id: "claude",
@@ -576,7 +602,8 @@ async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
       state: "error",
       available: false,
       summary: "Claude CLI is unavailable.",
-      detail: "Stave cannot start Claude turns until the local `claude` executable is resolved from your login shell PATH or configured locations.",
+      detail:
+        "Stave cannot start Claude turns until the local `claude` executable is resolved from your login shell PATH or configured locations.",
       version: null,
       executablePath: null,
       authState: "unauthenticated",
@@ -601,7 +628,9 @@ async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
     }),
   ]);
 
-  const version = firstMeaningfulLine(versionResult.stdout || versionResult.stderr);
+  const version = firstMeaningfulLine(
+    versionResult.stdout || versionResult.stderr,
+  );
   const available = versionResult.ok;
   const { authState, authDetail } = parseClaudeAuthState(authResult);
 
@@ -636,9 +665,10 @@ async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
 }
 
 async function inspectCodexStatus(args: { codexBinaryPath?: string }) {
-  const executablePath = resolveCodexExecutablePath({
-    explicitPath: args.codexBinaryPath,
-  }) || null;
+  const executablePath =
+    resolveCodexExecutablePath({
+      explicitPath: args.codexBinaryPath,
+    }) || null;
   if (!executablePath) {
     return makeToolEntry({
       id: "codex",
@@ -646,7 +676,8 @@ async function inspectCodexStatus(args: { codexBinaryPath?: string }) {
       state: "error",
       available: false,
       summary: "Codex CLI is unavailable.",
-      detail: "Stave cannot start Codex turns until the local `codex` executable is resolved from your login shell PATH or configured override.",
+      detail:
+        "Stave cannot start Codex turns until the local `codex` executable is resolved from your login shell PATH or configured override.",
       version: null,
       executablePath: null,
       authState: "unauthenticated",
@@ -668,7 +699,9 @@ async function inspectCodexStatus(args: { codexBinaryPath?: string }) {
     }),
   ]);
 
-  const version = firstMeaningfulLine(versionResult.stdout || versionResult.stderr);
+  const version = firstMeaningfulLine(
+    versionResult.stdout || versionResult.stderr,
+  );
   const available = versionResult.ok;
   const { authState, authDetail } = parseCodexAuthState(authResult);
 
@@ -839,14 +872,16 @@ async function inspectKiroStatus(args: { kiroBinaryPath?: string }) {
 export async function getCodexMcpStatus(args: {
   codexBinaryPath?: string;
 }): Promise<CodexMcpStatusResponse> {
-  const executablePath = resolveCodexExecutablePath({
-    explicitPath: args.codexBinaryPath,
-  }) || null;
+  const executablePath =
+    resolveCodexExecutablePath({
+      explicitPath: args.codexBinaryPath,
+    }) || null;
 
   if (!executablePath) {
     return {
       ok: false,
-      detail: "Codex CLI is unavailable. Configure a Codex binary path or install `codex` first.",
+      detail:
+        "Codex CLI is unavailable. Configure a Codex binary path or install `codex` first.",
       servers: [],
     };
   }
@@ -861,7 +896,8 @@ export async function getCodexMcpStatus(args: {
   if (!result.ok) {
     return {
       ok: false,
-      detail: combineCommandDetail(result) || "Codex MCP status command failed.",
+      detail:
+        combineCommandDetail(result) || "Codex MCP status command failed.",
       servers: [],
     };
   }
@@ -881,9 +917,10 @@ export async function getCodexMcpStatus(args: {
 
   return {
     ok: true,
-    detail: servers.length > 0
-      ? `Loaded ${servers.length} Codex MCP server configuration${servers.length === 1 ? "" : "s"}.`
-      : "No Codex MCP servers are configured.",
+    detail:
+      servers.length > 0
+        ? `Loaded ${servers.length} Codex MCP server configuration${servers.length === 1 ? "" : "s"}.`
+        : "No Codex MCP servers are configured.",
     servers,
   };
 }
@@ -910,7 +947,9 @@ export async function inspectWorkspaceSyncStatus(args: {
       dirtyFileCount: 0,
       state: "not-git",
       summary: "Current workspace is not a git repository.",
-      detail: combineCommandDetail(rootResult) || "Open a git-backed workspace to inspect sync status against the default branch.",
+      detail:
+        combineCommandDetail(rootResult) ||
+        "Open a git-backed workspace to inspect sync status against the default branch.",
       hasOriginRemote: false,
       hasOriginMain: false,
       baseBranch: null,
@@ -975,10 +1014,7 @@ export async function inspectWorkspaceSyncStatus(args: {
   const ahead = counts.ahead;
   const behind = counts.behind;
   const canFastForwardOriginMain = Boolean(
-    hasOriginMain
-      && !dirty
-      && (ahead ?? 0) === 0
-      && (behind ?? 0) > 0,
+    hasOriginMain && !dirty && (ahead ?? 0) === 0 && (behind ?? 0) > 0,
   );
 
   let state: WorkspaceSyncStatus["state"] = "unknown";
@@ -989,13 +1025,16 @@ export async function inspectWorkspaceSyncStatus(args: {
   if (!hasOriginRemote) {
     state = "missing-origin";
     summary = "No `origin` remote is configured for this workspace.";
-    detail = "Add an `origin` remote before Stave can compare or sync against the default branch.";
+    detail =
+      "Add an `origin` remote before Stave can compare or sync against the default branch.";
     recommendedCommand = "git remote -v";
   } else if (!hasOriginMain) {
     state = "missing-origin-main";
-    summary = "`origin/main` and `origin/master` are not available for this workspace.";
-    detail = combineCommandDetail(aheadBehindResult)
-      || "Fetch the remote or verify the default branch before syncing.";
+    summary =
+      "`origin/main` and `origin/master` are not available for this workspace.";
+    detail =
+      combineCommandDetail(aheadBehindResult) ||
+      "Fetch the remote or verify the default branch before syncing.";
     recommendedCommand = "git fetch origin --prune";
   } else if (dirty) {
     state = "dirty";
@@ -1055,6 +1094,42 @@ export async function inspectWorkspaceSyncStatus(args: {
   };
 }
 
+export async function inspectUtilityRunnerReadiness(args: {
+  providerId: UtilityRunnerProviderId;
+  claudeBinaryPath?: string;
+  codexBinaryPath?: string;
+  cursorBinaryPath?: string;
+  kiroBinaryPath?: string;
+}): Promise<{ ready: boolean; detail: string }> {
+  const entry =
+    args.providerId === "claude-code"
+      ? await inspectClaudeStatus({ claudeBinaryPath: args.claudeBinaryPath })
+      : args.providerId === "codex"
+        ? await inspectCodexStatus({ codexBinaryPath: args.codexBinaryPath })
+        : args.providerId === "cursor"
+          ? await inspectCursorStatus({
+              cursorBinaryPath: args.cursorBinaryPath,
+            })
+          : await inspectKiroStatus({ kiroBinaryPath: args.kiroBinaryPath });
+
+  if (!entry.available) {
+    return {
+      ready: false,
+      detail: entry.summary || "Provider is unavailable.",
+    };
+  }
+  if (entry.authState === "unauthenticated") {
+    return {
+      ready: false,
+      detail: entry.authDetail || `${entry.label} login is required.`,
+    };
+  }
+  return {
+    ready: true,
+    detail: entry.authDetail || entry.summary || `${entry.label} is ready.`,
+  };
+}
+
 export async function getToolingStatusSnapshot(
   args: ToolingStatusRequest = {},
 ): Promise<ToolingStatusSnapshot> {
@@ -1091,7 +1166,8 @@ export async function syncWorkspaceWithOriginMain(
   if (!workspace.hasOriginMain) {
     return {
       ok: false,
-      summary: "Cannot sync because neither `origin/main` nor `origin/master` is available.",
+      summary:
+        "Cannot sync because neither `origin/main` nor `origin/master` is available.",
       detail: workspace.detail,
       workspace,
     };
@@ -1132,8 +1208,11 @@ export async function syncWorkspaceWithOriginMain(
     return {
       ok: false,
       summary: "Failed to fetch `origin` before syncing.",
-      detail: combineCommandDetail(fetchResult) || "git fetch origin --prune failed.",
-      workspace: await inspectWorkspaceSyncStatus({ cwd: workspace.cwd ?? args.cwd }),
+      detail:
+        combineCommandDetail(fetchResult) || "git fetch origin --prune failed.",
+      workspace: await inspectWorkspaceSyncStatus({
+        cwd: workspace.cwd ?? args.cwd,
+      }),
     };
   }
 
@@ -1163,13 +1242,11 @@ export async function syncWorkspaceWithOriginMain(
   return {
     ok: true,
     summary: `Workspace synced with ${effectiveBaseBranch}.`,
-    detail: [
-      combineCommandDetail(fetchResult),
-      combineCommandDetail(mergeResult),
-    ]
-      .filter(Boolean)
-      .join("\n\n")
-      || `Current branch fast-forwarded to ${effectiveBaseBranch}.`,
+    detail:
+      [combineCommandDetail(fetchResult), combineCommandDetail(mergeResult)]
+        .filter(Boolean)
+        .join("\n\n") ||
+      `Current branch fast-forwarded to ${effectiveBaseBranch}.`,
     workspace: nextWorkspace,
   };
 }
