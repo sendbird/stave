@@ -146,7 +146,7 @@ ACP v1 `session/prompt` is blocking, and the Cursor Agent ACP dispatcher
 and sending a new one aborts in-flight work, so Stave does not present that
 as steering.
 Utility inference can still use Cursor Ask as a last-resort read-only runner when
-Claude and Codex are unavailable. Worker mode is the one delegated exception: an interactive primary can call a
+Codex and Claude are unavailable or not signed in. Worker mode is the one delegated exception: an interactive primary can call a
 turn-scoped Local MCP tool that starts or resumes a same-provider, task-scoped
 ACP Worker session. Bound
 secrets are resolved only in the main runtime path and injected into the
@@ -208,7 +208,7 @@ turn keeps running. Steers are text-only. Cursor stays excluded because its
 ACP agent has no equivalent method. Worker sessions do not register a steer
 responder.
 Utility inference can still use Kiro as a last-resort read-only runner when
-Claude and Codex are unavailable. Worker mode uses the same bounded, turn-scoped Local MCP bridge as Cursor and a
+Codex, Claude, and Cursor are unavailable or not signed in. Worker mode uses the same bounded, turn-scoped Local MCP bridge as Cursor and a
 task-scoped same-provider ACP session. Bound secrets are resolved only for the
 disposable interactive primary-turn process; the Worker receives none. Runtime
 upgrades should recheck ACP initialization, session create/load, prompt,

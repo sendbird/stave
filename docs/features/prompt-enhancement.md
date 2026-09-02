@@ -58,8 +58,8 @@ The **Enhance** action appears in the upper-right corner of a non-empty task dra
 
 ## Limitations And Advanced Options
 
-- Enhancement improves only what the draft supports. It does not invent requirements, files, constraints, or acceptance criteria.
-- The action depends on an available utility runner. Stave prefers Claude Haiku or Codex Luna when they are installed, and uses Cursor Ask or Kiro as last-resort compatibility runners when Claude and Codex are unavailable.
+- Enhancement expands terse drafts into complete agent instructions using only what the draft already says. It does not invent requirements, files, constraints, or acceptance criteria.
+- The action depends on an available utility runner. Auto uses Codex Luna, then Claude Haiku, then Cursor or Kiro. A later runner is used only when that provider is signed in.
 - A rewrite can still be incomplete or inaccurate, so review it before sending.
 
 ## Troubleshooting

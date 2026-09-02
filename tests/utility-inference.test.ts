@@ -1,13 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildUtilityCodexRuntimeOptions,
   classifyUtilityRoute,
   enhanceUtilityPrompt,
   resolveUtilityInferenceCandidates,
   suggestUtilityCommitMessage,
   suggestUtilityTaskName,
+  type UtilityInferenceAuthGate,
   type UtilityInferenceRunners,
 } from "../electron/providers/utility-inference";
-import { parseRouteClassification } from "../src/lib/providers/utility-inference";
+import {
+  UTILITY_CODEX_FAST_MODE,
+  UTILITY_CODEX_REASONING_EFFORT,
+  parseRouteClassification,
+} from "../src/lib/providers/utility-inference";
 
 function createRunners(args: {
   claude?: string | Error;
@@ -36,22 +42,77 @@ function createRunners(args: {
   };
 }
 
+function createAuthGate(
+  ready: Partial<Record<"claude-code" | "codex" | "cursor" | "kiro", boolean>>,
+): UtilityInferenceAuthGate {
+  return async ({ providerId }) => ({
+    ready: ready[providerId] !== false,
+    detail:
+      ready[providerId] === false
+        ? `${providerId} is not authenticated.`
+        : undefined,
+  });
+}
+
 describe("resolveUtilityInferenceCandidates", () => {
-  test("prefers Claude and Codex before Cursor and Kiro compatibility tiers", () => {
+  test("prefers Codex Luna, then Claude Haiku, then Cursor and Kiro", () => {
     expect(
       resolveUtilityInferenceCandidates({
-        activeProviderId: "cursor",
+        activeProviderId: "claude-code",
       }).map((candidate) => candidate.providerId),
-    ).toEqual(["claude-code", "codex", "cursor", "kiro"]);
+    ).toEqual(["codex", "claude-code", "cursor", "kiro"]);
   });
 
-  test("does not treat an active Cursor task as the primary utility runner", () => {
+  test("does not let the active task jump the Auto order", () => {
     const candidates = resolveUtilityInferenceCandidates({
-      activeProviderId: "cursor",
+      activeProviderId: "claude-code",
     });
     expect(
       candidates.find((candidate) => candidate.reason === "active-task"),
     ).toBe(undefined);
+    expect(candidates[0]).toEqual({ providerId: "codex", reason: "fallback" });
+  });
+
+  test("honors an explicit Utility AI pin before Auto order", () => {
+    expect(
+      resolveUtilityInferenceCandidates({
+        utilityProviderId: "claude-code",
+        activeProviderId: "codex",
+      }).map((candidate) => ({
+        providerId: candidate.providerId,
+        reason: candidate.reason,
+      })),
+    ).toEqual([
+      { providerId: "claude-code", reason: "explicit" },
+      { providerId: "codex", reason: "fallback" },
+      { providerId: "cursor", reason: "fallback" },
+      { providerId: "kiro", reason: "fallback" },
+    ]);
+  });
+});
+
+describe("buildUtilityCodexRuntimeOptions", () => {
+  test("uses medium effort and fast mode for Luna utility calls", () => {
+    expect(
+      buildUtilityCodexRuntimeOptions({
+        model: "gpt-5.6-luna",
+        runtimeOptions: {
+          model: "gpt-5.6-terra",
+          codexReasoningEffort: "xhigh",
+          codexFastMode: false,
+        },
+      }),
+    ).toMatchObject({
+      model: "gpt-5.6-luna",
+      codexReasoningEffort: UTILITY_CODEX_REASONING_EFFORT,
+      codexFastMode: UTILITY_CODEX_FAST_MODE,
+      codexApprovalPolicy: "never",
+      codexFileAccess: "read-only",
+      codexNetworkAccess: false,
+      codexWebSearch: "disabled",
+    });
+    expect(UTILITY_CODEX_REASONING_EFFORT).toBe("medium");
+    expect(UTILITY_CODEX_FAST_MODE).toBe(true);
   });
 });
 
@@ -82,7 +143,20 @@ describe("parseRouteClassification", () => {
 });
 
 describe("provider-neutral utility inference", () => {
-  test("uses Claude when only Claude is available", async () => {
+  test("uses Codex first when it is available", async () => {
+    const calls: string[] = [];
+    const result = await suggestUtilityTaskName(
+      { prompt: "fix the terminal", activeProviderId: "claude-code" },
+      createRunners({ calls, claude: "Claude Title", codex: "Codex Title" }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.title).toBe("Codex Title");
+    expect(result.utility.providerId).toBe("codex");
+    expect(calls).toEqual(["codex"]);
+  });
+
+  test("falls back to Claude when Codex is unavailable", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
       { prompt: "fix the terminal", activeProviderId: "claude-code" },
@@ -91,29 +165,21 @@ describe("provider-neutral utility inference", () => {
 
     expect(result.ok).toBe(true);
     expect(result.title).toBe("Fix Terminal Restore");
-    expect(result.utility.providerId).toBe("claude-code");
-    expect(calls).toEqual(["claude-code"]);
+    expect(result.utility).toMatchObject({
+      providerId: "claude-code",
+      selectionReason: "fallback",
+      degraded: true,
+    });
+    expect(calls).toEqual(["codex", "claude-code"]);
   });
 
-  test("uses Codex when only Codex is available", async () => {
-    const calls: string[] = [];
-    const result = await suggestUtilityTaskName(
-      { prompt: "fix the terminal", activeProviderId: "codex" },
-      createRunners({ calls, codex: "Fix Terminal Restore" }),
-    );
-
-    expect(result.ok).toBe(true);
-    expect(result.utility.providerId).toBe("codex");
-    expect(calls).toEqual(["codex"]);
-  });
-
-  test("honors an explicit provider before the active task provider", async () => {
+  test("honors an explicit provider before Auto order", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
       {
         prompt: "fix the terminal",
-        utilityProviderId: "codex",
-        activeProviderId: "claude-code",
+        utilityProviderId: "claude-code",
+        activeProviderId: "codex",
       },
       createRunners({
         calls,
@@ -122,15 +188,18 @@ describe("provider-neutral utility inference", () => {
       }),
     );
 
-    expect(result.title).toBe("Codex Title");
+    expect(result.title).toBe("Claude Title");
     expect(result.utility.selectionReason).toBe("explicit");
-    expect(calls).toEqual(["codex"]);
+    expect(calls).toEqual(["claude-code"]);
   });
 
   test("falls back once and reports the effective provider", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
-      { prompt: "fix the terminal", activeProviderId: "claude-code" },
+      {
+        prompt: "fix the terminal",
+        utilityProviderId: "claude-code",
+      },
       createRunners({
         calls,
         claude: new Error("not signed in"),
@@ -145,6 +214,40 @@ describe("provider-neutral utility inference", () => {
       degraded: true,
     });
     expect(calls).toEqual(["claude-code", "codex"]);
+  });
+
+  test("skips unauthenticated fallbacks", async () => {
+    const calls: string[] = [];
+    const result = await suggestUtilityTaskName(
+      { prompt: "fix the terminal" },
+      createRunners({
+        calls,
+        claude: "Claude Title",
+        kiro: "Kiro Title",
+      }),
+      createAuthGate({
+        "claude-code": false,
+        cursor: false,
+        kiro: true,
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      title: "Kiro Title",
+      utility: {
+        providerId: "kiro",
+        selectionReason: "fallback",
+        degraded: true,
+      },
+    });
+    expect(calls).toEqual(["codex", "kiro"]);
+    expect(result.utility.attempts.map((attempt) => attempt.detail)).toEqual([
+      "codex unavailable",
+      "claude-code is not authenticated.",
+      "cursor is not authenticated.",
+      undefined,
+    ]);
   });
 
   test("uses Cursor as a last-resort compatibility runner", async () => {
@@ -169,7 +272,7 @@ describe("provider-neutral utility inference", () => {
         degraded: true,
       },
     });
-    expect(calls).toEqual(["claude-code", "codex", "cursor"]);
+    expect(calls).toEqual(["codex", "claude-code", "cursor"]);
   });
 
   test("returns diagnostic attempts when no runner is available", async () => {
@@ -182,7 +285,7 @@ describe("provider-neutral utility inference", () => {
     expect(result.ok).toBe(false);
     expect(result.utility.providerId).toBeNull();
     expect(result.utility.attempts).toHaveLength(4);
-    expect(calls).toEqual(["claude-code", "codex", "cursor", "kiro"]);
+    expect(calls).toEqual(["codex", "claude-code", "cursor", "kiro"]);
   });
 
   test("parses route classification through the same provider selection", async () => {
@@ -224,7 +327,7 @@ describe("provider-neutral utility inference", () => {
       message: "refactor(provider): unify utility inference",
       utility: {
         providerId: "codex",
-        selectionReason: "active-task",
+        selectionReason: "fallback",
       },
     });
     expect(calls).toEqual(["codex"]);
@@ -250,7 +353,7 @@ describe("provider-neutral utility inference", () => {
         "Fix the terminal bug and add regression coverage for the affected behavior.",
       utility: {
         providerId: "codex",
-        selectionReason: "active-task",
+        selectionReason: "fallback",
       },
     });
     expect(calls).toEqual(["codex"]);
