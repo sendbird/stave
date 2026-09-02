@@ -1,3 +1,22 @@
+## [0.16.7](https://github.com/sendbird/stave/compare/v0.16.6...v0.16.7) (2026-09-02)
+
+### Features
+
+* Share MCP configuration drafts across Claude and Codex, and project compatible MCP servers and skills into Cursor and Kiro sessions with provider-specific validation and protected-server filtering.
+* Add per-lane Background AI controls, local MCP browser-tool settings, normalized Claude/Codex token and cache usage, and persisted per-turn cost visibility.
+
+### Performance Improvements
+
+* Reduce repeated prompt and background-model work with first-turn-aware context injection, stable workspace-information deduplication, bounded auxiliary inference, and provider-aligned routing.
+
+### Chores
+
+* Remove the obsolete codebase-exploration skill from generated guidance and the skill catalog; architecture documentation and repository context remain the discovery path.
+
+### References
+
+* [#440](https://github.com/sendbird/stave/pull/440), [#441](https://github.com/sendbird/stave/pull/441)
+
 ## [0.16.6](https://github.com/sendbird/stave/compare/v0.16.5...v0.16.6) (2026-09-02)
 
 ### Features
