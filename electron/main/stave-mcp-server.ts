@@ -294,7 +294,7 @@ async function removeManifestFiles() {
   manifestPaths = [];
 }
 
-function createToolServer() {
+function createToolServer(options?: { browserToolsEnabled?: boolean }) {
   const server = new McpServer({
     name: "stave-local-mcp",
     version: app.getVersion(),
@@ -1616,7 +1616,12 @@ function createToolServer() {
   );
 
   // ---- Browser tools (navigate, screenshot, DOM, evaluate, etc.) ----
-  registerBrowserTools(server);
+  // Every tool schema is part of the prompt of each fresh provider session that
+  // attaches this server, and these are ~27 of them. Skipping registration when
+  // the user has no use for Lens removes that recurring cost outright.
+  if (options?.browserToolsEnabled !== false) {
+    registerBrowserTools(server);
+  }
 
   return server;
 }
@@ -1657,6 +1662,9 @@ export async function startStaveMcpServer() {
   const host = "127.0.0.1";
   const requestedPort = config.port;
   const token = config.token || randomUUID();
+  // Read once at listen time: the tool list a session sees must stay stable
+  // for that session, and changing it restarts the server anyway.
+  const browserToolsEnabled = config.browserToolsEnabled;
 
   const nextServer = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://${host}`);
@@ -1693,7 +1701,9 @@ export async function startStaveMcpServer() {
 
     try {
       const body = req.method === "POST" ? await readJsonBody(req) : undefined;
-      const server = createToolServer();
+      const server = createToolServer({
+        browserToolsEnabled: browserToolsEnabled,
+      });
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,

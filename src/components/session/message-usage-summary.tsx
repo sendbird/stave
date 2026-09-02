@@ -8,6 +8,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
+import {
+  computePromptCacheStats,
+  formatCacheHitLabel,
+} from "@/lib/providers/usage-cache";
 import type { DelegatedExecutionUsage } from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
 
@@ -228,6 +232,16 @@ function TurnUsageDetails(props: {
 }) {
   const usage = props.usage;
   const tokensReported = props.tokensReported;
+  // Prompt size and cache hit rate are the two numbers that show whether
+  // prompt caching is working; input + output alone hides cache reads entirely.
+  const cacheStats = computePromptCacheStats({
+    providerId:
+      props.providerId && props.providerId !== "user"
+        ? props.providerId
+        : null,
+    usage,
+  });
+  const cacheHitLabel = tokensReported ? formatCacheHitLabel(cacheStats) : null;
   const providerName =
     props.providerId && props.providerId !== "user"
       ? getProviderLabel({ providerId: props.providerId })
@@ -251,6 +265,10 @@ function TurnUsageDetails(props: {
         <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
           {tokensReported ? (
             <>
+              <span className="text-background/70">Prompt</span>
+              <span className="text-right font-mono">
+                {cacheStats.promptTokens.toLocaleString()} tokens
+              </span>
               <span className="text-background/70">Input</span>
               <span className="text-right font-mono">
                 {usage.inputTokens.toLocaleString()} tokens
@@ -259,6 +277,12 @@ function TurnUsageDetails(props: {
               <span className="text-right font-mono">
                 {usage.outputTokens.toLocaleString()} tokens
               </span>
+            </>
+          ) : null}
+          {cacheHitLabel ? (
+            <>
+              <span className="text-background/70">Cache hit</span>
+              <span className="text-right font-mono">{cacheHitLabel}</span>
             </>
           ) : null}
           {usage.cacheReadTokens ? (
@@ -376,9 +400,21 @@ export function MessageUsageSummary(props: {
     props.providerId && props.providerId !== "user" && props.model
       ? ` for ${getProviderLabel({ providerId: props.providerId })} · ${props.model}`
       : "";
+  // The cache hit rate is the number that says whether prompt caching is
+  // working, so it belongs in the accessible label too, not only in the tooltip
+  // a screen-reader user has to open.
+  const summaryCacheHitLabel = formatCacheHitLabel(
+    computePromptCacheStats({
+      providerId:
+        props.providerId && props.providerId !== "user"
+          ? props.providerId
+          : null,
+      usage,
+    }),
+  );
   const accessibleLabel =
     usage && tokensReported
-      ? `Turn usage details${providerLabel}: ${usage.inputTokens.toLocaleString()} input tokens, ${usage.outputTokens.toLocaleString()} output tokens${delegatedUsage.length ? `, ${delegatedLabel}` : ""}`
+      ? `Turn usage details${providerLabel}: ${usage.inputTokens.toLocaleString()} input tokens, ${usage.outputTokens.toLocaleString()} output tokens${summaryCacheHitLabel ? `, ${summaryCacheHitLabel}` : ""}${delegatedUsage.length ? `, ${delegatedLabel}` : ""}`
       : delegatedUsage.length
         ? `Turn usage details${providerLabel}: ${delegatedLabel}`
         : `Turn usage details${providerLabel}: token usage not reported by the provider`;

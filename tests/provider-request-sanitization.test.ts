@@ -807,6 +807,71 @@ describe("provider request sanitization", () => {
     ).toBe(false);
   });
 
+  test("gives the split task-awareness parts the same drop priority as identity", () => {
+    // The one block became four source ids. If the new ones landed in the
+    // default bucket they would be discarded before ordinary retrieved context
+    // — and before skill and file contexts — which is the opposite of what the
+    // original single block guaranteed.
+    const awarenessSourceIds = [
+      "stave:current-task-awareness",
+      "stave:workspace-guidance",
+      "stave:workspace-information",
+      "stave:latest-turn-summary",
+    ];
+    const request = {
+      providerId: "codex" as const,
+      prompt: "Continue.",
+      taskId: "task-1",
+      workspaceId: "ws-main",
+      cwd: "/tmp/stave-project",
+      conversation: {
+        target: { providerId: "codex" as const, model: "gpt-5.4" },
+        mode: "chat" as const,
+        history: [],
+        input: {
+          role: "user" as const,
+          providerId: "user" as const,
+          model: "user",
+          content: "continue",
+          parts: [{ type: "text" as const, text: "continue" }],
+        },
+        contextParts: [
+          ...awarenessSourceIds.map((sourceId) => ({
+            type: "retrieved_context" as const,
+            sourceId,
+            title: "Under test",
+            content: "w".repeat(60_000),
+          })),
+          {
+            type: "retrieved_context" as const,
+            sourceId: "stave:some-other-source",
+            title: "Ordinary retrieved context",
+            content: "o".repeat(60_000),
+          },
+        ],
+      },
+    };
+
+    const sourceIds = (
+      compactProviderTurnRequestForTransport({
+        method: "provider.start-push-turn",
+        request,
+        maxBytes: 40 * 1024,
+      }).conversation?.contextParts ?? []
+    )
+      .filter((part) => part.type === "retrieved_context")
+      .map((part) => part.sourceId);
+
+    // The default-bucket block goes first, and everything that survives the
+    // squeeze is an awareness part — the guarantee the single block used to
+    // give the whole payload.
+    expect(sourceIds).not.toContain("stave:some-other-source");
+    expect(sourceIds.length).toBeGreaterThan(0);
+    for (const sourceId of sourceIds) {
+      expect(awarenessSourceIds).toContain(sourceId);
+    }
+  });
+
   test("keeps current task awareness and file context before lower-priority context", () => {
     const request = {
       providerId: "codex" as const,

@@ -19,7 +19,8 @@ This rendered example shows the Information panel with the latest-turn summary p
 
 - Open a project workspace in Stave.
 - Complete at least one task turn in that workspace.
-- Review `Settings → Prompts` if you want to change the summary prompt or the preferred models.
+- Review `Settings → Prompts` if you want to change the summary prompt.
+- Review `Settings → Background AI → Turn summary` if you want to change the model, switch providers, or turn the summary off entirely.
 
 ## Quick Start
 
@@ -60,12 +61,17 @@ This rendered example shows the Information panel with the latest-turn summary p
 ## Files And Data
 
 - The latest-turn summary is stored in the workspace snapshot alongside the rest of the Information panel state.
-- The prompt and model preferences are stored in the app settings.
+- The prompt lives in `workspaceTurnSummaryPrompt`; the models live in the `turnSummary` lane of the Background AI policy.
 
 ```json
 {
-  "workspaceTurnSummaryPrimaryModel": "gpt-5.6-luna",
-  "workspaceTurnSummaryFallbackModel": "claude-haiku-4-5"
+  "auxiliaryInferencePolicy": {
+    "turnSummary": {
+      "enabled": true,
+      "model": "claude-haiku-4-5",
+      "fallbackModel": null
+    }
+  }
 }
 ```
 
@@ -74,17 +80,19 @@ This rendered example shows the Information panel with the latest-turn summary p
 - The summary section shows the latest completed turn summary for the workspace, not a full history of older summaries.
 - Summary generation runs after the main task turn finishes, so the section can update a moment after the task chat stops streaming.
 - If the primary model is unavailable or fails, Stave tries the configured fallback model.
+- A turn that produced no assistant text is skipped: there is nothing to summarize, and restating the request back would cost a model call for no information.
 
 ## Troubleshooting
 
 ### The Summary Section Does Not Update
 
 - Symptom: the `Summary` section stays empty after a completed task turn.
-- Cause: the summary prompt is blank, both configured models are unavailable, or the workspace has not completed a turn yet.
-- Fix: check `Settings → Prompts → Workspace Latest Turn Summary`, restore the default prompt if needed, and verify that at least one configured provider is available.
+- Cause: the `Turn summary` lane is off, the summary prompt is blank, both configured models are unavailable, the last turn produced no assistant text, or the workspace has not completed a turn yet.
+- Fix: check `Settings → Background AI → Turn summary` and `Settings → Prompts → Workspace Latest Turn Summary`, restore the default prompt if needed, and verify that at least one configured provider is available.
 
 ## Related Docs
 
+- [Background AI](background-ai-policy.md)
 - [Local MCP user guide](local-mcp-user-guide.md)
 - [Project Instructions](project-instructions.md)
 - [Notifications](notifications.md)

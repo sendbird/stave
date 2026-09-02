@@ -349,6 +349,14 @@ export async function runCodexReadOnlyPromptWithClient(
             last.cachedInputTokens > 0
               ? { cacheReadTokens: last.cachedInputTokens }
               : {}),
+            ...(typeof last.cacheWriteInputTokens === "number" &&
+            last.cacheWriteInputTokens > 0
+              ? { cacheCreationTokens: last.cacheWriteInputTokens }
+              : {}),
+            ...(typeof last.reasoningOutputTokens === "number" &&
+            last.reasoningOutputTokens > 0
+              ? { thoughtTokens: last.reasoningOutputTokens }
+              : {}),
           };
         }
         return;

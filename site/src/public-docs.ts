@@ -145,6 +145,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         previewImage: "screenshots/information-panel.png",
       },
       {
+        routePath: "background-ai",
+        sourcePath: "docs/features/background-ai-policy.md",
+        title: "Background AI",
+        description:
+          "See every model call Stave makes on your behalf, switch each one off, and choose the provider and model it runs on.",
+      },
+      {
         routePath: "notifications",
         sourcePath: "docs/features/notifications.md",
         title: "Notifications",

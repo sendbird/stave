@@ -18,7 +18,10 @@ import {
   parseRouteClassification,
   parseTaskNameInference,
 } from "../../src/lib/providers/utility-inference";
-import { getUtilityInferenceCapability } from "../../src/lib/providers/model-catalog";
+import {
+  getUtilityInferenceCapability,
+  inferProviderIdFromModel,
+} from "../../src/lib/providers/model-catalog";
 import { inspectUtilityRunnerReadiness } from "../main/utils/tooling-status";
 import { runAcpUtilityPrompt } from "./acp/acp-utility-prompt";
 import { runClaudeReadOnlyPrompt } from "./claude-sdk-runtime";
@@ -69,6 +72,21 @@ export function buildUtilityCodexRuntimeOptions(args: {
   };
 }
 
+/**
+ * Default ceiling on how many providers a single utility call may *run*.
+ *
+ * A parse failure used to fan out across every runner, so one cheap call could
+ * silently become four. Two runs keep the useful "primary failed, try the other
+ * managed provider" recovery without the tail.
+ *
+ * The cap counts executed runs, not candidates: a provider skipped because it
+ * is unsupported or unauthenticated costs no model call, so it must not consume
+ * the budget. That is what keeps the last-resort runners reachable for a user
+ * who has only Cursor or Kiro installed — exactly the case the fan-out existed
+ * for.
+ */
+export const DEFAULT_UTILITY_MAX_PROVIDER_ATTEMPTS = 2;
+
 export function resolveUtilityInferenceCandidates(
   args: UtilityInferenceContext,
 ): Candidate[] {
@@ -92,6 +110,17 @@ export function resolveUtilityInferenceCandidates(
     add(providerId, "fallback");
   }
   return candidates;
+}
+
+/** Ceiling on executed runs for one utility call. */
+export function resolveUtilityMaxProviderAttempts(
+  context: UtilityInferenceContext,
+) {
+  return Math.max(
+    1,
+    context.utilityMaxProviderAttempts ??
+      DEFAULT_UTILITY_MAX_PROVIDER_ATTEMPTS,
+  );
 }
 
 export async function defaultUtilityAuthGate(args: {
@@ -181,7 +210,12 @@ async function executeUtilityInference<T>(args: {
   const authGate = resolveAuthGate(args);
   let hasAttemptedRunner = false;
 
+  const maxAttempts = resolveUtilityMaxProviderAttempts(args.context);
+  let executedRuns = 0;
   for (const candidate of resolveUtilityInferenceCandidates(args.context)) {
+    if (executedRuns >= maxAttempts) {
+      break;
+    }
     const capability = getUtilityInferenceCapability({
       providerId: candidate.providerId,
     });
@@ -194,7 +228,20 @@ async function executeUtilityInference<T>(args: {
       });
       continue;
     }
-    const model = capability.defaultModel;
+    // A configured utility model belongs to exactly one provider. Applying it
+    // to a different runner would send an unknown model id and fail the call
+    // outright, so it is honored only when the model's own provider is the one
+    // about to run. This has to be derived from the model rather than from the
+    // `explicit` reason: the legacy `utilityInferenceProvider` setting defaults
+    // to "auto", under which every candidate is a fallback and the user's
+    // Background AI model choice would otherwise never be applied.
+    const configuredModel = args.context.utilityModel?.trim();
+    const model =
+      configuredModel &&
+      inferProviderIdFromModel({ model: configuredModel }) ===
+        candidate.providerId
+        ? configuredModel
+        : capability.defaultModel;
     if (hasAttemptedRunner) {
       const auth = await authGate({
         providerId: candidate.providerId,
@@ -212,6 +259,7 @@ async function executeUtilityInference<T>(args: {
     }
     try {
       hasAttemptedRunner = true;
+      executedRuns += 1;
       const result = await runners[candidate.providerId]({
         cwd: args.context.cwd,
         prompt: args.prompt,

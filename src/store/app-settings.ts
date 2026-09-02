@@ -18,6 +18,10 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 import { DEFAULT_ADVISOR_CONSULT_LIMIT } from "@/lib/providers/advisor";
+import {
+  DEFAULT_AUXILIARY_INFERENCE_POLICY,
+  type AuxiliaryInferencePolicy,
+} from "@/lib/providers/auxiliary-inference-policy";
 import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import type { PrMergeMethod } from "@/lib/pr-status";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
@@ -402,12 +406,15 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   promptPrDescription: string;
   /** System prompt for inline code completion. */
   promptInlineCompletion: string;
-  /** Preferred model for the Information panel's automatic latest-turn summary. */
-  workspaceTurnSummaryPrimaryModel: string;
-  /** Fallback model when the primary summary model is unavailable or fails. */
-  workspaceTurnSummaryFallbackModel: string;
   /** Prompt template for the Information panel's automatic latest-turn summary. */
   workspaceTurnSummaryPrompt: string;
+  /**
+   * Per-lane policy for background ("auxiliary") model calls Stave makes on the
+   * user's behalf — intent guard, turn summary, task naming, and so on. Every
+   * lane is always present after normalization so store selectors can index it
+   * without allocating a fallback object.
+   */
+  auxiliaryInferencePolicy: AuxiliaryInferencePolicy;
 
   // -- Lens (built-in browser) --
   /** Heuristic search: AI uses class names, text, ID to grep source files. */
@@ -697,9 +704,8 @@ export const defaultSettings: AppSettings = {
   promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
   promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,
-  workspaceTurnSummaryPrimaryModel: "gpt-5.6-luna",
-  workspaceTurnSummaryFallbackModel: "claude-haiku-4-5",
   workspaceTurnSummaryPrompt: DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
+  auxiliaryInferencePolicy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
   ...DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
 
   // Lens

@@ -191,6 +191,19 @@ export interface PersistenceProjectRegistryEntry {
   archivedWorkspacePaths?: string[];
 }
 
+/**
+ * Token usage for one turn, stored on the turn row rather than only inside the
+ * assistant message's JSON so spend can be queried per turn over time.
+ */
+export interface PersistenceTurnUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  thoughtTokens?: number;
+  totalCostUsd?: number;
+}
+
 export interface PersistenceTurnSummary {
   id: string;
   workspaceId: string;
@@ -198,6 +211,7 @@ export interface PersistenceTurnSummary {
   providerId: ProviderId;
   createdAt: string;
   completedAt: string | null;
+  usage: PersistenceTurnUsage | null;
 }
 
 export interface PersistenceLocalMcpRequestLog {

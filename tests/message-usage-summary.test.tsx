@@ -44,6 +44,54 @@ describe("MessageUsageSummary", () => {
     expect(html).toContain("1 delegated");
   });
 
+  test("reports the cache hit rate per provider convention", () => {
+    // Claude: `inputTokens` is the uncached remainder, so the prompt is the
+    // sum of input, cache read and cache creation.
+    const claude = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "claude-code",
+        model: "claude-sonnet-5",
+        usage: {
+          inputTokens: 1000,
+          outputTokens: 500,
+          cacheReadTokens: 90000,
+          cacheCreationTokens: 9000,
+        },
+      }),
+    );
+    expect(claude).toContain("90% cached");
+
+    // Codex: `inputTokens` already covers the whole prompt.
+    const codex = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "codex",
+        model: "gpt-5.6-luna",
+        usage: {
+          inputTokens: 100000,
+          outputTokens: 500,
+          cacheReadTokens: 90000,
+        },
+      }),
+    );
+    expect(codex).toContain("90% cached");
+
+    // Cursor reports a `cached_read_tokens` counter, but whether it is inside
+    // or alongside `input_tokens` is not verified per ACP agent, so no derived
+    // rate is published — the raw counter is still shown.
+    const cursor = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "cursor",
+        model: "gpt-5.6-sol",
+        usage: {
+          inputTokens: 120,
+          outputTokens: 18,
+          cacheReadTokens: 90,
+        },
+      }),
+    );
+    expect(cursor).not.toContain("cached");
+  });
+
   test("omits unconfirmed delegated placeholders", () => {
     const html = renderToStaticMarkup(
       createElement(MessageUsageSummary, {

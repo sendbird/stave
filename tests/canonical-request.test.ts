@@ -6,7 +6,14 @@ import {
 import {
   buildCanonicalConversationRequest,
   buildLegacyPromptFromCanonicalRequest,
+  FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS,
 } from "@/lib/providers/canonical-request";
+import {
+  STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
+  STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
+  STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
+  STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
+} from "@/lib/task-context/current-task-awareness";
 import type { ChatMessage } from "@/types/chat";
 import { StreamTurnArgsSchema } from "../electron/main/ipc/schemas";
 
@@ -372,5 +379,87 @@ describe("canonical request builder", () => {
     }
     expect(historyPart.description).toContain("approval description truncated");
     expect(historyPart.description.length).toBeLessThanOrEqual(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS);
+  });
+});
+
+describe("first-turn-only retrieved context gating", () => {
+  const contextParts = [
+    {
+      type: "retrieved_context" as const,
+      sourceId: STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
+      title: "Current Stave Task Context",
+      content: "IDENTITY_BLOCK",
+    },
+    {
+      type: "retrieved_context" as const,
+      sourceId: STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
+      title: "Stave Workspace Guidance",
+      content: "GUIDANCE_BLOCK",
+    },
+    {
+      type: "retrieved_context" as const,
+      sourceId: STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
+      title: "Stave Workspace Information",
+      content: "INFORMATION_BLOCK",
+    },
+    {
+      type: "retrieved_context" as const,
+      sourceId: STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
+      title: "Latest Turn Summary",
+      content: "TURN_SUMMARY_BLOCK",
+    },
+    {
+      type: "retrieved_context" as const,
+      sourceId: "stave:repo-map",
+      title: "Codebase Map",
+      content: "REPO_MAP_BLOCK",
+    },
+  ];
+
+  function buildRequest() {
+    return buildCanonicalConversationRequest({
+      taskId: "task-1",
+      workspaceId: "workspace-1",
+      providerId: "claude-code",
+      history: [],
+      userInput: "continue",
+      retrievedContextParts: contextParts,
+    });
+  }
+
+  test("keeps every block on an unprimed session", () => {
+    const prompt = buildLegacyPromptFromCanonicalRequest({
+      request: buildRequest(),
+      includeHistory: true,
+    });
+
+    expect(prompt).toContain("IDENTITY_BLOCK");
+    expect(prompt).toContain("GUIDANCE_BLOCK");
+    expect(prompt).toContain("INFORMATION_BLOCK");
+    expect(prompt).toContain("TURN_SUMMARY_BLOCK");
+    expect(prompt).toContain("REPO_MAP_BLOCK");
+  });
+
+  test("drops unchanging blocks once the provider session is primed", () => {
+    const prompt = buildLegacyPromptFromCanonicalRequest({
+      request: buildRequest(),
+      includeHistory: false,
+    });
+
+    // Already in the resumed transcript — re-sending them only burns tokens.
+    expect(prompt).not.toContain("GUIDANCE_BLOCK");
+    expect(prompt).not.toContain("TURN_SUMMARY_BLOCK");
+    expect(prompt).not.toContain("REPO_MAP_BLOCK");
+    // Identity and the Information panel can change between turns.
+    expect(prompt).toContain("IDENTITY_BLOCK");
+    expect(prompt).toContain("INFORMATION_BLOCK");
+  });
+
+  test("declares exactly the blocks that never change turn-to-turn", () => {
+    expect([...FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS].sort()).toEqual([
+      STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
+      "stave:repo-map",
+      STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
+    ].sort());
   });
 });

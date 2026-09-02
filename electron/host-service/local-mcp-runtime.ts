@@ -22,7 +22,9 @@ import {
   type TaskCompletionSignal,
 } from "../../src/lib/automation/task-supervisor";
 import { buildChildTaskReceiptsRetrievedContext } from "../../src/lib/task-context/child-task-receipts";
-import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-context/current-task-awareness";
+import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
+import { toPersistenceTurnUsage } from "../persistence/turn-usage";
+import type { PersistenceTurnUsage } from "../persistence/types";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
 import {
   projectLocalMcpTaskTurnActivityEvent,
@@ -218,8 +220,21 @@ const workspaceSessionCacheById = new Map<string, WorkspaceSessionState>();
 const workspacePersistChainById = new Map<string, Promise<void>>();
 const workspaceProviderEventQueue = createKeyedAsyncQueue<string>();
 const terminalTurnErrorById = new Map<string, string>();
+/**
+ * Last `usage` event seen per turn. The agent-driven path handles events one at
+ * a time, so the total has to be carried here to reach `completeTurn`, which
+ * writes it to the turn row.
+ */
+const latestTurnUsageById = new Map<string, PersistenceTurnUsage>();
 const WORKSPACE_SESSION_CACHE_LIMIT = 32;
 const TERMINAL_TURN_ERROR_LIMIT = 500;
+const TURN_USAGE_LIMIT = 500;
+
+function takeTurnUsage(turnId: string) {
+  const usage = latestTurnUsageById.get(turnId) ?? null;
+  latestTurnUsageById.delete(turnId);
+  return usage;
+}
 const localMcpTurnJournal = createLocalMcpTurnJournal({
   persistEvents: ({ turnId, events }) => {
     ensureHostServicePersistenceReady().saveStreamEvents({
@@ -635,6 +650,7 @@ export async function cleanupLocalMcpRuntime() {
   await Promise.allSettled(pendingPersists);
   workspaceSessionCacheById.clear();
   terminalTurnErrorById.clear();
+  latestTurnUsageById.clear();
 }
 
 function emitWorkspaceInformationUpdate(
@@ -1857,7 +1873,10 @@ async function handleProviderEvent(args: {
   let session = await loadWorkspaceSession(args.workspaceId);
   if (session.activeTurnIdsByTask[args.taskId] !== args.turnId) {
     if (args.event.type === "done") {
-      store.completeTurn({ id: args.turnId });
+      store.completeTurn({
+        id: args.turnId,
+        usage: takeTurnUsage(args.turnId),
+      });
     }
     return;
   }
@@ -1871,6 +1890,17 @@ async function handleProviderEvent(args: {
     sequence: args.sequence,
     event: args.event,
   });
+  if (args.event.type === "usage") {
+    latestTurnUsageById.delete(args.turnId);
+    latestTurnUsageById.set(args.turnId, toPersistenceTurnUsage(args.event));
+    while (latestTurnUsageById.size > TURN_USAGE_LIMIT) {
+      const oldestTurnId = latestTurnUsageById.keys().next().value;
+      if (!oldestTurnId) {
+        break;
+      }
+      latestTurnUsageById.delete(oldestTurnId);
+    }
+  }
   if (args.event.type === "error" && !args.event.recoverable) {
     terminalTurnErrorById.delete(args.turnId);
     terminalTurnErrorById.set(args.turnId, args.event.message);
@@ -1934,7 +1964,10 @@ async function handleProviderEvent(args: {
       event: args.event,
       session: applied.session,
     });
-    store.completeTurn({ id: args.turnId });
+    store.completeTurn({
+      id: args.turnId,
+      usage: takeTurnUsage(args.turnId),
+    });
   }
 }
 
@@ -2539,7 +2572,7 @@ export async function runTask(args: {
     syncedThroughMessageId:
       providerSessionCursor?.syncedThroughMessageId ?? null,
     retrievedContextParts: [
-      buildCurrentTaskAwarenessRetrievedContext({
+      ...buildCurrentTaskAwarenessRetrievedContextParts({
         workspaceId: args.workspaceId,
         workspaceName,
         workspacePath,
@@ -3107,7 +3140,10 @@ export async function stopManagedTaskTurn(args: {
       },
     });
     terminalTurnErrorById.set(activeTurnId, MANAGED_TASK_STOP_NOTICE);
-    ensureHostServicePersistenceReady().completeTurn({ id: activeTurnId });
+    ensureHostServicePersistenceReady().completeTurn({
+      id: activeTurnId,
+      usage: takeTurnUsage(activeTurnId),
+    });
     await queueWorkspaceSessionPersist({
       workspaceId: args.workspaceId,
       workspaceName: registration.workspace.name,

@@ -692,6 +692,47 @@ with oversized files left path-backed for the agent's file tools. Kiro's legacy
 `content` compatibility key stays text-only so image bytes are not duplicated
 on the wire.
 
+## Prompt context budget
+
+Stave wraps every turn's user message with retrieved-context blocks, so anything
+attached here is paid for again on each turn unless it is gated. Blocks carry a
+stable `sourceId` and the gating decision is made in one place — the prompt
+funnel `buildLegacyPromptFromCanonicalRequest` — rather than at each builder.
+
+| Source id | Contents | Sent when |
+| --- | --- | --- |
+| `stave:current-task-awareness` | Project/workspace/task identity, other visible tasks | Every turn (identity can change) |
+| `stave:workspace-guidance` | Workspace conventions, token-budget guidance, handoff procedure | First turn only |
+| `stave:workspace-information` | The Information panel dump | Every turn, deduplicated when unchanged |
+| `stave:latest-turn-summary` | The Information panel's latest-turn recap | First turn only |
+| `stave:repo-map` | Pre-generated codebase map | First turn only |
+
+Rules:
+
+- **First-turn-only** means "whenever the runtime reports an unprimed provider
+  session". The funnel keys off `includeHistory === false`, which is the
+  runtime's real resume decision. Do not gate on in-memory history length: it is
+  paged (`TASK_MESSAGES_PAGE_SIZE`) and misfires on resumed tasks.
+- Membership lives in `FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS`
+  (`src/lib/providers/canonical-request.ts`). Adding a block that never changes
+  turn-to-turn means adding its id there, not adding a new call-site condition.
+- `stave:workspace-information` is rebuilt from live state every turn but is
+  usually byte-identical. `dedupeRetrievedContextForSession`
+  (`electron/providers/retrieved-context-dedup.ts`) replaces an unchanged copy
+  with a one-line pointer, keyed `taskId:sessionId:sourceId`. It never
+  substitutes on a fresh session, and its hashes are committed only after the
+  prompt is accepted by the provider — a failed dispatch must not convince the
+  next turn that the content was delivered.
+- Blocks in `STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS` are dropped entirely
+  when the Stave local MCP is not attached, since the agent cannot act on them.
+- The Information panel body is capped
+  (`MAX_WORKSPACE_INFORMATION_CHARS`) on whole-line boundaries and points at
+  `stave_get_workspace_information` for the rest. It carries no raw timestamp,
+  so an idle turn's block stays byte-identical and stays deduplicated.
+
+Claude's system prompt keeps its own cache boundary
+(`SYSTEM_PROMPT_DYNAMIC_BOUNDARY`); nothing here changes that.
+
 ## Claude runtime
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.
@@ -863,7 +904,8 @@ Codex prompt injection note:
 
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.
 - Task history, selected text-file context, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config. Supported image attachments use the native image items described above, while the prompt keeps only their labels and fallback instructions.
-- Stave always appends browser-tooling guidance to `developer_instructions`. It directs Codex to use ordinary web search for general research, its installed native Chrome plugin for explicit interactive `@web` requests, and the Stave Lens MCP tools (`stave_lens_*`) only when the current project's rendered UI needs visual inspection or validation, or when the user explicitly requests live page inspection or interaction. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin, and records only normalized connection status in workspace Information. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
+- Stave always appends native browser-tooling guidance (`CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS`) to `developer_instructions`. It directs Codex to use ordinary web search for general research and its installed native Chrome plugin for explicit interactive `@web` requests. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin, and records only normalized connection status in workspace Information. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
+- Lens guidance (`CODEX_STAVE_LENS_INSTRUCTIONS`) is appended **only when the thread will actually see `stave_lens_*` tools**: the local MCP must be registered with Codex *and* `browserToolsEnabled` must still be on. Without it there are no `stave_lens_*` tools, so the block would describe tools that do not exist. Because `developer_instructions` are hashed into the Codex thread key, `hasStaveLocalMcp` is resolved *before* `buildThreadKey` and is part of `buildCodexInstructionProfileKey` — a thread never resumes with an instruction set it was not started with.
 
 Codex event mapping:
 

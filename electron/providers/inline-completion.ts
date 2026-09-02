@@ -8,6 +8,8 @@ interface InlineCompletionRequest {
   language: string;
   maxTokens?: number;
   systemPromptOverride?: string;
+  /** Background AI `inlineCompletion` lane model; falls back to the default. */
+  model?: string;
 }
 
 interface InlineCompletionResult {
@@ -264,7 +266,7 @@ async function requestViaClaudeSdk(
       settingSources: [],
       plugins: [],
       cwd: process.cwd(),
-      model: SDK_MODEL,
+      model: args.model?.trim() || SDK_MODEL,
       systemPrompt: prompt.system,
       thinking: {
         type: "disabled",

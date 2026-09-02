@@ -219,7 +219,7 @@ describe("provider-neutral utility inference", () => {
   test("skips unauthenticated fallbacks", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
-      { prompt: "fix the terminal" },
+      { prompt: "fix the terminal", utilityMaxProviderAttempts: 4 },
       createRunners({
         calls,
         claude: "Claude Title",
@@ -256,6 +256,7 @@ describe("provider-neutral utility inference", () => {
       {
         prompt: "fix terminal bug tests too",
         activeProviderId: "cursor",
+        utilityMaxProviderAttempts: 4,
       },
       createRunners({
         calls,
@@ -278,7 +279,7 @@ describe("provider-neutral utility inference", () => {
   test("returns diagnostic attempts when no runner is available", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
-      { prompt: "fix the terminal" },
+      { prompt: "fix the terminal", utilityMaxProviderAttempts: 4 },
       createRunners({ calls }),
     );
 
@@ -286,6 +287,72 @@ describe("provider-neutral utility inference", () => {
     expect(result.utility.providerId).toBeNull();
     expect(result.utility.attempts).toHaveLength(4);
     expect(calls).toEqual(["codex", "claude-code", "cursor", "kiro"]);
+  });
+
+  test("caps executed runs, not candidates, so an uninstalled provider costs no budget", async () => {
+    const calls: string[] = [];
+
+    // Two managed providers that both run and both fail to parse: the cap
+    // stops there instead of fanning out over the last-resort runners.
+    const capped = await suggestUtilityTaskName(
+      { prompt: "fix the terminal" },
+      createRunners({ calls, kiro: "Kiro Title" }),
+    );
+    expect(calls).toEqual(["codex", "claude-code"]);
+    expect(capped.ok).toBe(false);
+
+    // The same default cap, but the managed providers are not authenticated.
+    // Those skips cost no model call, so the budget still reaches Kiro —
+    // otherwise a Kiro-only install would lose task naming entirely.
+    const kiroOnly: string[] = [];
+    const reached = await suggestUtilityTaskName(
+      { prompt: "fix the terminal" },
+      createRunners({ calls: kiroOnly, kiro: "Kiro Title" }),
+      createAuthGate({ "claude-code": false, cursor: false, kiro: true }),
+    );
+    expect(reached).toMatchObject({ ok: true, title: "Kiro Title" });
+    expect(kiroOnly).toEqual(["codex", "kiro"]);
+  });
+
+  test("applies a configured utility model only to the provider that owns it", async () => {
+    const calls: string[] = [];
+    const result = await suggestUtilityTaskName(
+      {
+        prompt: "fix the terminal",
+        utilityProviderId: "claude-code",
+        utilityModel: "claude-haiku-4-5",
+      },
+      createRunners({ calls, codex: "Codex Title" }),
+    );
+
+    expect(result.utility.attempts[0]).toMatchObject({
+      providerId: "claude-code",
+      model: "claude-haiku-4-5",
+    });
+    // A different runner gets its own default: forcing another provider's
+    // model id onto it would fail the call outright.
+    expect(result.utility.attempts[1]).toMatchObject({
+      providerId: "codex",
+      model: "gpt-5.6-luna",
+    });
+  });
+
+  test("honors a configured model under the default Auto provider setting", async () => {
+    // `utilityInferenceProvider` defaults to "auto", so every candidate is a
+    // fallback. Keying off the model's own provider is what keeps the user's
+    // Background AI model choice from being silently ignored on a default
+    // install.
+    const calls: string[] = [];
+    const result = await suggestUtilityTaskName(
+      { prompt: "fix the terminal", utilityModel: "gpt-5.6-luna" },
+      createRunners({ calls, codex: "Codex Title" }),
+    );
+
+    expect(result).toMatchObject({ ok: true, title: "Codex Title" });
+    expect(result.utility).toMatchObject({
+      providerId: "codex",
+      model: "gpt-5.6-luna",
+    });
   });
 
   test("parses route classification through the same provider selection", async () => {

@@ -28,6 +28,10 @@ import {
 import { normalizeResponseStylePrompt } from "@/lib/providers/prompt-defaults";
 import { normalizeUtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import {
+  migrateLegacyTurnSummaryModels,
+  normalizeAuxiliaryInferencePolicy,
+} from "@/lib/providers/auxiliary-inference-policy";
+import {
   isAutoModelId,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
@@ -301,6 +305,30 @@ export function createAppStorePersistenceOptions() {
       );
       state.settings.utilityInferenceProvider =
         normalizeUtilityInferenceProvider(raw.utilityInferenceProvider);
+      // Background AI lanes. Normalized (not merged) so every lane object
+      // exists and is a stable reference after rehydrate — store selectors index
+      // `auxiliaryInferencePolicy[lane]` directly and must not allocate.
+      state.settings.auxiliaryInferencePolicy =
+        normalizeAuxiliaryInferencePolicy(raw.auxiliaryInferencePolicy);
+      // The standalone turn-summary model settings became the `turnSummary`
+      // lane. Carry a user's explicit choice over once, then drop the old keys.
+      if (raw.auxiliaryInferencePolicy === undefined) {
+        const migratedTurnSummary = migrateLegacyTurnSummaryModels({
+          primaryModel: raw.workspaceTurnSummaryPrimaryModel,
+          fallbackModel: raw.workspaceTurnSummaryFallbackModel,
+        });
+        if (migratedTurnSummary) {
+          state.settings.auxiliaryInferencePolicy = {
+            ...state.settings.auxiliaryInferencePolicy,
+            turnSummary: {
+              ...state.settings.auxiliaryInferencePolicy.turnSummary,
+              ...migratedTurnSummary,
+            },
+          };
+        }
+      }
+      delete raw.workspaceTurnSummaryPrimaryModel;
+      delete raw.workspaceTurnSummaryFallbackModel;
       state.settings.autoRoutingEligibleClaudeModels =
         normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleClaudeModels);
       state.settings.autoRoutingEligibleCodexModels =

@@ -159,6 +159,10 @@ import {
 } from "./shared/json-message-framing";
 import { collectUntrackedWorkingTreeDiff } from "./host-service/pr-description-context";
 import {
+  buildIntentGuardFingerprint,
+  IntentGuardFingerprintCache,
+} from "./host-service/intent-guard-cache";
+import {
   cancelSecondaryProviderRun,
   executeSecondaryProviderRun,
 } from "./providers/secondary-run-executor";
@@ -168,6 +172,8 @@ import {
   previewMcpServerConfigMutation,
 } from "./providers/mcp-config-management";
 import { claimHostServiceStdout } from "./host-service/stdout-guard";
+import { toPersistenceTurnUsage } from "./persistence/turn-usage";
+import type { PersistenceTurnUsage } from "./persistence/types";
 
 /**
  * Claimed before anything in this process can log: stdout carries the protocol
@@ -880,6 +886,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
     }
   }
 
+  let latestTurnUsage: PersistenceTurnUsage | null = null;
   const started = providerRuntime.startTurnStream(
     {
       ...args,
@@ -889,6 +896,12 @@ function startPushProviderTurn(args: StreamTurnArgs) {
       bufferEvents: true,
       onEvent: (turnEvent) => {
         sequence += 1;
+
+        // The last `usage` event of a turn is its authoritative total; earlier
+        // ones are throttled running totals of the same counters.
+        if (turnEvent.type === "usage") {
+          latestTurnUsage = toPersistenceTurnUsage(turnEvent);
+        }
 
         if (persistEnabled) {
           pendingTurnEvents.push({ sequence, event: turnEvent });
@@ -918,6 +931,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
             store.completeTurn({
               id: turnId,
               completedAt: new Date().toISOString(),
+              usage: latestTurnUsage,
             });
           } catch (error) {
             console.warn(
@@ -1165,6 +1179,11 @@ async function suggestProviderPRDescription(args: {
   };
 }
 
+/** Per-worktree fingerprint of the last intent-guard verdict. */
+const intentGuardCache = new IntentGuardFingerprintCache<
+  Awaited<ReturnType<typeof reviewClaudeWorktreeDiff>>["findings"]
+>();
+
 async function reviewProviderDiff(args: {
   cwd?: string;
   baseBranch?: string;
@@ -1173,6 +1192,7 @@ async function reviewProviderDiff(args: {
   model?: string;
   mode?: "review" | "intent";
   intentContext?: string;
+  intentFingerprintGate?: boolean;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
   const providerId = normalizePrePrReviewProvider(args.providerId);
@@ -1184,6 +1204,30 @@ async function reviewProviderDiff(args: {
       headBranch: context.headBranch,
       providerId,
     };
+  }
+
+  // Repeated intent-guard checks over an unchanged diff answer themselves.
+  const intentFingerprint =
+    args.intentFingerprintGate && args.mode === "intent" && args.intentContext
+      ? buildIntentGuardFingerprint({
+          intentContext: args.intentContext,
+          diff: context.diff,
+          workingTreeDiff: context.workingTreeDiff,
+          providerId,
+          model: args.model ?? args.runtimeOptions?.model,
+        })
+      : null;
+  if (intentFingerprint) {
+    const cached = intentGuardCache.get(context.cwd, intentFingerprint);
+    if (cached) {
+      return {
+        ok: true,
+        findings: cached,
+        headBranch: context.headBranch,
+        providerId,
+        unchanged: true,
+      };
+    }
   }
 
   const reviewArgs = {
@@ -1207,9 +1251,14 @@ async function reviewProviderDiff(args: {
         })
       : await reviewClaudeWorktreeDiff(reviewArgs);
 
+  const findings = review.findings ?? [];
+  if (intentFingerprint && review.ok) {
+    intentGuardCache.set(context.cwd, intentFingerprint, findings);
+  }
+
   return {
     ok: review.ok,
-    findings: review.findings ?? [],
+    findings,
     headBranch: context.headBranch,
     providerId,
     truncated:

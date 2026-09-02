@@ -98,6 +98,10 @@ import {
   reportUtilityInferenceOutcome,
 } from "@/lib/providers/utility-inference-notice";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
+import {
+  buildReadOnlyAuxRuntimeOptions,
+  resolveAuxLaneRuntime,
+} from "@/lib/providers/auxiliary-inference-policy";
 import { cn } from "@/lib/utils";
 import {
   collectMartinTriggerContext,
@@ -491,6 +495,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     prePrReviewCodexReasoningEffort,
     createPrAutoMergeEnabled,
     createPrMergeMethod,
+    auxiliaryInferencePolicy,
     fetchWorkspacePrStatus,
     continueWorkspaceFromSummary,
   ] = useAppStore(
@@ -517,6 +522,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           state.settings.codexReasoningEffort,
           state.settings.createPrAutoMergeEnabled,
           state.settings.createPrMergeMethod,
+          state.settings.auxiliaryInferencePolicy,
           state.fetchWorkspacePrStatus,
           state.continueWorkspaceFromSummary,
         ] as const,
@@ -741,8 +747,15 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const promptPrDescription = useAppStore
       .getState()
       .settings.promptPrDescription.trim();
+    const prDescriptionLane = resolveAuxLaneRuntime({
+      lane: "prDescription",
+      policy: auxiliaryInferencePolicy,
+      activeProviderId: activeTask?.provider ?? null,
+    });
+    // Off keeps the deterministic fallback draft, which is why the lane can be
+    // disabled without breaking PR creation.
     const shouldSuggestPrDescription = Boolean(
-      suggestPRDescription && promptPrDescription,
+      suggestPRDescription && promptPrDescription && prDescriptionLane.enabled,
     );
     const workspaceContextPromise = shouldSuggestPrDescription
       ? buildWorkspaceContextForPrDraft()
@@ -755,22 +768,26 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 cwd: workspaceCwd,
                 baseBranch: defaultBaseBranch,
                 headBranch: currentBranch || undefined,
-                providerId: activeTask?.provider,
+                // The lane owns the provider *and* the model. Routing to the
+                // task's provider while passing the lane's model would send an
+                // unknown model id whenever the two differ, and the caller's
+                // catch would swallow it into a silent fallback draft.
+                providerId: prDescriptionLane.providerId,
                 promptTemplate: promptPrDescription,
                 workspaceContext: workspaceContext || undefined,
-                runtimeOptions:
-                  activeTask?.provider === "codex"
+                runtimeOptions: {
+                  ...buildReadOnlyAuxRuntimeOptions({
+                    providerId: prDescriptionLane.providerId,
+                    model: prDescriptionLane.model,
+                    effortOverrides: prDescriptionLane.effortOverrides,
+                  }),
+                  ...(prDescriptionLane.providerId === "codex"
                     ? {
-                        model: prePrReviewCodexModel,
-                        codexApprovalPolicy: "never",
                         codexBinaryPath:
                           prePrReviewCodexBinaryPath.trim() || undefined,
-                        codexFileAccess: "read-only",
-                        codexNetworkAccess: false,
-                        codexReasoningEffort: prePrReviewCodexReasoningEffort,
-                        codexWebSearch: "disabled",
                       }
-                    : { model: prePrReviewClaudeModel },
+                    : {}),
+                },
               }),
             )
             .catch(() => undefined)
@@ -1047,26 +1064,42 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             })
         : undefined;
 
-    if (prePrReviewEnabled && reviewDiff && !options.skipReview) {
+    const prePrReviewLane = resolveAuxLaneRuntime({
+      lane: "prePrReview",
+      policy: auxiliaryInferencePolicy,
+      legacyProviderId: prePrReviewProvider,
+    });
+    if (
+      prePrReviewEnabled &&
+      prePrReviewLane.enabled &&
+      reviewDiff &&
+      !options.skipReview
+    ) {
       const reviewProviderLabel = getProviderLabel({
-        providerId: prePrReviewProvider,
+        providerId: prePrReviewLane.providerId,
       });
+      // The lane owns the model. Without it this fell back to the user's
+      // primary model, so a background review silently cost a real turn.
       const reviewModel =
-        prePrReviewProvider === "codex"
+        prePrReviewLane.model ??
+        (prePrReviewLane.providerId === "codex"
           ? prePrReviewCodexModel
-          : prePrReviewClaudeModel;
-      const reviewRuntimeOptions =
-        prePrReviewProvider === "codex"
+          : prePrReviewClaudeModel);
+      const reviewRuntimeOptions = {
+        ...buildReadOnlyAuxRuntimeOptions({
+          providerId: prePrReviewLane.providerId,
+          model: reviewModel,
+          effortOverrides: prePrReviewLane.effortOverrides,
+        }),
+        ...(prePrReviewLane.providerId === "codex"
           ? {
-              model: reviewModel,
-              codexApprovalPolicy: "never" as const,
               codexBinaryPath: prePrReviewCodexBinaryPath.trim() || undefined,
-              codexFileAccess: "read-only" as const,
-              codexNetworkAccess: false,
-              codexReasoningEffort: prePrReviewCodexReasoningEffort,
-              codexWebSearch: "disabled" as const,
+              ...(prePrReviewLane.config.effort
+                ? {}
+                : { codexReasoningEffort: prePrReviewCodexReasoningEffort }),
             }
-          : { model: reviewModel };
+          : {}),
+      };
       setStep("reviewing");
       setInlineNotice({
         tone: "info",
@@ -1079,7 +1112,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           cwd: submitWorkspaceCwd,
           baseBranch: selectedTargetBranch,
           headBranch: currentBranch || undefined,
-          providerId: prePrReviewProvider,
+          providerId: prePrReviewLane.providerId,
           model: reviewModel,
           runtimeOptions: reviewRuntimeOptions,
         };
@@ -1122,7 +1155,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
         if (findings.length > 0) {
           const resultProviderLabel = getProviderLabel({
-            providerId: reviewResult.providerId ?? prePrReviewProvider,
+            providerId: reviewResult.providerId ?? prePrReviewLane.providerId,
           });
           setReviewFindings(findings);
           setReviewDiffTruncated(truncated);

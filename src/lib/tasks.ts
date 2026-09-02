@@ -20,13 +20,14 @@ const AUTO_TASK_TITLE_MAX_LENGTH = 80;
 const AUTO_TASK_TITLE_MAX_WORDS = 12;
 
 /**
- * The automatic task-name suggestion loop only needs the opening exchanges to
+ * The automatic task-name suggestion loop only needs the opening exchange to
  * infer a stable title. Firing a suggestion query on every prompt for the whole
  * life of a task wastes a full single-turn LLM call (plus its IPC payload) each
- * time, so we cap it to the first few user turns. After that the title has
- * stabilized and further queries just re-derive the same name.
+ * time. Re-running it on turns 2 and 3 almost always re-derives the same name
+ * from the same opening prompt, so the default is one call; users who want the
+ * title to keep adapting can raise the `taskName` lane's `maxUserTurns`.
  */
-export const AUTO_TASK_NAME_MAX_USER_TURNS = 3;
+export const AUTO_TASK_NAME_MAX_USER_TURNS = 1;
 /** Per-message content budget sent to the suggestion query (chars). */
 export const AUTO_TASK_NAME_HISTORY_MESSAGE_CHARS = 500;
 /** Number of trailing history messages sent to the suggestion query. */
@@ -345,11 +346,17 @@ export function normalizeSuggestedTaskTitle(args: { title: string }) {
 export function shouldSuggestTaskName(args: {
   task: Pick<Task, "titleManuallySet"> | null | undefined;
   priorUserTurnCount: number;
+  /** Overrides the default window; 0 disables naming entirely. */
+  maxUserTurns?: number;
 }) {
   if (args.task?.titleManuallySet) {
     return false;
   }
-  return args.priorUserTurnCount < AUTO_TASK_NAME_MAX_USER_TURNS;
+  const maxUserTurns =
+    typeof args.maxUserTurns === "number" && args.maxUserTurns >= 0
+      ? args.maxUserTurns
+      : AUTO_TASK_NAME_MAX_USER_TURNS;
+  return args.priorUserTurnCount < maxUserTurns;
 }
 
 /**

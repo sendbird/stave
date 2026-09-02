@@ -174,6 +174,30 @@ marks the stream as done, but the renderer never learns about it.
 
 ---
 
+### 7. MCP config change drops the native session (intentional)
+
+**Symptom**: A Claude task starts a fresh native session after any MCP config
+file changes, so the next prompt is a cold one.
+
+**Cause**: `claude-sdk-runtime.ts` clears `sessionIdByTask` for the affected
+scope when `claudeMcpConfigRefreshTracker` reports a change. A Claude resume
+preserves the native session's MCP catalog, so resuming after a config change
+would keep showing the model a stale tool list.
+
+**Status**: Working as intended, not a bug to fix. The cost is that the next
+turn is unprimed, which means it re-sends the first-turn-only prompt context
+(`stave:workspace-guidance`, `stave:repo-map`, `stave:latest-turn-summary` — see
+[Prompt context budget](../providers/provider-runtimes.md#prompt-context-budget)).
+That is the correct behavior: a fresh session genuinely needs that context
+again. Because those blocks are now gated on the runtime's real resume decision
+rather than on in-memory history length, the re-priming cost is bounded to
+exactly the turns that need it.
+
+Do not "optimize" this by resuming across a config change. A model answering
+from a stale tool list reports connectors as disconnected that are connected.
+
+---
+
 ## Stall indication
 
 ### How it works

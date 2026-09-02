@@ -151,6 +151,7 @@ import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 import { createProviderBrowserConnectionTracker, parseProviderBrowserDomains, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
 import { buildCodexNativeBrowserTurnConfigOverrides, resolveCodexNativeBrowserPluginEnabled } from "./codex-runtime-config";
 import { prepareCodexImageAwareTurnInput } from "./native-image-input";
+import { normalizeCodexTokenUsage } from "./codex-token-usage";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -349,6 +350,26 @@ async function hasConnectedStaveLocalMcpForCodex() {
   return status.installed && status.matchesCurrentManifest;
 }
 
+/**
+ * Whether this thread will actually see `stave_lens_*` tools: the server has to
+ * be registered *and* still be registering the browser tools. Instructing a
+ * model to prioritize tools it does not have is the same failure the
+ * registration gate exists to prevent, just reached from the other side.
+ */
+async function hasStaveLensToolsForCodex() {
+  if (!(await hasConnectedStaveLocalMcpForCodex())) {
+    return false;
+  }
+  try {
+    // Imported lazily: `stave-mcp-config` reads `electron.app` at module scope,
+    // which this runtime module must not require just to be loadable.
+    const { readStaveLocalMcpConfig } = await import("../main/stave-mcp-config");
+    return (await readStaveLocalMcpConfig()).browserToolsEnabled !== false;
+  } catch {
+    return true;
+  }
+}
+
 function appendBoundedCodexBuffer(args: {
   current: string;
   chunk: string;
@@ -450,11 +471,17 @@ function buildThreadKey(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   boundSecretFingerprint?: string;
+  secondaryReadOnly?: boolean;
+  hasStaveLocalMcp?: boolean;
 }) {
   const model = args.runtimeOptions?.model?.trim() || "default";
   const mode = args.runtimeOptions?.codexPlanMode ? "plan" : "chat";
+  // The developer instructions are hashed into the key, so anything that
+  // changes them — including whether the Lens block is present — belongs here.
   const instructionProfile = buildCodexInstructionProfileKey({
     runtimeOptions: args.runtimeOptions,
+    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   });
   const secretFingerprint = args.boundSecretFingerprint ?? "none";
   return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${instructionProfile}:${secretFingerprint}`;
@@ -1165,12 +1192,16 @@ async function ensureCodexThread(args: {
    * its read-only contract. Mirrors the Claude adapter's gate.
    */
   secondaryReadOnly?: boolean;
+  /** Resolved before keying: it decides the instruction hash. */
+  hasStaveLocalMcp?: boolean;
 }) {
   const threadKey = buildThreadKey({
     taskId: args.taskId,
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
     boundSecretFingerprint: args.boundSecretFingerprint,
+    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   });
   const resumeThreadId = args.ephemeral
     ? undefined
@@ -1196,6 +1227,7 @@ async function ensureCodexThread(args: {
           // shell env whenever a thread resumed instead of starting fresh.
           configOverrides: args.configOverrides,
           ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+          ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
         }),
       })
     : await args.client.request<{ thread: { id: string } }>(
@@ -1212,6 +1244,7 @@ async function ensureCodexThread(args: {
             : {}),
           configOverrides: args.configOverrides,
           ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+          ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
         }),
       );
   const threadId = response.thread.id;
@@ -2444,6 +2477,19 @@ export async function streamCodexWithAppServer(
       args.unattendedAutomation?.authorizationToken,
   });
 
+  // Resolved before the thread is keyed: it decides whether the Lens
+  // instruction block is part of the developer instructions, which are hashed
+  // into the thread key.
+  const nativeSlashCommandTurn = Boolean(
+    args.conversation && getProviderNativeSlashCommandInput(args.conversation),
+  );
+  const hasEmbeddedStaveLocalMcp = nativeSlashCommandTurn
+    ? false
+    : await hasConnectedStaveLocalMcpForCodex();
+  const hasStaveLensTools = nativeSlashCommandTurn
+    ? false
+    : await hasStaveLensToolsForCodex();
+
   let threadId: string;
   let resumedThreadId: string | null;
   try {
@@ -2458,6 +2504,7 @@ export async function streamCodexWithAppServer(
       configOverrides: mergedConfigOverrides,
       boundSecretFingerprint,
       secondaryReadOnly,
+      hasStaveLocalMcp: hasStaveLensTools,
     }));
   } catch (error) {
     const events: BridgeEvent[] = [
@@ -2528,18 +2575,13 @@ export async function streamCodexWithAppServer(
     if (syncedGoalEvent) {
       emitBridgeEvent(syncedGoalEvent);
     }
-    const nativeSlashCommandInput = args.conversation
-      ? getProviderNativeSlashCommandInput(args.conversation)
-      : null;
-    const hasEmbeddedStaveLocalMcp = nativeSlashCommandInput
-      ? false
-      : await hasConnectedStaveLocalMcpForCodex();
     const turnInput = await prepareCodexImageAwareTurnInput({
       cwd: runtimeCwd,
       providerId: args.providerId,
       prompt: args.prompt,
       conversation: args.conversation,
       activeResumeSessionId: resumedThreadId,
+      taskId: args.taskId,
       hasEmbeddedStaveLocalMcp,
       model: runtimeOptions?.model,
       request: (method, params) => client.request(method, params),
@@ -3448,26 +3490,15 @@ export async function streamCodexWithAppServer(
           return;
         }
         case "thread/tokenUsage/updated": {
-          const tokenUsage = params.tokenUsage as
-            | {
-                last?: {
-                  inputTokens?: number;
-                  outputTokens?: number;
-                  cachedInputTokens?: number;
-                };
-              }
-            | undefined;
-          if (!tokenUsage?.last) {
+          const normalizedUsage = normalizeCodexTokenUsage(
+            params.tokenUsage as Parameters<
+              typeof normalizeCodexTokenUsage
+            >[0],
+          );
+          if (!normalizedUsage) {
             return;
           }
-          latestUsage = {
-            inputTokens: tokenUsage.last.inputTokens ?? 0,
-            outputTokens: tokenUsage.last.outputTokens ?? 0,
-            ...(typeof tokenUsage.last.cachedInputTokens === "number" &&
-            tokenUsage.last.cachedInputTokens > 0
-              ? { cacheReadTokens: tokenUsage.last.cachedInputTokens }
-              : {}),
-          };
+          latestUsage = normalizedUsage;
           // Replay overwrites the assistant message's usage fields rather than
           // accumulating them, so emitting the running total repeatedly is
           // safe and keeps the Usage metric live instead of blank until the
@@ -3901,6 +3932,7 @@ export async function streamCodexWithAppServer(
       }
 
       appServerTurnId = turnResponse.turn.id;
+      turnInput.commitRetrievedContextDedup();
       emitBridgeEvent({
         type: "provider_turn",
         providerId: "codex",

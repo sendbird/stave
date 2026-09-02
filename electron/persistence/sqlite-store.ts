@@ -29,6 +29,7 @@ import type {
   PersistenceWorkspaceSummary,
 } from "./types";
 import { selectOrphanedNotificationWorkspaceIds } from "./notification-orphans";
+import { parsePersistedTurnUsage } from "./turn-usage";
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
@@ -122,6 +123,7 @@ interface TurnSummaryRow {
   provider_id: ProviderId | "stave";
   created_at: string;
   completed_at: string | null;
+  usage_json: string | null;
 }
 
 interface NotificationRow {
@@ -425,6 +427,14 @@ export class SqliteStore {
     }
     try {
       this.db.exec("ALTER TABLE notifications ADD COLUMN resolved_at TEXT");
+    } catch {
+      // column already exists
+    }
+    try {
+      // Per-turn token usage. Usage already lives inside `message_json`, but
+      // only as denormalized text, so there was no way to ask "did turn N cost
+      // less than turn N-1" — the question this column exists to answer.
+      this.db.exec("ALTER TABLE turns ADD COLUMN usage_json TEXT");
     } catch {
       // column already exists
     }
@@ -2562,21 +2572,38 @@ export class SqliteStore {
       .run(args.id, args.workspaceId, args.taskId, args.providerId, createdAt);
   }
 
-  completeTurn(args: { id: string; completedAt?: string }) {
+  completeTurn(args: {
+    id: string;
+    completedAt?: string;
+    usage?: PersistenceTurnUsage | null;
+  }) {
     if (this._closed) {
       return;
     }
     const completedAt = args.completedAt ?? new Date().toISOString();
+    // A turn that reported no usage keeps whatever was already stored rather
+    // than clearing it, so a late completion cannot erase a real measurement.
+    const usageJson = args.usage ? JSON.stringify(args.usage) : null;
     const tx = this.db.transaction(() => {
       this.db
         .prepare(
-          `
+          usageJson
+            ? `
+        UPDATE turns
+        SET completed_at = ?, usage_json = ?
+        WHERE id = ?
+      `
+            : `
         UPDATE turns
         SET completed_at = ?
         WHERE id = ?
       `,
         )
-        .run(completedAt, args.id);
+        .run(
+          ...(usageJson
+            ? [completedAt, usageJson, args.id]
+            : [completedAt, args.id]),
+        );
       this.compactCompletedTurnEvents(args.id);
     });
     tx();
@@ -2808,7 +2835,8 @@ export class SqliteStore {
         turns.task_id,
         turns.provider_id,
         turns.created_at,
-        turns.completed_at
+        turns.completed_at,
+        turns.usage_json
       FROM turns
       WHERE turns.workspace_id = ? AND turns.task_id = ?
         ${turnId ? "AND turns.id = ?" : ""}
@@ -2829,6 +2857,7 @@ export class SqliteStore {
       providerId: normalizePersistedProviderId(row.provider_id),
       createdAt: row.created_at,
       completedAt: row.completed_at,
+      usage: parsePersistedTurnUsage(row.usage_json),
     }));
   }
 
@@ -2840,7 +2869,7 @@ export class SqliteStore {
     const rows = this.db
       .prepare(
         `
-      SELECT id, workspace_id, task_id, provider_id, created_at, completed_at
+      SELECT id, workspace_id, task_id, provider_id, created_at, completed_at, usage_json
       FROM (
         SELECT
           turns.id,
@@ -2849,6 +2878,7 @@ export class SqliteStore {
           turns.provider_id,
           turns.created_at,
           turns.completed_at,
+          turns.usage_json,
           ROW_NUMBER() OVER (
             PARTITION BY turns.task_id
             ORDER BY turns.created_at DESC, turns.id DESC
@@ -2870,6 +2900,7 @@ export class SqliteStore {
       providerId: normalizePersistedProviderId(row.provider_id),
       createdAt: row.created_at,
       completedAt: row.completed_at,
+      usage: parsePersistedTurnUsage(row.usage_json),
     }));
   }
 
@@ -2881,7 +2912,7 @@ export class SqliteStore {
     const rows = this.db
       .prepare(
         `
-      SELECT id, workspace_id, task_id, provider_id, created_at, completed_at
+      SELECT id, workspace_id, task_id, provider_id, created_at, completed_at, usage_json
       FROM (
         SELECT
           turns.id,
@@ -2890,6 +2921,7 @@ export class SqliteStore {
           turns.provider_id,
           turns.created_at,
           turns.completed_at,
+          turns.usage_json,
           ROW_NUMBER() OVER (
             PARTITION BY turns.task_id
             ORDER BY turns.created_at DESC, turns.id DESC
@@ -2911,6 +2943,7 @@ export class SqliteStore {
       providerId: normalizePersistedProviderId(row.provider_id),
       createdAt: row.created_at,
       completedAt: row.completed_at,
+      usage: parsePersistedTurnUsage(row.usage_json),
     }));
   }
 

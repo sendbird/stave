@@ -1374,6 +1374,7 @@ contextBridge.exposeInMainWorld("api", {
       model?: string;
       mode?: "review" | "intent";
       intentContext?: string;
+      intentFingerprintGate?: boolean;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>
       ipcRenderer.invoke("provider:review-diff", args) as Promise<{
@@ -1382,6 +1383,7 @@ contextBridge.exposeInMainWorld("api", {
         headBranch?: string;
         providerId?: PrePrReviewProviderId;
         truncated?: boolean;
+        unchanged?: boolean;
       }>,
   },
   persistence: {
@@ -1583,6 +1585,7 @@ contextBridge.exposeInMainWorld("api", {
       token?: string;
       claudeCodeAutoRegister?: boolean;
       codexAutoRegister?: boolean;
+      browserToolsEnabled?: boolean;
     }) =>
       ipcRenderer.invoke("local-mcp:update-config", args) as Promise<{
         ok: boolean;
@@ -2398,6 +2401,7 @@ contextBridge.exposeInMainWorld("api", {
       language: string;
       maxTokens?: number;
       systemPromptOverride?: string;
+      model?: string;
     }) =>
       ipcRenderer.invoke("inline-completion:request", args) as Promise<{
         ok: boolean;

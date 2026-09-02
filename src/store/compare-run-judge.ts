@@ -6,6 +6,12 @@ import {
   parseCompareJudgment,
   type CompareRun,
 } from "@/lib/compare-runs";
+
+/**
+ * A judge that has failed three times is failing for a reason the fourth
+ * attempt will not fix; the previous ceiling of ten just multiplied the bill.
+ */
+export const COMPARE_JUDGE_MAX_ATTEMPTS = 3;
 import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import {
   buildModelEffortRuntimeOverrides,
@@ -260,7 +266,7 @@ export function buildCompareJudgeSecondaryClaim(args: {
         taskId: args.run.baseTaskId ?? null,
       },
       policy: {
-        maxAttempts: 10,
+        maxAttempts: COMPARE_JUDGE_MAX_ATTEMPTS,
         timeoutMs: 30 * 60 * 1_000,
         maxTurns: 16,
         maxOutputBytes: 256 * 1_024,

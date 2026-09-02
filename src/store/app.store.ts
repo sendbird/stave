@@ -9,8 +9,14 @@ import type {
   NormalizedProviderEvent,
 } from "@/lib/providers/provider.types";
 import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
+import {
+  buildReadOnlyAuxRuntimeOptions,
+  resolveAuxLaneRuntime,
+  supportsExplicitEffort,
+} from "@/lib/providers/auxiliary-inference-policy";
+import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { buildChildTaskReceiptsRetrievedContext } from "@/lib/task-context/child-task-receipts";
-import { buildCurrentTaskAwarenessRetrievedContext } from "@/lib/task-context/current-task-awareness";
+import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import {
   extractWorkspaceInformationReferencesFromText,
@@ -38,6 +44,7 @@ import {
   normalizeSharedSkillsHomeSetting,
 } from "@/store/app-store-persistence";
 import { createAppStoreNotificationRuntime } from "@/store/app-store-notification-runtime";
+import { createWorkspaceTurnSummaryGenerator } from "@/store/workspace-turn-summary-runtime";
 import {
   createRefreshWorkspaceFilesInBackground,
   createWorkspaceManagementActions,
@@ -542,6 +549,51 @@ export const useAppStore = create<AppState>()(
       };
     };
 
+    // Turn ids whose events showed the working tree being touched. The intent
+    // guard has nothing new to judge after a turn that only read or answered,
+    // so this is what keeps a conversation-only turn from paying for a diff
+    // review. Bounded because only the most recent turns are ever consulted.
+    const turnIdsWithFileEdits = new Set<string>();
+    // The badge is cleared while a turn is in flight so a stale verdict never
+    // reads as fresh. A turn that changed no files does not earn a new model
+    // call, but the previous verdict is still true of the unchanged diff — so
+    // it is retained here and restored instead of vanishing.
+    const retainedIntentComplianceByWorkspace = new Map<
+      string,
+      TurnIntentComplianceResult
+    >();
+    const MAX_TRACKED_FILE_EDIT_TURN_IDS = 200;
+    const recordTurnFileEdits = (turnId: string) => {
+      turnIdsWithFileEdits.add(turnId);
+      while (turnIdsWithFileEdits.size > MAX_TRACKED_FILE_EDIT_TURN_IDS) {
+        const oldest = turnIdsWithFileEdits.values().next();
+        if (oldest.done) {
+          break;
+        }
+        turnIdsWithFileEdits.delete(oldest.value);
+      }
+    };
+
+    /** Re-show the retained verdict for a turn that did not re-run the guard. */
+    const restoreIntentCompliance = (args: {
+      workspaceId: string;
+      taskId?: string;
+      turnId?: string;
+    }) => {
+      const retained = retainedIntentComplianceByWorkspace.get(args.workspaceId);
+      if (!retained) {
+        return;
+      }
+      const compliance = { ...retained, taskId: args.taskId, turnId: args.turnId };
+      retainedIntentComplianceByWorkspace.set(args.workspaceId, compliance);
+      set((current) => ({
+        turnIntentComplianceByWorkspace: {
+          ...current.turnIntentComplianceByWorkspace,
+          [args.workspaceId]: compliance,
+        },
+      }));
+    };
+
     // C2 intent guard: after a turn completes, if the workspace has pinned
     // intent anchors, run a single-turn provider check comparing the diff
     // against that pinned intent and surface it as a Changes-panel badge.
@@ -557,6 +609,23 @@ export const useAppStore = create<AppState>()(
         return;
       }
       const state = get();
+      const lane = resolveAuxLaneRuntime({
+        lane: "intentGuard",
+        policy: state.settings.auxiliaryInferencePolicy,
+        legacyProviderId: state.settings.prePrReviewProvider,
+      });
+      if (!lane.enabled) {
+        return;
+      }
+      // A turn that changed no files cannot have changed the diff either.
+      if (
+        lane.config.onlyAfterFileEdits &&
+        args.turnId &&
+        !turnIdsWithFileEdits.has(args.turnId)
+      ) {
+        restoreIntentCompliance(args);
+        return;
+      }
       const info =
         state.activeWorkspaceId === args.workspaceId
           ? state.workspaceInformation
@@ -571,14 +640,25 @@ export const useAppStore = create<AppState>()(
       if (!intentContext) {
         return;
       }
-      const providerId = normalizePrePrReviewProvider(
-        state.settings.prePrReviewProvider,
-      );
+      const providerId = normalizePrePrReviewProvider(lane.providerId);
       void reviewDiff({
         cwd: args.workspacePath,
         providerId,
         mode: "intent",
         intentContext,
+        ...(lane.config.onlyWhenDiffChanged
+          ? { intentFingerprintGate: true }
+          : {}),
+        ...(lane.model
+          ? {
+              model: lane.model,
+              runtimeOptions: buildReadOnlyAuxRuntimeOptions({
+                providerId: lane.providerId,
+                model: lane.model,
+                effortOverrides: lane.effortOverrides,
+              }),
+            }
+          : {}),
       })
         .then((result) => {
           if (!result.ok) {
@@ -592,6 +672,7 @@ export const useAppStore = create<AppState>()(
             findings: result.findings,
             completedAt: Date.now(),
           };
+          retainedIntentComplianceByWorkspace.set(args.workspaceId, compliance);
           set((current) => ({
             turnIntentComplianceByWorkspace: {
               ...current.turnIntentComplianceByWorkspace,
@@ -951,208 +1032,12 @@ export const useAppStore = create<AppState>()(
       }
     };
 
-    const generateWorkspaceTurnSummaryInBackground = (args: {
-      workspaceId: string;
-      taskId: string;
-      turnId: string;
-    }) => {
-      const state = get();
-      const session = getWorkspaceSessionForState({
-        state,
-        workspaceId: args.workspaceId,
+    const generateWorkspaceTurnSummaryInBackground =
+      createWorkspaceTurnSummaryGenerator({
+        getState: get,
+        applySummary: applyWorkspaceTurnSummaryToState,
+        collectProviderEvents,
       });
-      if (!session) {
-        return;
-      }
-
-      const currentSummary = session.workspaceInformation.turnSummary ?? null;
-      if (currentSummary?.turnId === args.turnId) {
-        return;
-      }
-
-      const task =
-        session.tasks.find((item) => item.id === args.taskId) ?? null;
-      const messages = session.messagesByTask[args.taskId] ?? [];
-      const latestUserMessage = [...messages]
-        .reverse()
-        .find((message) => message.role === "user" && message.content.trim());
-      const latestAssistantMessage = [...messages]
-        .reverse()
-        .find(
-          (message) => message.role === "assistant" && message.content.trim(),
-        );
-      const summaryPrompt = state.settings.workspaceTurnSummaryPrompt.trim();
-      if (!summaryPrompt) {
-        return;
-      }
-      if (
-        !latestUserMessage?.content.trim() &&
-        !latestAssistantMessage?.content.trim()
-      ) {
-        return;
-      }
-
-      const workspacePath = resolveWorkspacePathForId({
-        activeWorkspaceId: state.activeWorkspaceId,
-        workspaceId: args.workspaceId,
-        workspacePathById: state.workspacePathById,
-        workspaceDefaultById: state.workspaceDefaultById,
-        projectPath: state.projectPath,
-      });
-      const settingsSnapshot = state.settings;
-      const primaryModel = normalizeModelSelection({
-        value: settingsSnapshot.workspaceTurnSummaryPrimaryModel,
-        fallback: defaultSettings.workspaceTurnSummaryPrimaryModel,
-      });
-      const fallbackModel = normalizeModelSelection({
-        value: settingsSnapshot.workspaceTurnSummaryFallbackModel,
-        fallback: defaultSettings.workspaceTurnSummaryFallbackModel,
-      });
-      const candidateModels = [
-        ...new Set([primaryModel.trim(), fallbackModel.trim()].filter(Boolean)),
-      ];
-      if (candidateModels.length === 0) {
-        return;
-      }
-
-      const prompt = buildWorkspaceTurnSummaryPrompt({
-        instructionPrompt: summaryPrompt,
-        taskTitle: task?.title ?? null,
-        userRequest:
-          latestUserMessage?.content.trim() ||
-          task?.title ||
-          "No user request was captured for this turn.",
-        assistantResponse:
-          latestAssistantMessage?.content.trim() ||
-          "The assistant completed the turn without a plain-text reply.",
-      });
-      const requestId = `${args.turnId}:${Date.now()}`;
-      workspaceTurnSummaryRequestIdByWorkspaceId.set(
-        args.workspaceId,
-        requestId,
-      );
-
-      void (async () => {
-        for (const model of candidateModels) {
-          if (
-            workspaceTurnSummaryRequestIdByWorkspaceId.get(args.workspaceId) !==
-            requestId
-          ) {
-            return;
-          }
-
-          const providerId = inferProviderIdFromModel({ model });
-          const runtimeOptions = {
-            ...buildProviderRuntimeOptions({
-              provider: providerId,
-              model,
-              settings: settingsSnapshot,
-            }),
-            chatStreamingEnabled: false,
-            responseStylePrompt: undefined,
-            promptPrDescription: undefined,
-            promptInlineCompletion: undefined,
-            ...(providerId === "claude-code"
-              ? {
-                  claudeAllowedTools: [],
-                  claudeMaxTurns: 1,
-                  claudePermissionMode: "dontAsk" as const,
-                  claudeAgentProgressSummaries: false,
-                  claudeFastMode: true,
-                }
-              : providerId === "codex"
-                ? {
-                    codexApprovalPolicy: "never" as const,
-                    codexFileAccess: "read-only" as const,
-                    codexNetworkAccess: false,
-                    codexWebSearch: "disabled" as const,
-                    codexReasoningSummary: "none" as const,
-                    codexShowRawReasoning: false,
-                    codexPlanMode: false,
-                    codexFastMode: true,
-                  }
-                : {}),
-          };
-
-          if (window.api?.provider?.checkAvailability) {
-            try {
-              const availability = await window.api.provider.checkAvailability({
-                providerId,
-                runtimeOptions,
-              });
-              if (!availability.ok || !availability.available) {
-                continue;
-              }
-            } catch {
-              continue;
-            }
-          }
-
-          try {
-            const streamTurn = window.api?.provider?.streamTurn;
-            if (!streamTurn) {
-              return;
-            }
-            const events = await collectProviderEvents(
-              streamTurn({
-                providerId,
-                prompt,
-                cwd: workspacePath ?? undefined,
-                runtimeOptions,
-              }),
-            );
-            const responseText = events
-              .filter(
-                (
-                  event,
-                ): event is Extract<
-                  NormalizedProviderEvent,
-                  { type: "text" }
-                > => event.type === "text",
-              )
-              .map((event) => event.text)
-              .join("")
-              .trim();
-            const parsedSummary = responseText
-              ? parseWorkspaceTurnSummaryResponse(responseText)
-              : null;
-            if (!parsedSummary) {
-              continue;
-            }
-
-            if (
-              workspaceTurnSummaryRequestIdByWorkspaceId.get(
-                args.workspaceId,
-              ) !== requestId
-            ) {
-              return;
-            }
-
-            applyWorkspaceTurnSummaryToState({
-              workspaceId: args.workspaceId,
-              summary: createWorkspaceTurnSummary({
-                turnId: args.turnId,
-                taskId: args.taskId,
-                taskTitle: task?.title ?? "Untitled Task",
-                model,
-                generatedAt: new Date().toISOString(),
-                draft: parsedSummary,
-              }),
-            });
-            return;
-          } catch {
-            continue;
-          }
-        }
-      })().finally(() => {
-        if (
-          workspaceTurnSummaryRequestIdByWorkspaceId.get(args.workspaceId) ===
-          requestId
-        ) {
-          workspaceTurnSummaryRequestIdByWorkspaceId.delete(args.workspaceId);
-        }
-      });
-    };
 
     const { attentionSync, persistNotifications } =
       createAppStoreNotificationRuntime({ set, get });
@@ -2389,11 +2274,18 @@ export const useAppStore = create<AppState>()(
             ).length,
             prompt: normalizedPrompt || promptContent,
             history: latestHistory,
+            lane: resolveAuxLaneRuntime({
+              lane: "taskName",
+              policy: state.settings.auxiliaryInferencePolicy,
+              legacyProviderId: state.settings.utilityInferenceProvider,
+              activeProviderId: provider,
+            }),
             context: buildUtilityInferenceContext({
               cwd: workspaceCwd,
               provider,
               model: activeModel,
               settings: state.settings,
+              lane: "taskName",
             }),
             onTitle: (title) =>
               get().renameTask({
@@ -2471,7 +2363,7 @@ export const useAppStore = create<AppState>()(
           // TopBar pre-warms this module-level Map cache asynchronously; the read
           // here is a plain Map.get — no IPC, no blocking, effectively free.
           const retrievedContextParts: CanonicalRetrievedContextPart[] = [
-            buildCurrentTaskAwarenessRetrievedContext({
+            ...buildCurrentTaskAwarenessRetrievedContextParts({
               workspaceId: taskWorkspaceId,
               workspaceName: taskWorkspaceSummary?.name ?? null,
               workspacePath: workspaceCwd ?? null,
@@ -2482,10 +2374,6 @@ export const useAppStore = create<AppState>()(
               taskId: resolvedTaskId,
               tasks: taskWorkspaceTasks,
               workspaceInformation: taskWorkspaceInformation,
-              // Static procedural guidance is identical every turn; inject it
-              // only on the task's first turn and rely on the terse pointer
-              // afterwards to keep the recurring prompt small.
-              includeStaticGuidance: existingHistory.length === 0,
             }),
             ...freshSourceContexts,
           ];
@@ -2527,7 +2415,10 @@ export const useAppStore = create<AppState>()(
           if (workspaceInformationReferencesContext) {
             retrievedContextParts.push(workspaceInformationReferencesContext);
           }
-          if (existingHistory.length === 0 && workspaceCwd) {
+          // The repo map is attached unconditionally here; the prompt funnel
+          // drops it whenever the provider session is already primed, which is
+          // a truthful signal, unlike the paged in-memory history length.
+          if (workspaceCwd) {
             const repoMapText = getRepoMapContextCache(workspaceCwd);
             if (repoMapText) {
               retrievedContextParts.push({
@@ -2798,6 +2689,9 @@ export const useAppStore = create<AppState>()(
                 }),
               flushEvents: (pendingEvents) => {
                 webFetchAuthWallTracker.observe(pendingEvents);
+                if (eventsIndicateFileEdits(pendingEvents)) {
+                  recordTurnFileEdits(turnId);
+                }
                 let persistInactiveWorkspaceSession: {
                   workspaceId: string;
                   session: WorkspaceSessionState;

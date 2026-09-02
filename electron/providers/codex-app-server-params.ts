@@ -85,6 +85,8 @@ export function buildCodexConfigOverrides(args: {
    * same way, so keep the two in step.
    */
   secondaryReadOnly?: boolean;
+  /** See `buildCodexDeveloperInstructions`: gates the Lens instruction block. */
+  hasStaveLocalMcp?: boolean;
 }) {
   const workerRuntimeOptions = args.secondaryReadOnly
     ? undefined
@@ -110,6 +112,7 @@ export function buildCodexConfigOverrides(args: {
   const developerInstructions = buildCodexDeveloperInstructions({
     runtimeOptions: args.runtimeOptions,
     ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   });
   const summaryMode = args.runtimeOptions?.codexReasoningSummary;
   const supportsSummaries = args.runtimeOptions?.codexReasoningSummarySupport;
@@ -248,6 +251,7 @@ export function buildCodexThreadStartParams(args: {
   configOverrides?: CodexConfigOverrides;
   isolated?: boolean;
   secondaryReadOnly?: boolean;
+  hasStaveLocalMcp?: boolean;
 }) {
   const config = args.isolated
     ? {
@@ -261,6 +265,7 @@ export function buildCodexThreadStartParams(args: {
         runtimeOptions: args.runtimeOptions,
         configOverrides: args.configOverrides,
         ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+        ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
       });
 
   return {
@@ -317,12 +322,14 @@ export function buildCodexThreadResumeParams(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   configOverrides?: CodexConfigOverrides;
   secondaryReadOnly?: boolean;
+  hasStaveLocalMcp?: boolean;
 }) {
   const config = buildCodexConfigOverrides({
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
     configOverrides: args.configOverrides,
     ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   });
 
   return {

@@ -4,6 +4,7 @@ import {
   shouldSuggestTaskName,
 } from "@/lib/tasks";
 import type { UtilityInferenceContext } from "@/lib/providers/utility-inference";
+import type { AuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import {
   reportUtilityInferenceError,
   reportUtilityInferenceOutcome,
@@ -71,12 +72,20 @@ export function maybeSuggestUtilityTaskName(args: {
   prompt: string;
   history: ChatMessage[];
   context: UtilityInferenceContext;
+  /** Background AI `taskName` lane; absent keeps the built-in defaults. */
+  lane?: AuxLaneRuntime;
   onTitle: (title: string) => void;
 }) {
+  if (args.lane && !args.lane.enabled) {
+    return;
+  }
   if (
     !shouldSuggestTaskName({
       task: args.task,
       priorUserTurnCount: args.priorUserTurnCount,
+      ...(args.lane?.config.maxUserTurns !== undefined
+        ? { maxUserTurns: args.lane.config.maxUserTurns }
+        : {}),
     })
   ) {
     return;

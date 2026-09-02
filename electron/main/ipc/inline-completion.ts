@@ -13,6 +13,7 @@ const InlineCompletionArgsSchema = z.object({
   language: z.string().max(200),
   maxTokens: z.number().int().min(1).max(1024).optional(),
   systemPromptOverride: z.string().max(10_000).optional(),
+  model: z.string().max(200).optional(),
 });
 
 export function registerInlineCompletionHandlers() {
