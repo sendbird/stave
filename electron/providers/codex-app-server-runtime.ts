@@ -151,6 +151,7 @@ import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 import { createProviderBrowserConnectionTracker, parseProviderBrowserDomains, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
 import { buildCodexNativeBrowserTurnConfigOverrides, resolveCodexNativeBrowserPluginEnabled } from "./codex-runtime-config";
 import { prepareCodexImageAwareTurnInput } from "./native-image-input";
+import { normalizeCodexTokenUsage } from "./codex-token-usage";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -455,10 +456,8 @@ function buildThreadKey(args: {
 }) {
   const model = args.runtimeOptions?.model?.trim() || "default";
   const mode = args.runtimeOptions?.codexPlanMode ? "plan" : "chat";
-  // The developer instructions are hashed into the thread key, so anything
-  // that changes them — including whether the Lens block is included — has to
-  // be part of the key. Otherwise a thread would resume with instructions it
-  // was not started with.
+  // The developer instructions are hashed into the key, so anything that
+  // changes them — including whether the Lens block is present — belongs here.
   const instructionProfile = buildCodexInstructionProfileKey({
     runtimeOptions: args.runtimeOptions,
     ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
@@ -1173,10 +1172,7 @@ async function ensureCodexThread(args: {
    * its read-only contract. Mirrors the Claude adapter's gate.
    */
   secondaryReadOnly?: boolean;
-  /**
-   * Resolved by the caller *before* the thread is keyed: it decides whether the
-   * Lens instruction block is present, and therefore the instruction hash.
-   */
+  /** Resolved before keying: it decides the instruction hash. */
   hasStaveLocalMcp?: boolean;
 }) {
   const threadKey = buildThreadKey({
@@ -2461,14 +2457,12 @@ export async function streamCodexWithAppServer(
   });
 
   // Resolved before the thread is keyed: it decides whether the Lens
-  // instruction block is part of the developer instructions, and those are
-  // hashed into the thread key.
-  const nativeSlashCommandInput = args.conversation
-    ? getProviderNativeSlashCommandInput(args.conversation)
-    : null;
-  const hasEmbeddedStaveLocalMcp = nativeSlashCommandInput
-    ? false
-    : await hasConnectedStaveLocalMcpForCodex();
+  // instruction block is part of the developer instructions, which are hashed
+  // into the thread key.
+  const hasEmbeddedStaveLocalMcp =
+    args.conversation && getProviderNativeSlashCommandInput(args.conversation)
+      ? false
+      : await hasConnectedStaveLocalMcpForCodex();
 
   let threadId: string;
   let resumedThreadId: string | null;
@@ -3470,41 +3464,15 @@ export async function streamCodexWithAppServer(
           return;
         }
         case "thread/tokenUsage/updated": {
-          // `TokenUsageBreakdown` (Codex App Server v2 schema). `cachedInputTokens`
-          // is a *subset* of `inputTokens` — the schema's sibling
-          // `netNewInputTokens` is exactly `inputTokens - cachedInputTokens` —
-          // so the two must never be added together when reporting a prompt
-          // size. `reasoningOutputTokens` is billed output the user never sees.
-          const tokenUsage = params.tokenUsage as
-            | {
-                last?: {
-                  inputTokens?: number;
-                  outputTokens?: number;
-                  cachedInputTokens?: number;
-                  cacheWriteInputTokens?: number;
-                  reasoningOutputTokens?: number;
-                };
-              }
-            | undefined;
-          if (!tokenUsage?.last) {
+          const normalizedUsage = normalizeCodexTokenUsage(
+            params.tokenUsage as Parameters<
+              typeof normalizeCodexTokenUsage
+            >[0],
+          );
+          if (!normalizedUsage) {
             return;
           }
-          latestUsage = {
-            inputTokens: tokenUsage.last.inputTokens ?? 0,
-            outputTokens: tokenUsage.last.outputTokens ?? 0,
-            ...(typeof tokenUsage.last.cachedInputTokens === "number" &&
-            tokenUsage.last.cachedInputTokens > 0
-              ? { cacheReadTokens: tokenUsage.last.cachedInputTokens }
-              : {}),
-            ...(typeof tokenUsage.last.cacheWriteInputTokens === "number" &&
-            tokenUsage.last.cacheWriteInputTokens > 0
-              ? { cacheCreationTokens: tokenUsage.last.cacheWriteInputTokens }
-              : {}),
-            ...(typeof tokenUsage.last.reasoningOutputTokens === "number" &&
-            tokenUsage.last.reasoningOutputTokens > 0
-              ? { thoughtTokens: tokenUsage.last.reasoningOutputTokens }
-              : {}),
-          };
+          latestUsage = normalizedUsage;
           // Replay overwrites the assistant message's usage fields rather than
           // accumulating them, so emitting the running total repeatedly is
           // safe and keeps the Usage metric live instead of blank until the

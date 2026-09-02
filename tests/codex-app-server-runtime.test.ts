@@ -49,6 +49,7 @@ import {
   resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
+import { normalizeCodexTokenUsage } from "../electron/providers/codex-token-usage";
 
 function encodeJwtPayload(payload: Record<string, unknown>) {
   const encoded = Buffer.from(JSON.stringify(payload))
@@ -1844,5 +1845,42 @@ describe("resolveCodexApprovalDecisionTimeoutMs", () => {
         override: 5000,
       }),
     ).toBe(5000);
+  });
+});
+
+describe("Codex token usage mapping", () => {
+  test("maps the v2 TokenUsageBreakdown including reasoning and cache write", () => {
+    expect(
+      normalizeCodexTokenUsage({
+        last: {
+          inputTokens: 100_000,
+          outputTokens: 500,
+          cachedInputTokens: 90_000,
+          cacheWriteInputTokens: 4_000,
+          reasoningOutputTokens: 320,
+        },
+      }),
+    ).toEqual({
+      inputTokens: 100_000,
+      outputTokens: 500,
+      cacheReadTokens: 90_000,
+      cacheCreationTokens: 4_000,
+      thoughtTokens: 320,
+    });
+  });
+
+  test("omits zero optional counters and tolerates a missing breakdown", () => {
+    expect(
+      normalizeCodexTokenUsage({
+        last: {
+          inputTokens: 10,
+          outputTokens: 5,
+          cachedInputTokens: 0,
+          reasoningOutputTokens: 0,
+        },
+      }),
+    ).toEqual({ inputTokens: 10, outputTokens: 5 });
+    expect(normalizeCodexTokenUsage(undefined)).toBeNull();
+    expect(normalizeCodexTokenUsage({})).toBeNull();
   });
 });
