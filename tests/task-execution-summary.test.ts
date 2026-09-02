@@ -121,6 +121,9 @@ describe("task execution summary", () => {
       outputTokens: 50,
       cacheReadTokens: 5,
       cacheCreationTokens: 0,
+      // Codex reports the whole prompt in `inputTokens`, so the cached 5 are
+      // already inside the 120 and must not be added again.
+      promptTokens: 120,
       totalCostUsd: 0.01,
     });
     expect(summary.changes.value).toMatchObject({
@@ -135,6 +138,37 @@ describe("task execution summary", () => {
       usedPercent: 67,
     });
     expect(summary.contextHeadroom.provenance).toBe("unavailable");
+  });
+
+  it("counts Claude cache reads as prompt tokens rather than dropping them", () => {
+    // Claude's `inputTokens` is the uncached remainder, so a summary built on
+    // input + output alone would report 1,500 for a 100,500-token turn.
+    const summary = buildTaskExecutionSummary({
+      taskId: "task-1",
+      providerId: "claude-code",
+      messages: [
+        assistantMessage({
+          id: "assistant-1",
+          providerId: "claude-code",
+          model: "claude-sonnet-5",
+          usage: {
+            inputTokens: 1_000,
+            outputTokens: 500,
+            cacheReadTokens: 90_000,
+            cacheCreationTokens: 9_000,
+          },
+        }),
+      ],
+      rateLimits,
+    });
+
+    expect(summary.usage.value).toMatchObject({
+      inputTokens: 1_000,
+      outputTokens: 500,
+      cacheReadTokens: 90_000,
+      cacheCreationTokens: 9_000,
+      promptTokens: 100_000,
+    });
   });
 
   it("keeps missing provider data unavailable instead of displaying zero", () => {

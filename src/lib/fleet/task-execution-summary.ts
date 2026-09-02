@@ -3,6 +3,7 @@ import type {
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
+import { computePromptCacheStats } from "@/lib/providers/usage-cache";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { TurnVerificationResult } from "@/lib/workspace-scripts";
 import type { ChatMessage, CodeDiffPart } from "@/types/chat";
@@ -40,6 +41,13 @@ export interface TaskExecutionUsage {
   outputTokens: number;
   cacheReadTokens: number;
   cacheCreationTokens: number;
+  /**
+   * Every prompt token the models read across this task, cached or not,
+   * accumulated per message so each provider's own cache convention applies.
+   * `inputTokens` alone understates Claude turns, which report only the
+   * uncached remainder.
+   */
+  promptTokens: number;
   totalCostUsd: number | null;
   costAmount?: number;
   costCurrency?: string;
@@ -471,6 +479,13 @@ function buildUsageMetric(
       total.outputTokens += usage.outputTokens;
       total.cacheReadTokens += usage.cacheReadTokens ?? 0;
       total.cacheCreationTokens += usage.cacheCreationTokens ?? 0;
+      total.promptTokens += computePromptCacheStats({
+        providerId:
+          message.providerId && message.providerId !== "user"
+            ? message.providerId
+            : null,
+        usage,
+      }).promptTokens;
       if (usage.totalCostUsd != null) {
         total.totalCostUsd = (total.totalCostUsd ?? 0) + usage.totalCostUsd;
       }
@@ -485,6 +500,7 @@ function buildUsageMetric(
       outputTokens: 0,
       cacheReadTokens: 0,
       cacheCreationTokens: 0,
+      promptTokens: 0,
       totalCostUsd: null,
     },
   );

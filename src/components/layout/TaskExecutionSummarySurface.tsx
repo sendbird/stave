@@ -291,9 +291,16 @@ function buildMetricDescriptors(
           usage.cacheReadTokens ||
           usage.cacheCreationTokens,
         );
+        // Prompt + output, not input + output: on Claude `inputTokens` is only
+        // the uncached remainder, so the old sum silently omitted every cached
+        // token — the bulk of a long task's prompt.
         const tokenLabel = hasTokens
-          ? `${formatCount(usage.inputTokens + usage.outputTokens)} tokens`
+          ? `${formatCount(usage.promptTokens + usage.outputTokens)} tokens`
           : null;
+        const cacheLabel =
+          hasTokens && usage.promptTokens > 0 && usage.cacheReadTokens > 0
+            ? `${Math.round((usage.cacheReadTokens / usage.promptTokens) * 100)}% cached`
+            : null;
         const costLabel =
           usage.totalCostUsd != null
             ? `$${usage.totalCostUsd.toFixed(4)}`
@@ -301,7 +308,8 @@ function buildMetricDescriptors(
               ? formatReportedCost(usage.costAmount, usage.costCurrency)
               : null;
         return (
-          [tokenLabel, costLabel].filter(Boolean).join(" · ") || "Not reported"
+          [tokenLabel, cacheLabel, costLabel].filter(Boolean).join(" · ") ||
+          "Not reported"
         );
       })(),
     },

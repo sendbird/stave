@@ -143,6 +143,73 @@ describe("SqliteStore", () => {
   );
 
   nativeSqliteTest(
+    "round-trips per-turn usage and never erases it on a later completion",
+    async () => {
+      const SqliteStore = await loadSqliteStore();
+      const store = new SqliteStore({ dbPath });
+      store.upsertWorkspace({
+        id: "ws-usage",
+        name: "Usage",
+        snapshot: createSnapshot(),
+      });
+      store.beginTurn({
+        id: "turn-usage",
+        workspaceId: "ws-usage",
+        taskId: "task-1",
+        providerId: "claude-code",
+        createdAt: "2026-03-06T01:00:00.000Z",
+      });
+      store.completeTurn({
+        id: "turn-usage",
+        completedAt: "2026-03-06T01:00:03.000Z",
+        usage: {
+          inputTokens: 1_000,
+          outputTokens: 500,
+          cacheReadTokens: 90_000,
+          cacheCreationTokens: 9_000,
+          totalCostUsd: 0.12,
+        },
+      });
+
+      expect(
+        store.listTurns({ workspaceId: "ws-usage", taskId: "task-1" })[0]
+          ?.usage,
+      ).toEqual({
+        inputTokens: 1_000,
+        outputTokens: 500,
+        cacheReadTokens: 90_000,
+        cacheCreationTokens: 9_000,
+        totalCostUsd: 0.12,
+      });
+
+      // A second completion without usage must not wipe a real measurement.
+      store.completeTurn({
+        id: "turn-usage",
+        completedAt: "2026-03-06T01:00:05.000Z",
+      });
+      expect(
+        store.listTurns({ workspaceId: "ws-usage", taskId: "task-1" })[0]
+          ?.usage?.cacheReadTokens,
+      ).toBe(90_000);
+
+      // A turn that never reported usage reads back as null, not as zeros.
+      store.beginTurn({
+        id: "turn-no-usage",
+        workspaceId: "ws-usage",
+        taskId: "task-2",
+        providerId: "codex",
+        createdAt: "2026-03-06T02:00:00.000Z",
+      });
+      store.completeTurn({ id: "turn-no-usage" });
+      expect(
+        store.listTurns({ workspaceId: "ws-usage", taskId: "task-2" })[0]
+          ?.usage,
+      ).toBeNull();
+      store.close();
+    },
+  );
+
+  nativeSqliteTest(
     "round-trips universal pane/tab fields and keeps missing fields missing",
     async () => {
       const SqliteStore = await loadSqliteStore();

@@ -172,6 +172,8 @@ import {
   previewMcpServerConfigMutation,
 } from "./providers/mcp-config-management";
 import { claimHostServiceStdout } from "./host-service/stdout-guard";
+import { toPersistenceTurnUsage } from "./persistence/turn-usage";
+import type { PersistenceTurnUsage } from "./persistence/types";
 
 /**
  * Claimed before anything in this process can log: stdout carries the protocol
@@ -884,6 +886,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
     }
   }
 
+  let latestTurnUsage: PersistenceTurnUsage | null = null;
   const started = providerRuntime.startTurnStream(
     {
       ...args,
@@ -893,6 +896,12 @@ function startPushProviderTurn(args: StreamTurnArgs) {
       bufferEvents: true,
       onEvent: (turnEvent) => {
         sequence += 1;
+
+        // The last `usage` event of a turn is its authoritative total; earlier
+        // ones are throttled running totals of the same counters.
+        if (turnEvent.type === "usage") {
+          latestTurnUsage = toPersistenceTurnUsage(turnEvent);
+        }
 
         if (persistEnabled) {
           pendingTurnEvents.push({ sequence, event: turnEvent });
@@ -922,6 +931,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
             store.completeTurn({
               id: turnId,
               completedAt: new Date().toISOString(),
+              usage: latestTurnUsage,
             });
           } catch (error) {
             console.warn(

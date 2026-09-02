@@ -3449,12 +3449,19 @@ export async function streamCodexWithAppServer(
           return;
         }
         case "thread/tokenUsage/updated": {
+          // `TokenUsageBreakdown` (Codex App Server v2 schema). `cachedInputTokens`
+          // is a *subset* of `inputTokens` — the schema's sibling
+          // `netNewInputTokens` is exactly `inputTokens - cachedInputTokens` —
+          // so the two must never be added together when reporting a prompt
+          // size. `reasoningOutputTokens` is billed output the user never sees.
           const tokenUsage = params.tokenUsage as
             | {
                 last?: {
                   inputTokens?: number;
                   outputTokens?: number;
                   cachedInputTokens?: number;
+                  cacheWriteInputTokens?: number;
+                  reasoningOutputTokens?: number;
                 };
               }
             | undefined;
@@ -3467,6 +3474,14 @@ export async function streamCodexWithAppServer(
             ...(typeof tokenUsage.last.cachedInputTokens === "number" &&
             tokenUsage.last.cachedInputTokens > 0
               ? { cacheReadTokens: tokenUsage.last.cachedInputTokens }
+              : {}),
+            ...(typeof tokenUsage.last.cacheWriteInputTokens === "number" &&
+            tokenUsage.last.cacheWriteInputTokens > 0
+              ? { cacheCreationTokens: tokenUsage.last.cacheWriteInputTokens }
+              : {}),
+            ...(typeof tokenUsage.last.reasoningOutputTokens === "number" &&
+            tokenUsage.last.reasoningOutputTokens > 0
+              ? { thoughtTokens: tokenUsage.last.reasoningOutputTokens }
               : {}),
           };
           // Replay overwrites the assistant message's usage fields rather than
