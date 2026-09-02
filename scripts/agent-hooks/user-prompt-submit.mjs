@@ -26,7 +26,6 @@ function buildGuidance(prompt) {
   ])) {
     lines.push(
       "For broad codebase orientation, start with docs/architecture/index.md, docs/architecture/entrypoints.md, and AGENTS.md before reading large files.",
-      "Suggested skill: $the-explore-codebase",
     );
   }
 

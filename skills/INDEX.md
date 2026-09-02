@@ -2,7 +2,6 @@
 
 | Name | Category | Compatible Tools | Trigger Summary |
 | --- | --- | --- | --- |
-| `the-explore-codebase` | `navigation` | `claude`, `codex` | Explore an unfamiliar area of the Stave codebase quickly; use for architecture overviews, relevant-file discovery, entrypoints, and broad code search before implementation. |
 | `the-high-signal-review` | `review` | `claude`, `codex` | Review the current workspace diff or PR with a strict false-positive filter; use for high-signal code review, inline comments only for real issues, and policy-aware PR review. |
 | `the-trace-execution-path` | `navigation` | `claude`, `codex` | Trace a behavior through producer, bridge, contract, and consumer boundaries; use for execution paths, call flows, and "where does this happen" questions. |
 | `the-ipc-contract-audit` | `safety` | `claude`, `codex` | Audit multi-file Stave contracts when IPC payloads, provider events, runtime options, `window.api`, or schemas are involved. Covers strict Zod validation in `electron/main/ipc/schemas.ts` and `src/lib/providers/schemas.ts`, plus the host-service `respond()` await pitfall. |
