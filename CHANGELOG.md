@@ -1,3 +1,17 @@
+## [0.16.6](https://github.com/sendbird/stave/compare/v0.16.5...v0.16.6) (2026-09-02)
+
+### Features
+
+* Add saved prompt macros with optional per-item model and effort pins, insertable from the composer with `!` or the toolbar Macros control, with full CRUD in Settings → Macros.
+
+### Bug Fixes
+
+* Fix inaccurate delegated-agent activity display under high fan-out by making the work graph authoritative for agent rows and counts, preventing pruned subagent rows from reappearing and eliminating duplicate rows.
+
+### References
+
+* [#436](https://github.com/sendbird/stave/pull/436), [#438](https://github.com/sendbird/stave/pull/438)
+
 ## [0.16.5](https://github.com/sendbird/stave/compare/v0.16.4...v0.16.5) (2026-09-02)
 
 ### Bug Fixes
