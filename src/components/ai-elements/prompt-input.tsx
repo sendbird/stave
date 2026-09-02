@@ -110,6 +110,11 @@ import {
   replaceSkillToken,
 } from "@/lib/skills/catalog";
 import type { SkillCatalogEntry, SkillTokenMatch } from "@/lib/skills/types";
+import {
+  filterMacroEntries,
+  getActiveMacroTokenMatch,
+} from "@/lib/macros/token";
+import type { Macro, MacroTokenMatch } from "@/lib/macros/types";
 import { cn } from "@/lib/utils";
 import {
   collectClipboardFiles,
@@ -256,6 +261,12 @@ interface PromptInputProps {
   skillsEnabled?: boolean;
   skillsAutoSuggest?: boolean;
   skillPaletteItems?: readonly SkillCatalogEntry[];
+  macros?: readonly Macro[];
+  onMacroSelect?: (args: {
+    macro: Macro;
+    match: MacroTokenMatch | null;
+    draftText: string;
+  }) => { text: string; caretIndex: number } | null;
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
   onValueChange: (value: string) => void;
   onEnhancePrompt?: () => void | Promise<void>;
@@ -324,6 +335,7 @@ interface PromptInputProps {
    */
   secretsControl?: ReactNode;
   secretsActive?: boolean;
+  macroControl?: ReactNode;
   compareControl?: ReactNode;
   composerControlPlacements?: ComposerControlPlacements;
   onComposerControlPlacementsChange?: (next: ComposerControlPlacements) => void;
@@ -835,6 +847,8 @@ export function PromptInput(args: PromptInputProps) {
     skillsEnabled,
     skillsAutoSuggest,
     skillPaletteItems,
+    macros,
+    onMacroSelect,
     workspaceInformationReferenceOptions,
     onValueChange,
     onEnhancePrompt,
@@ -870,6 +884,7 @@ export function PromptInput(args: PromptInputProps) {
     workerActive,
     secretsControl,
     secretsActive,
+    macroControl,
     compareControl,
     composerControlPlacements,
     onComposerControlPlacementsChange,
@@ -983,15 +998,21 @@ export function PromptInput(args: PromptInputProps) {
     string | null
   >(null);
   const [suppressedAutocompleteValue, setSuppressedAutocompleteValue] =
-    useState<{ palette: "command" | "skill" | "info"; value: string } | null>(
-      null,
-    );
+    useState<{
+      palette: "command" | "skill" | "info" | "macro";
+      value: string;
+    } | null>(null);
   const [selectedCommandIndex, setSelectedCommandIndex] =
     useState(NO_COMMAND_SELECTION);
   const [dismissedSkillToken, setDismissedSkillToken] = useState<string | null>(
     null,
   );
   const [selectedSkillIndex, setSelectedSkillIndex] =
+    useState(NO_COMMAND_SELECTION);
+  const [dismissedMacroToken, setDismissedMacroToken] = useState<string | null>(
+    null,
+  );
+  const [selectedMacroIndex, setSelectedMacroIndex] =
     useState(NO_COMMAND_SELECTION);
   const [
     dismissedWorkspaceInformationToken,
@@ -1035,6 +1056,7 @@ export function PromptInput(args: PromptInputProps) {
   const caretIndexRef = useRef(caretIndex);
   const pendingCommandTokenRef = useRef<SlashCommandTokenMatch | null>(null);
   const pendingSkillTokenRef = useRef<SkillTokenMatch | null>(null);
+  const pendingMacroTokenRef = useRef<MacroTokenMatch | null>(null);
   const pendingWorkspaceInformationTokenRef =
     useRef<WorkspaceInformationTokenMatch | null>(null);
   const commandListRef = useRef<HTMLDivElement | null>(null);
@@ -1175,6 +1197,22 @@ export function PromptInput(args: PromptInputProps) {
       }),
     [activeSkillToken?.query, selectedModel.providerId, skillPaletteItems],
   );
+  const activeMacroToken = useMemo(
+    () =>
+      getActiveMacroTokenMatch({
+        value,
+        caretIndex,
+      }),
+    [caretIndex, value],
+  );
+  const filteredMacroItems = useMemo(
+    () =>
+      filterMacroEntries({
+        macros: macros ?? [],
+        query: activeMacroToken?.query ?? "",
+      }),
+    [activeMacroToken?.query, macros],
+  );
   const filteredWorkspaceInformationItems = useMemo(() => {
     const query = deferredWorkspaceInformationQuery.trim().toLowerCase();
     const items = workspaceInformationReferenceOptions ?? [];
@@ -1190,6 +1228,10 @@ export function PromptInput(args: PromptInputProps) {
   const indexedSkillItems = useMemo(
     () => filteredSkillItems.map((item, index) => ({ item, index })),
     [filteredSkillItems],
+  );
+  const indexedMacroItems = useMemo(
+    () => filteredMacroItems.map((item, index) => ({ item, index })),
+    [filteredMacroItems],
   );
   const indexedWorkspaceInformationItems = useMemo(
     () =>
@@ -1260,13 +1302,23 @@ export function PromptInput(args: PromptInputProps) {
     dismissedWorkspaceInformationToken !==
       activeWorkspaceInformationToken.token,
   );
+  const macroPaletteOpen = Boolean(
+    activeMacroToken &&
+    !(
+      suppressedAutocompleteValue?.palette === "macro" &&
+      suppressedAutocompleteValue.value === value
+    ) &&
+    dismissedMacroToken !== activeMacroToken.token,
+  );
   const activePalette = workspaceInformationPaletteOpen
     ? "info"
     : skillPaletteOpen
       ? "skill"
-      : commandPaletteOpen
-        ? "command"
-        : null;
+      : macroPaletteOpen
+        ? "macro"
+        : commandPaletteOpen
+          ? "command"
+          : null;
   const paletteValue = useMemo(() => {
     if (
       activePalette === "info" &&
@@ -1284,6 +1336,12 @@ export function PromptInput(args: PromptInputProps) {
       return filteredSkillItems[selectedSkillIndex]?.slug ?? "";
     }
     if (
+      activePalette === "macro" &&
+      selectedMacroIndex !== NO_COMMAND_SELECTION
+    ) {
+      return filteredMacroItems[selectedMacroIndex]?.slug ?? "";
+    }
+    if (
       activePalette === "command" &&
       selectedCommandIndex !== NO_COMMAND_SELECTION
     ) {
@@ -1294,9 +1352,11 @@ export function PromptInput(args: PromptInputProps) {
     activePalette,
     selectedWorkspaceInformationIndex,
     selectedSkillIndex,
+    selectedMacroIndex,
     selectedCommandIndex,
     filteredWorkspaceInformationItems,
     filteredSkillItems,
+    filteredMacroItems,
     filteredCommandItems,
   ]);
   const hasRuntimeContent = Boolean((runtimeStatusItems?.length ?? 0) > 0);
@@ -1599,6 +1659,19 @@ export function PromptInput(args: PromptInputProps) {
   }, [filteredSkillItems.length, skillPaletteOpen]);
 
   useEffect(() => {
+    if (!macroPaletteOpen) {
+      setSelectedMacroIndex(NO_COMMAND_SELECTION);
+      return;
+    }
+    setSelectedMacroIndex((current) => {
+      if (current === NO_COMMAND_SELECTION) {
+        return NO_COMMAND_SELECTION;
+      }
+      return Math.min(current, Math.max(filteredMacroItems.length - 1, 0));
+    });
+  }, [filteredMacroItems.length, macroPaletteOpen]);
+
+  useEffect(() => {
     if (!workspaceInformationPaletteOpen) {
       setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
       return;
@@ -1627,7 +1700,9 @@ export function PromptInput(args: PromptInputProps) {
         ? selectedWorkspaceInformationIndex
         : activePalette === "skill"
           ? selectedSkillIndex
-          : selectedCommandIndex;
+          : activePalette === "macro"
+            ? selectedMacroIndex
+            : selectedCommandIndex;
     if (selectedIndex === NO_COMMAND_SELECTION) {
       return;
     }
@@ -1642,6 +1717,7 @@ export function PromptInput(args: PromptInputProps) {
     activePalette,
     selectedCommandIndex,
     selectedSkillIndex,
+    selectedMacroIndex,
     selectedWorkspaceInformationIndex,
   ]);
 
@@ -1928,6 +2004,28 @@ export function PromptInput(args: PromptInputProps) {
     });
   }
 
+  function resolveMacroTokenSelection() {
+    const currentValue = valueRef.current;
+    const pendingToken = pendingMacroTokenRef.current;
+    if (isCurrentTokenMatch(currentValue, pendingToken)) {
+      return pendingToken;
+    }
+    const liveToken = getActiveMacroTokenMatch({
+      value: currentValue,
+      caretIndex: getLiveCaretIndex(currentValue),
+    });
+    if (liveToken) {
+      return liveToken;
+    }
+    if (isCurrentTokenMatch(currentValue, activeMacroToken)) {
+      return activeMacroToken;
+    }
+    return getActiveMacroTokenMatch({
+      value: currentValue,
+      caretIndex: currentValue.length,
+    });
+  }
+
   function resolveWorkspaceInformationTokenSelection() {
     const currentValue = valueRef.current;
     const pendingToken = pendingWorkspaceInformationTokenRef.current;
@@ -1966,6 +2064,13 @@ export function PromptInput(args: PromptInputProps) {
             value: currentValue,
             caretIndex: caretPosition,
           }) ?? activeSkillToken)
+        : null;
+    pendingMacroTokenRef.current =
+      activePalette === "macro"
+        ? (getActiveMacroTokenMatch({
+            value: currentValue,
+            caretIndex: caretPosition,
+          }) ?? activeMacroToken)
         : null;
     pendingWorkspaceInformationTokenRef.current =
       activePalette === "info"
@@ -2016,6 +2121,29 @@ export function PromptInput(args: PromptInputProps) {
     setDismissedSkillToken(`$${item.slug}`);
     setSelectedSkillIndex(NO_COMMAND_SELECTION);
     restoreComposerSelection(nextCaretIndex);
+  }
+
+  function applyMacroSelection(item: Macro) {
+    const match = resolveMacroTokenSelection();
+    pendingMacroTokenRef.current = null;
+    if (!onMacroSelect) {
+      return;
+    }
+    const currentValue = valueRef.current;
+    const result = onMacroSelect({
+      macro: item,
+      match,
+      draftText: currentValue,
+    });
+    if (!result) {
+      return;
+    }
+    valueRef.current = result.text;
+    onValueChange(result.text);
+    setSuppressedAutocompleteValue({ palette: "macro", value: result.text });
+    setDismissedMacroToken(match?.token ?? `!${item.slug}`);
+    setSelectedMacroIndex(NO_COMMAND_SELECTION);
+    restoreComposerSelection(result.caretIndex);
   }
 
   function applyWorkspaceInformationSelection(
@@ -2135,6 +2263,7 @@ export function PromptInput(args: PromptInputProps) {
   if (!workerControl) unavailableComposerControls.push("worker");
   if (!hasReviewControl) unavailableComposerControls.push("review");
   if (!secretsControl) unavailableComposerControls.push("secrets");
+  if (!macroControl) unavailableComposerControls.push("macro");
   if (!compareControl) unavailableComposerControls.push("compare");
   if (!hasRuntimeContent) unavailableComposerControls.push("runtime");
 
@@ -2232,6 +2361,7 @@ export function PromptInput(args: PromptInputProps) {
       />
     ) : null,
     secrets: secretsControl,
+    macro: macroControl,
     compare: compareControl,
     runtime: hasRuntimeContent ? (
       isMobile ? (
@@ -2442,6 +2572,10 @@ export function PromptInput(args: PromptInputProps) {
               }
               if (activePalette === "skill") {
                 setDismissedSkillToken(activeSkillToken?.token ?? null);
+                return;
+              }
+              if (activePalette === "macro") {
+                setDismissedMacroToken(activeMacroToken?.token ?? null);
                 return;
               }
               setDismissedCommandToken(activeCommandToken?.token ?? null);
@@ -2754,6 +2888,52 @@ export function PromptInput(args: PromptInputProps) {
                           }
                         }
                         if (
+                          activePalette === "macro" &&
+                          filteredMacroItems.length > 0 &&
+                          !event.shiftKey &&
+                          !event.altKey &&
+                          !event.ctrlKey &&
+                          !event.metaKey
+                        ) {
+                          if (event.key === "ArrowDown") {
+                            event.preventDefault();
+                            setSelectedMacroIndex((current) =>
+                              getNextCommandSelectionIndex({
+                                currentIndex: current,
+                                itemCount: filteredMacroItems.length,
+                                direction: "next",
+                              }),
+                            );
+                            return;
+                          }
+                          if (event.key === "ArrowUp") {
+                            event.preventDefault();
+                            setSelectedMacroIndex((current) =>
+                              getNextCommandSelectionIndex({
+                                currentIndex: current,
+                                itemCount: filteredMacroItems.length,
+                                direction: "previous",
+                              }),
+                            );
+                            return;
+                          }
+                          if (event.key === "Enter" || event.key === "Tab") {
+                            if (event.nativeEvent.isComposing) {
+                              return;
+                            }
+                            const selectedItem = getAcceptedPaletteItem({
+                              items: filteredMacroItems,
+                              selectedIndex: selectedMacroIndex,
+                              triggerKey: event.key,
+                            });
+                            if (selectedItem) {
+                              event.preventDefault();
+                              applyMacroSelection(selectedItem);
+                              return;
+                            }
+                          }
+                        }
+                        if (
                           activePalette === "command" &&
                           filteredCommandItems.length > 0 &&
                           !event.shiftKey &&
@@ -2816,6 +2996,16 @@ export function PromptInput(args: PromptInputProps) {
                           event.preventDefault();
                           setDismissedSkillToken(
                             activeSkillToken?.token ?? null,
+                          );
+                          return;
+                        }
+                        if (
+                          activePalette === "macro" &&
+                          event.key === "Escape"
+                        ) {
+                          event.preventDefault();
+                          setDismissedMacroToken(
+                            activeMacroToken?.token ?? null,
                           );
                           return;
                         }
@@ -2912,9 +3102,11 @@ export function PromptInput(args: PromptInputProps) {
                             ? filteredWorkspaceInformationItems.length > 0
                             : activePalette === "skill"
                               ? filteredSkillItems.length > 0
-                              : activePalette === "command"
-                                ? filteredCommandItems.length > 0
-                                : false;
+                              : activePalette === "macro"
+                                ? filteredMacroItems.length > 0
+                                : activePalette === "command"
+                                  ? filteredCommandItems.length > 0
+                                  : false;
                         if (paletteHasAcceptedItems) {
                           event.preventDefault();
                           return;
@@ -2943,7 +3135,7 @@ export function PromptInput(args: PromptInputProps) {
                                 )
                               : isQueueNextMode
                                 ? "Queue the next turn… (↵)"
-                                : "Use / for commands, $ for skills, @ for Information"
+                                : "Use / for commands, $ for skills, ! for macros, @ for Information"
                       }
                       className={cn(
                         // Height and overflow belong to these classes alone.
@@ -3025,6 +3217,13 @@ export function PromptInput(args: PromptInputProps) {
                   ) : activePalette === "skill" &&
                     filteredSkillItems.length === 0 ? (
                     <CommandEmpty>No matching skill.</CommandEmpty>
+                  ) : activePalette === "macro" &&
+                    filteredMacroItems.length === 0 ? (
+                    <CommandEmpty>
+                      {macros && macros.length > 0
+                        ? "No matching macro."
+                        : "No macros yet. Add one in Settings → Macros."}
+                    </CommandEmpty>
                   ) : activePalette === "command" &&
                     filteredCommandItems.length === 0 ? (
                     <CommandEmpty>No matching slash command.</CommandEmpty>
@@ -3258,6 +3457,48 @@ export function PromptInput(args: PromptInputProps) {
                           ))}
                         </CommandGroup>
                       ) : null}
+                      {activePalette === "macro" &&
+                      indexedMacroItems.length > 0 ? (
+                        <CommandGroup heading="Macros">
+                          {indexedMacroItems.map(({ item, index }) => (
+                            <CommandItem
+                              key={item.id}
+                              value={item.slug}
+                              className="h-[4.5rem] min-h-[4.5rem] cursor-pointer items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5"
+                              data-palette-index={index}
+                              onMouseEnter={() => setSelectedMacroIndex(index)}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                rememberActivePaletteTokenSelection();
+                              }}
+                              onSelect={() => applyMacroSelection(item)}
+                            >
+                              <div className="flex items-start pt-0.5">
+                                <Zap className="size-4 text-muted-foreground" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="truncate font-medium">
+                                    {item.label}
+                                  </span>
+                                  <Badge
+                                    variant="outline"
+                                    className="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wide"
+                                  >
+                                    !{item.slug}
+                                  </Badge>
+                                </div>
+                                <p
+                                  className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground"
+                                  title={item.description ?? item.body}
+                                >
+                                  {item.description || item.body}
+                                </p>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      ) : null}
                       {activePalette === "command" &&
                       providerCommandItems.length > 0 ? (
                         <CommandGroup
@@ -3337,6 +3578,18 @@ export function PromptInput(args: PromptInputProps) {
                       `$skill` activates Stave skill instructions for both
                       `Claude` and `Codex` via prompt context. Use `/` commands
                       only for provider-native commands.
+                    </p>
+                  </div>
+                ) : activePalette === "macro" ? (
+                  <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-2 font-medium text-foreground">
+                      <Zap className="size-3.5" />
+                      Enter or Tab expands the highlighted macro into the draft.
+                    </p>
+                    <p className="mt-2">
+                      The prompt text is inserted immediately so you can edit it
+                      before sending. A pinned model or effort updates this
+                      turn&apos;s selector.
                     </p>
                   </div>
                 ) : activePalette === "command" ? (

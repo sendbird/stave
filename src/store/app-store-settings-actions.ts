@@ -21,6 +21,7 @@ import {
 } from "@/lib/providers/model-shortcuts";
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
+import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   applyCustomTheme,
@@ -461,6 +462,11 @@ export function createSettingsActions(args: {
           ? {}
           : {
               taskPresets: normalizePersistedTaskPresets(patch.taskPresets),
+            }),
+        ...(patch.macros === undefined
+          ? {}
+          : {
+              macros: normalizePersistedMacros(patch.macros),
             }),
         ...(patch.lensSessionScope === undefined
           ? {}

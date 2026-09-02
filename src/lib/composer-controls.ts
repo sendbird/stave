@@ -17,6 +17,7 @@ export const COMPOSER_CONTROL_IDS = [
   "worker",
   "review",
   "secrets",
+  "macro",
   "compare",
   "runtime",
 ] as const;
@@ -53,6 +54,7 @@ export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
   worker: "Worker",
   review: "Review",
   secrets: "Secrets",
+  macro: "Macros",
   compare: "Compare",
   runtime: "Runtime",
 };
@@ -67,6 +69,7 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
     worker: "Delegate bounded implementation work to a cheaper same-provider model.",
     review: "Review uncommitted local changes.",
     secrets: "Bind secrets into this run's environment.",
+    macro: "Insert a saved prompt and optionally pin model + effort.",
     compare: "Run the prompt in two candidate workspaces.",
     runtime: "Effective sandbox, approval, and timeout values.",
   };

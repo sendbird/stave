@@ -172,6 +172,7 @@ import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { ChangelogSection } from "./settings-dialog-changelog-section";
 import { DeveloperSection } from "./settings-dialog-developer-section";
 import { PresetsSection } from "./settings-dialog-presets-section";
+import { MacrosSection } from "./settings-dialog-macros-section";
 import { CodexSection } from "./settings-dialog-codex-section";
 import { McpSection } from "./settings-dialog-mcp-section";
 import { KickoffSection } from "./settings-dialog-kickoff-section";
@@ -3945,6 +3946,8 @@ export function SettingsDialogSectionContent(args: {
       );
     case "presets":
       return <PresetsSection />;
+    case "macros":
+      return <MacrosSection />;
     case "theme":
       return <ThemeSection />;
     case "terminal":

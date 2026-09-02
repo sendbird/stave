@@ -25,6 +25,7 @@ import {
 import { createEditorActions } from "@/store/app-store-editor-actions";
 import { createPaneActions } from "@/store/app-store-pane-actions";
 import { createTerminalActions } from "@/store/app-store-terminal-actions";
+import { createMacroActions } from "@/store/app-store-macro-actions";
 import { createSettingsActions } from "@/store/app-store-settings-actions";
 import { createCompareActions } from "@/store/app-store-compare-actions";
 import { createTaskCoreActions } from "@/store/app-store-task-core-actions";
@@ -1475,6 +1476,7 @@ export const useAppStore = create<AppState>()(
       get,
       normalizeSharedSkillsHomeSetting,
     });
+    const macroActions = createMacroActions({ set, get });
     const compareActions = createCompareActions({
       set,
       get,
@@ -1774,6 +1776,7 @@ export const useAppStore = create<AppState>()(
       ...workspaceCreateActions,
       ...workspaceManagementActions,
       ...settingsActions,
+      ...macroActions,
       ...createAppSurfaceActions<AppState>(set),
       ...compareActions,
       ...taskCoreActions,

@@ -52,6 +52,7 @@ import {
   DEFAULT_PRE_PR_REVIEW_PROVIDER,
   type PrePrReviewProviderId,
 } from "@/lib/source-control-review";
+import type { Macro } from "@/lib/macros/types";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -191,6 +192,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * fixed provider + model, or launches a native CLI session.
    */
   taskPresets: TaskPreset[];
+  /**
+   * Saved composer snippets. Selecting one expands its body into the current
+   * draft and may pin a per-turn model + effort override.
+   */
+  macros: Macro[];
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -567,6 +573,7 @@ export const defaultSettings: AppSettings = {
   autoRoutingEligibleClaudeModels: [],
   autoRoutingEligibleCodexModels: [],
   taskPresets: cloneDefaultTaskPresets(),
+  macros: [],
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,
