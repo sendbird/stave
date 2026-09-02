@@ -10,6 +10,10 @@ import {
 import type { AppSettings } from "@/store/app-settings";
 import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
 import {
+  AuxiliaryInferencePolicySchema,
+  DEFAULT_AUXILIARY_INFERENCE_POLICY,
+} from "@/lib/providers/auxiliary-inference-policy";
+import {
   DEFAULT_MARTIN_SYNC_SETTINGS,
   MartinSyncSettingsSchema,
 } from "@/lib/martin-sync/types";
@@ -205,6 +209,39 @@ export const settingDefinitions = [
     applyMode: "next-turn",
     importExport: "include",
   } satisfies SettingDefinition<"workerConfigByProvider">,
+  {
+    key: "auxiliaryInferencePolicy",
+    sectionId: "auxiliaryInference",
+    fieldId: "settings-field-auxiliary-inference",
+    title: "Background AI",
+    description:
+      "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated child tasks.",
+    keywords: [
+      "background ai",
+      "auxiliary",
+      "aux",
+      "cost",
+      "spend",
+      "credits",
+      "tokens",
+      "intent guard",
+      "turn summary",
+      "task name",
+      "task naming",
+      "utility inference",
+      "pr description",
+      "pre-pr review",
+      "inline completion",
+      "child task",
+      "delegation model",
+    ],
+    schema: AuxiliaryInferencePolicySchema,
+    defaultValue: DEFAULT_AUXILIARY_INFERENCE_POLICY,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "include",
+  } satisfies SettingDefinition<"auxiliaryInferencePolicy">,
   {
     key: "modelVisibility",
     sectionId: "models",

@@ -59,8 +59,23 @@ describe("resolveUtilityInferenceCandidates", () => {
     expect(
       resolveUtilityInferenceCandidates({
         activeProviderId: "claude-code",
+        utilityMaxProviderAttempts: 4,
       }).map((candidate) => candidate.providerId),
     ).toEqual(["codex", "claude-code", "cursor", "kiro"]);
+  });
+
+  test("caps the provider fan-out so one cheap call cannot become four", () => {
+    expect(
+      resolveUtilityInferenceCandidates({
+        activeProviderId: "claude-code",
+      }).map((candidate) => candidate.providerId),
+    ).toEqual(["codex", "claude-code"]);
+    expect(
+      resolveUtilityInferenceCandidates({
+        activeProviderId: "claude-code",
+        utilityMaxProviderAttempts: 1,
+      }).map((candidate) => candidate.providerId),
+    ).toEqual(["codex"]);
   });
 
   test("does not let the active task jump the Auto order", () => {
@@ -78,6 +93,7 @@ describe("resolveUtilityInferenceCandidates", () => {
       resolveUtilityInferenceCandidates({
         utilityProviderId: "claude-code",
         activeProviderId: "codex",
+        utilityMaxProviderAttempts: 4,
       }).map((candidate) => ({
         providerId: candidate.providerId,
         reason: candidate.reason,
@@ -219,7 +235,7 @@ describe("provider-neutral utility inference", () => {
   test("skips unauthenticated fallbacks", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
-      { prompt: "fix the terminal" },
+      { prompt: "fix the terminal", utilityMaxProviderAttempts: 4 },
       createRunners({
         calls,
         claude: "Claude Title",
@@ -256,6 +272,7 @@ describe("provider-neutral utility inference", () => {
       {
         prompt: "fix terminal bug tests too",
         activeProviderId: "cursor",
+        utilityMaxProviderAttempts: 4,
       },
       createRunners({
         calls,
@@ -278,7 +295,7 @@ describe("provider-neutral utility inference", () => {
   test("returns diagnostic attempts when no runner is available", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
-      { prompt: "fix the terminal" },
+      { prompt: "fix the terminal", utilityMaxProviderAttempts: 4 },
       createRunners({ calls }),
     );
 
@@ -286,6 +303,29 @@ describe("provider-neutral utility inference", () => {
     expect(result.utility.providerId).toBeNull();
     expect(result.utility.attempts).toHaveLength(4);
     expect(calls).toEqual(["codex", "claude-code", "cursor", "kiro"]);
+  });
+
+  test("applies a configured utility model only to the explicitly pinned provider", async () => {
+    const calls: string[] = [];
+    const result = await suggestUtilityTaskName(
+      {
+        prompt: "fix the terminal",
+        utilityProviderId: "claude-code",
+        utilityModel: "claude-haiku-4-5",
+      },
+      createRunners({ calls, codex: "Codex Title" }),
+    );
+
+    expect(result.utility.attempts[0]).toMatchObject({
+      providerId: "claude-code",
+      model: "claude-haiku-4-5",
+    });
+    // The fallback runner is a different provider; forcing the pinned
+    // provider's model id onto it would fail the call outright.
+    expect(result.utility.attempts[1]).toMatchObject({
+      providerId: "codex",
+      model: "gpt-5.6-luna",
+    });
   });
 
   test("parses route classification through the same provider selection", async () => {

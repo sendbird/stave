@@ -69,6 +69,16 @@ export function buildUtilityCodexRuntimeOptions(args: {
   };
 }
 
+/**
+ * Default ceiling on how many providers a single utility call may try.
+ *
+ * A parse failure used to fan out across every runner, so one cheap call could
+ * silently become four — including two last-resort providers that are usually
+ * not even installed. Two attempts keep the useful "primary failed, try the
+ * other managed provider" recovery without the tail.
+ */
+export const DEFAULT_UTILITY_MAX_PROVIDER_ATTEMPTS = 2;
+
 export function resolveUtilityInferenceCandidates(
   args: UtilityInferenceContext,
 ): Candidate[] {
@@ -91,7 +101,11 @@ export function resolveUtilityInferenceCandidates(
   for (const providerId of UTILITY_RUNNER_PROVIDER_IDS) {
     add(providerId, "fallback");
   }
-  return candidates;
+  const maxAttempts = Math.max(
+    1,
+    args.utilityMaxProviderAttempts ?? DEFAULT_UTILITY_MAX_PROVIDER_ATTEMPTS,
+  );
+  return candidates.slice(0, maxAttempts);
 }
 
 export async function defaultUtilityAuthGate(args: {
@@ -194,7 +208,13 @@ async function executeUtilityInference<T>(args: {
       });
       continue;
     }
-    const model = capability.defaultModel;
+    // A configured utility model belongs to the provider the user picked. A
+    // fallback runner is a different provider, and handing it another
+    // provider's model id fails the call outright.
+    const model =
+      candidate.reason === "explicit" && args.context.utilityModel?.trim()
+        ? args.context.utilityModel.trim()
+        : capability.defaultModel;
     if (hasAttemptedRunner) {
       const auth = await authGate({
         providerId: candidate.providerId,

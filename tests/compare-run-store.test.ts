@@ -3,6 +3,7 @@ import { finishCompareRunsForTask } from "../src/lib/compare-runs";
 import {
   buildCompareJudgePrompt,
   buildCompareJudgeRuntimeOptions,
+  COMPARE_JUDGE_MAX_ATTEMPTS,
   launchReadyCompareJudges,
   retryCompareJudge,
 } from "../src/store/compare-run-judge";
@@ -671,7 +672,7 @@ describe("compare run store actions", () => {
         workspaceId: "base",
       },
       policy: {
-        maxAttempts: 10,
+        maxAttempts: COMPARE_JUDGE_MAX_ATTEMPTS,
         maxTurns: 16,
       },
     });

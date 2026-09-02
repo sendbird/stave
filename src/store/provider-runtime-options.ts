@@ -28,6 +28,10 @@ import type {
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import type { UtilityInferenceContext } from "@/lib/providers/utility-inference";
+import {
+  resolveAuxLaneRuntime,
+  type AuxLane,
+} from "@/lib/providers/auxiliary-inference-policy";
 import type { AppSettings } from "@/store/app.store";
 
 const DEFAULT_CODEX_APPROVAL_POLICY = "untrusted";
@@ -421,12 +425,25 @@ export function buildUtilityInferenceContext(args: {
   cwd?: string;
   provider: ProviderId;
   model: string;
-  settings: RuntimeSettings & Pick<AppSettings, "utilityInferenceProvider">;
+  settings: RuntimeSettings &
+    Pick<AppSettings, "utilityInferenceProvider" | "auxiliaryInferencePolicy">;
+  /** Which Background AI lane pays for this call. */
+  lane?: Extract<AuxLane, "utility" | "taskName">;
 }): UtilityInferenceContext {
+  const lane = resolveAuxLaneRuntime({
+    lane: args.lane ?? "utility",
+    policy: args.settings.auxiliaryInferencePolicy,
+    legacyProviderId: args.settings.utilityInferenceProvider,
+    activeProviderId: args.provider,
+  });
   return {
     cwd: args.cwd,
     utilityProviderId: args.settings.utilityInferenceProvider,
     activeProviderId: args.provider,
+    ...(lane.model ? { utilityModel: lane.model } : {}),
+    ...(lane.config.maxProviderAttempts
+      ? { utilityMaxProviderAttempts: lane.config.maxProviderAttempts }
+      : {}),
     runtimeOptions: buildProviderRuntimeOptions({
       provider: args.provider,
       model: args.model,

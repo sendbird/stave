@@ -342,6 +342,10 @@ export interface HostProviderReviewDiffArgs {
   mode?: "review" | "intent";
   /** Pinned product intent (PRD / spec / design) text for `mode: "intent"`. */
   intentContext?: string;
+  /** Reuse the previous verdict when the intent, diff, provider and model are
+   *  all byte-identical. Only the recurring per-turn guard opts in; an explicit
+   *  user-triggered review always re-runs. */
+  intentFingerprintGate?: boolean;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }
 
@@ -351,6 +355,8 @@ export interface HostProviderReviewDiffResult {
   headBranch?: string;
   providerId?: PrePrReviewProviderId;
   truncated?: boolean;
+  /** The cached verdict was reused; no model call was made. */
+  unchanged?: boolean;
 }
 
 export interface HostProviderStreamEventPayload {

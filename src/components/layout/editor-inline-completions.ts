@@ -1,6 +1,7 @@
 import type { Monaco } from "@monaco-editor/react";
 import type { editor as MonacoEditorApi, IDisposable, IPosition } from "monaco-editor";
 import { useAppStore } from "@/store/app.store";
+import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 
 export interface InlineCompletionSettings {
   enabled: boolean;
@@ -426,6 +427,12 @@ export function configureInlineCompletions(args: {
         if (!currentSettings.enabled) {
           return { items: [] };
         }
+        if (
+          !useAppStore.getState().settings.auxiliaryInferencePolicy
+            .inlineCompletion.enabled
+        ) {
+          return { items: [] };
+        }
 
         const requestFn = window.api?.inlineCompletion?.request;
         if (!requestFn) {
@@ -557,13 +564,25 @@ export function configureInlineCompletions(args: {
             }
 
             console.debug("[inline-comp] requesting completion");
-            const systemPromptOverride = useAppStore.getState().settings.promptInlineCompletion || undefined;
+            const inlineCompletionSettings = useAppStore.getState().settings;
+            const systemPromptOverride =
+              inlineCompletionSettings.promptInlineCompletion || undefined;
+            // Read at request time rather than at registration: the lane's
+            // model can change in Settings while the editor stays mounted.
+            const inlineCompletionLane = resolveAuxLaneRuntime({
+              lane: "inlineCompletion",
+              policy: inlineCompletionSettings.auxiliaryInferencePolicy,
+            });
             const promise = requestFn({
               prefix,
               suffix,
               filePath,
               language,
               systemPromptOverride,
+              ...(inlineCompletionLane.providerId === "claude-code" &&
+              inlineCompletionLane.model
+                ? { model: inlineCompletionLane.model }
+                : {}),
             });
             inFlightRequest = {
               key: requestKey,

@@ -320,6 +320,8 @@ export const SuggestTaskNameArgsSchema = z
       .union([z.literal("auto"), ProviderIdSchema])
       .optional(),
     activeProviderId: ProviderIdSchema.optional(),
+    utilityModel: z.string().max(200).optional(),
+    utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
     runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().max(2000),
     history: z
@@ -343,6 +345,8 @@ export const ClassifyRouteArgsSchema = z
       .union([z.literal("auto"), ProviderIdSchema])
       .optional(),
     activeProviderId: ProviderIdSchema.optional(),
+    utilityModel: z.string().max(200).optional(),
+    utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
     runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().max(8000),
     history: z
@@ -369,6 +373,8 @@ export const EnhancePromptArgsSchema = z
       .union([z.literal("auto"), ProviderIdSchema])
       .optional(),
     activeProviderId: ProviderIdSchema.optional(),
+    utilityModel: z.string().max(200).optional(),
+    utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
     runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().trim().min(1).max(100_000),
   })
@@ -381,6 +387,8 @@ export const SuggestCommitMessageArgsSchema = z
       .union([z.literal("auto"), ProviderIdSchema])
       .optional(),
     activeProviderId: ProviderIdSchema.optional(),
+    utilityModel: z.string().max(200).optional(),
+    utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
     runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
   })
   .strict();
@@ -415,6 +423,7 @@ export const ReviewDiffArgsSchema = z
     model: z.string().max(200).optional(),
     mode: z.enum(["review", "intent"]).optional(),
     intentContext: z.string().max(8000).optional(),
+    intentFingerprintGate: z.boolean().optional(),
     runtimeOptions: z.lazy(() => RuntimeOptionsSchema),
   })
   .strict();

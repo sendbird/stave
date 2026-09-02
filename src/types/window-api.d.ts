@@ -567,6 +567,7 @@ interface WindowProviderApi {
     model?: string;
     mode?: "review" | "intent";
     intentContext?: string;
+    intentFingerprintGate?: boolean;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<{
     ok: boolean;
@@ -574,6 +575,7 @@ interface WindowProviderApi {
     headBranch?: string;
     providerId?: PrePrReviewProviderId;
     truncated?: boolean;
+    unchanged?: boolean;
   }>;
 }
 
@@ -2668,6 +2670,7 @@ interface WindowInlineCompletionApi {
     language: string;
     maxTokens?: number;
     systemPromptOverride?: string;
+    model?: string;
   }) => Promise<{ ok: boolean; text: string; error?: string }>;
   abort?: () => Promise<{ ok: boolean }>;
   available?: () => Promise<{ ok: boolean; available: boolean }>;

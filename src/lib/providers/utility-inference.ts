@@ -61,6 +61,17 @@ export type UtilityInferenceContext = {
   cwd?: string;
   utilityProviderId?: UtilityInferenceProvider;
   activeProviderId?: ProviderId;
+  /**
+   * Model for the explicitly chosen utility provider. Only applied to that
+   * provider: a fallback runner is a different provider, and forcing another
+   * provider's model id onto it would fail the call outright.
+   */
+  utilityModel?: string;
+  /**
+   * How many providers may be tried before giving up. A parse failure used to
+   * fan out across every runner, turning one cheap call into four.
+   */
+  utilityMaxProviderAttempts?: number;
   runtimeOptions?: ProviderRuntimeOptions;
 };
 

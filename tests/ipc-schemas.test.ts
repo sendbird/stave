@@ -19,6 +19,7 @@ import {
   StageFilesArgsSchema,
   SteerTurnArgsSchema,
   SuggestPRDescriptionArgsSchema,
+  SuggestTaskNameArgsSchema,
   TerminalCreateSessionArgsSchema,
   StreamTurnArgsSchema,
   TryAutoFixLintArgsSchema,
@@ -546,6 +547,51 @@ describe("provider IPC schemas", () => {
       ReviewDiffArgsSchema.safeParse({
         cwd: "/tmp/project",
         extra: true,
+      }).success,
+    ).toBe(false);
+  });
+
+  test("accepts the intent-guard fingerprint gate", () => {
+    expect(
+      ReviewDiffArgsSchema.safeParse({
+        cwd: "/tmp/project",
+        providerId: "claude-code",
+        mode: "intent",
+        intentContext: "Ship the settings dialog",
+        intentFingerprintGate: true,
+        runtimeOptions: { model: "claude-haiku-4-5" },
+      }).success,
+    ).toBe(true);
+    expect(
+      ReviewDiffArgsSchema.safeParse({
+        cwd: "/tmp/project",
+        intentFingerprintGate: "yes",
+        runtimeOptions: {},
+      }).success,
+    ).toBe(false);
+  });
+
+  test("accepts Background AI lane overrides on utility requests", () => {
+    expect(
+      SuggestTaskNameArgsSchema.safeParse({
+        prompt: "fix the terminal",
+        utilityProviderId: "claude-code",
+        utilityModel: "claude-haiku-4-5",
+        utilityMaxProviderAttempts: 2,
+      }).success,
+    ).toBe(true);
+    // The fan-out cap must stay a small integer; an unbounded value would
+    // reinstate the very behavior the cap exists to prevent.
+    expect(
+      SuggestTaskNameArgsSchema.safeParse({
+        prompt: "fix the terminal",
+        utilityMaxProviderAttempts: 99,
+      }).success,
+    ).toBe(false);
+    expect(
+      SuggestTaskNameArgsSchema.safeParse({
+        prompt: "fix the terminal",
+        utilityMaxProviderAttempts: 0,
       }).success,
     ).toBe(false);
   });
