@@ -450,11 +450,19 @@ function buildThreadKey(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   boundSecretFingerprint?: string;
+  secondaryReadOnly?: boolean;
+  hasStaveLocalMcp?: boolean;
 }) {
   const model = args.runtimeOptions?.model?.trim() || "default";
   const mode = args.runtimeOptions?.codexPlanMode ? "plan" : "chat";
+  // The developer instructions are hashed into the thread key, so anything
+  // that changes them — including whether the Lens block is included — has to
+  // be part of the key. Otherwise a thread would resume with instructions it
+  // was not started with.
   const instructionProfile = buildCodexInstructionProfileKey({
     runtimeOptions: args.runtimeOptions,
+    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   });
   const secretFingerprint = args.boundSecretFingerprint ?? "none";
   return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${instructionProfile}:${secretFingerprint}`;
@@ -1165,12 +1173,19 @@ async function ensureCodexThread(args: {
    * its read-only contract. Mirrors the Claude adapter's gate.
    */
   secondaryReadOnly?: boolean;
+  /**
+   * Resolved by the caller *before* the thread is keyed: it decides whether the
+   * Lens instruction block is present, and therefore the instruction hash.
+   */
+  hasStaveLocalMcp?: boolean;
 }) {
   const threadKey = buildThreadKey({
     taskId: args.taskId,
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
     boundSecretFingerprint: args.boundSecretFingerprint,
+    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   });
   const resumeThreadId = args.ephemeral
     ? undefined
@@ -1196,6 +1211,7 @@ async function ensureCodexThread(args: {
           // shell env whenever a thread resumed instead of starting fresh.
           configOverrides: args.configOverrides,
           ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+          ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
         }),
       })
     : await args.client.request<{ thread: { id: string } }>(
@@ -2444,6 +2460,16 @@ export async function streamCodexWithAppServer(
       args.unattendedAutomation?.authorizationToken,
   });
 
+  // Resolved before the thread is keyed: it decides whether the Lens
+  // instruction block is part of the developer instructions, and those are
+  // hashed into the thread key.
+  const nativeSlashCommandInput = args.conversation
+    ? getProviderNativeSlashCommandInput(args.conversation)
+    : null;
+  const hasEmbeddedStaveLocalMcp = nativeSlashCommandInput
+    ? false
+    : await hasConnectedStaveLocalMcpForCodex();
+
   let threadId: string;
   let resumedThreadId: string | null;
   try {
@@ -2458,6 +2484,7 @@ export async function streamCodexWithAppServer(
       configOverrides: mergedConfigOverrides,
       boundSecretFingerprint,
       secondaryReadOnly,
+      hasStaveLocalMcp: hasEmbeddedStaveLocalMcp,
     }));
   } catch (error) {
     const events: BridgeEvent[] = [
@@ -2528,12 +2555,6 @@ export async function streamCodexWithAppServer(
     if (syncedGoalEvent) {
       emitBridgeEvent(syncedGoalEvent);
     }
-    const nativeSlashCommandInput = args.conversation
-      ? getProviderNativeSlashCommandInput(args.conversation)
-      : null;
-    const hasEmbeddedStaveLocalMcp = nativeSlashCommandInput
-      ? false
-      : await hasConnectedStaveLocalMcpForCodex();
     const turnInput = await prepareCodexImageAwareTurnInput({
       cwd: runtimeCwd,
       providerId: args.providerId,

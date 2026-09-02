@@ -42,7 +42,9 @@ import { mapCodexThreadForkResponse } from "../electron/providers/codex-thread-a
 import {
   buildCodexDeveloperInstructions,
   buildCodexNativeBrowserTurnConfigOverrides,
-  CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS,
+  buildCodexInstructionProfileKey,
+  CODEX_STAVE_LENS_INSTRUCTIONS,
+  CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
   isCodexNativeBrowserPluginEnabled,
   resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
@@ -853,9 +855,9 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     });
   });
 
-  test("always appends Stave browser tooling guidance to developer instructions", () => {
+  test("always appends native browser guidance to developer instructions", () => {
     const withoutBasePrompt = buildCodexDeveloperInstructions({});
-    expect(withoutBasePrompt).toBe(CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS);
+    expect(withoutBasePrompt).toBe(CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
 
     const withBasePrompt = buildCodexDeveloperInstructions({
       runtimeOptions: {
@@ -863,25 +865,48 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       },
     });
     expect(withBasePrompt).toBe(
-      `Base system prompt.\n\n${CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS}`,
+      `Base system prompt.\n\n${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}`,
     );
     expect(withBasePrompt).toContain(
       "Use the runtime's web-search tool for general web research",
     );
-    expect(withBasePrompt).toContain("Do not use Lens for those tasks");
     expect(withBasePrompt).toContain("`@web` explicitly requests");
     expect(withBasePrompt).toContain("installed Chrome browser skill");
     expect(withBasePrompt).toContain("existing tabs and signed-in page state");
     expect(withBasePrompt).toContain("unattended automation");
-    expect(withBasePrompt).toContain(
+    expect(withBasePrompt).toContain("control-in-app-browser");
+  });
+
+  test("includes Lens guidance only when the Stave local MCP is registered", () => {
+    // Without the MCP there are no `stave_lens_*` tools, so the block would be
+    // several hundred tokens of instructions about tools that do not exist.
+    const withoutLens = buildCodexDeveloperInstructions({});
+    expect(withoutLens).not.toContain("stave_lens_snapshot");
+    expect(withoutLens).not.toContain("Stave Lens tooling");
+
+    const withLens = buildCodexDeveloperInstructions({
+      hasStaveLocalMcp: true,
+    });
+    expect(withLens).toBe(
+      `${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${CODEX_STAVE_LENS_INSTRUCTIONS}`,
+    );
+    expect(withLens).toContain(
       "only when a change to the current project requires visual inspection",
     );
-    expect(withBasePrompt).toContain("stave_lens_snapshot");
-    expect(withBasePrompt).toContain("stave_lens_present_session");
-    expect(withBasePrompt).toContain("hidden");
-    expect(withBasePrompt).toContain("app-wide Stave approval dialog");
-    expect(withBasePrompt).toContain("Never claim");
-    expect(withBasePrompt).toContain("control-in-app-browser");
+    expect(withLens).toContain("stave_lens_snapshot");
+    expect(withLens).toContain("stave_lens_present_session");
+    expect(withLens).toContain("hidden");
+    expect(withLens).toContain("app-wide Stave approval dialog");
+    expect(withLens).toContain("Never claim");
+    expect(withLens.length).toBeGreaterThan(withoutLens.length);
+  });
+
+  test("keys the thread on whether Lens guidance is present", () => {
+    // The instructions are hashed into the thread key, so a thread must never
+    // resume with a different instruction set than it started with.
+    expect(buildCodexInstructionProfileKey({})).not.toBe(
+      buildCodexInstructionProfileKey({ hasStaveLocalMcp: true }),
+    );
   });
 
   test("forwards the plugin disable override through thread/start config", () => {

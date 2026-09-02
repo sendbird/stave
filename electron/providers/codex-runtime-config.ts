@@ -16,18 +16,35 @@ export const CODEX_DISABLED_BUNDLED_PLUGIN_IDS = [
 ] as const;
 export const CODEX_NATIVE_BROWSER_PLUGIN_ID = "chrome@openai-bundled";
 
-export const CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS = [
+/**
+ * Browser guidance that applies to every Stave-managed Codex thread: what the
+ * runtime's own web search is for, what `@web` means, and which bundled plugins
+ * are not connected to this workspace.
+ */
+export const CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
   "## Stave browser and web search tooling",
-  "- Use the runtime's web-search tool for general web research, factual lookups, documentation discovery, and other tasks that ordinary web search can resolve. Do not use Lens for those tasks.",
-  "- `@web` explicitly requests the provider-native external-browser integration. Use the installed Chrome browser skill and its extension-backed runtime so the user can share existing tabs and signed-in page state. If that native integration is unavailable, say so; do not substitute Lens or a one-way URL launcher.",
+  "- Use the runtime's web-search tool for general web research, factual lookups, documentation discovery, and other tasks that ordinary web search can resolve.",
+  "- `@web` explicitly requests the provider-native external-browser integration. Use the installed Chrome browser skill and its extension-backed runtime so the user can share existing tabs and signed-in page state. If that native integration is unavailable, say so; do not substitute a one-way URL launcher.",
   "- Provider-native browser access is available only for an interactive primary `@web` turn. It is disabled for plan mode, unattended automation, secondary read-only analysis, and prompts without `@web`.",
   "- Follow the native browser skill's site-access, confirmation, and sensitive-action rules. Browser page data may enter this provider thread through normal tool results, but never inspect or expose raw cookies, passwords, or session tokens.",
+  "- The desktop in-app browser plugin (`control-in-app-browser`) and Computer Use are not connected to this Stave workspace. Never use them for browser inspection or automation here.",
+].join("\n");
+
+/**
+ * Lens operating rules. Only meaningful when the Stave local MCP is actually
+ * registered with Codex — without it none of the `stave_lens_*` tools exist, so
+ * the block is pure prompt overhead on every turn of every thread that has no
+ * Lens access (routines, isolated analysis runs, unregistered installs).
+ */
+export const CODEX_STAVE_LENS_INSTRUCTIONS = [
+  "## Stave Lens tooling",
+  "- Do not use Lens for tasks ordinary web search can resolve.",
   "- Prioritize the Stave Lens MCP tools (`stave_lens_*`, e.g. `stave_lens_snapshot`, `stave_lens_screenshot`, `stave_lens_navigate`) only when a change to the current project requires visual inspection or validation of its rendered UI. Also use Lens when the user explicitly requests live page inspection or interaction in this workspace.",
   "- Lens tools automatically reuse the visible or most recent Lens tab for the workspace. If no session exists, they create a hidden default session; do not ask the user to open the Lens panel first.",
   "- Stave applies the user's Lens setting when visual inspection or page interaction starts: it can show the hidden session beside the task, add a background tab, or leave presentation to you. Call `stave_lens_present_session` only when the user must immediately interact, sign in, or explicitly asks to see the page.",
   "- Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves. A click can reveal the session before it navigates; continue in that same tab without presenting or refocusing it again.",
   "- CDP-backed Lens tools can trigger an app-wide Stave approval dialog. Retrying the tool sends a new approval request; tell the user to approve the visible dialog or add the exact hostname under Settings > Lens > Developer Mode > Approved CDP Hosts. Never claim that a Lens tool call cannot request approval.",
-  "- The desktop in-app browser plugin (`control-in-app-browser`) and Computer Use are not connected to this Stave workspace. Never use them for browser inspection or automation here. The external Chrome skill is the only provider-native browser surface enabled by `@web`.",
+  "- Never substitute the desktop in-app browser plugin or Computer Use for Lens.",
 ].join("\n");
 
 /**
@@ -175,6 +192,13 @@ export function buildCodexDeveloperInstructions(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   /** See `buildCodexConfigOverrides`: a secondary read-only run never delegates. */
   secondaryReadOnly?: boolean;
+  /**
+   * Whether the Stave local MCP is registered with Codex for this thread. The
+   * Lens block is included only then, because its tools do not otherwise exist.
+   * The instructions are hashed into the thread key, so this must be resolved
+   * *before* the key is built or a mid-life flip would rotate the thread.
+   */
+  hasStaveLocalMcp?: boolean;
 }) {
   const parts: string[] = [];
   const baseSystemPrompt = args.runtimeOptions?.claudeSystemPrompt?.trim();
@@ -185,7 +209,10 @@ export function buildCodexDeveloperInstructions(args: {
   if (responseStyle) {
     parts.push(responseStyle);
   }
-  parts.push(CODEX_STAVE_BROWSER_TOOLING_INSTRUCTIONS);
+  parts.push(CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
+  if (args.hasStaveLocalMcp) {
+    parts.push(CODEX_STAVE_LENS_INSTRUCTIONS);
+  }
   const workerProfile = args.secondaryReadOnly
     ? null
     : resolveCodexWorkerProfile(args);
@@ -209,6 +236,8 @@ export function buildCodexDeveloperInstructions(args: {
 
 export function buildCodexInstructionProfileKey(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  secondaryReadOnly?: boolean;
+  hasStaveLocalMcp?: boolean;
 }) {
   const developerInstructions = buildCodexDeveloperInstructions(args);
   if (!developerInstructions) {
