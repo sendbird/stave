@@ -27,7 +27,10 @@ async function writeSkill(rootPath: string, slug: string, description: string) {
   );
 }
 
-function createCatalogSkill(args: Partial<SkillCatalogEntry> & Pick<SkillCatalogEntry, "id" | "slug" | "scope" | "provider">): SkillCatalogEntry {
+function createCatalogSkill(
+  args: Partial<SkillCatalogEntry> &
+    Pick<SkillCatalogEntry, "id" | "slug" | "scope" | "provider">,
+): SkillCatalogEntry {
   return {
     id: args.id,
     slug: args.slug,
@@ -101,42 +104,111 @@ describe("skill discovery", () => {
     process.env.CLAUDE_HOME = claudeHome;
     process.env.CODEX_HOME = codexHome;
 
-    await writeSkill(path.join(claudeHomeReal, "skills"), "claude-user", "claude user skill");
-    await writeSkill(path.join(codexHomeReal, "skills", ".system"), "codex-system", "codex system skill");
-    await writeSkill(path.join(workspacePath, "skills"), "workspace-shared", "workspace shared skill");
-    await writeSkill(path.join(workspacePath, ".codex", "skills"), "workspace-codex", "workspace codex skill");
+    await writeSkill(
+      path.join(claudeHomeReal, "skills"),
+      "claude-user",
+      "claude user skill",
+    );
+    await writeSkill(
+      path.join(codexHomeReal, "skills", ".system"),
+      "codex-system",
+      "codex system skill",
+    );
+    await writeSkill(
+      path.join(workspacePath, "skills"),
+      "workspace-shared",
+      "workspace shared skill",
+    );
+    await writeSkill(
+      path.join(workspacePath, ".codex", "skills"),
+      "workspace-codex",
+      "workspace codex skill",
+    );
+    await writeSkill(
+      path.join(workspacePath, ".cursor", "skills"),
+      "workspace-cursor",
+      "workspace cursor skill",
+    );
+    await writeSkill(
+      path.join(workspacePath, ".kiro", "skills"),
+      "workspace-kiro",
+      "workspace kiro skill",
+    );
 
     const result = await discoverSkillCatalog({ workspacePath });
 
     expect(result.ok).toBeTrue();
-    expect(result.catalog.skills.map((skill) => skill.slug)).toContain("claude-user");
-    expect(result.catalog.skills.map((skill) => skill.slug)).toContain("codex-system");
-    expect(result.catalog.skills.map((skill) => skill.slug)).toContain("workspace-shared");
-    expect(result.catalog.skills.map((skill) => skill.slug)).toContain("workspace-codex");
-    expect(result.catalog.roots.some((root) =>
-      root.scope === "user"
-      && root.provider === "claude-code"
-    )).toBeTrue();
-    expect(result.catalog.roots.some((root) =>
-      root.scope === "local"
-      && root.provider === "codex"
-      && root.path === path.join(workspacePath, ".codex", "skills")
-    )).toBeTrue();
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain(
+      "claude-user",
+    );
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain(
+      "codex-system",
+    );
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain(
+      "workspace-shared",
+    );
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain(
+      "workspace-codex",
+    );
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain(
+      "workspace-cursor",
+    );
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain(
+      "workspace-kiro",
+    );
+    expect(
+      result.catalog.roots.some(
+        (root) => root.scope === "user" && root.provider === "claude-code",
+      ),
+    ).toBeTrue();
+    expect(
+      result.catalog.roots.some(
+        (root) =>
+          root.scope === "local" &&
+          root.provider === "codex" &&
+          root.path === path.join(workspacePath, ".codex", "skills"),
+      ),
+    ).toBeTrue();
+    expect(
+      result.catalog.roots.some(
+        (root) =>
+          root.scope === "local" &&
+          root.provider === "cursor" &&
+          root.path === path.join(workspacePath, ".cursor", "skills"),
+      ),
+    ).toBeTrue();
+    expect(
+      result.catalog.roots.some(
+        (root) =>
+          root.scope === "local" &&
+          root.provider === "kiro" &&
+          root.path === path.join(workspacePath, ".kiro", "skills"),
+      ),
+    ).toBeTrue();
   });
 
   test("scans the shared skills root directory directly without appending /skills", async () => {
     const sharedRoot = path.join(tempHome, "my-shared-skills");
-    await writeSkill(sharedRoot, "direct-skill", "skill placed directly in shared root");
+    await writeSkill(
+      sharedRoot,
+      "direct-skill",
+      "skill placed directly in shared root",
+    );
 
     const result = await discoverSkillCatalog({ sharedSkillsHome: sharedRoot });
 
     expect(result.ok).toBeTrue();
-    expect(result.catalog.skills.map((skill) => skill.slug)).toContain("direct-skill");
-    expect(result.catalog.roots.some((root) =>
-      root.provider === "shared"
-      && root.path === sharedRoot
-      && root.detail === "Shared skills root configured in Settings."
-    )).toBeTrue();
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain(
+      "direct-skill",
+    );
+    expect(
+      result.catalog.roots.some(
+        (root) =>
+          root.provider === "shared" &&
+          root.path === sharedRoot &&
+          root.detail === "Shared skills root configured in Settings.",
+      ),
+    ).toBeTrue();
   });
 
   test("prefers the Settings shared root override over the environment root", async () => {
@@ -145,7 +217,11 @@ describe("skill discovery", () => {
 
     process.env.STAVE_SHARED_SKILLS_HOME = sharedRootFromEnv;
     await writeSkill(sharedRootFromEnv, "env-shared", "env shared skill");
-    await writeSkill(sharedRootFromSettings, "settings-shared", "settings shared skill");
+    await writeSkill(
+      sharedRootFromSettings,
+      "settings-shared",
+      "settings shared skill",
+    );
 
     const result = await discoverSkillCatalog({
       sharedSkillsHome: sharedRootFromSettings,
@@ -153,31 +229,59 @@ describe("skill discovery", () => {
 
     expect(result.ok).toBeTrue();
     expect(result.catalog.sharedSkillsHome).toBe(sharedRootFromSettings);
-    expect(result.catalog.skills.map((skill) => skill.slug)).toContain("settings-shared");
-    expect(result.catalog.skills.map((skill) => skill.slug)).not.toContain("env-shared");
-    expect(result.catalog.roots.some((root) =>
-      root.provider === "shared"
-      && root.path === sharedRootFromSettings
-      && root.detail === "Shared skills root configured in Settings."
-    )).toBeTrue();
+    expect(result.catalog.skills.map((skill) => skill.slug)).toContain(
+      "settings-shared",
+    );
+    expect(result.catalog.skills.map((skill) => skill.slug)).not.toContain(
+      "env-shared",
+    );
+    expect(
+      result.catalog.roots.some(
+        (root) =>
+          root.provider === "shared" &&
+          root.path === sharedRootFromSettings &&
+          root.detail === "Shared skills root configured in Settings.",
+      ),
+    ).toBeTrue();
   });
 });
 
 describe("provider skill compatibility", () => {
   const allSkills: SkillCatalogEntry[] = [
-    createCatalogSkill({ id: "local:claude:commit", slug: "commit", scope: "local", provider: "claude-code" }),
-    createCatalogSkill({ id: "local:codex:generate", slug: "generate", scope: "local", provider: "codex" }),
-    createCatalogSkill({ id: "local:shared:review", slug: "review", scope: "local", provider: "shared" }),
+    createCatalogSkill({
+      id: "local:claude:commit",
+      slug: "commit",
+      scope: "local",
+      provider: "claude-code",
+    }),
+    createCatalogSkill({
+      id: "local:codex:generate",
+      slug: "generate",
+      scope: "local",
+      provider: "codex",
+    }),
+    createCatalogSkill({
+      id: "local:shared:review",
+      slug: "review",
+      scope: "local",
+      provider: "shared",
+    }),
   ];
 
   test("claude-code provider only sees claude-code and shared skills", () => {
-    const compatible = getCompatibleSkillEntries({ skills: allSkills, providerId: "claude-code" });
+    const compatible = getCompatibleSkillEntries({
+      skills: allSkills,
+      providerId: "claude-code",
+    });
     const slugs = compatible.map((s) => s.slug).sort();
     expect(slugs).toEqual(["commit", "review"]);
   });
 
   test("codex provider only sees codex and shared skills", () => {
-    const compatible = getCompatibleSkillEntries({ skills: allSkills, providerId: "codex" });
+    const compatible = getCompatibleSkillEntries({
+      skills: allSkills,
+      providerId: "codex",
+    });
     const slugs = compatible.map((s) => s.slug).sort();
     expect(slugs).toEqual(["generate", "review"]);
   });
@@ -188,8 +292,46 @@ describe("provider skill compatibility", () => {
       skills: allSkills,
       providerId: "codex",
     });
-    expect(resolved.selectedSkills.map((s) => s.slug)).toEqual(["generate", "review"]);
+    expect(resolved.selectedSkills.map((s) => s.slug)).toEqual([
+      "generate",
+      "review",
+    ]);
     expect(resolved.normalizedText).toBe("do it");
+  });
+
+  test("cursor and kiro providers can use Claude and Codex installed skills", () => {
+    const skills = [
+      ...allSkills,
+      createCatalogSkill({
+        id: "local:cursor:figma",
+        slug: "figma",
+        scope: "local",
+        provider: "cursor",
+      }),
+      createCatalogSkill({
+        id: "local:kiro:trace",
+        slug: "trace",
+        scope: "local",
+        provider: "kiro",
+      }),
+    ];
+    expect(
+      getCompatibleSkillEntries({ skills, providerId: "cursor" })
+        .map((skill) => skill.slug)
+        .sort(),
+    ).toEqual(["commit", "figma", "generate", "review"]);
+    expect(
+      getCompatibleSkillEntries({ skills, providerId: "kiro" })
+        .map((skill) => skill.slug)
+        .sort(),
+    ).toEqual(["commit", "generate", "review", "trace"]);
+    expect(
+      resolveSkillSelections({
+        text: "$commit $generate",
+        skills,
+        providerId: "cursor",
+      }).selectedSkills.map((skill) => skill.slug),
+    ).toEqual(["commit", "generate"]);
   });
 
   test("provider-specific skills do not resolve for other providers", () => {
@@ -242,10 +384,30 @@ describe("skill token resolution", () => {
 
   test("prefers local skills over broader scopes and strips resolved tokens", () => {
     const skills: SkillCatalogEntry[] = [
-      createCatalogSkill({ id: "global:shared:fixer", slug: "fixer", scope: "global", provider: "shared" }),
-      createCatalogSkill({ id: "user:codex:fixer", slug: "fixer", scope: "user", provider: "codex" }),
-      createCatalogSkill({ id: "local:shared:fixer", slug: "fixer", scope: "local", provider: "shared" }),
-      createCatalogSkill({ id: "user:codex:reviewer", slug: "reviewer", scope: "user", provider: "codex" }),
+      createCatalogSkill({
+        id: "global:shared:fixer",
+        slug: "fixer",
+        scope: "global",
+        provider: "shared",
+      }),
+      createCatalogSkill({
+        id: "user:codex:fixer",
+        slug: "fixer",
+        scope: "user",
+        provider: "codex",
+      }),
+      createCatalogSkill({
+        id: "local:shared:fixer",
+        slug: "fixer",
+        scope: "local",
+        provider: "shared",
+      }),
+      createCatalogSkill({
+        id: "user:codex:reviewer",
+        slug: "reviewer",
+        scope: "user",
+        provider: "codex",
+      }),
     ];
 
     const resolved = resolveSkillSelections({
@@ -254,7 +416,10 @@ describe("skill token resolution", () => {
       providerId: "codex",
     });
 
-    expect(resolved.selectedSkills.map((skill) => skill.slug)).toEqual(["fixer", "reviewer"]);
+    expect(resolved.selectedSkills.map((skill) => skill.slug)).toEqual([
+      "fixer",
+      "reviewer",
+    ]);
     expect(resolved.selectedSkills[0]?.scope).toBe("local");
     expect(resolved.normalizedText).toBe("tighten the implementation");
   });
@@ -267,11 +432,13 @@ describe("skill token resolution", () => {
 
     expect(match).not.toBeNull();
     expect(match?.query).toBe("rev");
-    expect(replaceSkillToken({
-      value: "Need $rev",
-      match: match!,
-      skill: { slug: "reviewer" },
-    })).toBe("Need $reviewer ");
+    expect(
+      replaceSkillToken({
+        value: "Need $rev",
+        match: match!,
+        skill: { slug: "reviewer" },
+      }),
+    ).toBe("Need $reviewer ");
   });
 });
 
@@ -305,7 +472,9 @@ describe("provider skill prompt serialization", () => {
     // can execute them directly — Stave skills are not in Claude's native
     // skill registry, so /token prefixes caused "skill not found" errors.
     expect(prompt.includes("[Activated Skills]")).toBeTrue();
-    expect(prompt.includes("Review the code for regressions and missing tests.")).toBeTrue();
+    expect(
+      prompt.includes("Review the code for regressions and missing tests."),
+    ).toBeTrue();
     expect(prompt.startsWith("/reviewer")).toBeFalse();
   });
 
@@ -323,6 +492,8 @@ describe("provider skill prompt serialization", () => {
     });
 
     expect(prompt.includes("[Activated Skills]")).toBeTrue();
-    expect(prompt.includes("Review the code for regressions and missing tests.")).toBeTrue();
+    expect(
+      prompt.includes("Review the code for regressions and missing tests."),
+    ).toBeTrue();
   });
 });

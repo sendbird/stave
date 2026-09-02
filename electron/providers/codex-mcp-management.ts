@@ -348,5 +348,6 @@ export function createCodexMcpManagement(
     listConfigs: configManagement.listConfigs,
     previewConfigMutation: configManagement.previewMutation,
     applyConfigMutation: configManagement.applyMutation,
+    readShareDraft: configManagement.readShareDraft,
   };
 }

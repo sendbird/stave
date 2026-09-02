@@ -1298,8 +1298,8 @@ export const readCodexMcpResource = codexMcpManagement.readResource;
 export const listCodexMcpServerConfigs = codexMcpManagement.listConfigs;
 export const previewCodexMcpServerConfigMutation =
   codexMcpManagement.previewConfigMutation;
-export const applyCodexMcpServerConfigMutation =
-  codexMcpManagement.applyConfigMutation;
+export const applyCodexMcpServerConfigMutation = codexMcpManagement.applyConfigMutation;
+export const readCodexMcpShareDraft = codexMcpManagement.readShareDraft;
 
 async function listPaginatedCodexData<T>(args: {
   client: CodexAppServerClient;

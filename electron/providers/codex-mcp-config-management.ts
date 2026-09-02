@@ -197,6 +197,64 @@ function buildCodexServerEntry(args: {
   return config;
 }
 
+export function toCodexShareDraft(args: { name: string; value: unknown }): {
+  draft: McpServerConfigDraft;
+  warnings: string[];
+} {
+  const config = asMcpRecord(args.value) ?? {};
+  const transport = inferMcpTransport(config);
+  const argumentList = Array.isArray(config.args)
+    ? config.args.filter((entry): entry is string => typeof entry === "string")
+    : [];
+  const staticEnvCount = Object.keys(asMcpRecord(config.env) ?? {}).length;
+  const staticHeaderCount = Object.keys(
+    asMcpRecord(config.http_headers) ?? {},
+  ).length;
+  const warnings: string[] = [];
+  if (staticEnvCount > 0) {
+    warnings.push(
+      `${staticEnvCount} opaque Codex environment value${
+        staticEnvCount === 1 ? " was" : "s were"
+      } not copied. Rebind ${
+        staticEnvCount === 1 ? "it" : "them"
+      } on the destination.`,
+    );
+  }
+  if (staticHeaderCount > 0) {
+    warnings.push(
+      `${staticHeaderCount} opaque Codex header value${
+        staticHeaderCount === 1 ? " was" : "s were"
+      } not copied.`,
+    );
+  }
+  return {
+    draft: {
+      provider: "codex",
+      scope: "user",
+      name: args.name,
+      transport,
+      ...(typeof config.command === "string"
+        ? { command: config.command }
+        : {}),
+      ...(transport === "stdio" ? { args: argumentList } : {}),
+      ...(typeof config.url === "string" && transport !== "stdio"
+        ? { url: config.url }
+        : {}),
+      envVars: Array.isArray(config.env_vars)
+        ? config.env_vars.filter(
+            (entry): entry is string => typeof entry === "string",
+          )
+        : [],
+      ...(typeof config.bearer_token_env_var === "string"
+        ? { bearerTokenEnvVar: config.bearer_token_env_var }
+        : {}),
+      headerEnvBindings: getCodexHeaderBindings(config),
+      enabled: config.enabled !== false,
+    },
+    warnings,
+  };
+}
+
 function assertCodexMutationShape(args: McpServerConfigMutationRequest) {
   if (args.operation === "create") {
     if (!args.draft || args.target) {
@@ -408,11 +466,28 @@ export function createCodexMcpConfigManagement(
     }
   }
 
-  return { listConfigs, previewMutation, applyMutation };
+  async function readShareDraft(
+    args: McpServerConfigListRequest & { target: { name: string } },
+  ) {
+    const { layer } = await readUserLayer(args);
+    const value = getCodexServerMap(layer.config)[args.target.name];
+    if (value === undefined) {
+      throw new Error(
+        "The MCP server no longer exists. Refresh and try again.",
+      );
+    }
+    return {
+      revision: layer.revision,
+      ...toCodexShareDraft({ name: args.target.name, value }),
+    };
+  }
+
+  return { listConfigs, previewMutation, applyMutation, readShareDraft };
 }
 
 export const __codexMcpConfigManagementTest = {
   buildCodexServerEntry,
   parseCodexUserLayer,
   toCodexConfigSnapshot,
+  toCodexShareDraft,
 };

@@ -403,6 +403,92 @@ async function atomicWriteClaudeDocument(args: {
   return serialized;
 }
 
+export function toClaudeShareDraft(args: {
+  name: string;
+  value: unknown;
+  scope: McpConfigScope;
+}): { draft: McpServerConfigDraft; warnings: string[] } {
+  const { config } = getClaudeTransportRecord(args.value);
+  const transport = inferMcpTransport(config);
+  const env = getClaudeEnvBindings(asMcpRecord(config.env));
+  const headers = getSafeHeaderEnvBindings({
+    headers: asMcpRecord(config.headers),
+    bearerHeader: true,
+  });
+  const argumentList = Array.isArray(config.args)
+    ? config.args.filter((entry): entry is string => typeof entry === "string")
+    : [];
+  const warnings: string[] = [];
+  if (env.hiddenValueCount > 0) {
+    warnings.push(
+      `${env.hiddenValueCount} opaque Claude environment value${
+        env.hiddenValueCount === 1 ? " was" : "s were"
+      } not copied. Rebind ${
+        env.hiddenValueCount === 1 ? "it" : "them"
+      } on the destination.`,
+    );
+  }
+  if (headers.hiddenValueCount > 0) {
+    warnings.push(
+      `${headers.hiddenValueCount} opaque Claude header value${
+        headers.hiddenValueCount === 1 ? " was" : "s were"
+      } not copied.`,
+    );
+  }
+  return {
+    draft: {
+      provider: "claude-code",
+      scope: args.scope,
+      name: args.name,
+      transport,
+      ...(typeof config.command === "string"
+        ? { command: config.command }
+        : {}),
+      ...(transport === "stdio" ? { args: argumentList } : {}),
+      ...(typeof config.url === "string" && transport !== "stdio"
+        ? { url: config.url }
+        : {}),
+      envVars: env.envVars,
+      ...(headers.bearerTokenEnvVar
+        ? { bearerTokenEnvVar: headers.bearerTokenEnvVar }
+        : {}),
+      headerEnvBindings: headers.bindings,
+      enabled: config.disabled !== true,
+    },
+    warnings,
+  };
+}
+
+export async function readClaudeMcpShareDraft(
+  args: McpServerConfigListRequest & { target: McpServerConfigTarget },
+) {
+  if (args.target.provider !== "claude-code") {
+    throw new Error("The Claude MCP manager received a different provider.");
+  }
+  const context = getClaudeConfigContext(args);
+  const loaded = await readClaudeDocument(
+    args.target.scope === "project"
+      ? context.projectFilePath
+      : context.stateFilePath,
+  );
+  const value = getClaudeServerMap({
+    loaded,
+    scope: args.target.scope,
+    cwd: context.cwd,
+  })[args.target.name];
+  if (value === undefined) {
+    throw new Error("The MCP server no longer exists. Refresh and try again.");
+  }
+  return {
+    revision: getMcpConfigRevision(loaded.raw),
+    ...toClaudeShareDraft({
+      name: args.target.name,
+      value,
+      scope: args.target.scope,
+    }),
+  };
+}
+
 export async function listClaudeMcpServerConfigs(
   args: McpServerConfigListRequest,
 ) {
@@ -620,5 +706,6 @@ export const __claudeMcpConfigManagementTest = {
   buildClaudeServerEntry,
   isSecretLikeProjectEntry,
   prepareClaudeMutation,
+  toClaudeShareDraft,
   toClaudeSnapshot,
 };

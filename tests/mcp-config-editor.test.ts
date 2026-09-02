@@ -3,6 +3,7 @@ import {
   buildMcpConfigDraft,
   createInitialMcpConfigForm,
   parseMcpHeaderBindings,
+  resolveMcpInstallProviders,
   validateMcpConfigForm,
 } from "@/lib/providers/mcp-config-form";
 import type { McpServerConfigSnapshot } from "@/lib/providers/mcp-config.types";
@@ -47,6 +48,22 @@ describe("MCP configuration editor", () => {
     expect(() =>
       parseMcpHeaderBindings("Authorization=literal bearer token"),
     ).toThrow("Header-Name=ENV_VAR");
+  });
+
+  test("defaults a new server to Claude and Codex", () => {
+    const form = createInitialMcpConfigForm();
+    expect(resolveMcpInstallProviders(form)).toEqual(["claude-code", "codex"]);
+    expect(() =>
+      validateMcpConfigForm({
+        form: {
+          ...form,
+          name: "github",
+          command: "npx",
+          installProviders: [],
+        },
+        editing: false,
+      }),
+    ).toThrow("at least one provider");
   });
 
   test("rejects a non-variable bearer token entry", () => {

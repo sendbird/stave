@@ -1,6 +1,7 @@
 import path from "node:path";
 import { resolveBoundSecretEnv } from "../../main/browser/secret-service";
 import { resolveAcpStaveLocalMcpServers } from "../../main/stave-local-mcp-manifest";
+import { resolveAcpTurnMcpServers } from "../acp/acp-shared-mcp";
 import {
   createEmptyProviderRuntimeCapabilities,
   extractRuntimeVersion,
@@ -268,7 +269,9 @@ export async function describeCursorAvailability(
     runExecutableProbe({ executablePath, commandArgs: ["status"], env }),
   ]);
   const available =
-    versionProbe.status === 0 && acpProbe.status === 0 && authProbe.status === 0;
+    versionProbe.status === 0 &&
+    acpProbe.status === 0 &&
+    authProbe.status === 0;
   const version = extractRuntimeVersion(versionProbe.text);
   const detail = available
     ? `Resolved authenticated Cursor Agent CLI: ${executablePath}`
@@ -316,16 +319,23 @@ export async function streamCursorWithAcp(
 
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
-  const secretEnv =
-    args.runtimeOptions?.boundSecretIds?.length
-      ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
-      : {};
-  const mcpServers = args.staveLocalMcpToolNames?.length
+  const secretEnv = args.runtimeOptions?.boundSecretIds?.length
+    ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
+    : {};
+  const staveLocalMcpServers = args.staveLocalMcpToolNames?.length
     ? await resolveAcpStaveLocalMcpServers({
         allowedToolNames: args.staveLocalMcpToolNames,
       })
     : [];
-  if (args.staveLocalMcpToolNames?.length && mcpServers.length === 0) {
+  const mcpServers = await resolveAcpTurnMcpServers({
+    cwd: runtimeCwd,
+    env: { ...process.env, ...secretEnv },
+    staveLocalMcpServers,
+  });
+  if (
+    args.staveLocalMcpToolNames?.length &&
+    staveLocalMcpServers.length === 0
+  ) {
     args.onEvent?.({
       type: "error",
       message:

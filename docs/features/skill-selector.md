@@ -20,13 +20,19 @@ Stave reads three scope layers:
 - `user`
   - Claude user root: resolved from `CLAUDE_HOME` when set, otherwise the active Claude home directory
   - Codex user root: resolved from `CODEX_HOME` when set, otherwise the active Codex home directory
+  - Cursor user root: the active Cursor home directory
+  - Kiro user root: the active Kiro home directory
 - `local`
   - `<workspace>/skills`
   - `<workspace>/.agents/skills`
   - `<workspace>/.claude/skills`
   - `<workspace>/.codex/skills`
+  - `<workspace>/.cursor/skills`
+  - `<workspace>/.kiro/skills`
   - `<workspace>/.agents/claude/skills`
   - `<workspace>/.agents/codex/skills`
+  - `<workspace>/.agents/cursor/skills`
+  - `<workspace>/.agents/kiro/skills`
 
 Important behavior:
 
@@ -47,14 +53,18 @@ Important behavior:
 
 On send, Stave resolves compatible skills for the active provider and strips recognized `$skill-name` tokens from the provider-facing prompt.
 
-- Claude and Codex
+- Claude, Codex, Cursor, and Kiro
   - selected skills are normalized into an `[Activated Skills]` prompt section with the resolved skill instructions
   - Stave-managed `$skill` activations are prompt-context based, not provider-native slash skill registrations
+  - Claude and Codex keep provider-tagged skills for their own turns
+  - Cursor and Kiro turns can also activate Claude- and Codex-installed skills, plus shared and their own tagged skills
   - provider-native `/` commands remain separate and are not generated from `$skill` tokens
 
 ## Verification
 
 - `tests/skill-catalog.test.ts`
   - provider-home override discovery
+  - Cursor and Kiro user and workspace roots
+  - Cursor and Kiro activation of Claude and Codex installed skills
   - `$skill-name` token resolution and replacement
   - Claude and Codex prompt serialization

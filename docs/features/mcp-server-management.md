@@ -3,11 +3,31 @@
 Stave can manage native MCP server configuration for both bundled providers
 from `Settings > MCP`.
 
+## Cross-Provider Sharing
+
+Stave does not keep a separate connector catalog. Claude and Codex still store
+native configuration, and a single add or share action can write both.
+
+- `Add server` defaults to installing the same name, transport, and
+  environment-variable bindings into Claude and Codex.
+- When only one provider already has a server, `Add to Claude` or `Add to Codex`
+  copies that entry into the missing provider.
+- Codex still accepts user scope only. A Claude project or local-project source
+  is copied into Codex user configuration.
+- SSE remains Claude-only. Opaque or literal credential values stay in the
+  source and are not copied.
+- Cursor and Kiro are not writable MCP targets. Their primary turns receive
+  the current Claude and Codex catalog through the ACP session, without
+  editing Cursor or Kiro config files. Stave Local MCP is still injected only
+  when Worker mode is armed. SSE servers stay Claude-only and are not
+  forwarded.
+
 ## Supported Operations
 
 - list configured servers alongside live connection status and recent errors
-- add stdio or remote HTTP servers for Claude and Codex
+- add stdio or remote HTTP servers for Claude, Codex, or both in one review
 - add legacy SSE servers for Claude
+- copy an existing server to the other bundled provider
 - edit a server without exposing stored credential values to the renderer
 - rename or delete a server after reviewing the change
 - start provider-native OAuth when a configured server reports that sign-in is
@@ -25,13 +45,17 @@ cannot be edited or deleted through the general manager.
 
 1. Open `Settings > MCP`.
 2. Select `Add server`.
-3. Choose Claude or Codex, a supported scope, and the transport.
+3. Choose Claude, Codex, or both, a supported scope, and the transport.
 4. Enter the command and arguments for stdio, or the URL for HTTP/SSE.
 5. Enter environment-variable names for authentication or headers. Do not
    enter credential values.
-6. Select `Review change` and inspect the provider, scope, transport, and
+6. Select `Review change` and inspect each provider write, scope, transport, and
    binding counts.
 7. Select `Apply change`.
+
+If only one provider is configured afterward, use `Add to Claude` or
+`Add to Codex` on that row to copy the same server. A partial apply reports
+which target succeeded so the other side can be retried.
 
 The connection list refreshes automatically after the provider configuration
 is written.

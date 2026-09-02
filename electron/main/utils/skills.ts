@@ -35,6 +35,8 @@ const SKILL_SCOPE_PRIORITY = {
 const SKILL_PROVIDER_PRIORITY = {
   "claude-code": 2,
   codex: 2,
+  cursor: 2,
+  kiro: 2,
   shared: 1,
 } as const;
 
@@ -52,7 +54,7 @@ async function pathExists(targetPath: string) {
 }
 
 async function resolveRealPathIfExists(targetPath: string) {
-  if (!await pathExists(targetPath)) {
+  if (!(await pathExists(targetPath))) {
     return null;
   }
   try {
@@ -76,39 +78,65 @@ function normalizeOptionalPath(value: string | undefined | null) {
   return path.resolve(trimmed);
 }
 
-async function resolveProviderHome(providerId: ProviderId): Promise<ProviderHomeResolution> {
-  if (providerId === "codex") {
-    const envPath = normalizeOptionalPath(process.env.CODEX_HOME);
-    if (envPath) {
+function getProviderHomeSpec(providerId: ProviderId) {
+  switch (providerId) {
+    case "codex":
       return {
-        providerId,
-        configuredPath: envPath,
-        resolvedHomePath: await resolveRealPathIfExists(envPath),
-        sourceDetail: "Resolved from CODEX_HOME.",
+        envName: "CODEX_HOME",
+        envPath: process.env.CODEX_HOME,
+        defaultDir: ".codex",
+        label: "Codex",
       };
-    }
-  } else {
-    const envPath = normalizeOptionalPath(process.env.CLAUDE_HOME);
-    if (envPath) {
+    case "cursor":
       return {
-        providerId,
-        configuredPath: envPath,
-        resolvedHomePath: await resolveRealPathIfExists(envPath),
-        sourceDetail: "Resolved from CLAUDE_HOME.",
+        envName: null,
+        envPath: undefined,
+        defaultDir: ".cursor",
+        label: "Cursor",
       };
-    }
+    case "kiro":
+      return {
+        envName: null,
+        envPath: undefined,
+        defaultDir: ".kiro",
+        label: "Kiro",
+      };
+    default:
+      return {
+        envName: "CLAUDE_HOME",
+        envPath: process.env.CLAUDE_HOME,
+        defaultDir: ".claude",
+        label: "Claude",
+      };
+  }
+}
+
+async function resolveProviderHome(
+  providerId: ProviderId,
+): Promise<ProviderHomeResolution> {
+  const spec = getProviderHomeSpec(providerId);
+  const envPath = spec.envName ? normalizeOptionalPath(spec.envPath) : null;
+  if (envPath) {
+    return {
+      providerId,
+      configuredPath: envPath,
+      resolvedHomePath: await resolveRealPathIfExists(envPath),
+      sourceDetail: `Resolved from ${spec.envName}.`,
+    };
   }
 
-  const defaultHome = path.join(homedir(), providerId === "codex" ? ".codex" : ".claude");
+  const defaultHome = path.join(homedir(), spec.defaultDir);
   return {
     providerId,
     configuredPath: defaultHome,
     resolvedHomePath: await resolveRealPathIfExists(defaultHome),
-    sourceDetail: `Resolved from the default ${providerId === "codex" ? "Codex" : "Claude"} home.`,
+    sourceDetail: `Resolved from the default ${spec.label} home.`,
   };
 }
 
-async function toCatalogRoot(spec: CandidateRootSpec): Promise<SkillCatalogRoot | null> {
+async function toCatalogRoot(
+  spec: CandidateRootSpec,
+): Promise<SkillCatalogRoot | null> {
   const resolvedPath = path.resolve(spec.path);
   const exists = await pathExists(resolvedPath);
   if (!exists) {
@@ -147,13 +175,17 @@ async function resolveCatalogRoots(args: {
   workspacePath?: string | null;
   sharedSkillsHome?: string | null;
 }) {
-  const [claudeHome, codexHome] = await Promise.all([
+  const [claudeHome, codexHome, cursorHome, kiroHome] = await Promise.all([
     resolveProviderHome("claude-code"),
     resolveProviderHome("codex"),
+    resolveProviderHome("cursor"),
+    resolveProviderHome("kiro"),
   ]);
   const specs: CandidateRootSpec[] = [];
   const settingsSharedSkillsHome = normalizeOptionalPath(args.sharedSkillsHome);
-  const envSharedSkillsHome = normalizeOptionalPath(process.env.STAVE_SHARED_SKILLS_HOME);
+  const envSharedSkillsHome = normalizeOptionalPath(
+    process.env.STAVE_SHARED_SKILLS_HOME,
+  );
   const sharedSkillsHome = settingsSharedSkillsHome ?? envSharedSkillsHome;
 
   if (sharedSkillsHome) {
@@ -170,7 +202,7 @@ async function resolveCatalogRoots(args: {
     });
   }
 
-  for (const home of [claudeHome, codexHome]) {
+  for (const home of [claudeHome, codexHome, cursorHome, kiroHome]) {
     const basePath = home.resolvedHomePath ?? home.configuredPath;
     specs.push({
       scope: "user",
@@ -233,16 +265,51 @@ async function resolveCatalogRoots(args: {
         path: path.join(workspacePath, ".agents", "codex", "skills"),
         detail: "Workspace .agents Codex skills.",
       },
+      {
+        scope: "local",
+        provider: "cursor",
+        source: "workspace",
+        path: path.join(workspacePath, ".cursor", "skills"),
+        detail: "Workspace Cursor skills.",
+      },
+      {
+        scope: "local",
+        provider: "kiro",
+        source: "workspace",
+        path: path.join(workspacePath, ".kiro", "skills"),
+        detail: "Workspace Kiro skills.",
+      },
+      {
+        scope: "local",
+        provider: "cursor",
+        source: "workspace",
+        path: path.join(workspacePath, ".agents", "cursor", "skills"),
+        detail: "Workspace .agents Cursor skills.",
+      },
+      {
+        scope: "local",
+        provider: "kiro",
+        source: "workspace",
+        path: path.join(workspacePath, ".agents", "kiro", "skills"),
+        detail: "Workspace .agents Kiro skills.",
+      },
     );
   }
 
-  const roots = dedupeCatalogRoots((await Promise.all(specs.map((spec) => toCatalogRoot(spec)))).filter((root): root is SkillCatalogRoot => root !== null));
+  const roots = dedupeCatalogRoots(
+    (await Promise.all(specs.map((spec) => toCatalogRoot(spec)))).filter(
+      (root): root is SkillCatalogRoot => root !== null,
+    ),
+  );
   return roots.sort((left, right) => {
-    const scopeDelta = SKILL_SCOPE_PRIORITY[right.scope] - SKILL_SCOPE_PRIORITY[left.scope];
+    const scopeDelta =
+      SKILL_SCOPE_PRIORITY[right.scope] - SKILL_SCOPE_PRIORITY[left.scope];
     if (scopeDelta !== 0) {
       return scopeDelta;
     }
-    const providerDelta = SKILL_PROVIDER_PRIORITY[right.provider] - SKILL_PROVIDER_PRIORITY[left.provider];
+    const providerDelta =
+      SKILL_PROVIDER_PRIORITY[right.provider] -
+      SKILL_PROVIDER_PRIORITY[left.provider];
     if (providerDelta !== 0) {
       return providerDelta;
     }
@@ -333,7 +400,12 @@ async function collectSkillFiles(args: {
       if (SKILL_ROOT_IGNORES.has(entry.name)) {
         continue;
       }
-      files.push(...await collectSkillFiles({ rootPath: targetPath, depth: depth + 1 }));
+      files.push(
+        ...(await collectSkillFiles({
+          rootPath: targetPath,
+          depth: depth + 1,
+        })),
+      );
       continue;
     }
     if (entry.isFile() && entry.name === SKILL_FILE_NAME) {
@@ -344,19 +416,27 @@ async function collectSkillFiles(args: {
   return files;
 }
 
-function compareSkillPriority(left: SkillCatalogEntry, right: SkillCatalogEntry) {
-  const scopeDelta = SKILL_SCOPE_PRIORITY[right.scope] - SKILL_SCOPE_PRIORITY[left.scope];
+function compareSkillPriority(
+  left: SkillCatalogEntry,
+  right: SkillCatalogEntry,
+) {
+  const scopeDelta =
+    SKILL_SCOPE_PRIORITY[right.scope] - SKILL_SCOPE_PRIORITY[left.scope];
   if (scopeDelta !== 0) {
     return scopeDelta;
   }
-  const providerDelta = SKILL_PROVIDER_PRIORITY[right.provider] - SKILL_PROVIDER_PRIORITY[left.provider];
+  const providerDelta =
+    SKILL_PROVIDER_PRIORITY[right.provider] -
+    SKILL_PROVIDER_PRIORITY[left.provider];
   if (providerDelta !== 0) {
     return providerDelta;
   }
   return left.slug.localeCompare(right.slug);
 }
 
-async function scanSkillRoot(root: SkillCatalogRoot): Promise<SkillCatalogEntry[]> {
+async function scanSkillRoot(
+  root: SkillCatalogRoot,
+): Promise<SkillCatalogEntry[]> {
   const skillFiles = await collectSkillFiles({ rootPath: root.path });
   const entries: SkillCatalogEntry[] = [];
 
@@ -372,7 +452,8 @@ async function scanSkillRoot(root: SkillCatalogRoot): Promise<SkillCatalogEntry[
       filePath: realPath,
     });
     const name = parsed.attributes.name?.trim() || slug;
-    const description = parsed.attributes.description?.trim() || summarizeSkillBody(parsed.body);
+    const description =
+      parsed.attributes.description?.trim() || summarizeSkillBody(parsed.body);
     const instructions = parsed.body.trim() || content.trim();
 
     entries.push({
@@ -413,13 +494,16 @@ function dedupeSkillEntries(entries: SkillCatalogEntry[]) {
   });
 }
 
-export async function discoverSkillCatalog(args: {
-  workspacePath?: string | null;
-  sharedSkillsHome?: string | null;
-} = {}): Promise<SkillCatalogResponse> {
+export async function discoverSkillCatalog(
+  args: {
+    workspacePath?: string | null;
+    sharedSkillsHome?: string | null;
+  } = {},
+): Promise<SkillCatalogResponse> {
   const normalizedWorkspacePath = normalizeOptionalPath(args.workspacePath);
-  const normalizedSharedSkillsHome = normalizeOptionalPath(args.sharedSkillsHome)
-    ?? normalizeOptionalPath(process.env.STAVE_SHARED_SKILLS_HOME);
+  const normalizedSharedSkillsHome =
+    normalizeOptionalPath(args.sharedSkillsHome) ??
+    normalizeOptionalPath(process.env.STAVE_SHARED_SKILLS_HOME);
 
   try {
     const roots = await resolveCatalogRoots(args);
@@ -435,9 +519,10 @@ export async function discoverSkillCatalog(args: {
         fetchedAt: new Date().toISOString(),
         roots,
         skills: entries,
-        detail: entries.length > 0
-          ? `Loaded ${entries.length} skill${entries.length === 1 ? "" : "s"} from ${roots.length} root${roots.length === 1 ? "" : "s"}.`
-          : "No skills were discovered for the current global, user, and workspace roots.",
+        detail:
+          entries.length > 0
+            ? `Loaded ${entries.length} skill${entries.length === 1 ? "" : "s"} from ${roots.length} root${roots.length === 1 ? "" : "s"}.`
+            : "No skills were discovered for the current global, user, and workspace roots.",
       },
     };
   } catch (error) {

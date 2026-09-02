@@ -3,7 +3,8 @@ import type { ProviderRuntimeOptions } from "./provider.types";
 export type McpConfigProvider = "claude-code" | "codex";
 export type McpConfigScope = "user" | "project" | "local";
 export type McpConfigTransport = "stdio" | "http" | "sse";
-export type McpConfigMutationOperation = "create" | "update" | "delete";
+export type McpConfigMutationOperation =
+  "create" | "update" | "delete" | "share";
 
 export interface McpHeaderEnvBinding {
   name: string;
@@ -72,7 +73,9 @@ export interface McpServerConfigListResponse {
 export interface McpServerConfigMutationRequest extends McpServerConfigListRequest {
   operation: McpConfigMutationOperation;
   target?: McpServerConfigTarget;
+  destination?: McpServerConfigTarget;
   draft?: McpServerConfigDraft;
+  installProviders?: McpConfigProvider[];
 }
 
 export interface McpServerConfigMutationPreview {
@@ -93,9 +96,16 @@ export interface McpServerConfigMutationApplyRequest extends McpServerConfigMuta
   expectedRevision: string;
 }
 
+export interface McpServerConfigMutationProviderResult {
+  provider: McpConfigProvider;
+  ok: boolean;
+  detail: string;
+}
+
 export interface McpServerConfigMutationResponse {
   ok: boolean;
   detail: string;
   operation: McpConfigMutationOperation;
   server?: McpServerConfigSnapshot;
+  results?: McpServerConfigMutationProviderResult[];
 }

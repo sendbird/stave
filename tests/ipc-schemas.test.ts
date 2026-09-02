@@ -84,6 +84,27 @@ describe("provider IPC schemas", () => {
       true,
     );
     expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        installProviders: ["claude-code", "codex"],
+      }).success,
+    ).toBe(true);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        operation: "share",
+        target: {
+          provider: "claude-code",
+          scope: "user",
+          name: "docs-server",
+        },
+        destination: {
+          provider: "codex",
+          scope: "user",
+          name: "docs-server",
+        },
+      }).success,
+    ).toBe(true);
+    expect(
       McpServerConfigMutationApplyArgsSchema.safeParse({
         ...create,
         expectedRevision: "revision-1",
