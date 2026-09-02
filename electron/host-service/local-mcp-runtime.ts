@@ -22,7 +22,7 @@ import {
   type TaskCompletionSignal,
 } from "../../src/lib/automation/task-supervisor";
 import { buildChildTaskReceiptsRetrievedContext } from "../../src/lib/task-context/child-task-receipts";
-import { buildCurrentTaskAwarenessRetrievedContext } from "../../src/lib/task-context/current-task-awareness";
+import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
 import {
   projectLocalMcpTaskTurnActivityEvent,
@@ -2539,7 +2539,7 @@ export async function runTask(args: {
     syncedThroughMessageId:
       providerSessionCursor?.syncedThroughMessageId ?? null,
     retrievedContextParts: [
-      buildCurrentTaskAwarenessRetrievedContext({
+      ...buildCurrentTaskAwarenessRetrievedContextParts({
         workspaceId: args.workspaceId,
         workspaceName,
         workspacePath,

@@ -14,6 +14,8 @@ import {
   sanitizeTextField,
 } from "../../src/lib/file-context-sanitization";
 import { parsePullRequestSuggestionResponse } from "../../src/lib/source-control-pr";
+import { STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS } from "../../src/lib/task-context/current-task-awareness";
+import { dedupeRetrievedContextForSession } from "./retrieved-context-dedup";
 import {
   buildIntentGuardPrompt,
   buildReviewDiffPrompt,
@@ -5163,14 +5165,23 @@ export async function streamClaudeWithSdk(
     let nextClaudeUserInputRequestOrdinal = 1;
     const createClaudeUserInputRequestId = (prefix: string) =>
       `${prefix}-${Date.now()}-${nextClaudeUserInputRequestOrdinal++}`;
-    const promptConversation = args.conversation
+    const filteredPromptConversation = args.conversation
       ? filterPromptRetrievedContext({
           conversation: args.conversation,
           excludedSourceIds: resolvedMcpServers.hasStaveLocalMcp
             ? []
-            : ["stave:current-task-awareness"],
+            : [...STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS],
         })
       : args.conversation;
+    // Blocks that are rebuilt from live state every turn but usually come out
+    // byte-identical are collapsed to a pointer once the session already has
+    // them. Committed only after the prompt is accepted below.
+    const retrievedContextDedup = dedupeRetrievedContextForSession({
+      conversation: filteredPromptConversation,
+      activeResumeSessionId: existingSessionId ?? null,
+      taskId: args.taskId,
+    });
+    const promptConversation = retrievedContextDedup.conversation;
     const nativeImageCollection = collectNativeImageInputs({
       cwd: runtimeCwd,
       conversation: promptConversation,
@@ -5682,6 +5693,9 @@ export async function streamClaudeWithSdk(
         throw new Error(
           "Claude input queue closed before the initial prompt was accepted.",
         );
+      }
+      if (accepted) {
+        retrievedContextDedup.commit();
       }
     }
     args.registerSteerResponder?.(async ({ text }) => {

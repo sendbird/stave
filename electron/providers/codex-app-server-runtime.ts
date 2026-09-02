@@ -2540,6 +2540,7 @@ export async function streamCodexWithAppServer(
       prompt: args.prompt,
       conversation: args.conversation,
       activeResumeSessionId: resumedThreadId,
+      taskId: args.taskId,
       hasEmbeddedStaveLocalMcp,
       model: runtimeOptions?.model,
       request: (method, params) => client.request(method, params),
@@ -3901,6 +3902,7 @@ export async function streamCodexWithAppServer(
       }
 
       appServerTurnId = turnResponse.turn.id;
+      turnInput.commitRetrievedContextDedup();
       emitBridgeEvent({
         type: "provider_turn",
         providerId: "codex",

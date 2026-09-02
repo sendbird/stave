@@ -10,6 +10,10 @@ import {
 } from "@/lib/file-context-sanitization";
 import { getAssistantResponseTextStartIndex } from "@/lib/session/assistant-response-parts";
 import type { SkillPromptContext } from "@/lib/skills/types";
+import {
+  STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
+  STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
+} from "@/lib/task-context/current-task-awareness";
 import type {
   CanonicalConversationMessage,
   CanonicalConversationRequest,
@@ -302,6 +306,23 @@ function toHistoryLine(args: { message: CanonicalConversationMessage }) {
   return `${args.message.role}: ${partText}`;
 }
 
+/**
+ * Retrieved-context sources whose content is identical every turn and is
+ * therefore already present in a primed provider session's transcript.
+ *
+ * The runtime signals "this session is primed and nothing is unsynced" by
+ * passing `includeHistory: false`, which is the only place that knows the real
+ * resume decision. Gating here — rather than at each builder, which can only
+ * guess from a paged in-memory history — keeps every entry path (UI turns,
+ * `stave_run_task`, Crane dispatch, heartbeats) on the same rule.
+ */
+export const FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS: ReadonlySet<string> =
+  new Set([
+    STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
+    STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
+    "stave:repo-map",
+  ]);
+
 export function buildLegacyPromptFromCanonicalRequest(args: {
   request: CanonicalConversationRequest;
   includeHistory?: boolean;
@@ -349,6 +370,14 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
   ];
 
   args.request.contextParts.forEach((part) => {
+    if (
+      !includeWorkspaceGuidance &&
+      part.type === "retrieved_context" &&
+      FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS.has(part.sourceId)
+    ) {
+      return;
+    }
+
     if (part.type === "file_context") {
       sections.push(
         "[Selected File Context]",

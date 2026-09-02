@@ -8,6 +8,8 @@ import {
   buildProviderTurnPrompt,
   filterPromptRetrievedContext,
 } from "../../src/lib/providers/provider-request-translators";
+import { STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS } from "../../src/lib/task-context/current-task-awareness";
+import { dedupeRetrievedContextForSession } from "./retrieved-context-dedup";
 
 const IMAGE_DETAIL = "low" as const;
 const ACP_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -409,18 +411,29 @@ export async function prepareCodexImageAwareTurnInput(args: {
   prompt: string;
   conversation?: CanonicalConversationRequest;
   activeResumeSessionId?: string | null;
+  taskId?: string | null;
   hasEmbeddedStaveLocalMcp: boolean;
   model?: string;
   request: (method: string, params: unknown) => Promise<unknown>;
 }) {
-  const conversation = args.conversation
+  const filteredConversation = args.conversation
     ? filterPromptRetrievedContext({
         conversation: args.conversation,
         excludedSourceIds: args.hasEmbeddedStaveLocalMcp
           ? []
-          : ["stave:current-task-awareness"],
+          : [...STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS],
       })
     : undefined;
+  // Collapse live-state blocks that came out identical to what this thread was
+  // already given. `commitRetrievedContextDedup` must run only once the turn
+  // was accepted by the app server, otherwise a failed dispatch would make the
+  // next turn believe the content had been delivered.
+  const retrievedContextDedup = dedupeRetrievedContextForSession({
+    conversation: filteredConversation,
+    activeResumeSessionId: args.activeResumeSessionId,
+    taskId: args.taskId,
+  });
+  const conversation = retrievedContextDedup.conversation;
   const imageInput = await prepareCodexNativeImageInput({
     cwd: args.cwd,
     conversation,
@@ -436,5 +449,6 @@ export async function prepareCodexImageAwareTurnInput(args: {
       includeImageData: imageInput.includeImageData,
     }),
     nativeImageItems: imageInput.nativeImageItems,
+    commitRetrievedContextDedup: retrievedContextDedup.commit,
   };
 }

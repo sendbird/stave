@@ -10,7 +10,7 @@ import type {
 } from "@/lib/providers/provider.types";
 import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
 import { buildChildTaskReceiptsRetrievedContext } from "@/lib/task-context/child-task-receipts";
-import { buildCurrentTaskAwarenessRetrievedContext } from "@/lib/task-context/current-task-awareness";
+import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import {
   extractWorkspaceInformationReferencesFromText,
@@ -2471,7 +2471,7 @@ export const useAppStore = create<AppState>()(
           // TopBar pre-warms this module-level Map cache asynchronously; the read
           // here is a plain Map.get — no IPC, no blocking, effectively free.
           const retrievedContextParts: CanonicalRetrievedContextPart[] = [
-            buildCurrentTaskAwarenessRetrievedContext({
+            ...buildCurrentTaskAwarenessRetrievedContextParts({
               workspaceId: taskWorkspaceId,
               workspaceName: taskWorkspaceSummary?.name ?? null,
               workspacePath: workspaceCwd ?? null,
@@ -2482,10 +2482,6 @@ export const useAppStore = create<AppState>()(
               taskId: resolvedTaskId,
               tasks: taskWorkspaceTasks,
               workspaceInformation: taskWorkspaceInformation,
-              // Static procedural guidance is identical every turn; inject it
-              // only on the task's first turn and rely on the terse pointer
-              // afterwards to keep the recurring prompt small.
-              includeStaticGuidance: existingHistory.length === 0,
             }),
             ...freshSourceContexts,
           ];
@@ -2527,7 +2523,10 @@ export const useAppStore = create<AppState>()(
           if (workspaceInformationReferencesContext) {
             retrievedContextParts.push(workspaceInformationReferencesContext);
           }
-          if (existingHistory.length === 0 && workspaceCwd) {
+          // The repo map is attached unconditionally here; the prompt funnel
+          // drops it whenever the provider session is already primed, which is
+          // a truthful signal, unlike the paged in-memory history length.
+          if (workspaceCwd) {
             const repoMapText = getRepoMapContextCache(workspaceCwd);
             if (repoMapText) {
               retrievedContextParts.push({
