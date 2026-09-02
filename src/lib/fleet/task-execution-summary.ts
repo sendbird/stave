@@ -48,6 +48,14 @@ export interface TaskExecutionUsage {
    * uncached remainder.
    */
   promptTokens: number;
+  /**
+   * The subset of {@link promptTokens} contributed by providers whose prompt
+   * convention is verified, and the cache reads within it. A cache-hit rate is
+   * only defensible over these two; mixing in an unverified provider could
+   * skew it by a factor of two.
+   */
+  cacheRatePromptTokens: number;
+  cacheRateCachedTokens: number;
   totalCostUsd: number | null;
   costAmount?: number;
   costCurrency?: string;
@@ -479,13 +487,18 @@ function buildUsageMetric(
       total.outputTokens += usage.outputTokens;
       total.cacheReadTokens += usage.cacheReadTokens ?? 0;
       total.cacheCreationTokens += usage.cacheCreationTokens ?? 0;
-      total.promptTokens += computePromptCacheStats({
+      const cacheStats = computePromptCacheStats({
         providerId:
           message.providerId && message.providerId !== "user"
             ? message.providerId
             : null,
         usage,
-      }).promptTokens;
+      });
+      total.promptTokens += cacheStats.promptTokens;
+      if (cacheStats.cacheReported) {
+        total.cacheRatePromptTokens += cacheStats.promptTokens;
+        total.cacheRateCachedTokens += cacheStats.cachedTokens;
+      }
       if (usage.totalCostUsd != null) {
         total.totalCostUsd = (total.totalCostUsd ?? 0) + usage.totalCostUsd;
       }
@@ -501,6 +514,8 @@ function buildUsageMetric(
       cacheReadTokens: 0,
       cacheCreationTokens: 0,
       promptTokens: 0,
+      cacheRatePromptTokens: 0,
+      cacheRateCachedTokens: 0,
       totalCostUsd: null,
     },
   );

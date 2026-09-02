@@ -82,11 +82,23 @@ describe("computePromptCacheStats", () => {
     expect(stats.cacheHitPercent).toBe(0);
   });
 
+  test("publishes no rate for a provider whose prompt convention is unverified", () => {
+    // ACP agents report `cached_read_tokens` separately, which reads additive,
+    // but that is not confirmed per agent. A rate that could be wrong by a
+    // factor of two is worse than no rate.
+    const acp = computePromptCacheStats({
+      providerId: "cursor",
+      usage: { inputTokens: 120, outputTokens: 18, cacheReadTokens: 90 },
+    });
+    expect(acp.cacheReported).toBe(false);
+    expect(formatCacheHitLabel(acp)).toBeNull();
+  });
+
   test("does not claim a 0% hit rate for a provider that reports no cache", () => {
-    // Kiro and Cursor never report cache accounting; "0% cached" there would
-    // be a fabricated measurement rather than a cold prompt.
+    // A provider that reported no cache counters at all: "0% cached" there
+    // would be a fabricated measurement rather than a cold prompt.
     const silent = computePromptCacheStats({
-      providerId: "kiro",
+      providerId: "claude-code",
       usage: { inputTokens: 21, outputTokens: 13 },
     });
     expect(silent.cacheReported).toBe(false);

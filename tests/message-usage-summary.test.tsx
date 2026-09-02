@@ -39,7 +39,7 @@ describe("MessageUsageSummary", () => {
 
     expect(html).toContain("<button");
     expect(html).toContain(
-      'aria-label="Turn usage details for Cursor · gpt-5.6-sol[context=272k,reasoning=high,fast=true]: 120 input tokens, 18 output tokens, 43% cached, 1 delegated execution"',
+      'aria-label="Turn usage details for Cursor · gpt-5.6-sol[context=272k,reasoning=high,fast=true]: 120 input tokens, 18 output tokens, 1 delegated execution"',
     );
     expect(html).toContain("1 delegated");
   });
@@ -74,6 +74,22 @@ describe("MessageUsageSummary", () => {
       }),
     );
     expect(codex).toContain("90% cached");
+
+    // Cursor reports a `cached_read_tokens` counter, but whether it is inside
+    // or alongside `input_tokens` is not verified per ACP agent, so no derived
+    // rate is published — the raw counter is still shown.
+    const cursor = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "cursor",
+        model: "gpt-5.6-sol",
+        usage: {
+          inputTokens: 120,
+          outputTokens: 18,
+          cacheReadTokens: 90,
+        },
+      }),
+    );
+    expect(cursor).not.toContain("cached");
   });
 
   test("omits unconfirmed delegated placeholders", () => {

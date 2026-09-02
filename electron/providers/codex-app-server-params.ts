@@ -265,6 +265,7 @@ export function buildCodexThreadStartParams(args: {
         runtimeOptions: args.runtimeOptions,
         configOverrides: args.configOverrides,
         ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+        ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
       });
 
   return {

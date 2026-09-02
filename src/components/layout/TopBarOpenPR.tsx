@@ -768,7 +768,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 cwd: workspaceCwd,
                 baseBranch: defaultBaseBranch,
                 headBranch: currentBranch || undefined,
-                providerId: activeTask?.provider,
+                // The lane owns the provider *and* the model. Routing to the
+                // task's provider while passing the lane's model would send an
+                // unknown model id whenever the two differ, and the caller's
+                // catch would swallow it into a silent fallback draft.
+                providerId: prDescriptionLane.providerId,
                 promptTemplate: promptPrDescription,
                 workspaceContext: workspaceContext || undefined,
                 runtimeOptions: {

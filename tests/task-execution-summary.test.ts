@@ -124,6 +124,10 @@ describe("task execution summary", () => {
       // Codex reports the whole prompt in `inputTokens`, so the cached 5 are
       // already inside the 120 and must not be added again.
       promptTokens: 120,
+      // Codex's convention is verified, so the rate is computed over the
+      // message that reported cache counters.
+      cacheRatePromptTokens: 20,
+      cacheRateCachedTokens: 5,
       totalCostUsd: 0.01,
     });
     expect(summary.changes.value).toMatchObject({
@@ -168,6 +172,36 @@ describe("task execution summary", () => {
       cacheReadTokens: 90_000,
       cacheCreationTokens: 9_000,
       promptTokens: 100_000,
+      cacheRatePromptTokens: 100_000,
+      cacheRateCachedTokens: 90_000,
+    });
+  });
+
+  it("excludes unverified providers from the cache-hit rate", () => {
+    // The raw counters an ACP agent reports are still summed, but they do not
+    // feed a percentage whose denominator convention is unconfirmed.
+    const summary = buildTaskExecutionSummary({
+      taskId: "task-1",
+      providerId: "cursor",
+      messages: [
+        assistantMessage({
+          id: "assistant-1",
+          providerId: "cursor",
+          model: "gpt-5.6-sol",
+          usage: {
+            inputTokens: 120,
+            outputTokens: 18,
+            cacheReadTokens: 90,
+          },
+        }),
+      ],
+      rateLimits,
+    });
+
+    expect(summary.usage.value).toMatchObject({
+      cacheReadTokens: 90,
+      cacheRatePromptTokens: 0,
+      cacheRateCachedTokens: 0,
     });
   });
 

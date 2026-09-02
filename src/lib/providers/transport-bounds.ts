@@ -309,7 +309,14 @@ function getRetrievedContextMaxBytes(args: {
 }) {
   const isAggressive = args.mode === "aggressive";
   switch (args.sourceId) {
+    // The task-awareness block was split into identity / guidance /
+    // information / turn-summary parts. They share the original block's budget
+    // and priority: a default-bucket workspace panel would otherwise be dropped
+    // before a file context and truncated mid-line at 4 KB.
     case "stave:current-task-awareness":
+    case "stave:workspace-guidance":
+    case "stave:workspace-information":
+    case "stave:latest-turn-summary":
       return isAggressive ? 12 * 1024 : 40 * 1024;
     case "stave:referenced-task-replies":
       return isAggressive ? 8 * 1024 : 20 * 1024;
@@ -328,6 +335,9 @@ function getContextDropPriority(part: CanonicalContextPart) {
       case "stave:referenced-task-replies":
         return 4;
       case "stave:current-task-awareness":
+      case "stave:workspace-guidance":
+      case "stave:workspace-information":
+      case "stave:latest-turn-summary":
         return 6;
       default:
         return 2;

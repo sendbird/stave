@@ -93,6 +93,14 @@ export const DEFAULT_AUXILIARY_INFERENCE_POLICY: AuxiliaryInferencePolicy = {
   inlineCompletion: { enabled: true, model: null },
 };
 
+/**
+ * Lanes that fall back to the *other* managed provider when their own model is
+ * unavailable. Without this a workspace whose provider CLI is not installed
+ * would silently never produce a result, which is how the previous standalone
+ * turn-summary settings behaved (one model per provider) by design.
+ */
+const CROSS_PROVIDER_FALLBACK_LANES = new Set<AuxLane>(["turnSummary"]);
+
 /** Lanes whose default model is the provider's light tier, resolved lazily. */
 const LIGHT_TIER_LANES = new Set<AuxLane>([
   "intentGuard",
@@ -325,7 +333,14 @@ export function resolveAuxLaneRuntime(args: {
     (LIGHT_TIER_LANES.has(args.lane)
       ? resolveTierModel({ tier: "light", providerId })
       : null);
-  const fallbackModel = config.fallbackModel?.trim() || null;
+  const fallbackModel =
+    config.fallbackModel?.trim() ||
+    (CROSS_PROVIDER_FALLBACK_LANES.has(args.lane)
+      ? resolveTierModel({
+          tier: "light",
+          providerId: providerId === "codex" ? "claude-code" : "codex",
+        })
+      : null);
   const effortOverrides =
     model && config.effort && supportsExplicitEffort({ providerId, model })
       ? buildModelEffortRuntimeOverrides({

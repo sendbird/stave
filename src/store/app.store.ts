@@ -554,6 +554,14 @@ export const useAppStore = create<AppState>()(
     // so this is what keeps a conversation-only turn from paying for a diff
     // review. Bounded because only the most recent turns are ever consulted.
     const turnIdsWithFileEdits = new Set<string>();
+    // The badge is cleared while a turn is in flight so a stale verdict never
+    // reads as fresh. A turn that changed no files does not earn a new model
+    // call, but the previous verdict is still true of the unchanged diff — so
+    // it is retained here and restored instead of vanishing.
+    const retainedIntentComplianceByWorkspace = new Map<
+      string,
+      TurnIntentComplianceResult
+    >();
     const MAX_TRACKED_FILE_EDIT_TURN_IDS = 200;
     const recordTurnFileEdits = (turnId: string) => {
       turnIdsWithFileEdits.add(turnId);
@@ -564,6 +572,26 @@ export const useAppStore = create<AppState>()(
         }
         turnIdsWithFileEdits.delete(oldest.value);
       }
+    };
+
+    /** Re-show the retained verdict for a turn that did not re-run the guard. */
+    const restoreIntentCompliance = (args: {
+      workspaceId: string;
+      taskId?: string;
+      turnId?: string;
+    }) => {
+      const retained = retainedIntentComplianceByWorkspace.get(args.workspaceId);
+      if (!retained) {
+        return;
+      }
+      const compliance = { ...retained, taskId: args.taskId, turnId: args.turnId };
+      retainedIntentComplianceByWorkspace.set(args.workspaceId, compliance);
+      set((current) => ({
+        turnIntentComplianceByWorkspace: {
+          ...current.turnIntentComplianceByWorkspace,
+          [args.workspaceId]: compliance,
+        },
+      }));
     };
 
     // C2 intent guard: after a turn completes, if the workspace has pinned
@@ -595,6 +623,7 @@ export const useAppStore = create<AppState>()(
         args.turnId &&
         !turnIdsWithFileEdits.has(args.turnId)
       ) {
+        restoreIntentCompliance(args);
         return;
       }
       const info =
@@ -643,6 +672,7 @@ export const useAppStore = create<AppState>()(
             findings: result.findings,
             completedAt: Date.now(),
           };
+          retainedIntentComplianceByWorkspace.set(args.workspaceId, compliance);
           set((current) => ({
             turnIntentComplianceByWorkspace: {
               ...current.turnIntentComplianceByWorkspace,

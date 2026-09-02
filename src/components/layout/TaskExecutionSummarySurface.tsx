@@ -297,9 +297,11 @@ function buildMetricDescriptors(
         const tokenLabel = hasTokens
           ? `${formatCount(usage.promptTokens + usage.outputTokens)} tokens`
           : null;
+        // Only over providers whose prompt convention is verified; see
+        // `TaskExecutionUsage.cacheRatePromptTokens`.
         const cacheLabel =
-          hasTokens && usage.promptTokens > 0 && usage.cacheReadTokens > 0
-            ? `${Math.round((usage.cacheReadTokens / usage.promptTokens) * 100)}% cached`
+          usage.cacheRatePromptTokens > 0 && usage.cacheRateCachedTokens > 0
+            ? `${Math.round((usage.cacheRateCachedTokens / usage.cacheRatePromptTokens) * 100)}% cached`
             : null;
         const costLabel =
           usage.totalCostUsd != null

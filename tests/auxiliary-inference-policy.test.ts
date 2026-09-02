@@ -41,6 +41,34 @@ describe("auxiliary inference policy defaults", () => {
     ).toBe("gpt-5.6-luna");
   });
 
+  test("falls back to the other provider for the turn summary", () => {
+    // A workspace whose own provider CLI is not installed must still get a
+    // summary; the pre-policy defaults deliberately named one model per
+    // provider for exactly this reason.
+    expect(
+      resolveAuxLaneRuntime({
+        lane: "turnSummary",
+        policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
+        activeProviderId: "claude-code",
+      }).fallbackModel,
+    ).toBe("gpt-5.6-luna");
+    expect(
+      resolveAuxLaneRuntime({
+        lane: "turnSummary",
+        policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
+        activeProviderId: "codex",
+      }).fallbackModel,
+    ).toBe("claude-haiku-4-5");
+    // Lanes without a declared fallback do not invent one.
+    expect(
+      resolveAuxLaneRuntime({
+        lane: "taskName",
+        policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
+        activeProviderId: "codex",
+      }).fallbackModel,
+    ).toBeNull();
+  });
+
   test("leaves the pre-PR review model to the provider default", () => {
     expect(
       resolveAuxLaneRuntime({

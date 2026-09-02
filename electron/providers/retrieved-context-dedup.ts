@@ -3,6 +3,7 @@ import type {
   CanonicalConversationRequest,
   CanonicalRetrievedContextPart,
 } from "../../src/lib/providers/provider.types";
+import { getProviderNativeSlashCommandInput } from "../../src/lib/providers/provider-request-translators";
 import {
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
 } from "../../src/lib/task-context/current-task-awareness";
@@ -113,6 +114,13 @@ export function dedupeRetrievedContextForSession(args: {
   const sessionId = args.activeResumeSessionId?.trim();
   const taskId = args.taskId?.trim() || args.conversation?.taskId?.trim();
   if (!args.conversation || !sessionId || !taskId) {
+    return noop;
+  }
+  // A provider-native slash command is sent verbatim: the prompt builder drops
+  // every context part. Recording hashes for content that was never sent would
+  // make the *next* turn replace a genuinely changed block with a pointer to a
+  // copy the transcript does not contain.
+  if (getProviderNativeSlashCommandInput(args.conversation)) {
     return noop;
   }
 

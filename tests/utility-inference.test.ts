@@ -59,23 +59,8 @@ describe("resolveUtilityInferenceCandidates", () => {
     expect(
       resolveUtilityInferenceCandidates({
         activeProviderId: "claude-code",
-        utilityMaxProviderAttempts: 4,
       }).map((candidate) => candidate.providerId),
     ).toEqual(["codex", "claude-code", "cursor", "kiro"]);
-  });
-
-  test("caps the provider fan-out so one cheap call cannot become four", () => {
-    expect(
-      resolveUtilityInferenceCandidates({
-        activeProviderId: "claude-code",
-      }).map((candidate) => candidate.providerId),
-    ).toEqual(["codex", "claude-code"]);
-    expect(
-      resolveUtilityInferenceCandidates({
-        activeProviderId: "claude-code",
-        utilityMaxProviderAttempts: 1,
-      }).map((candidate) => candidate.providerId),
-    ).toEqual(["codex"]);
   });
 
   test("does not let the active task jump the Auto order", () => {
@@ -93,7 +78,6 @@ describe("resolveUtilityInferenceCandidates", () => {
       resolveUtilityInferenceCandidates({
         utilityProviderId: "claude-code",
         activeProviderId: "codex",
-        utilityMaxProviderAttempts: 4,
       }).map((candidate) => ({
         providerId: candidate.providerId,
         reason: candidate.reason,
@@ -305,7 +289,32 @@ describe("provider-neutral utility inference", () => {
     expect(calls).toEqual(["codex", "claude-code", "cursor", "kiro"]);
   });
 
-  test("applies a configured utility model only to the explicitly pinned provider", async () => {
+  test("caps executed runs, not candidates, so an uninstalled provider costs no budget", async () => {
+    const calls: string[] = [];
+
+    // Two managed providers that both run and both fail to parse: the cap
+    // stops there instead of fanning out over the last-resort runners.
+    const capped = await suggestUtilityTaskName(
+      { prompt: "fix the terminal" },
+      createRunners({ calls, kiro: "Kiro Title" }),
+    );
+    expect(calls).toEqual(["codex", "claude-code"]);
+    expect(capped.ok).toBe(false);
+
+    // The same default cap, but the managed providers are not authenticated.
+    // Those skips cost no model call, so the budget still reaches Kiro —
+    // otherwise a Kiro-only install would lose task naming entirely.
+    const kiroOnly: string[] = [];
+    const reached = await suggestUtilityTaskName(
+      { prompt: "fix the terminal" },
+      createRunners({ calls: kiroOnly, kiro: "Kiro Title" }),
+      createAuthGate({ "claude-code": false, cursor: false, kiro: true }),
+    );
+    expect(reached).toMatchObject({ ok: true, title: "Kiro Title" });
+    expect(kiroOnly).toEqual(["codex", "kiro"]);
+  });
+
+  test("applies a configured utility model only to the provider that owns it", async () => {
     const calls: string[] = [];
     const result = await suggestUtilityTaskName(
       {
@@ -320,9 +329,27 @@ describe("provider-neutral utility inference", () => {
       providerId: "claude-code",
       model: "claude-haiku-4-5",
     });
-    // The fallback runner is a different provider; forcing the pinned
-    // provider's model id onto it would fail the call outright.
+    // A different runner gets its own default: forcing another provider's
+    // model id onto it would fail the call outright.
     expect(result.utility.attempts[1]).toMatchObject({
+      providerId: "codex",
+      model: "gpt-5.6-luna",
+    });
+  });
+
+  test("honors a configured model under the default Auto provider setting", async () => {
+    // `utilityInferenceProvider` defaults to "auto", so every candidate is a
+    // fallback. Keying off the model's own provider is what keeps the user's
+    // Background AI model choice from being silently ignored on a default
+    // install.
+    const calls: string[] = [];
+    const result = await suggestUtilityTaskName(
+      { prompt: "fix the terminal", utilityModel: "gpt-5.6-luna" },
+      createRunners({ calls, codex: "Codex Title" }),
+    );
+
+    expect(result).toMatchObject({ ok: true, title: "Codex Title" });
+    expect(result.utility).toMatchObject({
       providerId: "codex",
       model: "gpt-5.6-luna",
     });

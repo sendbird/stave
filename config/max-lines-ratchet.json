@@ -3,7 +3,7 @@
   "files": {
     "electron/host-service/terminal-runtime.ts": 1170,
     "electron/main/browser/browser-webview-attach.ts": 800,
-    "electron/providers/codex-app-server-runtime.ts": 4029,
+    "electron/providers/codex-app-server-runtime.ts": 4055,
     "src/components/layout/useTerminalInstance.ts": 895,
     "src/components/panes/surfaces/LensSurfacePanel.tsx": 409,
     "src/components/panes/surfaces/lens/LensChrome.tsx": 800,
@@ -22,6 +22,6 @@
     "src/lib/lens/lens-guest-placement.ts": 800,
     "src/lib/lens/lens-instrumentation.ts": 800,
     "src/lib/lens/lens-log-format.ts": 800,
-    "src/store/app.store.ts": 3029
+    "src/store/app.store.ts": 3060
   }
 }

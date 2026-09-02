@@ -350,6 +350,26 @@ async function hasConnectedStaveLocalMcpForCodex() {
   return status.installed && status.matchesCurrentManifest;
 }
 
+/**
+ * Whether this thread will actually see `stave_lens_*` tools: the server has to
+ * be registered *and* still be registering the browser tools. Instructing a
+ * model to prioritize tools it does not have is the same failure the
+ * registration gate exists to prevent, just reached from the other side.
+ */
+async function hasStaveLensToolsForCodex() {
+  if (!(await hasConnectedStaveLocalMcpForCodex())) {
+    return false;
+  }
+  try {
+    // Imported lazily: `stave-mcp-config` reads `electron.app` at module scope,
+    // which this runtime module must not require just to be loadable.
+    const { readStaveLocalMcpConfig } = await import("../main/stave-mcp-config");
+    return (await readStaveLocalMcpConfig()).browserToolsEnabled !== false;
+  } catch {
+    return true;
+  }
+}
+
 function appendBoundedCodexBuffer(args: {
   current: string;
   chunk: string;
@@ -1224,6 +1244,7 @@ async function ensureCodexThread(args: {
             : {}),
           configOverrides: args.configOverrides,
           ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+          ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
         }),
       );
   const threadId = response.thread.id;
@@ -2459,10 +2480,15 @@ export async function streamCodexWithAppServer(
   // Resolved before the thread is keyed: it decides whether the Lens
   // instruction block is part of the developer instructions, which are hashed
   // into the thread key.
-  const hasEmbeddedStaveLocalMcp =
-    args.conversation && getProviderNativeSlashCommandInput(args.conversation)
-      ? false
-      : await hasConnectedStaveLocalMcpForCodex();
+  const nativeSlashCommandTurn = Boolean(
+    args.conversation && getProviderNativeSlashCommandInput(args.conversation),
+  );
+  const hasEmbeddedStaveLocalMcp = nativeSlashCommandTurn
+    ? false
+    : await hasConnectedStaveLocalMcpForCodex();
+  const hasStaveLensTools = nativeSlashCommandTurn
+    ? false
+    : await hasStaveLensToolsForCodex();
 
   let threadId: string;
   let resumedThreadId: string | null;
@@ -2478,7 +2504,7 @@ export async function streamCodexWithAppServer(
       configOverrides: mergedConfigOverrides,
       boundSecretFingerprint,
       secondaryReadOnly,
-      hasStaveLocalMcp: hasEmbeddedStaveLocalMcp,
+      hasStaveLocalMcp: hasStaveLensTools,
     }));
   } catch (error) {
     const events: BridgeEvent[] = [

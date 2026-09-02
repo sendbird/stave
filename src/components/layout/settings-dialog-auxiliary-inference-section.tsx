@@ -138,18 +138,29 @@ function AuxLaneCard(args: { lane: AuxLane }) {
         <>
           <LabeledField
             title="Provider"
-            description="Which provider answers this lane. Unset follows the task's provider."
+            description={
+              config.providerId
+                ? "Pinned. This lane always runs on the selected provider."
+                : "Not pinned: the lane follows the task's provider. Selecting one pins it."
+            }
           >
             <ChoiceButtons<AuxLaneProviderId>
-              value={resolved.providerId}
+              // Only a pinned choice is shown as selected. Showing the resolved
+              // fall-through here would claim a pin the user never made, and
+              // contradict the field's own description.
+              value={config.providerId ?? ("" as AuxLaneProviderId)}
               onChange={(providerId) => patchLane({ providerId })}
               options={PROVIDER_OPTIONS}
             />
           </LabeledField>
           <PromptModelField
             title="Model"
-            description={copy.modelDescription}
-            value={config.model ?? resolved.model ?? ""}
+            description={
+              config.model
+                ? copy.modelDescription
+                : `${copy.modelDescription} Currently using the default: ${resolved.model ?? "the provider's own choice"}.`
+            }
+            value={config.model ?? ""}
             onSelect={(model) => patchLane({ model })}
           />
           {config.fallbackModel !== undefined ? (
