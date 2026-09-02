@@ -48,8 +48,10 @@ import { selectAdvisorConsultLog } from "@/lib/providers/advisor-consult-log";
 import {
   buildTurnActivityItems,
   countTurnActivityItems,
+  mergeTurnActivityCounts,
   resolveTurnActivityRowActivation,
   describeRetainedTurnHeadline,
+  formatTurnActivityElapsedSeconds,
   formatTurnActivityCountsLabel,
   promoteFirstPendingTodoForActiveTurn,
   resolveTurnActivityFeaturedItem,
@@ -850,7 +852,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   );
   const interactionCardOwnsFocus = Boolean(
     props.hasPendingInteractionCard &&
-    props.activity?.pendingInteraction != null,
+      props.activity?.pendingInteraction != null,
   );
   const expanded = interactionCardOwnsFocus
     ? false
@@ -938,9 +940,25 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       stalledIdleLabel,
     ],
   );
-  const counts = useMemo(
+  const graphSummary = useMemo(
+    () => (props.workGraph ? summarizeWorkGraph(props.workGraph) : null),
+    [props.workGraph],
+  );
+  const hasWorkGraphRows = (graphSummary?.totalCount ?? 0) > 0;
+  const visibleActivityItems = useMemo(
+    () =>
+      hasWorkGraphRows
+        ? activityItems.filter((item) => item.iconKey !== "subagent")
+        : activityItems,
+    [activityItems, hasWorkGraphRows],
+  );
+  const flatCounts = useMemo(
     () => countTurnActivityItems(activityItems),
     [activityItems],
+  );
+  const counts = useMemo(
+    () => mergeTurnActivityCounts(flatCounts, graphSummary),
+    [flatCounts, graphSummary],
   );
   const featuredItem = useMemo(
     () => resolveTurnActivityFeaturedItem(activityItems),
@@ -950,7 +968,16 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     () => activityItems.filter((item) => item !== featuredItem),
     [activityItems, featuredItem],
   );
-  const hiddenSeverity = resolveTurnActivityHiddenSeverity(hiddenItems);
+  const hiddenItemCount = hasWorkGraphRows
+    ? Math.max(0, counts.totalCount - 1)
+    : hiddenItems.length;
+  const hiddenSeverity = hasWorkGraphRows
+    ? counts.failedCount > 0
+      ? "failed"
+      : counts.waitingCount > 0
+        ? "waiting"
+        : "default"
+    : resolveTurnActivityHiddenSeverity(hiddenItems);
   const orbState = resolveTurnActivityOrbState({
     activity: props.activity,
     isStalled,
@@ -979,6 +1006,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const headlineDetail =
     !expanded &&
     !needsAttention &&
+    !(counts.hasGraphSubagentCounts && counts.subagentRunningCount >= 2) &&
     featuredItem?.detail &&
     featuredItem.detail !== headline
       ? featuredItem.detail
@@ -986,13 +1014,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   // A turn can delegate before it reports a single work item, and the tree is
   // the only thing that would say so — without this the list stays shut and the
   // agents are invisible until unrelated activity opens it.
-  const hasWorkGraphRows = useMemo(
-    () =>
-      props.workGraph
-        ? summarizeWorkGraph(props.workGraph).totalCount > 0
-        : false,
-    [props.workGraph],
-  );
   const canExpand =
     (activityItems.length > 0 ||
       hasWorkGraphRows ||
@@ -1100,7 +1121,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               </span>
             </span>
           ) : null}
-          {!expanded && !interactionCardOwnsFocus && hiddenItems.length > 0 ? (
+          {!expanded && !interactionCardOwnsFocus && hiddenItemCount > 0 ? (
             <span
               className={cn(
                 "shrink-0 text-[11px] font-medium tabular-nums",
@@ -1110,9 +1131,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                     ? "text-warning"
                     : "text-muted-foreground",
               )}
-              aria-label={`${hiddenItems.length} more activities`}
+              aria-label={`${hiddenItemCount} more activities`}
             >
-              +{hiddenItems.length}
+              +{hiddenItemCount}
             </span>
           ) : null}
           {elapsedLabel ? (
@@ -1161,7 +1182,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             )}
           >
             <div className="px-1.5 py-1.5">
-              {activityItems.map((item) => (
+              {visibleActivityItems.map((item) => (
                 <TurnActivityRow
                   key={item.id}
                   item={item}
@@ -1172,10 +1193,12 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               ))}
               <WorkGraphTree
                 graph={props.workGraph}
+                now={props.activity?.completedAt ?? now}
                 capabilities={
                   props.workGraphCapabilities ?? NO_WORK_GRAPH_CAPABILITIES
                 }
                 onControl={props.onWorkGraphControl}
+                onSelectTool={props.onSelectTool}
                 controlErrorByNodeKey={props.workGraphControlErrorByNodeKey}
                 className="px-1.5 pt-2"
               />
@@ -1342,10 +1365,10 @@ const TurnActivityRow = memo(function TurnActivityRow({
         <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground">
           <span className="sr-only">
             {getTurnActivityStatusLabel(item.status)},{" "}
-            {formatElapsedSeconds(item.elapsedSeconds)} elapsed
+            {formatTurnActivityElapsedSeconds(item.elapsedSeconds)} elapsed
           </span>
           <span aria-hidden="true">
-            {formatElapsedSeconds(item.elapsedSeconds)}
+            {formatTurnActivityElapsedSeconds(item.elapsedSeconds)}
           </span>
         </span>
       ) : null}
@@ -1396,15 +1419,5 @@ const TurnActivityRow = memo(function TurnActivityRow({
 
 /** `+1m 4s` — how far into the turn a row's work began. */
 function formatStartOffsetSeconds(value: number) {
-  return `+${formatElapsedSeconds(value)}`;
-}
-
-function formatElapsedSeconds(value: number) {
-  const totalSeconds = Math.max(0, Math.round(value));
-  if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
-  }
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return `+${formatTurnActivityElapsedSeconds(value)}`;
 }
