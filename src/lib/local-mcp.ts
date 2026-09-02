@@ -20,6 +20,15 @@ export interface StaveLocalMcpConfig {
   token: string;
   claudeCodeAutoRegister: boolean;
   codexAutoRegister: boolean;
+  /**
+   * Whether the Lens browser tools are exposed by the local MCP server.
+   *
+   * They are ~27 of the server's tools, and every tool schema is part of the
+   * prompt of every fresh provider session that attaches the server. Turning
+   * them off removes that cost for users who never drive a browser from an
+   * agent turn.
+   */
+  browserToolsEnabled: boolean;
   /** Schema version used to migrate defaults written by older builds. */
   configVersion: number;
 }

@@ -669,6 +669,7 @@ export function LocalMcpServerCard() {
     token?: string;
     claudeCodeAutoRegister?: boolean;
     codexAutoRegister?: boolean;
+    browserToolsEnabled?: boolean;
   }) {
     const updateConfig = window.api?.localMcp?.updateConfig;
     if (!updateConfig) {
@@ -864,6 +865,15 @@ export function LocalMcpServerCard() {
             checked={config.codexAutoRegister}
             onCheckedChange={(checked) =>
               void applyConfigPatch({ codexAutoRegister: checked })
+            }
+          />
+
+          <SwitchField
+            title="Lens browser tools"
+            description="Expose the ~27 `stave_lens_*` browser tools to connected agents. Every tool schema is part of the prompt of each new provider session, so turning this off measurably shrinks the prompt for workspaces that never drive a browser from an agent turn."
+            checked={config.browserToolsEnabled !== false}
+            onCheckedChange={(checked) =>
+              void applyConfigPatch({ browserToolsEnabled: checked })
             }
           />
 

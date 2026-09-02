@@ -18,6 +18,7 @@ const DEFAULT_LOCAL_MCP_CONFIG: StaveLocalMcpConfig = {
   token: "",
   claudeCodeAutoRegister: false,
   codexAutoRegister: false,
+  browserToolsEnabled: true,
   configVersion: LOCAL_MCP_CONFIG_VERSION,
 };
 
@@ -80,6 +81,10 @@ function buildNormalizedConfig(input?: Partial<StaveLocalMcpConfig> | null): Sta
       candidate.codexAutoRegister,
       DEFAULT_LOCAL_MCP_CONFIG.codexAutoRegister,
     ),
+    browserToolsEnabled: normalizeBoolean(
+      candidate.browserToolsEnabled,
+      DEFAULT_LOCAL_MCP_CONFIG.browserToolsEnabled,
+    ),
   };
 }
 
@@ -109,6 +114,7 @@ export async function readStaveLocalMcpConfig() {
       || normalized.token !== parsed.token
       || normalized.claudeCodeAutoRegister !== parsed.claudeCodeAutoRegister
       || normalized.codexAutoRegister !== parsed.codexAutoRegister
+      || normalized.browserToolsEnabled !== parsed.browserToolsEnabled
       || normalized.configVersion !== parsed.configVersion
     ) {
       await writeConfig(normalized);

@@ -63,6 +63,44 @@ describe("stave local MCP config", () => {
     expect(saved.codexAutoRegister).toBe(false);
   });
 
+  test("keeps Lens browser tools registered by default and persists the opt-out", async () => {
+    createTempUserDataDirectory();
+
+    // Default on: turning the tools off is an explicit prompt-size trade-off,
+    // not something an upgrade should make for the user.
+    expect((await readStaveLocalMcpConfig()).browserToolsEnabled).toBe(true);
+
+    const updated = await updateStaveLocalMcpConfig({
+      browserToolsEnabled: false,
+    });
+    expect(updated.browserToolsEnabled).toBe(false);
+    expect(await readStaveLocalMcpConfig()).toMatchObject({
+      browserToolsEnabled: false,
+    });
+
+    const saved = JSON.parse(
+      readFileSync(getStaveLocalMcpConfigPath(), "utf8"),
+    ) as { browserToolsEnabled: boolean };
+    expect(saved.browserToolsEnabled).toBe(false);
+  });
+
+  test("backfills the browser-tools flag for configs written before it existed", async () => {
+    createTempUserDataDirectory();
+    writeFileSync(
+      getStaveLocalMcpConfigPath(),
+      JSON.stringify({
+        enabled: true,
+        port: DEFAULT_LOCAL_MCP_PORT,
+        token: "existing-token",
+        claudeCodeAutoRegister: false,
+        codexAutoRegister: false,
+        configVersion: LOCAL_MCP_CONFIG_VERSION,
+      }),
+    );
+
+    expect((await readStaveLocalMcpConfig()).browserToolsEnabled).toBe(true);
+  });
+
   test("defaults to a stable port so restarts keep the endpoint valid", async () => {
     createTempUserDataDirectory();
 

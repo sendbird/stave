@@ -708,6 +708,7 @@ interface WindowLocalMcpApi {
     token?: string;
     claudeCodeAutoRegister?: boolean;
     codexAutoRegister?: boolean;
+    browserToolsEnabled?: boolean;
   }) => Promise<{
     ok: boolean;
     status: StaveLocalMcpStatus | null;

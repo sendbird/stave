@@ -1585,6 +1585,7 @@ contextBridge.exposeInMainWorld("api", {
       token?: string;
       claudeCodeAutoRegister?: boolean;
       codexAutoRegister?: boolean;
+      browserToolsEnabled?: boolean;
     }) =>
       ipcRenderer.invoke("local-mcp:update-config", args) as Promise<{
         ok: boolean;

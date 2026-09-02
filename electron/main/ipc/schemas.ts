@@ -764,6 +764,7 @@ export const LocalMcpConfigUpdateArgsSchema = z
     token: z.string().max(4096).optional(),
     claudeCodeAutoRegister: z.boolean().optional(),
     codexAutoRegister: z.boolean().optional(),
+    browserToolsEnabled: z.boolean().optional(),
   })
   .strict();
 
