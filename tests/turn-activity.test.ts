@@ -5,6 +5,7 @@ import {
   describeRetainedTurnHeadline,
   formatTurnActivityCountsLabel,
   hasOutstandingTurnActivity,
+  mergeTurnActivityCounts,
   promoteFirstPendingTodoForActiveTurn,
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
@@ -700,11 +701,98 @@ describe("turn activity presentation", () => {
       pendingCount: 1,
       completedCount: 1,
       totalCount: 5,
+      subagentFailedCount: 1,
+      subagentWaitingCount: 0,
+      subagentRunningCount: 1,
+      subagentPendingCount: 0,
+      subagentCompletedCount: 1,
+      hasGraphSubagentCounts: false,
     });
     expect(formatTurnActivityCountsLabel(counts)).toBe(
       "1 failed · 2 running · 1 queued · 1 done",
     );
     expect(formatTurnActivityCountsLabel(countTurnActivityItems([]))).toBeNull();
+  });
+
+  test("replaces the bounded flat subagent counts with the graph summary", () => {
+    const flatCounts = countTurnActivityItems(
+      Array.from({ length: 12 }, (_, index) => ({
+        id: `agent-${index}`,
+        status: "running" as const,
+        title: `Agent ${index}`,
+        iconKey: "subagent" as const,
+      })),
+    );
+    const counts = mergeTurnActivityCounts(flatCounts, {
+      totalCount: 16,
+      runningCount: 14,
+      blockedCount: 0,
+      failedCount: 1,
+      completedCount: 1,
+      maxDepth: 1,
+      label: "16 agents · 1 failed",
+    });
+    const countsLabel = formatTurnActivityCountsLabel(counts);
+
+    expect(counts).toEqual({
+      failedCount: 1,
+      waitingCount: 0,
+      runningCount: 14,
+      pendingCount: 0,
+      completedCount: 1,
+      totalCount: 16,
+      subagentFailedCount: 1,
+      subagentWaitingCount: 0,
+      subagentRunningCount: 14,
+      subagentPendingCount: 0,
+      subagentCompletedCount: 1,
+      hasGraphSubagentCounts: true,
+    });
+    expect(countsLabel).toBe("1 failed · 14 running · 1 done");
+    expect(
+      resolveTurnActivityHeadline({
+        expanded: false,
+        needsAttention: false,
+        counts,
+        countsLabel,
+        featuredItem: {
+          id: "agent-0",
+          status: "running",
+          title: "Review module 0",
+          iconKey: "subagent",
+        },
+        summaryLabel: "Working on your request",
+      }),
+    ).toBe("1 failed · 14 running · 1 done");
+  });
+
+  test("keeps a single graph agent's description as the collapsed headline", () => {
+    const item = {
+      id: "agent-1",
+      status: "running" as const,
+      title: "Review the renderer",
+      iconKey: "subagent" as const,
+    };
+    const counts = mergeTurnActivityCounts(countTurnActivityItems([item]), {
+      totalCount: 1,
+      runningCount: 1,
+      blockedCount: 0,
+      failedCount: 0,
+      completedCount: 0,
+      maxDepth: 0,
+      label: "1 agent",
+    });
+
+    expect(
+      resolveTurnActivityHeadline({
+        expanded: false,
+        needsAttention: false,
+        counts,
+        countsLabel: formatTurnActivityCountsLabel(counts),
+        featuredItem: item,
+        summaryLabel: "Working on your request",
+      }),
+    ).toBe("Review the renderer");
   });
 
   test("stops the headline from parking on a bare completed count", () => {

@@ -19,6 +19,7 @@ import type {
   ProviderTurnWorkItem,
   RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
+import type { WorkGraphSummary } from "@/lib/work-graph/work-graph-tree";
 import type { OrbState } from "thinking-orbs";
 
 export type TurnActivityRowStatus =
@@ -125,6 +126,12 @@ export interface TurnActivityCounts {
   pendingCount: number;
   completedCount: number;
   totalCount: number;
+  subagentFailedCount: number;
+  subagentWaitingCount: number;
+  subagentRunningCount: number;
+  subagentPendingCount: number;
+  subagentCompletedCount: number;
+  hasGraphSubagentCounts: boolean;
 }
 
 /** Most urgent first: what the shelf should show before anything else. */
@@ -756,21 +763,89 @@ export function countTurnActivityItems(
     pendingCount: 0,
     completedCount: 0,
     totalCount: items.length,
+    subagentFailedCount: 0,
+    subagentWaitingCount: 0,
+    subagentRunningCount: 0,
+    subagentPendingCount: 0,
+    subagentCompletedCount: 0,
+    hasGraphSubagentCounts: false,
   };
   for (const item of items) {
     if (item.status === "failed") {
       counts.failedCount += 1;
+      if (item.iconKey === "subagent") {
+        counts.subagentFailedCount += 1;
+      }
     } else if (item.status === "waiting") {
       counts.waitingCount += 1;
+      if (item.iconKey === "subagent") {
+        counts.subagentWaitingCount += 1;
+      }
     } else if (item.status === "running") {
       counts.runningCount += 1;
+      if (item.iconKey === "subagent") {
+        counts.subagentRunningCount += 1;
+      }
     } else if (item.status === "pending") {
       counts.pendingCount += 1;
+      if (item.iconKey === "subagent") {
+        counts.subagentPendingCount += 1;
+      }
     } else {
       counts.completedCount += 1;
+      if (item.iconKey === "subagent") {
+        counts.subagentCompletedCount += 1;
+      }
     }
   }
   return counts;
+}
+
+/**
+ * Replace the flat shelf's bounded subagent contribution with the complete
+ * work-graph summary. Non-agent rows remain owned by the flat activity tail.
+ */
+export function mergeTurnActivityCounts(
+  flatCounts: TurnActivityCounts,
+  graphSummary: WorkGraphSummary | null,
+): TurnActivityCounts {
+  if (!graphSummary || graphSummary.totalCount === 0) {
+    return flatCounts;
+  }
+  const flatSubagentCount =
+    flatCounts.subagentFailedCount +
+    flatCounts.subagentWaitingCount +
+    flatCounts.subagentRunningCount +
+    flatCounts.subagentPendingCount +
+    flatCounts.subagentCompletedCount;
+
+  return {
+    failedCount:
+      flatCounts.failedCount -
+      flatCounts.subagentFailedCount +
+      graphSummary.failedCount,
+    waitingCount:
+      flatCounts.waitingCount -
+      flatCounts.subagentWaitingCount +
+      graphSummary.blockedCount,
+    runningCount:
+      flatCounts.runningCount -
+      flatCounts.subagentRunningCount +
+      graphSummary.runningCount,
+    pendingCount: flatCounts.pendingCount - flatCounts.subagentPendingCount,
+    completedCount:
+      flatCounts.completedCount -
+      flatCounts.subagentCompletedCount +
+      graphSummary.completedCount,
+    totalCount:
+      flatCounts.totalCount - flatSubagentCount + graphSummary.totalCount,
+    subagentFailedCount: graphSummary.failedCount,
+    subagentWaitingCount: graphSummary.blockedCount,
+    subagentRunningCount: graphSummary.runningCount,
+    subagentPendingCount: 0,
+    subagentCompletedCount: graphSummary.completedCount,
+    hasGraphSubagentCounts: true,
+  };
 }
 
 /** `2 running · 1 waiting · 3 done` — the expanded-state headline. */
@@ -783,6 +858,16 @@ export function formatTurnActivityCountsLabel(counts: TurnActivityCounts) {
     counts.completedCount > 0 ? `${counts.completedCount} done` : null,
   ].filter((segment): segment is string => segment !== null);
   return segments.length > 0 ? segments.join(" · ") : null;
+}
+
+export function formatTurnActivityElapsedSeconds(value: number) {
+  const totalSeconds = Math.max(0, Math.round(value));
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
 }
 
 /** Whether any row still represents outstanding work rather than a result. */
@@ -822,6 +907,12 @@ export function resolveTurnActivityHeadline(args: {
     return args.summaryLabel;
   }
   if (!args.expanded) {
+    if (
+      args.counts.hasGraphSubagentCounts &&
+      args.counts.subagentRunningCount >= 2
+    ) {
+      return args.countsLabel ?? args.summaryLabel;
+    }
     return args.featuredItem?.title ?? args.summaryLabel;
   }
   if (!hasOutstandingTurnActivity(args.counts)) {

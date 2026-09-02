@@ -1,7 +1,20 @@
-import { memo, useMemo } from "react";
-import { Hand, MessageSquare, Square, type LucideIcon } from "lucide-react";
-import { TurnActivityStatusIcon } from "@/components/session/turn-activity-status-icon";
-import type { TurnActivityRowStatus } from "@/components/session/turn-activity.utils";
+import { memo, useId, useMemo, useState } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Hand,
+  MessageSquare,
+  Square,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  getTurnActivityStatusLabel,
+  TurnActivityStatusIcon,
+} from "@/components/session/turn-activity-status-icon";
+import {
+  formatTurnActivityElapsedSeconds,
+  type TurnActivityRowStatus,
+} from "@/components/session/turn-activity.utils";
 import { Button } from "@/components/ui";
 import type { ProviderWorkGraphCapabilities } from "@/lib/providers/provider.types";
 import { createEmptyProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
@@ -82,6 +95,8 @@ export interface WorkGraphControlRequest {
 
 export interface WorkGraphTreeProps {
   graph: WorkGraph | null | undefined;
+  /** Shared shelf clock; completed turns pass their frozen completion time. */
+  now: number;
   capabilities: ProviderWorkGraphCapabilities;
   /**
    * Optional because a surface may render the tree with no controls at all —
@@ -89,6 +104,8 @@ export interface WorkGraphTreeProps {
    * have anything to click.
    */
   onControl?: (request: WorkGraphControlRequest) => void;
+  /** Reveal the spawning tool call in the transcript when the graph knows it. */
+  onSelectTool?: (toolUseId: string) => void;
   /**
    * Why a control the reader just used did not take effect, per node.
    *
@@ -105,9 +122,45 @@ export const WorkGraphTree = memo(function WorkGraphTree(
 ) {
   const graph = props.graph ?? null;
   const rows = useMemo(() => (graph ? buildWorkGraphTree(graph) : []), [graph]);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const completedRowsId = useId();
   const liveIdentities = useMemo(
     () => (graph ? collectLiveWorkGraphIdentities(graph) : NO_LIVE_IDENTITIES),
     [graph],
+  );
+  const collapsibleCompletedKeys = useMemo(() => {
+    const keys = new Set(
+      rows
+        .filter(
+          (row) =>
+            row.node.status === "completed" || row.node.status === "cancelled",
+        )
+        .map((row) => row.key),
+    );
+    if (!graph || keys.size === 0 || keys.size === rows.length) {
+      return new Set<string>();
+    }
+
+    // A completed parent remains visible while a live or failed descendant
+    // still needs its place in the tree to explain ownership.
+    for (const row of rows) {
+      if (keys.has(row.key)) {
+        continue;
+      }
+      let ancestorKey = row.node.parentKey;
+      while (ancestorKey && ancestorKey !== graph.rootKey) {
+        keys.delete(ancestorKey);
+        ancestorKey = graph.nodesByKey[ancestorKey]?.parentKey ?? null;
+      }
+    }
+    return keys;
+  }, [graph, rows]);
+  const visibleRows = useMemo(
+    () =>
+      showCompleted
+        ? rows
+        : rows.filter((row) => !collapsibleCompletedKeys.has(row.key)),
+    [collapsibleCompletedKeys, rows, showCompleted],
   );
 
   // A turn without delegated agents renders nothing at all: an empty labelled
@@ -125,33 +178,59 @@ export const WorkGraphTree = memo(function WorkGraphTree(
       <h3 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
         Agent tree
       </h3>
-      <div className="mt-1 flex min-w-0 flex-col">
-        {rows.map((row) => (
+      <div id={completedRowsId} className="mt-1 flex min-w-0 flex-col">
+        {visibleRows.map((row) => (
           <WorkGraphTreeNodeRow
             key={row.key}
             row={row}
+            now={props.now}
             capabilities={props.capabilities}
             liveIdentities={liveIdentities}
             onControl={props.onControl}
+            onSelectTool={props.onSelectTool}
             controlError={props.controlErrorByNodeKey?.[row.key] ?? null}
           />
         ))}
       </div>
+      {collapsibleCompletedKeys.size > 0 ? (
+        <Button
+          type="button"
+          size="xs"
+          variant="ghost"
+          className="mt-1 text-muted-foreground"
+          aria-expanded={showCompleted}
+          aria-controls={completedRowsId}
+          aria-label={`${showCompleted ? "Hide" : "Show"} ${collapsibleCompletedKeys.size} completed agents`}
+          data-testid="work-graph-completed-toggle"
+          onClick={() => setShowCompleted((current) => !current)}
+        >
+          {showCompleted ? (
+            <ChevronDown className="size-3" aria-hidden="true" />
+          ) : (
+            <ChevronRight className="size-3" aria-hidden="true" />
+          )}
+          {collapsibleCompletedKeys.size} done
+        </Button>
+      ) : null}
     </section>
   );
 });
 
 const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   row,
+  now,
   capabilities,
   liveIdentities,
   onControl,
+  onSelectTool,
   controlError,
 }: {
   row: WorkGraphTreeRow;
+  now: number;
   capabilities: ProviderWorkGraphCapabilities;
   liveIdentities: ReadonlySet<string>;
   onControl?: (request: WorkGraphControlRequest) => void;
+  onSelectTool?: (toolUseId: string) => void;
   controlError?: string | null;
 }) {
   const { node } = row;
@@ -167,23 +246,18 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   const title = [node.label, detail, controls.reason]
     .filter((part): part is string => Boolean(part))
     .join(" · ");
-
-  return (
-    <div
-      data-work-graph-node-key={node.key}
-      data-work-graph-depth={row.depth}
-      data-work-graph-blocked={row.blocked ? "true" : undefined}
-      className={cn(
-        "flex min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5",
-        "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
-      )}
-      // Depth is unbounded, so the indent cannot come from a static class list.
-      style={{
-        paddingInlineStart:
-          WORK_GRAPH_ROW_INSET_PX + row.depth * WORK_GRAPH_INDENT_PX,
-      }}
-      title={title}
-    >
+  const elapsedSeconds =
+    (isTerminalWorkGraphStatus(node.status)
+      ? (node.completedAt ?? node.updatedAt)
+      : now) - node.startedAt;
+  const elapsedLabel = formatTurnActivityElapsedSeconds(elapsedSeconds / 1_000);
+  const statusLabel =
+    node.status === "cancelled"
+      ? "Cancelled"
+      : getTurnActivityStatusLabel(status);
+  const revealToolUseId = onSelectTool ? node.spawnedByToolUseId : undefined;
+  const body = (
+    <>
       <span className="flex h-5 shrink-0 items-center">
         <TurnActivityStatusIcon
           status={status}
@@ -235,6 +309,50 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
           </p>
         ) : null}
       </div>
+      <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground">
+        <span className="sr-only">
+          {statusLabel}, {elapsedLabel} elapsed
+        </span>
+        <span aria-hidden="true">{elapsedLabel}</span>
+      </span>
+    </>
+  );
+  const contentClassName = cn(
+    "-my-1.5 flex min-w-0 flex-1 items-start gap-2.5 rounded-md py-1.5 text-left",
+    revealToolUseId &&
+      "cursor-pointer transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none",
+  );
+
+  return (
+    <div
+      data-work-graph-node-key={node.key}
+      data-work-graph-depth={row.depth}
+      data-work-graph-blocked={row.blocked ? "true" : undefined}
+      className={cn(
+        "flex min-w-0 items-start gap-0.5 rounded-lg px-2 py-1.5",
+        "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
+      )}
+      // Depth is unbounded, so the indent cannot come from a static class list.
+      style={{
+        paddingInlineStart:
+          WORK_GRAPH_ROW_INSET_PX + row.depth * WORK_GRAPH_INDENT_PX,
+      }}
+    >
+      {revealToolUseId ? (
+        <button
+          type="button"
+          data-work-graph-revealable="true"
+          className={contentClassName}
+          title={`${title} — show in conversation`}
+          onClick={() => onSelectTool?.(revealToolUseId)}
+        >
+          {body}
+        </button>
+      ) : (
+        <div className={contentClassName} title={title}>
+          {body}
+        </div>
+      )}
       {controls.available.length > 0 ? (
         <span className="flex shrink-0 items-center gap-0.5">
           {controls.available.map((control) => {

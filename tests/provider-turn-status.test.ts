@@ -854,7 +854,7 @@ describe("provider turn status helpers", () => {
     });
   });
 
-  test("safely correlates progress that arrives before its tool event", () => {
+  test("ignores unidentified subagent progress until its tool event arrives", () => {
     const started = startProviderTurnActivity({
       activityByTask: {},
       taskId: "task-1",
@@ -896,18 +896,14 @@ describe("provider turn status helpers", () => {
       ],
     });
 
-    expect(progressFirst["task-1"]?.workItemsById["agent-1"]).toMatchObject({
-      kind: "tool",
-      title: "Background work",
-      detail: "Inspecting files",
-      startedAt: 2000,
-    });
+    expect(progressFirst["task-1"]?.workItemsById["agent-1"]).toBeUndefined();
+    expect(progressFirst["task-1"]?.orderedWorkItemIds).toEqual([]);
     expect(identified["task-1"]?.workItemsById["agent-1"]).toMatchObject({
       kind: "subagent",
       title: "lens audit",
       detail: "Review the renderer event flow",
-      progressMessages: ["Inspecting files"],
-      startedAt: 2000,
+      progressMessages: [],
+      startedAt: 3000,
       updatedAt: 3000,
     });
   });
@@ -943,6 +939,88 @@ describe("provider turn status helpers", () => {
     expect(tracked["task-1"]?.orderedWorkItemIds).not.toContain("agent-2");
     expect(tracked["task-1"]?.orderedWorkItemIds).toContain("agent-3");
     expect(tracked["task-1"]?.orderedWorkItemIds).toContain("agent-14");
+  });
+
+  test("does not resurrect pruned agents from progress-only events", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 1000,
+    });
+    const tracked = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 2000,
+      events: Array.from({ length: 15 }, (_, index) => ({
+        type: "tool" as const,
+        toolUseId: `agent-${index + 1}`,
+        toolName: "Agent",
+        input: JSON.stringify({ description: `Agent ${index + 1}` }),
+        state: "input-available" as const,
+      })),
+    });
+    const originalIds = tracked["task-1"]?.orderedWorkItemIds ?? [];
+    expect(originalIds).toHaveLength(12);
+    expect(originalIds).not.toContain("agent-1");
+
+    const progressed = applyProviderTurnActivityEvents({
+      activityByTask: tracked,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 3000,
+      events: [
+        {
+          type: "tool_progress",
+          toolUseId: "agent-1",
+          toolName: "Agent",
+          elapsedSeconds: 1,
+        },
+        {
+          type: "subagent_progress",
+          toolUseId: "agent-1",
+          content: "Still working",
+        },
+      ],
+    });
+
+    expect(progressed["task-1"]?.orderedWorkItemIds).toEqual(originalIds);
+    expect(progressed["task-1"]?.workItemsById["agent-1"]).toBeUndefined();
+  });
+
+  test("keeps creating a fallback row for unknown plain-tool progress", () => {
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 1000,
+    });
+    const progressed = applyProviderTurnActivityEvents({
+      activityByTask: started,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "codex",
+      now: 2000,
+      events: [
+        {
+          type: "tool_progress",
+          toolUseId: "bash-1",
+          toolName: "bash",
+          elapsedSeconds: 2,
+        },
+      ],
+    });
+
+    expect(progressed["task-1"]?.workItemsById["bash-1"]).toMatchObject({
+      kind: "tool",
+      title: "Run command",
+      elapsedSeconds: 2,
+    });
   });
 
   test("titles the same operation identically across providers", () => {

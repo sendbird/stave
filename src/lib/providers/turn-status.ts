@@ -95,6 +95,10 @@ export interface ProviderTurnWorkItem {
   toolName?: string;
 }
 
+/**
+ * Bounded recent-activity tail for the flat shelf. Delegated agents remain
+ * complete in the work graph even when their older flat rows fall out here.
+ */
 export const PROVIDER_TURN_WORK_ITEM_LIMIT = 12;
 /**
  * Plain tool calls (reads, edits, commands) are tracked so the activity shelf
@@ -919,26 +923,34 @@ function applyTurnWorkEvents(args: {
 
     if (event.type === "subagent_progress" && event.toolUseId) {
       const currentItem = workItemsById[event.toolUseId];
+      // The work graph owns the complete agent roster. If this flat-tail row
+      // was pruned (or never existed), recreating it from progress alone loses
+      // the agent's label, badge, and original start time.
+      if (!currentItem) {
+        continue;
+      }
       const progressMessages = appendProgressMessage(
-        currentItem?.progressMessages ?? [],
+        currentItem.progressMessages,
         event.content,
       );
       upsertItem({
         id: event.toolUseId,
-        kind: currentItem?.kind ?? "tool",
+        kind: currentItem.kind,
         status: "running",
-        title: currentItem?.title ?? "Background work",
+        title: currentItem.title,
         detail:
           progressMessages.at(-1) ??
-          currentItem?.detail ??
+          currentItem.detail ??
           truncateWorkText(event.content),
         toolUseId: event.toolUseId,
         progressMessages,
-        startedAt: currentItem?.startedAt ?? args.now,
+        startedAt: currentItem.startedAt,
         updatedAt: args.now,
-        elapsedSeconds: currentItem?.elapsedSeconds,
-        ...(currentItem?.badge ? { badge: currentItem.badge } : {}),
-        ...(currentItem?.workerExecution ? { workerExecution: currentItem.workerExecution } : {}),
+        elapsedSeconds: currentItem.elapsedSeconds,
+        ...(currentItem.badge ? { badge: currentItem.badge } : {}),
+        ...(currentItem.workerExecution
+          ? { workerExecution: currentItem.workerExecution }
+          : {}),
       });
       continue;
     }
@@ -990,6 +1002,12 @@ function applyTurnWorkEvents(args: {
     if (event.type === "tool_progress") {
       const currentItem = workItemsById[event.toolUseId];
       const isSubagent = isSubagentToolName(event.toolName);
+      // A pruned agent stays represented by the work graph. Do not fabricate
+      // an incomplete flat row from a progress event that carries no spawn
+      // description or badge. Unknown plain tools retain the legacy fallback.
+      if (!currentItem && isSubagent) {
+        continue;
+      }
       upsertItem({
         id: event.toolUseId,
         kind: isSubagent ? "subagent" : (currentItem?.kind ?? "tool"),
@@ -1006,7 +1024,9 @@ function applyTurnWorkEvents(args: {
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
         elapsedSeconds: event.elapsedSeconds,
-        ...(currentItem?.workerExecution ? { workerExecution: currentItem.workerExecution } : {}),
+        ...(currentItem?.workerExecution
+          ? { workerExecution: currentItem.workerExecution }
+          : {}),
       });
       continue;
     }

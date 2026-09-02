@@ -78,12 +78,15 @@ function renderTree(args: {
   graph: WorkGraph | null;
   capabilities?: ProviderWorkGraphCapabilities;
   controlErrorByNodeKey?: Record<string, string>;
+  onSelectTool?: (toolUseId: string) => void;
 }) {
   return renderToStaticMarkup(
     createElement(WorkGraphTree, {
       graph: args.graph,
+      now: 5_000,
       capabilities: args.capabilities ?? ALL_CAPABILITIES,
       onControl: () => {},
+      ...(args.onSelectTool ? { onSelectTool: args.onSelectTool } : {}),
       ...(args.controlErrorByNodeKey
         ? { controlErrorByNodeKey: args.controlErrorByNodeKey }
         : {}),
@@ -259,6 +262,108 @@ describe("WorkGraphTree", () => {
     expect(html).toContain("This agent has already finished.");
   });
 
+  test("shows live elapsed time and freezes a completed agent's duration", () => {
+    const liveHtml = renderTree({
+      graph: graphOf([
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_live"),
+          agentId: "agent_live",
+          label: "Live audit",
+          startedAt: 1_000,
+          updatedAt: 2_000,
+        }),
+      ]),
+    });
+    const completedHtml = renderTree({
+      graph: graphOf([
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_done"),
+          agentId: "agent_done",
+          label: "Finished audit",
+          status: "completed",
+          startedAt: 1_000,
+          updatedAt: 9_000,
+          completedAt: 4_500,
+        }),
+      ]),
+    });
+
+    expect(liveHtml).toContain("4s elapsed");
+    expect(completedHtml).toContain("4s elapsed");
+    expect(completedHtml).not.toContain("8s elapsed");
+  });
+
+  test("makes a node with a spawn call revealable in the transcript", () => {
+    const selected: string[] = [];
+    const html = renderTree({
+      graph: graphOf([
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_reveal"),
+          agentId: "agent_reveal",
+          spawnedByToolUseId: "toolu_reveal",
+          label: "Trace the reducer",
+        }),
+      ]),
+      onSelectTool: (toolUseId) => selected.push(toolUseId),
+    });
+
+    expect(html).toContain('data-work-graph-revealable="true"');
+    expect(html).toContain("Trace the reducer — show in conversation");
+    // Static rendering cannot dispatch the click; the callback stays untouched
+    // until the rendered button is activated in the browser.
+    expect(selected).toEqual([]);
+  });
+
+  test("collapses completed branches while active agents remain", () => {
+    const html = renderTree({
+      graph: graphOf([
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_live"),
+          agentId: "agent_live",
+          label: "Live audit",
+        }),
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_done"),
+          agentId: "agent_done",
+          label: "Finished audit",
+          status: "completed",
+          completedAt: 4_000,
+        }),
+      ]),
+    });
+
+    expect(html).toContain("Live audit");
+    expect(html).not.toContain("Finished audit");
+    expect(html).toContain('data-testid="work-graph-completed-toggle"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain("1 done");
+  });
+
+  test("keeps a completed parent visible while its child is still active", () => {
+    const parentKey = providerAgentNodeKey("claude-code", "agent_parent");
+    const html = renderTree({
+      graph: graphOf([
+        agentNode({
+          key: parentKey,
+          agentId: "agent_parent",
+          label: "Parent audit",
+          status: "completed",
+          completedAt: 4_000,
+        }),
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_child"),
+          agentId: "agent_child",
+          parentKey,
+          label: "Live child audit",
+        }),
+      ]),
+    });
+
+    expect(html).toContain("Parent audit");
+    expect(html).toContain("Live child audit");
+    expect(html).not.toContain('data-testid="work-graph-completed-toggle"');
+  });
+
   test("a blocked node reads as needing a person", () => {
     const blockedKey = providerAgentNodeKey("claude-code", "agent_blocked");
     const html = renderTree({
@@ -324,7 +429,18 @@ describe("WorkGraphTree", () => {
         activeTurnId: "turn-shelf",
         activity,
         isPlanPreparing: false,
-        workItems: [],
+        workItems: [
+          {
+            id: "agent-shelf",
+            kind: "subagent",
+            status: "running",
+            title: "Trace the reducer",
+            toolUseId: "toolu_shelf",
+            progressMessages: [],
+            startedAt: 1_000,
+            updatedAt: 2_000,
+          },
+        ],
         todos: [],
         workGraph: graph,
         workGraphCapabilities: NO_CAPABILITIES,
@@ -334,6 +450,7 @@ describe("WorkGraphTree", () => {
 
     expect(html).toContain('data-testid="work-graph-tree"');
     expect(html).toContain("Trace the reducer");
+    expect(html).not.toContain('data-turn-activity-item-id="work:agent-shelf"');
 
     // Without a graph the shelf is exactly what it was before the tree existed.
     const withoutGraphHtml = renderToStaticMarkup(
@@ -341,11 +458,72 @@ describe("WorkGraphTree", () => {
         activeTurnId: "turn-shelf",
         activity,
         isPlanPreparing: false,
-        workItems: [],
+        workItems: [
+          {
+            id: "agent-shelf",
+            kind: "subagent",
+            status: "running",
+            title: "Trace the reducer",
+            toolUseId: "toolu_shelf",
+            progressMessages: [],
+            startedAt: 1_000,
+            updatedAt: 2_000,
+          },
+        ],
         todos: [],
         expandedByDefault: true,
       }),
     );
     expect(withoutGraphHtml).not.toContain('data-testid="work-graph-tree"');
+    expect(withoutGraphHtml).toContain(
+      'data-turn-activity-item-id="work:agent-shelf"',
+    );
+  });
+
+  test("uses the complete graph counts beyond the flat shelf cap", () => {
+    const nodes = Array.from({ length: 16 }, (_, index) =>
+      agentNode({
+        key: providerAgentNodeKey("claude-code", `agent_${index}`),
+        agentId: `agent_${index}`,
+        label: `Review module ${index}`,
+        status:
+          index === 14 ? "failed" : index === 15 ? "completed" : "running",
+        ...(index === 15 ? { completedAt: 4_000 } : {}),
+      }),
+    );
+    const graph = graphOf(nodes);
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-fanout",
+        activity: {
+          turnId: "turn-fanout",
+          providerId: "claude-code",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: Array.from({ length: 12 }, (_, index) => ({
+          id: `agent-${index}`,
+          kind: "subagent" as const,
+          status: "running" as const,
+          title: `Review module ${index}`,
+          progressMessages: [],
+          startedAt: 1_000,
+          updatedAt: 2_000,
+        })),
+        todos: [],
+        workGraph: graph,
+        workGraphCapabilities: NO_CAPABILITIES,
+        expandedByDefault: false,
+      }),
+    );
+
+    expect(html).toContain("1 failed · 14 running · 1 done");
+    expect(html).toContain('aria-label="15 more activities"');
+    expect(html).not.toContain(">12 running<");
   });
 });

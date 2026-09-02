@@ -785,19 +785,22 @@ describe("work graph ledger nodes", () => {
 });
 
 describe("work graph projection", () => {
-  test("the tree nests children under parents and sorts siblings by urgency", () => {
+  test("the tree nests children and keeps siblings in start order", () => {
     const next = reduceAll(graph(), [
-      toolEvent({ toolUseId: "toolu_a", agentId: "agent_a" }),
+      toolEvent({
+        toolUseId: "toolu_a",
+        agentId: "agent_a",
+        state: "output-available",
+      }),
       toolEvent({
         toolUseId: "toolu_b",
         agentId: "agent_b",
-        state: "output-available",
+        state: "output-error",
       }),
       toolEvent({
         toolUseId: "toolu_c",
         agentId: "agent_c",
         ownerAgentId: "agent_a",
-        state: "output-error",
       }),
     ]);
 

@@ -27,21 +27,12 @@ export interface WorkGraphTreeRow {
   hasChildren: boolean;
 }
 
-/** Most urgent first, matching the flat activity shelf's vocabulary. */
-const STATUS_ORDER: Record<WorkGraphStatus, number> = {
-  failed: 0,
-  waiting: 1,
-  running: 2,
-  pending: 3,
-  completed: 4,
-  cancelled: 5,
-};
-
 /**
  * Flatten the graph into display rows.
  *
- * Siblings sort by urgency and then by spawn order; the tree itself is walked
- * depth-first from the turn root so a child is always adjacent to its parent.
+ * Siblings stay in start order; the tree itself is walked depth-first from the
+ * turn root so a child is always adjacent to its parent. Status belongs in the
+ * row icon, not in an ordering rule that makes rows jump while someone reads.
  * Two things the walk must not do: recurse into a node twice (a malformed
  * parent chain from a confused provider would otherwise hang the renderer), and
  * drop nodes whose parent never arrived — those are surfaced at the root, since
@@ -115,11 +106,11 @@ export function buildWorkGraphTree(graph: WorkGraph): WorkGraphTreeRow[] {
     const sorted = [...children].sort((left, right) => {
       const leftNode = graph.nodesByKey[left];
       const rightNode = graph.nodesByKey[right];
-      const byStatus =
-        STATUS_ORDER[leftNode?.status ?? "completed"] -
-        STATUS_ORDER[rightNode?.status ?? "completed"];
-      if (byStatus !== 0) {
-        return byStatus;
+      const byStartedAt =
+        (leftNode?.startedAt ?? Number.MAX_SAFE_INTEGER) -
+        (rightNode?.startedAt ?? Number.MAX_SAFE_INTEGER);
+      if (byStartedAt !== 0) {
+        return byStartedAt;
       }
       return (spawnOrder.get(left) ?? 0) - (spawnOrder.get(right) ?? 0);
     });
