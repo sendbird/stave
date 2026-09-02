@@ -28,15 +28,30 @@ function isSkillCompatible(args: {
   providerId: ProviderId;
   skillProvider: SkillCatalogProvider;
 }) {
-  return args.skillProvider === "shared" || args.skillProvider === args.providerId;
+  if (
+    args.skillProvider === "shared" ||
+    args.skillProvider === args.providerId
+  ) {
+    return true;
+  }
+  return (
+    (args.providerId === "cursor" || args.providerId === "kiro") &&
+    (args.skillProvider === "claude-code" || args.skillProvider === "codex")
+  );
 }
 
-function compareSkillEntryPriority(left: SkillCatalogEntry, right: SkillCatalogEntry) {
-  const scopeDelta = SKILL_SCOPE_PRIORITY[right.scope] - SKILL_SCOPE_PRIORITY[left.scope];
+function compareSkillEntryPriority(
+  left: SkillCatalogEntry,
+  right: SkillCatalogEntry,
+) {
+  const scopeDelta =
+    SKILL_SCOPE_PRIORITY[right.scope] - SKILL_SCOPE_PRIORITY[left.scope];
   if (scopeDelta !== 0) {
     return scopeDelta;
   }
-  const providerDelta = SKILL_PROVIDER_PRIORITY[right.provider] - SKILL_PROVIDER_PRIORITY[left.provider];
+  const providerDelta =
+    SKILL_PROVIDER_PRIORITY[right.provider] -
+    SKILL_PROVIDER_PRIORITY[left.provider];
   if (providerDelta !== 0) {
     return providerDelta;
   }
@@ -47,10 +62,12 @@ export function getCompatibleSkillEntries(args: {
   skills: readonly SkillCatalogEntry[];
   providerId: ProviderId;
 }) {
-  return args.skills.filter((skill) => isSkillCompatible({
-    providerId: args.providerId,
-    skillProvider: skill.provider,
-  }));
+  return args.skills.filter((skill) =>
+    isSkillCompatible({
+      providerId: args.providerId,
+      skillProvider: skill.provider,
+    }),
+  );
 }
 
 export function getEffectiveSkillEntries(args: {
@@ -115,7 +132,10 @@ export function getActiveSkillTokenMatch(args: {
   value: string;
   caretIndex: number;
 }): SkillTokenMatch | null {
-  const cappedCaretIndex = Math.max(0, Math.min(args.caretIndex, args.value.length));
+  const cappedCaretIndex = Math.max(
+    0,
+    Math.min(args.caretIndex, args.value.length),
+  );
   const beforeCaret = args.value.slice(0, cappedCaretIndex);
   const lineStart = Math.max(0, beforeCaret.lastIndexOf("\n") + 1);
   const activeSlice = beforeCaret.slice(lineStart);
@@ -126,7 +146,8 @@ export function getActiveSkillTokenMatch(args: {
   }
 
   const triggerStart = cappedCaretIndex - match[0].length;
-  const prefixChar = triggerStart > 0 ? args.value[triggerStart - 1] ?? "" : "";
+  const prefixChar =
+    triggerStart > 0 ? (args.value[triggerStart - 1] ?? "") : "";
   if (prefixChar && !/\s|\(/.test(prefixChar)) {
     return null;
   }
@@ -180,7 +201,9 @@ export function resolveSkillSelections(args: {
     skills: args.skills,
     providerId: args.providerId,
   });
-  const skillBySlug = new Map(effectiveSkills.map((skill) => [skill.slug.toLowerCase(), skill]));
+  const skillBySlug = new Map(
+    effectiveSkills.map((skill) => [skill.slug.toLowerCase(), skill]),
+  );
   const selectedSkills = new Map<string, SkillPromptContext>();
   let normalizedText = "";
   let lastIndex = 0;

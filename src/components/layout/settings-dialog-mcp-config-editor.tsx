@@ -31,6 +31,7 @@ import type {
 import {
   buildMcpConfigDraft,
   createInitialMcpConfigForm,
+  resolveMcpInstallProviders,
   validateMcpConfigForm,
 } from "@/lib/providers/mcp-config-form";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
@@ -41,12 +42,17 @@ type McpEditorRuntimeOptions = {
 };
 
 function getRuntimeOptions(
-  provider: McpConfigProvider,
+  providers: readonly McpConfigProvider[],
   options: McpEditorRuntimeOptions,
 ) {
-  return provider === "claude-code"
-    ? { claudeBinaryPath: options.claude.claudeBinaryPath }
-    : { codexBinaryPath: options.codex.codexBinaryPath };
+  return {
+    ...(providers.includes("claude-code")
+      ? { claudeBinaryPath: options.claude.claudeBinaryPath }
+      : {}),
+    ...(providers.includes("codex")
+      ? { codexBinaryPath: options.codex.codexBinaryPath }
+      : {}),
+  };
 }
 
 function FormField(props: {
@@ -136,9 +142,13 @@ export function McpServerConfigEditorDialog(props: {
         workspaceCwd: props.workspaceCwd,
       });
       const draft = buildMcpConfigDraft({ form, editing });
+      const installProviders = resolveMcpInstallProviders(form);
       const common = {
         cwd: props.workspaceCwd,
-        runtimeOptions: getRuntimeOptions(form.provider, props.runtimeOptions),
+        runtimeOptions: getRuntimeOptions(
+          editing ? [form.provider] : installProviders,
+          props.runtimeOptions,
+        ),
       };
       return editing && props.snapshot
         ? ({
@@ -155,6 +165,7 @@ export function McpServerConfigEditorDialog(props: {
             ...common,
             operation: "create",
             draft,
+            installProviders,
           } satisfies McpServerConfigMutationRequest);
     } catch {
       return null;
@@ -212,16 +223,33 @@ export function McpServerConfigEditorDialog(props: {
     }
   }
 
-  const setProvider = (provider: McpConfigProvider) => {
-    setForm((current) => ({
-      ...current,
-      provider,
-      scope: provider === "codex" ? "user" : current.scope,
-      transport:
-        provider === "codex" && current.transport === "sse"
-          ? "http"
-          : current.transport,
-    }));
+  const setInstallProvider = (
+    provider: McpConfigProvider,
+    enabled: boolean,
+  ) => {
+    setForm((current) => {
+      const nextProviders = enabled
+        ? current.installProviders.includes(provider)
+          ? current.installProviders
+          : [...current.installProviders, provider]
+        : current.installProviders.filter((entry) => entry !== provider);
+      const primary = nextProviders.includes("claude-code")
+        ? "claude-code"
+        : (nextProviders[0] ?? current.provider);
+      return {
+        ...current,
+        installProviders: nextProviders,
+        provider: primary,
+        scope:
+          nextProviders.length === 1 && nextProviders[0] === "codex"
+            ? "user"
+            : current.scope,
+        transport:
+          nextProviders.includes("codex") && current.transport === "sse"
+            ? "http"
+            : current.transport,
+      };
+    });
   };
 
   return (
@@ -256,35 +284,81 @@ export function McpServerConfigEditorDialog(props: {
               }}
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Provider" htmlFor={`${baseId}-provider`}>
-                  <Select
-                    value={form.provider}
-                    disabled={editing}
-                    onValueChange={(value) =>
-                      setProvider(value as McpConfigProvider)
-                    }
-                  >
-                    <SelectTrigger id={`${baseId}-provider`} className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="claude-code">Claude</SelectItem>
-                      <SelectItem value="codex">Codex</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <FormField
+                  label={editing ? "Provider" : "Install to"}
+                  htmlFor={`${baseId}-provider`}
+                  description={
+                    editing
+                      ? undefined
+                      : form.installProviders.includes("claude-code") &&
+                          form.installProviders.includes("codex")
+                        ? "One review writes the same server into Claude and Codex."
+                        : "Register once, or add the missing provider later from the connection list."
+                  }
+                >
+                  {editing ? (
+                    <Select value={form.provider} disabled>
+                      <SelectTrigger
+                        id={`${baseId}-provider`}
+                        className="w-full"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="claude-code">Claude</SelectItem>
+                        <SelectItem value="codex">Codex</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div
+                      id={`${baseId}-provider`}
+                      className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3"
+                    >
+                      {(
+                        [
+                          ["claude-code", "Claude"],
+                          ["codex", "Codex"],
+                        ] as const
+                      ).map(([provider, label]) => (
+                        <div
+                          key={provider}
+                          className="flex items-center justify-between gap-3"
+                        >
+                          <span className="text-sm text-foreground">
+                            {label}
+                          </span>
+                          <Switch
+                            checked={form.installProviders.includes(provider)}
+                            onCheckedChange={(checked) =>
+                              setInstallProvider(provider, checked)
+                            }
+                            aria-label={`Install to ${label}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </FormField>
                 <FormField
                   label="Scope"
                   htmlFor={`${baseId}-scope`}
                   description={
-                    form.provider === "codex"
+                    form.installProviders.includes("codex") &&
+                    form.installProviders.length === 1
                       ? "Codex App Server currently supports safe writes to user scope."
-                      : "Project is shared in .mcp.json; local stays private to this workspace."
+                      : form.installProviders.includes("codex") &&
+                          form.scope !== "user"
+                        ? "Claude can use this scope. Codex will receive a user-scope copy."
+                        : "Project is shared in .mcp.json; local stays private to this workspace."
                   }
                 >
                   <Select
                     value={form.scope}
-                    disabled={editing || form.provider === "codex"}
+                    disabled={
+                      editing ||
+                      (form.installProviders.includes("codex") &&
+                        form.installProviders.length === 1)
+                    }
                     onValueChange={(value) =>
                       setForm((current) => ({
                         ...current,
@@ -297,7 +371,7 @@ export function McpServerConfigEditorDialog(props: {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">User</SelectItem>
-                      {form.provider === "claude-code" ? (
+                      {form.installProviders.includes("claude-code") ? (
                         <>
                           <SelectItem
                             value="project"
@@ -352,7 +426,7 @@ export function McpServerConfigEditorDialog(props: {
                     <SelectContent>
                       <SelectItem value="stdio">stdio</SelectItem>
                       <SelectItem value="http">HTTP</SelectItem>
-                      {form.provider === "claude-code" ? (
+                      {!form.installProviders.includes("codex") ? (
                         <SelectItem value="sse">SSE (legacy)</SelectItem>
                       ) : null}
                     </SelectContent>
@@ -651,7 +725,7 @@ export function McpServerConfigDeleteDialog(props: {
           },
           cwd: props.workspaceCwd,
           runtimeOptions: getRuntimeOptions(
-            snapshot.provider,
+            [snapshot.provider],
             props.runtimeOptions,
           ),
         });
@@ -690,7 +764,7 @@ export function McpServerConfigDeleteDialog(props: {
         },
         cwd: props.workspaceCwd,
         runtimeOptions: getRuntimeOptions(
-          props.snapshot.provider,
+          [props.snapshot.provider],
           props.runtimeOptions,
         ),
         expectedRevision: preview.revision,
@@ -757,6 +831,166 @@ export function McpServerConfigDeleteDialog(props: {
             onClick={() => void confirmDelete()}
           >
             {busy ? "Deleting…" : "Delete server"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function McpServerConfigShareDialog(props: {
+  open: boolean;
+  snapshot?: McpServerConfigSnapshot;
+  destinationProvider?: McpConfigProvider;
+  workspaceCwd?: string;
+  runtimeOptions: McpEditorRuntimeOptions;
+  onOpenChange: (open: boolean) => void;
+  onApplied: (detail: string) => void;
+}) {
+  const destinationProvider = props.destinationProvider;
+  const destinationLabel =
+    destinationProvider === "claude-code" ? "Claude" : "Codex";
+  const [preview, setPreview] = useState<McpServerConfigMutationPreview | null>(
+    null,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!props.open || !props.snapshot || !destinationProvider) return;
+    let cancelled = false;
+    const snapshot = props.snapshot;
+    const load = async () => {
+      setBusy(true);
+      setPreview(null);
+      setError("");
+      try {
+        const api = window.api?.provider?.previewMcpServerConfigMutation;
+        if (!api)
+          throw new Error("MCP configuration preview API is unavailable.");
+        const result = await api({
+          operation: "share",
+          target: {
+            provider: snapshot.provider,
+            scope: snapshot.scope,
+            name: snapshot.name,
+          },
+          destination: {
+            provider: destinationProvider,
+            scope: "user",
+            name: snapshot.name,
+          },
+          cwd: props.workspaceCwd,
+          runtimeOptions: getRuntimeOptions(
+            [snapshot.provider, destinationProvider],
+            props.runtimeOptions,
+          ),
+        });
+        if (!result.ok || !result.preview) throw new Error(result.detail);
+        if (!cancelled) setPreview(result.preview);
+      } catch (caught) {
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : String(caught));
+        }
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    destinationProvider,
+    props.open,
+    props.runtimeOptions,
+    props.snapshot,
+    props.workspaceCwd,
+  ]);
+
+  async function confirmShare() {
+    if (!preview || !props.snapshot || !destinationProvider) return;
+    const api = window.api?.provider?.applyMcpServerConfigMutation;
+    if (!api) {
+      setError("MCP configuration apply API is unavailable.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api({
+        operation: "share",
+        target: {
+          provider: props.snapshot.provider,
+          scope: props.snapshot.scope,
+          name: props.snapshot.name,
+        },
+        destination: {
+          provider: destinationProvider,
+          scope: "user",
+          name: props.snapshot.name,
+        },
+        cwd: props.workspaceCwd,
+        runtimeOptions: getRuntimeOptions(
+          [props.snapshot.provider, destinationProvider],
+          props.runtimeOptions,
+        ),
+        expectedRevision: preview.revision,
+      });
+      if (!result.ok) throw new Error(result.detail);
+      props.onApplied(result.detail);
+      props.onOpenChange(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={props.open}
+      onOpenChange={(open) => {
+        if (!busy) props.onOpenChange(open);
+      }}
+    >
+      <DialogContent className="flex max-h-[88vh] max-w-xl flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b border-border/70 px-6 py-5 pr-14">
+          <DialogTitle className="text-base">
+            Add to {destinationLabel}
+          </DialogTitle>
+          <DialogDescription className="leading-5">
+            Copy this server into {destinationLabel} using the same name,
+            transport, and environment-variable bindings. Opaque values stay in
+            the source and are not copied.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {busy && !preview ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              Checking the latest provider configuration…
+            </p>
+          ) : null}
+          {preview ? <ReviewPanel preview={preview} /> : null}
+          {error ? (
+            <p
+              className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
+              role="alert"
+            >
+              {error}
+            </p>
+          ) : null}
+        </div>
+        <DialogFooter className="border-t border-border/70 bg-muted/15 px-6 py-4">
+          <DialogClose render={<Button type="button" variant="outline" />}>
+            Cancel
+          </DialogClose>
+          <Button
+            type="button"
+            disabled={busy || !preview}
+            onClick={() => void confirmShare()}
+          >
+            {busy ? "Adding…" : `Add to ${destinationLabel}`}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1413,6 +1413,7 @@ const McpConfigMutationBaseSchema = z.object({
 const McpConfigCreateMutationSchema = McpConfigMutationBaseSchema.extend({
   operation: z.literal("create"),
   draft: McpServerConfigDraftSchema,
+  installProviders: z.array(McpConfigProviderSchema).min(1).max(2).optional(),
 }).strict();
 const McpConfigUpdateMutationSchema = McpConfigMutationBaseSchema.extend({
   operation: z.literal("update"),
@@ -1423,6 +1424,11 @@ const McpConfigDeleteMutationSchema = McpConfigMutationBaseSchema.extend({
   operation: z.literal("delete"),
   target: McpServerConfigTargetSchema,
 }).strict();
+const McpConfigShareMutationSchema = McpConfigMutationBaseSchema.extend({
+  operation: z.literal("share"),
+  target: McpServerConfigTargetSchema,
+  destination: McpServerConfigTargetSchema,
+}).strict();
 
 export const McpServerConfigListArgsSchema =
   McpConfigMutationBaseSchema.strict();
@@ -1432,6 +1438,7 @@ export const McpServerConfigMutationArgsSchema = z.discriminatedUnion(
     McpConfigCreateMutationSchema,
     McpConfigUpdateMutationSchema,
     McpConfigDeleteMutationSchema,
+    McpConfigShareMutationSchema,
   ],
 );
 export const McpServerConfigMutationApplyArgsSchema = z.discriminatedUnion(
@@ -1444,6 +1451,9 @@ export const McpServerConfigMutationApplyArgsSchema = z.discriminatedUnion(
       expectedRevision: z.string().min(1).max(256),
     }).strict(),
     McpConfigDeleteMutationSchema.extend({
+      expectedRevision: z.string().min(1).max(256),
+    }).strict(),
+    McpConfigShareMutationSchema.extend({
       expectedRevision: z.string().min(1).max(256),
     }).strict(),
   ],

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { resolveBoundSecretEnv } from "../../main/browser/secret-service";
 import { resolveAcpStaveLocalMcpServers } from "../../main/stave-local-mcp-manifest";
+import { resolveAcpTurnMcpServers } from "../acp/acp-shared-mcp";
 import {
   createEmptyProviderRuntimeCapabilities,
   extractRuntimeVersion,
@@ -124,12 +125,20 @@ export async function streamKiroWithAcp(
   const secretEnv = args.runtimeOptions?.boundSecretIds?.length
     ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
     : {};
-  const mcpServers = args.staveLocalMcpToolNames?.length
+  const staveLocalMcpServers = args.staveLocalMcpToolNames?.length
     ? await resolveAcpStaveLocalMcpServers({
         allowedToolNames: args.staveLocalMcpToolNames,
       })
     : [];
-  if (args.staveLocalMcpToolNames?.length && mcpServers.length === 0) {
+  const mcpServers = await resolveAcpTurnMcpServers({
+    cwd: runtimeCwd,
+    env: { ...process.env, ...secretEnv },
+    staveLocalMcpServers,
+  });
+  if (
+    args.staveLocalMcpToolNames?.length &&
+    staveLocalMcpServers.length === 0
+  ) {
     args.onEvent?.({
       type: "error",
       message:

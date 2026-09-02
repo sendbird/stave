@@ -181,6 +181,57 @@ function mergeSource(args: {
  * Native precedence is preserved: local > project > user. Stave wins last so
  * task-awareness always targets the current authenticated loopback manifest.
  */
+export async function resolveNativeClaudeMcpServers(args: {
+  cwd: string;
+  claudeConfigDir?: string;
+  onDiagnostic?: (diagnostic: ClaudeMcpConfigDiagnostic) => void;
+}): Promise<{
+  servers: Record<string, McpServerConfig>;
+  sourcesByName: Map<string, ClaudeMcpConfigSource>;
+}> {
+  const stateDocument = await readOptionalConfig({
+    filePath: getClaudeStateFilePath({
+      claudeConfigDir: args.claudeConfigDir,
+    }),
+    source: "user",
+    onDiagnostic: args.onDiagnostic,
+  });
+  const projectDocument = await readOptionalConfig({
+    filePath: path.join(args.cwd, ".mcp.json"),
+    source: "project",
+    onDiagnostic: args.onDiagnostic,
+  });
+  const localDocument = getLocalProjectDocument({
+    stateDocument,
+    cwd: args.cwd,
+  });
+
+  const servers: Record<string, McpServerConfig> = {};
+  const sourcesByName = new Map<string, ClaudeMcpConfigSource>();
+  mergeSource({
+    target: servers,
+    sourcesByName,
+    document: stateDocument,
+    source: "user",
+    onDiagnostic: args.onDiagnostic,
+  });
+  mergeSource({
+    target: servers,
+    sourcesByName,
+    document: projectDocument,
+    source: "project",
+    onDiagnostic: args.onDiagnostic,
+  });
+  mergeSource({
+    target: servers,
+    sourcesByName,
+    document: localDocument,
+    source: "local",
+    onDiagnostic: args.onDiagnostic,
+  });
+  return { servers, sourcesByName };
+}
+
 export async function resolveClaudeMcpServers(args: {
   cwd: string;
   claudeConfigDir?: string;
@@ -199,44 +250,9 @@ export async function resolveClaudeMcpServers(args: {
     return { ...args.staveServers };
   }
 
-  const stateDocument = await readOptionalConfig({
-    filePath: getClaudeStateFilePath({
-      claudeConfigDir: args.claudeConfigDir,
-    }),
-    source: "user",
-    onDiagnostic: args.onDiagnostic,
-  });
-  const projectDocument = await readOptionalConfig({
-    filePath: path.join(args.cwd, ".mcp.json"),
-    source: "project",
-    onDiagnostic: args.onDiagnostic,
-  });
-  const localDocument = getLocalProjectDocument({
-    stateDocument,
+  const { servers, sourcesByName } = await resolveNativeClaudeMcpServers({
     cwd: args.cwd,
-  });
-
-  const merged: Record<string, McpServerConfig> = {};
-  const sourcesByName = new Map<string, ClaudeMcpConfigSource>();
-  mergeSource({
-    target: merged,
-    sourcesByName,
-    document: stateDocument,
-    source: "user",
-    onDiagnostic: args.onDiagnostic,
-  });
-  mergeSource({
-    target: merged,
-    sourcesByName,
-    document: projectDocument,
-    source: "project",
-    onDiagnostic: args.onDiagnostic,
-  });
-  mergeSource({
-    target: merged,
-    sourcesByName,
-    document: localDocument,
-    source: "local",
+    claudeConfigDir: args.claudeConfigDir,
     onDiagnostic: args.onDiagnostic,
   });
 
@@ -248,7 +264,7 @@ export async function resolveClaudeMcpServers(args: {
         replacedSource,
       });
     }
-    merged[serverName] = config;
+    servers[serverName] = config;
   }
-  return merged;
+  return servers;
 }

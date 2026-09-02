@@ -57,11 +57,12 @@ future curated or private downstream registry.
 - Claude user, project, and local-project configuration
 - Codex user configuration
 
-The settings view supports reviewed create, update, rename, and delete
-operations; shows Claude and Codex runtime state; starts supported OAuth
-recovery; and manages Stave's own local MCP registration separately. Manual
-configuration writes accept environment-variable references rather than raw
-credential values.
+The settings view supports reviewed create, update, rename, delete, and
+Claude/Codex share operations; shows Claude and Codex runtime state; starts
+supported OAuth recovery; and manages Stave's own local MCP registration
+separately. A manual add can target Claude, Codex, or both. Configuration
+writes accept environment-variable references rather than raw credential
+values.
 
 ### Where the manual flow breaks down
 

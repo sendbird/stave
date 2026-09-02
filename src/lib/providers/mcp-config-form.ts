@@ -9,6 +9,7 @@ import type {
 
 export type McpConfigFormState = {
   provider: McpConfigProvider;
+  installProviders: McpConfigProvider[];
   scope: McpConfigScope;
   name: string;
   transport: McpConfigTransport;
@@ -68,6 +69,7 @@ export function createInitialMcpConfigForm(
   if (!snapshot) {
     return {
       provider: "claude-code",
+      installProviders: ["claude-code", "codex"],
       scope: "user",
       name: "",
       transport: "stdio",
@@ -84,6 +86,7 @@ export function createInitialMcpConfigForm(
   }
   return {
     provider: snapshot.provider,
+    installProviders: [snapshot.provider],
     scope: snapshot.scope,
     name: snapshot.name,
     transport: snapshot.transport,
@@ -110,10 +113,18 @@ export function validateMcpConfigForm(args: {
       "Server name must start with a letter or number and use only letters, numbers, dots, underscores, or hyphens.",
     );
   }
-  if (form.provider === "codex" && form.scope !== "user") {
+  const installProviders = resolveMcpInstallProviders(form);
+  if (installProviders.length === 0) {
+    throw new Error("Choose at least one provider to install this MCP server.");
+  }
+  if (
+    installProviders.includes("codex") &&
+    form.scope !== "user" &&
+    installProviders.length === 1
+  ) {
     throw new Error("Codex configuration editing supports user scope only.");
   }
-  if (form.provider === "codex" && form.transport === "sse") {
+  if (installProviders.includes("codex") && form.transport === "sse") {
     throw new Error("Codex does not support creating SSE MCP servers.");
   }
   if (form.scope !== "user" && !args.workspaceCwd) {
@@ -153,6 +164,18 @@ export function validateMcpConfigForm(args: {
     throw new Error("Bearer token environment variable has an invalid name.");
   }
   parseMcpHeaderBindings(form.headerBindingsText);
+}
+
+export function resolveMcpInstallProviders(form: McpConfigFormState) {
+  if (form.installProviders.length === 0) {
+    return [];
+  }
+  const providers = form.installProviders.includes(form.provider)
+    ? form.installProviders
+    : [form.provider];
+  return providers.filter(
+    (provider, index) => providers.indexOf(provider) === index,
+  );
 }
 
 export function buildMcpConfigDraft(args: {

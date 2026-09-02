@@ -15,6 +15,7 @@ import type {
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import type {
+  McpConfigProvider,
   McpServerConfigListResponse,
   McpServerConfigSnapshot,
 } from "@/lib/providers/mcp-config.types";
@@ -27,6 +28,7 @@ import {
 import {
   McpServerConfigDeleteDialog,
   McpServerConfigEditorDialog,
+  McpServerConfigShareDialog,
 } from "./settings-dialog-mcp-config-editor";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 
@@ -178,6 +180,64 @@ function McpProviderStatus(args: {
   );
 }
 
+function pickShareSource(
+  configs: McpServerConfigSnapshot[],
+  destination: McpConfigProvider,
+) {
+  const sources = configs.filter(
+    (config) =>
+      config.provider !== destination &&
+      config.canEdit &&
+      !(destination === "codex" && config.transport === "sse"),
+  );
+  return (
+    sources.find((config) => config.scope === "user") ?? sources[0] ?? null
+  );
+}
+
+function McpShareActions(args: {
+  claudeConfigured: boolean;
+  codexConfigured: boolean;
+  configs: McpServerConfigSnapshot[];
+  onShare: (
+    snapshot: McpServerConfigSnapshot,
+    destinationProvider: McpConfigProvider,
+  ) => void;
+}) {
+  if (args.claudeConfigured && args.codexConfigured) return null;
+  const toCodex = args.codexConfigured
+    ? null
+    : pickShareSource(args.configs, "codex");
+  const toClaude = args.claudeConfigured
+    ? null
+    : pickShareSource(args.configs, "claude-code");
+  if (!toCodex && !toClaude) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {toCodex ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => args.onShare(toCodex, "codex")}
+        >
+          Add to Codex
+        </Button>
+      ) : null}
+      {toClaude ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => args.onShare(toClaude, "claude-code")}
+        >
+          Add to Claude
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 function McpConfigurationRows(args: {
   configs: McpServerConfigSnapshot[];
   onEdit: (snapshot: McpServerConfigSnapshot) => void;
@@ -282,6 +342,10 @@ function McpServerConnectionsCard() {
   } | null>(null);
   const [deleteTarget, setDeleteTarget] =
     useState<McpServerConfigSnapshot | null>(null);
+  const [shareTarget, setShareTarget] = useState<{
+    snapshot: McpServerConfigSnapshot;
+    destinationProvider: McpConfigProvider;
+  } | null>(null);
   const refreshRequestIdRef = useRef(0);
   const workspaceCwd =
     workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
@@ -396,6 +460,7 @@ function McpServerConnectionsCard() {
     setMutationNotice("");
     setEditor(null);
     setDeleteTarget(null);
+    setShareTarget(null);
     void refresh();
     return () => {
       refreshRequestIdRef.current += 1;
@@ -569,7 +634,7 @@ function McpServerConnectionsCard() {
   return (
     <SettingsCard
       title="MCP Connections"
-      description="Add, edit, and remove native Claude or Codex servers, with live connection status and recent errors in one view."
+      description="Add a server once and install it to Claude, Codex, or both. Connection status and recent errors stay in one view."
       titleAccessory={
         <div className="flex items-center gap-2">
           <Button
@@ -713,6 +778,15 @@ function McpServerConnectionsCard() {
                 }
               />
             </div>
+            <McpShareActions
+              claudeConfigured={server.claude.configured}
+              codexConfigured={server.codex.configured}
+              configs={configsByName.get(server.name) ?? []}
+              onShare={(snapshot, destinationProvider) => {
+                setMutationNotice("");
+                setShareTarget({ snapshot, destinationProvider });
+              }}
+            />
             <McpConfigurationRows
               configs={configsByName.get(server.name) ?? []}
               onEdit={(snapshot) => {
@@ -777,6 +851,24 @@ function McpServerConnectionsCard() {
         runtimeOptions={runtimeOptions}
         onOpenChange={(open) => {
           if (!open) setDeleteTarget(null);
+        }}
+        onApplied={(detail) => {
+          setMutationNotice(detail);
+          void refresh();
+        }}
+      />
+      <McpServerConfigShareDialog
+        open={Boolean(shareTarget)}
+        {...(shareTarget
+          ? {
+              snapshot: shareTarget.snapshot,
+              destinationProvider: shareTarget.destinationProvider,
+            }
+          : {})}
+        workspaceCwd={workspaceCwd}
+        runtimeOptions={runtimeOptions}
+        onOpenChange={(open) => {
+          if (!open) setShareTarget(null);
         }}
         onApplied={(detail) => {
           setMutationNotice(detail);

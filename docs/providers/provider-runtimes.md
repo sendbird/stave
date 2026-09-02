@@ -100,6 +100,11 @@ parameter, so it applies for the whole session:
   verified with an empty allowlist.
 - `Auto`: `--force --approve-mcps`. No permission requests are sent at all.
 
+Primary Cursor and Kiro turns receive the current Claude and Codex MCP catalog
+through `session/new` / `session/load`. Stave does not write Cursor or Kiro
+config files. SSE servers stay Claude-only. Nested Worker sessions stay isolated
+and do not inherit that catalog.
+
 Cursor's config carries a third, finer lever that is independent of the preset:
 `approvalMode` (`allowlist` by default, plus `unrestricted` and `auto-review`)
 and a `permissions.allow` / `permissions.deny` rule list. Rules parse as
