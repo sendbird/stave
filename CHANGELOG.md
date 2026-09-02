@@ -1,3 +1,16 @@
+## [0.16.5](https://github.com/sendbird/stave/compare/v0.16.4...v0.16.5) (2026-09-02)
+
+### Bug Fixes
+
+* Restore vertical scrolling for long Kiro runtime model catalogs.
+* Adopt Claude Fable 5.1 across the model catalog, automatic routing, Advisor, runtime behavior, and provider documentation while retaining the legacy model label for existing records.
+* Keep the composer control tray below the dialog layer so Review, Advisor, and Compare dialogs remain visible after opening.
+* Improve prompt enhancement with more complete instruction-preserving rewrites, common wrapper cleanup, and authenticated utility-runner fallback from Codex Luna through Claude Haiku, Cursor, and Kiro.
+
+### References
+
+* [#431](https://github.com/sendbird/stave/pull/431), [#432](https://github.com/sendbird/stave/pull/432), [#433](https://github.com/sendbird/stave/pull/433), [#434](https://github.com/sendbird/stave/pull/434)
+
 ## [0.16.4](https://github.com/sendbird/stave/compare/v0.16.3...v0.16.4) (2026-09-01)
 
 ### Bug Fixes
