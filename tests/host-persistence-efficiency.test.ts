@@ -205,6 +205,27 @@ const fakeStore = {
     recordCall("createNotification");
     return { inserted: true, notification };
   },
+  // Field-scoped turn write. Records the same shape the tests measure, so
+  // write volume assertions cover both persistence routes.
+  persistTaskTurnDelta: ({
+    taskId,
+    messages,
+  }: {
+    workspaceId: string;
+    taskId: string;
+    messages?: Array<{ id: string }>;
+  }) => {
+    recordCall("persistTaskTurnDelta");
+    const changed = messages ?? [];
+    upsertPayloads.push({ messagesByTask: { [taskId]: changed } });
+    const existing = persistedMessagesByTask.get(taskId) ?? [];
+    const byId = new Map(existing.map((item) => [item.id, item] as const));
+    for (const message of changed) {
+      byId.set(message.id, message);
+    }
+    persistedMessagesByTask.set(taskId, [...byId.values()]);
+    return { ok: true, messageCount: byId.size };
+  },
   upsertWorkspace: ({
     snapshot,
   }: {
@@ -367,6 +388,29 @@ describe("host-service turn path on a very large task", () => {
     );
     expect(totalMessageRowsWritten).toBeGreaterThan(0);
     expect(totalMessageRowsWritten).toBeLessThanOrEqual(eventCount * 3);
+  });
+
+  test("streaming takes the field-scoped write, not a whole-workspace one", async () => {
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      taskId: TASK_ID,
+      prompt: "Continue the long task",
+    });
+    const handlers = startTurnStreamHandlers.at(-1);
+    storeCalls.clear();
+
+    for (let index = 0; index < 20; index += 1) {
+      handlers?.onEvent?.({ type: "text", text: `chunk ${index}` });
+    }
+    await drainMicrotasks();
+
+    expect(callCount("persistTaskTurnDelta")).toBeGreaterThan(0);
+    // A whole-workspace snapshot write would rewrite renderer-owned fields
+    // (drafts, tabs, layout, information) from the host's stale cached copy.
+    expect(callCount("upsertWorkspace")).toBe(0);
+    // And it would re-list every task in the workspace just to reconcile
+    // archival; the delta path reads one task row instead.
+    expect(callCount("listWorkspaceTasks")).toBe(0);
   });
 
   test("a persisted write never carries the whole transcript", async () => {

@@ -338,6 +338,12 @@ async function persistWorkspaceSession(args: {
   workspaceName: string;
   session: WorkspaceSessionState;
   /**
+   * The task whose turn produced this write. Present for the streaming path,
+   * which then takes the field-scoped `persistTaskTurnDelta` route instead of
+   * a whole-workspace snapshot write.
+   */
+  taskId?: string;
+  /**
    * Only these messages are written, instead of the whole resident window.
    * `upsertWorkspace` upserts `messagesByTask` additively (it never deletes
    * rows it omits), so a delta write is equivalent to a full-window write and
@@ -346,6 +352,40 @@ async function persistWorkspaceSession(args: {
   changedMessagesByTask?: Record<string, ChatMessage[]>;
 }) {
   const store = ensureHostServicePersistenceReady();
+
+  // Preferred path: write only this task's turn progress and leave every
+  // renderer-owned field (drafts, tabs, layout, information) exactly as the
+  // renderer last persisted it. The host's cached session copy of those fields
+  // can be minutes stale, so writing them back is how a streamed event used to
+  // resurrect state the user had already changed.
+  if (args.taskId) {
+    const task = args.session.tasks.find((item) => item.id === args.taskId);
+    const delta = store.persistTaskTurnDelta({
+      workspaceId: args.workspaceId,
+      workspaceName: args.workspaceName,
+      taskId: args.taskId,
+      ...(task ? { task: task as never } : {}),
+      messages: (args.changedMessagesByTask?.[args.taskId] ??
+        args.session.messagesByTask[args.taskId] ??
+        []) as never,
+      ...(args.session.activeTaskId === args.taskId
+        ? { activeTaskId: args.taskId }
+        : {}),
+      ...(args.session.providerSessionByTask[args.taskId]
+        ? {
+            providerSession: args.session.providerSessionByTask[
+              args.taskId
+            ] as never,
+          }
+        : {}),
+    });
+    if (delta.ok) {
+      return;
+    }
+    // Legacy inline-message payload (or a workspace row that does not exist
+    // yet): fall through to the whole-snapshot write, which migrates it.
+  }
+
   // Task archive/restore lifecycle is owned by the renderer and durably held in
   // the `tasks` table. The host's cached session copy can be stale, so re-read
   // the authoritative archived state right before writing — otherwise a stale
@@ -378,6 +418,7 @@ function queueWorkspaceSessionPersist(args: {
   workspaceId: string;
   workspaceName: string;
   session: WorkspaceSessionState;
+  taskId?: string;
   changedMessagesByTask?: Record<string, ChatMessage[]>;
 }) {
   const previous =
@@ -2002,6 +2043,7 @@ async function handleProviderEvent(args: {
     workspaceId: args.workspaceId,
     workspaceName: args.workspaceName,
     session: appliedSession,
+    taskId: args.taskId,
     changedMessagesByTask: {
       [args.taskId]: collectChangedMessages({
         before: residentMessagesBeforeEvent,
@@ -2702,6 +2744,7 @@ export async function runTask(args: {
     workspaceId: args.workspaceId,
     workspaceName,
     session,
+    taskId: task.id,
     // Only the prompt's new user message and the pending assistant row.
     changedMessagesByTask: {
       [task.id]: collectChangedMessages({

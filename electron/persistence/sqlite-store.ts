@@ -28,6 +28,10 @@ import type {
   PersistenceWorkspaceSnapshot,
   PersistenceWorkspaceSummary,
 } from "./types";
+import {
+  mergeTaskTurnDeltaPayload,
+  toWorkspaceShellMetaSource,
+} from "./task-turn-delta";
 import { selectOrphanedNotificationWorkspaceIds } from "./notification-orphans";
 import { parsePersistedTurnUsage } from "./turn-usage";
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
@@ -2391,6 +2395,176 @@ export class SqliteStore {
         relativePaths: [previousWorkspaceShellArtifact.relativePath],
       });
     }
+  }
+
+  /**
+   * Write one task's turn progress without touching renderer-owned state.
+   *
+   * `upsertWorkspace` takes a whole-workspace snapshot, so host-service used it
+   * to save a streamed turn and in doing so rewrote fields it does not own —
+   * prompt drafts, editor and terminal tabs, layout, workspace information —
+   * from its own cached session copy. That copy can be minutes stale (the host
+   * caches up to 32 workspace sessions), so a streamed event could resurrect a
+   * draft the user had already cleared. The existing
+   * `reconcileTasksWithPersistedArchival` guard in the host is evidence of the
+   * same class of bug for task archival.
+   *
+   * This path instead starts from the *persisted* payload and replaces only
+   * host-owned fields, which also avoids two costs `upsertWorkspace` pays on
+   * every call: rewriting the editor-tab artifact, and a workspace-wide
+   * `COUNT(*) GROUP BY task_id`.
+   *
+   * Message writes stay additive, exactly as in `upsertWorkspace`.
+   */
+  persistTaskTurnDelta(args: {
+    workspaceId: string;
+    workspaceName?: string;
+    taskId: string;
+    /** Host-owned task row. `archivedAt` is always taken from disk. */
+    task?: PersistenceWorkspaceSnapshot["tasks"][number];
+    /** Only the messages that changed. */
+    messages?: PersistenceWorkspaceSnapshot["messagesByTask"][string];
+    /** Set when the host turn makes this the workspace's active task. */
+    activeTaskId?: string;
+    /** Host-owned provider session cursor for this task. */
+    providerSession?: NonNullable<
+      PersistenceWorkspaceSnapshot["providerSessionByTask"]
+    >[string];
+  }): { ok: boolean; messageCount: number } {
+    const payloadEntry = this.readWorkspacePayload({
+      workspaceId: args.workspaceId,
+    });
+    if (!payloadEntry) {
+      return { ok: false, messageCount: 0 };
+    }
+    // A legacy snapshot payload still carries inline messages; converting it is
+    // `upsertWorkspace`'s job, so let the caller fall back rather than doing a
+    // partial migration here.
+    if ("messagesByTask" in payloadEntry.payload) {
+      return { ok: false, messageCount: 0 };
+    }
+    const payload = payloadEntry.payload as PersistedWorkspaceShellPayload;
+    const now = new Date().toISOString();
+
+    const tx = this.db.transaction(() => {
+      if (args.task) {
+        const persistedTaskRowId = `${args.workspaceId}:${args.task.id}`;
+        // Archival is renderer-owned: never let a host write revive a task the
+        // user just archived. Read the authoritative value for this one task
+        // instead of listing the whole workspace.
+        const persistedArchivedAt = (
+          this.db
+            .prepare("SELECT archived_at FROM tasks WHERE id = ?")
+            .get(persistedTaskRowId) as { archived_at: string | null } | undefined
+        )?.archived_at;
+        const archivedAt =
+          persistedArchivedAt === undefined
+            ? (args.task.archivedAt ?? null)
+            : persistedArchivedAt;
+        this.db
+          .prepare(
+            `
+          INSERT INTO tasks (id, workspace_id, title, provider, updated_at, unread, archived_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            title = excluded.title,
+            provider = excluded.provider,
+            updated_at = excluded.updated_at,
+            unread = excluded.unread,
+            archived_at = excluded.archived_at
+        `,
+          )
+          .run(
+            persistedTaskRowId,
+            args.workspaceId,
+            args.task.title,
+            args.task.provider,
+            args.task.updatedAt,
+            args.task.unread ? 1 : 0,
+            archivedAt,
+          );
+      }
+
+      if (args.messages && args.messages.length > 0) {
+        this.insertTaskMessages({
+          workspaceId: args.workspaceId,
+          taskId: args.taskId,
+          messages: args.messages,
+        });
+      }
+
+      // Per-task count only.
+      const messageCount = Number(
+        (
+          this.db
+            .prepare(
+              "SELECT COUNT(*) AS count FROM messages WHERE workspace_id = ? AND task_id = ?",
+            )
+            .get(args.workspaceId, args.taskId) as { count: number }
+        ).count,
+      );
+
+      const nextPayload = mergeTaskTurnDeltaPayload({
+        payload,
+        taskId: args.taskId,
+        ...(args.task ? { task: args.task } : {}),
+        ...(args.activeTaskId ? { activeTaskId: args.activeTaskId } : {}),
+        ...(args.providerSession
+          ? { providerSession: args.providerSession }
+          : {}),
+        messageCount,
+      });
+
+      // `editorTabs` and its artifact pointers are copied through untouched, so
+      // no artifact is rewritten and no editor body is re-serialized.
+      this.db
+        .prepare(
+          `
+        UPDATE workspaces
+        SET name = COALESCE(?, name), updated_at = ?, snapshot_json = ?
+        WHERE id = ?
+      `,
+        )
+        .run(
+          args.workspaceName ?? null,
+          now,
+          JSON.stringify(nextPayload),
+          args.workspaceId,
+        );
+
+      const shellForMeta = toWorkspaceShellMetaSource(nextPayload);
+      this.db
+        .prepare(
+          `
+        UPDATE workspace_meta
+        SET name = COALESCE(?, name),
+            updated_at = ?,
+            shell_lite_json = ?,
+            shell_summary_json = ?
+        WHERE id = ?
+      `,
+        )
+        .run(
+          args.workspaceName ?? null,
+          now,
+          JSON.stringify(
+            this.createWorkspaceShellLite({
+              shell: shellForMeta as never,
+            }),
+          ),
+          JSON.stringify(
+            this.createWorkspaceShellSummary({
+              shell: shellForMeta as never,
+            }),
+          ),
+          args.workspaceId,
+        );
+
+      return messageCount;
+    });
+
+    const messageCount = tx();
+    return { ok: true, messageCount };
   }
 
   removeTaskFromWorkspace(args: { workspaceId: string; taskId: string }) {
