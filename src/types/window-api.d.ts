@@ -106,7 +106,6 @@ import type {
   MartinSyncSettings,
   MartinWorkspaceArgs,
 } from "@/lib/martin-sync/types";
-import type { RepoMapResponse } from "@/lib/fs/repo-map.types";
 import type {
   AppNotification,
   AppNotificationCreateInput,
@@ -646,10 +645,6 @@ interface WindowFsApi {
   listFiles?: (args: {
     rootPath: string;
   }) => Promise<{ ok: boolean; files: string[]; stderr?: string }>;
-  getRepoMap?: (args: {
-    rootPath: string;
-    refresh?: boolean;
-  }) => Promise<RepoMapResponse>;
   listDirectory?: (args: {
     rootPath: string;
     directoryPath?: string;

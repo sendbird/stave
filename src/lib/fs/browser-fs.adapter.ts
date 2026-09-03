@@ -1,4 +1,3 @@
-import type { RepoMapSnapshot } from "@/lib/fs/repo-map.types";
 import type {
   WorkspaceCreateEntryResult,
   WorkspaceDeleteEntryResult,
@@ -32,7 +31,11 @@ function buildRevision(args: { size: number; lastModified: number }) {
 }
 
 function normalizeHandlePath(args: { value?: string; allowEmpty?: boolean }) {
-  const normalized = (args.value ?? "").trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/, "");
+  const normalized = (args.value ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "");
   if (!normalized) {
     return args.allowEmpty ? "" : null;
   }
@@ -47,7 +50,12 @@ function normalizeHandlePath(args: { value?: string; allowEmpty?: boolean }) {
 }
 
 function isDomException(error: unknown, name: string) {
-  return typeof error === "object" && error !== null && "name" in error && (error as { name?: string }).name === name;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name?: string }).name === name
+  );
 }
 
 function toBase64(args: { bytes: Uint8Array }) {
@@ -69,7 +77,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     if (typeof window === "undefined") {
       return false;
     }
-    return typeof (window as WindowWithPicker).showDirectoryPicker === "function";
+    return (
+      typeof (window as WindowWithPicker).showDirectoryPicker === "function"
+    );
   }
 
   async pickRoot(): Promise<WorkspaceRootInfo | null> {
@@ -100,16 +110,19 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     return this.getKnownFiles();
   }
 
-  async getRepoMap(_args: { refresh?: boolean } = {}): Promise<RepoMapSnapshot | null> {
-    return null;
-  }
-
-  async listDirectory(args: { directoryPath?: string }): Promise<WorkspaceDirectoryEntry[] | null> {
-    const normalizedDirectoryPath = normalizeHandlePath({ value: args.directoryPath, allowEmpty: true });
+  async listDirectory(args: {
+    directoryPath?: string;
+  }): Promise<WorkspaceDirectoryEntry[] | null> {
+    const normalizedDirectoryPath = normalizeHandlePath({
+      value: args.directoryPath,
+      allowEmpty: true,
+    });
     if (normalizedDirectoryPath === null) {
       return null;
     }
-    const directoryHandle = await this.resolveDirectoryHandle({ directoryPath: normalizedDirectoryPath });
+    const directoryHandle = await this.resolveDirectoryHandle({
+      directoryPath: normalizedDirectoryPath,
+    });
     if (!directoryHandle) {
       return null;
     }
@@ -127,7 +140,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
         }
         entries.push({
           name,
-          path: normalizedDirectoryPath ? `${normalizedDirectoryPath}/${name}` : name,
+          path: normalizedDirectoryPath
+            ? `${normalizedDirectoryPath}/${name}`
+            : name,
           type: handle.kind === "directory" ? "folder" : "file",
         });
       }
@@ -139,7 +154,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
         }
         entries.push({
           name,
-          path: normalizedDirectoryPath ? `${normalizedDirectoryPath}/${name}` : name,
+          path: normalizedDirectoryPath
+            ? `${normalizedDirectoryPath}/${name}`
+            : name,
           type: handle.kind === "directory" ? "folder" : "file",
         });
       }
@@ -153,14 +170,19 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     });
   }
 
-  async readFile(args: { filePath: string }): Promise<WorkspaceFileData | null> {
+  async readFile(args: {
+    filePath: string;
+  }): Promise<WorkspaceFileData | null> {
     const handle = this.fileHandleMap.get(args.filePath);
     if (!handle) {
       return null;
     }
 
     const file = await handle.getFile();
-    const revision = buildRevision({ size: file.size, lastModified: file.lastModified });
+    const revision = buildRevision({
+      size: file.size,
+      lastModified: file.lastModified,
+    });
     if (file.size > WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES) {
       return {
         content: "",
@@ -177,14 +199,19 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async readFileDataUrl(args: { filePath: string }): Promise<WorkspaceImageData | null> {
+  async readFileDataUrl(args: {
+    filePath: string;
+  }): Promise<WorkspaceImageData | null> {
     const handle = this.fileHandleMap.get(args.filePath);
     if (!handle) {
       return null;
     }
 
     const file = await handle.getFile();
-    const revision = buildRevision({ size: file.size, lastModified: file.lastModified });
+    const revision = buildRevision({
+      size: file.size,
+      lastModified: file.lastModified,
+    });
     if (file.size > WORKSPACE_IMAGE_PREVIEW_MAX_BYTES) {
       return {
         dataUrl: "",
@@ -203,14 +230,22 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async writeFile(args: { filePath: string; content: string; expectedRevision?: string | null }): Promise<WorkspaceWriteResult> {
+  async writeFile(args: {
+    filePath: string;
+    content: string;
+    expectedRevision?: string | null;
+  }): Promise<WorkspaceWriteResult> {
     const handle = this.fileHandleMap.get(args.filePath);
     if (!handle) {
       return { ok: false };
     }
 
     const current = await this.readFile({ filePath: args.filePath });
-    if (args.expectedRevision && current && current.revision !== args.expectedRevision) {
+    if (
+      args.expectedRevision &&
+      current &&
+      current.revision !== args.expectedRevision
+    ) {
       return { ok: false, conflict: true, revision: current.revision };
     }
 
@@ -225,7 +260,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async createFile(args: { filePath: string }): Promise<WorkspaceCreateEntryResult> {
+  async createFile(args: {
+    filePath: string;
+  }): Promise<WorkspaceCreateEntryResult> {
     const normalizedFilePath = normalizeHandlePath({ value: args.filePath });
     if (!normalizedFilePath || !this.rootHandle) {
       return { ok: false, stderr: "Invalid file path." };
@@ -240,7 +277,10 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     const parentPath = pathSegments.slice(0, -1).join("/");
 
     try {
-      const parentHandle = await this.resolveDirectoryHandle({ directoryPath: parentPath, create: true });
+      const parentHandle = await this.resolveDirectoryHandle({
+        directoryPath: parentPath,
+        create: true,
+      });
       if (!parentHandle) {
         return { ok: false, stderr: "Failed to create parent folder." };
       }
@@ -258,7 +298,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
         }
       }
 
-      const fileHandle = await parentHandle.getFileHandle(fileName, { create: true });
+      const fileHandle = await parentHandle.getFileHandle(fileName, {
+        create: true,
+      });
       const writable = await fileHandle.createWritable();
       await writable.close();
       this.fileHandleMap.set(normalizedFilePath, fileHandle);
@@ -273,8 +315,12 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     }
   }
 
-  async createDirectory(args: { directoryPath: string }): Promise<WorkspaceCreateEntryResult> {
-    const normalizedDirectoryPath = normalizeHandlePath({ value: args.directoryPath });
+  async createDirectory(args: {
+    directoryPath: string;
+  }): Promise<WorkspaceCreateEntryResult> {
+    const normalizedDirectoryPath = normalizeHandlePath({
+      value: args.directoryPath,
+    });
     if (!normalizedDirectoryPath || !this.rootHandle) {
       return { ok: false, stderr: "Invalid folder path." };
     }
@@ -288,13 +334,17 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     const parentPath = pathSegments.slice(0, -1).join("/");
 
     try {
-      const parentHandle = await this.resolveDirectoryHandle({ directoryPath: parentPath, create: true });
+      const parentHandle = await this.resolveDirectoryHandle({
+        directoryPath: parentPath,
+        create: true,
+      });
       if (!parentHandle) {
         return { ok: false, stderr: "Failed to create parent folder." };
       }
 
       try {
-        const existingHandle = await parentHandle.getDirectoryHandle(directoryName);
+        const existingHandle =
+          await parentHandle.getDirectoryHandle(directoryName);
         this.directoryHandleMap.set(normalizedDirectoryPath, existingHandle);
         return { ok: false, alreadyExists: true };
       } catch (error) {
@@ -306,7 +356,10 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
         }
       }
 
-      const directoryHandle = await parentHandle.getDirectoryHandle(directoryName, { create: true });
+      const directoryHandle = await parentHandle.getDirectoryHandle(
+        directoryName,
+        { create: true },
+      );
       this.directoryHandleMap.set(normalizedDirectoryPath, directoryHandle);
       return { ok: true };
     } catch (error) {
@@ -314,7 +367,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     }
   }
 
-  async deleteFile(args: { filePath: string }): Promise<WorkspaceDeleteEntryResult> {
+  async deleteFile(args: {
+    filePath: string;
+  }): Promise<WorkspaceDeleteEntryResult> {
     const normalizedFilePath = normalizeHandlePath({ value: args.filePath });
     if (!normalizedFilePath || !this.rootHandle) {
       return { ok: false, stderr: "Invalid file path." };
@@ -329,7 +384,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     const parentPath = pathSegments.slice(0, -1).join("/");
 
     try {
-      const parentHandle = await this.resolveDirectoryHandle({ directoryPath: parentPath });
+      const parentHandle = await this.resolveDirectoryHandle({
+        directoryPath: parentPath,
+      });
       if (!parentHandle) {
         return { ok: false, stderr: "Parent folder not found." };
       }
@@ -354,8 +411,12 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     }
   }
 
-  async deleteDirectory(args: { directoryPath: string }): Promise<WorkspaceDeleteEntryResult> {
-    const normalizedDirectoryPath = normalizeHandlePath({ value: args.directoryPath });
+  async deleteDirectory(args: {
+    directoryPath: string;
+  }): Promise<WorkspaceDeleteEntryResult> {
+    const normalizedDirectoryPath = normalizeHandlePath({
+      value: args.directoryPath,
+    });
     if (!normalizedDirectoryPath || !this.rootHandle) {
       return { ok: false, stderr: "Invalid folder path." };
     }
@@ -369,7 +430,9 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     const parentPath = pathSegments.slice(0, -1).join("/");
 
     try {
-      const parentHandle = await this.resolveDirectoryHandle({ directoryPath: parentPath });
+      const parentHandle = await this.resolveDirectoryHandle({
+        directoryPath: parentPath,
+      });
       if (!parentHandle) {
         return { ok: false, stderr: "Parent folder not found." };
       }
@@ -402,8 +465,14 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     return null;
   }
 
-  private async resolveDirectoryHandle(args: { directoryPath?: string; create?: boolean }) {
-    const normalizedDirectoryPath = normalizeHandlePath({ value: args.directoryPath, allowEmpty: true });
+  private async resolveDirectoryHandle(args: {
+    directoryPath?: string;
+    create?: boolean;
+  }) {
+    const normalizedDirectoryPath = normalizeHandlePath({
+      value: args.directoryPath,
+      allowEmpty: true,
+    });
     if (normalizedDirectoryPath === null || !this.rootHandle) {
       return null;
     }
@@ -445,7 +514,10 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     maxDepth: number;
     maxFiles: number;
   }) {
-    if (args.depth > args.maxDepth || this.fileHandleMap.size >= args.maxFiles) {
+    if (
+      args.depth > args.maxDepth ||
+      this.fileHandleMap.size >= args.maxFiles
+    ) {
       return;
     }
 
@@ -460,7 +532,10 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
         if (handle.kind === "file") {
           this.fileHandleMap.set(nextPath, handle as FileSystemFileHandle);
         } else if (!isIgnoredBrowserDirectory(name)) {
-          this.directoryHandleMap.set(nextPath, handle as FileSystemDirectoryHandle);
+          this.directoryHandleMap.set(
+            nextPath,
+            handle as FileSystemDirectoryHandle,
+          );
           await this.walkDirectory({
             handle: handle as FileSystemDirectoryHandle,
             prefix: nextPath,
@@ -483,7 +558,10 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
         if (handle.kind === "file") {
           this.fileHandleMap.set(nextPath, handle as FileSystemFileHandle);
         } else if (!isIgnoredBrowserDirectory(name)) {
-          this.directoryHandleMap.set(nextPath, handle as FileSystemDirectoryHandle);
+          this.directoryHandleMap.set(
+            nextPath,
+            handle as FileSystemDirectoryHandle,
+          );
           await this.walkDirectory({
             handle: handle as FileSystemDirectoryHandle,
             prefix: nextPath,
@@ -513,7 +591,10 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
     }
 
     for (const knownDirectoryPath of [...this.directoryHandleMap.keys()]) {
-      if (knownDirectoryPath === directoryPath || knownDirectoryPath.startsWith(directoryPrefix)) {
+      if (
+        knownDirectoryPath === directoryPath ||
+        knownDirectoryPath.startsWith(directoryPrefix)
+      ) {
         this.directoryHandleMap.delete(knownDirectoryPath);
       }
     }

@@ -19,7 +19,9 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
   };
 
   isAvailable() {
-    return this.electronAdapter.isAvailable() || this.browserAdapter.isAvailable();
+    return (
+      this.electronAdapter.isAvailable() || this.browserAdapter.isAvailable()
+    );
   }
 
   async pickRoot() {
@@ -46,12 +48,9 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
     return files;
   }
 
-  async getRepoMap(args: { refresh?: boolean } = {}) {
-    const delegate = await this.prepareDelegate();
-    return delegate.getRepoMap?.(args) ?? null;
-  }
-
-  async listDirectory(args: Parameters<WorkspaceFsAdapter["listDirectory"]>[0]) {
+  async listDirectory(
+    args: Parameters<WorkspaceFsAdapter["listDirectory"]>[0],
+  ) {
     const delegate = await this.prepareDelegate();
     return delegate.listDirectory(args);
   }
@@ -61,7 +60,9 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
     return delegate.readFile(args);
   }
 
-  async readFileDataUrl(args: Parameters<WorkspaceFsAdapter["readFileDataUrl"]>[0]) {
+  async readFileDataUrl(
+    args: Parameters<WorkspaceFsAdapter["readFileDataUrl"]>[0],
+  ) {
     const delegate = await this.prepareDelegate();
     return delegate.readFileDataUrl(args);
   }
@@ -80,7 +81,9 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
     return result;
   }
 
-  async createDirectory(args: Parameters<WorkspaceFsAdapter["createDirectory"]>[0]) {
+  async createDirectory(
+    args: Parameters<WorkspaceFsAdapter["createDirectory"]>[0],
+  ) {
     const delegate = await this.prepareDelegate();
     return delegate.createDirectory(args);
   }
@@ -94,7 +97,9 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
     return result;
   }
 
-  async deleteDirectory(args: Parameters<WorkspaceFsAdapter["deleteDirectory"]>[0]) {
+  async deleteDirectory(
+    args: Parameters<WorkspaceFsAdapter["deleteDirectory"]>[0],
+  ) {
     const delegate = await this.prepareDelegate();
     const result = await delegate.deleteDirectory(args);
     if (result.ok) {
@@ -108,7 +113,11 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
     return delegateFiles.length > 0 ? delegateFiles : this.rootState.files;
   }
 
-  async setRoot(args: { rootPath: string; rootName: string; files?: string[] }) {
+  async setRoot(args: {
+    rootPath: string;
+    rootName: string;
+    files?: string[];
+  }) {
     this.rootState = {
       rootPath: args.rootPath,
       rootName: args.rootName,
@@ -128,8 +137,8 @@ class DynamicWorkspaceFsAdapter implements WorkspaceFsAdapter {
     const nextDelegate: WorkspaceFsAdapter = this.electronAdapter.isAvailable()
       ? this.electronAdapter
       : this.browserAdapter.isAvailable()
-      ? this.browserAdapter
-      : this.unavailableAdapter;
+        ? this.browserAdapter
+        : this.unavailableAdapter;
 
     this.delegate = nextDelegate;
     return nextDelegate;

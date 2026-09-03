@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -41,11 +41,6 @@ import {
   formatTokenBudget,
   PROVIDER_TIMEOUT_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
-import {
-  getRepoMapCacheSnapshot,
-  clearRepoMapContextCache,
-  type RepoMapCacheEntry,
-} from "@/lib/fs/repo-map-context-cache";
 import { useAppStore } from "@/store/app.store";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import {
@@ -590,8 +585,6 @@ export function DeveloperSection() {
             </p>
           ) : null}
         </SettingsCard>
-
-        <RepoMapCacheCard />
       </SectionStack>
     </>
   );
@@ -1559,8 +1552,6 @@ export function LocalMcpRequestLogCard() {
   );
 }
 
-// ── Repo-Map Cache Diagnostics ──────────────────────────────────────────────
-
 function formatRelativeTime(isoString: string): string {
   const deltaMs = Date.now() - Date.parse(isoString);
   if (deltaMs < 0) return "just now";
@@ -1571,113 +1562,4 @@ function formatRelativeTime(isoString: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function shortenPath(fullPath: string): string {
-  const parts = fullPath.replace(/\\/g, "/").split("/");
-  if (parts.length <= 3) return fullPath;
-  return `.../${parts.slice(-2).join("/")}`;
-}
-
-function RepoMapCacheCard() {
-  // useReducer as a cheap force-update mechanism — no external state dependency.
-  const [, forceUpdate] = useReducer((c: number) => c + 1, 0);
-  const snapshot = getRepoMapCacheSnapshot();
-  const entries = [...snapshot.entries()];
-
-  return (
-    <SettingsCard
-      title="Repo-Map Context Cache"
-      description="In-memory cache of formatted repo-map context injected on the first AI turn of each task."
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {entries.length === 0
-            ? "No entries cached."
-            : `${entries.length} workspace${entries.length > 1 ? "s" : ""} cached`}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            className="h-8 text-xs"
-            variant="outline"
-            onClick={forceUpdate}
-          >
-            Refresh
-          </Button>
-          {entries.length > 0 && (
-            <Button
-              className="h-8 text-xs"
-              variant="outline"
-              onClick={() => {
-                clearRepoMapContextCache();
-                forceUpdate();
-              }}
-            >
-              Clear All
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {entries.map(([workspacePath, entry]) => (
-        <RepoMapCacheEntryRow
-          key={workspacePath}
-          workspacePath={workspacePath}
-          entry={entry}
-        />
-      ))}
-    </SettingsCard>
-  );
-}
-
-function RepoMapCacheEntryRow(props: {
-  workspacePath: string;
-  entry: Readonly<RepoMapCacheEntry>;
-}) {
-  const { workspacePath, entry } = props;
-  const textSizeKb = (new Blob([entry.text]).size / 1024).toFixed(1);
-
-  return (
-    <div className="space-y-1 rounded-md border border-border/80 bg-background px-3 py-2">
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span
-          className="font-medium text-foreground truncate"
-          title={workspacePath}
-        >
-          {shortenPath(workspacePath)}
-        </span>
-        <span className="shrink-0 font-mono text-xs text-muted-foreground">
-          {textSizeKb} KB
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-        <div className="flex justify-between text-muted-foreground">
-          <span>Files</span>
-          <span className="font-mono text-foreground">
-            {entry.fileCount} ({entry.codeFileCount} code)
-          </span>
-        </div>
-        <div className="flex justify-between text-muted-foreground">
-          <span>Hotspots</span>
-          <span className="font-mono text-foreground">
-            {entry.hotspotCount}
-          </span>
-        </div>
-        <div className="flex justify-between text-muted-foreground">
-          <span>Entrypoints</span>
-          <span className="font-mono text-foreground">
-            {entry.entrypointCount}
-          </span>
-        </div>
-        <div className="flex justify-between text-muted-foreground">
-          <span>Docs</span>
-          <span className="font-mono text-foreground">{entry.docCount}</span>
-        </div>
-      </div>
-      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span>Snapshot: {formatRelativeTime(entry.snapshotUpdatedAt)}</span>
-        <span>Cached: {formatRelativeTime(entry.cachedAt)}</span>
-      </div>
-    </div>
-  );
 }

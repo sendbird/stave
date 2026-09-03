@@ -186,7 +186,7 @@ would keep showing the model a stale tool list.
 
 **Status**: Working as intended, not a bug to fix. The cost is that the next
 turn is unprimed, which means it re-sends the first-turn-only prompt context
-(`stave:workspace-guidance`, `stave:repo-map`, `stave:latest-turn-summary` — see
+(`stave:workspace-guidance`, `stave:latest-turn-summary` — see
 [Prompt context budget](../providers/provider-runtimes.md#prompt-context-budget)).
 That is the correct behavior: a fresh session genuinely needs that context
 again. Because those blocks are now gated on the runtime's real resume decision

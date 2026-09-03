@@ -47,7 +47,8 @@ const skillContext = {
   provider: "shared" as const,
   path: "/tmp/stave-release/SKILL.md",
   invocationToken: "$stave-release",
-  instructions: "Use this skill to create a versioned release PR for the Stave repository.",
+  instructions:
+    "Use this skill to create a versioned release PR for the Stave repository.",
 };
 
 describe("canonical request builder", () => {
@@ -61,12 +62,14 @@ describe("canonical request builder", () => {
       history,
       userInput: "Proceed with step 1.",
       mode: "chat",
-      fileContexts: [{
-        filePath: "src/store/app.store.ts",
-        content: "const answer = 42;",
-        language: "ts",
-        instruction: "Focus on the provider request path.",
-      }],
+      fileContexts: [
+        {
+          filePath: "src/store/app.store.ts",
+          content: "const answer = 42;",
+          language: "ts",
+          instruction: "Focus on the provider request path.",
+        },
+      ],
       nativeSessionId: "thread_123",
     });
 
@@ -100,14 +103,16 @@ describe("canonical request builder", () => {
     const request = buildCanonicalConversationRequest({
       providerId: "codex",
       model: "gpt-5.4",
-      history: [{
-        id: "assistant-legacy-part",
-        role: "assistant",
-        model: "gpt-5.4",
-        providerId: "codex",
-        content: "Done.",
-        parts: [legacyPart, { type: "text", text: "Done." }],
-      }],
+      history: [
+        {
+          id: "assistant-legacy-part",
+          role: "assistant",
+          model: "gpt-5.4",
+          providerId: "codex",
+          content: "Done.",
+          parts: [legacyPart, { type: "text", text: "Done." }],
+        },
+      ],
       userInput: "Continue.",
     });
 
@@ -165,8 +170,12 @@ describe("canonical request builder", () => {
     expect(prompt).toContain("workspaceId: workspace-1");
     expect(prompt).toContain("taskId: task-1");
     expect(prompt).toContain("workspacePlanDirectory: .stave/context/plans");
-    expect(prompt).toContain("newWorkspacePlanFiles: .stave/context/plans/<taskIdPrefix>_<timestamp>.md");
-    expect(prompt).toContain("handoffConvention: write plan files (not workspace notes) when handing off to a new workspace");
+    expect(prompt).toContain(
+      "newWorkspacePlanFiles: .stave/context/plans/<taskIdPrefix>_<timestamp>.md",
+    );
+    expect(prompt).toContain(
+      "handoffConvention: write plan files (not workspace notes) when handing off to a new workspace",
+    );
     expect(prompt).toContain("[Task Shared Context]");
     expect(prompt).toContain("assistant: 1. Check git status");
     expect(prompt).toContain("[Current User Input]");
@@ -202,18 +211,30 @@ describe("canonical request builder", () => {
     const request = buildCanonicalConversationRequest({
       providerId: "codex",
       model: "gpt-5.4",
-      history: [{
-        id: "assistant-commentary",
-        role: "assistant",
-        model: "gpt-5.4",
-        providerId: "codex",
-        content: "Inspecting the renderer.Final answer.",
-        parts: [
-          { type: "text", text: "Inspecting the renderer.", segmentId: "commentary-1" },
-          { type: "tool_use", toolUseId: "todo-1", toolName: "TodoWrite", input: "{\"todos\":[]}", state: "output-available" },
-          { type: "text", text: "Final answer.", segmentId: "final-1" },
-        ],
-      }],
+      history: [
+        {
+          id: "assistant-commentary",
+          role: "assistant",
+          model: "gpt-5.4",
+          providerId: "codex",
+          content: "Inspecting the renderer.Final answer.",
+          parts: [
+            {
+              type: "text",
+              text: "Inspecting the renderer.",
+              segmentId: "commentary-1",
+            },
+            {
+              type: "tool_use",
+              toolUseId: "todo-1",
+              toolName: "TodoWrite",
+              input: '{"todos":[]}',
+              state: "output-available",
+            },
+            { type: "text", text: "Final answer.", segmentId: "final-1" },
+          ],
+        },
+      ],
       userInput: "Continue.",
       mode: "chat",
     });
@@ -222,24 +243,32 @@ describe("canonical request builder", () => {
 
     const prompt = buildLegacyPromptFromCanonicalRequest({ request });
     expect(prompt).toContain("assistant: Final answer.");
-    expect(prompt).not.toContain("assistant: Inspecting the renderer.Final answer.");
+    expect(prompt).not.toContain(
+      "assistant: Inspecting the renderer.Final answer.",
+    );
   });
 
   test("prefers the last provider text segment when Codex emits commentary before the final answer", () => {
     const request = buildCanonicalConversationRequest({
       providerId: "codex",
       model: "gpt-5.4",
-      history: [{
-        id: "assistant-commentary",
-        role: "assistant",
-        model: "gpt-5.4",
-        providerId: "codex",
-        content: "Inspecting the renderer.Final answer.",
-        parts: [
-          { type: "text", text: "Inspecting the renderer.", segmentId: "commentary-1" },
-          { type: "text", text: "Final answer.", segmentId: "final-1" },
-        ],
-      }],
+      history: [
+        {
+          id: "assistant-commentary",
+          role: "assistant",
+          model: "gpt-5.4",
+          providerId: "codex",
+          content: "Inspecting the renderer.Final answer.",
+          parts: [
+            {
+              type: "text",
+              text: "Inspecting the renderer.",
+              segmentId: "commentary-1",
+            },
+            { type: "text", text: "Final answer.", segmentId: "final-1" },
+          ],
+        },
+      ],
       userInput: "Continue.",
       mode: "chat",
     });
@@ -265,35 +294,45 @@ describe("canonical request builder", () => {
     expect(prompt).toContain("[Current User Input]");
     expect(prompt).toContain("(none)");
     expect(prompt).toContain("[Skill Invocation]");
-    expect(prompt).toContain("The user intentionally activated one or more skills without additional text.");
+    expect(prompt).toContain(
+      "The user intentionally activated one or more skills without additional text.",
+    );
   });
 
   test("sanitizes oversized historical and current file context payloads", () => {
     const oversizedImagePayload = `data:image/svg+xml;base64,${"a".repeat(MAX_FILE_CONTEXT_CONTENT_CHARS + 128)}`;
-    const oversizedTextPayload = "b".repeat(MAX_FILE_CONTEXT_CONTENT_CHARS + 256);
+    const oversizedTextPayload = "b".repeat(
+      MAX_FILE_CONTEXT_CONTENT_CHARS + 256,
+    );
     const request = buildCanonicalConversationRequest({
       providerId: "codex",
       model: "gpt-5.4",
-      history: [{
-        id: "user-oversized",
-        role: "user",
-        model: "user",
-        providerId: "user",
-        content: "",
-        parts: [{
-          type: "file_context",
-          filePath: "public/unnamed88.svg",
-          content: oversizedImagePayload,
-          language: "svg",
-        }],
-      }],
+      history: [
+        {
+          id: "user-oversized",
+          role: "user",
+          model: "user",
+          providerId: "user",
+          content: "",
+          parts: [
+            {
+              type: "file_context",
+              filePath: "public/unnamed88.svg",
+              content: oversizedImagePayload,
+              language: "svg",
+            },
+          ],
+        },
+      ],
       userInput: "Try again.",
       mode: "chat",
-      fileContexts: [{
-        filePath: "notes/large.md",
-        content: oversizedTextPayload,
-        language: "md",
-      }],
+      fileContexts: [
+        {
+          filePath: "notes/large.md",
+          content: oversizedTextPayload,
+          language: "md",
+        },
+      ],
     });
 
     const historyPart = request.history[0]?.parts[0];
@@ -304,7 +343,9 @@ describe("canonical request builder", () => {
     }
     expect(historyPart.content).not.toContain("data:image/svg+xml;base64");
     expect(historyPart.content).toContain("image payload omitted");
-    expect(historyPart.content.length).toBeLessThanOrEqual(MAX_FILE_CONTEXT_CONTENT_CHARS);
+    expect(historyPart.content.length).toBeLessThanOrEqual(
+      MAX_FILE_CONTEXT_CONTENT_CHARS,
+    );
 
     const contextPart = request.contextParts[0];
     expect(contextPart).toBeDefined();
@@ -313,29 +354,37 @@ describe("canonical request builder", () => {
       throw new Error("expected file_context context part");
     }
     expect(contextPart.content).toContain("content truncated");
-    expect(contextPart.content.length).toBeLessThanOrEqual(MAX_FILE_CONTEXT_CONTENT_CHARS);
+    expect(contextPart.content.length).toBeLessThanOrEqual(
+      MAX_FILE_CONTEXT_CONTENT_CHARS,
+    );
   });
 
   test("sanitizes oversized historical tool outputs before serializing history", () => {
-    const oversizedToolOutput = "o".repeat(MAX_FILE_CONTEXT_CONTENT_CHARS + 512);
+    const oversizedToolOutput = "o".repeat(
+      MAX_FILE_CONTEXT_CONTENT_CHARS + 512,
+    );
     const request = buildCanonicalConversationRequest({
       providerId: "codex",
       model: "gpt-5.4",
-      history: [{
-        id: "assistant-oversized-tool",
-        role: "assistant",
-        model: "gpt-5.4",
-        providerId: "codex",
-        content: "",
-        parts: [{
-          type: "tool_use",
-          toolUseId: "tool-1",
-          toolName: "bash",
-          input: "cat huge.log",
-          output: oversizedToolOutput,
-          state: "output-available",
-        }],
-      }],
+      history: [
+        {
+          id: "assistant-oversized-tool",
+          role: "assistant",
+          model: "gpt-5.4",
+          providerId: "codex",
+          content: "",
+          parts: [
+            {
+              type: "tool_use",
+              toolUseId: "tool-1",
+              toolName: "bash",
+              input: "cat huge.log",
+              output: oversizedToolOutput,
+              state: "output-available",
+            },
+          ],
+        },
+      ],
       userInput: "Summarize that result.",
       mode: "chat",
     });
@@ -346,28 +395,36 @@ describe("canonical request builder", () => {
       throw new Error("expected tool_use history part");
     }
     expect(historyPart.output).toContain("tool output truncated");
-    expect(historyPart.output?.length).toBeLessThanOrEqual(MAX_FILE_CONTEXT_CONTENT_CHARS);
+    expect(historyPart.output?.length).toBeLessThanOrEqual(
+      MAX_FILE_CONTEXT_CONTENT_CHARS,
+    );
   });
 
   test("sanitizes oversized approval descriptions before serializing history", () => {
-    const oversizedApprovalDescription = "Input: ".concat("x".repeat(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS + 512));
+    const oversizedApprovalDescription = "Input: ".concat(
+      "x".repeat(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS + 512),
+    );
     const request = buildCanonicalConversationRequest({
       providerId: "claude-code",
       model: "claude-sonnet-4-6",
-      history: [{
-        id: "assistant-approval",
-        role: "assistant",
-        model: "claude-sonnet-4-6",
-        providerId: "claude-code",
-        content: "",
-        parts: [{
-          type: "approval",
-          toolName: "ExitPlanMode",
-          requestId: "approval-1",
-          description: oversizedApprovalDescription,
-          state: "approval-requested",
-        }],
-      }],
+      history: [
+        {
+          id: "assistant-approval",
+          role: "assistant",
+          model: "claude-sonnet-4-6",
+          providerId: "claude-code",
+          content: "",
+          parts: [
+            {
+              type: "approval",
+              toolName: "ExitPlanMode",
+              requestId: "approval-1",
+              description: oversizedApprovalDescription,
+              state: "approval-requested",
+            },
+          ],
+        },
+      ],
       userInput: "continue",
       mode: "chat",
     });
@@ -378,7 +435,9 @@ describe("canonical request builder", () => {
       throw new Error("expected approval history part");
     }
     expect(historyPart.description).toContain("approval description truncated");
-    expect(historyPart.description.length).toBeLessThanOrEqual(MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS);
+    expect(historyPart.description.length).toBeLessThanOrEqual(
+      MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
+    );
   });
 });
 
@@ -408,12 +467,6 @@ describe("first-turn-only retrieved context gating", () => {
       title: "Latest Turn Summary",
       content: "TURN_SUMMARY_BLOCK",
     },
-    {
-      type: "retrieved_context" as const,
-      sourceId: "stave:repo-map",
-      title: "Codebase Map",
-      content: "REPO_MAP_BLOCK",
-    },
   ];
 
   function buildRequest() {
@@ -437,7 +490,6 @@ describe("first-turn-only retrieved context gating", () => {
     expect(prompt).toContain("GUIDANCE_BLOCK");
     expect(prompt).toContain("INFORMATION_BLOCK");
     expect(prompt).toContain("TURN_SUMMARY_BLOCK");
-    expect(prompt).toContain("REPO_MAP_BLOCK");
   });
 
   test("drops unchanging blocks once the provider session is primed", () => {
@@ -449,17 +501,17 @@ describe("first-turn-only retrieved context gating", () => {
     // Already in the resumed transcript — re-sending them only burns tokens.
     expect(prompt).not.toContain("GUIDANCE_BLOCK");
     expect(prompt).not.toContain("TURN_SUMMARY_BLOCK");
-    expect(prompt).not.toContain("REPO_MAP_BLOCK");
     // Identity and the Information panel can change between turns.
     expect(prompt).toContain("IDENTITY_BLOCK");
     expect(prompt).toContain("INFORMATION_BLOCK");
   });
 
   test("declares exactly the blocks that never change turn-to-turn", () => {
-    expect([...FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS].sort()).toEqual([
-      STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
-      "stave:repo-map",
-      STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
-    ].sort());
+    expect([...FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS].sort()).toEqual(
+      [
+        STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
+        STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
+      ].sort(),
+    );
   });
 });

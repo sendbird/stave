@@ -8,7 +8,7 @@ import {
   PanelLeft,
 } from "lucide-react";
 import { GhosttyIcon, VSCodeIcon } from "@/components/brand-icons";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
@@ -41,11 +41,6 @@ import { TopBarTasks } from "@/components/layout/TopBarTasks";
 import { TopBarStandaloneCli } from "@/components/layout/TopBarStandaloneCli";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
-import {
-  getRepoMapContextCache,
-  setRepoMapContextCache,
-} from "@/lib/fs/repo-map-context-cache";
-import { formatRepoMapForContext } from "@/lib/fs/repo-map.types";
 import { formatWorkspacePathLabel } from "@/store/project.utils";
 
 const IS_MAC =
@@ -91,41 +86,6 @@ export function TopBar() {
       workspacePathById,
     }),
   );
-
-  // Pre-warm the module-level repo-map context cache so the first AI turn in
-  // this workspace can synchronously read it (a plain Map.get — no IPC).
-  useEffect(() => {
-    if (!hasProjectContext || !activeWorkspacePath) {
-      return;
-    }
-    // Skip if already cached — avoids a redundant IPC round-trip.
-    if (getRepoMapContextCache(activeWorkspacePath)) {
-      return;
-    }
-    const getRepoMap = window.api?.fs?.getRepoMap;
-    if (!getRepoMap) {
-      return;
-    }
-    void getRepoMap({ rootPath: activeWorkspacePath })
-      .then((result) => {
-        if (result.ok && result.repoMap) {
-          const snap = result.repoMap;
-          setRepoMapContextCache(activeWorkspacePath, {
-            text: formatRepoMapForContext(snap),
-            snapshotUpdatedAt: snap.updatedAt,
-            fileCount: snap.fileCount,
-            codeFileCount: snap.codeFileCount,
-            hotspotCount: snap.hotspots.length,
-            entrypointCount: snap.entrypoints.length,
-            docCount: snap.docs.length,
-          });
-        }
-      })
-      .catch(() => {
-        // Pre-warming failure is non-fatal; the first turn simply won't have
-        // the repo-map injected. Subsequent workspace switches will retry.
-      });
-  }, [activeWorkspacePath, hasProjectContext]);
 
   return (
     <header

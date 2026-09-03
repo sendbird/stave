@@ -144,7 +144,7 @@ Current path:
 Implication:
 
 - file-search improvements can ship without changing provider IPC
-- symbol or repo-map work should be treated as a new index layer, not a small tweak to `projectFiles`
+- symbol or indexer work should be treated as a new index layer, not a small tweak to `projectFiles`
 
 ## Skill Catalog Contract
 

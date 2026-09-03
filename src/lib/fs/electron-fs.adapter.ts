@@ -1,4 +1,3 @@
-import type { RepoMapSnapshot } from "@/lib/fs/repo-map.types";
 import type {
   WorkspaceCreateEntryResult,
   WorkspaceDeleteEntryResult,
@@ -18,7 +17,11 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     if (typeof window === "undefined") {
       return false;
     }
-    return Boolean(window.api?.fs?.pickRoot && window.api?.fs?.readFile && window.api?.fs?.writeFile);
+    return Boolean(
+      window.api?.fs?.pickRoot &&
+      window.api?.fs?.readFile &&
+      window.api?.fs?.writeFile,
+    );
   }
 
   async pickRoot(): Promise<WorkspaceRootInfo | null> {
@@ -58,23 +61,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     return result.files;
   }
 
-  async getRepoMap(args: { refresh?: boolean } = {}): Promise<RepoMapSnapshot | null> {
-    if (!this.rootPath) {
-      return null;
-    }
-    const getRepoMap = window.api?.fs?.getRepoMap;
-    if (!getRepoMap) {
-      return null;
-    }
-
-    const result = await getRepoMap({ rootPath: this.rootPath, refresh: args.refresh });
-    if (!result.ok || !result.repoMap) {
-      return null;
-    }
-    return result.repoMap;
-  }
-
-  async listDirectory(args: { directoryPath?: string }): Promise<WorkspaceDirectoryEntry[] | null> {
+  async listDirectory(args: {
+    directoryPath?: string;
+  }): Promise<WorkspaceDirectoryEntry[] | null> {
     if (!this.rootPath) {
       return null;
     }
@@ -93,7 +82,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     return result.entries;
   }
 
-  async readFile(args: { filePath: string }): Promise<WorkspaceFileData | null> {
+  async readFile(args: {
+    filePath: string;
+  }): Promise<WorkspaceFileData | null> {
     if (!this.rootPath) {
       return null;
     }
@@ -102,7 +93,10 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
       return null;
     }
 
-    const result = await readFile({ rootPath: this.rootPath, filePath: args.filePath });
+    const result = await readFile({
+      rootPath: this.rootPath,
+      filePath: args.filePath,
+    });
     if (!result.ok && !result.tooLarge) {
       return null;
     }
@@ -116,7 +110,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async readFileDataUrl(args: { filePath: string }): Promise<WorkspaceImageData | null> {
+  async readFileDataUrl(args: {
+    filePath: string;
+  }): Promise<WorkspaceImageData | null> {
     if (!this.rootPath) {
       return null;
     }
@@ -124,7 +120,10 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     if (!readFileDataUrl) {
       return null;
     }
-    const result = await readFileDataUrl({ rootPath: this.rootPath, filePath: args.filePath });
+    const result = await readFileDataUrl({
+      rootPath: this.rootPath,
+      filePath: args.filePath,
+    });
     if (!result.ok && !result.tooLarge) {
       return null;
     }
@@ -137,7 +136,11 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async writeFile(args: { filePath: string; content: string; expectedRevision?: string | null }): Promise<WorkspaceWriteResult> {
+  async writeFile(args: {
+    filePath: string;
+    content: string;
+    expectedRevision?: string | null;
+  }): Promise<WorkspaceWriteResult> {
     if (!this.rootPath) {
       return { ok: false };
     }
@@ -160,7 +163,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async createFile(args: { filePath: string }): Promise<WorkspaceCreateEntryResult> {
+  async createFile(args: {
+    filePath: string;
+  }): Promise<WorkspaceCreateEntryResult> {
     if (!this.rootPath) {
       return { ok: false, stderr: "Workspace root unavailable." };
     }
@@ -184,7 +189,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async createDirectory(args: { directoryPath: string }): Promise<WorkspaceCreateEntryResult> {
+  async createDirectory(args: {
+    directoryPath: string;
+  }): Promise<WorkspaceCreateEntryResult> {
     if (!this.rootPath) {
       return { ok: false, stderr: "Workspace root unavailable." };
     }
@@ -204,7 +211,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async deleteFile(args: { filePath: string }): Promise<WorkspaceDeleteEntryResult> {
+  async deleteFile(args: {
+    filePath: string;
+  }): Promise<WorkspaceDeleteEntryResult> {
     if (!this.rootPath) {
       return { ok: false, stderr: "Workspace root unavailable." };
     }
@@ -226,7 +235,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async deleteDirectory(args: { directoryPath: string }): Promise<WorkspaceDeleteEntryResult> {
+  async deleteDirectory(args: {
+    directoryPath: string;
+  }): Promise<WorkspaceDeleteEntryResult> {
     if (!this.rootPath) {
       return { ok: false, stderr: "Workspace root unavailable." };
     }
@@ -269,12 +280,16 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
   }
 
   private forgetKnownFile(filePath: string) {
-    this.knownFiles = this.knownFiles.filter((knownFilePath) => knownFilePath !== filePath);
+    this.knownFiles = this.knownFiles.filter(
+      (knownFilePath) => knownFilePath !== filePath,
+    );
   }
 
   private forgetKnownDirectory(directoryPath: string) {
     const normalizedDirectoryPath = directoryPath.replace(/\/+$/, "");
     const directoryPrefix = `${normalizedDirectoryPath}/`;
-    this.knownFiles = this.knownFiles.filter((knownFilePath) => !knownFilePath.startsWith(directoryPrefix));
+    this.knownFiles = this.knownFiles.filter(
+      (knownFilePath) => !knownFilePath.startsWith(directoryPrefix),
+    );
   }
 }

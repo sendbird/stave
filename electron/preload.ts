@@ -127,7 +127,6 @@ import type {
   RoutineUpsertInput,
 } from "../src/lib/routines";
 import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
-import type { RepoMapResponse } from "../src/lib/fs/repo-map.types";
 import type {
   AppNotification,
   AppNotificationCreateInput,
@@ -1629,8 +1628,6 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("fs:resolve-path", args),
     listFiles: (args: { rootPath: string }) =>
       ipcRenderer.invoke("fs:list-files", args),
-    getRepoMap: (args: { rootPath: string; refresh?: boolean }) =>
-      ipcRenderer.invoke("fs:get-repo-map", args) as Promise<RepoMapResponse>,
     listDirectory: (args: { rootPath: string; directoryPath?: string }) =>
       ipcRenderer.invoke("fs:list-directory", args),
     readFile: (args: { rootPath: string; filePath: string }) =>

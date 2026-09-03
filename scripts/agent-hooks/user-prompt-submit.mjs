@@ -54,7 +54,7 @@ function buildGuidance(prompt) {
     /(전체 리포|전부 읽|모든 파일)/,
   ])) {
     lines.push(
-      "Avoid full-repo scanning by default. Prefer architecture docs, repo-map output if available, and targeted search around likely entrypoints.",
+      "Avoid full-repo scanning by default. Prefer architecture docs and targeted search around likely entrypoints.",
     );
   }
 

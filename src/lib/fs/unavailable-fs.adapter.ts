@@ -1,4 +1,3 @@
-import type { RepoMapSnapshot } from "@/lib/fs/repo-map.types";
 import type {
   WorkspaceCreateEntryResult,
   WorkspaceDeleteEntryResult,
@@ -23,39 +22,53 @@ export class UnavailableFsAdapter implements WorkspaceFsAdapter {
     return [];
   }
 
-  async getRepoMap(_args: { refresh?: boolean } = {}): Promise<RepoMapSnapshot | null> {
+  async listDirectory(_args: {
+    directoryPath?: string;
+  }): Promise<WorkspaceDirectoryEntry[] | null> {
     return null;
   }
 
-  async listDirectory(_args: { directoryPath?: string }): Promise<WorkspaceDirectoryEntry[] | null> {
+  async readFile(_args: {
+    filePath: string;
+  }): Promise<WorkspaceFileData | null> {
     return null;
   }
 
-  async readFile(_args: { filePath: string }): Promise<WorkspaceFileData | null> {
+  async readFileDataUrl(_args: {
+    filePath: string;
+  }): Promise<WorkspaceImageData | null> {
     return null;
   }
 
-  async readFileDataUrl(_args: { filePath: string }): Promise<WorkspaceImageData | null> {
-    return null;
-  }
-
-  async writeFile(_args: { filePath: string; content: string; expectedRevision?: string | null }): Promise<WorkspaceWriteResult> {
+  async writeFile(_args: {
+    filePath: string;
+    content: string;
+    expectedRevision?: string | null;
+  }): Promise<WorkspaceWriteResult> {
     return { ok: false };
   }
 
-  async createFile(_args: { filePath: string }): Promise<WorkspaceCreateEntryResult> {
+  async createFile(_args: {
+    filePath: string;
+  }): Promise<WorkspaceCreateEntryResult> {
     return { ok: false, stderr: "Filesystem unavailable." };
   }
 
-  async createDirectory(_args: { directoryPath: string }): Promise<WorkspaceCreateEntryResult> {
+  async createDirectory(_args: {
+    directoryPath: string;
+  }): Promise<WorkspaceCreateEntryResult> {
     return { ok: false, stderr: "Filesystem unavailable." };
   }
 
-  async deleteFile(_args: { filePath: string }): Promise<WorkspaceDeleteEntryResult> {
+  async deleteFile(_args: {
+    filePath: string;
+  }): Promise<WorkspaceDeleteEntryResult> {
     return { ok: false, stderr: "Filesystem unavailable." };
   }
 
-  async deleteDirectory(_args: { directoryPath: string }): Promise<WorkspaceDeleteEntryResult> {
+  async deleteDirectory(_args: {
+    directoryPath: string;
+  }): Promise<WorkspaceDeleteEntryResult> {
     return { ok: false, stderr: "Filesystem unavailable." };
   }
 

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -30,11 +30,6 @@ function safeExec(args, cwd) {
 
 function resolveRepoRoot(cwd) {
   return safeExec(["git", "rev-parse", "--show-toplevel"], cwd) || cwd;
-}
-
-function resolveGitDir(cwd) {
-  const gitDir = safeExec(["git", "rev-parse", "--git-dir"], cwd);
-  return gitDir ? path.resolve(cwd, gitDir) : "";
 }
 
 function listChangedFiles(repoRoot) {
@@ -74,57 +69,6 @@ function loadKeyDocs(repoRoot) {
   );
 }
 
-function loadRepoMapHint(repoRoot) {
-  const gitDir = resolveGitDir(repoRoot);
-  const candidates = [
-    gitDir ? path.join(gitDir, "stave-cache", "repo-map.json") : "",
-    ".stave/cache/repo-map.json",
-    ".stave/repo-map.json",
-    ".codex/cache/repo-map.json",
-  ]
-    .filter(Boolean)
-    .map((candidate) =>
-      path.isAbsolute(candidate) ? candidate : path.join(repoRoot, candidate),
-    );
-
-  for (const candidate of candidates) {
-    if (!existsSync(candidate)) {
-      continue;
-    }
-    try {
-      const raw = JSON.parse(readFileSync(candidate, "utf8"));
-      const updatedAt =
-        typeof raw.updatedAt === "string" ? raw.updatedAt : null;
-      const relativePath = path.isAbsolute(candidate)
-        ? toRelative(repoRoot, candidate)
-        : candidate;
-      const entrypoints = Array.isArray(raw.entrypoints)
-        ? raw.entrypoints
-            .slice(0, 2)
-            .map((entrypoint) => entrypoint?.title)
-            .filter(Boolean)
-        : [];
-      const hotspots = Array.isArray(raw.hotspots)
-        ? raw.hotspots
-            .slice(0, 3)
-            .map((hotspot) => hotspot?.filePath)
-            .filter(Boolean)
-        : [];
-      const summary = [
-        updatedAt ? `${relativePath} (${updatedAt})` : relativePath,
-        entrypoints.length > 0 ? `entrypoints: ${entrypoints.join(", ")}` : "",
-        hotspots.length > 0 ? `hotspots: ${hotspots.join(", ")}` : "",
-      ].filter(Boolean);
-      return summary.join(" | ");
-    } catch {
-      return path.isAbsolute(candidate)
-        ? toRelative(repoRoot, candidate)
-        : candidate;
-    }
-  }
-  return "not-generated";
-}
-
 function buildAdditionalContext(args) {
   const lines = [
     "[Repository preflight]",
@@ -132,7 +76,6 @@ function buildAdditionalContext(args) {
     `repoRoot: ${args.repoRootName}`,
     `branch: ${args.branch || "unknown"}`,
     `permissionMode: ${args.permissionMode}`,
-    `repoMap: ${args.repoMapHint}`,
   ];
 
   if (args.keyDocs.length > 0) {
@@ -164,7 +107,6 @@ const repoRoot = resolveRepoRoot(cwd);
 const branch = safeExec(["git", "branch", "--show-current"], repoRoot);
 const keyDocs = loadKeyDocs(repoRoot);
 const changedFiles = listChangedFiles(repoRoot);
-const repoMapHint = loadRepoMapHint(repoRoot);
 
 const additionalContext = buildAdditionalContext({
   relativeCwd: toRelative(repoRoot, cwd),
@@ -173,7 +115,6 @@ const additionalContext = buildAdditionalContext({
   permissionMode: payload.permission_mode ?? "default",
   keyDocs,
   changedFiles,
-  repoMapHint,
 });
 
 process.stdout.write(
