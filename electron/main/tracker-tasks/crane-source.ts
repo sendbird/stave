@@ -63,6 +63,14 @@ export interface CraneTrackerSourceDeps {
   getSecureStorageStatus(): { available: boolean };
   httpClient:
     CraneTasksHttpClient | ((baseUrl: string) => CraneTasksHttpClient);
+  /**
+   * Last capability the connector poll heard from this host.
+   *
+   * `false` means the server said the list is off, so we do not hit the
+   * collection and then guess from a 404. `null` means no poll has reported
+   * yet, so the list call is still the source of truth.
+   */
+  getTasksEnabled?: () => boolean | null;
 }
 
 export interface CraneTrackerSource extends TrackerSourceAdapter {
@@ -89,15 +97,20 @@ function hasCraneScope(credential: CraneTrackerCredential) {
  *
  * There is no resource to be missing on a collection endpoint: a paired,
  * in-scope connector that gets 404 here is talking to a Crane deployment whose
- * task API is absent or switched off. Reporting that as `not_found` sends the
- * user looking for a ticket, and offers a retry that can never succeed, so it is
- * translated once here — where the distinction between "this collection" and
- * "one ticket" is still known. `getTask` keeps the raw code, because there a
- * 404 really does mean the ticket is gone.
+ * task API is absent. Reporting that as `not_found` sends the user looking for
+ * a ticket, and offers a retry that can never succeed, so it is translated
+ * once here. A host that has the route but turned it off answers
+ * `tasks_disabled` instead — that code is already the truth and is not
+ * rewritten. `getTask` keeps a raw 404, because there it really does mean the
+ * ticket is gone.
  */
 function isMissingRoute(error: unknown): boolean {
+  return (error as { code?: unknown } | null | undefined)?.code === "not_found";
+}
+
+function isTasksDisabled(error: unknown): boolean {
   return (
-    (error as { code?: unknown } | null | undefined)?.code === "not_found"
+    (error as { code?: unknown } | null | undefined)?.code === "tasks_disabled"
   );
 }
 
@@ -160,6 +173,9 @@ export function createCraneTrackerSource(
     async listTasks(args: {
       signal: AbortSignal;
     }): Promise<TrackerSourceListResult> {
+      if (deps.getTasksEnabled?.() === false) {
+        throw new TrackerTaskError("tasks_disabled");
+      }
       const { secret, client } = await openSession();
       const tasks: TrackerTask[] = [];
       const seenCursors = new Set<string>();
@@ -175,6 +191,9 @@ export function createCraneTrackerSource(
             signal: args.signal,
           });
         } catch (error) {
+          if (isTasksDisabled(error)) {
+            throw new TrackerTaskError("tasks_disabled");
+          }
           if (isMissingRoute(error)) {
             throw new TrackerTaskError("tasks_api_unavailable");
           }
@@ -264,6 +283,7 @@ export async function createDefaultCraneTrackerSource(): Promise<CraneTrackerSou
     getSecureStorageStatus: () => ({
       available: vault.isSecureStorageAvailable(),
     }),
+    getTasksEnabled: () => connector.getCraneTasksEnabled(),
     httpClient: (baseUrl) =>
       new AtelierConnectorHttpClient({ baseUrl, allowInsecureLocalhost }),
   });

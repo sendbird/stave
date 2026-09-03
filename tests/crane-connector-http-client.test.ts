@@ -16,9 +16,7 @@ function jsonResponse(value: unknown, init?: ResponseInit) {
 describe("CraneConnectorHttpClient", () => {
   test("requires HTTPS except localhost development", () => {
     expect(
-      normalizeCraneConnectorBaseUrl(
-        "https://atelier.delight-tools.ai/",
-      ),
+      normalizeCraneConnectorBaseUrl("https://atelier.delight-tools.ai/"),
     ).toBe("https://atelier.delight-tools.ai");
     expect(() =>
       normalizeCraneConnectorBaseUrl("http://atelier.example"),
@@ -68,6 +66,42 @@ describe("CraneConnectorHttpClient", () => {
     expect(result.connector.id).toBe("connector-1");
     expect(result.secret).toBe("stc_test-only-connector-secret");
     expect(requests[0]?.headers.get("authorization")).toBeNull();
+  });
+
+  test("records the tasks-list capability from an idle poll header", async () => {
+    const client = new CraneConnectorHttpClient({
+      baseUrl: "https://atelier.delight-tools.ai",
+      fetch: (async () =>
+        new Response(null, {
+          status: 204,
+          headers: { "X-Crane-Tasks-Enabled": "0" },
+        })) as typeof fetch,
+    });
+    expect(client.getLastTasksEnabled()).toBeNull();
+    expect(
+      await client.getNextJob({
+        secret: "stc_test-only-connector-secret",
+      }),
+    ).toBeNull();
+    expect(client.getLastTasksEnabled()).toBe(false);
+  });
+
+  test("accepts a heartbeat tasksEnabled field and ignores unknown extras", async () => {
+    const client = new CraneConnectorHttpClient({
+      baseUrl: "https://atelier.delight-tools.ai",
+      fetch: (async () =>
+        jsonResponse({
+          ok: true,
+          retryAfterMs: 15_000,
+          tasksEnabled: true,
+          futureCapability: "ignore-me",
+        })) as typeof fetch,
+    });
+    const heartbeat = await client.heartbeat({
+      secret: "stc_test-only-connector-secret",
+    });
+    expect(heartbeat.tasksEnabled).toBe(true);
+    expect(client.getLastTasksEnabled()).toBe(true);
   });
 
   test("uses the narrow connector bearer token and parses no-content polls", async () => {

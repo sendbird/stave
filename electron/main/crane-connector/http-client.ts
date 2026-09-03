@@ -53,14 +53,31 @@ const ReceiptResponseSchema = z
   })
   .strict();
 
-const HeartbeatResponseSchema = z
-  .object({
-    ok: z.literal(true),
-    jobState: z.string().trim().min(1).max(64).optional(),
-    leaseExpiresAt: z.string().datetime({ offset: true }).optional(),
-    retryAfterMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
-  })
-  .strict();
+const HeartbeatResponseSchema = z.object({
+  ok: z.literal(true),
+  jobState: z.string().trim().min(1).max(64).optional(),
+  leaseExpiresAt: z.string().datetime({ offset: true }).optional(),
+  retryAfterMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
+  tasksEnabled: z.boolean().optional(),
+});
+
+/**
+ * Capability header on heartbeat and `jobs/next`.
+ *
+ * The idle poll is a 204 with no body, so the list flag cannot ride on JSON
+ * there. A header is ignored by older clients and is how an idle connector
+ * learns the flag without a second request.
+ */
+const TASKS_ENABLED_HEADER = "x-crane-tasks-enabled";
+
+export function readCraneTasksEnabledHeader(
+  response: Pick<Response, "headers">,
+): boolean | null {
+  const raw = response.headers.get(TASKS_ENABLED_HEADER);
+  if (raw === "1" || raw === "true") return true;
+  if (raw === "0" || raw === "false") return false;
+  return null;
+}
 
 const RevokeResponseSchema = z.object({ ok: z.literal(true) }).strict();
 
@@ -97,9 +114,7 @@ export function normalizeCraneConnectorBaseUrl(
   } catch {
     throw new Error("Enter a valid Crane URL.");
   }
-  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
-    url.hostname,
-  );
+  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
   const protocolAllowed =
     url.protocol === "https:" ||
     (options?.allowInsecureLocalhost === true &&
@@ -110,11 +125,7 @@ export function normalizeCraneConnectorBaseUrl(
       "Crane must use HTTPS. HTTP is allowed only for localhost in development.",
     );
   }
-  if (
-    url.pathname !== "/" ||
-    url.search ||
-    url.hash
-  ) {
+  if (url.pathname !== "/" || url.search || url.hash) {
     throw new Error("Use the Crane origin without a path, query, or hash.");
   }
   return url.origin;
@@ -122,14 +133,8 @@ export function normalizeCraneConnectorBaseUrl(
 
 async function readBoundedJson(response: Response): Promise<unknown> {
   const declaredLength = Number(response.headers.get("content-length"));
-  if (
-    Number.isFinite(declaredLength) &&
-    declaredLength > MAX_RESPONSE_BYTES
-  ) {
-    throw new CraneConnectorHttpError(
-      "response_too_large",
-      response.status,
-    );
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_RESPONSE_BYTES) {
+    throw new CraneConnectorHttpError("response_too_large", response.status);
   }
   if (!response.body) {
     return null;
@@ -188,15 +193,14 @@ function toPublicMetadata(
 export class CraneConnectorHttpClient {
   private readonly baseUrl: string;
   private readonly requestTimeoutMs: number;
+  private lastTasksEnabled: boolean | null = null;
 
-  constructor(
-    args: {
-      baseUrl: string;
-      fetch?: typeof fetch;
-      allowInsecureLocalhost?: boolean;
-      requestTimeoutMs?: number;
-    },
-  ) {
+  constructor(args: {
+    baseUrl: string;
+    fetch?: typeof fetch;
+    allowInsecureLocalhost?: boolean;
+    requestTimeoutMs?: number;
+  }) {
     this.baseUrl = normalizeCraneConnectorBaseUrl(args.baseUrl, {
       allowInsecureLocalhost: args.allowInsecureLocalhost,
     });
@@ -208,6 +212,16 @@ export class CraneConnectorHttpClient {
   }
 
   private readonly fetchImpl: typeof fetch;
+
+  /**
+   * Last `X-Crane-Tasks-Enabled` the idle poll or a heartbeat reported.
+   *
+   * Null until a response carries the header or JSON field. The tracker source
+   * reads this instead of guessing from a collection 404.
+   */
+  getLastTasksEnabled(): boolean | null {
+    return this.lastTasksEnabled;
+  }
 
   private async request<T>(args: {
     path: string;
@@ -231,12 +245,9 @@ export class CraneConnectorHttpClient {
           ...(args.body === undefined
             ? {}
             : { "Content-Type": "application/json" }),
-          ...(args.secret
-            ? { Authorization: `Bearer ${args.secret}` }
-            : {}),
+          ...(args.secret ? { Authorization: `Bearer ${args.secret}` } : {}),
         },
-        body:
-          args.body === undefined ? undefined : JSON.stringify(args.body),
+        body: args.body === undefined ? undefined : JSON.stringify(args.body),
         signal,
         cache: "no-store",
         redirect: "error",
@@ -248,6 +259,11 @@ export class CraneConnectorHttpClient {
       throw new CraneConnectorHttpError("network_unavailable", 0);
     }
 
+    const headerFlag = readCraneTasksEnabledHeader(response);
+    if (headerFlag !== null) {
+      this.lastTasksEnabled = headerFlag;
+    }
+
     if (response.status === 204 && args.allowNoContent) {
       return null;
     }
@@ -257,17 +273,12 @@ export class CraneConnectorHttpClient {
       throw new CraneConnectorHttpError(
         parsedError.success ? parsedError.data.error : "request_failed",
         response.status,
-        parsedError.success
-          ? parsedError.data.retryAfterMs
-          : undefined,
+        parsedError.success ? parsedError.data.retryAfterMs : undefined,
       );
     }
     const parsed = args.schema.safeParse(payload);
     if (!parsed.success) {
-      throw new CraneConnectorHttpError(
-        "invalid_response",
-        response.status,
-      );
+      throw new CraneConnectorHttpError("invalid_response", response.status);
     }
     return parsed.data;
   }
@@ -301,10 +312,7 @@ export class CraneConnectorHttpClient {
     };
   }
 
-  async getNextJob(args: {
-    secret: string;
-    signal?: AbortSignal;
-  }) {
+  async getNextJob(args: { secret: string; signal?: AbortSignal }) {
     return this.request({
       path: "/api/crane/stave/connectors/jobs/next",
       secret: args.secret,
@@ -375,13 +383,13 @@ export class CraneConnectorHttpClient {
     if (!response) {
       throw new CraneConnectorHttpError("invalid_response", 200);
     }
+    if (typeof response.tasksEnabled === "boolean") {
+      this.lastTasksEnabled = response.tasksEnabled;
+    }
     return response;
   }
 
-  async revokeSelf(args: {
-    secret: string;
-    signal?: AbortSignal;
-  }) {
+  async revokeSelf(args: { secret: string; signal?: AbortSignal }) {
     const response = await this.request({
       path: "/api/crane/stave/connectors/self",
       method: "DELETE",

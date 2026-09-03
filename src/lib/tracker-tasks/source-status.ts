@@ -61,6 +61,8 @@ export const TRACKER_ERROR_HINTS: Record<string, string> = {
   not_found: "The tracker route Stave asked for does not exist.",
   tasks_api_unavailable:
     "This Crane installation does not serve the task list yet, so only its dispatched jobs work. Nothing is wrong with your pairing.",
+  tasks_disabled:
+    "This Crane installation has the task list turned off. Dispatched jobs still work.",
 };
 
 /**
@@ -72,6 +74,7 @@ export const TRACKER_ERROR_HINTS: Record<string, string> = {
  */
 const NOT_RETRYABLE: ReadonlySet<string> = new Set([
   "tasks_api_unavailable",
+  "tasks_disabled",
   "invalid_jql",
   "unauthorized",
   "forbidden",
@@ -85,12 +88,7 @@ const NOT_RETRYABLE: ReadonlySet<string> = new Set([
  * account for the other — so the surface must not merge them.
  */
 export type TrackerSourceCondition =
-  | "producing"
-  | "syncing"
-  | "unknown"
-  | "setup"
-  | "error"
-  | "blocked";
+  "producing" | "syncing" | "unknown" | "setup" | "error" | "blocked";
 
 export interface TrackerSourceSummary {
   source: TrackerSourceId;
@@ -202,7 +200,9 @@ export function summarizeTrackerSource(
 
 /** Every source, in a stable order, whether or not main has reported it. */
 export function describeTrackerSources(
-  syncBySource: Partial<Record<TrackerSourceId, TrackerSourceSyncStatus | null>>,
+  syncBySource: Partial<
+    Record<TrackerSourceId, TrackerSourceSyncStatus | null>
+  >,
 ): TrackerSourceSummary[] {
   return TRACKER_SOURCE_IDS.map((source) =>
     summarizeTrackerSource(source, syncBySource[source] ?? null),

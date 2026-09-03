@@ -201,6 +201,13 @@ export class CraneConnectorRuntime {
   private generation = 0;
   private failureCount = 0;
   private operationQueue: Promise<void> = Promise.resolve();
+  /**
+   * Last tasks-list capability from heartbeat JSON or the idle-poll header.
+   *
+   * Null until a poll has heard from this host. The tracker source reads this
+   * so it does not have to guess from a collection 404.
+   */
+  private tasksEnabled: boolean | null = null;
 
   constructor(private readonly dependencies: CraneRuntimeDependencies) {
     this.status = {
@@ -216,6 +223,10 @@ export class CraneConnectorRuntime {
 
   getStatus() {
     return { ...this.status };
+  }
+
+  getTasksEnabled(): boolean | null {
+    return this.tasksEnabled;
   }
 
   async configure(input: CraneConnectorConfigInput) {
@@ -736,6 +747,7 @@ export class CraneConnectorRuntime {
           secret: credential.secret,
           signal: controller.signal,
         });
+        this.rememberTasksEnabled(client);
         if (next) {
           await this.claimJob({
             client,
@@ -915,6 +927,7 @@ export class CraneConnectorRuntime {
         await this.dependencies.vault.deleteLease(binding.jobId);
         return;
       }
+      this.rememberTasksEnabled(args.client, heartbeat.tasksEnabled);
       if (heartbeat.leaseExpiresAt) {
         binding = this.saveBinding({
           ...binding,
@@ -1284,6 +1297,20 @@ export class CraneConnectorRuntime {
       () => undefined,
     );
     return result;
+  }
+
+  private rememberTasksEnabled(
+    client: { getLastTasksEnabled?: () => boolean | null },
+    fromBody?: boolean,
+  ) {
+    if (typeof fromBody === "boolean") {
+      this.tasksEnabled = fromBody;
+      return;
+    }
+    const fromHeader = client.getLastTasksEnabled?.();
+    if (typeof fromHeader === "boolean") {
+      this.tasksEnabled = fromHeader;
+    }
   }
 
   private now() {
