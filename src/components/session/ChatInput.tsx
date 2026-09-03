@@ -216,6 +216,13 @@ import {
   shouldHandleApprovalEnterShortcut,
   shouldHandleApprovalTabShortcut,
 } from "./chat-input.utils";
+import {
+  buildPromptEnhancementHistory,
+  buildPromptEnhancementWorkspaceSummary,
+  recordPromptEnhancementExemplar,
+  selectPromptEnhancementExemplars,
+  type PromptEnhancementExemplar,
+} from "@/lib/providers/prompt-enhancement-context";
 
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
   text: "",
@@ -899,14 +906,34 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     commitCurrentDraftText();
 
     try {
+      // Reference material is attached only when it exists, so an empty
+      // workspace pays for nothing beyond the draft.
+      const storeState = useAppStore.getState();
+      const history = buildPromptEnhancementHistory(
+        storeState.messagesByTask[args.activeTaskId],
+      );
+      const workspaceSummary = buildPromptEnhancementWorkspaceSummary(
+        storeState.workspaceInformation,
+      );
+      const styleProfile =
+        storeState.settings.promptEnhancementStyleProfile.trim() || undefined;
+      const exemplars = storeState.settings.promptEnhancementLearnFromEdits
+        ? selectPromptEnhancementExemplars(
+            storeState.settings.promptEnhancementExemplars,
+          )
+        : undefined;
       const result = await enhancePrompt({
         ...buildUtilityInferenceContext({
           cwd: args.workspaceCwd,
           provider: args.activeProvider,
           model: args.selectedModelOption.model,
-          settings: useAppStore.getState().settings,
+          settings: storeState.settings,
         }),
         prompt: sourceText,
+        ...(history ? { history } : {}),
+        ...(workspaceSummary ? { workspaceSummary } : {}),
+        ...(styleProfile ? { styleProfile } : {}),
+        ...(exemplars ? { exemplars } : {}),
       });
       if (promptEnhancementRequestRef.current !== requestId) {
         return;
@@ -983,6 +1010,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     }
 
     setFocusNonce((current) => current + 1);
+    recordPromptEnhancementOutcome({
+      source: enhancementResult.sourceText,
+      enhanced: enhancementResult.enhancedPrompt,
+      outcome: "kept",
+    });
     toast.success("Prompt enhanced", {
       action: {
         label: "Undo",
@@ -1001,8 +1033,36 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             taskId: enhancementResult.targetTaskId,
             text: enhancementResult.sourceText,
           });
+          recordPromptEnhancementOutcome({
+            source: enhancementResult.sourceText,
+            enhanced: enhancementResult.enhancedPrompt,
+            outcome: "undone",
+          });
           setFocusNonce((current) => current + 1);
         },
+      },
+    });
+  }
+
+  /**
+   * Taste memory for Enhance. A kept rewrite is a positive example, an undone
+   * one a negative example; the same source keeps only its latest outcome.
+   */
+  function recordPromptEnhancementOutcome(entry: {
+    source: string;
+    enhanced: string;
+    outcome: PromptEnhancementExemplar["outcome"];
+  }) {
+    const store = useAppStore.getState();
+    if (!store.settings.promptEnhancementLearnFromEdits) {
+      return;
+    }
+    store.updateSettings({
+      patch: {
+        promptEnhancementExemplars: recordPromptEnhancementExemplar(
+          store.settings.promptEnhancementExemplars,
+          entry,
+        ),
       },
     });
   }

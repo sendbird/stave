@@ -377,6 +377,34 @@ export const EnhancePromptArgsSchema = z
     utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
     runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().trim().min(1).max(100_000),
+    // Optional reference material. Caps mirror the renderer-side clipping so a
+    // misbehaving caller cannot turn the cheap lane into a long-context call.
+    history: z
+      .array(
+        z
+          .object({
+            role: z.enum(["user", "assistant"]),
+            content: z.string().max(2_000),
+          })
+          .strict(),
+      )
+      .max(12)
+      .optional(),
+    workspaceSummary: z.string().max(4_000).optional(),
+    styleProfile: z.string().max(4_000).optional(),
+    exemplars: z
+      .array(
+        z
+          .object({
+            source: z.string().max(2_000),
+            enhanced: z.string().max(2_000),
+            outcome: z.enum(["kept", "undone"]),
+            at: z.string().max(64),
+          })
+          .strict(),
+      )
+      .max(12)
+      .optional(),
   })
   .strict();
 

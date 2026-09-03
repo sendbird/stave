@@ -1,3 +1,4 @@
+import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
 import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
@@ -526,7 +527,8 @@ interface WindowProviderApi {
   }>;
   /** Rewrites a draft prompt in an isolated, read-only utility turn. */
   enhancePrompt?: (
-    args: UtilityInferenceContext & { prompt: string },
+    args: UtilityInferenceContext &
+      Omit<PromptEnhancementContext, "repoGuidance"> & { prompt: string },
   ) => Promise<{
     ok: boolean;
     prompt?: string;

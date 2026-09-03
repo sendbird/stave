@@ -58,7 +58,8 @@ The **Enhance** action appears in the upper-right corner of a non-empty task dra
 
 ## Limitations And Advanced Options
 
-- Enhancement expands terse drafts into complete agent instructions using only what the draft already says. It does not invent requirements, files, constraints, or acceptance criteria.
+- Enhancement expands terse drafts into complete agent instructions using what the draft says plus reference material that exists for the task: the last few conversation turns, the Information panel (notes, open todos, linked issues), and the repo's `AGENTS.md` or `CLAUDE.md`. Each source is attached only when present and is clipped, so an empty workspace sends only the draft. It still does not invent requirements, files, constraints, or acceptance criteria.
+- **Settings → Background AI → Prompt enhancement** holds your **Prompt style** (language, tone, what to always include) and the **Learn from kept and undone rewrites** switch. When learning is on, the last few rewrites you kept are shown to the model as examples to match and the ones you undid as examples to avoid. Both are stored locally with your settings; **Forget remembered rewrites** clears the memory.
 - The action depends on an available utility runner. Auto uses Codex Luna, then Claude Haiku, then Cursor or Kiro. A later runner is used only when that provider is signed in.
 - A rewrite can still be incomplete or inaccurate, so review it before sending.
 

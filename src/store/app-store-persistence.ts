@@ -28,6 +28,10 @@ import {
 import { normalizeResponseStylePrompt } from "@/lib/providers/prompt-defaults";
 import { normalizeUtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import {
+  normalizePromptEnhancementExemplars,
+  normalizePromptEnhancementStyleProfile,
+} from "@/lib/providers/prompt-enhancement-context";
+import {
   migrateLegacyTurnSummaryModels,
   normalizeAuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
@@ -305,6 +309,16 @@ export function createAppStorePersistenceOptions() {
       );
       state.settings.utilityInferenceProvider =
         normalizeUtilityInferenceProvider(raw.utilityInferenceProvider);
+      state.settings.promptEnhancementStyleProfile =
+        normalizePromptEnhancementStyleProfile(
+          raw.promptEnhancementStyleProfile,
+        );
+      state.settings.promptEnhancementLearnFromEdits =
+        typeof raw.promptEnhancementLearnFromEdits === "boolean"
+          ? raw.promptEnhancementLearnFromEdits
+          : defaultSettings.promptEnhancementLearnFromEdits;
+      state.settings.promptEnhancementExemplars =
+        normalizePromptEnhancementExemplars(raw.promptEnhancementExemplars);
       // Background AI lanes. Normalized (not merged) so every lane object
       // exists and is a stable reference after rehydrate — store selectors index
       // `auxiliaryInferencePolicy[lane]` directly and must not allocate.

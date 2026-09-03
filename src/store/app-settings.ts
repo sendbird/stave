@@ -57,6 +57,7 @@ import {
   type PrePrReviewProviderId,
 } from "@/lib/source-control-review";
 import type { Macro } from "@/lib/macros/types";
+import type { PromptEnhancementExemplar } from "@/lib/providers/prompt-enhancement-context";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -183,6 +184,16 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   modelVisibility: ModelVisibility;
   /** Provider preference for isolated task-name, routing, and commit utilities. */
   utilityInferenceProvider: UtilityInferenceProvider;
+  /**
+   * The user's own description of how they want prompts written (tone,
+   * language, what to always include). Sent with every Enhance request when
+   * non-empty.
+   */
+  promptEnhancementStyleProfile: string;
+  /** Whether kept and undone rewrites are remembered as future examples. */
+  promptEnhancementLearnFromEdits: boolean;
+  /** Bounded memory of past rewrites and what the user did with them. */
+  promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
   autoRoutingUseClassifier: boolean;
   autoRoutingObjective: number;
@@ -572,6 +583,9 @@ export const defaultSettings: AppSettings = {
   modelRuntimePreferences: {},
   modelVisibility: {},
   utilityInferenceProvider: "auto",
+  promptEnhancementStyleProfile: "",
+  promptEnhancementLearnFromEdits: true,
+  promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
   autoRoutingUseClassifier: false,
   autoRoutingObjective: 0.5,

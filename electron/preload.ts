@@ -1,3 +1,4 @@
+import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   CodexAppServerSnapshotResponse,
@@ -1336,7 +1337,10 @@ contextBridge.exposeInMainWorld("api", {
         classification?: RouteClassification;
         utility: UtilityInferenceMetadata;
       }>,
-    enhancePrompt: (args: UtilityInferenceContext & { prompt: string }) =>
+    enhancePrompt: (
+      args: UtilityInferenceContext &
+        Omit<PromptEnhancementContext, "repoGuidance"> & { prompt: string },
+    ) =>
       ipcRenderer.invoke("provider:enhance-prompt", args) as Promise<{
         ok: boolean;
         prompt?: string;
