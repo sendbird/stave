@@ -11,6 +11,7 @@ import {
   setLensSurfaceSuppressed,
 } from "@/lib/lens/lens-instrumentation";
 import {
+  claimLensGuestPresenter,
   getLensGuestChromeLayer,
   setLensGuestPlacement,
 } from "@/lib/lens/lens-guest-host";
@@ -342,6 +343,33 @@ export function useLensDomSurfaceHost(args: {
       resetPointerTracking();
     };
   }, [isPresented]);
+
+  /*
+   * Ownership of the session this panel shows.
+   *
+   * The host reveals a guest only while a claim for it exists, and this is the
+   * claim. It is keyed on the identity the panel presents, so it is released
+   * — and the guest parked — on unmount and on any identity change, whichever
+   * teardown path got there. That closes the gap the session effect cannot: a
+   * panel whose tab is no longer in the store returns early there and installs
+   * no cleanup, yet it still has to leave nothing revealed behind it.
+   *
+   * An identity change also drops the attached guest. `hasGuest` describes the
+   * previous session's page; carrying it over would let the very next layout
+   * pass present the new identity's guest at the old rectangle before the
+   * session effect has opened anything. Layout-phase so the claim precedes the
+   * placement sync below.
+   */
+  useLayoutEffect(() => {
+    const release = claimLensGuestPresenter({ workspaceId, lensSessionId });
+    return () => {
+      release();
+      hasGuestRef.current = false;
+      setHasGuest(false);
+      setChromeLayer(null);
+      lastRectRef.current = null;
+    };
+  }, [lensSessionId, workspaceId]);
 
   // Before paint, so a panel-state change that resizes the placeholder moves
   // the guest in the same frame that moves the placeholder.

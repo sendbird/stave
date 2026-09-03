@@ -12,14 +12,63 @@
  *    splitter and then crosses the page loses `pointerup` in the guest, so the
  *    pane stays in resize mode. Host-initiated drags therefore make every
  *    guest ignore pointers until the drag ends.
+ * 3. A guest is revealed by a panel, so only a mounted panel may keep one
+ *    revealed. Sessions share ids across workspaces (every agent-driven
+ *    session is `default`), and a panel that is torn down without parking —
+ *    or that briefly addresses another workspace's session of the same id —
+ *    would otherwise leave a page presented that nothing on screen owns. The
+ *    presenter registry below is the record of which sessions have a panel.
  */
 
 export function shouldParkLensGuestForWorkspace(args: {
   guestWorkspaceId: string;
   activeWorkspaceId: string | null;
   presented: boolean;
+  /** Whether a mounted panel currently claims this guest. */
+  hasPresenter: boolean;
 }): boolean {
-  return args.presented && args.guestWorkspaceId !== args.activeWorkspaceId;
+  if (!args.presented) {
+    return false;
+  }
+  return args.guestWorkspaceId !== args.activeWorkspaceId || !args.hasPresenter;
+}
+
+export type LensGuestPresenterRegistry = {
+  /**
+   * Record that a panel now presents the guest under `key`. Returns a release
+   * that reports whether this claim was still the live one: a later claim for
+   * the same key supersedes an earlier one, and the earlier release must then
+   * not park what the newer panel is showing.
+   */
+  claim(key: string): () => boolean;
+  has(key: string): boolean;
+};
+
+/**
+ * Which guests have a mounted panel behind them, by guest key.
+ *
+ * Pure bookkeeping so the rule can be tested without a document: the host
+ * consults it before honouring any `presented: true`, and parks whatever loses
+ * its claim.
+ */
+export function createLensGuestPresenterRegistry(): LensGuestPresenterRegistry {
+  const claims = new Map<string, symbol>();
+  return {
+    claim(key) {
+      const token = Symbol(key);
+      claims.set(key, token);
+      return () => {
+        if (claims.get(key) !== token) {
+          return false;
+        }
+        claims.delete(key);
+        return true;
+      };
+    },
+    has(key) {
+      return claims.has(key);
+    },
+  };
 }
 
 /**
