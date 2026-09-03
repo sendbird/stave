@@ -406,6 +406,10 @@ const PROMPT_TOOLBAR_ICON_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} rounde
 const PROMPT_EDITOR_TYPOGRAPHY_MINIMAL =
   "font-mono text-[15px] leading-7 tracking-[-0.01em] md:text-[15px]";
 const PROMPT_EDITOR_TYPOGRAPHY_DEFAULT = "text-lg leading-8 md:text-lg";
+// Icon-only reservation. The busy chip overlays the draft instead of growing
+// this inset — expanding to a label-width pad reflowed the first line twice
+// (enter busy, leave busy) on top of the reveal animation.
+const PROMPT_ENHANCEMENT_EDITOR_INSET = "pr-9";
 
 /**
  * Drives the enhancement reveal.
@@ -2613,6 +2617,11 @@ export function PromptInput(args: PromptInputProps) {
                         className={cn(
                           "pointer-events-none absolute right-0 top-0",
                           UI_LAYER_CLASS.floatingChrome,
+                          promptEnhancementBusy &&
+                            cn(
+                              "bg-gradient-to-l to-transparent pl-4",
+                              minimal ? "from-background" : "from-card",
+                            ),
                         )}
                       >
                         <Tooltip>
@@ -2632,7 +2641,12 @@ export function PromptInput(args: PromptInputProps) {
                                   PROMPT_TOOLBAR_ICON_BUTTON,
                                   "pointer-events-auto disabled:opacity-100",
                                   promptEnhancementBusy
-                                    ? "h-7 gap-1.5 rounded-full border-primary/25 bg-primary/10 px-2 text-xs font-medium text-primary"
+                                    ? cn(
+                                        "h-7 gap-1.5 rounded-full border-primary/25 px-2 text-xs font-medium text-primary",
+                                        minimal
+                                          ? "bg-background"
+                                          : "bg-card",
+                                      )
                                     : "size-7 opacity-70 hover:opacity-100",
                                 )}
                               />
@@ -3153,7 +3167,7 @@ export function PromptInput(args: PromptInputProps) {
                           ? `min-h-[32px] max-h-[168px] caret-primary ${PROMPT_EDITOR_TYPOGRAPHY_MINIMAL}`
                           : `min-h-[104px] max-h-[240px] ${PROMPT_EDITOR_TYPOGRAPHY_DEFAULT}`,
                         shouldShowPromptEnhancement &&
-                          (promptEnhancementBusy ? "pr-28" : "pr-9"),
+                          PROMPT_ENHANCEMENT_EDITOR_INSET,
                         // The editable is held non-editable for the whole
                         // enhancement, so it has to *look* non-editable too -
                         // otherwise only the spinner distinguishes a locked
@@ -3178,7 +3192,8 @@ export function PromptInput(args: PromptInputProps) {
                           minimal
                             ? PROMPT_EDITOR_TYPOGRAPHY_MINIMAL
                             : PROMPT_EDITOR_TYPOGRAPHY_DEFAULT,
-                          shouldShowPromptEnhancement && "pr-28",
+                          shouldShowPromptEnhancement &&
+                            PROMPT_ENHANCEMENT_EDITOR_INSET,
                         )}
                       />
                     ) : null}
