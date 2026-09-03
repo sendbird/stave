@@ -44,6 +44,7 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   "provider.review-diff": null,
   "provider.start-codex-review": null,
   "provider.start-codex-mcp-oauth-login": null,
+  "provider.start-cursor-mcp-oauth-login": null,
   "runs.execute-secondary": null,
   "crane.run-task": null,
   "routine.invoke": null,

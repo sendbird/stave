@@ -50,9 +50,14 @@ describe("MCP configuration editor", () => {
     ).toThrow("Header-Name=ENV_VAR");
   });
 
-  test("defaults a new server to Claude and Codex", () => {
+  test("defaults a new server to all four native providers", () => {
     const form = createInitialMcpConfigForm();
-    expect(resolveMcpInstallProviders(form)).toEqual(["claude-code", "codex"]);
+    expect(resolveMcpInstallProviders(form)).toEqual([
+      "claude-code",
+      "codex",
+      "cursor",
+      "kiro",
+    ]);
     expect(() =>
       validateMcpConfigForm({
         form: {

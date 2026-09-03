@@ -6,9 +6,13 @@ import {
   claudeServerToAcpDescriptor,
   codexServerToAcpDescriptor,
   expandEnvReferences,
+  filterAcpMcpServersForNativeRoutes,
+  getAcpMcpServerFingerprint,
   mergeAcpMcpServers,
   parseCodexMcpServerRecords,
   resolveAcpSharedMcpServers,
+  resolveAcpTurnMcpServers,
+  resolveNativeMcpRouteIndex,
 } from "../electron/providers/acp/acp-shared-mcp";
 
 const tempDirectories: string[] = [];
@@ -173,5 +177,198 @@ WORKSPACE = "acme"
         { name: "Docs", command: "second", args: [], env: [] },
       ]),
     ).toEqual([{ name: "docs", command: "first", args: [], env: [] }]);
+  });
+
+  test("keeps native Cursor routes authoritative by name and safe identity", async () => {
+    const root = await makeTempDirectory();
+    const homeDirectory = path.join(root, "home");
+    const cwd = path.join(root, "workspace");
+    await mkdir(path.join(homeDirectory, ".cursor"), { recursive: true });
+    await mkdir(path.join(cwd, ".cursor"), { recursive: true });
+    await writeFile(
+      path.join(homeDirectory, ".cursor", "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          docs: { command: "user-docs", args: [] },
+          nativeSearch: {
+            url: "https://mcp.example.test/search?token=private",
+            headers: { Authorization: "Bearer private" },
+          },
+        },
+      }),
+    );
+    await writeFile(
+      path.join(cwd, ".cursor", "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          docs: { disabled: true },
+        },
+      }),
+    );
+
+    const nativeRoutes = await resolveNativeMcpRouteIndex({
+      targetProvider: "cursor",
+      cwd,
+      homeDirectory,
+    });
+    const servers = filterAcpMcpServersForNativeRoutes({
+      nativeRoutes,
+      servers: [
+        { name: "Docs", command: "shared-docs", args: [], env: [] },
+        {
+          type: "http",
+          name: "search-copy",
+          url: "https://mcp.example.test/search",
+          headers: [{ name: "authorization", value: "Bearer other" }],
+        },
+        { name: "git", command: "git-mcp", args: [], env: [] },
+      ],
+    });
+
+    expect(servers).toEqual([
+      { name: "git", command: "git-mcp", args: [], env: [] },
+    ]);
+    expect(nativeRoutes.names).toContain("docs");
+    expect([...nativeRoutes.fingerprints]).not.toContain("private");
+  });
+
+  test("merges the same connector identity even when provider names differ", () => {
+    expect(
+      mergeAcpMcpServers([
+        {
+          type: "http",
+          name: "claude-search",
+          url: "https://mcp.example.test/search",
+          headers: [{ name: "Authorization", value: "Bearer first" }],
+        },
+        {
+          type: "http",
+          name: "codex-search",
+          url: "https://mcp.example.test/search",
+          headers: [{ name: "authorization", value: "Bearer second" }],
+        },
+      ]),
+    ).toEqual([
+      {
+        type: "http",
+        name: "claude-search",
+        url: "https://mcp.example.test/search",
+        headers: [{ name: "Authorization", value: "Bearer first" }],
+      },
+    ]);
+  });
+
+  test("does not inject Kiro-native routes but preserves Stave Local MCP", async () => {
+    const root = await makeTempDirectory();
+    const homeDirectory = path.join(root, "home");
+    const claudeConfigDir = path.join(root, "claude");
+    const codexHome = path.join(root, "codex");
+    const cwd = path.join(root, "workspace");
+    await mkdir(path.join(homeDirectory, ".kiro", "settings"), {
+      recursive: true,
+    });
+    await mkdir(claudeConfigDir, { recursive: true });
+    await mkdir(codexHome, { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(
+      path.join(homeDirectory, ".kiro", "settings", "mcp.json"),
+      JSON.stringify({
+        mcpServers: { docs: { command: "kiro-docs", args: [] } },
+      }),
+    );
+    await writeFile(
+      path.join(claudeConfigDir, ".claude.json"),
+      JSON.stringify({
+        mcpServers: {
+          docs: { command: "claude-docs", args: [] },
+          git: { command: "git-mcp", args: [] },
+        },
+      }),
+    );
+
+    const servers = await resolveAcpTurnMcpServers({
+      targetProvider: "kiro",
+      cwd,
+      homeDirectory,
+      claudeConfigDir,
+      codexHome,
+      staveLocalMcpServers: [
+        { name: "stave-local-mcp", command: "stave", args: [], env: [] },
+      ],
+    });
+
+    expect(servers).toEqual([
+      { name: "git", command: "git-mcp", args: [], env: [] },
+      { name: "stave-local-mcp", command: "stave", args: [], env: [] },
+    ]);
+    expect(
+      getAcpMcpServerFingerprint({
+        name: "ignored",
+        command: "git-mcp",
+        args: [],
+        env: [],
+      }),
+    ).toHaveLength(64);
+  });
+
+  test("fails closed when a target native MCP file cannot be parsed", async () => {
+    const root = await makeTempDirectory();
+    const homeDirectory = path.join(root, "home");
+    const claudeConfigDir = path.join(root, "claude");
+    const codexHome = path.join(root, "codex");
+    const cwd = path.join(root, "workspace");
+    await mkdir(path.join(homeDirectory, ".cursor"), { recursive: true });
+    await mkdir(claudeConfigDir, { recursive: true });
+    await mkdir(codexHome, { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(path.join(homeDirectory, ".cursor", "mcp.json"), "{");
+    await writeFile(
+      path.join(claudeConfigDir, ".claude.json"),
+      JSON.stringify({
+        mcpServers: { docs: { command: "claude-docs", args: [] } },
+      }),
+    );
+
+    const servers = await resolveAcpTurnMcpServers({
+      targetProvider: "cursor",
+      cwd,
+      homeDirectory,
+      claudeConfigDir,
+      codexHome,
+      staveLocalMcpServers: [
+        { name: "stave-local-mcp", command: "stave", args: [], env: [] },
+      ],
+    });
+
+    expect(servers).toEqual([
+      { name: "stave-local-mcp", command: "stave", args: [], env: [] },
+    ]);
+  });
+
+  test("fails closed when native mcpServers is not an object", async () => {
+    const root = await makeTempDirectory();
+    const homeDirectory = path.join(root, "home");
+    const cwd = path.join(root, "workspace");
+    await mkdir(path.join(homeDirectory, ".kiro", "settings"), {
+      recursive: true,
+    });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(
+      path.join(homeDirectory, ".kiro", "settings", "mcp.json"),
+      JSON.stringify({ mcpServers: [] }),
+    );
+
+    const servers = await resolveAcpTurnMcpServers({
+      targetProvider: "kiro",
+      cwd,
+      homeDirectory,
+      staveLocalMcpServers: [
+        { name: "stave-local-mcp", command: "stave", args: [], env: [] },
+      ],
+    });
+
+    expect(servers).toEqual([
+      { name: "stave-local-mcp", command: "stave", args: [], env: [] },
+    ]);
   });
 });

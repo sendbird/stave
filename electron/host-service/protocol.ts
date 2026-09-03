@@ -21,6 +21,7 @@ import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
   CodexMcpOauthLoginResponse,
+  CursorMcpOauthLoginResponse,
   CodexMcpResourceReadResponse,
   CodexThreadForkResponse,
   CodexThreadReadResponse,
@@ -709,6 +710,12 @@ export interface HostServiceRequestMap {
     timeoutSecs?: number;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.start-cursor-mcp-oauth-login": {
+    name: string;
+    cwd?: string;
+    timeoutSecs?: number;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  };
   "provider.read-codex-mcp-resource": {
     threadId: string;
     server: string;
@@ -1056,6 +1063,7 @@ export interface HostServiceResponseMap {
   "provider.start-codex-mcp-oauth-login": CodexMcpOauthLoginResponse;
   "provider.start-claude-mcp-oauth-login": ClaudeMcpOauthLoginResponse;
   "provider.read-codex-mcp-resource": CodexMcpResourceReadResponse;
+  "provider.start-cursor-mcp-oauth-login": CursorMcpOauthLoginResponse;
   "provider.rename-codex-thread": CodexMutationResponse;
   "provider.read-codex-thread": CodexThreadReadResponse;
   "provider.fork-codex-thread": CodexThreadForkResponse;

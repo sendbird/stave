@@ -7,9 +7,11 @@ import {
   expectedRevisionForProvider,
   normalizeMcpInstallProviders,
   planMcpSharedInstall,
+  resolveMcpShareDestinationScope,
   summarizeMcpShareResults,
 } from "@/lib/providers/mcp-config-share";
 import type { McpServerConfigDraft } from "@/lib/providers/mcp-config.types";
+import { __mcpConfigManagementTest } from "../electron/providers/mcp-config-management";
 
 const stdioDraft: McpServerConfigDraft = {
   provider: "claude-code",
@@ -52,6 +54,40 @@ describe("shared MCP install planning", () => {
     expect(plan.warnings.join(" ")).toContain("user-scope copy");
   });
 
+  test("plans Cursor and Kiro project copies from Claude local scope", () => {
+    const plan = planMcpSharedInstall({
+      draft: { ...stdioDraft, scope: "local" },
+      installProviders: ["cursor", "kiro"],
+    });
+
+    expect(plan.drafts).toEqual([
+      expect.objectContaining({ provider: "cursor", scope: "project" }),
+      expect.objectContaining({ provider: "kiro", scope: "project" }),
+    ]);
+    expect(plan.warnings).toHaveLength(2);
+  });
+
+  test("preserves the closest compatible scope for a shared copy", () => {
+    expect(
+      resolveMcpShareDestinationScope({
+        sourceScope: "project",
+        destinationProvider: "kiro",
+      }),
+    ).toBe("project");
+    expect(
+      resolveMcpShareDestinationScope({
+        sourceScope: "local",
+        destinationProvider: "cursor",
+      }),
+    ).toBe("project");
+    expect(
+      resolveMcpShareDestinationScope({
+        sourceScope: "project",
+        destinationProvider: "codex",
+      }),
+    ).toBe("user");
+  });
+
   test("refuses to adapt an SSE server for Codex", () => {
     expect(() =>
       adaptMcpDraftForProvider(
@@ -69,12 +105,16 @@ describe("shared MCP install planning", () => {
     const revision = encodeMcpShareRevision({
       "claude-code": "claude-rev",
       codex: "codex-rev",
+      cursor: "cursor-rev",
+      kiro: "kiro-rev",
     });
 
     expect(revision.startsWith("share:v1:")).toBeTrue();
     expect(decodeMcpShareRevision(revision)).toEqual({
       "claude-code": "claude-rev",
       codex: "codex-rev",
+      cursor: "cursor-rev",
+      kiro: "kiro-rev",
     });
     expect(
       expectedRevisionForProvider({
@@ -139,6 +179,51 @@ describe("shared MCP install planning", () => {
     ).toMatchObject({
       ok: false,
       detail: expect.stringContaining("Partial MCP update"),
+    });
+  });
+
+  test("attempts every provider and reports all results after a partial failure", async () => {
+    const drafts = planMcpSharedInstall({
+      draft: stdioDraft,
+      installProviders: ["claude-code", "codex", "cursor"],
+    }).drafts;
+    const attempted: string[] = [];
+    const result = await __mcpConfigManagementTest.applySharedCreates(
+      {
+        request: {
+          operation: "create",
+          draft: stdioDraft,
+          installProviders: ["claude-code", "codex", "cursor"],
+          expectedRevision: encodeMcpShareRevision({
+            "claude-code": "claude-rev",
+            codex: "codex-rev",
+            cursor: "cursor-rev",
+          }),
+        },
+        drafts,
+      },
+      async (request) => {
+        const provider = request.draft?.provider ?? "claude-code";
+        attempted.push(provider);
+        return {
+          ok: provider !== "codex",
+          detail:
+            provider === "codex"
+              ? "Codex write failed."
+              : `Added ${provider}.`,
+          operation: "create",
+        };
+      },
+    );
+
+    expect(attempted).toEqual(["claude-code", "codex", "cursor"]);
+    expect(result).toMatchObject({
+      ok: false,
+      results: [
+        { provider: "claude-code", ok: true },
+        { provider: "codex", ok: false },
+        { provider: "cursor", ok: true },
+      ],
     });
   });
 });

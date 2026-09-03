@@ -34,11 +34,14 @@ import {
   resolveMcpInstallProviders,
   validateMcpConfigForm,
 } from "@/lib/providers/mcp-config-form";
+import { resolveMcpShareDestinationScope } from "@/lib/providers/mcp-config-share";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 
 type McpEditorRuntimeOptions = {
   claude: ProviderRuntimeOptions;
   codex: ProviderRuntimeOptions;
+  cursor: ProviderRuntimeOptions;
+  kiro: ProviderRuntimeOptions;
 };
 
 function getRuntimeOptions(
@@ -51,6 +54,12 @@ function getRuntimeOptions(
       : {}),
     ...(providers.includes("codex")
       ? { codexBinaryPath: options.codex.codexBinaryPath }
+      : {}),
+    ...(providers.includes("cursor")
+      ? { cursorBinaryPath: options.cursor.cursorBinaryPath }
+      : {}),
+    ...(providers.includes("kiro")
+      ? { kiroBinaryPath: options.kiro.kiroBinaryPath }
       : {}),
   };
 }
@@ -113,7 +122,7 @@ export function McpServerConfigEditorDialog(props: {
   workspaceCwd?: string;
   runtimeOptions: McpEditorRuntimeOptions;
   onOpenChange: (open: boolean) => void;
-  onApplied: (detail: string) => void;
+  onApplied: (detail: string, outcome?: "success" | "partial") => void;
 }) {
   const editing = Boolean(props.snapshot);
   const baseId = useId();
@@ -212,6 +221,11 @@ export function McpServerConfigEditorDialog(props: {
         ...mutationRequest,
         expectedRevision: preview.revision,
       });
+      if (!result.ok && result.results?.some((entry) => entry.ok)) {
+        props.onApplied(result.detail, "partial");
+        props.onOpenChange(false);
+        return;
+      }
       if (!result.ok) throw new Error(result.detail);
       props.onApplied(result.detail);
       props.onOpenChange(false);
@@ -240,8 +254,13 @@ export function McpServerConfigEditorDialog(props: {
         ...current,
         installProviders: nextProviders,
         provider: primary,
-        scope:
-          nextProviders.length === 1 && nextProviders[0] === "codex"
+        scope: !nextProviders.includes("claude-code") && current.scope === "local"
+          ? nextProviders.some(
+              (entry) => entry === "cursor" || entry === "kiro",
+            )
+            ? "project"
+            : "user"
+          : nextProviders.length === 1 && nextProviders[0] === "codex"
             ? "user"
             : current.scope,
         transport:
@@ -290,10 +309,9 @@ export function McpServerConfigEditorDialog(props: {
                   description={
                     editing
                       ? undefined
-                      : form.installProviders.includes("claude-code") &&
-                          form.installProviders.includes("codex")
-                        ? "One review writes the same server into Claude and Codex."
-                        : "Register once, or add the missing provider later from the connection list."
+                      : form.installProviders.length > 1
+                        ? "One review writes provider-native copies for every selected target."
+                        : "Register once, or add another provider later from the connection list."
                   }
                 >
                   {editing ? (
@@ -307,6 +325,8 @@ export function McpServerConfigEditorDialog(props: {
                       <SelectContent>
                         <SelectItem value="claude-code">Claude</SelectItem>
                         <SelectItem value="codex">Codex</SelectItem>
+                        <SelectItem value="cursor">Cursor</SelectItem>
+                        <SelectItem value="kiro">Kiro</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
@@ -318,6 +338,8 @@ export function McpServerConfigEditorDialog(props: {
                         [
                           ["claude-code", "Claude"],
                           ["codex", "Codex"],
+                          ["cursor", "Cursor"],
+                          ["kiro", "Kiro"],
                         ] as const
                       ).map(([provider, label]) => (
                         <div
@@ -348,7 +370,7 @@ export function McpServerConfigEditorDialog(props: {
                       ? "Codex App Server currently supports safe writes to user scope."
                       : form.installProviders.includes("codex") &&
                           form.scope !== "user"
-                        ? "Claude can use this scope. Codex will receive a user-scope copy."
+                        ? "Project-capable providers use this scope. Codex receives a user-scope copy."
                         : "Project is shared in .mcp.json; local stays private to this workspace."
                   }
                 >
@@ -371,21 +393,23 @@ export function McpServerConfigEditorDialog(props: {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">User</SelectItem>
+                      {form.installProviders.includes("claude-code") ||
+                      form.installProviders.includes("cursor") ||
+                      form.installProviders.includes("kiro") ? (
+                        <SelectItem
+                          value="project"
+                          disabled={!props.workspaceCwd}
+                        >
+                          Project
+                        </SelectItem>
+                      ) : null}
                       {form.installProviders.includes("claude-code") ? (
-                        <>
-                          <SelectItem
-                            value="project"
-                            disabled={!props.workspaceCwd}
-                          >
-                            Project
-                          </SelectItem>
-                          <SelectItem
-                            value="local"
-                            disabled={!props.workspaceCwd}
-                          >
-                            Local project
-                          </SelectItem>
-                        </>
+                        <SelectItem
+                          value="local"
+                          disabled={!props.workspaceCwd}
+                        >
+                          Local project
+                        </SelectItem>
                       ) : null}
                     </SelectContent>
                   </Select>
@@ -598,13 +622,13 @@ export function McpServerConfigEditorDialog(props: {
                 </>
               )}
 
-              {form.provider === "codex" ? (
+              {form.provider !== "claude-code" ? (
                 <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 p-3">
                   <div>
                     <p className="text-sm font-medium">Enabled</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Disabled servers stay in Codex configuration without
-                      connecting.
+                      Disabled servers stay in the provider's native
+                      configuration without connecting.
                     </p>
                   </div>
                   <Switch
@@ -615,7 +639,7 @@ export function McpServerConfigEditorDialog(props: {
                         enabled: checked,
                       }))
                     }
-                    aria-label="Enable Codex MCP server"
+                    aria-label={`Enable ${form.provider} MCP server`}
                   />
                 </div>
               ) : null}
@@ -848,8 +872,21 @@ export function McpServerConfigShareDialog(props: {
   onApplied: (detail: string) => void;
 }) {
   const destinationProvider = props.destinationProvider;
+  const destinationScope =
+    props.snapshot && destinationProvider
+      ? resolveMcpShareDestinationScope({
+          sourceScope: props.snapshot.scope,
+          destinationProvider,
+        })
+      : "user";
   const destinationLabel =
-    destinationProvider === "claude-code" ? "Claude" : "Codex";
+    destinationProvider === "claude-code"
+      ? "Claude"
+      : destinationProvider === "codex"
+        ? "Codex"
+        : destinationProvider === "cursor"
+          ? "Cursor"
+          : "Kiro";
   const [preview, setPreview] = useState<McpServerConfigMutationPreview | null>(
     null,
   );
@@ -877,7 +914,7 @@ export function McpServerConfigShareDialog(props: {
           },
           destination: {
             provider: destinationProvider,
-            scope: "user",
+            scope: destinationScope,
             name: snapshot.name,
           },
           cwd: props.workspaceCwd,
@@ -902,6 +939,7 @@ export function McpServerConfigShareDialog(props: {
     };
   }, [
     destinationProvider,
+    destinationScope,
     props.open,
     props.runtimeOptions,
     props.snapshot,
@@ -927,7 +965,7 @@ export function McpServerConfigShareDialog(props: {
         },
         destination: {
           provider: destinationProvider,
-          scope: "user",
+          scope: destinationScope,
           name: props.snapshot.name,
         },
         cwd: props.workspaceCwd,

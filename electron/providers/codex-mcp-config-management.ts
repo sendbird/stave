@@ -13,6 +13,7 @@ import {
   buildMcpMutationPreview,
   getMcpConfigRevision,
   getMcpConfigSnapshotId,
+  getShareableMcpUrl,
   inferMcpTransport,
   isProtectedMcpServerName,
   sanitizeMcpDiagnosticText,
@@ -203,6 +204,10 @@ export function toCodexShareDraft(args: { name: string; value: unknown }): {
 } {
   const config = asMcpRecord(args.value) ?? {};
   const transport = inferMcpTransport(config);
+  const shareableUrl =
+    transport === "stdio"
+      ? undefined
+      : getShareableMcpUrl(config.url, "Codex");
   const argumentList = Array.isArray(config.args)
     ? config.args.filter((entry): entry is string => typeof entry === "string")
     : [];
@@ -237,9 +242,7 @@ export function toCodexShareDraft(args: { name: string; value: unknown }): {
         ? { command: config.command }
         : {}),
       ...(transport === "stdio" ? { args: argumentList } : {}),
-      ...(typeof config.url === "string" && transport !== "stdio"
-        ? { url: config.url }
-        : {}),
+      ...(shareableUrl ? { url: shareableUrl } : {}),
       envVars: Array.isArray(config.env_vars)
         ? config.env_vars.filter(
             (entry): entry is string => typeof entry === "string",

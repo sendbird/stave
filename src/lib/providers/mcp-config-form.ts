@@ -69,7 +69,7 @@ export function createInitialMcpConfigForm(
   if (!snapshot) {
     return {
       provider: "claude-code",
-      installProviders: ["claude-code", "codex"],
+      installProviders: ["claude-code", "codex", "cursor", "kiro"],
       scope: "user",
       name: "",
       transport: "stdio",
@@ -123,6 +123,15 @@ export function validateMcpConfigForm(args: {
     installProviders.length === 1
   ) {
     throw new Error("Codex configuration editing supports user scope only.");
+  }
+  if (
+    (installProviders.includes("cursor") || installProviders.includes("kiro")) &&
+    form.scope === "local" &&
+    installProviders.length === 1
+  ) {
+    throw new Error(
+      "Cursor and Kiro configuration editing supports user or project scope.",
+    );
   }
   if (installProviders.includes("codex") && form.transport === "sse") {
     throw new Error("Codex does not support creating SSE MCP servers.");

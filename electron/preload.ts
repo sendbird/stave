@@ -4,6 +4,7 @@ import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
   CodexMcpOauthLoginResponse,
+  CursorMcpOauthLoginResponse,
   CodexMcpResourceReadResponse,
   CodexThreadForkResponse,
   CodexThreadReadResponse,
@@ -1198,6 +1199,16 @@ contextBridge.exposeInMainWorld("api", {
         "provider:start-claude-mcp-oauth-login",
         args,
       ) as Promise<ClaudeMcpOauthLoginResponse>,
+    startCursorMcpOauthLogin: (args: {
+      name: string;
+      cwd?: string;
+      timeoutSecs?: number;
+      runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    }) =>
+      ipcRenderer.invoke(
+        "provider:start-cursor-mcp-oauth-login",
+        args,
+      ) as Promise<CursorMcpOauthLoginResponse>,
     readCodexMcpResource: (args: {
       threadId: string;
       server: string;

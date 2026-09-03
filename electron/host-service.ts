@@ -127,6 +127,7 @@ import {
   suggestClaudePRDescription,
   startClaudeMcpOauthLogin,
 } from "./providers/claude-sdk-runtime";
+import { startCursorMcpOauthLogin } from "./providers/cursor-mcp-oauth";
 import {
   classifyUtilityRoute,
   enhanceUtilityPrompt,
@@ -1671,6 +1672,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.start-claude-mcp-oauth-login":
       await respond(request.id, await startClaudeMcpOauthLogin(request.params));
+      return;
+    case "provider.start-cursor-mcp-oauth-login":
+      await respond(request.id, await startCursorMcpOauthLogin(request.params));
       return;
     case "provider.read-codex-mcp-resource":
       await respond(request.id, await readCodexMcpResource(request.params));

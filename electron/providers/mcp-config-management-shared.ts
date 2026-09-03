@@ -10,7 +10,11 @@ import type {
 } from "../../src/lib/providers/mcp-config.types";
 
 const ENV_REFERENCE_PATTERN = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
+const CURSOR_ENV_REFERENCE_PATTERN =
+  /^\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}$/;
 const BEARER_REFERENCE_PATTERN = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/i;
+const CURSOR_BEARER_REFERENCE_PATTERN =
+  /^Bearer\s+\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}$/i;
 const DIAGNOSTIC_URL_PATTERN = /https?:\/\/[^\s<>"']+/gi;
 const DIAGNOSTIC_BEARER_PATTERN = /\bBearer\s+[^\s,;]+/gi;
 const DIAGNOSTIC_SECRET_ASSIGNMENT_PATTERN =
@@ -48,13 +52,27 @@ export function parseEnvReference(value: unknown) {
   return value.match(ENV_REFERENCE_PATTERN)?.[1] ?? null;
 }
 
+export function parseCursorEnvReference(value: unknown) {
+  if (typeof value !== "string") return null;
+  return value.match(CURSOR_ENV_REFERENCE_PATTERN)?.[1] ?? null;
+}
+
 export function parseBearerEnvReference(value: unknown) {
   if (typeof value !== "string") return null;
   return value.match(BEARER_REFERENCE_PATTERN)?.[1] ?? null;
 }
 
+export function parseCursorBearerEnvReference(value: unknown) {
+  if (typeof value !== "string") return null;
+  return value.match(CURSOR_BEARER_REFERENCE_PATTERN)?.[1] ?? null;
+}
+
 export function toEnvReference(name: string) {
   return `\${${name}}`;
+}
+
+export function toCursorEnvReference(name: string) {
+  return `\${env:${name}}`;
 }
 
 export function getSafeHeaderEnvBindings(args: {
@@ -76,6 +94,25 @@ export function getSafeHeaderEnvBindings(args: {
     } else {
       hiddenValueCount += 1;
     }
+  }
+  return { bindings, bearerTokenEnvVar, hiddenValueCount };
+}
+
+export function getSafeCursorHeaderEnvBindings(
+  headers: Record<string, unknown> | null,
+) {
+  const bindings: McpHeaderEnvBinding[] = [];
+  let bearerTokenEnvVar: string | undefined;
+  let hiddenValueCount = 0;
+  for (const [name, value] of Object.entries(headers ?? {})) {
+    const bearerEnv = parseCursorBearerEnvReference(value);
+    if (name.toLowerCase() === "authorization" && bearerEnv) {
+      bearerTokenEnvVar = bearerEnv;
+      continue;
+    }
+    const envVar = parseCursorEnvReference(value);
+    if (envVar) bindings.push({ name, envVar });
+    else hiddenValueCount += 1;
   }
   return { bindings, bearerTokenEnvVar, hiddenValueCount };
 }
@@ -104,6 +141,16 @@ export function sanitizeMcpUrl(value: unknown) {
   } catch {
     return { value: undefined, redacted: true, hiddenValueCount: 1 };
   }
+}
+
+export function getShareableMcpUrl(value: unknown, providerLabel: string) {
+  const sanitized = sanitizeMcpUrl(value);
+  if (sanitized.redacted) {
+    throw new Error(
+      `${providerLabel} MCP URL contains hidden user info, query details, a fragment, or an invalid value. Add the destination manually so Stave does not copy an opaque URL.`,
+    );
+  }
+  return sanitized.value;
 }
 
 function sanitizeDiagnosticUrl(rawUrl: string) {
@@ -149,7 +196,16 @@ export function inferMcpTransport(
 }
 
 export function formatMcpProviderLabel(provider: McpConfigProvider) {
-  return provider === "claude-code" ? "Claude" : "Codex";
+  switch (provider) {
+    case "claude-code":
+      return "Claude";
+    case "codex":
+      return "Codex";
+    case "cursor":
+      return "Cursor";
+    case "kiro":
+      return "Kiro";
+  }
 }
 
 export function formatMcpScopeLabel(scope: McpConfigScope) {
@@ -225,6 +281,14 @@ export function buildMcpMutationPreview(args: {
 export function assertMcpDraftSupported(draft: McpServerConfigDraft) {
   if (draft.provider === "codex" && draft.scope !== "user") {
     throw new Error("Codex MCP editing currently supports user scope only.");
+  }
+  if (
+    (draft.provider === "cursor" || draft.provider === "kiro") &&
+    draft.scope === "local"
+  ) {
+    throw new Error(
+      `${formatMcpProviderLabel(draft.provider)} MCP editing supports user or project scope.`,
+    );
   }
   if (draft.provider === "codex" && draft.transport === "sse") {
     throw new Error("Codex does not support creating SSE MCP servers.");

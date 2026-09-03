@@ -1,10 +1,14 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { resolveLoginShellEnvVarValues } from "../executable-path";
 import { resolveNativeClaudeMcpServers } from "../claude-mcp-config";
-import { isProtectedMcpServerName } from "../mcp-config-management-shared";
+import {
+  isProtectedMcpServerName,
+  sanitizeMcpUrl,
+} from "../mcp-config-management-shared";
 
 export type AcpMcpEnvEntry = { name: string; value: string };
 
@@ -23,6 +27,12 @@ export type AcpHttpMcpServer = {
 };
 
 export type AcpMcpServerDescriptor = AcpStdioMcpServer | AcpHttpMcpServer;
+export type AcpMcpTargetProvider = "cursor" | "kiro";
+
+export type NativeMcpRouteIndex = {
+  names: Set<string>;
+  fingerprints: Set<string>;
+};
 
 type CodexMcpServerRecord = {
   name: string;
@@ -50,6 +60,94 @@ function asStringRecord(value: unknown): Record<string, string> {
       (entry): entry is [string, string] => typeof entry[1] === "string",
     ),
   );
+}
+
+function asUnknownRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function normalizeServerName(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function normalizeMcpUrl(value: unknown) {
+  const sanitized = sanitizeMcpUrl(value).value;
+  if (!sanitized) return null;
+  try {
+    return new URL(sanitized).toString();
+  } catch {
+    return null;
+  }
+}
+
+function fingerprintMcpRoute(value: {
+  transport: "stdio" | "remote";
+  command?: string;
+  args?: readonly string[];
+  url?: string;
+  envNames?: readonly string[];
+  headerNames?: readonly string[];
+}) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        transport: value.transport,
+        command: value.command?.trim() || undefined,
+        args: value.args ?? [],
+        url: value.url,
+        envNames: [...(value.envNames ?? [])].sort(),
+        headerNames: [...(value.headerNames ?? [])]
+          .map((name) => name.toLowerCase())
+          .sort(),
+      }),
+    )
+    .digest("hex");
+}
+
+export function getAcpMcpServerFingerprint(
+  server: AcpMcpServerDescriptor,
+) {
+  if ("type" in server) {
+    const url = normalizeMcpUrl(server.url);
+    if (!url) return null;
+    return fingerprintMcpRoute({
+      transport: "remote",
+      url,
+      headerNames: server.headers.map((entry) => entry.name),
+    });
+  }
+  if (!server.command.trim()) return null;
+  return fingerprintMcpRoute({
+    transport: "stdio",
+    command: server.command,
+    args: server.args,
+    envNames: server.env.map((entry) => entry.name),
+  });
+}
+
+function getNativeMcpServerFingerprint(value: unknown) {
+  const config = asUnknownRecord(value);
+  const url = normalizeMcpUrl(config.url);
+  if (url) {
+    return fingerprintMcpRoute({
+      transport: "remote",
+      url,
+      headerNames: Object.keys(asUnknownRecord(config.headers)),
+    });
+  }
+  const command = typeof config.command === "string" ? config.command : "";
+  if (!command.trim()) return null;
+  return fingerprintMcpRoute({
+    transport: "stdio",
+    command,
+    args: Array.isArray(config.args)
+      ? config.args.filter((entry): entry is string => typeof entry === "string")
+      : [],
+    envNames: Object.keys(asUnknownRecord(config.env)),
+  });
 }
 
 export function expandEnvReferences(
@@ -272,10 +370,14 @@ export function mergeAcpMcpServers(
   servers: readonly AcpMcpServerDescriptor[],
 ): AcpMcpServerDescriptor[] {
   const merged = new Map<string, AcpMcpServerDescriptor>();
+  const fingerprints = new Set<string>();
   for (const server of servers) {
     const key = server.name.trim().toLowerCase();
     if (!key || merged.has(key)) continue;
+    const fingerprint = getAcpMcpServerFingerprint(server);
+    if (fingerprint && fingerprints.has(fingerprint)) continue;
     merged.set(key, server);
+    if (fingerprint) fingerprints.add(fingerprint);
   }
   return [...merged.values()];
 }
@@ -286,6 +388,98 @@ async function readOptionalText(filePath: string) {
   } catch {
     return "";
   }
+}
+
+async function readOptionalMcpServerMap(filePath: string) {
+  try {
+    const raw = await readFile(filePath, "utf8");
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Native MCP configuration root must be a JSON object.");
+    }
+    const serverValue = (parsed as Record<string, unknown>).mcpServers;
+    if (serverValue === undefined) return {};
+    if (
+      !serverValue ||
+      typeof serverValue !== "object" ||
+      Array.isArray(serverValue)
+    ) {
+      throw new Error("Native MCP mcpServers must be a JSON object.");
+    }
+    return serverValue as Record<string, unknown>;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw error;
+  }
+}
+
+function getTargetNativeMcpPaths(args: {
+  targetProvider: AcpMcpTargetProvider;
+  cwd: string;
+  env?: Record<string, string | undefined>;
+  homeDirectory?: string;
+}) {
+  const homeDirectory = args.homeDirectory ?? homedir();
+  if (args.targetProvider === "cursor") {
+    return [
+      path.join(homeDirectory, ".cursor", "mcp.json"),
+      path.join(args.cwd, ".cursor", "mcp.json"),
+    ];
+  }
+  const configuredKiroHome = args.homeDirectory
+    ? undefined
+    : args.env?.KIRO_HOME?.trim() || process.env.KIRO_HOME?.trim();
+  const kiroHome = configuredKiroHome || path.join(homeDirectory, ".kiro");
+  return [
+    path.join(kiroHome, "settings", "mcp.json"),
+    path.join(args.cwd, ".kiro", "settings", "mcp.json"),
+  ];
+}
+
+/**
+ * Indexes native MCP routes without returning credential values. The later
+ * workspace layer replaces an earlier user entry with the same name.
+ */
+export async function resolveNativeMcpRouteIndex(args: {
+  targetProvider: AcpMcpTargetProvider;
+  cwd: string;
+  env?: Record<string, string | undefined>;
+  homeDirectory?: string;
+}): Promise<NativeMcpRouteIndex> {
+  const [userServers, workspaceServers] = await Promise.all(
+    getTargetNativeMcpPaths(args).map(readOptionalMcpServerMap),
+  );
+  const merged = new Map<string, { name: string; value: unknown }>();
+  for (const servers of [userServers, workspaceServers]) {
+    for (const [name, value] of Object.entries(servers)) {
+      const key = normalizeServerName(name);
+      if (key) merged.set(key, { name, value });
+    }
+  }
+  const names = new Set<string>();
+  const fingerprints = new Set<string>();
+  for (const [key, entry] of merged) {
+    names.add(key);
+    const config = asUnknownRecord(entry.value);
+    if (config.disabled === true) continue;
+    const fingerprint = getNativeMcpServerFingerprint(config);
+    if (fingerprint) fingerprints.add(fingerprint);
+  }
+  return { names, fingerprints };
+}
+
+/** Keeps provider-native routes authoritative over Stave's ACP projection. */
+export function filterAcpMcpServersForNativeRoutes(args: {
+  servers: readonly AcpMcpServerDescriptor[];
+  nativeRoutes: NativeMcpRouteIndex;
+}) {
+  return args.servers.filter((server) => {
+    if (args.nativeRoutes.names.has(normalizeServerName(server.name))) {
+      return false;
+    }
+    const fingerprint = getAcpMcpServerFingerprint(server);
+    return !fingerprint || !args.nativeRoutes.fingerprints.has(fingerprint);
+  });
 }
 
 function collectReferencedEnvNames(args: {
@@ -377,19 +571,35 @@ export async function resolveAcpSharedMcpServers(args: {
 }
 
 export async function resolveAcpTurnMcpServers(args: {
+  targetProvider: AcpMcpTargetProvider;
   cwd: string;
   env?: Record<string, string | undefined>;
   claudeConfigDir?: string;
+  codexHome?: string;
+  homeDirectory?: string;
   staveLocalMcpServers?: readonly AcpMcpServerDescriptor[];
 }): Promise<AcpMcpServerDescriptor[]> {
   try {
-    const shared = await resolveAcpSharedMcpServers({
-      cwd: args.cwd,
-      env: args.env,
-      claudeConfigDir: args.claudeConfigDir,
+    const [shared, nativeRoutes] = await Promise.all([
+      resolveAcpSharedMcpServers({
+        cwd: args.cwd,
+        env: args.env,
+        claudeConfigDir: args.claudeConfigDir,
+        codexHome: args.codexHome,
+      }),
+      resolveNativeMcpRouteIndex({
+        targetProvider: args.targetProvider,
+        cwd: args.cwd,
+        env: args.env,
+        homeDirectory: args.homeDirectory,
+      }),
+    ]);
+    const portable = filterAcpMcpServersForNativeRoutes({
+      servers: shared,
+      nativeRoutes,
     });
     return mergeAcpMcpServers([
-      ...shared,
+      ...portable,
       ...(args.staveLocalMcpServers ?? []),
     ]);
   } catch {

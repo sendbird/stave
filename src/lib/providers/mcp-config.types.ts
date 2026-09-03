@@ -1,6 +1,10 @@
 import type { ProviderRuntimeOptions } from "./provider.types";
 
-export type McpConfigProvider = "claude-code" | "codex";
+export type McpConfigProvider =
+  | "claude-code"
+  | "codex"
+  | "cursor"
+  | "kiro";
 export type McpConfigScope = "user" | "project" | "local";
 export type McpConfigTransport = "stdio" | "http" | "sse";
 export type McpConfigMutationOperation =

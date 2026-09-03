@@ -16,6 +16,7 @@ import {
   CodexExperimentalFeatureEnablementArgsSchema,
   CodexExternalConfigImportArgsSchema,
   CodexMcpOauthLoginArgsSchema,
+  CursorMcpOauthLoginArgsSchema,
   CodexMcpResourceReadArgsSchema,
   McpDiscoveryArgsSchema,
   McpServerConfigListArgsSchema,
@@ -520,8 +521,10 @@ export function registerProviderHandlers() {
           args &&
           typeof args === "object" &&
           "operation" in args &&
-          ["create", "update", "delete"].includes(String(args.operation))
-            ? (args.operation as "create" | "update" | "delete")
+          ["create", "update", "delete", "share"].includes(
+            String(args.operation),
+          )
+            ? (args.operation as "create" | "update" | "delete" | "share")
             : "update";
         return {
           ok: false,
@@ -721,6 +724,23 @@ export function registerProviderHandlers() {
       }
       return invokeHostService(
         "provider.start-codex-mcp-oauth-login",
+        parsedArgs.data,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "provider:start-cursor-mcp-oauth-login",
+    (_event, args: unknown) => {
+      const parsedArgs = CursorMcpOauthLoginArgsSchema.safeParse(args);
+      if (!parsedArgs.success) {
+        return {
+          ok: false,
+          detail: "Invalid Cursor MCP OAuth login request.",
+        };
+      }
+      return invokeHostService(
+        "provider.start-cursor-mcp-oauth-login",
         parsedArgs.data,
       );
     },

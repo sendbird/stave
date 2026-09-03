@@ -5,10 +5,24 @@ import type {
 } from "./mcp-config.types";
 
 function formatMcpShareProviderLabel(provider: McpConfigProvider) {
-  return provider === "claude-code" ? "Claude" : "Codex";
+  switch (provider) {
+    case "claude-code":
+      return "Claude";
+    case "codex":
+      return "Codex";
+    case "cursor":
+      return "Cursor";
+    case "kiro":
+      return "Kiro";
+  }
 }
 
-export const MCP_SHAREABLE_PROVIDERS = ["claude-code", "codex"] as const;
+export const MCP_SHAREABLE_PROVIDERS = [
+  "claude-code",
+  "codex",
+  "cursor",
+  "kiro",
+] as const;
 
 const SHARE_REVISION_PREFIX = "share:v1:";
 
@@ -42,10 +56,31 @@ export function adaptMcpDraftForProvider(
       scope: "user",
     };
   }
+  if (
+    (provider === "cursor" || provider === "kiro") &&
+    draft.scope === "local"
+  ) {
+    return { ...draft, provider, scope: "project" };
+  }
   return {
     ...draft,
     provider,
   };
+}
+
+export function resolveMcpShareDestinationScope(args: {
+  sourceScope: McpServerConfigDraft["scope"];
+  destinationProvider: McpConfigProvider;
+}) {
+  if (args.destinationProvider === "codex") return "user" as const;
+  if (
+    (args.destinationProvider === "cursor" ||
+      args.destinationProvider === "kiro") &&
+    args.sourceScope === "local"
+  ) {
+    return "project" as const;
+  }
+  return args.sourceScope;
 }
 
 export function describeMcpInstallAdaptation(args: {
@@ -60,6 +95,16 @@ export function describeMcpInstallAdaptation(args: {
   }
   if (args.provider === "codex" && args.draft.transport === "sse") {
     warnings.push("Codex cannot receive an SSE server.");
+  }
+  if (args.provider === "cursor" && args.draft.scope === "local") {
+    warnings.push(
+      "Cursor will receive a project-scope copy because it has no local-project MCP scope.",
+    );
+  }
+  if (args.provider === "kiro" && args.draft.scope === "local") {
+    warnings.push(
+      "Kiro will receive a project-scope copy because it has no local-project MCP scope.",
+    );
   }
   return warnings;
 }
@@ -119,7 +164,10 @@ export function decodeMcpShareRevision(revision: string) {
     const provider = part.slice(0, separator);
     const value = part.slice(separator + 1).trim();
     if (
-      (provider === "claude-code" || provider === "codex") &&
+      (provider === "claude-code" ||
+        provider === "codex" ||
+        provider === "cursor" ||
+        provider === "kiro") &&
       value.length > 0
     ) {
       parsed[provider] = value;
