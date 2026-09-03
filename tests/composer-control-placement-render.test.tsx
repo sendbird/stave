@@ -123,6 +123,8 @@ describe("composer control placement in the toolbar", () => {
     expect(draftHtml).not.toContain(">Enhance<");
     expect(draftHtml).not.toContain(">Enhancing<");
     expect(draftHtml).toContain('data-prompt-enhancement-surface="idle"');
+    expect(draftHtml).toContain("pr-9");
+    expect(draftHtml).not.toContain("pr-28");
   });
 
   test("announces prompt enhancement while it is pending", async () => {
@@ -145,6 +147,11 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('data-prompt-enhancement-surface="enhancing"');
     expect(html).toContain("cursor-progress");
     expect(html).toContain("text-muted-foreground/70");
+    // The busy chip overlays the draft. Growing the editor inset would reflow
+    // the first line when the label appears and again when it collapses.
+    expect(html).toContain("pr-9");
+    expect(html).not.toContain("pr-28");
+    expect(html).toContain("from-card");
   });
 
   test("keeps the editor locked while the enhanced prompt is revealed", async () => {
@@ -162,6 +169,8 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain(">Applying<");
     expect(html).toContain('data-prompt-enhancement-surface="applying"');
     expect(html).toContain("cursor-progress");
+    expect(html).toContain("pr-9");
+    expect(html).not.toContain("pr-28");
   });
 
   test("renders every control and no tray button by default", async () => {
