@@ -68,6 +68,8 @@ function createHarness(options?: {
   receiptFailures?: Partial<Record<string, number>>;
   secureStorageAvailable?: boolean;
   unauthorized?: boolean;
+  noJob?: boolean;
+  tasksEnabled?: boolean;
 }) {
   const bindings = new Map<string, LocalCraneJobBinding>();
   const receipts: Array<{ state: string; errorCode?: string }> = [];
@@ -150,12 +152,13 @@ function createHarness(options?: {
       if (options?.unauthorized) {
         throw new CraneConnectorHttpError("unauthorized", 401);
       }
-      if (nextDelivered) {
+      if (options?.noJob || nextDelivered) {
         return null;
       }
       nextDelivered = true;
       return { job: deliveredJob, retryAfterMs: 0 };
     },
+    getLastTasksEnabled: () => options?.tasksEnabled ?? null,
     claimJob: async () => ({
       job: deliveredJob,
       leaseId: "stl_test-only-lease",
@@ -367,6 +370,17 @@ function createHarness(options?: {
 }
 
 describe("CraneConnectorRuntime", () => {
+  test("remembers the tasks-list capability from the idle poll", async () => {
+    const harness = createHarness({ noJob: true, tasksEnabled: false });
+    await harness.runtime.configure({
+      enabled: true,
+      baseUrl: "https://atelier.delight-tools.ai",
+      pollIntervalSeconds: 15,
+    });
+    await harness.runNextTimer();
+    expect(harness.runtime.getTasksEnabled()).toBe(false);
+  });
+
   test("does no work while disabled", async () => {
     const harness = createHarness();
 

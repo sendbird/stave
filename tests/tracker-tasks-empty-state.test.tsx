@@ -75,6 +75,16 @@ describe("Tasks empty states", () => {
     expect(html).not.toContain("Nothing assigned right now");
     expect(html).toContain("Crane");
     expect(html).toContain("does not serve the task list yet");
+  });
+
+  test("names the kill switch instead of a missing route when Crane turned the list off", () => {
+    const html = renderEmpty({
+      crane: status({ lastErrorCode: "tasks_disabled", taskCount: 0 }),
+      jira: status({ source: "jira", availability: "not_configured" }),
+    });
+    expect(html).toContain("has the task list turned off");
+    expect(html).not.toContain("does not serve the task list yet");
+    expect(html).not.toContain("Nothing assigned right now");
     expect(html).toContain("Jira");
     expect(html).toContain("No credential saved yet.");
     expect(html).toContain("Open Settings");
@@ -92,7 +102,10 @@ describe("Tasks empty states", () => {
   test("offers a re-check rather than Settings when nothing is fixable there", () => {
     const html = renderEmpty({
       crane: status({ lastErrorCode: "tasks_api_unavailable" }),
-      jira: status({ source: "jira", availability: "secure_storage_unavailable" }),
+      jira: status({
+        source: "jira",
+        availability: "secure_storage_unavailable",
+      }),
     });
     expect(html).toContain("Check again");
     expect(html).not.toContain("Open Settings");

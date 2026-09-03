@@ -240,6 +240,7 @@ describe("Crane tracker source", () => {
     secureStorage?: boolean;
     credential?: CraneTrackerCredential | null;
     httpClient?: CraneTasksHttpClient;
+    getTasksEnabled?: () => boolean | null;
   }): CraneTrackerSourceDeps {
     const credential =
       overrides?.credential === undefined
@@ -251,6 +252,7 @@ describe("Crane tracker source", () => {
       getSecureStorageStatus: () => ({
         available: overrides?.secureStorage ?? true,
       }),
+      getTasksEnabled: overrides?.getTasksEnabled,
       httpClient:
         overrides?.httpClient ??
         ({
@@ -441,6 +443,47 @@ describe("Crane tracker source", () => {
     });
     await source.listTasks({ signal: new AbortController().signal });
     expect(seenBaseUrls).toEqual([BASE_URL]);
+  });
+
+  test("reads a tasks_disabled list as the kill switch, not a missing route", () => {
+    const source = createCraneTrackerSource(
+      makeDeps({
+        httpClient: {
+          listCraneTasks: async () => {
+            throw new AtelierConnectorHttpError("tasks_disabled", 403);
+          },
+        } as unknown as CraneTasksHttpClient,
+      }),
+    );
+    return source
+      .listTasks({ signal: new AbortController().signal })
+      .then(() => {
+        throw new Error("expected the list to reject");
+      })
+      .catch((error: unknown) => {
+        expect((error as { code?: string }).code).toBe("tasks_disabled");
+      });
+  });
+
+  test("does not call the list when the last poll said the task API is off", async () => {
+    let listed = 0;
+    const source = createCraneTrackerSource(
+      makeDeps({
+        getTasksEnabled: () => false,
+        httpClient: {
+          listCraneTasks: async () => {
+            listed += 1;
+            throw new Error("should not list");
+          },
+        } as unknown as CraneTasksHttpClient,
+      }),
+    );
+    const thrown = await source
+      .listTasks({ signal: new AbortController().signal })
+      .then(() => null)
+      .catch((error: unknown) => error);
+    expect((thrown as { code?: string }).code).toBe("tasks_disabled");
+    expect(listed).toBe(0);
   });
 
   test("reads a 404 on the list as a missing task API, not a missing ticket", () => {

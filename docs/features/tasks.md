@@ -124,6 +124,12 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - Cause: the paired Crane deployment does not have the task API. Pairing, dispatched jobs, and receipts are unaffected — those use a different, already-shipped route.
 - Fix: nothing to do in Stave. The rows appear once the Crane side ships the routes; until then use Jira, or start Crane work from Crane itself.
 
+### Crane says the task list is turned off
+
+- Symptom: a grey note reads "Crane: This Crane installation has the task list turned off", and only Jira rows appear.
+- Cause: the paired Crane host has the routes but an operator set `CRANE_STAVE_TASKS_ENABLED=false`. Pairing and dispatched jobs still work.
+- Fix: nothing to do in Stave. An Atelier operator can clear that kill switch; until then use Jira, or start Crane work from Crane itself.
+
 ### A red banner says a source did not sync
 
 - Symptom: rows still show, with a per-source error banner above them.
