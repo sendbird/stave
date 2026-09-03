@@ -90,15 +90,28 @@ describe("TrackerSourceErrorBanner", () => {
   });
 
   test("translates a known error code and keeps the retry affordance", () => {
+    // Rate limiting is the transient case: the same request will work later, so
+    // this is the row that should still offer a retry.
+    const html = renderToStaticMarkup(
+      createElement(TrackerSourceErrorBanner, {
+        statuses: [makeStatus({ source: "jira", lastErrorCode: "rate_limited" })],
+        onRetry: () => {},
+      }),
+    );
+    expect(html).toContain("Jira did not sync");
+    expect(html).toContain("The tracker is rate-limiting requests.");
+    expect(html).toContain("Retry");
+  });
+
+  test("treats a rejected query as a settings fix rather than a retry", () => {
     const html = renderToStaticMarkup(
       createElement(TrackerSourceErrorBanner, {
         statuses: [makeStatus({ source: "jira", lastErrorCode: "invalid_jql" })],
         onRetry: () => {},
       }),
     );
-    expect(html).toContain("Jira did not sync");
     expect(html).toContain("The saved JQL query was rejected.");
-    expect(html).toContain("Retry");
+    expect(html).not.toContain("Retry");
   });
 
   test("shows an unrecognised code verbatim so it can be quoted", () => {
@@ -109,6 +122,49 @@ describe("TrackerSourceErrorBanner", () => {
       }),
     );
     expect(html).toContain("teapot_overflow");
+  });
+
+  test("reads a missing task API as a note, not an outage, and offers no retry", () => {
+    // The paired connector is fine; the deployment simply does not serve the
+    // list. A red banner with a Retry that cannot succeed would send the user
+    // looking for a fault on their own machine.
+    const html = renderToStaticMarkup(
+      createElement(TrackerSourceErrorBanner, {
+        statuses: [makeStatus({ lastErrorCode: "tasks_api_unavailable" })],
+        onRetry: () => {},
+      }),
+    );
+    expect(html).toContain("does not serve the task list yet");
+    expect(html).toContain("Nothing is wrong with your pairing.");
+    expect(html).not.toContain("did not sync");
+    expect(html).not.toContain("Retry");
+    expect(html).not.toContain("bg-destructive/5");
+  });
+
+  test("keeps the destructive treatment when any source is genuinely failing", () => {
+    const html = renderToStaticMarkup(
+      createElement(TrackerSourceErrorBanner, {
+        statuses: [
+          makeStatus({ lastErrorCode: "tasks_api_unavailable" }),
+          makeStatus({ source: "jira", lastErrorCode: "network_unavailable" }),
+        ],
+        onRetry: () => {},
+      }),
+    );
+    expect(html).toContain("bg-destructive/5");
+    // One row is actionable and one is not, so exactly one Retry is offered.
+    expect(html.match(/Retry/g)).toHaveLength(1);
+  });
+
+  test("explains a credential rejection without a retry", () => {
+    const html = renderToStaticMarkup(
+      createElement(TrackerSourceErrorBanner, {
+        statuses: [makeStatus({ source: "jira", lastErrorCode: "unauthorized" })],
+        onRetry: () => {},
+      }),
+    );
+    expect(html).toContain("The saved credential was rejected.");
+    expect(html).not.toContain("Retry");
   });
 
   test("ignores an error on a source that is not even configured", () => {

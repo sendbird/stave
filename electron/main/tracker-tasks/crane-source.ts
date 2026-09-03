@@ -16,6 +16,7 @@ import type {
   AtelierConnectorHttpClient,
   CraneTaskJobClaimResponse,
 } from "../atelier-connector/http-client";
+import { TrackerTaskError } from "./errors";
 
 /**
  * How much of the work list one refresh is allowed to pull.
@@ -83,6 +84,23 @@ function hasCraneScope(credential: CraneTrackerCredential) {
   return credential.scopes.includes("crane");
 }
 
+/**
+ * A 404 from the *list* route, which cannot mean what a 404 usually means.
+ *
+ * There is no resource to be missing on a collection endpoint: a paired,
+ * in-scope connector that gets 404 here is talking to a Crane deployment whose
+ * task API is absent or switched off. Reporting that as `not_found` sends the
+ * user looking for a ticket, and offers a retry that can never succeed, so it is
+ * translated once here — where the distinction between "this collection" and
+ * "one ticket" is still known. `getTask` keeps the raw code, because there a
+ * 404 really does mean the ticket is gone.
+ */
+function isMissingRoute(error: unknown): boolean {
+  return (
+    (error as { code?: unknown } | null | undefined)?.code === "not_found"
+  );
+}
+
 export function createCraneTrackerSource(
   deps: CraneTrackerSourceDeps,
 ): CraneTrackerSource {
@@ -148,12 +166,20 @@ export function createCraneTrackerSource(
       let cursor: string | undefined;
 
       for (let page = 0; page < MAX_PAGES_PER_SYNC; page += 1) {
-        const response = await client.listCraneTasks({
-          secret,
-          limit: CRANE_TASKS_LIMITS.pageSize,
-          cursor,
-          signal: args.signal,
-        });
+        let response;
+        try {
+          response = await client.listCraneTasks({
+            secret,
+            limit: CRANE_TASKS_LIMITS.pageSize,
+            cursor,
+            signal: args.signal,
+          });
+        } catch (error) {
+          if (isMissingRoute(error)) {
+            throw new TrackerTaskError("tasks_api_unavailable");
+          }
+          throw error;
+        }
         for (const row of response.tasks) {
           if (tasks.length >= MAX_TASKS_PER_SYNC) break;
           tasks.push(toTrackerTaskFromCrane(row));
