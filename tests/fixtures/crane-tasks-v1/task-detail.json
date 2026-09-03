@@ -18,7 +18,7 @@
       "avatarUrl": "https://atelier.example.com/avatars/riley-chen.png"
     },
     "labels": [
-      { "name": "frontend", "color": "#5b8def" },
+      { "name": "frontend", "color": "info" },
       { "name": "needs-design" }
     ],
     "dueDate": "2026-03-06",

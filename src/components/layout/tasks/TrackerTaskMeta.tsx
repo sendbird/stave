@@ -4,7 +4,7 @@ import {
   TRACKER_PRIORITY_PRESENTATION,
   TRACKER_STATUS_PRESENTATION,
   formatTrackerDue,
-  isSafeCssColor,
+  resolveTrackerLabelColor,
 } from "@/lib/tracker-tasks/presentation";
 import type { TrackerTask } from "@/lib/tracker-tasks/types";
 import { cn } from "@/lib/utils";
@@ -86,21 +86,31 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
 
       {task.labels.length > 0 ? (
         <div className="flex flex-wrap gap-1">
-          {task.labels.map((label) => (
-            <span
-              key={label.name}
-              className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground"
-            >
-              {isSafeCssColor(label.color) ? (
-                <span
-                  aria-hidden="true"
-                  className="size-1.5 rounded-full"
-                  style={{ backgroundColor: label.color }}
-                />
-              ) : null}
-              {label.name}
-            </span>
-          ))}
+          {task.labels.map((label) => {
+            const color = resolveTrackerLabelColor(label.color);
+            return (
+              <span
+                key={label.name}
+                className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground"
+              >
+                {color === null ? null : (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "size-1.5 rounded-full",
+                      color.kind === "token" && color.className,
+                    )}
+                    style={
+                      color.kind === "css"
+                        ? { backgroundColor: color.value }
+                        : undefined
+                    }
+                  />
+                )}
+                {label.name}
+              </span>
+            );
+          })}
         </div>
       ) : null}
     </div>

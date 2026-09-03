@@ -35,6 +35,8 @@ export const CRANE_TASKS_LIMITS = Object.freeze({
   id: 128,
   href: 2_048,
   labels: 20,
+  /** The server's cap, which is wider than the shared model's own. */
+  labelName: 100,
   instruction: 4_000,
 });
 
@@ -50,7 +52,25 @@ const CRANE_TASK_PRIORITIES = TRACKER_PRIORITY_LEVELS;
 /** Fixed relative-effort scale Crane exposes. */
 export const CRANE_TASK_ESTIMATES = [1, 2, 3, 5, 8] as const;
 
+/** `TrackerTaskSubtasksSchema`'s bound, which the mapper clamps into. */
+const MAX_MODEL_SUBTASKS = 10_000;
+
 const timestampSchema = z.string().max(64).datetime({ offset: true });
+
+/**
+ * `new URL` throws on a string it cannot parse, and a `refine` predicate that
+ * throws escapes as a `TypeError` instead of becoming a validation failure — so
+ * a relative avatar path from the server would crash the parse rather than
+ * rejecting one field. Parsing inside a guard keeps every malformed value on the
+ * "invalid" path where the caller can handle it.
+ */
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 const httpsUrlSchema = z
   .string()
@@ -58,22 +78,52 @@ const httpsUrlSchema = z
   .min(1)
   .max(CRANE_TASKS_LIMITS.href)
   .url()
-  .refine((value) => new URL(value).protocol === "https:", {
-    message: "Crane links must use HTTPS.",
-  });
+  .refine(isHttpsUrl, { message: "Crane links must use HTTPS." });
 
+/**
+ * A URL-shaped field Stave shows but never needs.
+ *
+ * An avatar is decoration, so a value the server stores un-normalized (a
+ * relative path, an `http` host) must cost the picture and nothing else.
+ * Rejecting it would throw away the whole page — every ticket, for one image —
+ * which is the wrong trade for a field no decision depends on.
+ */
+const optionalDecorativeUrlSchema = z
+  .string()
+  .trim()
+  .max(CRANE_TASKS_LIMITS.href)
+  .nullish()
+  .transform((value) =>
+    typeof value === "string" && value.length > 0 && isHttpsUrl(value)
+      ? value
+      : null,
+  );
+
+/**
+ * Field widths here mirror the server's, not Stave's own preferences.
+ *
+ * Anything narrower turns a row the server considers valid into a rejected
+ * page — and because the list is a page, one nameless account or one long label
+ * would hide every other ticket on it. Where the two sides disagreed, this side
+ * widened.
+ */
 const craneTaskAssigneeSchema = z
   .object({
     id: z.string().trim().min(1).max(CRANE_TASKS_LIMITS.id),
-    name: z.string().trim().min(1).max(200),
-    email: z.string().trim().min(1).max(320).nullish(),
-    avatarUrl: httpsUrlSchema.nullish(),
+    /** Crane accounts may carry no display name; the mapper falls back. */
+    name: z.string().trim().max(200).nullish(),
+    email: z.string().trim().max(320).nullish(),
+    avatarUrl: optionalDecorativeUrlSchema,
   })
   .strict();
 
 const craneTaskLabelSchema = z
   .object({
-    name: z.string().trim().min(1).max(80),
+    name: z.string().trim().min(1).max(CRANE_TASKS_LIMITS.labelName),
+    /**
+     * Either one of Crane's semantic tokens or a CSS colour; the renderer
+     * decides which, so the wire type stays a bounded string.
+     */
     color: z.string().trim().min(1).max(32).nullish(),
   })
   .strict();
@@ -95,7 +145,8 @@ const craneTaskBodySchema = z.object({
   teamKey: z.string().trim().min(1).max(64),
   teamName: z.string().trim().min(1).max(200),
   projectId: z.string().trim().min(1).max(CRANE_TASKS_LIMITS.id).nullable(),
-  projectName: z.string().trim().min(1).max(200).nullable(),
+  /** The server permits an empty name; the mapper treats it as no project. */
+  projectName: z.string().trim().max(200).nullable(),
   assignee: craneTaskAssigneeSchema.nullable(),
   labels: z.array(craneTaskLabelSchema).max(CRANE_TASKS_LIMITS.labels),
   dueDate: z
@@ -113,8 +164,13 @@ const craneTaskBodySchema = z.object({
     ])
     .nullable(),
   parentKey: z.string().trim().min(1).max(CRANE_TASKS_LIMITS.key).nullable(),
-  subtaskCount: z.number().int().min(0).max(10_000),
-  subtaskDoneCount: z.number().int().min(0).max(10_000),
+  /**
+   * Uncapped on the wire because the server does not cap it. The shared model
+   * keeps its own bound, which the mapper clamps to: a bound exists to protect
+   * the renderer, and enforcing it here would instead discard the page.
+   */
+  subtaskCount: z.number().int().min(0),
+  subtaskDoneCount: z.number().int().min(0),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   closedAt: timestampSchema.nullable(),
@@ -244,13 +300,32 @@ function toTrackerLinks(row: Pick<CraneTaskV1, "jiraIssue">) {
     : [];
 }
 
+/**
+ * The name to show for an account the server did not name.
+ *
+ * Degrades along what a person can still recognise — display name, then email,
+ * then the opaque id — rather than inventing a label or dropping the assignee.
+ * The shared model requires a non-empty name, and an unassigned ticket already
+ * means something different, so neither an empty string nor `null` is available
+ * here.
+ */
+function resolveAssigneeName(assignee: {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+}): string {
+  return (
+    assignee.name?.trim() || assignee.email?.trim() || assignee.id.trim()
+  ).slice(0, 200);
+}
+
 function toTrackerAssignee(row: Pick<CraneTaskV1, "assignee">) {
   if (!row.assignee) {
     return null;
   }
   return {
     id: row.assignee.id,
-    name: row.assignee.name,
+    name: resolveAssigneeName(row.assignee),
     ...(row.assignee.email ? { email: row.assignee.email } : {}),
     ...(row.assignee.avatarUrl ? { avatarUrl: row.assignee.avatarUrl } : {}),
   };
@@ -290,7 +365,13 @@ export function toTrackerTaskFromCrane(row: CraneTaskV1): TrackerTask {
     parentKey: row.parentKey,
     subtasks:
       row.subtaskCount > 0
-        ? { count: row.subtaskCount, done: row.subtaskDoneCount }
+        ? {
+            // Clamped, not rejected: the bound belongs to the renderer, and a
+            // ticket with an absurd subtask count is still a ticket the user
+            // needs to see.
+            count: Math.min(row.subtaskCount, MAX_MODEL_SUBTASKS),
+            done: Math.min(row.subtaskDoneCount, MAX_MODEL_SUBTASKS),
+          }
         : null,
     issueType: null,
     links: toTrackerLinks(row),

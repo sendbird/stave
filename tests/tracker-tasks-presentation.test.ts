@@ -7,6 +7,7 @@ import {
   formatTrackerSyncedAt,
   getInitials,
   isSafeCssColor,
+  resolveTrackerLabelColor,
   isTrackerSyncStale,
 } from "@/lib/tracker-tasks/presentation";
 import {
@@ -303,5 +304,52 @@ describe("isSafeCssColor", () => {
     expect(isSafeCssColor("ｒｅｄ")).toBe(false);
     expect(isSafeCssColor("x".repeat(300))).toBe(false);
     expect(isSafeCssColor(`rgb(${"9".repeat(300)}, 0, 0)`)).toBe(false);
+  });
+});
+
+describe("resolveTrackerLabelColor", () => {
+  it("maps every Crane semantic token onto a theme class", () => {
+    // Crane stores one of these seven, not a CSS value. Treating the field as
+    // CSS dropped all of them, so every Crane label rendered without its dot.
+    for (const token of [
+      "neutral",
+      "accent",
+      "info",
+      "warning",
+      "warm",
+      "success",
+      "danger",
+    ]) {
+      const resolved = resolveTrackerLabelColor(token);
+      expect(resolved?.kind).toBe("token");
+      expect(
+        resolved?.kind === "token" ? resolved.className : "",
+      ).toMatch(/^bg-/);
+    }
+  });
+
+  it("is case- and whitespace-insensitive about a token", () => {
+    expect(resolveTrackerLabelColor("  Danger ")?.kind).toBe("token");
+  });
+
+  it("passes a safe CSS colour through for a tracker that sends one", () => {
+    expect(resolveTrackerLabelColor("#5b8def")).toEqual({
+      kind: "css",
+      value: "#5b8def",
+    });
+    expect(resolveTrackerLabelColor("rgb(10, 20, 30)")?.kind).toBe("css");
+  });
+
+  it("prefers the themed token when a name is also a CSS keyword", () => {
+    // `orange` is a CSS keyword, but a tracker naming a slot means the slot.
+    expect(resolveTrackerLabelColor("accent")?.kind).toBe("token");
+  });
+
+  it("returns nothing for an absent or unusable value", () => {
+    expect(resolveTrackerLabelColor(undefined)).toBeNull();
+    expect(resolveTrackerLabelColor(null)).toBeNull();
+    expect(resolveTrackerLabelColor("")).toBeNull();
+    expect(resolveTrackerLabelColor("url(javascript:alert(1))")).toBeNull();
+    expect(resolveTrackerLabelColor("var(--primary)")).toBeNull();
   });
 });

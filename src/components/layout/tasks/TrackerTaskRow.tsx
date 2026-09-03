@@ -17,7 +17,7 @@ import {
   TRACKER_STATUS_PRESENTATION,
   formatTrackerDue,
   getInitials,
-  isSafeCssColor,
+  resolveTrackerLabelColor,
 } from "@/lib/tracker-tasks/presentation";
 import type { TrackerTaskListItem } from "@/lib/tracker-tasks/types";
 import { cn } from "@/lib/utils";
@@ -150,21 +150,31 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
           {task.title}
         </span>
 
-        {task.labels.slice(0, VISIBLE_LABEL_COUNT).map((label) => (
-          <span
-            key={label.name}
-            className="hidden shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground lg:inline-flex"
-          >
-            {isSafeCssColor(label.color) ? (
-              <span
-                aria-hidden="true"
-                className="size-1.5 rounded-full"
-                style={{ backgroundColor: label.color }}
-              />
-            ) : null}
-            {label.name}
-          </span>
-        ))}
+        {task.labels.slice(0, VISIBLE_LABEL_COUNT).map((label) => {
+          const color = resolveTrackerLabelColor(label.color);
+          return (
+            <span
+              key={label.name}
+              className="hidden shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground lg:inline-flex"
+            >
+              {color === null ? null : (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "size-1.5 rounded-full",
+                    color.kind === "token" && color.className,
+                  )}
+                  style={
+                    color.kind === "css"
+                      ? { backgroundColor: color.value }
+                      : undefined
+                  }
+                />
+              )}
+              {label.name}
+            </span>
+          );
+        })}
         {hiddenLabelCount > 0 ? (
           <span className="hidden shrink-0 text-[10px] text-muted-foreground lg:inline">
             +{hiddenLabelCount}
