@@ -12,11 +12,44 @@ const PROJECT_P = "/tmp/stave-memory/project-p";
 const PROJECT_Q = "/tmp/stave-memory/project-q";
 const NOW = Date.parse("2026-09-03T00:00:00.000Z");
 
+function seedDistinctFacts(args: {
+  database: Database;
+  projectPath: string;
+  count: number;
+  now: number;
+}) {
+  const insert = args.database.prepare(`
+    INSERT INTO project_memories (
+      id, project_path, kind, content, source_task_id, source_turn_id,
+      confidence, created_at, last_confirmed_at, updated_at, deleted_at
+    ) VALUES (?, ?, 'fact', ?, NULL, NULL, 0.9, ?, ?, ?, NULL)
+  `);
+  const seed = args.database.transaction(() => {
+    for (let index = 0; index < args.count; index += 1) {
+      const at = args.now + index;
+      insert.run(
+        `mem-${index}`,
+        args.projectPath,
+        `Fact number ${index}: ${Array.from(
+          { length: 10 },
+          (_, word) => `token${(index * 7919 + word * 104_729) % 99_991}`,
+        ).join(" ")}`,
+        at,
+        at,
+        at,
+      );
+    }
+  });
+  seed();
+}
+
 describe("ProjectMemoryStore", () => {
+  let database: Database;
   let store: ProjectMemoryStore;
 
   beforeEach(() => {
-    store = new ProjectMemoryStore(new Database(":memory:"));
+    database = new Database(":memory:");
+    store = new ProjectMemoryStore(database);
   });
 
   test("uses the FTS5 trigram index when the SQLite build has it", () => {
@@ -41,13 +74,13 @@ describe("ProjectMemoryStore", () => {
       now: NOW,
     });
 
-    expect(store.list({ projectPath: PROJECT_P }).map((m) => m.content)).toEqual([
-      "Use Bun commands and `bunx --bun`.",
-    ]);
+    expect(
+      store.list({ projectPath: PROJECT_P }).map((m) => m.content),
+    ).toEqual(["Use Bun commands and `bunx --bun`."]);
     expect(store.recall({ projectPath: PROJECT_Q, now: NOW })).toHaveLength(1);
-    expect(store.recall({ projectPath: PROJECT_P, now: NOW })[0]?.sourceTaskId).toBe(
-      "task-a",
-    );
+    expect(
+      store.recall({ projectPath: PROJECT_P, now: NOW })[0]?.sourceTaskId,
+    ).toBe("task-a");
   });
 
   test("a same-kind near-duplicate confirms the existing row instead of inserting", () => {
@@ -87,7 +120,8 @@ describe("ProjectMemoryStore", () => {
     const inserted = store.remember({
       projectPath: PROJECT_P,
       kind: "decision",
-      content: "Memory writes go through the host-service SqliteStore directly.",
+      content:
+        "Memory writes go through the host-service SqliteStore directly.",
       confidence: 0.6,
       now: NOW,
     })!;
@@ -95,13 +129,15 @@ describe("ProjectMemoryStore", () => {
     expect(store.softDelete({ id: inserted.memory.id, now: NOW })).toBe(false);
     expect(store.list({ projectPath: PROJECT_P })).toEqual([]);
     expect(
-      store.list({ projectPath: PROJECT_P, includeDeleted: true })[0]?.deletedAt,
+      store.list({ projectPath: PROJECT_P, includeDeleted: true })[0]
+        ?.deletedAt,
     ).toBe(NOW);
 
     const again = store.remember({
       projectPath: PROJECT_P,
       kind: "decision",
-      content: "Memory writes go through the host-service SqliteStore directly.",
+      content:
+        "Memory writes go through the host-service SqliteStore directly.",
       confidence: 0.6,
       now: NOW + 5,
     });
@@ -129,11 +165,13 @@ describe("ProjectMemoryStore", () => {
       store.recall({ projectPath: PROJECT_P, query: "preload", now: NOW + 1 }),
     ).toHaveLength(1);
     expect(
-      store.recall({
-        projectPath: PROJECT_P,
-        query: "talks over zzz",
-        now: NOW + 1,
-      }).map((m) => m.content),
+      store
+        .recall({
+          projectPath: PROJECT_P,
+          query: "talks over zzz",
+          now: NOW + 1,
+        })
+        .map((m) => m.content),
     ).toEqual(["Renderer reaches main only through preload IPC."]);
   });
 
@@ -141,7 +179,8 @@ describe("ProjectMemoryStore", () => {
     store.remember({
       projectPath: PROJECT_P,
       kind: "fact",
-      content: "The Information panel is rendered by WorkspaceInformationPanel.tsx.",
+      content:
+        "The Information panel is rendered by WorkspaceInformationPanel.tsx.",
       confidence: 0.9,
       now: NOW,
     });
@@ -185,28 +224,28 @@ describe("ProjectMemoryStore", () => {
       now: NOW - PROJECT_MEMORY_STALE_AFTER_MS - 1,
     });
 
-    expect(store.recall({ projectPath: PROJECT_P, now: NOW }).map((m) => m.content)).toEqual([
-      "An old explicit fact stays because confidence is high.",
-    ]);
     expect(
-      store.recall({ projectPath: PROJECT_P, query: "nobody confirmed", now: NOW }),
+      store.recall({ projectPath: PROJECT_P, now: NOW }).map((m) => m.content),
+    ).toEqual(["An old explicit fact stays because confidence is high."]);
+    expect(
+      store.recall({
+        projectPath: PROJECT_P,
+        query: "nobody confirmed",
+        now: NOW,
+      }),
     ).toHaveLength(1);
     expect(store.list({ projectPath: PROJECT_P })).toHaveLength(2);
   });
 
   test("the injected block never exceeds the cap even with 1,000 stored rows", () => {
-    for (let index = 0; index < 1_000; index += 1) {
-      store.remember({
-        projectPath: PROJECT_P,
-        kind: "fact",
-        content: `Fact number ${index}: ${Array.from(
-          { length: 10 },
-          (_, word) => `token${(index * 7919 + word * 104_729) % 99_991}`,
-        ).join(" ")}`,
-        confidence: 0.9,
-        now: NOW + index,
-      });
-    }
+    // Seed through SQL so the cap is checked against a large table without
+    // paying per-row FTS MATCH + Jaccard from `remember()`.
+    seedDistinctFacts({
+      database,
+      projectPath: PROJECT_P,
+      count: 1_000,
+      now: NOW,
+    });
     expect(store.list({ projectPath: PROJECT_P })).toHaveLength(1_000);
 
     const recalled = store.recall({
@@ -214,7 +253,9 @@ describe("ProjectMemoryStore", () => {
       query: "Fact number 999 lorem",
       now: NOW + 2_000,
     });
-    expect(recalled.length).toBeLessThanOrEqual(PROJECT_MEMORY_INJECTION_MAX_ITEMS);
+    expect(recalled.length).toBeLessThanOrEqual(
+      PROJECT_MEMORY_INJECTION_MAX_ITEMS,
+    );
 
     const part = buildProjectMemoryRetrievedContextPart({ memories: recalled });
     expect(part).not.toBeNull();
@@ -224,7 +265,9 @@ describe("ProjectMemoryStore", () => {
     const itemLines = part!.content
       .split("\n")
       .filter((line) => line.startsWith("- ("));
-    expect(itemLines.length).toBeLessThanOrEqual(PROJECT_MEMORY_INJECTION_MAX_ITEMS);
+    expect(itemLines.length).toBeLessThanOrEqual(
+      PROJECT_MEMORY_INJECTION_MAX_ITEMS,
+    );
     expect(
       itemLines.reduce((total, line) => total + line.length + 1, 0),
     ).toBeLessThanOrEqual(PROJECT_MEMORY_INJECTION_MAX_CHARS);
