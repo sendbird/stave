@@ -98,7 +98,7 @@ describe("native provider image input", () => {
     expect(collection.unresolvedInlineImageCount).toBe(1);
   });
 
-  test("builds low-detail Codex image and localImage items", () => {
+  test("builds original-detail Codex image and localImage items", () => {
     const collection = collectNativeImageInputs({
       cwd: "/tmp/project",
       conversation: createConversation([
@@ -121,12 +121,12 @@ describe("native provider image input", () => {
       {
         type: "localImage",
         path: "/tmp/project/screenshots/result.webp",
-        detail: "low",
+        detail: "original",
       },
       {
         type: "image",
         url: "data:image/jpeg;base64,aW1hZ2U=",
-        detail: "low",
+        detail: "original",
       },
     ]);
   });

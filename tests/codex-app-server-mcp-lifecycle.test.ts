@@ -466,12 +466,12 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       {
         type: "localImage",
         path: path.join(process.cwd(), "screenshots/result.png"),
-        detail: "low",
+        detail: "original",
       },
       {
         type: "image",
         url: "data:image/webp;base64,aW1hZ2U=",
-        detail: "low",
+        detail: "original",
       },
     ]);
   }, 15_000);

@@ -11,7 +11,7 @@ import {
 import { STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS } from "../../src/lib/task-context/current-task-awareness";
 import { dedupeRetrievedContextForSession } from "./retrieved-context-dedup";
 
-const IMAGE_DETAIL = "low" as const;
+const CODEX_IMAGE_DETAIL = "original" as const;
 const ACP_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const ACP_IMAGES_TOTAL_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -40,12 +40,12 @@ export type CodexNativeImageItem =
   | {
       type: "localImage";
       path: string;
-      detail: typeof IMAGE_DETAIL;
+      detail: typeof CODEX_IMAGE_DETAIL;
     }
   | {
       type: "image";
       url: string;
-      detail: typeof IMAGE_DETAIL;
+      detail: typeof CODEX_IMAGE_DETAIL;
     };
 
 /** Claude SDK image block used in a structured user message. */
@@ -210,12 +210,12 @@ export function buildCodexNativeImageItems(
       ? {
           type: "localImage",
           path: input.path,
-          detail: IMAGE_DETAIL,
+          detail: CODEX_IMAGE_DETAIL,
         }
       : {
           type: "image",
           url: input.dataUrl,
-          detail: IMAGE_DETAIL,
+          detail: CODEX_IMAGE_DETAIL,
         },
   );
 }

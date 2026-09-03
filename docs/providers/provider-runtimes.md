@@ -698,7 +698,8 @@ then converts them into each provider's structured image input at the runtime
 boundary. Workspace images selected from disk stay path-backed; pasted images
 stay as data URLs until that conversion. Image bytes are omitted from the text
 prompt when the native input is available. Codex native inputs request
-low-detail processing to reduce image-token usage.
+original-detail processing so screenshots and document images retain the
+fidelity needed for accurate inspection.
 
 Claude receives image content blocks in the initial SDK user message. Codex
 receives `localImage` or `image` items in `turn/start` after Stave confirms that

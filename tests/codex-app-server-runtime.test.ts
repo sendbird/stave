@@ -1370,12 +1370,12 @@ describe("Codex App Server plan-mode payloads", () => {
         {
           type: "localImage",
           path: "/tmp/project/screenshot.png",
-          detail: "low",
+          detail: "original",
         },
         {
           type: "image",
           url: "data:image/png;base64,aW1hZ2U=",
-          detail: "low",
+          detail: "original",
         },
       ],
     });
@@ -1390,12 +1390,12 @@ describe("Codex App Server plan-mode payloads", () => {
       {
         type: "localImage",
         path: "/tmp/project/screenshot.png",
-        detail: "low",
+        detail: "original",
       },
       {
         type: "image",
         url: "data:image/png;base64,aW1hZ2U=",
-        detail: "low",
+        detail: "original",
       },
     ]);
   });
