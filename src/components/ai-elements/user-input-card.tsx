@@ -1,6 +1,10 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Check, CircleHelp, ExternalLink, PencilLine } from "lucide-react";
-import { Button, Input, Textarea } from "@/components/ui";
+import { Badge, Button, Input, Textarea } from "@/components/ui";
+import {
+  displayUserInputOptionLabel,
+  shouldShowUserInputRecommendedBadge,
+} from "@/lib/user-input-options";
 import { cn } from "@/lib/utils";
 import type { UserInputQuestion } from "@/types/chat";
 
@@ -130,12 +134,15 @@ function UserInputSummary(args: {
                 const displayAnswer = answer
                   .split(",")
                   .map((value) => value.trim())
-                  .map(
-                    (value) =>
-                      question.options.find(
-                        (option) => (option.value ?? option.label) === value,
-                      )?.label ?? value,
-                  )
+                  .map((value) => {
+                    const option = question.options.find(
+                      (candidate) =>
+                        (candidate.value ?? candidate.label) === value,
+                    );
+                    return option
+                      ? displayUserInputOptionLabel(option.label)
+                      : value;
+                  })
                   .join(", ");
                 return (
                   <div
@@ -351,9 +358,13 @@ export function UserInputCard(args: UserInputCardProps) {
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {question.options.map((option) => {
                         const optionValue = option.value ?? option.label;
-                        const isSelected = selection.selected.includes(
-                          optionValue,
-                        );
+                        const isSelected =
+                          selection.selected.includes(optionValue);
+                        const isRecommended =
+                          shouldShowUserInputRecommendedBadge({
+                            option,
+                            options: question.options,
+                          });
                         return (
                           <label
                             key={optionValue}
@@ -428,8 +439,18 @@ export function UserInputCard(args: UserInputCardProps) {
                               ) : null}
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block font-medium leading-5 text-foreground">
-                                {option.label}
+                              <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                                <span className="font-medium leading-5 text-foreground">
+                                  {displayUserInputOptionLabel(option.label)}
+                                </span>
+                                {isRecommended ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="h-4 px-1 text-[10px]"
+                                  >
+                                    Recommended
+                                  </Badge>
+                                ) : null}
                               </span>
                               {option.description ? (
                                 <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">

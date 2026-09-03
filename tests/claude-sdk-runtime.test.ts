@@ -2749,4 +2749,55 @@ describe("parseClaudeQuestionList", () => {
       { label: "Keep", description: "Keep" },
     ]);
   });
+
+  test("keeps a later option recommended instead of defaulting to the first", () => {
+    const questions = parseClaudeQuestionList({
+      input: {
+        questions: [
+          {
+            header: "Approach",
+            question: "Which approach?",
+            options: [
+              { label: "Keep current", description: "Leave it." },
+              {
+                label: "Switch",
+                description: "Use the safer path.",
+                recommended: true,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(questions[0]?.options).toEqual([
+      { label: "Keep current", description: "Leave it." },
+      {
+        label: "Switch",
+        description: "Use the safer path.",
+        recommended: true,
+      },
+    ]);
+    expect(questions[0]?.defaultValue).toBe("Switch");
+  });
+
+  test("resolves a question-level recommend pointer to the second option", () => {
+    const questions = parseClaudeQuestionList({
+      input: {
+        questions: [
+          {
+            header: "Approach",
+            question: "Which approach?",
+            recommend: 1,
+            options: [
+              { label: "Keep current", description: "Leave it." },
+              { label: "Switch", description: "Use the safer path." },
+            ],
+          },
+        ],
+      },
+    });
+    expect(questions[0]?.options[0]?.recommended).toBeUndefined();
+    expect(questions[0]?.options[1]?.recommended).toBe(true);
+    expect(questions[0]?.defaultValue).toBe("Switch");
+  });
 });

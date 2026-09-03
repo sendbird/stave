@@ -28,6 +28,13 @@ import {
   DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
   type ClaudePlanModeApprovalScope,
 } from "../../src/types/chat";
+import {
+  markRecommendedUserInputOptions,
+  optionLabelHasRecommendedSuffix,
+  readQuestionRecommendPointer,
+  readRawOptionRecommended,
+  recommendedOptionDefaultValue,
+} from "../../src/lib/user-input-options";
 import type {
   ClaudeContextUsageResponse,
   ClaudeFileRewindResponse,
@@ -1359,20 +1366,40 @@ export function parseClaudeQuestionList(args: {
             typeof option.description === "string" && option.description.trim()
               ? option.description
               : label;
-          return [{ label, description }];
+          return [
+            {
+              label,
+              description,
+              ...(readRawOptionRecommended(option) ||
+              optionLabelHasRecommendedSuffix(label)
+                ? { recommended: true }
+                : {}),
+            },
+          ];
         })
       : [];
     if (!question || !header || options.length === 0) {
       return [];
     }
+    const markedOptions = markRecommendedUserInputOptions({
+      options,
+      recommend: readQuestionRecommendPointer(candidate),
+    });
+    const multiSelect =
+      typeof candidate.multiSelect === "boolean"
+        ? candidate.multiSelect
+        : undefined;
+    const defaultValue = recommendedOptionDefaultValue({
+      options: markedOptions,
+      multiSelect,
+    });
     return [
       {
         question,
         header,
-        options,
-        ...(typeof candidate.multiSelect === "boolean"
-          ? { multiSelect: candidate.multiSelect }
-          : {}),
+        options: markedOptions,
+        ...(multiSelect !== undefined ? { multiSelect } : {}),
+        ...(defaultValue ? { defaultValue } : {}),
       },
     ];
   });

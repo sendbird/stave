@@ -35,6 +35,7 @@ import {
 
 export { resolveCodexChatgptAuthTokensRefreshResponse };
 import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
+import { mapCodexUserInputQuestions } from "./codex-user-input-mapping";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { toText } from "./utils";
 import {
@@ -593,23 +594,6 @@ function mapApprovalToolName(method: ServerRequestMethod) {
     default:
       return method;
   }
-}
-
-function mapUserInputQuestions(questions: Array<Record<string, unknown>>) {
-  return questions.map((question) => ({
-    header: typeof question.header === "string" ? question.header : "",
-    key: typeof question.key === "string" ? question.key : undefined,
-    question: typeof question.question === "string" ? question.question : "",
-    multiSelect: false,
-    inputType: "text" as const,
-    options: Array.isArray(question.options)
-      ? question.options.map((option) => ({
-          label: typeof option?.label === "string" ? option.label : "",
-          description:
-            typeof option?.description === "string" ? option.description : "",
-        }))
-      : [],
-  }));
 }
 
 function shouldDebugCodexAppServerMessage(message: JsonRpcMessage) {
@@ -3112,7 +3096,7 @@ export async function streamCodexWithAppServer(
           case "item/tool/requestUserInput": {
             const params = (message.params ?? {}) as Record<string, unknown>;
             const questions = Array.isArray(params.questions)
-              ? mapUserInputQuestions(
+              ? mapCodexUserInputQuestions(
                   params.questions as Array<Record<string, unknown>>,
                 )
               : [];
