@@ -112,6 +112,12 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - Cause: no source is *ready* — a connector is off, unpaired, or has no credential.
 - Fix: open `Settings → Integrations` and finish the Crane pairing or the Jira credential. The Tasks empty state lists what each source is waiting for.
 
+### Crane shows a note about not serving the task list
+
+- Symptom: a grey note reads "Crane: This Crane installation does not serve the task list yet", and only Jira rows appear.
+- Cause: the paired Crane deployment does not have the task API. Pairing, dispatched jobs, and receipts are unaffected — those use a different, already-shipped route.
+- Fix: nothing to do in Stave. The rows appear once the Crane side ships the routes; until then use Jira, or start Crane work from Crane itself.
+
 ### A red banner says a source did not sync
 
 - Symptom: rows still show, with a per-source error banner above them.

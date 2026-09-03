@@ -1,4 +1,4 @@
-import { AlertCircle, ListTodo, Plug, RefreshCw, SearchX } from "lucide-react";
+import { AlertCircle, Info, ListTodo, Plug, RefreshCw, SearchX } from "lucide-react";
 
 import {
   Button,
@@ -13,6 +13,7 @@ import type {
   TrackerSourceAvailability,
   TrackerSourceSyncStatus,
 } from "@/lib/tracker-tasks/types";
+import { cn } from "@/lib/utils";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
 import { TRACKER_SOURCE_LABELS } from "./tracker-task-ui";
 
@@ -53,7 +54,24 @@ const ERROR_HINTS: Record<string, string> = {
   network_unavailable: "The tracker could not be reached.",
   response_too_large: "The tracker returned more data than Stave accepts.",
   invalid_response: "The tracker returned an unexpected shape.",
+  not_found: "The tracker route Stave asked for does not exist.",
+  tasks_api_unavailable:
+    "This Crane installation does not serve the task list yet, so only its dispatched jobs work. Nothing is wrong with your pairing.",
 };
+
+/**
+ * Failures a retry cannot fix.
+ *
+ * These are states of the server or the configuration, not transient faults, so
+ * they read as a note rather than an error and carry no Retry button: offering
+ * one that is guaranteed to fail teaches the user to distrust the whole banner.
+ */
+const NOT_RETRYABLE: ReadonlySet<string> = new Set([
+  "tasks_api_unavailable",
+  "invalid_jql",
+  "unauthorized",
+  "forbidden",
+]);
 
 export function TrackerTasksUnavailableState() {
   return (
@@ -176,31 +194,55 @@ export function TrackerSourceErrorBanner(props: {
   if (failing.length === 0) {
     return null;
   }
+  // A configuration or server state is not an outage, so a source in that
+  // condition must not paint the surface red.
+  const allInformational = failing.every(
+    (status) => status.lastErrorCode !== null && NOT_RETRYABLE.has(status.lastErrorCode),
+  );
   return (
-    <div className="shrink-0 space-y-1 border-b border-destructive/25 bg-destructive/5 px-4 py-2">
-      {failing.map((status) => (
-        <div
-          key={status.source}
-          className="flex items-center gap-2 text-[11px] text-destructive"
-        >
-          <AlertCircle className="size-3.5 shrink-0" />
-          <span className="min-w-0 flex-1">
-            {TRACKER_SOURCE_LABELS[status.source]} did not sync:{" "}
-            {status.lastErrorCode
-              ? (ERROR_HINTS[status.lastErrorCode] ?? status.lastErrorCode)
-              : "unknown error"}
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-6 px-2 text-[11px] text-destructive hover:text-destructive"
-            onClick={() => props.onRetry(status.source)}
+    <div
+      className={cn(
+        "shrink-0 space-y-1 border-b px-4 py-2",
+        allInformational
+          ? "border-border/60 bg-muted/40"
+          : "border-destructive/25 bg-destructive/5",
+      )}
+    >
+      {failing.map((status) => {
+        const code = status.lastErrorCode ?? "";
+        const informational = NOT_RETRYABLE.has(code);
+        return (
+          <div
+            key={status.source}
+            className={cn(
+              "flex items-center gap-2 text-[11px]",
+              informational ? "text-muted-foreground" : "text-destructive",
+            )}
           >
-            Retry
-          </Button>
-        </div>
-      ))}
+            {informational ? (
+              <Info className="size-3.5 shrink-0" />
+            ) : (
+              <AlertCircle className="size-3.5 shrink-0" />
+            )}
+            <span className="min-w-0 flex-1">
+              {TRACKER_SOURCE_LABELS[status.source]}
+              {informational ? ": " : " did not sync: "}
+              {ERROR_HINTS[code] ?? code ?? "unknown error"}
+            </span>
+            {informational ? null : (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px] text-destructive hover:text-destructive"
+                onClick={() => props.onRetry(status.source)}
+              >
+                Retry
+              </Button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

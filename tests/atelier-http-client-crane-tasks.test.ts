@@ -442,4 +442,61 @@ describe("Crane tracker source", () => {
     await source.listTasks({ signal: new AbortController().signal });
     expect(seenBaseUrls).toEqual([BASE_URL]);
   });
+
+  test("reads a 404 on the list as a missing task API, not a missing ticket", () => {
+    // A collection endpoint has no resource to be absent, so this can only mean
+    // the Crane deployment does not serve the route. Surfacing `not_found` would
+    // send the user hunting for a ticket that was never named.
+    const source = createCraneTrackerSource(
+      makeDeps({
+        httpClient: {
+          listCraneTasks: async () => {
+            throw new AtelierConnectorHttpError("not_found", 404);
+          },
+        } as unknown as CraneTasksHttpClient,
+      }),
+    );
+    return source
+      .listTasks({ signal: new AbortController().signal })
+      .then(() => {
+        throw new Error("expected the list to reject");
+      })
+      .catch((error: unknown) => {
+        expect((error as { code?: string }).code).toBe("tasks_api_unavailable");
+      });
+  });
+
+  test("leaves a 404 on one ticket alone, because there it is the truth", async () => {
+    const source = createCraneTrackerSource(
+      makeDeps({
+        httpClient: {
+          getCraneTask: async () => {
+            throw new AtelierConnectorHttpError("not_found", 404);
+          },
+        } as unknown as CraneTasksHttpClient,
+      }),
+    );
+    const thrown = await source
+      .getTask({ ref: "CRN-1", signal: new AbortController().signal })
+      .then(() => null)
+      .catch((error: unknown) => error);
+    expect((thrown as { code?: string }).code).toBe("not_found");
+  });
+
+  test("still reports a genuine transport failure as itself", async () => {
+    const source = createCraneTrackerSource(
+      makeDeps({
+        httpClient: {
+          listCraneTasks: async () => {
+            throw new AtelierConnectorHttpError("network_unavailable", 0);
+          },
+        } as unknown as CraneTasksHttpClient,
+      }),
+    );
+    const thrown = await source
+      .listTasks({ signal: new AbortController().signal })
+      .then(() => null)
+      .catch((error: unknown) => error);
+    expect((thrown as { code?: string }).code).toBe("network_unavailable");
+  });
 });
