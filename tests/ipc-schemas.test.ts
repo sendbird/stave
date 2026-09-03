@@ -8,7 +8,6 @@ import {
   CodexThreadForkArgsSchema,
   CreatePRArgsSchema,
   EnhancePromptArgsSchema,
-  FilesystemRepoMapArgsSchema,
   JiraConnectorConfigureArgsSchema,
   JiraConnectorSetCredentialArgsSchema,
   JiraConnectorTestConnectionArgsSchema,
@@ -106,7 +105,9 @@ describe("provider IPC schemas", () => {
       },
     };
 
-    expect(McpServerConfigMutationArgsSchema.safeParse(create).success).toBe(true);
+    expect(McpServerConfigMutationArgsSchema.safeParse(create).success).toBe(
+      true,
+    );
     expect(
       McpServerConfigMutationArgsSchema.safeParse({
         ...create,
@@ -495,21 +496,6 @@ describe("provider IPC schemas", () => {
     });
 
     expect(parsed.success).toBe(true);
-  });
-
-  test("accepts repo-map filesystem requests with optional refresh", () => {
-    expect(
-      FilesystemRepoMapArgsSchema.safeParse({
-        rootPath: "/tmp/project",
-        refresh: true,
-      }).success,
-    ).toBe(true);
-    expect(
-      FilesystemRepoMapArgsSchema.safeParse({
-        rootPath: "/tmp/project",
-        refresh: "yes",
-      }).success,
-    ).toBe(false);
   });
 
   test("accepts workspace-scoped PR drafting context", () => {

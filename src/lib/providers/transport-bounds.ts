@@ -7,7 +7,8 @@ import type {
 import type { MessagePart } from "@/types/chat";
 
 const encoder = new TextEncoder();
-type CanonicalContextPart = CanonicalConversationRequest["contextParts"][number];
+type CanonicalContextPart =
+  CanonicalConversationRequest["contextParts"][number];
 
 export const HOST_SERVICE_PROVIDER_REQUEST_SOFT_MAX_BYTES = 900 * 1024;
 export const HOST_SERVICE_PROVIDER_REQUEST_RETRY_MAX_BYTES = 256 * 1024;
@@ -127,7 +128,10 @@ function summarizeHistoryMessage(message: CanonicalConversationMessage) {
   if (message.isPlanResponse && message.planText?.trim()) {
     return message.planText.trim();
   }
-  return message.parts.map((part) => summarizeMessagePart(part)).join(" | ").trim();
+  return message.parts
+    .map((part) => summarizeMessagePart(part))
+    .join(" | ")
+    .trim();
 }
 
 function compactHistoryMessage(args: {
@@ -159,10 +163,12 @@ function compactHistoryTail(args: {
   maxPerMessageBytes: number;
   maxMessages: number;
 }) {
-  const compacted = args.history.map((message) => compactHistoryMessage({
-    message,
-    maxContentBytes: args.maxPerMessageBytes,
-  }));
+  const compacted = args.history.map((message) =>
+    compactHistoryMessage({
+      message,
+      maxContentBytes: args.maxPerMessageBytes,
+    }),
+  );
 
   const kept: CanonicalConversationMessage[] = [];
   let totalBytes = 0;
@@ -174,8 +180,9 @@ function compactHistoryTail(args: {
     const line = `${message.role}: ${message.content}`;
     const lineBytes = utf8ByteLength(line) + 1;
     if (
-      kept.length > 0
-      && (kept.length >= args.maxMessages || totalBytes + lineBytes > args.maxTotalBytes)
+      kept.length > 0 &&
+      (kept.length >= args.maxMessages ||
+        totalBytes + lineBytes > args.maxTotalBytes)
     ) {
       break;
     }
@@ -204,21 +211,26 @@ function compactConversationPrimary(
         maxBytes: 24 * 1024,
         marker: "\n…<input truncated>…\n",
       }),
-      parts: conversation.input.content.trim().length > 0
-        ? [{
-            type: "text",
-            text: truncateUtf8Middle({
-              value: conversation.input.content,
-              maxBytes: 24 * 1024,
-              marker: "\n…<input truncated>…\n",
-            }),
-          }]
-        : [],
+      parts:
+        conversation.input.content.trim().length > 0
+          ? [
+              {
+                type: "text",
+                text: truncateUtf8Middle({
+                  value: conversation.input.content,
+                  maxBytes: 24 * 1024,
+                  marker: "\n…<input truncated>…\n",
+                }),
+              },
+            ]
+          : [],
     },
-    contextParts: conversation.contextParts.map((part) => compactContextPart({
-      part,
-      mode: "primary",
-    })),
+    contextParts: conversation.contextParts.map((part) =>
+      compactContextPart({
+        part,
+        mode: "primary",
+      }),
+    ),
   };
 }
 
@@ -240,21 +252,26 @@ function compactConversationAggressively(
         maxBytes: 12 * 1024,
         marker: "\n…<input truncated>…\n",
       }),
-      parts: conversation.input.content.trim().length > 0
-        ? [{
-            type: "text",
-            text: truncateUtf8Middle({
-              value: conversation.input.content,
-              maxBytes: 12 * 1024,
-              marker: "\n…<input truncated>…\n",
-            }),
-          }]
-        : [],
+      parts:
+        conversation.input.content.trim().length > 0
+          ? [
+              {
+                type: "text",
+                text: truncateUtf8Middle({
+                  value: conversation.input.content,
+                  maxBytes: 12 * 1024,
+                  marker: "\n…<input truncated>…\n",
+                }),
+              },
+            ]
+          : [],
     },
-    contextParts: conversation.contextParts.map((part) => compactContextPart({
-      part,
-      mode: "aggressive",
-    })),
+    contextParts: conversation.contextParts.map((part) =>
+      compactContextPart({
+        part,
+        mode: "aggressive",
+      }),
+    ),
   };
 }
 
@@ -276,31 +293,41 @@ function buildMinimalConversation(
         maxBytes: 8 * 1024,
         marker: "\n…<input truncated>…\n",
       }),
-      parts: conversation.input.content.trim().length > 0
-        ? [{
-            type: "text",
-            text: truncateUtf8Middle({
-              value: conversation.input.content,
-              maxBytes: 8 * 1024,
-              marker: "\n…<input truncated>…\n",
-            }),
-          }]
-        : [],
+      parts:
+        conversation.input.content.trim().length > 0
+          ? [
+              {
+                type: "text",
+                text: truncateUtf8Middle({
+                  value: conversation.input.content,
+                  maxBytes: 8 * 1024,
+                  marker: "\n…<input truncated>…\n",
+                }),
+              },
+            ]
+          : [],
     },
     contextParts: [],
   };
 }
 
 function measureProviderTurnRequestEnvelopeBytes(args: {
-  method: "provider.stream-turn" | "provider.start-stream-turn" | "provider.start-push-turn";
+  method:
+    | "provider.stream-turn"
+    | "provider.start-stream-turn"
+    | "provider.start-push-turn";
   request: ProviderTurnRequest;
 }) {
-  return utf8ByteLength(JSON.stringify({
-    type: "request",
-    id: 1,
-    method: args.method,
-    params: args.request,
-  })) + 1;
+  return (
+    utf8ByteLength(
+      JSON.stringify({
+        type: "request",
+        id: 1,
+        method: args.method,
+        params: args.request,
+      }),
+    ) + 1
+  );
 }
 
 function getRetrievedContextMaxBytes(args: {
@@ -320,8 +347,6 @@ function getRetrievedContextMaxBytes(args: {
       return isAggressive ? 12 * 1024 : 40 * 1024;
     case "stave:referenced-task-replies":
       return isAggressive ? 8 * 1024 : 20 * 1024;
-    case "stave:repo-map":
-      return isAggressive ? 2 * 1024 : 10 * 1024;
     default:
       return isAggressive ? 4 * 1024 : 12 * 1024;
   }
@@ -330,8 +355,6 @@ function getRetrievedContextMaxBytes(args: {
 function getContextDropPriority(part: CanonicalContextPart) {
   if (part.type === "retrieved_context") {
     switch (part.sourceId) {
-      case "stave:repo-map":
-        return 0;
       case "stave:referenced-task-replies":
         return 4;
       case "stave:current-task-awareness":
@@ -365,7 +388,10 @@ function compactContextPart(args: {
           ? truncateUtf8Middle({
               value: args.part.instruction,
               maxBytes: args.mode === "aggressive" ? 1024 : 2 * 1024,
-              marker: args.mode === "aggressive" ? "…" : "\n…<instruction truncated>…\n",
+              marker:
+                args.mode === "aggressive"
+                  ? "…"
+                  : "\n…<instruction truncated>…\n",
             })
           : args.part.instruction,
         content: truncateUtf8Middle({
@@ -413,7 +439,10 @@ function compactContextPart(args: {
 }
 
 function dropLowPriorityContextPartsToFit(args: {
-  method: "provider.stream-turn" | "provider.start-stream-turn" | "provider.start-push-turn";
+  method:
+    | "provider.stream-turn"
+    | "provider.start-stream-turn"
+    | "provider.start-push-turn";
   request: ProviderTurnRequest & { providerId: ProviderId };
   maxBytes: number;
 }) {
@@ -428,19 +457,21 @@ function dropLowPriorityContextPartsToFit(args: {
       priority: getContextDropPriority(part),
       size: utf8ByteLength(JSON.stringify(part)),
     }))
-    .sort((left, right) => (
+    .sort((left, right) =>
       left.priority === right.priority
         ? right.size - left.size
-        : left.priority - right.priority
-    ));
+        : left.priority - right.priority,
+    );
 
   const droppedIndexes = new Set<number>();
   let nextRequest = args.request;
   for (const candidate of dropOrder) {
-    if (measureProviderTurnRequestEnvelopeBytes({
-      method: args.method,
-      request: nextRequest,
-    }) <= args.maxBytes) {
+    if (
+      measureProviderTurnRequestEnvelopeBytes({
+        method: args.method,
+        request: nextRequest,
+      }) <= args.maxBytes
+    ) {
       break;
     }
     droppedIndexes.add(candidate.index);
@@ -448,7 +479,9 @@ function dropLowPriorityContextPartsToFit(args: {
       ...nextRequest,
       conversation: {
         ...conversation,
-        contextParts: conversation.contextParts.filter((_, index) => !droppedIndexes.has(index)),
+        contextParts: conversation.contextParts.filter(
+          (_, index) => !droppedIndexes.has(index),
+        ),
       },
     };
   }
@@ -457,11 +490,15 @@ function dropLowPriorityContextPartsToFit(args: {
 }
 
 export function compactProviderTurnRequestForTransport(args: {
-  method: "provider.stream-turn" | "provider.start-stream-turn" | "provider.start-push-turn";
+  method:
+    | "provider.stream-turn"
+    | "provider.start-stream-turn"
+    | "provider.start-push-turn";
   request: ProviderTurnRequest & { providerId: ProviderId };
   maxBytes?: number;
 }) {
-  const maxBytes = args.maxBytes ?? HOST_SERVICE_PROVIDER_REQUEST_SOFT_MAX_BYTES;
+  const maxBytes =
+    args.maxBytes ?? HOST_SERVICE_PROVIDER_REQUEST_SOFT_MAX_BYTES;
   // Keep history available until the runtime has resolved whether it can
   // actually resume. MCP/config refreshes can force a fresh native session even
   // when the renderer supplied a persisted resume id; preemptively dropping
@@ -469,10 +506,12 @@ export function compactProviderTurnRequestForTransport(args: {
   let nextRequest: ProviderTurnRequest & { providerId: ProviderId } =
     args.request;
 
-  if (measureProviderTurnRequestEnvelopeBytes({
-    method: args.method,
-    request: nextRequest,
-  }) <= maxBytes) {
+  if (
+    measureProviderTurnRequestEnvelopeBytes({
+      method: args.method,
+      request: nextRequest,
+    }) <= maxBytes
+  ) {
     return nextRequest;
   }
 
@@ -483,10 +522,12 @@ export function compactProviderTurnRequestForTransport(args: {
     };
   }
 
-  if (measureProviderTurnRequestEnvelopeBytes({
-    method: args.method,
-    request: nextRequest,
-  }) <= maxBytes) {
+  if (
+    measureProviderTurnRequestEnvelopeBytes({
+      method: args.method,
+      request: nextRequest,
+    }) <= maxBytes
+  ) {
     return nextRequest;
   }
 
@@ -503,10 +544,12 @@ export function compactProviderTurnRequestForTransport(args: {
     maxBytes,
   });
 
-  if (measureProviderTurnRequestEnvelopeBytes({
-    method: args.method,
-    request: nextRequest,
-  }) <= maxBytes) {
+  if (
+    measureProviderTurnRequestEnvelopeBytes({
+      method: args.method,
+      request: nextRequest,
+    }) <= maxBytes
+  ) {
     return nextRequest;
   }
 
@@ -517,10 +560,12 @@ export function compactProviderTurnRequestForTransport(args: {
     };
   }
 
-  if (measureProviderTurnRequestEnvelopeBytes({
-    method: args.method,
-    request: nextRequest,
-  }) <= maxBytes) {
+  if (
+    measureProviderTurnRequestEnvelopeBytes({
+      method: args.method,
+      request: nextRequest,
+    }) <= maxBytes
+  ) {
     return nextRequest;
   }
 

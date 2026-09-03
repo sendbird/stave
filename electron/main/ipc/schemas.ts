@@ -1978,10 +1978,6 @@ export const FilesystemRootArgsSchema = z
 
 export const FilesystemPickFilesArgsSchema = FilesystemRootArgsSchema;
 
-export const FilesystemRepoMapArgsSchema = FilesystemRootArgsSchema.extend({
-  refresh: z.boolean().optional(),
-}).strict();
-
 export const FilesystemDirectoryArgsSchema = z
   .object({
     rootPath: FilesystemRootPathSchema,

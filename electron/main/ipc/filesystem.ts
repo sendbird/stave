@@ -11,7 +11,6 @@ import {
   FilesystemDirectoryArgsSchema,
   FilesystemFileArgsSchema,
   FilesystemPickFilesArgsSchema,
-  FilesystemRepoMapArgsSchema,
   FilesystemRootArgsSchema,
   FilesystemWriteFileArgsSchema,
   OpenExternalArgsSchema,
@@ -33,7 +32,6 @@ import {
   revisionFromStat,
   writeFileWithExpectedRevision,
 } from "../utils/filesystem";
-import { getOrCreateRepoMap } from "../utils/repo-map";
 import {
   buildFilesystemSearchRgArgs,
   normalizeFilesystemSearchQuery,
@@ -53,7 +51,9 @@ async function statIfExists(targetPath: string) {
 
 export function registerFilesystemHandlers() {
   ipcMain.handle("fs:pick-root", async () => {
-    const selected = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    const selected = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+    });
     if (selected.canceled || selected.filePaths.length === 0) {
       return { ok: false, files: [], stderr: "No folder selected." };
     }
@@ -70,7 +70,9 @@ export function registerFilesystemHandlers() {
   });
 
   ipcMain.handle("fs:pick-directory", async () => {
-    const selected = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    const selected = await dialog.showOpenDialog({
+      properties: ["openDirectory"],
+    });
     if (selected.canceled || selected.filePaths.length === 0) {
       return { ok: false as const, stderr: "No folder selected." };
     }
@@ -84,7 +86,11 @@ export function registerFilesystemHandlers() {
   ipcMain.handle("fs:pick-files", async (_event, args: unknown) => {
     const parsed = FilesystemPickFilesArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false, filePaths: [], stderr: "Invalid file picker request." };
+      return {
+        ok: false,
+        filePaths: [],
+        stderr: "Invalid file picker request.",
+      };
     }
     try {
       const rootPath = path.resolve(parsed.data.rootPath);
@@ -94,7 +100,11 @@ export function registerFilesystemHandlers() {
         properties: ["openFile", "multiSelections"],
       });
       if (selected.canceled || selected.filePaths.length === 0) {
-        return { ok: false as const, filePaths: [], stderr: "No file selected." };
+        return {
+          ok: false as const,
+          filePaths: [],
+          stderr: "No file selected.",
+        };
       }
 
       const filePaths: string[] = [];
@@ -102,12 +112,20 @@ export function registerFilesystemHandlers() {
         const absolutePath = path.resolve(selectedPath);
         const candidateRealPath = await fs.realpath(absolutePath);
         const relativeRealPath = path.relative(rootRealPath, candidateRealPath);
-        if (!relativeRealPath || relativeRealPath.startsWith("..") || path.isAbsolute(relativeRealPath)) {
+        if (
+          !relativeRealPath ||
+          relativeRealPath.startsWith("..") ||
+          path.isAbsolute(relativeRealPath)
+        ) {
           continue;
         }
 
         const relativePath = path.relative(rootPath, absolutePath);
-        if (!relativePath || relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+        if (
+          !relativePath ||
+          relativePath.startsWith("..") ||
+          path.isAbsolute(relativePath)
+        ) {
           continue;
         }
 
@@ -120,27 +138,35 @@ export function registerFilesystemHandlers() {
     }
   });
 
-  ipcMain.handle("fs:resolve-path", async (_event, args: { inputPath: string }) => {
-    try {
-      let resolved = (args.inputPath ?? "").trim();
-      if (!resolved) {
-        return { ok: false, stderr: "Empty path." };
+  ipcMain.handle(
+    "fs:resolve-path",
+    async (_event, args: { inputPath: string }) => {
+      try {
+        let resolved = (args.inputPath ?? "").trim();
+        if (!resolved) {
+          return { ok: false, stderr: "Empty path." };
+        }
+        // Expand ~ to home directory.
+        if (resolved === "~" || resolved.startsWith("~/")) {
+          resolved = path.join(os.homedir(), resolved.slice(1));
+        }
+        resolved = path.resolve(resolved);
+        const stat = await fs.stat(resolved);
+        if (!stat.isDirectory()) {
+          return { ok: false, stderr: "Path is not a directory." };
+        }
+        const files = await listFilesRecursive({ rootPath: resolved });
+        return {
+          ok: true,
+          rootPath: resolved,
+          rootName: path.basename(resolved),
+          files,
+        };
+      } catch (error) {
+        return { ok: false, stderr: String(error) };
       }
-      // Expand ~ to home directory.
-      if (resolved === "~" || resolved.startsWith("~/")) {
-        resolved = path.join(os.homedir(), resolved.slice(1));
-      }
-      resolved = path.resolve(resolved);
-      const stat = await fs.stat(resolved);
-      if (!stat.isDirectory()) {
-        return { ok: false, stderr: "Path is not a directory." };
-      }
-      const files = await listFilesRecursive({ rootPath: resolved });
-      return { ok: true, rootPath: resolved, rootName: path.basename(resolved), files };
-    } catch (error) {
-      return { ok: false, stderr: String(error) };
-    }
-  });
+    },
+  );
 
   ipcMain.handle("shell:open-external", async (_event, args: unknown) => {
     const parsed = OpenExternalArgsSchema.safeParse(args);
@@ -174,7 +200,9 @@ export function registerFilesystemHandlers() {
         stdio: "ignore",
         shell: process.platform === "win32",
       });
-      child.once("error", (error) => resolve({ ok: false, stderr: String(error) }));
+      child.once("error", (error) =>
+        resolve({ ok: false, stderr: String(error) }),
+      );
       child.once("spawn", () => {
         child.unref();
         resolve({ ok: true });
@@ -190,8 +218,13 @@ export function registerFilesystemHandlers() {
     const targetPath = parsed.data.path;
     if (process.platform === "darwin") {
       return new Promise<{ ok: boolean; stderr?: string }>((resolve) => {
-        const child = spawn("open", ["-a", "Ghostty", targetPath], { detached: true, stdio: "ignore" });
-        child.once("error", (error) => resolve({ ok: false, stderr: String(error) }));
+        const child = spawn("open", ["-a", "Ghostty", targetPath], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.once("error", (error) =>
+          resolve({ ok: false, stderr: String(error) }),
+        );
         child.once("spawn", () => {
           child.unref();
           resolve({ ok: true });
@@ -200,8 +233,14 @@ export function registerFilesystemHandlers() {
     }
     // Non-macOS: try launching ghostty directly
     return new Promise<{ ok: boolean; stderr?: string }>((resolve) => {
-      const child = spawn("ghostty", [], { detached: true, stdio: "ignore", cwd: targetPath });
-      child.once("error", (error) => resolve({ ok: false, stderr: String(error) }));
+      const child = spawn("ghostty", [], {
+        detached: true,
+        stdio: "ignore",
+        cwd: targetPath,
+      });
+      child.once("error", (error) =>
+        resolve({ ok: false, stderr: String(error) }),
+      );
       child.once("spawn", () => {
         child.unref();
         resolve({ ok: true });
@@ -218,8 +257,13 @@ export function registerFilesystemHandlers() {
     if (process.platform === "darwin") {
       // Terminal.app is always present on macOS — no fallback chain needed.
       return new Promise<{ ok: boolean; stderr?: string }>((resolve) => {
-        const child = spawn("open", ["-a", "Terminal", targetPath], { detached: true, stdio: "ignore" });
-        child.once("error", (error) => resolve({ ok: false, stderr: String(error) }));
+        const child = spawn("open", ["-a", "Terminal", targetPath], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.once("error", (error) =>
+          resolve({ ok: false, stderr: String(error) }),
+        );
         child.once("spawn", () => {
           child.unref();
           resolve({ ok: true });
@@ -228,12 +272,18 @@ export function registerFilesystemHandlers() {
     }
     if (process.platform === "win32") {
       return new Promise<{ ok: boolean; stderr?: string }>((resolve) => {
-        const child = spawn("cmd.exe", ["/c", "start", "cmd.exe", "/k", `cd /d "${targetPath}"`], {
-          detached: true,
-          stdio: "ignore",
-          shell: false,
-        });
-        child.once("error", (error) => resolve({ ok: false, stderr: String(error) }));
+        const child = spawn(
+          "cmd.exe",
+          ["/c", "start", "cmd.exe", "/k", `cd /d "${targetPath}"`],
+          {
+            detached: true,
+            stdio: "ignore",
+            shell: false,
+          },
+        );
+        child.once("error", (error) =>
+          resolve({ ok: false, stderr: String(error) }),
+        );
         child.once("spawn", () => {
           child.unref();
           resolve({ ok: true });
@@ -243,19 +293,32 @@ export function registerFilesystemHandlers() {
     // Linux
     const launchers: Array<{ command: string; commandArgs: string[] }> = [
       { command: "xterm", commandArgs: [] },
-      { command: "gnome-terminal", commandArgs: [`--working-directory=${targetPath}`] },
-      { command: "xfce4-terminal", commandArgs: [`--working-directory=${targetPath}`] },
+      {
+        command: "gnome-terminal",
+        commandArgs: [`--working-directory=${targetPath}`],
+      },
+      {
+        command: "xfce4-terminal",
+        commandArgs: [`--working-directory=${targetPath}`],
+      },
     ];
     let lastError = "Failed to open terminal.";
     for (const launcher of launchers) {
-      const result = await new Promise<{ ok: boolean; stderr?: string }>((resolve) => {
-        const child = spawn(launcher.command, launcher.commandArgs, { detached: true, stdio: "ignore" });
-        child.once("error", (error) => resolve({ ok: false, stderr: String(error) }));
-        child.once("spawn", () => {
-          child.unref();
-          resolve({ ok: true });
-        });
-      });
+      const result = await new Promise<{ ok: boolean; stderr?: string }>(
+        (resolve) => {
+          const child = spawn(launcher.command, launcher.commandArgs, {
+            detached: true,
+            stdio: "ignore",
+          });
+          child.once("error", (error) =>
+            resolve({ ok: false, stderr: String(error) }),
+          );
+          child.once("spawn", () => {
+            child.unref();
+            resolve({ ok: true });
+          });
+        },
+      );
       if (result.ok) return { ok: true as const };
       lastError = result.stderr ?? lastError;
     }
@@ -268,37 +331,23 @@ export function registerFilesystemHandlers() {
       return { ok: false, files: [], stderr: "Invalid file listing request." };
     }
     try {
-      const files = await listFilesRecursive({ rootPath: parsed.data.rootPath });
+      const files = await listFilesRecursive({
+        rootPath: parsed.data.rootPath,
+      });
       return { ok: true, files };
     } catch (error) {
       return { ok: false, files: [], stderr: String(error) };
     }
   });
 
-  ipcMain.handle("fs:get-repo-map", async (_event, args: unknown) => {
-    const parsed = FilesystemRepoMapArgsSchema.safeParse(args);
-    if (!parsed.success) {
-      return { ok: false, stderr: "Invalid repo map request." };
-    }
-    try {
-      const result = await getOrCreateRepoMap({
-        rootPath: parsed.data.rootPath,
-        refresh: parsed.data.refresh,
-      });
-      return { ok: true, repoMap: result.repoMap, source: result.source };
-    } catch (error) {
-      const message = error instanceof Error
-        ? `${error.message}\n${error.stack ?? ""}`
-        : String(error);
-      console.error("[repo-map] generation failed:", message);
-      return { ok: false, stderr: error instanceof Error ? error.message : String(error) };
-    }
-  });
-
   ipcMain.handle("fs:list-directory", async (_event, args: unknown) => {
     const parsed = FilesystemDirectoryArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false, entries: [], stderr: "Invalid directory listing request." };
+      return {
+        ok: false,
+        entries: [],
+        stderr: "Invalid directory listing request.",
+      };
     }
     try {
       const entries = await listDirectoryEntries({
@@ -357,7 +406,10 @@ export function registerFilesystemHandlers() {
         return {
           ok: false as const,
           alreadyExists: true as const,
-          revision: revisionFromStat({ size: existingStat.size, mtimeMs: existingStat.mtimeMs }),
+          revision: revisionFromStat({
+            size: existingStat.size,
+            mtimeMs: existingStat.mtimeMs,
+          }),
         };
       }
 
@@ -366,7 +418,10 @@ export function registerFilesystemHandlers() {
       const nextStat = await fs.stat(absolutePath);
       return {
         ok: true as const,
-        revision: revisionFromStat({ size: nextStat.size, mtimeMs: nextStat.mtimeMs }),
+        revision: revisionFromStat({
+          size: nextStat.size,
+          mtimeMs: nextStat.mtimeMs,
+        }),
       };
     } catch (error) {
       return { ok: false as const, stderr: String(error) };
@@ -431,18 +486,36 @@ export function registerFilesystemHandlers() {
   ipcMain.handle("fs:read-file", async (_event, args: unknown) => {
     const parsed = FilesystemFileArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false, content: "", revision: "", stderr: "Invalid file read request." };
+      return {
+        ok: false,
+        content: "",
+        revision: "",
+        stderr: "Invalid file read request.",
+      };
     }
     const absolutePath = resolveRootFilePath(parsed.data);
     if (!absolutePath) {
-      return { ok: false, content: "", revision: "", stderr: "Invalid file path." };
+      return {
+        ok: false,
+        content: "",
+        revision: "",
+        stderr: "Invalid file path.",
+      };
     }
     try {
       const stat = await fs.stat(absolutePath);
       if (!stat.isFile()) {
-        return { ok: false, content: "", revision: "", stderr: "Path is not a file." };
+        return {
+          ok: false,
+          content: "",
+          revision: "",
+          stderr: "Path is not a file.",
+        };
       }
-      const revision = revisionFromStat({ size: stat.size, mtimeMs: stat.mtimeMs });
+      const revision = revisionFromStat({
+        size: stat.size,
+        mtimeMs: stat.mtimeMs,
+      });
       if (stat.size > WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES) {
         return {
           ok: false,
@@ -469,18 +542,36 @@ export function registerFilesystemHandlers() {
   ipcMain.handle("fs:read-file-data-url", async (_event, args: unknown) => {
     const parsed = FilesystemFileArgsSchema.safeParse(args);
     if (!parsed.success) {
-      return { ok: false, dataUrl: "", revision: "", stderr: "Invalid file read request." };
+      return {
+        ok: false,
+        dataUrl: "",
+        revision: "",
+        stderr: "Invalid file read request.",
+      };
     }
     const absolutePath = resolveRootFilePath(parsed.data);
     if (!absolutePath) {
-      return { ok: false, dataUrl: "", revision: "", stderr: "Invalid file path." };
+      return {
+        ok: false,
+        dataUrl: "",
+        revision: "",
+        stderr: "Invalid file path.",
+      };
     }
     try {
       const stat = await fs.stat(absolutePath);
       if (!stat.isFile()) {
-        return { ok: false, dataUrl: "", revision: "", stderr: "Path is not a file." };
+        return {
+          ok: false,
+          dataUrl: "",
+          revision: "",
+          stderr: "Path is not a file.",
+        };
       }
-      const revision = revisionFromStat({ size: stat.size, mtimeMs: stat.mtimeMs });
+      const revision = revisionFromStat({
+        size: stat.size,
+        mtimeMs: stat.mtimeMs,
+      });
       if (stat.size > WORKSPACE_IMAGE_PREVIEW_MAX_BYTES) {
         return {
           ok: false,
@@ -525,87 +616,115 @@ export function registerFilesystemHandlers() {
     }
   });
 
-  ipcMain.handle("fs:search-content", async (_event, args: { rootPath: string; query: string }) => {
-    const normalizedQuery = normalizeFilesystemSearchQuery(args.query ?? "");
-    if (!normalizedQuery || !args.rootPath) {
-      return { ok: false, results: [], stderr: "Missing query or rootPath.", limitHit: false };
-    }
-    const resolvedRoot = path.resolve(args.rootPath);
-    try {
-      await fs.access(resolvedRoot);
-    } catch {
-      return { ok: false, results: [], stderr: "Root path not accessible.", limitHit: false };
-    }
+  ipcMain.handle(
+    "fs:search-content",
+    async (_event, args: { rootPath: string; query: string }) => {
+      const normalizedQuery = normalizeFilesystemSearchQuery(args.query ?? "");
+      if (!normalizedQuery || !args.rootPath) {
+        return {
+          ok: false,
+          results: [],
+          stderr: "Missing query or rootPath.",
+          limitHit: false,
+        };
+      }
+      const resolvedRoot = path.resolve(args.rootPath);
+      try {
+        await fs.access(resolvedRoot);
+      } catch {
+        return {
+          ok: false,
+          results: [],
+          stderr: "Root path not accessible.",
+          limitHit: false,
+        };
+      }
 
-    const MAX_MATCHES = 20_000;
+      const MAX_MATCHES = 20_000;
 
-    return new Promise<{
-      ok: boolean;
-      results: Array<{ file: string; matches: Array<{ line: number; text: string }> }>;
-      limitHit: boolean;
-      stderr?: string;
-    }>((resolve) => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { rgPath: rawRgPath } = require("@vscode/ripgrep") as { rgPath: string };
-      const rgPath = toAsarUnpackedPath(rawRgPath);
-      const rgArgs = buildFilesystemSearchRgArgs(normalizedQuery);
-      const child = spawn(rgPath, rgArgs, { cwd: resolvedRoot });
+      return new Promise<{
+        ok: boolean;
+        results: Array<{
+          file: string;
+          matches: Array<{ line: number; text: string }>;
+        }>;
+        limitHit: boolean;
+        stderr?: string;
+      }>((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { rgPath: rawRgPath } = require("@vscode/ripgrep") as {
+          rgPath: string;
+        };
+        const rgPath = toAsarUnpackedPath(rawRgPath);
+        const rgArgs = buildFilesystemSearchRgArgs(normalizedQuery);
+        const child = spawn(rgPath, rgArgs, { cwd: resolvedRoot });
 
-      const fileMap = new Map<string, Array<{ line: number; text: string }>>();
-      let remainder = "";
-      let matchCount = 0;
-      let limitHit = false;
-      let stderr = "";
+        const fileMap = new Map<
+          string,
+          Array<{ line: number; text: string }>
+        >();
+        let remainder = "";
+        let matchCount = 0;
+        let limitHit = false;
+        let stderr = "";
 
-      const parseLine = (raw: string) => {
-        if (limitHit) return;
-        const parsed = parseFilesystemSearchMatchLine(raw);
-        if (!parsed) return;
-        let entries = fileMap.get(parsed.file);
-        if (!entries) {
-          entries = [];
-          fileMap.set(parsed.file, entries);
-        }
-        entries.push(parsed.match);
-        matchCount += 1;
-        if (matchCount >= MAX_MATCHES) {
-          limitHit = true;
-          child.kill("SIGTERM");
-        }
-      };
+        const parseLine = (raw: string) => {
+          if (limitHit) return;
+          const parsed = parseFilesystemSearchMatchLine(raw);
+          if (!parsed) return;
+          let entries = fileMap.get(parsed.file);
+          if (!entries) {
+            entries = [];
+            fileMap.set(parsed.file, entries);
+          }
+          entries.push(parsed.match);
+          matchCount += 1;
+          if (matchCount >= MAX_MATCHES) {
+            limitHit = true;
+            child.kill("SIGTERM");
+          }
+        };
 
-      child.stdout.on("data", (chunk: Buffer) => {
-        if (limitHit) return;
-        const data = remainder + chunk.toString();
-        const lines = data.split("\n");
-        remainder = lines.pop() ?? "";
-        for (const line of lines) {
-          parseLine(line);
-          if (limitHit) break;
-        }
-      });
-      child.stderr.on("data", (chunk: Buffer) => {
-        stderr += chunk.toString();
-      });
-      child.on("error", (error) => {
-        resolve({ ok: false, results: [], stderr: String(error), limitHit: false });
-      });
-      child.on("close", (code) => {
-        if (remainder && !limitHit) {
-          parseLine(remainder);
-        }
-        const results = Array.from(fileMap.entries()).map(([file, matches]) => ({ file, matches }));
-        if (!limitHit && results.length === 0 && code != null && code > 1) {
+        child.stdout.on("data", (chunk: Buffer) => {
+          if (limitHit) return;
+          const data = remainder + chunk.toString();
+          const lines = data.split("\n");
+          remainder = lines.pop() ?? "";
+          for (const line of lines) {
+            parseLine(line);
+            if (limitHit) break;
+          }
+        });
+        child.stderr.on("data", (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
+        child.on("error", (error) => {
           resolve({
             ok: false,
             results: [],
-            stderr: stderr.trim() || "Search failed.",
+            stderr: String(error),
             limitHit: false,
           });
-          return;
-        }
-        resolve({ ok: true, results, limitHit });
+        });
+        child.on("close", (code) => {
+          if (remainder && !limitHit) {
+            parseLine(remainder);
+          }
+          const results = Array.from(fileMap.entries()).map(
+            ([file, matches]) => ({ file, matches }),
+          );
+          if (!limitHit && results.length === 0 && code != null && code > 1) {
+            resolve({
+              ok: false,
+              results: [],
+              stderr: stderr.trim() || "Search failed.",
+              limitHit: false,
+            });
+            return;
+          }
+          resolve({ ok: true, results, limitHit });
+        });
       });
-    });
-  });
+    },
+  );
 }

@@ -320,7 +320,6 @@ export const FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS: ReadonlySet<string> =
   new Set([
     STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
     STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
-    "stave:repo-map",
   ]);
 
 export function buildLegacyPromptFromCanonicalRequest(args: {

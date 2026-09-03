@@ -7,7 +7,9 @@ import {
 } from "@/lib/providers/provider-request-translators";
 import type { CanonicalConversationRequest } from "@/lib/providers/provider.types";
 
-function createConversation(overrides: Partial<CanonicalConversationRequest> = {}): CanonicalConversationRequest {
+function createConversation(
+  overrides: Partial<CanonicalConversationRequest> = {},
+): CanonicalConversationRequest {
   return {
     target: {
       providerId: "codex",
@@ -104,8 +106,8 @@ describe("provider request translators", () => {
       contextParts: [
         {
           type: "retrieved_context",
-          sourceId: "stave:repo-map",
-          title: "Codebase Map",
+          sourceId: "stave:test-retrieved-context",
+          title: "Retrieved context",
           content: "Repo map context",
         },
       ],
@@ -162,7 +164,8 @@ describe("provider request translators", () => {
                 provider: "shared",
                 path: "/tmp/stave-release/SKILL.md",
                 invocationToken: "$stave-release",
-                instructions: "Use this skill to create a versioned release PR for the Stave repository.",
+                instructions:
+                  "Use this skill to create a versioned release PR for the Stave repository.",
               },
             ],
           },
@@ -256,10 +259,12 @@ describe("provider request translators", () => {
       },
     });
 
-    expect(selectHistoryForProviderPrompt({
-      conversation,
-      activeResumeSessionId: null,
-    })).toEqual(conversation.history);
+    expect(
+      selectHistoryForProviderPrompt({
+        conversation,
+        activeResumeSessionId: null,
+      }),
+    ).toEqual(conversation.history);
 
     const prompt = buildProviderTurnPrompt({
       providerId: "codex",
@@ -278,10 +283,12 @@ describe("provider request translators", () => {
       },
     });
 
-    expect(selectHistoryForProviderPrompt({
-      conversation,
-      activeResumeSessionId: "thread-1",
-    })).toEqual(conversation.history);
+    expect(
+      selectHistoryForProviderPrompt({
+        conversation,
+        activeResumeSessionId: "thread-1",
+      }),
+    ).toEqual(conversation.history);
   });
 
   test("preserves Codex resume when the task stays on the same Codex model", () => {
@@ -318,10 +325,12 @@ describe("provider request translators", () => {
     });
 
     expect(resolveProviderResumeSessionId({ conversation })).toBe("thread_456");
-    expect(resolveProviderResumeSessionId({
-      conversation,
-      fallbackResumeId: "thread_override",
-    })).toBe("thread_override");
+    expect(
+      resolveProviderResumeSessionId({
+        conversation,
+        fallbackResumeId: "thread_override",
+      }),
+    ).toBe("thread_override");
   });
 
   test("can omit MCP-only retrieved context from the rendered prompt", () => {
@@ -335,8 +344,8 @@ describe("provider request translators", () => {
         },
         {
           type: "retrieved_context",
-          sourceId: "stave:repo-map",
-          title: "Codebase Map",
+          sourceId: "stave:test-retrieved-context",
+          title: "Retrieved context",
           content: "Repo map context",
         },
       ],

@@ -728,7 +728,6 @@ funnel `buildLegacyPromptFromCanonicalRequest` — rather than at each builder.
 | `stave:workspace-guidance` | Workspace conventions, token-budget guidance, handoff procedure | First turn only |
 | `stave:workspace-information` | The Information panel dump | Every turn, deduplicated when unchanged |
 | `stave:latest-turn-summary` | The Information panel's latest-turn recap | First turn only |
-| `stave:repo-map` | Pre-generated codebase map | First turn only |
 
 Rules:
 

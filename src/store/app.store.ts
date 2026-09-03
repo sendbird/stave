@@ -8,14 +8,16 @@ import type {
   CanonicalRetrievedContextPart,
   NormalizedProviderEvent,
 } from "@/lib/providers/provider.types";
-import { getRepoMapContextCache } from "@/lib/fs/repo-map-context-cache";
 import {
   buildReadOnlyAuxRuntimeOptions,
   resolveAuxLaneRuntime,
   supportsExplicitEffort,
 } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
-import { collectTurnStartRetrievedContextParts, rememberTurnDurableFacts } from "@/store/project-memory-runtime";
+import {
+  collectTurnStartRetrievedContextParts,
+  rememberTurnDurableFacts,
+} from "@/store/project-memory-runtime";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import {
@@ -580,11 +582,17 @@ export const useAppStore = create<AppState>()(
       taskId?: string;
       turnId?: string;
     }) => {
-      const retained = retainedIntentComplianceByWorkspace.get(args.workspaceId);
+      const retained = retainedIntentComplianceByWorkspace.get(
+        args.workspaceId,
+      );
       if (!retained) {
         return;
       }
-      const compliance = { ...retained, taskId: args.taskId, turnId: args.turnId };
+      const compliance = {
+        ...retained,
+        taskId: args.taskId,
+        turnId: args.turnId,
+      };
       retainedIntentComplianceByWorkspace.set(args.workspaceId, compliance);
       set((current) => ({
         turnIntentComplianceByWorkspace: {
@@ -1533,9 +1541,12 @@ export const useAppStore = create<AppState>()(
       providerTurnActivityByTask: {},
       retainedTurnActivityByTask: {},
       advisorExchangeByTask: {},
-      advisorConsultLogByTask: {}, advisorVerdictTallyByModel: {},
-      advisorConsultLogView: null, nativeSessionReadyByTask: {},
-      providerSessionByTask: {}, providerGoalByTask: {},
+      advisorConsultLogByTask: {},
+      advisorVerdictTallyByModel: {},
+      advisorConsultLogView: null,
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+      providerGoalByTask: {},
       turnVerificationByWorkspace: {},
       turnIntentComplianceByWorkspace: {},
       workspaceRuntimeCacheById: {},
@@ -2357,12 +2368,6 @@ export const useAppStore = create<AppState>()(
             currentHeadSha: currentWorkspacePr?.headRefOid ?? null,
           });
 
-          // ── Repo-map context injection ─────────────────────────────────────────
-          // On the first turn of a task, inject the pre-generated repo-map summary
-          // as retrieved context so the AI immediately knows the codebase structure
-          // (hotspots, entrypoints, read-first docs) without having to explore first.
-          // TopBar pre-warms this module-level Map cache asynchronously; the read
-          // here is a plain Map.get — no IPC, no blocking, effectively free.
           const retrievedContextParts: CanonicalRetrievedContextPart[] = [
             ...buildCurrentTaskAwarenessRetrievedContextParts({
               workspaceId: taskWorkspaceId,
@@ -2411,20 +2416,6 @@ export const useAppStore = create<AppState>()(
             });
           if (workspaceInformationReferencesContext) {
             retrievedContextParts.push(workspaceInformationReferencesContext);
-          }
-          // The repo map is attached unconditionally here; the prompt funnel
-          // drops it whenever the provider session is already primed, which is
-          // a truthful signal, unlike the paged in-memory history length.
-          if (workspaceCwd) {
-            const repoMapText = getRepoMapContextCache(workspaceCwd);
-            if (repoMapText) {
-              retrievedContextParts.push({
-                type: "retrieved_context",
-                sourceId: "stave:repo-map",
-                title: "Codebase Map",
-                content: repoMapText,
-              });
-            }
           }
           const referencedTaskContext = buildReferencedTaskRetrievedContext({
             prompt: normalizedPrompt || promptContent,
