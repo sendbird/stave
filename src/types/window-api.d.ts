@@ -1,5 +1,14 @@
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
 import type {
+  ProjectMemory,
+  ProjectMemoryDeleteArgs,
+  ProjectMemoryListArgs,
+  ProjectMemoryRecallArgs,
+  ProjectMemoryRememberArgs,
+  ProjectMemoryRememberResult,
+  ProjectMemoryUpdateArgs,
+} from "@/lib/project-memory";
+import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
   CodexMcpOauthLoginResponse,
@@ -923,6 +932,34 @@ interface WindowCraneConnectorApi {
   subscribeJobUpdates?: (
     listener: (payload: CraneDispatchJobUpdate) => void,
   ) => () => void;
+}
+
+interface WindowProjectMemoryApi {
+  list?: (args: ProjectMemoryListArgs) => Promise<{
+    ok: boolean;
+    items: ProjectMemory[];
+    message?: string;
+  }>;
+  recall?: (args: ProjectMemoryRecallArgs) => Promise<{
+    ok: boolean;
+    items: ProjectMemory[];
+    message?: string;
+  }>;
+  remember?: (args: ProjectMemoryRememberArgs) => Promise<{
+    ok: boolean;
+    results: ProjectMemoryRememberResult[];
+    message?: string;
+  }>;
+  update?: (args: ProjectMemoryUpdateArgs) => Promise<{
+    ok: boolean;
+    memory?: ProjectMemory | null;
+    message?: string;
+  }>;
+  delete?: (args: ProjectMemoryDeleteArgs) => Promise<{
+    ok: boolean;
+    deleted?: boolean;
+    message?: string;
+  }>;
 }
 
 interface WindowTrackerTasksApi {
@@ -2755,6 +2792,7 @@ interface WindowApi {
   martinSync?: WindowMartinSyncApi;
   craneConnector?: WindowCraneConnectorApi;
   trackerTasks?: WindowTrackerTasksApi;
+  projectMemory?: WindowProjectMemoryApi;
   jiraConnector?: WindowJiraConnectorApi;
   taskControl?: WindowTaskControlApi;
   routines?: WindowRoutinesApi;

@@ -626,6 +626,18 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.appendWorkspaceNotes(
         args as Parameters<typeof localMcpRuntime.appendWorkspaceNotes>[0],
       );
+    case "remember-project-memory":
+      return localMcpRuntime.rememberProjectMemory(
+        args as Parameters<typeof localMcpRuntime.rememberProjectMemory>[0],
+      );
+    case "forget-project-memory":
+      return localMcpRuntime.forgetProjectMemory(
+        args as Parameters<typeof localMcpRuntime.forgetProjectMemory>[0],
+      );
+    case "list-project-memories":
+      return localMcpRuntime.listProjectMemories(
+        args as Parameters<typeof localMcpRuntime.listProjectMemories>[0],
+      );
     case "clear-workspace-notes":
       return localMcpRuntime.clearWorkspaceNotes(
         args as Parameters<typeof localMcpRuntime.clearWorkspaceNotes>[0],

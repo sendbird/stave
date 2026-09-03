@@ -26,6 +26,10 @@ import {
 } from "../../src/lib/routines";
 import { TaskHeartbeatUpsertInputSchema } from "../../src/lib/automation/task-supervisor";
 import {
+  PROJECT_MEMORY_CONTENT_MAX_CHARS,
+  ProjectMemoryKindSchema,
+} from "../../src/lib/project-memory";
+import {
   WORKER_CONTEXT_MAX_CHARS,
   WORKER_TASK_MAX_CHARS,
 } from "../../src/lib/providers/worker-mode";
@@ -71,9 +75,12 @@ import {
   clearWorkspaceNotes,
   consultAdvisor,
   createWorkspace,
+  forgetProjectMemory,
   getWorkspaceInformation,
   getTaskStatus,
   listKnownProjects,
+  listProjectMemories,
+  rememberProjectMemory,
   removeWorkspaceCustomField,
   removeWorkspaceResource,
   removeWorkspaceTodo,
@@ -1090,6 +1097,72 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
           workspaceId,
           text,
         }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_remember",
+    {
+      description:
+        "Remember one project-scoped fact for every future task of this workspace's project (a decision, convention, gotcha, or stable fact). Not for task-specific notes — use workspace notes for those. Injected each turn as `stave:project-memory`, capped, deduplicated, and editable by the user.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
+        kind: ProjectMemoryKindSchema.describe(
+          "decision | convention | gotcha | fact",
+        ),
+        content: z
+          .string()
+          .min(1)
+          .max(PROJECT_MEMORY_CONTENT_MAX_CHARS)
+          .describe(
+            `One short sentence, at most ${PROJECT_MEMORY_CONTENT_MAX_CHARS} characters.`,
+          ),
+        taskId: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Calling task id, recorded as provenance."),
+      },
+    },
+    async ({ workspaceId, kind, content, taskId }) =>
+      toStructuredResult({
+        result: await rememberProjectMemory({
+          workspaceId,
+          kind,
+          content,
+          taskId,
+        }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_list_project_memories",
+    {
+      description:
+        "List this workspace's project memory with ids (what `stave:project-memory` injects, plus stale rows). Use it to find the `memoryId` for `stave_forget` or to check before `stave_remember`.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
+      },
+    },
+    async ({ workspaceId }) =>
+      toStructuredResult({
+        result: await listProjectMemories({ workspaceId }),
+      }),
+  );
+
+  server.registerTool(
+    "stave_forget",
+    {
+      description:
+        "Forget (soft-delete) a project memory by id. Get ids from `stave_list_project_memories` or from a `stave_remember` result; a forgotten fact is not re-added by automatic extraction.",
+      inputSchema: {
+        workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
+        memoryId: z.string().min(1).describe("Project memory id."),
+      },
+    },
+    async ({ workspaceId, memoryId }) =>
+      toStructuredResult({
+        result: await forgetProjectMemory({ workspaceId, memoryId }),
       }),
   );
 

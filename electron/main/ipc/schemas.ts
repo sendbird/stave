@@ -2094,3 +2094,11 @@ export const PersistenceFlushCompleteArgsSchema = z
     requestId: z.number().int().nonnegative().optional(),
   })
   .strict();
+
+export {
+  ProjectMemoryDeleteArgsSchema,
+  ProjectMemoryListArgsSchema,
+  ProjectMemoryRecallArgsSchema,
+  ProjectMemoryRememberArgsSchema,
+  ProjectMemoryUpdateArgsSchema,
+} from "../../../src/lib/project-memory";

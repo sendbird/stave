@@ -611,6 +611,8 @@ describe("mapCodexElicitationToUserInput", () => {
       "stave_list_child_tasks",
       "stave_get_workspace_information",
       "stave_append_workspace_notes",
+      "stave_remember",
+      "stave_forget",
     ]) {
       expect(
         shouldAutoApproveStaveLocalMcpElicitation({

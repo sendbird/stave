@@ -478,7 +478,10 @@ export type HostLocalMcpAction =
   | "add-workspace-storybook-resource"
   | "update-workspace-storybook-resource-access"
   | "add-workspace-slack-thread"
-  | "add-workspace-amplify-link";
+  | "add-workspace-amplify-link"
+  | "remember-project-memory"
+  | "forget-project-memory"
+  | "list-project-memories";
 
 export type HostTaskSupervisorAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";

@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Brain,
   Cable,
   CalendarIcon,
   ClipboardCheck,
@@ -133,6 +134,7 @@ import {
 } from "@/hooks/use-sortable-list";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
+import { WorkspaceMemorySection } from "./WorkspaceMemorySection";
 import {
   useMartinInformationCardAvailable,
   WorkspaceInformationMartinCard,
@@ -1325,6 +1327,22 @@ export function WorkspaceInformationPanel() {
   const [sectionOrder, setSectionOrder] = useState<
     WorkspaceInformationSectionId[]
   >(() => readStoredWorkspaceInformationSectionOrder());
+  const projectPath = useAppStore((state) => state.projectPath);
+  const [memoryHeader, setMemoryHeader] = useState({
+    count: 0,
+    loading: false,
+  });
+  const [memoryRefreshNonce, setMemoryRefreshNonce] = useState(0);
+  const handleMemoryEntriesChange = useCallback(
+    (next: { count: number; loading: boolean }) => {
+      setMemoryHeader((current) =>
+        current.count === next.count && current.loading === next.loading
+          ? current
+          : next,
+      );
+    },
+    [],
+  );
   const visibleSectionIds = useMemo(
     () =>
       resolveVisibleWorkspaceInformationSections({
@@ -1333,8 +1351,14 @@ export function WorkspaceInformationPanel() {
         craneConnectorEnabled,
         // TODO(tasks-surface): read `settings.jiraConnector.enabled` once the Jira connector slice exists.
         jiraConnectorEnabled: false,
+        memoryCount: memoryHeader.count,
       }),
-    [craneConnectorEnabled, infoPanelSectionVisibility, workspaceInformation],
+    [
+      craneConnectorEnabled,
+      infoPanelSectionVisibility,
+      memoryHeader.count,
+      workspaceInformation,
+    ],
   );
   const visibleSections = useMemo(
     () => new Set(visibleSectionIds),
@@ -1858,6 +1882,38 @@ export function WorkspaceInformationPanel() {
                         notes,
                       }))
                     }
+                  />
+                </SectionHeader>
+
+                {/* ── Memory (project-scoped) ───────────────────── */}
+                <SectionHeader
+                  value="memory"
+                  order={sectionOrderIndexById.memory}
+                  title="Memory"
+                  icon={<Brain className="size-4" />}
+                  count={memoryHeader.count}
+                  action={
+                    <button
+                      type="button"
+                      className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                      onClick={() =>
+                        setMemoryRefreshNonce((nonce) => nonce + 1)
+                      }
+                      aria-label="Refresh memory"
+                    >
+                      <RefreshCcw
+                        className={cn(
+                          "size-4",
+                          memoryHeader.loading && "animate-spin",
+                        )}
+                      />
+                    </button>
+                  }
+                >
+                  <WorkspaceMemorySection
+                    projectPath={projectPath}
+                    refreshKey={`${workspaceInformation.turnSummary?.turnId ?? ""}:${memoryRefreshNonce}`}
+                    onEntriesChange={handleMemoryEntriesChange}
                   />
                 </SectionHeader>
 

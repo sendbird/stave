@@ -101,7 +101,13 @@ export const DEFAULT_PROMPT_INLINE_COMPLETION = [
 // ---------------------------------------------------------------------------
 // Workspace Information panel – latest completed turn summary
 // ---------------------------------------------------------------------------
-export const DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = [
+/**
+ * The pre-project-memory default. Persisted settings merge over the defaults on
+ * rehydrate, so an upgraded install would otherwise keep this text forever and
+ * never return `durableFacts`. `normalizeWorkspaceTurnSummaryPrompt` swaps it
+ * for the current default while leaving user-edited prompts untouched.
+ */
+export const LEGACY_DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = [
   "You summarize the latest completed Stave task turn for the workspace Information panel.",
   "Return ONLY valid JSON with this exact shape:",
   '{"requestSummary":"...","workSummary":"..."}',
@@ -114,6 +120,28 @@ export const DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = [
   "- Mention blockers or incomplete work briefly when relevant.",
   "- No markdown, no code fences, no extra keys, no commentary.",
 ].join("\n");
+
+export const DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = [
+  "You summarize the latest completed Stave task turn for the workspace Information panel.",
+  "Return ONLY valid JSON with this exact shape:",
+  '{"requestSummary":"...","workSummary":"...","durableFacts":[{"kind":"decision|convention|gotcha|fact","content":"..."}]}',
+  "",
+  "Rules:",
+  "- requestSummary: what the user asked for in this turn.",
+  "- workSummary: what the AI actually did, concluded, or changed in response.",
+  "- Keep both fields concise and concrete.",
+  "- Each field should be one short sentence or phrase.",
+  "- Mention blockers or incomplete work briefly when relevant.",
+  "- durableFacts: 0 to 3 project-level facts worth remembering in every future task of this project: a decision taken, a convention confirmed, a gotcha discovered, or a stable fact about the codebase. Each content is one sentence under 200 characters. Omit anything task-specific, speculative, or already obvious from the repository. Return [] when unsure.",
+  "- No markdown, no code fences, no extra keys, no commentary.",
+].join("\n");
+
+export function normalizeWorkspaceTurnSummaryPrompt(value: string) {
+  return normalizePromptTemplateValue(value) ===
+    normalizePromptTemplateValue(LEGACY_DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY)
+    ? DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY
+    : value;
+}
 
 // ---------------------------------------------------------------------------
 // Workspace kickoff from an external source

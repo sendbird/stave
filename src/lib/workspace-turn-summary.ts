@@ -1,11 +1,56 @@
 import type { WorkspaceTurnSummary } from "@/lib/workspace-information";
+import {
+  PROJECT_MEMORY_CONTENT_MAX_CHARS,
+  PROJECT_MEMORY_KINDS,
+  normalizeProjectMemoryContent,
+  type ProjectMemoryFactInput,
+} from "@/lib/project-memory";
 
 const MAX_CONTEXT_CHARS = 4_000;
 const MAX_SUMMARY_CHARS = 180;
+/** Auto-extraction stays conservative: the prompt asks for 0–3, the parser keeps at most this many. */
+export const MAX_TURN_SUMMARY_DURABLE_FACTS = 3;
 
 export interface WorkspaceTurnSummaryDraft {
   requestSummary: string;
   workSummary: string;
+  /** Project memory candidates the summary model surfaced; empty when none. */
+  durableFacts: ProjectMemoryFactInput[];
+}
+
+/**
+ * Keep only well-formed facts: a known kind and a non-empty sentence under
+ * the memory content cap. Anything else is dropped silently — a summary that
+ * misreads the schema must not turn into stored memory.
+ */
+export function parseTurnSummaryDurableFacts(value: unknown): ProjectMemoryFactInput[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const facts: ProjectMemoryFactInput[] = [];
+  for (const item of value) {
+    if (facts.length >= MAX_TURN_SUMMARY_DURABLE_FACTS) {
+      break;
+    }
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+    const kind = (item as { kind?: unknown }).kind;
+    const content = (item as { content?: unknown }).content;
+    if (
+      typeof kind !== "string" ||
+      typeof content !== "string" ||
+      !(PROJECT_MEMORY_KINDS as readonly string[]).includes(kind)
+    ) {
+      continue;
+    }
+    const normalized = normalizeProjectMemoryContent(content);
+    if (!normalized || normalized.length > PROJECT_MEMORY_CONTENT_MAX_CHARS) {
+      continue;
+    }
+    facts.push({ kind: kind as ProjectMemoryFactInput["kind"], content: normalized });
+  }
+  return facts;
 }
 
 function normalizeInlineText(value: string) {
@@ -57,6 +102,7 @@ function coerceSummaryDraft(value: {
   work?: unknown;
   ai?: unknown;
   assistant?: unknown;
+  durableFacts?: unknown;
 }): WorkspaceTurnSummaryDraft | null {
   const requestSummary =
     typeof value.requestSummary === "string"
@@ -80,6 +126,7 @@ function coerceSummaryDraft(value: {
   const nextDraft = {
     requestSummary: truncateSummaryField(requestSummary),
     workSummary: truncateSummaryField(workSummary),
+    durableFacts: parseTurnSummaryDurableFacts(value.durableFacts),
   };
 
   return nextDraft.requestSummary && nextDraft.workSummary ? nextDraft : null;
@@ -117,6 +164,7 @@ export function parseWorkspaceTurnSummaryResponse(value: string) {
         work?: unknown;
         ai?: unknown;
         assistant?: unknown;
+        durableFacts?: unknown;
       };
       const draft = coerceSummaryDraft(parsed);
       if (draft) {

@@ -61,6 +61,8 @@ import type {
   TrackerTaskStaveLink,
 } from "../../src/lib/tracker-tasks/types";
 import { TaskHeartbeatStore } from "./task-heartbeat-store";
+import { ProjectMemoryStore } from "./project-memory-store";
+import type { ProjectMemoryKind } from "../../src/lib/project-memory";
 import type {
   TaskHeartbeat,
   TaskHeartbeatOccurrence,
@@ -211,6 +213,7 @@ export class SqliteStore {
   private trackerTasks: TrackerTasksStore;
   private martinSyncOutbox: MartinSyncOutboxStore;
   private taskHeartbeats: TaskHeartbeatStore;
+  private projectMemories: ProjectMemoryStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -262,6 +265,7 @@ export class SqliteStore {
     });
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.taskHeartbeats = new TaskHeartbeatStore(this.db);
+    this.projectMemories = new ProjectMemoryStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;
@@ -3301,6 +3305,45 @@ export class SqliteStore {
 
   recordTaskHeartbeatOccurrence(occurrence: TaskHeartbeatOccurrence) {
     return this.taskHeartbeats.recordOccurrence(occurrence);
+  }
+
+  listProjectMemories(args: { projectPath: string; includeDeleted?: boolean }) {
+    return this.projectMemories.list(args);
+  }
+
+  getProjectMemory(id: string) {
+    return this.projectMemories.get(id);
+  }
+
+  rememberProjectMemory(args: {
+    projectPath: string;
+    kind: ProjectMemoryKind;
+    content: string;
+    confidence: number;
+    sourceTaskId?: string | null;
+    sourceTurnId?: string | null;
+  }) {
+    return this.projectMemories.remember(args);
+  }
+
+  updateProjectMemory(args: {
+    id: string;
+    kind?: ProjectMemoryKind;
+    content?: string;
+  }) {
+    return this.projectMemories.update(args);
+  }
+
+  deleteProjectMemory(id: string) {
+    return this.projectMemories.softDelete({ id });
+  }
+
+  recallProjectMemories(args: {
+    projectPath: string;
+    query?: string | null;
+    limit?: number;
+  }) {
+    return this.projectMemories.recall(args);
   }
 
   attachTaskHeartbeatOccurrenceTurn(args: { id: string; turnId: string }) {

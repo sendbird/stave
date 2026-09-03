@@ -752,6 +752,13 @@ Rules:
   (`MAX_WORKSPACE_INFORMATION_CHARS`) on whole-line boundaries and points at
   `stave_get_workspace_information` for the rest. It carries no raw timestamp,
   so an idle turn's block stays byte-identical and stays deduplicated.
+- `stave:project-memory` (project-scoped facts written by `stave_remember` or
+  extracted from the turn summary) is recalled from SQLite at turn start by the
+  task's first user message, capped in code at
+  `PROJECT_MEMORY_INJECTION_MAX_ITEMS` rows / `PROJECT_MEMORY_INJECTION_MAX_CHARS`
+  characters, and deduplicated per session like the Information panel block.
+  See `src/lib/task-context/project-memory.ts` and
+  `electron/persistence/project-memory-store.ts`.
 
 Claude's system prompt keeps its own cache boundary
 (`SYSTEM_PROMPT_DYNAMIC_BOUNDARY`); nothing here changes that.
