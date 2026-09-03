@@ -2,8 +2,14 @@ import { describe, expect, test } from "bun:test";
 import {
   buildWorkspaceTurnSummaryPrompt,
   createWorkspaceTurnSummary,
+  parseTurnSummaryDurableFacts,
   parseWorkspaceTurnSummaryResponse,
 } from "@/lib/workspace-turn-summary";
+import {
+  DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
+  LEGACY_DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
+  normalizeWorkspaceTurnSummaryPrompt,
+} from "@/lib/providers/prompt-defaults";
 
 describe("workspace turn summary helpers", () => {
   test("builds a prompt with instruction and latest turn context", () => {
@@ -28,6 +34,7 @@ describe("workspace turn summary helpers", () => {
     ).toEqual({
       requestSummary: "Add an Information panel summary.",
       workSummary: "Wired the summary card and background generation.",
+      durableFacts: [],
     });
   });
 
@@ -39,6 +46,7 @@ describe("workspace turn summary helpers", () => {
     ).toEqual({
       requestSummary: "Capture the latest request.",
       workSummary: "Stored the summary on the workspace.",
+      durableFacts: [],
     });
   });
 
@@ -51,6 +59,7 @@ describe("workspace turn summary helpers", () => {
       requestSummary: "Capture the latest task goal.",
       workSummary:
         "Added an automatic summary card to the Information panel.",
+      durableFacts: [],
     });
   });
 
@@ -76,5 +85,50 @@ describe("workspace turn summary helpers", () => {
       requestSummary: "Summarise the latest workspace activity.",
       workSummary: "Updated the Information panel summary card.",
     });
+  });
+
+  test("keeps at most three well-formed durable facts and drops the rest", () => {
+    const parsed = parseWorkspaceTurnSummaryResponse(
+      JSON.stringify({
+        requestSummary: "Add memory.",
+        workSummary: "Added it.",
+        durableFacts: [
+          { kind: "convention", content: "  Use Bun   commands. " },
+          { kind: "rumor", content: "Not a known kind." },
+          { kind: "fact", content: "" },
+          { kind: "gotcha", content: "x".repeat(281) },
+          { kind: "decision", content: "Memory is project-scoped." },
+          { kind: "fact", content: "FTS5 is available in the bundled SQLite." },
+          { kind: "fact", content: "A fourth valid fact is dropped." },
+        ],
+      }),
+    );
+    expect(parsed?.durableFacts).toEqual([
+      { kind: "convention", content: "Use Bun commands." },
+      { kind: "decision", content: "Memory is project-scoped." },
+      { kind: "fact", content: "FTS5 is available in the bundled SQLite." },
+    ]);
+  });
+
+  test("a summary without durableFacts still parses with an empty list", () => {
+    expect(
+      parseWorkspaceTurnSummaryResponse(
+        '{"requestSummary":"a","workSummary":"b"}',
+      )?.durableFacts,
+    ).toEqual([]);
+    expect(parseTurnSummaryDurableFacts("nope")).toEqual([]);
+  });
+
+  test("an untouched legacy default prompt migrates to the durableFacts default", () => {
+    expect(
+      normalizeWorkspaceTurnSummaryPrompt(
+        `${LEGACY_DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY.replaceAll("\n", "\r\n")}\n`,
+      ),
+    ).toBe(DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY);
+    expect(DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY).toContain("durableFacts");
+    expect(normalizeWorkspaceTurnSummaryPrompt("My own prompt.")).toBe(
+      "My own prompt.",
+    );
+    expect(normalizeWorkspaceTurnSummaryPrompt("")).toBe("");
   });
 });

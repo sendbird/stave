@@ -108,6 +108,38 @@ export async function appendWorkspaceNotes(args: {
   }>("append-workspace-notes", args);
 }
 
+export async function rememberProjectMemory(args: {
+  workspaceId: string;
+  kind: import("../../src/lib/project-memory").ProjectMemoryKind;
+  content: string;
+  taskId?: string;
+}) {
+  return invokeLocalMcp<import("../host-service/local-mcp-runtime").ProjectMemoryRememberToolResult>(
+    "remember-project-memory",
+    args,
+  );
+}
+
+export async function listProjectMemories(args: { workspaceId: string }) {
+  return invokeLocalMcp<
+    Awaited<
+      ReturnType<
+        typeof import("../host-service/local-mcp-runtime").listProjectMemories
+      >
+    >
+  >("list-project-memories", args);
+}
+
+export async function forgetProjectMemory(args: {
+  workspaceId: string;
+  memoryId: string;
+}) {
+  return invokeLocalMcp<import("../host-service/local-mcp-runtime").ProjectMemoryForgetToolResult>(
+    "forget-project-memory",
+    args,
+  );
+}
+
 export async function clearWorkspaceNotes(args: { workspaceId: string }) {
   return invokeLocalMcp<{
     workspaceId: string;

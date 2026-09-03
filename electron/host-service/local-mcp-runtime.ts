@@ -128,6 +128,17 @@ import {
   resolveManagedTaskRuntimeOptions,
 } from "../../src/lib/providers/managed-task-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
+import {
+  ProjectMemoryContentSchema,
+  ProjectMemoryKindSchema,
+  resolveProjectMemoryConfidence,
+  type ProjectMemory,
+  type ProjectMemoryKind,
+} from "../../src/lib/project-memory";
+import {
+  buildProjectMemoryRetrievedContextPart,
+  resolveProjectMemoryRecallQuery,
+} from "../../src/lib/task-context/project-memory";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
   createLocalMcpTurnJournal,
@@ -972,6 +983,128 @@ export async function appendWorkspaceNotes(args: {
       notes: current.notes.trim() ? `${current.notes.trim()}\n${text}` : text,
     }),
   });
+}
+
+export interface ProjectMemoryRememberToolResult {
+  projectPath: string;
+  outcome: "inserted" | "confirmed" | "rejected";
+  memory: ProjectMemory | null;
+}
+
+export interface ProjectMemoryForgetToolResult {
+  projectPath: string;
+  memoryId: string;
+  forgotten: boolean;
+}
+
+async function resolveProjectPathForWorkspace(workspaceId: string) {
+  const { projects } = await loadNormalizedProjects();
+  const registration = findWorkspaceRegistration({ projects, workspaceId });
+  if (!registration) {
+    throw new Error(`Workspace is not registered to a project: ${workspaceId}`);
+  }
+  return registration.project.projectPath;
+}
+
+/**
+ * `stave_remember`: store one project-scoped fact for every future task of the
+ * workspace's project. Scope comes from the workspace registration, never from
+ * the caller, so a tool call cannot write into another project's memory.
+ */
+export async function rememberProjectMemory(args: {
+  workspaceId: string;
+  kind: ProjectMemoryKind;
+  content: string;
+  taskId?: string;
+}): Promise<ProjectMemoryRememberToolResult> {
+  const kind = ProjectMemoryKindSchema.parse(args.kind);
+  const content = ProjectMemoryContentSchema.parse(args.content);
+  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+  const store = ensureHostServicePersistenceReady();
+  const result = store.rememberProjectMemory({
+    projectPath,
+    kind,
+    content,
+    confidence: resolveProjectMemoryConfidence("explicit"),
+    sourceTaskId: args.taskId ?? null,
+  });
+  if (!result) {
+    // A soft-deleted duplicate: the user removed this fact on purpose.
+    return { projectPath, outcome: "rejected", memory: null };
+  }
+  return { projectPath, outcome: result.outcome, memory: result.memory };
+}
+
+/** `stave_list_project_memories`: ids + content, so `stave_forget` has something to target. */
+export async function listProjectMemories(args: { workspaceId: string }) {
+  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+  const store = ensureHostServicePersistenceReady();
+  return {
+    projectPath,
+    memories: store
+      .listProjectMemories({ projectPath })
+      .map(({ id, kind, content, confidence, lastConfirmedAt }) => ({
+        id,
+        kind,
+        content,
+        confidence,
+        lastConfirmedAt,
+      })),
+  };
+}
+
+/** `stave_forget`: soft-delete a memory that belongs to the workspace's project. */
+export async function forgetProjectMemory(args: {
+  workspaceId: string;
+  memoryId: string;
+}): Promise<ProjectMemoryForgetToolResult> {
+  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+  const store = ensureHostServicePersistenceReady();
+  const memory = store.getProjectMemory(args.memoryId);
+  if (!memory || memory.projectPath !== projectPath) {
+    throw new Error(
+      `Project memory not found in this project: ${args.memoryId}`,
+    );
+  }
+  return {
+    projectPath,
+    memoryId: args.memoryId,
+    forgotten: store.deleteProjectMemory(args.memoryId),
+  };
+}
+
+/**
+ * The `stave:project-memory` block for a host-initiated turn. Memory is a
+ * best-effort aid: a store without the method (test doubles) or a failing
+ * query yields no block rather than a failed turn.
+ */
+function buildProjectMemoryPartForTurn(args: {
+  projectPath: string;
+  history: ChatMessage[];
+  prompt: string;
+}): CanonicalRetrievedContextPart | null {
+  try {
+    const store = ensureHostServicePersistenceReady() as {
+      recallProjectMemories?: (input: {
+        projectPath: string;
+        query?: string | null;
+      }) => ProjectMemory[];
+    };
+    if (typeof store.recallProjectMemories !== "function") {
+      return null;
+    }
+    const memories = store.recallProjectMemories({
+      projectPath: args.projectPath,
+      query: resolveProjectMemoryRecallQuery({
+        history: args.history,
+        prompt: args.prompt,
+      }),
+    });
+    return buildProjectMemoryRetrievedContextPart({ memories });
+  } catch (error) {
+    console.warn("[stave-mcp] project memory recall failed", error);
+    return null;
+  }
 }
 
 export async function clearWorkspaceNotes(args: { workspaceId: string }) {
@@ -2685,6 +2818,11 @@ export async function runTask(args: {
   const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
     children: listChildTaskSummaries({ parentTaskId: task.id }),
   });
+  const projectMemoryPart = buildProjectMemoryPartForTurn({
+    projectPath: registration.project.projectPath,
+    history: existingHistory,
+    prompt: args.prompt,
+  });
   const conversation = buildCanonicalConversationRequest({
     turnId,
     taskId: task.id,
@@ -2709,6 +2847,7 @@ export async function runTask(args: {
         tasks: session.tasks,
         workspaceInformation: session.workspaceInformation,
       }),
+      ...(projectMemoryPart ? [projectMemoryPart] : []),
       ...(childTaskReceiptsPart ? [childTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),

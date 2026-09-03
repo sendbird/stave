@@ -102,6 +102,15 @@ import type {
 } from "../src/lib/tracker-tasks/types";
 import type { TrackerTasksSettings } from "../src/lib/tracker-tasks/settings";
 import type {
+  ProjectMemory,
+  ProjectMemoryDeleteArgs,
+  ProjectMemoryListArgs,
+  ProjectMemoryRecallArgs,
+  ProjectMemoryRememberArgs,
+  ProjectMemoryRememberResult,
+  ProjectMemoryUpdateArgs,
+} from "../src/lib/project-memory";
+import type {
   JiraConnectorPublicStatus,
   JiraConnectorSetCredentialArgs,
   JiraConnectorSettings,
@@ -1916,6 +1925,38 @@ contextBridge.exposeInMainWorld("api", {
         craneDispatchJobUpdateSubscribers.delete(listener);
       };
     },
+  },
+  projectMemory: {
+    list: (args: ProjectMemoryListArgs) =>
+      ipcRenderer.invoke("project-memory:list", args) as Promise<{
+        ok: boolean;
+        items: ProjectMemory[];
+        message?: string;
+      }>,
+    recall: (args: ProjectMemoryRecallArgs) =>
+      ipcRenderer.invoke("project-memory:recall", args) as Promise<{
+        ok: boolean;
+        items: ProjectMemory[];
+        message?: string;
+      }>,
+    remember: (args: ProjectMemoryRememberArgs) =>
+      ipcRenderer.invoke("project-memory:remember", args) as Promise<{
+        ok: boolean;
+        results: ProjectMemoryRememberResult[];
+        message?: string;
+      }>,
+    update: (args: ProjectMemoryUpdateArgs) =>
+      ipcRenderer.invoke("project-memory:update", args) as Promise<{
+        ok: boolean;
+        memory?: ProjectMemory | null;
+        message?: string;
+      }>,
+    delete: (args: ProjectMemoryDeleteArgs) =>
+      ipcRenderer.invoke("project-memory:delete", args) as Promise<{
+        ok: boolean;
+        deleted?: boolean;
+        message?: string;
+      }>,
   },
   trackerTasks: {
     getStatus: () =>

@@ -4,6 +4,7 @@ import {
   parseWorkspaceTurnSummaryResponse,
 } from "@/lib/workspace-turn-summary";
 import type { WorkspaceTurnSummary } from "@/lib/workspace-information";
+import type { ProjectMemoryFactInput } from "@/lib/project-memory";
 import { inferProviderIdFromModel } from "@/lib/providers/model-catalog";
 import {
   resolveAuxLaneRuntime,
@@ -29,11 +30,21 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
     workspaceId: string;
     summary: WorkspaceTurnSummary;
   }) => void;
+  /**
+   * Project-memory candidates the same summary call surfaced (no extra LLM
+   * call). Optional so existing callers and tests need no change.
+   */
+  rememberDurableFacts?: (args: {
+    projectPath: string | null;
+    taskId: string;
+    turnId: string;
+    facts: ProjectMemoryFactInput[];
+  }) => void;
   collectProviderEvents: (
     value: unknown,
   ) => Promise<NormalizedProviderEvent[]>;
 }) {
-  const { collectProviderEvents, applySummary } = deps;
+  const { collectProviderEvents, applySummary, rememberDurableFacts } = deps;
   // Only the newest request for a workspace may write a summary; an older
   // in-flight one must notice it was superseded and drop its result.
   const requestIdByWorkspaceId = new Map<string, string>();
@@ -245,6 +256,14 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
               draft: parsedSummary,
             }),
           });
+          if (parsedSummary.durableFacts.length > 0) {
+            rememberDurableFacts?.({
+              projectPath: state.projectPath,
+              taskId: args.taskId,
+              turnId: args.turnId,
+              facts: parsedSummary.durableFacts,
+            });
+          }
           return;
         } catch {
           continue;

@@ -4,6 +4,7 @@ export const WORKSPACE_INFORMATION_SECTION_IDS = [
   "overview",
   "todo",
   "note",
+  "memory",
   "plans",
   "github",
   "jira",
@@ -26,6 +27,7 @@ export const WORKSPACE_INFORMATION_SECTION_LABELS: Record<
   overview: "Summary",
   todo: "Todos",
   note: "Notes",
+  memory: "Memory",
   plans: "Plans",
   github: "GitHub",
   jira: "Jira",
@@ -42,6 +44,9 @@ export const CORE_WORKSPACE_INFORMATION_SECTIONS = [
   "overview",
   "todo",
   "note",
+  // Core rather than content-gated: the rows live in SQLite, so a hidden
+  // section could never report a count and would never become visible.
+  "memory",
   "plans",
   "github",
   "custom",
@@ -98,6 +103,8 @@ export function workspaceInformationSectionHasContent(args: {
   id: WorkspaceInformationSectionId;
   information: WorkspaceInformationState;
   planCount?: number;
+  /** Project memory rows; the list lives in SQLite, not in the panel state. */
+  memoryCount?: number;
 }): boolean {
   switch (args.id) {
     case "overview":
@@ -108,6 +115,8 @@ export function workspaceInformationSectionHasContent(args: {
       return args.information.notes.trim().length > 0;
     case "plans":
       return (args.planCount ?? 0) > 0;
+    case "memory":
+      return (args.memoryCount ?? 0) > 0;
     case "github":
       return args.information.linkedPullRequests.length > 0;
     case "jira":
@@ -177,6 +186,7 @@ export function resolveVisibleWorkspaceInformationSections(args: {
   visibility: WorkspaceInformationSectionVisibility;
   information: WorkspaceInformationState;
   planCount?: number;
+  memoryCount?: number;
   craneConnectorEnabled?: boolean;
   jiraConnectorEnabled?: boolean;
 }): WorkspaceInformationSectionId[] {
@@ -212,6 +222,7 @@ export function resolveVisibleWorkspaceInformationSections(args: {
         id,
         information: args.information,
         planCount: args.planCount,
+        memoryCount: args.memoryCount,
       })
     );
   });

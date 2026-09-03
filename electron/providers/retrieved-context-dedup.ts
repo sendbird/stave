@@ -7,6 +7,7 @@ import { getProviderNativeSlashCommandInput } from "../../src/lib/providers/prov
 import {
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
 } from "../../src/lib/task-context/current-task-awareness";
+import { STAVE_PROJECT_MEMORY_SOURCE_ID } from "../../src/lib/task-context/project-memory";
 
 /**
  * Retrieved-context sources that are rebuilt from live state every turn and are
@@ -16,6 +17,7 @@ import {
  */
 export const DEDUPABLE_RETRIEVED_CONTEXT_SOURCE_IDS = [
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
+  STAVE_PROJECT_MEMORY_SOURCE_ID,
 ] as const;
 
 /**

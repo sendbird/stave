@@ -15,7 +15,7 @@ import {
   supportsExplicitEffort,
 } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
-import { buildChildTaskReceiptsRetrievedContext } from "@/lib/task-context/child-task-receipts";
+import { collectTurnStartRetrievedContextParts, rememberTurnDurableFacts } from "@/store/project-memory-runtime";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import {
@@ -1036,6 +1036,7 @@ export const useAppStore = create<AppState>()(
       createWorkspaceTurnSummaryGenerator({
         getState: get,
         applySummary: applyWorkspaceTurnSummaryToState,
+        rememberDurableFacts: rememberTurnDurableFacts,
         collectProviderEvents,
       });
 
@@ -2377,20 +2378,16 @@ export const useAppStore = create<AppState>()(
             }),
             ...freshSourceContexts,
           ];
-          // ── Child task receipts ────────────────────────────────────────────
-          // A parent that delegated work sees where its children stand before
-          // its next turn, whether that turn came from the UI or from an agent.
-          // Identity, phase and reason only — never a child's transcript.
-          const childTaskSummaries = await (window.api?.runs?.listChildTasks?.({
-            parentTaskId: resolvedTaskId,
-            includeFinished: true,
-          }) ?? Promise.resolve([]));
-          const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
-            children: childTaskSummaries,
-          });
-          if (childTaskReceiptsPart) {
-            retrievedContextParts.push(childTaskReceiptsPart);
-          }
+          // ── Project memory + child task receipts ───────────────────────────
+          // Both are cross-turn state read from main; see project-memory-runtime.
+          retrievedContextParts.push(
+            ...(await collectTurnStartRetrievedContextParts({
+              projectPath: state.projectPath,
+              parentTaskId: resolvedTaskId,
+              history: latestHistory,
+              prompt: normalizedPrompt || promptContent,
+            })),
+          );
           // `@lens` references resolve against the live Lens browser state.
           let lensReferenceState: LensReferenceState | null = null;
           if (promptDraftReferencesLens(promptDraft)) {

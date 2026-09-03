@@ -27,7 +27,10 @@ import {
   normalizeModelShortcutEfforts,
   normalizeModelShortcutKeys,
 } from "@/lib/providers/model-shortcuts";
-import { normalizeResponseStylePrompt } from "@/lib/providers/prompt-defaults";
+import {
+  normalizeResponseStylePrompt,
+  normalizeWorkspaceTurnSummaryPrompt,
+} from "@/lib/providers/prompt-defaults";
 import { normalizeUtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import {
   normalizePromptEnhancementExemplars,
@@ -484,6 +487,12 @@ export function createAppStorePersistenceOptions() {
       state.settings.promptResponseStyle = normalizeResponseStylePrompt(
         state.settings.promptResponseStyle,
       );
+      state.settings.workspaceTurnSummaryPrompt =
+        normalizeWorkspaceTurnSummaryPrompt(
+          typeof state.settings.workspaceTurnSummaryPrompt === "string"
+            ? state.settings.workspaceTurnSummaryPrompt
+            : defaultSettings.workspaceTurnSummaryPrompt,
+        );
       state.settings.prePrReviewProvider = normalizePrePrReviewProvider(
         state.settings.prePrReviewProvider,
       );

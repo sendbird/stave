@@ -145,6 +145,14 @@ For workspace Information panel management, also use:
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`
 
+To keep a project-scoped fact for every future task of the same project
+(injected each turn as `stave:project-memory`, capped at 20 lines / ~2 KB,
+editable from the Information panel's Memory section):
+
+- `stave_remember` — `{ workspaceId, kind: decision|convention|gotcha|fact, content }`
+- `stave_forget` — `{ workspaceId, memoryId }`
+- `stave_list_project_memories` — `{ workspaceId }`, returns ids for `stave_forget`
+
 To read the tracker tickets Stave has cached for the signed-in user:
 
 - `stave_list_tracker_tasks`

@@ -12,6 +12,7 @@ import { registerLspHandlers } from "./lsp";
 import { registerMetricsHandlers } from "./metrics";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
+import { registerProjectMemoryHandlers } from "./project-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerRunHandlers } from "./runs";
 import { registerRoutineHandlers } from "./routines";
@@ -32,6 +33,7 @@ export function registerHandlers() {
   registerRunHandlers();
   registerRoutineHandlers();
   registerPersistenceHandlers();
+  registerProjectMemoryHandlers();
   registerTerminalHandlers();
   registerTaskControlHandlers();
   registerToolingHandlers();
