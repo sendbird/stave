@@ -41,6 +41,8 @@ than factual.
 3. Turn on `Enable Martin sync` and choose which event types to send.
 4. Open a workspace and select `Information` in the right rail.
 5. In the `Martin project` card, search for a project and select `Link`.
+   The card appears after Martin sync is enabled, the connector is paired
+   with the `martin` scope, or the workspace is already linked to a project.
 6. Confirm that the card shows the project name and a recent `Last pulled`
    time.
 
@@ -49,7 +51,9 @@ than factual.
 ### Entry Points
 
 - Connector and event settings: `Settings > Integrations > Martin sync`
-- Per-workspace project link: `Information > Martin project`
+- Per-workspace project link: `Information > Martin project`. Hidden until
+  Martin sync is enabled, the connector is paired with the `martin` scope, or
+  the workspace already has a linked project.
 - Pulled context snapshot:
   `.stave/context/martin/<project-slug>.md` inside the workspace
 

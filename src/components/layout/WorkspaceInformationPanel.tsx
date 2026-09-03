@@ -133,7 +133,10 @@ import {
 } from "@/hooks/use-sortable-list";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
-import { WorkspaceInformationMartinCard } from "./WorkspaceInformationMartinCard";
+import {
+  useMartinInformationCardAvailable,
+  WorkspaceInformationMartinCard,
+} from "./WorkspaceInformationMartinCard";
 import { WorkspaceInformationConnectedBrowserCard } from "./WorkspaceInformationConnectedBrowserCard";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 
@@ -1337,6 +1340,7 @@ export function WorkspaceInformationPanel() {
     () => new Set(visibleSectionIds),
     [visibleSectionIds],
   );
+  const showMartinCard = useMartinInformationCardAvailable();
   const sectionOrderIndexById = Object.fromEntries(
     sectionOrder.map((id, index) => [id, index]),
   ) as Record<WorkspaceInformationSectionId, number>;
@@ -1658,6 +1662,9 @@ export function WorkspaceInformationPanel() {
   ).length;
   const openTodoCount = totalTodoCount - completedTodoCount;
   const latestTurnSummary = workspaceInformation.turnSummary ?? null;
+  const connectedBrowserTab = workspaceInformation.connectedBrowserTab ?? null;
+  const showInformationTopCards =
+    showMartinCard || Boolean(connectedBrowserTab);
 
   return (
     <div
@@ -1665,12 +1672,14 @@ export function WorkspaceInformationPanel() {
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
       <div className="px-3 py-2">
-        <div className="mb-2 space-y-2">
-          <WorkspaceInformationMartinCard />
-          <WorkspaceInformationConnectedBrowserCard
-            tab={workspaceInformation.connectedBrowserTab ?? null}
-          />
-        </div>
+        {showInformationTopCards ? (
+          <div className="mb-2 space-y-2">
+            {showMartinCard ? <WorkspaceInformationMartinCard /> : null}
+            <WorkspaceInformationConnectedBrowserCard
+              tab={connectedBrowserTab}
+            />
+          </div>
+        ) : null}
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>
             <SectionVisibilityContext.Provider value={visibleSections}>
