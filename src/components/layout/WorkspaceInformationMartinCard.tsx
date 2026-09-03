@@ -10,8 +10,50 @@ import {
 } from "lucide-react";
 import { Badge, Button, Input, toast } from "@/components/ui";
 import type { MartinProjectSummary } from "@/lib/martin-sync/contract";
+import {
+  isMartinConnectorPaired,
+  isMartinInformationCardAvailable,
+} from "@/lib/martin-sync/visibility";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
+
+export function useMartinInformationCardAvailable() {
+  const martinProject = useAppStore(
+    (state) => state.workspaceInformation.martinProject ?? null,
+  );
+  const martinSyncEnabled = useAppStore(
+    (state) => state.settings.martinSync.enabled,
+  );
+  const [martinConnectorPaired, setMartinConnectorPaired] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshPairing = () => {
+      void window.api?.atelierConnector
+        ?.getStatus?.()
+        .then((result) => {
+          if (cancelled || !result) return;
+          setMartinConnectorPaired(isMartinConnectorPaired(result.status));
+        })
+        .catch(() => undefined);
+    };
+
+    refreshPairing();
+    const unsubscribe =
+      window.api?.martinSync?.subscribeStatus?.(refreshPairing);
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, []);
+
+  return isMartinInformationCardAvailable({
+    martinSyncEnabled,
+    martinConnectorPaired,
+    martinProject,
+  });
+}
 
 export function WorkspaceInformationMartinCard() {
   const project = useAppStore(
@@ -112,8 +154,7 @@ export function WorkspaceInformationMartinCard() {
   };
 
   const unlinkProject = async () => {
-    const unlinkProjectFromWorkspace =
-      window.api?.martinSync?.unlinkProject;
+    const unlinkProjectFromWorkspace = window.api?.martinSync?.unlinkProject;
     const workspaceId = activeWorkspaceId;
     if (!unlinkProjectFromWorkspace || !workspaceId) return;
 

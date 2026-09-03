@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  isMartinConnectorPaired,
+  isMartinInformationCardAvailable,
+} from "../src/lib/martin-sync/visibility";
+import {
   createEmptyWorkspaceInformation,
   type WorkspaceMartinProjectLink,
 } from "../src/lib/workspace-information";
@@ -51,5 +55,49 @@ describe("workspace Martin project information", () => {
     expect(
       buildWorkspaceInformationSeed(createDraft()).martinProject,
     ).toBeNull();
+  });
+});
+
+describe("Martin information card visibility", () => {
+  test("stays hidden until Martin is enabled, paired, or already linked", () => {
+    expect(isMartinInformationCardAvailable({})).toBe(false);
+    expect(isMartinInformationCardAvailable({ martinSyncEnabled: false })).toBe(
+      false,
+    );
+    expect(
+      isMartinInformationCardAvailable({ martinConnectorPaired: false }),
+    ).toBe(false);
+    expect(isMartinInformationCardAvailable({ martinProject: null })).toBe(
+      false,
+    );
+  });
+
+  test("appears after Martin sync is enabled", () => {
+    expect(isMartinInformationCardAvailable({ martinSyncEnabled: true })).toBe(
+      true,
+    );
+  });
+
+  test("appears after the Atelier connector is paired with Martin", () => {
+    expect(isMartinConnectorPaired(null)).toBe(false);
+    expect(isMartinConnectorPaired({ paired: true, scopes: ["crane"] })).toBe(
+      false,
+    );
+    expect(isMartinConnectorPaired({ paired: true, scopes: ["martin"] })).toBe(
+      true,
+    );
+    expect(
+      isMartinInformationCardAvailable({ martinConnectorPaired: true }),
+    ).toBe(true);
+  });
+
+  test("keeps a leftover linked project visible after sync is turned off", () => {
+    expect(
+      isMartinInformationCardAvailable({
+        martinSyncEnabled: false,
+        martinConnectorPaired: false,
+        martinProject: PROJECT_LINK,
+      }),
+    ).toBe(true);
   });
 });
