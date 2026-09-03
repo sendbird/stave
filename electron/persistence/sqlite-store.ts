@@ -50,6 +50,12 @@ import {
   CraneJobBindingStore,
   type LocalCraneJobBinding,
 } from "./crane-job-binding-store";
+import { TrackerTasksStore } from "./tracker-tasks-store";
+import type {
+  TrackerSourceId,
+  TrackerTask,
+  TrackerTaskStaveLink,
+} from "../../src/lib/tracker-tasks/types";
 import { TaskHeartbeatStore } from "./task-heartbeat-store";
 import type {
   TaskHeartbeat,
@@ -198,6 +204,7 @@ export class SqliteStore {
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
+  private trackerTasks: TrackerTasksStore;
   private martinSyncOutbox: MartinSyncOutboxStore;
   private taskHeartbeats: TaskHeartbeatStore;
   private _closed = false;
@@ -240,6 +247,15 @@ export class SqliteStore {
     this.bootstrap();
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
+    this.trackerTasks = new TrackerTasksStore(this.db, {
+      onUnreadableTaskRow: ({ source, taskRef }) => {
+        console.warn(
+          "[persistence] skipped an unreadable tracker task row",
+          source,
+          taskRef,
+        );
+      },
+    });
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.taskHeartbeats = new TaskHeartbeatStore(this.db);
     if (this.runMaintenance) {
@@ -2961,6 +2977,53 @@ export class SqliteStore {
 
   pruneCraneJobBindings(cutoff: string) {
     return this.craneJobBindings.pruneTerminalBefore(cutoff);
+  }
+
+  replaceTrackerSourceTasks(
+    source: TrackerSourceId,
+    tasks: TrackerTask[],
+    fetchedAt: string,
+  ) {
+    return this.trackerTasks.replaceSourceTasks(source, tasks, fetchedAt);
+  }
+
+  listTrackerSourceTasks(source?: TrackerSourceId) {
+    return this.trackerTasks.listSourceTasks(source);
+  }
+
+  getTrackerTask(source: TrackerSourceId, taskRef: string) {
+    return this.trackerTasks.getTask(source, taskRef);
+  }
+
+  countUnreadableTrackerTaskRows() {
+    return this.trackerTasks.getUnreadableTaskRowCount();
+  }
+
+  upsertTrackerTaskKickoff(link: TrackerTaskStaveLink) {
+    return this.trackerTasks.upsertKickoff(link);
+  }
+
+  listTrackerTaskKickoffs(args?: {
+    source?: TrackerSourceId;
+    taskRefs?: string[];
+  }) {
+    return this.trackerTasks.listKickoffs(args);
+  }
+
+  findTrackerTaskKickoffByCraneJobId(craneJobId: string) {
+    return this.trackerTasks.findKickoffByCraneJobId(craneJobId);
+  }
+
+  findTrackerTaskKickoffByStaveTask(taskId: string) {
+    return this.trackerTasks.findKickoffByStaveTask(taskId);
+  }
+
+  findLatestTrackerTaskKickoff(source: TrackerSourceId, taskRef: string) {
+    return this.trackerTasks.findLatestKickoffForTask(source, taskRef);
+  }
+
+  pruneTrackerTaskKickoffs(cutoff: string) {
+    return this.trackerTasks.pruneKickoffsBefore(cutoff);
   }
 
   enqueueMartinOutboxEntry(input: {

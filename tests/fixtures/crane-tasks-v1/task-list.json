@@ -1,0 +1,123 @@
+{
+  "contract": "crane-tasks-v1",
+  "tasks": [
+    {
+      "id": "task_01K9CRANE0000000000000101",
+      "number": 101,
+      "key": "CRN-101",
+      "title": "Tighten the workspace restore path",
+      "status": "in_progress",
+      "priority": "high",
+      "teamKey": "PLT",
+      "teamName": "Platform",
+      "projectId": "proj_01K9CRANE00000000000PLT1",
+      "projectName": "Workspace Reliability",
+      "assignee": {
+        "id": "user_01K9CRANE00000000000U001",
+        "name": "Riley Chen",
+        "email": "riley.chen@example.com",
+        "avatarUrl": "https://atelier.example.com/avatars/riley-chen.png"
+      },
+      "labels": [
+        { "name": "frontend", "color": "#5b8def" },
+        { "name": "needs-design" }
+      ],
+      "dueDate": "2026-03-06",
+      "estimate": null,
+      "parentKey": null,
+      "subtaskCount": 0,
+      "subtaskDoneCount": 0,
+      "createdAt": "2026-02-18T09:00:00+00:00",
+      "updatedAt": "2026-02-24T11:30:00+00:00",
+      "closedAt": null,
+      "jiraIssue": {
+        "issueKey": "PLAT-4821",
+        "issueUrl": "https://jira.example.com/browse/PLAT-4821"
+      },
+      "href": "https://atelier.example.com/crane/issues/CRN-101"
+    },
+    {
+      "id": "task_01K9CRANE0000000000000102",
+      "number": 102,
+      "key": "CRN-102",
+      "title": "Triage the unassigned inbox",
+      "status": "todo",
+      "priority": "none",
+      "teamKey": "PLT",
+      "teamName": "Platform",
+      "projectId": null,
+      "projectName": null,
+      "assignee": null,
+      "labels": [],
+      "dueDate": null,
+      "estimate": null,
+      "parentKey": null,
+      "subtaskCount": 0,
+      "subtaskDoneCount": 0,
+      "createdAt": "2026-02-20T02:15:00+00:00",
+      "updatedAt": "2026-02-20T02:15:00+00:00",
+      "closedAt": null,
+      "jiraIssue": null,
+      "href": "https://atelier.example.com/crane/issues/CRN-102"
+    },
+    {
+      "id": "task_01K9CRANE0000000000000103",
+      "number": 103,
+      "key": "CRN-103",
+      "title": "Split the settings surface into per-connector panels",
+      "status": "in_review",
+      "priority": "medium",
+      "teamKey": "PLT",
+      "teamName": "Platform",
+      "projectId": "proj_01K9CRANE00000000000PLT1",
+      "projectName": "Workspace Reliability",
+      "assignee": {
+        "id": "user_01K9CRANE00000000000U002",
+        "name": "Morgan Diaz",
+        "email": null,
+        "avatarUrl": null
+      },
+      "labels": [{ "name": "platform", "color": "slateblue" }],
+      "dueDate": "2026-03-20",
+      "estimate": 5,
+      "parentKey": null,
+      "subtaskCount": 5,
+      "subtaskDoneCount": 2,
+      "createdAt": "2026-02-11T22:40:00+09:00",
+      "updatedAt": "2026-02-25T18:05:00+09:00",
+      "closedAt": null,
+      "jiraIssue": null,
+      "href": "https://atelier.example.com/crane/issues/CRN-103"
+    },
+    {
+      "id": "task_01K9CRANE0000000000000104",
+      "number": 104,
+      "key": "CRN-104",
+      "title": "Document the connector scope matrix",
+      "status": "done",
+      "priority": "low",
+      "teamKey": "PLT",
+      "teamName": "Platform",
+      "projectId": "proj_01K9CRANE00000000000PLT1",
+      "projectName": "Workspace Reliability",
+      "assignee": {
+        "id": "user_01K9CRANE00000000000U001",
+        "name": "Riley Chen",
+        "avatarUrl": "https://atelier.example.com/avatars/riley-chen.png"
+      },
+      "labels": [{ "name": "docs" }],
+      "dueDate": null,
+      "estimate": 1,
+      "parentKey": "CRN-103",
+      "subtaskCount": 2,
+      "subtaskDoneCount": 2,
+      "createdAt": "2026-02-12T01:00:00+00:00",
+      "updatedAt": "2026-02-23T07:45:00+00:00",
+      "closedAt": "2026-02-23T07:45:00+00:00",
+      "jiraIssue": null,
+      "href": "https://atelier.example.com/crane/issues/CRN-104"
+    }
+  ],
+  "nextCursor": "crn_cursor_page_2",
+  "generatedAt": "2026-02-25T12:00:00+00:00"
+}

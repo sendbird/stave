@@ -1,5 +1,5 @@
 import type { MouseEvent } from "react";
-import { ExternalLink } from "lucide-react";
+import { Cable, ExternalLink } from "lucide-react";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
 import {
   Tooltip,
@@ -80,12 +80,24 @@ function ConfluenceBadgeIcon({ className }: { className?: string }) {
   );
 }
 
+function CraneBadgeIcon({ className }: { className?: string }) {
+  // Crane has no brand mark to draw, so it reuses the connector glyph every
+  // other Crane surface in the app already shows.
+  return (
+    <Cable
+      aria-hidden="true"
+      className={cn("h-[1em] w-[1em] shrink-0", className)}
+    />
+  );
+}
+
 const SERVICE_BADGE_ICONS: Record<
   ServiceLinkKind,
   (props: { className?: string }) => React.JSX.Element
 > = {
   figma: FigmaBadgeIcon,
   jira: JiraBadgeIcon,
+  crane: CraneBadgeIcon,
   confluence: ConfluenceBadgeIcon,
 };
 

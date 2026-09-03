@@ -1,0 +1,30 @@
+{
+  "job": {
+    "version": 1,
+    "id": "job_01K9CRANESTAVE0000000101",
+    "kind": "run_task",
+    "connectorId": "connector_01K9LOCALSTAVE000000001",
+    "issue": {
+      "id": "task_01K9CRANE0000000000000101",
+      "key": "CRN-101",
+      "title": "Tighten the workspace restore path",
+      "description": "Restore each pane independently and report a pane that cannot mount instead of blocking the rest.",
+      "href": "https://atelier.example.com/crane/issues/CRN-101",
+      "updatedAt": "2026-02-24T11:30:00+00:00",
+      "links": [
+        {
+          "rel": "jira",
+          "url": "https://jira.example.com/browse/PLAT-4821",
+          "key": "PLAT-4821"
+        }
+      ]
+    },
+    "instruction": "Restore each pane independently and surface a mount failure inline. Run the focused terminal and pane tests.",
+    "requestedAt": "2026-02-25T12:00:00+00:00",
+    "expiresAt": "2026-02-26T12:00:00+00:00"
+  },
+  "leaseId": "stl_01K9CRANELEASE0000000001",
+  "leaseExpiresAt": "2026-02-25T12:10:00+00:00",
+  "nextSequence": 1,
+  "retryAfterMs": 15000
+}

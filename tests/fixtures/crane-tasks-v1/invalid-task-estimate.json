@@ -1,0 +1,31 @@
+{
+  "contract": "crane-tasks-v1",
+  "tasks": [
+    {
+      "id": "task-1a2b3c4d",
+      "number": 43,
+      "key": "CRN-43",
+      "title": "Draft the tasks API doc",
+      "status": "todo",
+      "priority": "none",
+      "teamKey": "CRN",
+      "teamName": "Crane Core",
+      "projectId": null,
+      "projectName": null,
+      "assignee": null,
+      "labels": [],
+      "dueDate": null,
+      "estimate": 4,
+      "parentKey": null,
+      "subtaskCount": 0,
+      "subtaskDoneCount": 0,
+      "createdAt": "2026-08-02T00:00:00.000Z",
+      "updatedAt": "2026-08-30T09:30:00.000Z",
+      "closedAt": null,
+      "jiraIssue": null,
+      "href": "https://atelier.example.test/apps/crane/w/frontend/task/CRN-43"
+    }
+  ],
+  "nextCursor": null,
+  "generatedAt": "2026-09-03T00:00:00.000Z"
+}

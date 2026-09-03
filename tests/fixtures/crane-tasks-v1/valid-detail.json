@@ -1,0 +1,39 @@
+{
+  "contract": "crane-tasks-v1",
+  "task": {
+    "id": "task-9f1c2d3e",
+    "number": 42,
+    "key": "CRN-42",
+    "title": "Connect Crane to Stave",
+    "status": "in_progress",
+    "priority": "high",
+    "teamKey": "CRN",
+    "teamName": "Crane Core",
+    "projectId": "project-7a",
+    "projectName": "Desktop Integration",
+    "assignee": {
+      "id": "user-stave",
+      "name": "Stave User",
+      "email": "stave@example.test",
+      "avatarUrl": "https://atelier.example.test/avatars/stave.png"
+    },
+    "labels": [
+      { "name": "backend", "color": "info" },
+      { "name": "priority", "color": "warning" }
+    ],
+    "dueDate": "2026-09-30",
+    "estimate": 3,
+    "parentKey": "CRN-40",
+    "subtaskCount": 3,
+    "subtaskDoneCount": 1,
+    "createdAt": "2026-08-01T00:00:00.000Z",
+    "updatedAt": "2026-09-01T12:00:00.000Z",
+    "closedAt": null,
+    "jiraIssue": {
+      "issueKey": "DFE-2898",
+      "issueUrl": "https://sendbird.atlassian.net/browse/DFE-2898"
+    },
+    "href": "https://atelier.example.test/apps/crane/w/frontend/task/CRN-42",
+    "description": "Add a connector-authenticated read API for the caller's own Crane tasks, plus a Stave-initiated create-and-claim route so a run started from Stave shows up in Crane."
+  }
+}

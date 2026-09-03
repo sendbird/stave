@@ -217,6 +217,20 @@
         "electron/host-service/task-supervisor-runtime.ts",
         "electron/persistence/task-heartbeat-store.ts"
       ]
+    },
+    {
+      "id": "tracker-credentials-stay-in-main",
+      "title": "Tracker credentials never reach the renderer",
+      "invariant": "A Jira site credential is written only as ciphertext by a vault that fails closed when encryption is unavailable, travels renderer-to-main only, and is never readable back: every tracker IPC reply and public status carries account identity at most, never an email, an API token, or a Crane connector secret, and the preload bridge exposes no getter for any of them.",
+      "testFiles": [
+        "tests/tracker-credentials-boundary.test.ts",
+        "tests/jira-credential-vault.test.ts"
+      ],
+      "assertionRefs": [
+        "electron/main/jira-connector/credential-vault.ts",
+        "electron/main/ipc/jira-connector.ts",
+        "src/lib/jira-connector/types.ts"
+      ]
     }
   ]
 }

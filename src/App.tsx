@@ -14,6 +14,7 @@ import {
   setCraneConnectorClientStatus,
 } from "@/lib/crane-connector/client-state";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
+import { bootstrapTrackerTasksClient } from "@/lib/tracker-tasks/bootstrap";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
 import { primeProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
@@ -130,20 +131,14 @@ export default function App() {
       settings: ReturnType<typeof useAppStore.getState>["settings"],
     ) => {
       void syncApi
-        .configure?.(
-          normalizeMartinSyncSettings(settings.martinSync),
-        )
+        .configure?.(normalizeMartinSyncSettings(settings.martinSync))
         .catch(() => undefined);
     };
 
     pushConfig(useAppStore.getState().settings);
     return useAppStore.subscribe((state, previous) => {
-      const current = normalizeMartinSyncSettings(
-        state.settings.martinSync,
-      );
-      const prior = normalizeMartinSyncSettings(
-        previous.settings.martinSync,
-      );
+      const current = normalizeMartinSyncSettings(state.settings.martinSync);
+      const prior = normalizeMartinSyncSettings(previous.settings.martinSync);
       if (
         current.enabled === prior.enabled &&
         current.prOpened === prior.prOpened &&
@@ -251,6 +246,10 @@ export default function App() {
       unsubscribeStore();
     };
   }, []);
+
+  // The tracker mirror has to be live before the surface opens: the top-bar
+  // badge reads it, and a first open must not start from an empty list.
+  useEffect(() => bootstrapTrackerTasksClient(), []);
 
   useEffect(() => {
     pushLensSecurityConfig();

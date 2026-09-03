@@ -37,6 +37,9 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_add_workspace_custom_field",
   "stave_set_workspace_custom_field",
   "stave_remove_workspace_custom_field",
+  // Reading the tracker cache is local and read-only. Starting a run from a
+  // ticket is not, so kickoff has no tool at all and stays a user action.
+  "stave_list_tracker_tasks",
   "stave_list_routines",
   "stave_create_routine",
   "stave_update_routine",

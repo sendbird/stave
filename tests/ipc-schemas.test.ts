@@ -9,6 +9,9 @@ import {
   CreatePRArgsSchema,
   EnhancePromptArgsSchema,
   FilesystemRepoMapArgsSchema,
+  JiraConnectorConfigureArgsSchema,
+  JiraConnectorSetCredentialArgsSchema,
+  JiraConnectorTestConnectionArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
   McpServerConfigMutationApplyArgsSchema,
   McpServerConfigMutationArgsSchema,
@@ -22,6 +25,13 @@ import {
   SuggestPRDescriptionArgsSchema,
   SuggestTaskNameArgsSchema,
   TerminalCreateSessionArgsSchema,
+  TrackerTaskAttachStaveTaskArgsSchema,
+  TrackerTaskKickoffArgsSchema,
+  TrackerTaskRefArgsSchema,
+  TrackerTasksConfigureArgsSchema,
+  TrackerTasksListArgsSchema,
+  TrackerTasksRefreshArgsSchema,
+  TrackerTasksSurfaceVisibleArgsSchema,
   StreamTurnArgsSchema,
   TryAutoFixLintArgsSchema,
 } from "../electron/main/ipc/schemas";
@@ -765,6 +775,198 @@ describe("provider IPC schemas", () => {
       LocalMcpConfigUpdateArgsSchema.safeParse({
         codexAutoRegister: "off",
       }).success,
+    ).toBe(false);
+  });
+});
+
+/**
+ * A kickoff payload that satisfies every field, so each test below can change
+ * exactly the one thing it is about.
+ */
+function kickoffArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    source: "crane",
+    taskRef: "CRN-42",
+    projectPath: "/tmp/project",
+    workspace: { strategy: "new", branchName: "tracker/crn-42" },
+    runtime: {
+      provider: "claude-code",
+      model: "claude-sonnet-4",
+      providerTimeoutMs: 600_000,
+      claudePermissionMode: "default",
+      claudeSandboxEnabled: true,
+      claudeAllowUnsandboxedCommands: false,
+      claudeAllowDangerouslySkipPermissions: false,
+      claudeEffort: "medium",
+      advisorTarget: null,
+    },
+    instruction: "Fix the failing login redirect.",
+    startMode: "run",
+    craneWriteBack: false,
+    ...overrides,
+  };
+}
+
+describe("tracker task IPC schemas", () => {
+  test("round-trips the tracker list, refresh, detail and surface arguments", () => {
+    expect(TrackerTasksListArgsSchema.safeParse({}).success).toBe(true);
+    expect(
+      TrackerTasksListArgsSchema.safeParse({ source: "jira" }).success,
+    ).toBe(true);
+    expect(
+      TrackerTasksListArgsSchema.safeParse({ source: "unknown" }).success,
+    ).toBe(false);
+
+    expect(TrackerTasksRefreshArgsSchema.safeParse({}).success).toBe(true);
+    expect(
+      TrackerTasksRefreshArgsSchema.safeParse({ source: "crane" }).success,
+    ).toBe(true);
+
+    expect(
+      TrackerTaskRefArgsSchema.safeParse({ source: "crane", taskRef: "CRN-42" })
+        .success,
+    ).toBe(true);
+    expect(
+      TrackerTaskRefArgsSchema.safeParse({ source: "crane", taskRef: "" })
+        .success,
+    ).toBe(false);
+
+    expect(
+      TrackerTasksSurfaceVisibleArgsSchema.safeParse({ visible: true }).success,
+    ).toBe(true);
+    expect(
+      TrackerTasksSurfaceVisibleArgsSchema.safeParse({ visible: "yes" })
+        .success,
+    ).toBe(false);
+
+    expect(
+      TrackerTaskAttachStaveTaskArgsSchema.safeParse({
+        kickoffId: "kickoff-1",
+        taskId: "task-1",
+      }).success,
+    ).toBe(true);
+    expect(
+      TrackerTaskAttachStaveTaskArgsSchema.safeParse({ kickoffId: "kickoff-1" })
+        .success,
+    ).toBe(false);
+  });
+
+  test("round-trips tracker task settings", () => {
+    const parsed = TrackerTasksConfigureArgsSchema.safeParse({
+      defaultView: "assigned-open",
+      refreshIntervalSeconds: 300,
+      defaultKickoffStartMode: "run",
+    });
+    expect(parsed.success).toBe(true);
+    expect(
+      TrackerTasksConfigureArgsSchema.safeParse({
+        defaultView: "assigned-open",
+        refreshIntervalSeconds: 5,
+        defaultKickoffStartMode: "run",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("accepts a kickoff and rejects an impossible write-back", () => {
+    expect(TrackerTaskKickoffArgsSchema.safeParse(kickoffArgs()).success).toBe(
+      true,
+    );
+    // The only shape write-back can honour: a Crane ticket that starts now.
+    expect(
+      TrackerTaskKickoffArgsSchema.safeParse(
+        kickoffArgs({ craneWriteBack: true }),
+      ).success,
+    ).toBe(true);
+    expect(
+      TrackerTaskKickoffArgsSchema.safeParse(
+        kickoffArgs({ source: "jira", craneWriteBack: true }),
+      ).success,
+    ).toBe(false);
+    expect(
+      TrackerTaskKickoffArgsSchema.safeParse(
+        kickoffArgs({ startMode: "stage", craneWriteBack: true }),
+      ).success,
+    ).toBe(false);
+    // A staged prompt without write-back is still a valid request.
+    expect(
+      TrackerTaskKickoffArgsSchema.safeParse(
+        kickoffArgs({ startMode: "stage" }),
+      ).success,
+    ).toBe(true);
+  });
+
+  test("rejects an empty or oversize kickoff instruction", () => {
+    expect(
+      TrackerTaskKickoffArgsSchema.safeParse(
+        kickoffArgs({ instruction: "   " }),
+      ).success,
+    ).toBe(false);
+    expect(
+      TrackerTaskKickoffArgsSchema.safeParse(
+        kickoffArgs({ instruction: "x".repeat(4_001) }),
+      ).success,
+    ).toBe(false);
+  });
+});
+
+describe("Jira connector IPC schemas", () => {
+  test("round-trips connector settings and normalizes the site URL", () => {
+    const parsed = JiraConnectorConfigureArgsSchema.safeParse({
+      enabled: true,
+      siteUrl: "https://example.atlassian.net/",
+      authMode: "cloud-api-token",
+      jql: "assignee = currentUser()",
+      maxResults: 25,
+      projectMappings: [
+        { jiraProjectKey: "PLAT", staveProjectPath: "/tmp/project" },
+      ],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.siteUrl).toBe(
+      "https://example.atlassian.net",
+    );
+    // Credentials must not ride along with the settings document.
+    expect(
+      JiraConnectorConfigureArgsSchema.safeParse({
+        enabled: true,
+        siteUrl: "https://example.atlassian.net",
+        authMode: "cloud-api-token",
+        jql: "assignee = currentUser()",
+        maxResults: 25,
+        projectMappings: [],
+        token: "secret-token",
+      }).success,
+    ).toBe(false);
+    expect(
+      JiraConnectorConfigureArgsSchema.safeParse({
+        enabled: true,
+        siteUrl: "http://example.atlassian.net",
+        authMode: "cloud-api-token",
+        jql: "",
+        maxResults: 25,
+        projectMappings: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("round-trips the credential and connection-test arguments", () => {
+    expect(
+      JiraConnectorSetCredentialArgsSchema.safeParse({
+        email: "user@example.com",
+        token: "api-token",
+      }).success,
+    ).toBe(true);
+    expect(
+      JiraConnectorSetCredentialArgsSchema.safeParse({
+        email: "user@example.com",
+        token: "",
+      }).success,
+    ).toBe(false);
+    expect(JiraConnectorTestConnectionArgsSchema.safeParse({}).success).toBe(
+      true,
+    );
+    expect(
+      JiraConnectorTestConnectionArgsSchema.safeParse({ force: true }).success,
     ).toBe(false);
   });
 });

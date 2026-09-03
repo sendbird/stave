@@ -1,0 +1,39 @@
+{
+  "contract": "crane-tasks-v1",
+  "task": {
+    "id": "task_01K9CRANE0000000000000101",
+    "number": 101,
+    "key": "CRN-101",
+    "title": "Tighten the workspace restore path",
+    "status": "in_progress",
+    "priority": "high",
+    "teamKey": "PLT",
+    "teamName": "Platform",
+    "projectId": "proj_01K9CRANE00000000000PLT1",
+    "projectName": "Workspace Reliability",
+    "assignee": {
+      "id": "user_01K9CRANE00000000000U001",
+      "name": "Riley Chen",
+      "email": "riley.chen@example.com",
+      "avatarUrl": "https://atelier.example.com/avatars/riley-chen.png"
+    },
+    "labels": [
+      { "name": "frontend", "color": "#5b8def" },
+      { "name": "needs-design" }
+    ],
+    "dueDate": "2026-03-06",
+    "estimate": 3,
+    "parentKey": null,
+    "subtaskCount": 3,
+    "subtaskDoneCount": 1,
+    "createdAt": "2026-02-18T09:00:00+00:00",
+    "updatedAt": "2026-02-24T11:30:00+00:00",
+    "closedAt": null,
+    "jiraIssue": {
+      "issueKey": "PLAT-4821",
+      "issueUrl": "https://jira.example.com/browse/PLAT-4821"
+    },
+    "href": "https://atelier.example.com/crane/issues/CRN-101",
+    "description": "Restoring a workspace after a crash currently replays every pane in the order it was written, so a pane that fails to mount blocks the ones behind it.\n\n## Expected\n\n- Each pane restores independently.\n- A pane that cannot mount is reported inline and skipped.\n- The remaining panes still reach their saved size.\n\n## Notes\n\nThe restore order is only meaningful for focus, not for layout. See the linked issue for the original report and the recorded session.\n\n```\nrestore(panes) -> settle(layout) -> focus(lastActive)\n```\n"
+  }
+}

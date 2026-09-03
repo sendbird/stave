@@ -3,6 +3,7 @@ import type {
   CraneConnectorConfigInput,
   CraneConnectorPairInput,
   CraneDispatchApprovalResponse,
+  CraneDispatchJobUpdate,
 } from "../../../src/lib/crane-connector/types";
 import {
   addWorkspaceCraneIssue,
@@ -31,6 +32,25 @@ function sendToRenderer(channel: string, payload: unknown) {
     return;
   }
   renderer.send(channel, payload);
+}
+
+/**
+ * Mirror a job update onto the tracker surface so a ticket's Stave-run badge
+ * follows the dispatch. Lazily imported to keep the two singleton services free
+ * of an import cycle, and fully guarded: the tracker is a read-side mirror and
+ * its failure must never break Crane dispatch.
+ */
+function forwardJobUpdateToTracker(update: CraneDispatchJobUpdate) {
+  void import("../tracker-tasks/service")
+    .then(({ getTrackerTasksRuntime }) => {
+      getTrackerTasksRuntime().noteCraneJobUpdate(update);
+    })
+    .catch((error) => {
+      console.error(
+        "[crane-connector] failed to forward a job update to the tracker",
+        error,
+      );
+    });
 }
 
 export function getCraneConnectorRuntime() {
@@ -69,10 +89,11 @@ export function getCraneConnectorRuntime() {
       }
     },
     emitStatus: (status) => sendToRenderer(STATUS_EVENT, status),
-    emitApproval: (request) =>
-      sendToRenderer(APPROVAL_EVENT, request),
-    emitJobUpdate: (update) =>
-      sendToRenderer(JOB_UPDATE_EVENT, update),
+    emitApproval: (request) => sendToRenderer(APPROVAL_EVENT, request),
+    emitJobUpdate: (update) => {
+      sendToRenderer(JOB_UPDATE_EVENT, update);
+      forwardJobUpdateToTracker(update);
+    },
   });
   return runtime;
 }
@@ -81,9 +102,7 @@ export function getCraneConnectorStatus() {
   return getCraneConnectorRuntime().getStatus();
 }
 
-export function configureCraneConnector(
-  input: CraneConnectorConfigInput,
-) {
+export function configureCraneConnector(input: CraneConnectorConfigInput) {
   return getCraneConnectorRuntime().configure(input);
 }
 
@@ -95,9 +114,7 @@ export function disconnectCraneConnector() {
   return getCraneConnectorRuntime().disconnect();
 }
 
-export function approveCraneDispatch(
-  input: CraneDispatchApprovalResponse,
-) {
+export function approveCraneDispatch(input: CraneDispatchApprovalResponse) {
   return getCraneConnectorRuntime().approve(input);
 }
 

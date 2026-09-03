@@ -37,6 +37,7 @@ import { listLatestWorkspaceTurns } from "@/lib/db/turns.db";
 import { LENS_SURFACE_ROOT_ID } from "@/lib/lens/lens-guest-host";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { isTaskArchived } from "@/lib/tasks";
+import { refreshTrackerTasks } from "@/lib/tracker-tasks/client-state";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
@@ -94,6 +95,13 @@ const KickoffDialog = lazy(() =>
     default: module.KickoffDialog,
   })),
 );
+// Lazy on purpose: the tracker list, its filters, and the kickoff form are dead
+// weight for the majority of sessions that never open the surface.
+const TasksView = lazy(() =>
+  import("./tasks/TasksView").then((module) => ({
+    default: module.TasksView,
+  })),
+);
 
 type ResizableLayoutKey = "workspaceSidebarWidth" | "explorerPanelWidth";
 
@@ -135,6 +143,8 @@ export function AppShell() {
     refreshWorkspaces,
     openFleetView,
     openAutomationCenter,
+    openTasks,
+    closeTasks,
     openProject,
     switchWorkspace,
     abortTaskTurn,
@@ -177,6 +187,8 @@ export function AppShell() {
           state.refreshWorkspaces,
           state.openFleetView,
           state.openAutomationCenter,
+          state.openTasks,
+          state.closeTasks,
           state.openProject,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -607,6 +619,9 @@ export function AppShell() {
           return;
         case "navigation.automation-center":
           store.toggleAutomationCenter();
+          return;
+        case "navigation.tasks":
+          store.toggleTasks();
           return;
         case "view.toggle-workspace-sidebar":
           store.setLayout({
@@ -1123,6 +1138,8 @@ export function AppShell() {
         openFleetView: () => openFleetView(),
         openGitGraph: focusOrCreateGitGraphSurface,
         openAutomationCenter: () => openAutomationCenter(),
+        openTasks: () => openTasks(),
+        refreshTrackerTasks: () => refreshTrackerTasks().then(() => undefined),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openProject: (nextProjectPath: string) =>
           openProject({ projectPath: nextProjectPath }),
@@ -1213,6 +1230,7 @@ export function AppShell() {
       modifierLabel,
       openFleetView,
       openAutomationCenter,
+      openTasks,
       handleStartCompareRun,
       openProject,
       projectPath,
@@ -1243,7 +1261,9 @@ export function AppShell() {
   );
   const showFleetView = activeAppSurface.kind === "fleet-view";
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
-  const showWorkspaceSurface = !showFleetView && !showAutomationCenter;
+  const showTasks = activeAppSurface.kind === "tasks";
+  const showWorkspaceSurface =
+    !showFleetView && !showAutomationCenter && !showTasks;
 
   return (
     <div className="relative flex h-full w-full flex-col bg-background text-foreground">
@@ -1416,6 +1436,16 @@ export function AppShell() {
                     <FleetView />
                   ) : showAutomationCenter ? (
                     <AutomationCenterView />
+                  ) : showTasks ? (
+                    <Suspense
+                      fallback={
+                        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                          Loading tasks...
+                        </div>
+                      }
+                    >
+                      <TasksView onClose={closeTasks} />
+                    </Suspense>
                   ) : (
                     <RenderProfiler id="WorkspacePaneHost" thresholdMs={10}>
                       <WorkspacePaneHost />

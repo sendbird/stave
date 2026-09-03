@@ -145,6 +145,12 @@ For workspace Information panel management, also use:
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`
 
+To read the tracker tickets Stave has cached for the signed-in user:
+
+- `stave_list_tracker_tasks`
+
+It is read-only and takes `source`, `statusCategories`, `search`, `limit`, and `refresh`. Starting a run from a ticket is deliberately not exposed: a kickoff spends provider budget and, for Crane, is visible to the rest of the team, so it stays a human action in the [Tasks surface](tasks.md).
+
 Agents that already receive Stave task awareness context should treat that injected context as current.
 Call `stave_get_workspace_information` only when the injected summary is missing a detail needed for the next action.
 Keep notes and todos compact; store long handoff or execution details in `.stave/context/plans/` and reference the plan path from notes.

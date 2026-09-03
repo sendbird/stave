@@ -38,7 +38,9 @@ import {
 } from "@/components/ai-elements/model-selector";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
+import { JiraConnectorSettingsSection } from "@/components/layout/settings-dialog-jira-connector";
 import { MartinSyncSettingsSection } from "@/components/layout/settings-dialog-martin-sync";
+import { TrackerTasksSettingsSection } from "@/components/layout/settings-dialog-tasks-section";
 import { SettingsModelVisibilitySection } from "@/components/layout/settings-dialog-model-visibility";
 import {
   PROMPT_MODEL_PROVIDER_IDS,
@@ -2288,9 +2290,7 @@ function ModelsSection() {
                 updateSettings({
                   patch: {
                     utilityInferenceProvider: value as
-                      | "auto"
-                      | "claude-code"
-                      | "codex",
+                      "auto" | "claude-code" | "codex",
                   },
                 })
               }
@@ -3979,9 +3979,12 @@ export function SettingsDialogSectionContent(args: {
       return (
         <div className="space-y-8">
           <CraneConnectorSettingsSection />
+          <JiraConnectorSettingsSection />
           <MartinSyncSettingsSection />
         </div>
       );
+    case "tasks":
+      return <TrackerTasksSettingsSection />;
     case "kickoff":
       return <KickoffSection />;
     case "auxiliaryInference":

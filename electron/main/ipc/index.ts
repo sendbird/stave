@@ -4,6 +4,7 @@ import { registerAtelierConnectorHandlers } from "./atelier-connector";
 import { registerBrowserHandlers } from "./browser";
 import { registerCraneConnectorHandlers } from "./crane-connector";
 import { registerDiagnosticsHandlers } from "./diagnostics";
+import { registerJiraConnectorHandlers } from "./jira-connector";
 import { registerLocalMcpHandlers } from "./local-mcp";
 import { registerEslintHandlers } from "./eslint";
 import { registerMartinSyncHandlers } from "./martin-sync";
@@ -20,6 +21,7 @@ import { registerSkillsHandlers } from "./skills";
 import { registerTerminalHandlers } from "./terminal";
 import { registerTaskControlHandlers } from "./task-control";
 import { registerToolingHandlers } from "./tooling";
+import { registerTrackerTasksHandlers } from "./tracker-tasks";
 import { registerWindowHandlers } from "./window";
 import { registerWorkspaceScriptHandlers } from "./workspace-scripts";
 
@@ -46,6 +48,8 @@ export function registerHandlers() {
   registerAtelierConnectorHandlers();
   registerCraneConnectorHandlers();
   registerMartinSyncHandlers();
+  registerJiraConnectorHandlers();
+  registerTrackerTasksHandlers();
   registerBrowserHandlers();
   registerSecretHandlers();
 }

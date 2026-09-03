@@ -35,6 +35,20 @@ export {
   MartinSyncLinksChangedArgsSchema,
   MartinWorkspaceArgsSchema,
 } from "../../../src/lib/martin-sync/types";
+export {
+  TrackerTaskAttachStaveTaskArgsSchema,
+  TrackerTaskKickoffArgsSchema,
+  TrackerTaskRefArgsSchema,
+  TrackerTasksListArgsSchema,
+  TrackerTasksRefreshArgsSchema,
+  TrackerTasksSurfaceVisibleArgsSchema,
+} from "../../../src/lib/tracker-tasks/types";
+export { TrackerTasksSettingsSchema as TrackerTasksConfigureArgsSchema } from "../../../src/lib/tracker-tasks/settings";
+export {
+  JiraConnectorConfigureArgsSchema,
+  JiraConnectorSetCredentialArgsSchema,
+  JiraConnectorTestConnectionArgsSchema,
+} from "../../../src/lib/jira-connector/types";
 
 const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 

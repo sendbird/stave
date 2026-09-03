@@ -11,9 +11,9 @@ describe("resolveServiceLinkBadge", () => {
   });
 
   test("falls back to the service name for Figma links without a title", () => {
-    expect(
-      resolveServiceLinkBadge("https://figma.com/file/AbCdEf123"),
-    ).toEqual({ kind: "figma", label: "Figma" });
+    expect(resolveServiceLinkBadge("https://figma.com/file/AbCdEf123")).toEqual(
+      { kind: "figma", label: "Figma" },
+    );
   });
 
   test("resolves Jira issue links to the issue key", () => {
@@ -26,6 +26,34 @@ describe("resolveServiceLinkBadge", () => {
     expect(
       resolveServiceLinkBadge("https://jira.example.com/browse/ABC-42"),
     ).toEqual({ kind: "jira", label: "ABC-42" });
+  });
+
+  test("resolves Crane task links to the Crane badge", () => {
+    expect(
+      resolveServiceLinkBadge(
+        "https://tracker.example.com/apps/crane/w/TFE/task/CRN-42",
+      ),
+    ).toEqual({ kind: "crane", label: "CRN-42" });
+  });
+
+  test("keeps a Crane link off the Jira badge even on a Jira-looking host", () => {
+    expect(
+      resolveServiceLinkBadge(
+        "https://jira.example.com/apps/crane/w/TFE/task/CRN-42",
+      ),
+    ).toEqual({ kind: "crane", label: "CRN-42" });
+  });
+
+  test("keeps resolving a genuine Jira link alongside the Crane branch", () => {
+    expect(
+      resolveServiceLinkBadge("https://company.atlassian.net/browse/CRN-42"),
+    ).toEqual({ kind: "jira", label: "CRN-42" });
+  });
+
+  test("falls back to the service name for a Crane link without a task key", () => {
+    expect(
+      resolveServiceLinkBadge("https://tracker.example.com/apps/crane/w/TFE"),
+    ).toEqual({ kind: "crane", label: "Crane" });
   });
 
   test("does not treat issue-key-shaped tokens on arbitrary hosts as Jira", () => {
@@ -60,7 +88,9 @@ describe("resolveServiceLinkBadge", () => {
 
   test("returns null for plain external links", () => {
     expect(resolveServiceLinkBadge("https://example.com/docs")).toBeNull();
-    expect(resolveServiceLinkBadge("https://github.com/org/repo/pull/1")).toBeNull();
+    expect(
+      resolveServiceLinkBadge("https://github.com/org/repo/pull/1"),
+    ).toBeNull();
   });
 
   test("returns null for non-http protocols and invalid input", () => {

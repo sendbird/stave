@@ -1328,6 +1328,8 @@ export function WorkspaceInformationPanel() {
         visibility: infoPanelSectionVisibility,
         information: workspaceInformation,
         craneConnectorEnabled,
+        // TODO(tasks-surface): read `settings.jiraConnector.enabled` once the Jira connector slice exists.
+        jiraConnectorEnabled: false,
       }),
     [craneConnectorEnabled, infoPanelSectionVisibility, workspaceInformation],
   );

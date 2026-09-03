@@ -105,6 +105,12 @@ import {
   refreshMartinContext,
   unlinkMartinProject,
 } from "./martin-sync/project-link";
+import { listTrackerTasks, refreshTrackerTasks } from "./tracker-tasks/service";
+import {
+  TRACKER_SOURCE_IDS,
+  TRACKER_STATUS_CATEGORIES,
+  type TrackerTaskListItem,
+} from "../../src/lib/tracker-tasks/types";
 
 let httpServer: Server | null = null;
 let manifestPaths: string[] = [];
@@ -120,6 +126,42 @@ function toStructuredResult<T>(value: T) {
     ],
     structuredContent: value,
   };
+}
+
+/** Rows a single `stave_list_tracker_tasks` call returns when none is asked for. */
+const DEFAULT_TRACKER_TASK_TOOL_LIMIT = 20;
+
+function toTextResult(text: string) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text,
+      },
+    ],
+  };
+}
+
+/**
+ * One line per ticket rather than the cached row.
+ *
+ * A tracker row carries labels, links, nested assignees and four timestamps.
+ * None of it helps a model answer "what should I pick up next", and twenty of
+ * them serialized would cost more context than the answer is worth, so the
+ * fields a person scans are flattened into a single line instead.
+ */
+function formatTrackerTaskLine(item: TrackerTaskListItem) {
+  const { task } = item;
+  // The newest link is the live one: a retry appends rather than replaces.
+  const staveLink = item.staveLinks.at(-1);
+  return [
+    `${task.key} [${task.source}]`,
+    task.status.raw,
+    `priority ${task.priority.level}`,
+    task.dueDate ? `due ${task.dueDate}` : "no due date",
+    staveLink ? `stave run ${staveLink.state}` : "no stave run",
+    `- ${task.title}`,
+  ].join(" | ");
 }
 
 function resolveAuthToken(req: IncomingMessage, url: URL) {
@@ -339,16 +381,11 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
         "Link a Stave workspace to a Martin project and pull its context snapshot.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Target workspace id."),
-        projectRef: z
-          .string()
-          .min(1)
-          .describe("Martin project slug or id."),
+        projectRef: z.string().min(1).describe("Martin project slug or id."),
       },
     },
     async ({ workspaceId, projectRef }) =>
-      toStructuredResult(
-        await linkMartinProject({ workspaceId, projectRef }),
-      ),
+      toStructuredResult(await linkMartinProject({ workspaceId, projectRef })),
   );
 
   server.registerTool(
@@ -374,6 +411,66 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
     },
     async ({ workspaceId }) =>
       toStructuredResult(await refreshMartinContext({ workspaceId })),
+  );
+
+  server.registerTool(
+    "stave_list_tracker_tasks",
+    {
+      description:
+        "List the tracker tickets Stave has cached for the signed-in user. Read-only; optionally refreshes the cache from the configured sources first.",
+      inputSchema: {
+        source: z
+          .enum(TRACKER_SOURCE_IDS)
+          .optional()
+          .describe("Limit the result to one tracker source."),
+        statusCategories: z
+          .array(z.enum(TRACKER_STATUS_CATEGORIES))
+          .max(TRACKER_STATUS_CATEGORIES.length)
+          .optional()
+          .describe("Keep only tickets in these normalized status buckets."),
+        search: z
+          .string()
+          .max(200)
+          .optional()
+          .describe("Case-insensitive match against the ticket key or title."),
+        limit: z.number().int().min(1).max(100).optional(),
+        refresh: z
+          .boolean()
+          .optional()
+          .describe("Refresh from the tracker before reading the cache."),
+      },
+    },
+    async ({ source, statusCategories, search, limit, refresh }) => {
+      if (refresh) {
+        await refreshTrackerTasks({ source });
+      }
+      const cached = listTrackerTasks({ source });
+      const wanted =
+        statusCategories && statusCategories.length > 0
+          ? new Set(statusCategories)
+          : null;
+      const needle = search?.trim().toLowerCase() ?? "";
+      const matched = cached.filter(({ task }) => {
+        if (wanted && !wanted.has(task.status.category)) {
+          return false;
+        }
+        if (needle.length === 0) {
+          return true;
+        }
+        return (
+          task.key.toLowerCase().includes(needle) ||
+          task.title.toLowerCase().includes(needle)
+        );
+      });
+      const shown = matched.slice(0, limit ?? DEFAULT_TRACKER_TASK_TOOL_LIMIT);
+      if (shown.length === 0) {
+        return toTextResult("No tracker tasks matched.");
+      }
+      const header = `${shown.length} of ${matched.length} matching tracker tasks (${cached.length} cached).`;
+      return toTextResult(
+        [header, ...shown.map(formatTrackerTaskLine)].join("\n"),
+      );
+    },
   );
 
   server.registerTool(
@@ -656,7 +753,9 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
         includeFinished: z
           .boolean()
           .optional()
-          .describe("Include delegations that already ended. Defaults to true."),
+          .describe(
+            "Include delegations that already ended. Defaults to true.",
+          ),
       },
     },
     async ({ parentTaskId, includeFinished }) =>
@@ -1264,7 +1363,7 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
     "stave_add_workspace_jira_issue",
     {
       description:
-        "Register a Jira issue in the Stave Workspace Information panel. Jira issues only: a Crane task URL passed here is rerouted to the Crane section (the result sets `reroutedTo: \"crane\"`), so use `stave_add_workspace_crane_issue` for Crane links. Idempotent: an issue already registered under the same issue key is merged into the existing entry (the result sets `deduplicated: true`).",
+        'Register a Jira issue in the Stave Workspace Information panel. Jira issues only: a Crane task URL passed here is rerouted to the Crane section (the result sets `reroutedTo: "crane"`), so use `stave_add_workspace_crane_issue` for Crane links. Idempotent: an issue already registered under the same issue key is merged into the existing entry (the result sets `deduplicated: true`).',
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         url: z.string().min(1).describe("Jira issue URL."),
@@ -1303,7 +1402,9 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
         url: z
           .string()
           .min(1)
-          .describe("Crane issue URL, e.g. https://<host>/apps/crane/w/TEAM/task/CRN-42."),
+          .describe(
+            "Crane issue URL, e.g. https://<host>/apps/crane/w/TEAM/task/CRN-42.",
+          ),
         issueKey: z
           .string()
           .optional()

@@ -1,10 +1,11 @@
 import {
   extractConfluencePageReference,
+  extractCraneIssueReference,
   extractFigmaResourceReference,
   extractJiraIssueReference,
 } from "@/lib/workspace-information";
 
-export type ServiceLinkKind = "figma" | "jira" | "confluence";
+export type ServiceLinkKind = "figma" | "jira" | "crane" | "confluence";
 
 export interface ServiceLinkBadgeInfo {
   kind: ServiceLinkKind;
@@ -14,6 +15,7 @@ export interface ServiceLinkBadgeInfo {
 const SERVICE_LINK_NAMES: Record<ServiceLinkKind, string> = {
   figma: "Figma",
   jira: "Jira",
+  crane: "Crane",
   confluence: "Confluence",
 };
 
@@ -33,7 +35,8 @@ function parseHttpUrl(value: string) {
 }
 
 /**
- * Resolve a URL to a recognized service badge (Figma / Jira / Confluence).
+ * Resolve a URL to a recognized service badge (Figma / Jira / Crane /
+ * Confluence).
  * Returns null for every other URL so callers can fall back to a plain link.
  */
 export function resolveServiceLinkBadge(
@@ -67,6 +70,16 @@ export function resolveServiceLinkBadge(
         confluenceReference.title ||
         confluenceReference.spaceKey ||
         SERVICE_LINK_NAMES.confluence,
+    };
+  }
+
+  // Ahead of the Jira branch: a Crane task URL carries a Jira-shaped issue key,
+  // so on a Jira-looking host it would otherwise pick up the Jira identity.
+  const craneReference = extractCraneIssueReference(value);
+  if (craneReference) {
+    return {
+      kind: "crane",
+      label: craneReference.issueKey || SERVICE_LINK_NAMES.crane,
     };
   }
 

@@ -2,6 +2,8 @@ import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
+import { normalizeJiraConnectorSettings } from "@/lib/jira-connector/types";
+import { normalizeTrackerTasksSettings } from "@/lib/tracker-tasks/settings";
 import {
   mergeWorkspaceActivityStamps,
   pruneWorkspaceActivityStamps,
@@ -181,8 +183,12 @@ export function createAppStorePersistenceOptions() {
       state.settings.craneConnector = normalizeCraneConnectorSettings(
         raw.craneConnector,
       );
-      state.settings.martinSync = normalizeMartinSyncSettings(
-        raw.martinSync,
+      state.settings.martinSync = normalizeMartinSyncSettings(raw.martinSync);
+      state.settings.jiraConnector = normalizeJiraConnectorSettings(
+        raw.jiraConnector,
+      );
+      state.settings.trackerTasks = normalizeTrackerTasksSettings(
+        raw.trackerTasks,
       );
       state.compareRunsById = normalizePersistedCompareRuns({
         runsById: state.compareRunsById,

@@ -20,6 +20,10 @@ import {
 } from "./main/quit-state";
 import { stopCraneConnectorRuntime } from "./main/crane-connector/service";
 import { stopMartinSyncRuntime } from "./main/martin-sync/service";
+import {
+  startTrackerTasksRuntime,
+  stopTrackerTasksRuntime,
+} from "./main/tracker-tasks/service";
 
 const persistenceRuntime = configurePersistenceUserDataPath(app);
 process.env.STAVE_USER_DATA_PATH = persistenceRuntime.userDataPath;
@@ -40,6 +44,7 @@ function runBeforeQuitCleanup() {
     const results = await Promise.allSettled([
       Promise.resolve(stopCraneConnectorRuntime()),
       Promise.resolve(stopMartinSyncRuntime()),
+      Promise.resolve(stopTrackerTasksRuntime()),
       stopStaveMcpServer(),
       stopHostService(),
     ]);
@@ -60,6 +65,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(buildApplicationMenu());
   registerHandlers();
   createMainWindow();
+  startTrackerTasksRuntime();
   void startHostService().catch((error) => {
     console.error("[host-service] failed to start", error);
   });

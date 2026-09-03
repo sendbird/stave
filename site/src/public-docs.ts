@@ -173,6 +173,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         description:
           "Switch the left sidebar between the Projects tree and the Work queue, which groups every workspace by what it needs from you.",
       },
+      {
+        routePath: "tasks",
+        sourcePath: "docs/features/tasks.md",
+        title: "Tasks",
+        description:
+          "See the tracker tickets assigned to you from Crane and Jira, then start a local run from one with the project, workspace, and provider you choose.",
+      },
     ],
   },
   {
