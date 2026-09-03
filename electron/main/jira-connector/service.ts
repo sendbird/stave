@@ -13,6 +13,9 @@ let settings: JiraConnectorSettings = { ...DEFAULT_JIRA_CONNECTOR_SETTINGS };
 let cachedMetadata: JiraStoredCredentialMetadata | null = null;
 let cachedSiteUrl: string | null = null;
 let cachedClient: JiraHttpClient | null = null;
+/** Bound on the query probe so a hung site cannot wedge the Settings button. */
+const JIRA_QUERY_PROBE_TIMEOUT_MS = 15_000;
+
 let lastErrorCode: string | null = null;
 let secureStorageAvailable = true;
 
@@ -143,11 +146,22 @@ export async function clearJiraCredential(): Promise<JiraConnectorPublicStatus> 
   return loadJiraConnectorStatus();
 }
 
+/**
+ * Validate the saved credential *and* the saved query.
+ *
+ * Checking identity alone made a broken JQL pass: the token was fine, so the
+ * test said "connected" and the Tasks list stayed silently empty. Running the
+ * query for a single row costs one more request and turns that into a named
+ * error the Settings card and the list can both show. No new reply field is
+ * needed — a rejected query lands in `lastErrorCode`, which the public status
+ * already carries.
+ */
 export async function testJiraConnection(): Promise<JiraConnectorPublicStatus> {
   const siteUrl = requireSiteUrl();
   try {
     const credential = await requireCredential();
-    const identity = await clientFor(siteUrl).getMyself({
+    const client = clientFor(siteUrl);
+    const identity = await client.getMyself({
       email: credential.email,
       token: credential.token,
     });
@@ -156,6 +170,15 @@ export async function testJiraConnection(): Promise<JiraConnectorPublicStatus> {
       siteUrl,
       accountId: identity.accountId,
       displayName: identity.displayName,
+    });
+    await client.searchIssues({
+      email: credential.email,
+      token: credential.token,
+      jql: settings.jql,
+      // One row is enough to learn whether the query parses and is permitted;
+      // pulling the whole page here would spend rate limit the list needs.
+      maxResults: 1,
+      signal: AbortSignal.timeout(JIRA_QUERY_PROBE_TIMEOUT_MS),
     });
     lastErrorCode = null;
   } catch (error) {

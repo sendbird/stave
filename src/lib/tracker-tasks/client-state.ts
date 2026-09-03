@@ -58,6 +58,22 @@ export function useTrackerTasksAttention(): TrackerTasksAttention {
 }
 
 /**
+ * Just the per-source sync statuses.
+ *
+ * Narrower than the whole mirror on purpose: Settings and the top bar care only
+ * about connection state, and reading the full snapshot would re-render them on
+ * every cache push that changed a row they do not show. The store rebuilds this
+ * record once per publish, so the identity is stable between publishes.
+ */
+export function useTrackerSourceStatuses() {
+  const read = useCallback(
+    () => getTrackerTasksClientSnapshot().syncBySource,
+    [],
+  );
+  return useSyncExternalStore(subscribeTrackerTasksClient, read, read);
+}
+
+/**
  * Whether any source can actually produce rows right now.
  *
  * A boolean, not the status record: the top bar mounts for the whole session

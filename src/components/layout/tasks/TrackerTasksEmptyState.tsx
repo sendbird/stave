@@ -1,4 +1,4 @@
-import { AlertCircle, Info, ListTodo, Plug, RefreshCw, SearchX } from "lucide-react";
+import { AlertCircle, Info, ListTodo, Plug, RefreshCw, SearchX, Settings } from "lucide-react";
 
 import {
   Button,
@@ -9,69 +9,23 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui";
-import type {
-  TrackerSourceAvailability,
-  TrackerSourceSyncStatus,
-} from "@/lib/tracker-tasks/types";
+import {
+  hasPendingTrackerSource,
+  hasProducingTrackerSource,
+  listActionableTrackerSources,
+  type TrackerSourceSummary,
+} from "@/lib/tracker-tasks/source-status";
+import type { TrackerSourceId } from "@/lib/tracker-tasks/types";
 import { cn } from "@/lib/utils";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
-import { TRACKER_SOURCE_LABELS } from "./tracker-task-ui";
 
-function openIntegrationsSettings() {
+export function openTrackerIntegrationsSettings() {
   window.dispatchEvent(
     new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
       detail: { section: "integrations" },
     }),
   );
 }
-
-/**
- * Why a configured source is still not producing rows.
- *
- * Each string names the next action rather than the internal state, because the
- * only useful thing an empty list can say is what to do about it.
- */
-const AVAILABILITY_HINTS: Record<TrackerSourceAvailability, string | null> = {
-  ready: null,
-  disabled: "Turned off in Settings.",
-  unpaired: "Not paired with this installation yet.",
-  not_configured: "No credential saved yet.",
-  secure_storage_unavailable:
-    "The OS keychain is unavailable, so the credential cannot be read.",
-};
-
-/**
- * Error codes worth translating.
- *
- * Anything unrecognised is shown verbatim: a code the user can quote in a bug
- * report beats a generic sentence that hides which call failed.
- */
-const ERROR_HINTS: Record<string, string> = {
-  unauthorized: "The saved credential was rejected.",
-  forbidden: "The account cannot see this list.",
-  invalid_jql: "The saved JQL query was rejected.",
-  rate_limited: "The tracker is rate-limiting requests.",
-  network_unavailable: "The tracker could not be reached.",
-  response_too_large: "The tracker returned more data than Stave accepts.",
-  invalid_response: "The tracker returned an unexpected shape.",
-  not_found: "The tracker route Stave asked for does not exist.",
-  tasks_api_unavailable:
-    "This Crane installation does not serve the task list yet, so only its dispatched jobs work. Nothing is wrong with your pairing.",
-};
-
-/**
- * Failures a retry cannot fix.
- *
- * These are states of the server or the configuration, not transient faults, so
- * they read as a note rather than an error and carry no Retry button: offering
- * one that is guaranteed to fail teaches the user to distrust the whole banner.
- */
-const NOT_RETRYABLE: ReadonlySet<string> = new Set([
-  "tasks_api_unavailable",
-  "invalid_jql",
-  "unauthorized",
-  "forbidden",
-]);
 
 export function TrackerTasksUnavailableState() {
   return (
@@ -90,49 +44,97 @@ export function TrackerTasksUnavailableState() {
   );
 }
 
-export function TrackerTasksNoSourceState(props: {
-  statuses: readonly TrackerSourceSyncStatus[];
-}) {
-  return (
-    <Empty className="h-full">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Plug />
-        </EmptyMedia>
-        <EmptyTitle>No tracker is connected</EmptyTitle>
-        <EmptyDescription>
-          Connect Crane or Jira to see the tickets assigned to you and start a
-          Stave run from one.
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        {props.statuses.length > 0 ? (
-          <ul className="mb-3 space-y-1 text-left text-xs text-muted-foreground">
-            {props.statuses.map((status) => (
-              <li key={status.source}>
-                <span className="font-medium text-foreground">
-                  {TRACKER_SOURCE_LABELS[status.source]}
-                </span>
-                {" — "}
-                {AVAILABILITY_HINTS[status.availability] ?? "Ready."}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <Button type="button" size="sm" onClick={openIntegrationsSettings}>
-          Open Settings → Integrations
-        </Button>
-      </EmptyContent>
-    </Empty>
-  );
-}
-
-export function TrackerTasksNoMatchState(props: {
+/**
+ * The empty state for "nothing here", which is two different situations.
+ *
+ * Telling a user with no working tracker that they have no assigned work is the
+ * failure this splits apart: the list looked healthy and empty while the actual
+ * problem was an unconfigured connector nothing on screen mentioned.
+ */
+export function TrackerTasksEmptyListState(props: {
+  summaries: readonly TrackerSourceSummary[];
   hasFilters: boolean;
   onReset: () => void;
   onRefresh: () => void;
   refreshing: boolean;
 }) {
+  const producing = hasProducingTrackerSource(props.summaries);
+  const actionable = listActionableTrackerSources(props.summaries);
+
+  // A cold start has an empty cache and no status yet. Announcing either verdict
+  // there would be a wrong answer that corrects itself a moment later.
+  if (!producing && hasPendingTrackerSource(props.summaries)) {
+    return (
+      <Empty className="h-full">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <RefreshCw className="animate-spin" />
+          </EmptyMedia>
+          <EmptyTitle>Checking your trackers</EmptyTitle>
+          <EmptyDescription>
+            Reading the connectors this installation is set up with.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
+  if (!producing) {
+    return (
+      <Empty className="h-full">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Plug />
+          </EmptyMedia>
+          <EmptyTitle>No tracker is sending tickets</EmptyTitle>
+          <EmptyDescription>
+            Tasks lists the tickets assigned to you in Crane and Jira Cloud, and
+            starts a local run from one. Neither is producing rows yet.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <ul className="mb-3 space-y-1.5 text-left text-xs">
+            {props.summaries.map((summary) => (
+              <li key={summary.source} className="flex gap-2">
+                <span className="w-12 shrink-0 font-medium text-foreground">
+                  {summary.label}
+                </span>
+                <span className="text-muted-foreground">
+                  <span className="text-foreground">{summary.headline}</span>
+                  {" — "}
+                  {summary.detail}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {actionable.some((summary) => summary.fixInSettings) ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={openTrackerIntegrationsSettings}
+            >
+              <Settings className="size-3.5" />
+              Open Settings → Integrations
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={props.refreshing}
+              onClick={props.onRefresh}
+            >
+              <RefreshCw
+                className={cn("size-3.5", props.refreshing && "animate-spin")}
+              />
+              Check again
+            </Button>
+          )}
+        </EmptyContent>
+      </Empty>
+    );
+  }
+
   return (
     <Empty className="h-full">
       <EmptyHeader>
@@ -167,7 +169,7 @@ export function TrackerTasksNoMatchState(props: {
             onClick={props.onRefresh}
           >
             <RefreshCw
-              className={props.refreshing ? "size-3.5 animate-spin" : "size-3.5"}
+              className={cn("size-3.5", props.refreshing && "animate-spin")}
             />
             Refresh
           </Button>
@@ -178,68 +180,80 @@ export function TrackerTasksNoMatchState(props: {
 }
 
 /**
- * Per-source failure banner.
+ * Per-source strip above the list.
  *
- * Rendered above the list rather than instead of it: a Jira outage must not
- * hide the Crane tickets that loaded fine, and the rows already cached for the
- * failing source stay readable.
+ * It reports every source that needs attention, not only the ones that failed
+ * while connected. The earlier version filtered to `availability === "ready"`,
+ * so a source that was switched off or missing a credential was invisible
+ * everywhere except a zero-source empty state — which meant a user whose Crane
+ * worked but whose Jira was unconfigured was never told Jira existed.
  */
-export function TrackerSourceErrorBanner(props: {
-  statuses: readonly TrackerSourceSyncStatus[];
-  onRetry: (source: TrackerSourceSyncStatus["source"]) => void;
+export function TrackerSourceStatusStrip(props: {
+  summaries: readonly TrackerSourceSummary[];
+  onRetry: (source: TrackerSourceId) => void;
+  /** Hidden while the list is empty, where the empty state says it all. */
+  hidden?: boolean;
 }) {
-  const failing = props.statuses.filter(
-    (status) => status.availability === "ready" && status.lastErrorCode !== null,
-  );
-  if (failing.length === 0) {
+  const actionable = listActionableTrackerSources(props.summaries);
+  if (props.hidden || actionable.length === 0) {
     return null;
   }
-  // A configuration or server state is not an outage, so a source in that
-  // condition must not paint the surface red.
-  const allInformational = failing.every(
-    (status) => status.lastErrorCode !== null && NOT_RETRYABLE.has(status.lastErrorCode),
-  );
+  const anyError = actionable.some((summary) => summary.condition === "error");
+
   return (
     <div
       className={cn(
         "shrink-0 space-y-1 border-b px-4 py-2",
-        allInformational
-          ? "border-border/60 bg-muted/40"
-          : "border-destructive/25 bg-destructive/5",
+        anyError
+          ? "border-destructive/25 bg-destructive/5"
+          : "border-border/60 bg-muted/40",
       )}
     >
-      {failing.map((status) => {
-        const code = status.lastErrorCode ?? "";
-        const informational = NOT_RETRYABLE.has(code);
+      {actionable.map((summary) => {
+        const isError = summary.condition === "error";
         return (
           <div
-            key={status.source}
+            key={summary.source}
             className={cn(
               "flex items-center gap-2 text-[11px]",
-              informational ? "text-muted-foreground" : "text-destructive",
+              isError ? "text-destructive" : "text-muted-foreground",
             )}
           >
-            {informational ? (
-              <Info className="size-3.5 shrink-0" />
-            ) : (
+            {isError ? (
               <AlertCircle className="size-3.5 shrink-0" />
+            ) : (
+              <Info className="size-3.5 shrink-0" />
             )}
             <span className="min-w-0 flex-1">
-              {TRACKER_SOURCE_LABELS[status.source]}
-              {informational ? ": " : " did not sync: "}
-              {ERROR_HINTS[code] ?? code ?? "unknown error"}
+              <span className="font-medium">{summary.label}</span>
+              {isError ? " did not sync: " : ": "}
+              {summary.detail}
             </span>
-            {informational ? null : (
+            {summary.fixInSettings ? (
               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-6 px-2 text-[11px] text-destructive hover:text-destructive"
-                onClick={() => props.onRetry(status.source)}
+                className="h-6 px-2 text-[11px]"
+                onClick={openTrackerIntegrationsSettings}
+              >
+                Settings
+              </Button>
+            ) : null}
+            {summary.retryable ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={cn(
+                  "h-6 px-2 text-[11px]",
+                  isError && "text-destructive hover:text-destructive",
+                )}
+                onClick={() => props.onRetry(summary.source)}
               >
                 Retry
               </Button>
-            )}
+            ) : null}
           </div>
         );
       })}
