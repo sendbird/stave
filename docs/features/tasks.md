@@ -21,7 +21,7 @@ Other surfaces fit better when:
 At least one tracker has to be connected. Tasks shows only what a connected source can return.
 
 - **Crane** — pair this installation in `Settings → Integrations → Crane`. Tasks reuses the existing connector secret and its `crane` scope; there is nothing extra to authorize.
-- **Jira Cloud** — in `Settings → Integrations → Jira`, enable the connector and enter your site URL, your account email, and an API token. The token is validated once, then stored encrypted by the OS keychain and read only by the desktop main process. Neither the token nor the email is ever readable back by the app window.
+- **Jira Cloud** — in `Settings → Integrations → Jira`, enable the connector and enter your site URL, your account email, and an API token. **Test connection** checks the credential *and* runs your saved JQL, so a query that no longer parses is reported there rather than showing up as a silently empty list. The token is validated once, then stored encrypted by the OS keychain and read only by the desktop main process. Neither the token nor the email is ever readable back by the app window.
 - A **registered Stave project** is required to kick off, because a run needs a repository and a worktree.
 - Tasks is desktop-only. The browser dev build shows an explanatory empty state instead.
 
@@ -111,6 +111,12 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - Symptom: no checklist icon, and `Cmd+K T` opens an empty surface.
 - Cause: no source is *ready* — a connector is off, unpaired, or has no credential.
 - Fix: open `Settings → Integrations` and finish the Crane pairing or the Jira credential. The Tasks empty state lists what each source is waiting for.
+
+### Tasks is empty and I do not know why
+
+- Symptom: the surface opens but lists nothing.
+- Cause: usually no source is producing rows — a connector is off, unpaired, missing a credential, or its server does not serve the list.
+- Fix: the empty state names every source and its state, so read it first. It says **No tracker is sending tickets** when nothing can produce rows, and **Nothing assigned right now** only when a source is working and genuinely has nothing for you. `Settings → Tasks → Sources` shows the same live state, and a source that needs setup has a **Set up** button next to it.
 
 ### Crane shows a note about not serving the task list
 

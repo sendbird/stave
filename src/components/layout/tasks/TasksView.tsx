@@ -14,6 +14,7 @@ import {
   readTrackerTasksViewPreference,
   writeTrackerTasksViewPreference,
 } from "@/lib/tracker-tasks/view-preference";
+import { describeTrackerSources } from "@/lib/tracker-tasks/source-status";
 import {
   TRACKER_SOURCE_IDS,
   type TrackerSourceId,
@@ -26,9 +27,8 @@ import { TrackerTaskDetailPane } from "./TrackerTaskDetailPane";
 import { TrackerTaskKickoffSheet } from "./TrackerTaskKickoffSheet";
 import { TrackerTaskList } from "./TrackerTaskList";
 import {
-  TrackerSourceErrorBanner,
-  TrackerTasksNoMatchState,
-  TrackerTasksNoSourceState,
+  TrackerSourceStatusStrip,
+  TrackerTasksEmptyListState,
   TrackerTasksUnavailableState,
 } from "./TrackerTasksEmptyState";
 import { useTrackerTaskActions } from "./useTrackerTaskActions";
@@ -148,15 +148,17 @@ export function TasksView(props: { onClose: () => void }) {
     workspaces.find((workspace) => workspace.id === activeWorkspaceId)?.name ??
     null;
 
-  const statuses = useMemo(
-    () =>
-      TRACKER_SOURCE_IDS.map((source) => snapshot.syncBySource[source]).filter(
-        (status): status is NonNullable<typeof status> => status !== null,
-      ),
+  const summaries = useMemo(
+    () => describeTrackerSources(snapshot.syncBySource),
     [snapshot.syncBySource],
   );
-  const readyStatuses = statuses.filter(
-    (status) => status.availability === "ready",
+  const readyStatuses = useMemo(
+    () =>
+      TRACKER_SOURCE_IDS.map((source) => snapshot.syncBySource[source]).filter(
+        (status): status is NonNullable<typeof status> =>
+          status !== null && status.availability === "ready",
+      ),
+    [snapshot.syncBySource],
   );
 
   const refresh = (source?: TrackerSourceId) => {
@@ -228,78 +230,76 @@ export function TasksView(props: { onClose: () => void }) {
         onClose={props.onClose}
       />
 
-      {readyStatuses.length === 0 ? (
-        <TrackerTasksNoSourceState statuses={statuses} />
-      ) : (
-        <>
-          <TasksToolbar
-            filter={filter}
-            onFilterChange={setFilter}
-            group={group}
-            onGroupChange={setGroup}
-            sort={sort}
-            onSortChange={setSort}
-            projectOptions={pipeline.projectOptions}
-            labelOptions={pipeline.labelOptions}
-            viewCounts={pipeline.viewCounts}
-            searchInputRef={searchInputRef}
+      <TasksToolbar
+        filter={filter}
+        onFilterChange={setFilter}
+        group={group}
+        onGroupChange={setGroup}
+        sort={sort}
+        onSortChange={setSort}
+        projectOptions={pipeline.projectOptions}
+        labelOptions={pipeline.labelOptions}
+        viewCounts={pipeline.viewCounts}
+        searchInputRef={searchInputRef}
+      />
+      <TrackerSourceStatusStrip
+        summaries={summaries}
+        onRetry={(source) => refresh(source)}
+        // With an empty list the empty state already lists every source, so the
+        // strip would say the same thing twice.
+        hidden={orderedKeys.length === 0}
+      />
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+        <div
+          className={cn(
+            "min-h-0 overflow-hidden",
+            // On a narrow window the detail pane replaces the list rather
+            // than squeezing both into an unreadable pair of columns.
+            selectedItem ? "hidden md:block" : "block",
+          )}
+        >
+          {orderedKeys.length === 0 ? (
+            <TrackerTasksEmptyListState
+              summaries={summaries}
+              hasFilters={countActiveTrackerTaskFilters(filter) > 0}
+              refreshing={refreshing}
+              onReset={() => setFilter(createTrackerTaskFilter(filter.view))}
+              onRefresh={() => refresh()}
+            />
+          ) : (
+            <TrackerTaskList
+              groups={pipeline.groups}
+              now={now}
+              selectedKey={selectedKey}
+              collapsedGroupIds={collapsedGroupIds}
+              onToggleGroup={(groupId) =>
+                setCollapsedGroupIds((current) =>
+                  current.includes(groupId)
+                    ? current.filter((entry) => entry !== groupId)
+                    : [...current, groupId],
+                )
+              }
+              onSelect={setSelectedKey}
+              onKickoff={setKickoffKey}
+              onAttach={attachForKey}
+              onOpenStaveTask={openStaveTaskForKey}
+              attachTargetLabel={activeWorkspaceName}
+            />
+          )}
+        </div>
+        {selectedItem ? (
+          <TrackerTaskDetailPane
+            item={selectedItem}
+            now={now}
+            messageFontSize={messageFontSize}
+            messageCodeFontSize={messageCodeFontSize}
+            onKickoff={setKickoffKey}
+            onAttach={attachForKey}
+            onOpenStaveTask={openStaveTaskForKey}
+            attachTargetLabel={activeWorkspaceName}
           />
-          <TrackerSourceErrorBanner
-            statuses={statuses}
-            onRetry={(source) => refresh(source)}
-          />
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
-            <div
-              className={cn(
-                "min-h-0 overflow-hidden",
-                // On a narrow window the detail pane replaces the list rather
-                // than squeezing both into an unreadable pair of columns.
-                selectedItem ? "hidden md:block" : "block",
-              )}
-            >
-              {orderedKeys.length === 0 ? (
-                <TrackerTasksNoMatchState
-                  hasFilters={countActiveTrackerTaskFilters(filter) > 0}
-                  refreshing={refreshing}
-                  onReset={() => setFilter(createTrackerTaskFilter(filter.view))}
-                  onRefresh={() => refresh()}
-                />
-              ) : (
-                <TrackerTaskList
-                  groups={pipeline.groups}
-                  now={now}
-                  selectedKey={selectedKey}
-                  collapsedGroupIds={collapsedGroupIds}
-                  onToggleGroup={(groupId) =>
-                    setCollapsedGroupIds((current) =>
-                      current.includes(groupId)
-                        ? current.filter((entry) => entry !== groupId)
-                        : [...current, groupId],
-                    )
-                  }
-                  onSelect={setSelectedKey}
-                  onKickoff={setKickoffKey}
-                  onAttach={attachForKey}
-                  onOpenStaveTask={openStaveTaskForKey}
-                  attachTargetLabel={activeWorkspaceName}
-                />
-              )}
-            </div>
-            {selectedItem ? (
-              <TrackerTaskDetailPane
-                item={selectedItem}
-                now={now}
-                messageFontSize={messageFontSize}
-                messageCodeFontSize={messageCodeFontSize}
-                onKickoff={setKickoffKey}
-                onAttach={attachForKey}
-                onOpenStaveTask={openStaveTaskForKey}
-                attachTargetLabel={activeWorkspaceName}
-              />
-            ) : null}
-          </div>
-        </>
-      )}
+        ) : null}
+      </div>
 
       <TrackerTaskKickoffSheet
         item={kickoffItem}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Button,
@@ -9,7 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
+import { useTrackerSourceStatuses } from "@/lib/tracker-tasks/client-state";
 import { TRACKER_TASK_VIEWS } from "@/lib/tracker-tasks/filter";
+import { describeTrackerSources } from "@/lib/tracker-tasks/source-status";
 import {
   DEFAULT_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS,
   MAX_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS,
@@ -44,14 +46,13 @@ function describeInterval(seconds: number): string {
 export function TrackerTasksSettingsSection() {
   const tasks = useAppStore((state) => state.settings.trackerTasks);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  // Primitive selectors: the Sources summary only needs the two switches, so
-  // subscribing to the connector objects would re-render this card on every
-  // unrelated JQL or mapping edit.
-  const craneEnabled = useAppStore(
-    (state) => state.settings.craneConnector.enabled,
-  );
-  const jiraEnabled = useAppStore(
-    (state) => state.settings.jiraConnector.enabled,
+  // Live status rather than the enabled switches: a connector turned on but
+  // never given a credential used to render as an enabled source next to a
+  // permanently empty list, with nothing naming the missing credential.
+  const syncBySource = useTrackerSourceStatuses();
+  const summaries = useMemo(
+    () => describeTrackerSources(syncBySource),
+    [syncBySource],
   );
 
   // The interval box is edited as free text, so it keeps its own draft and
@@ -79,11 +80,6 @@ export function TrackerTasksSettingsSection() {
     setIntervalDraft(String(next));
     save({ refreshIntervalSeconds: next });
   };
-
-  const enabledSources = [
-    craneEnabled ? "Crane" : null,
-    jiraEnabled ? "Jira" : null,
-  ].filter((source): source is string => source !== null);
 
   return (
     <div
@@ -191,21 +187,62 @@ export function TrackerTasksSettingsSection() {
           </p>
         </div>
 
-        <div className="space-y-2 rounded-lg border border-border bg-muted/25 p-4">
-          <h4 className="text-sm font-medium">Sources</h4>
-          {enabledSources.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {enabledSources.map((source) => (
-                <Badge key={source} variant="secondary">
-                  {source}
-                </Badge>
-              ))}
-            </div>
-          ) : (
-            <p className={HINT}>
-              No tracker is enabled, so the list stays empty.
+        <div className="space-y-3 rounded-lg border border-border bg-muted/25 p-4">
+          <div>
+            <h4 className="text-sm font-medium">Sources</h4>
+            <p className={`mt-1 ${HINT}`}>
+              Live connection state, not just the switches. A source listed here
+              as needing setup produces no rows, which is what an empty Tasks
+              list usually means.
             </p>
-          )}
+          </div>
+          <ul className="space-y-2">
+            {summaries.map((summary) => (
+              <li
+                key={summary.source}
+                className="flex items-start justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-foreground">
+                      {summary.label}
+                    </span>
+                    <Badge
+                      variant={
+                        summary.condition === "producing" ||
+                        summary.condition === "syncing"
+                          ? "success"
+                          : summary.condition === "error"
+                            ? "destructive"
+                            : "outline"
+                      }
+                      className="text-[10px]"
+                    >
+                      {summary.headline}
+                    </Badge>
+                  </div>
+                  <p className={`mt-0.5 ${HINT}`}>{summary.detail}</p>
+                </div>
+                {summary.fixInSettings ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => {
+                      window.dispatchEvent(
+                        new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
+                          detail: { section: "integrations" },
+                        }),
+                      );
+                    }}
+                  >
+                    Set up
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
           <Button
             type="button"
             size="xs"
