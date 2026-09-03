@@ -381,7 +381,7 @@ test("the agent-opened session is parked by the product's own code path", async 
    */
   expect(state.opacity).toBe("0");
   expect(state.visibility).toBe("visible");
-  expect(state.display).not.toBe("none");
+  expect(state.display).toBe("flex");
   // Nothing paints, so nothing can be seen; `pointer-events: none` is what
   // stops an invisible guest swallowing clicks. See the hit-test below.
   expect(state.pointerEvents).toBe("none");

@@ -264,6 +264,68 @@ test("the guest sits exactly on the placeholder, hoisted out of the pane tree", 
   // the Dockview subtree is a structural invariant, not a detail.
   expect(state!.insideDockview).toBe(false);
   expect(state!.opacity).toBe("1");
+  // Electron's flex display is the sizing contract for the internal guest
+  // frame. Block layout can leave the page at its intrinsic content height.
+  expect(state!.display).toBe("flex");
+});
+
+test("host pointer passthrough waits for every active pointer", async () => {
+  const dispatchPointer = (
+    type: "pointerdown" | "pointerup",
+    pointerId: number,
+  ) =>
+    stave.page.evaluate(
+      ({ eventType, id }) => {
+        document.body.dispatchEvent(
+          new PointerEvent(eventType, { bubbles: true, pointerId: id }),
+        );
+      },
+      { eventType: type, id: pointerId },
+    );
+
+  await dispatchPointer("pointerdown", 41);
+  await dispatchPointer("pointerdown", 42);
+  expect((await guestState())!.pointerEvents).toBe("none");
+
+  await dispatchPointer("pointerup", 41);
+  expect((await guestState())!.pointerEvents).toBe("none");
+
+  await dispatchPointer("pointerup", 42);
+  expect((await guestState())!.pointerEvents).toBe("auto");
+});
+
+test("a sidebar resize can end after crossing the guest", async () => {
+  const sidebar = stave.page.getByTestId("project-workspace-sidebar");
+  const resizer = stave.page.locator(".cursor-col-resize:visible").first();
+  const resizerBox = await resizer.boundingBox();
+  const geometry = await guestGeometry();
+  expect(resizerBox).not.toBeNull();
+  expect(geometry).not.toBeNull();
+
+  const widthBefore = (await sidebar.boundingBox())!.width;
+  await stave.page.mouse.move(
+    resizerBox!.x + resizerBox!.width / 2,
+    resizerBox!.y + resizerBox!.height / 2,
+  );
+  await stave.page.mouse.down();
+  await stave.page.mouse.move(
+    geometry!.guest.x + geometry!.guest.width * 0.75,
+    geometry!.guest.y + geometry!.guest.height * 0.5,
+    { steps: 8 },
+  );
+  expect((await guestState())!.pointerEvents).toBe("none");
+
+  await stave.page.mouse.up();
+  expect((await guestState())!.pointerEvents).toBe("auto");
+
+  const widthAfterRelease = (await sidebar.boundingBox())!.width;
+  expect(widthAfterRelease).not.toBe(widthBefore);
+  await stave.page.mouse.move(
+    geometry!.guest.x + geometry!.guest.width * 0.5,
+    geometry!.guest.y + geometry!.guest.height * 0.5,
+  );
+  await stave.page.waitForTimeout(50);
+  expect((await sidebar.boundingBox())!.width).toBe(widthAfterRelease);
 });
 
 test("the product window paints and hit-tests the guest above the app surface", async () => {

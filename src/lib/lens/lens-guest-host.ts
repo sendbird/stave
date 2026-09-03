@@ -7,7 +7,12 @@ import {
   type LensGuestFocusBorrowState,
 } from "./lens-guest-focus-borrow";
 import {
+  createLensGuestPointerPassthroughTracker,
+  shouldParkLensGuestForWorkspace,
+} from "./lens-guest-interaction";
+import {
   areLensGuestRectsEqual,
+  isLensGuestVisuallyPresented,
   resolveLensGuestStyle,
   type LensGuestPlacement,
 } from "./lens-guest-placement";
@@ -83,6 +88,16 @@ const guests = new Map<string, GuestRecord>();
 
 let surfaceRoot: HTMLDivElement | null = null;
 let focusBorrow: LensGuestFocusBorrowState = EMPTY_LENS_GUEST_FOCUS_BORROW;
+let isGuestPointerPassthroughActive = false;
+
+const guestPointerPassthrough = createLensGuestPointerPassthroughTracker(
+  (active) => {
+    isGuestPointerPassthroughActive = active;
+    for (const key of guests.keys()) {
+      applyPlacement(key);
+    }
+  },
+);
 
 function findGuestRecordByElement(
   element: LensFocusableHost | null,
@@ -104,7 +119,7 @@ function isLensGuestElement(element: LensFocusableHost | null): boolean {
 
 function isParkedLensGuestElement(element: LensFocusableHost): boolean {
   const record = findGuestRecordByElement(element);
-  return record !== null && !record.placement.presented;
+  return record !== null && !isLensGuestVisuallyPresented(record.placement);
 }
 
 function asFocusable(element: Element | null): LensFocusableHost | null {
@@ -174,8 +189,13 @@ function createGuestElement(descriptor: LensGuestDescriptor): LensGuestElement {
   element.setAttribute("allowpopups", "");
 
   element.style.position = "absolute";
+  // Keep Electron's required `display: flex`. A block webview sizes its outer
+  // box correctly but can leave the internal guest frame at content height.
   element.style.margin = "0";
   element.style.border = "0";
+  element.style.boxSizing = "border-box";
+  element.style.minWidth = "0";
+  element.style.minHeight = "0";
   /*
    * Guests start parked: nothing has measured a rectangle for one yet, and a
    * session opened by an agent may never be shown at all. Parking is
@@ -348,6 +368,9 @@ function applyPlacement(key: string): void {
   }
 
   const style = resolveLensGuestStyle(record.placement);
+  const pointerEvents = isGuestPointerPassthroughActive
+    ? "none"
+    : style.pointerEvents;
   const previous = record.appliedStyle;
   if (
     previous &&
@@ -356,19 +379,19 @@ function applyPlacement(key: string): void {
     previous.width === style.width &&
     previous.height === style.height &&
     previous.opacity === style.opacity &&
-    previous.pointerEvents === style.pointerEvents
+    previous.pointerEvents === pointerEvents
   ) {
     return;
   }
 
-  record.appliedStyle = style;
+  record.appliedStyle = { ...style, pointerEvents };
   const target = record.element.style;
   target.left = style.left;
   target.top = style.top;
   target.width = style.width;
   target.height = style.height;
   target.opacity = style.opacity;
-  target.pointerEvents = style.pointerEvents;
+  target.pointerEvents = pointerEvents;
 
   // The chrome plane shares the guest's rectangle and its visibility, but never
   // its hit-testing: it is a sheet over the page, and only the elements a panel
@@ -410,6 +433,51 @@ export function setLensGuestPlacement(
 
   record.placement = { rect: nextRect, presented: placement.presented };
   applyPlacement(key);
+}
+
+/**
+ * Hide every guest that does not belong to the active workspace.
+ *
+ * Must run on the workspace change itself. Waiting for the old panel to unmount
+ * leaves the previous page painted over the incoming workspace for a frame —
+ * or longer, when Dockview keep-alive holds the panel.
+ */
+export function parkLensGuestsOutsideWorkspace(
+  workspaceId: string | null,
+): void {
+  for (const record of guests.values()) {
+    if (
+      !shouldParkLensGuestForWorkspace({
+        guestWorkspaceId: record.descriptor.workspaceId,
+        activeWorkspaceId: workspaceId,
+        presented: record.placement.presented,
+      })
+    ) {
+      continue;
+    }
+    setLensGuestPlacement(record.descriptor, { presented: false });
+  }
+}
+
+/**
+ * Make every guest ignore pointers for the duration of a host drag.
+ *
+ * A `<webview>` swallows hits at the native layer. A sash or sidebar drag that
+ * crosses the page therefore never delivers `pointerup` to Dockview or the
+ * host, and the pane stays in resize mode until something else resets it.
+ */
+export function acquireLensGuestPointerPassthrough(pointerId: number): void {
+  guestPointerPassthrough.acquire(pointerId);
+}
+
+/** Release one host pointer without disturbing any other active drag. */
+export function releaseLensGuestPointerPassthrough(pointerId: number): void {
+  guestPointerPassthrough.release(pointerId);
+}
+
+/** Clear every pointer acquisition after a host lifecycle boundary. */
+export function resetLensGuestPointerPassthrough(): void {
+  guestPointerPassthrough.reset();
 }
 
 /**

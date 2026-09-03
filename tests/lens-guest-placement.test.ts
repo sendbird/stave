@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   DEFAULT_LENS_GUEST_VIEWPORT,
   areLensGuestRectsEqual,
+  isLensGuestVisuallyPresented,
   isMeasurableLensGuestRect,
   resolveLensGuestStyle,
 } from "../src/lib/lens/lens-guest-placement";
@@ -79,6 +80,28 @@ describe("Lens guest placement", () => {
     expect(style.width).toBe(`${DEFAULT_LENS_GUEST_VIEWPORT.width}px`);
     expect(style.height).toBe(`${DEFAULT_LENS_GUEST_VIEWPORT.height}px`);
     expect(style.left).toBe("5px");
+    expect(style.opacity).toBe("0");
+    expect(style.pointerEvents).toBe("none");
+  });
+
+  test("never reveals a guest that has no measured rectangle", () => {
+    const style = resolveLensGuestStyle({ rect: null, presented: true });
+
+    expect(style.width).toBe(`${DEFAULT_LENS_GUEST_VIEWPORT.width}px`);
+    expect(style.height).toBe(`${DEFAULT_LENS_GUEST_VIEWPORT.height}px`);
+    expect(style.left).toBe("0px");
+    expect(style.top).toBe("0px");
+    expect(style.opacity).toBe("0");
+    expect(style.pointerEvents).toBe("none");
+    expect(isLensGuestVisuallyPresented({ rect: null, presented: true })).toBe(
+      false,
+    );
+    expect(isLensGuestVisuallyPresented({ rect: RECT, presented: true })).toBe(
+      true,
+    );
+    expect(isLensGuestVisuallyPresented({ rect: RECT, presented: false })).toBe(
+      false,
+    );
   });
 
   test("does not adopt a rectangle measured while collapsed or torn down", () => {
