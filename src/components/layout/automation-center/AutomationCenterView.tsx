@@ -245,7 +245,7 @@ export function AutomationCenterView() {
     setInformationLoading(true);
     void (async () => {
       if (informationWorkspaceId === activeWorkspaceId) {
-        await flushActiveWorkspaceSnapshot({ sync: true });
+        await flushActiveWorkspaceSnapshot();
       }
       return listReferences({ workspaceId: informationWorkspaceId });
     })()
@@ -441,7 +441,7 @@ export function AutomationCenterView() {
     setBusyRoutineId(routine.id);
     try {
       if (routine.environment.workspaceId === activeWorkspaceId) {
-        await flushActiveWorkspaceSnapshot({ sync: true });
+        await flushActiveWorkspaceSnapshot();
       }
       const result = await api({ id: routine.id });
       if (!result.ok || !result.run) {

@@ -9,6 +9,7 @@ import {
 } from "./main/stave-mcp-server";
 import { createMainWindow, getMainWindow } from "./main/window";
 import { buildApplicationMenu } from "./main/application-menu";
+import { requestRendererPersistenceFlush } from "./main/persistence-flush-gate";
 import {
   cancelQuitPrompt,
   confirmQuitPrompt,
@@ -41,6 +42,12 @@ function runBeforeQuitCleanup() {
   }
 
   beforeQuitCleanupPromise = (async () => {
+    // Renderer-owned state (drafts, tabs, layout, information) reaches SQLite
+    // through a debounced flush. Give it a bounded chance to land *before* the
+    // store is compacted and closed below, instead of the old blocking
+    // `upsert-workspace-sync` round-trip.
+    await requestRendererPersistenceFlush();
+
     const results = await Promise.allSettled([
       Promise.resolve(stopCraneConnectorRuntime()),
       Promise.resolve(stopMartinSyncRuntime()),

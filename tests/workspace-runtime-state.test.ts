@@ -1,8 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
-import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
+import {
+  evictColdWorkspaceRuntimeCacheEntries,
+  saveActiveWorkspaceRuntimeCache,
+} from "@/store/workspace-runtime-state";
 import { applyProviderEventsToWorkspaceSession } from "@/store/workspace-turn-replay";
-import { createWorkspaceSnapshot } from "@/store/workspace-session-state";
+import {
+  createEmptyWorkspaceState,
+  createWorkspaceSnapshot,
+  type WorkspaceSessionState,
+} from "@/store/workspace-session-state";
 
 describe("createWorkspaceSnapshot", () => {
   test("preserves seeded workspace information", () => {
@@ -256,5 +263,98 @@ describe("applyProviderEventsToWorkspaceSession", () => {
     expect(applied.session.providerGoalByTask["task-1"]?.objective).toBe(
       "Fix the stalled goal turn",
     );
+  });
+});
+
+describe("workspace runtime cache eviction", () => {
+  function sessionWith(args?: {
+    activeTurnIdsByTask?: Record<string, string | undefined>;
+  }): WorkspaceSessionState {
+    return {
+      ...createEmptyWorkspaceState(),
+      activeTurnIdsByTask: args?.activeTurnIdsByTask ?? {},
+    } as WorkspaceSessionState;
+  }
+
+  function cacheOf(ids: string[]) {
+    return Object.fromEntries(ids.map((id) => [id, sessionWith()] as const));
+  }
+
+  test("keeps the cache at its cap by dropping the oldest entries", () => {
+    const ids = Array.from({ length: 12 }, (_, index) => `ws-${index}`);
+    const next = evictColdWorkspaceRuntimeCacheEntries({
+      cache: cacheOf(ids),
+      activeWorkspaceId: "ws-11",
+      limit: 8,
+    });
+
+    expect(Object.keys(next)).toHaveLength(8);
+    // Oldest four gone, newest kept.
+    expect(Object.keys(next)).toEqual([
+      "ws-4",
+      "ws-5",
+      "ws-6",
+      "ws-7",
+      "ws-8",
+      "ws-9",
+      "ws-10",
+      "ws-11",
+    ]);
+  });
+
+  test("leaves the cache alone while it is under the cap", () => {
+    const cache = cacheOf(["a", "b", "c"]);
+    expect(
+      evictColdWorkspaceRuntimeCacheEntries({
+        cache,
+        activeWorkspaceId: "c",
+        limit: 8,
+      }),
+    ).toBe(cache);
+  });
+
+  test("never evicts the active workspace", () => {
+    const ids = Array.from({ length: 10 }, (_, index) => `ws-${index}`);
+    const next = evictColdWorkspaceRuntimeCacheEntries({
+      cache: cacheOf(ids),
+      // Oldest entry is the active one.
+      activeWorkspaceId: "ws-0",
+      limit: 8,
+    });
+
+    expect(Object.keys(next)).toHaveLength(8);
+    expect(next["ws-0"]).toBeDefined();
+  });
+
+  test("never evicts a workspace with an in-flight turn", () => {
+    const cache: Record<string, WorkspaceSessionState> = {
+      "ws-busy": sessionWith({ activeTurnIdsByTask: { "task-1": "turn-1" } }),
+      ...cacheOf(["ws-1", "ws-2", "ws-3", "ws-4", "ws-5", "ws-6", "ws-7"]),
+      "ws-active": sessionWith(),
+    };
+
+    const next = evictColdWorkspaceRuntimeCacheEntries({
+      cache,
+      activeWorkspaceId: "ws-active",
+      limit: 4,
+    });
+
+    expect(next["ws-busy"]).toBeDefined();
+    expect(next["ws-active"]).toBeDefined();
+    expect(Object.keys(next)).toHaveLength(4);
+  });
+
+  test("keeps everything when nothing is evictable", () => {
+    const cache: Record<string, WorkspaceSessionState> = {
+      "ws-a": sessionWith({ activeTurnIdsByTask: { t: "turn-a" } }),
+      "ws-b": sessionWith({ activeTurnIdsByTask: { t: "turn-b" } }),
+      "ws-c": sessionWith(),
+    };
+    const next = evictColdWorkspaceRuntimeCacheEntries({
+      cache,
+      activeWorkspaceId: "ws-c",
+      limit: 1,
+    });
+    expect(Object.keys(next)).toHaveLength(3);
   });
 });

@@ -84,6 +84,52 @@ receipt ordering, restart interruption, and provider symmetry.
 
 See `docs/architecture/run-core.md` for lifecycle and extension guidance.
 
+## Workspace Persistence Ownership Contract
+
+Two writers reach the workspace tables: the renderer (via IPC to main) and
+host-service (Local MCP turns, routines, heartbeats). They own different
+fields, and the boundary is enforced in code rather than by convention.
+
+Current path:
+
+- `electron/persistence/task-turn-delta.ts` — `HOST_OWNED_WORKSPACE_SHELL_FIELDS`
+  and the pure `mergeTaskTurnDeltaPayload` boundary
+- `electron/persistence/sqlite-store.ts` — `persistTaskTurnDelta` (host turn
+  writes) and `upsertWorkspace` (renderer snapshot writes, legacy migration)
+- `electron/host-service/local-mcp-runtime.ts` — `ensureResidentTaskMessages`,
+  `persistWorkspaceSession`
+- `electron/main/persistence-flush-gate.ts` and `electron/main.ts` — quit flush
+- `src/store/workspace-runtime-state.ts` — renderer session cache cap
+
+Ownership:
+
+- host-service writes only `tasks` (never `archivedAt`, which is read from
+  disk), `activeTaskId`, `providerSessionByTask`, and `messageCountByTask`,
+  plus additive `messages` rows for the turn it is running
+- the renderer owns everything else in the shell: prompt drafts, editor,
+  terminal and CLI tabs, layout, active surface, pane state, workspace
+  information
+- main owns migrations, maintenance, and the quit-time flush
+
+Rules:
+
+- a host turn must not call `loadAllTaskMessages`; it reads a bounded tail of
+  `MAX_LOADED_TASK_MESSAGES` and trims after applying events
+- a host turn writes only the messages an event changed; message persistence
+  is additive and never deletes omitted rows
+- a host write must not route through `upsertWorkspace` unless
+  `persistTaskTurnDelta` declined (missing row or legacy inline payload)
+- there is no synchronous renderer→main persistence IPC; quit asks the
+  renderer to flush and waits behind a bounded timeout
+- the renderer keeps at most `MAX_CACHED_WORKSPACE_SESSIONS` inactive
+  workspace sessions resident; eviction is safe because `switchWorkspace`
+  flushes before swapping and a cache miss reloads from persistence
+
+Regression coverage lives in `tests/host-persistence-efficiency.test.ts`,
+`tests/task-turn-delta.test.ts`, `tests/persistence-flush-gate.test.ts`, and
+`tests/workspace-runtime-state.test.ts`; the manifest gate is
+`persistence-host-write-boundary` in `config/reliability-gates.json`.
+
 ## Workspace File Index Contract
 
 The current workspace file list is a path index, not a symbol graph.

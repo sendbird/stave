@@ -798,6 +798,18 @@ ipcRenderer.on("shortcut:close-tab-or-task", () => {
   }
 });
 
+const persistenceFlushSubscribers = new Set<
+  (args: { requestId: number }) => void
+>();
+ipcRenderer.on(
+  "persistence:flush-requested",
+  (_event, payload: { requestId: number }) => {
+    for (const subscriber of persistenceFlushSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+
 const appQuitRequestSubscribers = new Set<() => void>();
 ipcRenderer.on("window:app-quit-requested", () => {
   for (const subscriber of appQuitRequestSubscribers) {
@@ -1507,11 +1519,22 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:upsert-workspace", args),
     saveProjectRegistry: (args: { projects: unknown[] }) =>
       ipcRenderer.invoke("persistence:save-project-registry", args),
-    upsertWorkspaceSync: (args: {
-      id: string;
-      name: string;
-      snapshot: unknown;
-    }) => ipcRenderer.sendSync("persistence:upsert-workspace-sync", args),
+    /**
+     * Quit-time flush handshake. `onFlushRequested` fires when main is about to
+     * tear down persistence; the renderer performs its ordinary async snapshot
+     * write and then calls `notifyFlushComplete`. This replaces the former
+     * `upsertWorkspaceSync` blocking bridge.
+     */
+    onFlushRequested: (listener: (args: { requestId: number }) => void) => {
+      persistenceFlushSubscribers.add(listener);
+      return () => {
+        persistenceFlushSubscribers.delete(listener);
+      };
+    },
+    notifyFlushComplete: (args: { requestId: number }) =>
+      ipcRenderer.invoke("persistence:flush-complete", args) as Promise<{
+        ok: boolean;
+      }>,
     closeWorkspace: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("persistence:close-workspace", args),
     listNotifications: (args?: { limit?: number; unreadOnly?: boolean }) =>

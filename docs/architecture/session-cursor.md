@@ -111,9 +111,23 @@ The cursor crosses these boundaries:
 
 - same-provider healthy resume: no replayed history
 - provider switch-back: only post-cursor messages
-- first provider switch: full history
-- MCP/config-forced fresh session: full history
-- missing cursor anchor: full available history
+- first provider switch: bounded resident tail (see below)
+- MCP/config-forced fresh session: bounded resident tail
+- missing cursor anchor: bounded resident tail
 - legacy string session: resumes with legacy behavior
 - native id replacement: stale cursor cleared
 - failed/interrupted turn: cursor unchanged
+
+"Bounded resident tail" means the most recent `MAX_LOADED_TASK_MESSAGES`
+(`src/store/task-message-loading.ts`, currently 400) messages of the task, not
+the whole transcript. Both turn entry points send the same window: the renderer
+has always sent its resident `messagesByTask` window, and the Local MCP
+`run_task` path now reads the same bounded page instead of loading every
+message. Older history stays durable in SQLite and is paged in by the UI on
+demand.
+
+This is not a loss of provider context in practice. Transport compaction in
+`src/lib/providers/transport-bounds.ts` collapses any request over
+`HOST_SERVICE_PROVIDER_REQUEST_SOFT_MAX_BYTES` (900 KiB) to roughly 24
+summarized messages; a multi-thousand-message transcript always tripped that,
+so the provider saw far *less* history than the bounded tail delivers now.

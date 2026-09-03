@@ -272,6 +272,11 @@ const fakeStore = {
       notification,
     };
   },
+  // This fake models the legacy inline-message payload (its
+  // `loadWorkspaceSnapshot` returns `messagesByTask`), for which
+  // `persistTaskTurnDelta` declines so the caller migrates via the
+  // whole-snapshot write below.
+  persistTaskTurnDelta: () => ({ ok: false, messageCount: 0 }),
   upsertWorkspace: ({
     id,
     snapshot,

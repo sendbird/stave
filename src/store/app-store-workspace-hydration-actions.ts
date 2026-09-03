@@ -1129,7 +1129,11 @@ export function createWorkspaceHydrationActions(args: {
     purgeWorkspaceNotifications: async ({ workspaceIds }) => {
       await purgeWorkspaceNotificationsAction({ set, get, workspaceIds });
     },
-    flushActiveWorkspaceSnapshot: async ({ sync } = {}) => {
+    // `sync` is accepted for call-site compatibility but no longer changes
+    // behaviour: the blocking `upsertWorkspaceSync` bridge is gone and quit
+    // durability now comes from the main-process flush gate awaiting this
+    // ordinary async write (see electron/main/persistence-flush-gate.ts).
+    flushActiveWorkspaceSnapshot: async () => {
       const state = get();
       if (!state.hasHydratedWorkspaces) {
         return;
@@ -1140,39 +1144,6 @@ export function createWorkspaceHydrationActions(args: {
       );
       if (!workspaceId || !workspace) {
         return;
-      }
-
-      if (sync) {
-        const upsertSync = window.api?.persistence?.upsertWorkspaceSync;
-        if (upsertSync) {
-          const snapshot = createWorkspaceSnapshot({
-            activeTaskId: state.activeTaskId,
-            tasks: state.tasks,
-            messagesByTask: state.messagesByTask,
-            promptDraftByTask: state.promptDraftByTask,
-            reviewCommentsByTask: state.reviewCommentsByTask,
-            workspaceInformation: state.workspaceInformation,
-            editorTabs: state.editorTabs,
-            activeEditorTabId: state.activeEditorTabId,
-            terminalTabs: state.terminalTabs,
-            activeTerminalTabId: state.activeTerminalTabId,
-            terminalDocked: state.layout.terminalDocked,
-            cliSessionTabs: state.cliSessionTabs,
-            activeCliSessionTabId: state.activeCliSessionTabId,
-            activeSurface: state.activeSurface,
-            openTaskTabIds: state.openTaskTabIds,
-            lensTabs: state.lensTabs,
-            paneTabMeta: state.paneTabMeta,
-            dockLayout: state.dockLayout,
-            providerSessionByTask: state.providerSessionByTask,
-          });
-          upsertSync({
-            id: workspaceId,
-            name: workspace.name,
-            snapshot,
-          });
-          return;
-        }
       }
 
       await persistWorkspaceSnapshot({

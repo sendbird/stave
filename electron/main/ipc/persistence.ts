@@ -13,6 +13,7 @@ import {
   MarkAllNotificationsReadArgsSchema,
   MarkNotificationReadArgsSchema,
   PruneNotificationsArgsSchema,
+  PersistenceFlushCompleteArgsSchema,
   PersistenceUpsertArgsSchema,
   SaveProjectRegistryArgsSchema,
   TruncateTaskMessagesAfterArgsSchema,
@@ -20,9 +21,9 @@ import {
 } from "./schemas";
 import {
   ensurePersistenceReady,
-  ensurePersistenceReadySync,
   getPersistenceBootstrapStatus,
 } from "../state";
+import { resolveRendererPersistenceFlush } from "../persistence-flush-gate";
 
 export function registerPersistenceHandlers() {
   ipcMain.handle("persistence:get-bootstrap-status", async () => {
@@ -186,27 +187,15 @@ export function registerPersistenceHandlers() {
     },
   );
 
-  ipcMain.on("persistence:upsert-workspace-sync", (event, args: unknown) => {
-    const parsedArgs = PersistenceUpsertArgsSchema.safeParse(args);
-    if (!parsedArgs.success) {
-      event.returnValue = {
-        ok: false,
-        message: "Invalid workspace persistence request.",
-      };
-      return;
-    }
-    try {
-      const store = ensurePersistenceReadySync();
-      store.upsertWorkspace({
-        id: parsedArgs.data.id,
-        name: parsedArgs.data.name,
-        snapshot: parsedArgs.data.snapshot as PersistenceWorkspaceSnapshot,
-      });
-      event.returnValue = { ok: true };
-    } catch (error) {
-      console.error("[persistence] upsert-workspace-sync failed:", error);
-      event.returnValue = { ok: false, message: String(error) };
-    }
+  // Renderer acknowledgement for the quit-time flush gate. Replaces the old
+  // blocking `persistence:upsert-workspace-sync`: the renderer now performs an
+  // ordinary async `upsertWorkspace` and reports completion here, so the main
+  // thread never runs a full snapshot write inside a synchronous IPC reply.
+  ipcMain.handle("persistence:flush-complete", (_event, args: unknown) => {
+    const parsedArgs = PersistenceFlushCompleteArgsSchema.safeParse(args);
+    return resolveRendererPersistenceFlush(
+      parsedArgs.success ? parsedArgs.data : {},
+    );
   });
 
   ipcMain.handle(

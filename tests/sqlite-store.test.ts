@@ -1536,4 +1536,102 @@ describe("SqliteStore", () => {
 
     store.close();
   });
+
+  nativeSqliteTest(
+    "persistTaskTurnDelta writes a turn without touching renderer-owned state",
+    async () => {
+      const SqliteStore = await loadSqliteStore();
+      const store = new SqliteStore({ dbPath });
+      store.upsertWorkspace({
+        id: "ws-1",
+        name: "ws-1",
+        snapshot: createSnapshot(),
+      });
+
+      const before = store.loadWorkspaceShell({ workspaceId: "ws-1" })!;
+
+      const result = store.persistTaskTurnDelta({
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        task: {
+          id: "task-1",
+          title: "Renamed by the host",
+          provider: "codex",
+          updatedAt: "2026-03-07T00:00:00.000Z",
+          unread: true,
+          archivedAt: null,
+        },
+        messages: [
+          {
+            id: "delta-message-1",
+            role: "assistant",
+            model: "gpt-5",
+            providerId: "codex",
+            content: "streamed",
+            parts: [],
+          },
+        ] as never,
+        providerSession: { codex: { nativeSessionId: "s-1" } } as never,
+      });
+      expect(result.ok).toBe(true);
+
+      const after = store.loadWorkspaceShell({ workspaceId: "ws-1" })!;
+
+      // Host-owned fields moved.
+      expect(after.tasks.find((task) => task.id === "task-1")).toMatchObject({
+        title: "Renamed by the host",
+        provider: "codex",
+        unread: true,
+      });
+      expect(after.messageCountByTask["task-1"]).toBe(
+        result.messageCount,
+      );
+      expect(after.providerSessionByTask["task-1"]).toEqual({
+        codex: { nativeSessionId: "s-1" },
+      });
+
+      // Renderer-owned fields did not.
+      expect(after.promptDraftByTask).toEqual(before.promptDraftByTask);
+      expect(after.editorTabs).toEqual(before.editorTabs);
+      expect(after.activeEditorTabId).toBe(before.activeEditorTabId);
+      expect(after.terminalTabs).toEqual(before.terminalTabs);
+      expect(after.activeTerminalTabId).toBe(before.activeTerminalTabId);
+      expect(after.cliSessionTabs).toEqual(before.cliSessionTabs);
+      expect(after.activeSurface).toEqual(before.activeSurface);
+      expect(after.workspaceInformation).toEqual(before.workspaceInformation);
+      expect(after.dockLayout).toEqual(before.dockLayout);
+
+      // The archived task stays archived.
+      expect(
+        after.tasks.find((task) => task.id === "task-2")?.archivedAt,
+      ).toBe("2026-03-06T00:11:00.000Z");
+
+      // Messages are additive: the delta row is added, prior rows survive.
+      const page = store.loadTaskMessagesPage({
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        limit: 500,
+        offset: 0,
+      });
+      expect(page.messages.some((m) => m.id === "delta-message-1")).toBe(true);
+
+      store.close();
+    },
+  );
+
+  nativeSqliteTest(
+    "persistTaskTurnDelta declines a legacy inline-message payload",
+    async () => {
+      const SqliteStore = await loadSqliteStore();
+      const store = new SqliteStore({ dbPath });
+      // No workspace row at all: the caller must fall back to upsertWorkspace.
+      expect(
+        store.persistTaskTurnDelta({
+          workspaceId: "ws-missing",
+          taskId: "task-1",
+        }),
+      ).toEqual({ ok: false, messageCount: 0 });
+      store.close();
+    },
+  );
 });

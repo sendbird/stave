@@ -191,6 +191,67 @@ function compactWorkspaceSessionMessages(
   };
 }
 
+/**
+ * How many workspace sessions stay resident in `workspaceRuntimeCacheById`.
+ *
+ * The cache is a convenience layer, not a source of truth: `switchWorkspace`
+ * flushes the outgoing workspace to SQLite before swapping it out, and a
+ * missing cache entry makes the next activation reload the shell from
+ * persistence. Without a cap the cache grew once per workspace visited and
+ * never shrank, so a long session across many worktrees held every one of
+ * them (tabs, drafts, information, and the active task's message window) in
+ * renderer memory for the rest of the run.
+ */
+export const MAX_CACHED_WORKSPACE_SESSIONS = 8;
+
+/**
+ * Drop the least-recently-saved workspace sessions once the cache exceeds its
+ * cap. The active workspace and any workspace with an in-flight turn are never
+ * evicted — a running turn keeps applying provider events into its cached
+ * session, so evicting it would lose that turn's transcript.
+ *
+ * Recency is the cache's own key order: `saveActiveWorkspaceRuntimeCache`
+ * re-inserts the active workspace last on every save, and non-numeric string
+ * keys iterate in insertion order.
+ */
+export function evictColdWorkspaceRuntimeCacheEntries(args: {
+  cache: Record<string, WorkspaceSessionState>;
+  activeWorkspaceId: string;
+  limit?: number;
+}) {
+  const limit = args.limit ?? MAX_CACHED_WORKSPACE_SESSIONS;
+  const entries = Object.entries(args.cache);
+  if (entries.length <= limit) {
+    return args.cache;
+  }
+
+  const isPinned = (workspaceId: string, session: WorkspaceSessionState) =>
+    workspaceId === args.activeWorkspaceId ||
+    Object.values(session.activeTurnIdsByTask).some((turnId) => Boolean(turnId));
+
+  let evictable = entries.filter(([id, session]) => !isPinned(id, session))
+    .length;
+  const overflow = entries.length - limit;
+  const evicted = new Set<string>();
+  for (const [workspaceId, session] of entries) {
+    if (evicted.size >= overflow || evictable === 0) {
+      break;
+    }
+    if (isPinned(workspaceId, session)) {
+      continue;
+    }
+    evicted.add(workspaceId);
+    evictable -= 1;
+  }
+
+  if (evicted.size === 0) {
+    return args.cache;
+  }
+  return Object.fromEntries(
+    entries.filter(([workspaceId]) => !evicted.has(workspaceId)),
+  );
+}
+
 export function saveActiveWorkspaceRuntimeCache(args: {
   state: Pick<
     WorkspaceRuntimeCacheState,
@@ -227,10 +288,17 @@ export function saveActiveWorkspaceRuntimeCache(args: {
   const nextSession = compactWorkspaceSessionMessages(
     createWorkspaceSessionStateFromAppState(args.state),
   );
-  return {
-    ...args.state.workspaceRuntimeCacheById,
-    [args.state.activeWorkspaceId]: nextSession,
-  };
+  // Re-insert the active workspace last so key order tracks recency, which is
+  // what `evictColdWorkspaceRuntimeCacheEntries` reads.
+  const { [args.state.activeWorkspaceId]: _previous, ...others } =
+    args.state.workspaceRuntimeCacheById;
+  return evictColdWorkspaceRuntimeCacheEntries({
+    cache: {
+      ...others,
+      [args.state.activeWorkspaceId]: nextSession,
+    },
+    activeWorkspaceId: args.state.activeWorkspaceId,
+  });
 }
 
 export function applyPendingProviderEventsToStoreState(args: {

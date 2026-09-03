@@ -2065,64 +2065,17 @@ interface WindowPersistenceApi {
       completedAt: string | null;
     }>;
   }>;
-  upsertWorkspaceSync?: (args: {
-    id: string;
-    name: string;
-    snapshot: {
-      activeTaskId: string;
-      tasks: Array<{
-        id: string;
-        title: string;
-        titleManuallySet?: boolean;
-        provider: ProviderId;
-        updatedAt: string;
-        unread: boolean;
-      }>;
-      messagesByTask: Record<
-        string,
-        Array<{
-          id: string;
-          role: "user" | "assistant";
-          model: string;
-          providerId: string;
-          content: string;
-          startedAt?: string;
-          completedAt?: string;
-          isStreaming?: boolean;
-          usage?: {
-            inputTokens: number;
-            outputTokens: number;
-            cacheReadTokens?: number;
-            cacheCreationTokens?: number;
-            totalCostUsd?: number;
-            ttftMs?: number;
-          };
-          delegatedUsage?: DelegatedExecutionUsage[];
-          promptSuggestions?: string[];
-          parts: unknown[];
-        }>
-      >;
-      promptDraftByTask?: Record<string, PromptDraft>;
-      providerSessionByTask?: Record<string, TaskProviderSessionState>;
-      editorTabs?: Array<{
-        id: string;
-        filePath: string;
-        kind?: "text" | "image" | "git-graph";
-        language: string;
-        content: string;
-        originalContent?: string;
-        savedContent?: string;
-        baseRevision?: string | null;
-        hasConflict: boolean;
-        isDirty: boolean;
-      }>;
-      activeEditorTabId?: string | null;
-      terminalTabs?: WorkspaceTerminalTab[];
-      activeTerminalTabId?: string | null;
-      terminalDocked?: boolean;
-      workspaceInformation?: WorkspaceInformationState;
-    };
-  }) => { ok: boolean };
+  /**
+   * Quit-time flush handshake, replacing the former blocking
+   * `upsertWorkspaceSync`. Main asks via `onFlushRequested`; the renderer runs
+   * its ordinary async snapshot write and then acknowledges.
+   */
+  onFlushRequested?: (
+    listener: (args: { requestId: number }) => void,
+  ) => () => void;
+  notifyFlushComplete?: (args: { requestId: number }) => Promise<{
+    ok: boolean;
+  }>;
 }
 
 interface AppMetricsResult {

@@ -231,6 +231,23 @@
         "electron/main/ipc/jira-connector.ts",
         "src/lib/jira-connector/types.ts"
       ]
+    },
+    {
+      "id": "persistence-host-write-boundary",
+      "title": "Host turn persistence is bounded and field-scoped",
+      "invariant": "A host-service turn never loads a task's whole transcript, keeps at most MAX_LOADED_TASK_MESSAGES resident, writes only the messages an event changed, and writes only host-owned shell fields (tasks, activeTaskId, providerSessionByTask, messageCountByTask) so renderer-owned drafts, tabs, layout and information are never overwritten from a stale host copy; quit waits for the renderer's async flush behind a bounded timeout instead of a synchronous IPC write.",
+      "testFiles": [
+        "tests/host-persistence-efficiency.test.ts",
+        "tests/task-turn-delta.test.ts",
+        "tests/persistence-flush-gate.test.ts",
+        "tests/workspace-runtime-state.test.ts"
+      ],
+      "assertionRefs": [
+        "electron/persistence/task-turn-delta.ts",
+        "electron/host-service/local-mcp-runtime.ts",
+        "electron/main/persistence-flush-gate.ts",
+        "src/store/workspace-runtime-state.ts"
+      ]
     }
   ]
 }
