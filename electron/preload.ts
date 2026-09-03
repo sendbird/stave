@@ -86,6 +86,26 @@ import type {
   MartinWorkspaceArgs,
 } from "../src/lib/martin-sync/types";
 import type {
+  TrackerSourceId,
+  TrackerTaskAttachStaveTaskArgs,
+  TrackerTaskDetail,
+  TrackerTaskKickoffArgs,
+  TrackerTaskKickoffResult,
+  TrackerTaskListItem,
+  TrackerTaskRefArgs,
+  TrackerTaskStaveLink,
+  TrackerTasksListArgs,
+  TrackerTasksPublicStatus,
+  TrackerTasksRefreshArgs,
+  TrackerTasksSurfaceVisibleArgs,
+} from "../src/lib/tracker-tasks/types";
+import type { TrackerTasksSettings } from "../src/lib/tracker-tasks/settings";
+import type {
+  JiraConnectorPublicStatus,
+  JiraConnectorSetCredentialArgs,
+  JiraConnectorSettings,
+} from "../src/lib/jira-connector/types";
+import type {
   WorkspaceMartinProjectLink,
   WorkspaceInformationState,
 } from "../src/lib/workspace-information";
@@ -281,6 +301,15 @@ const pendingCraneDispatchApprovals = new Map<
   string,
   CraneDispatchApprovalRequest
 >();
+const trackerTasksStatusSubscribers = new Set<
+  (payload: TrackerTasksPublicStatus) => void
+>();
+const trackerTasksCacheUpdatedSubscribers = new Set<
+  (payload: { source: TrackerSourceId }) => void
+>();
+const trackerTasksKickoffUpdatedSubscribers = new Set<
+  (payload: TrackerTaskStaveLink) => void
+>();
 
 ipcRenderer.on(
   "crane-connector:status",
@@ -326,6 +355,30 @@ ipcRenderer.on(
       pendingCraneDispatchApprovals.delete(payload.jobId);
     }
     for (const subscriber of craneDispatchJobUpdateSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "tracker-tasks:status",
+  (_event, payload: TrackerTasksPublicStatus) => {
+    for (const subscriber of trackerTasksStatusSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "tracker-tasks:cache-updated",
+  (_event, payload: { source: TrackerSourceId }) => {
+    for (const subscriber of trackerTasksCacheUpdatedSubscribers) {
+      subscriber(payload);
+    }
+  },
+);
+ipcRenderer.on(
+  "tracker-tasks:kickoff-updated",
+  (_event, payload: TrackerTaskStaveLink) => {
+    for (const subscriber of trackerTasksKickoffUpdatedSubscribers) {
       subscriber(payload);
     }
   },
@@ -1829,6 +1882,109 @@ contextBridge.exposeInMainWorld("api", {
         craneDispatchJobUpdateSubscribers.delete(listener);
       };
     },
+  },
+  trackerTasks: {
+    getStatus: () =>
+      ipcRenderer.invoke("tracker-tasks:get-status") as Promise<{
+        ok: boolean;
+        status?: TrackerTasksPublicStatus;
+        message?: string;
+      }>,
+    list: (args: TrackerTasksListArgs = {}) =>
+      ipcRenderer.invoke("tracker-tasks:list", args) as Promise<{
+        ok: boolean;
+        items: TrackerTaskListItem[];
+        message?: string;
+      }>,
+    refresh: (args: TrackerTasksRefreshArgs = {}) =>
+      ipcRenderer.invoke("tracker-tasks:refresh", args) as Promise<{
+        ok: boolean;
+        status?: TrackerTasksPublicStatus;
+        message?: string;
+      }>,
+    getDetail: (args: TrackerTaskRefArgs) =>
+      ipcRenderer.invoke("tracker-tasks:get-detail", args) as Promise<{
+        ok: boolean;
+        detail?: TrackerTaskDetail;
+        message?: string;
+      }>,
+    kickoff: (args: TrackerTaskKickoffArgs) =>
+      ipcRenderer.invoke("tracker-tasks:kickoff", args) as Promise<{
+        ok: boolean;
+        result?: TrackerTaskKickoffResult;
+        message?: string;
+      }>,
+    attachStaveTask: (args: TrackerTaskAttachStaveTaskArgs) =>
+      ipcRenderer.invoke("tracker-tasks:attach-stave-task", args) as Promise<{
+        ok: boolean;
+        link?: TrackerTaskStaveLink | null;
+        message?: string;
+      }>,
+    setSurfaceVisible: (args: TrackerTasksSurfaceVisibleArgs) =>
+      ipcRenderer.invoke("tracker-tasks:set-surface-visible", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    configure: (args: TrackerTasksSettings) =>
+      ipcRenderer.invoke("tracker-tasks:configure", args) as Promise<{
+        ok: boolean;
+        status?: TrackerTasksPublicStatus;
+        message?: string;
+      }>,
+    onStatus: (listener: (payload: TrackerTasksPublicStatus) => void) => {
+      trackerTasksStatusSubscribers.add(listener);
+      return () => {
+        trackerTasksStatusSubscribers.delete(listener);
+      };
+    },
+    onCacheUpdated: (
+      listener: (payload: { source: TrackerSourceId }) => void,
+    ) => {
+      trackerTasksCacheUpdatedSubscribers.add(listener);
+      return () => {
+        trackerTasksCacheUpdatedSubscribers.delete(listener);
+      };
+    },
+    onKickoffUpdated: (listener: (payload: TrackerTaskStaveLink) => void) => {
+      trackerTasksKickoffUpdatedSubscribers.add(listener);
+      return () => {
+        trackerTasksKickoffUpdatedSubscribers.delete(listener);
+      };
+    },
+  },
+  // The email and API token are write-only: `setCredential` sends them and
+  // every reply carries a public status, so no reader is exposed here.
+  jiraConnector: {
+    getStatus: () =>
+      ipcRenderer.invoke("jira-connector:get-status") as Promise<{
+        ok: boolean;
+        status: JiraConnectorPublicStatus;
+        message?: string;
+      }>,
+    configure: (args: JiraConnectorSettings) =>
+      ipcRenderer.invoke("jira-connector:configure", args) as Promise<{
+        ok: boolean;
+        status: JiraConnectorPublicStatus;
+        message?: string;
+      }>,
+    setCredential: (args: JiraConnectorSetCredentialArgs) =>
+      ipcRenderer.invoke("jira-connector:set-credential", args) as Promise<{
+        ok: boolean;
+        status: JiraConnectorPublicStatus;
+        message?: string;
+      }>,
+    clearCredential: () =>
+      ipcRenderer.invoke("jira-connector:clear-credential") as Promise<{
+        ok: boolean;
+        status: JiraConnectorPublicStatus;
+        message?: string;
+      }>,
+    testConnection: () =>
+      ipcRenderer.invoke("jira-connector:test-connection", {}) as Promise<{
+        ok: boolean;
+        status: JiraConnectorPublicStatus;
+        message?: string;
+      }>,
   },
   taskControl: {
     takeOver: (args: { workspaceId: string; taskId: string }) =>

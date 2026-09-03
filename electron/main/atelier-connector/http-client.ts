@@ -22,6 +22,14 @@ import {
   type CraneConnectorMetadata,
 } from "../../../src/lib/crane-connector/types";
 import { normalizeCraneConnectorBaseUrl } from "../crane-connector/http-client";
+import { CraneStaveJobV1Schema } from "../../../src/lib/crane-connector/contract";
+import {
+  CRANE_TASKS_LIMITS,
+  CraneTaskDetailResponseV1Schema,
+  CraneTaskJobClaimRequestV1Schema,
+  CraneTaskListResponseV1Schema,
+} from "../../../src/lib/tracker-tasks/contract";
+import type { TrackerStatusCategory } from "../../../src/lib/tracker-tasks/types";
 
 const DEFAULT_MAX_RESPONSE_BYTES = 24_000;
 const SYNC_MAX_RESPONSE_BYTES = 64_000;
@@ -55,6 +63,45 @@ const ErrorResponseSchema = z
   })
   .passthrough();
 
+/**
+ * What a claimed task job looks like coming back.
+ *
+ * Deliberately a copy of the dispatch client's private `ClaimResponseSchema`
+ * (`electron/main/crane-connector/http-client.ts`) rather than an import: that
+ * one is module-private, and the two routes reach the same job record from
+ * opposite directions - Crane pushing a job at Stave, and Stave asking Crane to
+ * open one. They answer identically today, so keep the two in step by hand
+ * until one of them has a reason to diverge.
+ */
+const CraneTaskJobClaimResponseSchema = z
+  .object({
+    job: CraneStaveJobV1Schema,
+    leaseId: z.string().trim().startsWith("stl_").max(128),
+    leaseExpiresAt: z.string().datetime({ offset: true }),
+    nextSequence: z.number().int().min(1),
+    retryAfterMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
+  })
+  .strict();
+
+export type CraneTaskJobClaimResponse = z.infer<
+  typeof CraneTaskJobClaimResponseSchema
+>;
+
+/**
+ * Codes to use when a failed response carries no machine-readable body.
+ *
+ * The body is still authoritative when it parses - this only stops a bare
+ * status from collapsing into `request_failed`, which the task routes would
+ * otherwise do for the two outcomes the caller has to tell apart: a ticket that
+ * is gone and a ticket the connector's scope does not cover. 409 stays generic
+ * because `job_active` and `task_closed` are only distinguishable from the body.
+ */
+const STATUS_FALLBACK_CODES: Readonly<Record<number, string>> = Object.freeze({
+  403: "forbidden",
+  404: "not_found",
+  409: "conflict",
+});
+
 export class AtelierConnectorHttpError extends Error {
   constructor(
     readonly code: string,
@@ -83,14 +130,8 @@ async function readBoundedJson(
   maxResponseBytes: number,
 ): Promise<unknown> {
   const declaredLength = Number(response.headers.get("content-length"));
-  if (
-    Number.isFinite(declaredLength) &&
-    declaredLength > maxResponseBytes
-  ) {
-    throw new AtelierConnectorHttpError(
-      "response_too_large",
-      response.status,
-    );
+  if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
+    throw new AtelierConnectorHttpError("response_too_large", response.status);
   }
   if (!response.body) return null;
 
@@ -185,12 +226,9 @@ export class AtelierConnectorHttpClient {
           ...(args.body === undefined
             ? {}
             : { "Content-Type": "application/json" }),
-          ...(args.secret
-            ? { Authorization: `Bearer ${args.secret}` }
-            : {}),
+          ...(args.secret ? { Authorization: `Bearer ${args.secret}` } : {}),
         },
-        body:
-          args.body === undefined ? undefined : JSON.stringify(args.body),
+        body: args.body === undefined ? undefined : JSON.stringify(args.body),
         signal,
         cache: "no-store",
         redirect: "error",
@@ -209,7 +247,9 @@ export class AtelierConnectorHttpClient {
     if (!response.ok) {
       const parsedError = ErrorResponseSchema.safeParse(payload);
       throw new AtelierConnectorHttpError(
-        parsedError.success ? parsedError.data.error : "request_failed",
+        parsedError.success
+          ? parsedError.data.error
+          : (STATUS_FALLBACK_CODES[response.status] ?? "request_failed"),
         response.status,
         parsedError.success ? parsedError.data.retryAfterMs : undefined,
       );
@@ -246,7 +286,8 @@ export class AtelierConnectorHttpClient {
       connector: toPublicMetadata(response.connector),
       secret: response.secret,
       pollRetryMs: response.pollRetryMs,
-      scopes: response.connector.scopes ?? (["crane"] as AtelierConnectorScope[]),
+      scopes:
+        response.connector.scopes ?? (["crane"] as AtelierConnectorScope[]),
     };
   }
 
@@ -330,5 +371,78 @@ export class AtelierConnectorHttpClient {
     const counts = { inserted: 0, updated: 0, skipped: 0 };
     for (const result of response.results) counts[result.action] += 1;
     return { ok: true as const, ...counts };
+  }
+
+  /**
+   * One page of the caller's Crane work list.
+   *
+   * Paging is left to the caller: this client stays a single request per call so
+   * an abort signal cancels exactly one round trip, and the page budget lives
+   * next to the code that owns the list.
+   */
+  async listCraneTasks(args: {
+    secret: string;
+    status?: readonly TrackerStatusCategory[];
+    updatedAfter?: string;
+    limit?: number;
+    cursor?: string;
+    signal?: AbortSignal;
+  }) {
+    const search = new URLSearchParams();
+    // `status` repeats instead of joining on a separator so the filter can never
+    // become ambiguous if a status value ever contains one.
+    for (const status of args.status ?? []) search.append("status", status);
+    if (args.updatedAfter) search.set("updatedAfter", args.updatedAfter);
+    if (args.limit !== undefined) search.set("limit", String(args.limit));
+    if (args.cursor) search.set("cursor", args.cursor);
+    const suffix = search.size > 0 ? `?${search}` : "";
+    return this.request({
+      path: `/api/crane/stave/tasks${suffix}`,
+      secret: args.secret,
+      signal: args.signal,
+      schema: CraneTaskListResponseV1Schema,
+      maxResponseBytes: CRANE_TASKS_LIMITS.listBytes,
+    });
+  }
+
+  async getCraneTask(args: {
+    secret: string;
+    taskRef: string;
+    signal?: AbortSignal;
+  }) {
+    return this.request({
+      path: `/api/crane/stave/tasks/${encodeURIComponent(args.taskRef)}`,
+      secret: args.secret,
+      signal: args.signal,
+      schema: CraneTaskDetailResponseV1Schema,
+      maxResponseBytes: CRANE_TASKS_LIMITS.detailBytes,
+    });
+  }
+
+  /**
+   * Ask Crane to open a job for a ticket this Stave is about to run.
+   *
+   * The body is validated locally first so an instruction that is empty or over
+   * budget fails here, where the caller can still show the user their own text,
+   * rather than as an opaque 400 after the round trip.
+   */
+  async createCraneTaskJob(args: {
+    secret: string;
+    taskRef: string;
+    instruction: string;
+    signal?: AbortSignal;
+  }): Promise<CraneTaskJobClaimResponse> {
+    const body = CraneTaskJobClaimRequestV1Schema.parse({
+      protocolVersion: 1,
+      instruction: args.instruction,
+    });
+    return this.request({
+      path: `/api/crane/stave/tasks/${encodeURIComponent(args.taskRef)}/stave-jobs/claim`,
+      method: "POST",
+      secret: args.secret,
+      body,
+      signal: args.signal,
+      schema: CraneTaskJobClaimResponseSchema,
+    });
   }
 }

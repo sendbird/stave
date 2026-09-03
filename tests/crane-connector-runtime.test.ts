@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { CraneConnectorHttpError } from "../electron/main/crane-connector/http-client";
 import { CraneConnectorRuntime } from "../electron/main/crane-connector/runtime";
+import type { CraneStaveJobV1 } from "../src/lib/crane-connector/contract";
+import type { CraneDispatchRuntimeChoice } from "../src/lib/crane-connector/types";
 import type { LocalCraneJobBinding } from "../electron/persistence/crane-job-binding-store";
 
 const NOW = new Date("2026-07-26T00:02:00.000Z");
@@ -30,6 +32,33 @@ const JOB = {
   requestedAt: "2026-07-26T00:01:00.000Z",
   expiresAt: "2026-07-27T00:01:00.000Z",
 } as const;
+/** A second job, claimed by Stave itself rather than offered by Crane. */
+const KICKOFF_JOB: CraneStaveJobV1 = {
+  ...JOB,
+  id: "job-2",
+  issue: { ...JOB.issue, id: "issue-2", key: "CRANE-77" },
+};
+const KICKOFF_LEASE = {
+  leaseId: "stl_test-only-kickoff-lease",
+  leaseExpiresAt: "2026-07-26T00:17:00.000Z",
+};
+const CODEX_RUNTIME: CraneDispatchRuntimeChoice = {
+  provider: "codex",
+  model: "gpt-5.6",
+  providerTimeoutMs: 43_200_000,
+  codexFileAccess: "workspace-write",
+  codexNetworkAccess: false,
+  codexApprovalPolicy: "on-request",
+  codexWebSearch: "live",
+  codexReasoningEffort: "xhigh",
+  codexFastMode: false,
+  advisorTarget: null,
+};
+const ENABLED_CONFIG = {
+  enabled: true,
+  baseUrl: "https://atelier.delight-tools.ai",
+  pollIntervalSeconds: 15,
+} as const;
 
 function createHarness(options?: {
   /** Overrides the delivered job; defaults to `JOB`. */
@@ -42,6 +71,12 @@ function createHarness(options?: {
 }) {
   const bindings = new Map<string, LocalCraneJobBinding>();
   const receipts: Array<{ state: string; errorCode?: string }> = [];
+  /** Per-job receipt trail, used to assert that sequences stay independent. */
+  const receiptLog: Array<{
+    jobId: string;
+    state: string;
+    sequence: number;
+  }> = [];
   const approvals: unknown[] = [];
   const statuses: unknown[] = [];
   const jobUpdates: unknown[] = [];
@@ -52,6 +87,7 @@ function createHarness(options?: {
   const taskStatusCalls: unknown[] = [];
   const receiptFailures = { ...options?.receiptFailures };
   let nextDelivered = false;
+  let nextJobFetches = 0;
   let cleared = false;
   let exchangeCalls = 0;
   let taskCompleted = false;
@@ -110,6 +146,7 @@ function createHarness(options?: {
   const deliveredJob = options?.job ?? JOB;
   const http = {
     getNextJob: async () => {
+      nextJobFetches += 1;
       if (options?.unauthorized) {
         throw new CraneConnectorHttpError("unauthorized", 401);
       }
@@ -127,6 +164,7 @@ function createHarness(options?: {
       retryAfterMs: 15_000,
     }),
     postReceipt: async (args: {
+      jobId: string;
       receipt: { state: string; errorCode?: string; sequence: number };
     }) => {
       const remainingFailures = receiptFailures[args.receipt.state] ?? 0;
@@ -134,6 +172,11 @@ function createHarness(options?: {
         receiptFailures[args.receipt.state] = remainingFailures - 1;
         throw new CraneConnectorHttpError("network_unavailable", 0);
       }
+      receiptLog.push({
+        jobId: args.jobId,
+        state: args.receipt.state,
+        sequence: args.receipt.sequence,
+      });
       receipts.push({
         state: args.receipt.state,
         ...(args.receipt.errorCode
@@ -299,6 +342,10 @@ function createHarness(options?: {
     },
     jobUpdates,
     leases,
+    get nextJobFetches() {
+      return nextJobFetches;
+    },
+    receiptLog,
     receipts,
     registerIssueCalls,
     releasedTasks,
@@ -941,4 +988,178 @@ describe("CraneConnectorRuntime", () => {
       });
     },
   );
+
+  test("starts a Stave-claimed job with running as its first receipt", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure(ENABLED_CONFIG);
+
+    const started = await harness.runtime.kickoffClaimedJob({
+      claimed: { job: KICKOFF_JOB, ...KICKOFF_LEASE, nextSequence: 4 },
+      projectPath: "/tmp/project",
+      workspace: { strategy: "new", branchName: "crane/crane-77" },
+      runtime: CODEX_RUNTIME,
+    });
+
+    expect(started).toEqual({
+      jobId: KICKOFF_JOB.id,
+      workspaceId: "workspace-crane",
+      taskId: "task-crane",
+    });
+    // No approval handshake: the user already answered in the Tasks surface.
+    expect(harness.approvals).toHaveLength(0);
+    expect(harness.receipts).toEqual([{ state: "running" }]);
+    // The claim reserved sequence 4, so the first receipt has to land on it.
+    expect(harness.receiptLog).toEqual([
+      { jobId: KICKOFF_JOB.id, state: "running", sequence: 4 },
+    ]);
+    expect(harness.leases.get(KICKOFF_JOB.id)).toEqual({
+      jobId: KICKOFF_JOB.id,
+      connectorId: CONNECTOR.id,
+      leaseId: KICKOFF_LEASE.leaseId,
+      expiresAt: KICKOFF_LEASE.leaseExpiresAt,
+    });
+    expect(harness.runCalls[0]).toMatchObject({
+      title: "Crane CRANE-77: Fix the connector",
+      provider: "codex",
+    });
+    expect(harness.runtime.getStatus()).toMatchObject({
+      runtimeState: "running",
+      activeJobId: KICKOFF_JOB.id,
+    });
+  });
+
+  test("rejects a kickoff for another connector before any local write", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure(ENABLED_CONFIG);
+
+    await expect(
+      harness.runtime.kickoffClaimedJob({
+        claimed: {
+          job: { ...KICKOFF_JOB, connectorId: "connector-other" },
+          ...KICKOFF_LEASE,
+          nextSequence: 4,
+        },
+        projectPath: "/tmp/project",
+        workspace: { strategy: "new", branchName: "crane/crane-77" },
+        runtime: CODEX_RUNTIME,
+      }),
+    ).rejects.toThrow("connector_scope_mismatch");
+
+    expect(harness.bindings.size).toBe(0);
+    expect(harness.leases.has(KICKOFF_JOB.id)).toBe(false);
+    expect(harness.receipts).toHaveLength(0);
+    expect(harness.runCalls).toHaveLength(0);
+  });
+
+  test("reports a kickoff that fails before it runs as a terminal receipt", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure(ENABLED_CONFIG);
+
+    await expect(
+      harness.runtime.kickoffClaimedJob({
+        claimed: { job: KICKOFF_JOB, ...KICKOFF_LEASE, nextSequence: 4 },
+        projectPath: "/tmp/unregistered-project",
+        workspace: { strategy: "new", branchName: "crane/crane-77" },
+        runtime: CODEX_RUNTIME,
+      }),
+    ).rejects.toThrow("no longer registered in Stave");
+
+    // Crane must still be told the job is over, on the sequence it reserved.
+    expect(harness.receipts).toEqual([
+      { state: "failed", errorCode: "mapping_missing" },
+    ]);
+    expect(harness.receiptLog).toEqual([
+      { jobId: KICKOFF_JOB.id, state: "failed", sequence: 4 },
+    ]);
+    expect(harness.bindings.get(KICKOFF_JOB.id)).toMatchObject({
+      state: "failed",
+      errorCode: "mapping_missing",
+    });
+    expect(harness.leases.has(KICKOFF_JOB.id)).toBe(false);
+    expect(harness.runCalls).toHaveLength(0);
+    expect(harness.runtime.getStatus()).toMatchObject({
+      runtimeState: "connected",
+      activeJobId: null,
+      lastErrorCode: "mapping_missing",
+    });
+  });
+
+  test("runs a Stave kickoff alongside a remote job awaiting approval", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure(ENABLED_CONFIG);
+    await harness.runNextTimer();
+    const fetchesAfterClaim = harness.nextJobFetches;
+
+    await harness.runtime.kickoffClaimedJob({
+      claimed: { job: KICKOFF_JOB, ...KICKOFF_LEASE, nextSequence: 1 },
+      projectPath: "/tmp/project",
+      workspace: { strategy: "new", branchName: "crane/crane-77" },
+      runtime: CODEX_RUNTIME,
+    });
+
+    expect(harness.bindings.get(JOB.id)?.state).toBe("awaiting_local_approval");
+    expect(harness.bindings.get(KICKOFF_JOB.id)?.state).toBe("running");
+    // Precedence: the pending approval is the only state blocked on the user.
+    expect(harness.runtime.getStatus()).toMatchObject({
+      runtimeState: "awaiting_local_approval",
+      activeJobId: JOB.id,
+    });
+
+    await harness.runNextTimer();
+
+    // Both bindings advance, and no second job is offered while one is pending.
+    expect(harness.nextJobFetches).toBe(fetchesAfterClaim);
+    expect(harness.approvals).toHaveLength(2);
+    expect(harness.bindings.get(KICKOFF_JOB.id)?.state).toBe("running");
+
+    await harness.runtime.approve({
+      jobId: JOB.id,
+      projectPath: "/tmp/project",
+      workspace: { strategy: "new", branchName: "crane/crane-42" },
+      runtime: CODEX_RUNTIME,
+    });
+
+    // Sequences are per binding, so the kickoff never consumed a slot the
+    // remote job needed and vice versa.
+    expect(
+      harness.receiptLog
+        .filter((entry) => entry.jobId === JOB.id)
+        .map((entry) => entry.sequence),
+    ).toEqual([1, 2, 3]);
+    expect(
+      harness.receiptLog
+        .filter((entry) => entry.jobId === KICKOFF_JOB.id)
+        .map((entry) => entry.sequence),
+    ).toEqual([1]);
+    expect(harness.runtime.getStatus()).toMatchObject({
+      runtimeState: "running",
+    });
+  });
+
+  test("restores every active binding after a restart", async () => {
+    const harness = createHarness();
+    await harness.runtime.configure(ENABLED_CONFIG);
+    await harness.runNextTimer();
+    await harness.runtime.kickoffClaimedJob({
+      claimed: { job: KICKOFF_JOB, ...KICKOFF_LEASE, nextSequence: 1 },
+      projectPath: "/tmp/project",
+      workspace: { strategy: "new", branchName: "crane/crane-77" },
+      runtime: CODEX_RUNTIME,
+    });
+    harness.runtime.shutdown();
+    const approvalCount = harness.approvals.length;
+
+    await harness.runtime.configure(ENABLED_CONFIG);
+
+    // Two active bindings used to read as corrupted local state.
+    expect(harness.approvals).toHaveLength(approvalCount + 1);
+    expect(harness.bindings.get(JOB.id)?.state).toBe("awaiting_local_approval");
+    expect(harness.bindings.get(KICKOFF_JOB.id)?.state).toBe("running");
+    expect(harness.runCalls).toHaveLength(1);
+    expect(harness.runtime.getStatus()).toMatchObject({
+      runtimeState: "awaiting_local_approval",
+      activeJobId: JOB.id,
+      lastErrorCode: null,
+    });
+  });
 });

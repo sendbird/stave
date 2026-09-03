@@ -92,6 +92,14 @@ import {
   type MartinSyncSettings,
 } from "@/lib/martin-sync/types";
 import {
+  DEFAULT_JIRA_CONNECTOR_SETTINGS,
+  type JiraConnectorSettings,
+} from "@/lib/jira-connector/types";
+import {
+  DEFAULT_TRACKER_TASKS_SETTINGS,
+  type TrackerTasksSettings,
+} from "@/lib/tracker-tasks/settings";
+import {
   DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
   type WorkspaceKickoffSettings,
 } from "@/store/workspace-kickoff-actions";
@@ -347,6 +355,13 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   craneConnector: CraneConnectorSettings;
   /** Martin workspace sync toggles. Secrets stay in Electron main. */
   martinSync: MartinSyncSettings;
+  /**
+   * Jira Cloud tracker connector. Site, JQL, and project mappings live here;
+   * the email and API token never leave the Electron main vault.
+   */
+  jiraConnector: JiraConnectorSettings;
+  /** Tasks surface defaults: view, refresh cadence, and kickoff start mode. */
+  trackerTasks: TrackerTasksSettings;
   claudeSettingSources: ClaudeSettingSource[];
   claudeEffort: "low" | "medium" | "high" | "xhigh" | "max";
   claudeThinkingMode: "adaptive" | "enabled" | "disabled";
@@ -676,6 +691,11 @@ export const defaultSettings: AppSettings = {
     projectMappings: [],
   },
   martinSync: { ...DEFAULT_MARTIN_SYNC_SETTINGS },
+  jiraConnector: {
+    ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
+    projectMappings: [],
+  },
+  trackerTasks: { ...DEFAULT_TRACKER_TASKS_SETTINGS },
   claudeSettingSources: ["project"],
   claudeEffort: "high",
   claudeThinkingMode: "adaptive",

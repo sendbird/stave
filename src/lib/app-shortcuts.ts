@@ -15,6 +15,7 @@ export type AppShortcutCommandId =
   | "navigation.home"
   | "navigation.fleet-view"
   | "navigation.automation-center"
+  | "navigation.tasks"
   | "view.toggle-workspace-sidebar"
   | "view.toggle-changes-panel"
   | "view.show-explorer"
@@ -51,6 +52,12 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     title: "Open Automation Center",
     description: "Open scheduled agent automations and their run history.",
     defaultKey: "a",
+  },
+  {
+    commandId: "navigation.tasks",
+    title: "Open Tasks",
+    description: "Open assigned tracker tickets and start a run from one.",
+    defaultKey: "t",
   },
   {
     commandId: "view.toggle-workspace-sidebar",

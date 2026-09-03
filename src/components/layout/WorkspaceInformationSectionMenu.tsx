@@ -37,6 +37,8 @@ export function WorkspaceInformationSectionMenu() {
           visibility,
           information,
           craneConnectorEnabled,
+          // TODO(tasks-surface): read `settings.jiraConnector.enabled` once the Jira connector slice exists.
+          jiraConnectorEnabled: false,
         }),
       ),
     [craneConnectorEnabled, information, visibility],

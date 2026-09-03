@@ -10,6 +10,14 @@ import {
 import type { AppSettings } from "@/store/app-settings";
 import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
 import {
+  DEFAULT_JIRA_CONNECTOR_SETTINGS,
+  JiraConnectorSettingsSchema,
+} from "@/lib/jira-connector/types";
+import {
+  DEFAULT_TRACKER_TASKS_SETTINGS,
+  TrackerTasksSettingsSchema,
+} from "@/lib/tracker-tasks/settings";
+import {
   AuxiliaryInferencePolicySchema,
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
 } from "@/lib/providers/auxiliary-inference-policy";
@@ -335,6 +343,71 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "exclude",
   } satisfies SettingDefinition<"craneConnector">,
+  {
+    key: "jiraConnector",
+    sectionId: "integrations",
+    fieldId: "settings-field-jira-connector",
+    title: "Jira connector",
+    description:
+      "Read your assigned Jira Cloud issues over outbound HTTPS and map Jira projects to local Stave projects.",
+    keywords: [
+      "jira",
+      "jira cloud",
+      "atlassian",
+      "site url",
+      "jql",
+      "api token",
+      "issue",
+      "issues",
+      "ticket",
+      "tracker",
+      "integration",
+      "outbound",
+      "project mapping",
+    ],
+    schema: JiraConnectorSettingsSchema,
+    // Spread rather than shared: the frozen default carries a frozen mappings
+    // array, and a definition default must stay writable for consumers that
+    // reset a row by assigning it.
+    defaultValue: {
+      ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
+      projectMappings: [],
+    },
+    scope: "app",
+    // Sensitive and export-excluded because the site URL plus the mapping table
+    // describe a private tracker, and the credential it pairs with lives in the
+    // main-process vault where an export could never round-trip it anyway.
+    sensitivity: "sensitive",
+    applyMode: "immediate",
+    importExport: "exclude",
+  } satisfies SettingDefinition<"jiraConnector">,
+  {
+    key: "trackerTasks",
+    sectionId: "tasks",
+    fieldId: "settings-field-tracker-tasks",
+    title: "Tasks",
+    description:
+      "Default view, refresh interval, and kickoff start mode for the assigned-ticket list.",
+    keywords: [
+      "tasks",
+      "tickets",
+      "tracker",
+      "issues",
+      "default view",
+      "refresh",
+      "poll",
+      "interval",
+      "kickoff",
+      "start mode",
+      "stage",
+    ],
+    schema: TrackerTasksSettingsSchema,
+    defaultValue: { ...DEFAULT_TRACKER_TASKS_SETTINGS },
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "immediate",
+    importExport: "include",
+  } satisfies SettingDefinition<"trackerTasks">,
   {
     key: "martinSync",
     sectionId: "integrations",

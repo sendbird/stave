@@ -183,71 +183,72 @@ export const CraneConnectorConfigInputSchema =
     pollIntervalSeconds: true,
   });
 
-const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
-  z
-    .object({
-      provider: z.literal("claude-code"),
-      model: z.string().trim().min(1).max(200),
-      providerTimeoutMs: z.number().int().min(1).max(86_400_000),
-      claudePermissionMode: z.enum([
-        "default",
-        "acceptEdits",
-        "bypassPermissions",
-        "plan",
-        "dontAsk",
-        "auto",
-      ]),
-      claudeSandboxEnabled: z.boolean(),
-      // Both flags are required so an autonomy preset means the same thing here
-      // as it does in the composer. Omitting them lets the Claude runtime fall
-      // back to its own defaults - notably `allowUnsandboxedCommands: true`,
-      // which would quietly undo the sandbox that "Manual" promises.
-      claudeAllowUnsandboxedCommands: z.boolean(),
-      claudeAllowDangerouslySkipPermissions: z.boolean(),
-      // Required: an absent effort silently falls back to the Claude Agent SDK
-      // default instead of the reasoning level the approver actually picked.
-      claudeEffort: z.enum(["low", "medium", "high", "xhigh", "max"]),
-      advisorTarget: AdvisorTargetSchema,
-      advisorConsultLimit: AdvisorConsultLimitSchema,
-    })
-    .strict(),
-  z
-    .object({
-      provider: z.literal("codex"),
-      model: z.string().trim().min(1).max(200),
-      providerTimeoutMs: z.number().int().min(1).max(86_400_000),
-      codexFileAccess: z.enum([
-        "read-only",
-        "workspace-write",
-        "danger-full-access",
-      ]),
-      codexNetworkAccess: z.boolean(),
-      codexApprovalPolicy: z.enum([
-        "never",
-        "on-request",
-        "on-failure",
-        "untrusted",
-      ]),
-      // Part of the autonomy preset for the same reason as the Claude flags
-      // above: without it "Manual" would not actually disable web search.
-      codexWebSearch: z.enum(["disabled", "cached", "live", "indexed"]),
-      // Required for the same reason as `claudeEffort`. "minimal" is legacy
-      // input only; resolveCodexAppServerReasoningEffort maps it to "low".
-      codexReasoningEffort: z.enum([
-        "minimal",
-        "low",
-        "medium",
-        "high",
-        "xhigh",
-        "max",
-        "ultra",
-      ]),
-      codexFastMode: z.boolean(),
-      advisorTarget: AdvisorTargetSchema,
-      advisorConsultLimit: AdvisorConsultLimitSchema,
-    })
-    .strict(),
-])
+export const CraneDispatchRuntimeChoiceSchema = z
+  .discriminatedUnion("provider", [
+    z
+      .object({
+        provider: z.literal("claude-code"),
+        model: z.string().trim().min(1).max(200),
+        providerTimeoutMs: z.number().int().min(1).max(86_400_000),
+        claudePermissionMode: z.enum([
+          "default",
+          "acceptEdits",
+          "bypassPermissions",
+          "plan",
+          "dontAsk",
+          "auto",
+        ]),
+        claudeSandboxEnabled: z.boolean(),
+        // Both flags are required so an autonomy preset means the same thing here
+        // as it does in the composer. Omitting them lets the Claude runtime fall
+        // back to its own defaults - notably `allowUnsandboxedCommands: true`,
+        // which would quietly undo the sandbox that "Manual" promises.
+        claudeAllowUnsandboxedCommands: z.boolean(),
+        claudeAllowDangerouslySkipPermissions: z.boolean(),
+        // Required: an absent effort silently falls back to the Claude Agent SDK
+        // default instead of the reasoning level the approver actually picked.
+        claudeEffort: z.enum(["low", "medium", "high", "xhigh", "max"]),
+        advisorTarget: AdvisorTargetSchema,
+        advisorConsultLimit: AdvisorConsultLimitSchema,
+      })
+      .strict(),
+    z
+      .object({
+        provider: z.literal("codex"),
+        model: z.string().trim().min(1).max(200),
+        providerTimeoutMs: z.number().int().min(1).max(86_400_000),
+        codexFileAccess: z.enum([
+          "read-only",
+          "workspace-write",
+          "danger-full-access",
+        ]),
+        codexNetworkAccess: z.boolean(),
+        codexApprovalPolicy: z.enum([
+          "never",
+          "on-request",
+          "on-failure",
+          "untrusted",
+        ]),
+        // Part of the autonomy preset for the same reason as the Claude flags
+        // above: without it "Manual" would not actually disable web search.
+        codexWebSearch: z.enum(["disabled", "cached", "live", "indexed"]),
+        // Required for the same reason as `claudeEffort`. "minimal" is legacy
+        // input only; resolveCodexAppServerReasoningEffort maps it to "low".
+        codexReasoningEffort: z.enum([
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max",
+          "ultra",
+        ]),
+        codexFastMode: z.boolean(),
+        advisorTarget: AdvisorTargetSchema,
+        advisorConsultLimit: AdvisorConsultLimitSchema,
+      })
+      .strict(),
+  ])
   // Refined on the assembled union rather than each member so a wrong
   // `provider` still fails as a discriminator mismatch instead of as two
   // parallel shape errors.
@@ -264,20 +265,23 @@ const CraneDispatchRuntimeChoiceSchema = z.discriminatedUnion("provider", [
     }
   });
 
-const CraneDispatchWorkspaceChoiceSchema = z.discriminatedUnion("strategy", [
-  z
-    .object({
-      strategy: z.literal("new"),
-      branchName: z.string().trim().min(1).max(160),
-    })
-    .strict(),
-  z
-    .object({
-      strategy: z.literal("existing"),
-      workspaceId: z.string().trim().min(1).max(256),
-    })
-    .strict(),
-]);
+export const CraneDispatchWorkspaceChoiceSchema = z.discriminatedUnion(
+  "strategy",
+  [
+    z
+      .object({
+        strategy: z.literal("new"),
+        branchName: z.string().trim().min(1).max(160),
+      })
+      .strict(),
+    z
+      .object({
+        strategy: z.literal("existing"),
+        workspaceId: z.string().trim().min(1).max(256),
+      })
+      .strict(),
+  ],
+);
 
 export const CraneDispatchApprovalResponseSchema = z
   .object({
@@ -351,6 +355,13 @@ export type CraneDispatchApprovalRequest = z.infer<
 >;
 export type CraneDispatchJobUpdate = z.infer<
   typeof CraneDispatchJobUpdateSchema
+>;
+
+export type CraneDispatchRuntimeChoice = z.infer<
+  typeof CraneDispatchRuntimeChoiceSchema
+>;
+export type CraneDispatchWorkspaceChoice = z.infer<
+  typeof CraneDispatchWorkspaceChoiceSchema
 >;
 
 export function normalizeCraneConnectorSettings(

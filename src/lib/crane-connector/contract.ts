@@ -48,7 +48,7 @@ const httpsUrlSchema = z
     message: "Crane issue links must use HTTPS.",
   });
 
-function serializedByteLength(value: unknown) {
+export function serializedByteLength(value: unknown) {
   return utf8Encoder.encode(JSON.stringify(value)).byteLength;
 }
 
@@ -116,7 +116,7 @@ function normalizeKey(key: string) {
  * allowed through and dropped, which is what makes additive Crane changes
  * non-breaking in both rollout directions.
  */
-function assertNoHostControlKeys(
+export function assertNoHostControlKeys(
   value: unknown,
   context: z.RefinementCtx,
   path: (string | number)[] = [],

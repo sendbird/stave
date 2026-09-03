@@ -130,6 +130,29 @@ export function workspaceInformationSectionHasContent(args: {
 }
 
 /**
+ * Sections owned by a tracker connector, and whether that connector is on.
+ *
+ * A user who has just connected a tracker expects its section to be there
+ * before the first ticket lands, so an enabled connector makes its section
+ * default-visible the same way a core section is. A disabled connector adds
+ * nothing, which keeps the connector-less behaviour byte-for-byte identical.
+ */
+function isTrackerConnectorSectionEnabled(args: {
+  id: WorkspaceInformationSectionId;
+  craneConnectorEnabled?: boolean;
+  jiraConnectorEnabled?: boolean;
+}): boolean {
+  switch (args.id) {
+    case "crane":
+      return Boolean(args.craneConnectorEnabled);
+    case "jira":
+      return Boolean(args.jiraConnectorEnabled);
+    default:
+      return false;
+  }
+}
+
+/**
  * Sections that stay hidden unless the integration behind them is switched on.
  * A leftover explicit `true` in stored visibility must not resurrect them, so
  * the gate is checked before the visibility override.
@@ -155,6 +178,7 @@ export function resolveVisibleWorkspaceInformationSections(args: {
   information: WorkspaceInformationState;
   planCount?: number;
   craneConnectorEnabled?: boolean;
+  jiraConnectorEnabled?: boolean;
 }): WorkspaceInformationSectionId[] {
   const visibility = normalizeWorkspaceInformationSectionVisibility(
     args.visibility,
@@ -179,6 +203,11 @@ export function resolveVisibleWorkspaceInformationSections(args: {
     }
     return (
       CORE_SECTION_ID_SET.has(id) ||
+      isTrackerConnectorSectionEnabled({
+        id,
+        craneConnectorEnabled: args.craneConnectorEnabled,
+        jiraConnectorEnabled: args.jiraConnectorEnabled,
+      }) ||
       workspaceInformationSectionHasContent({
         id,
         information: args.information,

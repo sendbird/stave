@@ -71,6 +71,29 @@ describe("app shortcuts", () => {
     ).toBe(null);
   });
 
+  test("binds Tasks to a key no other action already owns", () => {
+    const normalized = normalizeAppShortcutKeys();
+
+    expect(normalized["navigation.tasks"]).toBe("t");
+    const owners = APP_SHORTCUT_DEFINITIONS.filter(
+      (definition) => normalized[definition.commandId] === "t",
+    );
+    expect(owners).toHaveLength(1);
+    expect(
+      resolveAppShortcutAction({ key: "t", shortcutKeys: normalized }),
+    ).toBe("navigation.tasks");
+  });
+
+  test("assigns every default chord key exactly once", () => {
+    const normalized = normalizeAppShortcutKeys();
+    const assigned = APP_SHORTCUT_DEFINITIONS.map(
+      (definition) => normalized[definition.commandId],
+    ).filter((key) => key !== "");
+
+    expect(new Set(assigned).size).toBe(assigned.length);
+    expect(assigned).toHaveLength(APP_SHORTCUT_DEFINITIONS.length);
+  });
+
   test("can clear all chord bindings", () => {
     const cleared = createEmptyAppShortcutKeys();
 

@@ -1,0 +1,30 @@
+{
+  "job": {
+    "version": 1,
+    "id": "d3f4a5b6-c7d8-4e90-a1b2-c3d4e5f60718",
+    "kind": "run_task",
+    "connectorId": "connector-42",
+    "issue": {
+      "id": "task-9f1c2d3e",
+      "key": "CRN-42",
+      "title": "Connect Crane to Stave",
+      "description": "Add a connector-authenticated read API for the caller's own Crane tasks.",
+      "href": "https://atelier.example.test/apps/crane/w/frontend/task/CRN-42",
+      "updatedAt": "2026-09-01T12:00:00.000Z",
+      "links": [
+        {
+          "rel": "jira",
+          "key": "DFE-2898",
+          "url": "https://sendbird.atlassian.net/browse/DFE-2898"
+        }
+      ]
+    },
+    "instruction": "Work on this Crane issue.",
+    "requestedAt": "2026-09-03T00:00:00.000Z",
+    "expiresAt": "2026-09-04T00:00:00.000Z"
+  },
+  "leaseId": "stl_0123456789abcdef0123456789abcdef",
+  "leaseExpiresAt": "2026-09-03T00:15:00.000Z",
+  "nextSequence": 1,
+  "retryAfterMs": 15000
+}

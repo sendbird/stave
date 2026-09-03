@@ -95,6 +95,8 @@ function createContext(
       openInTerminal: async () => {},
       openInVSCode: async () => {},
       openFleetView: () => {},
+      openTasks: () => {},
+      refreshTrackerTasks: async () => {},
       openKeyboardShortcuts: () => {},
       openProject: async () => {},
       openSettings: () => {},
@@ -120,6 +122,28 @@ function createContext(
 }
 
 describe("command palette registry", () => {
+  test("exposes the Tasks commands without colliding with an existing binding", () => {
+    const context = createContext();
+    const actions = buildCommandPaletteGroups(context).flatMap(
+      (group) => group.items,
+    );
+
+    const openTasks = actions.find((item) => item.id === "navigation.tasks");
+    expect(openTasks?.title).toBe("Open Tasks");
+    expect(openTasks?.shortcut).toBe("Cmd+K T");
+
+    expect(actions.some((item) => item.id === "tracker.refresh-tasks")).toBe(
+      true,
+    );
+
+    // Ids are unique and the chord is owned by exactly one command.
+    const ids = actions.map((item) => item.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(actions.filter((item) => item.shortcut === "Cmd+K T")).toHaveLength(
+      1,
+    );
+  });
+
   test("builds grouped core and dynamic actions", () => {
     const groups = buildCommandPaletteGroups(createContext());
     const actions = groups.flatMap((group) => group.items);

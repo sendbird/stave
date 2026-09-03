@@ -4,6 +4,7 @@ import {
   buildCraneDispatchRetrievedContext,
 } from "../../../src/lib/crane-connector/context";
 import type {
+  CraneStaveJobV1,
   CraneStaveReceiptState,
   CraneStaveReceiptV1,
 } from "../../../src/lib/crane-connector/contract";
@@ -17,10 +18,10 @@ import {
   type CraneDispatchApprovalRequest,
   type CraneDispatchApprovalResponse,
   type CraneDispatchJobUpdate,
+  type CraneDispatchRuntimeChoice,
+  type CraneDispatchWorkspaceChoice,
 } from "../../../src/lib/crane-connector/types";
-import type {
-  LocalCraneJobBinding,
-} from "../../persistence/crane-job-binding-store";
+import type { LocalCraneJobBinding } from "../../persistence/crane-job-binding-store";
 import type {
   CreatedWorkspaceInfo,
   RegisteredProjectInfo,
@@ -51,18 +52,17 @@ const REMOTE_TERMINAL_ERROR_CODES = new Set([
   "job_terminal",
   "lease_not_renewed",
 ]);
-const LOCAL_TERMINAL_RECEIPT_STATES = new Set<
-  CraneStaveReceiptState
->(["declined", "completed", "failed", "cancelled"]);
+const LOCAL_TERMINAL_RECEIPT_STATES = new Set<CraneStaveReceiptState>([
+  "declined",
+  "completed",
+  "failed",
+  "cancelled",
+]);
 
 interface CraneBindingPersistence {
   getCraneJobBinding(jobId: string): LocalCraneJobBinding | null;
-  listActiveCraneJobBindings(
-    connectorId: string,
-  ): LocalCraneJobBinding[];
-  upsertCraneJobBinding(
-    binding: LocalCraneJobBinding,
-  ): LocalCraneJobBinding;
+  listActiveCraneJobBindings(connectorId: string): LocalCraneJobBinding[];
+  upsertCraneJobBinding(binding: LocalCraneJobBinding): LocalCraneJobBinding;
   pruneCraneJobBindings(cutoff: string): number;
 }
 
@@ -97,9 +97,7 @@ interface CraneRuntimeDependencies {
   releaseTaskControl: (args: {
     workspaceId: string;
     taskId: string;
-    sourceContexts?: ReturnType<
-      typeof buildCraneDispatchRetrievedContext
-    >[];
+    sourceContexts?: ReturnType<typeof buildCraneDispatchRetrievedContext>[];
   }) => Promise<unknown>;
   /**
    * Files the dispatched Crane issue (and any Jira issue it links to) into the
@@ -120,8 +118,19 @@ interface CraneRuntimeDependencies {
   clearTimer?: (timer: NodeJS.Timeout) => void;
 }
 
-function runtimeOptionsForApproval(
-  approval: CraneDispatchApprovalResponse,
+/**
+ * The user's answers to "where and how does this job run", shared by the remote
+ * approval response and the Stave-started kickoff. The two paths differ only in
+ * how the binding comes into existence, never in how it launches.
+ */
+interface CraneLocalLaunchChoice {
+  projectPath: string;
+  workspace: CraneDispatchWorkspaceChoice;
+  runtime: CraneDispatchRuntimeChoice;
+}
+
+export function runtimeOptionsForApproval(
+  approval: Pick<CraneDispatchApprovalResponse, "runtime">,
 ): ProviderRuntimeOptions {
   const advisorTarget = approval.runtime.advisorTarget ?? undefined;
   // Paired by the approval schema, so the ceiling the approver saw is the one
@@ -201,8 +210,7 @@ export class CraneConnectorRuntime {
       lastHeartbeatAt: null,
       lastErrorCode: null,
       activeJobId: null,
-      secureStorageAvailable:
-        dependencies.vault.isSecureStorageAvailable(),
+      secureStorageAvailable: dependencies.vault.isSecureStorageAvailable(),
     };
   }
 
@@ -322,8 +330,9 @@ export class CraneConnectorRuntime {
         }
       }
       if (credential) {
-        for (const binding of this.dependencies.persistence
-          .listActiveCraneJobBindings(credential.connector.id)) {
+        for (const binding of this.dependencies.persistence.listActiveCraneJobBindings(
+          credential.connector.id,
+        )) {
           this.markServerTerminal(
             binding,
             "cancelled",
@@ -344,10 +353,7 @@ export class CraneConnectorRuntime {
     });
   }
 
-  async prepareTaskTakeover(args: {
-    workspaceId: string;
-    taskId: string;
-  }) {
+  async prepareTaskTakeover(args: { workspaceId: string; taskId: string }) {
     return this.enqueue(async () => {
       const credential = await this.dependencies.vault
         .getCredential()
@@ -383,37 +389,24 @@ export class CraneConnectorRuntime {
         turnId: binding.turnId,
       });
       if (task.activeTurnId === binding.turnId) {
-        throw new Error(
-          "The managed Crane run is still active.",
-        );
+        throw new Error("The managed Crane run is still active.");
       }
-      if (
-        task.latestTurnId !== binding.turnId ||
-        !task.latestTurnCompletedAt
-      ) {
+      if (task.latestTurnId !== binding.turnId || !task.latestTurnCompletedAt) {
         throw new Error(
           "The managed Crane run has not reached a terminal state yet.",
         );
       }
 
-      const targetState = task.latestTurnError
-        ? "failed"
-        : "completed";
-      const sourceContexts = [
-        buildCraneDispatchRetrievedContext(binding.job),
-      ];
+      const targetState = task.latestTurnError ? "failed" : "completed";
+      const sourceContexts = [buildCraneDispatchRetrievedContext(binding.job)];
       try {
         let updated: LocalCraneJobBinding;
         if (
           binding.pendingReceipt &&
-          LOCAL_TERMINAL_RECEIPT_STATES.has(
-            binding.pendingReceipt.state,
-          )
+          LOCAL_TERMINAL_RECEIPT_STATES.has(binding.pendingReceipt.state)
         ) {
           updated = await this.flushPendingReceipt(binding);
-        } else if (
-          LOCAL_TERMINAL_RECEIPT_STATES.has(binding.state)
-        ) {
+        } else if (LOCAL_TERMINAL_RECEIPT_STATES.has(binding.state)) {
           updated = binding;
         } else {
           updated = await this.publishReceipt(
@@ -423,11 +416,7 @@ export class CraneConnectorRuntime {
           );
         }
         await this.dependencies.vault.deleteLease(binding.jobId);
-        this.setStatus({
-          runtimeState: "connected",
-          activeJobId: null,
-          lastErrorCode: null,
-        });
+        this.refreshAggregateStatus({ lastErrorCode: null });
         this.emitJobUpdate(updated);
         return {
           bindingFound: true,
@@ -461,96 +450,71 @@ export class CraneConnectorRuntime {
         await this.failBeforeExecution(binding, "job_expired");
         throw new Error("This Crane job expired before local approval.");
       }
-      const projects = await this.dependencies.listKnownProjects();
-      const project =
-        projects.find(
-          (candidate) =>
-            candidate.projectPath === approval.projectPath,
-        ) ?? null;
-      if (!project) {
-        await this.failBeforeExecution(binding, "mapping_missing");
-        throw new Error(
-          "The selected project is no longer registered in Stave.",
-        );
-      }
-
-      let workspaceId: string;
-      try {
-        if (approval.workspace.strategy === "existing") {
-          const workspace = project.workspaces.find(
-            (candidate) =>
-              candidate.id === approval.workspace.workspaceId,
-          );
-          if (!workspace) {
-            throw new Error("The selected workspace no longer exists.");
-          }
-          workspaceId = workspace.id;
-        } else {
-          const created = await this.dependencies.createWorkspace({
-            projectPath: project.projectPath,
-            name: approval.workspace.branchName,
-            mode: "branch",
-            fromBranch: project.defaultBranch,
-            fromBranchKind: "remote",
-          });
-          workspaceId = created.workspaceId;
-        }
-      } catch (error) {
-        await this.failBeforeExecution(binding, "workspace_create_failed");
-        throw error;
-      }
-
-      await this.registerWorkspaceIssues(workspaceId, binding.job);
-
-      let updated = this.saveBinding({
-        ...binding,
-        workspaceId,
-        updatedAt: this.nowIso(),
-      });
-      try {
-        const run = await this.dependencies.runTask({
-          workspaceId,
-          prompt: buildCraneDispatchPrompt(binding.job),
-          title: buildCraneDispatchTaskTitle(binding.job),
-          provider: approval.runtime.provider,
-          runtimeOptions: runtimeOptionsForApproval(approval),
-          retrievedContextParts: [
-            buildCraneDispatchRetrievedContext(binding.job),
-          ],
-        });
-        updated = this.saveBinding({
-          ...updated,
-          workspaceId: run.workspaceId,
-          taskId: run.taskId,
-          turnId: run.turnId,
-          updatedAt: this.nowIso(),
-        });
-      } catch (error) {
-        await this.failBeforeExecution(
-          updated,
-          "provider_start_failed",
-        );
-        throw error;
-      }
-
-      try {
-        updated = await this.publishReceipt(updated, "running");
-      } catch (error) {
-        await this.handleRuntimeError(error);
-        this.schedule(0);
-        throw error;
-      }
-      this.setStatus({
-        runtimeState: "running",
-        activeJobId: updated.jobId,
-        lastErrorCode: null,
-      });
-      this.emitJobUpdate(updated);
-      this.schedule(0);
+      const launched = await this.launchBindingLocally(binding, approval);
       return {
         status: this.getStatus(),
-        workspaceId: updated.workspaceId!,
-        taskId: updated.taskId!,
+        workspaceId: launched.workspaceId!,
+        taskId: launched.taskId!,
+      };
+    });
+  }
+
+  /**
+   * Starts a job Stave claimed itself, skipping the remote
+   * "offered -> awaiting local approval" handshake: the user picked the ticket,
+   * project, workspace, and runtime here, so the binding is born approved and
+   * `running` is the first receipt Crane ever sees for it.
+   */
+  async kickoffClaimedJob(args: {
+    claimed: {
+      job: CraneStaveJobV1;
+      leaseId: string;
+      leaseExpiresAt: string;
+      nextSequence: number;
+    };
+    projectPath: string;
+    workspace: CraneDispatchWorkspaceChoice;
+    runtime: CraneDispatchRuntimeChoice;
+  }): Promise<{ jobId: string; workspaceId: string; taskId: string }> {
+    return this.enqueue(async () => {
+      const credential = await this.dependencies.vault.getCredential();
+      if (
+        !credential ||
+        credential.connector.id !== args.claimed.job.connectorId
+      ) {
+        // Rejected before the first local write, so a job claimed under another
+        // connector can never leave a binding or a lease behind.
+        throw new Error("connector_scope_mismatch");
+      }
+      const binding = this.saveBinding({
+        jobId: args.claimed.job.id,
+        connectorId: credential.connector.id,
+        job: args.claimed.job,
+        leaseExpiresAt: args.claimed.leaseExpiresAt,
+        state: "received",
+        // The claim already reserved `nextSequence` on the server, so seeding
+        // one below it puts the `running` receipt exactly on that slot.
+        lastReceiptSequence: args.claimed.nextSequence - 1,
+        pendingReceipt: null,
+        workspaceId: null,
+        taskId: null,
+        turnId: null,
+        errorCode: null,
+        updatedAt: this.nowIso(),
+      });
+      // Stored before the launch because every receipt, including the terminal
+      // one a pre-run failure publishes, needs the lease to reach Crane.
+      await this.dependencies.vault.putLease({
+        jobId: args.claimed.job.id,
+        connectorId: credential.connector.id,
+        leaseId: args.claimed.leaseId,
+        expiresAt: args.claimed.leaseExpiresAt,
+      });
+      const launched = await this.launchBindingLocally(binding, args);
+      return {
+        jobId: launched.jobId,
+        workspaceId: launched.workspaceId!,
+        taskId: launched.taskId!,
       };
     });
   }
@@ -564,11 +528,7 @@ export class CraneConnectorRuntime {
         "local_declined",
       );
       await this.dependencies.vault.deleteLease(jobId);
-      this.setStatus({
-        runtimeState: "connected",
-        activeJobId: null,
-        lastErrorCode: null,
-      });
+      this.refreshAggregateStatus({ lastErrorCode: null });
       this.emitJobUpdate(declined);
       this.schedule(0);
       return this.getStatus();
@@ -577,6 +537,94 @@ export class CraneConnectorRuntime {
 
   shutdown() {
     this.stopPendingWork();
+  }
+
+  /**
+   * Everything an approved job does locally, from project lookup through the
+   * first `running` receipt. Shared by the remote approval path and the
+   * Stave-started kickoff so both route their pre-run failures through
+   * `failBeforeExecution` and therefore always leave Crane a terminal receipt.
+   */
+  private async launchBindingLocally(
+    binding: LocalCraneJobBinding,
+    choice: CraneLocalLaunchChoice,
+  ) {
+    const projects = await this.dependencies.listKnownProjects();
+    const project =
+      projects.find(
+        (candidate) => candidate.projectPath === choice.projectPath,
+      ) ?? null;
+    if (!project) {
+      await this.failBeforeExecution(binding, "mapping_missing");
+      throw new Error("The selected project is no longer registered in Stave.");
+    }
+
+    let workspaceId: string;
+    try {
+      if (choice.workspace.strategy === "existing") {
+        const workspace = project.workspaces.find(
+          (candidate) => candidate.id === choice.workspace.workspaceId,
+        );
+        if (!workspace) {
+          throw new Error("The selected workspace no longer exists.");
+        }
+        workspaceId = workspace.id;
+      } else {
+        const created = await this.dependencies.createWorkspace({
+          projectPath: project.projectPath,
+          name: choice.workspace.branchName,
+          mode: "branch",
+          fromBranch: project.defaultBranch,
+          fromBranchKind: "remote",
+        });
+        workspaceId = created.workspaceId;
+      }
+    } catch (error) {
+      await this.failBeforeExecution(binding, "workspace_create_failed");
+      throw error;
+    }
+
+    await this.registerWorkspaceIssues(workspaceId, binding.job);
+
+    let updated = this.saveBinding({
+      ...binding,
+      workspaceId,
+      updatedAt: this.nowIso(),
+    });
+    try {
+      const run = await this.dependencies.runTask({
+        workspaceId,
+        prompt: buildCraneDispatchPrompt(binding.job),
+        title: buildCraneDispatchTaskTitle(binding.job),
+        provider: choice.runtime.provider,
+        runtimeOptions: runtimeOptionsForApproval(choice),
+        retrievedContextParts: [
+          buildCraneDispatchRetrievedContext(binding.job),
+        ],
+      });
+      updated = this.saveBinding({
+        ...updated,
+        workspaceId: run.workspaceId,
+        taskId: run.taskId,
+        turnId: run.turnId,
+        updatedAt: this.nowIso(),
+      });
+    } catch (error) {
+      await this.failBeforeExecution(updated, "provider_start_failed");
+      throw error;
+    }
+
+    try {
+      updated = await this.publishReceipt(updated, "running");
+    } catch (error) {
+      await this.handleRuntimeError(error);
+      this.schedule(0);
+      throw error;
+    }
+    this.refreshAggregateStatus({ lastErrorCode: null });
+    this.emitJobUpdate(updated);
+    this.schedule(0);
+    return updated;
   }
 
   private async resume() {
@@ -613,50 +661,30 @@ export class CraneConnectorRuntime {
       return;
     }
 
-    const active =
-      this.dependencies.persistence.listActiveCraneJobBindings(
-        credential.connector.id,
-      );
-    if (active.length > 1) {
-      this.setStatus({
-        runtimeState: "error",
-        paired: true,
-        connector: credential.connector,
-        activeJobId: null,
-        lastErrorCode: "local_state_inconsistent",
-      });
-      return;
-    }
-    const binding = active[0] ?? null;
-    this.setStatus({
-      runtimeState: binding
-        ? binding.state === "running" ||
-          binding.state === "needs_local_input"
-          ? "running"
-          : binding.state === "awaiting_local_approval" &&
-              !binding.pendingReceipt
-            ? "awaiting_local_approval"
-            : "connected"
-        : "connected",
+    // Several bindings may legitimately be active at once - a remote offer can
+    // overlap a Stave-started kickoff - so a restart restores all of them
+    // instead of treating the set as corrupted local state.
+    const active = this.dependencies.persistence.listActiveCraneJobBindings(
+      credential.connector.id,
+    );
+    this.refreshAggregateStatus({
       paired: true,
       connector: credential.connector,
-      activeJobId: binding?.jobId ?? null,
       lastErrorCode: null,
     });
-    if (
-      binding &&
-      binding.state === "awaiting_local_approval" &&
-      !binding.pendingReceipt
-    ) {
-      this.dependencies.emitApproval({
-        job: binding.job,
-        leaseExpiresAt: binding.leaseExpiresAt,
-      });
+    for (const binding of active) {
+      if (
+        binding.state === "awaiting_local_approval" &&
+        !binding.pendingReceipt
+      ) {
+        this.dependencies.emitApproval({
+          job: binding.job,
+          leaseExpiresAt: binding.leaseExpiresAt,
+        });
+      }
     }
     this.dependencies.persistence.pruneCraneJobBindings(
-      new Date(
-        this.now().getTime() - BINDING_RETENTION_MS,
-      ).toISOString(),
+      new Date(this.now().getTime() - BINDING_RETENTION_MS).toISOString(),
     );
     this.schedule(0);
   }
@@ -676,27 +704,34 @@ export class CraneConnectorRuntime {
       });
       return;
     }
-    const client = this.dependencies.createHttpClient(
-      credential.baseUrl,
-    );
+    const client = this.dependencies.createHttpClient(credential.baseUrl);
     const controller = this.createAbortController();
     let nextDelayMs = this.config.pollIntervalSeconds * 1_000;
     try {
-      const active =
-        this.dependencies.persistence.listActiveCraneJobBindings(
-          credential.connector.id,
-        );
-      if (active.length > 1) {
-        throw new Error("local_state_inconsistent");
-      }
-      if (active[0]) {
+      const active = this.dependencies.persistence.listActiveCraneJobBindings(
+        credential.connector.id,
+      );
+      // Sequentially, never concurrently: the shared operation queue only
+      // serializes public entry points, so this loop is what keeps two bindings
+      // from interleaving their receipts and their status writes.
+      for (const binding of active) {
         await this.processActiveBinding({
-          binding: active[0],
+          binding,
           client,
           secret: credential.secret,
           signal: controller.signal,
         });
-      } else {
+      }
+      // Never offer a second job while one still needs an answer from the user.
+      // Deliberately read from the pre-processing snapshot: a binding that just
+      // reached a terminal state still holds this cycle, so the status and
+      // error code its transition published survive until the next one.
+      const approvalPending = active.some(
+        (binding) =>
+          binding.state === "received" ||
+          binding.state === "awaiting_local_approval",
+      );
+      if (!approvalPending) {
         const next = await client.getNextJob({
           secret: credential.secret,
           signal: controller.signal,
@@ -711,11 +746,9 @@ export class CraneConnectorRuntime {
           });
           nextDelayMs = 0;
         } else {
-          this.setStatus({
-            runtimeState: "connected",
+          this.refreshAggregateStatus({
             paired: true,
             connector: credential.connector,
-            activeJobId: null,
             lastHeartbeatAt: this.nowIso(),
             lastErrorCode: null,
           });
@@ -723,10 +756,7 @@ export class CraneConnectorRuntime {
       }
       this.failureCount = 0;
     } catch (error) {
-      if (
-        error instanceof DOMException &&
-        error.name === "AbortError"
-      ) {
+      if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
       this.failureCount += 1;
@@ -735,8 +765,7 @@ export class CraneConnectorRuntime {
           ? error.retryAfterMs
           : undefined;
       nextDelayMs = computeCraneConnectorRetryDelay({
-        baseDelayMs:
-          retryHint ?? this.config.pollIntervalSeconds * 1_000,
+        baseDelayMs: retryHint ?? this.config.pollIntervalSeconds * 1_000,
         failureCount: this.failureCount,
         random: this.dependencies.random,
       });
@@ -766,8 +795,9 @@ export class CraneConnectorRuntime {
           : "job_expired",
       );
     }
-    const existing =
-      this.dependencies.persistence.getCraneJobBinding(args.job.id);
+    const existing = this.dependencies.persistence.getCraneJobBinding(
+      args.job.id,
+    );
     if (existing) {
       if (
         existing.connectorId !== args.connectorId ||
@@ -810,10 +840,7 @@ export class CraneConnectorRuntime {
       expiresAt: claimed.leaseExpiresAt,
     });
     binding = await this.publishReceipt(binding, "received");
-    binding = await this.publishReceipt(
-      binding,
-      "awaiting_local_approval",
-    );
+    binding = await this.publishReceipt(binding, "awaiting_local_approval");
     this.setStatus({
       runtimeState: "awaiting_local_approval",
       paired: true,
@@ -847,33 +874,22 @@ export class CraneConnectorRuntime {
       this.emitJobUpdate(binding);
       if (LOCAL_TERMINAL_RECEIPT_STATES.has(binding.state)) {
         await this.dependencies.vault.deleteLease(binding.jobId);
-        this.setStatus({
-          runtimeState: "connected",
-          activeJobId: null,
-          lastErrorCode: binding.errorCode,
-        });
+        this.refreshAggregateStatus({ lastErrorCode: binding.errorCode });
         return;
       }
     }
     if (binding.state === "received") {
-      binding = await this.publishReceipt(
-        binding,
-        "awaiting_local_approval",
-      );
+      binding = await this.publishReceipt(binding, "awaiting_local_approval");
       this.emitJobUpdate(binding);
     }
-    if (
-      binding.state === "awaiting_local_approval"
-    ) {
+    if (binding.state === "awaiting_local_approval") {
       const lease = await this.requireLease(binding);
       if (Date.parse(binding.job.expiresAt) <= this.now().getTime()) {
         this.markServerTerminal(binding, "cancelled", "job_expired");
         await this.dependencies.vault.deleteLease(binding.jobId);
         return;
       }
-      let heartbeat: Awaited<
-        ReturnType<CraneConnectorHttpClient["heartbeat"]>
-      >;
+      let heartbeat: Awaited<ReturnType<CraneConnectorHttpClient["heartbeat"]>>;
       try {
         heartbeat = await args.client.heartbeat({
           secret: args.secret,
@@ -910,9 +926,7 @@ export class CraneConnectorRuntime {
           expiresAt: heartbeat.leaseExpiresAt,
         });
       }
-      this.setStatus({
-        runtimeState: "awaiting_local_approval",
-        activeJobId: binding.jobId,
+      this.refreshAggregateStatus({
         lastHeartbeatAt: this.nowIso(),
         lastErrorCode: null,
       });
@@ -922,14 +936,24 @@ export class CraneConnectorRuntime {
       });
       return;
     }
-    if (
-      binding.state === "running" ||
-      binding.state === "needs_local_input"
-    ) {
+    if (binding.state === "running" || binding.state === "needs_local_input") {
       await this.observeRunningBinding(binding);
     }
   }
 
+  /**
+   * Advances one running binding by exactly one observation, then returns; the
+   * poll loop above awaits each call in turn, so two bindings are never
+   * observed concurrently even though both may be running.
+   *
+   * Receipt sequences cannot collide across bindings because
+   * `lastReceiptSequence` is a column of the binding row and `publishReceipt`
+   * derives the next number from the very row it is about to overwrite. Two
+   * observations of the *same* binding would collide, and what rules that out
+   * is the operation queue: `approve`, `kickoffClaimedJob`, `decline`,
+   * `prepareTaskTakeover`, and each poll cycle run one at a time, so no two
+   * callers ever hold the same binding snapshot at once.
+   */
   private async observeRunningBinding(binding: LocalCraneJobBinding) {
     if (!binding.workspaceId || !binding.taskId || !binding.turnId) {
       throw new Error("local_state_inconsistent");
@@ -940,65 +964,42 @@ export class CraneConnectorRuntime {
       turnId: binding.turnId,
     });
     const needsInput =
-      task.pendingApprovals.length > 0 ||
-      task.pendingUserInputs.length > 0;
+      task.pendingApprovals.length > 0 || task.pendingUserInputs.length > 0;
     let updated = binding;
     if (task.activeTurnId === binding.turnId) {
-      const targetState = needsInput
-        ? "needs_local_input"
-        : "running";
+      const targetState = needsInput ? "needs_local_input" : "running";
       if (binding.state !== targetState) {
         updated = await this.publishReceipt(binding, targetState);
         this.emitJobUpdate(updated);
       }
-      this.setStatus({
-        runtimeState: "running",
-        activeJobId: binding.jobId,
-        lastErrorCode: null,
-      });
+      this.refreshAggregateStatus({ lastErrorCode: null });
       return;
     }
-    if (
-      task.latestTurnId === binding.turnId &&
-      task.latestTurnCompletedAt
-    ) {
+    if (task.latestTurnId === binding.turnId && task.latestTurnCompletedAt) {
       await this.dependencies.releaseTaskControl({
         workspaceId: binding.workspaceId,
         taskId: binding.taskId,
-        sourceContexts: [
-          buildCraneDispatchRetrievedContext(binding.job),
-        ],
+        sourceContexts: [buildCraneDispatchRetrievedContext(binding.job)],
       });
-      const targetState = task.latestTurnError
-        ? "failed"
-        : "completed";
+      const targetState = task.latestTurnError ? "failed" : "completed";
       updated = await this.publishReceipt(
         binding,
         targetState,
         task.latestTurnError ? "provider_failed" : undefined,
       );
       await this.dependencies.vault.deleteLease(binding.jobId);
-      this.setStatus({
-        runtimeState: "connected",
-        activeJobId: null,
-        lastErrorCode: null,
-      });
+      this.refreshAggregateStatus({ lastErrorCode: null });
       this.emitJobUpdate(updated);
     }
   }
 
   private requireAwaitingBinding(jobId: string) {
-    const binding =
-      this.dependencies.persistence.getCraneJobBinding(jobId);
+    const binding = this.dependencies.persistence.getCraneJobBinding(jobId);
     if (
       !binding ||
-      !["received", "awaiting_local_approval"].includes(
-        binding.state,
-      )
+      !["received", "awaiting_local_approval"].includes(binding.state)
     ) {
-      throw new Error(
-        "This Crane job is no longer awaiting local approval.",
-      );
+      throw new Error("This Crane job is no longer awaiting local approval.");
     }
     return binding;
   }
@@ -1051,21 +1052,16 @@ export class CraneConnectorRuntime {
       this.dependencies.vault.getCredential(),
       this.requireLease(binding),
     ]);
-    if (
-      !credential ||
-      credential.connector.id !== binding.connectorId
-    ) {
+    if (!credential || credential.connector.id !== binding.connectorId) {
       throw new Error("connector_scope_mismatch");
     }
-    await this.dependencies
-      .createHttpClient(credential.baseUrl)
-      .postReceipt({
-        secret: credential.secret,
-        jobId: binding.jobId,
-        leaseId: lease.leaseId,
-        receipt,
-        signal: this.abortController?.signal,
-      });
+    await this.dependencies.createHttpClient(credential.baseUrl).postReceipt({
+      secret: credential.secret,
+      jobId: binding.jobId,
+      leaseId: lease.leaseId,
+      receipt,
+      signal: this.abortController?.signal,
+    });
     return this.saveBinding({
       ...binding,
       state: receipt.state,
@@ -1109,18 +1105,10 @@ export class CraneConnectorRuntime {
     binding: LocalCraneJobBinding,
     errorCode: string,
   ) {
-    const failed = await this.publishReceipt(
-      binding,
-      "failed",
-      errorCode,
-    );
+    const failed = await this.publishReceipt(binding, "failed", errorCode);
     this.emitJobUpdate(failed);
     await this.dependencies.vault.deleteLease(binding.jobId);
-    this.setStatus({
-      runtimeState: "connected",
-      activeJobId: null,
-      lastErrorCode: errorCode,
-    });
+    this.refreshAggregateStatus({ lastErrorCode: errorCode });
   }
 
   private async finishRemoteTerminalError(
@@ -1134,9 +1122,7 @@ export class CraneConnectorRuntime {
       return false;
     }
     const errorCode =
-      error.code === "job_expired"
-        ? "job_expired"
-        : "remote_job_terminal";
+      error.code === "job_expired" ? "job_expired" : "remote_job_terminal";
     this.markServerTerminal(binding, "cancelled", errorCode);
     await this.dependencies.vault.deleteLease(binding.jobId);
     return true;
@@ -1154,11 +1140,7 @@ export class CraneConnectorRuntime {
       errorCode,
       updatedAt: this.nowIso(),
     });
-    this.setStatus({
-      runtimeState: "connected",
-      activeJobId: null,
-      lastErrorCode: errorCode,
-    });
+    this.refreshAggregateStatus({ lastErrorCode: errorCode });
     this.emitJobUpdate(updated);
   }
 
@@ -1183,8 +1165,9 @@ export class CraneConnectorRuntime {
     ) {
       const connectorId = this.status.connector?.id;
       if (connectorId) {
-        for (const binding of this.dependencies.persistence
-          .listActiveCraneJobBindings(connectorId)) {
+        for (const binding of this.dependencies.persistence.listActiveCraneJobBindings(
+          connectorId,
+        )) {
           this.markServerTerminal(
             binding,
             "cancelled",
@@ -1205,21 +1188,52 @@ export class CraneConnectorRuntime {
     const code =
       error instanceof CraneConnectorHttpError
         ? error.code
-        : error instanceof Error &&
-            /^[a-z][a-z0-9_]*$/.test(error.message)
+        : error instanceof Error && /^[a-z][a-z0-9_]*$/.test(error.message)
           ? error.message
           : "connector_error";
     this.setStatus({
-      runtimeState:
-        code === "network_unavailable" ? "offline" : "error",
+      runtimeState: code === "network_unavailable" ? "offline" : "error",
       lastErrorCode: code,
     });
   }
 
-  private setStatus(
-    patch: Partial<CraneConnectorPublicStatus>,
-    emit = true,
-  ) {
+  /**
+   * The connector exposes one public status while more than one binding can be
+   * active, so that status is derived from persisted binding state rather than
+   * from whichever code path happened to write last - two observers therefore
+   * cannot clobber each other. A pending approval outranks a run because it is
+   * the only state that is blocked on the user. Callers supply what binding
+   * state cannot express: pairing, heartbeat, and the error code to surface.
+   *
+   * Deliberately limited to the connected/awaiting/running family. Error and
+   * offline states are set directly by the code that detects them.
+   */
+  private refreshAggregateStatus(patch?: Partial<CraneConnectorPublicStatus>) {
+    const connector =
+      patch?.connector !== undefined ? patch.connector : this.status.connector;
+    const active = connector
+      ? this.dependencies.persistence.listActiveCraneJobBindings(connector.id)
+      : [];
+    const awaiting = active.find(
+      (binding) =>
+        binding.state === "awaiting_local_approval" && !binding.pendingReceipt,
+    );
+    const running = active.find(
+      (binding) =>
+        binding.state === "running" || binding.state === "needs_local_input",
+    );
+    this.setStatus({
+      runtimeState: awaiting
+        ? "awaiting_local_approval"
+        : running
+          ? "running"
+          : "connected",
+      activeJobId: awaiting?.jobId ?? running?.jobId ?? null,
+      ...patch,
+    });
+  }
+
+  private setStatus(patch: Partial<CraneConnectorPublicStatus>, emit = true) {
     this.status = { ...this.status, ...patch };
     if (emit && this.config.enabled) {
       this.dependencies.emitStatus(this.getStatus());
@@ -1251,13 +1265,16 @@ export class CraneConnectorRuntime {
       (this.dependencies.clearTimer ?? clearTimeout)(this.timer);
     }
     const generation = this.generation;
-    this.timer = (this.dependencies.setTimer ?? setTimeout)(() => {
-      this.timer = null;
-      if (generation !== this.generation || !this.config.enabled) {
-        return;
-      }
-      void this.enqueue(() => this.poll());
-    }, Math.max(0, delayMs));
+    this.timer = (this.dependencies.setTimer ?? setTimeout)(
+      () => {
+        this.timer = null;
+        if (generation !== this.generation || !this.config.enabled) {
+          return;
+        }
+        void this.enqueue(() => this.poll());
+      },
+      Math.max(0, delayMs),
+    );
   }
 
   private enqueue<T>(operation: () => Promise<T>): Promise<T> {

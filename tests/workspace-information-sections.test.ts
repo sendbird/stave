@@ -64,6 +64,83 @@ describe("workspace information section visibility", () => {
     ).toContain("jira");
   });
 
+  test("an enabled tracker connector reveals its empty section", () => {
+    const information = createEmptyWorkspaceInformation();
+
+    const visible = resolveVisibleWorkspaceInformationSections({
+      visibility: {},
+      information,
+      craneConnectorEnabled: true,
+      jiraConnectorEnabled: true,
+    });
+
+    expect(visible).toContain("crane");
+    expect(visible).toContain("jira");
+  });
+
+  test("a disabled tracker connector leaves the empty sections as they were", () => {
+    const information = createEmptyWorkspaceInformation();
+
+    const visible = resolveVisibleWorkspaceInformationSections({
+      visibility: {},
+      information,
+      craneConnectorEnabled: false,
+      jiraConnectorEnabled: false,
+    });
+
+    expect(visible).toEqual([...CORE_WORKSPACE_INFORMATION_SECTIONS]);
+    expect(visible).toEqual(
+      resolveVisibleWorkspaceInformationSections({
+        visibility: {},
+        information,
+      }),
+    );
+  });
+
+  test("entries keep a section visible whatever the connector says", () => {
+    const information = createEmptyWorkspaceInformation();
+    information.craneIssues = [
+      {
+        id: "crane-1",
+        issueKey: "CRN-42",
+        title: "Fix the sync loop",
+        url: "https://tracker.example.com/apps/crane/w/TFE/task/CRN-42",
+        status: "",
+        note: "",
+      },
+    ];
+    information.jiraIssues.push({
+      id: "jira-1",
+      issueKey: "ABC-77",
+      title: "Fix the sync loop",
+      url: "https://example.atlassian.net/browse/ABC-77",
+      status: "",
+      note: "",
+    });
+
+    const visible = resolveVisibleWorkspaceInformationSections({
+      visibility: {},
+      information,
+      craneConnectorEnabled: false,
+      jiraConnectorEnabled: false,
+    });
+
+    expect(visible).toContain("crane");
+    expect(visible).toContain("jira");
+  });
+
+  test("an explicitly hidden section stays hidden with the connector on", () => {
+    const visible = resolveVisibleWorkspaceInformationSections({
+      visibility: { crane: false, jira: false },
+      information: createEmptyWorkspaceInformation(),
+      craneConnectorEnabled: true,
+      jiraConnectorEnabled: true,
+    });
+
+    expect(visible).not.toContain("crane");
+    expect(visible).not.toContain("jira");
+  });
+
   test("explicit visibility wins over defaults and content", () => {
     const information = createEmptyWorkspaceInformation();
     information.slackThreads.push({

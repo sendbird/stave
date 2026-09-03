@@ -65,6 +65,26 @@ import type {
   AtelierConnectorPairInput,
   AtelierConnectorPublicStatus,
 } from "@/lib/atelier-connector/types";
+import type {
+  TrackerSourceId,
+  TrackerTaskAttachStaveTaskArgs,
+  TrackerTaskDetail,
+  TrackerTaskKickoffArgs,
+  TrackerTaskKickoffResult,
+  TrackerTaskListItem,
+  TrackerTaskRefArgs,
+  TrackerTaskStaveLink,
+  TrackerTasksListArgs,
+  TrackerTasksPublicStatus,
+  TrackerTasksRefreshArgs,
+  TrackerTasksSurfaceVisibleArgs,
+} from "@/lib/tracker-tasks/types";
+import type { TrackerTasksSettings } from "@/lib/tracker-tasks/settings";
+import type {
+  JiraConnectorPublicStatus,
+  JiraConnectorSetCredentialArgs,
+  JiraConnectorSettings,
+} from "@/lib/jira-connector/types";
 import type { MartinProjectSummary } from "@/lib/martin-sync/contract";
 import type {
   MartinLinkProjectArgs,
@@ -896,6 +916,90 @@ interface WindowCraneConnectorApi {
   subscribeJobUpdates?: (
     listener: (payload: CraneDispatchJobUpdate) => void,
   ) => () => void;
+}
+
+interface WindowTrackerTasksApi {
+  getStatus?: () => Promise<{
+    ok: boolean;
+    status?: TrackerTasksPublicStatus;
+    message?: string;
+  }>;
+  list?: (args?: TrackerTasksListArgs) => Promise<{
+    ok: boolean;
+    items: TrackerTaskListItem[];
+    message?: string;
+  }>;
+  refresh?: (args?: TrackerTasksRefreshArgs) => Promise<{
+    ok: boolean;
+    status?: TrackerTasksPublicStatus;
+    message?: string;
+  }>;
+  getDetail?: (args: TrackerTaskRefArgs) => Promise<{
+    ok: boolean;
+    detail?: TrackerTaskDetail;
+    message?: string;
+  }>;
+  kickoff?: (args: TrackerTaskKickoffArgs) => Promise<{
+    ok: boolean;
+    result?: TrackerTaskKickoffResult;
+    message?: string;
+  }>;
+  attachStaveTask?: (args: TrackerTaskAttachStaveTaskArgs) => Promise<{
+    ok: boolean;
+    link?: TrackerTaskStaveLink | null;
+    message?: string;
+  }>;
+  setSurfaceVisible?: (args: TrackerTasksSurfaceVisibleArgs) => Promise<{
+    ok: boolean;
+    message?: string;
+  }>;
+  configure?: (args: TrackerTasksSettings) => Promise<{
+    ok: boolean;
+    status?: TrackerTasksPublicStatus;
+    message?: string;
+  }>;
+  onStatus?: (
+    listener: (payload: TrackerTasksPublicStatus) => void,
+  ) => () => void;
+  onCacheUpdated?: (
+    listener: (payload: { source: TrackerSourceId }) => void,
+  ) => () => void;
+  onKickoffUpdated?: (
+    listener: (payload: TrackerTaskStaveLink) => void,
+  ) => () => void;
+}
+
+/**
+ * The Jira account email and API token travel renderer -> main only. There is
+ * deliberately no getter here: every reply is a public status, so the renderer
+ * can never read back the credential it sent.
+ */
+interface WindowJiraConnectorApi {
+  getStatus?: () => Promise<{
+    ok: boolean;
+    status: JiraConnectorPublicStatus;
+    message?: string;
+  }>;
+  configure?: (args: JiraConnectorSettings) => Promise<{
+    ok: boolean;
+    status: JiraConnectorPublicStatus;
+    message?: string;
+  }>;
+  setCredential?: (args: JiraConnectorSetCredentialArgs) => Promise<{
+    ok: boolean;
+    status: JiraConnectorPublicStatus;
+    message?: string;
+  }>;
+  clearCredential?: () => Promise<{
+    ok: boolean;
+    status: JiraConnectorPublicStatus;
+    message?: string;
+  }>;
+  testConnection?: () => Promise<{
+    ok: boolean;
+    status: JiraConnectorPublicStatus;
+    message?: string;
+  }>;
 }
 
 interface WindowTaskControlApi {
@@ -2690,6 +2794,8 @@ interface WindowApi {
   atelierConnector?: WindowAtelierConnectorApi;
   martinSync?: WindowMartinSyncApi;
   craneConnector?: WindowCraneConnectorApi;
+  trackerTasks?: WindowTrackerTasksApi;
+  jiraConnector?: WindowJiraConnectorApi;
   taskControl?: WindowTaskControlApi;
   routines?: WindowRoutinesApi;
   lsp?: WindowLspApi;
