@@ -172,6 +172,75 @@ describe("task-context workspace schemas", () => {
     );
   });
 
+  test("preserves recommended user-input options across workspace parsing", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        activeTaskId: "task-1",
+        tasks: [
+          {
+            id: "task-1",
+            title: "Question task",
+            provider: "claude-code",
+            updatedAt: "2026-08-30T00:00:00.000Z",
+            unread: false,
+          },
+        ],
+        messagesByTask: {
+          "task-1": [
+            {
+              id: "message-1",
+              role: "assistant",
+              model: "claude-sonnet",
+              providerId: "claude-code",
+              content: "",
+              parts: [
+                {
+                  type: "user_input",
+                  requestId: "question-1",
+                  toolName: "AskUserQuestion",
+                  questions: [
+                    {
+                      header: "Approach",
+                      question: "Which approach?",
+                      options: [
+                        { label: "Keep", description: "Leave it." },
+                        {
+                          label: "Switch",
+                          description: "Use the safer path.",
+                          recommended: true,
+                        },
+                      ],
+                    },
+                  ],
+                  state: "input-requested",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      parsed?.messagesByTask["task-1"]?.[0]?.parts[0],
+    ).toMatchObject({
+      type: "user_input",
+      questions: [
+        {
+          options: [
+            { label: "Keep", description: "Leave it." },
+            {
+              label: "Switch",
+              description: "Use the safer path.",
+              recommended: true,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   test("preserves the manual task-title marker across workspace parsing", () => {
     const parsed = parseWorkspaceShell({
       payload: {

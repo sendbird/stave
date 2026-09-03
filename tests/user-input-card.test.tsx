@@ -16,6 +16,7 @@ const QUESTIONS = [
       {
         label: "Broad",
         description: "Update adjacent surfaces too.",
+        recommended: true,
       },
     ],
   },
@@ -39,6 +40,30 @@ describe("UserInputCard", () => {
     expect(html).toContain("Continue");
     expect(html).toContain("Decline to answer");
     expect(html).not.toContain("AskUserQuestion");
+    expect(html).toContain("Recommended");
+    expect(html.indexOf("Broad")).toBeLessThan(html.lastIndexOf("Recommended"));
+    expect(html.indexOf("Focused")).toBeLessThan(html.indexOf("Broad"));
+  });
+
+  test("does not mark the first option as recommended when no option is flagged", () => {
+    const html = renderToStaticMarkup(
+      createElement(UserInputCard, {
+        toolName: "AskUserQuestion",
+        questions: [
+          {
+            ...QUESTIONS[0]!,
+            options: QUESTIONS[0]!.options.map((option) => ({
+              label: option.label,
+              description: option.description,
+            })),
+          },
+        ],
+        state: "input-requested",
+        presentation: "composer",
+      }),
+    );
+
+    expect(html).not.toContain("Recommended");
   });
 
   test("keeps the trace copy compact while the composer owns the response", () => {

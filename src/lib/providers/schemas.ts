@@ -308,6 +308,7 @@ const UserInputQuestionSchema = z.object({
         label: z.string(),
         description: z.string().optional(),
         value: z.string().optional(),
+        recommended: z.boolean().optional(),
       })
       // `description` is optional on the wire; backfill it from the label so a
       // valid question is never dropped in validation just for missing it.
@@ -317,6 +318,7 @@ const UserInputQuestionSchema = z.object({
           ? option.description
           : option.label,
         ...(option.value ? { value: option.value } : {}),
+        ...(option.recommended ? { recommended: true } : {}),
       })),
   ),
   multiSelect: z.boolean().optional(),

@@ -271,6 +271,7 @@ export interface UserInputOption {
   label: string;
   description: string;
   value?: string;
+  recommended?: boolean;
 }
 
 export interface UserInputQuestion {

@@ -1,6 +1,13 @@
 import { z } from "zod";
 import type { BridgeEvent } from "../types";
 import { truncateBufferedText } from "../provider-buffering";
+import {
+  markRecommendedUserInputOptions,
+  optionLabelHasRecommendedSuffix,
+  readQuestionRecommendPointer,
+  readRawOptionRecommended,
+  recommendedOptionDefaultValue,
+} from "../../../src/lib/user-input-options";
 
 const CURSOR_EXTENSION_TEXT_MAX_BYTES = 64 * 1024;
 
@@ -9,6 +16,10 @@ const CursorTodoSchema = z.object({
   content: z.string(),
   status: z.enum(["pending", "in_progress", "completed", "cancelled"]),
 });
+
+const CursorRecommendPointerSchema = z
+  .union([z.boolean(), z.string(), z.number()])
+  .optional();
 
 export const CursorAskQuestionRequestSchema = z.object({
   toolCallId: z.string().min(1),
@@ -21,9 +32,15 @@ export const CursorAskQuestionRequestSchema = z.object({
         z.object({
           id: z.string().min(1),
           label: z.string(),
+          recommended: z.unknown().optional(),
+          recommend: z.unknown().optional(),
         }),
       ),
       allowMultiple: z.boolean().optional(),
+      recommended: CursorRecommendPointerSchema,
+      recommend: CursorRecommendPointerSchema,
+      recommendedOption: CursorRecommendPointerSchema,
+      recommendedIndex: CursorRecommendPointerSchema,
     }),
   ),
 });
@@ -110,18 +127,33 @@ export function mapCursorAskQuestionEvent(args: {
     type: "user_input",
     toolName: "AskQuestion",
     requestId: args.requestId,
-    questions: args.request.questions.map((question) => ({
-      key: question.id,
-      question: bounded(question.prompt),
-      header: bounded(args.request.title?.trim() || "Question"),
-      options: question.options.map((option) => ({
-        label: bounded(option.label),
-        description: "",
-        value: option.id,
-      })),
-      multiSelect: question.allowMultiple === true,
-      allowCustom: false,
-    })),
+    questions: args.request.questions.map((question) => {
+      const options = markRecommendedUserInputOptions({
+        options: question.options.map((option) => ({
+          label: bounded(option.label),
+          description: "",
+          value: option.id,
+          ...(readRawOptionRecommended(option) ||
+          optionLabelHasRecommendedSuffix(option.label)
+            ? { recommended: true }
+            : {}),
+        })),
+        recommend: readQuestionRecommendPointer(question),
+      });
+      const defaultValue = recommendedOptionDefaultValue({
+        options,
+        multiSelect: question.allowMultiple === true,
+      });
+      return {
+        key: question.id,
+        question: bounded(question.prompt),
+        header: bounded(args.request.title?.trim() || "Question"),
+        options,
+        multiSelect: question.allowMultiple === true,
+        allowCustom: false,
+        ...(defaultValue ? { defaultValue } : {}),
+      };
+    }),
   };
 }
 

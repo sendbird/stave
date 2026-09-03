@@ -1117,6 +1117,7 @@ const UserInputOptionSchema = z
     label: z.string().max(500),
     description: z.string().max(5000),
     value: z.string().max(500).optional(),
+    recommended: z.boolean().optional(),
   })
   .strict();
 
