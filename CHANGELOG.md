@@ -1,3 +1,22 @@
+## [0.17.1](https://github.com/sendbird/stave/compare/v0.17.0...v0.17.1) (2026-09-03)
+
+### Features
+
+* Persist project-scoped facts in SQLite with recall, remember/list/forget tools, Information panel editing, and injection into later provider turns.
+
+### Bug Fixes
+
+* Overlay the Enhancing/Applying chip on the composer draft so the first line does not reflow.
+* Preserve provider recommendation metadata on user-input questions instead of treating the first option as recommended.
+* Include Claude Haiku in picker catalogs, show the resolved Background AI model, and omit unsupported effort for Haiku.
+* Pin each Lens panel to the workspace it was mounted for so switching workspaces no longer paints the wrong guest.
+* Accept Crane task rows the server actually emits, including null assignee names, relative avatars, empty projects, long labels, and semantic color tokens.
+* Report a Crane deployment without the task API as unavailable rather than a retryable not-found error.
+
+### References
+
+* [#451](https://github.com/sendbird/stave/pull/451), [#452](https://github.com/sendbird/stave/pull/452), [#453](https://github.com/sendbird/stave/pull/453), [#454](https://github.com/sendbird/stave/pull/454), [#455](https://github.com/sendbird/stave/pull/455), [#456](https://github.com/sendbird/stave/pull/456), [#457](https://github.com/sendbird/stave/pull/457)
+
 ## [0.17.0](https://github.com/sendbird/stave/compare/v0.16.7...v0.17.0) (2026-09-03)
 
 ### Features
