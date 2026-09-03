@@ -16,6 +16,8 @@ import {
   type AuxLaneConfig,
   type AuxLaneProviderId,
 } from "@/lib/providers/auxiliary-inference-policy";
+import { PROMPT_ENHANCEMENT_STYLE_PROFILE_CHARS } from "@/lib/providers/prompt-enhancement-context";
+import { Button, Textarea } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -177,12 +179,84 @@ function AuxLaneCard(args: { lane: AuxLane }) {
   );
 }
 
+/**
+ * What the Enhance button knows about the user beyond the draft. The style
+ * profile is the user's explicit taste; the learned examples are the implicit
+ * one. Both ride the utility lane above, so they share its provider and model.
+ */
+function PromptEnhancementCard() {
+  const styleProfile = useAppStore(
+    (state) => state.settings.promptEnhancementStyleProfile,
+  );
+  const learnFromEdits = useAppStore(
+    (state) => state.settings.promptEnhancementLearnFromEdits,
+  );
+  const exemplarCount = useAppStore(
+    (state) => state.settings.promptEnhancementExemplars.length,
+  );
+  const updateSettings = useAppStore((state) => state.updateSettings);
+
+  return (
+    <SettingsCard
+      title="Prompt enhancement"
+      description="Enhance already reads the task conversation, the Information panel, and the repo's AGENTS.md or CLAUDE.md when they exist. Add what those cannot tell it: how you like prompts written."
+    >
+      <LabeledField
+        title="Prompt style"
+        description="Language, tone, detail level, and anything Enhance should always include or never add. Empty sends nothing."
+      >
+        <Textarea
+          id="settings-field-prompt-enhancement"
+          value={styleProfile}
+          maxLength={PROMPT_ENHANCEMENT_STYLE_PROFILE_CHARS}
+          rows={4}
+          placeholder={
+            "e.g. Write in Korean. Always ask for typecheck and the smallest focused test. Never add acceptance criteria I did not mention."
+          }
+          onChange={(event) =>
+            updateSettings({
+              patch: { promptEnhancementStyleProfile: event.target.value },
+            })
+          }
+        />
+      </LabeledField>
+      <SwitchField
+        title="Learn from kept and undone rewrites"
+        description={
+          learnFromEdits
+            ? exemplarCount > 0
+              ? `${exemplarCount} remembered rewrite${exemplarCount === 1 ? "" : "s"} are shown to the model as examples.`
+              : "Rewrites you keep or undo will be remembered as examples."
+            : "Off. Past rewrites are neither remembered nor sent."
+        }
+        checked={learnFromEdits}
+        onCheckedChange={(checked) =>
+          updateSettings({ patch: { promptEnhancementLearnFromEdits: checked } })
+        }
+      />
+      {exemplarCount > 0 ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            updateSettings({ patch: { promptEnhancementExemplars: [] } })
+          }
+        >
+          Forget remembered rewrites
+        </Button>
+      ) : null}
+    </SettingsCard>
+  );
+}
+
 export function SettingsAuxiliaryInferenceSection() {
   return (
     <SectionStack>
       {AUX_LANES.map((lane) => (
         <AuxLaneCard key={lane} lane={lane} />
       ))}
+      <PromptEnhancementCard />
     </SectionStack>
   );
 }

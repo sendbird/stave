@@ -2,6 +2,7 @@ import type {
   CliSessionCreateSessionArgs,
   TerminalCreateSessionArgs,
 } from "../../src/lib/terminal/types";
+import type { PromptEnhancementContext } from "../../src/lib/providers/prompt-enhancement-context";
 import type {
   PrCheckLogExcerpt,
   PrContextIndex,
@@ -296,7 +297,9 @@ export interface HostProviderClassifyRouteResult {
   utility: UtilityInferenceMetadata;
 }
 
-export interface HostProviderEnhancePromptArgs extends UtilityInferenceContext {
+export interface HostProviderEnhancePromptArgs
+  extends UtilityInferenceContext,
+    Omit<PromptEnhancementContext, "repoGuidance"> {
   prompt: string;
 }
 

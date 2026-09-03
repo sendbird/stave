@@ -1,3 +1,9 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import {
+  PROMPT_ENHANCEMENT_REPO_GUIDANCE_CHARS,
+  type PromptEnhancementContext,
+} from "../../src/lib/providers/prompt-enhancement-context";
 import type {
   RouteClassification,
   UtilityInferenceContext,
@@ -393,14 +399,46 @@ export async function suggestUtilityCommitMessage(
   };
 }
 
+const REPO_GUIDANCE_FILES = ["AGENTS.md", "CLAUDE.md"] as const;
+
+/**
+ * Repo policy the rewrite may lean on, read here because the utility runner
+ * has no tools. Missing files cost nothing; present ones are clipped.
+ */
+export async function readPromptEnhancementRepoGuidance(cwd?: string) {
+  if (!cwd || !path.isAbsolute(cwd)) {
+    return undefined;
+  }
+  const parts: string[] = [];
+  for (const name of REPO_GUIDANCE_FILES) {
+    try {
+      const text = (await fs.readFile(path.join(cwd, name), "utf8")).trim();
+      if (text) {
+        parts.push(`# ${name}\n${text}`);
+      }
+    } catch {
+      // Absent or unreadable: the block is simply omitted.
+    }
+  }
+  if (parts.length === 0) {
+    return undefined;
+  }
+  return parts.join("\n\n").slice(0, PROMPT_ENHANCEMENT_REPO_GUIDANCE_CHARS);
+}
+
 export async function enhanceUtilityPrompt(
-  args: UtilityInferenceContext & { prompt: string },
+  args: UtilityInferenceContext &
+    Omit<PromptEnhancementContext, "repoGuidance"> & { prompt: string },
   runners?: UtilityInferenceRunners,
   authGate?: UtilityInferenceAuthGate,
 ) {
+  const repoGuidance = await readPromptEnhancementRepoGuidance(args.cwd);
   const result = await executeUtilityInference({
     context: args,
-    prompt: buildPromptEnhancementInferencePrompt(args),
+    prompt: buildPromptEnhancementInferencePrompt({
+      ...args,
+      ...(repoGuidance ? { repoGuidance } : {}),
+    }),
     parse: parsePromptEnhancementInference,
     runners,
     authGate,
