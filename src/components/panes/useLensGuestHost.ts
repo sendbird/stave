@@ -1,10 +1,16 @@
 import { useEffect } from "react";
+import { isLensGuestPointerTarget } from "@/lib/lens/lens-guest-interaction";
 import {
+  acquireLensGuestPointerPassthrough,
   ensureLensGuest,
   focusLensGuest,
+  parkLensGuestsOutsideWorkspace,
   releaseLensGuest,
+  releaseLensGuestPointerPassthrough,
+  resetLensGuestPointerPassthrough,
   restoreLensGuestFocus,
 } from "@/lib/lens/lens-guest-host";
+import { useAppStore } from "@/store/app.store";
 
 /**
  * The window's side of Lens guest lifetime.
@@ -105,12 +111,48 @@ export function useLensGuestHost(): void {
         });
       });
 
+    const unsubscribeWorkspace = useAppStore.subscribe((state, previous) => {
+      if (state.activeWorkspaceId === previous.activeWorkspaceId) {
+        return;
+      }
+      parkLensGuestsOutsideWorkspace(state.activeWorkspaceId);
+    });
+
+    const endPointerPassthrough = (event: PointerEvent) => {
+      releaseLensGuestPointerPassthrough(event.pointerId);
+    };
+    const resetPointerPassthrough = () => {
+      resetLensGuestPointerPassthrough();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (isLensGuestPointerTarget(target)) {
+        return;
+      }
+      acquireLensGuestPointerPassthrough(event.pointerId);
+    };
+    window.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("pointerup", endPointerPassthrough, true);
+    window.addEventListener("pointercancel", endPointerPassthrough, true);
+    window.addEventListener("blur", resetPointerPassthrough);
+    document.addEventListener("visibilitychange", resetPointerPassthrough);
+
     return () => {
       disposed = true;
       unsubscribeGuestRequests?.();
       unsubscribeSessionClosed?.();
       unsubscribeFocusRequests?.();
       unsubscribeFocusRestoreRequests?.();
+      unsubscribeWorkspace();
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("pointerup", endPointerPassthrough, true);
+      window.removeEventListener("pointercancel", endPointerPassthrough, true);
+      window.removeEventListener("blur", resetPointerPassthrough);
+      document.removeEventListener(
+        "visibilitychange",
+        resetPointerPassthrough,
+      );
+      resetLensGuestPointerPassthrough();
     };
   }, []);
 }

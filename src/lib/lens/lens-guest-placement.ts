@@ -33,19 +33,38 @@ export type LensGuestStyle = {
  * describe a page no user will ever see. A conventional desktop viewport is the
  * useful default.
  */
-export const DEFAULT_LENS_GUEST_VIEWPORT = { width: 1280, height: 800 } as const;
+export const DEFAULT_LENS_GUEST_VIEWPORT = {
+  width: 1280,
+  height: 800,
+} as const;
 
 /** Smallest guest viewport. Below this, page layout stops being meaningful. */
 const MIN_GUEST_EXTENT = 1;
 
 function extent(value: number | undefined, fallback: number): number {
-  return value !== undefined && Number.isFinite(value) && value >= MIN_GUEST_EXTENT
+  return value !== undefined &&
+    Number.isFinite(value) &&
+    value >= MIN_GUEST_EXTENT
     ? value
     : fallback;
 }
 
 function origin(value: number | undefined): number {
   return value !== undefined && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Whether a placement is allowed to paint and take hits.
+ *
+ * `presented` is the panel's intent. Revealing still needs a real rectangle:
+ * an unmeasured guest resolves to the default desktop viewport at (0, 0), and
+ * showing that overlays the workspace as a floating card instead of sitting
+ * in the pane.
+ */
+export function isLensGuestVisuallyPresented(
+  placement: LensGuestPlacement,
+): boolean {
+  return placement.presented && isMeasurableLensGuestRect(placement.rect);
 }
 
 /**
@@ -74,11 +93,14 @@ function origin(value: number | undefined): number {
  *    moved offscreen. Chromium throttles frame production for content outside
  *    the viewport — and an offscreen guest fails a screenshot the same way a
  *    hidden one does, also measured. Staying put is what keeps it answerable.
+ * 4. **Never reveal without a measured rectangle.** The default viewport is
+ *    for layout and screenshots, not for showing a page at the window origin.
  */
 export function resolveLensGuestStyle(
   placement: LensGuestPlacement,
 ): LensGuestStyle {
-  const { rect, presented } = placement;
+  const { rect } = placement;
+  const shown = isLensGuestVisuallyPresented(placement);
 
   const width = extent(rect?.width, DEFAULT_LENS_GUEST_VIEWPORT.width);
   const height = extent(rect?.height, DEFAULT_LENS_GUEST_VIEWPORT.height);
@@ -88,8 +110,8 @@ export function resolveLensGuestStyle(
     top: `${origin(rect?.y)}px`,
     width: `${width}px`,
     height: `${height}px`,
-    opacity: presented ? "1" : "0",
-    pointerEvents: presented ? "auto" : "none",
+    opacity: shown ? "1" : "0",
+    pointerEvents: shown ? "auto" : "none",
   };
 }
 
@@ -125,9 +147,9 @@ export function isMeasurableLensGuestRect(
 ): rect is LensBounds {
   return Boolean(
     rect &&
-      Number.isFinite(rect.width) &&
-      Number.isFinite(rect.height) &&
-      rect.width >= MIN_GUEST_EXTENT &&
-      rect.height >= MIN_GUEST_EXTENT,
+    Number.isFinite(rect.width) &&
+    Number.isFinite(rect.height) &&
+    rect.width >= MIN_GUEST_EXTENT &&
+    rect.height >= MIN_GUEST_EXTENT,
   );
 }

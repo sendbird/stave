@@ -1,5 +1,11 @@
 import type { IDockviewPanelProps } from "dockview-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   setLensSurfaceAttached,
   setLensSurfaceSuppressed,
@@ -12,11 +18,13 @@ import {
   areLensGuestRectsEqual,
   isMeasurableLensGuestRect,
 } from "@/lib/lens/lens-guest-placement";
+import { createLensGuestPointerPassthroughTracker } from "@/lib/lens/lens-guest-interaction";
 import type { LensPanelTab } from "@/lib/lens/lens-log-format";
 import type { LensBounds } from "@/lib/lens/lens.types";
 import type { VisualCommentShortcut } from "@/lib/visual-comment-shortcuts";
 import { useLensVisualCommentShortcut } from "@/components/panes/surfaces/lens/useLensVisualCommentShortcut";
 import type { LensSurfaceHostHandle } from "@/components/panes/surfaces/lens/lens-surface-host";
+import { useAppStore } from "@/store/app.store";
 
 /**
  * How many consecutive unchanged frames end a tracking burst.
@@ -91,6 +99,7 @@ export function useLensDomSurfaceHost(args: {
     () => panelApi.isVisible,
   );
   const isPanelActiveRef = useRef(panelApi.isActive);
+  const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
 
   /*
    * Whether this panel is showing the page.
@@ -99,7 +108,11 @@ export function useLensDomSurfaceHost(args: {
    * dropdown, a dialog or a toast overlapping the preview does not appear here
    * and does not need to: the guest is a DOM element and they paint above it.
    */
-  const isPresented = hasGuest && isPanelVisible && lensPanelTab === "preview";
+  const isPresented =
+    hasGuest &&
+    isPanelVisible &&
+    lensPanelTab === "preview" &&
+    activeWorkspaceId === workspaceId;
   const isPresentedRef = useRef(isPresented);
   isPresentedRef.current = isPresented;
 
@@ -140,10 +153,20 @@ export function useLensDomSurfaceHost(args: {
     if (adoptable) {
       lastRectRef.current = adoptable;
     }
+    const hasRect = Boolean(adoptable || lastRectRef.current);
+    const isActiveWorkspace =
+      useAppStore.getState().activeWorkspaceId === workspaceId;
 
     setLensGuestPlacement(
       { workspaceId, lensSessionId },
-      { rect: adoptable ?? undefined, presented: isPresentedRef.current },
+      {
+        rect: adoptable ?? undefined,
+        // Hide until a pane rectangle exists. Showing the default viewport at
+        // (0, 0) paints the page over the workspace instead of in the pane.
+        // Also refuse to re-present after a workspace switch: a keep-alive
+        // panel can keep tracking for a frame and would undo the host park.
+        presented: isPresentedRef.current && hasRect && isActiveWorkspace,
+      },
     );
     return moved;
   }, [lensSessionId, workspaceId]);
@@ -278,22 +301,45 @@ export function useLensDomSurfaceHost(args: {
     const track = () => {
       trackPlacementRef.current();
     };
-    const onPointerUp = () => {
+    const removeDragListeners = () => {
       window.removeEventListener("pointermove", track, true);
-      window.removeEventListener("pointerup", onPointerUp, true);
-      window.removeEventListener("pointercancel", onPointerUp, true);
-      track();
+      window.removeEventListener("pointerup", onPointerEnd, true);
+      window.removeEventListener("pointercancel", onPointerEnd, true);
+      window.removeEventListener("blur", resetPointerTracking);
+      document.removeEventListener("visibilitychange", resetPointerTracking);
     };
-    const onPointerDown = () => {
-      window.addEventListener("pointermove", track, true);
-      window.addEventListener("pointerup", onPointerUp, true);
-      window.addEventListener("pointercancel", onPointerUp, true);
+    const pointerTracking = createLensGuestPointerPassthroughTracker(
+      (active) => {
+        if (!active) {
+          removeDragListeners();
+          return;
+        }
+        window.addEventListener("pointermove", track, true);
+        window.addEventListener("pointerup", onPointerEnd, true);
+        window.addEventListener("pointercancel", onPointerEnd, true);
+        window.addEventListener("blur", resetPointerTracking);
+        document.addEventListener(
+          "visibilitychange",
+          resetPointerTracking,
+        );
+      },
+    );
+    function onPointerEnd(event: PointerEvent) {
+      pointerTracking.release(event.pointerId);
+      track();
+    }
+    function resetPointerTracking() {
+      pointerTracking.reset();
+      track();
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      pointerTracking.acquire(event.pointerId);
       track();
     };
     window.addEventListener("pointerdown", onPointerDown, true);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown, true);
-      onPointerUp();
+      resetPointerTracking();
     };
   }, [isPresented]);
 
@@ -396,10 +442,7 @@ export function useLensDomSurfaceHost(args: {
     // Park, do not release. The page belongs to the session, which outlives
     // this panel: a hidden tab, a workspace switch, and layout churn all unmount
     // the panel while the session stays open.
-    setLensGuestPlacement(
-      { workspaceId, lensSessionId },
-      { presented: false },
-    );
+    setLensGuestPlacement({ workspaceId, lensSessionId }, { presented: false });
     reportPresented(false);
   }, [lensSessionId, reportPresented, stopTracking, workspaceId]);
 
