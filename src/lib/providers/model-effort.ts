@@ -76,11 +76,28 @@ export function resolveDefaultModelEffort(args: {
     : resolveDefaultCodexEffortForModel({ model: args.model });
 }
 
+/**
+ * Claude Haiku rejects an explicit `effort` with a 400, so the field must be
+ * omitted rather than clamped for that family.
+ */
+export function modelAcceptsExplicitEffort(args: {
+  providerId: ProviderId;
+  model: string;
+}) {
+  return !(
+    args.providerId === "claude-code" &&
+    /^claude-haiku-/.test(args.model.trim())
+  );
+}
+
 /** Effort values the given provider/model pair actually accepts. */
 export function listModelEffortOptions(args: {
   providerId: ProviderId;
   model: string;
 }): readonly ModelEffortOption[] {
+  if (!modelAcceptsExplicitEffort(args)) {
+    return [];
+  }
   return args.providerId === "claude-code"
     ? CLAUDE_EFFORT_OPTIONS
     : listCodexEffortOptionsForModel({ model: args.model });

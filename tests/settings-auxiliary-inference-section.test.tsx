@@ -37,6 +37,11 @@ describe("Settings → Background AI", () => {
     expect(html).toContain("Run this lane on Codex.");
   });
 
+  test("shows the light-tier Haiku default in the model picker", () => {
+    expect(html).toContain("Claude Haiku 4.5");
+    expect(html).toContain("claude-haiku-4-5");
+  });
+
   test("is reachable from settings search and navigation", () => {
     const section = settingsSections.find(
       (candidate) => candidate.id === "auxiliaryInference",

@@ -1705,9 +1705,8 @@ describe("buildClaudeQueryOptions", () => {
       { signal: new AbortController().signal },
     );
     expect(
-      (
-        blocked.hookSpecificOutput as { additionalContext?: string } | undefined
-      )?.additionalContext,
+      (blocked.hookSpecificOutput as { additionalContext?: string } | undefined)
+        ?.additionalContext,
     ).toContain("login wall");
 
     for (const quiet of [
@@ -1891,12 +1890,18 @@ describe("buildClaudeQueryOptions", () => {
     // actually contains. Reserved names are stripped from the bound secrets, so
     // every reserved name is absent no matter what the env builder returns.
     const reservedSecretEnv = Object.fromEntries(
-      RESERVED_ENV_VAR_NAMES.map((name) => [name, `attacker-controlled-${name}`]),
+      RESERVED_ENV_VAR_NAMES.map((name) => [
+        name,
+        `attacker-controlled-${name}`,
+      ]),
     );
     const options = buildClaudeQueryOptions({
       cwd: workspaceRoot,
       claudeExecutablePath: "",
-      secretEnv: { ...reservedSecretEnv, SAFE_SERVICE_TOKEN: "placeholder-value" },
+      secretEnv: {
+        ...reservedSecretEnv,
+        SAFE_SERVICE_TOKEN: "placeholder-value",
+      },
     });
 
     for (const name of RESERVED_ENV_VAR_NAMES) {
@@ -1955,6 +1960,22 @@ describe("buildClaudeQueryOptions", () => {
       fallbackModel: "claude-haiku-4-5",
     });
   });
+
+  test("omits effort for Claude Haiku, which rejects the field", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        model: "claude-haiku-4-5",
+        claudeEffort: "high",
+      },
+    });
+
+    expect(options).toMatchObject({
+      model: "claude-haiku-4-5",
+    });
+    expect(options).not.toHaveProperty("effort");
+  });
 });
 
 describe("buildClaudeReadOnlyPromptOptions", () => {
@@ -1989,6 +2010,21 @@ describe("buildClaudeReadOnlyPromptOptions", () => {
     expect(options).not.toHaveProperty("plugins");
     expect(options).not.toHaveProperty("agent");
     expect(options).not.toHaveProperty("fallbackModel");
+  });
+
+  test("omits effort for a Haiku read-only prompt even when the caller supplies one", () => {
+    const options = buildClaudeReadOnlyPromptOptions({
+      cwd: workspaceRoot,
+      model: "claude-haiku-4-5",
+      effort: "medium",
+      abortController: new AbortController(),
+      claudeExecutablePath: "/opt/claude",
+    });
+
+    expect(options).toMatchObject({
+      model: "claude-haiku-4-5",
+    });
+    expect(options).not.toHaveProperty("effort");
   });
 
   test("resumes only the isolated role session supplied by the caller", () => {

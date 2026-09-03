@@ -60,6 +60,19 @@ describe("normalizeTaskPreset", () => {
     expect(preset.contextMode).toBe("workspace");
   });
 
+  test("keeps a persisted Haiku preset instead of rewriting it to the Claude default", () => {
+    const preset = normalizeTaskPreset({
+      kind: "task",
+      provider: "claude-code",
+      model: "claude-haiku-4-5",
+      label: "Haiku",
+    });
+    expect(preset.model).toBe("claude-haiku-4-5");
+    expect(listModelsForPresetProvider("claude-code")).toContain(
+      "claude-haiku-4-5",
+    );
+  });
+
   test("falls back to provider default model when model is unknown", () => {
     const preset = normalizeTaskPreset({
       kind: "task",

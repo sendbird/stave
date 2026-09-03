@@ -45,8 +45,7 @@ const LANE_COPY: Record<
     title: "Turn summary",
     description:
       "Writes the short 'what was asked / what was done' line at the top of the Information panel after each completed turn.",
-    modelDescription:
-      "Preferred model for the latest-turn workspace summary.",
+    modelDescription: "Preferred model for the latest-turn workspace summary.",
   },
   taskName: {
     title: "Task naming",
@@ -104,7 +103,9 @@ function AuxLaneCard(args: { lane: AuxLane }) {
       state.settings.auxiliaryInferencePolicy[args.lane] ??
       DEFAULT_AUXILIARY_INFERENCE_POLICY[args.lane],
   );
-  const policy = useAppStore((state) => state.settings.auxiliaryInferencePolicy);
+  const policy = useAppStore(
+    (state) => state.settings.auxiliaryInferencePolicy,
+  );
   const updateSettings = useAppStore((state) => state.updateSettings);
   const copy = LANE_COPY[args.lane];
 
@@ -162,14 +163,14 @@ function AuxLaneCard(args: { lane: AuxLane }) {
                 ? copy.modelDescription
                 : `${copy.modelDescription} Currently using the default: ${resolved.model ?? "the provider's own choice"}.`
             }
-            value={config.model ?? ""}
+            value={config.model ?? resolved.model ?? ""}
             onSelect={(model) => patchLane({ model })}
           />
           {config.fallbackModel !== undefined ? (
             <PromptModelField
               title="Fallback model"
               description="Tried once when the primary model is unavailable or its answer cannot be parsed."
-              value={config.fallbackModel ?? ""}
+              value={config.fallbackModel ?? resolved.fallbackModel ?? ""}
               onSelect={(model) => patchLane({ fallbackModel: model })}
             />
           ) : null}
@@ -231,7 +232,9 @@ function PromptEnhancementCard() {
         }
         checked={learnFromEdits}
         onCheckedChange={(checked) =>
-          updateSettings({ patch: { promptEnhancementLearnFromEdits: checked } })
+          updateSettings({
+            patch: { promptEnhancementLearnFromEdits: checked },
+          })
         }
       />
       {exemplarCount > 0 ? (

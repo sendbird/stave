@@ -221,13 +221,13 @@ export function ModelSelector(args: ModelSelectorProps) {
           <span className="flex min-w-0 items-center gap-1.5">
             {value.isAuto ? (
               <Sparkles className="size-3.5 shrink-0 text-primary" />
-            ) : (
+            ) : value.model.trim() ? (
               <ModelIcon
                 providerId={value.providerId}
                 model={value.model}
                 className="size-3.5"
               />
-            )}
+            ) : null}
             <span className="truncate">
               {value.label}
               {effortLabel ? ` · ${effortLabel}` : ""}

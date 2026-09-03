@@ -21,6 +21,12 @@ describe("model selector utils", () => {
           providerId: "claude-code",
         }),
         expect.objectContaining({
+          key: "claude-code:claude-haiku-4-5",
+          model: "claude-haiku-4-5",
+          providerId: "claude-code",
+          label: "Claude Haiku 4.5",
+        }),
+        expect.objectContaining({
           key: "codex:gpt-5.6-terra",
           model: "gpt-5.6-terra",
           providerId: "codex",
@@ -71,6 +77,13 @@ describe("model selector utils", () => {
     expect(options.map((option) => option.key)).not.toContain(
       "codex:gpt-5.3-codex",
     );
+  });
+
+  test("does not treat an empty model as a selected Claude row", () => {
+    expect(buildModelSelectorValue({ model: "" })).toMatchObject({
+      model: "",
+      label: "Default",
+    });
   });
 
   test("infers a provider-specific display value from a persisted model id", () => {

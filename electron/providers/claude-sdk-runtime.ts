@@ -23,6 +23,7 @@ import {
   type PrePrReviewFinding,
 } from "../../src/lib/source-control-review";
 import { isTrustedApproval } from "../../src/lib/providers/trusted-tools";
+import { modelAcceptsExplicitEffort } from "../../src/lib/providers/model-effort";
 import {
   DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
   type ClaudePlanModeApprovalScope,
@@ -2234,7 +2235,11 @@ export function buildClaudeQueryOptions(args: {
       ? { maxBudgetUsd: args.runtimeOptions.claudeMaxBudgetUsd }
       : {}),
     ...(taskBudget ? { taskBudget } : {}),
-    ...(args.runtimeOptions?.claudeEffort
+    ...(args.runtimeOptions?.claudeEffort &&
+    modelAcceptsExplicitEffort({
+      providerId: "claude-code",
+      model: args.runtimeOptions.model ?? "",
+    })
       ? { effort: args.runtimeOptions.claudeEffort }
       : {}),
     ...(thinking ? { thinking } : {}),
@@ -3636,7 +3641,13 @@ export function buildClaudeReadOnlyPromptOptions(args: {
     abortController: args.abortController,
     cwd: args.cwd,
     model: args.model,
-    ...(args.effort ? { effort: args.effort } : {}),
+    ...(args.effort &&
+    modelAcceptsExplicitEffort({
+      providerId: "claude-code",
+      model: args.model,
+    })
+      ? { effort: args.effort }
+      : {}),
     maxTurns: 1,
     permissionMode: "dontAsk",
     tools: [],
@@ -3798,7 +3809,7 @@ export async function runClaudeReadOnlyPrompt(args: {
         ? {
             sessionReused: Boolean(
               args.resumeSessionId &&
-                result.nativeSessionId === args.resumeSessionId,
+              result.nativeSessionId === args.resumeSessionId,
             ),
           }
         : {}),
@@ -5190,17 +5201,19 @@ export async function streamClaudeWithSdk(
       inputs: nativeImageCollection.inputs,
     });
     if (claudeNativeImages.failedLocalImageCount > 0) {
-      console.warn("[claude-sdk-runtime] Local image attachments were unavailable", {
-        count: claudeNativeImages.failedLocalImageCount,
-      });
+      console.warn(
+        "[claude-sdk-runtime] Local image attachments were unavailable",
+        {
+          count: claudeNativeImages.failedLocalImageCount,
+        },
+      );
     }
     const providerPrompt = buildProviderTurnPrompt({
       providerId: args.providerId,
       prompt: args.prompt,
       conversation: promptConversation,
       activeResumeSessionId: existingSessionId ?? null,
-      includeImageData:
-        nativeImageCollection.unresolvedInlineImageCount > 0,
+      includeImageData: nativeImageCollection.unresolvedInlineImageCount > 0,
     });
     const activatedSkillSlugs = collectClaudeActivatedSkillSlugs({
       conversation: args.conversation,
