@@ -3,6 +3,7 @@ import {
   ALL_CODEX_REASONING_EFFORTS,
   CLAUDE_FABLE_MODEL,
   CLAUDE_SDK_MODEL_OPTIONS,
+  DEFAULT_CLAUDE_HAIKU_MODEL,
   clampCodexEffortToModel,
   CODEX_MODEL_OPTIONS,
   DEFAULT_CLAUDE_OPUS_MODEL,
@@ -52,6 +53,13 @@ describe("model catalog", () => {
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5[1m]");
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
       "claude-sonnet-5",
+    );
+  });
+
+  test("includes Haiku 4.5 so Background AI and other pickers can show the light-tier default", () => {
+    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(getDefaultModelForProvider({ providerId: "claude-code" })).not.toBe(
+      DEFAULT_CLAUDE_HAIKU_MODEL,
     );
   });
 
@@ -154,9 +162,7 @@ describe("model catalog", () => {
   });
 
   test("prefers a dynamically registered Codex default effort over the static fallback", () => {
-    registerDynamicDefaultReasoningEfforts(
-      new Map([["gpt-5.4-mini", "high"]]),
-    );
+    registerDynamicDefaultReasoningEfforts(new Map([["gpt-5.4-mini", "high"]]));
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.4-mini" })).toBe(
       "high",
     );
@@ -191,9 +197,9 @@ describe("model catalog", () => {
       "xhigh",
     ]);
     // Unknown/legacy models are unrestricted.
-    expect(
-      listCodexReasoningEffortsForModel({ model: "gpt-5.4" }),
-    ).toEqual(ALL_CODEX_REASONING_EFFORTS);
+    expect(listCodexReasoningEffortsForModel({ model: "gpt-5.4" })).toEqual(
+      ALL_CODEX_REASONING_EFFORTS,
+    );
   });
 
   test("prefers a dynamically registered supported-effort list over the static fallback", () => {
@@ -218,9 +224,9 @@ describe("model catalog", () => {
       clampCodexEffortToModel({ model: "gpt-5.6-luna", effort: "high" }),
     ).toBe("high");
     // GPT-5.5 caps at "xhigh" — "max" clamps down to it.
-    expect(
-      clampCodexEffortToModel({ model: "gpt-5.5", effort: "max" }),
-    ).toBe("xhigh");
+    expect(clampCodexEffortToModel({ model: "gpt-5.5", effort: "max" })).toBe(
+      "xhigh",
+    );
   });
 
   test("keeps selectable models backed by capability metadata", () => {
@@ -236,18 +242,18 @@ describe("model catalog", () => {
   });
 
   test("resolves tier models within provider eligibility", () => {
-    expect(
-      resolveTierModel({ providerId: "claude-code", tier: "heavy" }),
-    ).toBe("claude-sonnet-5");
+    expect(resolveTierModel({ providerId: "claude-code", tier: "heavy" })).toBe(
+      "claude-sonnet-5",
+    );
     expect(
       resolveTierModel({ providerId: "claude-code", tier: "frontier" }),
     ).toBe(CLAUDE_FABLE_MODEL);
     expect(resolveTierModel({ providerId: "codex", tier: "light" })).toBe(
       "gpt-5.6-luna",
     );
-    expect(
-      resolveTierModel({ providerId: "claude-code", tier: "light" }),
-    ).toBe("claude-haiku-4-5");
+    expect(resolveTierModel({ providerId: "claude-code", tier: "light" })).toBe(
+      "claude-haiku-4-5",
+    );
     expect(
       resolveTierModel({
         providerId: "claude-code",
@@ -282,15 +288,15 @@ describe("model catalog", () => {
   });
 
   test("upgrades settings-scoped Opus and Sonnet aliases to the current default while preserving the 1M suffix", () => {
-    expect(
-      upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6" }),
-    ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6" })).toBe(
+      DEFAULT_CLAUDE_OPUS_MODEL,
+    );
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6[1m]" }),
     ).toBe("claude-opus-5[1m]");
-    expect(
-      upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-8" }),
-    ).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-8" })).toBe(
+      DEFAULT_CLAUDE_OPUS_MODEL,
+    );
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-8[1m]" }),
     ).toBe("claude-opus-5[1m]");
@@ -307,15 +313,15 @@ describe("model catalog", () => {
       CLAUDE_FABLE_MODEL,
     );
     // Already-current Sonnet 5 ids pass through unchanged.
-    expect(
-      upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-5" }),
-    ).toBe("claude-sonnet-5");
+    expect(upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-5" })).toBe(
+      "claude-sonnet-5",
+    );
   });
 
   test("uses matching Opus 4.8 variants as the automatic Opus 5 fallback", () => {
-    expect(
-      resolveDefaultClaudeFallbackModel({ model: "claude-opus-5" }),
-    ).toBe("claude-opus-4-8");
+    expect(resolveDefaultClaudeFallbackModel({ model: "claude-opus-5" })).toBe(
+      "claude-opus-4-8",
+    );
     expect(
       resolveDefaultClaudeFallbackModel({ model: "claude-opus-5[1m]" }),
     ).toBe("claude-opus-4-8[1m]");

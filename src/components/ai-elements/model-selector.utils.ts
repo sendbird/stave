@@ -63,11 +63,15 @@ export function buildModelSelectorValue(args: {
   label?: string;
   available?: boolean;
 }): ModelSelectorOption {
+  const model = args.model.trim();
   return buildModelSelectorOption({
     providerId:
-      args.providerId ?? inferProviderIdFromModel({ model: args.model }),
+      args.providerId ??
+      (model ? inferProviderIdFromModel({ model }) : "claude-code"),
     model: args.model,
-    label: args.label,
+    // An empty model is "follow the runtime default", not a Claude row. Inferring
+    // a provider mark from "" made Background AI look pinned to Claude.
+    label: args.label ?? (model ? undefined : "Default"),
     available: args.available,
   });
 }

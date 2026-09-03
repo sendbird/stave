@@ -19,6 +19,7 @@ export const CLAUDE_FABLE_MODEL = "claude-fable-5-1";
 // availability — so no CLI-version gating is needed on our side.
 export const DEFAULT_CLAUDE_SONNET_MODEL = "claude-sonnet-5";
 export const DEFAULT_CLAUDE_SONNET_1M_MODEL = "claude-sonnet-5[1m]";
+export const DEFAULT_CLAUDE_HAIKU_MODEL = "claude-haiku-4-5";
 // Settings-scoped model IDs that should silently upgrade to the current
 // catalog default of the same family. Historical chat/turn records keep their
 // original IDs and render via the legacy display names below.
@@ -44,6 +45,9 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
   DEFAULT_CLAUDE_SONNET_1M_MODEL,
+  // Light-tier default for Background AI, utility inference, and workers.
+  // Leaving it out of the picker hid the model those lanes actually run.
+  DEFAULT_CLAUDE_HAIKU_MODEL,
 ] as const;
 
 // Source:
@@ -140,7 +144,7 @@ export const PROVIDER_DESCRIPTORS = [
       },
       utilityInference: {
         supported: true,
-        defaultModel: "claude-haiku-4-5",
+        defaultModel: DEFAULT_CLAUDE_HAIKU_MODEL,
       },
     },
   },
@@ -504,9 +508,9 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
     defaultClaudeEffort: "high",
   },
-  "claude-haiku-4-5": {
+  [DEFAULT_CLAUDE_HAIKU_MODEL]: {
     providerId: "claude-code",
-    model: "claude-haiku-4-5",
+    model: DEFAULT_CLAUDE_HAIKU_MODEL,
     tier: "light",
     taskTypes: ["quick_edit", "general"],
     defaultClaudeEffort: "medium",
@@ -936,7 +940,7 @@ export function toHumanModelName(args: { model: string }) {
     [DEFAULT_CLAUDE_SONNET_1M_MODEL]: "Claude Sonnet 5 (1M)",
     "claude-sonnet-4-6": "Claude Sonnet 4.6",
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
-    "claude-haiku-4-5": "Claude Haiku 4.5",
+    [DEFAULT_CLAUDE_HAIKU_MODEL]: "Claude Haiku 4.5",
     "gpt-5.6-sol": "GPT-5.6 Sol",
     "gpt-5.6-terra": "GPT-5.6 Terra",
     "gpt-5.6-luna": "GPT-5.6 Luna",

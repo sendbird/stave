@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   buildModelEffortRuntimeOverrides,
   isModelEffort,
+  modelAcceptsExplicitEffort,
   type ModelEffort,
 } from "@/lib/providers/model-effort";
 import { resolveTierModel } from "@/lib/providers/model-catalog";
@@ -159,12 +160,17 @@ function normalizeLane(lane: AuxLane, raw: unknown): AuxLaneConfig {
   )
     ? (candidate.effort as ModelEffort)
     : undefined;
-  const numberOrFallback = (value: unknown, fallbackValue: number | undefined) =>
+  const numberOrFallback = (
+    value: unknown,
+    fallbackValue: number | undefined,
+  ) =>
     typeof value === "number" && Number.isFinite(value) && value >= 0
       ? Math.floor(value)
       : fallbackValue;
-  const booleanOrFallback = (value: unknown, fallbackValue: boolean | undefined) =>
-    typeof value === "boolean" ? value : fallbackValue;
+  const booleanOrFallback = (
+    value: unknown,
+    fallbackValue: boolean | undefined,
+  ) => (typeof value === "boolean" ? value : fallbackValue);
 
   const next: AuxLaneConfig = {
     enabled:
@@ -264,9 +270,7 @@ export function supportsExplicitEffort(args: {
   providerId: ProviderId;
   model: string;
 }) {
-  return !(
-    args.providerId === "claude-code" && /^claude-haiku-/.test(args.model.trim())
-  );
+  return modelAcceptsExplicitEffort(args);
 }
 
 export interface AuxLaneRuntime {

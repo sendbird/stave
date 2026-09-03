@@ -24,6 +24,15 @@ describe("model effort helpers", () => {
     ).not.toContain("ultra");
   });
 
+  test("exposes no effort scale for Claude Haiku, which rejects the field", () => {
+    expect(
+      listModelEffortOptions({
+        providerId: "claude-code",
+        model: "claude-haiku-4-5",
+      }),
+    ).toEqual([]);
+  });
+
   test("keeps a supported effort and steps down an unsupported Codex tier", () => {
     expect(
       clampModelEffort({

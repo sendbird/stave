@@ -35,9 +35,8 @@ afterEach(() => {
 describe("Settings → Models → Selector Models", () => {
   test("offers every provider and explains what the default list holds back", async () => {
     setWindowContext();
-    const { SettingsModelVisibilitySection } = await import(
-      "@/components/layout/settings-dialog-model-visibility"
-    );
+    const { SettingsModelVisibilitySection } =
+      await import("@/components/layout/settings-dialog-model-visibility");
     const html = renderToStaticMarkup(
       createElement(SettingsModelVisibilitySection),
     );
@@ -54,15 +53,18 @@ describe("Settings → Models → Selector Models", () => {
 
   test("lists one switchable row per Claude selector row, not per context variant", async () => {
     setWindowContext();
-    const { SettingsModelVisibilitySection } = await import(
-      "@/components/layout/settings-dialog-model-visibility"
-    );
+    const { SettingsModelVisibilitySection } =
+      await import("@/components/layout/settings-dialog-model-visibility");
     const html = renderToStaticMarkup(
       createElement(SettingsModelVisibilitySection),
     );
 
     expect(html).toContain('data-model-visibility-row="claude-sonnet-5"');
-    expect(html).not.toContain('data-model-visibility-row="claude-sonnet-5[1m]');
+    expect(html).not.toContain(
+      'data-model-visibility-row="claude-sonnet-5[1m]',
+    );
     expect(html).toContain("Show Claude Sonnet 5 in the model selector");
+    expect(html).toContain('data-model-visibility-row="claude-haiku-4-5"');
+    expect(html).toContain("Show Claude Haiku 4.5 in the model selector");
   });
 });
