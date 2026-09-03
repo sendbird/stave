@@ -8,6 +8,7 @@ import {
 } from "./lens-guest-focus-borrow";
 import {
   createLensGuestPointerPassthroughTracker,
+  createLensGuestPresenterRegistry,
   shouldParkLensGuestForWorkspace,
 } from "./lens-guest-interaction";
 import {
@@ -85,6 +86,12 @@ type GuestRecord = {
 };
 
 const guests = new Map<string, GuestRecord>();
+
+/**
+ * Sessions that currently have a mounted panel. A guest is revealed only while
+ * its key is claimed here; see `claimLensGuestPresenter`.
+ */
+const presenters = createLensGuestPresenterRegistry();
 
 let surfaceRoot: HTMLDivElement | null = null;
 let focusBorrow: LensGuestFocusBorrowState = EMPTY_LENS_GUEST_FOCUS_BORROW;
@@ -424,19 +431,44 @@ export function setLensGuestPlacement(
 
   const nextRect =
     placement.rect === undefined ? record.placement.rect : placement.rect;
+  // Revealing is a panel's privilege. A `presented: true` from anything that
+  // has not claimed the guest — a panel mid-teardown, or one that addressed a
+  // same-id session in another workspace for a frame — is a park.
+  const presented = placement.presented && presenters.has(key);
   if (
-    record.placement.presented === placement.presented &&
+    record.placement.presented === presented &&
     areLensGuestRectsEqual(record.placement.rect, nextRect)
   ) {
     return;
   }
 
-  record.placement = { rect: nextRect, presented: placement.presented };
+  record.placement = { rect: nextRect, presented };
   applyPlacement(key);
 }
 
 /**
- * Hide every guest that does not belong to the active workspace.
+ * Register the panel that presents a session, for as long as it is mounted.
+ *
+ * Until this is called, `setLensGuestPlacement` refuses to reveal the guest.
+ * The returned release parks the guest — unless a newer claim for the same
+ * session has since taken over, in which case it leaves that panel's page
+ * alone. Calling it is what makes "unmounted means hidden" hold on every
+ * teardown path, including the ones that never got as far as attaching.
+ */
+export function claimLensGuestPresenter(
+  identity: LensGuestIdentity,
+): () => void {
+  const release = presenters.claim(lensGuestKey(identity));
+  return () => {
+    if (release()) {
+      setLensGuestPlacement(identity, { presented: false });
+    }
+  };
+}
+
+/**
+ * Hide every guest that does not belong to the active workspace, and every
+ * guest no panel claims.
  *
  * Must run on the workspace change itself. Waiting for the old panel to unmount
  * leaves the previous page painted over the incoming workspace for a frame —
@@ -445,12 +477,13 @@ export function setLensGuestPlacement(
 export function parkLensGuestsOutsideWorkspace(
   workspaceId: string | null,
 ): void {
-  for (const record of guests.values()) {
+  for (const [key, record] of guests) {
     if (
       !shouldParkLensGuestForWorkspace({
         guestWorkspaceId: record.descriptor.workspaceId,
         activeWorkspaceId: workspaceId,
         presented: record.placement.presented,
+        hasPresenter: presenters.has(key),
       })
     ) {
       continue;

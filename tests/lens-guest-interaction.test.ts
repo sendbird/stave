@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createLensGuestPointerPassthroughTracker,
+  createLensGuestPresenterRegistry,
   isLensGuestPointerTarget,
   shouldParkLensGuestForWorkspace,
 } from "../src/lib/lens/lens-guest-interaction";
@@ -12,6 +13,7 @@ describe("Lens guest workspace parking", () => {
         guestWorkspaceId: "ws-alpha",
         activeWorkspaceId: "ws-beta",
         presented: true,
+        hasPresenter: true,
       }),
     ).toBe(true);
   });
@@ -22,6 +24,7 @@ describe("Lens guest workspace parking", () => {
         guestWorkspaceId: "ws-alpha",
         activeWorkspaceId: "ws-alpha",
         presented: true,
+        hasPresenter: true,
       }),
     ).toBe(false);
   });
@@ -32,6 +35,7 @@ describe("Lens guest workspace parking", () => {
         guestWorkspaceId: "ws-alpha",
         activeWorkspaceId: "ws-beta",
         presented: false,
+        hasPresenter: true,
       }),
     ).toBe(false);
   });
@@ -42,8 +46,46 @@ describe("Lens guest workspace parking", () => {
         guestWorkspaceId: "ws-alpha",
         activeWorkspaceId: null,
         presented: true,
+        hasPresenter: true,
       }),
     ).toBe(true);
+  });
+
+  test("parks a presented guest in the active workspace once no panel claims it", () => {
+    expect(
+      shouldParkLensGuestForWorkspace({
+        guestWorkspaceId: "ws-alpha",
+        activeWorkspaceId: "ws-alpha",
+        presented: true,
+        hasPresenter: false,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("Lens guest presenter registry", () => {
+  test("a claim is visible until its release", () => {
+    const registry = createLensGuestPresenterRegistry();
+    const release = registry.claim("ws-alpha\u0000default");
+    expect(registry.has("ws-alpha\u0000default")).toBe(true);
+    expect(release()).toBe(true);
+    expect(registry.has("ws-alpha\u0000default")).toBe(false);
+  });
+
+  test("a superseded claim's release neither parks nor reports ownership", () => {
+    const registry = createLensGuestPresenterRegistry();
+    const releaseFirst = registry.claim("ws-beta\u0000default");
+    const releaseSecond = registry.claim("ws-beta\u0000default");
+    expect(releaseFirst()).toBe(false);
+    expect(registry.has("ws-beta\u0000default")).toBe(true);
+    expect(releaseSecond()).toBe(true);
+    expect(registry.has("ws-beta\u0000default")).toBe(false);
+  });
+
+  test("claims are per guest key", () => {
+    const registry = createLensGuestPresenterRegistry();
+    registry.claim("ws-alpha\u0000default");
+    expect(registry.has("ws-beta\u0000default")).toBe(false);
   });
 });
 

@@ -24,6 +24,7 @@ import {
   type LensRestoredSessionState,
 } from "@/components/panes/surfaces/lens/useLensSession";
 import { useLensDomSurfaceHost } from "@/components/panes/surfaces/lens/useLensDomSurfaceHost";
+import { useLensPanelOwnerWorkspaceId } from "@/components/panes/surfaces/lens/useLensPanelOwnerWorkspaceId";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
 
@@ -56,7 +57,7 @@ function LensSessionSurface(args: {
   // causes a fresh selector snapshot on every render, which can trigger React
   // 19 ref/update loops on tooltip-heavy surfaces like Lens.
   const [
-    workspaceId,
+    activeWorkspaceId,
     projectPath,
     activeTaskId,
     lensSourceMappingHeuristic,
@@ -77,6 +78,12 @@ function LensSessionSurface(args: {
         ] as const,
     ),
   );
+  // The workspace this panel was mounted for, not whichever one is active.
+  // Dockview rebuilds every panel on a workspace switch, but the old panel is
+  // still mounted for the render that carries the new active id; following
+  // that id would make it address another workspace's session of the same
+  // name for a frame.
+  const workspaceId = useLensPanelOwnerWorkspaceId(activeWorkspaceId);
   // Whether this session's tab still exists in the store. It flips to false
   // when the tab is closed (possibly via a path that bypassed
   // `closePaneSurface`), which is the cue to tear down the backing session.
