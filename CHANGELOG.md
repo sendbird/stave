@@ -1,3 +1,25 @@
+## [0.17.0](https://github.com/sendbird/stave/compare/v0.16.7...v0.17.0) (2026-09-03)
+
+### Features
+
+* Ground prompt enhancement in the task's recent turns, Information panel context, repository guidance, and remembered writing preferences, with local controls for style learning and rewrite memory.
+* Add a Tasks surface for assigned Crane and Jira Cloud tickets, including filtering, grouping, kickoff worktrees, editable instructions, local Stave runs, and opt-in Crane progress reporting.
+* Share compatible MCP connectors across Claude, Codex, Cursor, and Kiro while preserving native provider configuration, OAuth ownership, safe redaction, and partial-apply reporting.
+
+### Bug Fixes
+
+* Show the Martin project card only when Martin is active or relevant to the workspace, and remove empty card chrome when no project card is available.
+* Stabilize Lens guest layout, workspace parking, pointer passthrough, and panel-drag behavior across workspace switches and host resizes.
+* Preserve original-detail image attachments for Codex while leaving the shared attachment contract and other provider behavior unchanged.
+
+### Performance Improvements
+
+* Bound host turn history and workspace session memory, persist only changed fields and messages, and replace blocking persistence writes with a bounded asynchronous quit flush.
+
+### References
+
+* [#443](https://github.com/sendbird/stave/pull/443), [#444](https://github.com/sendbird/stave/pull/444), [#445](https://github.com/sendbird/stave/pull/445), [#446](https://github.com/sendbird/stave/pull/446), [#447](https://github.com/sendbird/stave/pull/447), [#448](https://github.com/sendbird/stave/pull/448), [#449](https://github.com/sendbird/stave/pull/449)
+
 ## [0.16.7](https://github.com/sendbird/stave/compare/v0.16.6...v0.16.7) (2026-09-02)
 
 ### Features
