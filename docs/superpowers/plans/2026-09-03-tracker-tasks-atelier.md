@@ -21,12 +21,36 @@ in both repositories on purpose:
 - Stave: `tests/fixtures/crane-tasks-v1/*.json`, asserted by `tests/crane-tasks-contract.test.ts` against `src/lib/tracker-tasks/contract.ts`
 - Atelier: `apps/crane/tests/fixtures/crane-tasks-v1/*.json`, asserted against the Crane contract module
 
-Seven fixtures, three valid and four invalid. The invalid ones exist so both
-sides reject the same payloads: a forbidden host-control property, an
-over-budget page, an estimate outside the fixed scale, and a non-HTTPS link.
+Both sides validate **every** fixture, including the family the other side
+authored. That matters: for a while each suite read only its own family, so the
+two schemas drifted apart while both stayed green — a nameless account, an
+over-long label, a non-https avatar, and an uncapped subtask count were all
+emittable by the server and rejected by the client, and the server's semantic
+label colours were dropped by a client that expected CSS. Reading the other
+side's fixtures is what makes "the fixtures are the arbiter" a fact.
 
 **A change to either copy is a change to both.** If the two ever disagree, the
 fixtures are the arbiter, not either implementation.
+
+### One deliberate asymmetry
+
+The server validates its own output with `.strict()`; the client strips unknown
+properties instead of rejecting them. That is not drift. The server must never
+ship a field it did not mean to, and the client must not break when a newer
+Crane adds one — asserting symmetry would force a lockstep release for every
+additive server change. `invalid-list-forbidden-property.json` therefore fails
+on the server and is *accepted with the extra key stripped* on the client. The
+denylist is unaffected: a property naming a local path, a command, a provider
+runtime, or a credential is still rejected before any field is read.
+
+### Label colour
+
+Crane stores label colour as one of seven semantic tokens — `neutral`,
+`accent`, `info`, `warning`, `warm`, `success`, `danger` — not as a CSS value.
+Stave maps them onto its own theme tokens, so the dot repaints with a custom
+theme and no external string reaches a style attribute. A tracker that does send
+a CSS colour (a hex or `rgb()`) still works; `resolveTrackerLabelColor` decides
+which of the two it is.
 
 ## Routes
 
@@ -53,9 +77,14 @@ server-side refactor:
   Stave-initiated one was already approved locally, so requiring an earlier
   state would reject every one of them.
 
-Conflict codes `job_active` and `task_closed` both arrive as 409 and are
-distinguishable only from the body, which is why Stave reads the body rather
-than mapping the status.
+Conflict codes arrive as 409 and are distinguishable only from the body, which
+is why Stave reads the body rather than mapping the status:
+`job_already_active` when the ticket already has a live job, and `task_closed`
+when the ticket is done or closed. The route can also answer `invalid_request`
+(400), `job_create_failed` (500), and `platform_db_unbound` or
+`invalid_dispatch_base_url` (503). Stave does not branch on any of them — a
+failed claim becomes `crane_claim_failed` — so the list is documentation, not a
+dependency.
 
 ## Stave Side
 

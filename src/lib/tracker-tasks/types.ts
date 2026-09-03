@@ -97,7 +97,8 @@ const TrackerTaskAssigneeSchema = z
 
 const TrackerTaskLabelSchema = z
   .object({
-    name: z.string().trim().min(1).max(80),
+    /** Widened to Crane's cap; Jira clamps its own labels well below this. */
+    name: z.string().trim().min(1).max(100),
     /**
      * Tracker-supplied colour. Rendered only as a small inline dot after
      * `isSafeCssColor`, never as a background: an external string must not be

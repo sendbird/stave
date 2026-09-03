@@ -127,6 +127,18 @@ describe("TrackerTaskRow", () => {
     expect(safe).toContain("background-color:#ff8800");
   });
 
+  test("paints a Crane semantic colour with a theme class, not an inline style", () => {
+    // Crane names one of seven slots rather than sending a colour, so the dot
+    // has to come from the theme — which also keeps an external string out of
+    // the style attribute entirely.
+    const html = renderRow({
+      task: makeTask({ labels: [{ name: "backend", color: "info" }] }),
+      staveLinks: [],
+    });
+    expect(html).toContain("bg-info");
+    expect(html).not.toContain("background-color:");
+  });
+
   test("collapses labels past the first two into a count", () => {
     const html = renderRow({
       task: makeTask({

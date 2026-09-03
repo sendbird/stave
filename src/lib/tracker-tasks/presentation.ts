@@ -339,6 +339,50 @@ const FUNCTIONAL_COLOR_PATTERN =
   /^(?:rgba?|hsla?)\(\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:%|deg)?(?:\s*[,\s]\s*[+-]?(?:\d+\.?\d*|\.\d+)%?){2,3}\s*\)$/i;
 
 /**
+ * Semantic label colours a tracker may name instead of supplying a CSS value.
+ *
+ * Crane stores label colour as one of these seven tokens, not as a hex or
+ * `rgb()` string, so treating the field as CSS would silently drop every Crane
+ * label colour. They map onto Stave's own theme tokens, which is strictly better
+ * than a raw value: the dot repaints with a custom theme, and an external string
+ * never reaches a style attribute at all.
+ */
+const SEMANTIC_LABEL_COLOR_CLASSES: Record<string, string> = {
+  neutral: "bg-muted-foreground/60",
+  accent: "bg-accent-foreground/70",
+  info: "bg-info",
+  warning: "bg-warning",
+  warm: "bg-muse",
+  success: "bg-success",
+  danger: "bg-destructive",
+};
+
+/**
+ * How a label's colour should be painted, or `null` when it cannot be.
+ *
+ * Two shapes because two kinds of tracker exist: one names a semantic slot and
+ * one hands over a colour. The token branch is preferred and checked first, so a
+ * tracker that happens to name a colour that is also a CSS keyword (`orange`)
+ * still gets the themed treatment rather than the raw one.
+ */
+export type TrackerLabelColor =
+  | { kind: "token"; className: string }
+  | { kind: "css"; value: string };
+
+export function resolveTrackerLabelColor(
+  color: string | undefined | null,
+): TrackerLabelColor | null {
+  if (typeof color !== "string") {
+    return null;
+  }
+  const token = SEMANTIC_LABEL_COLOR_CLASSES[color.trim().toLowerCase()];
+  if (token) {
+    return { kind: "token", className: token };
+  }
+  return isSafeCssColor(color) ? { kind: "css", value: color.trim() } : null;
+}
+
+/**
  * Gate for an externally supplied label colour rendered as an inline style.
  *
  * This is a security boundary, not a formatting nicety: the string arrives from
