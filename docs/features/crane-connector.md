@@ -93,6 +93,26 @@ Pairing codes are exchanged once and are not stored in Stave settings.
    model and effort, so switching provider and back is not a destructive edit.
 6. Approve the job.
 
+### Start A Crane Issue From Stave
+
+The flow above is Crane-initiated: someone clicks *Run in Stave* in Crane and the
+approval dialog appears here. The [Tasks surface](tasks.md) is the reverse
+direction. It lists the Crane tickets assigned to you and starts the run from
+Stave, using the same connector pairing and the same `crane` scope.
+
+When you leave *Report progress to Crane* on in the kickoff sheet, Stave
+registers a Crane job for the ticket and claims it in the same call, then reports
+lifecycle receipts exactly as an approved dispatch does — so the ticket shows as
+running in Stave for the rest of the team, and completion and failure land in
+Crane without any further action. What Crane receives is unchanged: status,
+sequence, timestamps, and safe error codes only.
+
+Turning the switch off, or staging the prompt instead of starting it, keeps the
+run entirely local and leaves the Crane ticket untouched. The switch is
+unavailable while the connector is off, and while the start mode is *Stage prompt
+only*, because a staged prompt has not run and reporting it as running would be a
+claim you cannot retract from Stave.
+
 ### Issue Keys, Branch Names, And The Information Panel
 
 Crane issue keys such as `TFE-94` are shaped exactly like Jira issue keys, so for
