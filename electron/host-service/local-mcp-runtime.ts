@@ -97,6 +97,10 @@ import {
   interruptActiveTaskTurns,
   type WorkspaceSessionState,
 } from "../../src/store/workspace-session-state";
+import {
+  MAX_LOADED_TASK_MESSAGES,
+  trimLoadedTaskMessages,
+} from "../../src/store/task-message-loading";
 import { applyProviderEventsToWorkspaceSession } from "../../src/store/workspace-turn-replay";
 import {
   findLatestPendingApprovalPart,
@@ -333,6 +337,13 @@ async function persistWorkspaceSession(args: {
   workspaceId: string;
   workspaceName: string;
   session: WorkspaceSessionState;
+  /**
+   * Only these messages are written, instead of the whole resident window.
+   * `upsertWorkspace` upserts `messagesByTask` additively (it never deletes
+   * rows it omits), so a delta write is equivalent to a full-window write and
+   * keeps a streamed event from re-serializing hundreds of untouched messages.
+   */
+  changedMessagesByTask?: Record<string, ChatMessage[]>;
 }) {
   const store = ensureHostServicePersistenceReady();
   // Task archive/restore lifecycle is owned by the renderer and durably held in
@@ -350,7 +361,7 @@ async function persistWorkspaceSession(args: {
     snapshot: createWorkspaceSnapshot({
       activeTaskId: args.session.activeTaskId,
       tasks: reconciledTasks,
-      messagesByTask: args.session.messagesByTask,
+      messagesByTask: args.changedMessagesByTask ?? args.session.messagesByTask,
       promptDraftByTask: args.session.promptDraftByTask,
       workspaceInformation: args.session.workspaceInformation,
       editorTabs: args.session.editorTabs,
@@ -367,6 +378,7 @@ function queueWorkspaceSessionPersist(args: {
   workspaceId: string;
   workspaceName: string;
   session: WorkspaceSessionState;
+  changedMessagesByTask?: Record<string, ChatMessage[]>;
 }) {
   const previous =
     workspacePersistChainById.get(args.workspaceId) ?? Promise.resolve();
@@ -570,7 +582,23 @@ async function loadWorkspaceSession(workspaceId: string) {
   return cacheWorkspaceSession(workspaceId, session);
 }
 
-function hydrateCompleteTaskMessages(args: {
+/**
+ * Make sure the task's resident window holds its most-recent
+ * `MAX_LOADED_TASK_MESSAGES` messages, reading a bounded tail page rather than
+ * the whole transcript.
+ *
+ * `loadWorkspaceSession` builds the session from the shell only, so
+ * `messagesByTask` starts empty for every task while `messageCountByTask`
+ * carries the durable total. Before this bounded read the host called
+ * `loadAllTaskMessages` here, which meant a 5,000-message task re-materialized
+ * its entire history on every turn *and* on every provider event.
+ *
+ * `messagesByTask` is only a tail window over the durable `messages` table, so
+ * capping it loses nothing: older history stays on disk and the renderer pages
+ * it back in on demand. Fresh native provider sessions therefore receive the
+ * same bounded history the renderer-driven path already sends.
+ */
+function ensureResidentTaskMessages(args: {
   workspaceId: string;
   taskId: string;
   session: WorkspaceSessionState;
@@ -578,22 +606,62 @@ function hydrateCompleteTaskMessages(args: {
   const loadedMessages = args.session.messagesByTask[args.taskId] ?? [];
   const totalCount =
     args.session.messageCountByTask[args.taskId] ?? loadedMessages.length;
-  if (loadedMessages.length >= totalCount) {
+  const residentTarget = Math.min(totalCount, MAX_LOADED_TASK_MESSAGES);
+  if (loadedMessages.length >= residentTarget) {
     return args.session;
   }
-  const messages = ensureHostServicePersistenceReady().loadAllTaskMessages({
+  const page = ensureHostServicePersistenceReady().loadTaskMessagesPage({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
+    limit: MAX_LOADED_TASK_MESSAGES,
+    offset: 0,
   });
   return cacheWorkspaceSession(args.workspaceId, {
     ...args.session,
     messagesByTask: {
       ...args.session.messagesByTask,
-      [args.taskId]: messages,
+      [args.taskId]: page.messages,
     },
     messageCountByTask: {
       ...args.session.messageCountByTask,
-      [args.taskId]: messages.length,
+      // The durable total, not the resident length: the window is a tail view
+      // and the count is what tells later reads how much history exists.
+      [args.taskId]: Math.max(page.totalCount, page.messages.length),
+    },
+  });
+}
+
+/**
+ * Message ids whose object identity changed between two resident windows.
+ *
+ * Drives delta persistence: `upsertWorkspace` treats `messagesByTask`
+ * additively, so handing it only the changed rows writes the same result as a
+ * full-window rewrite without serializing hundreds of untouched messages.
+ */
+function collectChangedMessages(args: {
+  before: ChatMessage[];
+  after: ChatMessage[];
+}) {
+  const beforeById = new Map(args.before.map((item) => [item.id, item]));
+  return args.after.filter((message) => beforeById.get(message.id) !== message);
+}
+
+/** Bound a task's resident window after new messages were applied. */
+function trimResidentTaskMessages(args: {
+  workspaceId: string;
+  taskId: string;
+  session: WorkspaceSessionState;
+}) {
+  const messages = args.session.messagesByTask[args.taskId] ?? [];
+  const trimmed = trimLoadedTaskMessages({ messages });
+  if (trimmed === messages) {
+    return args.session;
+  }
+  return cacheWorkspaceSession(args.workspaceId, {
+    ...args.session,
+    messagesByTask: {
+      ...args.session.messagesByTask,
+      [args.taskId]: trimmed,
     },
   });
 }
@@ -1880,11 +1948,12 @@ async function handleProviderEvent(args: {
     }
     return;
   }
-  session = hydrateCompleteTaskMessages({
+  session = ensureResidentTaskMessages({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     session,
   });
+  const residentMessagesBeforeEvent = session.messagesByTask[args.taskId] ?? [];
   localMcpTurnJournal.append({
     turnId: args.turnId,
     sequence: args.sequence,
@@ -1921,10 +1990,24 @@ async function handleProviderEvent(args: {
     turnId: args.turnId,
   });
   cacheWorkspaceSession(args.workspaceId, applied.session);
+  const appliedSession = trimResidentTaskMessages({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    session: applied.session,
+  });
+  // Write only what this event touched. The renderer re-reads the durable page
+  // when it sees `local-mcp.task-turn-updated`, so the write still has to land
+  // before that event is emitted — it is just far smaller now.
   await queueWorkspaceSessionPersist({
     workspaceId: args.workspaceId,
     workspaceName: args.workspaceName,
-    session: applied.session,
+    session: appliedSession,
+    changedMessagesByTask: {
+      [args.taskId]: collectChangedMessages({
+        before: residentMessagesBeforeEvent,
+        after: appliedSession.messagesByTask[args.taskId] ?? [],
+      }),
+    },
   });
 
   if (args.event.type === "approval") {
@@ -1933,7 +2016,7 @@ async function handleProviderEvent(args: {
       taskId: args.taskId,
       turnId: args.turnId,
       event: args.event,
-      session: applied.session,
+      session: appliedSession,
     });
     await persistApprovalNotification({
       workspaceId: args.workspaceId,
@@ -1941,7 +2024,7 @@ async function handleProviderEvent(args: {
       turnId: args.turnId,
       provider: args.provider,
       event: args.event,
-      session: applied.session,
+      session: appliedSession,
     });
   }
   if (args.event.type === "user_input") {
@@ -1951,7 +2034,7 @@ async function handleProviderEvent(args: {
       turnId: args.turnId,
       provider: args.provider,
       event: args.event,
-      session: applied.session,
+      session: appliedSession,
     });
   }
   if (args.event.type === "done") {
@@ -1962,7 +2045,7 @@ async function handleProviderEvent(args: {
       turnId: args.turnId,
       provider: args.provider,
       event: args.event,
-      session: applied.session,
+      session: appliedSession,
     });
     store.completeTurn({
       id: args.turnId,
@@ -2520,11 +2603,12 @@ export async function runTask(args: {
     throw new Error(`Task already has an active turn: ${task.id}`);
   }
 
-  session = hydrateCompleteTaskMessages({
+  session = ensureResidentTaskMessages({
     workspaceId: args.workspaceId,
     taskId: task.id,
     session,
   });
+  const residentMessagesBeforeTurn = session.messagesByTask[task.id] ?? [];
 
   const turnId = randomUUID();
   const existingHistory = session.messagesByTask[task.id] ?? [];
@@ -2609,10 +2693,22 @@ export async function runTask(args: {
     messagesByTask: pendingState.messagesByTask,
     activeTurnIdsByTask: pendingState.activeTurnIdsByTask,
   });
+  session = trimResidentTaskMessages({
+    workspaceId: args.workspaceId,
+    taskId: task.id,
+    session,
+  });
   await queueWorkspaceSessionPersist({
     workspaceId: args.workspaceId,
     workspaceName,
     session,
+    // Only the prompt's new user message and the pending assistant row.
+    changedMessagesByTask: {
+      [task.id]: collectChangedMessages({
+        before: residentMessagesBeforeTurn,
+        after: session.messagesByTask[task.id] ?? [],
+      }),
+    },
   });
 
   const store = ensureHostServicePersistenceReady();
