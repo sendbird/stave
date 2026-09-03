@@ -3,6 +3,7 @@ import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
   CodexMcpOauthLoginResponse,
+  CursorMcpOauthLoginResponse,
   CodexMcpResourceReadResponse,
   CodexThreadForkResponse,
   CodexThreadReadResponse,
@@ -431,6 +432,12 @@ interface WindowProviderApi {
     timeoutSecs?: number;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ClaudeMcpOauthLoginResponse>;
+  startCursorMcpOauthLogin?: (args: {
+    name: string;
+    cwd?: string;
+    timeoutSecs?: number;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+  }) => Promise<CursorMcpOauthLoginResponse>;
   readCodexMcpResource?: (args: {
     threadId: string;
     server: string;

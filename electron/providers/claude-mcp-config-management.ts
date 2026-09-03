@@ -25,6 +25,7 @@ import {
   cloneMcpJsonRecord,
   getMcpConfigRevision,
   getMcpConfigSnapshotId,
+  getShareableMcpUrl,
   getSafeHeaderEnvBindings,
   inferMcpTransport,
   isProtectedMcpServerName,
@@ -410,6 +411,10 @@ export function toClaudeShareDraft(args: {
 }): { draft: McpServerConfigDraft; warnings: string[] } {
   const { config } = getClaudeTransportRecord(args.value);
   const transport = inferMcpTransport(config);
+  const shareableUrl =
+    transport === "stdio"
+      ? undefined
+      : getShareableMcpUrl(config.url, "Claude");
   const env = getClaudeEnvBindings(asMcpRecord(config.env));
   const headers = getSafeHeaderEnvBindings({
     headers: asMcpRecord(config.headers),
@@ -445,9 +450,7 @@ export function toClaudeShareDraft(args: {
         ? { command: config.command }
         : {}),
       ...(transport === "stdio" ? { args: argumentList } : {}),
-      ...(typeof config.url === "string" && transport !== "stdio"
-        ? { url: config.url }
-        : {}),
+      ...(shareableUrl ? { url: shareableUrl } : {}),
       envVars: env.envVars,
       ...(headers.bearerTokenEnvVar
         ? { bearerTokenEnvVar: headers.bearerTokenEnvVar }

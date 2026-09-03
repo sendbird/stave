@@ -29,6 +29,18 @@ import {
   previewCodexMcpServerConfigMutation,
   readCodexMcpShareDraft,
 } from "./codex-app-server-runtime";
+import {
+  applyCursorMcpServerConfigMutation,
+  listCursorMcpServerConfigs,
+  previewCursorMcpServerConfigMutation,
+  readCursorMcpShareDraft,
+} from "./cursor-mcp-config-management";
+import {
+  applyKiroMcpServerConfigMutation,
+  listKiroMcpServerConfigs,
+  previewKiroMcpServerConfigMutation,
+  readKiroMcpShareDraft,
+} from "./kiro-mcp-config-management";
 
 function getMutationProvider(args: McpServerConfigMutationRequest) {
   const provider = args.draft?.provider ?? args.target?.provider;
@@ -72,35 +84,64 @@ function toSingleProviderRequest(
 
 async function previewProviderMutation(args: McpServerConfigMutationRequest) {
   const provider: McpConfigProvider = getMutationProvider(args);
-  return provider === "claude-code"
-    ? previewClaudeMcpServerConfigMutation(args)
-    : previewCodexMcpServerConfigMutation(args);
+  switch (provider) {
+    case "claude-code":
+      return previewClaudeMcpServerConfigMutation(args);
+    case "codex":
+      return previewCodexMcpServerConfigMutation(args);
+    case "cursor":
+      return previewCursorMcpServerConfigMutation(args);
+    case "kiro":
+      return previewKiroMcpServerConfigMutation(args);
+  }
 }
 
 async function applyProviderMutation(
   args: McpServerConfigMutationApplyRequest,
 ) {
   const provider: McpConfigProvider = getMutationProvider(args);
-  return provider === "claude-code"
-    ? applyClaudeMcpServerConfigMutation(args)
-    : applyCodexMcpServerConfigMutation(args);
+  switch (provider) {
+    case "claude-code":
+      return applyClaudeMcpServerConfigMutation(args);
+    case "codex":
+      return applyCodexMcpServerConfigMutation(args);
+    case "cursor":
+      return applyCursorMcpServerConfigMutation(args);
+    case "kiro":
+      return applyKiroMcpServerConfigMutation(args);
+  }
 }
 
 async function readShareDraft(args: McpServerConfigMutationRequest) {
   if (!args.target) {
     throw new Error("Sharing an MCP server requires a source target.");
   }
-  return args.target.provider === "claude-code"
-    ? readClaudeMcpShareDraft({
-        cwd: args.cwd,
-        runtimeOptions: args.runtimeOptions,
-        target: args.target,
-      })
-    : readCodexMcpShareDraft({
+  switch (args.target.provider) {
+    case "claude-code":
+      return readClaudeMcpShareDraft({
         cwd: args.cwd,
         runtimeOptions: args.runtimeOptions,
         target: args.target,
       });
+    case "codex":
+      return readCodexMcpShareDraft({
+        cwd: args.cwd,
+        runtimeOptions: args.runtimeOptions,
+        target: args.target,
+      });
+    case "cursor":
+      return readCursorMcpShareDraft({
+        cwd: args.cwd,
+        runtimeOptions: args.runtimeOptions,
+        target: args.target,
+      });
+    case "kiro":
+      return readKiroMcpShareDraft({
+        cwd: args.cwd,
+        runtimeOptions: args.runtimeOptions,
+        target: args.target,
+      });
+  }
 }
 
 function buildSharedDestinationDraft(args: {
@@ -116,7 +157,7 @@ function buildSharedDestinationDraft(args: {
     },
     args.destinationProvider,
   );
-  if (args.destinationProvider === "claude-code" && args.destinationScope) {
+  if (args.destinationScope) {
     return {
       ...adapted,
       scope: args.destinationScope,
@@ -158,14 +199,17 @@ async function previewSharedCreates(args: {
   };
 }
 
-async function applySharedCreates(args: {
-  request: McpServerConfigMutationApplyRequest;
-  drafts: McpServerConfigDraft[];
-}): Promise<McpServerConfigMutationResponse> {
+async function applySharedCreates(
+  args: {
+    request: McpServerConfigMutationApplyRequest;
+    drafts: McpServerConfigDraft[];
+  },
+  applyMutation = applyProviderMutation,
+): Promise<McpServerConfigMutationResponse> {
   const results: McpServerConfigMutationProviderResult[] = [];
   let lastServer = undefined;
   for (const draft of args.drafts) {
-    const result = await applyProviderMutation({
+    const result = await applyMutation({
       ...toSingleProviderRequest(args.request, draft),
       expectedRevision: expectedRevisionForProvider({
         provider: draft.provider,
@@ -179,9 +223,6 @@ async function applySharedCreates(args: {
     });
     if (result.server) {
       lastServer = result.server;
-    }
-    if (!result.ok) {
-      break;
     }
   }
   const summary = summarizeMcpShareResults({
@@ -197,21 +238,37 @@ async function applySharedCreates(args: {
   };
 }
 
+export const __mcpConfigManagementTest = {
+  applySharedCreates,
+};
+
 export async function listMcpServerConfigs(
   args: McpServerConfigListRequest,
 ): Promise<McpServerConfigListResponse> {
   const loadedAt = Date.now();
-  const [claude, codex] = await Promise.all([
+  const [claude, codex, cursor, kiro] = await Promise.all([
     listClaudeMcpServerConfigs(args),
     listCodexMcpServerConfigs(args),
+    listCursorMcpServerConfigs(args),
+    listKiroMcpServerConfigs(args),
   ]);
-  const servers = [...claude.servers, ...codex.servers].sort(
+  const servers = [
+    ...claude.servers,
+    ...codex.servers,
+    ...cursor.servers,
+    ...kiro.servers,
+  ].sort(
     (left, right) =>
       left.name.localeCompare(right.name) ||
       left.provider.localeCompare(right.provider) ||
       left.scope.localeCompare(right.scope),
   );
-  const errors = [...claude.errors, ...codex.errors];
+  const errors = [
+    ...claude.errors,
+    ...codex.errors,
+    ...cursor.errors,
+    ...kiro.errors,
+  ];
   return {
     ok: errors.length === 0,
     detail:

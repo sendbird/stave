@@ -3,7 +3,10 @@ import type {
   CodexMcpServerStatusSnapshot,
   McpDiscoveredServer,
 } from "./provider.types";
-import type { McpServerConfigSnapshot } from "./mcp-config.types";
+import type {
+  McpConfigProvider,
+  McpServerConfigSnapshot,
+} from "./mcp-config.types";
 import {
   CONNECTED_TOOL_IDS,
   getConnectedToolLabel,
@@ -22,7 +25,7 @@ export type McpConnectionState =
   | "unknown";
 
 export type McpProviderOverview = {
-  provider: "claude-code" | "codex";
+  provider: McpConfigProvider;
   configured: boolean;
   state: McpConnectionState;
   label: string;
@@ -34,12 +37,21 @@ export type McpProviderOverview = {
   toolCount?: number;
 };
 
+export type McpAcpAvailability =
+  | "portable"
+  | "target-native"
+  | "provider-managed"
+  | "not-forwarded";
+
 export type McpServerOverview = {
   name: string;
   sources: McpDiscoveredServer["sources"];
   transport: McpDiscoveredServer["transport"] | string;
+  acpAvailability: McpAcpAvailability;
   claude: McpProviderOverview;
   codex: McpProviderOverview;
+  cursor: McpProviderOverview;
+  kiro: McpProviderOverview;
 };
 
 function getMcpConnectionLabel(state: McpConnectionState) {
@@ -231,13 +243,101 @@ function toCodexOverview(args: {
   };
 }
 
+function toNativeProviderOverview(args: {
+  configs: readonly McpServerConfigSnapshot[];
+  provider: Extract<McpConfigProvider, "cursor" | "kiro">;
+  label: "Cursor" | "Kiro";
+  supportsExplicitLogin: boolean;
+}): McpProviderOverview {
+  const providerConfigs = args.configs.filter(
+    (config) => config.provider === args.provider,
+  );
+  const configured = providerConfigs.length > 0;
+  const enabled = providerConfigs.some((config) => config.enabled);
+  const enabledRemote = providerConfigs.some(
+    (config) => config.enabled && config.transport !== "stdio",
+  );
+  const transport = providerConfigs[0]?.transport;
+  const state: McpConnectionState = configured
+    ? enabled
+      ? "configured"
+      : "disabled"
+    : "not-configured";
+  return {
+    provider: args.provider,
+    configured,
+    state,
+    label: getMcpConnectionLabel(state),
+    canAuthenticate: args.supportsExplicitLogin && enabledRemote,
+    ...(transport
+      ? {
+          detail: `${formatMcpTransportLabel(transport)} · ${args.label} native`,
+        }
+      : {}),
+  };
+}
+
+function toCursorOverview(
+  configs: readonly McpServerConfigSnapshot[],
+): McpProviderOverview {
+  return toNativeProviderOverview({
+    configs,
+    provider: "cursor",
+    label: "Cursor",
+    supportsExplicitLogin: true,
+  });
+}
+
+function toKiroOverview(
+  configs: readonly McpServerConfigSnapshot[],
+): McpProviderOverview {
+  return toNativeProviderOverview({
+    configs,
+    provider: "kiro",
+    label: "Kiro",
+    supportsExplicitLogin: false,
+  });
+}
+
 function getMcpOverviewPriority(server: McpServerOverview) {
-  const states = [server.claude.state, server.codex.state];
+  const states = [
+    server.claude.state,
+    server.codex.state,
+    server.cursor.state,
+    server.kiro.state,
+  ];
   if (states.includes("failed")) return 0;
   if (states.includes("needs-auth")) return 1;
   if (states.includes("starting")) return 2;
   if (states.includes("connected")) return 3;
   return 4;
+}
+
+export function resolveMcpAcpAvailability(
+  configs: readonly McpServerConfigSnapshot[],
+): McpAcpAvailability {
+  if (configs.length === 0) return "provider-managed";
+  if (
+    configs.some(
+      (config) =>
+        config.provider !== "cursor" &&
+        config.provider !== "kiro" &&
+        config.enabled &&
+        (config.transport === "stdio" || config.transport === "http"),
+    )
+  ) {
+    return "portable";
+  }
+  if (
+    configs.some(
+      (config) =>
+        (config.provider === "cursor" || config.provider === "kiro") &&
+        config.enabled,
+    )
+  ) {
+    return "target-native";
+  }
+  return "not-forwarded";
 }
 
 export function buildMcpServerOverviews(args: {
@@ -255,15 +355,27 @@ export function buildMcpServerOverviews(args: {
       codex: { ...server.codex },
     });
   }
+  const configsByName = new Map<string, McpServerConfigSnapshot[]>();
   for (const server of args.configuredServers ?? []) {
+    const configs = configsByName.get(server.name) ?? [];
+    configs.push(server);
+    configsByName.set(server.name, configs);
     const source =
       server.provider === "codex"
         ? ("codex-user" as const)
-        : server.scope === "user"
-          ? ("claude-user" as const)
-          : server.scope === "local"
-            ? ("claude-local" as const)
-            : ("claude-project" as const);
+        : server.provider === "cursor"
+          ? server.scope === "user"
+            ? ("cursor-user" as const)
+            : ("cursor-project" as const)
+          : server.provider === "kiro"
+            ? server.scope === "user"
+              ? ("kiro-user" as const)
+              : ("kiro-project" as const)
+          : server.scope === "user"
+            ? ("claude-user" as const)
+            : server.scope === "local"
+              ? ("claude-local" as const)
+              : ("claude-project" as const);
     const existing = discoveredByName.get(server.name);
     if (!existing) {
       discoveredByName.set(server.name, {
@@ -305,6 +417,9 @@ export function buildMcpServerOverviews(args: {
           (codex?.transportType && codex.transportType !== "unknown"
             ? codex.transportType
             : "unknown"),
+        acpAvailability: resolveMcpAcpAvailability(
+          configsByName.get(name) ?? [],
+        ),
         claude: toClaudeOverview({
           configured: Boolean(discovered?.claude.configured || claude),
           server: claude,
@@ -313,6 +428,8 @@ export function buildMcpServerOverviews(args: {
           configured: Boolean(discovered?.codex.configured || codex),
           server: codex,
         }),
+        cursor: toCursorOverview(configsByName.get(name) ?? []),
+        kiro: toKiroOverview(configsByName.get(name) ?? []),
       };
     })
     .sort(
@@ -365,13 +482,17 @@ export function buildConnectedToolOverviews(args: {
     const matches = args.servers
       .filter((server) => matchesConnectedTool({ toolId: id, serverName: server.name }))
       .map((server) => {
-        // A connector is usable if either provider has it up, so the server's
-        // effective state is the better of its two provider states.
-        const state =
-          rankConnectedToolState(server.claude.state) <=
-          rankConnectedToolState(server.codex.state)
-            ? server.claude.state
-            : server.codex.state;
+        // A connector is usable if any provider has it up, so the server's
+        // effective state is the best available provider state.
+        const state = [
+          server.claude.state,
+          server.codex.state,
+          server.cursor?.state ?? "not-configured",
+          server.kiro?.state ?? "not-configured",
+        ].sort(
+          (left, right) =>
+            rankConnectedToolState(left) - rankConnectedToolState(right),
+        )[0]!;
         return { name: server.name, state };
       })
       .sort(

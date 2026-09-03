@@ -275,6 +275,10 @@ export interface ClaudeMcpOauthLoginResponse {
   requiresUserAction?: boolean;
   callbackExpected?: boolean;
 }
+export interface CursorMcpOauthLoginResponse {
+  ok: boolean;
+  detail: string;
+}
 
 /** Stave policy for plugins installed through the Claude CLI. */
 export type ClaudePluginMode = "off" | "claude-config" | "all";
@@ -389,7 +393,14 @@ export interface CodexMcpStatusResponse {
 export interface McpDiscoveredServer {
   name: string;
   sources: Array<
-    "claude-user" | "claude-project" | "claude-local" | "codex-user"
+    | "claude-user"
+    | "claude-project"
+    | "claude-local"
+    | "codex-user"
+    | "cursor-user"
+    | "cursor-project"
+    | "kiro-user"
+    | "kiro-project"
   >;
   claude: { configured: boolean };
   codex: { configured: boolean };

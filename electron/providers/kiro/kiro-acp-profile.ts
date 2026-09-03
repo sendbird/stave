@@ -131,6 +131,7 @@ export async function streamKiroWithAcp(
       })
     : [];
   const mcpServers = await resolveAcpTurnMcpServers({
+    targetProvider: "kiro",
     cwd: runtimeCwd,
     env: { ...process.env, ...secretEnv },
     staveLocalMcpServers,

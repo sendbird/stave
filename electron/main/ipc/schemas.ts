@@ -63,6 +63,8 @@ export const McpDiscoveryArgsSchema = z
 const McpConfigProviderSchema = z.union([
   z.literal("claude-code"),
   z.literal("codex"),
+  z.literal("cursor"),
+  z.literal("kiro"),
 ]);
 const McpConfigScopeSchema = z.union([
   z.literal("user"),
@@ -129,6 +131,20 @@ export const McpServerConfigDraftSchema = z
         code: z.ZodIssueCode.custom,
         path: ["scope"],
         message: "Codex MCP editing supports user scope only.",
+      });
+    }
+    if (draft.provider === "cursor" && draft.scope === "local") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scope"],
+        message: "Cursor MCP editing supports user or project scope.",
+      });
+    }
+    if (draft.provider === "kiro" && draft.scope === "local") {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scope"],
+        message: "Kiro MCP editing supports user or project scope.",
       });
     }
     if (draft.provider === "codex" && draft.transport === "sse") {
@@ -1441,7 +1457,7 @@ const McpConfigMutationBaseSchema = z.object({
 const McpConfigCreateMutationSchema = McpConfigMutationBaseSchema.extend({
   operation: z.literal("create"),
   draft: McpServerConfigDraftSchema,
-  installProviders: z.array(McpConfigProviderSchema).min(1).max(2).optional(),
+  installProviders: z.array(McpConfigProviderSchema).min(1).max(4).optional(),
 }).strict();
 const McpConfigUpdateMutationSchema = McpConfigMutationBaseSchema.extend({
   operation: z.literal("update"),
@@ -1532,6 +1548,15 @@ export const CodexMcpOauthLoginArgsSchema = z
   .strict();
 
 export const ClaudeMcpOauthLoginArgsSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    cwd: z.string().max(4096).optional(),
+    timeoutSecs: z.number().int().min(1).max(86_400).optional(),
+    runtimeOptions: RuntimeOptionsSchema,
+  })
+  .strict();
+
+export const CursorMcpOauthLoginArgsSchema = z
   .object({
     name: z.string().min(1).max(200),
     cwd: z.string().max(4096).optional(),

@@ -7,6 +7,7 @@ import {
   formatMcpTransportLabel,
   type McpConnectionState,
   type McpProviderOverview,
+  type McpServerOverview,
 } from "@/lib/providers/mcp-management";
 import type {
   ClaudeMcpStatusResponse,
@@ -48,7 +49,7 @@ type McpLoadResult<T> = {
 };
 
 type PendingMcpOauthLogin = {
-  provider: "claude" | "codex";
+  provider: "claude" | "codex" | "cursor";
   serverName: string;
   startedAt: number;
 };
@@ -75,6 +76,14 @@ function formatMcpSourceLabel(
       return "Claude local project";
     case "codex-user":
       return "Codex user";
+    case "cursor-user":
+      return "Cursor user";
+    case "cursor-project":
+      return "Cursor project";
+    case "kiro-user":
+      return "Kiro user";
+    case "kiro-project":
+      return "Kiro project";
   }
 }
 
@@ -118,15 +127,52 @@ function formatStatusTime(timestamp?: number) {
   }).format(timestamp);
 }
 
+function getAcpAvailabilityCopy(
+  availability: McpServerOverview["acpAvailability"],
+) {
+  switch (availability) {
+    case "portable":
+      return {
+        label: "Cursor/Kiro eligible",
+        detail:
+          "Stave can forward this file-backed server to primary Cursor and Kiro sessions.",
+      };
+    case "target-native":
+      return {
+        label: "Native route",
+        detail:
+          "Cursor or Kiro loads this server from its native MCP configuration. Stave does not inject a duplicate route into that target session.",
+      };
+    case "provider-managed":
+      return {
+        label: "Provider-only",
+        detail:
+          "This account-managed connector exposes no reusable command, URL, or OAuth credential, so it stays with the provider that authenticated it.",
+      };
+    case "not-forwarded":
+      return {
+        label: "Not sent to ACP",
+        detail:
+          "This server is disabled or uses a transport that Cursor and Kiro sessions cannot receive.",
+      };
+  }
+}
+
 function McpProviderStatus(args: {
   serverName: string;
   overview: McpProviderOverview;
   authPending: boolean;
   authBusy: boolean;
-  onAuthenticate: () => void;
+  onAuthenticate?: () => void;
 }) {
   const providerLabel =
-    args.overview.provider === "claude-code" ? "Claude" : "Codex";
+    args.overview.provider === "claude-code"
+      ? "Claude"
+      : args.overview.provider === "codex"
+        ? "Codex"
+        : args.overview.provider === "cursor"
+          ? "Cursor"
+          : "Kiro";
   const statusTime = formatStatusTime(args.overview.statusUpdatedAt);
   const errorTime = formatStatusTime(args.overview.lastErrorAt);
 
@@ -160,7 +206,7 @@ function McpProviderStatus(args: {
           </p>
         </div>
       ) : null}
-      {args.overview.canAuthenticate ? (
+      {args.overview.canAuthenticate && args.onAuthenticate ? (
         <Button
           className="mt-3"
           size="sm"
@@ -198,20 +244,33 @@ function pickShareSource(
 function McpShareActions(args: {
   claudeConfigured: boolean;
   codexConfigured: boolean;
+  cursorConfigured: boolean;
+  kiroConfigured: boolean;
   configs: McpServerConfigSnapshot[];
   onShare: (
     snapshot: McpServerConfigSnapshot,
     destinationProvider: McpConfigProvider,
   ) => void;
 }) {
-  if (args.claudeConfigured && args.codexConfigured) return null;
+  if (
+    args.claudeConfigured &&
+    args.codexConfigured &&
+    args.cursorConfigured &&
+    args.kiroConfigured
+  ) return null;
   const toCodex = args.codexConfigured
     ? null
     : pickShareSource(args.configs, "codex");
   const toClaude = args.claudeConfigured
     ? null
     : pickShareSource(args.configs, "claude-code");
-  if (!toCodex && !toClaude) return null;
+  const toCursor = args.cursorConfigured
+    ? null
+    : pickShareSource(args.configs, "cursor");
+  const toKiro = args.kiroConfigured
+    ? null
+    : pickShareSource(args.configs, "kiro");
+  if (!toCodex && !toClaude && !toCursor && !toKiro) return null;
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {toCodex ? (
@@ -232,6 +291,26 @@ function McpShareActions(args: {
           onClick={() => args.onShare(toClaude, "claude-code")}
         >
           Add to Claude
+        </Button>
+      ) : null}
+      {toCursor ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => args.onShare(toCursor, "cursor")}
+        >
+          Add to Cursor
+        </Button>
+      ) : null}
+      {toKiro ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => args.onShare(toKiro, "kiro")}
+        >
+          Add to Kiro
         </Button>
       ) : null}
     </div>
@@ -336,7 +415,10 @@ function McpServerConnectionsCard() {
     Record<string, PendingMcpOauthLogin>
   >({});
   const [authNotice, setAuthNotice] = useState("");
-  const [mutationNotice, setMutationNotice] = useState("");
+  const [mutationNotice, setMutationNotice] = useState<{
+    detail: string;
+    outcome: "success" | "partial";
+  } | null>(null);
   const [editor, setEditor] = useState<{
     snapshot?: McpServerConfigSnapshot;
   } | null>(null);
@@ -359,6 +441,16 @@ function McpServerConnectionsCard() {
       codex: buildProviderRuntimeOptions({
         provider: "codex",
         model: settings.modelCodex,
+        settings,
+      }),
+      cursor: buildProviderRuntimeOptions({
+        provider: "cursor",
+        model: settings.modelCursor,
+        settings,
+      }),
+      kiro: buildProviderRuntimeOptions({
+        provider: "kiro",
+        model: settings.modelKiro,
         settings,
       }),
     }),
@@ -386,6 +478,8 @@ function McpServerConnectionsCard() {
                 runtimeOptions: {
                   claudeBinaryPath: runtimeOptions.claude.claudeBinaryPath,
                   codexBinaryPath: runtimeOptions.codex.codexBinaryPath,
+                  cursorBinaryPath: runtimeOptions.cursor.cursorBinaryPath,
+                  kiroBinaryPath: runtimeOptions.kiro.kiroBinaryPath,
                 },
               })
           : undefined,
@@ -457,7 +551,7 @@ function McpServerConnectionsCard() {
     setAuthBusyByKey({});
     setAuthPendingByKey({});
     setAuthNotice("");
-    setMutationNotice("");
+    setMutationNotice(null);
     setEditor(null);
     setDeleteTarget(null);
     setShareTarget(null);
@@ -509,7 +603,11 @@ function McpServerConnectionsCard() {
         (candidate) => candidate.name === pending.serverName,
       );
       const overview =
-        pending.provider === "claude" ? server?.claude : server?.codex;
+        pending.provider === "claude"
+          ? server?.claude
+          : pending.provider === "codex"
+            ? server?.codex
+            : server?.cursor;
       if (
         !overview ||
         overview.state === "connected" ||
@@ -547,7 +645,7 @@ function McpServerConnectionsCard() {
   }, [authPendingByKey, refresh]);
 
   async function startOauthLogin(args: {
-    provider: "claude" | "codex";
+    provider: "claude" | "codex" | "cursor";
     serverName: string;
     runtimeOptions: ProviderRuntimeOptions;
   }) {
@@ -555,6 +653,18 @@ function McpServerConnectionsCard() {
     setAuthBusyByKey((current) => ({ ...current, [key]: true }));
     setAuthNotice("");
     try {
+      if (args.provider === "cursor") {
+        const result = await window.api?.provider?.startCursorMcpOauthLogin?.({
+          name: args.serverName,
+          cwd: workspaceCwd,
+          runtimeOptions: args.runtimeOptions,
+        });
+        setAuthNotice(
+          result?.detail ?? "Cursor OAuth login API unavailable.",
+        );
+        if (result?.ok) void refresh();
+        return;
+      }
       const result =
         args.provider === "claude"
           ? await window.api?.provider?.startClaudeMcpOauthLogin?.({
@@ -580,9 +690,7 @@ function McpServerConnectionsCard() {
           );
           return;
         }
-        const openResult = await openExternal({
-          url: result.authorizationUrl,
-        });
+        const openResult = await openExternal({ url: result.authorizationUrl });
         if (!openResult.ok) {
           setAuthNotice(
             `${result.detail} ${openResult.stderr ?? "The external browser could not be opened."}`,
@@ -620,6 +728,8 @@ function McpServerConnectionsCard() {
   const providerConnections = servers.flatMap((server) => [
     server.claude,
     server.codex,
+    server.cursor,
+    server.kiro,
   ]);
   const configuredCount = providerConnections.filter(
     (provider) => provider.configured,
@@ -634,7 +744,7 @@ function McpServerConnectionsCard() {
   return (
     <SettingsCard
       title="MCP Connections"
-      description="Add a server once and install it to Claude, Codex, or both. Connection status and recent errors stay in one view."
+      description="Install native MCP servers for Claude, Codex, Cursor, and Kiro. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route."
       titleAccessory={
         <div className="flex items-center gap-2">
           <Button
@@ -642,7 +752,7 @@ function McpServerConnectionsCard() {
             size="sm"
             disabled={!window.api?.provider?.previewMcpServerConfigMutation}
             onClick={() => {
-              setMutationNotice("");
+              setMutationNotice(null);
               setEditor({});
             }}
           >
@@ -685,8 +795,8 @@ function McpServerConnectionsCard() {
           aria-label="Connector availability"
         >
           <p className="text-xs text-muted-foreground">
-            Connectors — whether these capabilities are reachable right now,
-            across every server that provides them.
+            Provider-native configuration and available runtime status.
+            Account-managed OAuth sessions stay with the provider that owns them.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {connectedTools.map((tool) => (
@@ -713,8 +823,8 @@ function McpServerConnectionsCard() {
       ) : null}
       {!state.busy && state.refreshedAt && servers.length === 0 ? (
         <p className="rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
-          No MCP servers were found in the current Claude or Codex
-          configuration.
+          No MCP servers were found in the current Claude, Codex, Cursor, or
+          Kiro configuration.
         </p>
       ) : null}
 
@@ -738,11 +848,24 @@ function McpServerConnectionsCard() {
                     : "Runtime detected"}
                 </p>
               </div>
-              <Badge variant="outline">
-                {formatMcpTransportLabel(server.transport)}
-              </Badge>
+              <div className="flex flex-wrap justify-end gap-1.5">
+                <Badge variant="outline">
+                  {formatMcpTransportLabel(server.transport)}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  title={getAcpAvailabilityCopy(server.acpAvailability).detail}
+                >
+                  {getAcpAvailabilityCopy(server.acpAvailability).label}
+                </Badge>
+              </div>
             </div>
-            <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {server.acpAvailability !== "portable" ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {getAcpAvailabilityCopy(server.acpAvailability).detail}
+              </p>
+            ) : null}
+            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
               <McpProviderStatus
                 serverName={server.name}
                 overview={server.claude}
@@ -777,24 +900,47 @@ function McpServerConnectionsCard() {
                   })
                 }
               />
+              <McpProviderStatus
+                serverName={server.name}
+                overview={server.cursor}
+                authBusy={Boolean(
+                  authBusyByKey[getMcpOauthKey("cursor", server.name)],
+                )}
+                authPending={false}
+                onAuthenticate={() =>
+                  void startOauthLogin({
+                    provider: "cursor",
+                    serverName: server.name,
+                    runtimeOptions: runtimeOptions.cursor,
+                  })
+                }
+              />
+              <McpProviderStatus
+                serverName={server.name}
+                overview={server.kiro}
+                authBusy={false}
+                authPending={false}
+              />
             </div>
             <McpShareActions
               claudeConfigured={server.claude.configured}
               codexConfigured={server.codex.configured}
+              cursorConfigured={server.cursor.configured}
+              kiroConfigured={server.kiro.configured}
               configs={configsByName.get(server.name) ?? []}
               onShare={(snapshot, destinationProvider) => {
-                setMutationNotice("");
+                setMutationNotice(null);
                 setShareTarget({ snapshot, destinationProvider });
               }}
             />
             <McpConfigurationRows
               configs={configsByName.get(server.name) ?? []}
               onEdit={(snapshot) => {
-                setMutationNotice("");
+                setMutationNotice(null);
                 setEditor({ snapshot });
               }}
               onDelete={(snapshot) => {
-                setMutationNotice("");
+                setMutationNotice(null);
                 setDeleteTarget(snapshot);
               }}
             />
@@ -804,11 +950,15 @@ function McpServerConnectionsCard() {
 
       {mutationNotice ? (
         <p
-          className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success"
+          className={
+            mutationNotice.outcome === "partial"
+              ? "rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning-foreground"
+              : "rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success"
+          }
           aria-live="polite"
           role="status"
         >
-          {mutationNotice}
+          {mutationNotice.detail}
         </p>
       ) : null}
       {authNotice ? (
@@ -839,8 +989,8 @@ function McpServerConnectionsCard() {
         onOpenChange={(open) => {
           if (!open) setEditor(null);
         }}
-        onApplied={(detail) => {
-          setMutationNotice(detail);
+        onApplied={(detail, outcome = "success") => {
+          setMutationNotice({ detail, outcome });
           void refresh();
         }}
       />
@@ -853,7 +1003,7 @@ function McpServerConnectionsCard() {
           if (!open) setDeleteTarget(null);
         }}
         onApplied={(detail) => {
-          setMutationNotice(detail);
+          setMutationNotice({ detail, outcome: "success" });
           void refresh();
         }}
       />
@@ -871,7 +1021,7 @@ function McpServerConnectionsCard() {
           if (!open) setShareTarget(null);
         }}
         onApplied={(detail) => {
-          setMutationNotice(detail);
+          setMutationNotice({ detail, outcome: "success" });
           void refresh();
         }}
       />

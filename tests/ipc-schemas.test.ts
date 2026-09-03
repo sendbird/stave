@@ -4,6 +4,7 @@ import {
   ClaudeSessionForkArgsSchema,
   CliSessionCreateSessionArgsSchema,
   ClaudeMcpOauthLoginArgsSchema,
+  CursorMcpOauthLoginArgsSchema,
   CodexThreadForkArgsSchema,
   CreatePRArgsSchema,
   EnhancePromptArgsSchema,
@@ -63,6 +64,21 @@ describe("provider IPC schemas", () => {
     ).toBe(false);
   });
 
+  test("validates Cursor MCP OAuth login requests", () => {
+    expect(
+      CursorMcpOauthLoginArgsSchema.safeParse({
+        name: "slack",
+        cwd: "/tmp/workspace",
+        timeoutSecs: 600,
+        runtimeOptions: { cursorBinaryPath: "/tmp/agent" },
+      }).success,
+    ).toBe(true);
+    expect(
+      CursorMcpOauthLoginArgsSchema.safeParse({ name: "", timeoutSecs: 0 })
+        .success,
+    ).toBe(false);
+  });
+
   test("validates secret-safe MCP configuration mutations", () => {
     const create = {
       operation: "create",
@@ -80,13 +96,11 @@ describe("provider IPC schemas", () => {
       },
     };
 
-    expect(McpServerConfigMutationArgsSchema.safeParse(create).success).toBe(
-      true,
-    );
+    expect(McpServerConfigMutationArgsSchema.safeParse(create).success).toBe(true);
     expect(
       McpServerConfigMutationArgsSchema.safeParse({
         ...create,
-        installProviders: ["claude-code", "codex"],
+        installProviders: ["claude-code", "codex", "cursor", "kiro"],
       }).success,
     ).toBe(true);
     expect(
@@ -98,12 +112,36 @@ describe("provider IPC schemas", () => {
           name: "docs-server",
         },
         destination: {
-          provider: "codex",
+          provider: "cursor",
           scope: "user",
           name: "docs-server",
         },
       }).success,
     ).toBe(true);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        draft: { ...create.draft, provider: "cursor", scope: "project" },
+      }).success,
+    ).toBe(true);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        draft: { ...create.draft, provider: "cursor", scope: "local" },
+      }).success,
+    ).toBe(false);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        draft: { ...create.draft, provider: "kiro", scope: "project" },
+      }).success,
+    ).toBe(true);
+    expect(
+      McpServerConfigMutationArgsSchema.safeParse({
+        ...create,
+        draft: { ...create.draft, provider: "kiro", scope: "local" },
+      }).success,
+    ).toBe(false);
     expect(
       McpServerConfigMutationApplyArgsSchema.safeParse({
         ...create,
@@ -113,20 +151,13 @@ describe("provider IPC schemas", () => {
     expect(
       McpServerConfigMutationArgsSchema.safeParse({
         ...create,
-        draft: {
-          ...create.draft,
-          provider: "codex",
-          scope: "project",
-        },
+        draft: { ...create.draft, provider: "codex", scope: "project" },
       }).success,
     ).toBe(false);
     expect(
       McpServerConfigMutationArgsSchema.safeParse({
         ...create,
-        draft: {
-          ...create.draft,
-          bearerTokenEnvVar: "literal secret",
-        },
+        draft: { ...create.draft, bearerTokenEnvVar: "literal secret" },
       }).success,
     ).toBe(false);
   });

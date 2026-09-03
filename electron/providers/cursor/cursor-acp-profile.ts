@@ -328,6 +328,7 @@ export async function streamCursorWithAcp(
       })
     : [];
   const mcpServers = await resolveAcpTurnMcpServers({
+    targetProvider: "cursor",
     cwd: runtimeCwd,
     env: { ...process.env, ...secretEnv },
     staveLocalMcpServers,
