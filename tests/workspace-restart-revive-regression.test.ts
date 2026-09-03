@@ -74,7 +74,6 @@ describe("workspace switch archive persistence", () => {
   test("archiving a task and immediately switching workspaces still persists the archive", async () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: UpsertCall[] = [];
-    const syncUpsertCalls: UpsertCall[] = [];
 
     (globalThis as { window?: unknown }).window = {
       localStorage,
@@ -94,10 +93,6 @@ describe("workspace switch archive persistence", () => {
           loadWorkspaceShellLite: async () => ({ ok: true, shell: null }),
           upsertWorkspace: async (call: UpsertCall) => {
             upsertCalls.push(call);
-            return { ok: true };
-          },
-          upsertWorkspaceSync: (call: UpsertCall) => {
-            syncUpsertCalls.push(call);
             return { ok: true };
           },
           loadWorkspaceShellForRestore: async () => ({
@@ -159,7 +154,7 @@ describe("workspace switch archive persistence", () => {
     // The user switches away before any debounced snapshot flush has run.
     await useAppStore.getState().switchWorkspace({ workspaceId: "ws-other" });
 
-    const writesForMain = [...upsertCalls, ...syncUpsertCalls].filter(
+    const writesForMain = [...upsertCalls].filter(
       (call) => call.id === "ws-main",
     );
     const archivedWrite = writesForMain.find((call) =>

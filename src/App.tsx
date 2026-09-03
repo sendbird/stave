@@ -388,9 +388,37 @@ export default function App() {
     };
   }, []);
 
+  // Durability at quit: main asks for a flush and awaits the acknowledgement
+  // before it compacts and closes the store, so this replaces the former
+  // blocking `upsertWorkspaceSync` call in `beforeunload`.
+  useEffect(() => {
+    const subscribe = window.api?.persistence?.onFlushRequested;
+    if (!subscribe) {
+      return;
+    }
+    return subscribe(({ requestId }) => {
+      void (async () => {
+        try {
+          await Promise.all([
+            useAppStore.getState().flushActiveWorkspaceSnapshot(),
+            useAppStore.getState().flushProjectRegistry(),
+          ]);
+        } catch (error) {
+          console.error("[persistence] quit flush failed", error);
+        } finally {
+          // Acknowledge either way: a failed write must not hang the quit, and
+          // main's timeout is the backstop if this never arrives.
+          void window.api?.persistence?.notifyFlushComplete?.({ requestId });
+        }
+      })();
+    });
+  }, []);
+
+  // `beforeunload` cannot await, so it stays a best-effort nudge for reloads
+  // and window closes that bypass the main-process quit path.
   useEffect(() => {
     const onBeforeUnload = () => {
-      void useAppStore.getState().flushActiveWorkspaceSnapshot({ sync: true });
+      void useAppStore.getState().flushActiveWorkspaceSnapshot();
       void useAppStore.getState().flushProjectRegistry();
     };
     window.addEventListener("beforeunload", onBeforeUnload);

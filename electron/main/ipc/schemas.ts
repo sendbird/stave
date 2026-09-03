@@ -2088,3 +2088,9 @@ export const RoutineInformationReferencesArgsSchema = z
 
 export const RoutineInformationResourceCreateArgsSchema =
   RoutineInformationResourceCreateInputSchema;
+
+export const PersistenceFlushCompleteArgsSchema = z
+  .object({
+    requestId: z.number().int().nonnegative().optional(),
+  })
+  .strict();

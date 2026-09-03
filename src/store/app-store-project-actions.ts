@@ -81,7 +81,7 @@ export function createProjectActions(args: {
     files: string[];
     defaultBranch: string;
   }) => {
-    await get().flushActiveWorkspaceSnapshot({ sync: true });
+    await get().flushActiveWorkspaceSnapshot();
     const stateBeforeSwitch = get();
     const savedWorkspaceRuntimeCacheById = saveActiveWorkspaceRuntimeCache({
       state: stateBeforeSwitch,
@@ -564,7 +564,7 @@ export function createProjectActions(args: {
       const isCurrentProject =
         stateBefore.projectPath === normalizedProjectPath;
       if (isCurrentProject) {
-        await get().flushActiveWorkspaceSnapshot({ sync: true });
+        await get().flushActiveWorkspaceSnapshot();
       }
 
       const currentState = get();

@@ -259,7 +259,7 @@ export interface AppState
   purgeWorkspaceNotifications: (args: {
     workspaceIds: string[];
   }) => Promise<void>;
-  flushActiveWorkspaceSnapshot: (args?: { sync?: boolean }) => Promise<void>;
+  flushActiveWorkspaceSnapshot: () => Promise<void>;
   refreshActiveManagedTask: () => Promise<void>;
   syncHostTaskTurn: (update: LocalMcpTaskTurnUpdate) => Promise<void>;
   createProject: (args: { name?: string }) => Promise<void>;
