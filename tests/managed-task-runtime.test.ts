@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { resolveManagedTaskRuntimeOptions } from "@/lib/providers/managed-task-runtime";
+import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
 
 describe("resolveManagedTaskRuntimeOptions", () => {
   test("bypasses permissions when the caller specifies nothing", () => {
@@ -10,6 +11,40 @@ describe("resolveManagedTaskRuntimeOptions", () => {
     expect(options.claudeAllowDangerouslySkipPermissions).toBe(true);
     expect(options.claudeAllowUnsandboxedCommands).toBe(true);
     expect(options.claudeSandboxEnabled).toBe(false);
+    expect(options.providerTimeoutMs).toBe(DEFAULT_PROVIDER_TIMEOUT_MS);
+  });
+
+  test("uses the regular-task provider timeout when the caller omits one", () => {
+    const options = resolveManagedTaskRuntimeOptions({
+      providerId: "codex",
+      runtimeOptions: { model: "gpt-5" },
+    });
+    expect(options.providerTimeoutMs).toBe(DEFAULT_PROVIDER_TIMEOUT_MS);
+  });
+
+  test("keeps an explicit caller provider timeout", () => {
+    const options = resolveManagedTaskRuntimeOptions({
+      providerId: "claude-code",
+      runtimeOptions: { providerTimeoutMs: 86_400_000 },
+    });
+    expect(options.providerTimeoutMs).toBe(86_400_000);
+  });
+
+  test("uses the Settings-synced default when the caller omits a timeout", () => {
+    const options = resolveManagedTaskRuntimeOptions({
+      providerId: "codex",
+      defaultProviderTimeoutMs: 86_400_000,
+    });
+    expect(options.providerTimeoutMs).toBe(86_400_000);
+  });
+
+  test("keeps an explicit caller timeout over the Settings default", () => {
+    const options = resolveManagedTaskRuntimeOptions({
+      providerId: "claude-code",
+      runtimeOptions: { providerTimeoutMs: 3_600_000 },
+      defaultProviderTimeoutMs: 86_400_000,
+    });
+    expect(options.providerTimeoutMs).toBe(3_600_000);
   });
 
   test("resolves the auto autonomy preset to a real bypass", () => {

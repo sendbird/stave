@@ -7,6 +7,7 @@ import {
   mock,
   test,
 } from "bun:test";
+import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
 
 // Regression: the host-service local MCP `runTask` builds a pending provider
 // turn via `buildPendingProviderTurnState`, which requires `messageCountByTask`
@@ -67,6 +68,7 @@ const persistedTurnEventsById = new Map<
   }>
 >();
 const persistedNotifications: unknown[] = [];
+let persistedProviderTimeoutMs: number | null = null;
 const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
   {
@@ -178,7 +180,9 @@ const fakeStore = {
   }) =>
     lastUpsertSnapshotByWorkspaceId.get(workspaceId)?.messagesByTask?.[
       taskId
-    ] ?? loadFakeWorkspaceSnapshot(workspaceId).messagesByTask[taskId] ?? [],
+    ] ??
+    loadFakeWorkspaceSnapshot(workspaceId).messagesByTask[taskId] ??
+    [],
   loadTaskMessagesPage: ({
     workspaceId,
     taskId,
@@ -189,7 +193,9 @@ const fakeStore = {
     const messages =
       lastUpsertSnapshotByWorkspaceId.get(workspaceId)?.messagesByTask?.[
         taskId
-      ] ?? loadFakeWorkspaceSnapshot(workspaceId).messagesByTask[taskId] ?? [];
+      ] ??
+      loadFakeWorkspaceSnapshot(workspaceId).messagesByTask[taskId] ??
+      [];
     return {
       messages,
       totalCount: messages.length,
@@ -277,6 +283,7 @@ const fakeStore = {
   // `persistTaskTurnDelta` declines so the caller migrates via the
   // whole-snapshot write below.
   persistTaskTurnDelta: () => ({ ok: false, messageCount: 0 }),
+  loadRoutineProviderTimeoutMs: () => persistedProviderTimeoutMs,
   upsertWorkspace: ({
     id,
     snapshot,
@@ -352,6 +359,7 @@ afterAll(() => {
 });
 
 afterEach(() => {
+  persistedProviderTimeoutMs = null;
   providerRuntime.abortTurn = originalAbortTurn;
   providerRuntime.cleanupTask = originalCleanupTask;
   providerRuntime.respondApproval = originalRespondApproval;
@@ -413,7 +421,33 @@ describe("local MCP runtime runTask", () => {
       runtimeOptions: {
         claudePermissionMode: "bypassPermissions",
         claudeAllowDangerouslySkipPermissions: true,
+        providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
       },
+    });
+  });
+
+  test("applies the Settings-synced provider timeout to a managed task", async () => {
+    persistedProviderTimeoutMs = 86_400_000;
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Run this with the Settings timeout",
+    });
+
+    expect(startTurnStreamCalls.at(-1)).toMatchObject({
+      runtimeOptions: { providerTimeoutMs: 86_400_000 },
+    });
+  });
+
+  test("keeps an explicit managed-task timeout over the Settings value", async () => {
+    persistedProviderTimeoutMs = 86_400_000;
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Run this with a caller timeout",
+      runtimeOptions: { providerTimeoutMs: 3_600_000 },
+    });
+
+    expect(startTurnStreamCalls.at(-1)).toMatchObject({
+      runtimeOptions: { providerTimeoutMs: 3_600_000 },
     });
   });
 

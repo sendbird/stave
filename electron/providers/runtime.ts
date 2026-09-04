@@ -84,9 +84,10 @@ import {
   createProviderTurnLifecycle,
   type ProviderTurnLifecycleSnapshot,
 } from "./provider-turn-lifecycle";
+import { DEFAULT_PROVIDER_TIMEOUT_MS } from "../../src/lib/providers/runtime-option-contract";
 
 const sdkTurnTimeoutMs = Number(
-  process.env.STAVE_PROVIDER_TIMEOUT_MS ?? 300000,
+  process.env.STAVE_PROVIDER_TIMEOUT_MS ?? DEFAULT_PROVIDER_TIMEOUT_MS,
 );
 const ACTIVE_STREAM_TTL_MS = 15 * 60 * 1000;
 const COMPLETED_STREAM_TTL_MS = 60 * 1000;
@@ -528,7 +529,7 @@ function describeCodexAvailability(
  * decision (approval, user-input elicitation, or blocking plan review).
  *
  * Why pausing matters: without this, an unattended approval prompt that sits
- * idle for longer than `sdkTurnTimeoutMs` (5 min by default) silently aborts
+ * idle for longer than `sdkTurnTimeoutMs` (12 hours by default) silently aborts
  * the turn the moment the user finally clicks Approve. That produces the
  * "plan completed but UI is stuck" symptom because the abort races with
  * the tool_result, corrupting replay state.

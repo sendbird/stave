@@ -110,7 +110,7 @@ loop runs forever.
   If `turn/start` resolves after abort, the orphaned turn is interrupted
   fire-and-forget.
 - Catastrophic hangs are bounded by the outer `providerTimeoutMs` watchdog in
-  `runtime.ts`; the adapter itself does not add a second 5-minute timer.
+  `runtime.ts`; the adapter itself does not add a second timer.
 - The Codex app server still maintains its own internal completion-timeout
   accounting. When Stave surfaces approval or user-input prompts outside the
   app-server request loop, the adapter must pause that accounting via
