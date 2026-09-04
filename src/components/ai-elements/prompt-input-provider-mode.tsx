@@ -1,7 +1,6 @@
 import {
   Bot,
   Check,
-  ChevronDown,
   Compass,
   type LucideIcon,
   Shield,
@@ -120,12 +119,6 @@ export function PromptInputProviderModePill(args: {
           <span className="min-w-0 flex-1 truncate text-sm font-medium leading-none">
             {args.status.label}
           </span>
-          <ChevronDown
-            className={cn(
-              "size-3.5 shrink-0 opacity-70 transition-transform",
-              open && "rotate-180",
-            )}
-          />
         </ComposerControlLabel>
       </PopoverTrigger>
       {isInteractive ? (

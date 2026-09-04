@@ -114,7 +114,7 @@ export function SecretBindingControl({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-full gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
+            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
             disabled={disabled}
             aria-label="Bind secrets to this task as environment variables"
             title="Bind secrets to this task"

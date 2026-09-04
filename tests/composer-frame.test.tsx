@@ -37,7 +37,7 @@ describe("ComposerFrame", () => {
     expect(html).toContain('data-side="left"');
     expect(html).toContain("self-stretch");
     // The track reserves only a resting wing; a reveal overhangs the frame.
-    expect(html).toContain("w-[4.25rem]");
+    expect(html).toContain("w-[3.75rem]");
     // Shelves hang off the card, inset by the tuck, so they stay slightly
     // smaller than it rather than spanning the wing tracks too.
     expect(html).toContain("mx-3");
@@ -93,9 +93,10 @@ describe("ComposerFrame", () => {
 });
 
 describe("ComposerWorkspaceBarView", () => {
-  test("hides when there is no workspace or branch to show", () => {
+  test("hides when there is nothing to orient by", () => {
     const html = renderToStaticMarkup(
       createElement(ComposerWorkspaceBarView, {
+        projectLabel: "",
         workspaceLabel: "",
         folderLabel: "",
         branchLabel: "",
@@ -104,19 +105,53 @@ describe("ComposerWorkspaceBarView", () => {
     expect(html).toBe("");
   });
 
-  test("does not repeat the folder when it matches the workspace name", () => {
+  test("shows project and branch, and keeps the rest in the tooltip", () => {
     const html = renderToStaticMarkup(
       createElement(ComposerWorkspaceBarView, {
+        projectLabel: "stave",
         workspaceLabel: "fix-benchmark",
-        folderLabel: "fix-benchmark",
+        folderLabel: "fix__benchmark-new-ade--12tr7n2",
         branchLabel: "fix/benchmark-new-ade",
       }),
     );
 
     expect(html).toContain('data-testid="composer-workspace-bar"');
-    expect(html).toContain("fix-benchmark");
-    expect(html).toContain("fix/benchmark-new-ade");
-    expect((html.match(/title="fix-benchmark"/g) ?? []).length).toBe(1);
+    // Which codebase, which line of work — and nothing that repeats either.
+    expect(html).toContain(">stave<");
+    expect(html.match(/>fix\/benchmark-new-ade</g)).toHaveLength(1);
+    expect(html).not.toContain(">fix-benchmark<");
+    expect(html).not.toContain(">fix__benchmark-new-ade--12tr7n2<");
+    expect(html).toContain(
+      'title="fix/benchmark-new-ade · fix-benchmark · fix__benchmark-new-ade--12tr7n2"',
+    );
+  });
+
+  test("drops the project when it only repeats the branch", () => {
+    const html = renderToStaticMarkup(
+      createElement(ComposerWorkspaceBarView, {
+        projectLabel: "stave",
+        workspaceLabel: "stave",
+        folderLabel: "stave",
+        branchLabel: "stave",
+      }),
+    );
+
+    expect(html.match(/>stave</g)).toHaveLength(1);
+    expect(html).not.toContain("composer-workspace-project");
+  });
+
+  test("falls back to the workspace name when there is no branch yet", () => {
+    const html = renderToStaticMarkup(
+      createElement(ComposerWorkspaceBarView, {
+        projectLabel: "stave",
+        workspaceLabel: "scratch",
+        folderLabel: "scratch",
+        branchLabel: "",
+      }),
+    );
+
+    expect(html).toContain(">scratch<");
+    expect(html).toContain(">stave<");
   });
 });
 
@@ -190,8 +225,12 @@ describe("shelf surface", () => {
     // one theme and wrong in the seventeen others, and either token alone
     // would collapse the shelf into the page or into the card.
     expect(rule).toContain("background-color: color-mix(");
-    expect(rule).toContain("var(--card) 50%");
+    expect(rule).toContain("var(--card) 60%");
     expect(rule).toContain("var(--background)");
+    // Colour alone cannot carry the separation in a low-contrast palette, so
+    // the shelf also casts and keeps its ring.
+    expect(rule).toContain("inset 0 0 0 1px color-mix(in oklch, var(--border)");
+    expect(rule?.match(/oklch\(0 0 0 \//g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   test("frame shelves leave the surface to that one rule", () => {

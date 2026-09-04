@@ -25,7 +25,7 @@ export function MacroControl(args: MacroControlProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-full gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
+            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
             disabled={args.disabled}
             aria-label="Insert a saved macro"
             title="Insert a saved macro"

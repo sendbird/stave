@@ -30,10 +30,11 @@
  * shelf instead of a wrong colour.
  */
 .turn-activity-surface {
-  background-color: color-mix(in oklch, var(--card) 50%, var(--background));
+  background-color: color-mix(in oklch, var(--card) 60%, var(--background));
   box-shadow:
-    0 -6px 18px -14px oklch(0 0 0 / 0.26),
-    inset 0 0 0 1px color-mix(in oklch, var(--border) 74%, transparent);
+    0 0 16px -8px oklch(0 0 0 / 0.4),
+    0 4px 14px -10px oklch(0 0 0 / 0.45),
+    inset 0 0 0 1px color-mix(in oklch, var(--border) 88%, transparent);
 }
 
 /*
@@ -43,14 +44,17 @@
  * outer corner and the inset ring intact while it is collapsed.
  */
 [data-composer-frame="true"] {
-  /* One icon column (3.5rem) plus the 0.75rem that tucks under the card. */
-  --composer-wing-collapsed-width: 4.25rem;
+  /* One 2rem hit target, 0.5rem of air on each side, plus the 0.75rem that
+     tucks under the card. */
+  --composer-wing-collapsed-width: 3.75rem;
   /*
    * Overridden inline with the room actually measured beside the frame; a
    * reveal overhangs the frame, so this default only applies before layout.
    */
-  --composer-wing-expanded-width: 9.75rem;
-  --composer-wing-radius: 1.25rem;
+  --composer-wing-expanded-width: 9rem;
+  /* The card is `rounded-xl`; a wing is the same object seen edge-on, so it
+     takes the same corner rather than a softer one of its own. */
+  --composer-wing-radius: 0.75rem;
 }
 
 .composer-frame-wing {

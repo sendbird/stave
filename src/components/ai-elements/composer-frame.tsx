@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
  * a revealed wing needs. The reveal overhangs the frame instead, capped to the
  * room beside it by `useComposerWingReveal`.
  */
-const COMPOSER_WING_TRACK_CLASS = "w-[4.25rem] min-w-[4.25rem]";
+const COMPOSER_WING_TRACK_CLASS = "w-[3.75rem] min-w-[3.75rem]";
 /** The wing ends where the shelf tucked above it ends. */
 const COMPOSER_WING_INSET_CLASS = "inset-y-3";
 /** Same inset the docked turn-activity shelf has against the composer measure. */
@@ -41,7 +41,7 @@ const COMPOSER_SHELF_INSET_CLASS = "mx-3";
  */
 function gridTemplateColumns(hasWings: boolean): string {
   return hasWings
-    ? "grid-cols-[4.25rem_minmax(0,1fr)_4.25rem]"
+    ? "grid-cols-[3.75rem_minmax(0,1fr)_3.75rem]"
     : "grid-cols-[minmax(0,1fr)]";
 }
 
@@ -124,12 +124,7 @@ export function ComposerFrame(props: {
           </div>
         </div>
       ) : null}
-      <div
-        className={cn(
-          "relative z-10 row-start-2 min-w-0",
-          cardColumnClass,
-        )}
-      >
+      <div className={cn("relative z-10 row-start-2 min-w-0", cardColumnClass)}>
         {props.children}
       </div>
       {hasRight ? (
@@ -195,8 +190,8 @@ export function ComposerFrameWing(props: {
           // measured from the wing's fixed inner edge — leaves it there while
           // the wing reveals outwards.
           props.side === "left"
-            ? "items-end pl-3 pr-6 [&_button]:flex-row-reverse [&_button]:justify-start [&_button]:text-right"
-            : "items-start pl-6 pr-3 [&_button]:justify-start [&_button]:text-left",
+            ? "items-end pl-2 pr-5 [&_button]:flex-row-reverse [&_button]:justify-start [&_button]:text-right"
+            : "items-start pl-5 pr-2 [&_button]:justify-start [&_button]:text-left",
           props.className,
         )}
       >
@@ -241,7 +236,7 @@ export function ComposerFrameStatusBar(props: {
         {props.children}
       </div>
       {props.trailing ? (
-        <div className="flex shrink-0 items-center gap-1.5 [&_button]:h-7 [&_button]:min-h-7 [&_button]:px-2 [&_button]:text-xs [&_svg]:shrink-0">
+        <div className="flex shrink-0 items-center gap-1 [&_button]:h-6 [&_button]:min-h-6 [&_button]:px-1.5 [&_button]:text-xs [&_svg]:shrink-0">
           {props.trailing}
         </div>
       ) : null}

@@ -193,7 +193,7 @@ export function ComposerStatusTray(props: {
     <div
       ref={ref}
       data-composer-status-tray={collapsed ? "collapsed" : "row"}
-      className="flex shrink-0 items-center gap-1.5"
+      className="flex shrink-0 items-center gap-1"
     >
       {collapsed ? (
         <Popover open={open} onOpenChange={setOpen}>
@@ -248,7 +248,7 @@ export function ComposerStatusTray(props: {
         <ComposerControlDensityProvider value="default">
           <div
             data-composer-status-row="true"
-            className="flex shrink-0 items-center gap-2"
+            className="flex shrink-0 items-center gap-1"
           >
             {props.items.map((item) => (
               <Fragment key={item.id}>{item.node}</Fragment>
