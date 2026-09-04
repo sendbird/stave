@@ -1,3 +1,20 @@
+## [0.17.4](https://github.com/sendbird/stave/compare/v0.17.3...v0.17.4) (2026-09-05)
+
+### Features
+
+* Add a List/Board Tasks view with a resizable split peek for ticket details and persisted view preferences.
+* Add opt-in instant execution for saved macros from quick picks, the Macros menu, and `!` completion while preserving drafts when dispatch is blocked.
+
+### Bug Fixes
+
+* Show provider task progress beneath responding workspaces with concise titles, provider marks, and state-aware loaders.
+* Prevent prompt enhancement from inventing `$skill`, `@skill`, or `@info` mentions that were not present in the draft.
+* Align framed composer shelves, wings, model controls, and managed-task notices with the intended collapsed geometry and surrounding activity surface.
+* Apply the configured provider timeout to managed tasks, preserving explicit overrides and the 12-hour default.
+
+### References
+
+* [#472](https://github.com/sendbird/stave/pull/472), [#473](https://github.com/sendbird/stave/pull/473), [#474](https://github.com/sendbird/stave/pull/474), [#475](https://github.com/sendbird/stave/pull/475), [#476](https://github.com/sendbird/stave/pull/476), [#477](https://github.com/sendbird/stave/pull/477), [#478](https://github.com/sendbird/stave/pull/478), [#479](https://github.com/sendbird/stave/pull/479)
 ## [0.17.3](https://github.com/sendbird/stave/compare/v0.17.2...v0.17.3) (2026-09-04)
 
 ### Features
