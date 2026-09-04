@@ -313,6 +313,14 @@ export function getCdpControllerResourceMetrics(): {
   };
 }
 
+/** Native CDP commands currently running for one guest. */
+export function getCdpInFlightCommandCount(webContentsId: number): number {
+  return (
+    controllers.get(webContentsId)?.commandBarrier.snapshot()
+      .inFlightCommands ?? 0
+  );
+}
+
 export function isCdpAttached(webContentsId: number): boolean {
   const wc = webContents.fromId(webContentsId);
   return Boolean(wc && !wc.isDestroyed() && wc.debugger.isAttached());

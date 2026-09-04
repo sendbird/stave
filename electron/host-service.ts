@@ -72,6 +72,7 @@ import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createRoutineRuntime } from "./host-service/routine-runtime";
 import { createTaskSupervisorRuntime } from "./host-service/task-supervisor-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
+import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
 import {
   parseExpectedHostParentPid,
   startHostParentWatchdog,
@@ -1402,6 +1403,14 @@ async function loadMergedCodexMcpStatus(args: {
 
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
   switch (request.method) {
+    case "service.get-resource-metrics":
+      await respond(
+        request.id,
+        await readHostServiceResourceMetrics({
+          ptyPids: terminalRuntime.listPtyPids(),
+        }),
+      );
+      return;
     case "service.shutdown": {
       // Guard re-entrancy: a signal, stdin close, or duplicate request may
       // already be running the one allowed shutdown pass. In that case just

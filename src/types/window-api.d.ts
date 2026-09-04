@@ -2114,6 +2114,13 @@ interface AppMetricsResult {
   processes: Array<{
     pid: number;
     type: string;
+    role:
+      | "main"
+      | "host-renderer"
+      | "lens-guest"
+      | "gpu"
+      | "utility"
+      | "other";
     memory: {
       workingSetSizeKB: number;
       peakWorkingSetSizeKB: number;
@@ -2129,6 +2136,25 @@ interface AppMetricsResult {
     external: number;
     arrayBuffers: number;
   };
+  hostRendererPid: number | null;
+  hostService: {
+    pid: number;
+    memory: {
+      rss: number;
+      heapTotal: number;
+      heapUsed: number;
+      external: number;
+      arrayBuffers: number;
+    };
+    terminalSessions: number;
+    ptyPids: number[];
+    childProcesses: Array<{
+      pid: number;
+      parentPid: number;
+      rssBytes: number;
+      kind: "provider" | "pty" | "language-server" | "other";
+    }>;
+  } | null;
   lens: {
     sessions: number;
     visibleSessions: number;
@@ -2142,6 +2168,14 @@ interface AppMetricsResult {
     cdpClosingControllers: number;
     cdpInFlightCommands: number;
     cdpCloseDrainTimeouts: number;
+    guests: Array<{
+      workspaceId: string;
+      lensSessionId: string;
+      pid: number | null;
+      visible: boolean;
+      managedByMcp: boolean;
+      url: string;
+    }>;
   };
   renderer: {
     currentlyUnresponsive: boolean;
@@ -2162,6 +2196,22 @@ interface AppMetricsResult {
 
 interface WindowMetricsApi {
   getAppMetrics?: () => Promise<AppMetricsResult>;
+  getRendererMemory?: () => Promise<{
+    heap: {
+      totalHeapSize: number;
+      totalHeapSizeExecutable: number;
+      totalPhysicalSize: number;
+      totalAvailableSize: number;
+      usedHeapSize: number;
+      heapSizeLimit: number;
+      mallocedMemory: number;
+      peakMallocedMemory: number;
+      doesZapGarbage: boolean;
+      externallyAllocatedSize: number;
+    };
+    process: { residentSet?: number; private: number; shared?: number };
+    blink: { allocated: number; marked: number; total: number };
+  }>;
 }
 
 interface LensNavigationState {
@@ -2462,6 +2512,11 @@ interface WindowLensApi {
   listSessions?: (args: { workspaceId?: string }) => Promise<{
     ok: boolean;
     sessions?: LensSessionDescriptor[];
+  }>;
+  releaseWorkspaceGuests?: (args: { workspaceId: string }) => Promise<{
+    ok: boolean;
+    released: number;
+    message?: string;
   }>;
   clearSessionData?: (args: LensSessionProfileArgs) => Promise<{
     ok: boolean;

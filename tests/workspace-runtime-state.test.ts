@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 import {
   evictColdWorkspaceRuntimeCacheEntries,
+  listRemovedWorkspaceRuntimeCacheIds,
   saveActiveWorkspaceRuntimeCache,
 } from "@/store/workspace-runtime-state";
 import { applyProviderEventsToWorkspaceSession } from "@/store/workspace-turn-replay";
@@ -267,6 +268,17 @@ describe("applyProviderEventsToWorkspaceSession", () => {
 });
 
 describe("workspace runtime cache eviction", () => {
+  test("reports only cache entries removed by an eviction", () => {
+    const retained = sessionWith();
+    const removed = sessionWith();
+    expect(
+      listRemovedWorkspaceRuntimeCacheIds({
+        previousCache: { retained, removed },
+        nextCache: { retained },
+      }),
+    ).toEqual(["removed"]);
+  });
+
   function sessionWith(args?: {
     activeTurnIdsByTask?: Record<string, string | undefined>;
   }): WorkspaceSessionState {

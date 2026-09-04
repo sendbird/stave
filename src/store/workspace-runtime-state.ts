@@ -301,6 +301,37 @@ export function saveActiveWorkspaceRuntimeCache(args: {
   });
 }
 
+/** Return workspace ids present before cache compaction but absent afterwards. */
+export function listRemovedWorkspaceRuntimeCacheIds(args: {
+  previousCache: Record<string, WorkspaceSessionState>;
+  nextCache: Record<string, WorkspaceSessionState>;
+}): string[] {
+  return Object.keys(args.previousCache).filter(
+    (workspaceId) => !(workspaceId in args.nextCache),
+  );
+}
+
+/** Save the cache and release browser guests for entries removed by its cap. */
+export function saveActiveWorkspaceRuntimeCacheWithLensCleanup(
+  args: Parameters<typeof saveActiveWorkspaceRuntimeCache>[0],
+) {
+  const previousCache = args.state.workspaceRuntimeCacheById;
+  const nextCache = saveActiveWorkspaceRuntimeCache(args);
+  const releaseWorkspaceGuests =
+    typeof window === "undefined"
+      ? undefined
+      : window.api?.lens?.releaseWorkspaceGuests;
+  if (releaseWorkspaceGuests) {
+    for (const workspaceId of listRemovedWorkspaceRuntimeCacheIds({
+      previousCache,
+      nextCache,
+    })) {
+      void releaseWorkspaceGuests({ workspaceId }).catch(() => undefined);
+    }
+  }
+  return nextCache;
+}
+
 export function applyPendingProviderEventsToStoreState(args: {
   state: WorkspaceRuntimeCacheState;
   taskWorkspaceId: string;

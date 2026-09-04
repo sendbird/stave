@@ -22,6 +22,13 @@ import { cn } from "@/lib/utils";
 interface ProcessMetric {
   pid: number;
   type: string;
+  role:
+    | "main"
+    | "host-renderer"
+    | "lens-guest"
+    | "gpu"
+    | "utility"
+    | "other";
   memory: { workingSetSizeKB: number; peakWorkingSetSizeKB: number };
   cpu: { percentCPUUsage: number };
 }
@@ -35,6 +42,25 @@ interface AppMetrics {
     external: number;
     arrayBuffers: number;
   };
+  hostRendererPid: number | null;
+  hostService: {
+    pid: number;
+    memory: {
+      rss: number;
+      heapTotal: number;
+      heapUsed: number;
+      external: number;
+      arrayBuffers: number;
+    };
+    terminalSessions: number;
+    ptyPids: number[];
+    childProcesses: Array<{
+      pid: number;
+      parentPid: number;
+      rssBytes: number;
+      kind: "provider" | "pty" | "language-server" | "other";
+    }>;
+  } | null;
   lens: {
     sessions: number;
     visibleSessions: number;
@@ -48,6 +74,14 @@ interface AppMetrics {
     cdpClosingControllers: number;
     cdpInFlightCommands: number;
     cdpCloseDrainTimeouts: number;
+    guests: Array<{
+      workspaceId: string;
+      lensSessionId: string;
+      pid: number | null;
+      visible: boolean;
+      managedByMcp: boolean;
+      url: string;
+    }>;
   };
   renderer: {
     currentlyUnresponsive: boolean;
@@ -66,6 +100,16 @@ interface AppMetrics {
   uptimeSeconds: number;
 }
 
+interface RendererMemoryMetrics {
+  heap: {
+    totalHeapSize: number;
+    usedHeapSize: number;
+    heapSizeLimit: number;
+  };
+  process: { residentSet?: number; private: number; shared?: number };
+  blink: { allocated: number; marked: number; total: number };
+}
+
 /** Map Electron process type labels to friendlier display names. */
 const processLabel: Record<string, string> = {
   Browser: "Main",
@@ -73,6 +117,15 @@ const processLabel: Record<string, string> = {
   GPU: "GPU",
   Utility: "Utility",
   Zygote: "Zygote",
+};
+
+const processRoleLabel: Record<ProcessMetric["role"], string> = {
+  main: "Main",
+  "host-renderer": "App renderer",
+  "lens-guest": "Lens guest",
+  gpu: "GPU",
+  utility: "Utility",
+  other: "Other",
 };
 
 /** Colour classes for the process-type pills. */
@@ -158,13 +211,23 @@ export function MemoryUsagePopover({
   const isBar = variant === "bar";
   const [open, setOpen] = useState(false);
   const [metrics, setMetrics] = useState<AppMetrics | null>(null);
+  const [rendererMemory, setRendererMemory] =
+    useState<RendererMemoryMetrics | null>(null);
   const [loading, setLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const result = await window.api?.metrics?.getAppMetrics?.();
-      if (result) setMetrics(result);
+      const [appResult, rendererResult] = await Promise.allSettled([
+        window.api?.metrics?.getAppMetrics?.(),
+        window.api?.metrics?.getRendererMemory?.(),
+      ]);
+      if (appResult.status === "fulfilled" && appResult.value) {
+        setMetrics(appResult.value);
+      }
+      if (rendererResult.status === "fulfilled" && rendererResult.value) {
+        setRendererMemory(rendererResult.value);
+      }
     } catch {
       // silently ignore — app metrics may be unavailable in dev/web mode
     } finally {
@@ -199,6 +262,23 @@ export function MemoryUsagePopover({
   const totalCpu =
     metrics?.processes.reduce((sum, p) => sum + p.cpu.percentCPUUsage, 0) ?? 0;
   const latestWorkspaceSwitch = getLatestWorkspaceSwitchPerformance();
+  const lensWorkingSetKB =
+    metrics?.processes
+      .filter((process) => process.role === "lens-guest")
+      .reduce((sum, process) => sum + process.memory.workingSetSizeKB, 0) ?? 0;
+  const childProcessRss =
+    metrics?.hostService?.childProcesses.reduce(
+      (sum, child) => sum + child.rssBytes,
+      0,
+    ) ?? 0;
+  const providerChildProcesses =
+    metrics?.hostService?.childProcesses.filter(
+      (child) => child.kind === "provider",
+    ) ?? [];
+  const providerChildRss = providerChildProcesses.reduce(
+    (sum, child) => sum + child.rssBytes,
+    0,
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -308,7 +388,9 @@ export function MemoryUsagePopover({
                 label="JS Heap"
                 used={metrics.mainProcess.heapUsed}
                 total={metrics.mainProcess.heapTotal}
-                detail={`${formatBytes(metrics.mainProcess.heapUsed)} / ${formatBytes(metrics.mainProcess.heapTotal)}`}
+                detail={`${formatBytes(
+                  metrics.mainProcess.heapUsed,
+                )} / ${formatBytes(metrics.mainProcess.heapTotal)}`}
               />
 
               {/* RSS bar */}
@@ -319,7 +401,31 @@ export function MemoryUsagePopover({
                 detail={formatBytes(metrics.mainProcess.rss)}
               />
 
+              {rendererMemory ? (
+                <UsageBar
+                  label="Renderer heap"
+                  used={rendererMemory.heap.usedHeapSize}
+                  total={rendererMemory.heap.totalHeapSize}
+                  detail={`${formatKB(
+                    rendererMemory.heap.usedHeapSize,
+                  )} / ${formatKB(rendererMemory.heap.totalHeapSize)}`}
+                />
+              ) : null}
+
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                {rendererMemory ? (
+                  <>
+                    <span className="text-muted-foreground/70">
+                      Renderer memory
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatKB(
+                        rendererMemory.process.residentSet ??
+                          rendererMemory.process.private,
+                      )}
+                    </span>
+                  </>
+                ) : null}
                 <span className="text-muted-foreground/70">
                   Renderer stalls
                 </span>
@@ -343,6 +449,38 @@ export function MemoryUsagePopover({
                 </span>
               </div>
 
+              {metrics.hostService ? (
+                <div className="border-t border-border/50 pt-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Host service
+                    </span>
+                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                      {formatBytes(metrics.hostService.memory.rss)} RSS
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <span className="text-muted-foreground/70">
+                      Child working set
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatBytes(childProcessRss)}
+                    </span>
+                    <span className="text-muted-foreground/70">
+                      Provider children
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {providerChildProcesses.length} ·{" "}
+                      {formatBytes(providerChildRss)}
+                    </span>
+                    <span className="text-muted-foreground/70">PTY sessions</span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {metrics.hostService.terminalSessions}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+
               {/* Lens lifecycle and bounded-log cardinalities */}
               <div className="border-t border-border/50 pt-3">
                 <div className="mb-2 flex items-center justify-between">
@@ -362,6 +500,16 @@ export function MemoryUsagePopover({
                   <span className="text-muted-foreground/70">MCP sessions</span>
                   <span className="text-right font-mono text-muted-foreground/80">
                     {metrics.lens.managedByMcpSessions}
+                  </span>
+                  <span className="text-muted-foreground/70">Hidden guests</span>
+                  <span className="text-right font-mono text-muted-foreground/80">
+                    {metrics.lens.sessions - metrics.lens.visibleSessions}
+                  </span>
+                  <span className="text-muted-foreground/70">
+                    Guest working set
+                  </span>
+                  <span className="text-right font-mono text-muted-foreground/80">
+                    {formatKB(lensWorkingSetKB)}
                   </span>
                   <span className="text-muted-foreground/70">
                     Buffered logs
@@ -502,7 +650,9 @@ export function MemoryUsagePopover({
                           )}
                         />
                         <span className="min-w-0 flex-1 truncate text-foreground/80">
-                          {processLabel[proc.type] ?? proc.type}
+                          {proc.role === "other"
+                            ? (processLabel[proc.type] ?? proc.type)
+                            : processRoleLabel[proc.role]}
                         </span>
                         <span className="font-mono text-muted-foreground">
                           {formatKB(proc.memory.workingSetSizeKB)}

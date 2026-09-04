@@ -2,6 +2,8 @@ import type {
   CliSessionCreateSessionArgs,
   TerminalCreateSessionArgs,
 } from "../../src/lib/terminal/types";
+import type { HostServiceResourceMetrics } from "./resource-metrics";
+export type { HostServiceResourceMetrics } from "./resource-metrics";
 import type { PromptEnhancementContext } from "../../src/lib/providers/prompt-enhancement-context";
 import type {
   PrCheckLogExcerpt,
@@ -498,6 +500,7 @@ export type HostRoutineAction =
 
 export interface HostServiceRequestMap {
   "service.shutdown": undefined;
+  "service.get-resource-metrics": undefined;
   "terminal.create-session": TerminalCreateSessionArgs;
   "terminal.create-cli-session": CliSessionCreateSessionArgs;
   "terminal.write-session": {
@@ -991,6 +994,7 @@ export interface HostServiceResponseMap {
   "service.shutdown": {
     ok: true;
   };
+  "service.get-resource-metrics": HostServiceResourceMetrics;
   "terminal.create-session": HostTerminalCreateSessionResult;
   "terminal.create-cli-session": HostTerminalCreateSessionResult;
   "terminal.write-session": HostTerminalMutationResult;

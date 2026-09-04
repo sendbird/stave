@@ -11,6 +11,7 @@ import {
 import {
   bindBrowserSessionGuest,
   getBrowserSession,
+  markBrowserSessionManagedByMcp,
   pushConsoleEntry,
   pushGuestConsoleEntry,
   updateNavigationState,
@@ -520,7 +521,9 @@ export function bindBrowserSessionGuestWithEvents(args: {
     return result;
   }
 
-  result.session.managedByMcp = args.managedByMcp === true;
+  if (args.managedByMcp === true) {
+    markBrowserSessionManagedByMcp(result.session);
+  }
   result.session.detachEventListeners = attachBrowserSessionEventListeners(
     args.workspaceId,
     result.session.webContents,

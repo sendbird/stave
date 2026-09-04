@@ -26,6 +26,12 @@ export interface LensGuestEvictionCandidate {
   lastVisibleAt: number;
   /** Monotonic creation order, used only to rank sessions never shown. */
   createdSequence: number;
+  /** Wall-clock time when the session most recently became hidden. */
+  lastHiddenAtMs: number;
+  /** Wall-clock time when an agent most recently addressed the session. */
+  lastAgentTouchedAtMs: number;
+  /** Native CDP commands that must drain before the guest can be reclaimed. */
+  cdpInFlight: number;
 }
 
 export interface LensGuestEvictionOptions {
@@ -58,6 +64,7 @@ export function selectEvictableLensGuests<
       !candidate.visible &&
       !candidate.managedByMcp &&
       !candidate.closing &&
+      candidate.cdpInFlight === 0 &&
       !(
         exempt &&
         candidate.workspaceId === exempt.workspaceId &&
@@ -75,4 +82,69 @@ export function selectEvictableLensGuests<
         left.createdSequence - right.createdSequence,
     )
     .slice(0, surplus);
+}
+
+export function selectEvictableAgentLensGuests<
+  Candidate extends LensGuestEvictionCandidate,
+>(
+  candidates: ReadonlyArray<Candidate>,
+  options: LensGuestEvictionOptions,
+): Candidate[] {
+  const { maxHidden, exempt } = options;
+  const hiddenAgentCount = candidates.filter(
+    (candidate) =>
+      !candidate.visible && candidate.managedByMcp && !candidate.closing,
+  ).length;
+  const evictable = candidates.filter(
+    (candidate) =>
+      !candidate.visible &&
+      candidate.managedByMcp &&
+      !candidate.closing &&
+      candidate.cdpInFlight === 0 &&
+      !(
+        exempt &&
+        candidate.workspaceId === exempt.workspaceId &&
+        candidate.lensSessionId === exempt.lensSessionId
+      ),
+  );
+  const surplus = hiddenAgentCount - Math.max(0, maxHidden);
+  if (surplus <= 0) {
+    return [];
+  }
+  return [...evictable]
+    .sort(
+      (left, right) =>
+        left.lastAgentTouchedAtMs - right.lastAgentTouchedAtMs ||
+        left.createdSequence - right.createdSequence,
+    )
+    .slice(0, surplus);
+}
+
+export function selectIdleLensGuests<
+  Candidate extends LensGuestEvictionCandidate,
+>(
+  candidates: ReadonlyArray<Candidate>,
+  options: {
+    nowMs: number;
+    idleTtlMs: number;
+    agentIdleTtlMs: number;
+  },
+): Candidate[] {
+  return candidates.filter((candidate) => {
+    if (
+      candidate.visible ||
+      candidate.closing ||
+      candidate.cdpInFlight > 0 ||
+      candidate.lastHiddenAtMs <= 0
+    ) {
+      return false;
+    }
+    const lastActiveAtMs = candidate.managedByMcp
+      ? Math.max(candidate.lastHiddenAtMs, candidate.lastAgentTouchedAtMs)
+      : candidate.lastHiddenAtMs;
+    const ttlMs = candidate.managedByMcp
+      ? options.agentIdleTtlMs
+      : options.idleTtlMs;
+    return options.nowMs - lastActiveAtMs >= ttlMs;
+  });
 }

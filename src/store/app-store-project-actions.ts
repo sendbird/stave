@@ -36,7 +36,9 @@ import {
   removeRecordEntries,
   removeTaskTurnRuntimeEntries,
 } from "@/store/task-turn-runtime-cleanup";
-import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
+import {
+  saveActiveWorkspaceRuntimeCacheWithLensCleanup,
+} from "@/store/workspace-runtime-state";
 import {
   buildWorkspaceSessionState,
   buildWorkspaceSessionStateFromShell,
@@ -83,9 +85,10 @@ export function createProjectActions(args: {
   }) => {
     await get().flushActiveWorkspaceSnapshot();
     const stateBeforeSwitch = get();
-    const savedWorkspaceRuntimeCacheById = saveActiveWorkspaceRuntimeCache({
-      state: stateBeforeSwitch,
-    });
+    const savedWorkspaceRuntimeCacheById =
+      saveActiveWorkspaceRuntimeCacheWithLensCleanup({
+        state: stateBeforeSwitch,
+      });
     const rememberedProjects = captureCurrentProjectState({
       recentProjects: stateBeforeSwitch.recentProjects,
       projectPath: stateBeforeSwitch.projectPath,
