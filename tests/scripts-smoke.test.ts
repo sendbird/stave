@@ -117,6 +117,7 @@ describe("package scripts", () => {
       "scripts/run-desktop-built.mjs",
       "scripts/run-desktop-built-logged.mjs",
       "scripts/prepare-macos-release-bundle.mjs",
+      "scripts/run-tests-isolated.mjs",
     ]) {
       const source = readFileSync(
         path.join(import.meta.dirname, "..", scriptPath),
