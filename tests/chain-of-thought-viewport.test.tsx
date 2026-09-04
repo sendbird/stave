@@ -74,16 +74,19 @@ describe("ChainOfThoughtContent", () => {
 });
 
 describe("ChainOfThoughtTrigger", () => {
-  test("renders the solving orb while streaming and drops it when complete", () => {
+  test("renders a reduced-cadence matrix loader while streaming and drops it when complete", () => {
     const streaming = renderTrace({ isStreaming: true });
-    expect(streaming).toContain('aria-label="Solving…"');
+    expect(streaming).toContain('data-loader-variant="matrix"');
+    expect(streaming).toContain('data-loader-cadence="reduced"');
 
-    expect(renderTrace({ isStreaming: false })).not.toContain('aria-label="Solving…"');
+    expect(renderTrace({ isStreaming: false })).not.toContain(
+      'data-loader-variant="matrix"',
+    );
   });
 
-  test("keeps the legacy brain indicator while streaming under the legacy style", () => {
+  test("uses the same lightweight status loader under the legacy style", () => {
     const legacy = renderTrace({ isStreaming: true, style: "legacy" });
-    expect(legacy).not.toContain('aria-label="Solving…"');
+    expect(legacy).toContain('data-loader-variant="matrix"');
   });
 
   test("appends the duration to the collapsed completion phrase", () => {

@@ -62,4 +62,16 @@ describe("Loader", () => {
     expect(html).toContain("Saving");
     expect(html).toContain('data-loader-labeled="true"');
   });
+
+  test("exposes reduced cadence and paused state for long-running work", () => {
+    const html = renderToStaticMarkup(
+      createElement(Loader, {
+        cadence: "reduced",
+        paused: true,
+        variant: "orbit",
+      }),
+    );
+    expect(html).toContain('data-loader-cadence="reduced"');
+    expect(html).toContain('data-loader-paused="true"');
+  });
 });

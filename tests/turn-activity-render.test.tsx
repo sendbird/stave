@@ -208,13 +208,39 @@ describe("TurnActivity", () => {
 
     expect(html).toContain('data-testid="turn-activity-stack"');
     expect(html).toContain('data-testid="turn-activity"');
-    expect(html).toContain('data-testid="turn-activity-orb"');
-    expect(html).toContain('data-orb-state="searching"');
+    expect(html).toContain('data-testid="turn-activity-loader"');
+    expect(html).toContain('data-loader-variant="handoff"');
+    expect(html).toContain('data-loader-cadence="reduced"');
+    expect(html).toContain('data-loader-paused="false"');
     expect(html).toContain("Turn activity");
     expect(html).toContain("Review Lens diagnostics");
     expect(html).toContain("Inspecting CDP object lifecycle");
     expect(html).not.toContain("Agents");
     expect(html).not.toContain("animate-spin");
+  });
+
+  test("pauses the status loader while the turn is stalled", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-stalled",
+        activity: {
+          turnId: "turn-stalled",
+          providerId: "codex",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: 3_000,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [],
+        todos: [],
+      }),
+    );
+
+    expect(html).toContain('data-loader-variant="signal"');
+    expect(html).toContain('data-loader-paused="true"');
   });
 
   test("expands the remaining activities by default and collapses them when the setting is off", () => {
@@ -450,7 +476,7 @@ describe("TurnActivity", () => {
 
     expect(html).toContain("Turn failed");
     expect(html).toContain("Provider stream failed");
-    expect(html).toContain('data-testid="turn-activity-orb"');
+    expect(html).toContain('data-testid="turn-activity-loader"');
     expect(html).not.toContain("animate-spin");
   });
 

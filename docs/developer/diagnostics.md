@@ -29,7 +29,7 @@ If you are debugging repeated re-renders or `Maximum update depth exceeded`, rev
 
 ## Runtime resource diagnostics
 
-Open `Memory` in the status bar to compare the main process, app renderer, Lens guests, host service, PTY sessions, and provider or language-server children. The process table attributes Electron renderer processes by role, while the host service reports its own RSS and the resident set of its descendant process tree. The panel refreshes every three seconds while open.
+Open `Memory` in the status bar to compare the main process, app renderer, Lens guests, host service, PTY sessions, and provider or language-server children. The process table attributes Electron renderer processes by role, while the host service reports its own RSS and the resident set of its descendant process tree. `Provider trees` is explicitly a subset of `All descendants`; do not add those values together. The panel refreshes every three seconds while open and retains a bounded one-minute window of app-renderer CPU, GPU CPU, and renderer-heap movement so sustained pressure can be distinguished from one sample.
 
 Use the Lens session counts together with `Lens guest` working set before changing Chromium flags. Hidden panel-owned and agent-owned pages have separate caps and idle deadlines, so a growing guest count beyond those limits indicates a lifecycle regression rather than expected cache growth.
 

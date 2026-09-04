@@ -18,11 +18,11 @@ interface StallTimerScheduler {
  * Build the "the provider is still streaming" reporter that keeps the stall /
  * auto-abort net disarmed.
  *
- * Liveness has to be driven by IPC *arrival*, not by the rAF-batched visual
- * flush: Electron throttles or fully pauses `requestAnimationFrame` while the
- * window is hidden, minimized, or occluded, whereas the wall-clock stall timer
- * keeps running. Deriving liveness from the flush therefore let a backgrounded
- * window receiving a perfectly healthy stream trip "the provider went silent."
+ * Liveness has to be driven by IPC *arrival*, not by the timer-batched visual
+ * flush: Electron can throttle renderer timers while the window is hidden,
+ * minimized, or occluded, whereas the wall-clock stall timer keeps running.
+ * Deriving liveness from the flush therefore lets a backgrounded window
+ * receiving a perfectly healthy stream trip "the provider went silent."
  *
  * The turn-id guard keeps a late event that arrives after the turn was cleared
  * (done / abort) from resurrecting a stray timer. The timer's own fire callback

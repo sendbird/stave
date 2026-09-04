@@ -985,6 +985,20 @@
   }
 }
 
+/*
+ * Long-running status surfaces use the same animation vocabulary at a lower
+ * cadence. Discrete steps avoid asking the compositor for a visually identical
+ * frame on every display refresh, while a paused mark still communicates the
+ * current state without any continuing animation work.
+ */
+.stave-loader[data-loader-cadence="reduced"] :where(*) {
+  animation-timing-function: steps(12, end);
+}
+
+.stave-loader[data-loader-paused="true"] :where(*) {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stave-loader-spinner,
   .stave-loader-spinner-arc,

@@ -26,7 +26,6 @@ export {
 export { Snippet } from "./snippet";
 export { Shimmer } from "./shimmer";
 export { ReasoningText, type ReasoningTextVariant } from "./reasoning-text";
-export { ThinkingOrb } from "./thinking-orb";
 export {
   AgentStyleProvider,
   useAgentStyle,

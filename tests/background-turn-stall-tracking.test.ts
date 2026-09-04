@@ -379,7 +379,9 @@ describe("background workspace turn activity tracking", () => {
 
     await Bun.sleep(20);
     emit({ type: "text", text: "still streaming" }, { sequence: 1, done: false });
-    await Bun.sleep(50);
+    // Outlast the 50 ms prose batching interval; liveness itself remains
+    // arrival-driven, while the diagnostic timestamp follows the visual fold.
+    await Bun.sleep(70);
 
     const activityAfterEvent =
       useAppStore.getState().providerTurnActivityByTask["task-a"];
@@ -442,10 +444,8 @@ describe("background workspace turn activity tracking", () => {
         ?.orderedWorkItemIds,
     ).toEqual(["tool-1"]);
 
-    // `done` is emitted without letting the frame flush first, so it batches
-    // with the tool events behind it — the shape a hidden window produces, and
-    // the one where reading the finished turn back off the store would find it
-    // already gone.
+    // `done` follows the tool events immediately. The synchronous lifecycle
+    // flush must retain their final shape before it clears the live activity.
     emit(
       {
         type: "tool",

@@ -7,8 +7,12 @@ import "./loader.css";
 export type { LoaderSize, LoaderTone, LoaderVariant } from "./loader.types";
 
 export type LoaderProps = Omit<React.ComponentProps<"span">, "children"> & {
+  /** Reduce visual updates for indicators that can remain mounted for minutes. */
+  cadence?: "full" | "reduced";
   /** Status text; used as the accessible name when it is visually hidden. */
   label?: string;
+  /** Freeze the current frame without removing the status mark. @default false */
+  paused?: boolean;
   /** Render the label beside the indicator. @default false */
   showLabel?: boolean;
   /** Indicator footprint: 16 / 20 / 24 / 32px. @default "sm" */
@@ -50,8 +54,10 @@ export type LoaderProps = Omit<React.ComponentProps<"span">, "children"> & {
  * work shape instead of inventing a one-off spinner.
  */
 export function Loader({
+  cadence = "full",
   className,
   label = "Loading",
+  paused = false,
   showLabel = false,
   size = "sm",
   tone = "inherit",
@@ -71,7 +77,9 @@ export function Loader({
       }
       aria-live={hidden ? undefined : (props["aria-live"] ?? "polite")}
       className={cn("stave-loader", className)}
+      data-loader-cadence={cadence}
       data-loader-labeled={showLabel ? "true" : "false"}
+      data-loader-paused={paused ? "true" : "false"}
       data-loader-tone={tone}
       data-loader-variant={variant}
       role={hidden ? undefined : (props.role ?? "status")}
