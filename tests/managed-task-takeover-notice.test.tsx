@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ManagedTaskTakeoverNotice } from "@/components/session/ManagedTaskTakeoverNotice";
@@ -21,6 +23,8 @@ describe("ManagedTaskTakeoverNotice", () => {
     expect(html).toContain("Managed by Stave");
     expect(html).toContain("Take Over");
     expect(html).toContain('aria-label="Take over managed task"');
+    expect(html).toContain("mx-3");
+    expect(html).toContain("data-managed-task-notice");
     expect(html).not.toContain(' disabled=""');
   });
 
@@ -84,5 +88,16 @@ describe("ManagedTaskTakeoverNotice", () => {
     expect(html).toContain('aria-label="Remove all attached context"');
     expect(html).toContain("Clear all");
     expect(html).toContain('aria-label="Remove Crane ATL-1 · Fix dispatch"');
+  });
+
+  test("aligns with the framed top shelf when wing tracks are reserved", () => {
+    const css = readFileSync(
+      join(import.meta.dir, "..", "src", "globals.css"),
+      "utf8",
+    );
+
+    expect(css).toContain('[data-managed-task-notice="true"]');
+    expect(css).toContain("margin-inline: 4.5rem");
+    expect(css).toContain('[data-composer-frame-slot="left"]');
   });
 });
