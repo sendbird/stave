@@ -1,9 +1,6 @@
-import { Check, ChevronDown, Info, TriangleAlert, Users } from "lucide-react";
-import { useCallback } from "react";
+import { Check, Info, TriangleAlert, Users } from "lucide-react";
 import {
   Button,
-  ButtonGroup,
-  ButtonGroupSeparator,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -36,18 +33,16 @@ import {
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
+import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
 import { cn } from "@/lib/utils";
 
 /**
  * Composer control for Worker mode, beside the Advisor.
  *
- * Same split as the Advisor pill: the left half is a real one-click toggle and
- * the chevron opens the configuration. Turning delegation on and off is the
- * frequent action, so it must not cost a menu.
- *
- * The popover shows preset → model → effort in that order because that is the
- * dependency order: the preset supplies the `Auto` model, and the model decides
- * which efforts exist.
+ * One button opens the complete Worker surface: its switch arms delegation,
+ * then preset → model → effort follows the configuration dependency order.
+ * Keeping the state and options together avoids a second chevron button in the
+ * compact side shelf.
  */
 export function PromptInputWorkerPill(args: {
   arm: WorkerArmState;
@@ -96,10 +91,6 @@ export function PromptInputWorkerPill(args: {
   });
   const effortSelection = resolveWorkerEffortSelection(args.arm.config);
 
-  const openPicker = useCallback(() => {
-    onOpenChange?.(true);
-  }, [onOpenChange]);
-
   const iconToneClass =
     presentation.tone === "warning"
       ? "text-warning"
@@ -108,69 +99,51 @@ export function PromptInputWorkerPill(args: {
         : undefined;
 
   return (
-    <ButtonGroup
-      className={cn("h-9", args.className)}
-      data-worker-control="true"
-      data-testid="worker-mode-pill"
-      data-worker-tone={presentation.tone}
-    >
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={args.disabled}
-              aria-label={presentation.toggleAriaLabel}
-              aria-pressed={args.arm.enabled}
-              data-testid="worker-mode-toggle"
-              className={cn(
-                "h-full gap-1.5 px-2.5 text-xs shadow-none",
-                presentation.tone === "off"
-                  ? "text-muted-foreground hover:text-foreground"
-                  : "font-medium text-foreground",
-              )}
-              onClick={onToggle}
-            />
-          }
-        >
-          <Users className={cn("size-4 shrink-0", iconToneClass)} />
-          {presentation.label}
-          {presentation.effortLabel ? (
-            <span
-              data-testid="worker-mode-effort"
-              className="shrink-0 rounded bg-muted/70 px-1 text-[10px] leading-4 font-medium text-muted-foreground"
-            >
-              {presentation.effortLabel}
-            </span>
-          ) : null}
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-72">
-          {presentation.tooltip}
-        </TooltipContent>
-      </Tooltip>
+    <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={args.disabled}
+                    aria-label={`Configure Worker mode · ${presentation.label}`}
+                    data-worker-control="true"
+                    data-testid="worker-mode-pill"
+                    data-worker-tone={presentation.tone}
+                    className={cn(
+                      "h-9 gap-1.5 px-2.5 text-xs shadow-none",
+                      args.className,
+                      presentation.tone === "off"
+                        ? "text-muted-foreground hover:text-foreground"
+                        : "font-medium text-foreground",
+                    )}
+                  />
+                }
+              />
+            }
+          >
+            <Users className={cn("size-4 shrink-0", iconToneClass)} />
+            <ComposerControlLabel>
+              {presentation.label}
+              {presentation.effortLabel ? (
+                <span
+                  data-testid="worker-mode-effort"
+                  className="shrink-0 rounded bg-muted/70 px-1 text-[10px] leading-4 font-medium text-muted-foreground"
+                >
+                  {presentation.effortLabel}
+                </span>
+              ) : null}
+            </ComposerControlLabel>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-72">
+            {presentation.tooltip} Open to enable or configure Worker mode.
+          </TooltipContent>
+        </Tooltip>
 
-      <ButtonGroupSeparator />
-
-      <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              disabled={args.disabled}
-              aria-label={`Choose the worker preset, model, and effort for this task (${WORKER_PICKER_SHORTCUT_LABEL})`}
-              className="inline-flex w-7 items-center justify-center text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
-            />
-          }
-        >
-          <ChevronDown
-            className={cn(
-              "size-3.5 transition-transform",
-              open && "rotate-180",
-            )}
-          />
-        </PopoverTrigger>
         <PopoverContent
           align="start"
           side="top"
@@ -199,9 +172,9 @@ export function PromptInputWorkerPill(args: {
           </div>
 
           {/* Configuration stays editable while Worker mode is off: setting a
-              task up before turning it on is the normal order, and gating the
-              rows behind the switch made the menu look empty at exactly the
-              moment the user came to fill it in. */}
+                task up before turning it on is the normal order, and gating the
+                rows behind the switch made the menu look empty at exactly the
+                moment the user came to fill it in. */}
           <div className="space-y-1 border-t border-border/60 pt-2">
             <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               Preset
@@ -333,8 +306,8 @@ export function PromptInputWorkerPill(args: {
                 })}
               </div>
               <p className="px-1 text-[11px] leading-4 text-muted-foreground">
-                A cheap worker at high effort often beats a mid-tier worker
-                at its default.
+                A cheap worker at high effort often beats a mid-tier worker at its
+                default.
               </p>
             </div>
           ) : (
@@ -398,7 +371,6 @@ export function PromptInputWorkerPill(args: {
             Providers → Worker mode.
           </button>
         </PopoverContent>
-      </Popover>
-    </ButtonGroup>
+    </Popover>
   );
 }

@@ -17,23 +17,38 @@ function resolveDevPreview(): string | null {
   if (typeof window === "undefined") {
     return null;
   }
-  return new URLSearchParams(window.location.search).get("stavePreview");
+  return (
+    new URLSearchParams(window.location.search).get("stavePreview") ??
+    (import.meta.env.VITE_STAVE_PREVIEW as string | undefined) ??
+    null
+  );
 }
 
 const root = createRoot(document.getElementById("root")!);
+const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (import.meta.env.DEV && resolveDevPreview() === "agent-messages") {
+if (preview === "agent-messages") {
   void import("@/dev/agent-preview").then(({ AgentPreviewApp }) => {
     root.render(
       <StrictMode>
         <AgentPreviewApp />
-      </StrictMode>
+      </StrictMode>,
     );
   });
+} else if (preview === "composer-frame") {
+  void import("@/dev/composer-frame-preview").then(
+    ({ ComposerFramePreviewApp }) => {
+      root.render(
+        <StrictMode>
+          <ComposerFramePreviewApp />
+        </StrictMode>,
+      );
+    },
+  );
 } else {
   root.render(
     <StrictMode>
       <App />
-    </StrictMode>
+    </StrictMode>,
   );
 }

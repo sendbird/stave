@@ -7,6 +7,7 @@ import { computePromptCacheStats } from "@/lib/providers/usage-cache";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { TurnVerificationResult } from "@/lib/workspace-scripts";
 import type { ChatMessage, CodeDiffPart } from "@/types/chat";
+import { resolveLatestConversationContextUsage } from "@/components/ai-elements/prompt-input.utils";
 
 export type TaskExecutionMetricProvenance =
   "reported" | "derived" | "unavailable";
@@ -530,40 +531,18 @@ function buildUsageMetric(
 function resolveContextHeadroomFromMessages(
   messages: readonly ChatMessage[],
 ): { value: TaskExecutionContextHeadroom; sourceRef: string } | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    const usage = message?.usage;
-    if (!usage) {
-      continue;
-    }
-    const usedTokens = usage.contextUsedTokens;
-    const totalTokens = usage.contextWindowTokens;
-    const usedPercent = usage.contextUsedPercent;
-    if (
-      usedTokens === undefined &&
-      totalTokens === undefined &&
-      usedPercent === undefined
-    ) {
-      continue;
-    }
-    const value: TaskExecutionContextHeadroom = {};
-    if (
-      usedTokens !== undefined &&
-      totalTokens !== undefined &&
-      totalTokens > 0
-    ) {
-      value.remainingTokens = Math.max(0, totalTokens - usedTokens);
-      value.totalTokens = totalTokens;
-      value.usedPercent =
-        usedPercent ?? Math.min(100, (usedTokens / totalTokens) * 100);
-    } else if (usedPercent !== undefined) {
-      value.usedPercent = usedPercent;
-    } else {
-      continue;
-    }
-    return { value, sourceRef: `message:${message.id}` };
+  const usage = resolveLatestConversationContextUsage(messages);
+  if (!usage) {
+    return null;
   }
-  return null;
+  const value: TaskExecutionContextHeadroom = {
+    usedPercent: usage.usedPercent,
+  };
+  if (usage.windowTokens !== undefined) {
+    value.totalTokens = usage.windowTokens;
+    value.remainingTokens = usage.remainingTokens;
+  }
+  return { value, sourceRef: `message:${usage.messageId}` };
 }
 
 function resolveClaudeAccountLimit(
@@ -670,7 +649,6 @@ function buildAccountLimitMetric(args: {
           : `${accountLimitProviderLabel(args.providerId)} does not report an account limit.`,
       );
 }
-
 
 function buildContextHeadroomMetric(args: {
   providerId: ProviderId;
@@ -834,9 +812,9 @@ export function buildTaskReviewArtifact(
   if (usage) {
     const hasTokens = Boolean(
       usage.inputTokens ||
-        usage.outputTokens ||
-        usage.cacheReadTokens ||
-        usage.cacheCreationTokens,
+      usage.outputTokens ||
+      usage.cacheReadTokens ||
+      usage.cacheCreationTokens,
     );
     const tokenLabel = hasTokens
       ? `${formatCount(usage.inputTokens + usage.outputTokens)} tokens`

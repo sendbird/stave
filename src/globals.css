@@ -21,11 +21,77 @@
  * The shelf tucks under the prompt input, so it carries no bottom edge
  * treatment: the drop shadow lifts upward only and the inset ring is the sole
  * outline (its bottom run sits in the region the composer covers).
+ *
+ * A shelf is the tray the card sits on, not another card, so it takes one step
+ * back from `--card` towards the page. Derived rather than tokenised: every
+ * theme — built-in or user-authored — already says how far a raised surface
+ * stands off its background, and half that distance is a step every palette
+ * can afford. A theme where card and background coincide simply gets a flat
+ * shelf instead of a wrong colour.
  */
 .turn-activity-surface {
+  background-color: color-mix(in oklch, var(--card) 50%, var(--background));
   box-shadow:
     0 -6px 18px -14px oklch(0 0 0 / 0.26),
     inset 0 0 0 1px color-mix(in oklch, var(--border) 74%, transparent);
+}
+
+/*
+ * Side shelves live in a reserved track and are anchored to their inner edge,
+ * so revealing one grows it outwards without moving the card or the message
+ * measure. Width (not clip-path) carries the reveal, which keeps the rounded
+ * outer corner and the inset ring intact while it is collapsed.
+ */
+[data-composer-frame="true"] {
+  /* One icon column (3.5rem) plus the 0.75rem that tucks under the card. */
+  --composer-wing-collapsed-width: 4.25rem;
+  /*
+   * Overridden inline with the room actually measured beside the frame; a
+   * reveal overhangs the frame, so this default only applies before layout.
+   */
+  --composer-wing-expanded-width: 9.75rem;
+  --composer-wing-radius: 1.25rem;
+}
+
+.composer-frame-wing {
+  width: var(--composer-wing-collapsed-width);
+  transition-property: width, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The inner edge is tucked under the raised card, so only the outer corners
+   are ever seen; squaring the inner pair keeps the seam invisible. */
+.composer-frame-wing[data-side="left"] {
+  border-radius: var(--composer-wing-radius) 0 0 var(--composer-wing-radius);
+}
+
+.composer-frame-wing[data-side="right"] {
+  border-radius: 0 var(--composer-wing-radius) var(--composer-wing-radius) 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .composer-frame-wing:hover {
+    width: var(--composer-wing-expanded-width);
+  }
+}
+
+.composer-frame-wing:focus-within,
+.composer-frame-wing:has([aria-expanded="true"]) {
+  width: var(--composer-wing-expanded-width);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-frame-wing {
+    transition-property: box-shadow;
+  }
+}
+
+/* No room beside the frame to reveal into: keep the icon column honest. */
+[data-composer-frame="true"][data-wing-reveal="off"]
+  .composer-frame-wing
+  [data-composer-control-label] {
+  display: none;
 }
 
 .prompt-input-shell[data-turn-active="true"] {

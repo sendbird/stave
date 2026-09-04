@@ -99,6 +99,7 @@ import {
   COMPOSER_CONTROL_LABELS,
   collectActiveComposerControls,
   composerControlIsIconOnly,
+  partitionComposerFrameToolbar,
   resolveComposerControlLayout,
   type ComposerControlId,
   type ComposerControlPlacements,
@@ -206,6 +207,13 @@ import {
   type LocalChangeReviewRequest,
 } from "./local-change-review-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ComposerControlLabel } from "./composer-control-density";
+import { ComposerStatusTray } from "@/components/ai-elements/composer-status-tray";
+import {
+  ComposerFrame,
+  ComposerFrameStatusBar,
+  ComposerFrameWing,
+} from "./composer-frame";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
@@ -255,6 +263,14 @@ interface PromptInputProps {
   providerModePresets?: readonly ProviderModePresetDefinition[];
   activeProviderModePresetId?: ProviderModePresetId | null;
   goalStatus?: PromptInputGoalStatus | null;
+  contextMeter?: ReactNode;
+  /**
+   * Wrap the raised card in the four-bar composer frame and move toolbar
+   * controls into the side wings when the viewport is wide enough.
+   */
+  framed?: boolean;
+  frameTop?: ReactNode;
+  frameBottom?: ReactNode;
   runtimeStatusItems?: readonly PromptInputRuntimeStatusItem[];
   commandPaletteItems?: readonly CommandPaletteItem[];
   commandPaletteProviderNote?: CommandPaletteProviderNote;
@@ -336,6 +352,11 @@ interface PromptInputProps {
   secretsControl?: ReactNode;
   secretsActive?: boolean;
   macroControl?: ReactNode;
+  /**
+   * Saved macros as one-click entries for the left wing. Framed layout only —
+   * the classic toolbar reaches them through the Macros control.
+   */
+  macroQuickPicks?: ReactNode;
   compareControl?: ReactNode;
   composerControlPlacements?: ComposerControlPlacements;
   onComposerControlPlacementsChange?: (next: ComposerControlPlacements) => void;
@@ -529,9 +550,7 @@ function PromptEnhancementRevealOverlay(args: {
         "pointer-events-none absolute inset-0 select-none overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
         args.className,
       )}
-      style={
-        { "--prompt-diff-step": `${args.stepMs}ms` } as CSSProperties
-      }
+      style={{ "--prompt-diff-step": `${args.stepMs}ms` } as CSSProperties}
     >
       {args.segments.map((segment, index) =>
         segment.changed ? (
@@ -845,6 +864,10 @@ export function PromptInput(args: PromptInputProps) {
     providerModePresets,
     activeProviderModePresetId,
     goalStatus,
+    contextMeter,
+    framed = false,
+    frameTop,
+    frameBottom,
     runtimeStatusItems,
     commandPaletteItems,
     commandPaletteProviderNote,
@@ -889,6 +912,7 @@ export function PromptInput(args: PromptInputProps) {
     secretsControl,
     secretsActive,
     macroControl,
+    macroQuickPicks,
     compareControl,
     composerControlPlacements,
     onComposerControlPlacementsChange,
@@ -1085,7 +1109,9 @@ export function PromptInput(args: PromptInputProps) {
   const borderBeamStrength = useAppStore(
     (state) => state.settings.borderBeamStrength,
   );
-  const modelVisibility = useAppStore((state) => state.settings.modelVisibility);
+  const modelVisibility = useAppStore(
+    (state) => state.settings.modelVisibility,
+  );
   const lensSourceMappingHeuristic = useAppStore(
     (state) => state.settings.lensSourceMappingHeuristic,
   );
@@ -2291,6 +2317,7 @@ export function PromptInput(args: PromptInputProps) {
         <TooltipTrigger
           type="button"
           disabled={interactionsDisabled}
+          aria-label={planMode ? "Plan mode ON" : "Plan mode OFF"}
           onClick={() => onPlanModeChange(!planMode)}
           className={tooltipTriggerButtonClassName({
             className: cn(
@@ -2301,7 +2328,9 @@ export function PromptInput(args: PromptInputProps) {
           })}
         >
           <ClipboardCheck className="size-3.5" />
-          <span>Plan</span>
+          <ComposerControlLabel>
+            <span>Plan</span>
+          </ComposerControlLabel>
         </TooltipTrigger>
         <TooltipContent side="top">
           {planMode ? "Plan mode ON" : "Plan mode OFF"}
@@ -2322,6 +2351,7 @@ export function PromptInput(args: PromptInputProps) {
         <TooltipTrigger
           type="button"
           disabled={interactionsDisabled}
+          aria-label={`Thinking: ${thinkingMode ?? "adaptive"}`}
           onClick={() => {
             const cycle = {
               adaptive: "enabled",
@@ -2348,7 +2378,9 @@ export function PromptInput(args: PromptInputProps) {
               thinkingMode === "adaptive" && "text-prompt-role-thinking",
             )}
           />
-          <span>Thinking</span>
+          <ComposerControlLabel>
+            <span>Thinking</span>
+          </ComposerControlLabel>
         </TooltipTrigger>
         <TooltipContent side="top">{`Thinking: ${thinkingMode ?? "adaptive"}`}</TooltipContent>
       </Tooltip>
@@ -2384,6 +2416,7 @@ export function PromptInput(args: PromptInputProps) {
             }
           >
             <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
+            <ComposerControlLabel wingOnly>Runtime</ComposerControlLabel>
           </DrawerTrigger>
           <DrawerContent className="bg-popover shadow-2xl data-[swipe-direction=down]:max-h-[78vh]">
             <DrawerHeader className="gap-1.5 px-5 pb-4 pt-4 text-left">
@@ -2426,6 +2459,7 @@ export function PromptInput(args: PromptInputProps) {
             }
           >
             <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
+            <ComposerControlLabel wingOnly>Runtime</ComposerControlLabel>
           </PopoverTrigger>
           <PopoverContent
             align="start"
@@ -2462,8 +2496,61 @@ export function PromptInput(args: PromptInputProps) {
   const canCustomizeComposerControls = Boolean(
     onComposerControlPlacementsChange,
   );
+  const useComposerFrame = Boolean(framed && !minimal);
+  const useComposerWings = useComposerFrame && !isMobile;
+  const composerFrameWings = partitionComposerFrameToolbar(
+    composerControlLayout.toolbar,
+  );
+  const showMacroQuickPicks = useComposerWings && Boolean(macroQuickPicks);
+  const leftWing =
+    useComposerWings &&
+    (showMacroQuickPicks || composerFrameWings.left.length > 0) ? (
+      <ComposerFrameWing side="left">
+        {showMacroQuickPicks ? macroQuickPicks : null}
+        {composerFrameWings.left.map((id) => (
+          <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+        ))}
+      </ComposerFrameWing>
+    ) : null;
+  const rightWing =
+    useComposerWings && composerFrameWings.right.length > 0 ? (
+      <ComposerFrameWing side="right">
+        {composerFrameWings.right.map((id) => (
+          <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+        ))}
+      </ComposerFrameWing>
+    ) : null;
+  // The bottom shelf is ambient session state, so it carries the readouts that
+  // are checked rather than operated. It is drawn whenever the frame supplies
+  // either half — a workspace line, a runtime readout, or both.
+  const statusBarControlIds = useComposerWings ? composerFrameWings.status : [];
+  // Stave's own tooling rides here rather than a wing: the wings are the
+  // provider's surface (plan, permission, thinking), and these are ours.
+  const statusTrayItems = statusBarControlIds
+    .filter((id) => Boolean(composerControlNodes[id]))
+    .map((id) => ({
+      id,
+      label: COMPOSER_CONTROL_LABELS[id],
+      node: composerControlNodes[id],
+      iconOnly: composerControlIsIconOnly(id),
+    }));
+  const frameStatusBar =
+    useComposerFrame && (frameBottom || statusTrayItems.length > 0) ? (
+      <ComposerFrameStatusBar
+        trailing={
+          statusTrayItems.length > 0 ? (
+            <ComposerStatusTray
+              items={statusTrayItems}
+              disabled={interactionsDisabled}
+            />
+          ) : null
+        }
+      >
+        {frameBottom}
+      </ComposerFrameStatusBar>
+    ) : null;
 
-  return (
+  const composerCard = (
     <>
       {/*
         BorderBeam wraps the form rather than sitting as an absolute sibling
@@ -2643,9 +2730,7 @@ export function PromptInput(args: PromptInputProps) {
                                   promptEnhancementBusy
                                     ? cn(
                                         "h-7 gap-1.5 rounded-full border-primary/25 px-2 text-xs font-medium text-primary",
-                                        minimal
-                                          ? "bg-background"
-                                          : "bg-card",
+                                        minimal ? "bg-background" : "bg-card",
                                       )
                                     : "size-7 opacity-70 hover:opacity-100",
                                 )}
@@ -3883,8 +3968,8 @@ export function PromptInput(args: PromptInputProps) {
             </div>
           ) : null}
           {attachedFilePaths.length > 0 ||
-            standaloneImageAttachments.length > 0 ||
-            workspaceInformationAttachments.length > 0 ? (
+          standaloneImageAttachments.length > 0 ||
+          workspaceInformationAttachments.length > 0 ? (
             <div
               role="group"
               aria-label="Current prompt attachments"
@@ -3933,7 +4018,10 @@ export function PromptInput(args: PromptInputProps) {
                     className="h-7 min-w-0 justify-start gap-1 rounded-sm px-1.5 font-inherit text-inherit"
                     onClick={() => void onOpenAttachedFile?.({ filePath })}
                   >
-                    <FileText className="size-3.5 shrink-0" aria-hidden="true" />
+                    <FileText
+                      className="size-3.5 shrink-0"
+                      aria-hidden="true"
+                    />
                     <span className="truncate font-medium">{filePath}</span>
                   </Button>
                   <Button
@@ -4087,9 +4175,11 @@ export function PromptInput(args: PromptInputProps) {
                     });
                   }}
                 />
-                {composerControlLayout.toolbar.map((id) => (
-                  <Fragment key={id}>{composerControlNodes[id]}</Fragment>
-                ))}
+                {(useComposerWings ? [] : composerControlLayout.toolbar).map(
+                  (id) => (
+                    <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+                  ),
+                )}
                 {composerControlLayout.overflow.length > 0 ? (
                   <Popover
                     open={composerTrayOpen}
@@ -4171,6 +4261,7 @@ export function PromptInput(args: PromptInputProps) {
               </div>
             ) : null}
             <div className="flex items-center gap-2">
+              {contextMeter}
               {minimal &&
               reviewModelOptions?.length &&
               onLocalChangeReview &&
@@ -4307,5 +4398,20 @@ export function PromptInput(args: PromptInputProps) {
         onClose={() => setImagePreviewSrc(null)}
       />
     </>
+  );
+
+  if (!useComposerFrame) {
+    return composerCard;
+  }
+
+  return (
+    <ComposerFrame
+      top={frameTop}
+      bottom={frameStatusBar}
+      left={leftWing}
+      right={rightWing}
+    >
+      {composerCard}
+    </ComposerFrame>
   );
 }

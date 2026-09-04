@@ -1,15 +1,6 @@
-import {
-  ArrowLeftRight,
-  Check,
-  ChevronDown,
-  Info,
-  TriangleAlert,
-} from "lucide-react";
-import { useCallback } from "react";
+import { ArrowLeftRight, Check, Info, TriangleAlert } from "lucide-react";
 import {
   Button,
-  ButtonGroup,
-  ButtonGroupSeparator,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -41,22 +32,17 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
+import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
 import { cn } from "@/lib/utils";
 
 /**
  * Composer control for arming the Advisor per task, next to the plan and
  * thinking toggles rather than behind Settings.
  *
- * Split on purpose: the left half is a real one-click toggle, the chevron opens
- * the configuration. Turning the Advisor on and off is the frequent action, so
- * it must not cost a menu — the two halves are one button group because they
- * act on one object.
- *
- * Inside the menu, arming and configuring are deliberately separate: the switch
- * decides whether this task pays for an Advisor, and the provider/model/effort
- * rows stay editable while it is off so a task can be set up before it is
- * turned on. Each provider keeps its own model and tier, so flipping between
- * them is not a destructive edit.
+ * One button opens one configuration surface. The switch in that surface arms
+ * the Advisor and the remaining rows choose provider, model, and effort. This
+ * keeps the side shelf icon-sized without separating one object into a toggle
+ * and an adjacent chevron.
  */
 export function PromptInputAdvisorPill(args: {
   arm: AdvisorArmState;
@@ -76,7 +62,6 @@ export function PromptInputAdvisorPill(args: {
    * both this flag and the keyboard listener that sets it.
    */
   open: boolean;
-  onToggle: () => void;
   onSetEnabled: (enabled: boolean) => void;
   onSelectProvider: (providerId: ManagedExecutionProviderId) => void;
   onSelectModel: (model: string) => void;
@@ -104,22 +89,7 @@ export function PromptInputAdvisorPill(args: {
   // falls back to its remembered pick and then to its catalog default.
   const selectedTarget = args.arm.targetByProvider[selectedProviderId];
   const effortSelection = resolveAdvisorEffortSelection(selectedTarget);
-  const { onOpenChange, onToggle, onSetEnabled } = args;
-  const canToggle = presentation.canToggle;
-
-  const openPicker = useCallback(() => {
-    onOpenChange?.(true);
-  }, [onOpenChange]);
-
-  // Nothing is configured to arm, so the picker is the only honest response to
-  // a request to toggle.
-  const requestToggle = useCallback(() => {
-    if (!canToggle) {
-      openPicker();
-      return;
-    }
-    onToggle();
-  }, [canToggle, onToggle, openPicker]);
+  const { onOpenChange, onSetEnabled } = args;
 
   const iconToneClass =
     presentation.tone === "warning"
@@ -131,84 +101,59 @@ export function PromptInputAdvisorPill(args: {
         : undefined;
 
   return (
-    <ButtonGroup
-      className={cn("h-9", args.className)}
-      data-advisor-control="true"
-      data-testid="advisor-mode-pill"
-      data-advisor-tone={presentation.tone}
-    >
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={args.disabled}
-              aria-label={presentation.toggleAriaLabel}
-              // Only a real toggle announces a pressed state; with nothing to
-              // arm this button opens the picker instead.
-              aria-pressed={
-                presentation.canToggle ? args.arm.enabled : undefined
-              }
-              data-testid="advisor-mode-toggle"
-              className={cn(
-                "h-full gap-1.5 px-2.5 text-xs shadow-none",
-                presentation.tone === "off"
-                  ? "text-muted-foreground hover:text-foreground"
-                  : "font-medium text-foreground",
-              )}
-              onClick={requestToggle}
-            />
-          }
-        >
-          <ArrowLeftRight className={cn("size-4 shrink-0", iconToneClass)} />
-          {presentation.label}
-          {presentation.effortLabel ? (
-            <span
-              data-testid="advisor-mode-effort"
-              className="shrink-0 rounded bg-muted/70 px-1 text-[10px] leading-4 font-medium text-muted-foreground"
-            >
-              {presentation.effortLabel}
-            </span>
-          ) : null}
-          {args.consultBlock ? (
-            // An amber icon alone reads as "something is slightly off"; the
-            // word says the armed Advisor is unreachable without opening
-            // anything.
-            <span
-              data-testid="advisor-mode-unreachable"
-              className="shrink-0 rounded bg-warning/10 px-1 text-[10px] leading-4 font-medium text-warning dark:bg-warning/15"
-            >
-              Unreachable
-            </span>
-          ) : null}
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-72">
-          {presentation.tooltip}
-        </TooltipContent>
-      </Tooltip>
+    <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <PopoverTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={args.disabled}
+                    aria-label={`Configure Advisor · ${presentation.label}`}
+                    data-advisor-control="true"
+                    data-testid="advisor-mode-pill"
+                    data-advisor-tone={presentation.tone}
+                    className={cn(
+                      "h-9 gap-1.5 px-2.5 text-xs shadow-none",
+                      args.className,
+                      presentation.tone === "off"
+                        ? "text-muted-foreground hover:text-foreground"
+                        : "font-medium text-foreground",
+                    )}
+                  />
+                }
+              />
+            }
+          >
+            <ArrowLeftRight className={cn("size-4 shrink-0", iconToneClass)} />
+            <ComposerControlLabel>
+              {presentation.label}
+              {presentation.effortLabel ? (
+                <span
+                  data-testid="advisor-mode-effort"
+                  className="shrink-0 rounded bg-muted/70 px-1 text-[10px] leading-4 font-medium text-muted-foreground"
+                >
+                  {presentation.effortLabel}
+                </span>
+              ) : null}
+              {args.consultBlock ? (
+                <span
+                  data-testid="advisor-mode-unreachable"
+                  className="shrink-0 rounded bg-warning/10 px-1 text-[10px] leading-4 font-medium text-warning dark:bg-warning/15"
+                >
+                  Unreachable
+                </span>
+              ) : null}
+            </ComposerControlLabel>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-72">
+            {presentation.tooltip} Open to enable or configure Advisor.
+          </TooltipContent>
+        </Tooltip>
 
-      <ButtonGroupSeparator />
-
-      <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              disabled={args.disabled}
-              aria-label={`Choose which model advises this task and at what effort (${ADVISOR_PICKER_SHORTCUT_LABEL})`}
-              className="inline-flex w-7 items-center justify-center text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
-            />
-          }
-        >
-          <ChevronDown
-            className={cn(
-              "size-3.5 transition-transform",
-              open && "rotate-180",
-            )}
-          />
-        </PopoverTrigger>
         <PopoverContent
           align="start"
           side="top"
@@ -304,8 +249,8 @@ export function PromptInputAdvisorPill(args: {
                     }}
                   >
                     {/* Every row here is the selected provider, so the mark is
-                        an anchor rather than a distinction — it matches the
-                        main model list users already read. */}
+                          an anchor rather than a distinction — it matches the
+                          main model list users already read. */}
                     <ModelIcon
                       providerId={selectedProviderId}
                       model={model}
@@ -382,9 +327,9 @@ export function PromptInputAdvisorPill(args: {
           ) : null}
 
           <p className="px-1 text-[11px] leading-4 text-muted-foreground">
-            Applies to this task only. The primary model may consult the
-            read-only Advisor on demand during its turn; every consult is one
-            extra model call it waits on.{" "}
+            Applies to this task only. The primary model may consult the read-only
+            Advisor on demand during its turn; every consult is one extra model
+            call it waits on.{" "}
             <span className="whitespace-nowrap">
               {ADVISOR_TOGGLE_SHORTCUT_LABEL} toggles
             </span>
@@ -409,7 +354,6 @@ export function PromptInputAdvisorPill(args: {
             Defaults and consult budget live in Settings → Providers → Advisor.
           </button>
         </PopoverContent>
-      </Popover>
-    </ButtonGroup>
+    </Popover>
   );
 }

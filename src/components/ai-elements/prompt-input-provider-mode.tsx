@@ -19,6 +19,7 @@ import type {
   ProviderModePresetId,
   ProviderModePresentation,
 } from "@/lib/providers/provider-mode-presets";
+import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
 import { cn } from "@/lib/utils";
 
 export type PromptInputProviderModeStatus = ProviderModePresentation & {
@@ -104,6 +105,7 @@ export function PromptInputProviderModePill(args: {
             size="sm"
             disabled={args.disabled || !isInteractive}
             aria-label={`${args.status.providerLabel} ${args.status.label}: ${args.status.description}`}
+            title={`${args.status.label}: ${args.status.description}`}
             className={cn(
               "h-auto min-h-9 max-w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left",
               args.className,
@@ -114,15 +116,17 @@ export function PromptInputProviderModePill(args: {
         <Icon
           className={cn("size-3.5 shrink-0", modeIconToneClass(args.status))}
         />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium leading-none">
-          {args.status.label}
-        </span>
-        <ChevronDown
-          className={cn(
-            "size-3.5 shrink-0 opacity-70 transition-transform",
-            open && "rotate-180",
-          )}
-        />
+        <ComposerControlLabel>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium leading-none">
+            {args.status.label}
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-3.5 shrink-0 opacity-70 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </ComposerControlLabel>
       </PopoverTrigger>
       {isInteractive ? (
         <PopoverContent

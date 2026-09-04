@@ -1,0 +1,218 @@
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import {
+  ComposerFrame,
+  ComposerFrameStatusBar,
+  ComposerFrameWing,
+} from "@/components/ai-elements/composer-frame";
+import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
+import {
+  COMPOSER_WING_COLLAPSED_WIDTH_PX,
+  COMPOSER_WING_REVEALED_WIDTH_PX,
+  resolveComposerWingRevealWidth,
+} from "@/hooks/use-composer-wing-reveal";
+
+describe("ComposerFrame", () => {
+  test("renders only the slots that have content", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        ComposerFrame,
+        {
+          top: createElement("span", null, "Turn activity"),
+          bottom: createElement("span", null, "main / worktree"),
+          left: createElement(ComposerFrameWing, { side: "left" }, "Plan"),
+        },
+        createElement("div", { className: "prompt-input-shell" }, "Ask"),
+      ),
+    );
+
+    expect(html).toContain('data-composer-frame="true"');
+    expect(html).toContain('data-composer-frame-slot="top"');
+    expect(html).toContain('data-composer-frame-slot="bottom"');
+    expect(html).toContain('data-composer-frame-slot="left"');
+    expect(html).toContain('data-composer-frame-wing="left"');
+    expect(html).toContain('data-side="left"');
+    expect(html).toContain("self-stretch");
+    // The track reserves only a resting wing; a reveal overhangs the frame.
+    expect(html).toContain("w-[4.25rem]");
+    // Shelves hang off the card, inset by the tuck, so they stay slightly
+    // smaller than it rather than spanning the wing tracks too.
+    expect(html).toContain("mx-3");
+    expect(html).not.toContain("col-span-full");
+    expect(html).toContain("inset-y-3");
+    expect(html).toContain("row-start-2");
+    expect(html).toContain("justify-end");
+    expect(html).toContain("items-end");
+    expect(html).toContain("group/composer-wing");
+    expect(html).toContain("composer-frame-wing");
+    expect(html).not.toContain('data-composer-frame-slot="right"');
+    expect(html).toContain("prompt-input-shell");
+  });
+
+  test("keeps the wing out of the row height so controls cannot resize the card", () => {
+    const wing = (count: number) =>
+      renderToStaticMarkup(
+        createElement(
+          ComposerFrame,
+          {
+            left: createElement(
+              ComposerFrameWing,
+              { side: "left" },
+              ...Array.from({ length: count }, (_, index) =>
+                createElement("button", { key: index, type: "button" }, "x"),
+              ),
+            ),
+          },
+          createElement("div", { className: "prompt-input-shell" }, "Ask"),
+        ),
+      );
+
+    // The slot markup — the part that participates in grid sizing — is
+    // identical no matter how many controls the wing holds.
+    const slotOf = (html: string) =>
+      html.slice(
+        html.indexOf('data-composer-frame-slot="left"'),
+        html.indexOf("<button"),
+      );
+    expect(slotOf(wing(1))).toBe(slotOf(wing(6)));
+    expect(slotOf(wing(1))).toContain("absolute");
+  });
+
+  test("collapses to the raised card when every bar is empty", () => {
+    const html = renderToStaticMarkup(
+      createElement(ComposerFrame, null, createElement("form", null, "draft")),
+    );
+
+    expect(html).toContain('data-composer-frame="true"');
+    expect(html).not.toContain("data-composer-frame-slot");
+    expect(html).toContain("<form>draft</form>");
+  });
+});
+
+describe("ComposerWorkspaceBarView", () => {
+  test("hides when there is no workspace or branch to show", () => {
+    const html = renderToStaticMarkup(
+      createElement(ComposerWorkspaceBarView, {
+        workspaceLabel: "",
+        folderLabel: "",
+        branchLabel: "",
+      }),
+    );
+    expect(html).toBe("");
+  });
+
+  test("does not repeat the folder when it matches the workspace name", () => {
+    const html = renderToStaticMarkup(
+      createElement(ComposerWorkspaceBarView, {
+        workspaceLabel: "fix-benchmark",
+        folderLabel: "fix-benchmark",
+        branchLabel: "fix/benchmark-new-ade",
+      }),
+    );
+
+    expect(html).toContain('data-testid="composer-workspace-bar"');
+    expect(html).toContain("fix-benchmark");
+    expect(html).toContain("fix/benchmark-new-ade");
+    expect((html.match(/title="fix-benchmark"/g) ?? []).length).toBe(1);
+  });
+});
+
+describe("ComposerFrameStatusBar", () => {
+  test("draws the shelf chrome and keeps trailing readouts to the right", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        ComposerFrameStatusBar,
+        { trailing: createElement("span", null, "Runtime") },
+        createElement("span", null, "fix/benchmark-new-ade"),
+      ),
+    );
+
+    expect(html).toContain('data-composer-frame-status-bar="true"');
+    expect(html).toContain("turn-activity-surface");
+    expect(html).toContain("rounded-b-xl");
+    // Visible padding is the same 0.75rem on every edge; the top asks for
+    // double because its first 0.75rem is spent on the tuck behind the card.
+    expect(html).toContain("pt-6");
+    expect(html).toContain("pb-3");
+    expect(html).toContain("px-3");
+    expect(html).toContain("fix/benchmark-new-ade");
+    expect(html.indexOf("fix/benchmark-new-ade")).toBeLessThan(
+      html.indexOf("Runtime"),
+    );
+  });
+
+  test("omits the trailing group when there is nothing to put in it", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        ComposerFrameStatusBar,
+        null,
+        createElement("span", null, "main"),
+      ),
+    );
+    expect(html).toContain("main");
+    expect(html).not.toContain("shrink-0 items-center");
+  });
+
+  test("caps a wing reveal to the room beside the frame", () => {
+    // Plenty of margin: the reveal takes its full width.
+    expect(resolveComposerWingRevealWidth(400)).toBe(
+      COMPOSER_WING_REVEALED_WIDTH_PX,
+    );
+    // Some margin: the reveal spends exactly what is there, minus breathing.
+    expect(resolveComposerWingRevealWidth(60)).toBe(
+      COMPOSER_WING_COLLAPSED_WIDTH_PX + 56,
+    );
+    // Almost none: revealing would clip the label, so the wing stays an icon
+    // column instead of half-opening.
+    expect(resolveComposerWingRevealWidth(16)).toBe(
+      COMPOSER_WING_COLLAPSED_WIDTH_PX,
+    );
+    expect(resolveComposerWingRevealWidth(0)).toBe(
+      COMPOSER_WING_COLLAPSED_WIDTH_PX,
+    );
+  });
+});
+
+describe("shelf surface", () => {
+  const css = readFileSync(
+    join(import.meta.dir, "..", "src", "globals.css"),
+    "utf8",
+  );
+
+  test("sits between the page and the card, derived from theme tokens", () => {
+    const rule = css.match(/\.turn-activity-surface\s*\{([^}]*)\}/)?.[1];
+
+    expect(rule).toBeTruthy();
+    // Both endpoints and nothing else: a literal colour here would be right in
+    // one theme and wrong in the seventeen others, and either token alone
+    // would collapse the shelf into the page or into the card.
+    expect(rule).toContain("background-color: color-mix(");
+    expect(rule).toContain("var(--card) 50%");
+    expect(rule).toContain("var(--background)");
+  });
+
+  test("frame shelves leave the surface to that one rule", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        ComposerFrame,
+        {
+          bottom: createElement(
+            ComposerFrameStatusBar,
+            null,
+            createElement("span", null, "main"),
+          ),
+          right: createElement(ComposerFrameWing, { side: "right" }, "Plan"),
+        },
+        createElement("span", null, "input"),
+      ),
+    );
+
+    // `bg-card` on a shelf would silently win in a stylesheet reshuffle and
+    // flatten the card back into its tray.
+    expect(html).not.toContain("bg-card");
+    expect(html.match(/turn-activity-surface/g)).toHaveLength(2);
+  });
+});

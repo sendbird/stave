@@ -3,6 +3,7 @@ import {
   collectActiveComposerControls,
   composerControlPlacementOptions,
   normalizeComposerControlPlacements,
+  partitionComposerFrameToolbar,
   resolveComposerControlLayout,
 } from "../src/lib/composer-controls";
 
@@ -35,7 +36,9 @@ describe("normalizeComposerControlPlacements", () => {
   test("degrades overflow to toolbar for controls with no tray position", () => {
     // Fast lives inside the model popover, so "overflow" would resolve to no
     // rendered position at all — visible is the safe reading.
-    expect(normalizeComposerControlPlacements({ fast: "overflow" })).toEqual({});
+    expect(normalizeComposerControlPlacements({ fast: "overflow" })).toEqual(
+      {},
+    );
     expect(normalizeComposerControlPlacements({ fast: "hidden" })).toEqual({
       fast: "hidden",
     });
@@ -70,9 +73,9 @@ describe("collectActiveComposerControls", () => {
     expect(
       collectActiveComposerControls({ thinkingMode: "disabled" }),
     ).toContain("thinking");
-    expect(collectActiveComposerControls({ thinkingMode: "enabled" })).toContain(
-      "thinking",
-    );
+    expect(
+      collectActiveComposerControls({ thinkingMode: "enabled" }),
+    ).toContain("thinking");
   });
 
   test("reports the states that cost money or change the next turn", () => {
@@ -148,5 +151,35 @@ describe("resolveComposerControlLayout", () => {
     });
     expect(layout.toolbar).not.toContain("advisor");
     expect(layout.forced).toEqual([]);
+  });
+});
+
+describe("partitionComposerFrameToolbar", () => {
+  test("keeps provider-owned settings in the wing and Stave tooling in the bar", () => {
+    expect(
+      partitionComposerFrameToolbar([
+        "plan",
+        "fast",
+        "advisor",
+        "runtime",
+        "review",
+        "macro",
+        "thinking",
+      ]),
+    ).toEqual({
+      left: [],
+      right: ["plan", "thinking"],
+      // Order is the caller's; the real toolbar is built in id order, which
+      // puts the runtime readout last.
+      status: ["advisor", "runtime", "review", "macro"],
+    });
+  });
+
+  test("returns empty wings when the toolbar only has card-owned controls", () => {
+    expect(partitionComposerFrameToolbar(["fast"])).toEqual({
+      left: [],
+      right: [],
+      status: [],
+    });
   });
 });

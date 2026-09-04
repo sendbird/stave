@@ -174,6 +174,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    */
   turnActivityPlacement: TurnActivityPlacement;
   /**
+   * Composer chrome preference. `framed` is the shipped default; `classic`
+   * restores the pre-frame stack for users who want it back.
+   */
+  composerLayout: ComposerLayoutMode;
+  /**
    * Where each prompt-input control renders: the toolbar, the `⋯` tray, or
    * nowhere. Sparse — an absent entry means "toolbar", so controls added later
    * are visible by default without a migration.
@@ -501,6 +506,30 @@ export function normalizeTurnActivityPlacement(
     : "docked";
 }
 
+/**
+ * Which composer chrome the session view renders.
+ *
+ * - `framed` — the raised input card with the turn-activity shelf above, the
+ *   workspace status bar below, and the two control wings tucked in beside it.
+ * - `classic` — the shipped layout: a full-measure turn-activity shelf stacked
+ *   on a full-measure input card whose controls all live in the toolbar row.
+ *
+ * The frame needs room for both wings, so a narrow window renders `classic`
+ * regardless of this setting; this is the preference, not the resolved mode.
+ */
+export type ComposerLayoutMode = "framed" | "classic";
+
+export const COMPOSER_LAYOUT_MODES: readonly ComposerLayoutMode[] = [
+  "framed",
+  "classic",
+] as const;
+
+export function normalizeComposerLayoutMode(
+  value: unknown,
+): ComposerLayoutMode {
+  return value === "classic" ? "classic" : "framed";
+}
+
 export function normalizeReasoningExpansionMode(
   value: unknown,
 ): "auto" | "manual" {
@@ -590,6 +619,7 @@ export const defaultSettings: AppSettings = {
   showConversationTurnRail: true,
   turnActivityExpandedByDefault: true,
   turnActivityPlacement: "docked",
+  composerLayout: "framed",
   composerControlPlacements: {},
   modelClaude: getDefaultModelForProvider({ providerId: "claude-code" }),
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
