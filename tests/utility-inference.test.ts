@@ -425,4 +425,25 @@ describe("provider-neutral utility inference", () => {
     });
     expect(calls).toEqual(["codex"]);
   });
+
+  test("strips invented skill tokens from the rewrite", async () => {
+    const result = await enhanceUtilityPrompt(
+      {
+        prompt:
+          "- delight spinner를 ads에서 삭제하고 사용처도 적절한 loader타입으로 바꾸기",
+        activeProviderId: "codex",
+      },
+      createRunners({
+        calls: [],
+        codex:
+          "@skill/design-system\n\nADS에서 delight spinner를 삭제하고 사용처를 적절한 loader 타입으로 바꾸세요.",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      prompt:
+        "ADS에서 delight spinner를 삭제하고 사용처를 적절한 loader 타입으로 바꾸세요.",
+    });
+  });
 });

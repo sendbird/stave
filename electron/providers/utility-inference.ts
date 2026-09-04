@@ -124,8 +124,7 @@ export function resolveUtilityMaxProviderAttempts(
 ) {
   return Math.max(
     1,
-    context.utilityMaxProviderAttempts ??
-      DEFAULT_UTILITY_MAX_PROVIDER_ATTEMPTS,
+    context.utilityMaxProviderAttempts ?? DEFAULT_UTILITY_MAX_PROVIDER_ATTEMPTS,
   );
 }
 
@@ -439,7 +438,7 @@ export async function enhanceUtilityPrompt(
       ...args,
       ...(repoGuidance ? { repoGuidance } : {}),
     }),
-    parse: parsePromptEnhancementInference,
+    parse: (text) => parsePromptEnhancementInference(text, args.prompt),
     runners,
     authGate,
   });
