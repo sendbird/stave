@@ -65,6 +65,7 @@ import {
 import {
   applyApprovalState,
   applyUserInputState,
+  normalizeProviderTimeoutMs,
 } from "../../src/store/editor.utils";
 import {
   buildProjectDefaultWorkspaceId,
@@ -2575,40 +2576,38 @@ export function listTaskCompletionSignals(args: {
   return listChildTaskSummaries({
     parentTaskId: args.taskId,
     limit: TASK_COMPLETION_FEED_LIMIT,
-  }).flatMap(
-    (summary) => {
-      // `waiting` is an active phase, so a detached child that parked open
-      // after its turn never appears here: only stopping or detaching the
-      // delegation settles it into a terminal status. Documented in
-      // docs/features/task-heartbeats.md — a completion heartbeat observes
-      // delegations that *end*, not detached children between turns.
-      if (isActiveChildTaskPhase(summary.phase)) {
-        return [];
-      }
-      const status = TaskCompletionStatusSchema.safeParse(summary.phase);
-      if (!status.success) {
-        return [];
-      }
-      return [
-        {
-          runId: summary.runId,
-          stepId: summary.stepId,
-          childTaskId: summary.childTaskId,
-          providerId: summary.providerId,
-          status: status.data,
-          reason: summary.reason
-            ? summary.reason.slice(0, TASK_HEARTBEAT_LIMITS.maxReasonChars)
-            : null,
-          // A terminal step without a `completedAt` is a reconciled one; its
-          // `updatedAt` is the instant it settled.
-          completedAt: summary.completedAt ?? summary.updatedAt,
-          // Part of the signal's identity: a retried attempt that settles
-          // again must not be deduped against the first attempt's wake-up.
-          attempt: summary.attempt,
-        } satisfies TaskCompletionSignal,
-      ];
-    },
-  );
+  }).flatMap((summary) => {
+    // `waiting` is an active phase, so a detached child that parked open
+    // after its turn never appears here: only stopping or detaching the
+    // delegation settles it into a terminal status. Documented in
+    // docs/features/task-heartbeats.md — a completion heartbeat observes
+    // delegations that *end*, not detached children between turns.
+    if (isActiveChildTaskPhase(summary.phase)) {
+      return [];
+    }
+    const status = TaskCompletionStatusSchema.safeParse(summary.phase);
+    if (!status.success) {
+      return [];
+    }
+    return [
+      {
+        runId: summary.runId,
+        stepId: summary.stepId,
+        childTaskId: summary.childTaskId,
+        providerId: summary.providerId,
+        status: status.data,
+        reason: summary.reason
+          ? summary.reason.slice(0, TASK_HEARTBEAT_LIMITS.maxReasonChars)
+          : null,
+        // A terminal step without a `completedAt` is a reconciled one; its
+        // `updatedAt` is the instant it settled.
+        completedAt: summary.completedAt ?? summary.updatedAt,
+        // Part of the signal's identity: a retried attempt that settles
+        // again must not be deduped against the first attempt's wake-up.
+        attempt: summary.attempt,
+      } satisfies TaskCompletionSignal,
+    ];
+  });
 }
 
 export async function runTask(args: {
@@ -2685,7 +2684,9 @@ export async function runTask(args: {
   // other caller passing taskId means "continue this task", where a miss is
   // an error.
   const delegationTaskId =
-    args.parentTaskId?.trim() && args.taskId?.trim() ? args.taskId.trim() : null;
+    args.parentTaskId?.trim() && args.taskId?.trim()
+      ? args.taskId.trim()
+      : null;
   let task = delegationTaskId
     ? (session.tasks.find((candidate) => candidate.id === delegationTaskId) ??
       null)
@@ -2921,6 +2922,12 @@ export async function runTask(args: {
               ...(args.runtimeOptions
                 ? { runtimeOptions: args.runtimeOptions }
                 : {}),
+              // The renderer syncs Settings.providerTimeoutMs into this key
+              // via routines.setProviderTimeout. Managed turns run in the
+              // host and otherwise never see that setting.
+              defaultProviderTimeoutMs: normalizeProviderTimeoutMs({
+                value: store.loadRoutineProviderTimeoutMs(),
+              }),
             })
           : args.runtimeOptions),
         model,

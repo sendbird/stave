@@ -1,3 +1,4 @@
+import { DEFAULT_PROVIDER_TIMEOUT_MS } from "./runtime-option-contract";
 import type { ProviderId, ProviderRuntimeOptions } from "./provider.types";
 
 /**
@@ -28,7 +29,8 @@ function resolveManagedClaudePermissionMode(
 }
 
 /**
- * Fills in the access-level runtime fields a managed task needs.
+ * Fills in the access-level runtime fields a managed task needs, plus the
+ * same default provider timeout a regular task uses.
  *
  * Callers of `stave_run_task` typically pass only `model`/`claudeEffort`, and
  * the provider runtimes fall back to interactive defaults (`acceptEdits` on
@@ -39,11 +41,26 @@ function resolveManagedClaudePermissionMode(
 export function resolveManagedTaskRuntimeOptions(args: {
   providerId: ProviderId;
   runtimeOptions?: ProviderRuntimeOptions;
+  /**
+   * Settings.providerTimeoutMs as seen by the host (synced through the
+   * routine timeout key). Caller-supplied `runtimeOptions.providerTimeoutMs`
+   * still wins; this is only the managed-task fallback.
+   */
+  defaultProviderTimeoutMs?: number;
 }): ProviderRuntimeOptions {
   const requested = args.runtimeOptions ?? {};
+  // Interactive turns always pass `settings.providerTimeoutMs`. Managed
+  // callers typically omit it, and the provider runtime's last-resort
+  // fallback used to be 5 minutes — far shorter than the 12-hour product
+  // default a regular task gets.
+  const providerTimeoutMs =
+    requested.providerTimeoutMs ??
+    args.defaultProviderTimeoutMs ??
+    DEFAULT_PROVIDER_TIMEOUT_MS;
   if (args.providerId === "codex") {
     return {
       ...requested,
+      providerTimeoutMs,
       codexApprovalPolicy: requested.codexApprovalPolicy ?? "never",
       codexFileAccess: requested.codexFileAccess ?? "workspace-write",
       codexAutoApproveStaveLocalMcpTools:
@@ -56,6 +73,7 @@ export function resolveManagedTaskRuntimeOptions(args: {
   const bypassing = claudePermissionMode === "bypassPermissions";
   return {
     ...requested,
+    providerTimeoutMs,
     claudePermissionMode,
     claudeAllowDangerouslySkipPermissions:
       requested.claudeAllowDangerouslySkipPermissions ?? bypassing,

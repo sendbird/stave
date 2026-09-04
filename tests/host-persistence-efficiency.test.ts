@@ -1,4 +1,13 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 
 import {
   buildLargeTaskHistory,
@@ -190,7 +199,13 @@ const fakeStore = {
       });
     }
   },
-  saveStreamEvents: ({ turnId, events }: { turnId: string; events: unknown[] }) => {
+  saveStreamEvents: ({
+    turnId,
+    events,
+  }: {
+    turnId: string;
+    events: unknown[];
+  }) => {
     recordCall("saveStreamEvents");
     persistedTurnEventsById.set(turnId, [
       ...(persistedTurnEventsById.get(turnId) ?? []),
@@ -205,6 +220,7 @@ const fakeStore = {
     recordCall("createNotification");
     return { inserted: true, notification };
   },
+  loadRoutineProviderTimeoutMs: () => null,
   // Field-scoped turn write. Records the same shape the tests measure, so
   // write volume assertions cover both persistence routes.
   persistTaskTurnDelta: ({
