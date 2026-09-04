@@ -1,15 +1,12 @@
 import type { StoreApi } from "zustand";
 import { applyMacroInsert } from "@/lib/macros/token";
 import { buildMacroRuntimeOverrides } from "@/lib/macros/apply";
-import { MAX_MACROS, type Macro } from "@/lib/macros/types";
+import { isMacroInstantRun, MAX_MACROS, type Macro } from "@/lib/macros/types";
 import { normalizeMacro } from "@/lib/macros/normalize";
 import type { AppState } from "@/store/app-store.types";
 
 type MacroActionKey =
-  | "upsertMacro"
-  | "removeMacro"
-  | "reorderMacros"
-  | "applyMacroToDraft";
+  "upsertMacro" | "removeMacro" | "reorderMacros" | "applyMacroToDraft";
 
 type MacroActions = Pick<AppState, MacroActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
@@ -56,7 +53,7 @@ export function createMacroActions(args: {
         createdAt:
           existingIndex >= 0
             ? (existing[existingIndex]?.createdAt ?? now)
-            : (normalized.createdAt || now),
+            : normalized.createdAt || now,
         updatedAt: now,
       };
 
@@ -178,6 +175,7 @@ export function createMacroActions(args: {
         ok: true,
         text: expanded.text,
         caretIndex: expanded.caretIndex,
+        instantRun: isMacroInstantRun(macro),
       };
     },
   };

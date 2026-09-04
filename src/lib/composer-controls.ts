@@ -70,7 +70,8 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
       "Delegate bounded implementation work to a cheaper same-provider model.",
     review: "Review uncommitted local changes.",
     secrets: "Bind secrets into this run's environment.",
-    macro: "Insert a saved prompt and optionally pin model + effort.",
+    macro:
+      "Insert a saved prompt, optionally pin model + effort, and optionally send it immediately.",
     compare: "Run the prompt in two candidate workspaces.",
     runtime: "Effective sandbox, approval, and timeout values.",
   };

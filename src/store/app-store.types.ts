@@ -421,10 +421,7 @@ export interface AppState
     taskId: string;
     sourceContext: TaskSourceContext;
   }) => void;
-  removeTaskSourceContext: (args: {
-    taskId: string;
-    sourceId: string;
-  }) => void;
+  removeTaskSourceContext: (args: { taskId: string; sourceId: string }) => void;
   clearTaskSourceContexts: (args: { taskId: string }) => void;
   restoreTask: (args: { taskId: string }) => void;
   duplicateTask: (args: { taskId: string }) => Promise<void>;
@@ -487,7 +484,13 @@ export interface AppState
     macroId: string;
     draftText?: string;
     tokenMatch?: Pick<MacroTokenMatch, "start" | "end">;
-  }) => { ok: boolean; text?: string; caretIndex?: number; error?: string };
+  }) => {
+    ok: boolean;
+    text?: string;
+    caretIndex?: number;
+    instantRun?: boolean;
+    error?: string;
+  };
   setActiveCliSessionTab: (args: { tabId: string | null }) => void;
   setCliSessionTabNativeSession: (args: {
     tabId: string;

@@ -7,7 +7,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Switch,
   Textarea,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
@@ -25,6 +24,7 @@ import {
 import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
 import { listModelsForPresetProvider } from "@/lib/task-presets";
 import {
+  isMacroInstantRun,
   MACRO_INSERT_MODES,
   type Macro,
   type MacroInsertMode,
@@ -34,13 +34,34 @@ import {
   normalizeMacro,
   slugifyMacroLabel,
 } from "@/lib/macros/normalize";
-import { ChoiceButtons } from "./settings-dialog.shared";
+import {
+  ChoiceButtons,
+  LabeledField,
+  SelectField,
+  SwitchField,
+} from "./settings-dialog.shared";
 
-const INSERT_MODE_LABELS: Record<MacroInsertMode, string> = {
-  replace: "Replace",
-  append: "Append",
-  prepend: "Prepend",
-};
+const INSERT_MODE_OPTIONS: Array<{
+  value: MacroInsertMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "replace",
+    label: "Replace",
+    description: "Swap the current composer text for this prompt.",
+  },
+  {
+    value: "append",
+    label: "Append",
+    description: "Add this prompt after the current composer text.",
+  },
+  {
+    value: "prepend",
+    label: "Prepend",
+    description: "Add this prompt before the current composer text.",
+  },
+];
 
 interface MacroEditorProps {
   initialMacro: Macro;
@@ -75,6 +96,7 @@ export function MacroEditor(props: MacroEditorProps) {
   const [insertMode, setInsertMode] = useState<MacroInsertMode>(
     initialMacro.insertMode,
   );
+  const [instantRun, setInstantRun] = useState(isMacroInstantRun(initialMacro));
   const [pinRuntime, setPinRuntime] = useState(Boolean(initialMacro.runtime));
   const [providerId, setProviderId] = useState<ManagedExecutionProviderId>(
     initialMacro.runtime?.providerId ?? "claude-code",
@@ -95,6 +117,7 @@ export function MacroEditor(props: MacroEditorProps) {
     setDescription(initialMacro.description ?? "");
     setBody(initialMacro.body);
     setInsertMode(initialMacro.insertMode);
+    setInstantRun(isMacroInstantRun(initialMacro));
     setPinRuntime(Boolean(initialMacro.runtime));
     setProviderId(initialMacro.runtime?.providerId ?? "claude-code");
     setModel(
@@ -124,8 +147,7 @@ export function MacroEditor(props: MacroEditorProps) {
   }
 
   function handleProviderChange(nextProvider: string) {
-    const nextProviderId =
-      nextProvider === "codex" ? "codex" : "claude-code";
+    const nextProviderId = nextProvider === "codex" ? "codex" : "claude-code";
     setProviderId(nextProviderId);
     const nextModels = listModelsForPresetProvider(nextProviderId);
     const nextModel = nextModels.includes(model)
@@ -179,6 +201,7 @@ export function MacroEditor(props: MacroEditorProps) {
       description,
       body,
       insertMode,
+      instantRun,
       runtime: pinRuntime
         ? {
             providerId,
@@ -200,14 +223,12 @@ export function MacroEditor(props: MacroEditorProps) {
   }
 
   return (
-    <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="macro-editor-label"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Label
-        </label>
+    <form className="space-y-5" onSubmit={handleSubmit}>
+      <LabeledField
+        title="Label"
+        description="The name shown in Settings, the Macros control, and the left-wing quick picks."
+        layout="stacked"
+      >
         <Input
           id="macro-editor-label"
           value={label}
@@ -215,14 +236,12 @@ export function MacroEditor(props: MacroEditorProps) {
           placeholder="Conventional commit"
           autoFocus
         />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="macro-editor-slug"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Slug
-        </label>
+      </LabeledField>
+      <LabeledField
+        title="Slug"
+        description={`Type !${slug || "slug"} in the composer to insert this macro.`}
+        layout="stacked"
+      >
         <Input
           id="macro-editor-slug"
           value={slug}
@@ -232,32 +251,24 @@ export function MacroEditor(props: MacroEditorProps) {
           }}
           placeholder="conventional-commit"
         />
-        <p className="text-[11px] text-muted-foreground">
-          Type <span className="font-medium text-foreground">!{slug || "slug"}</span>{" "}
-          in the composer to insert this macro.
-        </p>
-      </div>
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="macro-editor-description"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Description
-        </label>
+      </LabeledField>
+      <LabeledField
+        title="Description"
+        description="Optional hint shown under the label in the composer picker."
+        layout="stacked"
+      >
         <Input
           id="macro-editor-description"
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="Write a conventional commit message"
         />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="macro-editor-body"
-          className="text-xs font-medium text-muted-foreground"
-        >
-          Prompt
-        </label>
+      </LabeledField>
+      <LabeledField
+        title="Prompt"
+        description="The text inserted into the composer. Instant-run macros send this as soon as they are applied."
+        layout="stacked"
+      >
         <Textarea
           id="macro-editor-body"
           value={body}
@@ -265,65 +276,50 @@ export function MacroEditor(props: MacroEditorProps) {
           placeholder="Write a conventional commit message for the staged changes."
           className="min-h-28"
         />
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted-foreground">
-          Insert mode
-        </span>
+      </LabeledField>
+      <LabeledField
+        title="Insert mode"
+        description="Choose how this prompt combines with whatever is already in the composer."
+        layout="stacked"
+      >
         <ChoiceButtons
           value={insertMode}
           onChange={setInsertMode}
           columns={3}
-          options={MACRO_INSERT_MODES.map((mode) => ({
-            value: mode,
-            label: INSERT_MODE_LABELS[mode],
-          }))}
+          options={INSERT_MODE_OPTIONS}
           aria-label="Macro insert mode"
         />
-      </div>
-      <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">Pin model</p>
-          <p className="text-xs text-muted-foreground">
-            Override this turn&apos;s model and effort when inserted.
-          </p>
-        </div>
-        <Switch
-          checked={pinRuntime}
-          onCheckedChange={setPinRuntime}
-          aria-label="Pin model and effort"
-        />
-      </div>
+      </LabeledField>
+      <SwitchField
+        title="Run immediately"
+        description="Send the prompt as soon as this macro is applied, instead of leaving it in the composer to edit."
+        checked={instantRun}
+        onCheckedChange={setInstantRun}
+      />
+      <SwitchField
+        title="Pin model"
+        description="Override this turn's model and effort when the macro is applied."
+        checked={pinRuntime}
+        onCheckedChange={setPinRuntime}
+      />
       {pinRuntime ? (
         <>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              Provider
-            </span>
-            <Select value={providerId} onValueChange={handleProviderChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(["claude-code", "codex"] as const).map((id) => (
-                  <SelectItem key={id} value={id}>
-                    <span className="flex min-w-0 items-center gap-2">
-                      <ModelIcon providerId={id} className="size-3.5" />
-                      <span className="truncate">
-                        {getProviderLabel({ providerId: id })}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              Model
-            </span>
+          <SelectField
+            title="Provider"
+            description="The execution provider used for this macro's pinned model."
+            value={providerId}
+            onChange={handleProviderChange}
+            options={(["claude-code", "codex"] as const).map((id) => ({
+              value: id,
+              label: getProviderLabel({ providerId: id }),
+            }))}
+          />
+          <LabeledField
+            title="Model"
+            description="The model used when this macro is applied."
+          >
             <Select value={model} onValueChange={handleModelChange}>
-              <SelectTrigger>
+              <SelectTrigger className="h-10 w-full rounded-md border-border/75 bg-background text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -343,36 +339,28 @@ export function MacroEditor(props: MacroEditorProps) {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              Effort
-            </span>
-            <Select
-              value={effort || "__default__"}
-              onValueChange={(value) =>
-                setEffort(value === "__default__" ? "" : (value as ModelEffort))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__default__">Default (per model)</SelectItem>
-                {effortOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          </LabeledField>
+          <SelectField
+            title="Effort"
+            description="Leave on the model default, or pin an effort for this macro."
+            value={effort || "__default__"}
+            onChange={(value) =>
+              setEffort(value === "__default__" ? "" : (value as ModelEffort))
+            }
+            options={[
+              { value: "__default__", label: "Default (per model)" },
+              ...effortOptions.map((option) => ({
+                value: option.value,
+                label: option.label,
+              })),
+            ]}
+          />
         </>
       ) : null}
       {localError || error ? (
-        <p className="text-xs text-destructive">{localError ?? error}</p>
+        <p className="text-sm text-destructive">{localError ?? error}</p>
       ) : null}
-      <div className="flex items-center justify-end gap-2 pt-1">
+      <div className="flex items-center justify-end gap-2">
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>

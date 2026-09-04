@@ -6,11 +6,13 @@ import {
   normalizePersistedMacros,
   slugifyMacroLabel,
 } from "@/lib/macros/normalize";
-import { MAX_MACROS } from "@/lib/macros/types";
+import { isMacroInstantRun, MAX_MACROS } from "@/lib/macros/types";
 
 describe("slugifyMacroLabel", () => {
   test("derives a lowercase hyphenated slug", () => {
-    expect(slugifyMacroLabel("Conventional Commit")).toBe("conventional-commit");
+    expect(slugifyMacroLabel("Conventional Commit")).toBe(
+      "conventional-commit",
+    );
     expect(slugifyMacroLabel("  Review PR!! ")).toBe("review-pr");
   });
 });
@@ -31,9 +33,30 @@ describe("normalizeMacro", () => {
     expect(macro).not.toBeNull();
     expect(macro?.id.startsWith("macro_")).toBe(true);
     expect(macro?.insertMode).toBe("replace");
+    expect(macro?.instantRun).toBeUndefined();
     expect(macro?.runtime?.providerId).toBe("claude-code");
     expect(macro?.runtime?.model).toBe("claude-opus-5");
     expect(macro?.runtime?.effort).toBe("high");
+  });
+
+  test("keeps instantRun only when it is explicitly true", () => {
+    const instant = normalizeMacro({
+      label: "Ship",
+      slug: "ship",
+      body: "Ship the current changes.",
+      instantRun: true,
+    });
+    const ignored = normalizeMacro({
+      label: "Ship",
+      slug: "ship",
+      body: "Ship the current changes.",
+      instantRun: "yes",
+    });
+
+    expect(instant?.instantRun).toBe(true);
+    expect(ignored?.instantRun).toBeUndefined();
+    expect(isMacroInstantRun(instant!)).toBe(true);
+    expect(isMacroInstantRun(ignored!)).toBe(false);
   });
 
   test("drops a row without a usable label or slug", () => {

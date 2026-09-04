@@ -8,7 +8,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui";
-import type { Macro } from "@/lib/macros/types";
+import { isMacroInstantRun, type Macro } from "@/lib/macros/types";
 
 interface MacroControlProps {
   macros: readonly Macro[];
@@ -58,6 +58,11 @@ export function MacroControl(args: MacroControlProps) {
                   <code className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] leading-4 text-muted-foreground">
                     !{macro.slug}
                   </code>
+                  {isMacroInstantRun(macro) ? (
+                    <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                      Instant
+                    </span>
+                  ) : null}
                 </span>
                 {macro.description ? (
                   <span className="block truncate text-xs text-muted-foreground">

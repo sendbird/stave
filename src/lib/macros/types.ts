@@ -26,8 +26,17 @@ export interface Macro {
   body: string;
   insertMode: MacroInsertMode;
   runtime?: MacroRuntime;
+  /**
+   * When true, inserting the macro also sends the resulting composer text
+   * immediately instead of leaving it for the user to edit.
+   */
+  instantRun?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export function isMacroInstantRun(macro: Pick<Macro, "instantRun">): boolean {
+  return macro.instantRun === true;
 }
 
 export interface MacroTokenMatch {
