@@ -1094,7 +1094,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         >
           <span
             data-testid="turn-activity-loader"
-            className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/55"
+            className="flex size-6 shrink-0 items-center justify-center"
           >
             <Loader
               aria-hidden

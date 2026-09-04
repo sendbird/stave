@@ -6,9 +6,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * spend space that lives *outside* the frame, in whatever margin the chat
  * column has left over.
  */
-export const COMPOSER_WING_COLLAPSED_WIDTH_PX = 68;
+export const COMPOSER_WING_COLLAPSED_WIDTH_PX = 60;
 /** Widest a revealed wing ever gets: icon column, gap, and a short label. */
-export const COMPOSER_WING_REVEALED_WIDTH_PX = 156;
+export const COMPOSER_WING_REVEALED_WIDTH_PX = 144;
 /**
  * Below this gain the reveal is not worth playing: the label would be clipped
  * mid-word, which reads as breakage rather than as a compact layout. The wing
