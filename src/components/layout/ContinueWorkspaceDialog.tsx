@@ -1,7 +1,7 @@
-import { GitBranch, LoaderCircle } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
-import { Badge, Button, Input } from "@/components/ui";
+import { Badge, Button, Input, Loader } from "@/components/ui";
 import {
   Dialog,
   DialogContent,
@@ -21,10 +21,7 @@ interface ContinueWorkspaceDialogProps {
   defaultBranch: string;
   prTitle?: string;
   onOpenChange: (open: boolean) => void;
-  onContinue: (args: {
-    name: string;
-    baseBranch?: string;
-  }) => Promise<{
+  onContinue: (args: { name: string; baseBranch?: string }) => Promise<{
     ok: boolean;
     message?: string;
     noticeLevel?: "success" | "warning";
@@ -254,7 +251,12 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
             <Button type="submit" disabled={submitting}>
               {submitting ? (
                 <>
-                  <LoaderCircle className="mr-2 size-4 animate-spin" />
+                  <Loader
+                    aria-hidden
+                    className="mr-2"
+                    size="xs"
+                    variant="sync"
+                  />
                   Continuing...
                 </>
               ) : (

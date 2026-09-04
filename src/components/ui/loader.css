@@ -1,0 +1,1026 @@
+.stave-loader {
+  --stave-loader-loop: 1200ms;
+  --stave-loader-loop-slow: 2000ms;
+  --stave-loader-ease: ease-in-out;
+  --stave-loader-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 1.5;
+  min-inline-size: 0;
+}
+
+.stave-loader[data-loader-tone="accent"] {
+  color: var(--primary);
+}
+
+.stave-loader[data-loader-tone="neutral"] {
+  color: var(--muted-foreground);
+}
+
+.stave-loader[data-loader-tone="inherit"] {
+  color: inherit;
+}
+
+.stave-loader[data-loader-labeled="true"] {
+  gap: 0.5rem;
+}
+
+.stave-loader-label {
+  color: currentColor;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.25;
+  min-inline-size: 0;
+}
+
+.stave-loader-mark {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.stave-loader-mark[data-loader-size="xs"] {
+  block-size: 16px;
+  inline-size: 16px;
+}
+
+.stave-loader-mark[data-loader-size="sm"] {
+  block-size: 20px;
+  inline-size: 20px;
+}
+
+.stave-loader-mark[data-loader-size="md"] {
+  block-size: 24px;
+  inline-size: 24px;
+}
+
+.stave-loader-mark[data-loader-size="lg"] {
+  block-size: 32px;
+  inline-size: 32px;
+}
+
+.stave-loader-spinner {
+  animation: stave-loader-spin var(--stave-loader-loop) linear infinite;
+  block-size: 75%;
+  inline-size: 75%;
+  overflow: visible;
+}
+
+.stave-loader-spinner-arc {
+  animation: stave-loader-spinner-dash var(--stave-loader-loop)
+    var(--stave-loader-ease) infinite;
+  fill: none;
+  stroke: currentColor;
+  stroke-dasharray: 0.28 1.15;
+  stroke-linecap: round;
+  stroke-width: 2.5;
+  transform-origin: center;
+}
+
+.stave-loader-mark[data-loader-variant="dots"] {
+  gap: 2px;
+}
+
+.stave-loader-dot {
+  animation: stave-loader-dot-wave var(--stave-loader-loop)
+    var(--stave-loader-ease) both infinite;
+  background: currentColor;
+  border-radius: 9999px;
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-dot {
+  block-size: 3px;
+  inline-size: 3px;
+}
+
+.stave-loader-mark[data-loader-size="sm"] .stave-loader-dot {
+  block-size: 4px;
+  inline-size: 4px;
+}
+
+.stave-loader-mark[data-loader-size="md"] .stave-loader-dot {
+  block-size: 5px;
+  inline-size: 5px;
+}
+
+.stave-loader-mark[data-loader-size="lg"] .stave-loader-dot {
+  block-size: 6px;
+  inline-size: 6px;
+}
+
+.stave-loader-mark[data-loader-variant="matrix"] {
+  align-content: center;
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(4, auto);
+  justify-content: center;
+}
+
+.stave-loader-matrix-dot {
+  animation: stave-loader-matrix var(--stave-loader-loop-slow)
+    var(--stave-loader-ease) both infinite;
+  background: currentColor;
+  border-radius: 9999px;
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-matrix-dot {
+  block-size: 2px;
+  inline-size: 2px;
+}
+
+.stave-loader-mark[data-loader-size="sm"] .stave-loader-matrix-dot {
+  block-size: 3px;
+  inline-size: 3px;
+}
+
+.stave-loader-mark[data-loader-size="md"] .stave-loader-matrix-dot {
+  block-size: 4px;
+  inline-size: 4px;
+}
+
+.stave-loader-mark[data-loader-size="lg"] .stave-loader-matrix-dot {
+  block-size: 5px;
+  inline-size: 5px;
+}
+
+.stave-loader-mark[data-loader-variant="pulse"] {
+  gap: 2px;
+}
+
+.stave-loader-pulse-bar {
+  animation: stave-loader-pulse var(--stave-loader-loop)
+    var(--stave-loader-ease) both infinite;
+  background: currentColor;
+  border-radius: 9999px;
+  transform-origin: center;
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-pulse-bar {
+  block-size: 12px;
+  inline-size: 2px;
+}
+
+.stave-loader-mark[data-loader-size="sm"] .stave-loader-pulse-bar {
+  block-size: 15px;
+  inline-size: 3px;
+}
+
+.stave-loader-mark[data-loader-size="md"] .stave-loader-pulse-bar {
+  block-size: 18px;
+  inline-size: 3px;
+}
+
+.stave-loader-mark[data-loader-size="lg"] .stave-loader-pulse-bar {
+  block-size: 24px;
+  inline-size: 4px;
+}
+
+.stave-loader-mark[data-loader-variant="steps"] {
+  gap: 1px;
+}
+
+.stave-loader-step {
+  animation: stave-loader-step var(--stave-loader-loop) var(--stave-loader-ease)
+    both infinite;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-step {
+  block-size: 4px;
+  inline-size: 2px;
+}
+
+.stave-loader-mark[data-loader-size="sm"] .stave-loader-step {
+  block-size: 5px;
+  inline-size: 3px;
+}
+
+.stave-loader-mark[data-loader-size="md"] .stave-loader-step {
+  block-size: 6px;
+  inline-size: 4px;
+}
+
+.stave-loader-mark[data-loader-size="lg"] .stave-loader-step {
+  block-size: 8px;
+  inline-size: 5px;
+}
+
+.stave-loader-orbit-rail {
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  inset: 14%;
+  opacity: 0.2;
+  position: absolute;
+}
+
+.stave-loader-orbit-motion {
+  animation: stave-loader-spin var(--stave-loader-loop-slow) linear infinite;
+  inset: 14%;
+  position: absolute;
+}
+
+.stave-loader-orbit-point {
+  background: currentColor;
+  border-radius: 9999px;
+  inset-block-start: 0;
+  inset-inline-start: 50%;
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.stave-loader-orbit-point-opposite {
+  inset-block-end: 0;
+  inset-block-start: auto;
+  transform: translate(-50%, 50%) scale(0.72);
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-orbit-point,
+.stave-loader-mark[data-loader-size="sm"] .stave-loader-orbit-point,
+.stave-loader-mark[data-loader-size="md"] .stave-loader-orbit-point {
+  block-size: 3px;
+  inline-size: 3px;
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-orbit-point {
+  block-size: 2px;
+  inline-size: 2px;
+}
+
+.stave-loader-mark[data-loader-size="lg"] .stave-loader-orbit-point {
+  block-size: 4px;
+  inline-size: 4px;
+}
+
+.stave-loader-orbit-core {
+  background: currentColor;
+  block-size: 20%;
+  border-radius: 9999px;
+  inline-size: 20%;
+  opacity: 0.8;
+}
+
+.stave-loader-ripple-ring {
+  animation: stave-loader-ripple var(--stave-loader-loop-slow)
+    var(--stave-loader-ease-standard) infinite;
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  inset: 1px;
+  position: absolute;
+}
+
+.stave-loader-ripple-inner {
+  animation-delay: -1200ms;
+  transform: scale(0.34);
+}
+
+.stave-loader-ripple-middle {
+  animation-delay: -600ms;
+  transform: scale(0.64);
+}
+
+.stave-loader-ripple-outer {
+  animation-delay: 0ms;
+  transform: scale(0.94);
+}
+
+.stave-loader-mark[data-loader-variant="signal"] {
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.stave-loader-signal-bar {
+  animation: stave-loader-signal var(--stave-loader-loop)
+    var(--stave-loader-ease) both infinite;
+  background: currentColor;
+  border-radius: 9999px;
+  transform-origin: bottom;
+}
+
+.stave-loader-signal-bar[data-level="1"] {
+  block-size: 34%;
+}
+
+.stave-loader-signal-bar[data-level="2"] {
+  block-size: 52%;
+}
+
+.stave-loader-signal-bar[data-level="3"] {
+  block-size: 72%;
+}
+
+.stave-loader-signal-bar[data-level="4"] {
+  block-size: 92%;
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-signal-bar {
+  inline-size: 2px;
+}
+
+.stave-loader-mark[data-loader-size="sm"] .stave-loader-signal-bar,
+.stave-loader-mark[data-loader-size="md"] .stave-loader-signal-bar {
+  inline-size: 3px;
+}
+
+.stave-loader-mark[data-loader-size="lg"] .stave-loader-signal-bar {
+  inline-size: 4px;
+}
+
+.stave-loader-scan-frame {
+  block-size: 72%;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  inline-size: 72%;
+  opacity: 0.42;
+}
+
+.stave-loader-scan-beam {
+  animation: stave-loader-scan var(--stave-loader-loop-slow)
+    var(--stave-loader-ease) infinite;
+  background: currentColor;
+  border-radius: 9999px;
+  inline-size: 58%;
+  position: absolute;
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-scan-beam,
+.stave-loader-mark[data-loader-size="sm"] .stave-loader-scan-beam {
+  block-size: 1px;
+}
+
+.stave-loader-mark[data-loader-size="md"] .stave-loader-scan-beam,
+.stave-loader-mark[data-loader-size="lg"] .stave-loader-scan-beam {
+  block-size: 2px;
+}
+
+.stave-loader-mark[data-loader-variant="parallel"] {
+  align-items: center;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stave-loader-parallel-lane {
+  inline-size: 76%;
+  position: relative;
+}
+
+.stave-loader-mark[data-loader-size="xs"] .stave-loader-parallel-lane,
+.stave-loader-mark[data-loader-size="sm"] .stave-loader-parallel-lane {
+  block-size: 1px;
+}
+
+.stave-loader-mark[data-loader-size="md"] .stave-loader-parallel-lane,
+.stave-loader-mark[data-loader-size="lg"] .stave-loader-parallel-lane {
+  block-size: 2px;
+}
+
+.stave-loader-parallel-rail {
+  background: currentColor;
+  block-size: 100%;
+  border-radius: 9999px;
+  inline-size: 100%;
+  opacity: 0.24;
+  position: absolute;
+}
+
+.stave-loader-parallel-runner {
+  animation: stave-loader-parallel var(--stave-loader-loop-slow)
+    var(--stave-loader-ease) infinite;
+  background: currentColor;
+  block-size: 100%;
+  border-radius: 9999px;
+  inline-size: 28%;
+  position: absolute;
+}
+
+.stave-loader-parallel-runner[data-direction="reverse"] {
+  animation-direction: reverse;
+}
+
+.stave-loader-fill {
+  block-size: 100%;
+  inline-size: 100%;
+  position: relative;
+}
+
+.stave-loader-cascade-dot,
+.stave-loader-decode-cell,
+.stave-loader-handoff-node,
+.stave-loader-explore-leaf,
+.stave-loader-verify-point {
+  animation: stave-loader-breathe var(--stave-loader-loop)
+    var(--stave-loader-ease) both infinite;
+  background: currentColor;
+  border-radius: 9999px;
+  position: absolute;
+}
+
+.stave-loader-cascade-dot {
+  block-size: 22%;
+  inline-size: 22%;
+}
+
+.stave-loader-cascade-dot[data-slot="1"] {
+  inset-block-start: 15%;
+  inset-inline-start: 10%;
+}
+
+.stave-loader-cascade-dot[data-slot="2"] {
+  inset-block-start: 32%;
+  inset-inline-start: 30%;
+}
+
+.stave-loader-cascade-dot[data-slot="3"] {
+  inset-block-start: 49%;
+  inset-inline-start: 50%;
+}
+
+.stave-loader-cascade-dot[data-slot="4"] {
+  inset-block-start: 66%;
+  inset-inline-start: 70%;
+}
+
+.stave-loader-decode {
+  align-content: center;
+  display: grid;
+  gap: 10%;
+  grid-template-columns: repeat(2, 30%);
+  justify-content: center;
+}
+
+.stave-loader-decode-cell {
+  aspect-ratio: 1;
+  position: static;
+}
+
+.stave-loader-compile-bar {
+  animation: stave-loader-compile var(--stave-loader-loop)
+    var(--stave-loader-ease) both infinite;
+  background: currentColor;
+  block-size: 12%;
+  border-radius: 9999px;
+  inline-size: 76%;
+  inset-inline-start: 12%;
+  position: absolute;
+  transform-origin: left center;
+}
+
+.stave-loader-compile-bar[data-slot="1"] {
+  inset-block-start: 25%;
+}
+
+.stave-loader-compile-bar[data-slot="2"] {
+  inline-size: 58%;
+  inset-block-start: 44%;
+  inset-inline-start: 21%;
+}
+
+.stave-loader-compile-bar[data-slot="3"] {
+  inset-block-start: 63%;
+}
+
+.stave-loader-route-rail,
+.stave-loader-sync-rail {
+  background: currentColor;
+  block-size: 8%;
+  border-radius: 9999px;
+  inline-size: 72%;
+  inset-inline-start: 14%;
+  position: absolute;
+}
+
+.stave-loader-route-rail {
+  inset-block-start: 46%;
+  opacity: 0.22;
+}
+
+.stave-loader-route-node {
+  background: currentColor;
+  block-size: 22%;
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  box-sizing: border-box;
+  inline-size: 22%;
+  inset-block-start: 39%;
+  opacity: 0.42;
+  position: absolute;
+}
+
+.stave-loader-route-node[data-slot="start"] {
+  inset-inline-start: 10%;
+}
+
+.stave-loader-route-node[data-slot="middle"] {
+  inset-inline-start: 39%;
+}
+
+.stave-loader-route-node[data-slot="end"] {
+  inset-inline-end: 10%;
+}
+
+.stave-loader-route-runner {
+  animation: stave-loader-route var(--stave-loader-loop)
+    var(--stave-loader-ease-standard) both infinite;
+  background: currentColor;
+  block-size: 22%;
+  border-radius: 9999px;
+  inline-size: 14%;
+  inset-block-start: 39%;
+  inset-inline-start: 12%;
+  position: absolute;
+}
+
+.stave-loader-handoff-node {
+  block-size: 24%;
+  inline-size: 24%;
+  inset-block-start: 38%;
+}
+
+.stave-loader-handoff-node[data-slot="1"] {
+  inset-inline-start: 8%;
+}
+
+.stave-loader-handoff-node[data-slot="2"] {
+  inset-inline-start: 38%;
+}
+
+.stave-loader-handoff-node[data-slot="3"] {
+  inset-inline-end: 8%;
+}
+
+.stave-loader-vision-frame,
+.stave-loader-verify-frame {
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  position: absolute;
+}
+
+.stave-loader-vision-frame {
+  inset: 10%;
+  opacity: 0.3;
+}
+
+.stave-loader-vision-iris {
+  animation: stave-loader-vision var(--stave-loader-loop-slow)
+    var(--stave-loader-ease) both infinite;
+  border-block-color: currentColor;
+  border-inline-color: transparent;
+  border-radius: 9999px;
+  border-style: solid;
+  border-width: 2px;
+  inset: 24%;
+  position: absolute;
+}
+
+.stave-loader-vision-focus {
+  background: currentColor;
+  block-size: 18%;
+  border-radius: 9999px;
+  inline-size: 18%;
+  inset-block-start: 41%;
+  inset-inline-start: 41%;
+  position: absolute;
+}
+
+.stave-loader-explore-center {
+  background: currentColor;
+  block-size: 22%;
+  border-radius: 9999px;
+  inline-size: 22%;
+  inset-block-start: 39%;
+  inset-inline-start: 39%;
+  position: absolute;
+}
+
+.stave-loader-explore-branch {
+  background: currentColor;
+  block-size: 6%;
+  inline-size: 28%;
+  inset-block-start: 47%;
+  inset-inline-start: 50%;
+  opacity: 0.24;
+  position: absolute;
+  transform-origin: left center;
+}
+
+.stave-loader-explore-branch[data-slot="1"] {
+  transform: rotate(-55deg);
+}
+
+.stave-loader-explore-branch[data-slot="2"] {
+  transform: rotate(0deg);
+}
+
+.stave-loader-explore-branch[data-slot="3"] {
+  transform: rotate(55deg);
+}
+
+.stave-loader-explore-leaf {
+  block-size: 20%;
+  inline-size: 20%;
+}
+
+.stave-loader-explore-leaf[data-slot="1"] {
+  inset-block-start: 8%;
+  inset-inline-end: 8%;
+}
+
+.stave-loader-explore-leaf[data-slot="2"] {
+  inset-block-start: 40%;
+  inset-inline-end: 8%;
+}
+
+.stave-loader-explore-leaf[data-slot="3"] {
+  inset-block-end: 8%;
+  inset-inline-end: 8%;
+}
+
+.stave-loader-sync-rail {
+  opacity: 0.2;
+}
+
+.stave-loader-sync-rail[data-slot="top"] {
+  inset-block-start: 30%;
+}
+
+.stave-loader-sync-rail[data-slot="bottom"] {
+  inset-block-end: 30%;
+}
+
+.stave-loader-sync-runner {
+  animation: stave-loader-sync var(--stave-loader-loop) var(--stave-loader-ease)
+    infinite;
+  background: currentColor;
+  block-size: 18%;
+  border-radius: 9999px;
+  inline-size: 18%;
+  inset-inline-start: 16%;
+  position: absolute;
+}
+
+.stave-loader-sync-runner[data-slot="top"] {
+  inset-block-start: 25%;
+}
+
+.stave-loader-sync-runner[data-slot="bottom"] {
+  animation-direction: reverse;
+  inset-block-end: 25%;
+}
+
+.stave-loader-verify-frame {
+  inset: 20%;
+  opacity: 0.22;
+}
+
+.stave-loader-verify-point {
+  block-size: 20%;
+  inline-size: 20%;
+}
+
+.stave-loader-verify-point[data-slot="1"] {
+  inset-block-start: 10%;
+  inset-inline-start: 10%;
+}
+
+.stave-loader-verify-point[data-slot="2"] {
+  inset-block-start: 10%;
+  inset-inline-end: 10%;
+}
+
+.stave-loader-verify-point[data-slot="3"] {
+  inset-block-end: 10%;
+  inset-inline-end: 10%;
+}
+
+.stave-loader-verify-point[data-slot="4"] {
+  inset-block-end: 10%;
+  inset-inline-start: 10%;
+}
+
+.stave-loader-persist-layer {
+  animation: stave-loader-persist var(--stave-loader-loop)
+    var(--stave-loader-ease) both infinite;
+  background: currentColor;
+  block-size: 16%;
+  border-radius: 2px;
+  inline-size: 72%;
+  inset-inline-start: 14%;
+  position: absolute;
+}
+
+.stave-loader-persist-layer[data-slot="1"] {
+  inset-block-start: 18%;
+}
+
+.stave-loader-persist-layer[data-slot="2"] {
+  inset-block-start: 42%;
+}
+
+.stave-loader-persist-layer[data-slot="3"] {
+  inset-block-start: 66%;
+}
+
+.stave-loader-phase-0 {
+  animation-delay: 0ms;
+}
+
+.stave-loader-phase-1 {
+  animation-delay: 120ms;
+}
+
+.stave-loader-phase-2 {
+  animation-delay: 240ms;
+}
+
+.stave-loader-phase-3 {
+  animation-delay: 360ms;
+}
+
+.stave-loader-phase-4 {
+  animation-delay: 480ms;
+}
+
+.stave-loader-phase-6 {
+  animation-delay: 720ms;
+}
+
+@keyframes stave-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes stave-loader-spinner-dash {
+  0% {
+    stroke-dasharray: 0.02 1.15;
+    stroke-dashoffset: 0;
+  }
+
+  50% {
+    stroke-dasharray: 0.7 1.15;
+    stroke-dashoffset: -0.1;
+  }
+
+  100% {
+    stroke-dasharray: 0.7 1.15;
+    stroke-dashoffset: -0.96;
+  }
+}
+
+@keyframes stave-loader-dot-wave {
+  0%,
+  62%,
+  100% {
+    opacity: 0.32;
+    transform: translateY(0);
+  }
+
+  31% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes stave-loader-matrix {
+  0%,
+  18%,
+  100% {
+    opacity: 0.32;
+    transform: scale(0.68);
+  }
+
+  44% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  68% {
+    opacity: 0.52;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes stave-loader-pulse {
+  0%,
+  100% {
+    opacity: 0.36;
+    transform: scaleY(0.4);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes stave-loader-step {
+  0%,
+  22% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  48%,
+  100% {
+    opacity: 0.32;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes stave-loader-ripple {
+  0% {
+    opacity: 0;
+    transform: scale(0.25);
+  }
+
+  24% {
+    opacity: 0.88;
+  }
+
+  78% {
+    opacity: 0.18;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes stave-loader-signal {
+  0%,
+  64%,
+  100% {
+    opacity: 0.3;
+    transform: scaleY(0.72);
+  }
+
+  32% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes stave-loader-scan {
+  0% {
+    opacity: 0;
+    transform: translateY(-260%);
+  }
+
+  18%,
+  82% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(260%);
+  }
+}
+
+@keyframes stave-loader-parallel {
+  from {
+    opacity: 0.38;
+    transform: translateX(0);
+  }
+
+  45%,
+  55% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.38;
+    transform: translateX(257%);
+  }
+}
+
+@keyframes stave-loader-breathe {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: scale(0.66);
+  }
+
+  48% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes stave-loader-compile {
+  0%,
+  100% {
+    opacity: 0.56;
+    transform: scaleX(0.68);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes stave-loader-route {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+
+  16%,
+  84% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(450%);
+  }
+}
+
+@keyframes stave-loader-vision {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: rotate(0deg) scale(0.72);
+  }
+
+  50% {
+    opacity: 1;
+    transform: rotate(180deg) scale(1);
+  }
+}
+
+@keyframes stave-loader-sync {
+  from {
+    opacity: 0.36;
+    transform: translateX(0);
+  }
+
+  45%,
+  55% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.36;
+    transform: translateX(280%);
+  }
+}
+
+@keyframes stave-loader-persist {
+  0%,
+  100% {
+    opacity: 0.32;
+    transform: translateY(-1px);
+  }
+
+  44% {
+    opacity: 1;
+    transform: translateY(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stave-loader-spinner,
+  .stave-loader-spinner-arc,
+  .stave-loader-orbit-motion,
+  .stave-loader-dot,
+  .stave-loader-matrix-dot,
+  .stave-loader-pulse-bar,
+  .stave-loader-step,
+  .stave-loader-ripple-ring,
+  .stave-loader-signal-bar,
+  .stave-loader-scan-beam,
+  .stave-loader-parallel-runner,
+  .stave-loader-cascade-dot,
+  .stave-loader-decode-cell,
+  .stave-loader-compile-bar,
+  .stave-loader-route-runner,
+  .stave-loader-handoff-node,
+  .stave-loader-vision-iris,
+  .stave-loader-explore-leaf,
+  .stave-loader-sync-runner,
+  .stave-loader-verify-point,
+  .stave-loader-persist-layer {
+    animation: none;
+  }
+
+  .stave-loader-dot,
+  .stave-loader-matrix-dot,
+  .stave-loader-step,
+  .stave-loader-signal-bar,
+  .stave-loader-cascade-dot,
+  .stave-loader-decode-cell,
+  .stave-loader-compile-bar,
+  .stave-loader-handoff-node,
+  .stave-loader-explore-leaf,
+  .stave-loader-verify-point,
+  .stave-loader-persist-layer {
+    opacity: 0.64;
+  }
+}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, Circle, ClipboardList, LoaderCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, Circle, ClipboardList } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import { cn } from "@/lib/utils";
 import { getStatusBadge, type ToolState } from "./tool";
 
@@ -24,10 +25,18 @@ export function parseTodoInput(args: { input: string }): { todos: TodoItem[] } {
     if (Array.isArray(parsed.todos)) {
       return {
         todos: parsed.todos
-          .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+          .filter(
+            (item): item is Record<string, unknown> =>
+              typeof item === "object" && item !== null,
+          )
           .map((item) => ({
-            content: typeof item.content === "string" ? item.content : String(item.content ?? ""),
-            status: (["pending", "in_progress", "completed"].includes(item.status as string)
+            content:
+              typeof item.content === "string"
+                ? item.content
+                : String(item.content ?? ""),
+            status: (["pending", "in_progress", "completed"].includes(
+              item.status as string,
+            )
               ? item.status
               : "pending") as TodoStatus,
           })),
@@ -41,7 +50,9 @@ export function parseTodoInput(args: { input: string }): { todos: TodoItem[] } {
 
 export function getTodoProgress(args: { input: string }): TodoProgress {
   const { todos } = parseTodoInput(args);
-  const completedCount = todos.filter((todo) => todo.status === "completed").length;
+  const completedCount = todos.filter(
+    (todo) => todo.status === "completed",
+  ).length;
 
   return {
     todos,
@@ -52,7 +63,13 @@ export function getTodoProgress(args: { input: string }): TodoProgress {
   };
 }
 
-function TodoItemIcon({ status, finalized }: { status: TodoStatus; finalized: boolean }) {
+function TodoItemIcon({
+  status,
+  finalized,
+}: {
+  status: TodoStatus;
+  finalized: boolean;
+}) {
   if (status === "completed") {
     return <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />;
   }
@@ -61,14 +78,28 @@ function TodoItemIcon({ status, finalized }: { status: TodoStatus; finalized: bo
     // in-progress at the time of the last TodoWrite snapshot but the turn has
     // since ended.
     if (finalized) {
-      return <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />;
+      return (
+        <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />
+      );
     }
-    return <LoaderCircle className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />;
+    return (
+      <Loader
+        aria-hidden
+        className="mt-0.5 text-primary"
+        size="xs"
+        variant="steps"
+      />
+    );
   }
-  return <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />;
+  return (
+    <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />
+  );
 }
 
-function deriveOverallState(todos: TodoItem[], toolState?: ToolState): ToolState {
+function deriveOverallState(
+  todos: TodoItem[],
+  toolState?: ToolState,
+): ToolState {
   // When the tool part has been finalized (output-available / output-error),
   // honour that state regardless of individual todo-item statuses — otherwise
   // items left as "in_progress" at the time of finalization would keep the card
@@ -79,7 +110,8 @@ function deriveOverallState(todos: TodoItem[], toolState?: ToolState): ToolState
   // Still streaming — derive from individual items.
   if (toolState === "input-streaming") return "input-streaming";
   if (todos.some((t) => t.status === "in_progress")) return "input-streaming";
-  if (todos.length > 0 && todos.every((t) => t.status === "completed")) return "output-available";
+  if (todos.length > 0 && todos.every((t) => t.status === "completed"))
+    return "output-available";
   return "input-available";
 }
 
@@ -96,12 +128,18 @@ export function TodoCard({
   className?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const { todos, completedCount } = useMemo(() => getTodoProgress({ input }), [input]);
+  const { todos, completedCount } = useMemo(
+    () => getTodoProgress({ input }),
+    [input],
+  );
   const displayState = deriveOverallState(todos, state);
-  const finalized = displayState === "output-available" || displayState === "output-error";
+  const finalized =
+    displayState === "output-available" || displayState === "output-error";
 
   return (
-    <section className={cn("overflow-hidden rounded-md border bg-card", className)}>
+    <section
+      className={cn("overflow-hidden rounded-md border bg-card", className)}
+    >
       <button
         type="button"
         className={cn(
@@ -122,7 +160,10 @@ export function TodoCard({
         <span className="inline-flex items-center gap-2">
           {getStatusBadge(displayState)}
           <ChevronDown
-            className={cn("size-3.5 transition-transform", open ? "rotate-180" : "rotate-0")}
+            className={cn(
+              "size-3.5 transition-transform",
+              open ? "rotate-180" : "rotate-0",
+            )}
           />
         </span>
       </button>
@@ -139,8 +180,12 @@ export function TodoCard({
                   <span
                     className={cn(
                       "text-[0.875em] leading-[1.6]",
-                      todo.status === "completed" && "text-muted-foreground line-through",
-                      todo.status === "in_progress" && (finalized ? "text-muted-foreground" : "font-medium text-foreground"),
+                      todo.status === "completed" &&
+                        "text-muted-foreground line-through",
+                      todo.status === "in_progress" &&
+                        (finalized
+                          ? "text-muted-foreground"
+                          : "font-medium text-foreground"),
                       todo.status === "pending" && "text-muted-foreground",
                     )}
                   >

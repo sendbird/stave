@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import {
   Bird,
-  Loader2,
   LockKeyhole,
   RefreshCw,
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
-import { Badge, Button, Input, toast } from "@/components/ui";
+import { Badge, Button, Input, Loader, toast } from "@/components/ui";
 import {
   type AtelierConnectorPublicStatus,
   type AtelierConnectorScope,
@@ -116,8 +115,7 @@ export function MartinSyncSettingsSection() {
       })
       .catch(() => undefined);
 
-    const unsubscribe =
-      window.api?.martinSync?.subscribeStatus?.(setStatus);
+    const unsubscribe = window.api?.martinSync?.subscribeStatus?.(setStatus);
     return () => {
       cancelled = true;
       unsubscribe?.();
@@ -364,7 +362,7 @@ export function MartinSyncSettingsSection() {
               onClick={() => void pair()}
             >
               {busy === "pair" ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader aria-hidden size="xs" variant="sync" />
               ) : (
                 <LockKeyhole className="size-4" />
               )}
@@ -381,8 +379,8 @@ export function MartinSyncSettingsSection() {
 
           {paired && !hasMartinScope ? (
             <p className="rounded-lg border border-warning/35 bg-warning/10 px-3 py-2 text-xs leading-5 text-warning">
-              This connector does not have Martin access. Pair again with
-              the Martin scope selected before enabling sync.
+              This connector does not have Martin access. Pair again with the
+              Martin scope selected before enabling sync.
             </p>
           ) : null}
         </div>
@@ -439,7 +437,7 @@ export function MartinSyncSettingsSection() {
             onClick={() => void retryFailed()}
           >
             {busy === "retry" ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader aria-hidden size="xs" variant="sync" />
             ) : (
               <RotateCcw className="size-4" />
             )}

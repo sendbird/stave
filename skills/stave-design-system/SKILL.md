@@ -39,7 +39,7 @@ The project uses the **radix-vega** style with **default-translucent** menu colo
 | **Layout** | Accordion, Card, Resizable (Panel, PanelGroup, Handle) |
 | **Input** | Button, Input, InputGroup, Textarea, Select, Switch, Slider, Toggle, Calendar |
 | **Overlay** | Dialog, Drawer, Popover, DropdownMenu, ContextMenu, Tooltip, Command (palette) |
-| **Display** | Badge, Table, Kbd, Empty (state), WaveIndicator |
+| **Display** | Badge, Table, Kbd, Empty (state), Loader |
 | **Feedback** | Sonner (toast) |
 
 ### Component-First Rule (MANDATORY)

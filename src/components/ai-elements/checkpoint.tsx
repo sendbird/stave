@@ -1,13 +1,16 @@
 import { useState, type HTMLAttributes } from "react";
-import { BookmarkIcon, LoaderCircle, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui";
+import { BookmarkIcon, RotateCcw } from "lucide-react";
+import { Button, Loader } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 /**
  * Shown while compaction is in progress (status: "compacting").
  * Renders a subtle spinner + label inline in the conversation.
  */
-export function CompactingIndicator({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CompactingIndicator({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
@@ -16,7 +19,7 @@ export function CompactingIndicator({ className, ...props }: HTMLAttributes<HTML
       )}
       {...props}
     >
-      <LoaderCircle className="size-3 animate-spin shrink-0" />
+      <Loader aria-hidden className="shrink-0" size="xs" variant="persist" />
       <span>Compacting conversation context…</span>
     </div>
   );
@@ -87,9 +90,16 @@ export function ContextCompactedCheckpoint({
                 }}
                 title="Discards uncommitted changes in the worktree and restores this checkpoint."
               >
-                {restorePending
-                  ? <LoaderCircle className="mr-1 size-3 animate-spin" />
-                  : <RotateCcw className="mr-1 size-3" />}
+                {restorePending ? (
+                  <Loader
+                    aria-hidden
+                    className="mr-1"
+                    size="xs"
+                    variant="persist"
+                  />
+                ) : (
+                  <RotateCcw className="mr-1 size-3" />
+                )}
                 Confirm restore
               </Button>
               <Button
@@ -111,11 +121,22 @@ export function ContextCompactedCheckpoint({
               className="h-5 px-1.5 text-[0.6875em]"
               disabled={restoreDisabled || restorePending}
               onClick={() => setConfirmingRestore(true)}
-              title={restoreDisabled ? "Restore unavailable for this checkpoint." : "Restore workspace to this checkpoint (discards uncommitted changes)."}
+              title={
+                restoreDisabled
+                  ? "Restore unavailable for this checkpoint."
+                  : "Restore workspace to this checkpoint (discards uncommitted changes)."
+              }
             >
-              {restorePending
-                ? <LoaderCircle className="mr-1 size-3 animate-spin" />
-                : <RotateCcw className="mr-1 size-3" />}
+              {restorePending ? (
+                <Loader
+                  aria-hidden
+                  className="mr-1"
+                  size="xs"
+                  variant="persist"
+                />
+              ) : (
+                <RotateCcw className="mr-1 size-3" />
+              )}
               Restore
             </Button>
           )

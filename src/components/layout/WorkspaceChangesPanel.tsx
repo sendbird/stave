@@ -9,7 +9,6 @@ import {
   GitPullRequest,
   History,
   ListChecks,
-  LoaderCircle,
   Minus,
   Plus,
   RefreshCw,
@@ -22,6 +21,7 @@ import {
   Badge,
   Button,
   Input,
+  Loader,
   Popover,
   PopoverContent,
   PopoverHeader,
@@ -725,512 +725,537 @@ export function WorkspaceChangesPanel(props: {
       </TabsContent>
 
       <TabsContent value="workspace" className="min-h-0 flex-1">
-    <Tabs
-      value={view}
-      onValueChange={(nextValue) =>
-        setView(nextValue as SourceControlPanelView)
-      }
-      className="flex h-full min-h-0 flex-col gap-0"
-    >
-      <div className="flex items-center gap-2 border-b border-border/80 px-3 py-2">
-        <TabsList className="h-auto flex-1 justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
-          <TabsTrigger
-            value="changes"
-            className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
-          >
-            <span>Changes</span>
-            <span className="text-[11px] text-muted-foreground">
-              {props.filteredScmItems.length}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="history"
-            className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
-          >
-            <History className="size-3.5" />
-            <span>History</span>
-            <span className="text-[11px] text-muted-foreground">
-              {props.sourceHistory.length}
-            </span>
-          </TabsTrigger>
-          {showChecksTab ? (
-            <TabsTrigger
-              value="checks"
-              className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
-            >
-              <ListChecks className="size-3.5" />
-              <span>Checks</span>
-              {checksAttentionCount > 0 ? (
-                <span className="text-[11px] text-destructive">
-                  {checksAttentionCount}
-                </span>
-              ) : null}
-            </TabsTrigger>
-          ) : null}
-        </TabsList>
-        {props.verification ? (
-          props.verification.failures.length > 0 ? (
-            <Popover>
-              <PopoverTrigger
-                render={
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
-                      VERIFICATION_STATUS_VISUAL[props.verification.status]
-                        .iconClassName,
-                    )}
-                    aria-label={describeTurnVerification(props.verification)}
-                  />
-                }
+        <Tabs
+          value={view}
+          onValueChange={(nextValue) =>
+            setView(nextValue as SourceControlPanelView)
+          }
+          className="flex h-full min-h-0 flex-col gap-0"
+        >
+          <div className="flex items-center gap-2 border-b border-border/80 px-3 py-2">
+            <TabsList className="h-auto flex-1 justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
+              <TabsTrigger
+                value="changes"
+                className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
               >
-                <VerificationStatusIcon status={props.verification.status} />
-                <span>{props.verification.failures.length}</span>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 p-0">
-                <PopoverHeader className="border-b border-border/70 px-3 py-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <PopoverTitle className="text-xs">
-                      Verification
-                    </PopoverTitle>
-                    {props.onFixVerificationWithAgent ? (
-                      <Button
+                <span>Changes</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {props.filteredScmItems.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="history"
+                className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
+              >
+                <History className="size-3.5" />
+                <span>History</span>
+                <span className="text-[11px] text-muted-foreground">
+                  {props.sourceHistory.length}
+                </span>
+              </TabsTrigger>
+              {showChecksTab ? (
+                <TabsTrigger
+                  value="checks"
+                  className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
+                >
+                  <ListChecks className="size-3.5" />
+                  <span>Checks</span>
+                  {checksAttentionCount > 0 ? (
+                    <span className="text-[11px] text-destructive">
+                      {checksAttentionCount}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              ) : null}
+            </TabsList>
+            {props.verification ? (
+              props.verification.failures.length > 0 ? (
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <button
                         type="button"
-                        size="xs"
-                        variant="outline"
-                        className="h-6 gap-1 px-2 text-[11px]"
-                        onClick={() => props.onFixVerificationWithAgent?.()}
-                        title="Send these failures to the agent as the next turn"
-                      >
-                        <Wrench className="size-3" />
-                        {verificationFailureCount > 1
-                          ? "Fix all with agent"
-                          : "Fix with agent"}
-                      </Button>
-                    ) : null}
-                  </div>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {describeTurnVerification(props.verification)}
-                  </p>
-                </PopoverHeader>
-                <ul className="max-h-72 overflow-y-auto py-1">
-                  {props.verification.failures.map((failure, index) => (
-                    <li
-                      key={`${failure.scriptId}-${index}`}
-                      className="px-3 py-1.5 text-[11px]"
-                    >
-                      <div className="flex items-center gap-1.5 font-medium text-foreground">
-                        <span
-                          className={cn(
-                            "rounded px-1 py-px text-[10px] uppercase tracking-wide",
-                            failure.blocking
-                              ? "bg-destructive/15 text-destructive"
-                              : "bg-warning/15 text-warning",
-                          )}
-                        >
-                          {failure.blocking ? "blocking" : "warn"}
-                        </span>
-                        <span className="truncate">{failure.scriptId}</span>
-                        {props.onFixVerificationWithAgent &&
-                        verificationFailureCount > 1 ? (
+                        className={cn(
+                          "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
+                          VERIFICATION_STATUS_VISUAL[props.verification.status]
+                            .iconClassName,
+                        )}
+                        aria-label={describeTurnVerification(
+                          props.verification,
+                        )}
+                      />
+                    }
+                  >
+                    <VerificationStatusIcon
+                      status={props.verification.status}
+                    />
+                    <span>{props.verification.failures.length}</span>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-80 p-0">
+                    <PopoverHeader className="border-b border-border/70 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <PopoverTitle className="text-xs">
+                          Verification
+                        </PopoverTitle>
+                        {props.onFixVerificationWithAgent ? (
                           <Button
                             type="button"
                             size="xs"
-                            variant="ghost"
-                            className="ml-auto h-5 shrink-0 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-                            onClick={() =>
-                              props.onFixVerificationWithAgent?.({
-                                scriptId: failure.scriptId,
-                              })
-                            }
-                            title={`Send only ${failure.scriptId} to the agent`}
+                            variant="outline"
+                            className="h-6 gap-1 px-2 text-[11px]"
+                            onClick={() => props.onFixVerificationWithAgent?.()}
+                            title="Send these failures to the agent as the next turn"
                           >
                             <Wrench className="size-3" />
-                            Fix
+                            {verificationFailureCount > 1
+                              ? "Fix all with agent"
+                              : "Fix with agent"}
                           </Button>
                         ) : null}
                       </div>
-                      <p className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground">
-                        {failure.message}
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {describeTurnVerification(props.verification)}
                       </p>
-                    </li>
-                  ))}
-                </ul>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <div
-              className={cn(
-                "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
-                VERIFICATION_STATUS_VISUAL[props.verification.status]
-                  .iconClassName,
-              )}
-              title={describeTurnVerification(props.verification)}
-            >
-              <VerificationStatusIcon status={props.verification.status} />
-            </div>
-          )
-        ) : null}
-        {props.intentCompliance ? (
-          props.intentCompliance.findings.length > 0 ? (
-            <Popover>
-              <PopoverTrigger
-                render={
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
-                      VERIFICATION_STATUS_VISUAL[props.intentCompliance.status]
-                        .iconClassName,
-                    )}
-                    aria-label={`Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`}
-                  />
-                }
-              >
-                <Crosshair className="size-3.5" />
-                <span>{props.intentCompliance.findings.length}</span>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 p-0">
-                <PopoverHeader className="border-b border-border/70 px-3 py-2">
-                  <PopoverTitle className="text-xs">Intent guard</PopoverTitle>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    Possible deviations from the pinned intent. Click to open
-                    the file.
-                  </p>
-                </PopoverHeader>
-                <ul className="max-h-72 overflow-y-auto py-1">
-                  {props.intentCompliance.findings.map((finding, index) => (
-                    <li key={`${finding.file}-${index}`}>
+                    </PopoverHeader>
+                    <ul className="max-h-72 overflow-y-auto py-1">
+                      {props.verification.failures.map((failure, index) => (
+                        <li
+                          key={`${failure.scriptId}-${index}`}
+                          className="px-3 py-1.5 text-[11px]"
+                        >
+                          <div className="flex items-center gap-1.5 font-medium text-foreground">
+                            <span
+                              className={cn(
+                                "rounded px-1 py-px text-[10px] uppercase tracking-wide",
+                                failure.blocking
+                                  ? "bg-destructive/15 text-destructive"
+                                  : "bg-warning/15 text-warning",
+                              )}
+                            >
+                              {failure.blocking ? "blocking" : "warn"}
+                            </span>
+                            <span className="truncate">{failure.scriptId}</span>
+                            {props.onFixVerificationWithAgent &&
+                            verificationFailureCount > 1 ? (
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant="ghost"
+                                className="ml-auto h-5 shrink-0 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                onClick={() =>
+                                  props.onFixVerificationWithAgent?.({
+                                    scriptId: failure.scriptId,
+                                  })
+                                }
+                                title={`Send only ${failure.scriptId} to the agent`}
+                              >
+                                <Wrench className="size-3" />
+                                Fix
+                              </Button>
+                            ) : null}
+                          </div>
+                          <p className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground">
+                            {failure.message}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div
+                  className={cn(
+                    "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
+                    VERIFICATION_STATUS_VISUAL[props.verification.status]
+                      .iconClassName,
+                  )}
+                  title={describeTurnVerification(props.verification)}
+                >
+                  <VerificationStatusIcon status={props.verification.status} />
+                </div>
+              )
+            ) : null}
+            {props.intentCompliance ? (
+              props.intentCompliance.findings.length > 0 ? (
+                <Popover>
+                  <PopoverTrigger
+                    render={
                       <button
                         type="button"
-                        className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-[11px] hover:bg-muted"
-                        onClick={() => void props.onSelectDiff(finding.file)}
-                        title={`Open ${finding.file}`}
-                      >
-                        <span className="flex max-w-full items-center gap-1.5 font-medium text-foreground">
-                          <span className="rounded bg-muted px-1 py-px text-[10px] uppercase tracking-wide text-muted-foreground">
-                            {finding.severity}
-                          </span>
-                          <span className="truncate">
-                            {finding.file}
-                            {typeof finding.line === "number"
-                              ? `:${finding.line}`
-                              : ""}
-                          </span>
-                        </span>
-                        <span className="whitespace-pre-wrap break-words text-muted-foreground">
-                          {finding.message}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <div
-              className={cn(
-                "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
-                VERIFICATION_STATUS_VISUAL[props.intentCompliance.status]
-                  .iconClassName,
-              )}
-              title="Intent guard: consistent with the pinned intent"
-            >
-              <Crosshair className="size-3.5" />
-            </div>
-          )
-        ) : null}
-        <div className="flex shrink-0 items-center gap-1">
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            aria-label="Refresh source control"
-            title="Refresh"
-            className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
-            disabled={props.isScmBusy}
-            onClick={() => void props.onRefresh()}
-          >
-            <RefreshCw
-              className={cn("size-3.5", props.isScmBusy && "animate-spin")}
-            />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="ghost"
-                  aria-label="Auto refresh options"
-                  title={
-                    props.autoRefreshSeconds > 0
-                      ? `Auto refresh: ${formatAutoRefreshShortLabel(props.autoRefreshSeconds)}`
-                      : "Auto refresh: Off"
-                  }
+                        className={cn(
+                          "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
+                          VERIFICATION_STATUS_VISUAL[
+                            props.intentCompliance.status
+                          ].iconClassName,
+                        )}
+                        aria-label={`Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`}
+                      />
+                    }
+                  >
+                    <Crosshair className="size-3.5" />
+                    <span>{props.intentCompliance.findings.length}</span>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-80 p-0">
+                    <PopoverHeader className="border-b border-border/70 px-3 py-2">
+                      <PopoverTitle className="text-xs">
+                        Intent guard
+                      </PopoverTitle>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        Possible deviations from the pinned intent. Click to
+                        open the file.
+                      </p>
+                    </PopoverHeader>
+                    <ul className="max-h-72 overflow-y-auto py-1">
+                      {props.intentCompliance.findings.map((finding, index) => (
+                        <li key={`${finding.file}-${index}`}>
+                          <button
+                            type="button"
+                            className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-[11px] hover:bg-muted"
+                            onClick={() =>
+                              void props.onSelectDiff(finding.file)
+                            }
+                            title={`Open ${finding.file}`}
+                          >
+                            <span className="flex max-w-full items-center gap-1.5 font-medium text-foreground">
+                              <span className="rounded bg-muted px-1 py-px text-[10px] uppercase tracking-wide text-muted-foreground">
+                                {finding.severity}
+                              </span>
+                              <span className="truncate">
+                                {finding.file}
+                                {typeof finding.line === "number"
+                                  ? `:${finding.line}`
+                                  : ""}
+                              </span>
+                            </span>
+                            <span className="whitespace-pre-wrap break-words text-muted-foreground">
+                              {finding.message}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <div
                   className={cn(
-                    "h-8 gap-1 rounded-lg px-1.5 text-muted-foreground hover:text-foreground",
-                    props.autoRefreshSeconds > 0 &&
-                      "text-success hover:text-success",
+                    "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
+                    VERIFICATION_STATUS_VISUAL[props.intentCompliance.status]
+                      .iconClassName,
                   )}
-                />
-              }
-            >
-              <Timer className="size-3.5" />
-              <span className="text-[11px] font-medium">
-                {formatAutoRefreshShortLabel(props.autoRefreshSeconds)}
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Auto refresh
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {AUTO_REFRESH_OPTIONS.map((option) => {
-                const isActive = option.seconds === props.autoRefreshSeconds;
-                return (
-                  <DropdownMenuItem
-                    key={option.seconds}
-                    onSelect={() =>
-                      props.onAutoRefreshSecondsChange(option.seconds)
-                    }
-                    className="justify-between"
-                  >
-                    <span>{option.label}</span>
-                    {isActive ? (
-                      <Check className="size-3.5 text-success" />
-                    ) : null}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      <TabsContent value="changes" className="min-h-0 flex-1 overflow-auto">
-        <div className="space-y-4 px-3 py-2">
-          <section className="space-y-3 px-1">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
+                  title="Intent guard: consistent with the pinned intent"
                 >
-                  <GitBranch className="size-3.5 text-muted-foreground" />
-                  <span className="truncate">{props.sourceBranch}</span>
-                </Badge>
-                <p className="text-sm font-medium text-foreground">
-                  {formatFileCount(props.filteredScmItems.length)} changed
-                </p>
-              </div>
-              {props.isScmBusy ? (
-                <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" />
-              ) : null}
-            </div>
-
-            {summaryLabels.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {summaryLabels.map((item) => (
-                  <span key={item.text} className={item.className}>
-                    {item.text}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            <p className="text-xs text-muted-foreground">
-              {props.sourceControlHint}
-            </p>
-
-            {showComposer ? (
-              <div className="space-y-3 border-t border-border/70 pt-3">
-                <div className="flex items-start gap-2">
-                  <Input
-                    className="h-9 rounded-lg border-border/70 bg-background/90 text-sm"
-                    placeholder={`Commit staged changes on "${props.sourceBranch}"`}
-                    value={props.commitMessage}
-                    onChange={(event) =>
-                      props.onCommitMessageChange(event.target.value)
-                    }
-                    onKeyDown={(event) => {
-                      if (
-                        (event.metaKey || event.ctrlKey) &&
-                        event.key === "Enter" &&
-                        props.commitMessage.trim() &&
-                        props.canCommitStagedChanges &&
-                        !props.isScmBusy
-                      ) {
-                        event.preventDefault();
-                        void props.onCommit();
-                      }
-                    }}
-                    disabled={props.isScmBusy}
-                  />
-                  <Button
-                    size="sm"
-                    className="h-9 rounded-lg px-3 text-sm"
-                    disabled={
-                      props.isScmBusy ||
-                      !props.commitMessage.trim() ||
-                      !props.canCommitStagedChanges
-                    }
-                    onClick={() => void props.onCommit()}
-                  >
-                    Commit
-                  </Button>
+                  <Crosshair className="size-3.5" />
                 </div>
-                {showStageAll || showUnstageAll ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {showStageAll ? (
+              )
+            ) : null}
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                aria-label="Refresh source control"
+                title="Refresh"
+                className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+                disabled={props.isScmBusy}
+                onClick={() => void props.onRefresh()}
+              >
+                <RefreshCw
+                  className={cn("size-3.5", props.isScmBusy && "animate-spin")}
+                />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Auto refresh options"
+                      title={
+                        props.autoRefreshSeconds > 0
+                          ? `Auto refresh: ${formatAutoRefreshShortLabel(props.autoRefreshSeconds)}`
+                          : "Auto refresh: Off"
+                      }
+                      className={cn(
+                        "h-8 gap-1 rounded-lg px-1.5 text-muted-foreground hover:text-foreground",
+                        props.autoRefreshSeconds > 0 &&
+                          "text-success hover:text-success",
+                      )}
+                    />
+                  }
+                >
+                  <Timer className="size-3.5" />
+                  <span className="text-[11px] font-medium">
+                    {formatAutoRefreshShortLabel(props.autoRefreshSeconds)}
+                  </span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                    Auto refresh
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {AUTO_REFRESH_OPTIONS.map((option) => {
+                    const isActive =
+                      option.seconds === props.autoRefreshSeconds;
+                    return (
+                      <DropdownMenuItem
+                        key={option.seconds}
+                        onSelect={() =>
+                          props.onAutoRefreshSecondsChange(option.seconds)
+                        }
+                        className="justify-between"
+                      >
+                        <span>{option.label}</span>
+                        {isActive ? (
+                          <Check className="size-3.5 text-success" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          <TabsContent value="changes" className="min-h-0 flex-1 overflow-auto">
+            <div className="space-y-4 px-3 py-2">
+              <section className="space-y-3 px-1">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
+                    >
+                      <GitBranch className="size-3.5 text-muted-foreground" />
+                      <span className="truncate">{props.sourceBranch}</span>
+                    </Badge>
+                    <p className="text-sm font-medium text-foreground">
+                      {formatFileCount(props.filteredScmItems.length)} changed
+                    </p>
+                  </div>
+                  {props.isScmBusy ? (
+                    <Loader
+                      aria-hidden
+                      className="shrink-0 text-muted-foreground"
+                      size="xs"
+                      variant="scan"
+                    />
+                  ) : null}
+                </div>
+
+                {summaryLabels.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    {summaryLabels.map((item) => (
+                      <span key={item.text} className={item.className}>
+                        {item.text}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <p className="text-xs text-muted-foreground">
+                  {props.sourceControlHint}
+                </p>
+
+                {showComposer ? (
+                  <div className="space-y-3 border-t border-border/70 pt-3">
+                    <div className="flex items-start gap-2">
+                      <Input
+                        className="h-9 rounded-lg border-border/70 bg-background/90 text-sm"
+                        placeholder={`Commit staged changes on "${props.sourceBranch}"`}
+                        value={props.commitMessage}
+                        onChange={(event) =>
+                          props.onCommitMessageChange(event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (
+                            (event.metaKey || event.ctrlKey) &&
+                            event.key === "Enter" &&
+                            props.commitMessage.trim() &&
+                            props.canCommitStagedChanges &&
+                            !props.isScmBusy
+                          ) {
+                            event.preventDefault();
+                            void props.onCommit();
+                          }
+                        }}
+                        disabled={props.isScmBusy}
+                      />
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="h-8 rounded-lg text-sm"
-                        disabled={props.isScmBusy}
-                        onClick={() => void props.onStageAll()}
+                        className="h-9 rounded-lg px-3 text-sm"
+                        disabled={
+                          props.isScmBusy ||
+                          !props.commitMessage.trim() ||
+                          !props.canCommitStagedChanges
+                        }
+                        onClick={() => void props.onCommit()}
                       >
-                        Stage All
+                        Commit
                       </Button>
-                    ) : null}
-                    {showUnstageAll ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 rounded-lg text-sm"
-                        disabled={props.isScmBusy}
-                        onClick={() => void props.onUnstageAll()}
-                      >
-                        Unstage All
-                      </Button>
+                    </div>
+                    {showStageAll || showUnstageAll ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {showStageAll ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 rounded-lg text-sm"
+                            disabled={props.isScmBusy}
+                            onClick={() => void props.onStageAll()}
+                          >
+                            Stage All
+                          </Button>
+                        ) : null}
+                        {showUnstageAll ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 rounded-lg text-sm"
+                            disabled={props.isScmBusy}
+                            onClick={() => void props.onUnstageAll()}
+                          >
+                            Unstage All
+                          </Button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
-              </div>
-            ) : null}
-          </section>
+              </section>
 
-          <div className="space-y-3">
-            {props.hasConflicts ? (
-              <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning dark:bg-warning/15">
-                Conflict detected. Resolve, stage, or discard the affected files
-                before committing.
+              <div className="space-y-3">
+                {props.hasConflicts ? (
+                  <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning dark:bg-warning/15">
+                    Conflict detected. Resolve, stage, or discard the affected
+                    files before committing.
+                  </div>
+                ) : null}
+                {props.sourceError ? (
+                  <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {props.sourceError}
+                  </div>
+                ) : null}
+                {!props.sourceError && props.filteredScmItems.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-3 py-3">
+                    <p className="text-sm text-muted-foreground">
+                      No local changes.
+                    </p>
+                  </div>
+                ) : null}
+                {props.sourceControlSections.map((section) => (
+                  <section key={section.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        {section.title}
+                      </p>
+                      <Badge
+                        variant={section.badgeVariant}
+                        className="rounded-md px-2 font-normal"
+                      >
+                        {section.items.length}
+                      </Badge>
+                    </div>
+                    <div className="space-y-1.5">
+                      {section.items.map((item) => (
+                        <SourceControlRow
+                          key={`${item.displayCode}:${item.pathLabel}`}
+                          item={item}
+                          isScmBusy={props.isScmBusy}
+                          onCopyPath={(path) =>
+                            void props.onCopySourceControlPath(path)
+                          }
+                          onOpenDiff={(path) => void props.onSelectDiff(path)}
+                          onStage={(sourceItem) =>
+                            void props.onStageAction({
+                              action: "stage",
+                              item: sourceItem,
+                            })
+                          }
+                          onUnstage={(sourceItem) =>
+                            void props.onStageAction({
+                              action: "unstage",
+                              item: sourceItem,
+                            })
+                          }
+                          onDiscard={(sourceItem) =>
+                            void props.onDiscardChange(sourceItem)
+                          }
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
-            ) : null}
-            {props.sourceError ? (
-              <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {props.sourceError}
-              </div>
-            ) : null}
-            {!props.sourceError && props.filteredScmItems.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-3 py-3">
-                <p className="text-sm text-muted-foreground">
-                  No local changes.
-                </p>
-              </div>
-            ) : null}
-            {props.sourceControlSections.map((section) => (
-              <section key={section.id} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2 px-1">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    {section.title}
-                  </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="min-h-0 flex-1 overflow-auto">
+            <div className="space-y-3 px-3 py-2">
+              <div className="flex items-center justify-between gap-3 px-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <Badge
-                    variant={section.badgeVariant}
-                    className="rounded-md px-2 font-normal"
+                    variant="outline"
+                    className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
                   >
-                    {section.items.length}
+                    <GitBranch className="size-3.5 text-muted-foreground" />
+                    <span className="truncate">{props.sourceBranch}</span>
                   </Badge>
+                  <p className="text-xs text-muted-foreground">
+                    {formatRecentCommitCount(props.sourceHistory.length)}
+                  </p>
                 </div>
-                <div className="space-y-1.5">
-                  {section.items.map((item) => (
-                    <SourceControlRow
-                      key={`${item.displayCode}:${item.pathLabel}`}
+                {props.isScmBusy ? (
+                  <Loader
+                    aria-hidden
+                    className="shrink-0 text-muted-foreground"
+                    size="xs"
+                    variant="scan"
+                  />
+                ) : null}
+              </div>
+
+              {props.sourceHistory.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-3 py-3">
+                  <p className="text-sm text-muted-foreground">
+                    Initial commit
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  {props.sourceHistory.slice(0, 10).map((item, index) => (
+                    <SourceControlHistoryRow
+                      key={`${item.hash}:${item.subject}`}
                       item={item}
-                      isScmBusy={props.isScmBusy}
-                      onCopyPath={(path) =>
-                        void props.onCopySourceControlPath(path)
-                      }
-                      onOpenDiff={(path) => void props.onSelectDiff(path)}
-                      onStage={(sourceItem) =>
-                        void props.onStageAction({
-                          action: "stage",
-                          item: sourceItem,
-                        })
-                      }
-                      onUnstage={(sourceItem) =>
-                        void props.onStageAction({
-                          action: "unstage",
-                          item: sourceItem,
-                        })
-                      }
-                      onDiscard={(sourceItem) =>
-                        void props.onDiscardChange(sourceItem)
+                      isLast={
+                        index === Math.min(props.sourceHistory.length, 10) - 1
                       }
                     />
                   ))}
                 </div>
-              </section>
-            ))}
-          </div>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="history" className="min-h-0 flex-1 overflow-auto">
-        <div className="space-y-3 px-3 py-2">
-          <div className="flex items-center justify-between gap-3 px-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <Badge
-                variant="outline"
-                className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
-              >
-                <GitBranch className="size-3.5 text-muted-foreground" />
-                <span className="truncate">{props.sourceBranch}</span>
-              </Badge>
-              <p className="text-xs text-muted-foreground">
-                {formatRecentCommitCount(props.sourceHistory.length)}
-              </p>
+              )}
             </div>
-            {props.isScmBusy ? (
-              <LoaderCircle className="size-4 shrink-0 animate-spin text-muted-foreground" />
-            ) : null}
-          </div>
+          </TabsContent>
 
-          {props.sourceHistory.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-3 py-3">
-              <p className="text-sm text-muted-foreground">Initial commit</p>
-            </div>
-          ) : (
-            <div className="space-y-0">
-              {props.sourceHistory.slice(0, 10).map((item, index) => (
-                <SourceControlHistoryRow
-                  key={`${item.hash}:${item.subject}`}
-                  item={item}
-                  isLast={
-                    index === Math.min(props.sourceHistory.length, 10) - 1
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </TabsContent>
-
-      {props.checks ? (
-        <TabsContent value="checks" className="min-h-0 flex-1 overflow-auto">
-          <ChecksTabContent
-            checks={props.checks}
-            verification={props.verification}
-            intentCompliance={props.intentCompliance}
-            sourceControlSummary={props.sourceControlSummary}
-            sourceBranch={props.sourceBranch}
-            changedCount={props.filteredScmItems.length}
-            onSelectDiff={props.onSelectDiff}
-            onFixVerificationWithAgent={props.onFixVerificationWithAgent}
-          />
-        </TabsContent>
-      ) : null}
-    </Tabs>
+          {props.checks ? (
+            <TabsContent
+              value="checks"
+              className="min-h-0 flex-1 overflow-auto"
+            >
+              <ChecksTabContent
+                checks={props.checks}
+                verification={props.verification}
+                intentCompliance={props.intentCompliance}
+                sourceControlSummary={props.sourceControlSummary}
+                sourceBranch={props.sourceBranch}
+                changedCount={props.filteredScmItems.length}
+                onSelectDiff={props.onSelectDiff}
+                onFixVerificationWithAgent={props.onFixVerificationWithAgent}
+              />
+            </TabsContent>
+          ) : null}
+        </Tabs>
       </TabsContent>
     </Tabs>
   );

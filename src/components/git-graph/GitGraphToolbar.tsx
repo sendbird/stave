@@ -5,7 +5,6 @@ import {
   Columns3,
   Download,
   GitBranch,
-  LoaderCircle,
   LocateFixed,
   RefreshCw,
   Search,
@@ -21,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  Loader,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -385,7 +385,7 @@ export function GitGraphToolbar({
               }
             >
               {fetching ? (
-                <LoaderCircle className="size-3.5 animate-spin" />
+                <Loader aria-hidden size="xs" variant="scan" />
               ) : (
                 <Download className="size-3.5" />
               )}

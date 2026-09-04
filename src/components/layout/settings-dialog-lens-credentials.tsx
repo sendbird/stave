@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  KeyRound,
-  Loader2,
-  Pencil,
-  Plus,
-  ShieldCheck,
-  Trash2,
-  X,
-} from "lucide-react";
-import { Badge, Button, Input, Switch, toast } from "@/components/ui";
+import { KeyRound, Pencil, Plus, ShieldCheck, Trash2, X } from "lucide-react";
+import { Badge, Button, Input, Loader, Switch, toast } from "@/components/ui";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SettingsCard } from "./settings-dialog.shared";
 import {
@@ -128,7 +120,9 @@ export function LensCredentialsSettingsCard() {
 
     const upsertCredential = window.api?.lens?.upsertCredential;
     if (!upsertCredential) {
-      toast.error("Secure Lens account storage is available in the desktop app.");
+      toast.error(
+        "Secure Lens account storage is available in the desktop app.",
+      );
       return;
     }
 
@@ -240,10 +234,7 @@ export function LensCredentialsSettingsCard() {
                 <span className="block">Hosts</span>
                 <div className="space-y-1.5">
                   {hostRows.map((host, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-1.5"
-                    >
+                    <div key={index} className="flex items-center gap-1.5">
                       <Input
                         value={host}
                         placeholder={
@@ -340,7 +331,9 @@ export function LensCredentialsSettingsCard() {
                 Cancel
               </Button>
               <Button type="submit" size="sm" disabled={saving}>
-                {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                {saving ? (
+                  <Loader aria-hidden size="xs" variant="persist" />
+                ) : null}
                 {editingId ? "Update account" : "Save account"}
               </Button>
             </div>
@@ -349,7 +342,7 @@ export function LensCredentialsSettingsCard() {
 
         {loading ? (
           <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
+            <Loader aria-hidden size="xs" variant="persist" />
             Loading saved accounts…
           </div>
         ) : credentials.length === 0 ? (

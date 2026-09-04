@@ -1,5 +1,5 @@
 import type { DockviewPanelApi, IDockviewPanelProps } from "dockview-react";
-import { Eraser, Loader2, SquareTerminal } from "lucide-react";
+import { Eraser, SquareTerminal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { TerminalTabSurface } from "@/components/layout/TerminalTabSurface";
@@ -10,7 +10,7 @@ import {
 import { TERMINAL_WRITE_ERROR_THRESHOLD } from "@/components/layout/useTerminalInstance";
 import { useTerminalSessionManager } from "@/components/layout/useTerminalSessionManager";
 import { useTerminalTabManager } from "@/components/layout/useTerminalTabManager";
-import { Button } from "@/components/ui";
+import { Button, Loader } from "@/components/ui";
 import { parsePanePanelId } from "@/lib/panes/types";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -109,8 +109,7 @@ function TerminalSurfacePanelContent(props: {
   );
 
   const tab = useMemo(
-    () =>
-      terminalTabs.find((item) => item.id === props.terminalTabId) ?? null,
+    () => terminalTabs.find((item) => item.id === props.terminalTabId) ?? null,
     [props.terminalTabId, terminalTabs],
   );
 
@@ -296,7 +295,7 @@ function TerminalSurfacePanelContent(props: {
           {!terminalReady ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-terminal">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
+                <Loader aria-hidden size="xs" variant="spinner" />
                 <span>Initializing terminal…</span>
               </div>
             </div>

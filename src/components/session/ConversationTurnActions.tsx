@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { GitFork, LoaderCircle, Undo2 } from "lucide-react";
+import { GitFork, Undo2 } from "lucide-react";
 import { MessageAction } from "@/components/ai-elements";
-import { Button, toast } from "@/components/ui";
+import { Button, Loader, toast } from "@/components/ui";
 import {
   Dialog,
   DialogContent,
@@ -117,7 +117,7 @@ export function ConversationTurnActions(props: {
           }}
         >
           {pendingAction === "fork" ? (
-            <LoaderCircle className="size-3.5 animate-spin" />
+            <Loader aria-hidden size="xs" variant="persist" />
           ) : (
             <GitFork className="size-3.5" />
           )}
@@ -180,7 +180,7 @@ export function ConversationTurnActions(props: {
               }}
             >
               {pendingAction === "rollback" ? (
-                <LoaderCircle className="size-4 animate-spin" />
+                <Loader aria-hidden size="xs" variant="persist" />
               ) : (
                 <Undo2 className="size-4" />
               )}

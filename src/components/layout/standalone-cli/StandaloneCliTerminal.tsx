@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import { useShallow } from "zustand/react/shallow";
 import { useCliSessionManager } from "@/components/layout/useCliSessionManager";
 import { useCliTerminalInstance } from "@/components/layout/useCliTerminalInstance";
@@ -316,7 +316,7 @@ export function StandaloneCliTerminal(props: {
           {!terminalInstance.ready ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-terminal">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
+                <Loader aria-hidden size="xs" variant="spinner" />
                 <span>Initializing terminal…</span>
               </div>
             </div>

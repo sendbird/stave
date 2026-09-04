@@ -1,5 +1,11 @@
-import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react";
+import {
+  CircleCheckIcon,
+  InfoIcon,
+  OctagonXIcon,
+  TriangleAlertIcon,
+} from "lucide-react";
 import { toast, Toaster as Sonner, type ToasterProps } from "sonner";
+import { Loader } from "@/components/ui/loader";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
 
@@ -19,21 +25,11 @@ const Toaster = ({ className, ...props }: ToasterProps) => {
         .filter(Boolean)
         .join(" ")}
       icons={{
-        success: (
-          <CircleCheckIcon className="size-4" />
-        ),
-        info: (
-          <InfoIcon className="size-4" />
-        ),
-        warning: (
-          <TriangleAlertIcon className="size-4" />
-        ),
-        error: (
-          <OctagonXIcon className="size-4" />
-        ),
-        loading: (
-          <Loader2Icon className="size-4 animate-spin" />
-        ),
+        success: <CircleCheckIcon className="size-4" />,
+        info: <InfoIcon className="size-4" />,
+        warning: <TriangleAlertIcon className="size-4" />,
+        error: <OctagonXIcon className="size-4" />,
+        loading: <Loader aria-hidden size="xs" variant="spinner" />,
       }}
       style={
         {

@@ -1,8 +1,19 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, ChevronDown, Circle, LoaderCircle } from "lucide-react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Brain, Check, ChevronDown, Circle } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import { cn } from "@/lib/utils";
-import { getRandomCompletionPhrase, getSeededCompletionPhrase } from "@/lib/completion-phrases";
+import {
+  getRandomCompletionPhrase,
+  getSeededCompletionPhrase,
+} from "@/lib/completion-phrases";
 import { useAgentStyle } from "./agent-style-context";
 import { ThinkingOrb } from "./thinking-orb";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
@@ -76,12 +87,16 @@ interface ChainOfThoughtContextValue {
   durationSeconds?: number;
 }
 
-const ChainOfThoughtContext = createContext<ChainOfThoughtContextValue | null>(null);
+const ChainOfThoughtContext = createContext<ChainOfThoughtContextValue | null>(
+  null,
+);
 
 function useChainOfThoughtContext() {
   const context = useContext(ChainOfThoughtContext);
   if (!context) {
-    throw new Error("ChainOfThought components must be used inside <ChainOfThought />.");
+    throw new Error(
+      "ChainOfThought components must be used inside <ChainOfThought />.",
+    );
   }
   return context;
 }
@@ -101,11 +116,16 @@ function StepIcon(args: {
   /* Bullet variant — small dot for text-only steps. */
   if (args.variant === "bullet") {
     return (
-      <span className={cn("flex items-center justify-center", ICON_SIZE)} aria-hidden="true">
+      <span
+        className={cn("flex items-center justify-center", ICON_SIZE)}
+        aria-hidden="true"
+      >
         <span
           className={cn(
             "size-[0.35em] rounded-full",
-            args.status === "active" ? "bg-foreground" : "bg-muted-foreground/50",
+            args.status === "active"
+              ? "bg-foreground"
+              : "bg-muted-foreground/50",
           )}
         />
       </span>
@@ -115,7 +135,12 @@ function StepIcon(args: {
   /* Active reasoning — pulse the kind icon instead of a generic spinner. */
   if (args.status === "active" && args.kind === "thinking" && args.icon) {
     return (
-      <span className={cn(ICON_CHILD, "text-foreground motion-safe:animate-thinking-shimmer")}>
+      <span
+        className={cn(
+          ICON_CHILD,
+          "text-foreground motion-safe:animate-thinking-shimmer",
+        )}
+      >
         {args.icon}
       </span>
     );
@@ -124,15 +149,20 @@ function StepIcon(args: {
   /* Active agent — keep the icon visible (title shimmer conveys activity). */
   if (args.status === "active" && args.kind === "agent" && args.icon) {
     return (
-      <span className={cn(ICON_CHILD, "text-foreground")}>
-        {args.icon}
-      </span>
+      <span className={cn(ICON_CHILD, "text-foreground")}>{args.icon}</span>
     );
   }
 
   /* Active state — generic spinner for tools, etc. */
   if (args.status === "active") {
-    return <LoaderCircle className={cn(ICON_SIZE, "animate-spin text-foreground")} />;
+    return (
+      <Loader
+        aria-hidden
+        className="text-foreground"
+        size="xs"
+        variant="steps"
+      />
+    );
   }
 
   /* Custom icon with status-driven colour. */
@@ -141,7 +171,9 @@ function StepIcon(args: {
       <span
         className={cn(
           ICON_CHILD,
-          args.status === "done" ? "text-muted-foreground" : "text-muted-foreground/50",
+          args.status === "done"
+            ? "text-muted-foreground"
+            : "text-muted-foreground/50",
         )}
       >
         {args.icon}
@@ -236,7 +268,9 @@ function formatTriggerDuration(seconds: number): string {
   return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`;
 }
 
-export function ChainOfThoughtTrigger(args: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function ChainOfThoughtTrigger(
+  args: ButtonHTMLAttributes<HTMLButtonElement>,
+) {
   const { isStreaming, open, setOpen, summaryItems, seed, durationSeconds } =
     useChainOfThoughtContext();
   const agentStyle = useAgentStyle();
@@ -247,11 +281,13 @@ export function ChainOfThoughtTrigger(args: ButtonHTMLAttributes<HTMLButtonEleme
      deterministic seeded variant so the same message always shows the same
      phrase. Fall back to the random variant for non-virtual contexts. */
   const completionPhrase = useMemo(
-    () => (seed ? getSeededCompletionPhrase(seed) : getRandomCompletionPhrase()),
+    () =>
+      seed ? getSeededCompletionPhrase(seed) : getRandomCompletionPhrase(),
     [seed],
   );
 
-  const showDuration = !open && !isStreaming && durationSeconds != null && durationSeconds > 0;
+  const showDuration =
+    !open && !isStreaming && durationSeconds != null && durationSeconds > 0;
 
   return (
     <button
@@ -279,7 +315,9 @@ export function ChainOfThoughtTrigger(args: ButtonHTMLAttributes<HTMLButtonEleme
       ) : (
         <>
           <Brain className="size-[1.15em] shrink-0" />
-          <span className="shrink-0 whitespace-nowrap font-medium">{completionPhrase}</span>
+          <span className="shrink-0 whitespace-nowrap font-medium">
+            {completionPhrase}
+          </span>
           {showDuration ? (
             <span className="shrink-0 text-[0.9em] tabular-nums text-muted-foreground/70">
               for {formatTriggerDuration(durationSeconds)}
@@ -292,10 +330,19 @@ export function ChainOfThoughtTrigger(args: ButtonHTMLAttributes<HTMLButtonEleme
       {showSummary ? (
         <span className="ml-auto flex shrink-0 items-center gap-x-[0.6em] whitespace-nowrap text-[0.75em] text-muted-foreground/70 motion-safe:animate-cot-step-in">
           {summaryItems.map((item, index) => (
-            <span key={item.label} className="inline-flex items-center gap-[0.3em]">
-              {index > 0 ? <span className="text-border" aria-hidden="true">·</span> : null}
+            <span
+              key={item.label}
+              className="inline-flex items-center gap-[0.3em]"
+            >
+              {index > 0 ? (
+                <span className="text-border" aria-hidden="true">
+                  ·
+                </span>
+              ) : null}
               <span className="[&>svg]:size-[1.15em]">{item.icon}</span>
-              <span>{item.count} {item.label}</span>
+              <span>
+                {item.count} {item.label}
+              </span>
             </span>
           ))}
         </span>
@@ -336,8 +383,8 @@ export function ChainOfThoughtContent(args: HTMLAttributes<HTMLDivElement>) {
       className={cn(
         "mt-[0.75em] [&>*:last-child_.cot-connector]:hidden",
         agentStyle === "legacy"
-          /* TODO(agent-style-legacy): remove with the legacy trace visual. */
-          ? "motion-safe:animate-cot-content-in"
+          ? /* TODO(agent-style-legacy): remove with the legacy trace visual. */
+            "motion-safe:animate-cot-content-in"
           : "motion-safe:animate-trace-reveal",
         args.className,
       )}
@@ -422,12 +469,14 @@ export function ChainOfThoughtStep({
   const hasContent = children != null;
   const resolvedTitle = titleContent ?? title;
   /* TODO(agent-style-legacy): collapse to the `beui` classes once signed off. */
-  const rowMotionClass = agentStyle === "legacy"
-    ? "motion-safe:animate-cot-step-in"
-    : "motion-safe:animate-trace-row-in";
-  const revealMotionClass = agentStyle === "legacy"
-    ? "motion-safe:animate-cot-step-in"
-    : "motion-safe:animate-trace-reveal";
+  const rowMotionClass =
+    agentStyle === "legacy"
+      ? "motion-safe:animate-cot-step-in"
+      : "motion-safe:animate-trace-row-in";
+  const revealMotionClass =
+    agentStyle === "legacy"
+      ? "motion-safe:animate-cot-step-in"
+      : "motion-safe:animate-trace-reveal";
 
   return (
     <div

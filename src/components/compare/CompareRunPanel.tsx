@@ -5,7 +5,6 @@ import {
   Eye,
   GitBranch,
   ListChecks,
-  LoaderCircle,
   RefreshCw,
   RotateCcw,
   SplitSquareHorizontal,
@@ -23,6 +22,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Loader,
   toast,
 } from "@/components/ui";
 import {
@@ -110,7 +110,7 @@ function VariantStatusIcon(props: { status: CompareRunVariant["status"] }) {
     return <CheckCircle2 className="size-3.5" />;
   }
   if (props.status === "running" || props.status === "creating") {
-    return <LoaderCircle className="size-3.5 animate-spin" />;
+    return <Loader aria-hidden size="xs" variant="parallel" />;
   }
   return <GitBranch className="size-3.5" />;
 }
@@ -584,7 +584,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
             )}
           >
             {judge.status === "running" || judge.status === "pending" ? (
-              <LoaderCircle className="size-4 animate-spin" />
+              <Loader aria-hidden size="xs" variant="parallel" />
             ) : judge.status === "failed" ? (
               <XCircle className="size-4" />
             ) : (
@@ -763,7 +763,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                     </p>
                   ) : sourceState?.status === "loading" ? (
                     <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground">
-                      <LoaderCircle className="size-3.5 animate-spin" />
+                      <Loader aria-hidden size="xs" variant="parallel" />
                       Loading changes
                     </div>
                   ) : sourceState?.status === "error" ? (

@@ -1,6 +1,6 @@
-import { ExternalLink, Loader2, RotateCcw, ShieldCheck } from "lucide-react";
+import { ExternalLink, RotateCcw, ShieldCheck } from "lucide-react";
 
-import { Button, Switch, Textarea } from "@/components/ui";
+import { Button, Loader, Switch, Textarea } from "@/components/ui";
 import {
   Sheet,
   SheetContent,
@@ -292,7 +292,7 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
             onClick={() => void submit()}
           >
             {draft.submitting ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader aria-hidden size="xs" variant="spinner" />
             ) : null}
             {draft.startMode === "run" ? "Start in Stave" : "Stage prompt"}
           </Button>

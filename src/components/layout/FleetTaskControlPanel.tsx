@@ -1,11 +1,4 @@
-import {
-  ArrowRight,
-  CornerDownRight,
-  ListPlus,
-  LoaderCircle,
-  Square,
-  X,
-} from "lucide-react";
+import { ArrowRight, CornerDownRight, ListPlus, Square, X } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -23,7 +16,7 @@ import {
   ChildTaskRows,
 } from "@/components/session/ChildTaskRows";
 import { useChildTasks } from "@/components/session/useChildTasks";
-import { Button, Textarea } from "@/components/ui";
+import { Button, Loader, Textarea } from "@/components/ui";
 import {
   resolveFleetCurrentTaskControlState,
   validateFleetInteractionAction,
@@ -57,11 +50,7 @@ export interface FleetTaskExpectedInteraction {
 }
 
 type FleetControlAction =
-  | "approval"
-  | "user-input"
-  | "steer"
-  | "queue"
-  | "stop";
+  "approval" | "user-input" | "steer" | "queue" | "stop";
 
 function restoreTriggerFocus(elementId?: string) {
   if (!elementId) {
@@ -79,11 +68,20 @@ function resolveActionStatus(
 ) {
   switch (result.status) {
     case "steered":
-      return { tone: "success" as const, text: "Reply steered into the active turn." };
+      return {
+        tone: "success" as const,
+        text: "Reply steered into the active turn.",
+      };
     case "queued":
-      return { tone: "success" as const, text: "Reply queued for the next turn." };
+      return {
+        tone: "success" as const,
+        text: "Reply queued for the next turn.",
+      };
     case "started":
-      return { tone: "success" as const, text: "A new turn started with this reply." };
+      return {
+        tone: "success" as const,
+        text: "A new turn started with this reply.",
+      };
     case "steer-unavailable":
     case "steer-delivery-unknown":
       return { tone: "error" as const, text: result.message };
@@ -247,7 +245,9 @@ export function FleetTaskControlPanel(args: {
     Boolean(task) &&
     !managed &&
     midTurnSteeringEnabled &&
-    providerSupportsMidTurnSteering({ providerId: task?.provider ?? "claude-code" });
+    providerSupportsMidTurnSteering({
+      providerId: task?.provider ?? "claude-code",
+    });
   const canQuickReply =
     Boolean(activeTurnId) && Boolean(task) && !managed && !pendingPart;
 
@@ -575,10 +575,7 @@ export function FleetTaskControlPanel(args: {
               onClick={() => void sendQuickReply("steer")}
             >
               {busyAction === "steer" ? (
-                <LoaderCircle
-                  className="size-3.5 animate-spin"
-                  aria-hidden="true"
-                />
+                <Loader aria-hidden="true" size="xs" variant="parallel" />
               ) : (
                 <CornerDownRight className="size-3.5" aria-hidden="true" />
               )}
@@ -593,10 +590,7 @@ export function FleetTaskControlPanel(args: {
               onClick={() => void sendQuickReply("queue")}
             >
               {busyAction === "queue" ? (
-                <LoaderCircle
-                  className="size-3.5 animate-spin"
-                  aria-hidden="true"
-                />
+                <Loader aria-hidden="true" size="xs" variant="parallel" />
               ) : (
                 <ListPlus className="size-3.5" aria-hidden="true" />
               )}

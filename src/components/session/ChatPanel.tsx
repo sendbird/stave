@@ -7,7 +7,7 @@ import {
   type ClipboardEvent as ReactClipboardEvent,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
-import { LoaderCircle, MessageSquareIcon, Undo2 } from "lucide-react";
+import { MessageSquareIcon, Undo2 } from "lucide-react";
 import {
   Button,
   Empty,
@@ -15,7 +15,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  WaveIndicator,
+  Loader,
   toast,
 } from "@/components/ui";
 import {
@@ -363,15 +363,14 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   className="pointer-events-none h-7 cursor-default gap-1.5 rounded-sm px-2 text-sm font-normal text-muted-foreground opacity-100"
                 >
                   {showRespondingWave ? (
-                    <WaveIndicator
-                      className={cn(
-                        "size-3.5",
-                        toProviderWaveToneClass({
-                          providerId: message.providerId,
-                          model: message.model,
-                        }),
-                      )}
-                      animate
+                    <Loader
+                      aria-hidden
+                      className={toProviderWaveToneClass({
+                        providerId: message.providerId,
+                        model: message.model,
+                      })}
+                      size="xs"
+                      variant="pulse"
                     />
                   ) : null}
                   {elapsedLabel}
@@ -389,10 +388,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   onClick={() => void handleRewindPreview()}
                 >
                   {historyAction === "preview" ? (
-                    <LoaderCircle
-                      aria-hidden="true"
-                      className="size-3.5 animate-spin"
-                    />
+                    <Loader aria-hidden size="xs" variant="scan" />
                   ) : (
                     <Undo2 className="size-3.5" />
                   )}
@@ -444,10 +440,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 <div aria-live="polite" className="min-w-0 space-y-3">
                   {historyAction === "preview" && !rewindPreview ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <LoaderCircle
-                        aria-hidden="true"
-                        className="size-4 animate-spin"
-                      />
+                      <Loader aria-hidden size="xs" variant="scan" />
                       Checking affected files…
                     </div>
                   ) : rewindPreview?.ok && rewindPreview.canRewind ? (
@@ -506,10 +499,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     onClick={() => void handleRewindConfirm()}
                   >
                     {historyAction === "rewind" ? (
-                      <LoaderCircle
-                        aria-hidden="true"
-                        className="size-4 animate-spin"
-                      />
+                      <Loader aria-hidden size="xs" variant="persist" />
                     ) : null}
                     Rewind files
                   </Button>

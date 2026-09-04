@@ -1,11 +1,15 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { ChevronDown, CircleAlert, CircleCheck, LoaderCircle, Wrench } from "lucide-react";
+import { ChevronDown, CircleAlert, CircleCheck, Wrench } from "lucide-react";
 import { StaveIcon } from "@/components/brand-icons";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import { TruncationWarningBanner } from "@/components/ai-elements/truncation-warning";
-import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
+import {
+  isStaveToolName,
+  toStaveToolDisplayName,
+} from "@/lib/tool-display-name";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
+import { Loader } from "@/components/ui/loader";
 import { cn } from "@/lib/utils";
 
 interface ToolProps extends HTMLAttributes<HTMLDivElement> {
@@ -13,7 +17,8 @@ interface ToolProps extends HTMLAttributes<HTMLDivElement> {
   openWhen?: boolean;
 }
 
-export type ToolState = "input-streaming" | "input-available" | "output-available" | "output-error";
+export type ToolState =
+  "input-streaming" | "input-available" | "output-available" | "output-error";
 
 interface ToolHeaderProps extends HTMLAttributes<HTMLButtonElement> {
   type?: string;
@@ -37,7 +42,12 @@ function useToolContext() {
   return context;
 }
 
-export function Tool({ className, defaultOpen = false, openWhen = false, ...props }: ToolProps) {
+export function Tool({
+  className,
+  defaultOpen = false,
+  openWhen = false,
+  ...props
+}: ToolProps) {
   const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
@@ -50,7 +60,10 @@ export function Tool({ className, defaultOpen = false, openWhen = false, ...prop
 
   return (
     <ToolContext.Provider value={contextValue}>
-      <section className={cn("rounded-md border bg-card", className)} {...props} />
+      <section
+        className={cn("rounded-md border bg-card", className)}
+        {...props}
+      />
     </ToolContext.Provider>
   );
 }
@@ -72,31 +85,46 @@ export function getStatusBadge(state?: ToolHeaderProps["state"]): ReactNode {
   switch (state) {
     case "input-streaming":
       return (
-        <span aria-label="Running" className="inline-flex items-center text-muted-foreground">
-          <LoaderCircle className="size-3.5 animate-spin" />
+        <span
+          aria-label="Running"
+          className="inline-flex items-center text-muted-foreground"
+        >
+          <Loader aria-hidden size="xs" variant="steps" />
         </span>
       );
     case "input-available":
       return (
-        <span aria-label="Input available" className="inline-flex items-center text-muted-foreground">
+        <span
+          aria-label="Input available"
+          className="inline-flex items-center text-muted-foreground"
+        >
           <Wrench className="size-3.5" />
         </span>
       );
     case "output-available":
       return (
-        <span aria-label="Done" className="inline-flex items-center text-success">
+        <span
+          aria-label="Done"
+          className="inline-flex items-center text-success"
+        >
           <CircleCheck className="size-3.5" />
         </span>
       );
     case "output-error":
       return (
-        <span aria-label="Error" className="inline-flex items-center text-destructive">
+        <span
+          aria-label="Error"
+          className="inline-flex items-center text-destructive"
+        >
           <CircleAlert className="size-3.5" />
         </span>
       );
     default:
       return (
-        <span aria-label="Idle" className="inline-flex items-center text-muted-foreground">
+        <span
+          aria-label="Idle"
+          className="inline-flex items-center text-muted-foreground"
+        >
           <Wrench className="size-3.5" />
         </span>
       );
@@ -142,31 +170,59 @@ function getToolStatusTextClassName(state?: ToolState) {
   }
 }
 
-export function ToolHeader({ className, type, state, title, elapsedSeconds, ...props }: ToolHeaderProps) {
+export function ToolHeader({
+  className,
+  type,
+  state,
+  title,
+  elapsedSeconds,
+  ...props
+}: ToolHeaderProps) {
   const { open, setOpen } = useToolContext();
   return (
     <button
       type="button"
-      className={cn("flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold", open && "border-b", className)}
+      className={cn(
+        "flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold",
+        open && "border-b",
+        className,
+      )}
       onClick={() => setOpen(!open)}
       {...props}
     >
       <span className="inline-flex items-center gap-1.5">
-        {type && isStaveToolName(type) ? <StaveIcon className="size-3.5" /> : <Wrench className="size-3.5" />}
+        {type && isStaveToolName(type) ? (
+          <StaveIcon className="size-3.5" />
+        ) : (
+          <Wrench className="size-3.5" />
+        )}
         {displayToolName({ type, title })}
       </span>
       <span className="inline-flex items-center gap-2">
-        <span className={cn("text-[0.75em] font-medium", getToolStatusTextClassName(state))}>
+        <span
+          className={cn(
+            "text-[0.75em] font-medium",
+            getToolStatusTextClassName(state),
+          )}
+        >
           {getToolStatusText(state, elapsedSeconds)}
         </span>
         {getStatusBadge(state)}
-        <ChevronDown className={cn("size-3.5 transition-transform", open ? "rotate-180" : "rotate-0")} />
+        <ChevronDown
+          className={cn(
+            "size-3.5 transition-transform",
+            open ? "rotate-180" : "rotate-0",
+          )}
+        />
       </span>
     </button>
   );
 }
 
-export function ToolContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function ToolContent({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   const { open } = useToolContext();
   if (!open) {
     return null;
@@ -175,14 +231,24 @@ export function ToolContent({ className, ...props }: HTMLAttributes<HTMLDivEleme
 }
 
 export function ToolInput(args: { input: unknown; className?: string }) {
-  const content = typeof args.input === "string" ? args.input : JSON.stringify(args.input, null, 2);
+  const content =
+    typeof args.input === "string"
+      ? args.input
+      : JSON.stringify(args.input, null, 2);
   const truncationNotice = detectTruncationNotice({
     text: content,
     source: "tool_input",
   });
   return (
-    <div className={cn("rounded-sm border border-border/70 bg-muted/20 p-2", args.className)}>
-      <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">Input</p>
+    <div
+      className={cn(
+        "rounded-sm border border-border/70 bg-muted/20 p-2",
+        args.className,
+      )}
+    >
+      <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">
+        Input
+      </p>
       {truncationNotice ? (
         <TruncationWarningBanner
           notice={truncationNotice}
@@ -212,8 +278,15 @@ export function ToolOutput(args: {
     source: "tool_output",
   });
   return (
-    <div className={cn("rounded-sm border border-border/70 bg-background/40 p-2", args.className)}>
-      <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">{args.label ?? "Output"}</p>
+    <div
+      className={cn(
+        "rounded-sm border border-border/70 bg-background/40 p-2",
+        args.className,
+      )}
+    >
+      <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">
+        {args.label ?? "Output"}
+      </p>
       {truncationNotice ? (
         <TruncationWarningBanner
           notice={truncationNotice}
@@ -229,8 +302,8 @@ export function ToolOutput(args: {
         />
       ) : (
         <div>
-          {args.output ?? (
-            typeof args.outputText === "string" && args.outputText !== "" ? (
+          {args.output ??
+            (typeof args.outputText === "string" && args.outputText !== "" ? (
               args.linkifyOutputText === false ? (
                 <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[0.875em]">
                   {args.outputText}
@@ -244,8 +317,7 @@ export function ToolOutput(args: {
               )
             ) : (
               <span className="text-muted-foreground">No output.</span>
-            )
-          )}
+            ))}
         </div>
       )}
     </div>
@@ -275,7 +347,9 @@ export function ToolGroup(args: {
     }
   }, [openWhen]);
 
-  const latestState = [...states].reverse().find((state): state is ToolGroupState => state !== undefined);
+  const latestState = [...states]
+    .reverse()
+    .find((state): state is ToolGroupState => state !== undefined);
 
   const overallState: ToolGroupState = latestState ?? "input-available";
 
@@ -283,7 +357,10 @@ export function ToolGroup(args: {
     <div className="rounded-md border bg-card">
       <button
         type="button"
-        className={cn("flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold", open && "border-b")}
+        className={cn(
+          "flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold",
+          open && "border-b",
+        )}
         onClick={() => setOpen((v) => !v)}
       >
         <span className="inline-flex items-center gap-1.5">
@@ -291,11 +368,21 @@ export function ToolGroup(args: {
           Tools
         </span>
         <span className="inline-flex items-center gap-2">
-          <span className={cn("text-[0.75em] font-medium", getToolStatusTextClassName(overallState))}>
+          <span
+            className={cn(
+              "text-[0.75em] font-medium",
+              getToolStatusTextClassName(overallState),
+            )}
+          >
             {getToolStatusText(overallState)}
           </span>
           {getStatusBadge(overallState)}
-          <ChevronDown className={cn("size-3.5 transition-transform", open ? "rotate-180" : "rotate-0")} />
+          <ChevronDown
+            className={cn(
+              "size-3.5 transition-transform",
+              open ? "rotate-180" : "rotate-0",
+            )}
+          />
         </span>
       </button>
       {open && <div className="space-y-1 p-2">{children}</div>}

@@ -7,7 +7,6 @@ import {
   Download,
   Globe,
   Highlighter,
-  Loader2,
   Monitor,
   Network,
   RotateCw,
@@ -28,6 +27,7 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
+  Loader,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -208,7 +208,7 @@ export function LensChrome(props: {
             }
           >
             {isLoading ? (
-              <Loader2 className="size-4 animate-spin" />
+              <Loader aria-hidden size="xs" variant="scan" />
             ) : (
               <RotateCw className={LENS_TOOL_ICON_CLASS} />
             )}

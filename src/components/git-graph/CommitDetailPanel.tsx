@@ -5,7 +5,6 @@ import {
   FileCode2,
   FolderOpen,
   GitCommitHorizontal,
-  LoaderCircle,
   Mail,
   ShieldAlert,
   ShieldCheck,
@@ -18,6 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Loader,
   toast,
 } from "@/components/ui";
 import type {
@@ -276,7 +276,7 @@ export function CommitDetailPanel({
             <WorkingTreeSummary summary={workingTree} />
           ) : loading && !details ? (
             <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
-              <LoaderCircle className="size-3.5 animate-spin" />
+              <Loader aria-hidden size="xs" variant="scan" />
               Loading commit details…
             </div>
           ) : details ? (
@@ -323,7 +323,12 @@ export function CommitDetailPanel({
             Changed files
           </span>
           {loading ? (
-            <LoaderCircle className="size-3 animate-spin text-muted-foreground" />
+            <Loader
+              aria-hidden
+              className="text-muted-foreground"
+              size="xs"
+              variant="scan"
+            />
           ) : (
             <span className="text-[10px] tabular-nums text-muted-foreground">
               {files.length}
@@ -340,7 +345,12 @@ export function CommitDetailPanel({
         <div className="min-h-0 flex-1 p-2">
           {loading && files.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
+              <Loader
+                aria-hidden
+                className="text-muted-foreground"
+                size="xs"
+                variant="scan"
+              />
             </div>
           ) : files.length === 0 ? (
             <p className="px-1 py-3 text-xs text-muted-foreground">

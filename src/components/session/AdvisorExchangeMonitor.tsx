@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ChevronUp,
   History,
-  LoaderCircle,
   SkipForward,
   TriangleAlert,
 } from "lucide-react";
@@ -27,6 +26,7 @@ import { AdvisorCheckIcon } from "@/components/session/AdvisorCheckIcon";
 import { SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME } from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loader";
 import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
 import {
   advisorConsultLogEntryKey,
@@ -162,11 +162,11 @@ export function AdvisorExchangeCard(props: {
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2">
         {running ? (
-          <LoaderCircle
-            className={cn(
-              "size-3.5 shrink-0 motion-safe:animate-spin",
-              TONE_ACCENT_CLASS[tone],
-            )}
+          <Loader
+            aria-hidden
+            className={cn("shrink-0", TONE_ACCENT_CLASS[tone])}
+            size="xs"
+            variant="handoff"
           />
         ) : (
           <ArrowLeftRight
@@ -198,7 +198,11 @@ export function AdvisorExchangeCard(props: {
           variant="ghost"
           size="icon-xs"
           aria-expanded={props.expanded}
-          aria-label={props.expanded ? "Collapse advisor exchange" : "Expand advisor exchange"}
+          aria-label={
+            props.expanded
+              ? "Collapse advisor exchange"
+              : "Expand advisor exchange"
+          }
           onClick={props.onToggleExpanded}
         >
           {props.expanded ? (
@@ -431,7 +435,8 @@ export function AdvisorExchangeMonitor() {
   // A primitive, not the entry array: the card re-renders on a 200ms clock and
   // must not also re-render whenever an unrelated consult is archived.
   const consultLogCount = useAppStore(
-    (state) => selectAdvisorConsultLog(state.advisorConsultLogByTask, taskId).length,
+    (state) =>
+      selectAdvisorConsultLog(state.advisorConsultLogByTask, taskId).length,
   );
 
   const [expanded, setExpanded] = useState(false);

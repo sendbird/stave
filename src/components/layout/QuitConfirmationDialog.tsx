@@ -1,6 +1,6 @@
-import { FileWarning, LoaderCircle, Power, TerminalSquare } from "lucide-react";
+import { FileWarning, Power, TerminalSquare } from "lucide-react";
 import { useEffect, useRef, type FormEvent } from "react";
-import { Button, Kbd } from "@/components/ui";
+import { Button, Kbd, Loader } from "@/components/ui";
 import {
   Dialog,
   DialogContent,
@@ -123,7 +123,7 @@ export function QuitConfirmationDialog(props: QuitConfirmationDialogProps) {
                   disabled={quitting}
                 >
                   {quitting ? (
-                    <LoaderCircle className="size-4 animate-spin" />
+                    <Loader aria-hidden size="xs" variant="persist" />
                   ) : null}
                   {quitting ? "Quitting..." : "Quit Stave"}
                 </Button>

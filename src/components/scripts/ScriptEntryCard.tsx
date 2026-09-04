@@ -3,7 +3,6 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
-  LoaderCircle,
   Play,
   Square,
   Trash2,

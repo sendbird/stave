@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Circle, ListTodo, LoaderCircle } from "lucide-react";
+import { CheckCircle2, Circle, ListTodo } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import { getTodoProgress, type TodoItem } from "@/components/ai-elements/todo";
 import { deriveTodoTraceItems } from "@/components/session/message/assistant-trace.utils";
 import {
@@ -249,7 +250,12 @@ function TodoFloaterItemIcon({ status }: { status: TodoItem["status"] }) {
   }
   if (status === "in_progress") {
     return (
-      <LoaderCircle className="mt-[0.1875rem] size-4 shrink-0 animate-spin text-primary" />
+      <Loader
+        aria-hidden
+        className="mt-[0.1875rem] text-primary"
+        size="xs"
+        variant="steps"
+      />
     );
   }
   return (

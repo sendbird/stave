@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Cable, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
+import { Cable, ExternalLink, ShieldCheck } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
   Button,
+  Loader,
   toast,
 } from "@/components/ui";
 import {
@@ -427,7 +428,9 @@ export function CraneDispatchApprovalDialog() {
             }
             onClick={() => void approve()}
           >
-            {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
+            {submitting ? (
+              <Loader aria-hidden size="xs" variant="spinner" />
+            ) : null}
             Approve and run locally
           </Button>
         </DialogFooter>

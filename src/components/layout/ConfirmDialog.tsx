@@ -1,4 +1,3 @@
-import { LoaderCircle } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -8,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { Card, Button } from "@/components/ui";
+import { Card, Button, Loader } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
 
@@ -112,7 +111,7 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
               disabled={loading}
             >
               {loading ? (
-                <LoaderCircle className="size-4 animate-spin" />
+                <Loader aria-hidden size="xs" variant="persist" />
               ) : null}
               {confirmLabel}
             </Button>

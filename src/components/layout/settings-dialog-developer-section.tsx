@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  LoaderCircle,
-  TriangleAlert,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, TriangleAlert } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Badge,
   Button,
+  Loader,
   Switch,
   Table,
   TableBody,
@@ -1202,7 +1198,12 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
       >
         <span>{open ? "Hide request payload" : "View request payload"}</span>
         {payloadState.status === "loading" ? (
-          <LoaderCircle className="size-3.5 animate-spin text-muted-foreground" />
+          <Loader
+            aria-hidden
+            className="text-muted-foreground"
+            size="xs"
+            variant="spinner"
+          />
         ) : null}
       </button>
 

@@ -4,7 +4,7 @@ import type {
   IPosition,
   IRange,
 } from "monaco-editor";
-import { FileCode2, LoaderCircle } from "lucide-react";
+import { FileCode2 } from "lucide-react";
 import type { IDockviewPanelProps } from "dockview-react";
 import {
   useCallback,
@@ -74,6 +74,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Loader,
 } from "@/components/ui";
 import { isSnapshotDiffEditorTab } from "@/lib/editor/snapshot-diff-tabs";
 import { formatFileSize } from "@/lib/fs/file-preview-limits";
@@ -945,10 +946,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                     variant="icon"
                     className="size-14 rounded-2xl bg-primary/10 text-primary [&_svg:not([class*='size-'])]:size-7"
                   >
-                    <LoaderCircle
-                      className="size-7 animate-spin"
-                      strokeWidth={1.6}
-                    />
+                    <Loader aria-hidden size="md" variant="scan" />
                   </EmptyMedia>
                   <div className="flex flex-col gap-1">
                     <EmptyTitle className="text-xl font-semibold">
