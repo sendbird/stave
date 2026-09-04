@@ -4,10 +4,22 @@ import type {
   FleetAttentionTier,
 } from "@/lib/fleet/attention-projection";
 import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
-import type { FleetTaskStatus } from "@/lib/fleet/task-status";
+import {
+  classifyTaskStatus,
+  compareFleetTaskStatus,
+  summarizeFleetRespondingTasks,
+  type FleetTaskStatus,
+} from "@/lib/fleet/task-status";
+import { selectFleetOpenTasks } from "@/lib/fleet/workspace-activity";
+import type { ProviderId } from "@/lib/providers/provider.types";
+import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
-import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
-import type { Task } from "@/types/chat";
+import {
+  getRespondingProviderId,
+  isDelegatedChildTask,
+  isTaskArchived,
+} from "@/lib/tasks";
+import type { ChatMessage, Task } from "@/types/chat";
 import {
   isDefaultWorkspaceName,
   type ProjectAppearanceColorId,
@@ -44,7 +56,9 @@ const UNTITLED_TASK_FALLBACK = "Untitled task";
 const WORKSPACE_ROW_ACTION_REVEAL_CLASSES =
   "group-hover/workspace-row:pointer-events-auto group-hover/workspace-row:opacity-100 group-has-[:focus-visible]/workspace-row:pointer-events-auto group-has-[:focus-visible]/workspace-row:opacity-100";
 
-export function getWorkspaceLeadingAttentionKind(attentionKind?: FleetAttentionKind) {
+export function getWorkspaceLeadingAttentionKind(
+  attentionKind?: FleetAttentionKind,
+) {
   return attentionKind === "result-ready" ? undefined : attentionKind;
 }
 
@@ -134,9 +148,13 @@ export function buildProjectSidebarAttentionAlert(args: {
   const review = createTierAccumulator();
 
   for (const workspace of args.workspaces) {
-    for (const attentionItem of args.attentionItemsByWorkspaceId[workspace.id] ?? []) {
+    for (const attentionItem of args.attentionItemsByWorkspaceId[
+      workspace.id
+    ] ?? []) {
       const target =
-        getFleetAttentionTier(attentionItem.kind) === "blocking" ? blocking : review;
+        getFleetAttentionTier(attentionItem.kind) === "blocking"
+          ? blocking
+          : review;
       target.attentionItemCount += 1;
       target.workspaceIds.add(workspace.id);
       // Lower priority number wins; ties fall back to the older item so the
@@ -547,4 +565,115 @@ export function getWorkspaceRespondingCountVisibilityClasses(args: {
   return args.isClosing
     ? "opacity-0"
     : "group-hover/workspace-row:opacity-0 group-has-[:focus-visible]/workspace-row:opacity-0";
+}
+
+const WORKSPACE_PROGRESS_TASK_TITLE_MAX = 42;
+const UNTITLED_PROGRESS_TASK_FALLBACK = "Untitled Task";
+
+export interface WorkspaceProgressTaskItem {
+  taskId: string;
+  title: string;
+  status: FleetTaskStatus;
+  providerId: ProviderId;
+}
+
+type WorkspaceProgressTaskSource = Pick<
+  Task,
+  "id" | "title" | "provider" | "updatedAt" | "archivedAt" | "parentTaskId"
+>;
+
+/**
+ * Sidebar rows cannot show a full first-message title. Clip on a word
+ * boundary so the status mark still has a stable slot.
+ */
+export function summarizeWorkspaceTaskTitle(title: string) {
+  const normalized = title.replace(/\s+/g, " ").trim();
+  const source = normalized || UNTITLED_PROGRESS_TASK_FALLBACK;
+  if (source.length <= WORKSPACE_PROGRESS_TASK_TITLE_MAX) {
+    return source;
+  }
+  const slice = source.slice(0, WORKSPACE_PROGRESS_TASK_TITLE_MAX);
+  const lastSpace = slice.lastIndexOf(" ");
+  const clipped = lastSpace >= 16 ? slice.slice(0, lastSpace) : slice;
+  return `${clipped.trimEnd()}…`;
+}
+
+export function resolveWorkspaceProgressTaskLoaderVariant(
+  status: FleetTaskStatus,
+) {
+  if (status === "running") {
+    return "pulse" as const;
+  }
+  if (status === "waiting-input" || status === "waiting-approval") {
+    return "handoff" as const;
+  }
+  return null;
+}
+
+/**
+ * Open task rows under a workspace that is currently in flight. The tree is
+ * hidden when nothing is responding so idle workspaces stay one line.
+ */
+export function buildWorkspaceProgressTaskItems(args: {
+  tasks: readonly WorkspaceProgressTaskSource[];
+  messagesByTask?: Record<string, ChatMessage[]>;
+  activeTurnIdsByTask?: Record<string, string | undefined>;
+  providerTurnActivityByTask?: Record<
+    string,
+    ProviderTurnActivitySnapshot | undefined
+  >;
+  openTaskTabIds?: readonly string[] | null;
+}): WorkspaceProgressTaskItem[] {
+  const messagesByTask = args.messagesByTask ?? {};
+  const activeTurnIdsByTask = args.activeTurnIdsByTask ?? {};
+  const providerTurnActivityByTask = args.providerTurnActivityByTask ?? {};
+  const tasks = [...args.tasks];
+  const responding = summarizeFleetRespondingTasks({
+    tasks,
+    messagesByTask,
+    activeTurnIdsByTask,
+    providerTurnActivityByTask,
+  });
+  if (responding.respondingTaskCount === 0) {
+    return [];
+  }
+
+  const openTasks = selectFleetOpenTasks(tasks as Task[], {
+    openTaskTabIds: args.openTaskTabIds,
+    activeTurnIdsByTask,
+  });
+
+  return openTasks
+    .map((task) => {
+      const messages = messagesByTask[task.id] ?? [];
+      const status = classifyTaskStatus({
+        task,
+        messages,
+        activeTurnId: activeTurnIdsByTask[task.id] ?? null,
+        activity: providerTurnActivityByTask[task.id] ?? null,
+      });
+      return {
+        taskId: task.id,
+        title: summarizeWorkspaceTaskTitle(task.title),
+        status,
+        providerId: getRespondingProviderId({
+          fallbackProviderId: task.provider,
+          messages,
+        }),
+        updatedAt: task.updatedAt,
+      };
+    })
+    .sort((left, right) => {
+      const statusOrder = compareFleetTaskStatus(left.status, right.status);
+      if (statusOrder !== 0) {
+        return statusOrder;
+      }
+      return right.updatedAt.localeCompare(left.updatedAt);
+    })
+    .map((item) => ({
+      taskId: item.taskId,
+      title: item.title,
+      status: item.status,
+      providerId: item.providerId,
+    }));
 }
