@@ -1,3 +1,21 @@
+## [0.17.2](https://github.com/sendbird/stave/compare/v0.17.1...v0.17.2) (2026-09-04)
+
+### Features
+
+* Add a shared meaning-led `Loader` with activity cadences, tones, and reduced-motion support for response, inspection, synchronization, persistence, and tool states.
+* Add Workspace Tools process registration from the right rail, live running-process counts, simplified Settings forms, and safe handling for unsaved configuration-scope changes.
+* Attribute resource usage across Electron roles, renderer memory, the host service, PTYs, provider descendants, and Lens guests, and focus an existing window when a second app instance starts.
+
+### Bug Fixes
+
+* Explain unavailable or disabled tracker sources in Tasks and validate saved Jira queries during connection tests.
+* Respect Crane's task-list capability so a disabled or unavailable list is not misreported as missing or empty.
+* Stop injecting generated repository maps into the first provider turn and remove their unused generation path.
+
+### References
+
+* [#459](https://github.com/sendbird/stave/pull/459), [#460](https://github.com/sendbird/stave/pull/460), [#461](https://github.com/sendbird/stave/pull/461), [#462](https://github.com/sendbird/stave/pull/462), [#463](https://github.com/sendbird/stave/pull/463), [#464](https://github.com/sendbird/stave/pull/464)
+
 ## [0.17.1](https://github.com/sendbird/stave/compare/v0.17.0...v0.17.1) (2026-09-03)
 
 ### Features
