@@ -43,6 +43,7 @@ import {
   normalizeReasoningExpansionMode,
   normalizeSidebarNavView,
   normalizeTurnActivityPlacement,
+  normalizeComposerLayoutMode,
   type AppSettings,
 } from "@/store/app-settings";
 import type { AppState } from "@/store/app-store.types";
@@ -386,6 +387,11 @@ export function createSettingsActions(args: {
               turnActivityPlacement: normalizeTurnActivityPlacement(
                 patch.turnActivityPlacement,
               ),
+            }),
+        ...(patch.composerLayout === undefined
+          ? {}
+          : {
+              composerLayout: normalizeComposerLayoutMode(patch.composerLayout),
             }),
         ...(patch.infoPanelSectionVisibility === undefined
           ? {}

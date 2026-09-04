@@ -85,6 +85,7 @@ import {
   normalizeReasoningExpansionMode,
   normalizeSidebarNavView,
   normalizeTurnActivityPlacement,
+  normalizeComposerLayoutMode,
   type AppSettings,
 } from "@/store/app-settings";
 import { normalizeAppActiveSurface } from "@/store/app-surface";
@@ -220,6 +221,9 @@ export function createAppStorePersistenceOptions() {
           : defaultSettings.showConversationTurnRail;
       state.settings.turnActivityPlacement = normalizeTurnActivityPlacement(
         raw.turnActivityPlacement,
+      );
+      state.settings.composerLayout = normalizeComposerLayoutMode(
+        raw.composerLayout,
       );
       state.settings.borderBeamSize = normalizeBorderBeamSize(
         raw.borderBeamSize,

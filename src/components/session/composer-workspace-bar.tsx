@@ -14,9 +14,11 @@ export function ComposerWorkspaceBarView(props: {
   }
 
   return (
+    // Content only: the bottom shelf's surface, radius, and tuck belong to
+    // `ComposerFrameStatusBar`, which also hosts the trailing readouts.
     <div
       data-testid="composer-workspace-bar"
-      className="composer-frame-surface flex min-h-8 items-center gap-2 overflow-hidden rounded-xl bg-card px-2.5 py-1 text-xs text-muted-foreground"
+      className="flex min-w-0 items-center gap-2.5 overflow-hidden"
     >
       {props.workspaceLabel ? (
         <span

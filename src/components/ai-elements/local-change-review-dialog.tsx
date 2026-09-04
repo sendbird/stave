@@ -6,6 +6,7 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
+import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
 import { Button, Loader, Textarea } from "@/components/ui";
 import {
   Dialog,
@@ -285,7 +286,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
         }
       >
         <FileDiff className="size-4" />
-        <span>Review</span>
+        <ComposerControlLabel>
+          <span>Review</span>
+        </ComposerControlLabel>
       </DialogTrigger>
       <DialogContent
         className="max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-2xl"

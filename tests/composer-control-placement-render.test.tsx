@@ -3,6 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 import type { ComposerControlPlacements } from "@/lib/composer-controls";
+import type { AdvisorArmState } from "@/lib/providers/advisor";
+import type { WorkerArmState } from "@/lib/providers/worker-mode";
 
 const originalWindowDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
@@ -279,13 +281,109 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('data-composer-frame="true"');
     expect(html).toContain('data-composer-frame-slot="top"');
     expect(html).toContain('data-composer-frame-slot="bottom"');
-    expect(html).toContain('data-composer-frame-wing="left"');
     expect(html).toContain('data-composer-frame-wing="right"');
+    // Nothing session-scoped is wired up in this fixture, so the left wing has
+    // no reason to exist — an empty shelf is never drawn.
+    expect(html).not.toContain('data-composer-frame-wing="left"');
     expect(html).toContain("Turn activity");
+    // Plan is provider-owned, so it stays in the right wing.
+    expect(html).toContain('aria-label="Plan mode OFF"');
+    expect(html).toContain('data-composer-control-label=""');
     expect(html).toContain(">Plan<");
+    expect(html).toContain("group-hover/composer-wing:opacity-100");
+    expect(html).toContain("motion-reduce:transition-opacity");
     expect(html).toContain('data-testid="context-meter-slot"');
-    expect(html).toContain('aria-label="Runtime ·');
+    // Stave's own tooling rides the bottom status bar; the wings are the
+    // provider's surface. Controls keep their labels there, except the runtime
+    // readout, which stays a glyph because it is checked rather than operated.
+    const statusBar = html.slice(
+      html.indexOf('data-composer-frame-status-bar="true"'),
+    );
+    expect(statusBar).toContain('data-composer-status-tray="row"');
+    expect(statusBar).toContain(">Review<");
+    expect(statusBar).toContain('aria-label="Runtime ·');
+    expect(statusBar).not.toContain(">Runtime<");
     // The raised card keeps the model picker and context meter; wings own Plan.
     expect(html).toContain("Opus 5");
+  });
+
+  test("opens Advisor state and options from one button", async () => {
+    setWindowContext();
+    const [{ PromptInputAdvisorPill }, { TooltipProvider }] = await Promise.all(
+      [
+        import("@/components/ai-elements/prompt-input-advisor-mode"),
+        import("@/components/ui"),
+      ],
+    );
+    const claudeTarget = {
+      providerId: "claude-code" as const,
+      model: "claude-opus-4-8",
+    };
+    const arm: AdvisorArmState = {
+      enabled: false,
+      target: null,
+      effectiveTarget: claudeTarget,
+      overridden: true,
+      targetByProvider: {
+        "claude-code": claudeTarget,
+        codex: { providerId: "codex", model: "gpt-5.6-sol" },
+      },
+    };
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInputAdvisorPill, {
+          arm,
+          primaryProviderId: "claude-code",
+          primaryModel: MODEL_OPTION.model,
+          selectedProviderId: "claude-code",
+          advisorModelOptions: [MODEL_OPTION.model],
+          open: false,
+          onSetEnabled: () => {},
+          onSelectProvider: () => {},
+          onSelectModel: () => {},
+          onSelectEffort: () => {},
+        }),
+      ),
+    );
+
+    expect((html.match(/<button/g) ?? []).length).toBe(1);
+    expect(html).toContain('aria-label="Configure Advisor ·');
+    expect(html).not.toContain("Choose which model advises");
+  });
+
+  test("opens Worker state and options from one button", async () => {
+    setWindowContext();
+    const [{ PromptInputWorkerPill }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input-worker-mode"),
+      import("@/components/ui"),
+    ]);
+    const arm: WorkerArmState = {
+      enabled: false,
+      config: { presetId: "verified-patch", model: "auto", effort: "auto" },
+      overridden: true,
+    };
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInputWorkerPill, {
+          arm,
+          resolution: { status: "off" },
+          primaryProviderId: "claude-code",
+          primaryModel: MODEL_OPTION.model,
+          open: false,
+          onToggle: () => {},
+          onSelectPreset: () => {},
+          onSelectModel: () => {},
+          onSelectEffort: () => {},
+        }),
+      ),
+    );
+
+    expect((html.match(/<button/g) ?? []).length).toBe(1);
+    expect(html).toContain('aria-label="Configure Worker mode ·');
+    expect(html).not.toContain("Choose the worker preset");
   });
 });

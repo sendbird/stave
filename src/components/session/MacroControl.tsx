@@ -1,4 +1,5 @@
 import { Zap } from "lucide-react";
+import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
 import {
   Button,
   DropdownMenu,
@@ -27,11 +28,12 @@ export function MacroControl(args: MacroControlProps) {
             className="h-full gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
             disabled={args.disabled}
             aria-label="Insert a saved macro"
+            title="Insert a saved macro"
           />
         }
       >
         <Zap className="size-4" />
-        Macros
+        <ComposerControlLabel>Macros</ComposerControlLabel>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={6} className="w-80">
         <DropdownMenuLabel className="flex items-center gap-2">

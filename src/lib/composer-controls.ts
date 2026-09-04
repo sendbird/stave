@@ -106,6 +106,23 @@ export function composerControlIsIconOnly(id: ComposerControlId): boolean {
   return ICON_ONLY_COMPOSER_CONTROLS.has(id);
 }
 
+/**
+ * Controls whose trigger already carries a tooltip or a native title. The
+ * status row names the rest itself, so one hover never opens two bubbles.
+ */
+const COMPOSER_CONTROLS_WITH_OWN_TOOLTIP = new Set<ComposerControlId>([
+  "plan",
+  "providerMode",
+  "thinking",
+  "advisor",
+  "worker",
+  "runtime",
+]);
+
+export function composerControlHasOwnTooltip(id: ComposerControlId): boolean {
+  return COMPOSER_CONTROLS_WITH_OWN_TOOLTIP.has(id);
+}
+
 const CONTROL_ID_SET = new Set<string>(COMPOSER_CONTROL_IDS);
 const PLACEMENT_SET = new Set<string>(COMPOSER_CONTROL_PLACEMENTS);
 
@@ -233,22 +250,53 @@ export function resolveComposerControlLayout(args: {
 }
 
 /**
- * Fast stays inside the model picker. Runtime moves to the right wing.
- * Everything else on the toolbar row moves to the left wing when the
- * four-bar composer frame is active.
+ * Where a control goes once the composer is framed, split by who owns the
+ * behaviour rather than by how often it is used.
+ *
+ * Fast stays inside the model picker.
+ * Right wing — next to Send — is the provider's own surface: plan mode, the
+ * permission preset, and extended thinking are settings of the model run.
+ * Bottom status bar is Stave's own tooling (advisor, worker, review, secrets,
+ * macros, compare) plus the runtime readout, which stays last so it sits with
+ * the workspace and branch it describes.
+ * Left wing has no default tenant; an id added later lands there until it is
+ * classified, which is loud enough to notice and harmless if missed.
  */
 const COMPOSER_FRAME_CARD_CONTROL_IDS = new Set<ComposerControlId>(["fast"]);
 const COMPOSER_FRAME_RIGHT_CONTROL_IDS = new Set<ComposerControlId>([
+  "plan",
+  "providerMode",
+  "thinking",
+]);
+const COMPOSER_FRAME_STATUS_CONTROL_IDS = new Set<ComposerControlId>([
+  "advisor",
+  "worker",
+  "review",
+  "secrets",
+  "macro",
+  "compare",
   "runtime",
 ]);
 
+export interface ComposerFramePartition {
+  left: ComposerControlId[];
+  right: ComposerControlId[];
+  /** Trailing slot of the bottom workspace/status bar. */
+  status: ComposerControlId[];
+}
+
 export function partitionComposerFrameToolbar(
   toolbarIds: readonly ComposerControlId[],
-): { left: ComposerControlId[]; right: ComposerControlId[] } {
+): ComposerFramePartition {
   const left: ComposerControlId[] = [];
   const right: ComposerControlId[] = [];
+  const status: ComposerControlId[] = [];
   for (const id of toolbarIds) {
     if (COMPOSER_FRAME_CARD_CONTROL_IDS.has(id)) {
+      continue;
+    }
+    if (COMPOSER_FRAME_STATUS_CONTROL_IDS.has(id)) {
+      status.push(id);
       continue;
     }
     if (COMPOSER_FRAME_RIGHT_CONTROL_IDS.has(id)) {
@@ -257,5 +305,5 @@ export function partitionComposerFrameToolbar(
     }
     left.push(id);
   }
-  return { left, right };
+  return { left, right, status };
 }

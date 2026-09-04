@@ -155,7 +155,7 @@ describe("resolveComposerControlLayout", () => {
 });
 
 describe("partitionComposerFrameToolbar", () => {
-  test("keeps fast on the card and runtime on the right wing", () => {
+  test("keeps provider-owned settings in the wing and Stave tooling in the bar", () => {
     expect(
       partitionComposerFrameToolbar([
         "plan",
@@ -163,10 +163,15 @@ describe("partitionComposerFrameToolbar", () => {
         "advisor",
         "runtime",
         "review",
+        "macro",
+        "thinking",
       ]),
     ).toEqual({
-      left: ["plan", "advisor", "review"],
-      right: ["runtime"],
+      left: [],
+      right: ["plan", "thinking"],
+      // Order is the caller's; the real toolbar is built in id order, which
+      // puts the runtime readout last.
+      status: ["advisor", "runtime", "review", "macro"],
     });
   });
 
@@ -174,6 +179,7 @@ describe("partitionComposerFrameToolbar", () => {
     expect(partitionComposerFrameToolbar(["fast"])).toEqual({
       left: [],
       right: [],
+      status: [],
     });
   });
 });

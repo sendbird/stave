@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound } from "lucide-react";
+import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
 import {
   Button,
   DropdownMenu,
@@ -116,11 +117,12 @@ export function SecretBindingControl({
             className="h-full gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
             disabled={disabled}
             aria-label="Bind secrets to this task as environment variables"
+            title="Bind secrets to this task"
           />
         }
       >
         <KeyRound className="size-4" />
-        {label}
+        <ComposerControlLabel>{label}</ComposerControlLabel>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" sideOffset={6} className="w-80">
         <DropdownMenuLabel className="flex items-center gap-2">
@@ -136,8 +138,7 @@ export function SecretBindingControl({
           <>
             {injectableSecrets.map((secret) => {
               const checked = boundIdSet.has(secret.id);
-              const atCap =
-                !checked && activeBoundCount >= MAX_BOUND_SECRETS;
+              const atCap = !checked && activeBoundCount >= MAX_BOUND_SECRETS;
               return (
                 <DropdownMenuCheckboxItem
                   key={secret.id}

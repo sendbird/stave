@@ -125,6 +125,10 @@ import {
   STEER_QUEUE_ENTER_ACTION_OPTIONS,
 } from "@/lib/steer-queue-shortcuts";
 import {
+  normalizeComposerLayoutMode,
+  type ComposerLayoutMode,
+} from "@/store/app-settings";
+import {
   formatVisualCommentShortcutLabel,
   normalizeVisualCommentShortcut,
   VISUAL_COMMENT_SHORTCUT_OPTIONS,
@@ -2432,6 +2436,7 @@ function ChatSection() {
     showInterimMessages,
     showConversationTurnRail,
     turnActivityExpandedByDefault,
+    composerLayout,
     composerControlPlacements,
     steerQueueEnterAction,
     midTurnSteeringEnabled,
@@ -2450,6 +2455,7 @@ function ChatSection() {
           state.settings.showInterimMessages,
           state.settings.showConversationTurnRail,
           state.settings.turnActivityExpandedByDefault,
+          state.settings.composerLayout,
           state.settings.composerControlPlacements,
           state.settings.steerQueueEnterAction,
           state.settings.midTurnSteeringEnabled,
@@ -2643,6 +2649,21 @@ function ChatSection() {
           title="Composer Controls"
           description="Choose where each prompt input control lives: pinned to the toolbar, tucked into the ⋯ tray, or off. You can also right-click the toolbar to edit this in place."
         >
+          <LabeledField
+            title="Composer Layout"
+            description="Framed raises the input card and hangs four bars off it: turn activity above, workspace and runtime below, and the control shelves beside it. Classic is the previous stack, with every control in the toolbar row. A narrow composer falls back to Classic either way."
+          >
+            <ChoiceButtons<ComposerLayoutMode>
+              value={normalizeComposerLayoutMode(composerLayout)}
+              onChange={(value) =>
+                updateSettings({ patch: { composerLayout: value } })
+              }
+              options={[
+                { value: "framed", label: "Framed" },
+                { value: "classic", label: "Classic" },
+              ]}
+            />
+          </LabeledField>
           <ComposerControlPlacementList
             placements={composerControlPlacements}
             onChange={(next) =>

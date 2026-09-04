@@ -376,19 +376,24 @@ export function TurnActivity(props: {
   const [controlErrorByNodeKey, setControlErrorByNodeKey] = useState<
     Record<string, string>
   >({});
-  const setControlError = useCallback((nodeKey: string, error: string | null) => {
-    setControlErrorByNodeKey((current) => {
-      if (!error) {
-        if (!(nodeKey in current)) {
-          return current;
+  const setControlError = useCallback(
+    (nodeKey: string, error: string | null) => {
+      setControlErrorByNodeKey((current) => {
+        if (!error) {
+          if (!(nodeKey in current)) {
+            return current;
+          }
+          const next = { ...current };
+          delete next[nodeKey];
+          return next;
         }
-        const next = { ...current };
-        delete next[nodeKey];
-        return next;
-      }
-      return current[nodeKey] === error ? current : { ...current, [nodeKey]: error };
-    });
-  }, []);
+        return current[nodeKey] === error
+          ? current
+          : { ...current, [nodeKey]: error };
+      });
+    },
+    [],
+  );
   const childTaskActions = childTasks.actions;
   const handleWorkGraphControl = useCallback(
     (request: WorkGraphControlRequest) => {
@@ -672,32 +677,29 @@ function TurnActivityFloatingShell(props: {
   const dragRef = useRef<FloatingDragState | null>(null);
   const lastDragPosRef = useRef<TurnActivityFloatPosition | null>(null);
 
-  const onPointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0 || dragRef.current !== null) {
-        return;
-      }
-      const outer = outerRef.current;
-      const containerRect = outer?.parentElement?.getBoundingClientRect();
-      if (!outer || !containerRect) {
-        return;
-      }
-      const outerRect = outer.getBoundingClientRect();
-      dragRef.current = {
-        pointerId: e.pointerId,
-        startMouseX: e.clientX,
-        startMouseY: e.clientY,
-        startPosX: outerRect.left - containerRect.left,
-        startPosY: outerRect.top - containerRect.top,
-        containerWidth: containerRect.width,
-        containerHeight: containerRect.height,
-        cardWidth: outer.offsetWidth,
-        cardHeight: outer.offsetHeight,
-        active: false,
-      };
-    },
-    [],
-  );
+  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || dragRef.current !== null) {
+      return;
+    }
+    const outer = outerRef.current;
+    const containerRect = outer?.parentElement?.getBoundingClientRect();
+    if (!outer || !containerRect) {
+      return;
+    }
+    const outerRect = outer.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startMouseX: e.clientX,
+      startMouseY: e.clientY,
+      startPosX: outerRect.left - containerRect.left,
+      startPosY: outerRect.top - containerRect.top,
+      containerWidth: containerRect.width,
+      containerHeight: containerRect.height,
+      cardWidth: outer.offsetWidth,
+      cardHeight: outer.offsetHeight,
+      active: false,
+    };
+  }, []);
 
   const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     const state = dragRef.current;
@@ -866,7 +868,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   );
   const interactionCardOwnsFocus = Boolean(
     props.hasPendingInteractionCard &&
-      props.activity?.pendingInteraction != null,
+    props.activity?.pendingInteraction != null,
   );
   const expanded = interactionCardOwnsFocus
     ? false
@@ -1058,15 +1060,19 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       )}
     >
       <section
-        aria-label={props.replayOutcome ? "Last turn activity" : "Turn activity"}
+        aria-label={
+          props.replayOutcome ? "Last turn activity" : "Turn activity"
+        }
         data-testid="turn-activity"
         data-replay={props.replayOutcome}
         className={cn(
-          "relative flex min-h-0 flex-col overflow-hidden bg-card",
+          "relative flex min-h-0 flex-col overflow-hidden",
+          // A docked shelf takes its surface from `.turn-activity-surface`,
+          // which sits one step back from `--card`; a floating or panelled one
+          // is a card in its own right and says so.
+          variant !== "docked" && "bg-card",
           variant === "docked" &&
-            (props.frameInset
-              ? "composer-frame-surface rounded-xl pb-2.5"
-              : "turn-activity-surface rounded-t-xl rounded-b-none pb-3"),
+            "turn-activity-surface rounded-t-xl rounded-b-none pb-3",
           variant === "floating" &&
             "rounded-xl border border-border/80 pb-2 shadow-lg",
           variant === "panel" && "flex-1 pb-2",
@@ -1076,7 +1082,12 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         <div
           {...props.dragHandleProps}
           className={cn(
-            "flex min-h-11 shrink-0 items-center gap-2.5 px-3 py-2",
+            "flex min-h-11 shrink-0 items-center gap-2.5 px-3",
+            // Inside the frame this row is the shelf's visible box, and the
+            // 0.75rem below it is spent on the tuck behind the card — so the
+            // padding is symmetric at the tuck on both sides, matching the
+            // status bar's mirrored `pt-6`/`pb-3`.
+            props.frameInset ? "py-3" : "py-2",
             expanded && canExpand && "border-b border-border/50 bg-muted/10",
             props.dragHandleProps && "cursor-grab select-none touch-none",
           )}
@@ -1370,7 +1381,9 @@ const TurnActivityRow = memo(function TurnActivityRow({
       </div>
       {startOffsetLabel ? (
         <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground/70">
-          <span className="sr-only">Started {startOffsetLabel} into the turn</span>
+          <span className="sr-only">
+            Started {startOffsetLabel} into the turn
+          </span>
           <span aria-hidden="true">{startOffsetLabel}</span>
         </span>
       ) : null}

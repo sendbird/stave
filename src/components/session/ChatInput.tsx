@@ -2,6 +2,7 @@ import { PromptInput } from "@/components/ai-elements";
 import { ComposerContextDock } from "@/components/session/ComposerContextDock";
 import { ComposerWorkspaceBar } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
+import { MacroQuickPicks } from "@/components/session/MacroQuickPicks";
 import {
   useCallback,
   useDeferredValue,
@@ -19,6 +20,8 @@ import {
 } from "@/components/ai-elements/model-selector";
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
+import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
+import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
 import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
 import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
 import {
@@ -57,8 +60,6 @@ import {
 import {
   Badge,
   Button,
-  ButtonGroup,
-  ButtonGroupSeparator,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -71,7 +72,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import { ChevronDown, History, SplitSquareHorizontal } from "lucide-react";
+import { History, SplitSquareHorizontal } from "lucide-react";
 import { listCompareRunHistoryEntries } from "@/lib/compare-run-history";
 import {
   buildCommandPaletteItems,
@@ -361,6 +362,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     settingsCodexBinaryPath,
     skipTaskAdvisor,
     composerControlPlacements,
+    composerLayout,
     settingsWorkerEnabled,
     settingsWorkerConfigByProvider,
     macros,
@@ -392,6 +394,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.settings.codexBinaryPath,
           state.skipTaskAdvisor,
           state.settings.composerControlPlacements,
+          state.settings.composerLayout,
           state.settings.workerEnabled,
           state.settings.workerConfigByProvider,
           state.settings.macros,
@@ -399,6 +402,13 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         ] as const,
     ),
   );
+
+  // `framed` is a preference, not a guarantee: the frame pays for its two
+  // wings out of the composer measure, so a squeezed column (sidebar open,
+  // information panel open, small window) renders the classic stack instead.
+  const { ref: composerMeasureRef, fits: composerFrameFits } =
+    useComposerFrameFits();
+  const useFramedComposer = composerLayout === "framed" && composerFrameFits;
   const [pendingUserInputMessageId, pendingUserInputPart] = useAppStore(
     useShallow((state) => {
       const messages =
@@ -1575,7 +1585,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
         />
       ) : null}
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl" ref={composerMeasureRef}>
         <TaskSourceContextNotice
           sourceContexts={args.sourceContexts}
           currentPrUrl={args.currentPrUrl}
@@ -1672,14 +1682,23 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             </div>
           </div>
         ) : null}
+        {useFramedComposer ? null : (
+          // Classic mode is the shipped stack: a full-measure activity shelf
+          // sitting directly on a full-measure card.
+          <RenderProfiler id="TurnActivity">
+            <TurnActivity />
+          </RenderProfiler>
+        )}
         <PromptInput
-          framed
+          framed={useFramedComposer}
           frameTop={
-            <RenderProfiler id="TurnActivity">
-              <TurnActivity frameInset />
-            </RenderProfiler>
+            useFramedComposer ? (
+              <RenderProfiler id="TurnActivity">
+                <TurnActivity frameInset />
+              </RenderProfiler>
+            ) : undefined
           }
-          frameBottom={<ComposerWorkspaceBar />}
+          frameBottom={useFramedComposer ? <ComposerWorkspaceBar /> : undefined}
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
           onEnhancePrompt={handleEnhancePrompt}
@@ -1727,7 +1746,6 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               disabled={isInputBlocked}
               open={advisorPickerOpen}
               onOpenChange={setAdvisorPickerOpen}
-              onToggle={handleAdvisorToggle}
               onSetEnabled={(enabled) => {
                 applyRuntimeOverrides(
                   buildAdvisorEnabledPatch({
@@ -1820,6 +1838,20 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             />
             ) : null
           }
+          macroQuickPicks={
+            args.isTurnActive ? null : (
+              <MacroQuickPicks
+                macros={macros}
+                disabled={isInputBlocked}
+                onSelect={(macro) => {
+                  handleApplyMacro({
+                    macroId: macro.id,
+                    draftText: draftTextRef.current,
+                  });
+                }}
+              />
+            )
+          }
           macroControl={
             args.isTurnActive ? null : (
               <div
@@ -1869,123 +1901,108 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           compareControl={
             args.isTurnActive ? null : (
-              <ButtonGroup className="h-9" data-compare-control="true">
+              <DropdownMenu>
                 <Tooltip>
                   <TooltipTrigger
                     render={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-full gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
-                        disabled={
-                          isInputBlocked || draftText.trim().length === 0
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
+                            aria-label="Compare options and recent runs"
+                            data-compare-control="true"
+                            disabled={
+                              recentCompareRuns.length === 0 &&
+                              (isInputBlocked || draftText.trim().length === 0)
+                            }
+                          />
                         }
-                        aria-label="Prepare a comparison in isolated candidate workspaces"
-                        onClick={handleOpenComparePreparation}
                       />
                     }
                   >
                     <SplitSquareHorizontal className="size-4" />
-                    Compare
+                    <ComposerControlLabel>Compare</ComposerControlLabel>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-72">
-                    Prepare a shared brief and review criteria before running
-                    Two configurable candidates in separate workspaces.
+                    Prepare a comparison or inspect recent runs.
                   </TooltipContent>
                 </Tooltip>
 
-                <ButtonGroupSeparator />
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <button
-                        type="button"
-                        className="inline-flex w-8 items-center justify-center text-muted-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50"
-                        aria-label="Compare options and recent runs"
-                        disabled={
-                          recentCompareRuns.length === 0 &&
-                          (isInputBlocked || draftText.trim().length === 0)
-                        }
-                      />
-                    }
+                <DropdownMenuContent
+                  align="start"
+                  sideOffset={6}
+                  className="w-80"
+                >
+                  <DropdownMenuLabel className="flex items-center gap-2">
+                    <SplitSquareHorizontal className="size-3.5" />
+                    Compare
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem
+                    disabled={isInputBlocked || draftText.trim().length === 0}
+                    onSelect={handleOpenComparePreparation}
                   >
-                    <ChevronDown className="size-3.5" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    sideOffset={6}
-                    className="w-80"
-                  >
-                    <DropdownMenuLabel className="flex items-center gap-2">
-                      <SplitSquareHorizontal className="size-3.5" />
-                      Compare
-                    </DropdownMenuLabel>
-                    <DropdownMenuItem
-                      disabled={isInputBlocked || draftText.trim().length === 0}
-                      onSelect={handleOpenComparePreparation}
-                    >
-                      <SplitSquareHorizontal className="size-4" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm">
-                          Prepare new comparison
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          Configure candidates, criteria, and judge
-                        </span>
+                    <SplitSquareHorizontal className="size-4" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm">
+                        Prepare new comparison
                       </span>
-                    </DropdownMenuItem>
+                      <span className="block text-xs text-muted-foreground">
+                        Configure candidates, criteria, and judge
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
 
-                    {recentCompareRuns.length > 0 ? (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-                          <History className="size-3.5" />
-                          Recent runs
-                        </DropdownMenuLabel>
-                        {recentCompareRuns.map((run) => (
-                          <DropdownMenuItem
-                            key={run.id}
-                            className="items-start gap-2"
-                            onSelect={() =>
-                              useAppStore
-                                .getState()
-                                .openCompareRun({ compareRunId: run.id })
-                            }
-                          >
-                            <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary/70" />
-                            <span className="min-w-0 flex-1">
-                              <span className="block w-full truncate text-sm">
-                                {run.title}
-                              </span>
-                              <span className="block text-xs capitalize text-muted-foreground">
-                                {run.stateLabel}
-                              </span>
-                            </span>
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
+                  {recentCompareRuns.length > 0 ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                        <History className="size-3.5" />
+                        Recent runs
+                      </DropdownMenuLabel>
+                      {recentCompareRuns.map((run) => (
                         <DropdownMenuItem
-                          className="gap-2"
-                          onSelect={() => setCompareHistoryOpen(true)}
+                          key={run.id}
+                          className="items-start gap-2"
+                          onSelect={() =>
+                            useAppStore
+                              .getState()
+                              .openCompareRun({ compareRunId: run.id })
+                          }
                         >
-                          <History className="size-4" />
+                          <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary/70" />
                           <span className="min-w-0 flex-1">
-                            <span className="block text-sm">
-                              View all compare runs…
+                            <span className="block w-full truncate text-sm">
+                              {run.title}
                             </span>
-                            <span className="block text-xs text-muted-foreground">
-                              Search and filter{" "}
-                              {compareRunHistoryEntries.length} saved runs
+                            <span className="block text-xs capitalize text-muted-foreground">
+                              {run.stateLabel}
                             </span>
                           </span>
                         </DropdownMenuItem>
-                      </>
-                    ) : null}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </ButtonGroup>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="gap-2"
+                        onSelect={() => setCompareHistoryOpen(true)}
+                      >
+                        <History className="size-4" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm">
+                            View all compare runs…
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            Search and filter {compareRunHistoryEntries.length}{" "}
+                            saved runs
+                          </span>
+                        </span>
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )
           }
           submitMode={managedTaskComposerAccess.submitMode}

@@ -93,6 +93,24 @@ describe("turn activity settings", () => {
   });
 });
 
+describe("composer layout settings", () => {
+  test("ships framed and falls back to framed for unknown values", () => {
+    expect(useAppStore.getInitialState().settings.composerLayout).toBe(
+      "framed",
+    );
+
+    useAppStore.getState().updateSettings({
+      patch: { composerLayout: "classic" },
+    });
+    expect(useAppStore.getState().settings.composerLayout).toBe("classic");
+
+    useAppStore.getState().updateSettings({
+      patch: { composerLayout: "wide" as never },
+    });
+    expect(useAppStore.getState().settings.composerLayout).toBe("framed");
+  });
+});
+
 describe("lens session scope settings", () => {
   test("defaults to project scope and normalizes invalid updates", () => {
     (
