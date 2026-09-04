@@ -4,15 +4,8 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import {
-  ChevronRight,
-  Copy,
-  Crosshair,
-  Loader2,
-  Square,
-  X,
-} from "lucide-react";
-import { Button } from "@/components/ui";
+import { ChevronRight, Copy, Crosshair, Square, X } from "lucide-react";
+import { Button, Loader } from "@/components/ui";
 import {
   formatConsoleInspectableValue,
   formatDuration,
@@ -128,7 +121,7 @@ export function ConsoleInspectableRow(props: {
             aria-expanded={expanded}
           >
             {loading ? (
-              <Loader2 className="size-3 animate-spin motion-reduce:animate-none" />
+              <Loader size="xs" variant="scan" />
             ) : (
               <ChevronRight
                 className={cn(
@@ -212,7 +205,7 @@ export function DetailLoadState(props: {
   if (props.loading) {
     return (
       <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/70 px-3 py-2 text-[11px] text-muted-foreground">
-        <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+        <Loader aria-hidden size="xs" variant="scan" />
         Loading diagnostic detail…
       </div>
     );
@@ -469,7 +462,7 @@ export function LensDiagnosticsCaptureControls(props: {
             aria-label="Stop full diagnostics capture"
           >
             {busy ? (
-              <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+              <Loader aria-hidden size="xs" variant="scan" />
             ) : (
               <Square className="size-3 fill-current" />
             )}
@@ -487,7 +480,7 @@ export function LensDiagnosticsCaptureControls(props: {
           aria-label="Enable full diagnostics capture for the current host"
         >
           {busy ? (
-            <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+            <Loader aria-hidden size="xs" variant="scan" />
           ) : (
             <Crosshair className="size-3.5" />
           )}

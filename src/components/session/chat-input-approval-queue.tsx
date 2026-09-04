@@ -1,7 +1,7 @@
-import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loader";
 import { Kbd } from "@/components/ui/kbd";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -51,7 +51,9 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     onTrustAndApprove,
     onDraftGuidance,
   } = args;
-  const [guidanceMessageId, setGuidanceMessageId] = useState<string | null>(null);
+  const [guidanceMessageId, setGuidanceMessageId] = useState<string | null>(
+    null,
+  );
   const [guidanceText, setGuidanceText] = useState("");
   const [pendingDecisionRequestId, setPendingDecisionRequestId] = useState<
     string | null
@@ -62,7 +64,8 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
 
   const latest = approvals[0];
   const latestMessageId = latest?.messageId ?? null;
-  const guidanceOpen = latestMessageId !== null && guidanceMessageId === latestMessageId;
+  const guidanceOpen =
+    latestMessageId !== null && guidanceMessageId === latestMessageId;
   const queuedCount = approvals.length - 1;
   const decisionPending = pendingDecisionRequestId !== null;
 
@@ -104,7 +107,10 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
       return;
     }
 
-    if (guidanceMessageId && !approvals.some((approval) => approval.messageId === guidanceMessageId)) {
+    if (
+      guidanceMessageId &&
+      !approvals.some((approval) => approval.messageId === guidanceMessageId)
+    ) {
       setGuidanceMessageId(null);
       setGuidanceText("");
       pendingGuidanceFocusRef.current = false;
@@ -224,7 +230,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
           aria-live="polite"
           className="mt-1.5 flex items-center gap-1.5 px-1 text-[0.6875rem] text-muted-foreground"
         >
-          <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+          <Loader aria-hidden size="xs" variant="signal" />
           Waiting for the provider to accept the decision…
         </p>
       ) : null}

@@ -1,9 +1,10 @@
-import { ArrowUpCircle, LoaderCircle, RefreshCcw } from "lucide-react";
+import { ArrowUpCircle, RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Badge,
   Button,
+  Loader,
   Popover,
   PopoverContent,
   PopoverHeader,
@@ -169,7 +170,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
               }
             >
               {loading ? (
-                <LoaderCircle className="size-4 animate-spin" />
+                <Loader aria-hidden size="xs" variant="spinner" />
               ) : (
                 <ArrowUpCircle className="size-4" />
               )}
@@ -257,7 +258,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                 onClick={() => void handleInstallClick()}
               >
                 {installing ? (
-                  <LoaderCircle className="size-4 animate-spin" />
+                  <Loader aria-hidden size="xs" variant="spinner" />
                 ) : (
                   <ArrowUpCircle className="size-4" />
                 )}
@@ -323,7 +324,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
               }}
             >
               {installing ? (
-                <LoaderCircle className="size-4 animate-spin" />
+                <Loader aria-hidden size="xs" variant="spinner" />
               ) : (
                 <ArrowUpCircle className="size-4" />
               )}

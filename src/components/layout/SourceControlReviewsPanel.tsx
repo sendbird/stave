@@ -5,7 +5,6 @@ import {
   ExternalLink,
   FileCode2,
   GitPullRequest,
-  LoaderCircle,
   MessageSquare,
   RefreshCw,
   ShieldCheck,
@@ -16,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Badge,
   Button,
+  Loader,
   Tabs,
   TabsContent,
   TabsList,
@@ -157,7 +157,7 @@ function InboxState(props: {
         className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground"
         role="status"
       >
-        <LoaderCircle className="size-4 animate-spin" />
+        <Loader aria-hidden size="xs" variant="verify" />
         Loading pull requests…
       </div>
     );
@@ -569,7 +569,7 @@ export function SourceControlReviewsPanel(props: {
             className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground"
             role="status"
           >
-            <LoaderCircle className="size-4 animate-spin" />
+            <Loader aria-hidden size="xs" variant="verify" />
             Loading review…
           </div>
         ) : detailError || !detail ? (

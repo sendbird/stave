@@ -2,12 +2,11 @@ import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   Copy,
-  LoaderCircle,
   RefreshCcw,
   ShieldAlert,
   TerminalSquare,
 } from "lucide-react";
-import { Badge, Button, toast } from "@/components/ui";
+import { Badge, Button, Loader, toast } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type {
   ToolingStatusSnapshot,
@@ -251,7 +250,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
             onClick={() => void handleSyncOriginMain()}
           >
             {syncBusy ? (
-              <LoaderCircle className="size-4 animate-spin" />
+              <Loader aria-hidden size="xs" variant="sync" />
             ) : (
               <CheckCircle2 className="size-4" />
             )}
@@ -282,7 +281,9 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
           <div className="rounded-xl border border-border/80 bg-background/80 p-4">
             <div className="space-y-3">
               <p className="text-sm font-medium text-foreground">Next step</p>
-              <p className="text-sm text-muted-foreground">{workspace.detail}</p>
+              <p className="text-sm text-muted-foreground">
+                {workspace.detail}
+              </p>
               {workspace.recommendedCommand ? (
                 <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
                   <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">

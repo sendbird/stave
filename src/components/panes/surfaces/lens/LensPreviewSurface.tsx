@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { Loader2, ScanSearch } from "lucide-react";
+import { ScanSearch } from "lucide-react";
 import {
   Empty,
   EmptyContent,
@@ -7,6 +7,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Loader,
 } from "@/components/ui";
 
 /**
@@ -70,7 +71,7 @@ export function LensPreviewSurface(args: {
         {isLoading ? (
           <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-border/70 bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm">
             <span className="inline-flex items-center gap-1.5">
-              <Loader2 className="size-3 animate-spin" />
+              <Loader aria-hidden size="xs" variant="scan" />
               Loading page
             </span>
           </div>

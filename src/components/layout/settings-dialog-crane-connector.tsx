@@ -3,7 +3,6 @@ import {
   BookOpen,
   Cable,
   ExternalLink,
-  Loader2,
   LockKeyhole,
   RefreshCw,
   Trash2,
@@ -19,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
+  Loader,
   toast,
 } from "@/components/ui";
 import {
@@ -388,7 +388,7 @@ export function CraneConnectorSettingsSection() {
                 onClick={() => void pair()}
               >
                 {busy === "pair" ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader aria-hidden size="xs" variant="signal" />
                 ) : (
                   <LockKeyhole className="size-4" />
                 )}
@@ -412,7 +412,7 @@ export function CraneConnectorSettingsSection() {
                 onClick={() => void disconnect()}
               >
                 {busy === "disconnect" ? (
-                  <Loader2 className="size-4 animate-spin" />
+                  <Loader aria-hidden size="xs" variant="signal" />
                 ) : (
                   <Unplug className="size-4" />
                 )}

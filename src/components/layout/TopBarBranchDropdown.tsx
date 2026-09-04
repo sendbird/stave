@@ -7,7 +7,6 @@ import {
   Download,
   GitBranch,
   GitBranchPlus,
-  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -18,6 +17,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
   Input,
+  Loader,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -711,7 +711,12 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               }
             >
               {isBusy ? (
-                <Loader2 className="size-3.5 shrink-0 animate-spin" />
+                <Loader
+                  aria-hidden
+                  className="shrink-0"
+                  size="xs"
+                  variant="sync"
+                />
               ) : (
                 <GitBranch className="size-3.5 shrink-0" />
               )}
@@ -864,7 +869,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   onClick={() => void handleFetchCurrentBranch()}
                 >
                   {branchOperation === "fetch" ? (
-                    <Loader2 className="size-3.5 animate-spin" />
+                    <Loader aria-hidden size="xs" variant="sync" />
                   ) : (
                     <RefreshCw className="size-3.5" />
                   )}
@@ -879,7 +884,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   onClick={() => void handlePullCurrentBranch()}
                 >
                   {branchOperation === "pull" ? (
-                    <Loader2 className="size-3.5 animate-spin" />
+                    <Loader aria-hidden size="xs" variant="sync" />
                   ) : (
                     <Download className="size-3.5" />
                   )}
@@ -897,7 +902,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                     onClick={() => void handleDetachOriginDefaultBranch()}
                   >
                     {branchOperation === "detach" ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <Loader aria-hidden size="xs" variant="sync" />
                     ) : (
                       <GitBranchPlus className="size-3.5" />
                     )}

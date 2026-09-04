@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { KeyRound, Loader2, Plug, RotateCcw, Trash2 } from "lucide-react";
+import { KeyRound, Plug, RotateCcw, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
+  Loader,
   Input,
   Select,
   SelectContent,
@@ -214,7 +215,7 @@ export function JiraConnectorSettingsSection() {
   const canStore = status?.secureStorageAvailable !== false;
   const spinner = (key: BusyKey, Icon: typeof KeyRound) =>
     busy === key ? (
-      <Loader2 className="size-4 animate-spin" />
+      <Loader aria-hidden size="xs" variant="signal" />
     ) : (
       <Icon className="size-4" aria-hidden="true" />
     );

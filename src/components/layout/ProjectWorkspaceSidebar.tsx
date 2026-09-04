@@ -9,7 +9,6 @@ import {
   GitMerge,
   LayoutGrid,
   ListChecks,
-  LoaderCircle,
   MoreVertical,
   PanelLeft,
   Plus,
@@ -88,7 +87,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  WaveIndicator,
+  Loader,
   Input,
 } from "@/components/ui";
 import { WorkspaceSettingsDialog } from "./WorkspaceSettingsDialog";
@@ -471,11 +470,18 @@ const WorkspaceLeadingStatusIcon = memo(
   }) {
     const { respondingTaskCount, respondingToneClass, prStatus } =
       useWorkspaceSidebarActivityState(args.workspaceId);
-    const leadingAttentionKind = getWorkspaceLeadingAttentionKind(args.attentionKind);
+    const leadingAttentionKind = getWorkspaceLeadingAttentionKind(
+      args.attentionKind,
+    );
 
     if (args.busy) {
       return (
-        <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
+        <Loader
+          aria-hidden
+          className="text-muted-foreground"
+          size="xs"
+          variant="spinner"
+        />
       );
     }
 
@@ -493,10 +499,7 @@ const WorkspaceLeadingStatusIcon = memo(
       leadingAttentionKind === "pr-behind-base"
     ) {
       return (
-        <AlertTriangle
-          className="size-4 text-destructive"
-          aria-hidden="true"
-        />
+        <AlertTriangle className="size-4 text-destructive" aria-hidden="true" />
       );
     }
     if (leadingAttentionKind === "pr-ready-to-merge") {
@@ -505,9 +508,11 @@ const WorkspaceLeadingStatusIcon = memo(
 
     if (respondingTaskCount > 0) {
       return (
-        <WaveIndicator
-          className={cn("gap-px", respondingToneClass)}
-          barClassName="h-3 w-0.5 rounded-[2px]"
+        <Loader
+          aria-hidden
+          className={respondingToneClass}
+          size="xs"
+          variant="pulse"
         />
       );
     }
@@ -596,54 +601,59 @@ function WorkQueueRow(args: {
  * `WorkspaceLeadingStatusIcon` so the same need reads the same way whether the
  * project is expanded or collapsed.
  */
-const ProjectAttentionAlertIcon = memo(function ProjectAttentionAlertIcon(args: {
-  alert: ProjectSidebarAttentionAlert;
-  projectName: string;
-}) {
-  const { alert } = args;
-  // Review-tier needs are finished work awaiting confirmation, not a stalled
-  // agent. They get a muted dot so the warning glyphs keep meaning "blocked".
-  const icon =
-    alert.tier === "review" ? (
-      <span
-        className="size-1.5 rounded-full bg-muted-foreground/70"
-        aria-hidden="true"
-      />
-    ) : alert.kind === "user-input" ? (
-      <UserRound className="size-3.5 text-warning" aria-hidden="true" />
-    ) : alert.kind === "approval" ? (
-      <ShieldCheck className="size-3.5 text-warning" aria-hidden="true" />
-    ) : (
-      <AlertTriangle className="size-3.5 text-destructive" aria-hidden="true" />
-    );
+const ProjectAttentionAlertIcon = memo(
+  function ProjectAttentionAlertIcon(args: {
+    alert: ProjectSidebarAttentionAlert;
+    projectName: string;
+  }) {
+    const { alert } = args;
+    // Review-tier needs are finished work awaiting confirmation, not a stalled
+    // agent. They get a muted dot so the warning glyphs keep meaning "blocked".
+    const icon =
+      alert.tier === "review" ? (
+        <span
+          className="size-1.5 rounded-full bg-muted-foreground/70"
+          aria-hidden="true"
+        />
+      ) : alert.kind === "user-input" ? (
+        <UserRound className="size-3.5 text-warning" aria-hidden="true" />
+      ) : alert.kind === "approval" ? (
+        <ShieldCheck className="size-3.5 text-warning" aria-hidden="true" />
+      ) : (
+        <AlertTriangle
+          className="size-3.5 text-destructive"
+          aria-hidden="true"
+        />
+      );
 
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            className="ml-auto inline-flex h-5 shrink-0 items-center justify-center gap-0.5 px-0.5"
-            role="status"
-            aria-label={`project-attention-${args.projectName}`}
-          />
-        }
-      >
-        {icon}
-        {alert.attentionItemCount > 1 ? (
-          <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
-            {alert.attentionItemCount}
-          </span>
-        ) : null}
-      </TooltipTrigger>
-      {/*
+    return (
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span
+              className="ml-auto inline-flex h-5 shrink-0 items-center justify-center gap-0.5 px-0.5"
+              role="status"
+              aria-label={`project-attention-${args.projectName}`}
+            />
+          }
+        >
+          {icon}
+          {alert.attentionItemCount > 1 ? (
+            <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
+              {alert.attentionItemCount}
+            </span>
+          ) : null}
+        </TooltipTrigger>
+        {/*
         The tooltip is portaled, so opening to the right escapes the sidebar
         instead of being clamped back over the glyph. `tests/e2e` asserts the
         bubble's rect stays clear of the icon it describes.
       */}
-      <TooltipContent side="right">{alert.label}</TooltipContent>
-    </Tooltip>
-  );
-});
+        <TooltipContent side="right">{alert.label}</TooltipContent>
+      </Tooltip>
+    );
+  },
+);
 
 const WorkspaceRespondingCountBadge = memo(
   function WorkspaceRespondingCountBadge(args: {
@@ -1026,7 +1036,7 @@ function WorkspaceRowActions(args: {
             }
           >
             {isClosing ? (
-              <LoaderCircle className="size-3.5 animate-spin" />
+              <Loader aria-hidden size="xs" variant="spinner" />
             ) : (
               <MoreVertical className="size-3.5" />
             )}
@@ -1296,10 +1306,10 @@ export function ProjectWorkspaceSidebar(args: {
     const workspacePath = workspacePathById[workspaceToClose.id];
     const isLinkedWorktree = Boolean(
       workspacePath &&
-        getLinkedWorktreePathSetForProject({
-          projectPath: currentProjectPath,
-          recentProjects,
-        }).has(normalizeComparablePath(workspacePath)),
+      getLinkedWorktreePathSetForProject({
+        projectPath: currentProjectPath,
+        recentProjects,
+      }).has(normalizeComparablePath(workspacePath)),
     );
     return buildWorkspaceArchiveDialogCopy({
       workspaceName: workspaceToClose.name,
@@ -1386,7 +1396,8 @@ export function ProjectWorkspaceSidebar(args: {
             attentionPriorityByWorkspaceId: Object.fromEntries(
               Object.entries(highestAttentionByWorkspaceId).flatMap(
                 ([workspaceId, attentionItem]) =>
-                  attentionItem && getWorkspaceLeadingAttentionKind(attentionItem.kind)
+                  attentionItem &&
+                  getWorkspaceLeadingAttentionKind(attentionItem.kind)
                     ? [[workspaceId, attentionItem.priority]]
                     : [],
               ),
@@ -1811,7 +1822,8 @@ export function ProjectWorkspaceSidebar(args: {
                             isDefault={entry.isDefault}
                             busy={workspaceBusy}
                             attentionKind={
-                              highestAttentionByWorkspaceId[entry.workspaceId]?.kind
+                              highestAttentionByWorkspaceId[entry.workspaceId]
+                                ?.kind
                             }
                           />
                         </button>
@@ -1827,10 +1839,7 @@ export function ProjectWorkspaceSidebar(args: {
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1.5">
             <TooltipProvider>
               <div
-                className={cn(
-                  "space-y-0.5",
-                  sidebarShowFleetView && "mb-2",
-                )}
+                className={cn("space-y-0.5", sidebarShowFleetView && "mb-2")}
               >
                 {sidebarShowFleetView ? (
                   <button
@@ -1887,7 +1896,9 @@ export function ProjectWorkspaceSidebar(args: {
                         >
                           <option.Icon className="size-3.5" />
                         </TooltipTrigger>
-                        <TooltipContent side="top">{option.label}</TooltipContent>
+                        <TooltipContent side="top">
+                          {option.label}
+                        </TooltipContent>
                       </Tooltip>
                     );
                   })}
@@ -1914,7 +1925,9 @@ export function ProjectWorkspaceSidebar(args: {
                   {isWorkQueueView ? null : (
                     <DropdownMenu>
                       <Tooltip>
-                        <TooltipTrigger render={<span className="inline-flex" />}>
+                        <TooltipTrigger
+                          render={<span className="inline-flex" />}
+                        >
                           <DropdownMenuTrigger
                             render={
                               <Button
@@ -2181,7 +2194,12 @@ export function ProjectWorkspaceSidebar(args: {
                                       }
                                     >
                                       {projectBusy ? (
-                                        <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
+                                        <Loader
+                                          aria-hidden
+                                          className="text-muted-foreground"
+                                          size="xs"
+                                          variant="spinner"
+                                        />
                                       ) : (
                                         <>
                                           <ProjectIdentityMark

@@ -11,7 +11,7 @@ import {
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { LoaderCircle } from "lucide-react";
+import { Loader } from "@/components/ui/loader";
 import { buildGraphBranchPaths, graphLaneX } from "@/lib/git-graph/edge-path";
 import { buildGraphLayout } from "@/lib/git-graph/graph-layout";
 import type {
@@ -630,7 +630,7 @@ export const GitGraphCanvas = forwardRef<
         </div>
         {loadingMore ? (
           <div className="sticky bottom-2 ml-auto mr-2 flex w-max items-center gap-1.5 rounded-md border border-border/70 bg-popover/95 px-2 py-1 text-[10px] text-muted-foreground shadow-sm">
-            <LoaderCircle className="size-3 animate-spin" />
+            <Loader aria-hidden size="xs" variant="scan" />
             Loading more commits…
           </div>
         ) : null}

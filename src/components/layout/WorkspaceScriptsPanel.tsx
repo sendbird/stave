@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Globe,
   History,
-  LoaderCircle,
   Play,
   RefreshCcw,
   Settings2,
@@ -26,6 +25,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Loader,
   Tabs,
   TabsContent,
   TabsList,
@@ -205,7 +205,7 @@ function HookRow(props: {
         aria-label={`Run ${triggerMeta.label} hook`}
       >
         {props.running ? (
-          <LoaderCircle className="mr-1 size-3.5 animate-spin" />
+          <Loader aria-hidden className="mr-1" size="xs" variant="steps" />
         ) : (
           <Play className="mr-1 size-3.5" />
         )}

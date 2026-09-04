@@ -8,7 +8,6 @@ import {
   CircleCheck,
   Copy,
   Globe,
-  LoaderCircle,
   RotateCcw,
   Terminal,
   Wrench,
@@ -17,6 +16,7 @@ import { LinkifiedText } from "@/components/ui/linkified-text";
 import { TruncationWarningBanner } from "@/components/ai-elements/truncation-warning";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
+import { Loader } from "@/components/ui/loader";
 import { cn } from "@/lib/utils";
 import type { ToolState } from "./tool";
 
@@ -25,7 +25,10 @@ import type { ToolState } from "./tool";
 export type ToolResultStatus = "running" | "success" | "error" | "cancelled";
 export type ToolResultKind = "terminal" | "request" | "custom";
 
-export interface ToolResultProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
+export interface ToolResultProps extends Omit<
+  HTMLAttributes<HTMLDivElement>,
+  "title"
+> {
   /** Tool identifier shown before the title in the header. */
   tool?: ReactNode;
   /** Status-aware heading. */
@@ -89,11 +92,21 @@ const STATUS_TEXT_CLASS: Record<ToolResultStatus, string> = {
   cancelled: "text-muted-foreground/70",
 };
 
-export function ToolResultStatusIcon(args: { status: ToolResultStatus; className?: string }) {
+export function ToolResultStatusIcon(args: {
+  status: ToolResultStatus;
+  className?: string;
+}) {
   const className = cn("size-[1.05em] shrink-0", args.className);
   switch (args.status) {
     case "running":
-      return <LoaderCircle className={cn(className, "animate-spin text-muted-foreground")} />;
+      return (
+        <Loader
+          aria-hidden
+          className={cn(className, "text-muted-foreground")}
+          size="xs"
+          variant="steps"
+        />
+      );
     case "success":
       return <CircleCheck className={cn(className, "text-success")} />;
     case "error":
@@ -103,7 +116,10 @@ export function ToolResultStatusIcon(args: { status: ToolResultStatus; className
   }
 }
 
-function ToolResultKindIcon(args: { kind: ToolResultKind; className?: string }) {
+function ToolResultKindIcon(args: {
+  kind: ToolResultKind;
+  className?: string;
+}) {
   const className = cn("size-[1.05em] shrink-0", args.className);
   switch (args.kind) {
     case "terminal":
@@ -125,7 +141,12 @@ interface ToolResultContextValue {
 const ToolResultContext = createContext<ToolResultContextValue | null>(null);
 
 function useToolResultContext(): ToolResultContextValue {
-  return useContext(ToolResultContext) ?? { status: "running", maxHeight: DEFAULT_MAX_HEIGHT };
+  return (
+    useContext(ToolResultContext) ?? {
+      status: "running",
+      maxHeight: DEFAULT_MAX_HEIGHT,
+    }
+  );
 }
 
 /* ─── Actions ─────────────────────────────────────────────────────── */
@@ -156,7 +177,11 @@ function CopyAction(args: { text: string }) {
           .catch(() => setCopied(false));
       }}
     >
-      {copied ? <Check className="size-[1.05em]" /> : <Copy className="size-[1.05em]" />}
+      {copied ? (
+        <Check className="size-[1.05em]" />
+      ) : (
+        <Copy className="size-[1.05em]" />
+      )}
       {copied ? "Copied" : "Copy"}
     </button>
   );
@@ -196,14 +221,23 @@ export function ToolResultOutput({
   const hasBody = typeof body === "string" && body.trim() !== "";
 
   return (
-    <div className={cn("rounded-md border border-border/70 bg-background/40", className)}>
+    <div
+      className={cn(
+        "rounded-md border border-border/70 bg-background/40",
+        className,
+      )}
+    >
       {label ? (
         <p className="border-b border-border/70 px-[0.6em] py-[0.35em] text-[0.7em] uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
       ) : null}
       {truncationNotice ? (
-        <TruncationWarningBanner notice={truncationNotice} compact className="m-[0.5em]" />
+        <TruncationWarningBanner
+          notice={truncationNotice}
+          compact
+          className="m-[0.5em]"
+        />
       ) : null}
       <div className="overflow-auto p-[0.6em]" style={{ maxHeight }}>
         {hasBody ? (
@@ -227,7 +261,9 @@ export function ToolResultOutput({
             </pre>
           )
         ) : (
-          <span className="text-[0.8em] text-muted-foreground/70">No output.</span>
+          <span className="text-[0.8em] text-muted-foreground/70">
+            No output.
+          </span>
         )}
       </div>
     </div>
@@ -270,36 +306,45 @@ export function ToolResult({
     }
   }, [collapseOnComplete, collapseSeen, headless, status]);
 
-  const contextValue = useMemo(() => ({ status, maxHeight }), [status, maxHeight]);
+  const contextValue = useMemo(
+    () => ({ status, maxHeight }),
+    [status, maxHeight],
+  );
   const hasActions = Boolean(copyText) || Boolean(onRetry);
 
-  const footer = hasActions || !headless ? (
-    <div className="flex items-center gap-[0.4em] pt-[0.5em]">
-      <span
-        className={cn(
-          "inline-flex items-center gap-[0.35em] text-[0.75em] font-medium",
-          STATUS_TEXT_CLASS[status],
-        )}
-      >
-        <ToolResultStatusIcon status={status} />
-        {STATUS_LABEL[status]}
-      </span>
-      {hasActions ? (
-        <span className="ml-auto inline-flex items-center gap-[0.2em]">
-          {copyText ? <CopyAction text={copyText} /> : null}
-          {onRetry ? (
-            <button type="button" className={ACTION_CLASS} onClick={onRetry}>
-              <RotateCcw className="size-[1.05em]" />
-              Retry
-            </button>
-          ) : null}
+  const footer =
+    hasActions || !headless ? (
+      <div className="flex items-center gap-[0.4em] pt-[0.5em]">
+        <span
+          className={cn(
+            "inline-flex items-center gap-[0.35em] text-[0.75em] font-medium",
+            STATUS_TEXT_CLASS[status],
+          )}
+        >
+          <ToolResultStatusIcon status={status} />
+          {STATUS_LABEL[status]}
         </span>
-      ) : null}
-    </div>
-  ) : null;
+        {hasActions ? (
+          <span className="ml-auto inline-flex items-center gap-[0.2em]">
+            {copyText ? <CopyAction text={copyText} /> : null}
+            {onRetry ? (
+              <button type="button" className={ACTION_CLASS} onClick={onRetry}>
+                <RotateCcw className="size-[1.05em]" />
+                Retry
+              </button>
+            ) : null}
+          </span>
+        ) : null}
+      </div>
+    ) : null;
 
   const body = (
-    <div className={cn("space-y-[0.5em]", headless ? undefined : "px-[0.75em] pb-[0.6em]")}>
+    <div
+      className={cn(
+        "space-y-[0.5em]",
+        headless ? undefined : "px-[0.75em] pb-[0.6em]",
+      )}
+    >
       {children}
       {footer}
     </div>
@@ -317,7 +362,13 @@ export function ToolResult({
 
   return (
     <ToolResultContext.Provider value={contextValue}>
-      <section className={cn("not-prose overflow-hidden rounded-lg border bg-card", className)} {...props}>
+      <section
+        className={cn(
+          "not-prose overflow-hidden rounded-lg border bg-card",
+          className,
+        )}
+        {...props}
+      >
         <button
           type="button"
           className={cn(
@@ -327,17 +378,26 @@ export function ToolResult({
           onClick={() => setOpen((previous) => !previous)}
         >
           <ToolResultKindIcon kind={kind} className="text-muted-foreground" />
-          <span className="min-w-0 truncate font-medium">{title ?? tool ?? "Tool"}</span>
+          <span className="min-w-0 truncate font-medium">
+            {title ?? tool ?? "Tool"}
+          </span>
           {tool && title ? (
-            <span className="shrink-0 font-mono text-[0.8em] text-muted-foreground">{tool}</span>
+            <span className="shrink-0 font-mono text-[0.8em] text-muted-foreground">
+              {tool}
+            </span>
           ) : null}
           {meta ? (
-            <span className="shrink-0 text-[0.8em] text-muted-foreground/70">{meta}</span>
+            <span className="shrink-0 text-[0.8em] text-muted-foreground/70">
+              {meta}
+            </span>
           ) : null}
           <span className="ml-auto inline-flex shrink-0 items-center gap-[0.4em]">
             <ToolResultStatusIcon status={status} />
             <ChevronDown
-              className={cn("size-[1.05em] transition-transform", open ? "rotate-180" : "rotate-0")}
+              className={cn(
+                "size-[1.05em] transition-transform",
+                open ? "rotate-180" : "rotate-0",
+              )}
             />
           </span>
         </button>

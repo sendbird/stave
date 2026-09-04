@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, ShieldAlert } from "lucide-react";
-import { Button, toast } from "@/components/ui";
+import { ShieldAlert } from "lucide-react";
+import { Button, Loader, toast } from "@/components/ui";
 import {
   Dialog,
   DialogContent,
@@ -214,7 +214,9 @@ export function LensCdpApprovalDialog() {
               void respond(true, true);
             }}
           >
-            {responding ? <Loader2 className="size-4 animate-spin" /> : null}
+            {responding ? (
+              <Loader aria-hidden size="xs" variant="spinner" />
+            ) : null}
             Always allow
           </Button>
         </DialogFooter>

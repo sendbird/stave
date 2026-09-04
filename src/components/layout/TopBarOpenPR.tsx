@@ -16,7 +16,6 @@ import {
   GitBranch,
   GitPullRequest,
   Info,
-  LoaderCircle,
   MessageSquare,
   RefreshCw,
   TriangleAlert,
@@ -33,6 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  Loader,
   Select,
   SelectContent,
   SelectItem,
@@ -219,7 +219,12 @@ function CreatePrLoadingSplash(props: {
       <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
         <div className="flex items-start gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80">
-            <LoaderCircle className="size-4 animate-spin text-primary" />
+            <Loader
+              aria-hidden
+              className="text-primary"
+              size="xs"
+              variant="scan"
+            />
           </div>
           <div className="space-y-1.5">
             <p className="text-sm font-medium">Preparing a PR draft</p>
@@ -1890,7 +1895,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             }
           >
             {isBusy ? (
-              <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+              <Loader
+                aria-hidden
+                className="shrink-0"
+                size="xs"
+                variant="persist"
+              />
             ) : (
               <GitPullRequest className="size-3.5 shrink-0" />
             )}
@@ -1919,7 +1929,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   }
                 >
                   {isBusy ? (
-                    <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+                    <Loader
+                      aria-hidden
+                      className="shrink-0"
+                      size="xs"
+                      variant="scan"
+                    />
                   ) : (
                     <PrStatusIcon status={prStatus} className="size-3.5" />
                   )}
@@ -2007,7 +2022,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 }
               >
                 {continuingWorkspace ? (
-                  <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+                  <Loader
+                    aria-hidden
+                    className="shrink-0"
+                    size="xs"
+                    variant="sync"
+                  />
                 ) : (
                   <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
                 )}
@@ -2376,7 +2396,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 <DialogFooter className="shrink-0">
                   <Button type="submit" disabled={!canSubmitPr || isDialogBusy}>
                     {isCreatePrSubmitting ? (
-                      <LoaderCircle className="size-4 animate-spin" />
+                      <Loader aria-hidden size="xs" variant="persist" />
                     ) : null}
                     Create PR
                   </Button>

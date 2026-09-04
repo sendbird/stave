@@ -9,12 +9,11 @@ import {
   ArrowRightCircle,
   ClipboardCheck,
   Copy,
-  LoaderCircle,
   Minus,
   Maximize2,
   XCircle,
 } from "lucide-react";
-import { Button, Textarea } from "@/components/ui";
+import { Button, Loader, Textarea } from "@/components/ui";
 import { MessageResponse } from "@/components/ai-elements";
 import {
   getTaskControlOwner,
@@ -486,9 +485,7 @@ export function PlanViewer() {
                   autoFocus
                   value={revisionText}
                   disabled={
-                    !canReplyToPlan ||
-                    planResponsePending ||
-                    planResponseSent
+                    !canReplyToPlan || planResponsePending || planResponseSent
                   }
                   onChange={(e) => setRevisionText(e.target.value)}
                   onKeyDown={(e) => {
@@ -564,7 +561,7 @@ export function PlanViewer() {
                   onClick={handleApprove}
                 >
                   {planResponsePending ? (
-                    <LoaderCircle className="size-3.5 animate-spin" />
+                    <Loader aria-hidden size="xs" variant="persist" />
                   ) : (
                     <ClipboardCheck className="size-3.5" />
                   )}

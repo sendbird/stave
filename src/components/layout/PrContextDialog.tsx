@@ -11,8 +11,9 @@
 // attach, and only for the failed checks the user actually ticked.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, LoaderCircle, MessageSquare, Zap } from "lucide-react";
+import { AlertTriangle, MessageSquare, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loader";
 import {
   Dialog,
   DialogContent,
@@ -189,7 +190,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
 
         {loading ? (
           <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            <Loader aria-hidden="true" size="xs" variant="scan" />
             Reading the pull request…
           </div>
         ) : null}
@@ -210,8 +211,8 @@ export function PrContextDialog(props: PrContextDialogProps) {
         {index && !loading ? (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             <p className="text-xs text-muted-foreground">
-              {index.ref.owner}/{index.ref.repo}#{index.ref.number} ·{" "}
-              {summary} · head {index.headSha.slice(0, 7) || "unknown"}
+              {index.ref.owner}/{index.ref.repo}#{index.ref.number} · {summary}{" "}
+              · head {index.headSha.slice(0, 7) || "unknown"}
             </p>
 
             <section aria-labelledby="pr-context-threads">
@@ -348,9 +349,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
             onClick={() => void handleAttach()}
             disabled={!index || selectionEmpty || !taskId || attaching}
           >
-            {attaching ? (
-              <LoaderCircle className="size-3.5 animate-spin" aria-hidden />
-            ) : null}
+            {attaching ? <Loader aria-hidden size="xs" variant="scan" /> : null}
             Attach to task
           </Button>
         </DialogFooter>

@@ -3,7 +3,6 @@ import {
   FileCode2,
   GitGraph,
   Globe,
-  LoaderCircle,
   Pin,
   SplitSquareHorizontal,
   SquareTerminal,
@@ -18,7 +17,7 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
-import { Badge, WaveIndicator } from "@/components/ui";
+import { Badge, Loader } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
@@ -96,7 +95,12 @@ function PaneChipIcon(args: {
       return <SquareTerminal className="size-4 text-muted-foreground" />;
     case "lens":
       return args.lensState.loading ? (
-        <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
+        <Loader
+          aria-hidden
+          className="text-muted-foreground"
+          size="xs"
+          variant="scan"
+        />
       ) : args.lensState.faviconUrl ? (
         <img
           src={args.lensState.faviconUrl}
@@ -166,9 +170,11 @@ function TaskChipIcon(args: { taskChip: TaskChipState }) {
   return (
     <span className="flex h-5 w-5 shrink-0 items-center justify-center">
       {taskChip.isResponding ? (
-        <WaveIndicator
-          className={cn("gap-px", taskChip.toneClass)}
-          barClassName="h-3 w-0.5 rounded-[2px]"
+        <Loader
+          aria-hidden
+          className={taskChip.toneClass}
+          size="xs"
+          variant="pulse"
         />
       ) : taskChip.provider ? (
         <ModelIcon

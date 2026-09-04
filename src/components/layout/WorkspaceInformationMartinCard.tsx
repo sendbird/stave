@@ -2,13 +2,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Bird,
   ExternalLink,
-  Loader2,
   RefreshCw,
   Search,
   TriangleAlert,
   Unlink,
 } from "lucide-react";
-import { Badge, Button, Input, toast } from "@/components/ui";
+import { Badge, Button, Input, Loader, toast } from "@/components/ui";
 import type { MartinProjectSummary } from "@/lib/martin-sync/contract";
 import {
   isMartinConnectorPaired,
@@ -246,7 +245,7 @@ export function WorkspaceInformationMartinCard() {
               onClick={() => void refreshContext()}
             >
               {busy === "refresh" ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader aria-hidden size="xs" variant="sync" />
               ) : (
                 <RefreshCw className="size-3.5" />
               )}
@@ -260,7 +259,7 @@ export function WorkspaceInformationMartinCard() {
               onClick={() => void unlinkProject()}
             >
               {busy === "unlink" ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader aria-hidden size="xs" variant="sync" />
               ) : (
                 <Unlink className="size-3.5" />
               )}
@@ -286,7 +285,7 @@ export function WorkspaceInformationMartinCard() {
               disabled={busy !== null || !activeWorkspaceId}
             >
               {busy === "search" ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader aria-hidden size="xs" variant="sync" />
               ) : (
                 <Search className="size-3.5" />
               )}
@@ -333,7 +332,7 @@ export function WorkspaceInformationMartinCard() {
                     onClick={() => void linkProject(result.ref)}
                   >
                     {busy === `link:${result.ref}` ? (
-                      <Loader2 className="size-3.5 animate-spin" />
+                      <Loader aria-hidden size="xs" variant="sync" />
                     ) : null}
                     Link
                   </Button>

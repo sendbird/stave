@@ -10,6 +10,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Loader,
   ExternalAnchor,
   Input,
   Select,
@@ -44,7 +45,6 @@ import {
   Bot,
   ExternalLink,
   Layers2,
-  LoaderCircle,
   Package2,
   Plug2,
   RefreshCcw,
@@ -1219,7 +1219,7 @@ export function CodexSection() {
                     {snapshotState.status === "error" ? (
                       <AlertCircle className="size-5" />
                     ) : (
-                      <LoaderCircle className="size-5 animate-spin" />
+                      <Loader aria-hidden size="sm" variant="spinner" />
                     )}
                   </EmptyMedia>
                   <EmptyTitle>
@@ -1777,7 +1777,12 @@ export function CodexSection() {
                                         }
                                       >
                                         {busyKey === `oauth:${server.name}` ? (
-                                          <LoaderCircle className="mr-1 size-3.5 animate-spin" />
+                                          <Loader
+                                            aria-hidden
+                                            className="mr-1"
+                                            size="xs"
+                                            variant="spinner"
+                                          />
                                         ) : null}
                                         Login
                                       </Button>
@@ -1978,7 +1983,12 @@ export function CodexSection() {
                                   }
                                 >
                                   {busyKey === `feature:${feature.name}` ? (
-                                    <LoaderCircle className="mr-1 size-3.5 animate-spin" />
+                                    <Loader
+                                      aria-hidden
+                                      className="mr-1"
+                                      size="xs"
+                                      variant="spinner"
+                                    />
                                   ) : null}
                                   {feature.enabled ? "Disable" : "Enable"}
                                 </Button>
@@ -2039,7 +2049,12 @@ export function CodexSection() {
                             >
                               {busyKey ===
                               `plugin-uninstall:${selectedPluginSummary.id}` ? (
-                                <LoaderCircle className="mr-1 size-3.5 animate-spin" />
+                                <Loader
+                                  aria-hidden
+                                  className="mr-1"
+                                  size="xs"
+                                  variant="spinner"
+                                />
                               ) : null}
                               Uninstall
                             </Button>
@@ -2057,7 +2072,12 @@ export function CodexSection() {
                             >
                               {busyKey ===
                               `plugin-install:${selectedPluginSummary?.id ?? ""}` ? (
-                                <LoaderCircle className="mr-1 size-3.5 animate-spin" />
+                                <Loader
+                                  aria-hidden
+                                  className="mr-1"
+                                  size="xs"
+                                  variant="compile"
+                                />
                               ) : null}
                               Install
                             </Button>
@@ -2520,7 +2540,12 @@ export function CodexSection() {
                           disabled={busyKey === "config-import"}
                         >
                           {busyKey === "config-import" ? (
-                            <LoaderCircle className="mr-1 size-3.5 animate-spin" />
+                            <Loader
+                              aria-hidden
+                              className="mr-1"
+                              size="xs"
+                              variant="spinner"
+                            />
                           ) : null}
                           Import detected config
                         </Button>
@@ -2675,7 +2700,12 @@ export function CodexSection() {
                           disabled={busyKey === "config-write-single"}
                         >
                           {busyKey === "config-write-single" ? (
-                            <LoaderCircle className="mr-1 size-3.5 animate-spin" />
+                            <Loader
+                              aria-hidden
+                              className="mr-1"
+                              size="xs"
+                              variant="spinner"
+                            />
                           ) : null}
                           Apply single edit
                         </Button>
@@ -2702,7 +2732,12 @@ export function CodexSection() {
                           disabled={busyKey === "config-write-batch"}
                         >
                           {busyKey === "config-write-batch" ? (
-                            <LoaderCircle className="mr-1 size-3.5 animate-spin" />
+                            <Loader
+                              aria-hidden
+                              className="mr-1"
+                              size="xs"
+                              variant="spinner"
+                            />
                           ) : null}
                           Apply batch
                         </Button>

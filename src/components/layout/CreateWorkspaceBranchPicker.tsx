@@ -1,10 +1,4 @@
-import {
-  Check,
-  ChevronDown,
-  GitBranch,
-  LoaderCircle,
-  Search,
-} from "lucide-react";
+import { Check, ChevronDown, GitBranch, Search } from "lucide-react";
 import {
   useDeferredValue,
   useEffect,
@@ -16,6 +10,7 @@ import {
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import {
   Input,
+  Loader,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -252,7 +247,12 @@ export function CreateWorkspaceBranchPicker({
         </span>
         <span className="ml-auto flex items-center gap-2">
           {loading ? (
-            <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <Loader
+              aria-hidden
+              className="shrink-0 text-muted-foreground"
+              size="xs"
+              variant="sync"
+            />
           ) : showScopeBadges ? (
             <span className="rounded border border-border/70 bg-background/80 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
               {getScopeLabel(selectedScope)}
@@ -286,7 +286,7 @@ export function CreateWorkspaceBranchPicker({
         </div>
         {loading && rows.length === 0 ? (
           <div className="flex items-center gap-2 px-3 py-8 text-sm text-muted-foreground">
-            <LoaderCircle className="size-4 animate-spin" />
+            <Loader aria-hidden size="xs" variant="sync" />
             Loading branches...
           </div>
         ) : rows.length === 0 ? (

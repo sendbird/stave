@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   ChevronDown,
-  Loader2,
   RefreshCcw,
   Search,
   Sparkles,
@@ -20,6 +19,7 @@ import {
   ButtonGroup,
   ButtonGroupSeparator,
   Input,
+  Loader,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -212,7 +212,7 @@ function CatalogNotice(args: {
           role="status"
           className="flex shrink-0 items-center gap-2 border-b border-border/65 px-3 py-2 text-xs text-muted-foreground"
         >
-          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          <Loader aria-hidden="true" size="xs" variant="decode" />
           Loading the runtime model catalog…
         </div>
       ) : null}

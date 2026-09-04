@@ -7,8 +7,8 @@ import {
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { AlertCircle, GitGraph, LoaderCircle, X } from "lucide-react";
-import { Button, toast } from "@/components/ui";
+import { AlertCircle, GitGraph, X } from "lucide-react";
+import { Button, Loader, toast } from "@/components/ui";
 import {
   COMMIT_GRAPH_WORKING_TREE_REVISION,
   commitGraphDiffTabId,
@@ -683,7 +683,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       {loading && graph.commits.length === 0 ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <LoaderCircle className="size-5 animate-spin" />
+            <Loader aria-hidden size="sm" variant="scan" />
             <p className="text-xs">Reading repository history…</p>
           </div>
         </div>
@@ -777,7 +777,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
 
       {pendingAction ? (
         <div className="pointer-events-none absolute bottom-3 right-3 z-20 flex items-center gap-1.5 rounded-md border border-border/70 bg-popover px-2.5 py-1.5 text-[10px] text-popover-foreground shadow-md">
-          <LoaderCircle className="size-3 animate-spin" />
+          <Loader aria-hidden size="xs" variant="scan" />
           {pendingAction}…
         </div>
       ) : null}

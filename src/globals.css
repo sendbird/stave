@@ -702,11 +702,6 @@
   transform-origin: top center;
 }
 
-@utility animate-message-wave {
-  animation: message-wave 900ms ease-in-out infinite;
-  transform-origin: bottom;
-}
-
 @utility animate-cot-step-in {
   animation: cot-step-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
   transform-origin: top;
@@ -952,19 +947,6 @@
 
   50% {
     opacity: var(--pulse-min);
-  }
-}
-
-@keyframes message-wave {
-  0%,
-  100% {
-    transform: scaleY(0.35);
-    opacity: 0.45;
-  }
-
-  50% {
-    transform: scaleY(1);
-    opacity: 1;
   }
 }
 

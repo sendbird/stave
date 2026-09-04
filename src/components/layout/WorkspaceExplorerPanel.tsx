@@ -8,7 +8,6 @@ import {
   FilePlus,
   FolderOpen,
   FolderPlus,
-  LoaderCircle,
   RefreshCcw,
   Search,
   SquareTerminal,
@@ -28,6 +27,7 @@ import { Virtuoso } from "react-virtuoso";
 import {
   Button,
   Input,
+  Loader,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -313,7 +313,7 @@ function ExplorerSearchPanel(props: {
 
       {isSearching ? (
         <p className="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground">
-          <LoaderCircle className="size-4 animate-spin" />
+          <Loader aria-hidden size="xs" variant="scan" />
           Searching...
         </p>
       ) : null}
@@ -460,7 +460,12 @@ function ExplorerTreeRow(args: {
           <ExplorerEntryIcon entry={args.entry} isOpen={isOpen} />
           <span className="min-w-0 flex-1 truncate">{args.entry.name}</span>
           {isFolder && directoryState?.status === "loading" ? (
-            <LoaderCircle className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+            <Loader
+              aria-hidden
+              className="shrink-0 text-muted-foreground"
+              size="xs"
+              variant="scan"
+            />
           ) : null}
         </ContextMenuTrigger>
         <ContextMenuContent className="w-56">
@@ -822,7 +827,7 @@ export function WorkspaceExplorerPanel(props: {
           ) : null}
           {props.isExplorerLoading && props.explorerTree.length === 0 ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <LoaderCircle className="size-4 animate-spin" />
+              <Loader aria-hidden size="xs" variant="scan" />
               Loading files...
             </p>
           ) : null}

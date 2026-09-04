@@ -1,4 +1,4 @@
-import { FileCode2, LoaderCircle, Search } from "lucide-react";
+import { FileCode2, Search } from "lucide-react";
 import {
   useDeferredValue,
   useEffect,
@@ -16,6 +16,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  Loader,
 } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { cn } from "@/lib/utils";
@@ -328,7 +329,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
               <CommandList className="max-h-[26rem] px-2 pb-2">
                 {isPreparingFiles ? (
                   <div className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
-                    <LoaderCircle className="size-4 animate-spin" />
+                    <Loader aria-hidden size="xs" variant="scan" />
                     Refreshing workspace files...
                   </div>
                 ) : null}

@@ -126,7 +126,13 @@ export {
   TooltipProvider,
   TooltipTrigger,
 } from "./tooltip";
-export { WaveIndicator } from "./wave-indicator";
+export { Loader } from "./loader";
+export type {
+  LoaderProps,
+  LoaderSize,
+  LoaderTone,
+  LoaderVariant,
+} from "./loader";
 export { ExternalAnchor } from "./external-anchor";
 export { LinkifiedText } from "./linkified-text";
 export { ServiceLinkBadge } from "./service-link-badge";

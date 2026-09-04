@@ -3,11 +3,10 @@ import {
   FileDiff,
   GitBranch,
   GitCompareArrows,
-  LoaderCircle,
   LockKeyhole,
 } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
-import { Button, Textarea } from "@/components/ui";
+import { Button, Loader, Textarea } from "@/components/ui";
 import {
   Dialog,
   DialogClose,
@@ -321,7 +320,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               >
                 {changeStatus.state === "loading" ? (
                   <>
-                    <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" />
+                    <Loader aria-hidden size="xs" variant="verify" />
                     Inspecting workspace…
                   </>
                 ) : null}
@@ -555,7 +554,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               onClick={() => void handleSubmit()}
             >
               {isSubmitting ? (
-                <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />
+                <Loader aria-hidden size="xs" variant="verify" />
               ) : (
                 <FileDiff className="size-4" />
               )}

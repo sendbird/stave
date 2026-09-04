@@ -4,14 +4,13 @@ import {
   Copy,
   Eye,
   EyeOff,
-  Loader2,
   Lock,
   Pencil,
   Plus,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
-import { Button, Input, Textarea, toast } from "@/components/ui";
+import { Button, Input, Loader, Textarea, toast } from "@/components/ui";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SettingsCard } from "./settings-dialog.shared";
 import type { SecretMetadata } from "@/lib/secrets/secrets";
@@ -127,7 +126,15 @@ export function SecretsSettingsCard() {
     } finally {
       setSaving(false);
     }
-  }, [closeEditor, description, editingId, envVarName, loadSecrets, name, value]);
+  }, [
+    closeEditor,
+    description,
+    editingId,
+    envVarName,
+    loadSecrets,
+    name,
+    value,
+  ]);
 
   const deleteSecret = useCallback(async () => {
     if (!deletingId) {
@@ -348,7 +355,9 @@ export function SecretsSettingsCard() {
                 Cancel
               </Button>
               <Button type="submit" size="sm" disabled={saving}>
-                {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                {saving ? (
+                  <Loader aria-hidden size="xs" variant="persist" />
+                ) : null}
                 {editingId ? "Update secret" : "Save secret"}
               </Button>
             </div>
@@ -357,7 +366,7 @@ export function SecretsSettingsCard() {
 
         {loading ? (
           <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
+            <Loader aria-hidden size="xs" variant="persist" />
             Loading secrets…
           </div>
         ) : secrets.length === 0 ? (
@@ -388,9 +397,7 @@ export function SecretsSettingsCard() {
                       ) : null}
                     </div>
                     <p className="truncate font-mono text-xs text-muted-foreground">
-                      {revealed
-                        ? revealedValue
-                        : secret.valuePreview || "••••"}
+                      {revealed ? revealedValue : secret.valuePreview || "••••"}
                     </p>
                     {secret.description ? (
                       <p className="truncate text-xs text-muted-foreground">
@@ -403,9 +410,7 @@ export function SecretsSettingsCard() {
                     variant="ghost"
                     size="icon-xs"
                     aria-label={
-                      revealed
-                        ? `Hide ${secret.name}`
-                        : `Reveal ${secret.name}`
+                      revealed ? `Hide ${secret.name}` : `Reveal ${secret.name}`
                     }
                     onClick={() => void toggleReveal(secret)}
                   >
