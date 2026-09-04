@@ -1,3 +1,23 @@
+## [0.17.3](https://github.com/sendbird/stave/compare/v0.17.2...v0.17.3) (2026-09-04)
+
+### Features
+
+* Make Tasks paginate Jira and Crane independently, prefer Jira, expose per-source controls and status, recover from oversized Crane pages, and improve list and detail readability.
+* Add a conversation context meter and a responsive four-bar composer frame with framed or classic layout modes, compact controls, and theme-aware shelves.
+
+### Bug Fixes
+
+* Align the expanded sidebar collapse chrome with the top bar so their height and bottom hairline form one continuous window edge.
+
+### Performance Improvements
+
+* Reduce active-turn renderer pressure with lower-cadence loaders, batched streaming prose updates, and bounded CPU, GPU, and heap trends in the Resources panel.
+* Speed up unit-test validation by sharing one Bun process for safe suites while isolating only process-global-state leaks.
+
+### References
+
+* [#466](https://github.com/sendbird/stave/pull/466), [#467](https://github.com/sendbird/stave/pull/467), [#468](https://github.com/sendbird/stave/pull/468), [#469](https://github.com/sendbird/stave/pull/469), [#470](https://github.com/sendbird/stave/pull/470)
+
 ## [0.17.2](https://github.com/sendbird/stave/compare/v0.17.1...v0.17.2) (2026-09-04)
 
 ### Features
