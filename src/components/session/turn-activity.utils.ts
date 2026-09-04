@@ -20,7 +20,7 @@ import type {
   RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
 import type { WorkGraphSummary } from "@/lib/work-graph/work-graph-tree";
-import type { OrbState } from "thinking-orbs";
+import type { LoaderVariant } from "@/components/ui/loader.types";
 
 export type TurnActivityRowStatus =
   "pending" | "running" | "waiting" | "completed" | "failed";
@@ -208,39 +208,42 @@ export function describeRetainedTurnHeadline(outcome: RetainedTurnOutcome) {
 }
 
 /**
- * Map the turn-level lifecycle to the orb's visual vocabulary. Keep this
+ * Map the turn-level lifecycle to the shared loader vocabulary. Keep this
  * separate from the surface so the state mapping stays deterministic and
  * testable as provider activity grows.
  */
-export function resolveTurnActivityOrbState(args: {
+export function resolveTurnActivityLoaderVariant(args: {
   activity: Pick<ProviderTurnActivitySnapshot, "pendingInteraction"> | null;
   isPlanPreparing: boolean;
   isStalled: boolean;
   workItems: Pick<ProviderTurnWorkItem, "kind" | "status">[];
-}): OrbState {
+}): LoaderVariant {
   if (!args.activity) {
-    return "connecting";
+    return "signal";
   }
   if (args.activity.pendingInteraction) {
-    return "listening";
+    return "handoff";
   }
   if (args.isStalled) {
-    return "breathing";
+    return "signal";
   }
   if (args.isPlanPreparing) {
-    return "shaping";
+    return "route";
   }
 
   const runningWorkItems = args.workItems.filter(
     (item) => item.status === "running",
   );
   if (runningWorkItems.length > 1) {
-    return "weaving";
+    return "parallel";
   }
   if (runningWorkItems.some((item) => item.kind === "subagent")) {
-    return "searching";
+    return "handoff";
   }
-  return "working";
+  if (runningWorkItems.length > 0) {
+    return "steps";
+  }
+  return "pulse";
 }
 
 export function promoteFirstPendingTodoForActiveTurn(

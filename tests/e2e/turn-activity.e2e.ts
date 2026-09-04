@@ -129,6 +129,9 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await page.evaluate(async () => {
     const appStorePath = "/src/store/app.store.ts";
     const storeModule = await import(appStorePath);
+    const { createWorkGraph } = await import(
+      "/src/lib/work-graph/work-graph-reducer.ts"
+    );
     const store = storeModule.useAppStore;
     const state = store.getState();
     const taskId = "task-turn-activity";
@@ -164,6 +167,11 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
             },
           },
           orderedWorkItemIds: ["agent-lens"],
+          workGraph: createWorkGraph({
+            turnId,
+            providerId: "codex",
+            startedAt: now - 12_000,
+          }),
         },
       },
     });
@@ -172,10 +180,12 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   const activity = page.getByTestId("turn-activity");
   await expect(activity).toBeVisible();
   await expect(activity).toHaveAccessibleName("Turn activity");
-  await expect(activity.getByTestId("turn-activity-orb")).toBeVisible();
-  await expect(activity.getByTestId("turn-activity-orb")).toHaveAttribute(
-    "data-orb-state",
-    "searching",
+  await expect(activity.getByTestId("turn-activity-loader")).toBeVisible();
+  await expect(
+    activity.getByTestId("turn-activity-loader").locator(".stave-loader"),
+  ).toHaveAttribute(
+    "data-loader-variant",
+    "handoff",
   );
   const executionSummary = activity.getByRole("region", {
     name: "Task execution summary",
@@ -588,6 +598,9 @@ test("keeps activity rows mounted while their status changes", async ({
   ) => {
     await page.evaluate(async (workItems) => {
       const storeModule = await import("/src/store/app.store.ts");
+      const { createWorkGraph } = await import(
+        "/src/lib/work-graph/work-graph-reducer.ts"
+      );
       const store = storeModule.useAppStore;
       const taskId = "task-turn-activity-height";
       const turnId = "turn-height";
@@ -622,6 +635,11 @@ test("keeps activity rows mounted while their status changes", async ({
               ]),
             ),
             orderedWorkItemIds: workItems.map((item) => item.id),
+            workGraph: createWorkGraph({
+              turnId,
+              providerId: "codex",
+              startedAt: now - 5_000,
+            }),
           },
         },
       });

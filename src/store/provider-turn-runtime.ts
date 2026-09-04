@@ -71,20 +71,44 @@ export function createProviderTurnEventController(args: {
   flushEvents: (events: NormalizedProviderEvent[]) => void;
   /**
    * Called synchronously the moment an event is delivered over IPC, before the
-   * rAF-batched visual flush below. Liveness (the "provider is still streaming"
+   * time-batched visual flush below. Liveness (the "provider is still streaming"
    * signal that keeps the stall / auto-abort net disarmed) MUST be tracked here
-   * rather than inside `flushEvents`: the flush is gated on
-   * `requestAnimationFrame`, which the Electron renderer throttles or fully
-   * pauses while the window is hidden, minimized, or occluded. If liveness were
-   * derived from the flush, a backgrounded window receiving a perfectly healthy
-   * stream would stop resetting the wall-clock stall timer and get
-   * force-aborted with "provider went silent for too long". Arrival, unlike the
-   * flush, is driven by the IPC callback and is not throttled.
+   * rather than inside `flushEvents`: renderer timers can be throttled while the
+   * window is hidden, minimized, or occluded. If liveness were derived from the
+   * flush, a backgrounded window receiving a perfectly healthy stream could
+   * stop resetting the wall-clock stall timer and get force-aborted with
+   * "provider went silent for too long". Arrival, unlike the flush, is driven
+   * by the IPC callback and is not throttled.
    */
   onEventArrived?: (event: NormalizedProviderEvent) => void;
 }) {
   const queuedEvents: NormalizedProviderEvent[] = [];
-  let flushHandle: number | null = null;
+  let flushHandle: ReturnType<typeof setTimeout> | null = null;
+
+  const queueEvent = (event: NormalizedProviderEvent) => {
+    const previous = queuedEvents.at(-1);
+    if (
+      previous?.type === "text" &&
+      event.type === "text" &&
+      ((previous.segmentId == null && event.segmentId == null) ||
+        previous.segmentId === event.segmentId)
+    ) {
+      queuedEvents[queuedEvents.length - 1] = {
+        ...previous,
+        text: `${previous.text}${event.text}`,
+      };
+      return;
+    }
+    if (previous?.type === "thinking" && event.type === "thinking") {
+      queuedEvents[queuedEvents.length - 1] = {
+        ...previous,
+        text: `${previous.text}${event.text}`,
+        isStreaming: event.isStreaming,
+      };
+      return;
+    }
+    queuedEvents.push(event);
+  };
 
   const flushNow = () => {
     if (queuedEvents.length === 0) {
@@ -97,14 +121,7 @@ export function createProviderTurnEventController(args: {
     if (flushHandle === null) {
       return;
     }
-    if (
-      typeof window !== "undefined" &&
-      typeof window.cancelAnimationFrame === "function"
-    ) {
-      window.cancelAnimationFrame(flushHandle);
-    } else {
-      window.clearTimeout(flushHandle);
-    }
+    clearTimeout(flushHandle);
     flushHandle = null;
   };
 
@@ -112,25 +129,19 @@ export function createProviderTurnEventController(args: {
     if (flushHandle !== null) {
       return;
     }
-    if (
-      typeof window !== "undefined" &&
-      typeof window.requestAnimationFrame === "function"
-    ) {
-      flushHandle = window.requestAnimationFrame(() => {
-        flushHandle = null;
-        flushNow();
-      });
-      return;
-    }
-    flushHandle = window.setTimeout(() => {
+    // Human-readable streaming does not benefit from one React/store replay
+    // per display frame. A 50 ms batch stays below perceptible interaction
+    // latency while capping visual updates at 20 Hz and giving adjacent text
+    // chunks a chance to merge before they allocate message/part copies.
+    flushHandle = setTimeout(() => {
       flushHandle = null;
       flushNow();
-    }, 16);
+    }, 50);
   };
 
   return {
     handleEvent(event: NormalizedProviderEvent) {
-      queuedEvents.push(event);
+      queueEvent(event);
       if (event.type === "done") {
         // `done` flushes synchronously below, which clears the stall timer, so
         // it needs no separate liveness poke.
@@ -140,6 +151,14 @@ export function createProviderTurnEventController(args: {
       }
       // Reset the stall clock on arrival, independent of the throttleable flush.
       args.onEventArrived?.(event);
+      if (event.type !== "text" && event.type !== "thinking") {
+        // Approval, tool, error, and lifecycle changes drive controls or state
+        // transitions. Flush them immediately, along with any earlier text, so
+        // lowering prose cadence never makes the interface feel unresponsive.
+        cancelScheduledFlush();
+        flushNow();
+        return;
+      }
       scheduleFlush();
     },
   };

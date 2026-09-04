@@ -42,27 +42,7 @@ describe("provider turn runtime", () => {
 });
 
 describe("provider turn event controller liveness", () => {
-  const originalWindow = (globalThis as { window?: unknown }).window;
-
-  afterEach(() => {
-    (globalThis as { window?: unknown }).window = originalWindow;
-  });
-
-  test("reports liveness on IPC arrival even when the rAF flush never fires", () => {
-    // Simulate a hidden/occluded renderer: requestAnimationFrame is registered
-    // but its callback is never invoked (Electron throttles/pauses rAF for
-    // background windows). The stall net must still be reset from arrival.
-    const pendingRafCallbacks: FrameRequestCallback[] = [];
-    (globalThis as { window?: unknown }).window = {
-      requestAnimationFrame: (cb: FrameRequestCallback) => {
-        pendingRafCallbacks.push(cb);
-        return pendingRafCallbacks.length;
-      },
-      cancelAnimationFrame: () => {},
-      setTimeout: globalThis.setTimeout.bind(globalThis),
-      clearTimeout: globalThis.clearTimeout.bind(globalThis),
-    };
-
+  test("reports liveness immediately and coalesces a short visual burst", async () => {
     const flushed: NormalizedProviderEvent[][] = [];
     const arrived: NormalizedProviderEvent[] = [];
     const controller = createProviderTurnEventController({
@@ -73,24 +53,20 @@ describe("provider turn event controller liveness", () => {
     controller.handleEvent({ type: "text", text: "chunk one" });
     controller.handleEvent({ type: "text", text: "chunk two" });
 
-    // rAF never fired → no visual flush happened...
+    // The visual batch has not reached its 50 ms deadline yet...
     expect(flushed).toHaveLength(0);
-    expect(pendingRafCallbacks).toHaveLength(1);
     // ...but liveness was delivered synchronously for every streamed event.
     expect(arrived).toEqual([
       { type: "text", text: "chunk one" },
       { type: "text", text: "chunk two" },
     ]);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(flushed).toEqual([
+      [{ type: "text", text: "chunk onechunk two" }],
+    ]);
   });
 
   test("does not double-count `done` as a liveness event and flushes it synchronously", () => {
-    (globalThis as { window?: unknown }).window = {
-      requestAnimationFrame: () => 1,
-      cancelAnimationFrame: () => {},
-      setTimeout: globalThis.setTimeout.bind(globalThis),
-      clearTimeout: globalThis.clearTimeout.bind(globalThis),
-    };
-
     const flushed: NormalizedProviderEvent[][] = [];
     const arrived: NormalizedProviderEvent[] = [];
     const controller = createProviderTurnEventController({
@@ -108,6 +84,51 @@ describe("provider turn event controller liveness", () => {
       [
         { type: "text", text: "answer" },
         { type: "done", stop_reason: "end_turn" },
+      ],
+    ]);
+  });
+
+  test("flushes interaction events without waiting for the text cadence", () => {
+    const flushed: NormalizedProviderEvent[][] = [];
+    const controller = createProviderTurnEventController({
+      flushEvents: (events) => flushed.push(events),
+    });
+
+    controller.handleEvent({ type: "text", text: "before approval" });
+    controller.handleEvent({
+      type: "approval",
+      toolName: "Bash",
+      requestId: "request-1",
+      description: "Run tests",
+    });
+
+    expect(flushed).toEqual([
+      [
+        { type: "text", text: "before approval" },
+        {
+          type: "approval",
+          toolName: "Bash",
+          requestId: "request-1",
+          description: "Run tests",
+        },
+      ],
+    ]);
+  });
+
+  test("keeps provider text segment boundaries while coalescing", async () => {
+    const flushed: NormalizedProviderEvent[][] = [];
+    const controller = createProviderTurnEventController({
+      flushEvents: (events) => flushed.push(events),
+    });
+
+    controller.handleEvent({ type: "text", text: "commentary", segmentId: "a" });
+    controller.handleEvent({ type: "text", text: "answer", segmentId: "b" });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(flushed).toEqual([
+      [
+        { type: "text", text: "commentary", segmentId: "a" },
+        { type: "text", text: "answer", segmentId: "b" },
       ],
     ]);
   });

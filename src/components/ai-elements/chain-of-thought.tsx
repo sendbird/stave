@@ -15,7 +15,6 @@ import {
   getSeededCompletionPhrase,
 } from "@/lib/completion-phrases";
 import { useAgentStyle } from "./agent-style-context";
-import { ThinkingOrb } from "./thinking-orb";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
 
 /* ─── Data type (used by the `steps` prop shorthand) ─────────────── */
@@ -273,7 +272,6 @@ export function ChainOfThoughtTrigger(
 ) {
   const { isStreaming, open, setOpen, summaryItems, seed, durationSeconds } =
     useChainOfThoughtContext();
-  const agentStyle = useAgentStyle();
   const showSummary = !open && !isStreaming && summaryItems.length > 0;
 
   /* Pick a completion phrase that is stable across Virtuoso unmount/remount
@@ -304,12 +302,13 @@ export function ChainOfThoughtTrigger(
     >
       {isStreaming ? (
         <span className="inline-flex min-w-0 items-center gap-[0.5em] font-medium">
-          {agentStyle === "legacy" ? (
-            /* TODO(agent-style-legacy): remove with the legacy trace visual. */
-            <Brain className="size-[1.15em] shrink-0" />
-          ) : (
-            <ThinkingOrb state="solving" className="shrink-0" />
-          )}
+          <Loader
+            aria-hidden
+            cadence="reduced"
+            className="shrink-0 text-foreground"
+            size="sm"
+            variant="pulse"
+          />
           <ThinkingPhraseLabel active={isStreaming} />
         </span>
       ) : (

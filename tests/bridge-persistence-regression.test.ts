@@ -6373,7 +6373,9 @@ describe("workspace store hydration ordering", () => {
         done: false,
       });
 
-      await Bun.sleep(25);
+      // The late text still has to reach the 50 ms prose flush before the
+      // inactive-turn guard can reject it.
+      await Bun.sleep(70);
     } finally {
       console.warn = originalWarn;
     }

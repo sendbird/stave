@@ -168,6 +168,13 @@ cross-session readability.
 - Do not derive trace arrays inside store selectors.
 - Build trace data with pure helpers plus `useMemo` at the component boundary.
 - Keep step renderers split by responsibility so only affected nodes re-render.
+- Batch provider text and reasoning deltas into at most 20 visual updates per second
+  and merge adjacent text from the same provider segment before replay. Interaction,
+  tool, and lifecycle events still flush immediately. Arrival-based liveness remains
+  synchronous so a backgrounded renderer cannot make a healthy turn look stalled.
+- Use the shared CSS loader for long-running trace and turn status. Keep its cadence
+  reduced and pause it for completed, stalled, or interaction-blocked states; reserve
+  canvas-driven orbs for the intentional kickoff experience.
 
 ## Schema / Contract Notes
 

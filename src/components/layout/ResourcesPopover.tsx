@@ -16,6 +16,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
+import {
+  appendResourceMetricSample,
+  summarizeResourceMetricSamples,
+  type ResourceMetricSample,
+  type ResourceMetricSummary,
+} from "@/lib/performance/resource-metric-history";
 import { getLatestWorkspaceSwitchPerformance } from "@/lib/performance/workspace-switch-metrics";
 import { cn } from "@/lib/utils";
 
@@ -148,6 +154,11 @@ function formatKB(kb: number): string {
   return formatBytes(kb * 1024);
 }
 
+function formatSignedKB(kb: number): string {
+  if (kb === 0) return "0 B";
+  return `${kb > 0 ? "+" : "−"}${formatKB(Math.abs(kb))}`;
+}
+
 function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -213,8 +224,11 @@ export function MemoryUsagePopover({
   const [metrics, setMetrics] = useState<AppMetrics | null>(null);
   const [rendererMemory, setRendererMemory] =
     useState<RendererMemoryMetrics | null>(null);
+  const [recentMetrics, setRecentMetrics] =
+    useState<ResourceMetricSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const samplesRef = useRef<ResourceMetricSample[]>([]);
 
   const fetchMetrics = useCallback(async () => {
     try {
@@ -227,6 +241,25 @@ export function MemoryUsagePopover({
       }
       if (rendererResult.status === "fulfilled" && rendererResult.value) {
         setRendererMemory(rendererResult.value);
+      }
+      if (appResult.status === "fulfilled" && appResult.value) {
+        const rendererCpuPercent = appResult.value.processes
+          .filter((process) => process.role === "host-renderer")
+          .reduce((sum, process) => sum + process.cpu.percentCPUUsage, 0);
+        const gpuCpuPercent = appResult.value.processes
+          .filter((process) => process.role === "gpu")
+          .reduce((sum, process) => sum + process.cpu.percentCPUUsage, 0);
+        const rendererHeapUsedKB =
+          rendererResult.status === "fulfilled" && rendererResult.value
+            ? rendererResult.value.heap.usedHeapSize
+            : null;
+        samplesRef.current = appendResourceMetricSample(samplesRef.current, {
+          sampledAt: Date.now(),
+          rendererCpuPercent,
+          gpuCpuPercent,
+          rendererHeapUsedKB,
+        });
+        setRecentMetrics(summarizeResourceMetricSamples(samplesRef.current));
       }
     } catch {
       // silently ignore — app metrics may be unavailable in dev/web mode
@@ -426,6 +459,16 @@ export function MemoryUsagePopover({
                     </span>
                   </>
                 ) : null}
+                {rendererMemory ? (
+                  <>
+                    <span className="text-muted-foreground/70">
+                      Blink allocated
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {formatKB(rendererMemory.blink.allocated)}
+                    </span>
+                  </>
+                ) : null}
                 <span className="text-muted-foreground/70">
                   Renderer stalls
                 </span>
@@ -449,6 +492,44 @@ export function MemoryUsagePopover({
                 </span>
               </div>
 
+              {recentMetrics && recentMetrics.sampleCount > 1 ? (
+                <div className="border-t border-border/50 pt-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Recent pressure
+                    </span>
+                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                      {Math.max(1, Math.round(recentMetrics.durationMs / 1_000))}s
+                      · {recentMetrics.sampleCount} samples
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <span className="text-muted-foreground/70">
+                      App renderer CPU
+                    </span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {recentMetrics.rendererCpuAverage.toFixed(1)}% avg ·{" "}
+                      {recentMetrics.rendererCpuPeak.toFixed(1)}% peak
+                    </span>
+                    <span className="text-muted-foreground/70">GPU CPU</span>
+                    <span className="text-right font-mono text-muted-foreground/80">
+                      {recentMetrics.gpuCpuAverage.toFixed(1)}% avg ·{" "}
+                      {recentMetrics.gpuCpuPeak.toFixed(1)}% peak
+                    </span>
+                    {recentMetrics.rendererHeapDeltaKB != null ? (
+                      <>
+                        <span className="text-muted-foreground/70">
+                          Renderer heap change
+                        </span>
+                        <span className="text-right font-mono text-muted-foreground/80">
+                          {formatSignedKB(recentMetrics.rendererHeapDeltaKB)}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
               {metrics.hostService ? (
                 <div className="border-t border-border/50 pt-3">
                   <div className="mb-2 flex items-center justify-between">
@@ -461,13 +542,14 @@ export function MemoryUsagePopover({
                   </div>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                     <span className="text-muted-foreground/70">
-                      Child working set
+                      All descendants
                     </span>
                     <span className="text-right font-mono text-muted-foreground/80">
+                      {metrics.hostService.childProcesses.length} ·{" "}
                       {formatBytes(childProcessRss)}
                     </span>
                     <span className="text-muted-foreground/70">
-                      Provider children
+                      ↳ Provider trees (subset)
                     </span>
                     <span className="text-right font-mono text-muted-foreground/80">
                       {providerChildProcesses.length} ·{" "}
@@ -634,6 +716,7 @@ export function MemoryUsagePopover({
                 </div>
                 <div className="space-y-1">
                   {metrics.processes
+                    .slice()
                     .sort(
                       (a, b) =>
                         b.memory.workingSetSizeKB - a.memory.workingSetSizeKB,

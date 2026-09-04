@@ -18,7 +18,6 @@ import {
   PanelRight,
   PictureInPicture2,
 } from "lucide-react";
-import { ThinkingOrb } from "thinking-orbs";
 import {
   ChildTaskParentBacklink,
   ChildTaskRows,
@@ -57,14 +56,14 @@ import {
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
-  resolveTurnActivityOrbState,
+  resolveTurnActivityLoaderVariant,
   resolveTurnActivityReplay,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
   type TurnActivityItem,
   type TurnActivityTodo,
 } from "@/components/session/turn-activity.utils";
-import { Button } from "@/components/ui";
+import { Button, Loader } from "@/components/ui";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import { useThrottledValue } from "@/hooks/use-throttled-value";
 import {
@@ -102,9 +101,10 @@ const TURN_ACTIVITY_FAILURE_LINGER_MS = 5_000;
 /** Matches the exit animation below so the shelf collapses instead of popping. */
 const TURN_ACTIVITY_EXIT_MS = 180;
 /**
- * Provider events flush once per animation frame, so row content would rebuild
- * ~60x/second. Rows are prose a human has to read — coalescing them to ~8
- * updates/second loses nothing and stops the list from repainting every frame.
+ * Provider events can flush up to 20 times per second, so row content would
+ * still rebuild too often. Rows are prose a human has to read — coalescing them
+ * to ~8 updates/second loses nothing and stops the list from repainting every
+ * frame.
  */
 const TURN_ACTIVITY_CONTENT_THROTTLE_MS = 120;
 
@@ -483,7 +483,7 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
     todos,
     TURN_ACTIVITY_CONTENT_THROTTLE_MS,
   );
-  // The graph is rebuilt by the same per-frame flush as the work items, and the
+  // The graph is rebuilt by the same visual flush as the work items, and the
   // tree re-derives its rows from the graph's identity, so it rides the same
   // throttle rather than reading straight off the live snapshot.
   const throttledWorkGraph = useThrottledValue(
@@ -978,7 +978,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         ? "waiting"
         : "default"
     : resolveTurnActivityHiddenSeverity(hiddenItems);
-  const orbState = resolveTurnActivityOrbState({
+  const loaderVariant = resolveTurnActivityLoaderVariant({
     activity: props.activity,
     isStalled,
     isPlanPreparing: props.isPlanPreparing,
@@ -1067,22 +1067,20 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           )}
         >
           <span
-            data-testid="turn-activity-orb"
-            data-orb-state={orbState}
+            data-testid="turn-activity-loader"
             className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/55"
           >
-            <ThinkingOrb
-              state={orbState}
-              size={20}
-              speed={0.82}
+            <Loader
+              aria-hidden
+              cadence="reduced"
+              className="text-foreground"
               paused={
                 isStalled ||
                 props.activity?.pendingInteraction != null ||
                 props.activity?.completedAt != null
               }
-              theme="auto"
-              aria-hidden="true"
-              className="size-5"
+              size="sm"
+              variant={loaderVariant}
             />
           </span>
           <h2 className="sr-only">

@@ -10,7 +10,7 @@ import {
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
-  resolveTurnActivityOrbState,
+  resolveTurnActivityLoaderVariant,
   resolveTurnActivityReplay,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
@@ -34,46 +34,46 @@ function buildWorkItem(
 }
 
 describe("turn activity presentation", () => {
-  test("uses the connecting orb until the provider activity snapshot arrives", () => {
+  test("uses the signal loader until the provider activity snapshot arrives", () => {
     expect(
-      resolveTurnActivityOrbState({
+      resolveTurnActivityLoaderVariant({
         activity: null,
         isPlanPreparing: false,
         isStalled: false,
         workItems: [],
       }),
-    ).toBe("connecting");
+    ).toBe("signal");
   });
 
-  test("uses distinct orb states for waiting, planning, parallel, and agent work", () => {
+  test("uses meaning-led loaders for waiting, planning, parallel, and agent work", () => {
     const activity = { pendingInteraction: null };
 
     expect(
-      resolveTurnActivityOrbState({
+      resolveTurnActivityLoaderVariant({
         activity: { pendingInteraction: "approval" },
         isPlanPreparing: false,
         isStalled: false,
         workItems: [],
       }),
-    ).toBe("listening");
+    ).toBe("handoff");
     expect(
-      resolveTurnActivityOrbState({
+      resolveTurnActivityLoaderVariant({
         activity,
         isPlanPreparing: false,
         isStalled: true,
         workItems: [],
       }),
-    ).toBe("breathing");
+    ).toBe("signal");
     expect(
-      resolveTurnActivityOrbState({
+      resolveTurnActivityLoaderVariant({
         activity,
         isPlanPreparing: true,
         isStalled: false,
         workItems: [],
       }),
-    ).toBe("shaping");
+    ).toBe("route");
     expect(
-      resolveTurnActivityOrbState({
+      resolveTurnActivityLoaderVariant({
         activity,
         isPlanPreparing: false,
         isStalled: false,
@@ -82,23 +82,23 @@ describe("turn activity presentation", () => {
           { kind: "tool", status: "running" },
         ],
       }),
-    ).toBe("weaving");
+    ).toBe("parallel");
     expect(
-      resolveTurnActivityOrbState({
+      resolveTurnActivityLoaderVariant({
         activity,
         isPlanPreparing: false,
         isStalled: false,
         workItems: [{ kind: "subagent", status: "running" }],
       }),
-    ).toBe("searching");
+    ).toBe("handoff");
     expect(
-      resolveTurnActivityOrbState({
+      resolveTurnActivityLoaderVariant({
         activity,
         isPlanPreparing: false,
         isStalled: false,
         workItems: [{ kind: "tool", status: "running" }],
       }),
-    ).toBe("working");
+    ).toBe("steps");
   });
 
   test("shows the activity shelf only while a turn is active and no plan review is open", () => {

@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Trailing-edge throttle for values that change faster than a human can read.
  *
- * Provider turn events are flushed once per animation frame
- * (`createProviderTurnEventController`), so anything derived from a turn
- * activity snapshot gets a fresh identity ~60x/second. Feeding that straight
- * into a list rebuilds and repaints every frame; throttling the derived value
- * keeps the first change instant and then coalesces the rest.
+ * Provider turn events may still flush up to 20 times per second, so anything
+ * derived from a turn activity snapshot can get a fresh identity faster than
+ * a person can read it. Feeding that straight into a list needlessly rebuilds
+ * and repaints it; throttling the derived value keeps the first change instant
+ * and then coalesces the rest.
  *
  * The first change after an idle period is emitted immediately, so a single
  * update never waits out the interval.
