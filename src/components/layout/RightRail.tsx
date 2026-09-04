@@ -17,6 +17,8 @@ import {
   RIGHT_RAIL_PANEL_TITLES,
   type RightRailPanelId,
 } from "@/lib/right-rail-panels";
+import { useRunningWorkspaceProcessCount } from "@/lib/workspace-scripts";
+import { workspaceToolsRunningLabel } from "@/lib/workspace-tools-presentation";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
@@ -25,6 +27,77 @@ const RAIL_BUTTON_CLASS =
 const RAIL_BUTTON_INACTIVE_CLASS =
   "hover:border-border/80 hover:bg-secondary/70";
 const RAIL_ICON_CLASS = "size-3.5 lg:size-4";
+
+function RightRailWorkspaceToolsButton(props: {
+  disabled: boolean;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const [workspaceId, projectPath, workspacePath, workspaceName, branch] =
+    useAppStore(
+      useShallow((state) => {
+        const workspaceId = state.activeWorkspaceId;
+        const workspacePath =
+          state.workspacePathById[workspaceId] ?? state.projectPath ?? "";
+        const branch = state.workspaceBranchById[workspaceId] ?? "";
+        const workspaceName =
+          (state.workspaces.find((workspace) => workspace.id === workspaceId)
+            ?.name ??
+            branch) ||
+          "workspace";
+        return [
+          workspaceId,
+          state.projectPath,
+          workspacePath,
+          workspaceName,
+          branch || workspaceName,
+        ] as const;
+      }),
+    );
+  const runningCount = useRunningWorkspaceProcessCount(
+    workspaceId && projectPath && workspacePath
+      ? {
+          workspaceId,
+          projectPath,
+          workspacePath,
+          workspaceName,
+          branch,
+        }
+      : null,
+  );
+  const Icon = RIGHT_RAIL_PANEL_ICONS.scripts;
+  const label = workspaceToolsRunningLabel(runningCount);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className="inline-flex" />}>
+        <Button
+          size="sm"
+          variant={props.isActive ? "default" : "ghost"}
+          disabled={props.disabled}
+          className={cn(
+            RAIL_BUTTON_CLASS,
+            "relative",
+            !props.isActive && RAIL_BUTTON_INACTIVE_CLASS,
+          )}
+          onClick={props.onClick}
+          aria-label={label}
+        >
+          <Icon className={RAIL_ICON_CLASS} />
+          {runningCount > 0 ? (
+            <span
+              data-testid="workspace-tools-running-count"
+              className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[10px] font-medium leading-none text-primary-foreground"
+            >
+              {runningCount}
+            </span>
+          ) : null}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="left">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function RightRail() {
   const [
@@ -74,10 +147,21 @@ export function RightRail() {
       <TooltipProvider>
         <div className="flex w-full flex-col items-center gap-2">
           {RIGHT_RAIL_PANEL_IDS.map((panelId) => {
-            const Icon = RIGHT_RAIL_PANEL_ICONS[panelId];
             const isActive =
               sidebarOverlayVisible && sidebarOverlayTab === panelId;
 
+            if (panelId === "scripts") {
+              return (
+                <RightRailWorkspaceToolsButton
+                  key={panelId}
+                  disabled={!hasProject}
+                  isActive={isActive}
+                  onClick={() => toggleSidebarTab(panelId)}
+                />
+              );
+            }
+
+            const Icon = RIGHT_RAIL_PANEL_ICONS[panelId];
             return (
               <Tooltip key={panelId}>
                 <TooltipTrigger render={<span className="inline-flex" />}>

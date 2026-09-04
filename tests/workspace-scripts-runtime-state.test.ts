@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildEntryStateFromStatus,
   buildScriptRunFailureState,
+  countRunningServiceEntries,
   formatScriptDuration,
   reduceScriptUiState,
   scriptEntryKey,
@@ -31,6 +32,22 @@ describe("scriptEntryKey", () => {
   test("builds a canonical kind:id key", () => {
     expect(scriptEntryKey("service", "dev")).toBe("service:dev");
     expect(scriptEntryKey("action", "lint")).toBe("action:lint");
+  });
+});
+
+describe("countRunningServiceEntries", () => {
+  test("counts only running process entries", () => {
+    expect(
+      countRunningServiceEntries({
+        "service:dev": { running: true, log: "" },
+        "service:storybook": { running: false, log: "" },
+        "action:lint": { running: true, log: "" },
+      }),
+    ).toBe(1);
+  });
+
+  test("returns 0 for an empty snapshot", () => {
+    expect(countRunningServiceEntries({})).toBe(0);
   });
 });
 
@@ -74,7 +91,12 @@ describe("reduceScriptUiState", () => {
         endedAt: 500,
         exitCode: 1,
       },
-      createEnvelope({ type: "started", commandIndex: 0, command: "bun run dev", totalCommands: 3 }),
+      createEnvelope({
+        type: "started",
+        commandIndex: 0,
+        command: "bun run dev",
+        totalCommands: 3,
+      }),
       2_000,
     );
 
@@ -94,11 +116,20 @@ describe("reduceScriptUiState", () => {
   test("advances command index on command-completed", () => {
     const started = reduceScriptUiState(
       undefined,
-      createEnvelope({ type: "started", commandIndex: 0, command: "a", totalCommands: 2 }),
+      createEnvelope({
+        type: "started",
+        commandIndex: 0,
+        command: "a",
+        totalCommands: 2,
+      }),
     );
     const advanced = reduceScriptUiState(
       started,
-      createEnvelope({ type: "command-completed", commandIndex: 1, exitCode: 0 }),
+      createEnvelope({
+        type: "command-completed",
+        commandIndex: 1,
+        exitCode: 0,
+      }),
     );
     expect(advanced.commandIndex).toBe(1);
   });
@@ -116,7 +147,11 @@ describe("reduceScriptUiState", () => {
       createEnvelope({ type: "error", error: "boom" }),
       4_000,
     );
-    expect(errored).toMatchObject({ running: false, error: "boom", endedAt: 4_000 });
+    expect(errored).toMatchObject({
+      running: false,
+      error: "boom",
+      endedAt: 4_000,
+    });
   });
 });
 

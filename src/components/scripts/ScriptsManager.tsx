@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FilePenLine, RefreshCcw, Save } from "lucide-react";
+import { CircleHelp, FilePenLine, RefreshCcw, Save } from "lucide-react";
+import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import {
   Badge,
   Button,
@@ -17,8 +18,13 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   toast,
 } from "@/components/ui";
+import { useAppStore } from "@/store/app.store";
 import { ScriptEntriesTab } from "./ScriptEntriesTab";
 import { ScriptHooksTab } from "./ScriptHooksTab";
 import { ScriptTargetsTab } from "./ScriptTargetsTab";
@@ -26,7 +32,6 @@ import {
   buildEditorScopes,
   buildEditorHookCandidates,
   buildEditorTargetOptions,
-  getScriptEditorRunDisabledReason,
   isPlainRecord,
   snapshotScriptEditorState,
   removeMatchingHookLinks,
@@ -52,6 +57,8 @@ import {
   duplicateScriptEditorEntry,
   formatScriptConfigFile,
   mergeScriptConfigIntoRaw,
+  shouldAutoSyncScriptId,
+  slugifyScriptId,
   validateScriptEditorState,
   type ScriptEditorCandidate,
   type ScriptEditorEntry,
@@ -60,13 +67,7 @@ import {
   type ScriptEditorState,
 } from "@/lib/workspace-scripts/editor";
 import { ScriptsConfigSchema } from "@/lib/workspace-scripts/schemas";
-import {
-  clearScriptLog,
-  runScriptEntry,
-  scriptEntryKey,
-  stopScriptEntry,
-  useWorkspaceScriptsRuntime,
-} from "@/lib/workspace-scripts";
+import { useWorkspaceScriptsRuntime } from "@/lib/workspace-scripts";
 import type {
   ScriptKind,
   ScriptTargetScope,
@@ -126,8 +127,10 @@ export function ScriptsManager(props: {
     snapshotScriptEditorState(createEmptyScriptEditorState()),
   );
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<ScriptsTabValue>("actions");
+  const [activeTab, setActiveTab] = useState<ScriptsTabValue>("services");
   const [expandedEntryKey, setExpandedEntryKey] = useState<string | null>(null);
+  const [pendingScopeId, setPendingScopeId] =
+    useState<ScriptEditorScopeId | null>(null);
   const loadRequestRef = useRef(0);
   const activeScopeKey = scriptEditorScopeKey(selectedScope);
   const activeScopeKeyRef = useRef(activeScopeKey);
@@ -168,50 +171,12 @@ export function ScriptsManager(props: {
   }, [initialScopeResolved, scopes, selectedScopeId]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function chooseDefaultScope() {
-      if (scopes.length === 0) {
-        if (!cancelled) {
-          setInitialScopeResolved(true);
-        }
-        return;
-      }
-
-      const workspaceScope = scopes.find((scope) => scope.id === "workspace");
-      const readFile = window.api?.fs?.readFile;
-      if (!workspaceScope || !readFile) {
-        if (!cancelled) {
-          setSelectedScopeId(scopes[0]?.id ?? "project");
-          setInitialScopeResolved(true);
-        }
-        return;
-      }
-
-      let workspaceFile: Awaited<ReturnType<typeof readFile>> | null = null;
-      try {
-        workspaceFile = await readFile({
-          rootPath: workspaceScope.rootPath,
-          filePath: workspaceScope.filePath,
-        });
-      } catch {
-        // Fall back to the project config when probing the workspace file
-        // fails. The selected scope load will surface any persistent bridge
-        // error with its full context.
-      }
-      if (!cancelled) {
-        setSelectedScopeId(workspaceFile?.ok ? "workspace" : "project");
-        setInitialScopeResolved(true);
-      }
+    if (initialScopeResolved) {
+      return;
     }
-
-    if (!initialScopeResolved) {
-      void chooseDefaultScope();
-    }
-
-    return () => {
-      cancelled = true;
-    };
+    const workspaceScope = scopes.find((scope) => scope.id === "workspace");
+    setSelectedScopeId(workspaceScope?.id ?? scopes[0]?.id ?? null);
+    setInitialScopeResolved(true);
   }, [initialScopeResolved, scopes]);
 
   const loadSelectedScope = useCallback(async (scope: ScriptEditorScope) => {
@@ -453,31 +418,57 @@ export function ScriptsManager(props: {
     ) => {
       setEditorState((current) => {
         const collectionKey = kind === "service" ? "services" : "actions";
-        const nextEntries = current[collectionKey].map((entry, entryIndex) =>
-          entryIndex === index ? { ...entry, [field]: value } : entry,
-        );
+        const previous = current[collectionKey][index];
+        if (!previous) {
+          return current;
+        }
 
+        const otherIds = [
+          ...current.services.map((entry, entryIndex) =>
+            kind === "service" && entryIndex === index ? "" : entry.id,
+          ),
+          ...current.actions.map((entry, entryIndex) =>
+            kind === "action" && entryIndex === index ? "" : entry.id,
+          ),
+        ];
+
+        let nextEntry = { ...previous, [field]: value };
+        if (
+          field === "label" &&
+          typeof value === "string" &&
+          shouldAutoSyncScriptId({
+            currentId: previous.id,
+            currentLabel: previous.label,
+            otherIds,
+          })
+        ) {
+          nextEntry = {
+            ...nextEntry,
+            id: value.trim() ? slugifyScriptId(value, otherIds) : "",
+          };
+        }
+
+        const previousId = previous.id.trim();
+        const nextId = nextEntry.id.trim();
         let nextHooks = current.hooks;
-        if (field === "id") {
-          const previousId = current[collectionKey][index]?.id.trim();
-          const nextId = String(value).trim();
-          if (previousId && previousId !== nextId) {
-            nextHooks = Object.fromEntries(
-              Object.entries(current.hooks).map(([trigger, links]) => [
-                trigger,
-                (links ?? []).map((link) =>
-                  link.scriptId === previousId && link.scriptKind === kind
-                    ? { ...link, scriptId: nextId }
-                    : link,
-                ),
-              ]),
-            ) as ScriptEditorState["hooks"];
-          }
+        if (previousId && previousId !== nextId) {
+          nextHooks = Object.fromEntries(
+            Object.entries(current.hooks).map(([trigger, links]) => [
+              trigger,
+              (links ?? []).map((link) =>
+                link.scriptId === previousId && link.scriptKind === kind
+                  ? { ...link, scriptId: nextId }
+                  : link,
+              ),
+            ]),
+          ) as ScriptEditorState["hooks"];
         }
 
         return {
           ...current,
-          [collectionKey]: nextEntries,
+          [collectionKey]: current[collectionKey].map((entry, entryIndex) =>
+            entryIndex === index ? nextEntry : entry,
+          ),
           hooks: nextHooks,
         };
       });
@@ -780,7 +771,7 @@ export function ScriptsManager(props: {
     const createDirectory = window.api?.fs?.createDirectory;
     if (!selectedScope || !writeFile || !createDirectory) {
       toast.error("Filesystem bridge unavailable");
-      return;
+      return false;
     }
 
     const issues = validateScriptEditorState(editorState);
@@ -788,7 +779,7 @@ export function ScriptsManager(props: {
       toast.error("Execution config is incomplete", {
         description: issues[0],
       });
-      return;
+      return false;
     }
 
     const savingScopeKey = scriptEditorScopeKey(selectedScope);
@@ -801,13 +792,13 @@ export function ScriptsManager(props: {
         directoryPath: STAVE_CONFIG_DIR,
       });
       if (!scopeIsStillActive()) {
-        return;
+        return false;
       }
       if (!mkdirResult.ok && !mkdirResult.alreadyExists) {
         toast.error("Failed to prepare .stave directory", {
           description: mkdirResult.stderr ?? "Unknown error",
         });
-        return;
+        return false;
       }
 
       const result = await writeFile({
@@ -817,7 +808,7 @@ export function ScriptsManager(props: {
         expectedRevision: fileState.revision,
       });
       if (!scopeIsStillActive()) {
-        return;
+        return false;
       }
       if (!result.ok) {
         toast.error(
@@ -832,17 +823,18 @@ export function ScriptsManager(props: {
                 : "Unknown error"),
           },
         );
-        return;
+        return false;
       }
 
       await loadSelectedScope(selectedScope);
       if (!scopeIsStillActive()) {
-        return;
+        return false;
       }
       await props.onSaved?.();
       toast.success("Execution config saved", {
         description: selectedScope.filePath,
       });
+      return true;
     } finally {
       setSaving(false);
     }
@@ -857,73 +849,45 @@ export function ScriptsManager(props: {
 
   const handleScopeChange = useCallback(
     (value: string) => {
+      if (value !== "project" && value !== "workspace") {
+        return;
+      }
+      if (value === selectedScopeId) {
+        return;
+      }
       if (isDirty) {
-        toast.message("Save or discard changes before switching configs.");
+        setPendingScopeId(value);
         return;
       }
-      if (value === "project" || value === "workspace") {
-        setSelectedScopeId(value);
-      }
+      setSelectedScopeId(value);
     },
-    [isDirty],
+    [isDirty, selectedScopeId],
   );
 
-  // ---- Run / logs -----------------------------------------------------------
-  const runtimeAvailable = Boolean(props.runtime);
-  const runEntryHandler = useCallback(
-    (kind: ScriptKind, id: string) => {
-      if (!props.runtime || !id || !selectedScope) {
-        return;
-      }
-      const key = scriptEntryKey(kind, id);
-      const disabledReason = getScriptEditorRunDisabledReason({
-        entryId: id,
-        isDirty,
-        selectedScopeId: selectedScope.id,
-        origin: runtime.origins.originByKey[key],
-      });
-      if (disabledReason) {
-        toast.message(disabledReason);
-        return;
-      }
-      void runScriptEntry({
-        workspaceId: props.runtime.workspaceId,
-        scriptId: id,
-        scriptKind: kind,
-      });
-    },
-    [isDirty, props.runtime, runtime.origins.originByKey, selectedScope],
-  );
-  const stopEntryHandler = useCallback(
-    (kind: ScriptKind, id: string) => {
-      if (!props.runtime || !id) {
-        return;
-      }
-      void stopScriptEntry({
-        workspaceId: props.runtime.workspaceId,
-        scriptId: id,
-        scriptKind: kind,
-      });
-    },
-    [props.runtime],
-  );
-  const clearLogHandler = useCallback(
-    (kind: ScriptKind, id: string) => {
-      if (!props.runtime || !id) {
-        return;
-      }
-      clearScriptLog({
-        workspaceId: props.runtime.workspaceId,
-        scriptId: id,
-        scriptKind: kind,
-      });
-    },
-    [props.runtime],
-  );
+  const openInRail = useCallback(() => {
+    useAppStore.getState().setLayout({
+      patch: {
+        sidebarOverlayVisible: true,
+        sidebarOverlayTab: "scripts",
+      },
+    });
+  }, []);
 
-  const runtimeHint = runtimeAvailable
-    ? undefined
-    : "Open this project to run commands and processes.";
+  const confirmSaveAndSwitch = useCallback(async () => {
+    const saved = await saveChanges();
+    if (saved && pendingScopeId) {
+      setSelectedScopeId(pendingScopeId);
+      setPendingScopeId(null);
+    }
+  }, [pendingScopeId, saveChanges]);
+
+  const confirmDiscardAndSwitch = useCallback(async () => {
+    await discardChanges();
+    if (pendingScopeId) {
+      setSelectedScopeId(pendingScopeId);
+    }
+    setPendingScopeId(null);
+  }, [discardChanges, pendingScopeId]);
 
   if (!selectedScope) {
     if (!initialScopeResolved) {
@@ -942,7 +906,7 @@ export function ScriptsManager(props: {
           </EmptyMedia>
           <EmptyTitle>Workspace tools unavailable</EmptyTitle>
           <EmptyDescription>
-            Select a workspace to edit its commands and processes.
+            Select a workspace to edit its processes and commands.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -973,8 +937,9 @@ export function ScriptsManager(props: {
               </Badge>
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
-              Keep one-shot commands separate from long-running processes, then
-              connect them to lifecycle triggers and execution environments.
+              Keep a long-running process such as a dev server up while you
+              work. Commands are one-shot. Triggers fire on task and pull
+              request events.
             </p>
           </div>
         )}
@@ -1002,8 +967,28 @@ export function ScriptsManager(props: {
       {/* ── Scope selector ── */}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,280px)_1fr]">
         <label className="space-y-1.5">
-          <span className="text-xs font-medium text-foreground">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
             Config Scope
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="inline-flex size-4 items-center justify-center text-muted-foreground"
+                      aria-label="Config scope help"
+                    />
+                  }
+                >
+                  <CircleHelp className="size-3.5" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-xs">
+                  {selectedScope.id === "workspace"
+                    ? "Workspace config overrides the project shared config for this workspace."
+                    : "Project config is the shared fallback. If a workspace-level config exists, it wins for the active workspace."}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </span>
           <Select value={selectedScope.id} onValueChange={handleScopeChange}>
             <SelectTrigger className="w-full">
@@ -1028,12 +1013,6 @@ export function ScriptsManager(props: {
         </div>
       </div>
 
-      <p className="text-[11px] leading-5 text-muted-foreground">
-        {selectedScope.id === "workspace"
-          ? "Workspace config overrides the project shared config for this workspace."
-          : "Project config is the shared fallback. If a workspace-level config exists, it wins for the active workspace."}
-      </p>
-
       {fileState.error ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs text-destructive">
           {fileState.error}
@@ -1056,18 +1035,6 @@ export function ScriptsManager(props: {
             className="sticky top-20 w-full items-stretch justify-start gap-1 rounded-xl bg-muted/20 p-1"
           >
             <TabsTrigger
-              value="actions"
-              className="h-11 w-full justify-start gap-1.5 px-3"
-            >
-              Commands
-              <Badge
-                variant="outline"
-                className="rounded-full px-1.5 py-0 text-[10px]"
-              >
-                {actionsCount}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger
               value="services"
               className="h-11 w-full justify-start gap-1.5 px-3"
             >
@@ -1077,6 +1044,18 @@ export function ScriptsManager(props: {
                 className="rounded-full px-1.5 py-0 text-[10px]"
               >
                 {servicesCount}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="actions"
+              className="h-11 w-full justify-start gap-1.5 px-3"
+            >
+              Commands
+              <Badge
+                variant="outline"
+                className="rounded-full px-1.5 py-0 text-[10px]"
+              >
+                {actionsCount}
               </Badge>
             </TabsTrigger>
             <TabsTrigger
@@ -1105,35 +1084,6 @@ export function ScriptsManager(props: {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="actions" className="mt-0">
-            <ScriptEntriesTab
-              kind="action"
-              entries={editorState.actions}
-              hooks={editorState.hooks}
-              targetOptions={targetOptions}
-              expandedEntryKey={expandedEntryKey}
-              onExpandedChange={setExpandedEntryKey}
-              onFieldChange={(index, field, value) =>
-                updateEntryField("action", index, field, value)
-              }
-              onAdd={() => addEntry("action")}
-              onRemove={(index) => removeEntry("action", index)}
-              onMove={(index, direction) =>
-                moveEntry("action", index, direction)
-              }
-              onDuplicate={(index) => duplicateEntry("action", index)}
-              runtimeAvailable={runtimeAvailable}
-              runtimeHint={runtimeHint}
-              isDirty={isDirty}
-              selectedScopeId={selectedScope.id}
-              entryOrigins={runtime.origins.originByKey}
-              runStateByKey={runtime.entries}
-              onRunEntry={(id) => runEntryHandler("action", id)}
-              onStopEntry={(id) => stopEntryHandler("action", id)}
-              onClearLog={(id) => clearLogHandler("action", id)}
-            />
-          </TabsContent>
-
           <TabsContent value="services" className="mt-0">
             <ScriptEntriesTab
               kind="service"
@@ -1151,15 +1101,30 @@ export function ScriptsManager(props: {
                 moveEntry("service", index, direction)
               }
               onDuplicate={(index) => duplicateEntry("service", index)}
-              runtimeAvailable={runtimeAvailable}
-              runtimeHint={runtimeHint}
-              isDirty={isDirty}
-              selectedScopeId={selectedScope.id}
-              entryOrigins={runtime.origins.originByKey}
               runStateByKey={runtime.entries}
-              onRunEntry={(id) => runEntryHandler("service", id)}
-              onStopEntry={(id) => stopEntryHandler("service", id)}
-              onClearLog={(id) => clearLogHandler("service", id)}
+              onOpenInRail={openInRail}
+            />
+          </TabsContent>
+
+          <TabsContent value="actions" className="mt-0">
+            <ScriptEntriesTab
+              kind="action"
+              entries={editorState.actions}
+              hooks={editorState.hooks}
+              targetOptions={targetOptions}
+              expandedEntryKey={expandedEntryKey}
+              onExpandedChange={setExpandedEntryKey}
+              onFieldChange={(index, field, value) =>
+                updateEntryField("action", index, field, value)
+              }
+              onAdd={() => addEntry("action")}
+              onRemove={(index) => removeEntry("action", index)}
+              onMove={(index, direction) =>
+                moveEntry("action", index, direction)
+              }
+              onDuplicate={(index) => duplicateEntry("action", index)}
+              runStateByKey={runtime.entries}
+              onOpenInRail={openInRail}
             />
           </TabsContent>
 
@@ -1232,6 +1197,26 @@ export function ScriptsManager(props: {
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingScopeId !== null}
+        title="Unsaved changes"
+        description="Save or discard these edits before switching configs."
+        confirmLabel="Discard"
+        cancelLabel="Cancel"
+        loading={saving}
+        onConfirm={() => void confirmDiscardAndSwitch()}
+        onCancel={() => setPendingScopeId(null)}
+      >
+        <Button
+          type="button"
+          className="w-full"
+          disabled={saving}
+          onClick={() => void confirmSaveAndSwitch()}
+        >
+          Save & switch
+        </Button>
+      </ConfirmDialog>
     </div>
   );
 }

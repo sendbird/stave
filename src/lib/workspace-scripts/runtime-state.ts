@@ -30,6 +30,19 @@ export function scriptEntryKey(kind: ScriptKind, id: string): string {
   return `${kind}:${id}`;
 }
 
+/** Count long-running process entries that are currently up. */
+export function countRunningServiceEntries(
+  entries: Record<string, ScriptUiState>,
+): number {
+  let count = 0;
+  for (const [key, entry] of Object.entries(entries)) {
+    if (key.startsWith("service:") && entry.running) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 export function appendScriptLog(current: string, chunk: string) {
   const next = current + chunk;
   if (next.length <= SCRIPT_LOG_HISTORY_LIMIT) {
@@ -38,7 +51,9 @@ export function appendScriptLog(current: string, chunk: string) {
   return next.slice(next.length - SCRIPT_LOG_HISTORY_LIMIT);
 }
 
-export function getScriptRunSourceLabel(source: WorkspaceScriptRunSource | undefined) {
+export function getScriptRunSourceLabel(
+  source: WorkspaceScriptRunSource | undefined,
+) {
   return source?.kind === "hook"
     ? `Hook · ${SCRIPT_TRIGGER_METADATA[source.trigger].label}`
     : "Manual";
@@ -117,7 +132,9 @@ export function reduceScriptUiState(
  * `getStatus` snapshots carry no timestamps, so restored runs render without
  * durations until the next live event arrives.
  */
-export function buildEntryStateFromStatus(status: WorkspaceScriptStatusEntry): ScriptUiState {
+export function buildEntryStateFromStatus(
+  status: WorkspaceScriptStatusEntry,
+): ScriptUiState {
   return {
     running: status.running,
     runId: status.runId,
@@ -161,7 +178,10 @@ export function formatScriptDuration(durationMs: number): string {
   return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
 }
 
-export function formatScriptRelativeTime(timestampMs: number, now: number = Date.now()): string {
+export function formatScriptRelativeTime(
+  timestampMs: number,
+  now: number = Date.now(),
+): string {
   const elapsed = Math.max(0, now - timestampMs);
   if (elapsed < 5_000) {
     return "just now";

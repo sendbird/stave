@@ -177,9 +177,7 @@ test("local change review keeps actions visible while its body scrolls", async (
     clientHeight: element.clientHeight,
     scrollHeight: element.scrollHeight,
   }));
-  expect(scrollBounds.scrollHeight).toBeGreaterThan(
-    scrollBounds.clientHeight,
-  );
+  expect(scrollBounds.scrollHeight).toBeGreaterThan(scrollBounds.clientHeight);
 
   const viewportHeight = page.viewportSize()!.height;
   const dialogBox = await dialog.boundingBox();
@@ -189,15 +187,9 @@ test("local change review keeps actions visible while its body scrolls", async (
   expect(footerBox).not.toBeNull();
   expect(submitBox).not.toBeNull();
   expect(dialogBox!.y).toBeGreaterThanOrEqual(0);
-  expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(
-    viewportHeight,
-  );
-  expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(
-    viewportHeight,
-  );
-  expect(submitBox!.y + submitBox!.height).toBeLessThanOrEqual(
-    viewportHeight,
-  );
+  expect(dialogBox!.y + dialogBox!.height).toBeLessThanOrEqual(viewportHeight);
+  expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(viewportHeight);
+  expect(submitBox!.y + submitBox!.height).toBeLessThanOrEqual(viewportHeight);
 
   await scrollArea.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
@@ -248,15 +240,15 @@ test("workspace tools no-result views share one empty-state pattern", async ({
     });
   };
 
-  const commandStyle = await assertEmptyState(
-    "No commands configured",
-    "Add a one-shot command in Workspace Tools settings, then run it directly from this tab.",
-  );
-
-  await panel.getByRole("tab", { name: "Processes", exact: true }).click();
   const processStyle = await assertEmptyState(
     "No processes configured",
-    "Add a long-running process in Workspace Tools settings. It will start and stay controllable from this tab.",
+    "Add a long-running process such as a dev server in Workspace Tools settings. Start it here and leave it running while you work.",
+  );
+
+  await panel.getByRole("tab", { name: "Commands", exact: true }).click();
+  const commandStyle = await assertEmptyState(
+    "No commands configured",
+    "Add a one-shot command in Workspace Tools settings. Run it from this tab when you need it.",
   );
 
   await panel.getByRole("tab", { name: "Runs", exact: true }).click();
@@ -265,8 +257,8 @@ test("workspace tools no-result views share one empty-state pattern", async ({
     "Completed commands and processes, including their output, appear here.",
   );
 
-  expect(processStyle).toEqual(commandStyle);
-  expect(runsStyle).toEqual(commandStyle);
+  expect(commandStyle).toEqual(processStyle);
+  expect(runsStyle).toEqual(processStyle);
 });
 
 test("composer focus and tab hover polish do not shift layout", async ({

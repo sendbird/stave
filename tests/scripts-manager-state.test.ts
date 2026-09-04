@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import {
   buildEditorHookCandidates,
   buildEditorTargetOptions,
-  getScriptEditorRunDisabledReason,
   scriptEditorScopeKey,
 } from "../src/components/scripts/scripts-manager-state";
 import {
@@ -55,43 +54,5 @@ describe("ScriptsManager scope safety", () => {
         description: "",
       },
     ]);
-  });
-
-  test("only runs when the effective source is the selected shared file", () => {
-    expect(
-      getScriptEditorRunDisabledReason({
-        entryId: "lint",
-        isDirty: false,
-        selectedScopeId: "project",
-        origin: { tier: "project", localOverride: false },
-      }),
-    ).toBeNull();
-
-    expect(
-      getScriptEditorRunDisabledReason({
-        entryId: "lint",
-        isDirty: false,
-        selectedScopeId: "project",
-        origin: { tier: "workspace", localOverride: false },
-      }),
-    ).toContain("workspace config");
-
-    expect(
-      getScriptEditorRunDisabledReason({
-        entryId: "lint",
-        isDirty: false,
-        selectedScopeId: "project",
-        origin: { tier: "project", localOverride: true },
-      }),
-    ).toContain("local override");
-
-    expect(
-      getScriptEditorRunDisabledReason({
-        entryId: "lint",
-        isDirty: true,
-        selectedScopeId: "project",
-        origin: { tier: "project", localOverride: false },
-      }),
-    ).toContain("Save changes first");
   });
 });

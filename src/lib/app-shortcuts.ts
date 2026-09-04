@@ -87,7 +87,7 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     commandId: "view.show-scripts",
     title: `Open ${WORKSPACE_TOOLS_LABEL}`,
     description:
-      "Open workspace commands, processes, lifecycle triggers, and recent runs.",
+      "Open long-running processes, one-shot commands, lifecycle triggers, and recent runs.",
     defaultKey: "s",
   },
   {

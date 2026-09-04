@@ -59,7 +59,7 @@ export const settingsSections = [
     label: WORKSPACE_TOOLS_PRESENTATION.label,
     icon: WORKSPACE_TOOLS_PRESENTATION.icon,
     description:
-      "One-shot commands, long-running processes, lifecycle triggers, and execution environments.",
+      "Long-running processes you leave up while developing, plus one-shot commands, lifecycle triggers, and environments.",
     keywords: [
       "quick commands",
       "commands",

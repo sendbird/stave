@@ -9,8 +9,10 @@ import {
 } from "@/lib/right-rail-panels";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import {
+  DEFAULT_WORKSPACE_TOOLS_VIEW,
   WORKSPACE_TOOLS_PRESENTATION,
   WORKSPACE_TOOLS_VIEWS,
+  workspaceToolsRunningLabel,
 } from "@/lib/workspace-tools-presentation";
 
 describe("Workspace Tools presentation", () => {
@@ -20,6 +22,9 @@ describe("Workspace Tools presentation", () => {
     expect(settingsSections.find(({ id }) => id === "scripts")?.label).toBe(
       WORKSPACE_TOOLS_LABEL,
     );
+    expect(
+      settingsSections.find(({ id }) => id === "scripts")?.description,
+    ).toMatch(/^Long-running processes/);
     expect(
       APP_SHORTCUT_DEFINITIONS.find(
         ({ commandId }) => commandId === "view.show-scripts",
@@ -38,15 +43,26 @@ describe("Workspace Tools presentation", () => {
 
   test("names views after executable concepts rather than a catalog", () => {
     expect(WORKSPACE_TOOLS_VIEWS).toEqual([
-      { id: "commands", label: "Commands" },
       { id: "processes", label: "Processes" },
+      { id: "commands", label: "Commands" },
       { id: "triggers", label: "Triggers" },
       { id: "runs", label: "Runs" },
     ]);
+    expect(DEFAULT_WORKSPACE_TOOLS_VIEW).toBe("processes");
     expect(
       WORKSPACE_TOOLS_VIEWS.some(({ label }) =>
         label.toLowerCase().includes("catalog"),
       ),
     ).toBe(false);
+  });
+
+  test("names a live process count on the rail without collapsing the umbrella label", () => {
+    expect(workspaceToolsRunningLabel(0)).toBe(WORKSPACE_TOOLS_LABEL);
+    expect(workspaceToolsRunningLabel(1)).toBe(
+      `${WORKSPACE_TOOLS_LABEL}, 1 process running`,
+    );
+    expect(workspaceToolsRunningLabel(3)).toBe(
+      `${WORKSPACE_TOOLS_LABEL}, 3 processes running`,
+    );
   });
 });
