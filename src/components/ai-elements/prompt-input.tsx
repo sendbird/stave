@@ -6,7 +6,6 @@ import {
   FolderOpen,
   Globe2,
   Info,
-  LoaderCircle,
   Paperclip,
   Pencil,
   Send,
@@ -59,6 +58,7 @@ import {
   Input,
   Kbd,
   KbdGroup,
+  Loader,
   Popover,
   PopoverAnchor,
   PopoverContent,
@@ -2738,9 +2738,11 @@ export function PromptInput(args: PromptInputProps) {
                             }
                           >
                             {promptEnhancementPending ? (
-                              <LoaderCircle
-                                aria-hidden="true"
-                                className="size-3.5 shrink-0 motion-safe:animate-spin"
+                              <Loader
+                                aria-hidden
+                                className="text-primary"
+                                size="xs"
+                                variant="orbit"
                               />
                             ) : (
                               <WandSparkles

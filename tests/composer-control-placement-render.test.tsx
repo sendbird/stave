@@ -147,6 +147,8 @@ describe("composer control placement in the toolbar", () => {
     // is dimmed while the rewrite is in flight.
     expect(html).toContain(">Enhancing<");
     expect(html).toContain('data-prompt-enhancement-surface="enhancing"');
+    expect(html).toContain('data-loader-variant="orbit"');
+    expect(html).not.toContain("animate-spin");
     expect(html).toContain("cursor-progress");
     expect(html).toContain("text-muted-foreground/70");
     // The busy chip overlays the draft. Growing the editor inset would reflow

@@ -64,6 +64,7 @@ import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip
 import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
+import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
 import { ProjectIdentityMark } from "@/components/layout/project-appearance";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import {
@@ -551,48 +552,54 @@ function WorkQueueRow(args: {
   const { entry } = args;
 
   return (
-    <WorkspaceHoverPreviewTooltip
-      workspaceId={entry.workspaceId}
-      workspaceName={entry.workspaceName}
-      branch={entry.branch}
-      projectName={entry.projectName}
-      side="right"
-    >
-      <button
-        type="button"
-        onClick={() =>
-          args.onOpen({
-            projectPath: entry.projectPath,
-            workspaceId: entry.workspaceId,
-          })
-        }
-        aria-label={`active-workspace-${entry.workspaceId}`}
-        className={cn(
-          "flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-sm transition-colors",
-          entry.isActive
-            ? "bg-primary/12 text-foreground"
-            : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-        )}
+    <div className="min-w-0">
+      <WorkspaceHoverPreviewTooltip
+        workspaceId={entry.workspaceId}
+        workspaceName={entry.workspaceName}
+        branch={entry.branch}
+        projectName={entry.projectName}
+        side="right"
       >
-        <WorkspaceLeadingStatusIcon
-          workspaceId={entry.workspaceId}
-          workspaceName={entry.workspaceName}
-          isDefault={entry.isDefault}
-          busy={false}
-          attentionKind={args.attentionKind}
-        />
-        <span className="min-w-0 flex-1 truncate text-left">
-          {formatWorkQueueWorkspaceLabel({
-            name: entry.workspaceName,
-            branch: entry.branch,
-            isDefault: entry.isDefault,
-          })}
-        </span>
-        <span className="shrink-0 truncate text-xs text-muted-foreground">
-          {entry.projectName}
-        </span>
-      </button>
-    </WorkspaceHoverPreviewTooltip>
+        <button
+          type="button"
+          onClick={() =>
+            args.onOpen({
+              projectPath: entry.projectPath,
+              workspaceId: entry.workspaceId,
+            })
+          }
+          aria-label={`active-workspace-${entry.workspaceId}`}
+          className={cn(
+            "flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-sm transition-colors",
+            entry.isActive
+              ? "bg-primary/12 text-foreground"
+              : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+          )}
+        >
+          <WorkspaceLeadingStatusIcon
+            workspaceId={entry.workspaceId}
+            workspaceName={entry.workspaceName}
+            isDefault={entry.isDefault}
+            busy={false}
+            attentionKind={args.attentionKind}
+          />
+          <span className="min-w-0 flex-1 truncate text-left">
+            {formatWorkQueueWorkspaceLabel({
+              name: entry.workspaceName,
+              branch: entry.branch,
+              isDefault: entry.isDefault,
+            })}
+          </span>
+          <span className="shrink-0 truncate text-xs text-muted-foreground">
+            {entry.projectName}
+          </span>
+        </button>
+      </WorkspaceHoverPreviewTooltip>
+      <WorkspaceProgressTaskTree
+        workspaceId={entry.workspaceId}
+        projectPath={entry.projectPath}
+      />
+    </div>
   );
 }
 
@@ -2455,169 +2462,227 @@ export function ProjectWorkspaceSidebar(args: {
                                           indicatorGap="0.25rem"
                                         >
                                           {({ handleRef, isDragging }) => (
-                                            <WorkspaceBorderBeam
-                                              workspaceId={workspace.id}
-                                            >
-                                              <div
-                                                className={cn(
-                                                  "group/workspace-row relative flex rounded-md border transition-[background-color,border-color,box-shadow,color]",
-                                                  isExpandedWorkspaceItem
-                                                    ? "items-stretch gap-1"
-                                                    : "items-center gap-1",
-                                                  isActive
-                                                    ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-md before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
-                                                    : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                                                  isDragging &&
-                                                    "border-sidebar-border/45 bg-sidebar-accent shadow-sm",
-                                                )}
+                                            <div className="min-w-0">
+                                              <WorkspaceBorderBeam
+                                                workspaceId={workspace.id}
                                               >
-                                                <WorkspaceHoverPreviewTooltip
-                                                  workspaceId={workspace.id}
-                                                  workspaceName={workspace.name}
-                                                  branch={workspace.branch}
-                                                  shortcutLabel={
-                                                    workspaceShortcutLabel
-                                                  }
-                                                  side="right"
+                                                <div
+                                                  className={cn(
+                                                    "group/workspace-row relative flex rounded-md border transition-[background-color,border-color,box-shadow,color]",
+                                                    isExpandedWorkspaceItem
+                                                      ? "items-stretch gap-1"
+                                                      : "items-center gap-1",
+                                                    isActive
+                                                      ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-md before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
+                                                      : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                                                    isDragging &&
+                                                      "border-sidebar-border/45 bg-sidebar-accent shadow-sm",
+                                                  )}
                                                 >
-                                                  <div
-                                                    ref={handleRef ?? undefined}
-                                                    role="button"
-                                                    tabIndex={0}
-                                                    aria-label={`Open workspace ${workspace.isDefault ? "Default" : workspace.name}`}
-                                                    aria-keyshortcuts={
-                                                      !workspaceReorderingDisabled
-                                                        ? "Alt+ArrowUp Alt+ArrowDown"
-                                                        : undefined
+                                                  <WorkspaceHoverPreviewTooltip
+                                                    workspaceId={workspace.id}
+                                                    workspaceName={
+                                                      workspace.name
                                                     }
-                                                    aria-description={
-                                                      !workspaceReorderingDisabled
-                                                        ? "Use Alt plus Arrow Up or Arrow Down to reorder."
-                                                        : undefined
+                                                    branch={workspace.branch}
+                                                    shortcutLabel={
+                                                      workspaceShortcutLabel
                                                     }
-                                                    className={cn(
-                                                      "min-w-0 flex-1 text-left text-sm",
-                                                      isExpandedWorkspaceItem
-                                                        ? "grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2 gap-y-1 px-3 py-2.5"
-                                                        : "flex items-center gap-2 px-3 py-2",
-                                                      handleRef &&
-                                                        "cursor-pointer active:cursor-grabbing",
-                                                      isDragging &&
-                                                        "cursor-grabbing",
-                                                    )}
-                                                    onClick={() => {
-                                                      if (
-                                                        suppressRowClickRef.current
-                                                      ) {
-                                                        return;
+                                                    side="right"
+                                                  >
+                                                    <div
+                                                      ref={
+                                                        handleRef ?? undefined
                                                       }
-                                                      void handleProjectWorkspaceOpen(
-                                                        {
-                                                          projectPath:
-                                                            project.projectPath,
-                                                          workspaceId:
-                                                            workspace.id,
-                                                        },
-                                                      );
-                                                    }}
-                                                    onKeyDown={(event) => {
-                                                      if (
-                                                        event.altKey &&
-                                                        (event.key ===
-                                                          "ArrowUp" ||
-                                                          event.key ===
-                                                            "ArrowDown")
-                                                      ) {
+                                                      role="button"
+                                                      tabIndex={0}
+                                                      aria-label={`Open workspace ${workspace.isDefault ? "Default" : workspace.name}`}
+                                                      aria-keyshortcuts={
+                                                        !workspaceReorderingDisabled
+                                                          ? "Alt+ArrowUp Alt+ArrowDown"
+                                                          : undefined
+                                                      }
+                                                      aria-description={
+                                                        !workspaceReorderingDisabled
+                                                          ? "Use Alt plus Arrow Up or Arrow Down to reorder."
+                                                          : undefined
+                                                      }
+                                                      className={cn(
+                                                        "min-w-0 flex-1 text-left text-sm",
+                                                        isExpandedWorkspaceItem
+                                                          ? "grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2 gap-y-1 px-3 py-2.5"
+                                                          : "flex items-center gap-2 px-3 py-2",
+                                                        handleRef &&
+                                                          "cursor-pointer active:cursor-grabbing",
+                                                        isDragging &&
+                                                          "cursor-grabbing",
+                                                      )}
+                                                      onClick={() => {
                                                         if (
-                                                          workspaceReorderingDisabled
+                                                          suppressRowClickRef.current
                                                         ) {
                                                           return;
                                                         }
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        const currentIndex =
-                                                          project.workspaces.findIndex(
-                                                            (candidate) =>
-                                                              candidate.id ===
-                                                              workspace.id,
-                                                          );
-                                                        const direction =
-                                                          event.key ===
-                                                          "ArrowUp"
-                                                            ? "up"
-                                                            : "down";
-                                                        const nextIndex =
-                                                          direction === "up"
-                                                            ? currentIndex - 1
-                                                            : currentIndex + 1;
-                                                        if (
-                                                          currentIndex < 0 ||
-                                                          nextIndex < 0 ||
-                                                          nextIndex >=
-                                                            project.workspaces
-                                                              .length
-                                                        ) {
-                                                          return;
-                                                        }
-                                                        moveWorkspaceInProjectList(
+                                                        void handleProjectWorkspaceOpen(
                                                           {
                                                             projectPath:
                                                               project.projectPath,
                                                             workspaceId:
                                                               workspace.id,
-                                                            direction,
                                                           },
                                                         );
-                                                        setReorderAnnouncement(
-                                                          `${workspace.isDefault ? "Default" : workspace.name} moved to position ${nextIndex + 1} of ${project.workspaces.length}.`,
+                                                      }}
+                                                      onKeyDown={(event) => {
+                                                        if (
+                                                          event.altKey &&
+                                                          (event.key ===
+                                                            "ArrowUp" ||
+                                                            event.key ===
+                                                              "ArrowDown")
+                                                        ) {
+                                                          if (
+                                                            workspaceReorderingDisabled
+                                                          ) {
+                                                            return;
+                                                          }
+                                                          event.preventDefault();
+                                                          event.stopPropagation();
+                                                          const currentIndex =
+                                                            project.workspaces.findIndex(
+                                                              (candidate) =>
+                                                                candidate.id ===
+                                                                workspace.id,
+                                                            );
+                                                          const direction =
+                                                            event.key ===
+                                                            "ArrowUp"
+                                                              ? "up"
+                                                              : "down";
+                                                          const nextIndex =
+                                                            direction === "up"
+                                                              ? currentIndex - 1
+                                                              : currentIndex +
+                                                                1;
+                                                          if (
+                                                            currentIndex < 0 ||
+                                                            nextIndex < 0 ||
+                                                            nextIndex >=
+                                                              project.workspaces
+                                                                .length
+                                                          ) {
+                                                            return;
+                                                          }
+                                                          moveWorkspaceInProjectList(
+                                                            {
+                                                              projectPath:
+                                                                project.projectPath,
+                                                              workspaceId:
+                                                                workspace.id,
+                                                              direction,
+                                                            },
+                                                          );
+                                                          setReorderAnnouncement(
+                                                            `${workspace.isDefault ? "Default" : workspace.name} moved to position ${nextIndex + 1} of ${project.workspaces.length}.`,
+                                                          );
+                                                          return;
+                                                        }
+                                                        if (
+                                                          !isWorkspaceActivationKey(
+                                                            event,
+                                                          )
+                                                        ) {
+                                                          return;
+                                                        }
+                                                        event.preventDefault();
+                                                        void handleProjectWorkspaceOpen(
+                                                          {
+                                                            projectPath:
+                                                              project.projectPath,
+                                                            workspaceId:
+                                                              workspace.id,
+                                                          },
                                                         );
-                                                        return;
-                                                      }
-                                                      if (
-                                                        !isWorkspaceActivationKey(
-                                                          event,
-                                                        )
-                                                      ) {
-                                                        return;
-                                                      }
-                                                      event.preventDefault();
-                                                      void handleProjectWorkspaceOpen(
-                                                        {
-                                                          projectPath:
-                                                            project.projectPath,
-                                                          workspaceId:
-                                                            workspace.id,
-                                                        },
-                                                      );
-                                                    }}
-                                                  >
-                                                    <span
-                                                      className={cn(
-                                                        "flex h-4 w-4 shrink-0 items-center justify-center",
-                                                        isExpandedWorkspaceItem &&
-                                                          "mt-0.5",
-                                                      )}
+                                                      }}
                                                     >
-                                                      <WorkspaceLeadingStatusIcon
-                                                        workspaceId={
-                                                          workspace.id
-                                                        }
-                                                        workspaceName={
-                                                          workspace.name
-                                                        }
-                                                        isDefault={
-                                                          workspace.isDefault
-                                                        }
-                                                        busy={workspaceBusy}
-                                                        attentionKind={
-                                                          highestAttentionByWorkspaceId[
+                                                      <span
+                                                        className={cn(
+                                                          "flex h-4 w-4 shrink-0 items-center justify-center",
+                                                          isExpandedWorkspaceItem &&
+                                                            "mt-0.5",
+                                                        )}
+                                                      >
+                                                        <WorkspaceLeadingStatusIcon
+                                                          workspaceId={
                                                             workspace.id
-                                                          ]?.kind
-                                                        }
-                                                      />
-                                                    </span>
-                                                    {isExpandedWorkspaceItem ? (
-                                                      <>
+                                                          }
+                                                          workspaceName={
+                                                            workspace.name
+                                                          }
+                                                          isDefault={
+                                                            workspace.isDefault
+                                                          }
+                                                          busy={workspaceBusy}
+                                                          attentionKind={
+                                                            highestAttentionByWorkspaceId[
+                                                              workspace.id
+                                                            ]?.kind
+                                                          }
+                                                        />
+                                                      </span>
+                                                      {isExpandedWorkspaceItem ? (
+                                                        <>
+                                                          <InlineWorkspaceLabel
+                                                            workspaceId={
+                                                              workspace.id
+                                                            }
+                                                            workspaceName={
+                                                              workspace.name
+                                                            }
+                                                            branch={
+                                                              workspace.branch
+                                                            }
+                                                            isDefault={
+                                                              workspace.isDefault
+                                                            }
+                                                            isActive={isActive}
+                                                            compact={false}
+                                                            showBranchContext={
+                                                              false
+                                                            }
+                                                            onRename={({
+                                                              workspaceId,
+                                                              name,
+                                                            }) =>
+                                                              renameWorkspace({
+                                                                projectPath:
+                                                                  project.projectPath,
+                                                                workspaceId,
+                                                                name,
+                                                              })
+                                                            }
+                                                          />
+                                                          <WorkspaceExpandedMeta
+                                                            workspaceId={
+                                                              workspace.id
+                                                            }
+                                                            branch={
+                                                              workspace.branch
+                                                            }
+                                                            isDefault={
+                                                              workspace.isDefault
+                                                            }
+                                                            shortcutLabel={
+                                                              workspaceShortcutLabel
+                                                            }
+                                                            hasHoverActions={
+                                                              hasHoverActions
+                                                            }
+                                                            isClosing={
+                                                              isClosingWorkspace
+                                                            }
+                                                          />
+                                                        </>
+                                                      ) : (
                                                         <InlineWorkspaceLabel
                                                           workspaceId={
                                                             workspace.id
@@ -2632,10 +2697,8 @@ export function ProjectWorkspaceSidebar(args: {
                                                             workspace.isDefault
                                                           }
                                                           isActive={isActive}
-                                                          compact={false}
-                                                          showBranchContext={
-                                                            false
-                                                          }
+                                                          compact
+                                                          showBranchContext
                                                           onRename={({
                                                             workspaceId,
                                                             name,
@@ -2648,115 +2711,10 @@ export function ProjectWorkspaceSidebar(args: {
                                                             })
                                                           }
                                                         />
-                                                        <WorkspaceExpandedMeta
-                                                          workspaceId={
-                                                            workspace.id
-                                                          }
-                                                          branch={
-                                                            workspace.branch
-                                                          }
-                                                          isDefault={
-                                                            workspace.isDefault
-                                                          }
-                                                          shortcutLabel={
-                                                            workspaceShortcutLabel
-                                                          }
-                                                          hasHoverActions={
-                                                            hasHoverActions
-                                                          }
-                                                          isClosing={
-                                                            isClosingWorkspace
-                                                          }
-                                                        />
-                                                      </>
-                                                    ) : (
-                                                      <InlineWorkspaceLabel
-                                                        workspaceId={
-                                                          workspace.id
-                                                        }
-                                                        workspaceName={
-                                                          workspace.name
-                                                        }
-                                                        branch={
-                                                          workspace.branch
-                                                        }
-                                                        isDefault={
-                                                          workspace.isDefault
-                                                        }
-                                                        isActive={isActive}
-                                                        compact
-                                                        showBranchContext
-                                                        onRename={({
-                                                          workspaceId,
-                                                          name,
-                                                        }) =>
-                                                          renameWorkspace({
-                                                            projectPath:
-                                                              project.projectPath,
-                                                            workspaceId,
-                                                            name,
-                                                          })
-                                                        }
-                                                      />
-                                                    )}
-                                                  </div>
-                                                </WorkspaceHoverPreviewTooltip>
-                                                {isExpandedWorkspaceItem ? (
-                                                  <WorkspaceRowActions
-                                                    workspaceId={workspace.id}
-                                                    workspaceName={
-                                                      workspace.name
-                                                    }
-                                                    isDefault={
-                                                      workspace.isDefault
-                                                    }
-                                                    branch={
-                                                      workspaceBranchById[
-                                                        workspace.id
-                                                      ]
-                                                    }
-                                                    projectPath={
-                                                      project.projectPath
-                                                    }
-                                                    workspacePath={
-                                                      project.workspacePathById[
-                                                        workspace.id
-                                                      ] ?? project.projectPath
-                                                    }
-                                                    canArchiveWorkspace={
-                                                      canArchiveWorkspace
-                                                    }
-                                                    closingWorkspaceId={
-                                                      closingWorkspaceId
-                                                    }
-                                                    onArchive={() =>
-                                                      setWorkspaceToClose({
-                                                        id: workspace.id,
-                                                        name: workspace.name,
-                                                      })
-                                                    }
-                                                    onRename={renameWorkspace}
-                                                    shortcutLabel={undefined}
-                                                    shortcutModifier={
-                                                      workspaceShortcutModifierLabel
-                                                    }
-                                                    placement="top"
-                                                  />
-                                                ) : (
-                                                  <>
-                                                    <div className="relative shrink-0">
-                                                      <WorkspaceRespondingCountBadge
-                                                        workspaceId={
-                                                          workspace.id
-                                                        }
-                                                        hasHoverActions={
-                                                          hasHoverActions
-                                                        }
-                                                        isClosing={
-                                                          isClosingWorkspace
-                                                        }
-                                                      />
+                                                      )}
                                                     </div>
+                                                  </WorkspaceHoverPreviewTooltip>
+                                                  {isExpandedWorkspaceItem ? (
                                                     <WorkspaceRowActions
                                                       workspaceId={workspace.id}
                                                       workspaceName={
@@ -2792,17 +2750,85 @@ export function ProjectWorkspaceSidebar(args: {
                                                         })
                                                       }
                                                       onRename={renameWorkspace}
-                                                      shortcutLabel={
-                                                        workspaceShortcutLabel
-                                                      }
+                                                      shortcutLabel={undefined}
                                                       shortcutModifier={
                                                         workspaceShortcutModifierLabel
                                                       }
+                                                      placement="top"
                                                     />
-                                                  </>
-                                                )}
-                                              </div>
-                                            </WorkspaceBorderBeam>
+                                                  ) : (
+                                                    <>
+                                                      <div className="relative shrink-0">
+                                                        <WorkspaceRespondingCountBadge
+                                                          workspaceId={
+                                                            workspace.id
+                                                          }
+                                                          hasHoverActions={
+                                                            hasHoverActions
+                                                          }
+                                                          isClosing={
+                                                            isClosingWorkspace
+                                                          }
+                                                        />
+                                                      </div>
+                                                      <WorkspaceRowActions
+                                                        workspaceId={
+                                                          workspace.id
+                                                        }
+                                                        workspaceName={
+                                                          workspace.name
+                                                        }
+                                                        isDefault={
+                                                          workspace.isDefault
+                                                        }
+                                                        branch={
+                                                          workspaceBranchById[
+                                                            workspace.id
+                                                          ]
+                                                        }
+                                                        projectPath={
+                                                          project.projectPath
+                                                        }
+                                                        workspacePath={
+                                                          project
+                                                            .workspacePathById[
+                                                            workspace.id
+                                                          ] ??
+                                                          project.projectPath
+                                                        }
+                                                        canArchiveWorkspace={
+                                                          canArchiveWorkspace
+                                                        }
+                                                        closingWorkspaceId={
+                                                          closingWorkspaceId
+                                                        }
+                                                        onArchive={() =>
+                                                          setWorkspaceToClose({
+                                                            id: workspace.id,
+                                                            name: workspace.name,
+                                                          })
+                                                        }
+                                                        onRename={
+                                                          renameWorkspace
+                                                        }
+                                                        shortcutLabel={
+                                                          workspaceShortcutLabel
+                                                        }
+                                                        shortcutModifier={
+                                                          workspaceShortcutModifierLabel
+                                                        }
+                                                      />
+                                                    </>
+                                                  )}
+                                                </div>
+                                              </WorkspaceBorderBeam>
+                                              <WorkspaceProgressTaskTree
+                                                workspaceId={workspace.id}
+                                                projectPath={
+                                                  project.projectPath
+                                                }
+                                              />
+                                            </div>
                                           )}
                                         </SortableSidebarItem>
                                       );

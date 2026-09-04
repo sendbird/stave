@@ -7,12 +7,15 @@ import {
   buildSidebarWorkQueueEntries,
   buildWorkspaceArchiveDialogCopy,
   buildWorkspaceHoverPreview,
+  buildWorkspaceProgressTaskItems,
   buildVisibleWorkspaceShortcutTargets,
   formatWorkQueueWorkspaceLabel,
   getWorkspaceHoverActionVisibilityClasses,
   getWorkspaceLeadingAttentionKind,
   getWorkspaceShortcutLabel,
   getWorkspaceRespondingCountVisibilityClasses,
+  resolveWorkspaceProgressTaskLoaderVariant,
+  summarizeWorkspaceTaskTitle,
   WORKSPACE_SHORTCUT_COUNT,
 } from "../src/components/layout/ProjectWorkspaceSidebar.utils";
 
@@ -413,8 +416,18 @@ describe("buildSidebarWorkQueueEntries", () => {
       projectName: "project-a",
       workspaces: [
         { id: "ws-active", name: "active-ws", isDefault: true, branch: "main" },
-        { id: "ws-attention", name: "attention-ws", isDefault: false, branch: "feature/a" },
-        { id: "ws-idle", name: "idle-ws", isDefault: false, branch: "feature/idle" },
+        {
+          id: "ws-attention",
+          name: "attention-ws",
+          isDefault: false,
+          branch: "feature/a",
+        },
+        {
+          id: "ws-idle",
+          name: "idle-ws",
+          isDefault: false,
+          branch: "feature/idle",
+        },
       ],
       activeWorkspaceId: "ws-attention",
       isCurrent: true,
@@ -423,7 +436,12 @@ describe("buildSidebarWorkQueueEntries", () => {
       projectPath: "/tmp/project-b",
       projectName: "project-b",
       workspaces: [
-        { id: "ws-b-recent", name: "recent-ws", isDefault: true, branch: "main" },
+        {
+          id: "ws-b-recent",
+          name: "recent-ws",
+          isDefault: true,
+          branch: "main",
+        },
       ],
       activeWorkspaceId: "ws-b-recent",
       isCurrent: false,
@@ -575,12 +593,12 @@ describe("formatWorkQueueWorkspaceLabel", () => {
   });
 
   test("keeps a readable identifier when neither label nor branch is known", () => {
-    expect(
-      formatWorkQueueWorkspaceLabel({ name: "", isDefault: true }),
-    ).toBe("Default");
-    expect(
-      formatWorkQueueWorkspaceLabel({ name: "", isDefault: false }),
-    ).toBe("worktree");
+    expect(formatWorkQueueWorkspaceLabel({ name: "", isDefault: true })).toBe(
+      "Default",
+    );
+    expect(formatWorkQueueWorkspaceLabel({ name: "", isDefault: false })).toBe(
+      "worktree",
+    );
   });
 });
 
@@ -611,13 +629,15 @@ describe("buildWorkspaceArchiveDialogCopy", () => {
 });
 
 describe("buildProjectSidebarAttentionAlert", () => {
-  function buildAttentionItem(overrides: Partial<FleetAttentionItem>): FleetAttentionItem {
+  function buildAttentionItem(
+    overrides: Partial<FleetAttentionItem>,
+  ): FleetAttentionItem {
     return {
       id: overrides.id ?? "need-1",
       kind: overrides.kind ?? "user-input",
-      priority: overrides.priority ?? FLEET_ATTENTION_PRIORITY[
-        overrides.kind ?? "user-input"
-      ],
+      priority:
+        overrides.priority ??
+        FLEET_ATTENTION_PRIORITY[overrides.kind ?? "user-input"],
       projectPath: "/tmp/project-a",
       projectName: "project-a",
       workspaceId: overrides.workspaceId ?? "ws-1",
@@ -814,5 +834,121 @@ describe("buildProjectSidebarAttentionAlert", () => {
     expect(alert?.kind).toBe("approval");
     expect(alert?.attentionItemCount).toBe(1);
     expect(alert?.workspaceCount).toBe(1);
+  });
+});
+
+describe("workspace progress task tree", () => {
+  test("summarizes long titles on a word boundary", () => {
+    expect(summarizeWorkspaceTaskTitle("  Fix the flaky sidebar test  ")).toBe(
+      "Fix the flaky sidebar test",
+    );
+    expect(summarizeWorkspaceTaskTitle("")).toBe("Untitled Task");
+    expect(
+      summarizeWorkspaceTaskTitle(
+        "Rewrite the provider logo fallback so idle workspaces keep a readable mark",
+      ),
+    ).toBe("Rewrite the provider logo fallback so…");
+  });
+
+  test("maps in-flight statuses to meaning-led loaders", () => {
+    expect(resolveWorkspaceProgressTaskLoaderVariant("running")).toBe("pulse");
+    expect(resolveWorkspaceProgressTaskLoaderVariant("waiting-input")).toBe(
+      "handoff",
+    );
+    expect(resolveWorkspaceProgressTaskLoaderVariant("waiting-approval")).toBe(
+      "handoff",
+    );
+    expect(resolveWorkspaceProgressTaskLoaderVariant("error")).toBeNull();
+    expect(resolveWorkspaceProgressTaskLoaderVariant("idle")).toBeNull();
+  });
+
+  test("hides the tree when no open task is responding", () => {
+    expect(
+      buildWorkspaceProgressTaskItems({
+        tasks: [
+          {
+            id: "task-idle",
+            title: "Idle task",
+            provider: "claude-code",
+            updatedAt: "2026-09-04T01:00:00.000Z",
+            archivedAt: null,
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  test("lists open tasks under a responding workspace with provider and status", () => {
+    const items = buildWorkspaceProgressTaskItems({
+      tasks: [
+        {
+          id: "task-running",
+          title: "Stream the workspace tree",
+          provider: "claude-code",
+          updatedAt: "2026-09-04T02:00:00.000Z",
+          archivedAt: null,
+        },
+        {
+          id: "task-idle",
+          title: "Later cleanup",
+          provider: "codex",
+          updatedAt: "2026-09-04T01:00:00.000Z",
+          archivedAt: null,
+        },
+        {
+          id: "task-archived",
+          title: "Old work",
+          provider: "claude-code",
+          updatedAt: "2026-09-04T00:00:00.000Z",
+          archivedAt: "2026-09-04T00:30:00.000Z",
+        },
+      ],
+      activeTurnIdsByTask: {
+        "task-running": "turn-1",
+      },
+      openTaskTabIds: ["task-running", "task-idle"],
+    });
+
+    expect(items).toEqual([
+      {
+        taskId: "task-running",
+        title: "Stream the workspace tree",
+        status: "running",
+        providerId: "claude-code",
+      },
+      {
+        taskId: "task-idle",
+        title: "Later cleanup",
+        status: "idle",
+        providerId: "codex",
+      },
+    ]);
+  });
+
+  test("keeps a closed tab visible when its turn is still in flight", () => {
+    const items = buildWorkspaceProgressTaskItems({
+      tasks: [
+        {
+          id: "task-background",
+          title: "Background run",
+          provider: "codex",
+          updatedAt: "2026-09-04T03:00:00.000Z",
+          archivedAt: null,
+        },
+      ],
+      activeTurnIdsByTask: {
+        "task-background": "turn-bg",
+      },
+      openTaskTabIds: [],
+    });
+
+    expect(items).toEqual([
+      {
+        taskId: "task-background",
+        title: "Background run",
+        status: "running",
+        providerId: "codex",
+      },
+    ]);
   });
 });
