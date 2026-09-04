@@ -1,5 +1,6 @@
 import { Hand, ShieldCheck } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
+import { cn } from "@/lib/utils";
 import type { TaskControlOwner } from "@/types/chat";
 
 export function ManagedTaskTakeoverNotice(props: {
@@ -7,6 +8,7 @@ export function ManagedTaskTakeoverNotice(props: {
   isTurnActive: boolean;
   canTakeOver: boolean;
   onTakeOver: () => void;
+  className?: string;
 }) {
   const ownerLabel =
     props.owner === "external" ? "Managed externally" : "Managed by Stave";
@@ -16,7 +18,14 @@ export function ManagedTaskTakeoverNotice(props: {
 
   return (
     <div
-      className="mb-2 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2"
+      data-managed-task-notice="true"
+      data-testid="managed-task-takeover-notice"
+      className={cn(
+        // Same 0.75rem inset as the docked turn-activity shelf. Framed mode
+        // with side tracks overrides this from the composer measure parent.
+        "mx-3 mb-2 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2",
+        props.className,
+      )}
       role="status"
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">

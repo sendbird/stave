@@ -57,6 +57,19 @@
   --composer-wing-radius: 0.75rem;
 }
 
+/*
+ * The takeover notice sits above the composer, outside the frame. When the
+ * card has reserved wing tracks, match the top shelf: 3.75rem track plus the
+ * 0.75rem shelf inset. Without tracks, `mx-3` on the notice is enough.
+ */
+.mx-auto.max-w-6xl:has(
+    [data-composer-frame-slot="left"],
+    [data-composer-frame-slot="right"]
+  )
+  [data-managed-task-notice="true"] {
+  margin-inline: 4.5rem;
+}
+
 .composer-frame-wing {
   width: var(--composer-wing-collapsed-width);
   transition-property: width, box-shadow;
