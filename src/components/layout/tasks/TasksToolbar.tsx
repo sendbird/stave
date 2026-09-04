@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Search, X } from "lucide-react";
+import { LayoutGrid, LayoutList, Search, X } from "lucide-react";
 
 import {
   Button,
@@ -22,6 +22,7 @@ import {
   TRACKER_TASK_GROUP_MODES,
   type TrackerTaskGroupMode,
 } from "@/lib/tracker-tasks/group";
+import type { TrackerTaskLayout } from "@/lib/tracker-tasks/layout";
 import {
   TRACKER_TASK_SORTS,
   type TrackerTaskSort,
@@ -96,6 +97,8 @@ export interface TasksToolbarProps {
   onGroupChange: (group: TrackerTaskGroupMode) => void;
   sort: TrackerTaskSort;
   onSortChange: (sort: TrackerTaskSort) => void;
+  layout: TrackerTaskLayout;
+  onLayoutChange: (layout: TrackerTaskLayout) => void;
   /** Derived from the loaded rows by the view, not from settings. */
   projectOptions: readonly TrackerTaskFilterOption[];
   labelOptions: readonly TrackerTaskFilterOption[];
@@ -226,26 +229,56 @@ export function TasksToolbar(props: TasksToolbarProps) {
         </Select>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <Select
-            value={props.group}
-            onValueChange={(value) =>
-              props.onGroupChange(value as TrackerTaskGroupMode)
-            }
+          <div
+            className="flex items-center rounded-md border border-border/70 bg-muted/40 p-0.5"
+            role="group"
+            aria-label="Ticket layout"
           >
-            <SelectTrigger
-              className="h-8 w-40 text-xs"
-              aria-label="Group tickets"
+            <Button
+              type="button"
+              size="sm"
+              variant={props.layout === "list" ? "secondary" : "ghost"}
+              aria-pressed={props.layout === "list"}
+              className="h-8 gap-1.5 px-2.5 text-xs"
+              onClick={() => props.onLayoutChange("list")}
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TRACKER_TASK_GROUP_MODES.map((mode) => (
-                <SelectItem key={mode} value={mode}>
-                  {GROUP_LABELS[mode]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <LayoutList className="size-3.5" />
+              List
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={props.layout === "board" ? "secondary" : "ghost"}
+              aria-pressed={props.layout === "board"}
+              className="h-8 gap-1.5 px-2.5 text-xs"
+              onClick={() => props.onLayoutChange("board")}
+            >
+              <LayoutGrid className="size-3.5" />
+              Board
+            </Button>
+          </div>
+          {props.layout === "list" ? (
+            <Select
+              value={props.group}
+              onValueChange={(value) =>
+                props.onGroupChange(value as TrackerTaskGroupMode)
+              }
+            >
+              <SelectTrigger
+                className="h-8 w-40 text-xs"
+                aria-label="Group tickets"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TRACKER_TASK_GROUP_MODES.map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {GROUP_LABELS[mode]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           <Select
             value={props.sort}
             onValueChange={(value) =>

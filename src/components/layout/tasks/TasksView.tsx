@@ -10,10 +10,12 @@ import {
   createTrackerTaskFilter,
   type TrackerTaskFilter,
 } from "@/lib/tracker-tasks/filter";
+import { trackerTaskKey } from "@/lib/tracker-tasks/client-store";
 import {
   readTrackerTasksViewPreference,
   writeTrackerTasksViewPreference,
 } from "@/lib/tracker-tasks/view-preference";
+import type { TrackerTaskLayout } from "@/lib/tracker-tasks/layout";
 import { describeTrackerSources } from "@/lib/tracker-tasks/source-status";
 import {
   TRACKER_SOURCE_IDS,
@@ -21,6 +23,8 @@ import {
 } from "@/lib/tracker-tasks/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { TasksBoard } from "./TasksBoard";
+import { TasksPeekPanel } from "./TasksPeekPanel";
 import { TasksSurfaceHeader } from "./TasksSurfaceHeader";
 import { TasksToolbar } from "./TasksToolbar";
 import { TrackerTaskDetailPane } from "./TrackerTaskDetailPane";
@@ -31,6 +35,7 @@ import {
   TrackerTasksEmptyListState,
   TrackerTasksUnavailableState,
 } from "./TrackerTasksEmptyState";
+import { openTrackerTaskInBrowser } from "./tracker-task-ui";
 import { useTrackerTaskActions } from "./useTrackerTaskActions";
 import { useTrackerTaskListPipeline } from "./useTrackerTaskListPipeline";
 import { useTrackerTasksKeyboard } from "./useTrackerTasksKeyboard";
@@ -79,6 +84,8 @@ export function TasksView(props: { onClose: () => void }) {
   }));
   const [group, setGroup] = useState(preference.group);
   const [sort, setSort] = useState(preference.sort);
+  const [layout, setLayout] = useState<TrackerTaskLayout>(preference.layout);
+  const [peekWidth, setPeekWidth] = useState(preference.peekWidth);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<string[]>([]);
   const [kickoffKey, setKickoffKey] = useState<string | null>(null);
@@ -109,8 +116,10 @@ export function TasksView(props: { onClose: () => void }) {
       group,
       sort,
       sources: filter.sources,
+      layout,
+      peekWidth,
     });
-  }, [filter.sources, filter.view, group, sort]);
+  }, [filter.sources, filter.view, group, layout, peekWidth, sort]);
 
   const now = useMemo(() => new Date(nowMs), [nowMs]);
   const pipeline = useTrackerTaskListPipeline({
@@ -123,24 +132,32 @@ export function TasksView(props: { onClose: () => void }) {
     now,
   });
   const { orderedKeys } = pipeline;
+  const boardItems = useMemo(
+    () => pipeline.groups.flatMap((entry) => entry.items),
+    [pipeline.groups],
+  );
+  const layoutKeys = useMemo(
+    () =>
+      layout === "board"
+        ? boardItems.map((item) =>
+            trackerTaskKey(item.task.source, item.task.ref),
+          )
+        : orderedKeys,
+    [boardItems, layout, orderedKeys],
+  );
 
-  // Selection follows the list: a row that a refresh or a filter removed must
-  // not keep the detail pane pinned to a ticket that is no longer visible.
+  // Selection follows the visible set. Opening a ticket is explicit: do not
+  // pin the peek to the first row just because the list loaded.
   useEffect(() => {
-    if (orderedKeys.length === 0) {
-      if (selectedKey !== null) {
-        setSelectedKey(null);
-      }
-      return;
+    if (selectedKey !== null && !layoutKeys.includes(selectedKey)) {
+      setSelectedKey(null);
     }
-    if (!selectedKey || !orderedKeys.includes(selectedKey)) {
-      setSelectedKey(orderedKeys[0] ?? null);
-    }
-  }, [orderedKeys, selectedKey]);
+  }, [layoutKeys, selectedKey]);
 
   const selectedItem = selectedKey
     ? (snapshot.itemByKey[selectedKey] ?? null)
     : null;
+  const selectedIndex = selectedKey ? layoutKeys.indexOf(selectedKey) : -1;
   const kickoffItem = kickoffKey
     ? (snapshot.itemByKey[kickoffKey] ?? null)
     : null;
@@ -185,7 +202,7 @@ export function TasksView(props: { onClose: () => void }) {
   };
 
   useTrackerTasksKeyboard({
-    orderedKeys,
+    orderedKeys: layoutKeys,
     selectedKey,
     onSelect: setSelectedKey,
     onKickoff: setKickoffKey,
@@ -206,13 +223,19 @@ export function TasksView(props: { onClose: () => void }) {
       return;
     }
     const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) {
-        props.onClose();
+      if (event.key !== "Escape" || event.defaultPrevented) {
+        return;
       }
+      if (selectedKey !== null) {
+        event.preventDefault();
+        setSelectedKey(null);
+        return;
+      }
+      props.onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [kickoffKey, props]);
+  }, [kickoffKey, props, selectedKey]);
 
   if (!supported) {
     return <TrackerTasksUnavailableState />;
@@ -237,6 +260,8 @@ export function TasksView(props: { onClose: () => void }) {
         onGroupChange={setGroup}
         sort={sort}
         onSortChange={setSort}
+        layout={layout}
+        onLayoutChange={setLayout}
         projectOptions={pipeline.projectOptions}
         labelOptions={pipeline.labelOptions}
         viewCounts={pipeline.viewCounts}
@@ -247,18 +272,16 @@ export function TasksView(props: { onClose: () => void }) {
         onRetry={(source) => refresh(source)}
         // With an empty list the empty state already lists every source, so the
         // strip would say the same thing twice.
-        hidden={orderedKeys.length === 0}
+        hidden={layoutKeys.length === 0}
       />
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <div
           className={cn(
-            "min-h-0 overflow-hidden",
-            // On a narrow window the detail pane replaces the list rather
-            // than squeezing both into an unreadable pair of columns.
-            selectedItem ? "hidden md:block" : "block",
+            "min-h-0 min-w-0 flex-1 overflow-hidden",
+            selectedItem ? "max-md:hidden" : null,
           )}
         >
-          {orderedKeys.length === 0 ? (
+          {layoutKeys.length === 0 ? (
             <TrackerTasksEmptyListState
               summaries={summaries}
               hasFilters={countActiveTrackerTaskFilters(filter) > 0}
@@ -269,46 +292,87 @@ export function TasksView(props: { onClose: () => void }) {
           ) : (
             <div className="flex h-full min-h-0 flex-col">
               <div className="min-h-0 flex-1">
-                <TrackerTaskList
-                  groups={pipeline.groups}
-                  now={now}
-                  selectedKey={selectedKey}
-                  collapsedGroupIds={collapsedGroupIds}
-                  onToggleGroup={(groupId) =>
-                    setCollapsedGroupIds((current) =>
-                      current.includes(groupId)
-                        ? current.filter((entry) => entry !== groupId)
-                        : [...current, groupId],
-                    )
-                  }
-                  onSelect={setSelectedKey}
-                  onKickoff={setKickoffKey}
-                  onAttach={attachForKey}
-                  onOpenStaveTask={openStaveTaskForKey}
-                  attachTargetLabel={activeWorkspaceName}
-                />
+                {layout === "board" ? (
+                  <TasksBoard
+                    items={boardItems}
+                    selectedKey={selectedKey}
+                    onSelect={setSelectedKey}
+                  />
+                ) : (
+                  <TrackerTaskList
+                    groups={pipeline.groups}
+                    now={now}
+                    selectedKey={selectedKey}
+                    collapsedGroupIds={collapsedGroupIds}
+                    onToggleGroup={(groupId) =>
+                      setCollapsedGroupIds((current) =>
+                        current.includes(groupId)
+                          ? current.filter((entry) => entry !== groupId)
+                          : [...current, groupId],
+                      )
+                    }
+                    onSelect={setSelectedKey}
+                    onKickoff={setKickoffKey}
+                    onAttach={attachForKey}
+                    onOpenStaveTask={openStaveTaskForKey}
+                    attachTargetLabel={activeWorkspaceName}
+                  />
+                )}
               </div>
               {sourceStatuses.some((status) => status.truncated) ? (
                 <p className="shrink-0 border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
-                  Showing {orderedKeys.length} loaded tickets. A tracker had
-                  more than one refresh can load.
+                  Showing {layoutKeys.length} loaded tickets. A tracker had more
+                  than one refresh can load.
                 </p>
               ) : null}
             </div>
           )}
         </div>
-        {selectedItem ? (
-          <TrackerTaskDetailPane
-            item={selectedItem}
-            now={now}
-            messageFontSize={messageFontSize}
-            messageCodeFontSize={messageCodeFontSize}
-            onKickoff={setKickoffKey}
-            onAttach={attachForKey}
-            onOpenStaveTask={openStaveTaskForKey}
-            attachTargetLabel={activeWorkspaceName}
-          />
-        ) : null}
+        <TasksPeekPanel
+          dock="split"
+          open={selectedItem !== null}
+          title={selectedItem?.task.key ?? "Ticket"}
+          width={peekWidth}
+          onWidthChange={setPeekWidth}
+          onClose={() => setSelectedKey(null)}
+          onExpand={
+            selectedItem
+              ? () => openTrackerTaskInBrowser(selectedItem.task.url)
+              : undefined
+          }
+          onNavigate={
+            selectedIndex >= 0
+              ? (direction) => {
+                  const next =
+                    direction === "prev"
+                      ? selectedIndex - 1
+                      : selectedIndex + 1;
+                  const key = layoutKeys[next];
+                  if (key) {
+                    setSelectedKey(key);
+                  }
+                }
+              : undefined
+          }
+          prevDisabled={selectedIndex <= 0}
+          nextDisabled={
+            selectedIndex < 0 || selectedIndex >= layoutKeys.length - 1
+          }
+        >
+          {selectedItem ? (
+            <TrackerTaskDetailPane
+              item={selectedItem}
+              now={now}
+              messageFontSize={messageFontSize}
+              messageCodeFontSize={messageCodeFontSize}
+              onKickoff={setKickoffKey}
+              onAttach={attachForKey}
+              onOpenStaveTask={openStaveTaskForKey}
+              attachTargetLabel={activeWorkspaceName}
+              embedded
+            />
+          ) : null}
+        </TasksPeekPanel>
       </div>
 
       <TrackerTaskKickoffSheet

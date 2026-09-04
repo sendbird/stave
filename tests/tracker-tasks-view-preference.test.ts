@@ -23,6 +23,8 @@ describe("parseTrackerTasksViewPreference", () => {
       group: "due",
       sort: "updated",
       sources: ["jira", "crane"],
+      layout: "board",
+      peekWidth: 560,
     };
     const parsed = parseTrackerTasksViewPreference(
       serializeTrackerTasksViewPreference(value),
@@ -58,6 +60,19 @@ describe("parseTrackerTasksViewPreference", () => {
     }
   });
 
+  it("salvages an unknown layout without dropping the rest", () => {
+    const parsed = parseTrackerTasksViewPreference(
+      JSON.stringify({
+        view: "all-open",
+        layout: "calendar",
+        peekWidth: "640",
+      }),
+    );
+    expect(parsed.layout).toBe("list");
+    expect(parsed.peekWidth).toBe(640);
+    expect(parsed.view).toBe("all-open");
+  });
+
   it("salvages field by field so one unknown value costs only that field", () => {
     const parsed = parseTrackerTasksViewPreference(
       JSON.stringify({
@@ -72,6 +87,8 @@ describe("parseTrackerTasksViewPreference", () => {
       group: "status",
       sort: "priority",
       sources: ["jira"],
+      layout: "list",
+      peekWidth: 480,
     });
   });
 
@@ -98,6 +115,8 @@ describe("parseTrackerTasksViewPreference", () => {
     expect(parsed.view).toBe("all-open");
     expect(Object.keys(parsed).sort()).toEqual([
       "group",
+      "layout",
+      "peekWidth",
       "sort",
       "sources",
       "view",
@@ -115,18 +134,22 @@ describe("parseTrackerTasksViewPreference", () => {
 });
 
 describe("serializeTrackerTasksViewPreference", () => {
-  it("writes only the four known fields", () => {
+  it("writes only the known fields and clamps peek width", () => {
     const serialized = serializeTrackerTasksViewPreference({
       view: "all-open",
       group: "due",
       sort: "key",
       sources: [],
+      layout: "board",
+      peekWidth: 12,
     });
     expect(JSON.parse(serialized)).toEqual({
       view: "all-open",
       group: "due",
       sort: "key",
       sources: [],
+      layout: "board",
+      peekWidth: 360,
     });
   });
 });

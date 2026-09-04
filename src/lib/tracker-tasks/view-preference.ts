@@ -7,6 +7,14 @@ import {
   type TrackerTaskGroupMode,
 } from "@/lib/tracker-tasks/group";
 import {
+  TRACKER_TASK_LAYOUTS,
+  type TrackerTaskLayout,
+} from "@/lib/tracker-tasks/layout";
+import {
+  parseTrackerTasksPeekWidth,
+  TRACKER_TASKS_PEEK_DEFAULT_PX,
+} from "@/lib/tracker-tasks/peek-size";
+import {
   TRACKER_TASK_SORTS,
   type TrackerTaskSort,
 } from "@/lib/tracker-tasks/sort";
@@ -29,6 +37,9 @@ export interface TrackerTasksViewPreference {
   group: TrackerTaskGroupMode;
   sort: TrackerTaskSort;
   sources: TrackerSourceId[];
+  layout: TrackerTaskLayout;
+  /** Last dragged peek width, already clamped. */
+  peekWidth: number;
 }
 
 export const DEFAULT_TRACKER_TASKS_VIEW_PREFERENCE: TrackerTasksViewPreference =
@@ -39,6 +50,8 @@ export const DEFAULT_TRACKER_TASKS_VIEW_PREFERENCE: TrackerTasksViewPreference =
     // Frozen so the shared default cannot be edited through a caller's
     // reference; every parse below hands back its own array.
     sources: Object.freeze([]) as unknown as TrackerSourceId[],
+    layout: "list" as TrackerTaskLayout,
+    peekWidth: TRACKER_TASKS_PEEK_DEFAULT_PX,
   });
 
 function pickOneOf<T extends string>(
@@ -105,6 +118,12 @@ export function parseTrackerTasksViewPreference(
       DEFAULT_TRACKER_TASKS_VIEW_PREFERENCE.sort,
     ),
     sources,
+    layout: pickOneOf(
+      record.layout,
+      TRACKER_TASK_LAYOUTS,
+      DEFAULT_TRACKER_TASKS_VIEW_PREFERENCE.layout,
+    ),
+    peekWidth: parseTrackerTasksPeekWidth(record.peekWidth),
   };
 }
 
@@ -116,6 +135,8 @@ export function serializeTrackerTasksViewPreference(
     group: value.group,
     sort: value.sort,
     sources: value.sources,
+    layout: value.layout,
+    peekWidth: parseTrackerTasksPeekWidth(value.peekWidth),
   });
 }
 

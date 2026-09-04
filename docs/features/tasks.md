@@ -46,9 +46,11 @@ The workspace is created, the ticket is filed in the workspace Information panel
 - **Header** — per-source sync age in Jira-then-Crane order, a `stale` chip when a source has missed two refresh intervals, a `partial` chip when the tracker had more rows than the page budget allows, plus Refresh and Close. A footer under the list repeats that the loaded set is a prefix.
 - **View tabs** — *Assigned to me*, *All open*, *Recently done* (closed in the last 14 days), *In Stave* (has a Stave run). Switching tabs clears the filter chips, because the chips mean something different in each view.
 - **Filter chips** — Source, Status, Priority, Project, Label, and an *In Stave / Not in Stave* selector. Each chip is multi-select and shows what is selected; Reset clears the chips and keeps the tab.
-- **Group and Sort** — group by Status or Due date; sort by Priority, Due date, Updated, or Key. Group headers collapse and show a count.
+- **Layout** — List or Board. List is the grouped row surface. Board is one column per status category. Switching layout keeps the same filters and sort; grouping is list-only because the board already groups by status.
+- **Group and Sort** — in List, group by Status or Due date; in both layouts, sort by Priority, Due date, Updated, or Key. Group headers collapse and show a count.
 - **Row** — source glyph, ticket key, priority glyph, title, labels, mirrored Jira key, Stave run badge, status, estimate, due date, assignee initials. Right-click for kick off, open in browser, copy key or link, attach to the current workspace, and jump to the Stave task.
-- **Detail pane** — the ticket's metadata grid, its description rendered as Markdown, its comments, and a card for the bound Stave run. The primary button becomes *Open in Stave* once a run exists; *Kick off again* stays available in the `⋯` menu.
+- **Peek** — selecting a ticket opens a side peek that takes its own track and narrows the list or board, instead of covering it. The first open is wider than a typical 420px peek; drag the leading rail (or use the arrow keys on it) to resize, and the width is remembered. Prev/next step through the visible set. Escape closes the peek first, then the surface.
+- **Detail** — the ticket's metadata grid, its description rendered as Markdown, its comments, and a card for the bound Stave run. The primary button becomes *Open in Stave* once a run exists; *Kick off again* stays available in the `⋯` menu.
 
 ### Keyboard
 
@@ -61,7 +63,7 @@ The workspace is created, the ticket is filed in the workspace Information panel
 | `o` | Open the ticket in your browser |
 | `/` | Focus the search box |
 | `r` | Refresh every source |
-| `Esc` | Close the surface |
+| `Esc` | Close the peek, or the surface when none is open |
 
 Keys are ignored while you are typing in a field, and while the kickoff sheet is open.
 
@@ -90,7 +92,7 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 
 - Cached tickets and kickoff links live in the Stave SQLite database (`tracker_tasks_cache`, `tracker_task_kickoffs`). They hold ticket fields and run state, never credentials.
 - The Jira credential lives in its own encrypted document in the app's user-data directory. Only ciphertext is written, and the vault refuses to write at all when OS encryption is unavailable.
-- View state (tab, group, sort, source selection) and the last-used project per source live in `localStorage`, so they are not part of settings export.
+- View state (tab, layout, group, sort, source selection, peek width) and the last-used project per source live in `localStorage`, so they are not part of settings export.
 - Settings live under `trackerTasks` (which sources Tasks reads, default view, refresh interval, default start mode) and `jiraConnector` (enabled, site URL, JQL, page size, project mappings) in the Stave settings document.
 
 **Egress:** Stave reads from your trackers. The only thing it writes back is Crane job lifecycle state — status, sequence, timestamps, and safe error codes — and only when you leave *Report progress to Crane* on. Prompts, responses, reasoning, file contents, paths, diffs, and credentials never leave the machine. Jira is read-only; no status transition, comment, or worklog is ever written.
