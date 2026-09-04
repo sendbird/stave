@@ -1,11 +1,4 @@
-import {
-  AlertCircle,
-  ChevronDown,
-  RefreshCcw,
-  Search,
-  Sparkles,
-  Zap,
-} from "lucide-react";
+import { AlertCircle, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -509,13 +502,6 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
               </span>
             </>
           ) : null}
-          <ChevronDown
-            className={cn(
-              "size-3.5 shrink-0 text-muted-foreground transition-transform",
-              open && "rotate-180",
-            )}
-            aria-hidden="true"
-          />
         </PopoverTrigger>
 
         <PopoverContent
