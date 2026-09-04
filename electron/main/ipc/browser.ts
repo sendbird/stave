@@ -13,6 +13,7 @@ import {
   getBrowserSession,
   getWebContentsForSession,
   listBrowserSessions,
+  releaseHiddenLensGuestsForWorkspace,
   pushConsoleEntry,
   pushNetworkEntry,
   setSessionPresented,
@@ -88,6 +89,7 @@ import {
   LensNetworkEntryDetailArgsSchema,
   LensScreenshotArgsSchema,
   LensSessionTargetArgsSchema,
+  LensWorkspaceTargetArgsSchema,
 } from "./schemas";
 import type {
   LensCdpApprovalResponse,
@@ -470,6 +472,17 @@ export function registerBrowserHandlers() {
       sessions: listBrowserSessions(args?.workspaceId),
     }),
   );
+
+  handleLens("lens:release-workspace-guests", async (_event, input: unknown) => {
+    const parsed = LensWorkspaceTargetArgsSchema.safeParse(input);
+    if (!parsed.success) {
+      return { ok: false, released: 0, message: "Invalid workspace target." };
+    }
+    return {
+      ok: true,
+      released: releaseHiddenLensGuestsForWorkspace(parsed.data.workspaceId),
+    };
+  });
 
   handleLens(
     "lens:clear-session-data",

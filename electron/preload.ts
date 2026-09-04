@@ -2579,6 +2579,13 @@ contextBridge.exposeInMainWorld("api", {
         processes: Array<{
           pid: number;
           type: string;
+          role:
+            | "main"
+            | "host-renderer"
+            | "lens-guest"
+            | "gpu"
+            | "utility"
+            | "other";
           memory: {
             workingSetSizeKB: number;
             peakWorkingSetSizeKB: number;
@@ -2594,6 +2601,25 @@ contextBridge.exposeInMainWorld("api", {
           external: number;
           arrayBuffers: number;
         };
+        hostRendererPid: number | null;
+        hostService: {
+          pid: number;
+          memory: {
+            rss: number;
+            heapTotal: number;
+            heapUsed: number;
+            external: number;
+            arrayBuffers: number;
+          };
+          terminalSessions: number;
+          ptyPids: number[];
+          childProcesses: Array<{
+            pid: number;
+            parentPid: number;
+            rssBytes: number;
+            kind: "provider" | "pty" | "language-server" | "other";
+          }>;
+        } | null;
         lens: {
           sessions: number;
           visibleSessions: number;
@@ -2607,6 +2633,14 @@ contextBridge.exposeInMainWorld("api", {
           cdpClosingControllers: number;
           cdpInFlightCommands: number;
           cdpCloseDrainTimeouts: number;
+          guests: Array<{
+            workspaceId: string;
+            lensSessionId: string;
+            pid: number | null;
+            visible: boolean;
+            managedByMcp: boolean;
+            url: string;
+          }>;
         };
         renderer: {
           currentlyUnresponsive: boolean;
@@ -2624,6 +2658,11 @@ contextBridge.exposeInMainWorld("api", {
         } | null;
         uptimeSeconds: number;
       }>,
+    getRendererMemory: async () => ({
+      heap: process.getHeapStatistics(),
+      process: await process.getProcessMemoryInfo(),
+      blink: process.getBlinkMemoryInfo(),
+    }),
   },
   inlineCompletion: {
     request: (args: {
@@ -2720,6 +2759,12 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("lens:list-sessions", args) as Promise<{
         ok: boolean;
         sessions?: LensSessionDescriptor[];
+      }>,
+    releaseWorkspaceGuests: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("lens:release-workspace-guests", args) as Promise<{
+        ok: boolean;
+        released: number;
+        message?: string;
       }>,
     clearSessionData: (args: LensSessionProfileArgs) =>
       ipcRenderer.invoke("lens:clear-session-data", args) as Promise<{

@@ -250,6 +250,10 @@ export const LensSessionTargetArgsSchema = z
   })
   .strict();
 
+export const LensWorkspaceTargetArgsSchema = LensSessionTargetArgsSchema.pick({
+  workspaceId: true,
+}).strict();
+
 export const LensAnnotationStartArgsSchema = LensSessionTargetArgsSchema.extend(
   {
     options: z

@@ -27,6 +27,12 @@ When enabled, slow commits are logged to the console and recorded as `performanc
 
 If you are debugging repeated re-renders or `Maximum update depth exceeded`, review [Zustand selector stability](zustand-selector-stability.md) before changing store subscriptions.
 
+## Runtime resource diagnostics
+
+Open `Memory` in the status bar to compare the main process, app renderer, Lens guests, host service, PTY sessions, and provider or language-server children. The process table attributes Electron renderer processes by role, while the host service reports its own RSS and the resident set of its descendant process tree. The panel refreshes every three seconds while open.
+
+Use the Lens session counts together with `Lens guest` working set before changing Chromium flags. Hidden panel-owned and agent-owned pages have separate caps and idle deadlines, so a growing guest count beyond those limits indicates a lifecycle regression rather than expected cache growth.
+
 ## Terminal diagnostics
 
 If you are debugging terminal input loss, session restore bugs, terminal viewport jumps, or dock/CLI surface layout drift, review [Terminal regression prevention](terminal-regression-prevention.md) before changing terminal surface code.

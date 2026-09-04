@@ -33,6 +33,11 @@ if (!app.isPackaged) {
   process.env.STAVE_DEV = "1";
 }
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
+
 let quittingAfterCleanup = false;
 let beforeQuitCleanupPromise: Promise<void> | null = null;
 
@@ -68,20 +73,37 @@ function runBeforeQuitCleanup() {
   return beforeQuitCleanupPromise;
 }
 
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(buildApplicationMenu());
-  registerHandlers();
-  createMainWindow();
-  startTrackerTasksRuntime();
-  void startHostService().catch((error) => {
-    console.error("[host-service] failed to start", error);
+if (hasSingleInstanceLock) {
+  app.on("second-instance", () => {
+    const window = getMainWindow();
+    if (!window || window.isDestroyed()) {
+      return;
+    }
+    if (window.isMinimized()) {
+      window.restore();
+    }
+    window.show();
+    window.focus();
   });
-  void startStaveMcpServer().catch((error) => {
-    console.error("[stave-mcp] failed to start local MCP server", error);
+
+  app.whenReady().then(() => {
+    Menu.setApplicationMenu(buildApplicationMenu());
+    registerHandlers();
+    createMainWindow();
+    startTrackerTasksRuntime();
+    void startHostService().catch((error) => {
+      console.error("[host-service] failed to start", error);
+    });
+    void startStaveMcpServer().catch((error) => {
+      console.error("[stave-mcp] failed to start local MCP server", error);
+    });
   });
-});
+}
 
 app.on("before-quit", (event) => {
+  if (!hasSingleInstanceLock) {
+    return;
+  }
   if (quittingAfterCleanup) {
     return;
   }

@@ -47,7 +47,9 @@ import {
   removeRecordEntries,
   removeTaskTurnRuntimeEntries,
 } from "@/store/task-turn-runtime-cleanup";
-import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
+import {
+  saveActiveWorkspaceRuntimeCacheWithLensCleanup,
+} from "@/store/workspace-runtime-state";
 import {
   buildWorkspaceSessionState,
   persistWorkspaceSnapshot,
@@ -578,9 +580,10 @@ export function createWorkspaceManagementActions(args: {
           return state;
         }
         const workspaceIds = state.workspaces.map((workspace) => workspace.id);
-        const nextRuntimeCacheById = saveActiveWorkspaceRuntimeCache({
-          state,
-        });
+        const nextRuntimeCacheById =
+          saveActiveWorkspaceRuntimeCacheWithLensCleanup({
+            state,
+          });
         if (preferLoadedWorkspaceState) {
           delete nextRuntimeCacheById[workspaceId];
         }

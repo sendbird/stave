@@ -1,5 +1,7 @@
 import {
   DEFAULT_LENS_SESSION_ID,
+  markBrowserSessionAgentTouched,
+  markBrowserSessionManagedByMcp,
   resolvePreferredBrowserSession,
   type BrowserSessionState,
 } from "./browser-manager";
@@ -79,6 +81,7 @@ export async function acquireMcpBrowserSession(
    * this is the same rule at the layer that can skip it.
    */
   if (existing && !existing.webContents.isDestroyed()) {
+    markBrowserSessionAgentTouched(existing);
     return { session: existing, created: false };
   }
 
@@ -110,7 +113,9 @@ export async function acquireMcpBrowserSession(
     restorePreviousUrl: args.restorePreviousUrl,
   });
   if (result.created) {
-    result.session.managedByMcp = true;
+    markBrowserSessionManagedByMcp(result.session);
+  } else {
+    markBrowserSessionAgentTouched(result.session);
   }
   return result;
 }

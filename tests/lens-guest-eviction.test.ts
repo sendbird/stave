@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  selectEvictableAgentLensGuests,
   selectEvictableLensGuests,
+  selectIdleLensGuests,
   type LensGuestEvictionCandidate,
 } from "../src/lib/lens/lens-guest-eviction";
 
@@ -14,6 +16,9 @@ function candidate(
     closing: false,
     lastVisibleAt: 0,
     createdSequence: 0,
+    lastHiddenAtMs: 1,
+    lastAgentTouchedAtMs: 0,
+    cdpInFlight: 0,
     ...overrides,
   };
 }
@@ -104,6 +109,17 @@ describe("selectEvictableLensGuests", () => {
     ]);
   });
 
+  test("never evicts a session with a CDP command in flight", () => {
+    const sessions = [
+      candidate({ lensSessionId: "busy", cdpInFlight: 1 }),
+      candidate({ lensSessionId: "hidden-a", lastVisibleAt: 2 }),
+      candidate({ lensSessionId: "hidden-b", lastVisibleAt: 3 }),
+    ];
+    expect(ids(selectEvictableLensGuests(sessions, { maxHidden: 1 }))).toEqual([
+      "hidden-a",
+    ]);
+  });
+
   test("spares the exempt session even when it ranks first", () => {
     // The cap runs when a guest binds, and a freshly bound guest is hidden
     // until its panel reports otherwise — so it is the best candidate there is.
@@ -154,5 +170,116 @@ describe("selectEvictableLensGuests", () => {
         (session) => session.workspaceId,
       ),
     ).toEqual(["w1"]);
+  });
+});
+
+describe("selectEvictableAgentLensGuests", () => {
+  test("caps hidden agent sessions by least-recent agent use", () => {
+    const sessions = [
+      candidate({ lensSessionId: "panel", managedByMcp: false }),
+      candidate({
+        lensSessionId: "old-agent",
+        managedByMcp: true,
+        lastAgentTouchedAtMs: 10,
+      }),
+      candidate({
+        lensSessionId: "new-agent",
+        managedByMcp: true,
+        lastAgentTouchedAtMs: 20,
+      }),
+    ];
+
+    expect(
+      ids(selectEvictableAgentLensGuests(sessions, { maxHidden: 1 })),
+    ).toEqual(["old-agent"]);
+  });
+
+  test("spares visible, busy, and explicitly exempt agent sessions", () => {
+    const sessions = [
+      candidate({
+        lensSessionId: "visible",
+        managedByMcp: true,
+        visible: true,
+      }),
+      candidate({
+        lensSessionId: "busy",
+        managedByMcp: true,
+        cdpInFlight: 1,
+      }),
+      candidate({ lensSessionId: "exempt", managedByMcp: true }),
+      candidate({ lensSessionId: "victim", managedByMcp: true }),
+    ];
+
+    expect(
+      ids(
+        selectEvictableAgentLensGuests(sessions, {
+          maxHidden: 0,
+          exempt: { workspaceId: "workspace-1", lensSessionId: "exempt" },
+        }),
+      ),
+    ).toEqual(["victim"]);
+  });
+
+  test("counts the newly addressed exempt session toward the cap", () => {
+    const sessions = [1, 2, 3, 4, 5].map((sequence) =>
+      candidate({
+        lensSessionId: `agent-${sequence}`,
+        managedByMcp: true,
+        createdSequence: sequence,
+        lastAgentTouchedAtMs: sequence,
+      }),
+    );
+
+    expect(
+      ids(
+        selectEvictableAgentLensGuests(sessions, {
+          maxHidden: 4,
+          exempt: {
+            workspaceId: "workspace-1",
+            lensSessionId: "agent-5",
+          },
+        }),
+      ),
+    ).toEqual(["agent-1"]);
+  });
+});
+
+describe("selectIdleLensGuests", () => {
+  const options = {
+    nowMs: 1_000,
+    idleTtlMs: 200,
+    agentIdleTtlMs: 400,
+  };
+
+  test("reclaims hidden guests at their TTL boundaries", () => {
+    const sessions = [
+      candidate({ lensSessionId: "regular", lastHiddenAtMs: 800 }),
+      candidate({
+        lensSessionId: "agent",
+        managedByMcp: true,
+        lastHiddenAtMs: 500,
+        lastAgentTouchedAtMs: 600,
+      }),
+    ];
+
+    expect(ids(selectIdleLensGuests(sessions, options))).toEqual([
+      "regular",
+      "agent",
+    ]);
+  });
+
+  test("uses the latest agent touch and never reclaims visible or busy guests", () => {
+    const sessions = [
+      candidate({
+        lensSessionId: "recent-agent",
+        managedByMcp: true,
+        lastHiddenAtMs: 100,
+        lastAgentTouchedAtMs: 900,
+      }),
+      candidate({ lensSessionId: "visible", lastHiddenAtMs: 100, visible: true }),
+      candidate({ lensSessionId: "busy", lastHiddenAtMs: 100, cdpInFlight: 1 }),
+    ];
+
+    expect(selectIdleLensGuests(sessions, options)).toEqual([]);
   });
 });

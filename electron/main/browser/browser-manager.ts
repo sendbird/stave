@@ -26,7 +26,11 @@ import {
   type ResolvedLensSessionProfile,
 } from "./browser-session-profile";
 import { disposeLensSnapshotState } from "./browser-lens-snapshot";
-import { selectEvictableLensGuests } from "../../../src/lib/lens/lens-guest-eviction";
+import {
+  selectEvictableAgentLensGuests,
+  selectEvictableLensGuests,
+  selectIdleLensGuests,
+} from "../../../src/lib/lens/lens-guest-eviction";
 import { selectPreferredLensSession } from "../../../src/lib/lens/lens-session-selection";
 import {
   DEFAULT_LENS_SESSION_ID,
@@ -57,7 +61,10 @@ import {
   disposeLensCdpDiagnostics,
   getLensCdpDiagnosticsState,
 } from "./browser-cdp-diagnostics";
-import { getCdpControllerResourceMetrics } from "./browser-cdp-controller";
+import {
+  getCdpControllerResourceMetrics,
+  getCdpInFlightCommandCount,
+} from "./browser-cdp-controller";
 import { isLiveBrowserSessionForWebContents } from "./browser-session-identity";
 import {
   forgetLensSessionUrl,
@@ -175,6 +182,10 @@ export interface BrowserSessionState {
    * make a brand-new hidden session outrank a tab the user actually used.
    */
   createdSequence: number;
+  /** Wall-clock time when this guest most recently became hidden. */
+  lastHiddenAtMs: number;
+  /** Wall-clock time when an agent most recently addressed this guest. */
+  lastAgentTouchedAtMs: number;
   navigationState: BrowserNavigationState;
 }
 
@@ -198,13 +209,18 @@ let lensCreationSequence = 0;
  * switching workspaces leaves every Lens tab's session open, so without a cap
  * an afternoon of normal use accumulates helper processes monotonically.
  *
- * Agent-driven sessions are exempt: an agent opens a session no panel is
- * showing and then expects to keep addressing it.
+ * Agent-driven sessions use a separate cap and a longer idle deadline so they
+ * remain addressable without growing the renderer set without bound.
  */
-const MAX_HIDDEN_LENS_GUESTS = 3;
+export const MAX_HIDDEN_LENS_GUESTS = 3;
+export const MAX_HIDDEN_AGENT_LENS_GUESTS = 4;
+export const LENS_IDLE_TTL_MS = 15 * 60_000;
+export const LENS_AGENT_IDLE_TTL_MS = 30 * 60_000;
+export const LENS_IDLE_SWEEP_INTERVAL_MS = 60_000;
 
 /** Registry keyed by sessionKey(workspaceId, lensSessionId). */
 const sessions = new Map<string, BrowserSessionState>();
+let lensIdleSweepTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
  * webContents id → owning session, covering both the lens view itself and
@@ -997,6 +1013,8 @@ function wireBrowserSession(args: {
     detachEventListeners: null,
     lastVisibleAt: 0,
     createdSequence: ++lensCreationSequence,
+    lastHiddenAtMs: Date.now(),
+    lastAgentTouchedAtMs: 0,
     navigationState: {
       url: "about:blank",
       title: "",
@@ -1008,6 +1026,7 @@ function wireBrowserSession(args: {
 
   sessions.set(sessionKey(workspaceId, lensSessionId), session);
   webContentsSessionIndex.set(session.webContentsId, session);
+  startLensIdleSweep();
   return session;
 }
 
@@ -1264,6 +1283,26 @@ export interface BrowserResourceMetrics {
   cdpClosingControllers: number;
   cdpInFlightCommands: number;
   cdpCloseDrainTimeouts: number;
+  guests: Array<{
+    workspaceId: string;
+    lensSessionId: string;
+    pid: number | null;
+    visible: boolean;
+    managedByMcp: boolean;
+    url: string;
+  }>;
+}
+
+function getBrowserGuestPid(session: BrowserSessionState): number | null {
+  try {
+    if (session.webContents.isDestroyed()) {
+      return null;
+    }
+    const pid = session.webContents.getOSProcessId();
+    return pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Bounded lifecycle/log cardinalities used by the in-app resource monitor. */
@@ -1300,6 +1339,14 @@ export function getBrowserResourceMetrics(): BrowserResourceMetrics {
     cdpClosingControllers: cdp.closingControllers,
     cdpInFlightCommands: cdp.inFlightCommands,
     cdpCloseDrainTimeouts: cdp.closeDrainTimeouts,
+    guests: liveSessions.map((session) => ({
+      workspaceId: session.workspaceId,
+      lensSessionId: session.lensSessionId,
+      pid: getBrowserGuestPid(session),
+      visible: session.visible,
+      managedByMcp: session.managedByMcp,
+      url: session.navigationState.url,
+    })),
   };
 }
 
@@ -1405,13 +1452,43 @@ function reapDeadBrowserSession(
  * page it was on. Least-recently-presented first; a session that has never been
  * presented ranks by creation order, oldest first.
  */
-function enforceHiddenLensGuestCap(exempt: BrowserSessionState): void {
-  const victims = selectEvictableLensGuests([...sessions.values()], {
+function getLensGuestEvictionCandidates() {
+  return [...sessions.values()].map((session) => ({
+    ...session,
+    cdpInFlight: getCdpInFlightCommandCount(session.webContentsId),
+  }));
+}
+
+function enforceHiddenLensGuestCap(exempt?: BrowserSessionState): void {
+  const candidates = getLensGuestEvictionCandidates();
+  const exemptIdentity = exempt
+    ? {
+        workspaceId: exempt.workspaceId,
+        lensSessionId: exempt.lensSessionId,
+      }
+    : undefined;
+  const victims = selectEvictableLensGuests(candidates, {
     maxHidden: MAX_HIDDEN_LENS_GUESTS,
-    exempt: {
-      workspaceId: exempt.workspaceId,
-      lensSessionId: exempt.lensSessionId,
-    },
+    exempt: exemptIdentity,
+  });
+  const agentVictims = selectEvictableAgentLensGuests(candidates, {
+    maxHidden: MAX_HIDDEN_AGENT_LENS_GUESTS,
+    exempt: exemptIdentity,
+  });
+  for (const victim of [...victims, ...agentVictims]) {
+    void destroyBrowserSession(
+      victim.workspaceId,
+      victim.lensSessionId,
+      "evicted",
+    );
+  }
+}
+
+function sweepIdleLensGuests(): void {
+  const victims = selectIdleLensGuests(getLensGuestEvictionCandidates(), {
+    nowMs: Date.now(),
+    idleTtlMs: LENS_IDLE_TTL_MS,
+    agentIdleTtlMs: LENS_AGENT_IDLE_TTL_MS,
   });
   for (const victim of victims) {
     void destroyBrowserSession(
@@ -1420,6 +1497,63 @@ function enforceHiddenLensGuestCap(exempt: BrowserSessionState): void {
       "evicted",
     );
   }
+}
+
+function startLensIdleSweep(): void {
+  if (lensIdleSweepTimer) {
+    return;
+  }
+  lensIdleSweepTimer = setInterval(
+    sweepIdleLensGuests,
+    LENS_IDLE_SWEEP_INTERVAL_MS,
+  );
+  lensIdleSweepTimer.unref?.();
+}
+
+function stopLensIdleSweep(): void {
+  if (!lensIdleSweepTimer) {
+    return;
+  }
+  clearInterval(lensIdleSweepTimer);
+  lensIdleSweepTimer = null;
+}
+
+/** Mark an agent-owned guest active and apply the separate agent guest cap. */
+export function markBrowserSessionManagedByMcp(
+  session: BrowserSessionState,
+): void {
+  session.managedByMcp = true;
+  session.lastAgentTouchedAtMs = Date.now();
+  enforceHiddenLensGuestCap(session);
+}
+
+/** Refresh the idle deadline when an agent addresses an existing session. */
+export function markBrowserSessionAgentTouched(
+  session: BrowserSessionState,
+): void {
+  session.lastAgentTouchedAtMs = Date.now();
+}
+
+/** Reclaim hidden panel-owned guests after their workspace cache is dropped. */
+export function releaseHiddenLensGuestsForWorkspace(
+  workspaceId: string,
+): number {
+  const victims = getLensGuestEvictionCandidates().filter(
+    (session) =>
+      session.workspaceId === workspaceId &&
+      !session.visible &&
+      !session.managedByMcp &&
+      !session.closing &&
+      session.cdpInFlight === 0,
+  );
+  for (const victim of victims) {
+    void destroyBrowserSession(
+      victim.workspaceId,
+      victim.lensSessionId,
+      "evicted",
+    );
+  }
+  return victims.length;
 }
 
 export function destroyBrowserSession(
@@ -1511,6 +1645,7 @@ export function destroyBrowserSession(
 }
 
 export async function destroyAllBrowserSessions(): Promise<void> {
+  stopLensIdleSweep();
   await Promise.allSettled(
     [...sessions.values()].map((session) =>
       destroyBrowserSession(session.workspaceId, session.lensSessionId),
@@ -1536,8 +1671,10 @@ export function setSessionPresented(
 ): void {
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return;
+  const wasVisible = session.visible;
   session.visible = presented;
   if (presented) {
+    session.lastHiddenAtMs = 0;
     session.lastVisibleAt = ++lensVisibilitySequence;
     // First sight of the page is what earns it the speakers. See the mute in
     // `wireBrowserSession`.
@@ -1548,6 +1685,9 @@ export function setSessionPresented(
     } catch {
       // A page that is already gone cannot be unmuted, and need not be.
     }
+  } else if (wasVisible) {
+    session.lastHiddenAtMs = Date.now();
+    enforceHiddenLensGuestCap();
   }
 }
 

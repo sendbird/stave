@@ -60,7 +60,6 @@ import {
   maybeLogTerminalRecovery,
   shiftBoundedOutput,
 } from "./terminal-session-buffers";
-
 const DEFAULT_TERMINAL_FOREGROUND = "#d4d4d4";
 const DEFAULT_TERMINAL_BACKGROUND = "#1e1e1e";
 const TERMINAL_SESSION_CLOSE_TIMEOUT_MS = 5_000;
@@ -69,14 +68,11 @@ const TERMINAL_PUSH_FLUSH_MAX_BYTES = 128 * 1024;
 const TERMINAL_PUSH_ACK_HIGH_WATER_BYTES = 512 * 1024;
 const TERMINAL_PUSH_ACK_LOW_WATER_BYTES = 128 * 1024;
 const TERMINAL_SCREEN_STATE_MAX_BYTES = 256 * 1024;
-const TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES = [
-  512, 256, 128, 64, 32, 0,
-] as const;
+const TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES = [512, 256, 128, 64, 32, 0] as const;
 const CODEX_SESSION_DISCOVERY_POLL_MS = 500;
 const CODEX_SESSION_DISCOVERY_MAX_ATTEMPTS = 60;
 const CODEX_SESSION_DISCOVERY_LOOKBACK_MS = 15_000;
 const CODEX_SESSION_DISCOVERY_MATCH_WINDOW_MS = 60_000;
-
 export function createTerminalRuntime(args: {
   emitEvent: <TEvent extends keyof HostServiceEventMap>(
     event: TEvent,
@@ -1163,6 +1159,10 @@ export function createTerminalRuntime(args: {
     resumeSessionStream,
     getSlotState,
     getSessionResumeInfo,
+    listPtyPids: () =>
+      [...sessions.values()]
+        .filter((session) => !session.closing && session.pty.pid > 0)
+        .map((session) => session.pty.pid),
     closeSessionsBySlotPrefix,
     cleanupAll,
   };

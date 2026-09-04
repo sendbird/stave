@@ -35,7 +35,9 @@ import {
 import { archivedWorktreePaths } from "@/store/workspace-archive-cleanup";
 import { rememberCachedWorkspaceFiles } from "@/store/workspace-file-cache";
 import { runWorkspaceKickoff } from "@/store/workspace-kickoff-actions";
-import { saveActiveWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
+import {
+  saveActiveWorkspaceRuntimeCacheWithLensCleanup,
+} from "@/store/workspace-runtime-state";
 import {
   buildWorkspaceSessionState,
   createEmptyWorkspaceState,
@@ -93,9 +95,10 @@ export function createWorkspaceCreateActions(args: {
           message: "Open a project before creating a workspace.",
         };
       }
-      const nextRuntimeCacheById = saveActiveWorkspaceRuntimeCache({
-        state: current,
-      });
+      const nextRuntimeCacheById =
+        saveActiveWorkspaceRuntimeCacheWithLensCleanup({
+          state: current,
+        });
 
       const branchName = sanitizeBranchName({ value: trimmed });
       if (!branchName) {
@@ -511,9 +514,10 @@ export function createWorkspaceCreateActions(args: {
         };
       }
 
-      const nextRuntimeCacheById = saveActiveWorkspaceRuntimeCache({
-        state: current,
-      });
+      const nextRuntimeCacheById =
+        saveActiveWorkspaceRuntimeCacheWithLensCleanup({
+          state: current,
+        });
       const workspaceDisplayName =
         label?.trim() ||
         resolveImportedWorktreeName({

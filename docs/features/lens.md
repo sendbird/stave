@@ -269,7 +269,8 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 - Lens console messages are shown in the Lens Console tab and mirrored into the Stave window DevTools console with a `[Lens:<workspaceId>]` prefix.
 - Annotation events use a per-session nonce and a 256,000-byte event cap. Current, stale, and malformed Lens beacons are filtered out of both the user-visible Lens console and full diagnostics.
 - Dialogs, dropdowns, tooltips, and toasts paint over a Lens page normally. The page is a DOM element, so showing app UI above it no longer hides the page.
-- Stave keeps at most three hidden Lens pages alive at once. Beyond that, the least recently viewed one is reclaimed and its tab stays; opening that tab rebuilds the page on the URL it was showing. Pages an agent opened are never reclaimed.
+- Stave keeps at most three hidden panel-owned Lens pages and four hidden agent-owned pages alive at once. Beyond either limit, the least recently used page is reclaimed while its addressable session or tab remains; the next use rebuilds the page on its remembered URL. Hidden panel pages are also reclaimed after 15 minutes of inactivity, and hidden agent pages after 30 minutes. A page with an active CDP command is never reclaimed mid-command.
+- When the renderer drops an inactive workspace from its bounded runtime cache, Stave also releases that workspace's hidden panel-owned Lens pages. Agent-owned and visible pages remain available.
 - A Lens page that crashes is rebuilt in place. Its tab stays open, and its console, network, and download history for that page are lost.
 - Lens is ideal for runtime inspection, but exact DOM-to-source mapping is still framework-dependent outside React dev mode.
 
