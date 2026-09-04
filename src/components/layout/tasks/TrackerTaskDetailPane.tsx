@@ -51,6 +51,8 @@ export interface TrackerTaskDetailPaneProps {
   /** Description rendering reuses the chat markdown scale. */
   messageFontSize: number;
   messageCodeFontSize: number;
+  /** Drop the pane's own leading edge when a peek already draws it. */
+  embedded?: boolean;
 }
 
 export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
@@ -69,7 +71,12 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
   const jiraBadge = jiraLink ? resolveServiceLinkBadge(jiraLink.url) : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border/60 bg-surface/40">
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-col overflow-hidden bg-background",
+        props.embedded ? "" : "border-l border-border/60 bg-surface/40",
+      )}
+    >
       <header className="shrink-0 space-y-2 border-b border-border/60 px-4 py-3">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="font-mono">{task.key}</span>
