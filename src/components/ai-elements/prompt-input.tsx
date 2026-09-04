@@ -99,6 +99,7 @@ import {
   COMPOSER_CONTROL_LABELS,
   collectActiveComposerControls,
   composerControlIsIconOnly,
+  partitionComposerFrameToolbar,
   resolveComposerControlLayout,
   type ComposerControlId,
   type ComposerControlPlacements,
@@ -206,6 +207,10 @@ import {
   type LocalChangeReviewRequest,
 } from "./local-change-review-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  ComposerFrame,
+  ComposerFrameWing,
+} from "./composer-frame";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
@@ -255,6 +260,14 @@ interface PromptInputProps {
   providerModePresets?: readonly ProviderModePresetDefinition[];
   activeProviderModePresetId?: ProviderModePresetId | null;
   goalStatus?: PromptInputGoalStatus | null;
+  contextMeter?: ReactNode;
+  /**
+   * Wrap the raised card in the four-bar composer frame and move toolbar
+   * controls into the side wings when the viewport is wide enough.
+   */
+  framed?: boolean;
+  frameTop?: ReactNode;
+  frameBottom?: ReactNode;
   runtimeStatusItems?: readonly PromptInputRuntimeStatusItem[];
   commandPaletteItems?: readonly CommandPaletteItem[];
   commandPaletteProviderNote?: CommandPaletteProviderNote;
@@ -845,6 +858,10 @@ export function PromptInput(args: PromptInputProps) {
     providerModePresets,
     activeProviderModePresetId,
     goalStatus,
+    contextMeter,
+    framed = false,
+    frameTop,
+    frameBottom,
     runtimeStatusItems,
     commandPaletteItems,
     commandPaletteProviderNote,
@@ -2462,8 +2479,29 @@ export function PromptInput(args: PromptInputProps) {
   const canCustomizeComposerControls = Boolean(
     onComposerControlPlacementsChange,
   );
+  const useComposerFrame = Boolean(framed && !minimal);
+  const useComposerWings = useComposerFrame && !isMobile;
+  const composerFrameWings = partitionComposerFrameToolbar(
+    composerControlLayout.toolbar,
+  );
+  const leftWing =
+    useComposerWings && composerFrameWings.left.length > 0 ? (
+      <ComposerFrameWing side="left">
+        {composerFrameWings.left.map((id) => (
+          <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+        ))}
+      </ComposerFrameWing>
+    ) : null;
+  const rightWing =
+    useComposerWings && composerFrameWings.right.length > 0 ? (
+      <ComposerFrameWing side="right">
+        {composerFrameWings.right.map((id) => (
+          <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+        ))}
+      </ComposerFrameWing>
+    ) : null;
 
-  return (
+  const composerCard = (
     <>
       {/*
         BorderBeam wraps the form rather than sitting as an absolute sibling
@@ -4087,7 +4125,10 @@ export function PromptInput(args: PromptInputProps) {
                     });
                   }}
                 />
-                {composerControlLayout.toolbar.map((id) => (
+                {(useComposerWings
+                  ? []
+                  : composerControlLayout.toolbar
+                ).map((id) => (
                   <Fragment key={id}>{composerControlNodes[id]}</Fragment>
                 ))}
                 {composerControlLayout.overflow.length > 0 ? (
@@ -4171,6 +4212,7 @@ export function PromptInput(args: PromptInputProps) {
               </div>
             ) : null}
             <div className="flex items-center gap-2">
+              {contextMeter}
               {minimal &&
               reviewModelOptions?.length &&
               onLocalChangeReview &&
@@ -4307,5 +4349,20 @@ export function PromptInput(args: PromptInputProps) {
         onClose={() => setImagePreviewSrc(null)}
       />
     </>
+  );
+
+  if (!useComposerFrame) {
+    return composerCard;
+  }
+
+  return (
+    <ComposerFrame
+      top={frameTop}
+      bottom={frameBottom}
+      left={leftWing}
+      right={rightWing}
+    >
+      {composerCard}
+    </ComposerFrame>
   );
 }

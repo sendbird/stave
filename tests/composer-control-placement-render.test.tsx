@@ -235,4 +235,57 @@ describe("composer control placement in the toolbar", () => {
     // the toolbar's name space, where existing lookups match by substring.
     expect(html).not.toContain('aria-label="Review placement"');
   });
+
+  test("moves toolbar controls into the frame wings when framed", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          framed: true,
+          frameTop: createElement("span", null, "Turn activity"),
+          frameBottom: createElement("span", null, "main"),
+          contextMeter: createElement(
+            "span",
+            { "data-testid": "context-meter-slot" },
+            "72%",
+          ),
+          value: "",
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          reviewModelOptions: [MODEL_OPTION],
+          preferredReviewModelKey: MODEL_OPTION.key,
+          onLocalChangeReview: () => true,
+          onPlanModeChange: () => {},
+          onThinkingModeChange: () => {},
+          onComposerControlPlacementsChange: () => {},
+          runtimeStatusItems: [
+            { id: "sandbox", label: "Sandbox", value: "workspace-write" },
+          ],
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onSubmit: () => {},
+        }),
+      ),
+    );
+
+    expect(html).toContain('data-composer-frame="true"');
+    expect(html).toContain('data-composer-frame-slot="top"');
+    expect(html).toContain('data-composer-frame-slot="bottom"');
+    expect(html).toContain('data-composer-frame-wing="left"');
+    expect(html).toContain('data-composer-frame-wing="right"');
+    expect(html).toContain("Turn activity");
+    expect(html).toContain(">Plan<");
+    expect(html).toContain('data-testid="context-meter-slot"');
+    expect(html).toContain('aria-label="Runtime ·');
+    // The raised card keeps the model picker and context meter; wings own Plan.
+    expect(html).toContain("Opus 5");
+  });
 });

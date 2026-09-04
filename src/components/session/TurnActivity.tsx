@@ -161,11 +161,14 @@ function getLatestPlanMessages(messages: ChatMessage[]) {
  * when the user's `turnActivityPlacement` setting matches, so exactly one
  * host shows the activity at a time:
  *
- * - `docked` — mounted by `ChatInput` above the composer (default).
+ * - `docked` — mounted by `ChatInput` in the composer frame's top slot (default).
  * - `floating` — mounted in `ChatArea`'s overlay as a draggable card.
  * - `panel` — mounted by the right rail's Activity panel.
  */
-export function TurnActivity(props: { host?: TurnActivityPlacement }) {
+export function TurnActivity(props: {
+  host?: TurnActivityPlacement;
+  frameInset?: boolean;
+}) {
   const host = props.host ?? "docked";
   const taskId = useScopedTaskId();
   const [
@@ -622,7 +625,12 @@ export function TurnActivity(props: { host?: TurnActivityPlacement }) {
   }
 
   return (
-    <TurnActivitySurface key={surfaceKey} {...sharedProps} variant={host} />
+    <TurnActivitySurface
+      key={surfaceKey}
+      {...sharedProps}
+      variant={host}
+      frameInset={props.frameInset}
+    />
   );
 }
 
@@ -840,6 +848,12 @@ interface TurnActivitySurfaceProps {
   replayOutcome?: RetainedTurnOutcome;
   /** Pointer handlers that make the header a drag handle (floating variant). */
   dragHandleProps?: HTMLAttributes<HTMLDivElement>;
+  /**
+   * When the shelf sits in the composer frame's top slot, the frame owns the
+   * tuck under the raised card. Drop the standalone docked inset and use the
+   * shared peek surface so all four bars share one edge treatment.
+   */
+  frameInset?: boolean;
 }
 
 export const TurnActivitySurface = memo(function TurnActivitySurface(
@@ -1032,10 +1046,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       data-variant={variant}
       className={cn(
         variant === "docked" &&
-          // The shelf slides under the prompt input: `-mb-3` pulls the composer
-          // up over the surface's extra `pb-3`, so the squared bottom edge reads
-          // as tucked behind the composer instead of floating above it.
-          "relative z-0 mx-3 -mb-3",
+          // Standalone docked: `-mb-3` pulls the composer up over extra `pb-3`.
+          // Frame-inset: the composer frame owns that tuck.
+          (props.frameInset ? "relative z-0" : "relative z-0 mx-3 -mb-3"),
         variant === "floating" && "relative",
         variant === "panel" && "flex h-full min-h-0 flex-col",
         props.isLeaving
@@ -1051,7 +1064,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         className={cn(
           "relative flex min-h-0 flex-col overflow-hidden bg-card",
           variant === "docked" &&
-            "turn-activity-surface rounded-t-xl rounded-b-none pb-3",
+            (props.frameInset
+              ? "composer-frame-surface rounded-xl pb-2.5"
+              : "turn-activity-surface rounded-t-xl rounded-b-none pb-3"),
           variant === "floating" &&
             "rounded-xl border border-border/80 pb-2 shadow-lg",
           variant === "panel" && "flex-1 pb-2",

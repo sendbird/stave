@@ -1,4 +1,6 @@
 import type { CommandPaletteItem } from "@/lib/commands";
+import type { ProviderId } from "@/lib/providers/provider.types";
+import type { ChatMessage } from "@/types/chat";
 
 export const NO_COMMAND_SELECTION = -1;
 export const NO_PROMPT_HISTORY_SELECTION = -1;
@@ -316,7 +318,13 @@ export function navigatePromptHistory(args: {
   draftBeforeHistory: string;
   currentValue: string;
 }) {
-  const { entries, selectedIndex, direction, draftBeforeHistory, currentValue } = args;
+  const {
+    entries,
+    selectedIndex,
+    direction,
+    draftBeforeHistory,
+    currentValue,
+  } = args;
   if (entries.length === 0) {
     return null;
   }
@@ -357,4 +365,91 @@ export function navigatePromptHistory(args: {
     value: entries[nextIndex] ?? currentValue,
     draftBeforeHistory,
   };
+}
+
+export type ConversationContextUsageTone = "ok" | "warn" | "critical";
+
+export interface ConversationContextUsage {
+  usedPercent: number;
+  usedTokens?: number;
+  windowTokens?: number;
+  remainingTokens?: number;
+  messageId: string;
+}
+
+const CONTEXT_WARN_PERCENT = 60;
+const CONTEXT_CRITICAL_PERCENT = 85;
+
+export function conversationContextUsageTone(
+  usedPercent: number,
+): ConversationContextUsageTone {
+  if (usedPercent < CONTEXT_WARN_PERCENT) {
+    return "ok";
+  }
+  if (usedPercent < CONTEXT_CRITICAL_PERCENT) {
+    return "warn";
+  }
+  return "critical";
+}
+
+export function formatConversationContextPercent(usedPercent: number): string {
+  return `${usedPercent < 10 ? usedPercent.toFixed(1) : Math.round(usedPercent)}%`;
+}
+
+/**
+ * Latest reported conversation-window fill. Walks newest-first and stops at
+ * the first usage that names a window or a used percent. Counts are a
+ * snapshot, not a sum across turns.
+ */
+export function resolveLatestConversationContextUsage(
+  messages: readonly ChatMessage[],
+): ConversationContextUsage | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    const usage = message?.usage;
+    if (!usage) {
+      continue;
+    }
+    const used = usage.contextUsedTokens;
+    const window = usage.contextWindowTokens;
+    const percent = usage.contextUsedPercent;
+    if (used === undefined && window === undefined && percent === undefined) {
+      continue;
+    }
+    if (used !== undefined && window !== undefined && window > 0) {
+      return {
+        usedPercent: percent ?? Math.min(100, (used / window) * 100),
+        usedTokens: used,
+        windowTokens: window,
+        remainingTokens: Math.max(0, window - used),
+        messageId: message.id,
+      };
+    }
+    if (percent !== undefined) {
+      return {
+        usedPercent: percent,
+        messageId: message.id,
+      };
+    }
+  }
+  return null;
+}
+
+export function formatConversationContextCounts(
+  usage: ConversationContextUsage,
+): string | null {
+  if (usage.usedTokens === undefined || usage.windowTokens === undefined) {
+    return null;
+  }
+  return `${usage.usedTokens.toLocaleString()} / ${usage.windowTokens.toLocaleString()}`;
+}
+
+export function providerOffersConversationCompact(args: {
+  providerId: ProviderId;
+  commandPaletteItems?: readonly Pick<CommandPaletteItem, "command">[];
+}): boolean {
+  if (args.commandPaletteItems?.some((item) => item.command === "/compact")) {
+    return true;
+  }
+  return args.providerId === "claude-code" || args.providerId === "codex";
 }

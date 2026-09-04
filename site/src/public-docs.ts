@@ -80,6 +80,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Rewrite a rough task draft into a clearer, execution-ready prompt before sending it.",
       },
       {
+        routePath: "conversation-context",
+        sourcePath: "docs/features/conversation-context.md",
+        title: "Conversation Context",
+        description:
+          "See how full the current task conversation is and compact it from the composer without losing the draft.",
+      },
+      {
         routePath: "conversation-history-actions",
         sourcePath: "docs/features/conversation-history-actions.md",
         title: "Conversation History Actions",

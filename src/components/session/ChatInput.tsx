@@ -1,4 +1,6 @@
 import { PromptInput } from "@/components/ai-elements";
+import { ComposerContextDock } from "@/components/session/ComposerContextDock";
+import { ComposerWorkspaceBar } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
 import {
   useCallback,
@@ -1670,10 +1672,14 @@ function ChatInputComposer(args: ChatInputComposerProps) {
             </div>
           </div>
         ) : null}
-        <RenderProfiler id="TurnActivity">
-          <TurnActivity />
-        </RenderProfiler>
         <PromptInput
+          framed
+          frameTop={
+            <RenderProfiler id="TurnActivity">
+              <TurnActivity frameInset />
+            </RenderProfiler>
+          }
+          frameBottom={<ComposerWorkspaceBar />}
           focusToken={`${args.providerSelectionTarget}:${focusNonce}`}
           value={draftText}
           onEnhancePrompt={handleEnhancePrompt}
@@ -2124,6 +2130,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           providerModePresets={args.providerModePresets}
           activeProviderModePresetId={args.activeProviderModePresetId}
           goalStatus={args.goalStatus}
+          contextMeter={<ComposerContextDock />}
           onProviderModeSelect={
             args.onProviderModeSelect
               ? (presetId) => {

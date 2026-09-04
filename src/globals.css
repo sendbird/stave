@@ -28,6 +28,16 @@
     inset 0 0 0 1px color-mix(in oklch, var(--border) 74%, transparent);
 }
 
+/*
+ * Lower-depth composer frame bars. The raised prompt card covers the inner
+ * edge, so this is an inset ring only — no drop shadow that would read as a
+ * second stacked card in front of the input.
+ */
+.composer-frame-surface {
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklch, var(--border) 74%, transparent);
+}
+
 .prompt-input-shell[data-turn-active="true"] {
   box-shadow:
     0 -8px 20px -15px oklch(0 0 0 / 0.34),

@@ -66,7 +66,8 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
     thinking: "Cycle extended thinking. Claude only.",
     fast: "Fast toggle inside the model picker. Codex only.",
     advisor: "Arm a second model to review the prompt before it runs.",
-    worker: "Delegate bounded implementation work to a cheaper same-provider model.",
+    worker:
+      "Delegate bounded implementation work to a cheaper same-provider model.",
     review: "Review uncommitted local changes.",
     secrets: "Bind secrets into this run's environment.",
     macro: "Insert a saved prompt and optionally pin model + effort.",
@@ -229,4 +230,32 @@ export function resolveComposerControlLayout(args: {
   }
 
   return layout;
+}
+
+/**
+ * Fast stays inside the model picker. Runtime moves to the right wing.
+ * Everything else on the toolbar row moves to the left wing when the
+ * four-bar composer frame is active.
+ */
+const COMPOSER_FRAME_CARD_CONTROL_IDS = new Set<ComposerControlId>(["fast"]);
+const COMPOSER_FRAME_RIGHT_CONTROL_IDS = new Set<ComposerControlId>([
+  "runtime",
+]);
+
+export function partitionComposerFrameToolbar(
+  toolbarIds: readonly ComposerControlId[],
+): { left: ComposerControlId[]; right: ComposerControlId[] } {
+  const left: ComposerControlId[] = [];
+  const right: ComposerControlId[] = [];
+  for (const id of toolbarIds) {
+    if (COMPOSER_FRAME_CARD_CONTROL_IDS.has(id)) {
+      continue;
+    }
+    if (COMPOSER_FRAME_RIGHT_CONTROL_IDS.has(id)) {
+      right.push(id);
+      continue;
+    }
+    left.push(id);
+  }
+  return { left, right };
 }
