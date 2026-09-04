@@ -46,18 +46,19 @@ describe("summarizeTrackerSource", () => {
 
   it("names the setup step for every unavailable state", () => {
     const cases = [
-      ["disabled", "Turned off in Settings."],
-      ["unpaired", "Pair this tracker in Settings → Integrations."],
+      ["disabled", "Turned off in Settings → Tasks.", false],
+      ["unpaired", "Pair this tracker in Settings → Integrations.", true],
       [
         "not_configured",
         "Add the site URL, account email, and API token in Settings.",
+        true,
       ],
     ] as const;
-    for (const [availability, detail] of cases) {
+    for (const [availability, detail, fixInSettings] of cases) {
       const summary = summarizeTrackerSource("jira", status({ availability }));
       expect(summary.condition).toBe("setup");
       expect(summary.detail).toBe(detail);
-      expect(summary.fixInSettings).toBe(true);
+      expect(summary.fixInSettings).toBe(fixInSettings);
       expect(summary.retryable).toBe(false);
     }
   });
@@ -128,7 +129,7 @@ describe("summarizeTrackerSource", () => {
 describe("describeTrackerSources", () => {
   it("returns every source in a stable order even when none is reported", () => {
     const summaries = describeTrackerSources({});
-    expect(summaries.map((entry) => entry.source)).toEqual(["crane", "jira"]);
+    expect(summaries.map((entry) => entry.source)).toEqual(["jira", "crane"]);
   });
 
   it("mixes a working source with one that needs setup", () => {
@@ -137,8 +138,8 @@ describe("describeTrackerSources", () => {
       jira: status({ source: "jira", availability: "not_configured" }),
     });
     expect(summaries.map((entry) => entry.condition)).toEqual([
-      "producing",
       "setup",
+      "producing",
     ]);
     // The regression this whole module exists for: one healthy source must not
     // hide the other one's setup step.

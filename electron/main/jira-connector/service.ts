@@ -194,7 +194,12 @@ export async function testJiraConnection(): Promise<JiraConnectorPublicStatus> {
  */
 export async function listJiraIssuesForCurrentUser(args: {
   signal: AbortSignal;
-}): Promise<{ issues: unknown[]; truncated: boolean }> {
+  nextPageToken?: string;
+}): Promise<{
+  issues: unknown[];
+  truncated: boolean;
+  nextPageToken: string | null;
+}> {
   const siteUrl = requireSiteUrl();
   try {
     const credential = await requireCredential();
@@ -203,10 +208,15 @@ export async function listJiraIssuesForCurrentUser(args: {
       token: credential.token,
       jql: settings.jql,
       maxResults: settings.maxResults,
+      nextPageToken: args.nextPageToken,
       signal: args.signal,
     });
     lastErrorCode = null;
-    return { issues: page.issues, truncated: page.hasMore };
+    return {
+      issues: page.issues,
+      truncated: page.hasMore,
+      nextPageToken: page.nextPageToken,
+    };
   } catch (error) {
     recordError(error);
     throw error;

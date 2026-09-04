@@ -12,8 +12,14 @@ import {
  * primary key, and in retrieved-context source ids, so renaming one is a
  * migration rather than a refactor.
  */
-export const TRACKER_SOURCE_IDS = ["crane", "jira"] as const;
+export const TRACKER_SOURCE_IDS = ["jira", "crane"] as const;
 export type TrackerSourceId = (typeof TRACKER_SOURCE_IDS)[number];
+
+/** Lower rank sorts earlier. Jira is the product list; Crane follows. */
+export function trackerSourceRank(source: TrackerSourceId): number {
+  const index = TRACKER_SOURCE_IDS.indexOf(source);
+  return index < 0 ? TRACKER_SOURCE_IDS.length : index;
+}
 
 /**
  * Normalized status buckets every source maps into.

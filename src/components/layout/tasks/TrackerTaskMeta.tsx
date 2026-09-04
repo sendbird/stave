@@ -8,15 +8,18 @@ import {
 } from "@/lib/tracker-tasks/presentation";
 import type { TrackerTask } from "@/lib/tracker-tasks/types";
 import { cn } from "@/lib/utils";
-import { TRACKER_SOURCE_LABELS, TRACKER_PRIORITY_ICONS } from "./tracker-task-ui";
+import {
+  TRACKER_SOURCE_LABELS,
+  TRACKER_PRIORITY_ICONS,
+} from "./tracker-task-ui";
 
 function MetaField(props: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+      <dt className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
         {props.label}
       </dt>
-      <dd className="mt-0.5 truncate text-[11px] text-foreground">
+      <dd className="mt-0.5 truncate text-xs text-foreground">
         {props.children}
       </dd>
     </div>
@@ -37,7 +40,7 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
         <MetaField label="Status">
           <Badge
             variant="outline"
-            className={cn("text-[10px]", status.toneClassName)}
+            className={cn("text-xs", status.toneClassName)}
           >
             {/* The raw status is what the tracker actually shows, so it wins
                 over the normalized label the list groups by. */}
@@ -46,7 +49,10 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
         </MetaField>
         <MetaField label="Priority">
           <span
-            className={cn("inline-flex items-center gap-1", priority.toneClassName)}
+            className={cn(
+              "inline-flex items-center gap-1",
+              priority.toneClassName,
+            )}
           >
             <PriorityIcon className="size-3.5" aria-hidden="true" />
             {task.priority.raw ?? priority.label}
@@ -60,7 +66,7 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
           <span className="inline-flex items-center gap-1">
             <ServiceLinkIcon
               kind={task.source === "crane" ? "crane" : "jira"}
-              className="text-[11px]"
+              className="text-xs"
             />
             {TRACKER_SOURCE_LABELS[task.source]} {task.key}
           </span>

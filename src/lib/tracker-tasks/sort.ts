@@ -1,6 +1,7 @@
-import type {
-  TrackerPriorityLevel,
-  TrackerTaskListItem,
+import {
+  trackerSourceRank,
+  type TrackerPriorityLevel,
+  type TrackerTaskListItem,
 } from "@/lib/tracker-tasks/types";
 
 export const TRACKER_TASK_SORTS = [
@@ -108,7 +109,7 @@ function compareBySourceThenKey(
   b: TrackerTaskListItem,
 ): number {
   if (a.task.source !== b.task.source) {
-    return a.task.source < b.task.source ? -1 : 1;
+    return trackerSourceRank(a.task.source) - trackerSourceRank(b.task.source);
   }
   return compareTrackerKeys(a.task.key, b.task.key);
 }

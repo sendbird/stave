@@ -76,13 +76,13 @@ export function TasksSurfaceHeader(props: TasksSurfaceHeaderProps) {
                   props.refreshIntervalSeconds,
                   props.now,
                 ) ? (
-                  <span className="rounded-full border border-warning/40 bg-warning/10 px-1 text-[10px] text-warning">
+                  <span className="rounded-full border border-warning/40 bg-warning/10 px-1.5 text-xs text-warning">
                     stale
                   </span>
                 ) : null}
                 {status?.truncated ? (
                   <span
-                    className="rounded-full border border-border px-1 text-[10px]"
+                    className="rounded-full border border-border px-1.5 text-xs"
                     title="The tracker had more tickets than one refresh can load."
                   >
                     partial

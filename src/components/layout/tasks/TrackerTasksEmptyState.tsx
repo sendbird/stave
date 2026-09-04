@@ -1,4 +1,12 @@
-import { AlertCircle, Info, ListTodo, Plug, RefreshCw, SearchX, Settings } from "lucide-react";
+import {
+  AlertCircle,
+  Info,
+  ListTodo,
+  Plug,
+  RefreshCw,
+  SearchX,
+  Settings,
+} from "lucide-react";
 
 import {
   Button,
@@ -88,15 +96,15 @@ export function TrackerTasksEmptyListState(props: {
           </EmptyMedia>
           <EmptyTitle>No tracker is sending tickets</EmptyTitle>
           <EmptyDescription>
-            Tasks lists the tickets assigned to you in Crane and Jira Cloud, and
+            Tasks lists the tickets assigned to you in Jira Cloud and Crane, and
             starts a local run from one. Neither is producing rows yet.
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <ul className="mb-3 space-y-1.5 text-left text-xs">
+          <ul className="mb-3 space-y-2 text-left text-sm">
             {props.summaries.map((summary) => (
               <li key={summary.source} className="flex gap-2">
-                <span className="w-12 shrink-0 font-medium text-foreground">
+                <span className="w-14 shrink-0 font-medium text-foreground">
                   {summary.label}
                 </span>
                 <span className="text-muted-foreground">
@@ -215,7 +223,7 @@ export function TrackerSourceStatusStrip(props: {
           <div
             key={summary.source}
             className={cn(
-              "flex items-center gap-2 text-[11px]",
+              "flex items-center gap-2 text-xs",
               isError ? "text-destructive" : "text-muted-foreground",
             )}
           >
@@ -234,7 +242,7 @@ export function TrackerSourceStatusStrip(props: {
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-6 px-2 text-[11px]"
+                className="h-8 px-2.5 text-xs"
                 onClick={openTrackerIntegrationsSettings}
               >
                 Settings
@@ -246,7 +254,7 @@ export function TrackerSourceStatusStrip(props: {
                 size="sm"
                 variant="ghost"
                 className={cn(
-                  "h-6 px-2 text-[11px]",
+                  "h-8 px-2.5 text-xs",
                   isError && "text-destructive hover:text-destructive",
                 )}
                 onClick={() => props.onRetry(summary.source)}

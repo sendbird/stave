@@ -24,9 +24,11 @@ import type {
 export interface JiraTrackerSourceDeps {
   getSettings(): JiraConnectorSettings;
   getStatus(): Promise<JiraConnectorPublicStatus>;
-  listIssues(args: {
-    signal: AbortSignal;
-  }): Promise<{ issues: unknown[]; truncated: boolean }>;
+  listIssues(args: { signal: AbortSignal; nextPageToken?: string }): Promise<{
+    issues: unknown[];
+    truncated: boolean;
+    nextPageToken: string | null;
+  }>;
   getIssue(args: { key: string; signal: AbortSignal }): Promise<unknown>;
 }
 
@@ -66,15 +68,39 @@ export function createJiraTrackerSource(
     }): Promise<TrackerSourceListResult> {
       const status = await deps.getStatus();
       const siteUrl = siteUrlFrom(status);
-      const page = await deps.listIssues({ signal: args.signal });
       const tasks: TrackerTask[] = [];
-      for (const issue of page.issues) {
-        const task = toTrackerTaskFromJira(issue, siteUrl);
-        // A row this build cannot read is dropped rather than failing the page:
-        // one unusable issue type must not empty the whole list.
-        if (task) tasks.push(task);
+      const seenCursors = new Set<string>();
+      let cursor: string | undefined;
+      // Same row and page budgets as Crane: follow the continuation page
+      // instead of treating the first search reply as the whole list.
+      const maxTasks = 200;
+      const maxPages = 8;
+
+      for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
+        const page = await deps.listIssues({
+          signal: args.signal,
+          nextPageToken: cursor,
+        });
+        for (const issue of page.issues) {
+          if (tasks.length >= maxTasks) break;
+          const task = toTrackerTaskFromJira(issue, siteUrl);
+          // A row this build cannot read is dropped rather than failing the
+          // page: one unusable issue type must not empty the whole list.
+          if (task) tasks.push(task);
+        }
+        if (tasks.length >= maxTasks) {
+          return { tasks, truncated: true };
+        }
+        if (!page.nextPageToken || !page.truncated) {
+          return { tasks, truncated: false };
+        }
+        if (seenCursors.has(page.nextPageToken)) {
+          return { tasks, truncated: true };
+        }
+        seenCursors.add(page.nextPageToken);
+        cursor = page.nextPageToken;
       }
-      return { tasks, truncated: page.truncated };
+      return { tasks, truncated: true };
     },
 
     async getTask(args: {

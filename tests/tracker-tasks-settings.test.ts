@@ -72,6 +72,10 @@ describe("DEFAULT_TRACKER_TASKS_SETTINGS", () => {
     ).toBe(true);
     expect(DEFAULT_TRACKER_TASKS_SETTINGS.refreshIntervalSeconds).toBe(300);
     expect(DEFAULT_TRACKER_TASKS_SETTINGS.defaultKickoffStartMode).toBe("run");
+    expect(DEFAULT_TRACKER_TASKS_SETTINGS.sourceEnabled).toEqual({
+      jira: true,
+      crane: true,
+    });
   });
 });
 
@@ -81,6 +85,7 @@ describe("normalizeTrackerTasksSettings", () => {
       defaultView: "in-stave" as const,
       refreshIntervalSeconds: 600,
       defaultKickoffStartMode: "stage" as const,
+      sourceEnabled: { jira: false, crane: true },
     };
     expect(normalizeTrackerTasksSettings(value)).toEqual(value);
   });
@@ -104,6 +109,7 @@ describe("normalizeTrackerTasksSettings", () => {
       defaultView: "recently-done",
       refreshIntervalSeconds: DEFAULT_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS,
       defaultKickoffStartMode: "stage",
+      sourceEnabled: DEFAULT_TRACKER_TASKS_SETTINGS.sourceEnabled,
     });
   });
 
@@ -118,6 +124,7 @@ describe("normalizeTrackerTasksSettings", () => {
       defaultView: DEFAULT_TRACKER_TASKS_SETTINGS.defaultView,
       refreshIntervalSeconds: 1_800,
       defaultKickoffStartMode: "stage",
+      sourceEnabled: DEFAULT_TRACKER_TASKS_SETTINGS.sourceEnabled,
     });
   });
 
@@ -132,6 +139,7 @@ describe("normalizeTrackerTasksSettings", () => {
       defaultView: "all-open",
       refreshIntervalSeconds: 120,
       defaultKickoffStartMode: "run",
+      sourceEnabled: DEFAULT_TRACKER_TASKS_SETTINGS.sourceEnabled,
     });
   });
 
@@ -147,6 +155,7 @@ describe("normalizeTrackerTasksSettings", () => {
       defaultView: "all-open",
       refreshIntervalSeconds: 120,
       defaultKickoffStartMode: "stage",
+      sourceEnabled: DEFAULT_TRACKER_TASKS_SETTINGS.sourceEnabled,
     });
   });
 
@@ -160,6 +169,23 @@ describe("normalizeTrackerTasksSettings", () => {
       defaultView: "all-open",
       refreshIntervalSeconds: DEFAULT_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS,
       defaultKickoffStartMode: "stage",
+      sourceEnabled: DEFAULT_TRACKER_TASKS_SETTINGS.sourceEnabled,
+    });
+  });
+
+  it("salvages per source: one bad flag does not reset the other", () => {
+    expect(
+      normalizeTrackerTasksSettings({
+        defaultView: "all-open",
+        refreshIntervalSeconds: 120,
+        defaultKickoffStartMode: "stage",
+        sourceEnabled: { jira: false, crane: "nope" },
+      }),
+    ).toEqual({
+      defaultView: "all-open",
+      refreshIntervalSeconds: 120,
+      defaultKickoffStartMode: "stage",
+      sourceEnabled: { jira: false, crane: true },
     });
   });
 });

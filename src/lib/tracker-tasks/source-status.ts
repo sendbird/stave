@@ -28,7 +28,7 @@ export const TRACKER_AVAILABILITY_HINTS: Record<
   string
 > = {
   ready: "Connected.",
-  disabled: "Turned off in Settings.",
+  disabled: "Turned off in Settings → Tasks.",
   unpaired: "Pair this tracker in Settings → Integrations.",
   not_configured: "Add the site URL, account email, and API token in Settings.",
   secure_storage_unavailable:
@@ -154,8 +154,12 @@ export function summarizeTrackerSource(
       headline: AVAILABILITY_HEADLINES[status.availability],
       detail: TRACKER_AVAILABILITY_HINTS[status.availability],
       retryable: false,
-      // The keychain is an OS-level problem; everything else is a Settings step.
-      fixInSettings: status.availability !== "secure_storage_unavailable",
+      // The keychain is an OS-level problem. A Tasks toggle that is off is
+      // already the control; sending people to Integrations would look like
+      // the connector itself is broken.
+      fixInSettings:
+        status.availability !== "secure_storage_unavailable" &&
+        status.availability !== "disabled",
     };
   }
 
