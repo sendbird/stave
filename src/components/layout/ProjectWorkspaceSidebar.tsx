@@ -1688,10 +1688,14 @@ export function ProjectWorkspaceSidebar(args: {
         <span className="sr-only" aria-live="polite" aria-atomic="true">
           {reorderAnnouncement}
         </span>
+        {/* Expanded height and hairline match TopBar so the chrome border continues. */}
         <div
+          data-testid="project-workspace-sidebar-chrome"
           className={cn(
-            "border-b border-sidebar-border/55",
-            args.collapsed ? "px-2 pb-3" : "flex h-8 items-center px-3",
+            "border-b",
+            args.collapsed
+              ? "border-sidebar-border/55 px-2 pb-3"
+              : "flex h-12 shrink-0 items-center border-border/70 px-3",
           )}
           style={
             args.collapsed && IS_MAC
