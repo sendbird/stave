@@ -1,5 +1,4 @@
 import {
-  CRANE_TASKS_LIMITS,
   toTrackerTaskDetailFromCrane,
   toTrackerTaskFromCrane,
 } from "../../../src/lib/tracker-tasks/contract";
@@ -28,7 +27,16 @@ import { TrackerTaskError } from "./errors";
  * than everything they have.
  */
 const MAX_TASKS_PER_SYNC = 200;
-const MAX_PAGES_PER_SYNC = 4;
+const MAX_PAGES_PER_SYNC = 8;
+/**
+ * Ask for the host's default page, not the 100-row maximum.
+ *
+ * A 100-row page with long titles and labels overflows the 256 KB contract
+ * budget. Crane then used to 500 the whole collection as `response_too_large`,
+ * and Stave showed an empty list. Smaller pages stay inside the budget; the
+ * page cap above still reaches the row budget.
+ */
+const LIST_PAGE_SIZE = 25;
 
 /** Only the three calls this adapter makes, so a test can stub three functions. */
 export type CraneTasksHttpClient = Pick<
@@ -114,6 +122,13 @@ function isTasksDisabled(error: unknown): boolean {
   );
 }
 
+function isResponseTooLarge(error: unknown): boolean {
+  return (
+    (error as { code?: unknown } | null | undefined)?.code ===
+    "response_too_large"
+  );
+}
+
 export function createCraneTrackerSource(
   deps: CraneTrackerSourceDeps,
 ): CraneTrackerSource {
@@ -181,12 +196,13 @@ export function createCraneTrackerSource(
       const seenCursors = new Set<string>();
       let cursor: string | undefined;
 
+      let pageLimit = LIST_PAGE_SIZE;
       for (let page = 0; page < MAX_PAGES_PER_SYNC; page += 1) {
         let response;
         try {
           response = await client.listCraneTasks({
             secret,
-            limit: CRANE_TASKS_LIMITS.pageSize,
+            limit: pageLimit,
             cursor,
             signal: args.signal,
           });
@@ -196,6 +212,11 @@ export function createCraneTrackerSource(
           }
           if (isMissingRoute(error)) {
             throw new TrackerTaskError("tasks_api_unavailable");
+          }
+          if (isResponseTooLarge(error) && pageLimit > 1) {
+            pageLimit = Math.max(1, Math.floor(pageLimit / 2));
+            page -= 1;
+            continue;
           }
           throw error;
         }

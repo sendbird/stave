@@ -348,9 +348,37 @@ describe("Crane tracker source", () => {
     const result = await source.listTasks({
       signal: new AbortController().signal,
     });
-    expect(paging.cursors).toHaveLength(4);
-    expect(result.tasks).toHaveLength(8);
+    expect(paging.cursors).toHaveLength(8);
+    expect(result.tasks).toHaveLength(16);
     expect(result.truncated).toBe(true);
+  });
+
+  test("retries an oversized page with a smaller limit instead of emptying the list", async () => {
+    const limits: number[] = [];
+    let template: Record<string, unknown> | null = null;
+    const client = {
+      listCraneTasks: async (args: { limit?: number }) => {
+        limits.push(args.limit ?? 0);
+        if ((args.limit ?? 0) > 10) {
+          throw new AtelierConnectorHttpError("response_too_large", 500);
+        }
+        template ??= await listFixtureRow();
+        return {
+          contract: "crane-tasks-v1" as const,
+          tasks: [craneRow(template, 1)],
+          nextCursor: null,
+          generatedAt: "2026-02-25T12:00:00+00:00",
+        };
+      },
+    } as unknown as CraneTasksHttpClient;
+    const source = createCraneTrackerSource(makeDeps({ httpClient: client }));
+    const result = await source.listTasks({
+      signal: new AbortController().signal,
+    });
+    expect(result.tasks).toHaveLength(1);
+    expect(result.truncated).toBe(false);
+    expect(limits[0]).toBeGreaterThan(10);
+    expect(limits.at(-1)).toBeLessThanOrEqual(10);
   });
 
   test("treats a repeated cursor as the end of the list rather than a hang", async () => {

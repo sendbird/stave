@@ -387,7 +387,7 @@ export const settingDefinitions = [
     fieldId: "settings-field-tracker-tasks",
     title: "Tasks",
     description:
-      "Default view, refresh interval, and kickoff start mode for the assigned-ticket list.",
+      "Opens on tickets assigned to you. Set the first tab, refresh interval, and whether a kickoff starts immediately.",
     keywords: [
       "tasks",
       "tickets",

@@ -90,8 +90,8 @@ export function TrackerTasksSettingsSection() {
       <div className="border-b border-border/70 px-5 py-4">
         <h3 className="text-sm font-semibold">Tasks</h3>
         <p className={`mt-1 ${HINT}`}>
-          Defaults for the ticket list: which view opens first, how often it
-          refreshes, and what happens when a ticket starts work in Stave.
+          The ticket list opens on Assigned to me, with no extra filters. Chips
+          you pick narrow that list; Reset clears the chips and keeps the tab.
         </p>
       </div>
 
@@ -121,7 +121,9 @@ export function TrackerTasksSettingsSection() {
             </SelectContent>
           </Select>
           <p className={HINT}>
-            The tab the Tasks surface opens on. Filter chips always start clear.
+            First tab when you open Tasks. Assigned to me is the default. Filter
+            chips start empty, so you see every ticket in that tab until you
+            pick one.
           </p>
         </div>
 
@@ -191,9 +193,9 @@ export function TrackerTasksSettingsSection() {
           <div>
             <h4 className="text-sm font-medium">Sources</h4>
             <p className={`mt-1 ${HINT}`}>
-              Live connection state, not just the switches. A source listed here
-              as needing setup produces no rows, which is what an empty Tasks
-              list usually means.
+              Whether Crane and Jira can send tickets right now. Pairing and
+              tokens live under Settings → Integrations. A source that needs
+              setup produces no rows.
             </p>
           </div>
           <ul className="space-y-2">

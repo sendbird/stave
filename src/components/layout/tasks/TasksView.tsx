@@ -152,11 +152,10 @@ export function TasksView(props: { onClose: () => void }) {
     () => describeTrackerSources(snapshot.syncBySource),
     [snapshot.syncBySource],
   );
-  const readyStatuses = useMemo(
+  const sourceStatuses = useMemo(
     () =>
       TRACKER_SOURCE_IDS.map((source) => snapshot.syncBySource[source]).filter(
-        (status): status is NonNullable<typeof status> =>
-          status !== null && status.availability === "ready",
+        (status): status is NonNullable<typeof status> => status != null,
       ),
     [snapshot.syncBySource],
   );
@@ -222,7 +221,8 @@ export function TasksView(props: { onClose: () => void }) {
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <TasksSurfaceHeader
-        readyStatuses={readyStatuses}
+        summaries={summaries}
+        statuses={sourceStatuses}
         refreshIntervalSeconds={refreshIntervalSeconds}
         now={now}
         refreshing={refreshing}

@@ -5,13 +5,13 @@ import {
   formatTrackerSyncedAt,
   isTrackerSyncStale,
 } from "@/lib/tracker-tasks/presentation";
+import type { TrackerSourceSummary } from "@/lib/tracker-tasks/source-status";
 import type { TrackerSourceSyncStatus } from "@/lib/tracker-tasks/types";
 import { cn } from "@/lib/utils";
-import { TRACKER_SOURCE_LABELS } from "./tracker-task-ui";
 
 export interface TasksSurfaceHeaderProps {
-  /** Only the sources that can currently produce rows. */
-  readyStatuses: readonly TrackerSourceSyncStatus[];
+  summaries: readonly TrackerSourceSummary[];
+  statuses: readonly TrackerSourceSyncStatus[];
   refreshIntervalSeconds: number;
   now: Date;
   refreshing: boolean;
@@ -19,15 +19,25 @@ export interface TasksSurfaceHeaderProps {
   onClose: () => void;
 }
 
+function statusFor(
+  statuses: readonly TrackerSourceSyncStatus[],
+  source: TrackerSourceSummary["source"],
+) {
+  return statuses.find((status) => status.source === source) ?? null;
+}
+
 /**
- * The surface header: what the list is, how fresh each source is, and the two
- * controls that always apply.
+ * The surface header: what the list is, how each tracker is connected, and the
+ * two controls that always apply.
  *
- * The sync line is coarse on purpose — a second-accurate counter would re-render
- * the header every tick to report something the user cannot act on.
+ * Connection state belongs here, not only in an empty-state banner. A paired
+ * Crane that is failing to sync used to look like a healthy header with a
+ * mysteriously empty list.
  */
 export function TasksSurfaceHeader(props: TasksSurfaceHeaderProps) {
-  const syncing = props.readyStatuses.some((status) => status.syncing);
+  const syncing = props.summaries.some(
+    (summary) => summary.condition === "syncing",
+  );
 
   return (
     <header className="flex min-h-18 shrink-0 items-center justify-between gap-4 border-b border-border/65 bg-[linear-gradient(110deg,color-mix(in_oklch,var(--surface)_92%,var(--background)),var(--background))] px-5 py-3">
@@ -39,40 +49,48 @@ export function TasksSurfaceHeader(props: TasksSurfaceHeaderProps) {
           </h1>
         </div>
         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-          {props.readyStatuses.length === 0
-            ? "Tracker tickets assigned to you, ready to kick off locally."
-            : props.readyStatuses.map((status) => (
-                <span
-                  key={status.source}
-                  className="inline-flex items-center gap-1"
-                >
-                  <span className="font-medium text-foreground">
-                    {TRACKER_SOURCE_LABELS[status.source]}
-                  </span>
-                  <span>
-                    {status.syncing
-                      ? "syncing…"
-                      : formatTrackerSyncedAt(status.lastSyncedAt, props.now)}
-                  </span>
-                  {isTrackerSyncStale(
-                    status,
-                    props.refreshIntervalSeconds,
-                    props.now,
-                  ) ? (
-                    <span className="rounded-full border border-warning/40 bg-warning/10 px-1 text-[10px] text-warning">
-                      stale
-                    </span>
-                  ) : null}
-                  {status.truncated ? (
-                    <span
-                      className="rounded-full border border-border px-1 text-[10px]"
-                      title="The tracker had more tickets than one page allows."
-                    >
-                      partial
-                    </span>
-                  ) : null}
+          {props.summaries.map((summary) => {
+            const status = statusFor(props.statuses, summary.source);
+            return (
+              <span
+                key={summary.source}
+                className="inline-flex items-center gap-1"
+              >
+                <span className="font-medium text-foreground">
+                  {summary.label}
                 </span>
-              ))}
+                <span>
+                  {summary.condition === "producing" ||
+                  summary.condition === "syncing"
+                    ? status?.syncing
+                      ? "syncing…"
+                      : formatTrackerSyncedAt(
+                          status?.lastSyncedAt ?? summary.lastSyncedAt,
+                          props.now,
+                        )
+                    : summary.headline.toLowerCase()}
+                </span>
+                {status &&
+                isTrackerSyncStale(
+                  status,
+                  props.refreshIntervalSeconds,
+                  props.now,
+                ) ? (
+                  <span className="rounded-full border border-warning/40 bg-warning/10 px-1 text-[10px] text-warning">
+                    stale
+                  </span>
+                ) : null}
+                {status?.truncated ? (
+                  <span
+                    className="rounded-full border border-border px-1 text-[10px]"
+                    title="The tracker had more tickets than one refresh can load."
+                  >
+                    partial
+                  </span>
+                ) : null}
+              </span>
+            );
+          })}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">

@@ -33,9 +33,9 @@ describe("summarizeTrackerSource", () => {
   });
 
   it("singularizes a one-ticket source", () => {
-    expect(summarizeTrackerSource("crane", status({ taskCount: 1 })).detail).toBe(
-      "1 ticket cached.",
-    );
+    expect(
+      summarizeTrackerSource("crane", status({ taskCount: 1 })).detail,
+    ).toBe("1 ticket cached.");
   });
 
   it("treats a source mid-refresh as working, not as a problem", () => {
@@ -47,8 +47,11 @@ describe("summarizeTrackerSource", () => {
   it("names the setup step for every unavailable state", () => {
     const cases = [
       ["disabled", "Turned off in Settings."],
-      ["unpaired", "Not paired with this installation yet."],
-      ["not_configured", "No credential saved yet."],
+      ["unpaired", "Pair this tracker in Settings → Integrations."],
+      [
+        "not_configured",
+        "Add the site URL, account email, and API token in Settings.",
+      ],
     ] as const;
     for (const [availability, detail] of cases) {
       const summary = summarizeTrackerSource("jira", status({ availability }));
@@ -88,7 +91,10 @@ describe("summarizeTrackerSource", () => {
 
   it("points a rejected credential or query at Settings", () => {
     for (const code of ["unauthorized", "forbidden", "invalid_jql"]) {
-      const summary = summarizeTrackerSource("jira", status({ lastErrorCode: code }));
+      const summary = summarizeTrackerSource(
+        "jira",
+        status({ lastErrorCode: code }),
+      );
       expect(summary.condition).toBe("blocked");
       expect(summary.fixInSettings).toBe(true);
     }
@@ -96,8 +102,10 @@ describe("summarizeTrackerSource", () => {
 
   it("shows an unrecognised code verbatim so it can be quoted", () => {
     expect(
-      summarizeTrackerSource("crane", status({ lastErrorCode: "teapot_overflow" }))
-        .detail,
+      summarizeTrackerSource(
+        "crane",
+        status({ lastErrorCode: "teapot_overflow" }),
+      ).detail,
     ).toBe("teapot_overflow");
   });
 
@@ -156,8 +164,14 @@ describe("listActionableTrackerSources", () => {
   it("puts a transient failure ahead of a blocker and a blocker ahead of setup", () => {
     const summaries = [
       summarizeTrackerSource("jira", status({ availability: "disabled" })),
-      summarizeTrackerSource("crane", status({ lastErrorCode: "unauthorized" })),
-      summarizeTrackerSource("crane", status({ lastErrorCode: "rate_limited" })),
+      summarizeTrackerSource(
+        "crane",
+        status({ lastErrorCode: "unauthorized" }),
+      ),
+      summarizeTrackerSource(
+        "crane",
+        status({ lastErrorCode: "rate_limited" }),
+      ),
     ];
     expect(
       listActionableTrackerSources(summaries).map((entry) => entry.condition),
@@ -165,8 +179,8 @@ describe("listActionableTrackerSources", () => {
   });
 
   it("omits a source that is working", () => {
-    expect(listActionableTrackerSources([summarizeTrackerSource("crane", status())])).toEqual(
-      [],
-    );
+    expect(
+      listActionableTrackerSources([summarizeTrackerSource("crane", status())]),
+    ).toEqual([]);
   });
 });

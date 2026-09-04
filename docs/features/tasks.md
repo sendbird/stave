@@ -38,7 +38,7 @@ The workspace is created, the ticket is filed in the workspace Information panel
 
 ### Entry Points
 
-- Top bar checklist icon. It carries a badge counting overdue and due-today tickets, and it is hidden entirely while no source can produce rows.
+- Top bar checklist icon. It is always visible and carries a badge counting overdue and due-today tickets.
 - `Cmd+K T` chord, and the `Open Tasks` and `Refresh Tasks` commands in the command palette.
 
 ### Key Controls
