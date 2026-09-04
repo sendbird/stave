@@ -307,7 +307,7 @@ export function ChainOfThoughtTrigger(
             cadence="reduced"
             className="shrink-0 text-foreground"
             size="sm"
-            variant="pulse"
+            variant="matrix"
           />
           <ThinkingPhraseLabel active={isStreaming} />
         </span>

@@ -74,19 +74,19 @@ describe("ChainOfThoughtContent", () => {
 });
 
 describe("ChainOfThoughtTrigger", () => {
-  test("renders a reduced-cadence pulse loader while streaming and drops it when complete", () => {
+  test("renders a reduced-cadence matrix loader while streaming and drops it when complete", () => {
     const streaming = renderTrace({ isStreaming: true });
-    expect(streaming).toContain('data-loader-variant="pulse"');
+    expect(streaming).toContain('data-loader-variant="matrix"');
     expect(streaming).toContain('data-loader-cadence="reduced"');
 
     expect(renderTrace({ isStreaming: false })).not.toContain(
-      'data-loader-variant="pulse"',
+      'data-loader-variant="matrix"',
     );
   });
 
   test("uses the same lightweight status loader under the legacy style", () => {
     const legacy = renderTrace({ isStreaming: true, style: "legacy" });
-    expect(legacy).toContain('data-loader-variant="pulse"');
+    expect(legacy).toContain('data-loader-variant="matrix"');
   });
 
   test("appends the duration to the collapsed completion phrase", () => {
