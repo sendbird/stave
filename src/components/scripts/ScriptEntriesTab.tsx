@@ -11,8 +11,6 @@ import { ScriptEntryCard } from "./ScriptEntryCard";
 import {
   collectEntryTriggers,
   findDuplicateEntryIds,
-  getScriptEditorRunDisabledReason,
-  type ScriptEditorScopeId,
 } from "./scripts-manager-state";
 import {
   validateScriptEditorEntry,
@@ -20,7 +18,6 @@ import {
   type ScriptEditorState,
 } from "@/lib/workspace-scripts/editor";
 import { scriptEntryKey } from "@/lib/workspace-scripts/runtime-state";
-import type { ScriptEntryOrigin } from "@/lib/workspace-scripts/origins";
 import type { ScriptUiState } from "@/lib/workspace-scripts/runtime-state";
 import type { ScriptKind } from "@/lib/workspace-scripts/types";
 
@@ -40,21 +37,13 @@ export function ScriptEntriesTab(props: {
   onRemove: (index: number) => void;
   onMove: (index: number, direction: -1 | 1) => void;
   onDuplicate: (index: number) => void;
-  // Run / logs
-  runtimeAvailable: boolean;
-  runtimeHint?: string;
-  isDirty: boolean;
-  selectedScopeId: ScriptEditorScopeId;
-  entryOrigins: Record<string, ScriptEntryOrigin>;
   runStateByKey: Record<string, ScriptUiState>;
-  onRunEntry: (id: string) => void;
-  onStopEntry: (id: string) => void;
-  onClearLog: (id: string) => void;
+  onOpenInRail: () => void;
 }) {
   const kindLabel = props.kind === "service" ? "Processes" : "Commands";
   const kindDescription =
     props.kind === "service"
-      ? "Long-running processes that stay available until you stop them."
+      ? "Dev servers, watchers, and other long-running processes. They stay up after you close Settings, and you control them from the right rail."
       : "One-shot commands you run on demand or from lifecycle triggers.";
   const addLabel = props.kind === "service" ? "Add process" : "Add command";
 
@@ -88,7 +77,9 @@ export function ScriptEntriesTab(props: {
               No {props.kind === "service" ? "processes" : "commands"} yet
             </EmptyTitle>
             <EmptyDescription>
-              Click "{addLabel}" to create the first entry.
+              {props.kind === "service"
+                ? `Click "${addLabel}" to define a server or watcher you can leave running while you work.`
+                : `Click "${addLabel}" to create the first entry.`}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -108,12 +99,6 @@ export function ScriptEntriesTab(props: {
             });
             const id = entry.id.trim();
             const runKey = scriptEntryKey(props.kind, id);
-            const disabledReason = getScriptEditorRunDisabledReason({
-              entryId: id,
-              isDirty: props.isDirty,
-              selectedScopeId: props.selectedScopeId,
-              origin: props.entryOrigins[runKey],
-            });
             return (
               <ScriptEntryCard
                 key={stableKey}
@@ -125,6 +110,7 @@ export function ScriptEntriesTab(props: {
                 targetOptions={props.targetOptions}
                 issues={issues}
                 expanded={props.expandedEntryKey === stableKey}
+                isRunning={Boolean(props.runStateByKey[runKey]?.running)}
                 onToggleExpand={() =>
                   props.onExpandedChange(
                     props.expandedEntryKey === stableKey ? null : stableKey,
@@ -136,15 +122,7 @@ export function ScriptEntriesTab(props: {
                 onRemove={() => props.onRemove(index)}
                 onMove={(direction) => props.onMove(index, direction)}
                 onDuplicate={() => props.onDuplicate(index)}
-                run={{
-                  available: props.runtimeAvailable,
-                  hint: props.runtimeHint,
-                  state: props.runStateByKey[runKey],
-                  disabledReason,
-                  onRun: () => props.onRunEntry(id),
-                  onStop: () => props.onStopEntry(id),
-                  onClearLog: () => props.onClearLog(id),
-                }}
+                onOpenInRail={props.onOpenInRail}
               />
             );
           })}

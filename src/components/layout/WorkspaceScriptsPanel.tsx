@@ -11,6 +11,7 @@ import {
   Globe,
   History,
   Play,
+  Plus,
   RefreshCcw,
   Settings2,
   Sparkles,
@@ -25,11 +26,13 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  Input,
   Loader,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  Textarea,
   toast,
 } from "@/components/ui";
 import { ScriptLogView } from "@/components/scripts";
@@ -39,8 +42,10 @@ import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { isTaskArchived } from "@/lib/tasks";
 import {
   clearScriptLog,
+  countRunningServiceEntries,
   formatScriptDuration,
   formatScriptRelativeTime,
+  persistWorkspaceServiceQuickAdd,
   refreshScriptsRuntime,
   runScriptEntry,
   runScriptHook,
@@ -60,6 +65,7 @@ import type {
   ResolvedWorkspaceScriptsConfig,
 } from "@/lib/workspace-scripts/types";
 import {
+  DEFAULT_WORKSPACE_TOOLS_VIEW,
   WORKSPACE_TOOLS_VIEWS,
   type WorkspaceToolsViewId,
 } from "@/lib/workspace-tools-presentation";
@@ -145,6 +151,101 @@ function RuntimeSection(props: {
       </div>
       <div>{props.children}</div>
     </section>
+  );
+}
+
+function ProcessQuickAddForm(props: {
+  workspaceId: string;
+  workspacePath: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [command, setCommand] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const reset = useCallback(() => {
+    setLabel("");
+    setCommand("");
+    setOpen(false);
+  }, []);
+
+  const submit = useCallback(async () => {
+    if (saving) {
+      return;
+    }
+    setSaving(true);
+    const result = await persistWorkspaceServiceQuickAdd({
+      workspacePath: props.workspacePath,
+      label,
+      command,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      toast.error("Could not add process", { description: result.message });
+      return;
+    }
+    reset();
+    void refreshScriptsRuntime(props.workspaceId);
+    toast.success("Process added");
+  }, [command, label, props.workspaceId, props.workspacePath, reset, saving]);
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-8 rounded-md"
+        onClick={() => setOpen(true)}
+      >
+        <Plus className="mr-1 size-3.5" />
+        Add process
+      </Button>
+    );
+  }
+
+  return (
+    <form
+      className="space-y-2 rounded-lg border border-border/70 bg-muted/15 p-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <label className="space-y-1.5">
+        <span className="text-xs font-medium text-foreground">Name</span>
+        <Input
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          placeholder="Dev server"
+          autoFocus
+        />
+      </label>
+      <label className="space-y-1.5">
+        <span className="text-xs font-medium text-foreground">Command</span>
+        <Textarea
+          value={command}
+          onChange={(event) => setCommand(event.target.value)}
+          placeholder={"bun run dev"}
+          className="min-h-16"
+        />
+      </label>
+      <div className="flex items-center justify-end gap-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-8"
+          onClick={reset}
+          disabled={saving}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" size="sm" className="h-8" disabled={saving}>
+          {saving ? "Adding…" : "Add"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -423,8 +524,9 @@ export function WorkspaceScriptsPanel(props: {
     ),
   );
 
-  const [activeView, setActiveView] =
-    useState<WorkspaceToolsViewId>("commands");
+  const [activeView, setActiveView] = useState<WorkspaceToolsViewId>(
+    DEFAULT_WORKSPACE_TOOLS_VIEW,
+  );
 
   const workspaceName = useMemo(
     () =>
@@ -570,10 +672,7 @@ export function WorkspaceScriptsPanel(props: {
     [commandEntries, runtime.entries],
   );
   const runningCount = useMemo(
-    () =>
-      Object.entries(runtime.entries).filter(
-        ([key, entry]) => key.startsWith("service:") && entry.running,
-      ).length,
+    () => countRunningServiceEntries(runtime.entries),
     [runtime.entries],
   );
   const detachedRunningCount = Math.max(
@@ -643,7 +742,7 @@ export function WorkspaceScriptsPanel(props: {
           </EmptyMedia>
           <EmptyTitle>{WORKSPACE_TOOLS_LABEL} unavailable</EmptyTitle>
           <EmptyDescription>
-            Select a workspace to inspect its commands and processes.
+            Select a workspace to inspect its processes and commands.
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -751,7 +850,7 @@ export function WorkspaceScriptsPanel(props: {
           <WorkspaceToolsEmptyState
             icon={<Zap className="size-4" />}
             title="No commands configured"
-            description="Add a one-shot command in Workspace Tools settings, then run it directly from this tab."
+            description="Add a one-shot command in Workspace Tools settings. Run it from this tab when you need it."
             action={
               <Button
                 type="button"
@@ -825,37 +924,43 @@ export function WorkspaceScriptsPanel(props: {
           <WorkspaceToolsEmptyState
             icon={<Play className="size-4" />}
             title="No processes configured"
-            description="Add a long-running process in Workspace Tools settings. It will start and stay controllable from this tab."
+            description="Add a long-running process such as a dev server in Workspace Tools settings. Start it here and leave it running while you work."
             action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="mt-1 h-8 rounded-md"
-                onClick={openScriptSettings}
-                disabled={!projectPath}
-              >
-                <Settings2 className="mr-1 size-4" />
-                Manage workspace tools
-              </Button>
+              activeWorkspaceId ? (
+                <div className="mt-1 w-full max-w-sm">
+                  <ProcessQuickAddForm
+                    workspaceId={activeWorkspaceId}
+                    workspacePath={workspacePath}
+                  />
+                </div>
+              ) : null
             }
           />
+        ) : null}
+
+        {runtime.configStatus === "ready" &&
+        serviceCount > 0 &&
+        activeWorkspaceId ? (
+          <div className="mb-3">
+            <ProcessQuickAddForm
+              workspaceId={activeWorkspaceId}
+              workspacePath={workspacePath}
+            />
+          </div>
         ) : null}
 
         {config &&
         serviceCount > 0 &&
         runtimePartitions.running.length === 0 ? (
-          <WorkspaceToolsEmptyState
-            icon={<Play className="size-4" />}
-            title="No processes running"
-            description="Start an available process below. Live output and stop controls remain in this tab."
-            compact
-          />
+          <p className="px-1 pb-3 text-xs leading-5 text-muted-foreground">
+            Nothing is running. Start a process below and leave it up while you
+            work. Output and stop stay on this tab.
+          </p>
         ) : null}
 
         {runtimePartitions.running.length > 0 ? (
           <RuntimeSection
-            title="Live processes"
+            title="Running"
             count={runtimePartitions.running.length}
           >
             {runtimePartitions.running.map(({ entry, state }) =>
@@ -880,7 +985,7 @@ export function WorkspaceScriptsPanel(props: {
 
         {availableProcesses.length > 0 ? (
           <RuntimeSection
-            title="Available processes"
+            title="Ready to start"
             count={availableProcesses.length}
           >
             {availableProcesses.map((entry) => renderScriptEntry(entry))}

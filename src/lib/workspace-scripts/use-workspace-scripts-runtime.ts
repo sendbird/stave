@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { useCallback, useSyncExternalStore } from "react";
+import { countRunningServiceEntries } from "./runtime-state";
 import {
   acquireScriptsRuntime,
   EMPTY_SNAPSHOT,
@@ -52,7 +53,55 @@ export function useWorkspaceScriptsRuntime(
   );
 
   const getSnapshot = useCallback(
-    () => (workspaceId ? getScriptsRuntimeSnapshot(workspaceId) : EMPTY_SNAPSHOT),
+    () =>
+      workspaceId ? getScriptsRuntimeSnapshot(workspaceId) : EMPTY_SNAPSHOT,
+    [workspaceId],
+  );
+
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+}
+
+/**
+ * Running process count for chrome that must not re-render on log chunks.
+ * `useSyncExternalStore` compares the primitive, so output-only events stay quiet.
+ */
+export function useRunningWorkspaceProcessCount(
+  args: ScriptsRuntimeContext | null,
+): number {
+  const workspaceId = args?.workspaceId ?? null;
+  const projectPath = args?.projectPath ?? "";
+  const workspacePath = args?.workspacePath ?? "";
+  const workspaceName = args?.workspaceName ?? "";
+  const branch = args?.branch ?? "";
+
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      if (!workspaceId) {
+        return () => {};
+      }
+      const release = acquireScriptsRuntime({
+        workspaceId,
+        projectPath,
+        workspacePath,
+        workspaceName,
+        branch,
+      });
+      const unsubscribe = subscribeScriptsRuntime(workspaceId, onStoreChange);
+      return () => {
+        unsubscribe();
+        release();
+      };
+    },
+    [workspaceId, projectPath, workspacePath, workspaceName, branch],
+  );
+
+  const getSnapshot = useCallback(
+    () =>
+      workspaceId
+        ? countRunningServiceEntries(
+            getScriptsRuntimeSnapshot(workspaceId).entries,
+          )
+        : 0,
     [workspaceId],
   );
 

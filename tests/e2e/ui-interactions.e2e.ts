@@ -1267,20 +1267,20 @@ test("scripts manager waits for default scope and keeps draft entries dirty", as
     .click();
 
   await page.waitForTimeout(150);
-  await expect(page.getByRole("button", { name: "Add command" })).toHaveCount(
+  await expect(page.getByRole("button", { name: "Add process" })).toHaveCount(
     0,
   );
 
   await expect(
     page.getByRole("combobox", { name: "Config Scope" }),
   ).toContainText("Workspace Config");
-  await page.getByRole("button", { name: "Add command" }).click();
+  await page.getByRole("button", { name: "Add process" }).click();
 
-  await expect(page.getByText("Command 1")).toBeVisible();
+  await expect(page.getByText("Process 1")).toBeVisible();
   await expect(page.getByText("Unsaved", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Discard" })).toBeEnabled();
 
   await page.waitForTimeout(600);
-  await expect(page.getByText("Command 1")).toBeVisible();
+  await expect(page.getByText("Process 1")).toBeVisible();
   await expect(page.getByText("Unsaved", { exact: true })).toBeVisible();
 });

@@ -10,9 +10,7 @@ import {
   SCRIPT_TRIGGER_IDS,
   STAVE_CONFIG_DIR,
   DEFAULT_SCRIPT_TARGET_IDS,
-  WORKSPACE_TOOLS_LABEL,
 } from "@/lib/workspace-scripts/constants";
-import type { ScriptEntryOrigin } from "@/lib/workspace-scripts/origins";
 import type {
   ScriptEditorCandidate,
   ScriptEditorHookLink,
@@ -130,34 +128,6 @@ export function buildEditorTargetOptions(state: ScriptEditorState) {
 
 export function buildEditorHookCandidates(state: ScriptEditorState) {
   return buildScriptEditorCandidates({ state });
-}
-
-/**
- * Running from the editor is safe only when the selected file is the exact
- * source of the effective runtime entry. A matching kind/id is insufficient:
- * workspace precedence and scripts.local.json can replace its commands.
- */
-export function getScriptEditorRunDisabledReason(args: {
-  entryId: string;
-  isDirty: boolean;
-  selectedScopeId: ScriptEditorScopeId;
-  origin: ScriptEntryOrigin | undefined;
-}) {
-  if (args.isDirty) {
-    return "Save changes first — Run executes the saved config.";
-  }
-  if (!args.entryId.trim() || !args.origin) {
-    return "This entry is not active in the resolved config.";
-  }
-  if (args.origin.tier !== args.selectedScopeId) {
-    const activeLabel =
-      args.origin.tier === "workspace" ? "workspace" : "project";
-    return `Runtime is using the ${activeLabel} config. Switch to that scope to run this entry.`;
-  }
-  if (args.origin.localOverride) {
-    return `A local override changes this entry. Run the effective command from ${WORKSPACE_TOOLS_LABEL}.`;
-  }
-  return null;
 }
 
 export function isHookLinked(

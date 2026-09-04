@@ -703,7 +703,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     id: "view.show-scripts",
     title: `Show ${WORKSPACE_TOOLS_LABEL}`,
     description:
-      "Open one-shot commands and long-running processes on the right rail.",
+      "Open long-running processes and one-shot commands on the right rail.",
     group: "view",
     icon: WorkspaceToolsIcon,
     keywords: [
@@ -718,8 +718,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     build: (args) => ({
       id: "view.show-scripts",
       title: `Show ${WORKSPACE_TOOLS_LABEL}`,
-      subtitle:
-        "Open workspace commands, long-running processes, and triggers.",
+      subtitle: "Open long-running processes, one-shot commands, and triggers.",
       group: "view",
       icon: WorkspaceToolsIcon,
       keywords: [

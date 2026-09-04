@@ -129,8 +129,8 @@ export function ScriptsSection(props: {
             </EmptyMedia>
             <EmptyTitle>No projects yet</EmptyTitle>
             <EmptyDescription>
-              Open a project from the sidebar to configure its commands and
-              processes.
+              Open a project from the sidebar to configure its processes and
+              commands.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

@@ -1,10 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
+  appendServiceEntryToRawConfig,
   buildScriptConfigFromEditorState,
   buildScriptEditorState,
+  collectScriptIdsFromRaw,
   createEmptyScriptEditorEntry,
   duplicateScriptEditorEntry,
+  entryHasAdvancedValues,
   mergeScriptConfigIntoRaw,
+  shouldAutoSyncScriptId,
+  slugifyScriptId,
   validateScriptEditorEntry,
   validateScriptEditorState,
 } from "../src/lib/workspace-scripts/editor";
@@ -383,7 +388,11 @@ describe("duplicateScriptEditorEntry", () => {
     entry.commandsText = "eslint .";
 
     const first = duplicateScriptEditorEntry(entry, ["lint"]);
-    expect(first).toMatchObject({ id: "lint-copy", label: "Lint (copy)", commandsText: "eslint ." });
+    expect(first).toMatchObject({
+      id: "lint-copy",
+      label: "Lint (copy)",
+      commandsText: "eslint .",
+    });
 
     const second = duplicateScriptEditorEntry(entry, ["lint", "lint-copy"]);
     expect(second.id).toBe("lint-copy-2");
@@ -416,11 +425,83 @@ describe("validateScriptEditorEntry", () => {
     entry.target = "project";
     entry.orbitProxyPort = "-1";
 
-    expect(validateScriptEditorEntry({ entry, kind: "service", duplicateId: true })).toEqual({
+    expect(
+      validateScriptEditorEntry({ entry, kind: "service", duplicateId: true }),
+    ).toEqual({
       id: 'Duplicate ID "dev".',
       target: "Orbit services must target the workspace.",
       orbitProxyPort: "Proxy port must be a positive integer.",
     });
+  });
+});
+
+describe("slugifyScriptId", () => {
+  test("derives a stable id from a label and suffixes collisions", () => {
+    expect(slugifyScriptId("Dev Server", [])).toBe("dev-server");
+    expect(slugifyScriptId("Dev Server", ["dev-server"])).toBe("dev-server-2");
+    expect(slugifyScriptId("Dev Server", ["dev-server", "dev-server-2"])).toBe(
+      "dev-server-3",
+    );
+    expect(slugifyScriptId("   ", [])).toBe("process");
+  });
+
+  test("follows the label until the id is edited independently", () => {
+    expect(
+      shouldAutoSyncScriptId({
+        currentId: "",
+        currentLabel: "",
+        otherIds: [],
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoSyncScriptId({
+        currentId: "dev-server",
+        currentLabel: "Dev Server",
+        otherIds: [],
+      }),
+    ).toBe(true);
+    expect(
+      shouldAutoSyncScriptId({
+        currentId: "api",
+        currentLabel: "Dev Server",
+        otherIds: [],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("appendServiceEntryToRawConfig", () => {
+  test("appends a workspace service without rewriting other keys", () => {
+    const next = appendServiceEntryToRawConfig({
+      rawConfig: {
+        version: 2,
+        actions: { lint: { commands: ["bun run lint"] } },
+      },
+      id: "dev-server",
+      label: "Dev Server",
+      commands: ["bun run dev"],
+    });
+    expect(next).toMatchObject({
+      version: 2,
+      actions: { lint: { commands: ["bun run lint"] } },
+      services: {
+        "dev-server": {
+          label: "Dev Server",
+          commands: ["bun run dev"],
+          target: "workspace",
+        },
+      },
+    });
+    expect(collectScriptIdsFromRaw(next)).toEqual(["lint", "dev-server"]);
+  });
+});
+
+describe("entryHasAdvancedValues", () => {
+  test("treats workspace defaults as basic", () => {
+    const entry = createEmptyScriptEditorEntry("service");
+    expect(entryHasAdvancedValues(entry, "service")).toBe(false);
+    entry.description = "Watches the app";
+    expect(entryHasAdvancedValues(entry, "service")).toBe(true);
   });
 });
 
@@ -429,12 +510,14 @@ describe("validateScriptEditorState", () => {
     const entry = createEmptyScriptEditorEntry("action");
     entry.timeoutMs = "0";
 
-    expect(validateScriptEditorState({
-      actions: [entry],
-      services: [],
-      hooks: {},
-      targets: [],
-    })).toEqual([
+    expect(
+      validateScriptEditorState({
+        actions: [entry],
+        services: [],
+        hooks: {},
+        targets: [],
+      }),
+    ).toEqual([
       'actions: "action 1" is missing an id.',
       'actions: "action 1" needs at least one command.',
       'actions: "action 1" has an invalid timeout.',

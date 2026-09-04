@@ -1,7 +1,4 @@
-import {
-  SCRIPT_TRIGGER_IDS,
-  DEFAULT_SCRIPT_TARGET_IDS,
-} from "./constants";
+import { SCRIPT_TRIGGER_IDS, DEFAULT_SCRIPT_TARGET_IDS } from "./constants";
 import type {
   ScriptKind,
   ScriptTargetScope,
@@ -86,7 +83,10 @@ function buildResolvedKindsById(
   resolvedConfig: ResolvedWorkspaceScriptsConfig | null | undefined,
 ) {
   const kindsById = new Map<string, ScriptKind | null>();
-  for (const entry of [...(resolvedConfig?.actions ?? []), ...(resolvedConfig?.services ?? [])]) {
+  for (const entry of [
+    ...(resolvedConfig?.actions ?? []),
+    ...(resolvedConfig?.services ?? []),
+  ]) {
     const existing = kindsById.get(entry.id);
     if (!existing) {
       kindsById.set(entry.id, entry.kind);
@@ -97,6 +97,113 @@ function buildResolvedKindsById(
     }
   }
   return kindsById;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Stable id stem from a display label. Empty labels become `process`. */
+export function scriptIdBaseFromLabel(label: string): string {
+  return (
+    label
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "process"
+  );
+}
+
+/** Unique script id derived from a label, appending -2, -3, … on collision. */
+export function slugifyScriptId(
+  label: string,
+  existingIds: Iterable<string>,
+): string {
+  const used = new Set([...existingIds].map((id) => id.trim()).filter(Boolean));
+  const base = scriptIdBaseFromLabel(label);
+  if (!used.has(base)) {
+    return base;
+  }
+  let suffix = 2;
+  while (used.has(`${base}-${suffix}`)) {
+    suffix += 1;
+  }
+  return `${base}-${suffix}`;
+}
+
+/** True when the id is still generated from the label and should follow edits. */
+export function shouldAutoSyncScriptId(args: {
+  currentId: string;
+  currentLabel: string;
+  otherIds: Iterable<string>;
+}): boolean {
+  const id = args.currentId.trim();
+  if (!id) {
+    return true;
+  }
+  if (!args.currentLabel.trim()) {
+    return false;
+  }
+  return id === slugifyScriptId(args.currentLabel, args.otherIds);
+}
+
+export function collectScriptIdsFromRaw(
+  rawConfig: Record<string, unknown> | null,
+): string[] {
+  if (!rawConfig) {
+    return [];
+  }
+  const ids: string[] = [];
+  for (const key of ["actions", "services"] as const) {
+    const block = rawConfig[key];
+    if (isPlainRecord(block)) {
+      ids.push(...Object.keys(block));
+    }
+  }
+  return ids;
+}
+
+export function appendServiceEntryToRawConfig(args: {
+  rawConfig: Record<string, unknown> | null;
+  id: string;
+  label: string;
+  commands: string[];
+}): Record<string, unknown> {
+  const services = isPlainRecord(args.rawConfig?.services)
+    ? { ...args.rawConfig.services }
+    : {};
+  services[args.id] = {
+    label: args.label.trim() || args.id,
+    commands: args.commands,
+    target: DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
+  };
+  return {
+    ...(args.rawConfig ?? {}),
+    version: 2,
+    services,
+  };
+}
+
+export function entryHasAdvancedValues(
+  entry: ScriptEditorEntry,
+  kind: ScriptKind,
+): boolean {
+  if (entry.description.trim()) {
+    return true;
+  }
+  if (
+    entry.target.trim() &&
+    entry.target !== DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE
+  ) {
+    return true;
+  }
+  if (entry.timeoutMs.trim()) {
+    return true;
+  }
+  if (!entry.enabled) {
+    return true;
+  }
+  return kind === "service" && entry.orbitEnabled;
 }
 
 export function createEmptyScriptEditorEntry(
@@ -137,7 +244,9 @@ export function createEmptyScriptEditorState(): ScriptEditorState {
   };
 }
 
-function normalizeEnvRows(env: Record<string, string> | undefined): ScriptEditorEnvRow[] {
+function normalizeEnvRows(
+  env: Record<string, string> | undefined,
+): ScriptEditorEnvRow[] {
   return Object.entries(env ?? {}).map(([key, value]) => ({ key, value }));
 }
 
@@ -153,75 +262,86 @@ export function buildScriptEditorState(args: {
   const fileServiceIds = new Set(Object.keys(args.config.services ?? {}));
   const resolvedKindsById = buildResolvedKindsById(args.resolvedConfig);
 
-  const actions = Object.entries(args.config.actions ?? {}).map(([id, entry]) => ({
-    id,
-    label: entry.label ?? "",
-    description: entry.description ?? "",
-    target: entry.target ?? DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
-    commandsText: normalizeCommandsText(entry.commands),
-    timeoutMs: entry.timeoutMs ? String(entry.timeoutMs) : "",
-    enabled: entry.enabled ?? true,
-    restartOnRun: true,
-    orbitEnabled: false,
-    orbitName: "",
-    orbitNoTls: false,
-    orbitProxyPort: "",
-  }));
+  const actions = Object.entries(args.config.actions ?? {}).map(
+    ([id, entry]) => ({
+      id,
+      label: entry.label ?? "",
+      description: entry.description ?? "",
+      target: entry.target ?? DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
+      commandsText: normalizeCommandsText(entry.commands),
+      timeoutMs: entry.timeoutMs ? String(entry.timeoutMs) : "",
+      enabled: entry.enabled ?? true,
+      restartOnRun: true,
+      orbitEnabled: false,
+      orbitName: "",
+      orbitNoTls: false,
+      orbitProxyPort: "",
+    }),
+  );
 
-  const services = Object.entries(args.config.services ?? {}).map(([id, entry]) => ({
-    id,
-    label: entry.label ?? "",
-    description: entry.description ?? "",
-    target: entry.target ?? DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
-    commandsText: normalizeCommandsText(entry.commands),
-    timeoutMs: entry.timeoutMs ? String(entry.timeoutMs) : "",
-    enabled: entry.enabled ?? true,
-    restartOnRun: entry.restartOnRun ?? true,
-    orbitEnabled: entry.orbit?.enabled !== false && Boolean(entry.orbit),
-    orbitName: entry.orbit?.name ?? "",
-    orbitNoTls: entry.orbit?.noTls ?? false,
-    orbitProxyPort: entry.orbit?.proxyPort ? String(entry.orbit.proxyPort) : "",
-  }));
+  const services = Object.entries(args.config.services ?? {}).map(
+    ([id, entry]) => ({
+      id,
+      label: entry.label ?? "",
+      description: entry.description ?? "",
+      target: entry.target ?? DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
+      commandsText: normalizeCommandsText(entry.commands),
+      timeoutMs: entry.timeoutMs ? String(entry.timeoutMs) : "",
+      enabled: entry.enabled ?? true,
+      restartOnRun: entry.restartOnRun ?? true,
+      orbitEnabled: entry.orbit?.enabled !== false && Boolean(entry.orbit),
+      orbitName: entry.orbit?.name ?? "",
+      orbitNoTls: entry.orbit?.noTls ?? false,
+      orbitProxyPort: entry.orbit?.proxyPort
+        ? String(entry.orbit.proxyPort)
+        : "",
+    }),
+  );
 
-  const hooks = SCRIPT_TRIGGER_IDS.reduce<ScriptEditorState["hooks"]>((acc, trigger) => {
-    const refs = args.config?.hooks?.[trigger];
-    if (!refs?.length) {
-      return acc;
-    }
-    const normalizedRefs = refs
-      .map((ref) => {
-        const scriptId = (typeof ref === "string" ? ref : ref.ref).trim();
-        if (!scriptId) {
-          return null;
-        }
-        return {
-          scriptId,
-          scriptKind: inferHookKind({
+  const hooks = SCRIPT_TRIGGER_IDS.reduce<ScriptEditorState["hooks"]>(
+    (acc, trigger) => {
+      const refs = args.config?.hooks?.[trigger];
+      if (!refs?.length) {
+        return acc;
+      }
+      const normalizedRefs = refs
+        .map((ref) => {
+          const scriptId = (typeof ref === "string" ? ref : ref.ref).trim();
+          if (!scriptId) {
+            return null;
+          }
+          return {
             scriptId,
-            explicitKind: typeof ref === "string" ? undefined : ref.kind,
-            fileActionIds,
-            fileServiceIds,
-            resolvedKindsById,
-          }),
-          blocking: typeof ref === "string" ? true : ref.blocking ?? true,
-        };
-      })
-      .filter((item): item is ScriptEditorHookLink => item !== null);
+            scriptKind: inferHookKind({
+              scriptId,
+              explicitKind: typeof ref === "string" ? undefined : ref.kind,
+              fileActionIds,
+              fileServiceIds,
+              resolvedKindsById,
+            }),
+            blocking: typeof ref === "string" ? true : (ref.blocking ?? true),
+          };
+        })
+        .filter((item): item is ScriptEditorHookLink => item !== null);
 
-    if (normalizedRefs.length > 0) {
-      acc[trigger] = normalizedRefs;
-    }
+      if (normalizedRefs.length > 0) {
+        acc[trigger] = normalizedRefs;
+      }
 
-    return acc;
-  }, {});
+      return acc;
+    },
+    {},
+  );
 
-  const targets = Object.entries(args.config.targets ?? {}).map(([id, target]) => ({
-    id,
-    label: target.label ?? "",
-    cwd: target.cwd ?? "workspace",
-    shell: target.shell ?? "",
-    envRows: normalizeEnvRows(target.env),
-  }));
+  const targets = Object.entries(args.config.targets ?? {}).map(
+    ([id, target]) => ({
+      id,
+      label: target.label ?? "",
+      cwd: target.cwd ?? "workspace",
+      shell: target.shell ?? "",
+      envRows: normalizeEnvRows(target.env),
+    }),
+  );
 
   return {
     actions,
@@ -240,7 +360,9 @@ function buildEntryConfig(entry: ScriptEditorEntry) {
 
   return {
     ...(entry.label.trim() ? { label: entry.label.trim() } : {}),
-    ...(entry.description.trim() ? { description: entry.description.trim() } : {}),
+    ...(entry.description.trim()
+      ? { description: entry.description.trim() }
+      : {}),
     commands,
     target: entry.target.trim() || DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
     ...(timeoutMs ? { timeoutMs: Number(timeoutMs) } : {}),
@@ -248,7 +370,9 @@ function buildEntryConfig(entry: ScriptEditorEntry) {
   };
 }
 
-function buildTargetConfig(target: ScriptEditorTargetEntry): WorkspaceScriptTargetConfig {
+function buildTargetConfig(
+  target: ScriptEditorTargetEntry,
+): WorkspaceScriptTargetConfig {
   const env: Record<string, string> = {};
   for (const row of target.envRows) {
     const key = row.key.trim();
@@ -287,45 +411,63 @@ export function buildScriptConfigFromEditorState(
 
   const services = Object.fromEntries(
     state.services
-      .map((entry) => [entry.id.trim(), {
-        ...buildEntryConfig(entry),
-        ...(entry.restartOnRun ? {} : { restartOnRun: false }),
-        ...(entry.orbitEnabled
-          ? {
-              orbit: {
-                enabled: true,
-                ...(entry.orbitName.trim() ? { name: entry.orbitName.trim() } : {}),
-                ...(entry.orbitNoTls ? { noTls: true } : {}),
-                ...(entry.orbitProxyPort.trim() ? { proxyPort: Number(entry.orbitProxyPort.trim()) } : {}),
-              },
-            }
-          : {}),
-      }] as const)
+      .map(
+        (entry) =>
+          [
+            entry.id.trim(),
+            {
+              ...buildEntryConfig(entry),
+              ...(entry.restartOnRun ? {} : { restartOnRun: false }),
+              ...(entry.orbitEnabled
+                ? {
+                    orbit: {
+                      enabled: true,
+                      ...(entry.orbitName.trim()
+                        ? { name: entry.orbitName.trim() }
+                        : {}),
+                      ...(entry.orbitNoTls ? { noTls: true } : {}),
+                      ...(entry.orbitProxyPort.trim()
+                        ? { proxyPort: Number(entry.orbitProxyPort.trim()) }
+                        : {}),
+                    },
+                  }
+                : {}),
+            },
+          ] as const,
+      )
       .filter(([id, entry]) => Boolean(id) && entry.commands.length > 0),
   );
 
-  const hooks = SCRIPT_TRIGGER_IDS.reduce<WorkspaceScriptsConfig["hooks"]>((acc, trigger) => {
-    const nextRefs = dedupeHookLinks(state.hooks[trigger] ?? [])
-      .map((link) => {
-        const scriptId = link.scriptId.trim();
-        if (!scriptId) {
-          return null;
-        }
-        return {
-          ref: scriptId,
-          ...(link.scriptKind ? { kind: link.scriptKind } : {}),
-          ...(link.blocking ? {} : { blocking: false }),
-        };
-      })
-      .filter((item): item is { ref: string; kind?: ScriptKind; blocking?: boolean } => item !== null);
+  const hooks = SCRIPT_TRIGGER_IDS.reduce<WorkspaceScriptsConfig["hooks"]>(
+    (acc, trigger) => {
+      const nextRefs = dedupeHookLinks(state.hooks[trigger] ?? [])
+        .map((link) => {
+          const scriptId = link.scriptId.trim();
+          if (!scriptId) {
+            return null;
+          }
+          return {
+            ref: scriptId,
+            ...(link.scriptKind ? { kind: link.scriptKind } : {}),
+            ...(link.blocking ? {} : { blocking: false }),
+          };
+        })
+        .filter(
+          (
+            item,
+          ): item is { ref: string; kind?: ScriptKind; blocking?: boolean } =>
+            item !== null,
+        );
 
-    if (nextRefs.length > 0) {
-      acc ??= {};
-      acc[trigger] = nextRefs;
-    }
+      if (nextRefs.length > 0) {
+        acc ??= {};
+        acc[trigger] = nextRefs;
+      }
 
-    return acc;
-  }, undefined);
+      return acc;
+    },
+    undefined,
+  );
 
   const targets = Object.fromEntries(
     state.targets
@@ -382,7 +524,10 @@ export function buildScriptEditorCandidates(args: {
 }): ScriptEditorCandidate[] {
   const next = new Map<string, ScriptEditorCandidate>();
 
-  for (const entry of [...(args.resolvedConfig?.actions ?? []), ...(args.resolvedConfig?.services ?? [])]) {
+  for (const entry of [
+    ...(args.resolvedConfig?.actions ?? []),
+    ...(args.resolvedConfig?.services ?? []),
+  ]) {
     next.set(`${entry.kind}:${entry.id}`, {
       scriptId: entry.id,
       scriptKind: entry.kind,
@@ -421,7 +566,9 @@ export function buildScriptEditorCandidates(args: {
     if (left.scriptKind !== right.scriptKind) {
       return left.scriptKind.localeCompare(right.scriptKind);
     }
-    return (left.label || left.scriptId).localeCompare(right.label || right.scriptId);
+    return (left.label || left.scriptId).localeCompare(
+      right.label || right.scriptId,
+    );
   });
 }
 
@@ -435,7 +582,10 @@ export function validateScriptEditorState(state: ScriptEditorState) {
     const seenIds = new Set<string>();
     entries.forEach((entry, index) => {
       const scriptId = entry.id.trim();
-      const label = entry.label.trim() || scriptId || `${section.slice(0, -1)} ${index + 1}`;
+      const label =
+        entry.label.trim() ||
+        scriptId ||
+        `${section.slice(0, -1)} ${index + 1}`;
 
       if (!scriptId) {
         issues.push(`${section}: "${label}" is missing an id.`);
@@ -460,14 +610,26 @@ export function validateScriptEditorState(state: ScriptEditorState) {
         }
       }
 
-      if (section === "services" && entry.orbitEnabled && entry.target !== DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE) {
-        issues.push(`${section}: "${label}" must target workspace when Orbit is enabled.`);
+      if (
+        section === "services" &&
+        entry.orbitEnabled &&
+        entry.target !== DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE
+      ) {
+        issues.push(
+          `${section}: "${label}" must target workspace when Orbit is enabled.`,
+        );
       }
 
-      if (section === "services" && entry.orbitEnabled && entry.orbitProxyPort.trim()) {
+      if (
+        section === "services" &&
+        entry.orbitEnabled &&
+        entry.orbitProxyPort.trim()
+      ) {
         const orbitProxyPort = Number(entry.orbitProxyPort);
         if (!Number.isInteger(orbitProxyPort) || orbitProxyPort <= 0) {
-          issues.push(`${section}: "${label}" has an invalid Orbit proxy port.`);
+          issues.push(
+            `${section}: "${label}" has an invalid Orbit proxy port.`,
+          );
         }
       }
     });
@@ -540,7 +702,9 @@ export function duplicateScriptEditorEntry(
   entry: ScriptEditorEntry,
   existingIds: Iterable<string>,
 ): ScriptEditorEntry {
-  const taken = new Set([...existingIds].map((id) => id.trim()).filter(Boolean));
+  const taken = new Set(
+    [...existingIds].map((id) => id.trim()).filter(Boolean),
+  );
   const base = entry.id.trim() || "script";
   let candidate = `${base}-copy`;
   let suffix = 2;

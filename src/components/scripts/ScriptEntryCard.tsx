@@ -3,12 +3,9 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
-  Play,
-  Square,
   Trash2,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
-import { ScriptLogView } from "./ScriptLogView";
 import { ScriptEntryFormFields } from "./ScriptEntryFormFields";
 import { targetLabel } from "./scripts-manager-state";
 import type {
@@ -17,21 +14,7 @@ import type {
 } from "@/lib/workspace-scripts/editor";
 import { SCRIPT_TRIGGER_METADATA } from "@/lib/workspace-scripts/constants";
 import type { ScriptKind, ScriptTrigger } from "@/lib/workspace-scripts/types";
-import type { ScriptUiState } from "@/lib/workspace-scripts/runtime-state";
 import { cn } from "@/lib/utils";
-
-export interface ScriptEntryRunControls {
-  /** Whether run controls should render at all (a workspace runtime is bound). */
-  available: boolean;
-  state: ScriptUiState | undefined;
-  /** Non-empty when Run is disabled (dirty, or entry absent from resolved config). */
-  disabledReason: string | null;
-  onRun: () => void;
-  onStop: () => void;
-  onClearLog: () => void;
-  /** Caption shown when no runtime is bound. */
-  hint?: string;
-}
 
 export function ScriptEntryCard(props: {
   entry: ScriptEditorEntry;
@@ -42,6 +25,7 @@ export function ScriptEntryCard(props: {
   targetOptions: Array<{ id: string; label: string }>;
   issues: ScriptEntryFieldIssues;
   expanded: boolean;
+  isRunning: boolean;
   onToggleExpand: () => void;
   onFieldChange: (
     field: keyof ScriptEditorEntry,
@@ -50,7 +34,7 @@ export function ScriptEntryCard(props: {
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
   onDuplicate: () => void;
-  run: ScriptEntryRunControls;
+  onOpenInRail: () => void;
 }) {
   const title =
     props.entry.label.trim() ||
@@ -60,9 +44,11 @@ export function ScriptEntryCard(props: {
   const moveUpDisabled = props.index === 0;
   const moveDownDisabled = props.index === props.totalCount - 1;
   const hasIssues = Object.keys(props.issues).length > 0;
-
-  const runState = props.run.state;
-  const isRunning = runState?.running ?? false;
+  const metaParts = [
+    targetLabel(props.entry.target, props.targetOptions),
+    props.kind === "service" && props.entry.orbitEnabled ? "Orbit" : null,
+    props.entry.enabled ? null : "Disabled",
+  ].filter((part): part is string => Boolean(part));
 
   return (
     <div
@@ -92,35 +78,12 @@ export function ScriptEntryCard(props: {
               <span className="truncate text-sm font-medium text-foreground">
                 {title}
               </span>
-              {props.entry.id.trim() ? (
-                <Badge
-                  variant="outline"
-                  className="rounded-sm px-2 py-0 font-mono text-[10px]"
-                >
-                  {props.entry.id.trim()}
-                </Badge>
-              ) : (
+              {props.isRunning ? (
                 <Badge
                   variant="secondary"
-                  className="rounded-sm px-2 py-0 text-[10px]"
+                  className="rounded-sm px-2 py-0 font-medium text-primary"
                 >
-                  draft id
-                </Badge>
-              )}
-              <Badge
-                variant="secondary"
-                className="rounded-sm px-2 py-0 font-normal"
-              >
-                {targetLabel(props.entry.target, props.targetOptions)}
-              </Badge>
-              {props.kind === "service" && props.entry.orbitEnabled ? (
-                <Badge variant="secondary" className="rounded-sm px-2 py-0">
-                  Orbit
-                </Badge>
-              ) : null}
-              {!props.entry.enabled ? (
-                <Badge variant="secondary" className="rounded-sm px-2 py-0">
-                  Disabled
+                  Running
                 </Badge>
               ) : null}
               {hasIssues ? (
@@ -130,15 +93,16 @@ export function ScriptEntryCard(props: {
                 </span>
               ) : null}
             </div>
+            {metaParts.length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {metaParts.join(" · ")}
+              </p>
+            ) : null}
             {props.entry.description.trim() ? (
               <p className="text-xs text-muted-foreground">
                 {props.entry.description.trim()}
               </p>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                One command per line. JSON stays normalized behind the form.
-              </p>
-            )}
+            ) : null}
             {props.triggers.length > 0 ? (
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -159,25 +123,15 @@ export function ScriptEntryCard(props: {
         </button>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          {props.run.available ? (
-            <Button
-              variant={isRunning ? "outline" : "default"}
-              size="sm"
-              className="gap-1.5"
-              disabled={!isRunning && Boolean(props.run.disabledReason)}
-              title={
-                !isRunning ? (props.run.disabledReason ?? undefined) : undefined
-              }
-              onClick={isRunning ? props.run.onStop : props.run.onRun}
-            >
-              {isRunning ? (
-                <Square className="size-3.5" />
-              ) : (
-                <Play className="size-3.5" />
-              )}
-              {isRunning ? "Stop" : props.kind === "service" ? "Start" : "Run"}
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8"
+            onClick={props.onOpenInRail}
+          >
+            Open in rail
+          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -225,31 +179,6 @@ export function ScriptEntryCard(props: {
           </Button>
         </div>
       </div>
-
-      {props.run.available && !isRunning && props.run.disabledReason ? (
-        <p className="px-3 pb-1 text-[11px] text-muted-foreground">
-          {props.run.disabledReason}
-        </p>
-      ) : null}
-      {!props.run.available && props.run.hint ? (
-        <p className="px-3 pb-1 text-[11px] text-muted-foreground">
-          {props.run.hint}
-        </p>
-      ) : null}
-
-      {props.run.available ? (
-        <div className="px-3 pb-1">
-          <ScriptLogView
-            log={runState?.log ?? ""}
-            running={isRunning}
-            error={runState?.error}
-            exitCode={runState?.exitCode}
-            startedAt={runState?.startedAt}
-            endedAt={runState?.endedAt}
-            onClear={props.run.onClearLog}
-          />
-        </div>
-      ) : null}
 
       {props.expanded ? (
         <div className="border-t border-border/60 p-3">

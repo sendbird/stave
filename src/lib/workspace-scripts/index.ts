@@ -55,6 +55,7 @@ export {
   appendScriptLog,
   buildEntryStateFromStatus,
   buildScriptRunFailureState,
+  countRunningServiceEntries,
   formatScriptDuration,
   formatScriptRelativeTime,
   getScriptRunSourceLabel,
@@ -95,7 +96,12 @@ export {
   subscribeScriptsRuntimeAny,
 } from "./runtime-store";
 
-export { useWorkspaceScriptsRuntime } from "./use-workspace-scripts-runtime";
+export { persistWorkspaceServiceQuickAdd } from "./quick-add";
+
+export {
+  useRunningWorkspaceProcessCount,
+  useWorkspaceScriptsRuntime,
+} from "./use-workspace-scripts-runtime";
 
 export type {
   FileVerificationStatus,
