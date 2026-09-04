@@ -1,6 +1,6 @@
 import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
 import { Button } from "@/components/ui";
-import type { Macro } from "@/lib/macros/types";
+import { isMacroInstantRun, type Macro } from "@/lib/macros/types";
 
 /**
  * How many macros the left wing shows before the rest stay behind the Macros
@@ -13,7 +13,8 @@ function describeMacro(macro: Macro): string {
   const runtime = macro.runtime
     ? ` · ${macro.runtime.model}${macro.runtime.effort ? ` · ${macro.runtime.effort}` : ""}`
     : "";
-  return `${macro.label} · !${macro.slug}${runtime}`;
+  const instant = isMacroInstantRun(macro) ? " · runs immediately" : "";
+  return `${macro.label} · !${macro.slug}${runtime}${instant}`;
 }
 
 /**
@@ -47,7 +48,11 @@ export function MacroQuickPicks(props: {
           size="sm"
           data-macro-quick-pick={macro.slug}
           disabled={props.disabled}
-          aria-label={`Insert macro ${macro.label}`}
+          aria-label={
+            isMacroInstantRun(macro)
+              ? `Run macro ${macro.label}`
+              : `Insert macro ${macro.label}`
+          }
           title={describeMacro(macro)}
           className="text-xs text-muted-foreground shadow-none hover:text-foreground"
           onClick={() => props.onSelect(macro)}

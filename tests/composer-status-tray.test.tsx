@@ -102,6 +102,24 @@ describe("MacroQuickPicks", () => {
     expect(html).toContain("Review diff</button>");
   });
 
+  test("marks an instant-run macro as a run action", () => {
+    const html = renderToStaticMarkup(
+      createElement(MacroQuickPicks, {
+        macros: [
+          macro({
+            id: "ship",
+            label: "Ship it",
+            instantRun: true,
+          }),
+        ],
+        onSelect: () => {},
+      }),
+    );
+
+    expect(html).toContain('aria-label="Run macro Ship it"');
+    expect(html).toContain("Ship it · !ship · runs immediately");
+  });
+
   test("caps the wing at the quick-pick limit", () => {
     const html = renderToStaticMarkup(
       createElement(MacroQuickPicks, {

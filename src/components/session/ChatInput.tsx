@@ -612,10 +612,47 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       taskId: args.providerSelectionTarget,
       text: result.text,
     });
+    if (result.instantRun) {
+      void submitInstantMacro({ text: result.text });
+    }
     return {
       text: result.text,
       caretIndex: result.caretIndex ?? result.text.length,
+      instantRun: result.instantRun === true,
     };
+  }
+
+  async function submitInstantMacro(request: { text: string }) {
+    const text = request.text.trim();
+    if (!text) {
+      return;
+    }
+    cancelPendingDraftSave();
+    useAppStore.getState().requestTaskScrollToLatest({
+      taskId: args.activeTaskId,
+    });
+    const sendResult = await sendUserMessage({
+      taskId: args.activeTaskId,
+      content: text,
+      turnOrigin: "conversation",
+    });
+    if (
+      sendResult.status === "started" ||
+      sendResult.status === "queued" ||
+      sendResult.status === "steered"
+    ) {
+      adoptPromptDraftText({
+        taskId: args.providerSelectionTarget,
+        text: "",
+      });
+      return;
+    }
+    if (sendResult.status === "blocked") {
+      toast.warning("Couldn't run the macro immediately", {
+        description:
+          "The prompt is in the composer. Finish the pending action and send it.",
+      });
+    }
   }
   const pendingApprovals = useMemo(
     () => findPendingApprovals({ messages: activeTaskMessages }),

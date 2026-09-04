@@ -282,7 +282,7 @@ interface PromptInputProps {
     macro: Macro;
     match: MacroTokenMatch | null;
     draftText: string;
-  }) => { text: string; caretIndex: number } | null;
+  }) => { text: string; caretIndex: number; instantRun?: boolean } | null;
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
   onValueChange: (value: string) => void;
   onEnhancePrompt?: () => void | Promise<void>;
@@ -2169,10 +2169,15 @@ export function PromptInput(args: PromptInputProps) {
       return;
     }
     valueRef.current = result.text;
-    onValueChange(result.text);
     setSuppressedAutocompleteValue({ palette: "macro", value: result.text });
     setDismissedMacroToken(match?.token ?? `!${item.slug}`);
     setSelectedMacroIndex(NO_COMMAND_SELECTION);
+    if (result.instantRun) {
+      // The host already adopted the expanded draft and started the send.
+      // Skip onValueChange so a pending draft save cannot restore the text.
+      return;
+    }
+    onValueChange(result.text);
     restoreComposerSelection(result.caretIndex);
   }
 

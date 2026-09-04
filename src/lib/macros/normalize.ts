@@ -143,6 +143,7 @@ export function normalizeMacro(input: unknown): Macro | null {
       ? candidate.insertMode
       : "replace",
     runtime: normalizeMacroRuntime(candidate.runtime),
+    ...(candidate.instantRun === true ? { instantRun: true } : {}),
     createdAt,
     updatedAt,
   };

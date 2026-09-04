@@ -44,8 +44,17 @@ export const settingsSections = [
     label: "Macros",
     icon: Zap,
     description:
-      "Reusable prompt snippets with optional model and effort pins.",
-    keywords: ["snippet", "prompt", "shortcut", "insert"],
+      "Reusable prompt snippets with optional model pins and instant run.",
+    keywords: [
+      "snippet",
+      "prompt",
+      "shortcut",
+      "insert",
+      "instant",
+      "run",
+      "execute",
+      "send",
+    ],
   },
   {
     id: "projects",
