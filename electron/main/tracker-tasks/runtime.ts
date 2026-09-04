@@ -99,6 +99,9 @@ export class TrackerTasksRuntime {
         const previous = state.availability;
         const next = await adapter.availability().catch(() => previous);
         state.availability = next;
+        if (next === "disabled" && previous !== "disabled") {
+          this.clearSourceCache(adapter.sourceId);
+        }
         // A source that just became usable should not wait for the next poll.
         if (next !== previous && isTrackerSourceReady(next)) {
           void this.enqueue(adapter.sourceId, () =>
@@ -192,6 +195,9 @@ export class TrackerTasksRuntime {
     // is reported but never fetched against.
     if (!isTrackerSourceReady(availability)) {
       state.syncing = false;
+      if (availability === "disabled") {
+        this.clearSourceCache(id);
+      }
       this.emitStatus();
       return;
     }
@@ -336,6 +342,19 @@ export class TrackerTasksRuntime {
       this.clearTimer(timer);
     }
     this.retryTimers.clear();
+  }
+
+  private clearSourceCache(id: TrackerSourceId): void {
+    const state = this.states.get(id);
+    this.deps.persistence.replaceTrackerSourceTasks(
+      id,
+      [],
+      this.now().toISOString(),
+    );
+    state.taskCount = 0;
+    state.truncated = false;
+    state.lastErrorCode = null;
+    this.deps.emitCacheUpdated({ source: id });
   }
 
   private emitStatus(): void {

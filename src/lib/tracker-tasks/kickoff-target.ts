@@ -9,7 +9,11 @@ import type {
   CraneTeamRuntimeMemory,
 } from "@/lib/crane-connector/types";
 import type { JiraProjectMapping } from "@/lib/jira-connector/types";
-import type { TrackerSourceId, TrackerTask } from "@/lib/tracker-tasks/types";
+import {
+  TRACKER_SOURCE_IDS,
+  type TrackerSourceId,
+  type TrackerTask,
+} from "@/lib/tracker-tasks/types";
 
 /**
  * Where a kickoff's project and runtime defaults come from.
@@ -103,7 +107,9 @@ export function findTrackerTaskRuntimeMemory(args: {
       mappings: args.settings.craneMappings,
     });
   }
-  return findJiraMapping(args.task, args.settings.jiraMappings)?.runtime ?? null;
+  return (
+    findJiraMapping(args.task, args.settings.jiraMappings)?.runtime ?? null
+  );
 }
 
 export function updateJiraProjectMapping(args: {
@@ -158,7 +164,7 @@ export function parseTrackerTaskLastProjects(
     return {};
   }
   const result: Partial<Record<TrackerSourceId, string>> = {};
-  for (const source of ["crane", "jira"] as const) {
+  for (const source of TRACKER_SOURCE_IDS) {
     const value = (decoded as Record<string, unknown>)[source];
     if (typeof value === "string" && value.trim().length > 0) {
       result[source] = value;
@@ -189,8 +195,9 @@ export function writeTrackerTaskLastProject(
 ): void {
   try {
     const current = parseTrackerTaskLastProjects(
-      globalThis.localStorage?.getItem(TRACKER_TASKS_LAST_PROJECT_STORAGE_KEY) ??
-        null,
+      globalThis.localStorage?.getItem(
+        TRACKER_TASKS_LAST_PROJECT_STORAGE_KEY,
+      ) ?? null,
     );
     globalThis.localStorage?.setItem(
       TRACKER_TASKS_LAST_PROJECT_STORAGE_KEY,

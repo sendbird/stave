@@ -121,14 +121,14 @@ export function registerTrackerTasksHandlers() {
     },
   );
 
-  ipcMain.handle("tracker-tasks:configure", (_event, args: unknown) => {
+  ipcMain.handle("tracker-tasks:configure", async (_event, args: unknown) => {
     const parsed = TrackerTasksConfigureArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, message: "Invalid tracker task settings." };
     }
     try {
-      configureTrackerTasks(parsed.data);
-      return { ok: true, status: getTrackerTasksStatus() };
+      const status = await configureTrackerTasks(parsed.data);
+      return { ok: true, status };
     } catch (error) {
       return trackerFailure(error);
     }

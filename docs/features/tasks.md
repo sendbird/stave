@@ -18,10 +18,10 @@ Other surfaces fit better when:
 
 ## Before You Start
 
-At least one tracker has to be connected. Tasks shows only what a connected source can return.
+At least one tracker has to be connected, and that tracker has to be turned on under `Settings → Tasks`. Jira is first in the list; Crane follows.
 
-- **Crane** — pair this installation in `Settings → Integrations → Crane`. Tasks reuses the existing connector secret and its `crane` scope; there is nothing extra to authorize.
 - **Jira Cloud** — in `Settings → Integrations → Jira`, enable the connector and enter your site URL, your account email, and an API token. **Test connection** checks the credential *and* runs your saved JQL, so a query that no longer parses is reported there rather than showing up as a silently empty list. The token is validated once, then stored encrypted by the OS keychain and read only by the desktop main process. Neither the token nor the email is ever readable back by the app window.
+- **Crane** — pair this installation in `Settings → Integrations → Crane`. Tasks reuses the existing connector secret and its `crane` scope; there is nothing extra to authorize. Turning Crane off in Tasks leaves pairing and dispatched jobs alone.
 - A **registered Stave project** is required to kick off, because a run needs a repository and a worktree.
 - Tasks is desktop-only. The browser dev build shows an explanatory empty state instead.
 
@@ -38,12 +38,12 @@ The workspace is created, the ticket is filed in the workspace Information panel
 
 ### Entry Points
 
-- Top bar checklist icon. It carries a badge counting overdue and due-today tickets, and it is hidden entirely while no source can produce rows.
+- Top bar checklist icon. It is always visible and carries a badge counting overdue and due-today tickets.
 - `Cmd+K T` chord, and the `Open Tasks` and `Refresh Tasks` commands in the command palette.
 
 ### Key Controls
 
-- **Header** — per-source sync age, a `stale` chip when a source has missed two refresh intervals, a `partial` chip when the tracker had more rows than the page budget allows, plus Refresh and Close.
+- **Header** — per-source sync age in Jira-then-Crane order, a `stale` chip when a source has missed two refresh intervals, a `partial` chip when the tracker had more rows than the page budget allows, plus Refresh and Close. A footer under the list repeats that the loaded set is a prefix.
 - **View tabs** — *Assigned to me*, *All open*, *Recently done* (closed in the last 14 days), *In Stave* (has a Stave run). Switching tabs clears the filter chips, because the chips mean something different in each view.
 - **Filter chips** — Source, Status, Priority, Project, Label, and an *In Stave / Not in Stave* selector. Each chip is multi-select and shows what is selected; Reset clears the chips and keeps the tab.
 - **Group and Sort** — group by Status or Due date; sort by Priority, Due date, Updated, or Key. Group headers collapse and show a count.
@@ -91,7 +91,7 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - Cached tickets and kickoff links live in the Stave SQLite database (`tracker_tasks_cache`, `tracker_task_kickoffs`). They hold ticket fields and run state, never credentials.
 - The Jira credential lives in its own encrypted document in the app's user-data directory. Only ciphertext is written, and the vault refuses to write at all when OS encryption is unavailable.
 - View state (tab, group, sort, source selection) and the last-used project per source live in `localStorage`, so they are not part of settings export.
-- Settings live under `trackerTasks` (default view, refresh interval, default start mode) and `jiraConnector` (enabled, site URL, JQL, page size, project mappings) in the Stave settings document.
+- Settings live under `trackerTasks` (which sources Tasks reads, default view, refresh interval, default start mode) and `jiraConnector` (enabled, site URL, JQL, page size, project mappings) in the Stave settings document.
 
 **Egress:** Stave reads from your trackers. The only thing it writes back is Crane job lifecycle state — status, sequence, timestamps, and safe error codes — and only when you leave *Report progress to Crane* on. Prompts, responses, reasoning, file contents, paths, diffs, and credentials never leave the machine. Jira is read-only; no status transition, comment, or worklog is ever written.
 
@@ -100,17 +100,17 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - Jira Cloud only. Jira Data Center and Server are not supported yet.
 - The Jira list is defined by one JQL query, edited in Settings. The default is `assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`.
 - Kickoff does not transition the ticket's status in either tracker. Move the ticket yourself if your team expects that.
-- A source stops paging at a bounded number of rows and reports `partial`; narrow the JQL or the assignee filter rather than expecting the whole backlog.
+- Both trackers page. Crane serves 25-row cursors; Jira follows its search continuation. A source stops at a bounded number of rows and reports `partial`; narrow the JQL or the assignee filter rather than expecting the whole backlog.
 - Background refresh runs only while the surface is open, at the interval set in `Settings → Tasks`. Use `r` or Refresh at any time.
 - Kickoff is not exposed over MCP. The read-only `stave_list_tracker_tasks` tool is; starting a paid, externally visible run stays a human action.
 
 ## Troubleshooting
 
-### The top bar has no Tasks icon
+### A source I do not want still appears in Tasks
 
-- Symptom: no checklist icon, and `Cmd+K T` opens an empty surface.
-- Cause: no source is *ready* — a connector is off, unpaired, or has no credential.
-- Fix: open `Settings → Integrations` and finish the Crane pairing or the Jira credential. The Tasks empty state lists what each source is waiting for.
+- Symptom: Crane or Jira rows show even though you only want one tracker.
+- Cause: Tasks reads every source that is turned on under `Settings → Tasks`.
+- Fix: turn that source off there. Pairing and credentials stay as they are.
 
 ### Tasks is empty and I do not know why
 

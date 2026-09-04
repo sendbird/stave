@@ -152,11 +152,10 @@ export function TasksView(props: { onClose: () => void }) {
     () => describeTrackerSources(snapshot.syncBySource),
     [snapshot.syncBySource],
   );
-  const readyStatuses = useMemo(
+  const sourceStatuses = useMemo(
     () =>
       TRACKER_SOURCE_IDS.map((source) => snapshot.syncBySource[source]).filter(
-        (status): status is NonNullable<typeof status> =>
-          status !== null && status.availability === "ready",
+        (status): status is NonNullable<typeof status> => status != null,
       ),
     [snapshot.syncBySource],
   );
@@ -222,7 +221,8 @@ export function TasksView(props: { onClose: () => void }) {
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
       <TasksSurfaceHeader
-        readyStatuses={readyStatuses}
+        summaries={summaries}
+        statuses={sourceStatuses}
         refreshIntervalSeconds={refreshIntervalSeconds}
         now={now}
         refreshing={refreshing}
@@ -267,24 +267,34 @@ export function TasksView(props: { onClose: () => void }) {
               onRefresh={() => refresh()}
             />
           ) : (
-            <TrackerTaskList
-              groups={pipeline.groups}
-              now={now}
-              selectedKey={selectedKey}
-              collapsedGroupIds={collapsedGroupIds}
-              onToggleGroup={(groupId) =>
-                setCollapsedGroupIds((current) =>
-                  current.includes(groupId)
-                    ? current.filter((entry) => entry !== groupId)
-                    : [...current, groupId],
-                )
-              }
-              onSelect={setSelectedKey}
-              onKickoff={setKickoffKey}
-              onAttach={attachForKey}
-              onOpenStaveTask={openStaveTaskForKey}
-              attachTargetLabel={activeWorkspaceName}
-            />
+            <div className="flex h-full min-h-0 flex-col">
+              <div className="min-h-0 flex-1">
+                <TrackerTaskList
+                  groups={pipeline.groups}
+                  now={now}
+                  selectedKey={selectedKey}
+                  collapsedGroupIds={collapsedGroupIds}
+                  onToggleGroup={(groupId) =>
+                    setCollapsedGroupIds((current) =>
+                      current.includes(groupId)
+                        ? current.filter((entry) => entry !== groupId)
+                        : [...current, groupId],
+                    )
+                  }
+                  onSelect={setSelectedKey}
+                  onKickoff={setKickoffKey}
+                  onAttach={attachForKey}
+                  onOpenStaveTask={openStaveTaskForKey}
+                  attachTargetLabel={activeWorkspaceName}
+                />
+              </div>
+              {sourceStatuses.some((status) => status.truncated) ? (
+                <p className="shrink-0 border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
+                  Showing {orderedKeys.length} loaded tickets. A tracker had
+                  more than one refresh can load.
+                </p>
+              ) : null}
+            </div>
           )}
         </div>
         {selectedItem ? (

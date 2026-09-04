@@ -71,7 +71,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border/60 bg-surface/40">
       <header className="shrink-0 space-y-2 border-b border-border/60 px-4 py-3">
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="font-mono">{task.key}</span>
           {jiraBadge && jiraLink ? (
             <ServiceLinkBadge
@@ -81,18 +81,16 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
             />
           ) : null}
         </div>
-        <h2 className="font-heading text-sm font-semibold leading-5 text-foreground">
+        <h2 className="font-heading text-base font-semibold leading-6 text-foreground">
           {task.title}
         </h2>
         <div className="flex flex-wrap items-center gap-1.5">
           <Button
             type="button"
             size="sm"
-            className="h-7 gap-1.5 text-[11px]"
+            className="h-8 gap-1.5 text-xs"
             onClick={() =>
-              link
-                ? props.onOpenStaveTask(key)
-                : props.onKickoff(key)
+              link ? props.onOpenStaveTask(key) : props.onKickoff(key)
             }
           >
             {link ? (
@@ -111,7 +109,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
             type="button"
             size="sm"
             variant="outline"
-            className="h-7 gap-1.5 text-[11px]"
+            className="h-8 gap-1.5 text-xs"
             onClick={() => openTrackerTaskInBrowser(task.url)}
           >
             <ExternalLink className="size-3.5" />
@@ -124,7 +122,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-7 px-2 text-[11px]"
+                  className="h-8 px-2.5 text-xs"
                   aria-label="More ticket actions"
                 />
               }
@@ -146,7 +144,10 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() =>
-                  copyTrackerTaskValue({ value: task.url, label: "ticket link" })
+                  copyTrackerTaskValue({
+                    value: task.url,
+                    label: "ticket link",
+                  })
                 }
               >
                 <Link2 className="size-3.5" />
@@ -182,10 +183,10 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
               />
             ) : null}
             <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-medium text-foreground">
+              <span className="block text-xs font-medium text-foreground">
                 {linkPresentation.label} in Stave
               </span>
-              <span className="block truncate text-[10px] text-muted-foreground">
+              <span className="block truncate text-xs text-muted-foreground">
                 {link.errorCode
                   ? `Workspace ${link.workspaceId} — ${link.errorCode}`
                   : `Workspace ${link.workspaceId}`}
@@ -193,7 +194,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
             </span>
             <Badge
               variant="outline"
-              className={cn("text-[10px]", linkPresentation.toneClassName)}
+              className={cn("text-xs", linkPresentation.toneClassName)}
             >
               {link.craneJobId ? "Reported to Crane" : "Local only"}
             </Badge>
@@ -203,7 +204,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
         <TrackerTaskMeta task={task} now={props.now} />
 
         <section className="space-y-1.5">
-          <h3 className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+          <h3 className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             Description
           </h3>
           {detail ? (
@@ -214,7 +215,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
                 messageCodeFontSize={props.messageCodeFontSize}
               />
             ) : (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 This ticket has no description.
               </p>
             )
@@ -225,7 +226,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
               <Skeleton className="h-3 w-8/12" />
             </div>
           ) : (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               The description could not be loaded.
             </p>
           )}
@@ -234,7 +235,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
         {detail?.comments && detail.comments.length > 0 ? (
           <Accordion className="border-t border-border/60">
             <AccordionItem value="comments" className="border-b-0">
-              <AccordionTrigger className="py-2 text-[11px] font-medium text-muted-foreground hover:no-underline">
+              <AccordionTrigger className="py-2 text-xs font-medium text-muted-foreground hover:no-underline">
                 Comments ({detail.comments.length})
               </AccordionTrigger>
               <AccordionContent className="space-y-2 pb-2">
@@ -243,11 +244,11 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
                     key={`${comment.author}-${comment.createdAt}-${index}`}
                     className="space-y-0.5"
                   >
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {comment.author} ·{" "}
                       {new Date(comment.createdAt).toLocaleString()}
                     </p>
-                    <p className="whitespace-pre-wrap text-[11px] leading-4 text-foreground">
+                    <p className="whitespace-pre-wrap text-xs leading-5 text-foreground">
                       {comment.body}
                     </p>
                   </div>

@@ -129,14 +129,16 @@ export function TasksToolbar(props: TasksToolbarProps) {
               aria-selected={filter.view === view}
               variant={filter.view === view ? "secondary" : "ghost"}
               className={cn(
-                "h-6.5 gap-1.5 px-2 text-[11px]",
+                "h-8 gap-1.5 px-2.5 text-xs",
                 filter.view === view &&
                   "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
               )}
               // Switching tabs starts a clean filter: the chips answer a
               // different question in each view, and carrying them across is
               // how a tab looks broken on arrival.
-              onClick={() => props.onFilterChange(createTrackerTaskFilter(view))}
+              onClick={() =>
+                props.onFilterChange(createTrackerTaskFilter(view))
+              }
             >
               {VIEW_LABELS[view]}
               <span className="tabular-nums text-muted-foreground">
@@ -147,14 +149,14 @@ export function TasksToolbar(props: TasksToolbarProps) {
         </div>
 
         <div className="relative ml-auto">
-          <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={props.searchInputRef}
             value={filter.query}
             onChange={(event) => patch({ query: event.target.value })}
             placeholder="Search key, title, #label"
             aria-label="Search tracker tickets"
-            className="h-7 w-56 pl-7 text-[11px]"
+            className="h-8 w-64 pl-8 text-xs"
           />
         </div>
       </div>
@@ -207,19 +209,19 @@ export function TasksToolbar(props: TasksToolbarProps) {
           }
         >
           <SelectTrigger
-            className="h-6.5 w-32 text-[11px]"
+            className="h-8 w-36 text-xs"
             aria-label="Filter by Stave runs"
           >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(
-              Object.keys(LINKED_LABELS) as TrackerTaskLinkedFilter[]
-            ).map((value) => (
-              <SelectItem key={value} value={value}>
-                {LINKED_LABELS[value]}
-              </SelectItem>
-            ))}
+            {(Object.keys(LINKED_LABELS) as TrackerTaskLinkedFilter[]).map(
+              (value) => (
+                <SelectItem key={value} value={value}>
+                  {LINKED_LABELS[value]}
+                </SelectItem>
+              ),
+            )}
           </SelectContent>
         </Select>
 
@@ -231,7 +233,7 @@ export function TasksToolbar(props: TasksToolbarProps) {
             }
           >
             <SelectTrigger
-              className="h-6.5 w-36 text-[11px]"
+              className="h-8 w-40 text-xs"
               aria-label="Group tickets"
             >
               <SelectValue />
@@ -251,7 +253,7 @@ export function TasksToolbar(props: TasksToolbarProps) {
             }
           >
             <SelectTrigger
-              className="h-6.5 w-36 text-[11px]"
+              className="h-8 w-40 text-xs"
               aria-label="Sort tickets"
             >
               <SelectValue />
@@ -269,14 +271,14 @@ export function TasksToolbar(props: TasksToolbarProps) {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6.5 gap-1 px-2 text-[11px]"
+              className="h-8 gap-1 px-2.5 text-xs"
               // The view is preserved: Reset clears chips, it does not bounce
               // the reader out of the list they are in.
               onClick={() =>
                 props.onFilterChange(createTrackerTaskFilter(filter.view))
               }
             >
-              <X className="size-3" />
+              <X className="size-3.5" />
               Reset {activeFilterCount}
             </Button>
           ) : null}

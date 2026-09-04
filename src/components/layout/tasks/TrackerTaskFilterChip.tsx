@@ -45,8 +45,8 @@ export function TrackerTaskFilterChip(props: TrackerTaskFilterChipProps) {
     selected.length === 0
       ? null
       : selected.length === 1
-        ? (props.options.find((option) => option.value === selected[0])?.label ??
-          selected[0])
+        ? (props.options.find((option) => option.value === selected[0])
+            ?.label ?? selected[0])
         : `${selected.length} selected`;
 
   const toggle = (value: string) => {
@@ -66,7 +66,7 @@ export function TrackerTaskFilterChip(props: TrackerTaskFilterChipProps) {
             size="sm"
             variant={selected.length > 0 ? "secondary" : "ghost"}
             className={cn(
-              "h-6.5 gap-1 px-2 text-[11px]",
+              "h-8 gap-1.5 px-2.5 text-xs",
               selected.length > 0 && "border-border/55 bg-background/85",
             )}
           />
@@ -76,7 +76,7 @@ export function TrackerTaskFilterChip(props: TrackerTaskFilterChipProps) {
         {summary ? (
           <span className="max-w-28 truncate text-foreground">{summary}</span>
         ) : null}
-        <ChevronDown className="size-3 text-muted-foreground" />
+        <ChevronDown className="size-3.5 text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent className="w-56 p-0" align="start">
         <Command>
@@ -95,7 +95,7 @@ export function TrackerTaskFilterChip(props: TrackerTaskFilterChipProps) {
                     key={option.value}
                     value={option.label}
                     onSelect={() => toggle(option.value)}
-                    className="text-[12px]"
+                    className="text-sm"
                   >
                     <Check
                       className={cn(
@@ -107,7 +107,7 @@ export function TrackerTaskFilterChip(props: TrackerTaskFilterChipProps) {
                       {option.label}
                     </span>
                     {option.count === undefined ? null : (
-                      <span className="tabular-nums text-[10px] text-muted-foreground">
+                      <span className="tabular-nums text-xs text-muted-foreground">
                         {option.count}
                       </span>
                     )}

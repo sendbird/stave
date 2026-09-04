@@ -84,7 +84,10 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
   const jiraLink = task.links.find(
     (candidate) => candidate.rel.trim().toLowerCase() === "jira",
   );
-  const hiddenLabelCount = Math.max(0, task.labels.length - VISIBLE_LABEL_COUNT);
+  const hiddenLabelCount = Math.max(
+    0,
+    task.labels.length - VISIBLE_LABEL_COUNT,
+  );
 
   return (
     <ContextMenu>
@@ -98,7 +101,7 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
             onClick={() => props.onSelect(key)}
             onDoubleClick={() => props.onKickoff(key)}
             className={cn(
-              "flex cursor-default items-center gap-2.5 border-b border-border/40 px-4 py-2 text-[12px] transition-colors",
+              "flex cursor-default items-center gap-3 border-b border-border/40 px-4 py-2.5 text-sm transition-colors",
               props.selected
                 ? "bg-accent/45"
                 : "hover:bg-accent/25 focus-visible:bg-accent/25",
@@ -107,18 +110,18 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
         }
       >
         <span
-          className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"
+          className="flex size-5 shrink-0 items-center justify-center text-muted-foreground"
           title={TRACKER_SOURCE_LABELS[task.source]}
         >
           <ServiceLinkIcon
             kind={task.source === "crane" ? "crane" : "jira"}
-            className="text-[13px]"
+            className="text-[15px]"
           />
         </span>
 
         <span
           className={cn(
-            "shrink-0 font-mono text-[11px]",
+            "shrink-0 font-mono text-xs",
             priority.toneClassName === "text-destructive"
               ? "text-foreground"
               : "text-muted-foreground",
@@ -131,7 +134,7 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
           className={cn("shrink-0", priority.toneClassName)}
           title={priority.label}
         >
-          <PriorityIcon className="size-3.5" aria-label={priority.label} />
+          <PriorityIcon className="size-4" aria-label={priority.label} />
         </span>
 
         <span
@@ -143,7 +146,7 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
         >
           {task.parentKey ? (
             <CornerDownRight
-              className="mr-1 inline size-3 text-muted-foreground/70"
+              className="mr-1 inline size-3.5 text-muted-foreground/70"
               aria-label={`Subtask of ${task.parentKey}`}
             />
           ) : null}
@@ -155,13 +158,13 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
           return (
             <span
               key={label.name}
-              className="hidden shrink-0 items-center gap-1 rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground lg:inline-flex"
+              className="hidden shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground lg:inline-flex"
             >
               {color === null ? null : (
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "size-1.5 rounded-full",
+                    "size-2 rounded-full",
                     color.kind === "token" && color.className,
                   )}
                   style={
@@ -176,17 +179,17 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
           );
         })}
         {hiddenLabelCount > 0 ? (
-          <span className="hidden shrink-0 text-[10px] text-muted-foreground lg:inline">
+          <span className="hidden shrink-0 text-xs text-muted-foreground lg:inline">
             +{hiddenLabelCount}
           </span>
         ) : null}
 
         {jiraLink ? (
           <span
-            className="hidden shrink-0 items-center gap-1 text-[10px] text-muted-foreground md:inline-flex"
+            className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground md:inline-flex"
             title={`Mirrors ${jiraLink.key ?? "a Jira issue"}`}
           >
-            <ServiceLinkIcon kind="jira" className="text-[11px]" />
+            <ServiceLinkIcon kind="jira" className="text-xs" />
             {jiraLink.key ?? "Jira"}
           </span>
         ) : null}
@@ -195,7 +198,7 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
           <button
             type="button"
             className={cn(
-              "flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-[10px]",
+              "flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
               linkPresentation.toneClassName,
             )}
             onClick={(event) => {
@@ -205,13 +208,13 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
           >
             {linkPresentation.live ? (
               // A dot rather than the animated orb: the smallest tuned orb is
-              // 20px and would set the height of a row built around 12px text.
+              // 20px and would set the height of a compact list row.
               <span
                 aria-hidden="true"
-                className="size-1.5 animate-pulse rounded-full bg-current"
+                className="size-2 animate-pulse rounded-full bg-current"
               />
             ) : (
-              <GitBranch className="size-2.5" />
+              <GitBranch className="size-3" />
             )}
             {linkPresentation.label}
           </button>
@@ -219,20 +222,20 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
 
         <Badge
           variant="outline"
-          className={cn("shrink-0 text-[10px]", status.toneClassName)}
+          className={cn("shrink-0 text-xs", status.toneClassName)}
         >
           {status.label}
         </Badge>
 
         {task.effort !== null ? (
-          <span className="hidden w-5 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground sm:inline">
+          <span className="hidden w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:inline">
             {task.effort}
           </span>
         ) : null}
 
         <span
           className={cn(
-            "w-16 shrink-0 text-right text-[11px]",
+            "w-[4.5rem] shrink-0 text-right text-xs",
             due ? DUE_TONE_CLASS[due.tone] : "text-transparent",
           )}
         >
@@ -240,7 +243,7 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
         </span>
 
         <span
-          className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground"
+          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground"
           title={task.assignee?.name ?? "Unassigned"}
         >
           {task.assignee ? getInitials(task.assignee.name) : "—"}

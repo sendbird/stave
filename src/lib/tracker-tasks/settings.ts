@@ -5,7 +5,9 @@ import {
   type TrackerTaskView,
 } from "@/lib/tracker-tasks/filter";
 import {
+  TRACKER_SOURCE_IDS,
   TRACKER_TASK_START_MODES,
+  type TrackerSourceId,
   type TrackerTaskStartMode,
 } from "@/lib/tracker-tasks/types";
 
@@ -29,6 +31,19 @@ const RefreshIntervalSecondsSchema = z
 
 const DefaultKickoffStartModeSchema = z.enum(TRACKER_TASK_START_MODES);
 
+export const DEFAULT_TRACKER_SOURCE_ENABLED = Object.freeze({
+  jira: true,
+  crane: true,
+}) satisfies Record<TrackerSourceId, boolean>;
+
+const SourceEnabledSchema = z
+  .object({
+    jira: z.boolean(),
+    crane: z.boolean(),
+  })
+  .strict()
+  .default({ ...DEFAULT_TRACKER_SOURCE_ENABLED });
+
 export const TrackerTasksSettingsSchema = z
   .object({
     defaultView: DefaultViewSchema,
@@ -39,6 +54,11 @@ export const TrackerTasksSettingsSchema = z
      * so it stays a setting rather than a guess.
      */
     defaultKickoffStartMode: DefaultKickoffStartModeSchema,
+    /**
+     * Whether Tasks reads this tracker. Independent of the connector: turning
+     * Crane off here leaves pairing and dispatched jobs alone.
+     */
+    sourceEnabled: SourceEnabledSchema,
   })
   .strict();
 
@@ -48,6 +68,7 @@ export const DEFAULT_TRACKER_TASKS_SETTINGS = Object.freeze({
   defaultView: "assigned-open" as TrackerTaskView,
   refreshIntervalSeconds: DEFAULT_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS,
   defaultKickoffStartMode: "run" as TrackerTaskStartMode,
+  sourceEnabled: { ...DEFAULT_TRACKER_SOURCE_ENABLED },
 }) satisfies TrackerTasksSettings;
 
 /**
@@ -78,6 +99,23 @@ export function normalizeTrackerTasksSettings(
   const defaultKickoffStartMode = DefaultKickoffStartModeSchema.safeParse(
     record.defaultKickoffStartMode,
   );
+  const sourceEnabledRecord =
+    record.sourceEnabled &&
+    typeof record.sourceEnabled === "object" &&
+    !Array.isArray(record.sourceEnabled)
+      ? (record.sourceEnabled as Record<string, unknown>)
+      : {};
+  const sourceEnabled = Object.fromEntries(
+    TRACKER_SOURCE_IDS.map((source) => {
+      const parsed = z.boolean().safeParse(sourceEnabledRecord[source]);
+      return [
+        source,
+        parsed.success
+          ? parsed.data
+          : DEFAULT_TRACKER_TASKS_SETTINGS.sourceEnabled[source],
+      ];
+    }),
+  ) as Record<TrackerSourceId, boolean>;
 
   return {
     defaultView: defaultView.success
@@ -89,5 +127,6 @@ export function normalizeTrackerTasksSettings(
     defaultKickoffStartMode: defaultKickoffStartMode.success
       ? defaultKickoffStartMode.data
       : DEFAULT_TRACKER_TASKS_SETTINGS.defaultKickoffStartMode,
+    sourceEnabled,
   };
 }

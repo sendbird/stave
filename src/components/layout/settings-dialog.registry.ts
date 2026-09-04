@@ -387,7 +387,7 @@ export const settingDefinitions = [
     fieldId: "settings-field-tracker-tasks",
     title: "Tasks",
     description:
-      "Default view, refresh interval, and kickoff start mode for the assigned-ticket list.",
+      "Opens on tickets assigned to you. Choose which trackers Tasks reads, the first tab, the refresh interval, and whether a kickoff starts immediately.",
     keywords: [
       "tasks",
       "tickets",
@@ -400,6 +400,9 @@ export const settingDefinitions = [
       "kickoff",
       "start mode",
       "stage",
+      "jira",
+      "crane",
+      "source",
     ],
     schema: TrackerTasksSettingsSchema,
     defaultValue: { ...DEFAULT_TRACKER_TASKS_SETTINGS },

@@ -1,7 +1,10 @@
 import { app } from "electron";
 
 import type { TrackerSourceAdapter } from "../../../src/lib/tracker-tasks/source";
-import type { TrackerTasksSettings } from "../../../src/lib/tracker-tasks/settings";
+import {
+  DEFAULT_TRACKER_TASKS_SETTINGS,
+  type TrackerTasksSettings,
+} from "../../../src/lib/tracker-tasks/settings";
 import type {
   TrackerSourceId,
   TrackerTaskAttachStaveTaskArgs,
@@ -59,6 +62,7 @@ let runtime: TrackerTasksRuntime | null = null;
 let craneSource: CraneTrackerSource | null = null;
 let stopTurnSubscription: (() => void) | null = null;
 let pruneTimer: NodeJS.Timeout | null = null;
+let latestTasksSettings: TrackerTasksSettings = DEFAULT_TRACKER_TASKS_SETTINGS;
 
 function sendToRenderer(channel: string, payload: unknown) {
   const renderer = getMainWindow()?.webContents;
@@ -78,7 +82,9 @@ function buildCraneSource(): CraneTrackerSource {
     // The connector's enabled flag lives only in the runtime state; mirror the
     // default source wiring so the two surfaces agree on "enabled".
     getSettings: () => ({
-      enabled: getCraneConnectorStatus().runtimeState !== "disabled",
+      enabled:
+        latestTasksSettings.sourceEnabled.crane &&
+        getCraneConnectorStatus().runtimeState !== "disabled",
     }),
     getCredential: () => vault.getCredential(),
     getSecureStorageStatus: () => ({
@@ -94,7 +100,13 @@ function buildCraneSource(): CraneTrackerSource {
 
 function buildJiraSource(): TrackerSourceAdapter {
   return createJiraTrackerSource({
-    getSettings: () => getJiraConnectorSettings(),
+    getSettings: () => {
+      const connector = getJiraConnectorSettings();
+      return {
+        ...connector,
+        enabled: latestTasksSettings.sourceEnabled.jira && connector.enabled,
+      };
+    },
     getStatus: () => loadJiraConnectorStatus(),
     listIssues: (args) => listJiraIssuesForCurrentUser(args),
     getIssue: (args) => getJiraIssue(args),
@@ -108,7 +120,7 @@ export function getTrackerTasksRuntime(): TrackerTasksRuntime {
   craneSource = buildCraneSource();
   runtime = new TrackerTasksRuntime({
     persistence: ensurePersistenceReadySync(),
-    sources: [craneSource, buildJiraSource()],
+    sources: [buildJiraSource(), craneSource],
     emitStatus: (status) => sendToRenderer(STATUS_EVENT, status),
     emitCacheUpdated: (payload) => sendToRenderer(CACHE_UPDATED_EVENT, payload),
     emitKickoffUpdated: (link) => sendToRenderer(KICKOFF_UPDATED_EVENT, link),
@@ -200,8 +212,20 @@ export function setTrackerTasksSurfaceVisible(
   getTrackerTasksRuntime().setSurfaceVisible(args.visible);
 }
 
-export function configureTrackerTasks(settings: TrackerTasksSettings): void {
-  getTrackerTasksRuntime().configure(settings);
+export async function configureTrackerTasks(
+  settings: TrackerTasksSettings,
+): Promise<TrackerTasksPublicStatus> {
+  const previous = latestTasksSettings;
+  latestTasksSettings = settings;
+  const runtimeInstance = getTrackerTasksRuntime();
+  runtimeInstance.configure(settings);
+  const sourcesChanged =
+    previous.sourceEnabled.jira !== settings.sourceEnabled.jira ||
+    previous.sourceEnabled.crane !== settings.sourceEnabled.crane;
+  if (sourcesChanged) {
+    return runtimeInstance.refreshAvailability();
+  }
+  return runtimeInstance.getStatus();
 }
 
 export function refreshTrackerSourceAvailability(): Promise<TrackerTasksPublicStatus> {

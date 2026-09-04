@@ -8,6 +8,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
 } from "@/components/ui";
 import { useTrackerSourceStatuses } from "@/lib/tracker-tasks/client-state";
 import { TRACKER_TASK_VIEWS } from "@/lib/tracker-tasks/filter";
@@ -17,8 +18,12 @@ import {
   MAX_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS,
   MIN_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS,
 } from "@/lib/tracker-tasks/settings";
-import { TRACKER_TASK_START_MODES } from "@/lib/tracker-tasks/types";
+import {
+  TRACKER_SOURCE_IDS,
+  TRACKER_TASK_START_MODES,
+} from "@/lib/tracker-tasks/types";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
+import { TRACKER_SOURCE_LABELS } from "@/lib/tracker-tasks/context";
 
 const VIEW_LABELS: Record<(typeof TRACKER_TASK_VIEWS)[number], string> = {
   "assigned-open": "Assigned to me",
@@ -90,8 +95,8 @@ export function TrackerTasksSettingsSection() {
       <div className="border-b border-border/70 px-5 py-4">
         <h3 className="text-sm font-semibold">Tasks</h3>
         <p className={`mt-1 ${HINT}`}>
-          Defaults for the ticket list: which view opens first, how often it
-          refreshes, and what happens when a ticket starts work in Stave.
+          The ticket list opens on Assigned to me, with no extra filters. Chips
+          you pick narrow that list; Reset clears the chips and keeps the tab.
         </p>
       </div>
 
@@ -121,7 +126,9 @@ export function TrackerTasksSettingsSection() {
             </SelectContent>
           </Select>
           <p className={HINT}>
-            The tab the Tasks surface opens on. Filter chips always start clear.
+            First tab when you open Tasks. Assigned to me is the default. Filter
+            chips start empty, so you see every ticket in that tab until you
+            pick one.
           </p>
         </div>
 
@@ -191,57 +198,86 @@ export function TrackerTasksSettingsSection() {
           <div>
             <h4 className="text-sm font-medium">Sources</h4>
             <p className={`mt-1 ${HINT}`}>
-              Live connection state, not just the switches. A source listed here
-              as needing setup produces no rows, which is what an empty Tasks
-              list usually means.
+              Choose which trackers Tasks reads. Pairing and credentials stay
+              under Settings → Integrations. Jira is first in the list; Crane
+              follows.
             </p>
           </div>
-          <ul className="space-y-2">
-            {summaries.map((summary) => (
-              <li
-                key={summary.source}
-                className="flex items-start justify-between gap-3"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-foreground">
-                      {summary.label}
-                    </span>
-                    <Badge
-                      variant={
-                        summary.condition === "producing" ||
-                        summary.condition === "syncing"
-                          ? "success"
-                          : summary.condition === "error"
-                            ? "destructive"
-                            : "outline"
-                      }
-                      className="text-[10px]"
-                    >
-                      {summary.headline}
-                    </Badge>
+          <ul className="space-y-3">
+            {TRACKER_SOURCE_IDS.map((source) => {
+              const summary = summaries.find(
+                (entry) => entry.source === source,
+              );
+              const enabled = tasks.sourceEnabled[source];
+              return (
+                <li
+                  key={source}
+                  className="flex items-start justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <label
+                        htmlFor={`settings-tasks-source-${source}`}
+                        className="text-sm font-medium text-foreground"
+                      >
+                        {TRACKER_SOURCE_LABELS[source]}
+                      </label>
+                      {summary ? (
+                        <Badge
+                          variant={
+                            summary.condition === "producing" ||
+                            summary.condition === "syncing"
+                              ? "success"
+                              : summary.condition === "error"
+                                ? "destructive"
+                                : "outline"
+                          }
+                          className="text-xs"
+                        >
+                          {summary.headline}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className={`mt-0.5 ${HINT}`}>
+                      {enabled
+                        ? (summary?.detail ?? "Used in the Tasks list.")
+                        : "Hidden from Tasks. Pairing and credentials are unchanged."}
+                    </p>
                   </div>
-                  <p className={`mt-0.5 ${HINT}`}>{summary.detail}</p>
-                </div>
-                {summary.fixInSettings ? (
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={() => {
-                      window.dispatchEvent(
-                        new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-                          detail: { section: "integrations" },
-                        }),
-                      );
-                    }}
-                  >
-                    Set up
-                  </Button>
-                ) : null}
-              </li>
-            ))}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {summary?.fixInSettings ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8"
+                        onClick={() => {
+                          window.dispatchEvent(
+                            new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
+                              detail: { section: "integrations" },
+                            }),
+                          );
+                        }}
+                      >
+                        Set up
+                      </Button>
+                    ) : null}
+                    <Switch
+                      id={`settings-tasks-source-${source}`}
+                      checked={enabled}
+                      onCheckedChange={(checked) =>
+                        save({
+                          sourceEnabled: {
+                            ...tasks.sourceEnabled,
+                            [source]: checked,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
           <Button
             type="button"

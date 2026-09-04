@@ -270,7 +270,7 @@ describe("sortTrackerTasks", () => {
         priority: { raw: "High", level: "high" },
       }),
     ];
-    const expected = ["AA-2", "AA-10", "AA-2", "ZZ-2"];
+    const expected = ["AA-2", "ZZ-2", "AA-2", "AA-10"];
     expect(keysOf(sortTrackerTasks(tied, "priority"))).toEqual(expected);
     // The same input in a different arrival order lands in the same place.
     expect(keysOf(sortTrackerTasks([...tied].reverse(), "priority"))).toEqual(
@@ -287,8 +287,8 @@ describe("sortTrackerTasks", () => {
     const compare = compareTrackerTasks("updated");
     const a = makeItem({ key: "AA-1", source: "crane" });
     const b = makeItem({ key: "AA-1", source: "jira" });
-    expect(compare(a, b)).toBeLessThan(0);
-    expect(compare(b, a)).toBeGreaterThan(0);
+    expect(compare(b, a)).toBeLessThan(0);
+    expect(compare(a, b)).toBeGreaterThan(0);
     expect(compare(a, a)).toBe(0);
   });
 

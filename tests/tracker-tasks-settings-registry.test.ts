@@ -150,6 +150,7 @@ describe("tracker tasks and Jira settings registry", () => {
       refreshIntervalSeconds:
         DEFAULT_TRACKER_TASKS_SETTINGS.refreshIntervalSeconds,
       defaultKickoffStartMode: "stage",
+      sourceEnabled: DEFAULT_TRACKER_TASKS_SETTINGS.sourceEnabled,
     });
   });
 });

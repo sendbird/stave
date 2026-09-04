@@ -7,10 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import {
-  useTrackerTasksAttention,
-  useTrackerTasksHasReadySource,
-} from "@/lib/tracker-tasks/client-state";
+import { useTrackerTasksAttention } from "@/lib/tracker-tasks/client-state";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
@@ -23,14 +20,6 @@ export function TopBarTasks(props: { noDragStyle: CSSProperties }) {
   );
   const attention = useTrackerTasksAttention();
   const attentionCount = attention.overdue + attention.dueToday;
-  // Availability rather than settings: a source the user enabled but never
-  // paired cannot produce a row, and an icon that opens an empty surface is
-  // worse than no icon.
-  const hasReadySource = useTrackerTasksHasReadySource();
-
-  if (!hasReadySource) {
-    return null;
-  }
 
   const dueLabel = `${attentionCount} ticket${attentionCount === 1 ? "" : "s"} due`;
 

@@ -86,7 +86,9 @@ describe("Tasks empty states", () => {
     expect(html).not.toContain("does not serve the task list yet");
     expect(html).not.toContain("Nothing assigned right now");
     expect(html).toContain("Jira");
-    expect(html).toContain("No credential saved yet.");
+    expect(html).toContain(
+      "Add the site URL, account email, and API token in Settings.",
+    );
     expect(html).toContain("Open Settings");
   });
 
@@ -146,7 +148,9 @@ describe("TrackerSourceStatusStrip", () => {
       jira: status({ source: "jira", availability: "not_configured" }),
     });
     expect(html).toContain("Jira");
-    expect(html).toContain("No credential saved yet.");
+    expect(html).toContain(
+      "Add the site URL, account email, and API token in Settings.",
+    );
     expect(html).toContain("Settings");
     expect(html).not.toContain("did not sync");
   });
@@ -166,6 +170,16 @@ describe("TrackerSourceStatusStrip", () => {
     });
     expect(blocked).not.toContain("bg-destructive/5");
     expect(blocked).not.toContain("Retry");
+  });
+
+  test("names an oversized Crane page instead of a generic size refusal", () => {
+    const html = renderStrip({
+      crane: status({ lastErrorCode: "response_too_large", taskCount: 0 }),
+      jira: status({ source: "jira" }),
+    });
+    expect(html).toContain("page too large");
+    expect(html).toContain("Retry");
+    expect(html).not.toContain("more data than Stave accepts");
   });
 
   test("offers Settings for a rejected credential and no retry", () => {

@@ -28,9 +28,9 @@ export const TRACKER_AVAILABILITY_HINTS: Record<
   string
 > = {
   ready: "Connected.",
-  disabled: "Turned off in Settings.",
-  unpaired: "Not paired with this installation yet.",
-  not_configured: "No credential saved yet.",
+  disabled: "Turned off in Settings → Tasks.",
+  unpaired: "Pair this tracker in Settings → Integrations.",
+  not_configured: "Add the site URL, account email, and API token in Settings.",
   secure_storage_unavailable:
     "The OS keychain is unavailable, so the credential cannot be read.",
 };
@@ -56,8 +56,10 @@ export const TRACKER_ERROR_HINTS: Record<string, string> = {
   invalid_jql: "The saved JQL query was rejected.",
   rate_limited: "The tracker is rate-limiting requests.",
   network_unavailable: "The tracker could not be reached.",
-  response_too_large: "The tracker returned more data than Stave accepts.",
-  invalid_response: "The tracker returned an unexpected shape.",
+  response_too_large:
+    "Crane sent a page too large for this Stave. Refresh to try a smaller page. If it keeps failing, the host needs to pack fewer tickets per page.",
+  invalid_response:
+    "Crane sent a ticket page Stave could not read. This is a host problem, not your pairing.",
   not_found: "The tracker route Stave asked for does not exist.",
   tasks_api_unavailable:
     "This Crane installation does not serve the task list yet, so only its dispatched jobs work. Nothing is wrong with your pairing.",
@@ -152,8 +154,12 @@ export function summarizeTrackerSource(
       headline: AVAILABILITY_HEADLINES[status.availability],
       detail: TRACKER_AVAILABILITY_HINTS[status.availability],
       retryable: false,
-      // The keychain is an OS-level problem; everything else is a Settings step.
-      fixInSettings: status.availability !== "secure_storage_unavailable",
+      // The keychain is an OS-level problem. A Tasks toggle that is off is
+      // already the control; sending people to Integrations would look like
+      // the connector itself is broken.
+      fixInSettings:
+        status.availability !== "secure_storage_unavailable" &&
+        status.availability !== "disabled",
     };
   }
 

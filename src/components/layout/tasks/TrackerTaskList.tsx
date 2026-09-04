@@ -18,7 +18,11 @@ export const TRACKER_TASK_VIRTUALIZATION_THRESHOLD = 80;
 
 type RowCallbacks = Pick<
   TrackerTaskRowProps,
-  "onSelect" | "onKickoff" | "onAttach" | "onOpenStaveTask" | "attachTargetLabel"
+  | "onSelect"
+  | "onKickoff"
+  | "onAttach"
+  | "onOpenStaveTask"
+  | "attachTargetLabel"
 >;
 
 export interface TrackerTaskListProps extends RowCallbacks {
@@ -39,12 +43,12 @@ function GroupHeader(props: {
       type="button"
       onClick={props.onToggle}
       aria-expanded={!props.collapsed}
-      className="flex w-full items-center gap-1.5 border-b border-border/50 bg-background/95 px-4 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground backdrop-blur-sm hover:text-foreground"
+      className="flex w-full items-center gap-1.5 border-b border-border/50 bg-background/95 px-4 py-2 text-left text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground backdrop-blur-sm hover:text-foreground"
     >
       {props.collapsed ? (
-        <ChevronRight className="size-3" />
+        <ChevronRight className="size-3.5" />
       ) : (
-        <ChevronDown className="size-3" />
+        <ChevronDown className="size-3.5" />
       )}
       {props.group.label}
       <span className="tabular-nums font-normal text-muted-foreground/80">
@@ -126,7 +130,11 @@ export function TrackerTaskList(props: TrackerTaskListProps) {
   }
 
   return (
-    <div role="listbox" aria-label="Tracker tickets" className="h-full overflow-y-auto">
+    <div
+      role="listbox"
+      aria-label="Tracker tickets"
+      className="h-full overflow-y-auto"
+    >
       {visibleGroups.map((entry) => (
         <div key={entry.group.id}>
           <div className="sticky top-0 z-10">

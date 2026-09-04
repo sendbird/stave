@@ -24,7 +24,9 @@ function sameSettings(
   return (
     a.defaultView === b.defaultView &&
     a.refreshIntervalSeconds === b.refreshIntervalSeconds &&
-    a.defaultKickoffStartMode === b.defaultKickoffStartMode
+    a.defaultKickoffStartMode === b.defaultKickoffStartMode &&
+    a.sourceEnabled.jira === b.sourceEnabled.jira &&
+    a.sourceEnabled.crane === b.sourceEnabled.crane
   );
 }
 
