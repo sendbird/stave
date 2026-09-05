@@ -1,5 +1,4 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
 import {
   Button,
@@ -8,12 +7,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui";
 import { ComposerControlDensityProvider } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_CONTROL_MENU_CONTENT,
+  ComposerControlMenuList,
+  type ComposerControlMenuItem,
+} from "@/components/ai-elements/composer-control-menu";
 
-export interface ComposerStatusTrayItem {
-  id: string;
-  label: string;
-  node: ReactNode;
-  /** Renders as a bare glyph, so the tray pairs it with a caption. */
+/** The shelf tray always knows whether a control is a bare glyph. */
+export interface ComposerStatusTrayItem extends ComposerControlMenuItem {
   iconOnly: boolean;
 }
 
@@ -219,27 +220,9 @@ export function ComposerStatusTray(props: {
             // Same band as the toolbar tray: these controls portal dialogs of
             // their own, and composer-anchored chrome must not paint over them.
             layer="floatingChrome"
-            className="w-auto min-w-56 max-w-[min(26rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10"
+            className={COMPOSER_CONTROL_MENU_CONTENT}
           >
-            <ComposerControlDensityProvider value="default">
-              <div className="flex flex-col items-stretch gap-1 [&>*]:justify-start">
-                {props.items.map((item) => (
-                  <div key={item.id} className="flex items-center gap-2">
-                    {item.node}
-                    {item.iconOnly ? (
-                      // Decorative: the control is already named for assistive
-                      // tech, but stacked glyphs need a visible caption.
-                      <span
-                        aria-hidden="true"
-                        className="text-sm text-muted-foreground"
-                      >
-                        {item.label}
-                      </span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </ComposerControlDensityProvider>
+            <ComposerControlMenuList items={props.items} />
           </PopoverContent>
         </Popover>
       ) : (

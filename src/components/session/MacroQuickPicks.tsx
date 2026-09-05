@@ -1,4 +1,8 @@
-import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_CONTROL_BUTTON,
+  ComposerControlLabel,
+  composerControlAttributes,
+} from "@/components/ai-elements/composer-control-density";
 import { Button } from "@/components/ui";
 import { isMacroInstantRun, type Macro } from "@/lib/macros/types";
 
@@ -46,6 +50,7 @@ export function MacroQuickPicks(props: {
           type="button"
           variant="ghost"
           size="sm"
+          {...composerControlAttributes}
           data-macro-quick-pick={macro.slug}
           disabled={props.disabled}
           aria-label={
@@ -54,7 +59,7 @@ export function MacroQuickPicks(props: {
               : `Insert macro ${macro.label}`
           }
           title={describeMacro(macro)}
-          className="text-xs text-muted-foreground shadow-none hover:text-foreground"
+          className={COMPOSER_CONTROL_BUTTON}
           onClick={() => props.onSelect(macro)}
         >
           <span

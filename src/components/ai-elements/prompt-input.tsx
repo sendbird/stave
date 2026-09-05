@@ -207,7 +207,16 @@ import {
   type LocalChangeReviewRequest,
 } from "./local-change-review-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ComposerControlLabel } from "./composer-control-density";
+import {
+  COMPOSER_CONTROL_MENU_CONTENT,
+  ComposerControlMenuList,
+} from "./composer-control-menu";
+import {
+  COMPOSER_CONTROL_BUTTON,
+  COMPOSER_CONTROL_LANE,
+  ComposerControlLabel,
+  composerControlAttributes,
+} from "./composer-control-density";
 import { ComposerStatusTray } from "@/components/ai-elements/composer-status-tray";
 import {
   ComposerFrame,
@@ -415,7 +424,6 @@ type WorkspaceInformationTokenMatch = NonNullable<
 const PROMPT_SURFACE_PRIMARY_FOCUS = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} focus-visible:border-transparent`;
 const PROMPT_FLOATING_SURFACE =
   "border border-border/60 bg-background/90 text-foreground hover:bg-background/95";
-const PROMPT_TOOLBAR_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} h-9 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground`;
 const PROMPT_TOOLBAR_ICON_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} rounded-md border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-muted/60 hover:text-foreground`;
 
 /*
@@ -2324,15 +2332,16 @@ export function PromptInput(args: PromptInputProps) {
           disabled={interactionsDisabled}
           aria-label={planMode ? "Plan mode ON" : "Plan mode OFF"}
           onClick={() => onPlanModeChange(!planMode)}
+          {...composerControlAttributes}
           className={tooltipTriggerButtonClassName({
             className: cn(
-              PROMPT_TOOLBAR_BUTTON,
+              COMPOSER_CONTROL_BUTTON,
               planMode ? getPromptToolbarAccentClass("plan") : undefined,
               interactionsDisabled && "cursor-not-allowed opacity-60",
             ),
           })}
         >
-          <ClipboardCheck className="size-3.5" />
+          <ClipboardCheck className="size-4" />
           <ComposerControlLabel>
             <span>Plan</span>
           </ComposerControlLabel>
@@ -2365,9 +2374,10 @@ export function PromptInput(args: PromptInputProps) {
             } as const;
             onThinkingModeChange(cycle[thinkingMode ?? "adaptive"]);
           }}
+          {...composerControlAttributes}
           className={tooltipTriggerButtonClassName({
             className: cn(
-              PROMPT_TOOLBAR_BUTTON,
+              COMPOSER_CONTROL_BUTTON,
               thinkingMode === "enabled"
                 ? getPromptToolbarAccentClass("thinking")
                 : thinkingMode === "disabled"
@@ -2379,7 +2389,7 @@ export function PromptInput(args: PromptInputProps) {
         >
           <Brain
             className={cn(
-              "size-3.5",
+              "size-4",
               thinkingMode === "adaptive" && "text-prompt-role-thinking",
             )}
           />
@@ -2414,6 +2424,7 @@ export function PromptInput(args: PromptInputProps) {
                 variant="ghost"
                 size="icon"
                 disabled={interactionsDisabled}
+                {...composerControlAttributes}
                 className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
                 aria-label={`Runtime · ${runtimeProfile.label}`}
                 title="Runtime profile for the next turn"
@@ -2457,6 +2468,7 @@ export function PromptInput(args: PromptInputProps) {
                 variant="ghost"
                 size="icon"
                 disabled={interactionsDisabled}
+                {...composerControlAttributes}
                 className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
                 aria-label={`Runtime · ${runtimeProfile.label}`}
                 title="Runtime profile for the next turn"
@@ -4110,7 +4122,10 @@ export function PromptInput(args: PromptInputProps) {
           >
             {!minimal ? (
               <div
-                className="relative flex flex-wrap items-center gap-1.5"
+                className={cn(
+                  "relative flex flex-wrap items-center gap-1.5",
+                  COMPOSER_CONTROL_LANE.toolbar,
+                )}
                 data-composer-toolbar="true"
                 onContextMenu={
                   canCustomizeComposerControls
@@ -4219,31 +4234,18 @@ export function PromptInput(args: PromptInputProps) {
                       // band (`z-[80]`) it just opened. Composer-anchored
                       // chrome is the honest band for it anyway.
                       layer="floatingChrome"
-                      className="w-auto min-w-56 max-w-[min(26rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10"
+                      className={COMPOSER_CONTROL_MENU_CONTENT}
                     >
-                      <div className="flex flex-col items-stretch gap-1 [&>*]:justify-start">
-                        {composerControlLayout.overflow.map((id) =>
-                          composerControlIsIconOnly(id) ? (
-                            // Position carries the meaning in a horizontal
-                            // toolbar; stacked in the tray, a bare glyph does
-                            // not. The caption is decorative — the control is
-                            // already named for assistive tech.
-                            <div key={id} className="flex items-center gap-2">
-                              {composerControlNodes[id]}
-                              <span
-                                aria-hidden="true"
-                                className="text-sm text-muted-foreground"
-                              >
-                                {COMPOSER_CONTROL_LABELS[id]}
-                              </span>
-                            </div>
-                          ) : (
-                            <Fragment key={id}>
-                              {composerControlNodes[id]}
-                            </Fragment>
-                          ),
-                        )}
-                      </div>
+                      <ComposerControlMenuList
+                        items={composerControlLayout.overflow
+                          .filter((id) => Boolean(composerControlNodes[id]))
+                          .map((id) => ({
+                            id,
+                            label: COMPOSER_CONTROL_LABELS[id],
+                            node: composerControlNodes[id],
+                            iconOnly: composerControlIsIconOnly(id),
+                          }))}
+                      />
                       {canCustomizeComposerControls ? (
                         <>
                           <div className="my-1.5 h-px bg-border/60" />

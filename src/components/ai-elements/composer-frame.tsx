@@ -1,5 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
-import { ComposerControlDensityProvider } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_CONTROL_LANE,
+  ComposerControlDensityProvider,
+} from "@/components/ai-elements/composer-control-density";
 import {
   COMPOSER_WING_COLLAPSED_WIDTH_PX,
   useComposerWingReveal,
@@ -182,16 +185,16 @@ export function ComposerFrameWing(props: {
           // 2rem rows with a real gap: a wing holds a handful of controls, not
           // a list, so the hit targets are sized for pointing at rather than
           // for packing in.
-          "[&_button]:h-8 [&_button]:min-h-8 [&_button]:w-full [&_button]:shrink-0 [&_button]:gap-2 [&_button]:px-2 [&_svg]:size-4 [&_svg]:shrink-0",
-          "[&_[data-secret-binding-control]]:h-8 [&_[data-secret-binding-control]]:w-full [&_[data-secret-binding-control]]:shrink-0",
+          COMPOSER_CONTROL_LANE.wing,
+          "[&_svg]:size-4 [&_svg]:shrink-0",
           // The inner 0.75rem of a wing is hidden behind the card, so the
           // padding is asymmetric on purpose: it puts each icon on the centre
           // line of the *visible* icon column, and — because that padding is
           // measured from the wing's fixed inner edge — leaves it there while
           // the wing reveals outwards.
           props.side === "left"
-            ? "items-end pl-2 pr-5 [&_button]:flex-row-reverse [&_button]:justify-start [&_button]:text-right"
-            : "items-start pl-5 pr-2 [&_button]:justify-start [&_button]:text-left",
+            ? "items-end pl-2 pr-5 [&_[data-composer-control]]:flex-row-reverse [&_[data-composer-control]]:justify-start [&_[data-composer-control]]:text-right"
+            : "items-start pl-5 pr-2 [&_[data-composer-control]]:justify-start [&_[data-composer-control]]:text-left",
           props.className,
         )}
       >
@@ -236,7 +239,15 @@ export function ComposerFrameStatusBar(props: {
         {props.children}
       </div>
       {props.trailing ? (
-        <div className="flex shrink-0 items-center gap-1 [&_button]:h-6 [&_button]:min-h-6 [&_button]:px-1.5 [&_button]:text-xs [&_svg]:shrink-0">
+        // The shelf lane. Controls arrive wearing `COMPOSER_CONTROL_BUTTON`
+        // and are resized here through their own marker, so the tray's `⋯`
+        // trigger and any future row chrome keep their own geometry.
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-1 [&_svg]:shrink-0",
+            COMPOSER_CONTROL_LANE.shelf,
+          )}
+        >
           {props.trailing}
         </div>
       ) : null}

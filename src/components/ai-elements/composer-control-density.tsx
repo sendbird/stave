@@ -7,6 +7,47 @@ import { createContext, useContext, type ReactNode } from "react";
  */
 export type ComposerControlDensity = "default" | "icon";
 
+/**
+ * Marks the one element a lane is allowed to resize: the control's own button.
+ * Spread it there — never onto a wrapper, or the lane rule lands on a box the
+ * button no longer fills and the control drifts out of the row.
+ */
+export const composerControlAttributes = {
+  "data-composer-control": "true",
+} as const;
+
+/**
+ * The one pill every composer control wears. It carries appearance plus the
+ * in-card toolbar's geometry, which doubles as the fallback for a control
+ * rendered outside any lane. Every other lane restates the size it wants in
+ * `COMPOSER_CONTROL_LANE` and wins by descendant specificity.
+ */
+export const COMPOSER_CONTROL_BUTTON =
+  "h-9 gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground";
+
+/**
+ * Control geometry, stated once per lane instead of once per control.
+ *
+ * The same six-or-so controls are rendered in four places at three different
+ * sizes, so size cannot live with the control — it belongs to wherever the
+ * control is standing. Each entry is applied to the *container* and reaches
+ * the buttons through `[data-composer-control]`, so a lane can never
+ * accidentally resize the unrelated buttons (model selector, send, attach)
+ * that share the row with it.
+ */
+export const COMPOSER_CONTROL_LANE = {
+  /** In-card toolbar: full-size pills beside the model selector. */
+  toolbar:
+    "[&_[data-composer-control]]:h-9 [&_[data-composer-control]]:min-h-9 [&_[data-composer-control]]:gap-1.5 [&_[data-composer-control]]:px-2.5",
+  /** Side wing: 2rem rows that fill the reserved column width. */
+  wing: "[&_[data-composer-control]]:h-8 [&_[data-composer-control]]:min-h-8 [&_[data-composer-control]]:w-full [&_[data-composer-control]]:shrink-0 [&_[data-composer-control]]:gap-2 [&_[data-composer-control]]:px-2",
+  /** Bottom status shelf: 1.5rem chips, the tightest lane. */
+  shelf:
+    "[&_[data-composer-control]]:h-6 [&_[data-composer-control]]:min-h-6 [&_[data-composer-control]]:gap-1.5 [&_[data-composer-control]]:px-1.5 [&_[data-composer-control]]:text-xs",
+  /** Overflow menu: a stacked list, so every row is full width and left-aligned. */
+  menu: "[&_[data-composer-control]]:h-8 [&_[data-composer-control]]:min-h-8 [&_[data-composer-control]]:w-full [&_[data-composer-control]]:justify-start [&_[data-composer-control]]:gap-2 [&_[data-composer-control]]:px-2",
+} as const;
+
 const ComposerControlDensityContext =
   createContext<ComposerControlDensity>("default");
 

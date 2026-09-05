@@ -1,10 +1,9 @@
-import { ArrowLeftRight, Check, Info, TriangleAlert } from "lucide-react";
+import { ArrowLeftRight } from "lucide-react";
 import {
   Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  Switch,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -31,8 +30,22 @@ import type {
   ManagedExecutionProviderId,
   ProviderId,
 } from "@/lib/providers/provider.types";
-import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
-import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_OPTION_MENU_CONTENT,
+  ComposerOptionCard,
+  ComposerOptionEffortChips,
+  ComposerOptionMenuCallout,
+  ComposerOptionMenuHint,
+  ComposerOptionMenuSection,
+  ComposerOptionMenuSettingsLink,
+  ComposerOptionMenuToggle,
+  ComposerOptionModelRow,
+} from "@/components/ai-elements/composer-option-menu";
+import {
+  COMPOSER_CONTROL_BUTTON,
+  ComposerControlLabel,
+  composerControlAttributes,
+} from "@/components/ai-elements/composer-control-density";
 import { cn } from "@/lib/utils";
 
 /**
@@ -113,11 +126,12 @@ export function PromptInputAdvisorPill(args: {
                     size="sm"
                     disabled={args.disabled}
                     aria-label={`Configure Advisor · ${presentation.label}`}
+                    {...composerControlAttributes}
                     data-advisor-control="true"
                     data-testid="advisor-mode-pill"
                     data-advisor-tone={presentation.tone}
                     className={cn(
-                      "h-9 gap-1.5 px-2.5 text-xs shadow-none",
+                      COMPOSER_CONTROL_BUTTON,
                       args.className,
                       presentation.tone === "off"
                         ? "text-muted-foreground hover:text-foreground"
@@ -158,178 +172,98 @@ export function PromptInputAdvisorPill(args: {
           align="start"
           side="top"
           sideOffset={8}
-          className="w-[23rem] gap-2 p-2"
+          className={cn("w-[23rem]", COMPOSER_OPTION_MENU_CONTENT)}
           data-testid="advisor-mode-options"
         >
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
-            <label
-              htmlFor="advisor-mode-switch"
-              className="flex min-w-0 flex-1 flex-col gap-0.5"
-            >
-              <span className="text-sm font-medium leading-none">Advisor</span>
-              <span className="text-[11px] leading-4 text-muted-foreground">
-                The primary may consult{" "}
-                {getProviderLabel({ providerId: selectedProviderId })} ·{" "}
-                {toHumanModelName({ model: selectedTarget.model })} on demand.
-              </span>
-            </label>
-            <Switch
-              id="advisor-mode-switch"
-              checked={args.arm.enabled}
-              onCheckedChange={(checked) => onSetEnabled(checked)}
-              data-testid="advisor-mode-switch"
-            />
-          </div>
+          <ComposerOptionMenuToggle
+            id="advisor-mode-switch"
+            title="Advisor"
+            description={`The primary may consult ${getProviderLabel({ providerId: selectedProviderId })} · ${toHumanModelName({ model: selectedTarget.model })} on demand.`}
+            checked={args.arm.enabled}
+            onCheckedChange={(checked) => onSetEnabled(checked)}
+            testId="advisor-mode-switch"
+          />
 
-          <div className="space-y-1 border-t border-border/60 pt-2">
-            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              Advisor provider
-            </p>
+          <ComposerOptionMenuSection title="Advisor provider">
             <div className="grid grid-cols-2 gap-1">
-              {buildAdvisorProviderOptions().map((option) => {
-                const isActive = selectedProviderId === option.id;
-                return (
-                  <Button
-                    key={option.id}
-                    type="button"
-                    variant="ghost"
-                    aria-pressed={isActive}
-                    data-testid={`advisor-mode-provider-${option.id}`}
-                    className={cn(
-                      "h-auto min-h-14 w-full justify-start gap-2 rounded-lg border px-2.5 py-2 text-left whitespace-normal",
-                      isActive
-                        ? "border-primary/30 bg-primary/10 hover:bg-primary/14"
-                        : "border-transparent hover:border-border/70 hover:bg-muted/60",
-                    )}
-                    onClick={() => {
-                      args.onSelectProvider(option.id);
-                    }}
-                  >
+              {buildAdvisorProviderOptions().map((option) => (
+                <ComposerOptionCard
+                  key={option.id}
+                  label={option.label}
+                  summary={option.summary}
+                  icon={
                     <ModelIcon
                       providerId={option.id}
                       className="size-4 shrink-0 self-start"
                     />
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="text-sm font-medium leading-none">
-                        {option.label}
-                      </span>
-                      <span className="text-[11px] leading-4 text-muted-foreground">
-                        {option.summary}
-                      </span>
-                    </span>
-                    {isActive ? (
-                      <Check className="size-3.5 shrink-0 self-start text-primary" />
-                    ) : null}
-                  </Button>
-                );
-              })}
+                  }
+                  active={selectedProviderId === option.id}
+                  onSelect={() => {
+                    args.onSelectProvider(option.id);
+                  }}
+                  testId={`advisor-mode-provider-${option.id}`}
+                />
+              ))}
             </div>
-          </div>
+          </ComposerOptionMenuSection>
 
-          <div className="space-y-1 border-t border-border/60 pt-2">
-            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              Advisor model
-            </p>
-            <div className="max-h-52 space-y-0.5 overflow-y-auto">
-              {args.advisorModelOptions.map((model) => {
-                const isActive = selectedTarget.model === model;
-                return (
-                  <Button
-                    key={model}
-                    type="button"
-                    variant="ghost"
-                    aria-pressed={isActive}
-                    data-testid={`advisor-mode-model-${model}`}
-                    className={cn(
-                      "h-auto min-h-8 w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left text-sm whitespace-normal",
-                      isActive && "bg-muted/70",
-                    )}
-                    onClick={() => {
-                      args.onSelectModel(model);
-                    }}
-                  >
-                    {/* Every row here is the selected provider, so the mark is
-                          an anchor rather than a distinction — it matches the
-                          main model list users already read. */}
-                    <ModelIcon
-                      providerId={selectedProviderId}
-                      model={model}
-                      className="size-3.5"
-                    />
-                    <span className="min-w-0 flex-1 truncate">
-                      {toHumanModelName({ model })}
-                    </span>
-                    {isActive ? (
-                      <Check className="size-3.5 shrink-0 text-primary" />
-                    ) : null}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
+          <ComposerOptionMenuSection title="Advisor model" scroll>
+            {args.advisorModelOptions.map((model) => (
+              <ComposerOptionModelRow
+                key={model}
+                label={toHumanModelName({ model })}
+                icon={
+                  <ModelIcon
+                    providerId={selectedProviderId}
+                    model={model}
+                    className="size-3.5"
+                  />
+                }
+                active={selectedTarget.model === model}
+                onSelect={() => {
+                  args.onSelectModel(model);
+                }}
+                testId={`advisor-mode-model-${model}`}
+              />
+            ))}
+          </ComposerOptionMenuSection>
 
-          <div
-            className="space-y-1 border-t border-border/60 pt-2"
-            data-testid="advisor-mode-effort-row"
+          <ComposerOptionMenuSection
+            title="Advisor effort"
+            testId="advisor-mode-effort-row"
           >
-            <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              Advisor effort
-            </p>
-            <div className="flex flex-wrap gap-1">
-              {buildAdvisorEffortOptions(selectedTarget).map((option) => {
-                const isActive = effortSelection === option.value;
-                return (
-                  <Button
-                    key={option.value ?? "auto"}
-                    type="button"
-                    variant="ghost"
-                    title={option.title}
-                    aria-pressed={isActive}
-                    data-testid={`advisor-mode-effort-${option.value ?? "auto"}`}
-                    className={cn(
-                      "h-7 min-w-11 flex-1 justify-center rounded-md border px-2 text-xs",
-                      isActive
-                        ? "border-primary/30 bg-primary/10 font-medium text-foreground hover:bg-primary/14"
-                        : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/60",
-                    )}
-                    onClick={() => {
-                      args.onSelectEffort(option.value);
-                    }}
-                  >
-                    {option.label}
-                  </Button>
-                );
-              })}
-            </div>
-            <p className="px-1 text-[11px] leading-4 text-muted-foreground">
+            <ComposerOptionEffortChips
+              options={buildAdvisorEffortOptions(selectedTarget)}
+              selected={effortSelection}
+              onSelect={(value) => {
+                args.onSelectEffort(value);
+              }}
+              testId={(value) => `advisor-mode-effort-${value ?? "auto"}`}
+            />
+            <ComposerOptionMenuHint>
               Higher tiers give better advice and make the turn wait longer.
-            </p>
-          </div>
+            </ComposerOptionMenuHint>
+          </ComposerOptionMenuSection>
 
           {presentation.note ? (
-            <p
-              className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/40 px-2.5 py-2 text-xs leading-5 text-muted-foreground"
-              data-testid="advisor-mode-note"
-            >
-              <Info className="mt-0.5 size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1">{presentation.note}</span>
-            </p>
+            <ComposerOptionMenuCallout tone="note" testId="advisor-mode-note">
+              {presentation.note}
+            </ComposerOptionMenuCallout>
           ) : null}
 
           {presentation.warning ? (
-            <p
-              className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs leading-5 text-warning"
-              data-testid="advisor-mode-warning"
+            <ComposerOptionMenuCallout
+              tone="warning"
+              testId="advisor-mode-warning"
             >
-              <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1">{presentation.warning}</span>
-            </p>
+              {presentation.warning}
+            </ComposerOptionMenuCallout>
           ) : null}
 
-          <p className="px-1 text-[11px] leading-4 text-muted-foreground">
-            Applies to this task only. The primary model may consult the read-only
-            Advisor on demand during its turn; every consult is one extra model
-            call it waits on.{" "}
+          <ComposerOptionMenuHint>
+            Applies to this task only. The primary model may consult the
+            read-only Advisor on demand during its turn; every consult is one
+            extra model call it waits on.{" "}
             <span className="whitespace-nowrap">
               {ADVISOR_TOGGLE_SHORTCUT_LABEL} toggles
             </span>
@@ -338,21 +272,13 @@ export function PromptInputAdvisorPill(args: {
               {ADVISOR_PICKER_SHORTCUT_LABEL} opens this menu
             </span>
             .
-          </p>
-          <button
-            type="button"
-            data-testid="advisor-mode-open-settings"
-            className="px-1 text-left text-[11px] leading-4 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-            onClick={() => {
-              window.dispatchEvent(
-                new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-                  detail: { section: "providers" },
-                }),
-              );
-            }}
+          </ComposerOptionMenuHint>
+          <ComposerOptionMenuSettingsLink
+            section="providers"
+            testId="advisor-mode-open-settings"
           >
             Defaults and consult budget live in Settings → Providers → Advisor.
-          </button>
+          </ComposerOptionMenuSettingsLink>
         </PopoverContent>
     </Popover>
   );

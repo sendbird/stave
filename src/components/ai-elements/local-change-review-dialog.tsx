@@ -6,7 +6,11 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
-import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_CONTROL_BUTTON,
+  ComposerControlLabel,
+  composerControlAttributes,
+} from "@/components/ai-elements/composer-control-density";
 import { Button, Loader, Textarea } from "@/components/ui";
 import {
   Dialog,
@@ -279,7 +283,9 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             variant="ghost"
             size="sm"
             disabled={args.disabled}
-            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground hover:bg-secondary/30 hover:text-foreground"
+            className={COMPOSER_CONTROL_BUTTON}
+            {...composerControlAttributes}
+            data-review-control="true"
             aria-label="Review local changes"
             title={`Review with ${providerLabel}`}
           />

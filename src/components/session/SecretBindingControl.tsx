@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound } from "lucide-react";
-import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_CONTROL_BUTTON,
+  ComposerControlLabel,
+  composerControlAttributes,
+} from "@/components/ai-elements/composer-control-density";
 import {
   Button,
   DropdownMenu,
@@ -114,7 +118,9 @@ export function SecretBindingControl({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
+            className={COMPOSER_CONTROL_BUTTON}
+            {...composerControlAttributes}
+            data-secret-binding-control="true"
             disabled={disabled}
             aria-label="Bind secrets to this task as environment variables"
             title="Bind secrets to this task"
