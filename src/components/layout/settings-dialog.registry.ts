@@ -100,6 +100,7 @@ export const settingDefinitions = [
       "codex",
       "codex advisor",
       "fable",
+      "astra",
       "model",
       ...ADVISOR_MODEL_SEARCH_KEYWORDS,
     ],

@@ -56,15 +56,32 @@ export function normalizeAdvisorConsultLimit(value: unknown): number {
  * enough time to finish while keeping low-effort preflights deliberately
  * bounded.
  */
-export const DEFAULT_ADVISOR_TIMEOUT_MS = 5 * 60_000;
+export const DEFAULT_ADVISOR_TIMEOUT_MS = 10 * 60_000;
 
+/**
+ * Deadline per resolved effort tier.
+ *
+ * Cutting a consult short is the expensive failure: the work still ran and
+ * still billed, the primary gets no advice, and the turn has to proceed
+ * without the second opinion it asked for. So every tier is sized to outlast a
+ * healthy call rather than to police a slow one — the tiers still rise with
+ * effort so a cheap preflight cannot sit for half an hour.
+ *
+ * `max` and `ultra` are separated rather than sharing the `xhigh` ceiling:
+ * Codex describes `ultra` as "maximum reasoning with automatic task
+ * delegation", which fans out sub-work and legitimately runs longest.
+ *
+ * Raising any value here means raising `HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS`
+ * to stay above it — see the ladder note there, and the guard in
+ * `tests/stave-local-mcp-manifest.test.ts`.
+ */
 const ADVISOR_TIMEOUT_MS_BY_EFFORT: Readonly<Record<AdvisorEffort, number>> = {
-  low: 2 * 60_000,
-  medium: 3 * 60_000,
-  high: 5 * 60_000,
-  xhigh: 10 * 60_000,
-  max: 10 * 60_000,
-  ultra: 10 * 60_000,
+  low: 3 * 60_000,
+  medium: 5 * 60_000,
+  high: 10 * 60_000,
+  xhigh: 15 * 60_000,
+  max: 20 * 60_000,
+  ultra: 25 * 60_000,
 };
 
 const PROVIDER_IDS = new Set<ManagedExecutionProviderId>([

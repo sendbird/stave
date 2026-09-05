@@ -32,19 +32,29 @@ describe("model catalog", () => {
   test("includes Claude Fable 5.1 without making it the Claude default", () => {
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(CLAUDE_FABLE_MODEL);
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
-      "claude-sonnet-5",
+      DEFAULT_CLAUDE_OPUS_MODEL,
     );
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).not.toBe(
       CLAUDE_FABLE_MODEL,
     );
   });
 
-  test("includes the verified Codex model set", () => {
+  test("includes the verified Codex model set led by GPT-6 Astra", () => {
     expect(CODEX_MODEL_OPTIONS).toEqual([
+      "gpt-6-astra",
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-luna",
     ]);
+  });
+
+  test("includes GPT-6 Astra without making it the Codex default", () => {
+    expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
+      "gpt-5.6-sol",
+    );
+    expect(getDefaultModelForProvider({ providerId: "codex" })).not.toBe(
+      "gpt-6-astra",
+    );
   });
 
   test("includes Fable 5.1 and Sonnet 5 in the Claude SDK options", () => {
@@ -52,7 +62,7 @@ describe("model catalog", () => {
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5");
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5[1m]");
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
-      "claude-sonnet-5",
+      DEFAULT_CLAUDE_OPUS_MODEL,
     );
   });
 
@@ -64,6 +74,7 @@ describe("model catalog", () => {
   });
 
   test("formats current GPT models with canonical labels", () => {
+    expect(toHumanModelName({ model: "gpt-6-astra" })).toBe("GPT-6 Astra");
     expect(toHumanModelName({ model: "gpt-5.6-sol" })).toBe("GPT-5.6 Sol");
     expect(toHumanModelName({ model: "gpt-5.6-terra" })).toBe("GPT-5.6 Terra");
     expect(toHumanModelName({ model: "gpt-5.6-luna" })).toBe("GPT-5.6 Luna");
@@ -101,50 +112,60 @@ describe("model catalog", () => {
 
   test("returns provider defaults from the descriptor registry", () => {
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
-      "claude-sonnet-5",
+      DEFAULT_CLAUDE_OPUS_MODEL,
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
-      "gpt-5.6-terra",
+      "gpt-5.6-sol",
     );
   });
 
-  test("uses xhigh for Fable and Opus and high for Sonnet as the Claude effort default", () => {
+  test("pitches the Claude effort default inverse to model strength", () => {
+    // Fable medium -> Opus high -> Sonnet xhigh. Fable is checked before Opus
+    // so the shared frontier tier does not drag it up a rung.
     expect(
       resolveDefaultClaudeEffortForModel({ model: CLAUDE_FABLE_MODEL }),
-    ).toBe("xhigh");
+    ).toBe("medium");
+    expect(
+      resolveDefaultClaudeEffortForModel({ model: "claude-fable-5" }),
+    ).toBe("medium");
     expect(
       resolveDefaultClaudeEffortForModel({ model: DEFAULT_CLAUDE_OPUS_MODEL }),
-    ).toBe("xhigh");
+    ).toBe("high");
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-opus-4-7[1m]" }),
-    ).toBe("xhigh");
+    ).toBe("high");
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5" }),
-    ).toBe("high");
+    ).toBe("xhigh");
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5[1m]" }),
-    ).toBe("high");
+    ).toBe("xhigh");
     // Legacy Sonnet 4.6 ids that still appear in historical records resolve too.
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-4-6" }),
-    ).toBe("high");
+    ).toBe("xhigh");
+    // Haiku is off the ladder: the Claude API rejects `effort` for it outright.
     expect(
-      resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5" }),
-    ).toBe("high");
+      resolveDefaultClaudeEffortForModel({ model: "claude-haiku-4-5" }),
+    ).toBe("medium");
   });
 
   test("returns the default Codex effort from model capabilities", () => {
-    // Defaults mirror `defaultReasoningEffort` from the codex-cli 0.144.1
-    // App Server `model/list` catalog (xhigh across GPT-5.6 and GPT-5.5).
-    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-luna" })).toBe(
-      "xhigh",
+    // Astra medium -> Sol high -> Terra xhigh -> Luna max: effort runs inverse
+    // to model strength so every rung costs roughly the same quality.
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-astra" })).toBe(
+      "medium",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-sol" })).toBe(
+      "high",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-terra" })).toBe(
       "xhigh",
     );
-    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-sol" })).toBe(
-      "xhigh",
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-luna" })).toBe(
+      "max",
     );
+    // Legacy GPT-5.5 keeps the xhigh cap it was verified at.
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.5" })).toBe(
       "xhigh",
     );
@@ -178,7 +199,10 @@ describe("model catalog", () => {
   });
 
   test("scopes selectable Codex reasoning efforts per model, per the verified server catalog", () => {
-    // Sol/Terra accept the full scale including "ultra".
+    // Astra/Sol/Terra accept the full scale including "ultra".
+    expect(listCodexReasoningEffortsForModel({ model: "gpt-6-astra" })).toEqual(
+      ["low", "medium", "high", "xhigh", "max", "ultra"],
+    );
     expect(listCodexReasoningEffortsForModel({ model: "gpt-5.6-sol" })).toEqual(
       ["low", "medium", "high", "xhigh", "max", "ultra"],
     );
@@ -251,6 +275,9 @@ describe("model catalog", () => {
     expect(resolveTierModel({ providerId: "codex", tier: "light" })).toBe(
       "gpt-5.6-luna",
     );
+    expect(resolveTierModel({ providerId: "codex", tier: "frontier" })).toBe(
+      "gpt-6-astra",
+    );
     expect(resolveTierModel({ providerId: "claude-code", tier: "light" })).toBe(
       "claude-haiku-4-5",
     );
@@ -268,16 +295,17 @@ describe("model catalog", () => {
       resolveClaudeEffortForModelSwitch({
         previousModel: "claude-sonnet-4-6",
         nextModel: DEFAULT_CLAUDE_OPUS_MODEL,
-        currentEffort: "high",
+        currentEffort: "xhigh",
       }),
-    ).toBe("xhigh");
+    ).toBe("high");
     expect(
       resolveClaudeEffortForModelSwitch({
         previousModel: DEFAULT_CLAUDE_OPUS_MODEL,
         nextModel: "claude-sonnet-4-6",
-        currentEffort: "xhigh",
+        currentEffort: "high",
       }),
-    ).toBe("high");
+    ).toBe("xhigh");
+    // A tuned value survives the switch untouched.
     expect(
       resolveClaudeEffortForModelSwitch({
         previousModel: "claude-sonnet-4-6",

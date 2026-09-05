@@ -34,6 +34,7 @@ import {
   normalizeModelShortcutKeys,
   type ModelShortcutEffort,
 } from "@/lib/providers/model-shortcuts";
+import { SETTINGS_MODEL_MIGRATION_VERSION } from "@/lib/providers/settings-model-migration";
 import {
   DEFAULT_PROMPT_COMMENT_SHORTCUT,
   type PromptCommentShortcut,
@@ -236,6 +237,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   commandPaletteRecentCommandIds: string[];
   /** Cmd/Ctrl+K shell chord bindings for navigation and panel actions. */
   appShortcutKeys: AppShortcutKeys;
+  /**
+   * Highest one-time settings migration applied to this snapshot. Absent on
+   * snapshots written before the marker existed, which is exactly how
+   * `migrateSettingsModelDefaults` recognizes a pre-migration user.
+   */
+  settingsModelMigrationVersion: number;
   /** Alt+1..0 prompt-model bindings, stored as `provider:model` keys. */
   modelShortcutKeys: string[];
   /** Optional per-slot effort overrides for the Alt+1..0 prompt-model bindings. */
@@ -650,6 +657,9 @@ export const defaultSettings: AppSettings = {
   commandPaletteHiddenCommandIds: [],
   commandPaletteRecentCommandIds: [],
   appShortcutKeys: { ...DEFAULT_APP_SHORTCUT_KEYS },
+  // A fresh install is already on the current defaults, so it starts fully
+  // migrated and no migration rule ever runs against it.
+  settingsModelMigrationVersion: SETTINGS_MODEL_MIGRATION_VERSION,
   modelShortcutKeys: normalizeModelShortcutKeys(),
   modelShortcutEfforts: normalizeModelShortcutEfforts(),
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
@@ -727,6 +737,8 @@ export const defaultSettings: AppSettings = {
   },
   trackerTasks: { ...DEFAULT_TRACKER_TASKS_SETTINGS },
   claudeSettingSources: ["project"],
+  // Matches `resolveDefaultClaudeEffortForModel` for the default model
+  // (Opus 5). Keep the two in step when either changes.
   claudeEffort: "high",
   claudeThinkingMode: "adaptive",
   claudeAgentProgressSummaries: false,
@@ -749,9 +761,9 @@ export const defaultSettings: AppSettings = {
   codexNetworkAccess: true,
   codexApprovalPolicy: "never",
   codexBinaryPath: "",
-  // Matches the codex-cli 0.144.1 server-catalog default effort (xhigh) for
-  // the default model family (GPT-5.6).
-  codexReasoningEffort: "xhigh",
+  // Matches `resolveDefaultCodexEffortForModel` for the default model
+  // (GPT-5.6 Sol). Keep the two in step when either changes.
+  codexReasoningEffort: "high",
   codexWebSearch: "live",
   codexAppToolApprovalMode: "inherit",
   codexShowRawReasoning: false,

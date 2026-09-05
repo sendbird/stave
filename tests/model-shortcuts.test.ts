@@ -17,8 +17,8 @@ describe("model shortcuts", () => {
     expect(normalizeModelShortcutKeys(["codex:gpt-5.6-luna", ""])).toEqual([
       "codex:gpt-5.6-luna",
       "",
-      "codex:gpt-5.6-sol",
-      "",
+      "claude-code:claude-fable-5-1",
+      "codex:gpt-6-astra",
       "",
       "",
       "",

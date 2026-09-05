@@ -527,18 +527,31 @@ describe("advisor effort", () => {
   });
 
   test("an unpinned target follows the model's provider default", () => {
+    // The default-effort ladder runs inverse to model strength: Opus/Sol high,
+    // Sonnet/Terra xhigh.
     expect(
       resolveAdvisorEffort({
         providerId: "claude-code",
         model: "claude-opus-4-8",
       }),
-    ).toBe("xhigh");
+    ).toBe("high");
     expect(
       resolveAdvisorEffort({ providerId: "codex", model: "gpt-5.6-sol" }),
+    ).toBe("high");
+    expect(
+      resolveAdvisorEffort({ providerId: "codex", model: "gpt-5.6-terra" }),
     ).toBe("xhigh");
   });
 
   test("gives high-effort Advisors a longer deadline", () => {
+    // Sonnet 5 defaults to xhigh on the inverse ladder, so its unpinned
+    // Advisor outlasts Opus 5's high tier without pinning an effort.
+    expect(
+      resolveAdvisorTimeoutMs({
+        providerId: "claude-code",
+        model: "claude-sonnet-5",
+      }),
+    ).toBe(15 * 60_000);
     expect(
       resolveAdvisorTimeoutMs({
         providerId: "claude-code",
@@ -551,7 +564,23 @@ describe("advisor effort", () => {
         model: "claude-opus-5",
         effort: "low",
       }),
-    ).toBe(2 * 60_000);
+    ).toBe(3 * 60_000);
+    // `ultra` fans out sub-work, so it gets the longest rung of its own
+    // rather than sharing the xhigh ceiling.
+    expect(
+      resolveAdvisorTimeoutMs({
+        providerId: "codex",
+        model: "gpt-5.6-sol",
+        effort: "ultra",
+      }),
+    ).toBe(25 * 60_000);
+    expect(
+      resolveAdvisorTimeoutMs({
+        providerId: "codex",
+        model: "gpt-5.6-sol",
+        effort: "max",
+      }),
+    ).toBe(20 * 60_000);
   });
 
   test("a pinned tier the model accepts is used verbatim", () => {
@@ -631,7 +660,7 @@ describe("advisor effort", () => {
     };
     const normalized = normalizeAdvisorTarget(persisted);
     expect(normalized).not.toBeNull();
-    expect(resolveAdvisorEffort(normalized!)).toBe("xhigh");
+    expect(resolveAdvisorEffort(normalized!)).toBe("high");
   });
 });
 

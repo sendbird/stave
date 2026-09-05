@@ -87,9 +87,12 @@ This is usually faster than opening Settings and browsing manually.
 
 Default bindings:
 
-- `Alt+1` → `Claude Opus 5`
-- `Alt+2` → `GPT-5.6 Terra`
-- `Alt+3` → `GPT-5.6 Sol`
+- `Alt+1` → `Claude Opus 5` (Claude default)
+- `Alt+2` → `GPT-5.6 Sol` (Codex default)
+- `Alt+3` → `Claude Fable 5.1` (Claude frontier)
+- `Alt+4` → `GPT-6 Astra` (Codex frontier)
+
+The same four bindings back the model picker's **Recommended** group.
 
 ### Work Mostly From The Keyboard
 

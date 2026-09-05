@@ -302,8 +302,13 @@ believes is on. Codex's legacy `minimal` is not selectable and collapses to
 `low` before the call, so it never appears as a pin or in a reported event.
 
 Each consult's deadline follows the resolved effort rather than sharing the
-primary provider timeout: `low` gets 2 minutes, `medium` 3 minutes, `high` 5
-minutes, and `xhigh`/`max`/`ultra` 10 minutes. The lifecycle `started` event
+primary provider timeout: `low` gets 3 minutes, `medium` 5, `high` 10, `xhigh`
+15, `max` 20, and `ultra` 25. The tiers are sized to outlast a healthy call
+rather than to police a slow one — cutting a consult short is the expensive
+failure, because the work still ran and still billed while the primary got no
+advice. `ultra` gets its own top rung because Codex describes it as "maximum
+reasoning with automatic task delegation", which fans out sub-work and
+legitimately runs longest. The lifecycle `started` event
 reports that same resolved deadline, so the exchange monitor countdown and the
 runtime enforcement cannot drift. The monitor's Cancel-consult control drops
 only the in-flight consult; the grant (and the turn) keep going.
@@ -313,9 +318,13 @@ consult path keeps an explicitly ordered ladder — innermost first:
 
 | Layer | Deadline | Defined in |
 | --- | --- | --- |
-| One advisor call | 2–10 min by effort tier | `resolveAdvisorTimeoutMs` |
-| Host-service backstop | 15 min | `HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS` |
-| MCP tool call (client) | 16 min | `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS` |
+| One advisor call | 3–25 min by effort tier | `resolveAdvisorTimeoutMs` |
+| Host-service backstop | 30 min | `HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS` |
+| MCP tool call (client) | 31 min | `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS` |
+
+Raising any effort tier means raising the backstop with it. `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS`
+is derived (`backstop + 60s`) so only the first two rungs are hand-set, and
+`tests/stave-local-mcp-manifest.test.ts` fails on any inversion.
 
 The outermost rung is the one that has to be stated rather than inherited: the
 Claude Agent SDK defaults a tool call to a **hard 60-second** wall clock that
@@ -552,7 +561,7 @@ before building the call.
 
 | | Claude | Codex | Cursor | Kiro |
 | --- | --- | --- | --- | --- |
-| orchestrating primaries | Fable 5.1, Opus 5 (+1M), Sonnet 5 (+1M) | GPT-5.6 Sol, GPT-5.6 Terra | runtime ACP catalog | runtime model catalog |
+| orchestrating primaries | Fable 5.1, Opus 5 (+1M), Sonnet 5 (+1M) | GPT-6 Astra, GPT-5.6 Sol, GPT-5.6 Terra | runtime ACP catalog | runtime model catalog |
 | worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5.1 | Terra, Sol | runtime ACP catalog | runtime model catalog |
 | execution adapter | native named agent | native spawned agent | task-scoped ACP role session | task-scoped ACP role session |
 | worker model pinning | `AgentDefinition.model` | `agents.default_subagent_model` | ACP config option | ACP model selection |
@@ -560,19 +569,22 @@ before building the call.
 | description / instructions | `description` + `prompt` | `developer_instructions` | turn briefing + standalone Worker prompt | turn briefing + standalone Worker prompt |
 | tool bounding | `tools` — hard-enforced | guidance | guidance | guidance |
 
-Codex primaries are limited to Sol and Terra because they are the only models
-whose live catalog advertises the `ultra` tier, described by that catalog as
-"Maximum reasoning with automatic task delegation" — i.e. the only Codex models
-that delegate natively. `ThreadStartParams.multiAgentMode` is deprecated and
+Codex primaries are limited to Astra, Sol, and Terra because they are the only
+models whose live catalog advertises the `ultra` tier, described by that catalog
+as "Maximum reasoning with automatic task delegation" — i.e. the only Codex
+models that delegate natively. Astra can orchestrate but is deliberately absent
+from the worker list: pinning a frontier model as the worker is the expensive
+shape Worker mode exists to avoid. `ThreadStartParams.multiAgentMode` is deprecated and
 ignored on the supported baseline, and the App Server exposes no subagent RPC,
 so Stave pins the worker through `[agents]` config instead. That is the
 documented path: `spawn_agent`'s own tool description states that spawned agents
 inherit the preferred default unless given an explicit override.
 
-Luna remains available as a top-level Codex model, but codex-cli 0.145/0.146
-rejects it in the V2 `spawn_agent` pool, which currently accepts only Sol and
-Terra. Stave blocks Luna as a Worker before dispatch instead of promising a
-worker the runtime will fail to create.
+Luna remains available as a top-level Codex model, but it reports
+`multiAgentVersion: "v1"` and codex-cli 0.145/0.146 rejects it in the V2
+`spawn_agent` pool, which accepts only the V2 models (Astra, Sol, Terra). Stave
+blocks Luna as a Worker before dispatch instead of promising a worker the
+runtime will fail to create.
 
 Worker config travels on both `thread/start` and `thread/resume`, and the worker
 model and effort are part of the developer instructions that feed
@@ -1106,7 +1118,41 @@ When a task switches from one Codex model to another, Stave does not attempt to 
 
 - Codex App Server transport: local `codex app-server` from Codex CLI `0.145.0`
 - Current schema verification baseline: `0.145.0` (verified July 31, 2026)
-- Current Stave-supported Codex model IDs: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5` (default: `gpt-5.6-terra`)
+- Current Stave-supported Codex model IDs: `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5` (default: `gpt-5.6-sol`; `gpt-6-astra` is the frontier tier)
+
+### Default-effort ladder
+
+Default reasoning effort runs *inverse* to model strength, so every rung lands
+at roughly the same answer quality for very different cost:
+
+| Rung | Claude | Codex | Default effort |
+| --- | --- | --- | --- |
+| frontier | Fable 5.1 | GPT-6 Astra | `medium` |
+| flagship | Opus 5 (+1M) | GPT-5.6 Sol | `high` |
+| balanced | Sonnet 5 (+1M) | GPT-5.6 Terra | `xhigh` |
+| light | — | GPT-5.6 Luna | `max` |
+
+A frontier model pinned to `xhigh` mostly buys latency — codex-cli 0.153.2
+reports `defaultReasoningEffort: "medium"` for Astra itself — while a cheaper
+model given a deep budget can match a mid model at its own default. Raising or
+lowering the tier stays a deliberate per-turn choice.
+
+Claude Haiku 4.5 is deliberately absent: the Claude API rejects `effort`
+outright for Haiku-class models, so Stave drops the field rather than clamping
+it. Legacy `gpt-5.5` keeps the `xhigh` cap it was verified at.
+
+Two knock-on effects worth knowing:
+
+- The Advisor deadline is tiered by effort (`resolveAdvisorTimeoutMs`), so an
+  unpinned Opus 5 / Sol Advisor lands on the `high` rung and Sonnet 5 / Terra on
+  `xhigh`. See the ladder above for the current per-tier minutes.
+- Fresh-install `claudeEffort` / `codexReasoningEffort` seeds track the default
+  model's rung. Existing users are carried over by the one-time settings
+  migration in `src/lib/providers/settings-model-migration.ts`, which moves a
+  stored effort only when it still matched that model's *old* default — an
+  effort the user actually tuned is left alone. The same migration moves the
+  previous per-provider default models (Sonnet 5 → Opus 5, Terra → Sol) and is
+  gated by `settings.settingsModelMigrationVersion` so it runs exactly once.
 
 Stave requires a user-installed Codex CLI. Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery. Stave does not currently enforce a semantic-version floor, so controls for newly adopted features must be capability-gated for older executables.
 

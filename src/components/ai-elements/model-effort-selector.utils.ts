@@ -225,9 +225,15 @@ function getModelLineage(model: string) {
     );
   }
   if (bareModel.startsWith("gpt-")) {
-    const variant = ["sol", "terra", "luna", "codex", "mini", "nano"].find(
-      (candidate) => bareModel.split("-").includes(candidate),
-    );
+    const variant = [
+      "astra",
+      "sol",
+      "terra",
+      "luna",
+      "codex",
+      "mini",
+      "nano",
+    ].find((candidate) => bareModel.split("-").includes(candidate));
     return variant ? `gpt-${variant}` : "gpt";
   }
   if (bareModel.startsWith("gemini-")) {

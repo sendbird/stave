@@ -31,7 +31,7 @@ export function shouldOpenModelSelector(args: {
 }
 
 const DEFAULT_RECOMMENDED_MODEL_SELECTOR_KEYS = [
-  ...DEFAULT_MODEL_SHORTCUT_KEYS.slice(0, 3),
+  ...DEFAULT_MODEL_SHORTCUT_KEYS.slice(0, 4),
 ] as const;
 
 function buildModelSelectorOption(args: {

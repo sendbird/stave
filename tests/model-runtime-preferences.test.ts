@@ -124,8 +124,10 @@ describe("model runtime preferences", () => {
       model: "claude-opus-4-8",
     });
 
-    expect(codexSettings.codexReasoningEffort).toBe("xhigh");
-    expect(claudeSettings.claudeEffort).toBe("xhigh");
+    // Sol and Opus both sit on the "high" rung of the inverse effort ladder,
+    // so neither inherits Luna's "max" nor the incoming settings value.
+    expect(codexSettings.codexReasoningEffort).toBe("high");
+    expect(claudeSettings.claudeEffort).toBe("high");
   });
 
   test("normalizes persisted preferences by provider capabilities", () => {

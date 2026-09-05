@@ -1,4 +1,5 @@
 import {
+  CLAUDE_FABLE_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   getProviderLabel,
   listProviderIds,
@@ -28,11 +29,16 @@ export const MODEL_SHORTCUT_SLOT_LABELS = [
   "0",
 ] as const;
 
+/**
+ * Slots 1-4 double as the model picker's "Recommended" group
+ * (`DEFAULT_RECOMMENDED_MODEL_SELECTOR_KEYS`): each provider's default model
+ * first, then each provider's frontier model.
+ */
 export const DEFAULT_MODEL_SHORTCUT_KEYS = [
   `claude-code:${DEFAULT_CLAUDE_OPUS_MODEL}`,
-  "codex:gpt-5.6-terra",
   "codex:gpt-5.6-sol",
-  "",
+  `claude-code:${CLAUDE_FABLE_MODEL}`,
+  "codex:gpt-6-astra",
   "",
   "",
   "",

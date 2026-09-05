@@ -21,7 +21,7 @@ export const HOST_SERVICE_READY_TIMEOUT_MS = 60_000;
  * to primaries, the stdio proxy — has to sit above it, so the innermost layer
  * is always the one that reports. See `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS`.
  */
-export const HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS = 15 * 60_000;
+export const HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS = 30 * 60_000;
 
 /**
  * `null` means "no backstop": user-paced turns, streaming reads, OAuth logins
@@ -32,8 +32,8 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
 > = {
   "service.shutdown": 30_000,
   // One Advisor consult is bounded by `resolveAdvisorTimeoutMs`, which tops out
-  // at 10 minutes for the highest effort tiers. The backstop stays bounded but
-  // must sit above that ceiling, otherwise it would pre-empt the runtime's own
+  // at 25 minutes for the `ultra` tier. The backstop stays bounded but must sit
+  // above that ceiling, otherwise it would pre-empt the runtime's own
   // `advisor-timeout` outcome with a transport error the primary cannot read.
   "provider.consult-advisor": HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS,
   "provider.stream-turn": null,
