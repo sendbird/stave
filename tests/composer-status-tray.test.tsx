@@ -62,6 +62,28 @@ describe("shouldCollapseStatusTray", () => {
     ).toBe(false);
   });
 
+  test("counts the demoted tray as one more thing on the row", () => {
+    // The `⋯` for demoted controls stands on the shelf beside the rest, so the
+    // fold threshold has to see it — otherwise the row overflows at exactly
+    // the width where it was supposed to fold.
+    expect(
+      shouldCollapseStatusTray({
+        innerWidthPx: 800,
+        leadingWidthPx: 300,
+        rowWidthPx: null,
+        itemCount: 5,
+      }),
+    ).toBe(false);
+    expect(
+      shouldCollapseStatusTray({
+        innerWidthPx: 800,
+        leadingWidthPx: 300,
+        rowWidthPx: null,
+        itemCount: 6,
+      }),
+    ).toBe(true);
+  });
+
   test("never folds an empty set", () => {
     expect(
       shouldCollapseStatusTray({

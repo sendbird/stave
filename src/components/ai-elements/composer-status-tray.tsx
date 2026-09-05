@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
 import {
   Button,
@@ -181,14 +182,31 @@ function useStatusTrayCollapsed(itemCount: number): {
  */
 export function ComposerStatusTray(props: {
   items: readonly ComposerStatusTrayItem[];
+  /**
+   * Controls the user demoted. On the row they stay behind their own `⋯`,
+   * placed before Runtime; once the row folds there is one tray for both sets,
+   * because two `⋯` buttons side by side name nothing.
+   */
+  overflowItems?: readonly ComposerControlMenuItem[];
+  overflowTray?: ReactNode;
+  /** Appended to the folded tray, which then stands in for the demoted one. */
+  overflowFooter?: ReactNode;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const { ref, collapsed } = useStatusTrayCollapsed(props.items.length);
+  const overflowItems = props.overflowItems ?? [];
+  const { ref, collapsed } = useStatusTrayCollapsed(
+    props.items.length + (props.overflowTray ? 1 : 0),
+  );
 
   if (props.items.length === 0) {
     return null;
   }
+
+  // Runtime closes the shelf — it describes the workspace line it sits with —
+  // so the demoted tray takes the slot in front of it rather than the end.
+  const runtimeIndex = props.items.findIndex((item) => item.id === "runtime");
+  const trayIndex = runtimeIndex === -1 ? props.items.length : runtimeIndex;
 
   return (
     <div
@@ -206,7 +224,7 @@ export function ComposerStatusTray(props: {
                 size="icon"
                 disabled={props.disabled}
                 className="size-6 min-h-6 rounded-md border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                aria-label={`More composer controls (${props.items.length})`}
+                aria-label={`More composer controls (${props.items.length + overflowItems.length})`}
                 title="More composer controls"
               />
             }
@@ -222,7 +240,10 @@ export function ComposerStatusTray(props: {
             layer="floatingChrome"
             className={COMPOSER_CONTROL_MENU_CONTENT}
           >
-            <ComposerControlMenuList items={props.items} />
+            <ComposerControlMenuList
+              items={[...props.items, ...overflowItems]}
+            />
+            {props.overflowFooter}
           </PopoverContent>
         </Popover>
       ) : (
@@ -233,7 +254,11 @@ export function ComposerStatusTray(props: {
             data-composer-status-row="true"
             className="flex shrink-0 items-center gap-1"
           >
-            {props.items.map((item) => (
+            {props.items.slice(0, trayIndex).map((item) => (
+              <Fragment key={item.id}>{item.node}</Fragment>
+            ))}
+            {props.overflowTray}
+            {props.items.slice(trayIndex).map((item) => (
               <Fragment key={item.id}>{item.node}</Fragment>
             ))}
           </div>

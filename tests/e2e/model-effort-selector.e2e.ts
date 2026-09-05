@@ -445,7 +445,9 @@ test("selects a model and effort in one click across provider tabs", async ({
     };
   });
   expect(controlGeometry.groupHeight).toBe(36);
-  expect(controlGeometry.buttonHeights.every((height) => height === 34)).toBe(
+  // Each capability button is its own 36px control now, not a segment clipped
+  // inside a shared group box.
+  expect(controlGeometry.buttonHeights.every((height) => height === 36)).toBe(
     true,
   );
   await modelControl.screenshot({

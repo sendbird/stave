@@ -66,6 +66,7 @@ const MODEL_OPTION: ModelSelectorOption = {
 
 async function renderToolbar(
   overrides: {
+    framed?: boolean;
     composerControlPlacements?: ComposerControlPlacements;
     planMode?: boolean;
     thinkingMode?: "adaptive" | "enabled" | "disabled";
@@ -499,5 +500,29 @@ describe("composer control placement in the toolbar", () => {
     );
     expect(html).toContain(">Runtime</span>");
     expect(html).not.toContain(">Review</span>");
+  });
+  test("keeps the overflow tray out of the model row, ahead of Runtime", async () => {
+    const classic = await renderToolbar({
+      composerControlPlacements: { review: "overflow" },
+    });
+    const framed = await renderToolbar({
+      framed: true,
+      composerControlPlacements: { review: "overflow" },
+    });
+
+    const trayAt = (html: string) =>
+      html.indexOf('data-composer-tray-trigger="true"');
+    const runtimeAt = (html: string) => html.indexOf('aria-label="Runtime · ');
+
+    // Wherever the controls live, `⋯` takes the slot in front of Runtime —
+    // never the one beside the model name, which is not a control row.
+    expect(trayAt(classic)).toBeGreaterThan(-1);
+    expect(trayAt(classic)).toBeLessThan(runtimeAt(classic));
+    expect(trayAt(framed)).toBeGreaterThan(-1);
+    expect(trayAt(framed)).toBeLessThan(runtimeAt(framed));
+
+    const statusBarAt = framed.indexOf('data-composer-frame-status-bar="true"');
+    expect(statusBarAt).toBeGreaterThan(-1);
+    expect(trayAt(framed)).toBeGreaterThan(statusBarAt);
   });
 });

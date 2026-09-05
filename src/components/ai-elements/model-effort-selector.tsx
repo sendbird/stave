@@ -9,8 +9,6 @@ import {
 } from "react";
 import {
   Button,
-  ButtonGroup,
-  ButtonGroupSeparator,
   Input,
   Loader,
   Popover,
@@ -49,6 +47,14 @@ import {
   shouldOpenModelSelector,
   type ModelSelectorOption,
 } from "./model-selector.utils";
+
+/**
+ * Fast and 1M: same shell, different tint. They are standalone toggles sitting
+ * beside the model button, so they carry a full radius and their own border
+ * rather than reading as the tail end of a segmented control.
+ */
+const MODEL_CAPABILITY_TOGGLE =
+  "inline-flex h-full shrink-0 items-center gap-1 rounded-md border border-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50";
 
 export interface ModelSelectorCatalogState {
   status: "idle" | "loading" | "ready" | "error";
@@ -453,10 +459,15 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   }, [args.disabled, args.openToken]);
 
   return (
-    <ButtonGroup
-      className="h-9 max-w-full"
+    // Three independent buttons, not a segmented control. Fast and 1M are
+    // toggles that happen to sit beside the model they qualify — they are not
+    // parts of one object — so they keep their own rounding and their own gap
+    // instead of borrowing the model button's corners across a hairline.
+    <div
+      role="group"
       data-model-effort-control="true"
       aria-label="Model controls"
+      className="inline-flex h-9 max-w-full items-center gap-1.5"
     >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
@@ -476,7 +487,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
               }
               title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
               className={cn(
-                "inline-flex h-full min-w-0 max-w-[320px] items-center gap-1.5 bg-transparent px-2.5 text-sm text-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50",
+                "inline-flex h-full min-w-0 max-w-[320px] items-center gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50",
                 open && "bg-accent/65",
               )}
             />
@@ -729,47 +740,43 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       {!args.value.isAuto &&
       args.value.providerId === "codex" &&
       args.showFastMode !== false ? (
-        <>
-          <ButtonGroupSeparator />
-          <button
-            type="button"
-            aria-label={`Fast mode: ${args.fastMode ? "On" : "Off"}`}
-            aria-pressed={args.fastMode ?? false}
-            disabled={args.disabled}
-            onClick={() => args.onFastModeChange?.(!(args.fastMode ?? false))}
-            className={cn(
-              "inline-flex h-full shrink-0 items-center gap-1 px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50",
-              args.fastMode && "bg-prompt-role-fast/10 text-prompt-role-fast",
-            )}
-          >
-            <Zap
-              className={cn("size-3.5", args.fastMode && "fill-current")}
-              aria-hidden="true"
-            />
-            Fast
-          </button>
-        </>
+        <button
+          type="button"
+          aria-label={`Fast mode: ${args.fastMode ? "On" : "Off"}`}
+          aria-pressed={args.fastMode ?? false}
+          disabled={args.disabled}
+          onClick={() => args.onFastModeChange?.(!(args.fastMode ?? false))}
+          className={cn(
+            MODEL_CAPABILITY_TOGGLE,
+            args.fastMode &&
+              "border-prompt-role-fast/30 bg-prompt-role-fast/10 text-prompt-role-fast",
+          )}
+        >
+          <Zap
+            className={cn("size-3.5", args.fastMode && "fill-current")}
+            aria-hidden="true"
+          />
+          Fast
+        </button>
       ) : null}
 
       {supportsContext1M ? (
-        <>
-          <ButtonGroupSeparator />
-          <button
-            type="button"
-            aria-label={`1M context: ${isClaudeContext1MModel(args.value.model) ? "On" : "Off"}`}
-            aria-pressed={isClaudeContext1MModel(args.value.model)}
-            disabled={args.disabled}
-            onClick={toggleContext1M}
-            className={cn(
-              "inline-flex h-full shrink-0 items-center px-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50",
-              isClaudeContext1MModel(args.value.model) &&
-                "bg-primary/10 text-primary",
-            )}
-          >
-            1M
-          </button>
-        </>
+        <button
+          type="button"
+          aria-label={`1M context: ${isClaudeContext1MModel(args.value.model) ? "On" : "Off"}`}
+          aria-pressed={isClaudeContext1MModel(args.value.model)}
+          disabled={args.disabled}
+          onClick={toggleContext1M}
+          className={cn(
+            MODEL_CAPABILITY_TOGGLE,
+            "font-semibold",
+            isClaudeContext1MModel(args.value.model) &&
+              "border-primary/30 bg-primary/10 text-primary",
+          )}
+        >
+          1M
+        </button>
       ) : null}
-    </ButtonGroup>
+    </div>
   );
 }

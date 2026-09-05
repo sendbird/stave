@@ -2551,6 +2551,88 @@ export function PromptInput(args: PromptInputProps) {
       node: composerControlNodes[id],
       iconOnly: composerControlIsIconOnly(id),
     }));
+  // Classic composer: the controls share the model row, and the tray takes the
+  // same slot it has on the framed shelf — in front of Runtime, which stays
+  // last — so the `⋯` is in one place no matter which layout is in effect.
+  const toolbarControlIds = useComposerWings
+    ? []
+    : composerControlLayout.toolbar;
+  const toolbarRuntimeIndex = toolbarControlIds.indexOf("runtime");
+  const toolbarTrayIndex =
+    toolbarRuntimeIndex === -1 ? toolbarControlIds.length : toolbarRuntimeIndex;
+  // Demoted controls live behind one `⋯`. It is rendered by whichever row owns
+  // the composer's controls this frame — the in-card toolbar when the composer
+  // is classic, the bottom shelf beside Runtime when it is framed — so the
+  // model row never becomes the place users hunt for a control.
+  const overflowMenuItems = composerControlLayout.overflow
+    .filter((id) => Boolean(composerControlNodes[id]))
+    .map((id) => ({
+      id,
+      label: COMPOSER_CONTROL_LABELS[id],
+      node: composerControlNodes[id],
+      iconOnly: composerControlIsIconOnly(id),
+    }));
+  const composerCustomizeMenuFooter = canCustomizeComposerControls ? (
+    <>
+      <div className="my-1.5 h-px bg-border/60" />
+      <Button
+        type="button"
+        variant="ghost"
+        size="xs"
+        className="w-full justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        onClick={() => {
+          setComposerTrayOpen(false);
+          setComposerCustomizeOpen(true);
+        }}
+      >
+        <SlidersHorizontal className="size-3" />
+        Customize controls…
+      </Button>
+    </>
+  ) : null;
+  const composerOverflowTray =
+    overflowMenuItems.length > 0 ? (
+      <Popover open={composerTrayOpen} onOpenChange={setComposerTrayOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={interactionsDisabled}
+              className={cn(
+                PROMPT_TOOLBAR_ICON_BUTTON,
+                // Sized for the row it stands in rather than by a lane rule:
+                // `size-*` owns both axes, and a glyph-only button has to stay
+                // square in each of them.
+                useComposerWings ? "size-6 min-h-6" : "size-9",
+              )}
+              aria-label={`More composer controls (${overflowMenuItems.length})`}
+              title="More composer controls"
+              data-composer-tray-trigger="true"
+            />
+          }
+        >
+          <Ellipsis className="size-4" />
+        </PopoverTrigger>
+        <PopoverContent
+          align={useComposerWings ? "end" : "start"}
+          side="top"
+          sideOffset={10}
+          // The tray hosts controls that open dialogs (Review, Advisor,
+          // Compare, ...). Base UI portals those dialogs into this popover's
+          // portal node, so a tray on the popover band (`z-[90]`) would paint
+          // over the dialog band (`z-[80]`) it just opened. Composer-anchored
+          // chrome is the honest band for it anyway.
+          layer="floatingChrome"
+          className={COMPOSER_CONTROL_MENU_CONTENT}
+        >
+          <ComposerControlMenuList items={overflowMenuItems} />
+          {composerCustomizeMenuFooter}
+        </PopoverContent>
+      </Popover>
+    ) : null;
+
   const frameStatusBar =
     useComposerFrame && (frameBottom || statusTrayItems.length > 0) ? (
       <ComposerFrameStatusBar
@@ -2558,6 +2640,9 @@ export function PromptInput(args: PromptInputProps) {
           statusTrayItems.length > 0 ? (
             <ComposerStatusTray
               items={statusTrayItems}
+              overflowItems={overflowMenuItems}
+              overflowTray={composerOverflowTray}
+              overflowFooter={composerCustomizeMenuFooter}
               disabled={interactionsDisabled}
             />
           ) : null
@@ -4197,76 +4282,13 @@ export function PromptInput(args: PromptInputProps) {
                     });
                   }}
                 />
-                {(useComposerWings ? [] : composerControlLayout.toolbar).map(
-                  (id) => (
-                    <Fragment key={id}>{composerControlNodes[id]}</Fragment>
-                  ),
-                )}
-                {composerControlLayout.overflow.length > 0 ? (
-                  <Popover
-                    open={composerTrayOpen}
-                    onOpenChange={setComposerTrayOpen}
-                  >
-                    <PopoverTrigger
-                      render={
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          disabled={interactionsDisabled}
-                          className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
-                          aria-label={`More composer controls (${composerControlLayout.overflow.length})`}
-                          title="More composer controls"
-                          data-composer-tray-trigger="true"
-                        />
-                      }
-                    >
-                      <Ellipsis className="size-4" />
-                    </PopoverTrigger>
-                    <PopoverContent
-                      align="start"
-                      side="top"
-                      sideOffset={10}
-                      // The tray hosts controls that open dialogs (Review,
-                      // Advisor, Compare, ...). Base UI portals those dialogs
-                      // into this popover's portal node, so a tray on the
-                      // popover band (`z-[90]`) would paint over the dialog
-                      // band (`z-[80]`) it just opened. Composer-anchored
-                      // chrome is the honest band for it anyway.
-                      layer="floatingChrome"
-                      className={COMPOSER_CONTROL_MENU_CONTENT}
-                    >
-                      <ComposerControlMenuList
-                        items={composerControlLayout.overflow
-                          .filter((id) => Boolean(composerControlNodes[id]))
-                          .map((id) => ({
-                            id,
-                            label: COMPOSER_CONTROL_LABELS[id],
-                            node: composerControlNodes[id],
-                            iconOnly: composerControlIsIconOnly(id),
-                          }))}
-                      />
-                      {canCustomizeComposerControls ? (
-                        <>
-                          <div className="my-1.5 h-px bg-border/60" />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            className="w-full justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                            onClick={() => {
-                              setComposerTrayOpen(false);
-                              setComposerCustomizeOpen(true);
-                            }}
-                          >
-                            <SlidersHorizontal className="size-3" />
-                            Customize controls…
-                          </Button>
-                        </>
-                      ) : null}
-                    </PopoverContent>
-                  </Popover>
-                ) : null}
+                {toolbarControlIds.slice(0, toolbarTrayIndex).map((id) => (
+                  <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+                ))}
+                {useComposerWings ? null : composerOverflowTray}
+                {toolbarControlIds.slice(toolbarTrayIndex).map((id) => (
+                  <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+                ))}
               </div>
             ) : null}
             <div className="flex items-center gap-2">
