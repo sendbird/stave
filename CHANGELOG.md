@@ -1,3 +1,21 @@
+## [0.18.0](https://github.com/sendbird/stave/compare/v0.17.3...v0.18.0) (2026-09-05)
+
+### Features
+
+* Add GPT-6 Astra as the top Codex model, align model-specific reasoning defaults, and migrate untouched legacy model, effort, shortcut, and task-preset settings.
+* Add List and Board Tasks layouts with a resizable split peek, persisted view preferences, provider progress trees, and state-aware loaders.
+* Add opt-in instant execution for saved macros while preserving drafts when dispatch is blocked.
+* Extend Advisor effort-based deadlines and host-service/MCP backstops for longer high-effort consultations.
+
+### Bug Fixes
+
+* Prevent prompt enhancement from inventing mention tokens, refine composer geometry, and align managed-task notices with turn activity.
+* Apply configured provider timeouts to managed tasks with explicit override precedence.
+
+### References
+
+* [#472](https://github.com/sendbird/stave/pull/472), [#473](https://github.com/sendbird/stave/pull/473), [#474](https://github.com/sendbird/stave/pull/474), [#475](https://github.com/sendbird/stave/pull/475), [#476](https://github.com/sendbird/stave/pull/476), [#477](https://github.com/sendbird/stave/pull/477), [#478](https://github.com/sendbird/stave/pull/478), [#479](https://github.com/sendbird/stave/pull/479), [#481](https://github.com/sendbird/stave/pull/481)
+
 ## [0.17.3](https://github.com/sendbird/stave/compare/v0.17.2...v0.17.3) (2026-09-04)
 
 ### Features
