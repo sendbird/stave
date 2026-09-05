@@ -7,7 +7,6 @@ export {
 export { Badge, badgeVariants } from "./badge";
 export { BorderBeam } from "./border-beam";
 export { Button, buttonVariants } from "./button";
-export { ButtonGroup, ButtonGroupSeparator } from "./button-group";
 export { Calendar, CalendarDayButton } from "./calendar";
 export {
   Card,
