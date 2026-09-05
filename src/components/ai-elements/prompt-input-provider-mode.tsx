@@ -1,6 +1,5 @@
 import {
   Bot,
-  Check,
   Compass,
   type LucideIcon,
   Shield,
@@ -18,7 +17,15 @@ import type {
   ProviderModePresetId,
   ProviderModePresentation,
 } from "@/lib/providers/provider-mode-presets";
-import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_OPTION_MENU_CONTENT,
+  ComposerOptionCard,
+} from "@/components/ai-elements/composer-option-menu";
+import {
+  COMPOSER_CONTROL_BUTTON,
+  ComposerControlLabel,
+  composerControlAttributes,
+} from "@/components/ai-elements/composer-control-density";
 import { cn } from "@/lib/utils";
 
 export type PromptInputProviderModeStatus = ProviderModePresentation & {
@@ -105,18 +112,20 @@ export function PromptInputProviderModePill(args: {
             disabled={args.disabled || !isInteractive}
             aria-label={`${args.status.providerLabel} ${args.status.label}: ${args.status.description}`}
             title={`${args.status.label}: ${args.status.description}`}
+            {...composerControlAttributes}
             className={cn(
-              "h-auto min-h-9 max-w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left",
+              COMPOSER_CONTROL_BUTTON,
+              "max-w-full justify-start text-left",
               args.className,
             )}
           />
         }
       >
         <Icon
-          className={cn("size-3.5 shrink-0", modeIconToneClass(args.status))}
+          className={cn("size-4 shrink-0", modeIconToneClass(args.status))}
         />
         <ComposerControlLabel>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium leading-none">
+          <span className="min-w-0 flex-1 truncate font-medium leading-none">
             {args.status.label}
           </span>
         </ComposerControlLabel>
@@ -127,7 +136,7 @@ export function PromptInputProviderModePill(args: {
           side="top"
           sideOffset={8}
           aria-label={`${args.status.providerLabel} mode presets`}
-          className="w-[22rem] gap-2 p-2"
+          className={cn("w-[22rem]", COMPOSER_OPTION_MENU_CONTENT)}
         >
           <div className="space-y-1">
             {args.presets.map((preset) => {
@@ -143,47 +152,27 @@ export function PromptInputProviderModePill(args: {
               const isActive = args.activePresetId === preset.id;
 
               return (
-                <Button
+                <ComposerOptionCard
                   key={preset.id}
-                  type="button"
-                  variant="ghost"
-                  className={cn(
-                    "h-auto min-h-14 w-full justify-start gap-3 rounded-lg border px-3 py-2.5 text-left whitespace-normal",
-                    isActive
-                      ? modeOptionActiveClass(presetStatus)
-                      : "border-transparent hover:border-border/70 hover:bg-muted/60",
-                  )}
-                  onClick={() => {
-                    args.onSelect?.(preset.id);
-                    setOpen(false);
-                  }}
-                >
-                  <PresetIcon
-                    className={cn(
-                      "size-4 shrink-0",
-                      modeIconToneClass(presetStatus),
-                    )}
-                  />
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-sm font-medium leading-none">
-                      {preset.label}
-                    </span>
-                    <span className="text-[11px] leading-4 text-muted-foreground">
-                      {presetSummary}
-                    </span>
-                    <span className="text-xs leading-4 text-muted-foreground">
-                      {preset.description}
-                    </span>
-                  </span>
-                  {isActive ? (
-                    <Check
+                  label={preset.label}
+                  summary={presetSummary}
+                  description={preset.description}
+                  icon={
+                    <PresetIcon
                       className={cn(
                         "size-4 shrink-0",
                         modeIconToneClass(presetStatus),
                       )}
                     />
-                  ) : null}
-                </Button>
+                  }
+                  active={isActive}
+                  activeClassName={modeOptionActiveClass(presetStatus)}
+                  checkClassName={modeIconToneClass(presetStatus)}
+                  onSelect={() => {
+                    args.onSelect?.(preset.id);
+                    setOpen(false);
+                  }}
+                />
               );
             })}
           </div>

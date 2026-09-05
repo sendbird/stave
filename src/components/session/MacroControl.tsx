@@ -1,5 +1,9 @@
 import { Zap } from "lucide-react";
-import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_CONTROL_BUTTON,
+  ComposerControlLabel,
+  composerControlAttributes,
+} from "@/components/ai-elements/composer-control-density";
 import {
   Button,
   DropdownMenu,
@@ -25,7 +29,9 @@ export function MacroControl(args: MacroControlProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
+            className={COMPOSER_CONTROL_BUTTON}
+            {...composerControlAttributes}
+            data-macro-control="true"
             disabled={args.disabled}
             aria-label="Insert a saved macro"
             title="Insert a saved macro"

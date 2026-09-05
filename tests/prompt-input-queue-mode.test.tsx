@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { COMPOSER_CONTROL_BUTTON } from "@/components/ai-elements/composer-control-density";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 
 const originalWindowDescriptor = Object.getOwnPropertyDescriptor(
@@ -171,8 +172,10 @@ describe("PromptInput queue mode", () => {
     expect(buttonMarkup).toContain(">Review</span>");
     expect(buttonMarkup).toBeTruthy();
     expect(buttonMarkup).toContain('data-variant="ghost"');
-    expect(buttonMarkup).toContain("text-muted-foreground");
-    expect(buttonMarkup).toContain("hover:bg-secondary/30");
+    // The review CTA wears the shared composer-control pill rather than a
+    // bespoke one, so the bottom shelf and the wings can resize every control
+    // through a single rule.
+    expect(buttonMarkup).toContain(COMPOSER_CONTROL_BUTTON);
     expect(buttonMarkup).not.toContain("<img");
     expect(html.indexOf('aria-label="Review local changes"')).toBeLessThan(
       html.indexOf('aria-label="Attach files"'),

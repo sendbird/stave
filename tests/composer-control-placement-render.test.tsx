@@ -388,4 +388,116 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('aria-label="Configure Worker mode ·');
     expect(html).not.toContain("Choose the worker preset");
   });
+  test("hosts every status-shelf control as a bare, shared-pill button", async () => {
+    setWindowContext();
+    const [
+      { PromptInput },
+      { MacroControl },
+      { COMPOSER_CONTROL_BUTTON },
+      { TooltipProvider },
+    ] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"),
+      import("@/components/session/MacroControl"),
+      import("@/components/ai-elements/composer-control-density"),
+      import("@/components/ui"),
+    ]);
+    const html = renderToStaticMarkup(
+      createElement(
+        TooltipProvider,
+        null,
+        createElement(PromptInput, {
+          value: "",
+          framed: true,
+          selectedModel: MODEL_OPTION,
+          modelOptions: [MODEL_OPTION],
+          attachedFilePaths: [],
+          macroControl: createElement(MacroControl, {
+            macros: [],
+            onSelect: () => {},
+          }),
+          onValueChange: () => {},
+          onModelSelect: () => {},
+          onAttachFilesChange: () => {},
+          onSubmit: () => {},
+        }),
+      ),
+    );
+
+    // The shelf sizes its controls through the marker on their own button, so
+    // the control has to arrive as a bare button wearing the shared pill. A
+    // fixed-height wrapper around it would leave the button riding above the
+    // row, sized by the wrapper instead of the lane.
+    expect(html).toContain('data-macro-control="true"');
+    expect(html).not.toContain('<div data-macro-control="true"');
+    const macroButton = html.slice(
+      html.lastIndexOf("<button", html.indexOf('data-macro-control="true"')),
+    );
+    expect(macroButton.startsWith("<button")).toBe(true);
+    expect(macroButton.slice(0, macroButton.indexOf(">"))).toContain(
+      COMPOSER_CONTROL_BUTTON,
+    );
+  });
+  test("marks every composer control so its lane can size it", async () => {
+    const [{ COMPOSER_CONTROL_LANE }] = await Promise.all([
+      import("@/components/ai-elements/composer-control-density"),
+    ]);
+    const html = await renderToolbar();
+
+    // Plan, provider mode, Thinking, Review and Runtime all render through
+    // different primitives (tooltip trigger, popover pill, dialog trigger).
+    // The lane can only reach them if each one carries the marker.
+    for (const label of [
+      'aria-label="Plan mode OFF"',
+      'aria-label="Thinking: adaptive"',
+      'aria-label="Review local changes"',
+      'aria-label="Runtime · ',
+    ]) {
+      const at = html.indexOf(label);
+      expect(at).toBeGreaterThan(-1);
+      const start = html.lastIndexOf("<button", at);
+      const tag = html.slice(start, html.indexOf(">", at));
+      expect(tag).toContain('data-composer-control="true"');
+    }
+    // ...and the row has to state the size it wants, rather than leaving it to
+    // whatever geometry each control happened to ship with.
+    expect(html).toContain(
+      COMPOSER_CONTROL_LANE.toolbar.split(" ")[0].replaceAll("&", "&amp;"),
+    );
+  });
+
+  test("stacks every overflow item the same way, captioning only glyphs", async () => {
+    const [{ ComposerControlMenuList }, { COMPOSER_CONTROL_LANE }] =
+      await Promise.all([
+        import("@/components/ai-elements/composer-control-menu"),
+        import("@/components/ai-elements/composer-control-density"),
+      ]);
+    const html = renderToStaticMarkup(
+      createElement(ComposerControlMenuList, {
+        items: [
+          {
+            id: "review",
+            label: "Review",
+            node: createElement("button", { type: "button" }, "Review"),
+          },
+          {
+            id: "runtime",
+            label: "Runtime",
+            iconOnly: true,
+            node: createElement("button", { type: "button" }),
+          },
+        ],
+      }),
+    );
+
+    // Both trays render through this list, so the rows are identical in shape
+    // and only the caption distinguishes a control that shows no label.
+    expect(html).toContain(
+      COMPOSER_CONTROL_LANE.menu.split(" ")[0].replaceAll("&", "&amp;"),
+    );
+    expect((html.match(/class="flex items-center gap-2"/g) ?? []).length).toBe(
+      2,
+    );
+    expect(html).toContain(">Runtime</span>");
+    expect(html).not.toContain(">Review</span>");
+  });
 });

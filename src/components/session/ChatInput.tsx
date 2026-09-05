@@ -20,7 +20,11 @@ import {
 } from "@/components/ai-elements/model-selector";
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
-import { ComposerControlLabel } from "@/components/ai-elements/composer-control-density";
+import {
+  COMPOSER_CONTROL_BUTTON,
+  ComposerControlLabel,
+  composerControlAttributes,
+} from "@/components/ai-elements/composer-control-density";
 import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
 import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
 import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
@@ -1891,49 +1895,43 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           macroControl={
             args.isTurnActive ? null : (
-              <div
-                className="inline-flex h-9 items-stretch"
-                data-macro-control="true"
-              >
-                <MacroControl
-                  macros={macros}
-                  disabled={isInputBlocked}
-                  onSelect={(macro) => {
-                    handleApplyMacro({
-                      macroId: macro.id,
-                      draftText: draftTextRef.current,
-                    });
-                  }}
-                />
-              </div>
+              // No wrapper: every host lane (in-card toolbar, wing, bottom
+              // shelf) sizes composer controls with a single `[&_button]`
+              // rule, so a box around the button would absorb that rule and
+              // leave the pill floating at its own height inside the row.
+              <MacroControl
+                macros={macros}
+                disabled={isInputBlocked}
+                onSelect={(macro) => {
+                  handleApplyMacro({
+                    macroId: macro.id,
+                    draftText: draftTextRef.current,
+                  });
+                }}
+              />
             )
           }
           secretsControl={
             args.isTurnActive ? null : (
-              <div
-                className="inline-flex h-9 items-stretch"
-                data-secret-binding-control="true"
-              >
-                <SecretBindingControl
-                  boundSecretIds={promptDraft.runtimeOverrides?.boundSecretIds}
-                  disabled={isInputBlocked}
-                  onChange={(nextBoundSecretIds) => {
-                    cancelPendingDraftSave();
-                    updatePromptDraft({
-                      taskId: args.providerSelectionTarget,
-                      patch: {
-                        runtimeOverrides: {
-                          ...(promptDraft.runtimeOverrides ?? {}),
-                          boundSecretIds:
-                            nextBoundSecretIds.length > 0
-                              ? nextBoundSecretIds
-                              : undefined,
-                        },
+              <SecretBindingControl
+                boundSecretIds={promptDraft.runtimeOverrides?.boundSecretIds}
+                disabled={isInputBlocked}
+                onChange={(nextBoundSecretIds) => {
+                  cancelPendingDraftSave();
+                  updatePromptDraft({
+                    taskId: args.providerSelectionTarget,
+                    patch: {
+                      runtimeOverrides: {
+                        ...(promptDraft.runtimeOverrides ?? {}),
+                        boundSecretIds:
+                          nextBoundSecretIds.length > 0
+                            ? nextBoundSecretIds
+                            : undefined,
                       },
-                    });
-                  }}
-                />
-              </div>
+                    },
+                  });
+                }}
+              />
             )
           }
           compareControl={
@@ -1948,8 +1946,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground"
+                            className={COMPOSER_CONTROL_BUTTON}
                             aria-label="Compare options and recent runs"
+                            {...composerControlAttributes}
                             data-compare-control="true"
                             disabled={
                               recentCompareRuns.length === 0 &&

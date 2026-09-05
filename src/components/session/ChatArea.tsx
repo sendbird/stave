@@ -117,6 +117,23 @@ export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
   );
 });
 
+/**
+ * The composer dock. Two view modes mount it — an empty task above the start
+ * panel, a live task below the transcript — and they must mount it the same
+ * way: `z-30` keeps the composer's popovers above the message pane, and the
+ * shared `RenderProfiler` id keeps both paths on one profile rather than two
+ * halves of the same measurement.
+ */
+function ChatAreaComposerDock() {
+  return (
+    <div className="relative z-30 shrink-0">
+      <RenderProfiler id="ChatInput" thresholdMs={8}>
+        <ChatInput />
+      </RenderProfiler>
+    </div>
+  );
+}
+
 function ChatAreaImpl(props: ChatAreaProps) {
   const explicitTaskId = props.taskId;
   const sessionAreaRef = useRef<HTMLDivElement>(null);
@@ -324,11 +341,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
           <div className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto">
             <TaskStartPanel onSelect={handleTaskStartOption} />
           </div>
-          <div className="relative z-30 shrink-0">
-            <RenderProfiler id="ChatInput" thresholdMs={8}>
-              <ChatInput />
-            </RenderProfiler>
-          </div>
+          <ChatAreaComposerDock />
         </div>
       </div>
     );
@@ -370,11 +383,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
               would disappear while it was being read. */}
           <AdvisorConsultLogHost />
         </div>
-        <div className="relative z-30 shrink-0">
-          <RenderProfiler id="ChatInput" thresholdMs={8}>
-            <ChatInput />
-          </RenderProfiler>
-        </div>
+        <ChatAreaComposerDock />
       </div>
     </div>
   );
