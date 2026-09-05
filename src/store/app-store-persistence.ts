@@ -44,6 +44,7 @@ import {
   isAutoModelId,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
+import { migrateSettingsModelDefaults } from "@/lib/providers/settings-model-migration";
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
@@ -553,6 +554,32 @@ export function createAppStorePersistenceOptions() {
       state.settings.modelClaude = upgradeSettingsScopedClaudeModel({
         model: state.settings.modelClaude,
       });
+      // Runs after the model/shortcut/preset normalizers above so a migration
+      // rule compares against canonical values. `fromVersion` deliberately
+      // reads `persistedSettings`, not the merged `state.settings`: the merge
+      // backfills the marker with this build's version, which would make every
+      // pre-migration snapshot look already-migrated.
+      const migratedModelDefaults = migrateSettingsModelDefaults({
+        fromVersion: (persistedSettings as Partial<AppSettings> | undefined)
+          ?.settingsModelMigrationVersion,
+        modelClaude: state.settings.modelClaude,
+        modelCodex: state.settings.modelCodex,
+        claudeEffort: state.settings.claudeEffort,
+        codexReasoningEffort: state.settings.codexReasoningEffort,
+        modelShortcutKeys: state.settings.modelShortcutKeys,
+        taskPresets: state.settings.taskPresets,
+      });
+      state.settings.modelClaude = migratedModelDefaults.modelClaude;
+      state.settings.modelCodex = migratedModelDefaults.modelCodex;
+      state.settings.claudeEffort =
+        migratedModelDefaults.claudeEffort as AppSettings["claudeEffort"];
+      state.settings.codexReasoningEffort =
+        migratedModelDefaults.codexReasoningEffort as AppSettings["codexReasoningEffort"];
+      state.settings.modelShortcutKeys =
+        migratedModelDefaults.modelShortcutKeys;
+      state.settings.taskPresets = migratedModelDefaults.taskPresets;
+      state.settings.settingsModelMigrationVersion =
+        migratedModelDefaults.version;
       state.settings.advisorTarget =
         normalizePersistedAdvisorTarget(persistedSettings);
       // Read after the target: a snapshot written before the Advisor default

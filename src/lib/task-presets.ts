@@ -103,7 +103,7 @@ export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
     label: "GPT-5.6",
     kind: "task",
     provider: "codex",
-    model: "gpt-5.6-terra",
+    model: "gpt-5.6-sol",
   },
   {
     id: "default-claude-cli-session",

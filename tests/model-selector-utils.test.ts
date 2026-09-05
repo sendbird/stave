@@ -110,8 +110,9 @@ describe("model selector utils", () => {
       ),
     ).toEqual([
       "claude-code:claude-opus-5",
-      "codex:gpt-5.6-terra",
       "codex:gpt-5.6-sol",
+      "claude-code:claude-fable-5-1",
+      "codex:gpt-6-astra",
     ]);
   });
 

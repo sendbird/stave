@@ -129,6 +129,7 @@ export const settingsSections = [
       "consult",
       "on demand",
       "fable",
+      "astra",
       "browser",
       "browser access",
       "chrome",

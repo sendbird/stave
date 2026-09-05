@@ -401,7 +401,7 @@ describe("advisor effort control", () => {
     expect(buildAdvisorEffortOptions(CODEX_TARGET)[0]).toEqual({
       value: null,
       label: "Auto",
-      title: "Model default · X-High",
+      title: "Model default · High",
     });
   });
 
@@ -517,8 +517,8 @@ describe("advisor pill reports the effort", () => {
       arm: arm({ settingsTarget: CODEX_TARGET }),
       ...CLAUDE_PRIMARY,
     });
-    expect(presentation.effortLabel).toBe("XH");
-    expect(presentation.tooltip).toContain("X-High");
+    expect(presentation.effortLabel).toBe("High");
+    expect(presentation.tooltip).toContain("High");
     expect(presentation.note).toBeNull();
   });
 
@@ -577,7 +577,7 @@ describe("advisor pill reports the effort", () => {
   test("the runtime summary row names the tier the turn will pay for", () => {
     expect(
       formatAdvisorRuntimeStatusValue(arm({ settingsTarget: CODEX_TARGET })),
-    ).toBe("Codex · GPT-5.6 Sol · X-High");
+    ).toBe("Codex · GPT-5.6 Sol · High");
   });
 
   describe("an armed Advisor the model cannot reach", () => {

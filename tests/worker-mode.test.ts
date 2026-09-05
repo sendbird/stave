@@ -116,10 +116,11 @@ describe("worker capability table", () => {
     }
   });
 
-  test("only Sol and Terra can orchestrate on Codex", () => {
-    // codex-cli 0.145.0 advertises `ultra` (auto task delegation) for these two
-    // models only.
+  test("only Astra, Sol, and Terra can orchestrate on Codex", () => {
+    // These are the models the server catalog reports as `multiAgentVersion:
+    // "v2"`, which is what the `spawn_agent` subagent pool requires.
     expect(listWorkerPrimaryModels("codex")).toEqual([
+      "gpt-6-astra",
       "gpt-5.6-sol",
       "gpt-5.6-terra",
     ]);
@@ -153,10 +154,15 @@ describe("worker capability table", () => {
     ).not.toContain("ultra");
   });
 
-  test("Codex Luna remains a model but is not worker-capable", () => {
+  test("Codex Luna and Astra remain models but are not worker-capable", () => {
     expect(listWorkerModelOptions("codex")).toEqual(["gpt-5.6-terra", "gpt-5.6-sol"]);
     expect(
       isWorkerCapableModel({ providerId: "codex", model: "gpt-5.6-luna" }),
+    ).toBe(false);
+    // Astra can orchestrate, but pinning a frontier model as the worker is the
+    // expensive shape worker mode exists to avoid.
+    expect(
+      isWorkerCapableModel({ providerId: "codex", model: "gpt-6-astra" }),
     ).toBe(false);
   });
 });

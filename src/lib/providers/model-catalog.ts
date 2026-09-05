@@ -53,13 +53,15 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
 // Source:
 // - local `codex app-server` / CLI baseline support
 // - https://developers.openai.com/codex/models (GPT-5.6 family, 2026-07-09)
-// - verified against codex-cli 0.144.1 `model/list` (2026-07-10): the server
-//   catalog now ships gpt-5.6-sol/terra/luna (default effort xhigh; sol/terra
-//   support up to "ultra", luna up to "max") alongside legacy models.
-// GPT-5.6 ships as Sol (flagship), Terra (balanced), and Luna (fast/cheap).
-// Previous-generation variants remain recognizable in historical records but
-// are intentionally absent from the primary picker.
+// - verified against codex-cli 0.153.2 `model/list` (2026-09-05): the server
+//   catalog leads with gpt-6-astra (marked `isDefault`, supports every effort
+//   through "ultra") ahead of gpt-5.6-sol/terra/luna and legacy models.
+// GPT-6 ships Astra as the frontier model; GPT-5.6 remains as Sol (flagship),
+// Terra (balanced), and Luna (fast/cheap). Previous-generation variants stay
+// recognizable in historical records but are intentionally absent from the
+// primary picker.
 export const CODEX_MODEL_OPTIONS = [
+  "gpt-6-astra",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
   "gpt-5.6-luna",
@@ -122,7 +124,7 @@ export const PROVIDER_DESCRIPTORS = [
     fallbackLabel: "C",
     models: CLAUDE_SDK_MODEL_OPTIONS,
     modelCatalogSource: "static",
-    defaultModel: DEFAULT_CLAUDE_SONNET_MODEL,
+    defaultModel: DEFAULT_CLAUDE_OPUS_MODEL,
     sessionLabel: "Claude session ID",
     capabilities: {
       primaryTurns: true,
@@ -156,7 +158,7 @@ export const PROVIDER_DESCRIPTORS = [
     fallbackLabel: "O",
     models: CODEX_MODEL_OPTIONS,
     modelCatalogSource: "runtime",
-    defaultModel: "gpt-5.6-terra",
+    defaultModel: "gpt-5.6-sol",
     sessionLabel: "Codex thread ID",
     capabilities: {
       primaryTurns: true,
@@ -466,47 +468,63 @@ export const MODEL_TIER_ORDER = [
 ] as const satisfies readonly ModelTier[];
 
 export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
+  // Default effort runs *inverse* to model strength, so every rung of the
+  // ladder lands at roughly the same answer quality for very different cost:
+  //
+  //   frontier (Fable, Astra)  medium
+  //   flagship (Opus 5, Sol)   high
+  //   balanced (Sonnet 5, Terra) xhigh
+  //   light    (Luna)          max
+  //
+  // A frontier model pinned to "xhigh" mostly buys latency (codex-cli 0.153.2
+  // reports `defaultReasoningEffort: "medium"` for Astra), while a cheaper
+  // model given a deep budget can match a mid model at its own default.
+  // Raising or lowering it stays a deliberate per-turn choice.
+  //
+  // Haiku is absent from the ladder on purpose: the Claude API rejects
+  // `effort` outright for Haiku-class models (see `modelsRejectingEffort` in
+  // worker-mode), so its value here is never sent.
   [CLAUDE_FABLE_MODEL]: {
     providerId: "claude-code",
     model: CLAUDE_FABLE_MODEL,
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultClaudeEffort: "xhigh",
+    defaultClaudeEffort: "medium",
   },
   [DEFAULT_CLAUDE_OPUS_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_MODEL,
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultClaudeEffort: "xhigh",
+    defaultClaudeEffort: "high",
   },
   [DEFAULT_CLAUDE_OPUS_1M_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_1M_MODEL,
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultClaudeEffort: "xhigh",
+    defaultClaudeEffort: "high",
   },
   opusplan: {
     providerId: "claude-code",
     model: "opusplan",
     tier: "frontier",
     taskTypes: ["plan", "review", "safety"],
-    defaultClaudeEffort: "xhigh",
+    defaultClaudeEffort: "high",
   },
   [DEFAULT_CLAUDE_SONNET_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_SONNET_MODEL,
     tier: "heavy",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultClaudeEffort: "high",
+    defaultClaudeEffort: "xhigh",
   },
   [DEFAULT_CLAUDE_SONNET_1M_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_SONNET_1M_MODEL,
     tier: "heavy",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultClaudeEffort: "high",
+    defaultClaudeEffort: "xhigh",
   },
   [DEFAULT_CLAUDE_HAIKU_MODEL]: {
     providerId: "claude-code",
@@ -515,16 +533,37 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     taskTypes: ["quick_edit", "general"],
     defaultClaudeEffort: "medium",
   },
-  // Codex default efforts and supported-effort scales mirror
-  // `defaultReasoningEffort` / `supportedReasoningEfforts` reported by the
-  // codex-cli 0.144.1 App Server `model/list` catalog. Notably Luna does not
-  // accept "ultra" and GPT-5.5 caps out at "xhigh" (no "max"/"ultra").
+  // Codex supported-effort scales mirror `supportedReasoningEfforts` reported
+  // by the codex-cli 0.153.2 App Server `model/list` catalog. Notably Luna
+  // does not accept "ultra" and GPT-5.5 caps out at "xhigh" (no "max"/"ultra").
+  // The `defaultCodexReasoningEffort` values below are Stave's static fallback
+  // for when the App Server catalog has not been fetched yet; whenever it has,
+  // the CLI's own `defaultReasoningEffort` wins via the dynamic registry (see
+  // `resolveDefaultCodexEffortForModel`).
+  //
+  // Astra is the GPT-6 frontier model and leads the Codex picker, mirroring
+  // how Fable leads the Claude picker — including the "medium" default effort.
+  "gpt-6-astra": {
+    providerId: "codex",
+    model: "gpt-6-astra",
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultCodexReasoningEffort: "medium",
+    supportedCodexReasoningEfforts: [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+      "ultra",
+    ],
+  },
   "gpt-5.6-sol": {
     providerId: "codex",
     model: "gpt-5.6-sol",
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultCodexReasoningEffort: "xhigh",
+    defaultCodexReasoningEffort: "high",
     supportedCodexReasoningEfforts: [
       "low",
       "medium",
@@ -554,7 +593,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: "gpt-5.6-luna",
     tier: "light",
     taskTypes: ["quick_edit", "general"],
-    defaultCodexReasoningEffort: "xhigh",
+    defaultCodexReasoningEffort: "max",
     // Luna is the one GPT-5.6 variant that does not accept "ultra".
     supportedCodexReasoningEfforts: ["low", "medium", "high", "xhigh", "max"],
   },
@@ -677,11 +716,17 @@ export function resolveDefaultClaudeEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["claudeEffort"]> {
   const normalizedModel = args.model.trim().toLowerCase();
-  if (normalizedModel.includes("fable") || normalizedModel.includes("opus")) {
-    return "xhigh";
+  // Ordered strongest-first, and effort runs inverse to model strength — see
+  // the ladder note on MODEL_CAPABILITIES. Fable must be tested before Opus so
+  // the shared frontier tier does not drag it up a rung.
+  if (normalizedModel.includes("fable")) {
+    return "medium";
+  }
+  if (normalizedModel.includes("opus")) {
+    return "high";
   }
   if (normalizedModel.includes("sonnet")) {
-    return "high";
+    return "xhigh";
   }
   return "medium";
 }
@@ -941,6 +986,7 @@ export function toHumanModelName(args: { model: string }) {
     "claude-sonnet-4-6": "Claude Sonnet 4.6",
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
     [DEFAULT_CLAUDE_HAIKU_MODEL]: "Claude Haiku 4.5",
+    "gpt-6-astra": "GPT-6 Astra",
     "gpt-5.6-sol": "GPT-5.6 Sol",
     "gpt-5.6-terra": "GPT-5.6 Terra",
     "gpt-5.6-luna": "GPT-5.6 Luna",

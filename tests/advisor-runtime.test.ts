@@ -73,7 +73,7 @@ describe("runAdvisorCall", () => {
       isolated: true,
       runtimeOptions: {
         model: "gpt-5.6-sol",
-        codexReasoningEffort: "xhigh",
+        codexReasoningEffort: "high",
       },
     });
   });
@@ -348,8 +348,9 @@ describe("advisor effort", () => {
       runners,
     });
 
-    expect(claudeEffort).toBe("xhigh");
-    expect(codexEffort).toBe("xhigh");
+    // The inverse effort ladder: Fable defaults to "medium", Sol to "high".
+    expect(claudeEffort).toBe("medium");
+    expect(codexEffort).toBe("high");
   });
 
   test("a pinned tier is what the runner is actually asked for", async () => {
@@ -409,7 +410,7 @@ describe("advisor lifecycle events report the effort that ran", () => {
     };
     expect(buildAdvisorStartedEvent({ ...primary, target })).toMatchObject({
       advisorEffort: "low",
-      timeoutMs: 2 * 60_000,
+      timeoutMs: 3 * 60_000,
     });
     expect(
       buildAdvisorOutcomeEvent({
