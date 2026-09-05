@@ -1,5 +1,6 @@
 import type { AdvisorExchangeByTask } from "@/lib/providers/advisor-activity";
 import type { AdvisorConsultLogByTask } from "@/lib/providers/advisor-consult-log";
+import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type {
   ProviderTurnActivitySnapshot,
   RetainedTurnActivityByTask,
@@ -33,6 +34,12 @@ export interface TaskTurnRuntimeEntries {
    */
   advisorConsultLogByTask: AdvisorConsultLogByTask;
   hostOwnedTurnIdsByTask: Record<string, string | undefined>;
+  /**
+   * Outgoing messages that failed to send. A task that has left the app can no
+   * longer show them, and there is nowhere to retry them from, so the parked
+   * payloads go with it.
+   */
+  failedSendsByTask: FailedOutgoingSendsByTask;
 }
 
 /**
@@ -100,6 +107,13 @@ export function removeTaskTurnRuntimeEntries(args: {
   );
   if (hostOwnedTurnIdsByTask) {
     patch.hostOwnedTurnIdsByTask = hostOwnedTurnIdsByTask;
+  }
+  const failedSendsByTask = removeRecordEntries(
+    args.state.failedSendsByTask,
+    args.taskIds,
+  );
+  if (failedSendsByTask) {
+    patch.failedSendsByTask = failedSendsByTask;
   }
   return patch;
 }
