@@ -42,6 +42,11 @@ import { createTaskLifecycleActions } from "@/store/app-store-task-lifecycle-act
 import { createSupportActions } from "@/store/app-store-support-actions";
 import { createProviderInteractionActions } from "@/store/app-store-provider-interaction-actions";
 import {
+  createFailedSendActions,
+  parkFailedOutgoingSend,
+} from "@/store/app-store-failed-send-actions";
+import { createSubmittedPromptDraftLifecycle } from "@/store/submitted-prompt-draft-lifecycle";
+import {
   createAppStorePersistenceOptions,
   normalizeSharedSkillsHomeSetting,
 } from "@/store/app-store-persistence";
@@ -186,7 +191,6 @@ import {
 } from "@/store/prompt-draft-send";
 import {
   buildClearedPromptDraft,
-  buildClearedPromptDraftWithQueuedNextTurn,
   hasPromptDraftPayload,
   normalizePromptDraftForStorage,
 } from "@/store/prompt-draft-state";
@@ -1389,6 +1393,7 @@ export const useAppStore = create<AppState>()(
       shouldLoadLatestTaskMessages,
       findTaskById,
     });
+    const failedSendActions = createFailedSendActions({ set, get });
     const conversationThreadActions = createConversationThreadActions({
       set,
       get,
@@ -1484,6 +1489,7 @@ export const useAppStore = create<AppState>()(
       workspacePlansRefreshNonce: 0,
       tasks: [],
       messagesByTask: {},
+      failedSendsByTask: {},
       messageCountByTask: {},
       taskMessagesLoadingByTask: {},
       layout: {
@@ -1678,6 +1684,7 @@ export const useAppStore = create<AppState>()(
       ...compareActions,
       ...taskCoreActions,
       ...conversationThreadActions,
+      ...failedSendActions,
       ...terminalActions,
       ...taskLifecycleActions,
       ...paneActions,
@@ -1693,6 +1700,8 @@ export const useAppStore = create<AppState>()(
         submitIntent,
         turnOrigin,
         queuedTurnId,
+        attachedFilePaths: payloadAttachedFilePaths,
+        attachments: payloadAttachments,
       }) => {
         const turnId = crypto.randomUUID();
         let state = get();
@@ -1846,6 +1855,8 @@ export const useAppStore = create<AppState>()(
           sourceDraft: sourcePromptDraft,
           storedDraft: storedPromptDraftForTask,
           queuedTurnId,
+          payloadAttachedFilePaths,
+          payloadAttachments,
         });
         if (!promptDraftSendState) {
           return { status: "blocked" } satisfies SendUserMessageResult;
@@ -2126,50 +2137,20 @@ export const useAppStore = create<AppState>()(
             queuedTurns: codexGoalQueuedTurns,
           });
 
-        let promptDraftClearedOptimistically = false;
-        const clearSubmittedPromptDraft = () => {
-          if (preservePromptDraft) {
-            return;
-          }
-          if (promptDraftClearedOptimistically) {
-            return;
-          }
-          promptDraftClearedOptimistically = true;
-          updatePromptDraftsForWorkspace({
-            [resolvedTaskId]:
-              preservedQueuedDispatchDraft ??
-              buildClearedPromptDraftWithQueuedNextTurn({
-                draft: promptDraft,
-                queuedTurns: codexGoalQueuedTurns,
-              }),
-            ...(sourcePromptDraftTaskId !== resolvedTaskId
-              ? {
-                  [sourcePromptDraftTaskId]:
-                    buildClearedPromptDraft(sourcePromptDraft),
-                }
-              : {}),
-          });
-        };
-        const restoreSubmittedPromptDraft = () => {
-          if (!promptDraftClearedOptimistically) {
-            return;
-          }
-          promptDraftClearedOptimistically = false;
-          updatePromptDraftsForWorkspace({
-            // For a failed queued-turn dispatch, put the original stored
-            // draft back (the item returns to the queue untouched).
-            [resolvedTaskId]: queuedTurnToSend
-              ? (storedPromptDraftForTask ?? sourcePromptDraft)
-              : promptDraft,
-            ...(sourcePromptDraftTaskId !== resolvedTaskId
-              ? {
-                  [sourcePromptDraftTaskId]: sourcePromptDraft,
-                }
-              : {}),
-          });
-        };
+        const submittedPromptDraft = createSubmittedPromptDraftLifecycle({
+          taskId: resolvedTaskId,
+          sourceTaskId: sourcePromptDraftTaskId,
+          preservePromptDraft,
+          promptDraft,
+          sourcePromptDraft,
+          storedDraft: storedPromptDraftForTask,
+          preservedQueuedDispatchDraft,
+          queuedTurns: codexGoalQueuedTurns,
+          queuedTurnToSend,
+          updateDrafts: updatePromptDraftsForWorkspace,
+        });
 
-        clearSubmittedPromptDraft();
+        submittedPromptDraft.clear();
 
         try {
           // A queued turn's stored model (queue-time selection) wins over the
@@ -2199,21 +2180,21 @@ export const useAppStore = create<AppState>()(
             workspaceId: taskWorkspaceId,
           });
           if (!latestWorkspaceSession) {
-            restoreSubmittedPromptDraft();
+            submittedPromptDraft.restore();
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
           const latestHistory =
             latestWorkspaceSession.messagesByTask[resolvedTaskId] ??
             existingHistory;
           if (latestWorkspaceSession.activeTurnIdsByTask[resolvedTaskId]) {
-            restoreSubmittedPromptDraft();
+            submittedPromptDraft.restore();
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
           if (
             findLatestPendingApproval({ messages: latestHistory }) ||
             findLatestPendingUserInput({ messages: latestHistory })
           ) {
-            restoreSubmittedPromptDraft();
+            submittedPromptDraft.restore();
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
 
@@ -2500,7 +2481,7 @@ export const useAppStore = create<AppState>()(
             retrievedContextParts,
           });
           const prompt = normalizedPrompt;
-          promptDraftClearedOptimistically = false;
+          submittedPromptDraft.commit();
 
           if (taskWorkspaceId === get().activeWorkspaceId) {
             set((nextState) => {
@@ -3036,8 +3017,25 @@ export const useAppStore = create<AppState>()(
             turnId,
           } satisfies SendUserMessageResult;
         } catch (error) {
-          restoreSubmittedPromptDraft();
-          throw error;
+          if (
+            queuedTurnToSend ||
+            turnOrigin !== "conversation" ||
+            submittedPromptDraft.isCommitted()
+          ) {
+            // None of these can be recovered from a failed bubble: a queued
+            // item returns to the queue untouched, a utility turn is not the
+            // task's dialogue and has its own error surface, and a committed
+            // turn already left the app.
+            submittedPromptDraft.restore();
+            throw error;
+          }
+          return parkFailedOutgoingSend({
+            set,
+            taskId: resolvedTaskId,
+            workspaceId: taskWorkspaceId,
+            draft: promptDraft,
+            error,
+          });
         }
       },
       ...providerInteractionActions,

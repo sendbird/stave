@@ -3,6 +3,7 @@ import {
   normalizePromptDraftForStorage,
 } from "@/store/prompt-draft-state";
 import type {
+  Attachment,
   PromptDraft,
   PromptDraftQueuedTurn,
   PromptDraftRuntimeOverrides,
@@ -16,12 +17,16 @@ export function buildPromptDraftForSend(args: {
   storedDraft?: PromptDraft;
   queuedTurn?: PromptDraftQueuedTurn;
   remainingQueuedTurns?: PromptDraft["queuedTurns"];
+  payloadAttachedFilePaths?: string[];
+  payloadAttachments?: Attachment[];
 }): PromptDraft {
   if (args.preservePromptDraft) {
+    // The composer stays untouched, so the payload can only come from the
+    // caller — a retried send passes the attachments the failed attempt had.
     return normalizePromptDraftForStorage({
       text: args.content,
-      attachedFilePaths: [],
-      attachments: [],
+      attachedFilePaths: args.payloadAttachedFilePaths ?? [],
+      attachments: args.payloadAttachments ?? [],
       runtimeOverrides: args.runtimeOverrides,
     });
   }
@@ -55,6 +60,8 @@ export function resolvePromptDraftSendState(args: {
   sourceDraft: PromptDraft;
   storedDraft?: PromptDraft;
   queuedTurnId?: string;
+  payloadAttachedFilePaths?: string[];
+  payloadAttachments?: Attachment[];
 }): {
   promptDraft: PromptDraft;
   queuedTurnToSend?: PromptDraftQueuedTurn;

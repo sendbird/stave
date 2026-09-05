@@ -37,6 +37,28 @@ describe("prompt draft send state", () => {
     expect(SOURCE_DRAFT.text).toBe("Keep this composer draft");
   });
 
+  test("carries a retried send's own attachments while the composer stays put", () => {
+    expect(
+      buildPromptDraftForSend({
+        content: "Fix the login form",
+        preservePromptDraft: true,
+        sourceDraft: SOURCE_DRAFT,
+        storedDraft: SOURCE_DRAFT,
+        payloadAttachedFilePaths: ["src/app.ts"],
+        payloadAttachments: [{ kind: "file", filePath: "src/app.ts" }],
+      }),
+    ).toEqual({
+      text: "Fix the login form",
+      attachedFilePaths: ["src/app.ts"],
+      attachments: [{ kind: "file", filePath: "src/app.ts" }],
+      runtimeOverrides: undefined,
+      promptBatch: undefined,
+      queuedTurns: undefined,
+      queuedNextTurn: undefined,
+    });
+    expect(SOURCE_DRAFT.text).toBe("Keep this composer draft");
+  });
+
   test("uses a queued turn as the payload and keeps the remaining queue", () => {
     const queuedTurn = {
       id: "queued-1",

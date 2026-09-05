@@ -46,6 +46,7 @@ import type {
 } from "@/lib/compare-runs";
 import type { AppSettings } from "@/store/app-settings";
 import type { AppActiveSurface, AppSurfaceActions } from "@/store/app-surface";
+import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type { LayoutState } from "@/store/layout.utils";
 import type { RecentProjectState } from "@/store/project.utils";
 import type { TaskScrollToLatestRequest } from "@/store/task-scroll.utils";
@@ -56,6 +57,7 @@ import type {
 } from "@/store/workspace-pane-state";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import type {
+  Attachment,
   ChatMessage,
   EditorTab,
   PromptDraft,
@@ -100,7 +102,20 @@ export type SendUserMessageResult =
       workspaceId: string;
       message: string;
     }
-  | { status: "started"; taskId: string; workspaceId: string; turnId: string };
+  | { status: "started"; taskId: string; workspaceId: string; turnId: string }
+  | {
+      /**
+       * The message never reached the provider. Its payload is parked as a
+       * failed outgoing bubble on the task (see {@link FailedOutgoingSend}),
+       * which is also why the composer is left cleared: the text and
+       * attachments now live on that bubble, and Dismiss is what drops them.
+       */
+      status: "send-failed";
+      taskId: string;
+      workspaceId: string;
+      failedSendId: string;
+      message: string;
+    };
 
 export type ConversationThreadActionResult =
   { ok: true; detail: string; taskId?: string } | { ok: false; detail: string };
@@ -147,6 +162,14 @@ export interface AppState
   workspacePlansRefreshNonce: number;
   tasks: Task[];
   messagesByTask: Record<string, ChatMessage[]>;
+  /**
+   * Outgoing messages that failed to send, per task, in memory only.
+   *
+   * Kept out of `messagesByTask` on purpose: nothing was sent, so a failed
+   * payload must never enter the persisted transcript, the message count, or
+   * the conversation history handed to a provider.
+   */
+  failedSendsByTask: FailedOutgoingSendsByTask;
   messageCountByTask: Record<string, number>;
   taskMessagesLoadingByTask: Record<string, boolean>;
   layout: LayoutState;
@@ -605,7 +628,29 @@ export interface AppState
      *   asked for. For a chosen reviewer it would contradict the choice.
      */
     turnOrigin: "conversation" | "utility";
+    /**
+     * Attachments for a send that cannot read them off the composer draft,
+     * i.e. one with `preservePromptDraft`. Retrying a failed send is the only
+     * caller: its payload lives on the failed bubble, not in the composer.
+     */
+    attachedFilePaths?: string[];
+    attachments?: Attachment[];
   }) => Promise<SendUserMessageResult>;
+  /**
+   * Send a parked failed outgoing message again, with the same text and
+   * attachments, leaving the composer draft untouched. The bubble is dropped
+   * first, so a second failure parks a fresh one instead of duplicating it.
+   * Returns `null` when the bubble is already gone.
+   */
+  retryFailedSend: (args: {
+    taskId: string;
+    id: string;
+  }) => Promise<SendUserMessageResult | null>;
+  /**
+   * Drop a failed outgoing message. The text is not put back in the composer —
+   * dismissing is the user saying they no longer want to send it.
+   */
+  dismissFailedSend: (args: { taskId: string; id: string }) => void;
   /**
    * Forward a workspace's failing verification checks back to its agent as the
    * next turn. Builds a prompt from the stored {@link TurnVerificationResult}

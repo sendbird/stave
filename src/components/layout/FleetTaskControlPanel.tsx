@@ -84,6 +84,7 @@ function resolveActionStatus(
       };
     case "steer-unavailable":
     case "steer-delivery-unknown":
+    case "send-failed":
       return { tone: "error" as const, text: result.message };
     case "blocked":
       return {

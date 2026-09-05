@@ -46,6 +46,7 @@ import {
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
 import { ConversationPlanCard } from "@/components/session/ConversationPlanCard";
+import { FailedOutgoingMessages } from "@/components/session/FailedOutgoingMessages";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   getTurnModelInfoLabel,
@@ -540,6 +541,9 @@ function ChatPanelMessageList(props: {
   const messages = useAppStore(
     (state) => state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
   );
+  const hasFailedSends = useAppStore(
+    (state) => (state.failedSendsByTask[taskId]?.length ?? 0) > 0,
+  );
   const providerSession = useAppStore(
     (state) => state.providerSessionByTask[taskId] ?? EMPTY_PROVIDER_SESSION,
   );
@@ -872,7 +876,7 @@ function ChatPanelMessageList(props: {
             title="Loading conversation"
             description="Fetching the latest messages for this task."
           />
-        ) : visibleMessages.length === 0 ? (
+        ) : visibleMessages.length === 0 && !hasFailedSends ? (
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -916,6 +920,7 @@ function ChatPanelMessageList(props: {
             )}
           />
         )}
+        <FailedOutgoingMessages taskId={taskId} />
       </ConversationContent>
       {showConversationTurnRail ? (
         <ConversationTurnRail
