@@ -28,6 +28,9 @@ claim that the whole application has completed this transition.
 The host-owned canonical source is in `src/components/ads`. It supplies tokens,
 StyleX recipes, accessible component behavior, and theme context. Source version
 and original integrity metadata live beside it in `.ads-source.json`.
+`package.json` must declare that bundle's dependency closure — including the
+webfont packages imported by `fonts.css` — so a clean install can resolve those
+CSS files.
 
 `src/components/ui` preserves existing application imports and compound APIs.
 Adapters compose canonical components or recipes; they must not create a second

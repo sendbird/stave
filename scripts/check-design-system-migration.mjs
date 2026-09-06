@@ -100,6 +100,27 @@ for (const dependency of [
   if (packageJson.dependencies?.[dependency] || packageJson.devDependencies?.[dependency])
     failures.push(`${dependency}: retired component engine returned`);
 }
+const adsSourceDependencies = new Set();
+for (const file of [
+  ".ads-source.json",
+  ".ads-source-controls.json",
+  ".ads-source-lightbox.json",
+]) {
+  const source = JSON.parse(
+    readFileSync(new URL(`../src/components/ads/${file}`, import.meta.url), "utf8"),
+  );
+  for (const dependency of Object.keys(source.dependencies ?? {})) {
+    adsSourceDependencies.add(dependency);
+  }
+}
+for (const dependency of adsSourceDependencies) {
+  if (
+    !packageJson.dependencies?.[dependency] &&
+    !packageJson.devDependencies?.[dependency]
+  ) {
+    failures.push(`${dependency}: ADS source dependency is not declared`);
+  }
+}
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exitCode = 1;
