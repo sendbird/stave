@@ -715,6 +715,9 @@ export function ProvidersSection() {
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const blockTurnsWhenAccountLimitReached = useAppStore(
+    (state) => state.settings.blockTurnsWhenAccountLimitReached,
+  );
   const currentClaudeModePresetId = detectClaudeProviderModePreset({
     settings: {
       claudePermissionMode,
@@ -792,6 +795,22 @@ export function ProvidersSection() {
 
   return (
     <>
+      <SettingsCard
+        id="settings-field-account-usage-limit"
+        title="Account usage limit"
+        description="Shared stop for Claude, Codex, Cursor, and Kiro when included account usage is exhausted."
+      >
+        <SwitchField
+          title="Stop turns at 100% usage"
+          description="When a provider reports included usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish. Turn this off to keep working on overage."
+          checked={blockTurnsWhenAccountLimitReached}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              patch: { blockTurnsWhenAccountLimitReached: checked },
+            })
+          }
+        />
+      </SettingsCard>
       <ProviderBrowserAccessSettingsCard
         tab={connectedBrowserTab}
         autoFallback={providerBrowserAutoFallback}

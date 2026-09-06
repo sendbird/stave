@@ -89,7 +89,9 @@ function resolveActionStatus(
     case "blocked":
       return {
         tone: "error" as const,
-        text: "The task changed before the reply could be sent.",
+        text:
+          result.message ??
+          "The task changed before the reply could be sent.",
       };
   }
 }

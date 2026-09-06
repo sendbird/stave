@@ -685,6 +685,7 @@ export interface HostServiceRequestMap {
   "provider.get-rate-limits-snapshot": {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+    providers?: StreamTurnArgs["providerId"][];
   };
   "provider.get-codex-plugin-detail": {
     marketplacePath: string;

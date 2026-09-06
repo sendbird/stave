@@ -1531,7 +1531,13 @@ export const ProviderModelCatalogArgsSchema = z
   })
   .strict();
 
-export const RateLimitsSnapshotArgsSchema = ClaudeRuntimeActionArgsSchema;
+export const RateLimitsSnapshotArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    runtimeOptions: RuntimeOptionsSchema,
+    providers: z.array(ProviderIdSchema).min(1).max(4).optional(),
+  })
+  .strict();
 
 export const CodexPluginDetailArgsSchema = z
   .object({

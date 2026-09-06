@@ -371,6 +371,10 @@ export function createAppStorePersistenceOptions() {
         typeof raw.midTurnSteeringEnabled === "boolean"
           ? raw.midTurnSteeringEnabled
           : defaultSettings.midTurnSteeringEnabled;
+      state.settings.blockTurnsWhenAccountLimitReached =
+        typeof raw.blockTurnsWhenAccountLimitReached === "boolean"
+          ? raw.blockTurnsWhenAccountLimitReached
+          : defaultSettings.blockTurnsWhenAccountLimitReached;
       state.settings.visualCommentShortcut =
         raw.visualCommentShortcut === "mod-period"
           ? DEFAULT_VISUAL_COMMENT_SHORTCUT

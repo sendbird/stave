@@ -430,6 +430,7 @@ interface WindowProviderApi {
   getRateLimitsSnapshot?: (args: {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
+    providers?: ProviderId[];
   }) => Promise<RateLimitsSnapshotResponse>;
   getCodexPluginDetail?: (args: {
     marketplacePath: string;

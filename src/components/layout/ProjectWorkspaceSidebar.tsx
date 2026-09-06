@@ -64,6 +64,7 @@ import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip
 import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
+import { WorkspaceAccountLimitIcon } from "@/components/layout/WorkspaceAccountLimitIcon";
 import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
 import { ProjectIdentityMark } from "@/components/layout/project-appearance";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
@@ -593,6 +594,7 @@ function WorkQueueRow(args: {
           <span className="shrink-0 truncate text-xs text-muted-foreground">
             {entry.projectName}
           </span>
+          <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
         </button>
       </WorkspaceHoverPreviewTooltip>
       <WorkspaceProgressTaskTree
@@ -2714,6 +2716,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                       )}
                                                     </div>
                                                   </WorkspaceHoverPreviewTooltip>
+                                                  <WorkspaceAccountLimitIcon
+                                                    workspaceId={workspace.id}
+                                                  />
                                                   {isExpandedWorkspaceItem ? (
                                                     <WorkspaceRowActions
                                                       workspaceId={workspace.id}

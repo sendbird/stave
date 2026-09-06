@@ -12,6 +12,7 @@ import {
   supportsExplicitEffort,
 } from "@/lib/providers/auxiliary-inference-policy";
 import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
+import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import { resolveWorkspacePathForId } from "@/store/workspace-file-cache";
@@ -93,6 +94,14 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
     if (!summaryLane.enabled) {
       return;
     }
+    if (
+      isAccountUsageBlockingFromState({
+        providerId: summaryLane.providerId,
+        state,
+      })
+    ) {
+      return;
+    }
     // A turn that produced no assistant prose has nothing to summarize; the
     // model would only restate the user's own request back at them.
     if (
@@ -162,6 +171,14 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
         }
 
         const providerId = inferProviderIdFromModel({ model });
+        if (
+          isAccountUsageBlockingFromState({
+            providerId,
+            state: deps.getState(),
+          })
+        ) {
+          continue;
+        }
         const runtimeOptions = {
           ...buildProviderRuntimeOptions({
             provider: providerId,

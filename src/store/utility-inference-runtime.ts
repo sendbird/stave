@@ -14,6 +14,8 @@ import type {
   AutoRoutingClassifierResult,
 } from "@/store/auto-routing";
 import type { ChatMessage, Task } from "@/types/chat";
+import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
+import { useAppStore } from "@/store/app.store";
 
 export function createUtilityRouteClassifier(args: {
   context: UtilityInferenceContext;
@@ -32,6 +34,19 @@ export function createUtilityRouteClassifier(args: {
   }
 
   return async (request) => {
+    const utilityProviderId =
+      args.context.utilityProviderId === "claude-code" ||
+      args.context.utilityProviderId === "codex"
+        ? args.context.utilityProviderId
+        : (args.context.activeProviderId ?? "claude-code");
+    if (
+      isAccountUsageBlockingFromState({
+        providerId: utilityProviderId,
+        state: useAppStore.getState(),
+      })
+    ) {
+      return null;
+    }
     try {
       const result = await classifyRoute({
         ...args.context,
@@ -77,6 +92,15 @@ export function maybeSuggestUtilityTaskName(args: {
   onTitle: (title: string) => void;
 }) {
   if (args.lane && !args.lane.enabled) {
+    return;
+  }
+  if (
+    args.lane &&
+    isAccountUsageBlockingFromState({
+      providerId: args.lane.providerId,
+      state: useAppStore.getState(),
+    })
+  ) {
     return;
   }
   if (

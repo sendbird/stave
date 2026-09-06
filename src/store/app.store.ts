@@ -9,7 +9,6 @@ import type {
   NormalizedProviderEvent,
 } from "@/lib/providers/provider.types";
 import {
-  buildReadOnlyAuxRuntimeOptions,
   resolveAuxLaneRuntime,
   supportsExplicitEffort,
 } from "@/lib/providers/auxiliary-inference-policy";
@@ -77,12 +76,7 @@ import {
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
 import { resolveAutoRoutingDecision } from "@/store/auto-routing";
-import {
-  collectIntentContext,
-  deriveIntentComplianceStatus,
-  normalizePrePrReviewProvider,
-  type TurnIntentComplianceResult,
-} from "@/lib/source-control-review";
+import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import { partitionStalePrContexts } from "@/lib/pr-context";
 import { isTaskManaged } from "@/lib/tasks";
 import { resolveWorkspacePathForId } from "@/store/workspace-file-cache";
@@ -98,7 +92,6 @@ import {
 import { buildTurnActivityFlushPatch } from "@/store/turn-activity-retention";
 import {
   applyDetectedWorkspaceResources,
-  buildIntentGuardContextInput,
   createEmptyWorkspaceInformation,
   detectWorkspaceResourcesInText,
   type WorkspaceInformationState,
@@ -145,6 +138,8 @@ import {
   loadHostTaskTurn,
 } from "@/store/host-task-turn-sync";
 import { createQueuedTaskTurnDispatcher } from "@/store/queued-task-turn-dispatch";
+import { guardSendAgainstAccountUsage } from "@/store/account-usage-guard";
+import { createIntentGuardRunner } from "@/store/intent-guard-runtime";
 import { applySteeredTurnState } from "@/store/steer-turn-state";
 import {
   createWebFetchAuthWallTracker,
@@ -580,125 +575,12 @@ export const useAppStore = create<AppState>()(
       }
     };
 
-    /** Re-show the retained verdict for a turn that did not re-run the guard. */
-    const restoreIntentCompliance = (args: {
-      workspaceId: string;
-      taskId?: string;
-      turnId?: string;
-    }) => {
-      const retained = retainedIntentComplianceByWorkspace.get(
-        args.workspaceId,
-      );
-      if (!retained) {
-        return;
-      }
-      const compliance = {
-        ...retained,
-        taskId: args.taskId,
-        turnId: args.turnId,
-      };
-      retainedIntentComplianceByWorkspace.set(args.workspaceId, compliance);
-      set((current) => ({
-        turnIntentComplianceByWorkspace: {
-          ...current.turnIntentComplianceByWorkspace,
-          [args.workspaceId]: compliance,
-        },
-      }));
-    };
-
-    // C2 intent guard: after a turn completes, if the workspace has pinned
-    // intent anchors, run a single-turn provider check comparing the diff
-    // against that pinned intent and surface it as a Changes-panel badge.
-    // No-op when nothing is pinned, so it stays disarmed by default.
-    const runIntentGuardForTurn = (args: {
-      workspaceId: string;
-      taskId?: string;
-      turnId?: string;
-      workspacePath: string;
-    }) => {
-      const reviewDiff = window.api?.provider?.reviewDiff;
-      if (!reviewDiff) {
-        return;
-      }
-      const state = get();
-      const lane = resolveAuxLaneRuntime({
-        lane: "intentGuard",
-        policy: state.settings.auxiliaryInferencePolicy,
-        legacyProviderId: state.settings.prePrReviewProvider,
-      });
-      if (!lane.enabled) {
-        return;
-      }
-      // A turn that changed no files cannot have changed the diff either.
-      if (
-        lane.config.onlyAfterFileEdits &&
-        args.turnId &&
-        !turnIdsWithFileEdits.has(args.turnId)
-      ) {
-        restoreIntentCompliance(args);
-        return;
-      }
-      const info =
-        state.activeWorkspaceId === args.workspaceId
-          ? state.workspaceInformation
-          : state.workspaceRuntimeCacheById[args.workspaceId]
-              ?.workspaceInformation;
-      if (!info) {
-        return;
-      }
-      const intentContext = collectIntentContext(
-        buildIntentGuardContextInput(info),
-      );
-      if (!intentContext) {
-        return;
-      }
-      const providerId = normalizePrePrReviewProvider(lane.providerId);
-      void reviewDiff({
-        cwd: args.workspacePath,
-        providerId,
-        mode: "intent",
-        intentContext,
-        ...(lane.config.onlyWhenDiffChanged
-          ? { intentFingerprintGate: true }
-          : {}),
-        ...(lane.model
-          ? {
-              model: lane.model,
-              runtimeOptions: buildReadOnlyAuxRuntimeOptions({
-                providerId: lane.providerId,
-                model: lane.model,
-                effortOverrides: lane.effortOverrides,
-              }),
-            }
-          : {}),
-      })
-        .then((result) => {
-          if (!result.ok) {
-            return;
-          }
-          const compliance: TurnIntentComplianceResult = {
-            workspaceId: args.workspaceId,
-            taskId: args.taskId,
-            turnId: args.turnId,
-            status: deriveIntentComplianceStatus(result.findings),
-            findings: result.findings,
-            completedAt: Date.now(),
-          };
-          retainedIntentComplianceByWorkspace.set(args.workspaceId, compliance);
-          set((current) => ({
-            turnIntentComplianceByWorkspace: {
-              ...current.turnIntentComplianceByWorkspace,
-              [args.workspaceId]: compliance,
-            },
-          }));
-        })
-        .catch((error) => {
-          console.warn("[intent-guard] turn.completed check failed", {
-            workspaceId: args.workspaceId,
-            error: String(error),
-          });
-        });
-    };
+    const { runIntentGuardForTurn } = createIntentGuardRunner({
+      getState: get,
+      setState: set,
+      turnIdsWithFileEdits,
+      retainedByWorkspace: retainedIntentComplianceByWorkspace,
+    });
 
     const runScriptHookInBackground = (args: {
       workspaceId: string;
@@ -1717,6 +1599,16 @@ export const useAppStore = create<AppState>()(
             })
           : null;
         let task = runtimeTarget?.task ?? null;
+        const hasActiveTurn = Boolean(
+          task && runtimeTarget?.session.activeTurnIdsByTask[task.id],
+        );
+        if (hasActiveTurn) {
+          const accountUsageBlock = await guardSendAgainstAccountUsage(
+            get,
+            providerOverride ?? task?.provider ?? state.draftProvider ?? "claude-code",
+          );
+          if (accountUsageBlock) return accountUsageBlock;
+        }
 
         if (!task) {
           const seededTaskId = crypto.randomUUID();
@@ -2153,6 +2045,16 @@ export const useAppStore = create<AppState>()(
         submittedPromptDraft.clear();
 
         try {
+          if (!hasActiveTurn) {
+            const accountUsageBlock = await guardSendAgainstAccountUsage(
+              get,
+              provider,
+            );
+            if (accountUsageBlock) {
+              submittedPromptDraft.restore();
+              return accountUsageBlock;
+            }
+          }
           // A queued turn's stored model (queue-time selection) wins over the
           // composer's current override; see resolveTurnModelForSend.
           let activeModel = resolveTurnModelForSend({

@@ -148,4 +148,16 @@ describe("settings field registry", () => {
     expect(searchSettingsFields("sonnet 5")).toEqual([advisor!]);
     expect(searchSettingsFields("gpt-5.6-sol")).toEqual([advisor!]);
   });
+
+  test("finds the shared account-usage stop by usage and credits terms", () => {
+    const definition = settingDefinitions.find(
+      (candidate) => candidate.key === "blockTurnsWhenAccountLimitReached",
+    );
+
+    expect(definition).toBeDefined();
+    expect(definition?.defaultValue).toBe(true);
+    expect(matchesSettingsField(definition!, "100% usage")).toBe(true);
+    expect(matchesSettingsField(definition!, "credits")).toBe(true);
+    expect(searchSettingsFields("stop turns at 100")).toEqual([definition!]);
+  });
 });
