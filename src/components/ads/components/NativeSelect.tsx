@@ -281,4 +281,3 @@ const sizeStyles = {
   sm: styles.compact,
   xs: styles.dense,
 } as const;
-

@@ -1367,4 +1367,3 @@ export function SidebarMenuSkeleton({
 // file at 500 lines. `sx()` resolves style values at runtime, so merging the
 // two `stylex.create` results here is equivalent to declaring them together.
 const styles = { ...shellStyles, ...sidebarStyles };
-

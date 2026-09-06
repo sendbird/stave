@@ -256,4 +256,3 @@ const styles = stylex.create({
     lineHeight: vars.lineHeightNormal,
   },
 });
-

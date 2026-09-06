@@ -497,4 +497,3 @@ export const shellStyles = stylex.create({
     minInlineSize: 0,
   },
 });
-

@@ -373,4 +373,3 @@ export const sidebarStyles = stylex.create({
     minInlineSize: 0,
   },
 });
-

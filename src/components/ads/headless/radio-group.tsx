@@ -8,4 +8,3 @@ export const RadioIndicator = Radio.Indicator;
 
 export type RadioGroupRootProps = React.ComponentProps<typeof RadioGroupRoot>;
 export type RadioRootProps = React.ComponentProps<typeof RadioRoot>;
-

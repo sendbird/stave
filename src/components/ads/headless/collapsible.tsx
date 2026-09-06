@@ -6,4 +6,3 @@ export const CollapsibleTrigger = BaseCollapsible.Trigger;
 export const CollapsiblePanel = BaseCollapsible.Panel;
 
 export type CollapsibleRootProps = React.ComponentProps<typeof CollapsibleRoot>;
-

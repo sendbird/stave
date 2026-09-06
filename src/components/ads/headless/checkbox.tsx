@@ -8,4 +8,3 @@ export type CheckboxRootProps = React.ComponentProps<typeof CheckboxRoot>;
 export type CheckboxIndicatorProps = React.ComponentProps<
   typeof CheckboxIndicator
 >;
-

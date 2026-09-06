@@ -510,4 +510,3 @@ const styles = stylex.create({
     fontSize: vars.fontSizeBody,
   },
 });
-

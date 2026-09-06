@@ -170,4 +170,3 @@ export function useSidebarOwnsTrigger(
     !sidebarTriggerClaimed || (sidebar.isMobile && collapsible === "offcanvas")
   );
 }
-

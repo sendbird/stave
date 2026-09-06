@@ -355,4 +355,3 @@ const styles = stylex.create({
     strokeDashoffset: "0",
   },
 });
-

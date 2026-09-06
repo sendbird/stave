@@ -226,4 +226,3 @@ export function AppShell({
     </ShellChromeContext.Provider>
   );
 }
-
