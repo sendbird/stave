@@ -1,3 +1,5 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -29,8 +31,10 @@ import {
   isDetachedHead,
 } from "@/lib/source-control-branch-label";
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
+import { layoutShellStyles } from "./layout-shell.styles";
+import { branchDropdownStyles } from "./top-bar-branch-dropdown.styles";
 import { formatWorkspacePathLabel } from "@/store/project.utils";
 import {
   buildTopBarBranchGroups,
@@ -681,26 +685,27 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
 
   if (isDefaultWorkspace) {
     const dirtyTone = branchStatus.hasConflicts
-      ? "bg-destructive text-destructive-foreground"
+      ? branchDropdownStyles.dirtyCountConflict
       : branchStatus.dirtyCount > 0
-        ? "bg-warning text-warning-foreground"
-        : "";
+        ? branchDropdownStyles.dirtyCountDirty
+        : null;
 
     return (
       <DropdownMenu open={branchOpen} onOpenChange={setBranchOpen}>
         <Tooltip>
-          <TooltipTrigger render={<span className="inline-flex" />}>
+          <TooltipTrigger
+            render={<span {...stylex.props(layoutShellStyles.inlineFlex)} />}
+          >
             <DropdownMenuTrigger
               render={
-                <button
+                <AdsButton
+                  layout="host"
                   type="button"
-                  className={cn(
-                    "inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border border-border/60 bg-background/60 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-secondary/60",
-                    branchOpen &&
-                      "border-primary/70 bg-secondary/80 text-foreground",
-                    branchDrift &&
-                      "border-warning/60 bg-warning/8 text-warning",
-                  )}
+                  xstyle={[
+                    branchDropdownStyles.trigger,
+                    branchOpen && branchDropdownStyles.triggerOpen,
+                    Boolean(branchDrift) && branchDropdownStyles.triggerDrift,
+                  ]}
                   style={props.noDragStyle}
                   aria-label={
                     branchDrift
@@ -713,34 +718,28 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               {isBusy ? (
                 <Loader
                   aria-hidden
-                  className="shrink-0"
+                  className={sx(branchDropdownStyles.flexNone)}
                   size="xs"
                   variant="sync"
                 />
               ) : (
-                <GitBranch className="size-3.5 shrink-0" />
+                <GitBranch />
               )}
-              <span className="truncate">{currentBranchLabel}</span>
+              <span className={sx(branchDropdownStyles.truncate)}>
+                {currentBranchLabel}
+              </span>
               {branchStatus.dirtyCount > 0 ? (
                 <span
-                  className={cn(
-                    "inline-flex min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-medium leading-4",
-                    dirtyTone,
-                  )}
+                  {...stylex.props(branchDropdownStyles.dirtyCount, dirtyTone)}
                 >
                   {branchStatus.dirtyCount}
                 </span>
               ) : null}
-              {branchDrift ? (
-                <AlertTriangle
-                  className="size-3.5 shrink-0"
-                  aria-hidden="true"
-                />
-              ) : null}
+              {branchDrift ? <AlertTriangle aria-hidden="true" /> : null}
               <ChevronDown
-                className={cn(
-                  "size-3 shrink-0 transition-transform",
-                  branchOpen && "rotate-180",
+                {...stylex.props(
+                  branchDropdownStyles.chevron,
+                  branchOpen && branchDropdownStyles.chevronOpen,
                 )}
               />
             </DropdownMenuTrigger>
@@ -757,15 +756,15 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         <DropdownMenuContent
           align="start"
           sideOffset={8}
-          className="flex max-h-[min(34rem,calc(100vh-5rem))] w-[min(30rem,calc(100vw-2rem))] flex-col overflow-hidden p-0"
+          className={sx(branchDropdownStyles.menu)}
         >
-          <div className="border-b border-border/70 bg-background/95 p-2">
-            <div className="flex items-center gap-2">
-              <div className="relative min-w-0 flex-1">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <div className={sx(branchDropdownStyles.header)}>
+            <div className={sx(branchDropdownStyles.headerRow)}>
+              <div className={sx(branchDropdownStyles.searchField)}>
+                <Search {...stylex.props(branchDropdownStyles.searchIcon)} />
                 <Input
                   ref={searchInputRef}
-                  className="h-8 rounded-md pl-8 text-sm"
+                  xstyle={branchDropdownStyles.searchInput}
                   placeholder="Search branches"
                   value={branchFilter}
                   onChange={(event) => setBranchFilter(event.target.value)}
@@ -794,24 +793,26 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                 disabled={isBusy}
                 onClick={() => void loadBranches({ refreshRemote: true })}
               >
-                <RefreshCw className={cn("size-4", isBusy && "animate-spin")} />
+                <RefreshCw
+                  {...stylex.props(isBusy && branchDropdownStyles.spinning)}
+                />
               </Button>
             </div>
 
             {branchDrift ? (
               <div
-                className="mt-2 flex items-start gap-2 rounded-md border border-warning/35 bg-warning/8 p-2.5"
+                className={sx(branchDropdownStyles.driftNote)}
                 role="status"
               >
                 <AlertTriangle
-                  className="mt-0.5 size-4 shrink-0 text-warning"
+                  {...stylex.props(branchDropdownStyles.driftIcon)}
                   aria-hidden="true"
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-foreground">
+                <div className={sx(branchDropdownStyles.driftBody)}>
+                  <p className={sx(branchDropdownStyles.driftTitle)}>
                     Default workspace is on {branchDrift.actualBranch}
                   </p>
-                  <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                  <p className={sx(branchDropdownStyles.driftText)}>
                     This workspace normally tracks {branchDrift.expectedBranch}.
                     Return before starting work that should land on the default
                     branch.
@@ -821,7 +822,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 shrink-0 px-2 text-[11px]"
+                  xstyle={branchDropdownStyles.driftAction}
                   disabled={isBusy}
                   onClick={() => void handleReturnToDefaultBranch()}
                 >
@@ -830,19 +831,19 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               </div>
             ) : null}
 
-            <div className="mt-2 rounded-md border border-border/70 bg-muted/30 px-2.5 py-2">
-              <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="min-w-0 truncate font-medium text-foreground">
+            <div className={sx(branchDropdownStyles.statusCard)}>
+              <div className={sx(branchDropdownStyles.statusRow)}>
+                <span className={sx(branchDropdownStyles.statusBranch)}>
                   {currentBranchLabel}
                 </span>
                 <span
-                  className={cn(
-                    "shrink-0 rounded-sm px-1.5 py-0.5 text-[11px]",
+                  {...stylex.props(
+                    branchDropdownStyles.statusPill,
                     branchStatus.hasConflicts
-                      ? "bg-destructive/10 text-destructive"
+                      ? branchDropdownStyles.statusPillConflict
                       : branchStatus.dirtyCount > 0
-                        ? "bg-warning/10 text-warning"
-                        : "bg-success/10 text-success",
+                        ? branchDropdownStyles.statusPillDirty
+                        : branchDropdownStyles.statusPillClean,
                   )}
                 >
                   {branchStatus.hasConflicts
@@ -852,26 +853,26 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                       : "Clean"}
                 </span>
               </div>
-              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+              <p className={sx(branchDropdownStyles.statusHint)}>
                 {branchStatus.dirtyCount > 0
                   ? "Local edits stay in this workspace. Git may block unsafe checkouts."
                   : isDetachedCheckout
                     ? "HEAD is detached, so no local branch moves. Check out a branch to reattach."
                     : "Create or switch branches for this default workspace."}
               </p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className={sx(branchDropdownStyles.actionGrid)}>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 gap-1.5 rounded-sm px-2 text-xs"
+                  xstyle={branchDropdownStyles.actionButton}
                   disabled={isBusy}
                   onClick={() => void handleFetchCurrentBranch()}
                 >
                   {branchOperation === "fetch" ? (
                     <Loader aria-hidden size="xs" variant="sync" />
                   ) : (
-                    <RefreshCw className="size-3.5" />
+                    <RefreshCw />
                   )}
                   Fetch
                 </Button>
@@ -879,34 +880,40 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 gap-1.5 rounded-sm px-2 text-xs"
+                  xstyle={branchDropdownStyles.actionButton}
                   disabled={isBusy || isDetachedCheckout}
                   onClick={() => void handlePullCurrentBranch()}
                 >
                   {branchOperation === "pull" ? (
                     <Loader aria-hidden size="xs" variant="sync" />
                   ) : (
-                    <Download className="size-3.5" />
+                    <Download />
                   )}
                   Pull
                 </Button>
               </div>
               <Tooltip>
-                <TooltipTrigger render={<span className="mt-2 flex" />}>
+                <TooltipTrigger
+                  render={
+                    <span
+                      {...stylex.props(branchDropdownStyles.detachSlot)}
+                    />
+                  }
+                >
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-7 w-full gap-1.5 rounded-sm px-2 text-xs"
+                    xstyle={branchDropdownStyles.detachButton}
                     disabled={isBusy || !originDefaultRef}
                     onClick={() => void handleDetachOriginDefaultBranch()}
                   >
                     {branchOperation === "detach" ? (
                       <Loader aria-hidden size="xs" variant="sync" />
                     ) : (
-                      <GitBranchPlus className="size-3.5" />
+                      <GitBranchPlus />
                     )}
-                    <span className="truncate">
+                    <span className={sx(branchDropdownStyles.truncate)}>
                       {originDefaultRef
                         ? `Fetch & checkout ${originDefaultRef}`
                         : "Fetch & checkout origin default"}
@@ -921,9 +928,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               </Tooltip>
             </div>
 
-            <div className="mt-2 flex gap-2">
+            <div className={sx(branchDropdownStyles.createRow)}>
               <Input
-                className="h-8 rounded-md text-sm"
+                xstyle={branchDropdownStyles.createInput}
                 placeholder={`New branch from ${currentBranchLabel}`}
                 value={newBranchName}
                 aria-invalid={Boolean(
@@ -943,36 +950,36 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               <Button
                 type="button"
                 size="sm"
-                className="h-8 gap-1.5 px-2.5 text-xs"
+                xstyle={branchDropdownStyles.createButton}
                 disabled={!canCreateBranch}
                 onClick={() => void handleCreateBranch()}
               >
-                <Plus className="size-3.5" />
+                <Plus />
                 Create
               </Button>
             </div>
             {newBranchName.trim() && createBranchError ? (
-              <p className="mt-1.5 px-0.5 text-[11px] text-destructive">
+              <p className={sx(branchDropdownStyles.createError)}>
                 {createBranchError}
               </p>
             ) : null}
             {branchError ? (
-              <p className="mt-2 whitespace-pre-wrap break-words rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
+              <p className={sx(branchDropdownStyles.branchError)}>
                 {branchError}
               </p>
             ) : null}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          <div className={sx(branchDropdownStyles.list)}>
             {branchGroups.length > 0 ? (
-              <div className="space-y-3">
+              <div className={sx(branchDropdownStyles.groups)}>
                 {branchGroups.map((group) => (
                   <div key={group.id}>
-                    <div className="mb-1 flex items-center justify-between px-1.5 text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
+                    <div className={sx(branchDropdownStyles.groupHeader)}>
                       <span>{group.label}</span>
                       <span>{group.options.length}</span>
                     </div>
-                    <div className="space-y-1">
+                    <div className={sx(branchDropdownStyles.groupOptions)}>
                       {group.options.map((option) => {
                         const isCurrent = option.state === "current";
                         const isAttached = option.state === "attached";
@@ -982,15 +989,17 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                           projectPath,
                         });
                         return (
-                          <button
+                          <AdsButton
+                            layout="host"
                             key={option.key}
                             type="button"
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors",
-                              isCurrent && "border border-border bg-accent",
-                              !disabled && "hover:bg-accent/60",
-                              disabled && "cursor-not-allowed opacity-70",
-                            )}
+                            xstyle={[
+                              branchDropdownStyles.option,
+                              isCurrent && branchDropdownStyles.optionCurrent,
+                              !disabled &&
+                                branchDropdownStyles.optionSelectable,
+                              disabled && branchDropdownStyles.optionDisabled,
+                            ]}
                             onClick={() => {
                               void handleCheckoutBranch({ option }).then(
                                 (ok) => {
@@ -1003,19 +1012,33 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                             disabled={disabled}
                             title={description}
                           >
-                            <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-medium text-foreground">
+                            <GitBranch
+                              {...stylex.props(
+                                branchDropdownStyles.optionIcon,
+                              )}
+                            />
+                            <span className={sx(branchDropdownStyles.optionText)}>
+                              <span
+                                className={sx(branchDropdownStyles.optionName)}
+                              >
                                 {option.displayName}
                               </span>
-                              <span className="block truncate text-xs text-muted-foreground">
+                              <span
+                                className={sx(
+                                  branchDropdownStyles.optionDescription,
+                                )}
+                              >
                                 {description}
                               </span>
                             </span>
                             {isCurrent ? (
-                              <Check className="size-3.5 shrink-0 text-success" />
+                              <Check
+                                {...stylex.props(
+                                  branchDropdownStyles.optionCheck,
+                                )}
+                              />
                             ) : null}
-                          </button>
+                          </AdsButton>
                         );
                       })}
                     </div>
@@ -1023,7 +1046,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                 ))}
               </div>
             ) : (
-              <div className="rounded-md border border-border/70 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className={sx(branchDropdownStyles.emptyState)}>
                 No branches match the current search.
               </div>
             )}
@@ -1038,13 +1061,15 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       <TooltipTrigger
         render={
           <div
-            className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border border-border/60 bg-background/60 px-2.5 text-xs text-muted-foreground"
+            className={sx(branchDropdownStyles.staticChip)}
             style={props.noDragStyle}
           />
         }
       >
-        <GitBranch className="size-3.5 shrink-0" />
-        <span className="truncate">{currentBranchLabel}</span>
+        <GitBranch {...stylex.props(branchDropdownStyles.staticChipIcon)} />
+        <span className={sx(branchDropdownStyles.truncate)}>
+          {currentBranchLabel}
+        </span>
       </TooltipTrigger>
       <TooltipContent side="bottom">
         Branch is managed by this worktree

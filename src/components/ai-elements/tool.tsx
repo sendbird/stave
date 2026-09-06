@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { ChevronDown, CircleAlert, CircleCheck, Wrench } from "lucide-react";
@@ -10,7 +11,9 @@ import {
 } from "@/lib/tool-display-name";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { Loader } from "@/components/ui/loader";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
+import { toolStyles as s } from "./tool.styles";
 
 interface ToolProps extends HTMLAttributes<HTMLDivElement> {
   defaultOpen?: boolean;
@@ -60,10 +63,7 @@ export function Tool({
 
   return (
     <ToolContext.Provider value={contextValue}>
-      <section
-        className={cn("rounded-md border bg-card", className)}
-        {...props}
-      />
+      <section className={cx(sx(s.root), className)} {...props} />
     </ToolContext.Provider>
   );
 }
@@ -85,47 +85,32 @@ export function getStatusBadge(state?: ToolHeaderProps["state"]): ReactNode {
   switch (state) {
     case "input-streaming":
       return (
-        <span
-          aria-label="Running"
-          className="inline-flex items-center text-muted-foreground"
-        >
+        <span aria-label="Running" className={sx(s.badge, s.badgeMuted)}>
           <Loader aria-hidden size="xs" variant="steps" />
         </span>
       );
     case "input-available":
       return (
-        <span
-          aria-label="Input available"
-          className="inline-flex items-center text-muted-foreground"
-        >
-          <Wrench className="size-3.5" />
+        <span aria-label="Input available" className={sx(s.badge, s.badgeMuted)}>
+          <Wrench className={sx(s.badgeIcon)} />
         </span>
       );
     case "output-available":
       return (
-        <span
-          aria-label="Done"
-          className="inline-flex items-center text-success"
-        >
-          <CircleCheck className="size-3.5" />
+        <span aria-label="Done" className={sx(s.badge, s.badgeSuccess)}>
+          <CircleCheck className={sx(s.badgeIcon)} />
         </span>
       );
     case "output-error":
       return (
-        <span
-          aria-label="Error"
-          className="inline-flex items-center text-destructive"
-        >
-          <CircleAlert className="size-3.5" />
+        <span aria-label="Error" className={sx(s.badge, s.badgeError)}>
+          <CircleAlert className={sx(s.badgeIcon)} />
         </span>
       );
     default:
       return (
-        <span
-          aria-label="Idle"
-          className="inline-flex items-center text-muted-foreground"
-        >
-          <Wrench className="size-3.5" />
+        <span aria-label="Idle" className={sx(s.badge, s.badgeMuted)}>
+          <Wrench className={sx(s.badgeIcon)} />
         </span>
       );
   }
@@ -159,14 +144,14 @@ function getToolStatusText(state?: ToolState, elapsedSeconds?: number) {
   }
 }
 
-function getToolStatusTextClassName(state?: ToolState) {
+function getToolStatusTextStyle(state?: ToolState) {
   switch (state) {
     case "output-available":
-      return "text-success";
+      return s.statusSuccess;
     case "output-error":
-      return "text-destructive";
+      return s.statusError;
     default:
-      return "text-muted-foreground";
+      return s.statusMuted;
   }
 }
 
@@ -180,42 +165,29 @@ export function ToolHeader({
 }: ToolHeaderProps) {
   const { open, setOpen } = useToolContext();
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
-      className={cn(
-        "flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold",
-        open && "border-b",
-        className,
-      )}
+      className={cx(sx(s.header, open && s.headerOpen), className)}
       onClick={() => setOpen(!open)}
       {...props}
     >
-      <span className="inline-flex items-center gap-1.5">
+      <span className={sx(s.headerName)}>
         {type && isStaveToolName(type) ? (
-          <StaveIcon className="size-3.5" />
+          <StaveIcon className={sx(s.headerIcon)} />
         ) : (
-          <Wrench className="size-3.5" />
+          <Wrench className={sx(s.headerIcon)} />
         )}
         {displayToolName({ type, title })}
       </span>
-      <span className="inline-flex items-center gap-2">
-        <span
-          className={cn(
-            "text-[0.75em] font-medium",
-            getToolStatusTextClassName(state),
-          )}
-        >
+      <span className={sx(s.headerMeta)}>
+        <span className={sx(s.statusText, getToolStatusTextStyle(state))}>
           {getToolStatusText(state, elapsedSeconds)}
         </span>
         {getStatusBadge(state)}
-        <ChevronDown
-          className={cn(
-            "size-3.5 transition-transform",
-            open ? "rotate-180" : "rotate-0",
-          )}
-        />
+        <ChevronDown className={sx(s.chevron, transition.transform, open && s.chevronOpen)} />
       </span>
-    </button>
+    </AdsButton>
   );
 }
 
@@ -227,7 +199,7 @@ export function ToolContent({
   if (!open) {
     return null;
   }
-  return <div className={cn("space-y-2 px-3 py-2", className)} {...props} />;
+  return <div className={cx(sx(s.content), className)} {...props} />;
 }
 
 export function ToolInput(args: { input: unknown; className?: string }) {
@@ -240,27 +212,16 @@ export function ToolInput(args: { input: unknown; className?: string }) {
     source: "tool_input",
   });
   return (
-    <div
-      className={cn(
-        "rounded-sm border border-border/70 bg-muted/20 p-2",
-        args.className,
-      )}
-    >
-      <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">
-        Input
-      </p>
+    <div className={cx(sx(s.ioBlock, s.ioInput), args.className)}>
+      <p className={sx(s.ioLabel)}>Input</p>
       {truncationNotice ? (
         <TruncationWarningBanner
           notice={truncationNotice}
           compact
-          className="mb-2"
+          className={sx(s.banner)}
         />
       ) : null}
-      <LinkifiedText
-        as="pre"
-        text={content}
-        className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-muted-foreground"
-      />
+      <LinkifiedText as="pre" text={content} className={sx(s.pre)} />
     </div>
   );
 }
@@ -278,45 +239,36 @@ export function ToolOutput(args: {
     source: "tool_output",
   });
   return (
-    <div
-      className={cn(
-        "rounded-sm border border-border/70 bg-background/40 p-2",
-        args.className,
-      )}
-    >
-      <p className="mb-1 text-[0.75em] uppercase text-muted-foreground">
-        {args.label ?? "Output"}
-      </p>
+    <div className={cx(sx(s.ioBlock, s.ioOutput), args.className)}>
+      <p className={sx(s.ioLabel)}>{args.label ?? "Output"}</p>
       {truncationNotice ? (
         <TruncationWarningBanner
           notice={truncationNotice}
           compact
-          className="mb-2"
+          className={sx(s.banner)}
         />
       ) : null}
       {args.errorText ? (
         <LinkifiedText
           as="p"
           text={args.errorText}
-          className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-destructive"
+          className={sx(s.errorText)}
         />
       ) : (
         <div>
           {args.output ??
             (typeof args.outputText === "string" && args.outputText !== "" ? (
               args.linkifyOutputText === false ? (
-                <pre className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[0.875em]">
-                  {args.outputText}
-                </pre>
+                <pre className={sx(s.outputPre)}>{args.outputText}</pre>
               ) : (
                 <LinkifiedText
                   as="pre"
                   text={args.outputText}
-                  className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[0.875em]"
+                  className={sx(s.outputPre)}
                 />
               )
             ) : (
-              <span className="text-muted-foreground">No output.</span>
+              <span className={sx(s.noOutput)}>No output.</span>
             ))}
         </div>
       )}
@@ -354,38 +306,26 @@ export function ToolGroup(args: {
   const overallState: ToolGroupState = latestState ?? "input-available";
 
   return (
-    <div className="rounded-md border bg-card">
-      <button
+    <div className={sx(s.root)}>
+      <AdsButton
+        layout="host"
         type="button"
-        className={cn(
-          "flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold",
-          open && "border-b",
-        )}
+        className={sx(s.header, open && s.headerOpen)}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="inline-flex items-center gap-1.5">
-          <Wrench className="size-3.5" />
+        <span className={sx(s.headerName)}>
+          <Wrench className={sx(s.headerIcon)} />
           Tools
         </span>
-        <span className="inline-flex items-center gap-2">
-          <span
-            className={cn(
-              "text-[0.75em] font-medium",
-              getToolStatusTextClassName(overallState),
-            )}
-          >
+        <span className={sx(s.headerMeta)}>
+          <span className={sx(s.statusText, getToolStatusTextStyle(overallState))}>
             {getToolStatusText(overallState)}
           </span>
           {getStatusBadge(overallState)}
-          <ChevronDown
-            className={cn(
-              "size-3.5 transition-transform",
-              open ? "rotate-180" : "rotate-0",
-            )}
-          />
+          <ChevronDown className={sx(s.chevron, transition.transform, open && s.chevronOpen)} />
         </span>
-      </button>
-      {open && <div className="space-y-1 p-2">{children}</div>}
+      </AdsButton>
+      {open && <div className={sx(s.groupList)}>{children}</div>}
     </div>
   );
 }

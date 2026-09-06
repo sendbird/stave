@@ -2,7 +2,9 @@ import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+
+import { docsMarkdownStyles as s } from "./docs-markdown.styles";
 
 export type HeadingEntry = {
   id: string;
@@ -107,7 +109,7 @@ export function MarkdownContent({
             if (isInline) {
               return <code>{children}</code>;
             }
-            return <code className={cn(className, "block")}>{children}</code>;
+            return <code className={cx(className, sx(s.codeBlock))}>{children}</code>;
           },
           img: ({ alt, src }) => (
             <img

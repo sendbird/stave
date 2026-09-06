@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Zap } from "lucide-react";
 import {
   type CSSProperties,
@@ -6,7 +7,9 @@ import {
   useMemo,
   useState,
 } from "react";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import type { StyleXValue } from "@/components/ads/utils/stylex";
+import { cursorModelConfigStyles as styles } from "./cursor-model-config-list.styles";
 import { PROVIDER_ACCENT_COLORS } from "./model-effort-grid";
 import { ModelIcon } from "./model-icon";
 import {
@@ -81,7 +84,7 @@ function FixedCapabilityChip(args: { title: string; children: ReactNode }) {
       title={args.title}
       // Deliberately not button-shaped: no border, no 44px hit area, so it does
       // not read as a control that failed to respond.
-      className="flex h-6 shrink-0 items-center self-center rounded bg-muted/45 px-1.5 text-[10px] leading-4 font-medium text-muted-foreground/85"
+      className={sx(styles.fixedChip)}
     >
       {args.children}
     </span>
@@ -95,14 +98,15 @@ function ConfigurationButton(args: {
   pressed: boolean;
   disabled: boolean;
   title?: string;
-  className?: string;
+  extraStyle?: StyleXValue;
   children: ReactNode;
   onFocus: (controlKey: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
   onClick: () => void;
 }) {
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
       data-cursor-control-key={args.controlKey}
       aria-label={args.label}
@@ -113,14 +117,14 @@ function ConfigurationButton(args: {
       onFocus={() => args.onFocus(args.controlKey)}
       onKeyDown={args.onKeyDown}
       onClick={args.onClick}
-      className={cn(
-        "inline-flex min-h-11 shrink-0 items-center justify-center rounded-md border border-transparent px-2 text-xs font-medium text-muted-foreground outline-none transition-[background-color,border-color,color,box-shadow] hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
-        args.pressed && "border-border/70 bg-muted/70 text-foreground",
-        args.className,
+      className={sx(
+        styles.configButton,
+        args.pressed && styles.configButtonPressed,
+        args.extraStyle,
       )}
     >
       {args.children}
-    </button>
+    </AdsButton>
   );
 }
 
@@ -219,17 +223,15 @@ function CursorModelRow(args: {
     <div
       role="listitem"
       data-cursor-model-row={args.group.baseModel}
-      className={cn(
-        "min-w-0 rounded-lg px-1 py-1 transition-colors hover:bg-muted/35 min-[480px]:px-2",
-        selected && "bg-accent/70",
-      )}
+      className={sx(styles.row, selected && styles.rowSelected)}
     >
       <div
         role="toolbar"
         aria-label={`${args.group.label} configuration`}
-        className="flex min-w-0 items-center gap-1 min-[480px]:gap-2"
+        className={sx(styles.toolbar)}
       >
-        <button
+        <AdsButton
+          layout="host"
           type="button"
           data-cursor-control-key={`${args.group.key}:model`}
           aria-label={`${args.group.label}${selected ? ", selected" : ""}`}
@@ -240,22 +242,20 @@ function CursorModelRow(args: {
           onKeyDown={handleKeyDown}
           onClick={() => chooseVariant(anchor)}
           title={args.group.label}
-          className="flex min-h-11 min-w-[10rem] max-w-[min(44%,14rem)] shrink-0 items-center gap-2 rounded-md px-2 text-left text-sm font-medium text-foreground outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45 min-[480px]:min-w-[11rem] min-[480px]:max-w-[min(42%,16rem)]"
+          className={sx(styles.modelButton)}
         >
-          <ModelIcon providerId="cursor" className="size-3.5 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{args.group.label}</span>
+          <ModelIcon providerId="cursor" className={sx(styles.modelIcon)} />
+          <span className={sx(styles.modelLabel)}>{args.group.label}</span>
           {anchor.option.isDefault ? (
-            <span className="hidden text-[10px] text-muted-foreground min-[560px]:inline">
-              Default
-            </span>
+            <span className={sx(styles.defaultLabel)}>Default</span>
           ) : null}
-        </button>
+        </AdsButton>
 
-        <div className="tab-strip-scroll flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overscroll-contain">
+        <div className={cx(sx(styles.controlStrip), "tab-strip-scroll")}>
           {hasFast && !fastAdjustable ? (
             anchor.fast ? (
               <FixedCapabilityChip title={FIXED_PARAMETER_TITLE}>
-                <Zap className="mr-1 size-3 fill-current" aria-hidden="true" />
+                <Zap className={sx(styles.fastIconFixed)} aria-hidden="true" />
                 Fast
               </FixedCapabilityChip>
             ) : null
@@ -286,10 +286,16 @@ function CursorModelRow(args: {
                   }),
                 )
               }
-              className={cn("gap-1.5", anchor.fast && "text-prompt-role-fast")}
+              extraStyle={[
+                styles.configButtonGap,
+                anchor.fast && styles.configButtonFast,
+              ]}
             >
               <Zap
-                className={cn("size-3.5", anchor.fast && "fill-current")}
+                className={sx(
+                  styles.fastIcon,
+                  anchor.fast && styles.fastIconFilled,
+                )}
                 aria-hidden="true"
               />
               Fast
@@ -399,17 +405,20 @@ function CursorModelRow(args: {
                     onFocus={args.onTabStopChange}
                     onKeyDown={handleKeyDown}
                     onClick={() => chooseVariant(variant)}
-                    className="size-11 px-0"
+                    extraStyle={styles.configButtonEffort}
                   >
-                    <span className="flex flex-col items-center gap-0.5">
-                      <span className="text-[10px] leading-none">
+                    <span className={sx(styles.effortInner)}>
+                      <span className={sx(styles.effortShortLabel)}>
                         {getEffortShortLabel(effort.label)}
                       </span>
                       <span
                         data-selected={selected && active ? "true" : undefined}
-                        className={cn(
-                          "model-effort-cell-visual flex size-5 items-center justify-center rounded-sm border border-foreground/5 shadow-xs",
-                          !variant && "opacity-30",
+                        className={cx(
+                          sx(
+                            styles.effortVisual,
+                            !variant && styles.effortVisualUnavailable,
+                          ),
+                          "model-effort-cell-visual",
                         )}
                         style={
                           {
@@ -421,7 +430,7 @@ function CursorModelRow(args: {
                       >
                         {selected && active ? (
                           <Check
-                            className="size-3"
+                            className={sx(styles.effortCheck)}
                             strokeWidth={2.5}
                             aria-hidden="true"
                           />
@@ -459,7 +468,7 @@ export function CursorModelConfigList(args: {
       <div
         role="list"
         aria-label="Cursor model configurations"
-        className="space-y-1 p-1 min-[480px]:p-2"
+        className={sx(styles.list)}
       >
         {groups.map((group) => (
           <CursorModelRow
@@ -478,7 +487,7 @@ export function CursorModelConfigList(args: {
           />
         ))}
       </div>
-      <p className="border-t border-border/65 px-3 py-2 text-xs text-muted-foreground">
+      <p className={sx(styles.footer)}>
         Buttons change the model. Plain labels are parameters Cursor reports but
         advertises only one value for, so they cannot be changed from here.
       </p>

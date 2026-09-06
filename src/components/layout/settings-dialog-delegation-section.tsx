@@ -1,5 +1,8 @@
 import { Badge } from "@/components/ui";
+import { Button } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
 import { SettingsCard } from "@/components/layout/settings-dialog.shared";
+import { delegationStyles } from "./settings-dialog-delegation-section.styles";
 import {
   resolveLocalMcpReadiness,
   useLocalMcpReadiness,
@@ -80,7 +83,10 @@ export function SettingsDelegationSection() {
   });
   const readinessByProvider = providerIds.map((providerId) => ({
     providerId,
-    readiness: resolveLocalMcpReadiness({ status, primaryProviderId: providerId }),
+    readiness: resolveLocalMcpReadiness({
+      status,
+      primaryProviderId: providerId,
+    }),
   }));
   const blocked = readinessByProvider.filter(
     (entry) => entry.readiness.state === "unavailable",
@@ -119,13 +125,13 @@ export function SettingsDelegationSection() {
     >
       <div
         data-testid="delegation-readiness"
-        className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground"
+        className={sx(delegationStyles.panel)}
       >
-        <p className="font-medium text-foreground">Availability</p>
-        <ul className="mt-1 space-y-1">
+        <p className={sx(delegationStyles.panelHeading)}>Availability</p>
+        <ul className={sx(delegationStyles.list)}>
           {readinessByProvider.map((entry) => (
             <li key={entry.providerId}>
-              <span className="text-foreground">
+              <span className={sx(delegationStyles.emphasis)}>
                 {getProviderLabel({ providerId: entry.providerId })} tasks:
               </span>{" "}
               {entry.readiness.state === "ready"
@@ -136,14 +142,16 @@ export function SettingsDelegationSection() {
             </li>
           ))}
         </ul>
-        <p className="mt-2">
+        <p className={sx(delegationStyles.paragraphSpaced)}>
           Delegation and Advisor consults both reach the model as Local MCP
           tools, so a task can only delegate while that server is running.
         </p>
-        <button
+        <Button
           type="button"
+          variant="link"
+          flushInline
           data-testid="delegation-open-developer-settings"
-          className="mt-1 text-left underline-offset-2 hover:text-foreground hover:underline"
+          xstyle={delegationStyles.openSettingsLink}
           onClick={() => {
             window.dispatchEvent(
               new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
@@ -153,20 +161,18 @@ export function SettingsDelegationSection() {
           }}
         >
           Open Settings → Developer → Local MCP.
-        </button>
+        </Button>
       </div>
 
-      <div className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
-        <p className="font-medium text-foreground">
+      <div className={sx(delegationStyles.panel)}>
+        <p className={sx(delegationStyles.panelHeading)}>
           Asking for one, and what you can specify
         </p>
-        <p className="mt-1">
+        <p className={sx(delegationStyles.paragraphTight)}>
           There is no button: delegation happens when an agent calls
-          <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[11px] text-foreground">
-            stave_delegate_task
-          </code>
+          <code className={sx(delegationStyles.code)}>stave_delegate_task</code>
           during its turn, so you steer it by asking — for example{" "}
-          <span className="text-foreground">
+          <span className={sx(delegationStyles.emphasis)}>
             &ldquo;delegate the docs review to a Codex child task in a new
             worktree, guided permissions, one turn, at high effort&rdquo;
           </span>
@@ -174,20 +180,20 @@ export function SettingsDelegationSection() {
           default, because a child&apos;s provider and permissions must be
           declared by the request that creates it rather than inherited.
         </p>
-        <ul className="mt-2 space-y-1">
+        <ul className={sx(delegationStyles.detailList)}>
           {DELEGATION_PARAMETERS.map((parameter) => (
             <li key={parameter.name}>
-              <code className="rounded bg-muted px-1 py-0.5 text-[11px] text-foreground">
+              <code className={sx(delegationStyles.codeInline)}>
                 {parameter.name}
               </code>{" "}
-              <span className="text-[10px] uppercase tracking-[0.08em]">
+              <span className={sx(delegationStyles.requiredTag)}>
                 {parameter.required ? "required" : "optional"}
               </span>{" "}
               — {parameter.detail}
             </li>
           ))}
         </ul>
-        <p className="mt-2">
+        <p className={sx(delegationStyles.paragraphSpaced)}>
           Once a delegation starts, its child appears in the task&apos;s turn
           activity with Open, Follow-up, Stop, Detach and Retry controls.
         </p>

@@ -23,8 +23,8 @@ describe("ManagedTaskTakeoverNotice", () => {
     expect(html).toContain("Managed by Stave");
     expect(html).toContain("Take Over");
     expect(html).toContain('aria-label="Take over managed task"');
-    expect(html).toContain("mx-3");
-    expect(html).toContain("data-managed-task-notice");
+    expect(html).toContain('data-managed-task-notice="true"');
+    expect(html).toContain('role="status"');
     expect(html).not.toContain(' disabled=""');
   });
 

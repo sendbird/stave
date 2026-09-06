@@ -7,8 +7,7 @@
  * existing call site (which passes the full store state) still type-checks and
  * behaves the same.
  */
-import { createElement } from "react";
-import { toast, type ExternalToast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import type {
   AppNotification,
@@ -48,16 +47,6 @@ export interface NotificationProjectScopeState {
   recentProjects: RecentProjectState[];
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
 }
-
-const OPEN_NOTIFICATION_ACTION_BUTTON_STYLE = {
-  position: "absolute",
-  inset: 0,
-  height: "auto",
-  margin: 0,
-  padding: 0,
-  borderRadius: "inherit",
-  background: "transparent",
-} satisfies NonNullable<ExternalToast["actionButtonStyle"]>;
 
 function resolveTaskTitleFromSession(args: {
   session: WorkspaceSessionState;
@@ -435,14 +424,9 @@ export function showNotificationToast(
     options.onOpen && notification.taskId?.trim()
       ? {
           action: {
-            label: createElement(
-              "span",
-              { className: "sr-only" },
-              `Open task: ${notification.taskTitle?.trim() || title}`,
-            ),
+            label: "Open task",
             onClick: options.onOpen,
           },
-          actionButtonStyle: OPEN_NOTIFICATION_ACTION_BUTTON_STYLE,
         }
       : {};
   const resolvedToastOptions = {

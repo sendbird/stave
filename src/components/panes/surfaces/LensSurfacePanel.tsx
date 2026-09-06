@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -305,7 +308,7 @@ function LensSessionSurface(args: {
   return (
     <TooltipProvider delay={120}>
       <div
-        className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar/20"
+        className={sx(styles.root)}
         data-testid="lens-surface-panel"
         data-lens-session-id={lensSessionId}
       >
@@ -332,7 +335,7 @@ function LensSessionSurface(args: {
           Carries the page background behind the guest, so the moment before a
           page paints reads as part of the page rather than as a hole.
         */}
-        <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
+        <div className={sx(styles.body)}>
           {lensPanelTab === "preview" ? (
             <LensPreviewSurface
               chromeLayer={surface.chromeLayer}

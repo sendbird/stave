@@ -1,11 +1,14 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes } from "react";
 import { useMemo, useState } from "react";
 import { Bot, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LinkifiedText } from "@/components/ui/linkified-text";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import { ToolInput, ToolOutput, getStatusBadge } from "./tool";
+import { subagentStyles as s } from "./subagent.styles";
 
 type ToolState = "input-streaming" | "input-available" | "output-available" | "output-error";
 
@@ -87,52 +90,50 @@ export function SubagentCard({ className, input, output, state, defaultOpen = fa
   }, [progressMessages]);
 
   return (
-    <section
-      className={cn("overflow-hidden rounded-md border border-primary/25 bg-primary/5", className)}
-      {...props}
-    >
-      <button
+    <section className={cx(sx(s.root), className)} {...props}>
+      <AdsButton
+        layout="host"
         type="button"
-        className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left"
+        className={sx(s.header)}
         onClick={() => setOpen((current) => !current)}
       >
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 text-[0.875em] font-semibold text-foreground">
-              <Bot className="size-3.5 text-primary" />
+        <div className={sx(s.headerBody)}>
+          <div className={sx(s.titleRow)}>
+            <span className={sx(s.kindLabel)}>
+              <Bot className={sx(s.kindIcon)} />
               {workerExecution ? "Worker" : "Subagent"}
             </span>
             {workerExecution ? <Badge variant="outline">{formatWorkerExecutionMetadata(workerExecution)}</Badge> : null}
             {details.subagentType ? <Badge variant="secondary">{details.subagentType}</Badge> : null}
           </div>
-          <p className="text-[0.875em] font-medium text-foreground">{title}</p>
+          <p className={sx(s.title)}>{title}</p>
           {details.prompt ? (
-            <p className="line-clamp-2 text-[0.75em] leading-[1.6] text-muted-foreground">
+            <p className={sx(s.promptSummary)}>
               {details.prompt}
             </p>
           ) : null}
         </div>
-        <span className="inline-flex shrink-0 items-center gap-2">
+        <span className={sx(s.headerMeta)}>
           {getStatusBadge(state)}
-          <ChevronDown className={cn("size-3.5 transition-transform", open ? "rotate-180" : "rotate-0")} />
+          <ChevronDown className={sx(s.chevron, transition.transform, open && s.chevronOpen)} />
         </span>
-      </button>
+      </AdsButton>
 
       {visibleProgress.length > 0 ? (
-        <div className="border-t border-primary/15 px-3 py-2">
-          <ul className="space-y-0.5">
+        <div className={sx(s.progressSection)}>
+          <ul className={sx(s.progressList)}>
             {visibleProgress.map((msg, idx) => (
-              <li key={idx} className="flex items-start gap-1.5 text-[0.75em] text-muted-foreground">
+              <li key={idx} className={sx(s.progressItem)}>
                 <span
-                  className={cn(
-                    "mt-1.5 size-1.5 shrink-0 rounded-full",
+                  className={sx(
+                    s.progressDot,
                     idx === visibleProgress.length - 1 && (state === "input-streaming" || state === "input-available")
-                      ? "bg-primary animate-pulse"
-                      : "bg-primary/40",
+                      ? s.progressDotActive
+                      : null,
                   )}
                   aria-hidden="true"
                 />
-                <LinkifiedText text={msg} className="min-w-0 break-words" />
+                <LinkifiedText text={msg} className={sx(s.progressText)} />
               </li>
             ))}
           </ul>
@@ -140,7 +141,7 @@ export function SubagentCard({ className, input, output, state, defaultOpen = fa
       ) : null}
 
       {open ? (
-        <div className="space-y-2 border-t border-primary/15 bg-background/70 px-3 py-2">
+        <div className={sx(s.detail)}>
           <ToolInput input={promptText} />
           {state !== "input-streaming" ? (
             <ToolOutput

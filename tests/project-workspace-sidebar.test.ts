@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
+import { sx } from "../src/components/ads/utils/stylex";
+import { projectSidebarStyles } from "../src/components/layout/project-workspace-sidebar.styles";
 import type { FleetAttentionItem } from "../src/lib/fleet/attention-projection";
 import { FLEET_ATTENTION_PRIORITY } from "../src/lib/fleet/attention-projection";
 import {
@@ -10,10 +13,10 @@ import {
   buildWorkspaceProgressTaskItems,
   buildVisibleWorkspaceShortcutTargets,
   formatWorkQueueWorkspaceLabel,
-  getWorkspaceHoverActionVisibilityClasses,
+  getWorkspaceHoverActionVisibilityStyle,
   getWorkspaceLeadingAttentionKind,
   getWorkspaceShortcutLabel,
-  getWorkspaceRespondingCountVisibilityClasses,
+  getWorkspaceRespondingCountVisibilityStyle,
   resolveWorkspaceProgressTaskLoaderVariant,
   summarizeWorkspaceTaskTitle,
   WORKSPACE_SHORTCUT_COUNT,
@@ -251,56 +254,70 @@ describe("buildWorkspaceHoverPreview", () => {
 });
 
 describe("workspace hover action visibility", () => {
-  test("reveals hover actions on hover and keyboard focus-visible, not generic focus-within", () => {
-    const className = getWorkspaceHoverActionVisibilityClasses({
-      isClosing: false,
-    });
+  // The reveal is published by the row as custom properties and read by the
+  // actions, so the guarantee to protect is which row states set them:
+  // hover and keyboard `:has(:focus-visible)`, never `:focus-within` (which a
+  // mouse click would latch open).
+  const sidebarStylesSource = readFileSync(
+    new URL(
+      "../src/components/layout/project-workspace-sidebar.styles.ts",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  // Only the workspace row's own publishing block is under test. The project
+  // row deliberately uses `:focus-within`, so a file-wide search would pass
+  // for the wrong reason.
+  const workspaceRowBlock = sidebarStylesSource.slice(
+    sidebarStylesSource.indexOf("  workspaceRow: {"),
+    sidebarStylesSource.indexOf("\n  },", sidebarStylesSource.indexOf("  workspaceRow: {")),
+  );
 
-    expect(className).toContain("group-hover/workspace-row:opacity-100");
-    expect(className).toContain(
-      "group-has-[:focus-visible]/workspace-row:opacity-100",
-    );
-    expect(className).not.toContain("group-focus-within");
+  test("reveals hover actions on hover and keyboard focus-visible, not generic focus-within", () => {
+    expect(
+      getWorkspaceHoverActionVisibilityStyle({ isClosing: false }),
+    ).toBe(projectSidebarStyles.rowActionsReveal);
+    expect(workspaceRowBlock).toContain('":hover"');
+    expect(workspaceRowBlock).toContain('":has(:focus-visible)"');
+    expect(workspaceRowBlock).not.toContain("focus-within");
   });
 
   test("keeps hover actions visible while closing", () => {
-    expect(
-      getWorkspaceHoverActionVisibilityClasses({
-        isClosing: true,
-      }),
-    ).toBe("pointer-events-auto opacity-100");
+    expect(getWorkspaceHoverActionVisibilityStyle({ isClosing: true })).toBe(
+      projectSidebarStyles.rowActionsPinned,
+    );
+    expect(sx(projectSidebarStyles.rowActionsPinned)).not.toBe(
+      sx(projectSidebarStyles.rowActionsReveal),
+    );
   });
 });
 
 describe("workspace responding count visibility", () => {
   test("hides the responding count with the same reveal rules when hover actions exist", () => {
-    const className = getWorkspaceRespondingCountVisibilityClasses({
-      hasHoverActions: true,
-      isClosing: false,
-    });
-
-    expect(className).toContain("group-hover/workspace-row:opacity-0");
-    expect(className).toContain(
-      "group-has-[:focus-visible]/workspace-row:opacity-0",
-    );
+    expect(
+      getWorkspaceRespondingCountVisibilityStyle({
+        hasHoverActions: true,
+        isClosing: false,
+      }),
+    ).toBe(projectSidebarStyles.rowCountYields);
   });
 
   test("keeps the responding count visible when no hover actions exist", () => {
     expect(
-      getWorkspaceRespondingCountVisibilityClasses({
+      getWorkspaceRespondingCountVisibilityStyle({
         hasHoverActions: false,
         isClosing: false,
       }),
-    ).toBe("");
+    ).toBeNull();
   });
 
   test("keeps the responding count hidden while closing", () => {
     expect(
-      getWorkspaceRespondingCountVisibilityClasses({
+      getWorkspaceRespondingCountVisibilityStyle({
         hasHoverActions: true,
         isClosing: true,
       }),
-    ).toBe("opacity-0");
+    ).toBe(projectSidebarStyles.rowCountHidden);
   });
 });
 

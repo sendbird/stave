@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound, Pencil, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { Badge, Button, Input, Loader, Switch, toast } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SettingsCard } from "./settings-dialog.shared";
+import { lensCredentialsStyles as styles } from "./settings-dialog-lens-credentials.styles";
 import {
   normalizeLensCredentialHosts,
   type LensCredentialMetadata,
@@ -204,17 +206,17 @@ export function LensCredentialsSettingsCard() {
             type="button"
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className={sx(styles.addButton)}
             onClick={openNewEditor}
           >
-            <Plus className="size-3.5" />
+            <Plus className={sx(styles.addIcon)} />
             Add account
           </Button>
         }
       >
-        <div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 p-3">
-          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
-          <p className="text-xs leading-5 text-muted-foreground">
+        <div className={sx(styles.notice)}>
+          <ShieldCheck className={sx(styles.noticeIcon)} />
+          <p className={sx(styles.noticeText)}>
             Lens fills matching login fields directly in Electron. Automatic
             fill never submits the form; an agent may submit only through a
             separate Lens tool call.
@@ -223,18 +225,18 @@ export function LensCredentialsSettingsCard() {
 
         {editorOpen ? (
           <form
-            className="space-y-3 rounded-md border border-border/80 bg-background/60 p-3"
+            className={sx(styles.form)}
             onSubmit={(event) => {
               event.preventDefault();
               void saveCredential();
             }}
           >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5 text-xs font-medium">
-                <span className="block">Hosts</span>
-                <div className="space-y-1.5">
+            <div className={sx(styles.grid)}>
+              <div className={sx(styles.hostsField)}>
+                <span>Hosts</span>
+                <div className={sx(styles.hostRows)}>
                   {hostRows.map((host, index) => (
-                    <div key={index} className="flex items-center gap-1.5">
+                    <div key={index} className={sx(styles.hostRow)}>
                       <Input
                         value={host}
                         placeholder={
@@ -244,7 +246,7 @@ export function LensCredentialsSettingsCard() {
                         }
                         aria-label={`Saved account host ${index + 1}`}
                         autoComplete="url"
-                        className="h-8 font-mono text-xs"
+                        className={sx(styles.hostInput)}
                         onChange={(event) =>
                           updateHostRow(index, event.target.value)
                         }
@@ -253,12 +255,12 @@ export function LensCredentialsSettingsCard() {
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        className="shrink-0"
+                        className={sx(styles.removeHost)}
                         aria-label={`Remove host ${index + 1}`}
                         disabled={hostRows.length <= 1 && host.length === 0}
                         onClick={() => removeHostRow(index)}
                       >
-                        <X className="size-3.5" />
+                        <X className={sx(styles.removeHostIcon)} />
                       </Button>
                     </div>
                   ))}
@@ -267,29 +269,29 @@ export function LensCredentialsSettingsCard() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 gap-1.5"
+                  className={sx(styles.addHostButton)}
                   onClick={addHostRow}
                 >
-                  <Plus className="size-3.5" />
+                  <Plus className={sx(styles.addHostIcon)} />
                   Add host
                 </Button>
-                <span className="block font-normal text-muted-foreground">
+                <span className={sx(styles.hostHelp)}>
                   Add one exact hostname per row.
                 </span>
               </div>
-              <label className="space-y-1.5 text-xs font-medium">
+              <label className={sx(styles.fieldLabel)}>
                 Username or email
                 <Input
                   value={username}
                   placeholder="name@example.com"
                   aria-label="Saved account username"
                   autoComplete="username"
-                  className="h-8 text-xs"
+                  className={sx(styles.stacked, styles.fieldControl)}
                   onChange={(event) => setUsername(event.target.value)}
                 />
               </label>
             </div>
-            <label className="block space-y-1.5 text-xs font-medium">
+            <label className={sx(styles.fieldLabel)}>
               Password
               <Input
                 type="password"
@@ -301,14 +303,14 @@ export function LensCredentialsSettingsCard() {
                 }
                 aria-label="Saved account password"
                 autoComplete="new-password"
-                className="h-8 text-xs"
+                className={sx(styles.stacked, styles.fieldControl)}
                 onChange={(event) => setPassword(event.target.value)}
               />
             </label>
-            <div className="flex items-start justify-between gap-3">
+            <div className={sx(styles.autoFillRow)}>
               <div>
-                <p className="text-sm font-medium">Fill automatically</p>
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(styles.autoFillTitle)}>Fill automatically</p>
+                <p className={sx(styles.autoFillDescription)}>
                   Use this account after Lens loads any of its hosts. Enabling
                   it turns automatic fill off for other accounts that share a
                   host with this one. The form is not submitted automatically.
@@ -320,7 +322,7 @@ export function LensCredentialsSettingsCard() {
                 aria-label="Fill saved Lens account automatically"
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className={sx(styles.formActions)}>
               <Button
                 type="button"
                 variant="ghost"
@@ -341,36 +343,31 @@ export function LensCredentialsSettingsCard() {
         ) : null}
 
         {loading ? (
-          <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <div className={sx(styles.loadingRow)}>
             <Loader aria-hidden size="xs" variant="persist" />
             Loading saved accounts…
           </div>
         ) : credentials.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            No accounts are saved yet.
-          </p>
+          <p className={sx(styles.emptyText)}>No accounts are saved yet.</p>
         ) : (
-          <div className="divide-y divide-border/70 rounded-md border border-border/70">
+          <div className={sx(styles.list)}>
             {credentials.map((credential) => (
-              <div key={credential.id} className="flex items-center gap-3 p-3">
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                  <KeyRound className="size-4 text-muted-foreground" />
+              <div key={credential.id} className={sx(styles.row)}>
+                <div className={sx(styles.rowMark)}>
+                  <KeyRound className={sx(styles.rowMarkIcon)} />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <div className={sx(styles.rowBody)}>
+                  <div className={sx(styles.rowHostLine)}>
                     {credential.hosts.map((host) => (
-                      <span
-                        key={host}
-                        className="truncate font-mono text-xs font-medium"
-                      >
+                      <span key={host} className={sx(styles.rowHost)}>
                         {host}
                       </span>
                     ))}
-                    <Badge variant="secondary" className="shrink-0 text-[10px]">
+                    <Badge variant="secondary" className={sx(styles.badge)}>
                       {credential.autoFill ? "Auto-fill" : "On demand"}
                     </Badge>
                   </div>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className={sx(styles.rowUsername)}>
                     {credential.username}
                   </p>
                 </div>
@@ -381,7 +378,7 @@ export function LensCredentialsSettingsCard() {
                   aria-label={`Edit ${credential.username} for ${credential.hosts.join(", ")}`}
                   onClick={() => openEditEditor(credential)}
                 >
-                  <Pencil className="size-3.5" />
+                  <Pencil className={sx(styles.actionIcon)} />
                 </Button>
                 <Button
                   type="button"
@@ -390,7 +387,7 @@ export function LensCredentialsSettingsCard() {
                   aria-label={`Delete ${credential.username} for ${credential.hosts.join(", ")}`}
                   onClick={() => setDeletingId(credential.id)}
                 >
-                  <Trash2 className="size-3.5" />
+                  <Trash2 className={sx(styles.actionIcon)} />
                 </Button>
               </div>
             ))}

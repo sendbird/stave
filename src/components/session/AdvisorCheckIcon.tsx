@@ -1,4 +1,6 @@
 import { Check, CircleDashed, Minus, X } from "lucide-react";
+import { sessionCoreStyles } from "./session-core.styles";
+import { sx } from "../ads/utils/stylex";
 
 import type { AdvisorCheck } from "@/components/session/advisor-exchange.utils";
 
@@ -10,15 +12,15 @@ import type { AdvisorCheck } from "@/components/session/advisor-exchange.utils";
  */
 export function AdvisorCheckIcon(props: { status: AdvisorCheck["status"] }) {
   if (props.status === "pass") {
-    return <Check className="mt-0.5 size-3.5 shrink-0 text-success" />;
+    return <Check className={sx(sessionCoreStyles.statusIcon, sessionCoreStyles.pass)} />;
   }
   if (props.status === "fail") {
-    return <X className="mt-0.5 size-3.5 shrink-0 text-destructive" />;
+    return <X className={sx(sessionCoreStyles.statusIcon, sessionCoreStyles.fail)} />;
   }
   if (props.status === "pending") {
     return (
-      <CircleDashed className="mt-0.5 size-3.5 shrink-0 text-muted-foreground motion-safe:animate-spin" />
+      <CircleDashed className={sx(sessionCoreStyles.statusIcon, sessionCoreStyles.muted, sessionCoreStyles.spinning)} />
     );
   }
-  return <Minus className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/60" />;
+  return <Minus className={sx(sessionCoreStyles.statusIcon, sessionCoreStyles.mutedSoft)} />;
 }

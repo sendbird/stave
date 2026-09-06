@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { sx } from "@/components/ads/utils/stylex";
+import { planViewerStyles } from "@/components/session/plan-viewer.styles";
 import {
   buildPlanViewerContextKey,
   resolvePlanViewerAutoViewState,
   resolvePlanViewerInsets,
   resolvePlanViewerLayout,
   resolvePlanViewerState,
+  SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
 } from "@/components/session/plan-viewer.utils";
 
 describe("resolvePlanViewerState", () => {
@@ -499,58 +502,58 @@ describe("buildPlanViewerContextKey", () => {
 
 describe("resolvePlanViewerLayout", () => {
   test("anchors the normal viewer to the bottom-right and grows leftward", () => {
-    expect(
-      resolvePlanViewerLayout({
-        viewState: "normal",
-      }),
-    ).toEqual({
-      wrapperClassName: "pointer-events-none absolute z-[35]",
-      wrapperStyle: {
-        right: 16,
-        bottom: 8,
-        width: "calc(100% - 32px)",
-        maxWidth: 672,
-      },
-      cardClassName:
-        "pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg",
+    const result = resolvePlanViewerLayout({
+      viewState: "normal",
     });
+    expect(result.wrapperClassName).toBe(
+      SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
+    );
+    expect(result.wrapperStyle).toEqual({
+      right: 16,
+      bottom: 8,
+      width: "calc(100% - 32px)",
+      maxWidth: 672,
+    });
+    // Normal state uses the base card without expanded/minimized modifiers.
+    expect(result.cardClassName).toBe(sx(planViewerStyles.cardBase));
+    expect(result.cardClassName).toContain(sx(planViewerStyles.cardBase));
   });
 
   test("anchors the expanded viewer to the same bottom-right origin inside the message pane", () => {
-    expect(
-      resolvePlanViewerLayout({
-        viewState: "expanded",
-      }),
-    ).toEqual({
-      wrapperClassName: "pointer-events-none absolute z-[35]",
-      wrapperStyle: {
-        right: 16,
-        bottom: 8,
-        width: "calc(100% - 32px)",
-        height: "max(0px, calc(100% - 20px))",
-      },
-      cardClassName:
-        "pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg h-full w-full",
+    const result = resolvePlanViewerLayout({
+      viewState: "expanded",
     });
+    expect(result.wrapperClassName).toBe(
+      SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
+    );
+    expect(result.wrapperStyle).toEqual({
+      right: 16,
+      bottom: 8,
+      width: "calc(100% - 32px)",
+      height: "max(0px, calc(100% - 20px))",
+    });
+    expect(result.cardClassName).toBe(
+      sx(planViewerStyles.cardBase, planViewerStyles.cardExpanded),
+    );
   });
 
   test("keeps the dragged minimized viewer at its explicit position", () => {
-    expect(
-      resolvePlanViewerLayout({
-        viewState: "minimized",
-        dragPos: {
-          x: 120,
-          y: 48,
-        },
-      }),
-    ).toEqual({
-      wrapperClassName: "pointer-events-none absolute z-[35]",
-      wrapperStyle: {
-        top: 48,
-        left: 120,
+    const result = resolvePlanViewerLayout({
+      viewState: "minimized",
+      dragPos: {
+        x: 120,
+        y: 48,
       },
-      cardClassName:
-        "pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg w-72",
     });
+    expect(result.wrapperClassName).toBe(
+      SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
+    );
+    expect(result.wrapperStyle).toEqual({
+      top: 48,
+      left: 120,
+    });
+    expect(result.cardClassName).toBe(
+      sx(planViewerStyles.cardBase, planViewerStyles.cardMinimized),
+    );
   });
 });

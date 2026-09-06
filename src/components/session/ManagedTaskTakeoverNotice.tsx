@@ -1,6 +1,7 @@
 import { Hand, ShieldCheck } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { managedTaskTakeoverNoticeStyles as styles } from "./managed-task-takeover-notice.styles";
 import type { TaskControlOwner } from "@/types/chat";
 
 export function ManagedTaskTakeoverNotice(props: {
@@ -20,28 +21,23 @@ export function ManagedTaskTakeoverNotice(props: {
     <div
       data-managed-task-notice="true"
       data-testid="managed-task-takeover-notice"
-      className={cn(
-        // Same 0.75rem inset as the docked turn-activity shelf. Framed mode
-        // with side tracks overrides this from the composer measure parent.
-        "mx-3 mb-2 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2",
-        props.className,
-      )}
+      // `className` stays an integration hook: framed mode overrides
+      // margin-inline from `globals.css` via the data hook, and callers pass
+      // layout overrides through the prop.
+      className={cx(sx(styles.root), props.className)}
       role="status"
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-        <ShieldCheck className="size-4" aria-hidden="true" />
+      <span className={sx(styles.iconBadge)}>
+        <ShieldCheck className={sx(styles.badgeIcon)} aria-hidden="true" />
       </span>
-      <div className="min-w-48 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium text-foreground">{ownerLabel}</p>
-          <Badge
-            variant="secondary"
-            className="rounded-sm text-[10px] uppercase tracking-[0.12em]"
-          >
+      <div className={sx(styles.body)}>
+        <div className={sx(styles.headerRow)}>
+          <p className={sx(styles.ownerLabel)}>{ownerLabel}</p>
+          <Badge variant="secondary" className={sx(styles.managedBadge)}>
             Managed
           </Badge>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+        <p className={sx(styles.detail)}>{detail}</p>
       </div>
       <Button
         type="button"
@@ -51,7 +47,7 @@ export function ManagedTaskTakeoverNotice(props: {
         aria-label="Take over managed task"
         onClick={props.onTakeOver}
       >
-        <Hand className="size-3.5" aria-hidden="true" />
+        <Hand aria-hidden="true" />
         Take Over
       </Button>
     </div>

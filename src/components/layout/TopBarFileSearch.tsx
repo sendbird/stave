@@ -1,4 +1,6 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { FileCode2, Search } from "lucide-react";
+import * as stylex from "@stylexjs/stylex";
 import {
   useDeferredValue,
   useEffect,
@@ -13,18 +15,19 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
   Loader,
 } from "@/components/ui";
+import { AutocompleteInput } from "@/components/ads/headless/autocomplete";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import {
   rankFileSearchResults,
   splitFileSearchPath,
 } from "./file-search-utils";
+import { fileSearchStyles } from "./top-bar-file-search.styles";
 
 interface TopBarFileSearchProps {
   noDragStyle?: CSSProperties;
@@ -236,11 +239,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
   return (
     <div
       ref={wrapperRef}
-      className={
-        isMobileExpanded
-          ? "relative w-[260px]"
-          : "relative w-9 md:w-[260px] lg:w-[320px] xl:w-[380px]"
-      }
+      className={sx(fileSearchStyles.root)}
       style={noDragStyle}
       onBlurCapture={(event) => {
         if (suppressBlurRef.current) {
@@ -256,33 +255,41 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
         closeSearch();
       }}
     >
-      <button
-        className={
-          isMobileExpanded
-            ? "hidden"
-            : "flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-background/75 text-muted-foreground transition-colors hover:bg-background hover:text-foreground md:hidden"
-        }
+      <AdsButton
+        layout="host"
+        type="submit"
+        xstyle={[
+          fileSearchStyles.compactTrigger,
+          isMobileExpanded && fileSearchStyles.compactTriggerHidden,
+        ]}
         onClick={handleCompactButtonClick}
         aria-label="Go to file"
         style={noDragStyle}
       >
-        <Search className="size-4" />
-      </button>
+        <Search />
+      </AdsButton>
 
-      <div className={isMobileExpanded ? undefined : "hidden md:block"}>
-        <Command
-          shouldFilter={false}
-          className={cn(
-            "relative overflow-visible bg-transparent p-0 [&_[data-slot=command-input-wrapper]]:h-7 [&_[data-slot=command-input-wrapper]]:gap-2 [&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border/70 [&_[data-slot=command-input-wrapper]]:bg-background/75 [&_[data-slot=command-input-wrapper]]:px-2.5 [&_[data-slot=command-input-wrapper]]:shadow-none [&_[data-slot=command-input-wrapper]]:transition-[background-color,border-color,box-shadow] [&_[data-slot=command-input-wrapper]]:duration-200 [&_[data-slot=command-input]]:h-7 [&_[data-slot=command-input]]:px-0 [&_[data-slot=command-input]]:text-sm",
-            isOpen &&
-              "[&_[data-slot=command-input-wrapper]]:border-ring/70 [&_[data-slot=command-input-wrapper]]:bg-background [&_[data-slot=command-input-wrapper]]:ring-3 [&_[data-slot=command-input-wrapper]]:ring-ring/20",
-          )}
-        >
-          <div className="relative">
-            <CommandInput
+      <div
+        className={sx(
+          fileSearchStyles.field,
+          isMobileExpanded && fileSearchStyles.fieldExpanded,
+        )}
+      >
+        <Command shouldFilter={false} className={sx(fileSearchStyles.command)}>
+          <div
+            data-slot="command-input-wrapper"
+            className={sx(
+              fileSearchStyles.inputRow,
+              isOpen && fileSearchStyles.inputRowOpen,
+            )}
+          >
+            <Search {...stylex.props(fileSearchStyles.searchIcon)} />
+            <AutocompleteInput
+              data-slot="command-input"
+              className={sx(fileSearchStyles.input)}
               value={query}
-              onValueChange={(value) => {
-                setQuery(value);
+              onChange={(event) => {
+                setQuery(event.target.value);
                 setIsOpen(true);
               }}
               onFocus={() => setIsOpen(true)}
@@ -308,33 +315,37 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
           </div>
           {isOpen ? (
             <div
-              className={`absolute left-1/2 top-[calc(100%+2px)] ${UI_LAYER_CLASS.floatingChrome} w-full min-w-[260px] -translate-x-1/2 overflow-hidden rounded-xl border border-border/80 bg-card shadow-2xl lg:min-w-[320px] xl:min-w-[380px]`}
+              className={cx(
+                sx(fileSearchStyles.panel),
+                UI_LAYER_CLASS.floatingChrome,
+              )}
               style={noDragStyle}
             >
-              <div className="flex items-center justify-between gap-3 border-b border-border/70 px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    Go to File
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
+              <div className={sx(fileSearchStyles.panelHeader)}>
+                <div className={sx(fileSearchStyles.panelHeaderText)}>
+                  <p className={sx(fileSearchStyles.panelEyebrow)}>Go to File</p>
+                  <p className={sx(fileSearchStyles.panelSubtitle)}>
                     {normalizedQuery
                       ? "Matching workspace files"
                       : "Open editors and workspace files"}
                   </p>
                 </div>
-                <Badge variant="secondary" className="shrink-0">
+                <Badge
+                  variant="secondary"
+                  className={sx(fileSearchStyles.countBadge)}
+                >
                   {projectFiles.length}
                 </Badge>
               </div>
-              <CommandList className="max-h-[26rem] px-2 pb-2">
+              <CommandList className={sx(fileSearchStyles.list)}>
                 {isPreparingFiles ? (
-                  <div className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
+                  <div className={sx(fileSearchStyles.loadingRow)}>
                     <Loader aria-hidden size="xs" variant="scan" />
                     Refreshing workspace files...
                   </div>
                 ) : null}
                 {!isPreparingFiles && !hasItems ? (
-                  <CommandEmpty className="py-8">
+                  <CommandEmpty className={sx(fileSearchStyles.emptyRow)}>
                     {projectFiles.length === 0
                       ? "No workspace files are indexed yet."
                       : "No matching files."}
@@ -357,27 +368,37 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                           onSelect={() => {
                             void handleSelectItem(item);
                           }}
-                          className="items-start gap-3 rounded-lg px-3 py-3"
+                          className={sx(fileSearchStyles.resultRow)}
                         >
-                          <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80">
-                            <FileCode2 className="size-4 text-muted-foreground" />
+                          <div className={sx(fileSearchStyles.resultIconBox)}>
+                            <FileCode2
+                              {...stylex.props(fileSearchStyles.resultIcon)}
+                            />
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="truncate text-sm font-medium">
+                          <div className={sx(fileSearchStyles.resultBody)}>
+                            <div
+                              className={sx(fileSearchStyles.resultTitleRow)}
+                            >
+                              <span className={sx(fileSearchStyles.resultTitle)}>
                                 {item.title}
                               </span>
                               {isActive ? (
-                                <Badge variant="secondary" className="shrink-0">
+                                <Badge
+                                  variant="secondary"
+                                  className={sx(fileSearchStyles.resultBadge)}
+                                >
                                   Active
                                 </Badge>
                               ) : isOpenFile ? (
-                                <Badge variant="outline" className="shrink-0">
+                                <Badge
+                                  variant="outline"
+                                  className={sx(fileSearchStyles.resultBadge)}
+                                >
                                   Open
                                 </Badge>
                               ) : null}
                             </div>
-                            <p className="truncate text-xs text-muted-foreground">
+                            <p className={sx(fileSearchStyles.resultSubtitle)}>
                               {item.subtitle}
                             </p>
                           </div>
@@ -403,33 +424,49 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                               onSelect={() => {
                                 void handleSelectItem(item);
                               }}
-                              className="items-start gap-3 rounded-lg px-3 py-3"
+                              className={sx(fileSearchStyles.resultRow)}
                             >
-                              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80">
-                                <FileCode2 className="size-4 text-muted-foreground" />
+                              <div
+                                className={sx(fileSearchStyles.resultIconBox)}
+                              >
+                                <FileCode2
+                                  {...stylex.props(fileSearchStyles.resultIcon)}
+                                />
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="truncate text-sm font-medium">
+                              <div className={sx(fileSearchStyles.resultBody)}>
+                                <div
+                                  className={sx(fileSearchStyles.resultTitleRow)}
+                                >
+                                  <span
+                                    className={sx(fileSearchStyles.resultTitle)}
+                                  >
                                     {item.title}
                                   </span>
                                   {isActive ? (
                                     <Badge
                                       variant="secondary"
-                                      className="shrink-0"
+                                      className={sx(
+                                        fileSearchStyles.resultBadge,
+                                      )}
                                     >
                                       Active
                                     </Badge>
                                   ) : (
                                     <Badge
                                       variant="outline"
-                                      className="shrink-0"
+                                      className={sx(
+                                        fileSearchStyles.resultBadge,
+                                      )}
                                     >
                                       Open
                                     </Badge>
                                   )}
                                 </div>
-                                <p className="truncate text-xs text-muted-foreground">
+                                <p
+                                  className={sx(
+                                    fileSearchStyles.resultSubtitle,
+                                  )}
+                                >
                                   {item.subtitle}
                                 </p>
                               </div>
@@ -450,16 +487,18 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                             onSelect={() => {
                               void handleSelectItem(item);
                             }}
-                            className="items-start gap-3 rounded-lg px-3 py-3"
+                            className={sx(fileSearchStyles.resultRow)}
                           >
-                            <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80">
-                              <FileCode2 className="size-4 text-muted-foreground" />
+                            <div className={sx(fileSearchStyles.resultIconBox)}>
+                              <FileCode2
+                                {...stylex.props(fileSearchStyles.resultIcon)}
+                              />
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="truncate text-sm font-medium">
+                            <div className={sx(fileSearchStyles.resultBody)}>
+                              <span className={sx(fileSearchStyles.resultTitle)}>
                                 {item.title}
                               </span>
-                              <p className="truncate text-xs text-muted-foreground">
+                              <p className={sx(fileSearchStyles.resultSubtitle)}>
                                 {item.subtitle}
                               </p>
                             </div>

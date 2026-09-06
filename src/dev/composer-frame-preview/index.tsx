@@ -17,7 +17,9 @@ import {
 import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
 import { applyThemeClass } from "@/lib/themes/apply";
 import type { ComposerLayoutMode } from "@/store/app-settings";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
+import { composerFramePreviewStyles as f } from "./composer-frame-preview.styles";
 import {
   PREVIEW_MACROS,
   PREVIEW_MODEL,
@@ -120,21 +122,20 @@ export function ComposerFramePreviewApp() {
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-screen flex-col bg-background text-foreground">
-        <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
-          <h1 className="text-sm font-semibold">Composer frame preview</h1>
-          <p className="text-xs text-muted-foreground">
+      <div className={sx(f.page)}>
+        <header className={sx(f.header)}>
+          <h1 className={sx(f.headerTitle)}>Composer frame preview</h1>
+          <p className={sx(f.headerNote)}>
             Real PromptInput, TurnActivitySurface, and workspace bar
           </p>
-          <div className="ml-auto flex items-center gap-2">
-            <button
+          <div className={sx(f.headerControls)}>
+            <Button
+              layout="host"
               type="button"
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium",
-                layoutPreference === "framed"
-                  ? "border-primary bg-primary/15"
-                  : "border-border text-muted-foreground",
-              )}
+              xstyle={[
+                f.toggle,
+                layoutPreference === "framed" && f.toggleActive,
+              ]}
               onClick={() =>
                 setLayoutPreference((value) =>
                   value === "framed" ? "classic" : "framed",
@@ -142,42 +143,34 @@ export function ComposerFramePreviewApp() {
               }
             >
               {layoutPreference === "framed" ? "Framed" : "Classic"}
-            </button>
-            <button
+            </Button>
+            <Button
+              layout="host"
               type="button"
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium",
-                squeezed
-                  ? "border-primary bg-primary/15"
-                  : "border-border text-muted-foreground",
-              )}
+              xstyle={[f.toggle, squeezed && f.toggleActive]}
               onClick={() => setSqueezed((value) => !value)}
             >
               {squeezed ? "Squeezed" : "Full width"}
-            </button>
-            <span className="text-xs text-muted-foreground">
+            </Button>
+            <span className={sx(f.statusNote)}>
               {framed ? "frame on" : "frame off"}
             </span>
-            <button
+            <Button
+              layout="host"
               type="button"
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium",
-                dark
-                  ? "border-primary bg-primary/15"
-                  : "border-border text-muted-foreground",
-              )}
+              xstyle={[f.toggle, dark && f.toggleActive]}
               onClick={() => setDark((value) => !value)}
             >
               {dark ? "Dark" : "Light"}
-            </button>
+            </Button>
           </div>
         </header>
 
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-4 py-6 text-sm text-muted-foreground">
-            <div className="mx-auto w-full max-w-6xl px-3 sm:px-5">
+        <div className={sx(f.main)}>
+          <div className={sx(f.conversation)}>
+            <div className={sx(f.conversationMeasure)}>
               <p>Earlier turn</p>
-              <p className="mt-3 max-w-2xl text-foreground">
+              <p className={sx(f.conversationBody)}>
                 Message column stays at the conversation measure. The raised
                 card is narrower so hovered side shelves fit inside that
                 measure.
@@ -185,13 +178,13 @@ export function ComposerFramePreviewApp() {
             </div>
           </div>
 
-          <div className="relative z-30 shrink-0">
-            <div className="bg-background px-3 py-2.5 sm:px-4">
+          <div className={sx(f.composerDock)}>
+            <div className={sx(f.composerPad)}>
               <div
                 ref={composerMeasureRef}
-                className={cn(
-                  "mx-auto",
-                  squeezed ? "max-w-[820px]" : "max-w-6xl",
+                className={sx(
+                  f.composerMeasure,
+                  squeezed ? f.composerMeasureSqueezed : f.composerMeasureWide,
                 )}
               >
                 {framed ? null : (

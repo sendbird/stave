@@ -1,7 +1,8 @@
 import { useState, type HTMLAttributes } from "react";
 import { BookmarkIcon, RotateCcw } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { checkpointStyles as s } from "./checkpoint.styles";
 
 /**
  * Shown while compaction is in progress (status: "compacting").
@@ -12,14 +13,13 @@ export function CompactingIndicator({
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      className={cn(
-        "flex items-center gap-2 py-0.5 text-[0.75em] text-muted-foreground",
-        className,
-      )}
-      {...props}
-    >
-      <Loader aria-hidden className="shrink-0" size="xs" variant="persist" />
+    <div className={cx(sx(s.compacting), className)} {...props}>
+      <Loader
+        aria-hidden
+        className={sx(s.compactingLoader)}
+        size="xs"
+        variant="persist"
+      />
       <span>Compacting conversation context…</span>
     </div>
   );
@@ -27,8 +27,7 @@ export function CompactingIndicator({
 
 /**
  * Shown after compaction is complete (subtype: "compact_boundary").
- * Renders a full-width divider with a bookmark icon + label at the center,
- * inspired by the elements.ai-sdk.dev/components/checkpoint pattern.
+ * Renders a full-width divider with a bookmark icon + label at the center.
  */
 export function ContextCompactedCheckpoint({
   label = "Context compacted",
@@ -59,30 +58,27 @@ export function ContextCompactedCheckpoint({
     <div
       role="separator"
       aria-label={`${label}${displayTrigger}`}
-      className={cn(
-        "flex items-center gap-2 py-1 text-[0.75em] text-muted-foreground select-none",
-        className,
-      )}
+      className={cx(sx(s.divider), className)}
       {...props}
     >
       {/* Left line */}
-      <div className="h-px flex-1 bg-border/60" />
+      <div className={sx(s.line)} />
 
       {/* Icon + label + restore action */}
-      <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-muted/50 px-1.5 py-0.5">
-        <span className="inline-flex items-center gap-1.5 px-1 font-medium">
-          <BookmarkIcon className="size-3 shrink-0" />
+      <div className={sx(s.chip)}>
+        <span className={sx(s.chipLabel)}>
+          <BookmarkIcon className={sx(s.chipIcon)} />
           {label}
           {displayTrigger}
         </span>
         {onRestore ? (
           confirmingRestore ? (
-            <span className="inline-flex items-center gap-1">
+            <span className={sx(s.confirmRow)}>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-5 px-1.5 text-[0.6875em] text-destructive hover:text-destructive"
+                xstyle={[s.action, s.actionDanger]}
                 disabled={restoreDisabled || restorePending}
                 onClick={() => {
                   setConfirmingRestore(false);
@@ -93,12 +89,12 @@ export function ContextCompactedCheckpoint({
                 {restorePending ? (
                   <Loader
                     aria-hidden
-                    className="mr-1"
+                    className={sx(s.actionLoader)}
                     size="xs"
                     variant="persist"
                   />
                 ) : (
-                  <RotateCcw className="mr-1 size-3" />
+                  <RotateCcw className={sx(s.actionIcon)} />
                 )}
                 Confirm restore
               </Button>
@@ -106,7 +102,7 @@ export function ContextCompactedCheckpoint({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-5 px-1.5 text-[0.6875em]"
+                xstyle={s.action}
                 disabled={restorePending}
                 onClick={() => setConfirmingRestore(false)}
               >
@@ -118,7 +114,7 @@ export function ContextCompactedCheckpoint({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-5 px-1.5 text-[0.6875em]"
+              xstyle={s.action}
               disabled={restoreDisabled || restorePending}
               onClick={() => setConfirmingRestore(true)}
               title={
@@ -130,12 +126,12 @@ export function ContextCompactedCheckpoint({
               {restorePending ? (
                 <Loader
                   aria-hidden
-                  className="mr-1"
+                  className={sx(s.actionLoader)}
                   size="xs"
                   variant="persist"
                 />
               ) : (
-                <RotateCcw className="mr-1 size-3" />
+                <RotateCcw className={sx(s.actionIcon)} />
               )}
               Restore
             </Button>
@@ -144,7 +140,7 @@ export function ContextCompactedCheckpoint({
       </div>
 
       {/* Right line */}
-      <div className="h-px flex-1 bg-border/60" />
+      <div className={sx(s.line)} />
     </div>
   );
 }

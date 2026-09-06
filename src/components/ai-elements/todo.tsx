@@ -1,8 +1,11 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, Circle, ClipboardList } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import { getStatusBadge, type ToolState } from "./tool";
+import { todoStyles as s } from "./todo.styles";
 
 export type TodoStatus = "pending" | "in_progress" | "completed";
 
@@ -71,29 +74,25 @@ function TodoItemIcon({
   finalized: boolean;
 }) {
   if (status === "completed") {
-    return <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />;
+    return <CheckCircle2 className={sx(s.itemIcon, s.itemIconSuccess)} />;
   }
   if (status === "in_progress") {
     // Once the tool part is finalized, stop the spinner — the item was still
     // in-progress at the time of the last TodoWrite snapshot but the turn has
     // since ended.
     if (finalized) {
-      return (
-        <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />
-      );
+      return <Circle className={sx(s.itemIcon, s.itemIconMuted)} />;
     }
     return (
       <Loader
         aria-hidden
-        className="mt-0.5 text-primary"
+        className={sx(s.itemIconLoader)}
         size="xs"
         variant="steps"
       />
     );
   }
-  return (
-    <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />
-  );
+  return <Circle className={sx(s.itemIcon, s.itemIconMuted)} />;
 }
 
 function deriveOverallState(
@@ -137,56 +136,46 @@ export function TodoCard({
     displayState === "output-available" || displayState === "output-error";
 
   return (
-    <section
-      className={cn("overflow-hidden rounded-md border bg-card", className)}
-    >
-      <button
+    <section className={cx(sx(s.root), className)}>
+      <AdsButton
+        layout="host"
         type="button"
-        className={cn(
-          "flex w-full items-center justify-between px-3 py-2 text-[0.875em] font-semibold",
-          open && "border-b",
-        )}
+        className={sx(s.header, open && s.headerOpen)}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="inline-flex items-center gap-1.5">
-          <ClipboardList className="size-3.5 text-muted-foreground" />
+        <span className={sx(s.headerLabel)}>
+          <ClipboardList className={sx(s.headerIcon)} />
           Todo
           {todos.length > 0 && (
-            <span className="ml-0.5 text-[0.75em] font-normal text-muted-foreground">
+            <span className={sx(s.headerCount)}>
               {completedCount}/{todos.length}
             </span>
           )}
         </span>
-        <span className="inline-flex items-center gap-2">
+        <span className={sx(s.headerMeta)}>
           {getStatusBadge(displayState)}
-          <ChevronDown
-            className={cn(
-              "size-3.5 transition-transform",
-              open ? "rotate-180" : "rotate-0",
-            )}
-          />
+          <ChevronDown className={sx(s.chevron, transition.transform, open && s.chevronOpen)} />
         </span>
-      </button>
+      </AdsButton>
       {open && (
-        <div className="px-3 py-2">
+        <div className={sx(s.body)}>
           {todos.length === 0 ? (
-            <p className="text-[0.875em] text-muted-foreground">No todos.</p>
+            <p className={sx(s.empty)}>No todos.</p>
           ) : (
-            <ol className="space-y-1.5">
+            <ol className={sx(s.list)}>
               {todos.map((todo, idx) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: order is stable for todo list
-                <li key={idx} className="flex items-start gap-2">
+                <li key={idx} className={sx(s.item)}>
                   <TodoItemIcon status={todo.status} finalized={finalized} />
                   <span
-                    className={cn(
-                      "text-[0.875em] leading-[1.6]",
-                      todo.status === "completed" &&
-                        "text-muted-foreground line-through",
+                    className={sx(
+                      s.itemText,
+                      todo.status === "completed" && s.itemTextCompleted,
                       todo.status === "in_progress" &&
                         (finalized
-                          ? "text-muted-foreground"
-                          : "font-medium text-foreground"),
-                      todo.status === "pending" && "text-muted-foreground",
+                          ? s.itemTextInProgressFinalized
+                          : s.itemTextInProgress),
+                      todo.status === "pending" && s.itemTextPending,
                     )}
                   >
                     {todo.content}

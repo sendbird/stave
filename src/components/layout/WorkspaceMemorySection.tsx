@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Button,
@@ -9,6 +10,7 @@ import {
   Textarea,
   toast,
 } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   PROJECT_MEMORY_KINDS,
   PROJECT_MEMORY_RECALL_MODES,
@@ -20,6 +22,7 @@ import {
   ProjectMemoryControls,
   PROJECT_MEMORY_CHANGED_EVENT,
 } from "./ProjectMemoryControls";
+import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";
 
 const RECALL_LABELS = {
   candidate: "Candidate · not used yet",
@@ -112,34 +115,39 @@ export function WorkspaceMemorySection(props: {
   };
   if (!projectPath)
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className={sx(styles.empty)}>
         Open a project to see its memory.
       </p>
     );
   return (
-    <div className="space-y-3">
-      <details className="rounded-md border p-3">
-        <summary className="cursor-pointer text-sm font-medium">
+    <div className={sx(styles.root)}>
+      <details className={sx(styles.controls)}>
+        <summary className={sx(styles.controlsSummary)}>
           Memory settings and actions
         </summary>
-        <div className="pt-4">
+        <div className={sx(styles.controlsBody)}>
           <ProjectMemoryControls key={projectPath} projectPath={projectPath} />
         </div>
       </details>
-      <p className="text-xs text-muted-foreground">
+      <p className={sx(styles.hint)}>
         Read the full memory below. Candidates stay out of conversations until
         reviewed. Edit to change the text or how it is used.
       </p>
       {error && (
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className={sx(styles.error)}>
           {error}{" "}
-          <button className="underline" onClick={() => void reload()}>
+          <AdsButton
+            layout="host"
+            type="submit"
+            xstyle={styles.retry}
+            onClick={() => void reload()}
+          >
             Retry
-          </button>
+          </AdsButton>
         </p>
       )}
       {!loading && !error && !items.length && (
-        <p className="text-sm text-muted-foreground">
+        <p className={sx(styles.empty)}>
           No memories yet. Ask the agent to remember a lasting project decision.
         </p>
       )}
@@ -189,10 +197,10 @@ export function MemoryRow(props: {
     }
   };
   return (
-    <article className="min-w-0 space-y-3 rounded-lg border bg-card p-3">
+    <article className={sx(styles.row)}>
       {editing ? (
         <form
-          className="space-y-3"
+          className={sx(styles.form)}
           onSubmit={(event) => {
             event.preventDefault();
             void save();
@@ -205,7 +213,7 @@ export function MemoryRow(props: {
             }
           }}
         >
-          <label className="block space-y-1 text-xs font-medium">
+          <label className={sx(styles.fieldLabel)}>
             Memory text
             <Textarea
               autoFocus
@@ -214,15 +222,15 @@ export function MemoryRow(props: {
               disabled={busy}
               maxLength={PROJECT_MEMORY_CONTENT_MAX_CHARS}
               rows={5}
-              className="mt-1 min-h-28 resize-y text-sm"
+              xstyle={styles.fieldTextarea}
             />
           </label>
-          <p className="text-xs text-muted-foreground">
+          <p className={sx(styles.counter)}>
             {draft.length} / {PROJECT_MEMORY_CONTENT_MAX_CHARS} characters
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className={sx(styles.controlRow)}>
             <Select value={kind} onValueChange={setKind} disabled={busy}>
-              <SelectTrigger aria-label="Memory kind" className="w-32">
+              <SelectTrigger aria-label="Memory kind" className={sx(styles.kindTrigger)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -236,7 +244,7 @@ export function MemoryRow(props: {
             <Select value={mode} onValueChange={setMode} disabled={busy}>
               <SelectTrigger
                 aria-label="Memory usage"
-                className="w-52 max-w-full"
+                className={sx(styles.modeTrigger)}
               >
                 <SelectValue />
               </SelectTrigger>
@@ -249,7 +257,7 @@ export function MemoryRow(props: {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2">
+          <div className={sx(styles.actionRow)}>
             <Button type="submit" size="sm" disabled={busy || !draft.trim()}>
               Save memory
             </Button>
@@ -266,14 +274,14 @@ export function MemoryRow(props: {
         </form>
       ) : (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className={sx(styles.meta)}>
             <span>{RECALL_LABELS[memory.recallMode]}</span>
             <span>{memory.kind}</span>
           </div>
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+          <p className={sx(styles.content)}>
             {memory.content}
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className={sx(styles.controlRow)}>
             <Button
               ref={editButton}
               size="sm"

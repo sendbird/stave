@@ -1,5 +1,6 @@
 import { Layers } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { layoutShellStyles } from "./layout-shell.styles";
 
 const WORKSPACE_BLUE_TONES = [
   "oklch(0.69 0.12 245)",
@@ -35,14 +36,14 @@ export function WorkspaceIdentityMark(args: { workspaceName: string; isDefault?:
   const tone = getWorkspaceAccentTone({ workspaceName: args.workspaceName, isDefault: args.isDefault });
   return (
     <span
-      className={cn("inline-flex size-5 shrink-0 items-center justify-center rounded-[0.45rem] border", args.className)}
+      className={cx(sx(layoutShellStyles.identityMark), args.className)}
       style={{
         backgroundColor: tone.background,
         color: tone.foreground,
         borderColor: tone.border,
       }}
     >
-      <Layers className={cn("size-3", args.iconClassName)} />
+      <Layers className={cx(sx(layoutShellStyles.workspaceIcon), args.iconClassName)} />
     </span>
   );
 }

@@ -1,10 +1,12 @@
+import { contentLayout } from "./content-layout.styles";
+import { cx, sx } from "../ads/utils/stylex";
+import type { StyleXValue } from "../ads/utils/stylex";
 import type { AnchorHTMLAttributes, MouseEvent } from "react";
-import { cn } from "@/lib/utils";
 import { normalizeExternalUrl, openExternalUrl } from "@/lib/external-links";
 
-type ExternalAnchorProps = AnchorHTMLAttributes<HTMLAnchorElement>;
+type ExternalAnchorProps = AnchorHTMLAttributes<HTMLAnchorElement> & { xstyle?: StyleXValue };
 
-export function ExternalAnchor({ className, href, onClick, ...props }: ExternalAnchorProps) {
+export function ExternalAnchor({ className, href, onClick, xstyle, ...props }: ExternalAnchorProps) {
   const normalizedHref = normalizeExternalUrl(href) ?? href;
 
   async function handleClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -27,7 +29,7 @@ export function ExternalAnchor({ className, href, onClick, ...props }: ExternalA
       href={normalizedHref}
       target="_blank"
       rel="noreferrer"
-      className={cn("text-primary underline underline-offset-2 break-words [overflow-wrap:anywhere]", className)}
+      className={cx(sx(contentLayout.externalLink, xstyle), className)}
       onClick={(event) => {
         void handleClick(event);
       }}

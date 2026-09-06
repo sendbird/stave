@@ -8,14 +8,19 @@ import type { ChatMessage, MessagePart } from "@/types/chat";
 
 export type PreviewMessage = Pick<
   ChatMessage,
-  "content" | "parts" | "displayContent" | "displayParts" | "isStreaming" | "role"
+  | "content"
+  | "parts"
+  | "displayContent"
+  | "displayParts"
+  | "isStreaming"
+  | "role"
 >;
 
 const REASONING_TEXT = [
   "The trace viewport needs to cap its height while streaming so the",
-  "conversation scroller keeps a stable row height mid-turn. Using",
-  "`justify-content: flex-end` on a clipped column pushes older steps off the",
-  "top edge and pins the newest one to the bottom, which is the glide effect",
+  "conversation scroller keeps a stable row height mid-turn. Pinning a",
+  "clipped column's items to its trailing edge pushes older steps off the",
+  "top edge and holds the newest one at the bottom, which is the glide effect",
   "without a single measured height.",
 ].join(" ");
 
@@ -42,29 +47,40 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       text: REASONING_TEXT,
       isStreaming: args.reasoningStreaming,
       startedAt: "2026-01-01T00:00:00.000Z",
-      completedAt: args.reasoningStreaming ? undefined : "2026-01-01T00:00:12.000Z",
+      completedAt: args.reasoningStreaming
+        ? undefined
+        : "2026-01-01T00:00:12.000Z",
     },
     {
       type: "tool_use",
       toolUseId: "tool-read",
       toolName: "Read",
-      input: JSON.stringify({ file_path: "src/components/ai-elements/chain-of-thought.tsx" }),
-      output: "1  import type { ButtonHTMLAttributes } from \"react\";\n2  …",
+      input: JSON.stringify({
+        file_path: "src/components/ai-elements/chain-of-thought.tsx",
+      }),
+      output: '1  import type { ButtonHTMLAttributes } from "react";\n2  …',
       state: "output-available",
     },
     {
       type: "tool_use",
       toolUseId: "tool-grep",
       toolName: "Grep",
-      input: JSON.stringify({ pattern: "animate-cot-step-in", path: "src" }),
-      output: "src/components/ai-elements/chain-of-thought.tsx:332\nsrc/components/session/message/assistant-trace.tsx:465",
+      input: JSON.stringify({
+        pattern: "traceStepEnter keyframes",
+        path: "src",
+      }),
+      output:
+        "src/components/ai-elements/chain-of-thought.tsx:332\nsrc/components/session/message/assistant-trace.tsx:465",
       state: "output-available",
     },
     {
       type: "tool_use",
       toolUseId: "tool-stave-lens-evaluate",
       toolName: "stave-local:stave_lens_evaluate",
-      input: JSON.stringify({ expression: "document.querySelector('main')?.getBoundingClientRect().height" }),
+      input: JSON.stringify({
+        expression:
+          "document.querySelector('main')?.getBoundingClientRect().height",
+      }),
       output: "main: 720px",
       state: "output-available",
       elapsedSeconds: 1,
@@ -102,7 +118,8 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       toolUseId: "tool-bash-fail",
       toolName: "Bash",
       input: JSON.stringify({ command: "bun run test:ci", timeout: 120_000 }),
-      output: "error: 1 test failed\n  tests/chain-of-thought-viewport.test.tsx:48",
+      output:
+        "error: 1 test failed\n  tests/chain-of-thought-viewport.test.tsx:48",
       state: "output-error",
       elapsedSeconds: 34,
     },
@@ -113,7 +130,8 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       input: JSON.stringify({
         subagent_type: "Explore",
         description: "Map trace motion call sites",
-        prompt: "Find every call site that applies a chain-of-thought motion utility class.",
+        prompt:
+          "Find every call site that applies a chain-of-thought motion utility class.",
       }),
       output: "4 call sites across 2 files.",
       progressMessages: [
@@ -128,9 +146,18 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       toolName: "TodoWrite",
       input: JSON.stringify({
         todos: [
-          { content: "Add motion primitives to globals.css", status: "completed" },
-          { content: "Port the reasoning phrase variants", status: "completed" },
-          { content: "Cap the streaming trace viewport", status: "in_progress" },
+          {
+            content: "Add motion primitives to globals.css",
+            status: "completed",
+          },
+          {
+            content: "Port the reasoning phrase variants",
+            status: "completed",
+          },
+          {
+            content: "Cap the streaming trace viewport",
+            status: "in_progress",
+          },
           { content: "Screenshot both columns", status: "pending" },
         ],
       }),
@@ -164,7 +191,8 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       type: "system_event",
       /* Deliberately multi-line: the first line is the row title and only the
          following detail should appear when the row is expanded. */
-      content: "Provider warning\nThe provider returned a recoverable warning. Expand for the detailed reason.",
+      content:
+        "Provider warning\nThe provider returned a recoverable warning. Expand for the detailed reason.",
     },
   ];
 }

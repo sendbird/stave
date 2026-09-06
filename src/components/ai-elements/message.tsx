@@ -1,12 +1,17 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import type {
   ButtonHTMLAttributes,
+  CSSProperties,
   HTMLAttributes,
   MouseEvent,
   ReactNode,
 } from "react";
 import { createContext, useContext, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Paperclip, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { transition } from "@/components/ads/recipes/transition";
+import { messageStyles as styles } from "./message.styles";
 import {
   getKnownFilePathSet,
   resolveWorkspaceFileLink,
@@ -77,15 +82,33 @@ function syncKnownProjectFilePaths() {
 
 syncKnownProjectFilePaths();
 
-export function Message({ from, className, ...props }: MessageProps) {
+export function Message({ from, className, style, ...props }: MessageProps) {
+  // `group` and `is-user`/`is-assistant` are a cross-component contract:
+  // FailedOutgoingMessages targets `group-[.is-user]:` and a test asserts the
+  // class, so they stay as literal class names, not utilities. The user-bubble
+  // chrome is published as CSS custom properties here so `MessageContent`
+  // (which has no `from` prop) can read it without an ancestor selector.
+  const bubbleVars =
+    from === "user"
+      ? ({
+          "--message-bubble-radius": vars.radiusMark,
+          "--message-bubble-bg": `color-mix(in oklch, ${vars.colorAccent} 12%, transparent)`,
+          "--message-bubble-pad-inline": vars.space16,
+          "--message-bubble-pad-block": vars.space12,
+        } as CSSProperties)
+      : undefined;
   return (
     <article
-      className={cn(
-        "group min-w-0 flex flex-col gap-2",
+      className={cx(
+        sx(
+          styles.article,
+          from === "user" ? styles.articleUser : styles.articleAssistant,
+        ),
+        "group",
         from === "user" ? "is-user" : "is-assistant",
-        from === "user" ? "items-end" : "items-start",
         className,
       )}
+      style={bubbleVars ? { ...bubbleVars, ...style } : style}
       {...props}
     />
   );
@@ -100,11 +123,7 @@ export function MessageContent({
   );
   return (
     <div
-      className={cn(
-        "flex min-w-0 max-w-full w-full flex-col gap-3 text-foreground",
-        "group-[.is-user]:rounded-md group-[.is-user]:bg-primary/12 group-[.is-user]:px-4 group-[.is-user]:py-3",
-        className,
-      )}
+      className={cx(sx(styles.content), className)}
       style={{
         fontSize: `${messageFontSize}px`,
         lineHeight: MESSAGE_BODY_LINE_HEIGHT,
@@ -200,10 +219,7 @@ export function MessageResponse({
   if (hasPromptTokenSegments) {
     return (
       <div
-        className={cn(
-          "min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-          className,
-        )}
+        className={cx(sx(styles.responseBody), className)}
         style={{
           fontSize: `${messageFontSize}px`,
           lineHeight: MESSAGE_BODY_LINE_HEIGHT,
@@ -238,7 +254,7 @@ export function MessageResponse({
               key={key}
               descriptor={descriptor}
               compact
-              className="mx-0.5"
+              className={sx(styles.tokenMargin)}
             />
           );
         })}
@@ -257,7 +273,7 @@ export function MessageResponse({
       renderBlockCode={({ code, language, fileHref, resolvedFileLink }) => (
         <CodeBlock code={code} language={language}>
           <CodeBlockHeader>
-            <CodeBlockTitle className="min-w-0 gap-2">
+            <CodeBlockTitle className={sx(styles.codeTitle)}>
               {resolvedFileLink ? (
                 <MessageFileLink
                   href={fileHref ?? resolvedFileLink.filePath}
@@ -275,7 +291,7 @@ export function MessageResponse({
                   }
                 />
               ) : null}
-              <span className="shrink-0">{language ?? "code"}</span>
+              <span className={sx(styles.codeLanguage)}>{language ?? "code"}</span>
             </CodeBlockTitle>
             <CodeBlockActions>
               <CodeBlockCopyButton />
@@ -291,20 +307,12 @@ export function MessageResponse({
 }
 
 export function MessageToolbar(props: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className="flex items-center gap-1.5 text-sm text-muted-foreground"
-      {...props}
-    />
-  );
+  return <div className={sx(styles.toolbar)} {...props} />;
 }
 
 export function MessageActions(props: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      className={cn("ml-1 mt-1 flex items-center gap-1", props.className)}
-      {...props}
-    />
+    <div className={cx(sx(styles.actions), props.className)} {...props} />
   );
 }
 
@@ -324,10 +332,7 @@ export function MessageAction({
       variant="ghost"
       size="sm"
       type="button"
-      className={cn(
-        "h-7 rounded-sm px-2 text-sm text-muted-foreground hover:text-foreground",
-        className,
-      )}
+      className={cx(sx(styles.action), className)}
       aria-label={label}
       {...props}
     />
@@ -420,9 +425,13 @@ export function MessageBranchSelector({
 }: MessageBranchSelectorProps) {
   return (
     <div
-      className={cn(
-        "inline-flex items-center gap-1 rounded-sm border border-border/70 px-1 py-0.5",
-        from === "user" ? "self-end" : "self-start",
+      className={cx(
+        sx(
+          styles.branchSelector,
+          from === "user"
+            ? styles.branchSelectorUser
+            : styles.branchSelectorAssistant,
+        ),
         className,
       )}
       {...props}
@@ -436,9 +445,11 @@ export function MessageBranchPrevious(
   const { branch, setBranch } = useMessageBranchContext();
   const { className, onClick, ...rest } = props;
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
-      className={cn("rounded-sm p-0.5 hover:bg-secondary/70", className)}
+      xstyle={[styles.branchArrow, transition.colors]}
+      className={className}
       disabled={branch <= 0}
       onClick={(event) => {
         onClick?.(event);
@@ -448,8 +459,8 @@ export function MessageBranchPrevious(
       }}
       {...rest}
     >
-      <ChevronLeft className="size-3" />
-    </button>
+      <ChevronLeft className={sx(styles.branchArrowIcon)} />
+    </AdsButton>
   );
 }
 
@@ -459,9 +470,11 @@ export function MessageBranchNext(
   const { branch, setBranch, total } = useMessageBranchContext();
   const { className, onClick, ...rest } = props;
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
-      className={cn("rounded-sm p-0.5 hover:bg-secondary/70", className)}
+      xstyle={[styles.branchArrow, transition.colors]}
+      className={className}
       disabled={branch >= total - 1}
       onClick={(event) => {
         onClick?.(event);
@@ -471,8 +484,8 @@ export function MessageBranchNext(
       }}
       {...rest}
     >
-      <ChevronRight className="size-3" />
-    </button>
+      <ChevronRight className={sx(styles.branchArrowIcon)} />
+    </AdsButton>
   );
 }
 
@@ -480,7 +493,7 @@ export function MessageBranchPage(props: HTMLAttributes<HTMLSpanElement>) {
   const { branch, total } = useMessageBranchContext();
   return (
     <span
-      className={cn("text-[10px] text-muted-foreground", props.className)}
+      className={cx(sx(styles.branchPage), props.className)}
       {...props}
     >
       {branch + 1}/{total}
@@ -495,7 +508,7 @@ export function MessageAttachments(props: HTMLAttributes<HTMLDivElement>) {
   }
   return (
     <div
-      className={cn("mb-2 flex flex-wrap items-center gap-2", props.className)}
+      className={cx(sx(styles.attachments), props.className)}
       {...props}
     />
   );
@@ -520,36 +533,31 @@ export function MessageAttachment({
 }: MessageAttachmentProps) {
   const isImage = data.mediaType?.startsWith("image/");
   return (
-    <div
-      className={cn(
-        "group relative rounded-sm border border-border/70 bg-card/60 p-2",
-        className,
-      )}
-      {...props}
-    >
+    <div className={cx(sx(styles.attachment), className)} {...props}>
       {isImage && data.url ? (
         <img
           src={data.url}
           alt={data.filename ?? "attachment"}
-          className="h-24 w-24 rounded-sm object-cover"
+          className={sx(styles.attachmentImage)}
         />
       ) : (
-        <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <Paperclip className="size-3.5" />
-          <span className="max-w-44 truncate">
+        <div className={sx(styles.attachmentFile)}>
+          <Paperclip className={sx(styles.attachmentFileIcon)} />
+          <span className={sx(styles.attachmentFileName)}>
             {data.filename ?? "attachment"}
           </span>
         </div>
       )}
       {onRemove ? (
-        <button
+        <AdsButton
+          layout="host"
           type="button"
-          className="absolute -right-2 -top-2 hidden rounded-full border border-border/80 bg-background p-0.5 group-hover:inline-flex"
+          xstyle={styles.attachmentRemove}
           onClick={onRemove}
           aria-label="remove-attachment"
         >
-          <X className="size-3" />
-        </button>
+          <X className={sx(styles.attachmentRemoveIcon)} />
+        </AdsButton>
       ) : null}
     </div>
   );

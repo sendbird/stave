@@ -1,0 +1,733 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "../ads/tokens/tokens.stylex";
+
+const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
+
+/**
+ * A row's status code swaps for its action cluster on hover/focus, but the
+ * trigger is the ROW and the targets are descendants — which StyleX has no
+ * selector for. The row publishes its state as custom properties and the two
+ * layers read them.
+ */
+const ROW_CODE_OPACITY = "--stave-scm-row-code";
+const ROW_ACTION_OPACITY = "--stave-scm-row-actions";
+const ROW_ACTION_EVENTS = "--stave-scm-row-events";
+
+const dangerWash = `color-mix(in oklch, ${vars.colorDanger} 15%, transparent)`;
+const warningWash = `color-mix(in oklch, ${vars.colorWarning} 15%, transparent)`;
+const dangerHoverWash = `color-mix(in oklch, ${vars.colorDanger} 10%, transparent)`;
+const successHoverWash = `color-mix(in oklch, ${vars.colorSuccess} 10%, transparent)`;
+const warningPanel = `color-mix(in oklch, ${vars.colorWarning} 10%, transparent)`;
+const warningEdge = `color-mix(in oklch, ${vars.colorWarning} 40%, transparent)`;
+const dangerPanel = `color-mix(in oklch, ${vars.colorDanger} 10%, transparent)`;
+const dangerEdge = `color-mix(in oklch, ${vars.colorDanger} 40%, transparent)`;
+
+/** Verification / PR / working-tree signal colors, keyed by local check tone. */
+export const checkToneStyles = stylex.create({
+  ok: { color: vars.colorSuccessText },
+  warn: { color: vars.colorWarningText },
+  fail: { color: vars.colorDangerText },
+  neutral: { color: vars.colorTextMuted },
+});
+
+/** Per-file status-code ink in the changes list. */
+export const scmStatusToneStyles = stylex.create({
+  conflict: { color: vars.colorDangerText },
+  unstaged: { color: vars.colorWarningText },
+  staged: { color: vars.colorSuccessText },
+  none: { color: vars.colorTextMuted },
+});
+
+/** Row-action ink, per destructive / affirmative / neutral intent. */
+export const scmActionToneStyles = stylex.create({
+  default: {
+    backgroundColor: { default: "transparent", ":hover": vars.colorCanvasSubtle },
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+  },
+  destructive: {
+    backgroundColor: { default: "transparent", ":hover": dangerHoverWash },
+    color: { default: vars.colorDangerText, ":hover": vars.colorDangerText },
+  },
+  success: {
+    backgroundColor: { default: "transparent", ":hover": successHoverWash },
+    color: { default: vars.colorSuccessText, ":hover": vars.colorSuccessText },
+  },
+});
+
+/** Summary-line ink for the staged / working-tree / conflict counters. */
+export const scmSummaryToneStyles = stylex.create({
+  staged: { color: vars.colorSuccessText },
+  workingTree: { color: vars.colorTextMuted },
+  conflicts: { color: vars.colorDangerText },
+});
+
+export const changesStyles = stylex.create({
+  // ---- Tab shell ---------------------------------------------------------
+  shell: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+    height: "100%",
+    minHeight: 0,
+  },
+  modeBar: {
+    borderBottomColor: vars.colorBorder,
+    borderBottomStyle: "solid",
+    borderBottomWidth: vars.borderWidthHairline,
+    flexShrink: 0,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
+  },
+  tabList: {
+    backgroundColor: vars.colorSurfaceTint,
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusFrame,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    height: "auto",
+    justifyContent: "flex-start",
+    padding: vars.space4,
+    width: "100%",
+  },
+  tabListInline: {
+    backgroundColor: vars.colorSurfaceTint,
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusFrame,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    flex: 1,
+    height: "auto",
+    justifyContent: "flex-start",
+    padding: vars.space4,
+  },
+  tabWide: {
+    borderRadius: vars.radiusPanel,
+    flex: 1,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+    gap: 6,
+    height: 32,
+    paddingInline: vars.space12,
+  },
+  tab: {
+    borderRadius: vars.radiusPanel,
+    flex: "none",
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+    gap: vars.space8,
+    height: 32,
+    paddingInline: vars.space12,
+  },
+  tabCount: { color: vars.colorTextMuted, fontSize: vars.fontSizeMicro },
+  tabAlert: { color: vars.colorDangerText, fontSize: vars.fontSizeMicro },
+  pane: { flex: 1, minHeight: 0 },
+  paneScroll: { flex: 1, minHeight: 0, overflow: "auto" },
+  viewBar: {
+    alignItems: "center",
+    borderBottomColor: vars.colorBorder,
+    borderBottomStyle: "solid",
+    borderBottomWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: vars.space8,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
+  },
+  glyphSm: { height: 14, width: 14 },
+  glyphMd: { height: 16, width: 16 },
+  glyphXs: { height: 12, width: 12 },
+
+  // ---- Status chips in the view bar --------------------------------------
+  statusChip: {
+    alignItems: "center",
+    borderRadius: vars.radiusPanel,
+    display: "flex",
+    flexShrink: 0,
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightMedium,
+    gap: vars.space4,
+    paddingBlock: vars.space4,
+    paddingInline: 6,
+  },
+  statusChipPressable: {
+    backgroundColor: { default: "transparent", ":hover": vars.colorCanvasSubtle },
+  },
+  toolbar: { alignItems: "center", display: "flex", flexShrink: 0, gap: vars.space4 },
+  refreshButton: {
+    borderRadius: vars.radiusPanel,
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+    height: 32,
+    width: 32,
+  },
+  autoRefreshButton: {
+    borderRadius: vars.radiusPanel,
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+    gap: vars.space4,
+    height: 32,
+    paddingInline: 6,
+  },
+  autoRefreshButtonOn: {
+    color: { default: vars.colorSuccessText, ":hover": vars.colorSuccessText },
+  },
+  autoRefreshLabel: {
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightMedium,
+  },
+  autoRefreshMenu: { width: "11rem" },
+  autoRefreshMenuLabel: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightMedium,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+  },
+  autoRefreshItem: { justifyContent: "space-between" },
+  autoRefreshCheck: { color: vars.colorSuccessText, height: 14, width: 14 },
+  spinning: {
+    animationDuration: {
+      default: vars.motionDurationLoop,
+      "@media (prefers-reduced-motion: reduce)": "0s",
+    },
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+
+  // ---- Verification popovers ---------------------------------------------
+  popover: { padding: 0, width: "20rem" },
+  popoverHeader: {
+    borderBottomColor: vars.colorBorderSubtle,
+    borderBottomStyle: "solid",
+    borderBottomWidth: vars.borderWidthHairline,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
+  },
+  popoverHeaderRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space8,
+    justifyContent: "space-between",
+  },
+  popoverTitle: { fontSize: vars.fontSizeCaption },
+  popoverHint: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeMicro,
+    marginTop: vars.space2,
+  },
+  popoverList: {
+    maxHeight: "18rem",
+    overflowY: "auto",
+    paddingBlock: vars.space4,
+  },
+  popoverItem: {
+    fontSize: vars.fontSizeMicro,
+    paddingBlock: 6,
+    paddingInline: vars.space12,
+  },
+  fixAllButton: {
+    fontSize: vars.fontSizeMicro,
+    gap: vars.space4,
+    height: 24,
+    paddingInline: vars.space8,
+  },
+  fixOneButton: {
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+    fontSize: vars.fontSizeMicro,
+    flexShrink: 0,
+    gap: vars.space4,
+    height: 20,
+    marginInlineStart: "auto",
+    paddingInline: 6,
+  },
+  failureHead: {
+    alignItems: "center",
+    color: vars.colorText,
+    display: "flex",
+    fontWeight: vars.fontWeightMedium,
+    gap: 6,
+  },
+  failureTag: {
+    borderRadius: vars.radiusMark,
+    fontSize: vars.fontSizeMicro,
+    letterSpacing: "0.025em",
+    paddingBlock: 1,
+    paddingInline: vars.space4,
+    textTransform: "uppercase",
+  },
+  failureTagBlocking: {
+    backgroundColor: dangerWash,
+    color: vars.colorDangerText,
+  },
+  failureTagWarn: {
+    backgroundColor: warningWash,
+    color: vars.colorWarningText,
+  },
+  truncate: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  failureMessage: {
+    color: vars.colorTextMuted,
+    marginTop: vars.space2,
+    overflowWrap: "break-word",
+    whiteSpace: "pre-wrap",
+  },
+  findingButton: {
+    alignItems: "flex-start",
+    backgroundColor: { default: "transparent", ":hover": vars.colorCanvasSubtle },
+    display: "flex",
+    flexDirection: "column",
+    fontSize: vars.fontSizeMicro,
+    gap: vars.space2,
+    paddingBlock: 6,
+    paddingInline: vars.space12,
+    textAlign: "start",
+    width: "100%",
+  },
+  findingButtonInline: {
+    borderRadius: vars.radiusControl,
+    paddingBlock: vars.space4,
+    paddingInline: 6,
+  },
+  findingHead: {
+    alignItems: "center",
+    color: vars.colorText,
+    display: "flex",
+    fontWeight: vars.fontWeightMedium,
+    gap: 6,
+    maxWidth: "100%",
+  },
+  findingSeverity: {
+    backgroundColor: vars.colorCanvasSubtle,
+    borderRadius: vars.radiusMark,
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeMicro,
+    letterSpacing: "0.025em",
+    paddingBlock: 1,
+    paddingInline: vars.space4,
+    textTransform: "uppercase",
+  },
+  findingMessage: {
+    color: vars.colorTextMuted,
+    overflowWrap: "break-word",
+    whiteSpace: "pre-wrap",
+  },
+
+  // ---- Checks tab --------------------------------------------------------
+  checks: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    paddingBlock: vars.space12,
+    paddingInline: vars.space12,
+  },
+  checksSection: {
+    backgroundColor: vars.colorCanvas,
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusFrame,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space8,
+    paddingBlock: 10,
+    paddingInline: vars.space12,
+  },
+  checksHead: { alignItems: "center", display: "flex", gap: vars.space8 },
+  checksIcon: {
+    alignItems: "center",
+    display: "flex",
+    height: 16,
+    justifyContent: "center",
+    width: 16,
+  },
+  checksTitle: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+  },
+  checksSummary: {
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightMedium,
+    marginInlineStart: "auto",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  checksLine: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeMicro,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  checksStrong: { color: vars.colorText, fontWeight: vars.fontWeightMedium },
+  checksStack: { display: "flex", flexDirection: "column", gap: 6 },
+  checksList: { display: "flex", flexDirection: "column", gap: vars.space4 },
+  failureItem: { fontSize: vars.fontSizeMicro },
+  checksTodoList: {
+    color: vars.colorTextMuted,
+    display: "flex",
+    flexDirection: "column",
+    fontSize: vars.fontSizeMicro,
+    gap: vars.space2,
+  },
+  checksTodoRow: { alignItems: "flex-start", display: "flex", gap: 6 },
+  checksTodoDot: {
+    backgroundColor: vars.colorWarning,
+    borderRadius: vars.radiusFull,
+    flexShrink: 0,
+    height: 4,
+    marginTop: vars.space4,
+    width: 4,
+  },
+  checksTodoMore: { fontSize: vars.fontSizeMicro, paddingInlineStart: 10 },
+
+  // ---- Changes list ------------------------------------------------------
+  changesBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space16,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
+  },
+  summarySection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space12,
+    paddingInline: vars.space4,
+  },
+  summaryHead: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space12,
+    justifyContent: "space-between",
+  },
+  summaryLead: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars.space8,
+    minWidth: 0,
+  },
+  branchBadge: {
+    backgroundColor: vars.colorCanvas,
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusControl,
+    fontWeight: vars.fontWeightRegular,
+    gap: vars.space4,
+    height: 24,
+    justifyContent: "flex-start",
+    maxWidth: "100%",
+    paddingInline: vars.space8,
+  },
+  branchIcon: { color: vars.colorTextMuted, height: 14, width: 14 },
+  summaryCount: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightMedium,
+  },
+  busyLoader: { color: vars.colorTextMuted, flexShrink: 0 },
+  summaryLabels: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars.fontSizeCaption,
+    gap: vars.space8,
+  },
+  summaryHint: { color: vars.colorTextMuted, fontSize: vars.fontSizeCaption },
+  composer: {
+    borderTopColor: vars.colorBorderSubtle,
+    borderTopStyle: "solid",
+    borderTopWidth: vars.borderWidthHairline,
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space12,
+    paddingTop: vars.space12,
+  },
+  composerRow: { alignItems: "flex-start", display: "flex", gap: vars.space8 },
+  composerInput: {
+    backgroundColor: vars.colorCanvas,
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusPanel,
+    fontSize: vars.fontSizeBody,
+    height: 36,
+  },
+  commitButton: {
+    borderRadius: vars.radiusPanel,
+    fontSize: vars.fontSizeBody,
+    height: 36,
+    paddingInline: vars.space12,
+  },
+  bulkRow: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars.space8,
+  },
+  bulkButton: {
+    borderRadius: vars.radiusPanel,
+    fontSize: vars.fontSizeBody,
+    height: 32,
+  },
+  sections: { display: "flex", flexDirection: "column", gap: vars.space12 },
+  conflictNotice: {
+    backgroundColor: warningPanel,
+    borderColor: warningEdge,
+    borderRadius: vars.radiusFrame,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    color: vars.colorWarningText,
+    fontSize: vars.fontSizeBody,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
+  },
+  errorNotice: {
+    backgroundColor: dangerPanel,
+    borderColor: dangerEdge,
+    borderRadius: vars.radiusFrame,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    color: vars.colorDangerText,
+    fontSize: vars.fontSizeBody,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
+  },
+  emptyNotice: {
+    backgroundColor: vars.colorSurfaceTint,
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusFrame,
+    borderStyle: "dashed",
+    borderWidth: vars.borderWidthHairline,
+    paddingBlock: vars.space12,
+    paddingInline: vars.space12,
+  },
+  emptyNoticeText: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeBody,
+  },
+  section: { display: "flex", flexDirection: "column", gap: 6 },
+  sectionHead: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space8,
+    justifyContent: "space-between",
+    paddingInline: vars.space4,
+  },
+  sectionTitle: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightMedium,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+  },
+  sectionBadge: {
+    borderRadius: vars.radiusControl,
+    fontWeight: vars.fontWeightRegular,
+    paddingInline: vars.space8,
+  },
+  sectionItems: { display: "flex", flexDirection: "column", gap: 6 },
+
+  // ---- File row ----------------------------------------------------------
+  fileRow: {
+    [ROW_CODE_OPACITY]: { default: "1", ":focus-within": "0", ":hover": "0" },
+    [ROW_ACTION_OPACITY]: { default: "0", ":focus-within": "1", ":hover": "1" },
+    [ROW_ACTION_EVENTS]: {
+      default: "none",
+      ":focus-within": "auto",
+      ":hover": "auto",
+    },
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":focus-within": vars.colorOverlayHover,
+      ":hover": vars.colorOverlayHover,
+    },
+    borderColor: "transparent",
+    borderRadius: vars.radiusPanel,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: vars.space8,
+    paddingBlock: 6,
+    paddingInline: vars.space8,
+  },
+  fileOpen: {
+    alignItems: "center",
+    borderRadius: vars.radiusControl,
+    display: "flex",
+    flex: 1,
+    gap: vars.space8,
+    minWidth: 0,
+    textAlign: "start",
+  },
+  fileBody: { flex: 1, minWidth: 0 },
+  fileTitleRow: { alignItems: "center", display: "flex", gap: vars.space8 },
+  fileName: {
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightMedium,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  fileBadge: {
+    borderRadius: vars.radiusControl,
+    fontSize: vars.fontSizeMicro,
+    paddingInline: 6,
+  },
+  fileVerification: { height: 12, width: 12 },
+  filePath: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeMicro,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  fileTail: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    height: 24,
+    justifyContent: "flex-end",
+    position: "relative",
+    width: 84,
+  },
+  fileCode: {
+    alignItems: "center",
+    display: "flex",
+    fontFamily: vars.fontMono,
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightMedium,
+    inset: 0,
+    justifyContent: "flex-end",
+    opacity: `var(${ROW_CODE_OPACITY})`,
+    paddingInlineEnd: vars.space4,
+    pointerEvents: "none",
+    position: "absolute",
+    transitionDuration: {
+      default: vars.motionDurationQuick,
+      "@media (prefers-reduced-motion: reduce)": "0ms",
+    },
+    transitionProperty: "opacity",
+    transitionTimingFunction: vars.motionEaseStandard,
+  },
+  fileActions: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space2,
+    inset: 0,
+    justifyContent: "flex-end",
+    opacity: `var(${ROW_ACTION_OPACITY})`,
+    pointerEvents: `var(${ROW_ACTION_EVENTS})`,
+    position: "absolute",
+    transitionDuration: {
+      default: vars.motionDurationQuick,
+      "@media (prefers-reduced-motion: reduce)": "0ms",
+    },
+    transitionProperty: "opacity",
+    transitionTimingFunction: vars.motionEaseStandard,
+  },
+  rowActionButton: {
+    borderColor: "transparent",
+    borderRadius: vars.radiusMark,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    height: 24,
+    padding: 0,
+    width: 24,
+  },
+  contextMenu: { width: "13rem" },
+
+  // ---- History -----------------------------------------------------------
+  historyBody: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space12,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
+  },
+  historyHead: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space12,
+    justifyContent: "space-between",
+    paddingInline: vars.space4,
+  },
+  historyCount: { color: vars.colorTextMuted, fontSize: vars.fontSizeCaption },
+  historyList: { display: "flex", flexDirection: "column" },
+  historyRow: {
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
+    borderRadius: vars.radiusPanel,
+    display: "flex",
+    gap: vars.space12,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space4,
+  },
+  historyRail: {
+    display: "flex",
+    flexShrink: 0,
+    justifyContent: "center",
+    paddingTop: 6,
+    position: "relative",
+    width: 20,
+  },
+  historyNode: {
+    backgroundColor: vars.colorCanvas,
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusFull,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    boxShadow: vars.elevationRaised,
+    height: 10,
+    width: 10,
+  },
+  historyThread: {
+    backgroundColor: vars.colorBorderSubtle,
+    bottom: -12,
+    position: "absolute",
+    top: 16,
+    width: 1,
+  },
+  historyContent: {
+    flex: 1,
+    minWidth: 0,
+    paddingBlock: vars.space2,
+  },
+  historyLead: { alignItems: "flex-start", display: "flex", gap: vars.space12 },
+  historySubject: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightMedium,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  historyMeta: {
+    alignItems: "center",
+    color: vars.colorTextMuted,
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars.fontSizeCaption,
+    gap: vars.space8,
+    marginTop: vars.space4,
+  },
+  historyHash: {
+    color: vars.colorTextMuted,
+    fontFamily: vars.fontMono,
+    fontSize: vars.fontSizeMicro,
+  },
+  historyDot: {
+    backgroundColor: vars.colorBorder,
+    borderRadius: vars.radiusFull,
+    height: 4,
+    width: 4,
+  },
+  historyCommitIcon: {
+    color: vars.colorTextMuted,
+    flexShrink: 0,
+    height: 16,
+    marginTop: vars.space2,
+    width: 16,
+  },
+});

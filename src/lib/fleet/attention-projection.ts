@@ -35,7 +35,10 @@ export type FleetAttentionSource = "live" | "notification" | "pr";
  */
 export type FleetAttentionTier = "blocking" | "review";
 
-export const FLEET_ATTENTION_TIER: Record<FleetAttentionKind, FleetAttentionTier> = {
+export const FLEET_ATTENTION_TIER: Record<
+  FleetAttentionKind,
+  FleetAttentionTier
+> = {
   "user-input": "blocking",
   approval: "blocking",
   "run-failed": "blocking",
@@ -480,7 +483,10 @@ export function collectFleetPrAttentionItems(
   });
 }
 
-function choosePreferredNeed(current: FleetAttentionItem, candidate: FleetAttentionItem) {
+function choosePreferredNeed(
+  current: FleetAttentionItem,
+  candidate: FleetAttentionItem,
+) {
   const preferred =
     SOURCE_PRIORITY[candidate.source] < SOURCE_PRIORITY[current.source]
       ? candidate
@@ -498,7 +504,10 @@ function choosePreferredNeed(current: FleetAttentionItem, candidate: FleetAttent
   };
 }
 
-export function compareFleetAttentionItems(left: FleetAttentionItem, right: FleetAttentionItem) {
+export function compareFleetAttentionItems(
+  left: FleetAttentionItem,
+  right: FleetAttentionItem,
+) {
   if (left.priority !== right.priority) {
     return left.priority - right.priority;
   }
@@ -579,9 +588,14 @@ export function buildFleetAttentionProjection(args: {
   }
 
   const items = Array.from(byId.values()).sort(compareFleetAttentionItems);
-  const highestAttentionByWorkspaceId: Record<string, FleetAttentionItem | undefined> =
-    {};
-  const attentionItemsByWorkspaceId: Record<string, FleetAttentionItem[] | undefined> = {};
+  const highestAttentionByWorkspaceId: Record<
+    string,
+    FleetAttentionItem | undefined
+  > = {};
+  const attentionItemsByWorkspaceId: Record<
+    string,
+    FleetAttentionItem[] | undefined
+  > = {};
 
   for (const item of items) {
     const existing = attentionItemsByWorkspaceId[item.workspaceId];

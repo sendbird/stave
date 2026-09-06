@@ -12,6 +12,8 @@ import {
   PopoverTrigger,
   Switch,
 } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { getHookBlocking, isHookLinked } from "./scripts-manager-state";
 import {
   SCRIPT_TRIGGER_METADATA,
@@ -23,6 +25,7 @@ import type {
   ScriptEditorState,
 } from "@/lib/workspace-scripts/editor";
 import type { ScriptTrigger } from "@/lib/workspace-scripts/types";
+import { hooksTabStyles } from "./script-hooks-tab.styles";
 
 function HookTriggerCard(props: {
   trigger: ScriptTrigger;
@@ -48,70 +51,72 @@ function HookTriggerCard(props: {
   );
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-lg border border-border/70 bg-card/60 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="text-sm font-medium text-foreground">{meta.label}</p>
-          <p className="text-xs text-muted-foreground">{meta.description}</p>
+    <div className={sx(hooksTabStyles.card)}>
+      <div className={sx(hooksTabStyles.cardHeader)}>
+        <div className={sx(hooksTabStyles.cardHeaderText)}>
+          <p className={sx(hooksTabStyles.cardTitle)}>{meta.label}</p>
+          <p className={sx(hooksTabStyles.cardDescription)}>
+            {meta.description}
+          </p>
         </div>
-        <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px]">
+        <Badge variant="outline" className={sx(hooksTabStyles.countBadge)}>
           {linkedCandidates.length}
         </Badge>
       </div>
 
       {linkedCandidates.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border/60 bg-muted/15 px-3 py-2.5 text-xs text-muted-foreground">
+        <p className={sx(hooksTabStyles.emptyLinks)}>
           No commands or processes assigned yet.
         </p>
       ) : (
-        <div className="space-y-1.5">
+        <div className={sx(hooksTabStyles.linkList)}>
           {linkedCandidates.map((candidate) => {
             const blocking = getHookBlocking(props.links, candidate);
             return (
               <div
                 key={`${candidate.scriptKind}:${candidate.scriptId}`}
-                className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/15 px-2.5 py-1.5"
+                className={sx(hooksTabStyles.linkRow)}
               >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="truncate text-xs font-medium text-foreground">
+                <div className={sx(hooksTabStyles.linkBody)}>
+                  <div className={sx(hooksTabStyles.linkTitleRow)}>
+                    <span className={sx(hooksTabStyles.candidateLabel)}>
                       {candidate.label}
                     </span>
                     <Badge
                       variant="outline"
-                      className="rounded-sm px-1.5 py-0 text-[10px]"
+                      className={sx(hooksTabStyles.kindBadge)}
                     >
                       {candidate.scriptKind}
                     </Badge>
                     <Badge
                       variant="secondary"
-                      className="rounded-sm px-1.5 py-0 font-mono text-[10px]"
+                      className={sx(hooksTabStyles.idBadge)}
                     >
                       {candidate.scriptId}
                     </Badge>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className={sx(hooksTabStyles.blockingGroup)}>
                   <Switch
                     checked={blocking}
                     onCheckedChange={(checked) =>
                       props.onToggleBlocking(props.trigger, candidate, checked)
                     }
                   />
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className={sx(hooksTabStyles.blockingLabel)}>
                     Blocking
                   </span>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon-xs"
-                  className="text-muted-foreground hover:text-destructive"
+                  xstyle={hooksTabStyles.removeButton}
                   onClick={() =>
                     props.onToggleLink(props.trigger, candidate, false)
                   }
                   aria-label="Remove assignment"
                 >
-                  <X className="size-3.5" />
+                  <X className={sx(hooksTabStyles.icon)} />
                 </Button>
               </div>
             );
@@ -125,55 +130,56 @@ function HookTriggerCard(props: {
             <Button
               variant="outline"
               size="sm"
-              className="h-7 w-full justify-center gap-1.5"
+              xstyle={hooksTabStyles.assignTrigger}
               disabled={unlinkedCandidates.length === 0}
             />
           }
         >
-          <Plus className="size-3.5" />
+          <Plus className={sx(hooksTabStyles.icon)} />
           {props.candidates.length === 0
             ? "Nothing to assign"
             : "Assign command or process"}
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-72 p-2">
+        <PopoverContent align="end" xstyle={hooksTabStyles.popoverContent}>
           {unlinkedCandidates.length === 0 ? (
-            <p className="px-2 py-3 text-center text-xs text-muted-foreground">
+            <p className={sx(hooksTabStyles.popoverEmpty)}>
               All candidates already assigned.
             </p>
           ) : (
-            <div className="space-y-1">
-              <p className="px-2 pt-1 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <div className={sx(hooksTabStyles.popoverList)}>
+              <p className={sx(hooksTabStyles.popoverHeading)}>
                 Available commands and processes
               </p>
               {unlinkedCandidates.map((candidate) => (
-                <button
+                <AdsButton
                   key={`${candidate.scriptKind}:${candidate.scriptId}`}
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/40"
+                  layout="host"
+                  xstyle={hooksTabStyles.candidateButton}
                   onClick={() =>
                     props.onToggleLink(props.trigger, candidate, true)
                   }
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-xs font-medium text-foreground">
+                  <div className={sx(hooksTabStyles.linkBody)}>
+                    <div className={sx(hooksTabStyles.linkTitleRow)}>
+                      <span className={sx(hooksTabStyles.candidateLabel)}>
                         {candidate.label}
                       </span>
                       <Badge
                         variant="outline"
-                        className="rounded-sm px-1.5 py-0 text-[10px]"
+                        className={sx(hooksTabStyles.kindBadge)}
                       >
                         {candidate.scriptKind}
                       </Badge>
                     </div>
                     {candidate.description ? (
-                      <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                      <p className={sx(hooksTabStyles.candidateDescription)}>
                         {candidate.description}
                       </p>
                     ) : null}
                   </div>
-                  <Plus className="size-3.5 text-muted-foreground" />
-                </button>
+                  <Plus className={sx(hooksTabStyles.candidateAddIcon)} />
+                </AdsButton>
               ))}
             </div>
           )}
@@ -202,22 +208,20 @@ export function ScriptHooksTab(props: {
   ) => void;
 }) {
   return (
-    <div className="space-y-3">
-      <div className="min-w-0 space-y-1">
-        <p className="text-sm font-semibold text-foreground">
-          Lifecycle triggers
-        </p>
-        <p className="text-xs text-muted-foreground">
+    <div className={sx(hooksTabStyles.root)}>
+      <div className={sx(hooksTabStyles.intro)}>
+        <p className={sx(hooksTabStyles.introTitle)}>Lifecycle triggers</p>
+        <p className={sx(hooksTabStyles.introDescription)}>
           Start one-shot commands or long-running processes from task, turn, and
           PR events.
         </p>
       </div>
 
       {props.candidates.length === 0 ? (
-        <Empty className="border border-dashed border-border/70 bg-muted/15">
+        <Empty xstyle={hooksTabStyles.emptyState}>
           <EmptyHeader>
             <EmptyMedia>
-              <AlertCircle className="size-4" />
+              <AlertCircle className={sx(hooksTabStyles.emptyIcon)} />
             </EmptyMedia>
             <EmptyTitle>No commands or processes yet</EmptyTitle>
             <EmptyDescription>
@@ -227,7 +231,7 @@ export function ScriptHooksTab(props: {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className={sx(hooksTabStyles.grid)}>
           {SCRIPT_TRIGGER_IDS.map((trigger) => (
             <HookTriggerCard
               key={trigger}
@@ -242,17 +246,17 @@ export function ScriptHooksTab(props: {
       )}
 
       {props.unresolvedHookRefs.length > 0 ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/8 px-3 py-2.5 text-xs text-amber-950 dark:text-amber-100">
-          <div className="flex items-center gap-2 font-medium">
-            <AlertCircle className="size-4" />
+        <div className={sx(hooksTabStyles.unresolved)}>
+          <div className={sx(hooksTabStyles.unresolvedHeader)}>
+            <AlertCircle className={sx(hooksTabStyles.emptyIcon)} />
             Preserved unresolved hook refs
           </div>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className={sx(hooksTabStyles.unresolvedList)}>
             {props.unresolvedHookRefs.map(({ trigger, link }, index) => (
               <Badge
                 key={`${trigger}:${link.scriptKind ?? "unknown"}:${link.scriptId}:${index}`}
                 variant="secondary"
-                className="rounded-sm px-2 py-0"
+                className={sx(hooksTabStyles.unresolvedBadge)}
               >
                 {SCRIPT_TRIGGER_METADATA[trigger].label} →{" "}
                 {link.scriptKind ?? "unknown"}:{link.scriptId}

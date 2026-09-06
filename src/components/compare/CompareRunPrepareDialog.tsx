@@ -6,6 +6,7 @@ import {
   SplitSquareHorizontal,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   buildModelSelectorOptions,
   buildModelSelectorValue,
@@ -35,6 +36,7 @@ import { resolveModelEffortFromSettings } from "@/lib/providers/model-effort";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { useAppStore } from "@/store/app.store";
+import { compareRunPrepareDialogStyles as styles } from "./compare-run-prepare-dialog.styles";
 
 const COMPARE_PROVIDER_IDS = listManagedExecutionProviderIds();
 
@@ -157,22 +159,20 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
         }
       }}
     >
-      <DialogContent className="max-h-[88vh] max-w-4xl gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/65 px-7 py-6 pr-16">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <SplitSquareHorizontal className="size-4.5" />
+      <DialogContent xstyle={styles.content}>
+        <DialogHeader className={sx(styles.header)}>
+          <div className={sx(styles.headerRow)}>
+            <span className={sx(styles.headerMark)}>
+              <SplitSquareHorizontal className={sx(styles.markIcon)} />
             </span>
-            <div className="min-w-0 space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <DialogTitle className="text-lg font-semibold tracking-[-0.015em]">
+            <div className={sx(styles.headerText)}>
+              <div className={sx(styles.headerTitleRow)}>
+                <DialogTitle className={sx(styles.headerTitle)}>
                   Prepare comparison
                 </DialogTitle>
-                <span className="text-xs font-medium text-primary">
-                  Step 1 of 5
-                </span>
+                <span className={sx(styles.headerStep)}>Step 1 of 5</span>
               </div>
-              <DialogDescription className="max-w-2xl leading-6">
+              <DialogDescription className={sx(styles.headerDescription)}>
                 Give both candidates the same brief and review contract before
                 Stave creates isolated worktrees.
               </DialogDescription>
@@ -180,13 +180,13 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 overflow-y-auto px-7">
-          <section className="py-6" aria-labelledby="compare-shared-brief">
-            <div className="mb-3 space-y-1">
-              <h3 id="compare-shared-brief" className="text-sm font-semibold">
+        <div className={sx(styles.scroller)}>
+          <section className={sx(styles.section)} aria-labelledby="compare-shared-brief">
+            <div className={sx(styles.sectionIntro)}>
+              <h3 id="compare-shared-brief" className={sx(styles.heading)}>
                 Shared brief
               </h3>
-              <p className="text-sm leading-5 text-muted-foreground">
+              <p className={sx(styles.helpText)}>
                 This exact request is sent to every candidate.
               </p>
             </div>
@@ -194,30 +194,30 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
               aria-label="Compare shared brief"
               value={preparedPrompt}
               onChange={(event) => setPreparedPrompt(event.target.value)}
-              className="min-h-28 resize-y px-3 py-2.5 leading-6"
+              xstyle={styles.textarea}
             />
           </section>
 
           <section
-            className="border-t border-border/65 py-6"
+            className={sx(styles.sectionBordered)}
             aria-labelledby="compare-candidates"
           >
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-              <div className="space-y-1">
-                <h3 id="compare-candidates" className="text-sm font-semibold">
+            <div className={sx(styles.sectionHeadingRow)}>
+              <div className={sx(styles.sectionHeadingGroup)}>
+                <h3 id="compare-candidates" className={sx(styles.heading)}>
                   Candidates
                 </h3>
-                <p className="text-sm leading-5 text-muted-foreground">
+                <p className={sx(styles.helpText)}>
                   Both start from the same branch with independent files and
                   provider sessions. Pick a model and reasoning effort for each.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <GitBranch className="size-3.5" />
+              <span className={sx(styles.branchTag)}>
+                <GitBranch className={sx(styles.smallIcon)} />
                 {baseBranch}
               </span>
             </div>
-            <div className="divide-y divide-border/55 border-y border-border/65">
+            <div className={sx(styles.candidateList)}>
               {candidates.map((candidate, index) => {
                 const candidateName =
                   candidate.label ?? `Candidate ${index + 1}`;
@@ -225,16 +225,19 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                 return (
                   <div
                     key={candidate.label}
-                    className="grid min-h-20 grid-cols-[2rem_minmax(8rem,0.55fr)_minmax(18rem,1fr)] items-center gap-3 py-3 max-sm:grid-cols-[2rem_minmax(0,1fr)]"
+                    className={sx(
+                      styles.candidateRow,
+                      index > 0 && styles.candidateRowDivider,
+                    )}
                   >
-                    <span className="font-mono text-[11px] text-muted-foreground">
+                    <span className={sx(styles.candidateIndex)}>
                       {String(index + 1).padStart(2, "0")}
                     </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">
+                    <div className={sx(styles.candidateMain)}>
+                      <p className={sx(styles.candidateName)}>
                         {candidate.label}
                       </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className={sx(styles.candidateSub)}>
                         Isolated worktree
                       </p>
                     </div>
@@ -253,10 +256,10 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                           effort,
                         })
                       }}
-                      className="w-full"
+                      className={sx(styles.selectorFull)}
                       triggerAriaLabel={`${candidateName} model and effort: ${candidateModel.label}${candidate.effort ? ` · ${candidate.effort}` : ""}`}
-                      triggerClassName="h-9 w-full max-w-none border-input bg-background px-3"
-                      menuClassName="sm:max-w-lg"
+                      triggerClassName={sx(styles.selectorTrigger)}
+                      menuClassName={sx(styles.selectorMenu)}
                     />
                   </div>
                 );
@@ -265,19 +268,19 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
           </section>
 
           <section
-            className="border-t border-border/65 py-6"
+            className={sx(styles.sectionBordered)}
             aria-labelledby="compare-judge"
           >
-            <div className="grid items-center gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(20rem,1fr)]">
-              <div className="flex items-start gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/9 text-primary">
-                  <BrainCircuit className="size-4.5" />
+            <div className={sx(styles.judgeGrid)}>
+              <div className={sx(styles.judgeIntro)}>
+                <span className={sx(styles.judgeMark)}>
+                  <BrainCircuit className={sx(styles.markIcon)} />
                 </span>
-                <div className="space-y-1">
-                  <h3 id="compare-judge" className="text-sm font-semibold">
+                <div className={sx(styles.judgeIntroText)}>
+                  <h3 id="compare-judge" className={sx(styles.heading)}>
                     Independent judge
                   </h3>
-                  <p className="text-sm leading-5 text-muted-foreground">
+                  <p className={sx(styles.helpText)}>
                     Runs after every candidate finishes with fresh context and
                     read-only access.
                   </p>
@@ -298,26 +301,26 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                     effort,
                   })
                 }}
-                className="w-full"
+                className={sx(styles.selectorFull)}
                 triggerAriaLabel={`Independent judge model and effort: ${buildSelectorValue(judge).label}${judge.effort ? ` · ${judge.effort}` : ""}`}
-                triggerClassName="h-9 w-full max-w-none border-input bg-background px-3"
-                menuClassName="sm:max-w-lg"
+                triggerClassName={sx(styles.selectorTrigger)}
+                menuClassName={sx(styles.selectorMenu)}
               />
             </div>
           </section>
 
           <section
-            className="border-t border-border/65 py-6"
+            className={sx(styles.sectionBordered)}
             aria-labelledby="compare-review-contract"
           >
-            <div className="mb-3 space-y-1">
+            <div className={sx(styles.sectionIntro)}>
               <h3
                 id="compare-review-contract"
-                className="text-sm font-semibold"
+                className={sx(styles.heading)}
               >
                 Review contract
               </h3>
-              <p className="text-sm leading-5 text-muted-foreground">
+              <p className={sx(styles.helpText)}>
                 One criterion per line. These remain visible in the Review
                 stage. Leave this empty to use Stave&apos;s default rubric.
               </p>
@@ -326,13 +329,13 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
               aria-label="Compare review criteria"
               value={criteriaDraft}
               onChange={(event) => setCriteriaDraft(event.target.value)}
-              className="min-h-24 resize-y px-3 py-2.5 leading-6"
+              xstyle={styles.textareaShort}
             />
           </section>
 
-          <div className="flex items-start gap-3 border-t border-border/65 py-5 text-sm">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
-            <p className="leading-6 text-muted-foreground">
+          <div className={sx(styles.safetyRow)}>
+            <ShieldCheck className={sx(styles.safetyIcon)} />
+            <p className={sx(styles.safetyText)}>
               Keeping a candidate preserves its workspace. Stave closes the
               other compare workspaces only after your explicit Keep choice.
               Keeping does not merge code.
@@ -340,11 +343,11 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
           </div>
         </div>
 
-        <DialogFooter className="items-center border-t border-border/65 px-7 py-4 sm:justify-between">
-          <span className="text-xs text-muted-foreground">
+        <DialogFooter className={sx(styles.footer)}>
+          <span className={sx(styles.footerTrail)}>
             Prepare → Run → Judge → Review → Keep
           </span>
-          <div className="flex items-center gap-2">
+          <div className={sx(styles.footerActions)}>
             <DialogClose
               render={<Button variant="ghost" disabled={props.submitting} />}
             >
@@ -369,7 +372,7 @@ export function CompareRunPrepareDialog(props: CompareRunPrepareDialogProps) {
                 })
               }
             >
-              <Play className="size-4" />
+              <Play className={sx(styles.playIcon)} />
               {props.submitting ? "Preparing…" : "Start comparison"}
             </Button>
           </div>

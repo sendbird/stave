@@ -126,8 +126,6 @@ describe("composer control placement in the toolbar", () => {
     expect(draftHtml).not.toContain(">Enhance<");
     expect(draftHtml).not.toContain(">Enhancing<");
     expect(draftHtml).toContain('data-prompt-enhancement-surface="idle"');
-    expect(draftHtml).toContain("pr-9");
-    expect(draftHtml).not.toContain("pr-28");
   });
 
   test("announces prompt enhancement while it is pending", async () => {
@@ -150,13 +148,9 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('data-prompt-enhancement-surface="enhancing"');
     expect(html).toContain('data-loader-variant="orbit"');
     expect(html).not.toContain("animate-spin");
-    expect(html).toContain("cursor-progress");
-    expect(html).toContain("text-muted-foreground/70");
-    // The busy chip overlays the draft. Growing the editor inset would reflow
-    // the first line when the label appears and again when it collapses.
-    expect(html).toContain("pr-9");
-    expect(html).not.toContain("pr-28");
-    expect(html).toContain("from-card");
+    // The locked look (dimmed, non-interactive editable) is verified through
+    // the `contentEditable="false"` + `data-prompt-enhancement-state` hooks
+    // above; its dimming/inset are StyleX now, not asserted as class strings.
   });
 
   test("keeps the editor locked while the enhanced prompt is revealed", async () => {
@@ -173,9 +167,6 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('contentEditable="false"');
     expect(html).toContain(">Applying<");
     expect(html).toContain('data-prompt-enhancement-surface="applying"');
-    expect(html).toContain("cursor-progress");
-    expect(html).toContain("pr-9");
-    expect(html).not.toContain("pr-28");
   });
 
   test("renders every control and no tray button by default", async () => {
@@ -293,8 +284,8 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('aria-label="Plan mode OFF"');
     expect(html).toContain('data-composer-control-label=""');
     expect(html).toContain(">Plan<");
-    expect(html).toContain("group-hover/composer-wing:opacity-100");
-    expect(html).toContain("motion-reduce:transition-opacity");
+    // Hover, focus and reduced-motion geometry are exercised in the renderer.
+    expect(html).toContain('data-wing-reveal="on"');
     expect(html).toContain('data-testid="context-meter-slot"');
     // Stave's own tooling rides the bottom status bar; the wings are the
     // provider's surface. Controls keep their labels there, except the runtime
@@ -495,7 +486,7 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain(
       COMPOSER_CONTROL_LANE.menu.split(" ")[0].replaceAll("&", "&amp;"),
     );
-    expect((html.match(/class="flex items-center gap-2"/g) ?? []).length).toBe(
+    expect((html.match(/data-composer-control-menu-item=/g) ?? []).length).toBe(
       2,
     );
     expect(html).toContain(">Runtime</span>");

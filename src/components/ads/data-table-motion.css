@@ -1,0 +1,66 @@
+/*
+ * DataTable reveal-on-intent chrome.
+ *
+ * Both blocks below key off an ANCESTOR's hover/focus, which StyleX's
+ * per-element conditions cannot express — that is the whole reason this lives
+ * in a stylesheet rather than in `DataTable.header.tsx`. Split out of
+ * `styles.css` so the table's motion sits next to itself, the same way
+ * `overlay-motion.css` does.
+ */
+
+/*
+ * DataTable bulk selection stays available without visually dominating every
+ * row. Reveal checkboxes when the table/row is intentionally targeted, while
+ * keeping selected rows persistently visible.
+ */
+.ads-data-table--selectable .ads-data-table__selection-checkbox {
+  opacity: 0;
+  transition: opacity var(--atelier-motion-duration-fast)
+    var(--atelier-motion-ease-standard);
+}
+
+.ads-data-table--selectable:focus-within .ads-data-table__selection-checkbox,
+.ads-data-table--selection-active .ads-data-table__selection-checkbox,
+.ads-data-table--selectable tr:hover .ads-data-table__selection-checkbox,
+.ads-data-table--selectable th:hover .ads-data-table__selection-checkbox,
+.ads-data-table--selectable
+  tr[data-selected="true"]
+  .ads-data-table__selection-checkbox,
+.ads-data-table__selection-checkbox:checked,
+.ads-data-table__selection-checkbox:focus-visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ads-data-table--selectable .ads-data-table__selection-checkbox {
+    transition: none;
+  }
+}
+
+/*
+ * Same reveal contract as the selection checkboxes above, for the neutral sort
+ * glyph. An unsorted sortable column painted its up/down chevron at full
+ * strength, so every header shouted "sortable" and the ONE column actually
+ * sorted had nothing to distinguish it. The idle glyph is now an affordance you
+ * find by pointing at the header (or by tabbing to it), while the active arrow
+ * is always solid — it is state, not an affordance.
+ *
+ * In CSS rather than StyleX because the trigger is an ANCESTOR's hover/focus
+ * (`th:hover`), which StyleX's per-element conditions cannot express.
+ */
+[data-ads-sort-indicator="idle"] {
+  opacity: 0;
+  transition: opacity var(--atelier-motion-duration-fast)
+    var(--atelier-motion-ease-standard);
+}
+
+th:hover [data-ads-sort-indicator="idle"],
+th:focus-within [data-ads-sort-indicator="idle"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-ads-sort-indicator="idle"] {
+    transition: none;
+  }
+}

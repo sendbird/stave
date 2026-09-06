@@ -1,0 +1,182 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "../ads/tokens/tokens.stylex";
+
+export const craneApprovalStyles = stylex.create({
+  /** Full-bleed shell: header, scrolling body, and footer own their padding. */
+  content: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+    maxBlockSize: "90vh",
+    maxWidth: {
+      default: "28rem",
+      "@media (min-width: 640px)": "42rem",
+    },
+    overflow: "hidden",
+    padding: 0,
+  },
+  header: {
+    borderBlockEndColor: vars.colorBorderSubtle,
+    borderBlockEndStyle: "solid",
+    borderBlockEndWidth: vars.borderWidthHairline,
+    flexShrink: 0,
+    paddingBlockEnd: vars.space20,
+    paddingBlockStart: vars.space24,
+    paddingInlineEnd: vars.space48,
+    paddingInlineStart: vars.space24,
+  },
+  headerRow: { alignItems: "flex-start", display: "flex", gap: vars.space12 },
+  headerBadge: {
+    alignItems: "center",
+    backgroundColor: vars.colorCanvasSubtle,
+    blockSize: 40,
+    borderColor: vars.colorBorder,
+    borderRadius: vars.radiusPanel,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    flexShrink: 0,
+    inlineSize: 40,
+    justifyContent: "center",
+  },
+  headerIcon: {
+    blockSize: vars.controlIconSizeSm,
+    color: vars.colorTextMuted,
+    inlineSize: vars.controlIconSizeSm,
+  },
+  headerText: { minInlineSize: 0 },
+  headerDescription: {
+    lineHeight: vars.lineHeightControl,
+    marginBlockStart: vars.space4,
+  },
+
+  body: {
+    display: "flex",
+    flexDirection: "column",
+    flexGrow: 1,
+    gap: vars.space20,
+    minBlockSize: 0,
+    overflowY: "auto",
+    paddingBlock: vars.space20,
+    paddingInline: vars.space24,
+  },
+  panel: {
+    backgroundColor: vars.colorSurfaceTint,
+    borderColor: vars.colorBorder,
+    borderRadius: vars.radiusPanel,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space8,
+    padding: vars.space16,
+  },
+  issueRow: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: vars.space12,
+    justifyContent: "space-between",
+  },
+  issueText: { minInlineSize: 0 },
+  issueTitle: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightSemibold,
+    margin: 0,
+  },
+  issueMeta: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+    marginBlockEnd: 0,
+    marginBlockStart: vars.space4,
+  },
+  buttonIcon: { blockSize: 14, inlineSize: 14 },
+
+  instructionGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space4,
+  },
+  instructionLabel: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+    margin: 0,
+  },
+  instruction: {
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightControl,
+    margin: 0,
+    whiteSpace: "pre-wrap",
+  },
+
+  descriptionAccordion: {
+    borderBlockStartColor: vars.colorBorderSubtle,
+    borderBlockStartStyle: "solid",
+    borderBlockStartWidth: vars.borderWidthHairline,
+  },
+  descriptionTrigger: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+    paddingBlock: vars.space8,
+  },
+  descriptionPanel: { paddingBlockEnd: vars.space8 },
+  descriptionBody: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeCaption,
+    lineHeight: vars.lineHeightControl,
+    margin: 0,
+    maxBlockSize: 160,
+    overflowY: "auto",
+    whiteSpace: "pre-wrap",
+  },
+
+  privacyPanel: {
+    alignItems: "flex-start",
+    backgroundColor: vars.colorSurfaceTint,
+    borderColor: vars.colorBorder,
+    borderRadius: vars.radiusPanel,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: vars.space12,
+    padding: vars.space16,
+  },
+  privacyIcon: {
+    blockSize: vars.controlIconSizeSm,
+    color: vars.colorTextMuted,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeSm,
+    marginBlockStart: 2,
+  },
+  privacyText: {
+    display: "flex",
+    flexDirection: "column",
+    fontSize: vars.fontSizeCaption,
+    gap: vars.space4,
+    lineHeight: vars.lineHeightControl,
+  },
+  privacyHeading: {
+    color: vars.colorText,
+    fontWeight: vars.fontWeightMedium,
+    margin: 0,
+  },
+  privacyCopy: { color: vars.colorTextMuted, margin: 0 },
+
+  footer: {
+    backgroundColor: vars.colorCanvasSubtle,
+    borderBlockStartColor: vars.colorBorderSubtle,
+    borderBlockStartStyle: "solid",
+    borderBlockStartWidth: vars.borderWidthHairline,
+    flexShrink: 0,
+    paddingBlock: vars.space16,
+    paddingInline: vars.space24,
+  },
+  footerNote: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+    marginInlineEnd: "auto",
+  },
+});

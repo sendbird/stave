@@ -15,6 +15,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui";
 import { MAX_BOUND_SECRETS, type SecretMetadata } from "@/lib/secrets/secrets";
+import { sx } from "@/components/ads/utils/stylex";
+import { secretBindingControlStyles as styles } from "./secret-binding-control.styles";
 
 interface SecretBindingControlProps {
   /** Ids of secrets currently bound to the task draft. */
@@ -127,16 +129,20 @@ export function SecretBindingControl({
           />
         }
       >
-        <KeyRound className="size-4" />
+        <KeyRound />
         <ComposerControlLabel>{label}</ComposerControlLabel>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="w-80">
-        <DropdownMenuLabel className="flex items-center gap-2">
-          <KeyRound className="size-3.5" />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className={sx(styles.content)}
+      >
+        <DropdownMenuLabel className={sx(styles.label)}>
+          <KeyRound className={sx(styles.labelIcon)} />
           Bind secrets as env vars
         </DropdownMenuLabel>
         {loaded && injectableSecrets.length === 0 ? (
-          <p className="px-2 py-3 text-xs leading-5 text-muted-foreground">
+          <p className={sx(styles.empty)}>
             No secrets define an environment variable name yet. Add one in
             Settings → Secrets to make it injectable.
           </p>
@@ -153,16 +159,16 @@ export function SecretBindingControl({
                   // Checkbox items keep the menu open by default (closeOnClick
                   // defaults to false), which is what multi-select wants.
                   onCheckedChange={(next) => toggleSecret(secret.id, next)}
-                  className="items-start gap-2"
+                  className={sx(styles.item)}
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate text-sm">{secret.name}</span>
-                      <code className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] leading-4 text-muted-foreground">
+                  <span className={sx(styles.itemBody)}>
+                    <span className={sx(styles.itemTitleRow)}>
+                      <span className={sx(styles.itemTitle)}>{secret.name}</span>
+                      <code className={sx(styles.itemEnvVar)}>
                         ${secret.envVarName}
                       </code>
                     </span>
-                    <span className="block truncate font-mono text-xs text-muted-foreground">
+                    <span className={sx(styles.itemPreview)}>
                       {secret.valuePreview || "••••"}
                     </span>
                   </span>
@@ -170,7 +176,7 @@ export function SecretBindingControl({
               );
             })}
             <DropdownMenuSeparator />
-            <p className="px-2 py-2 text-[11px] leading-4 text-muted-foreground">
+            <p className={sx(styles.footnote)}>
               Bound values are available to shell commands and supported MCP
               authentication for this task. They are never shown to the agent,
               but a command that echoes the variable can still surface it.

@@ -1,0 +1,22 @@
+/* Rich text and third-party SVG descendants cannot receive host StyleX props.
+   Defaults live below StyleX so an explicitly sized icon remains authoritative. */
+@layer base {
+  [data-slot="dialog-description"] > a {
+    text-decoration-line: underline;
+    text-underline-offset: 3px;
+  }
+  [data-slot="dialog-description"] > a:hover { color: var(--foreground); }
+  [data-slot="input-group-addon"] > svg,
+  [data-slot="input-group-text"] svg {
+    width: var(--stave-field-icon-size, 16px);
+    height: var(--stave-field-icon-size, 16px);
+    pointer-events: none;
+  }
+}
+
+/* Composer lanes own the geometry of third-party glyphs passed as children. */
+@layer components {
+  [data-composer-frame-wing] svg { width: 16px; height: 16px; flex-shrink: 0; }
+  [data-composer-frame-status-bar] svg { flex-shrink: 0; }
+  [data-composer-frame-wing]::-webkit-scrollbar { display: none; }
+}

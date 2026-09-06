@@ -21,7 +21,7 @@ import type {
   TrackerTaskListItem,
   TrackerTaskStartMode,
 } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import {
   TRACKER_SOURCE_LABELS,
@@ -29,6 +29,7 @@ import {
   resolvePrimaryTrackerTaskLink,
 } from "./tracker-task-ui";
 import { useTrackerTaskKickoffDraft } from "./useTrackerTaskKickoffDraft";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 
 const ID_PREFIX = "tracker-task-kickoff";
 
@@ -75,29 +76,26 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
         }
       }}
     >
-      <SheetContent
-        side="right"
-        className="w-full gap-0 p-0 data-[side=right]:sm:max-w-xl"
-      >
-        <SheetHeader className="shrink-0 border-b border-border/70 px-5 pt-5 pb-4 pr-12">
-          <SheetTitle className="text-sm">
+      <SheetContent side="right" xstyle={taskLayoutStyles.kickoffSheet}>
+        <SheetHeader xstyle={taskLayoutStyles.kickoffHeader}>
+          <SheetTitle className={sx(taskLayoutStyles.kickoffSectionHeading)}>
             Kick off {task?.key ?? "ticket"} in Stave
           </SheetTitle>
-          <SheetDescription className="text-xs leading-5">
+          <SheetDescription className={sx(taskLayoutStyles.kickoffHint)}>
             Nothing leaves this machine except the Crane status updates you
             allow below.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
+        <div className={sx(taskLayoutStyles.kickoffContent)}>
           {task ? (
-            <section className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-semibold text-foreground">
+            <section className={sx(taskLayoutStyles.kickoffTicket)}>
+              <div className={sx(taskLayoutStyles.kickoffTicketHeader)}>
+                <div className={sx(taskLayoutStyles.kickoffTicketCopy)}>
+                  <p className={sx(taskLayoutStyles.kickoffTicketTitle)}>
                     {task.title}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  <p className={sx(taskLayoutStyles.kickoffTicketMeta)}>
                     {TRACKER_SOURCE_LABELS[task.source]} {task.key} ·{" "}
                     {task.status.raw}
                   </p>
@@ -106,15 +104,15 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-7 gap-1.5 text-[11px]"
+                  xstyle={taskLayoutStyles.kickoffSourceButton}
                   onClick={() => openTrackerTaskInBrowser(task.url)}
                 >
-                  <ExternalLink className="size-3.5" />
+                  <ExternalLink className={sx(taskLayoutStyles.icon14)} />
                   Open source
                 </Button>
               </div>
               {existingLink ? (
-                <p className="rounded-md border border-warning/35 bg-warning/10 px-2 py-1.5 text-[11px] leading-4 text-warning">
+                <p className={sx(taskLayoutStyles.kickoffWarning)}>
                   This ticket already has a Stave run ({existingLink.state}).
                   Starting again creates a second one.
                 </p>
@@ -137,13 +135,13 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
           />
 
           <section
-            className="grid gap-2"
+            className={sx(taskLayoutStyles.kickoffSection)}
             aria-labelledby={`${ID_PREFIX}-instruction-heading`}
           >
-            <div className="flex items-center justify-between gap-2">
+            <div className={sx(taskLayoutStyles.kickoffHeadingRow)}>
               <h3
                 id={`${ID_PREFIX}-instruction-heading`}
-                className="text-sm font-semibold"
+                className={sx(taskLayoutStyles.kickoffSectionHeading)}
               >
                 What to do
               </h3>
@@ -151,11 +149,11 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
                 type="button"
                 size="xs"
                 variant="ghost"
-                className="gap-1"
+                xstyle={taskLayoutStyles.kickoffReset}
                 disabled={!task}
                 onClick={draft.resetInstruction}
               >
-                <RotateCcw className="size-3" />
+                <RotateCcw className={sx(taskLayoutStyles.icon12)} />
                 Reset to ticket
               </Button>
             </div>
@@ -164,10 +162,10 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
               value={draft.instruction}
               onChange={(event) => draft.setInstruction(event.target.value)}
               rows={8}
-              className="text-[12px] leading-5"
+              xstyle={taskLayoutStyles.kickoffTextArea}
               aria-label="Instruction for the run"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className={sx(taskLayoutStyles.kickoffHint)}>
               The ticket body is also attached as untrusted retrieved context.
             </p>
           </section>
@@ -191,16 +189,16 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
           />
 
           <section
-            className="grid gap-2"
+            className={sx(taskLayoutStyles.kickoffSection)}
             aria-labelledby={`${ID_PREFIX}-start-heading`}
           >
             <h3
               id={`${ID_PREFIX}-start-heading`}
-              className="text-sm font-semibold"
+              className={sx(taskLayoutStyles.kickoffSectionHeading)}
             >
               How it starts
             </h3>
-            <div className="flex items-center gap-0.5 rounded-md bg-muted/45 p-0.5">
+            <div className={sx(taskLayoutStyles.kickoffModeList)}>
               {START_MODE_OPTIONS.map((option) => (
                 <Button
                   key={option.value}
@@ -210,33 +208,36 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
                     draft.startMode === option.value ? "secondary" : "ghost"
                   }
                   aria-pressed={draft.startMode === option.value}
-                  className={cn(
-                    "h-7 flex-1 text-[11px]",
-                    draft.startMode === option.value &&
-                      "border-border/55 bg-background/85",
-                  )}
+                  xstyle={
+                    draft.startMode === option.value
+                      ? [
+                          taskLayoutStyles.kickoffMode,
+                          taskLayoutStyles.kickoffModeActive,
+                        ]
+                      : taskLayoutStyles.kickoffMode
+                  }
                   onClick={() => draft.setStartMode(option.value)}
                 >
                   {option.label}
                 </Button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className={sx(taskLayoutStyles.kickoffHint)}>
               {draft.startMode === "run"
                 ? "The workspace is created and the turn starts immediately."
                 : "The workspace and a prefilled prompt are prepared; you send it."}
             </p>
 
             {task?.source === "crane" ? (
-              <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <div className="min-w-0">
+              <div className={sx(taskLayoutStyles.kickoffCrane)}>
+                <div className={sx(taskLayoutStyles.kickoffTicketCopy)}>
                   <label
                     htmlFor={`${ID_PREFIX}-crane-write-back`}
-                    className="text-sm font-medium text-foreground"
+                    className={sx(taskLayoutStyles.detailLinkTitle)}
                   >
                     Report progress to Crane
                   </label>
-                  <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                  <p className={sx(taskLayoutStyles.kickoffHint)}>
                     {!draft.craneWriteBackAvailable
                       ? "Turn the Crane connector on in Settings to report progress."
                       : draft.startMode === "run"
@@ -257,9 +258,9 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
             ) : null}
           </section>
 
-          <section className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-            <p className="text-xs leading-5 text-muted-foreground">
+          <section className={sx(taskLayoutStyles.kickoffNotice)}>
+            <ShieldCheck className={sx(taskLayoutStyles.headerIcon)} />
+            <p className={sx(taskLayoutStyles.kickoffHint)}>
               Prompts, responses, reasoning, files, paths, diffs, and
               credentials stay local. Tracker credentials are never read by this
               window.
@@ -267,8 +268,8 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
           </section>
         </div>
 
-        <SheetFooter className="shrink-0 flex-row items-center border-t border-border/70 bg-muted/20 px-5 py-3">
-          <span className="mr-auto text-xs text-muted-foreground">
+        <SheetFooter xstyle={taskLayoutStyles.kickoffFooter}>
+          <span className={sx(taskLayoutStyles.kickoffFooterHint)}>
             {draft.rememberDefaults && draft.scopeLabel
               ? `Local ${draft.scopeLabel} defaults will be remembered.`
               : "Applies to this kickoff only."}

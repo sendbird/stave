@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { AlertTriangle, CircleDashed } from "lucide-react";
 import { memo, useMemo, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -8,11 +9,16 @@ import {
   type WorkspaceProgressTaskItem,
 } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { Loader } from "@/components/ui";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { sx } from "@/components/ads/utils/stylex";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ChatMessage, Task } from "@/types/chat";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import {
+  workspaceProgressStatusToneStyles as statusTone,
+  workspaceProgressTaskTreeStyles as styles,
+} from "./workspace-progress-task-tree.styles";
 
 const EMPTY_TASKS: Task[] = [];
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};
@@ -27,21 +33,13 @@ const STATUS_LABEL: Record<FleetTaskStatus, string> = {
   idle: "Idle",
 };
 
-const STATUS_TEXT_CLASS: Record<FleetTaskStatus, string> = {
-  "waiting-input": "text-warning",
-  "waiting-approval": "text-warning",
-  error: "text-destructive",
-  running: "text-primary",
-  idle: "text-muted-foreground",
-};
-
 function StatusMark(args: { status: FleetTaskStatus }) {
   const loaderVariant = resolveWorkspaceProgressTaskLoaderVariant(args.status);
   if (loaderVariant) {
     return (
       <Loader
         aria-hidden
-        className={STATUS_TEXT_CLASS[args.status]}
+        className={sx(statusTone[args.status])}
         size="xs"
         variant={loaderVariant}
       />
@@ -49,12 +47,15 @@ function StatusMark(args: { status: FleetTaskStatus }) {
   }
   if (args.status === "error") {
     return (
-      <AlertTriangle className="size-3.5 text-destructive" aria-hidden="true" />
+      <AlertTriangle
+        className={sx(styles.statusIcon, statusTone.error)}
+        aria-hidden="true"
+      />
     );
   }
   return (
     <CircleDashed
-      className="size-3.5 text-muted-foreground"
+      className={sx(styles.statusIcon, statusTone.idle)}
       aria-hidden="true"
     />
   );
@@ -66,11 +67,11 @@ function ProviderMark(args: {
   const label = getProviderLabel({ providerId: args.providerId });
   return (
     <span
-      className="inline-flex size-4 shrink-0 items-center justify-center"
+      className={sx(styles.providerMark)}
       title={`${label} provider`}
     >
-      <ModelIcon providerId={args.providerId} className="size-3.5" />
-      <span className="sr-only">{label} provider</span>
+      <ModelIcon providerId={args.providerId} className={sx(styles.providerIcon)} />
+      <VisuallyHidden>{label} provider</VisuallyHidden>
     </span>
   );
 }
@@ -89,12 +90,12 @@ export function WorkspaceProgressTaskTreeView(args: {
     body = (
       <li>
         <div
-          className="flex min-h-8 items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground"
+          className={sx(styles.loadingRow)}
           data-workspace-progress-loading="true"
         >
           <Loader
             aria-hidden
-            className="text-primary"
+            className={sx(styles.accent)}
             size="xs"
             variant="pulse"
           />
@@ -107,31 +108,24 @@ export function WorkspaceProgressTaskTreeView(args: {
       const statusLabel = STATUS_LABEL[item.status];
       return (
         <li key={item.taskId}>
-          <button
+          <AdsButton layout="host"
             type="button"
             data-workspace-progress-task={item.taskId}
             data-workspace-progress-status={item.status}
-            className={cn(
-              "flex min-h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-              "text-sidebar-foreground/85 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/55",
-            )}
+            xstyle={styles.row}
             aria-label={`${item.title}, ${statusLabel}`}
             onClick={() => args.onOpenTask(item.taskId)}
           >
             <ProviderMark providerId={item.providerId} />
-            <span className="min-w-0 flex-1 truncate">{item.title}</span>
+            <span className={sx(styles.rowTitle)}>{item.title}</span>
             <span
-              className={cn(
-                "inline-flex shrink-0 items-center",
-                STATUS_TEXT_CLASS[item.status],
-              )}
+              className={sx(styles.statusSlot, statusTone[item.status])}
               title={statusLabel}
             >
               <StatusMark status={item.status} />
-              <span className="sr-only">{statusLabel}</span>
+              <VisuallyHidden>{statusLabel}</VisuallyHidden>
             </span>
-          </button>
+          </AdsButton>
         </li>
       );
     });
@@ -140,7 +134,7 @@ export function WorkspaceProgressTaskTreeView(args: {
   return (
     <ul
       data-testid="workspace-progress-tasks"
-      className="mt-0.5 ml-5 min-w-0 space-y-0.5 border-l border-sidebar-border/60 pl-2"
+      className={sx(styles.list)}
       aria-label="Open tasks"
     >
       {body}

@@ -1,3 +1,6 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
+import * as stylex from "@stylexjs/stylex";
 import {
   ArrowDownToLine,
   Copy,
@@ -12,7 +15,6 @@ import {
   CONSOLE_LEVEL_FILTERS,
   flattenStackTrace,
   formatLogTime,
-  getConsoleLevelClass,
 } from "@/lib/lens/lens-log-format";
 import {
   ConsoleInspectableRow,
@@ -22,7 +24,11 @@ import {
   LensLogEntryDetail,
 } from "@/components/panes/surfaces/lens/LensLogDetail";
 import type { LensDiagnosticsLog } from "@/components/panes/surfaces/lens/useLensDiagnosticsLog";
-import { cn } from "@/lib/utils";
+import {
+  focusRing,
+  transition,
+  workbenchStyles as w,
+} from "./lens-workbench.styles";
 
 /**
  * Console tab of the lens diagnostics workbench: the filter/pause/capture
@@ -66,25 +72,25 @@ export function LensConsoleWorkbench(props: {
   } = props.diagnostics;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 p-2">
-        <div className="relative min-w-36 flex-1">
-          <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+    <div {...stylex.props(w.surface)}>
+      <div {...stylex.props(w.toolbar)}>
+        <div {...stylex.props(w.search)}>
+          <Search {...stylex.props(w.searchIcon)} />
           <Input
             value={consoleSearch}
             onChange={(event) => setConsoleSearch(event.target.value)}
             placeholder="Search console"
-            className="h-7 pl-7 text-xs"
+            xstyle={w.searchInput}
           />
         </div>
-        <div className="flex items-center gap-1 overflow-x-auto">
+        <div {...stylex.props(w.filters)}>
           {CONSOLE_LEVEL_FILTERS.map((level) => (
             <Button
               key={level}
               type="button"
               size="xs"
               variant={consoleLevelFilter === level ? "secondary" : "ghost"}
-              className="h-7 px-2 text-[11px]"
+              xstyle={w.toolbarButton}
               onClick={() => setConsoleLevelFilter(level)}
             >
               {level}
@@ -109,20 +115,17 @@ export function LensConsoleWorkbench(props: {
           }
         >
           {consolePaused ? (
-            <Play className="size-3.5" />
+            <Play {...stylex.props(w.icon)} />
           ) : (
-            <Pause className="size-3.5" />
+            <Pause {...stylex.props(w.icon)} />
           )}
         </Button>
         {consolePaused ? (
-          <span
-            role="status"
-            className="whitespace-nowrap text-[11px] font-medium text-warning"
-          >
+          <Badge role="status" tone="warning">
             {consoleBufferedCount > 0
               ? `${consoleBufferedCount} buffered`
               : "Paused"}
-          </span>
+          </Badge>
         ) : null}
         <Button
           type="button"
@@ -131,13 +134,13 @@ export function LensConsoleWorkbench(props: {
           onClick={() => setAutoScrollLogs((current) => !current)}
           aria-label="Toggle log autoscroll"
         >
-          <ArrowDownToLine className="size-3.5" />
+          <ArrowDownToLine {...stylex.props(w.icon)} />
         </Button>
-        <Button
+        <AdsButton
           type="button"
           size="xs"
-          variant={consoleDetailsOpen ? "secondary" : "ghost"}
-          className="h-7 px-2 text-[11px]"
+          variant={consoleDetailsOpen ? "secondary" : "quiet"}
+          xstyle={w.toolbarButton}
           disabled={!selectedConsoleEntry}
           onClick={() => setConsoleDetailsOpen((current) => !current)}
           aria-label={
@@ -146,9 +149,9 @@ export function LensConsoleWorkbench(props: {
           aria-expanded={consoleDetailsOpen}
           aria-controls="lens-console-entry-detail"
         >
-          <PanelRightOpen className="size-3.5" />
+          <PanelRightOpen {...stylex.props(w.icon)} />
           Details
-        </Button>
+        </AdsButton>
         <Button
           type="button"
           size="icon-xs"
@@ -157,7 +160,7 @@ export function LensConsoleWorkbench(props: {
           onClick={copyConsoleLog}
           aria-label="Copy console log"
         >
-          <Copy className="size-3.5" />
+          <Copy {...stylex.props(w.icon)} />
         </Button>
         <Button
           type="button"
@@ -167,30 +170,33 @@ export function LensConsoleWorkbench(props: {
           onClick={clearConsoleLog}
           aria-label="Clear console log"
         >
-          <Trash2 className="size-3.5" />
+          <Trash2 {...stylex.props(w.icon)} />
         </Button>
       </div>
       <div
         data-testid="lens-console-log-workbench"
-        className="flex min-h-0 min-w-0 flex-1 flex-row"
+        {...stylex.props(w.workbench)}
       >
         <div
           ref={consoleLogRef}
           data-testid="lens-console-entry-list"
-          className="min-h-0 min-w-0 flex-1 overflow-auto font-mono text-xs"
+          {...stylex.props(w.entryList, w.consoleList)}
         >
           {filteredConsoleEntries.length > 0 ? (
-            <div className="divide-y divide-border">
+            <div {...stylex.props(w.entryRows)}>
               {filteredConsoleEntries.map((entry, index) => {
                 const selected = selectedConsoleEntryId === entry.id;
                 return (
-                  <button
+                  <AdsButton
+                    layout="host"
                     key={entry.id || `${entry.timestamp}-${index}`}
                     type="button"
-                    className={cn(
-                      "grid w-full grid-cols-[4.5rem_4.25rem_minmax(0,1fr)] gap-2 px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                      selected && "bg-accent text-accent-foreground",
-                    )}
+                    xstyle={[
+                      w.entryRow,
+                      focusRing.ringInset,
+                      transition.control,
+                      selected && w.selectedEntryRow,
+                    ]}
                     aria-pressed={selected}
                     aria-expanded={selected ? consoleDetailsOpen : undefined}
                     aria-controls={
@@ -201,36 +207,30 @@ export function LensConsoleWorkbench(props: {
                       setConsoleDetailsOpen(true);
                     }}
                   >
-                    <span className="text-[11px] text-muted-foreground">
+                    <span {...stylex.props(w.time)}>
                       {formatLogTime(entry.timestamp)}
                     </span>
-                    <span
-                      className={cn(
-                        "h-5 rounded border px-1.5 text-center text-[10px] uppercase leading-5",
-                        getConsoleLevelClass(entry.level),
-                      )}
+                    <Badge
+                      tone={getConsoleLevelTone(entry.level)}
+                      variant="outline"
                     >
                       {entry.level}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block whitespace-pre-wrap break-words text-foreground">
-                        {entry.text}
-                      </span>
+                    </Badge>
+                    <span {...stylex.props(w.entryContent)}>
+                      <span {...stylex.props(w.entryText)}>{entry.text}</span>
                       {entry.source ? (
-                        <span className="mt-1 block truncate text-[10px] text-muted-foreground">
+                        <span {...stylex.props(w.entrySource)}>
                           {entry.source}
                           {entry.lineNumber ? `:${entry.lineNumber}` : ""}
                         </span>
                       ) : null}
                     </span>
-                  </button>
+                  </AdsButton>
                 );
               })}
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center p-4 text-xs text-muted-foreground">
-              No console entries.
-            </div>
+            <div {...stylex.props(w.empty)}>No console entries.</div>
           )}
         </div>
         {selectedConsoleEntry && consoleDetailsOpen ? (
@@ -264,7 +264,7 @@ export function LensConsoleWorkbench(props: {
                 label: "Message",
                 content: (
                   <LensLogDetailBlock label="Message">
-                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words">
+                    <pre {...stylex.props(w.pre)}>
                       {selectedConsoleEntry.text}
                     </pre>
                   </LensLogDetailBlock>
@@ -274,7 +274,7 @@ export function LensConsoleWorkbench(props: {
                 id: "arguments",
                 label: "Arguments",
                 content: (
-                  <div className="space-y-1.5">
+                  <div {...stylex.props(w.compactStack)}>
                     {consoleEntryDetail?.arguments.length ? (
                       consoleEntryDetail.arguments.map((argument, index) => (
                         <ConsoleInspectableRow
@@ -299,26 +299,28 @@ export function LensConsoleWorkbench(props: {
                 id: "stack",
                 label: "Stack",
                 content: (
-                  <div className="space-y-1.5">
+                  <div {...stylex.props(w.compactStack)}>
                     {consoleEntryDetail?.stackTrace ? (
                       flattenStackTrace(consoleEntryDetail.stackTrace).map(
                         ({ frame, depth, description }, index) => (
                           <div
                             key={`${frame.scriptId ?? frame.url}-${frame.lineNumber}-${frame.columnNumber}-${index}`}
-                            className="rounded-md border border-border/70 bg-background/70 px-2 py-1.5 font-mono text-[11px]"
+                            {...stylex.props(w.stackFrame)}
                             style={{ marginLeft: `${depth * 12}px` }}
                           >
-                            <div className="flex min-w-0 items-baseline justify-between gap-3">
-                              <span className="truncate font-medium text-foreground">
+                            <div {...stylex.props(w.stackFrameHeader)}>
+                              <span {...stylex.props(w.stackFrameName)}>
                                 {frame.functionName || "(anonymous)"}
                               </span>
                               {description ? (
-                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                <span
+                                  {...stylex.props(w.stackFrameDescription)}
+                                >
                                   {description}
                                 </span>
                               ) : null}
                             </div>
-                            <div className="mt-0.5 break-all text-[10px] text-muted-foreground">
+                            <div {...stylex.props(w.stackFrameLocation)}>
                               {frame.url || "(inline)"}
                               {`:${frame.lineNumber}:${frame.columnNumber}`}
                             </div>
@@ -339,7 +341,7 @@ export function LensConsoleWorkbench(props: {
                 id: "context",
                 label: "Context",
                 content: (
-                  <div className="grid gap-3">
+                  <div {...stylex.props(w.detailsGrid)}>
                     <LensLogDetailBlock label="Execution context">
                       {consoleEntryDetail?.executionContext?.name ??
                         consoleEntryDetail?.executionContext?.origin ??
@@ -376,4 +378,19 @@ export function LensConsoleWorkbench(props: {
       </div>
     </div>
   );
+}
+
+function getConsoleLevelTone(
+  level: "log" | "debug" | "info" | "warn" | "error",
+): BadgeTone {
+  switch (level) {
+    case "error":
+      return "danger";
+    case "warn":
+      return "warning";
+    case "info":
+      return "info";
+    default:
+      return "neutral";
+  }
 }

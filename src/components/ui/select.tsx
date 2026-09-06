@@ -1,10 +1,12 @@
+import { sx } from "../ads/utils/stylex";
+import { overlayLayout } from "./overlay-layout.styles";
+import { Select as AdsSelect } from "../ads/components/Select";
 "use client";
 
 import * as React from "react";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 
-import { UI_ELEVATION_CLASS, UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react";
 
 type SelectProps<Value> = Omit<
@@ -71,9 +73,9 @@ function Select<Value = string>({
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
-    <SelectPrimitive.Group
+    <AdsSelect.Group
       data-slot="select-group"
-      className={cn("w-full min-w-0 scroll-my-1", className)}
+      className={className}
       {...props}
     />
   );
@@ -81,9 +83,9 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
 
 function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   return (
-    <SelectPrimitive.Value
+    <AdsSelect.Value
       data-slot="select-value"
-      className={cn("flex min-w-0 flex-1 truncate text-left", className)}
+      className={className}
       {...props}
     />
   );
@@ -98,22 +100,20 @@ function SelectTrigger({
   size?: "sm" | "default";
 }) {
   return (
-    <SelectPrimitive.Trigger
+    <AdsSelect.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn(
-        "flex w-fit items-center justify-between gap-1.5 rounded-md border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      size={size === "sm" ? "sm" : "md"}
+      className={className}
       {...props}
     >
       {children}
-      <SelectPrimitive.Icon
+      <AdsSelect.Icon
         render={
-          <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
+          <ChevronDownIcon className={sx(overlayLayout.selectArrow)} />
         }
       />
-    </SelectPrimitive.Trigger>
+    </AdsSelect.Trigger>
   );
 }
 
@@ -146,8 +146,8 @@ function SelectContent({
     | "collisionAvoidance"
   >) {
   return (
-    <SelectPrimitive.Portal>
-      <SelectPrimitive.Positioner
+    <AdsSelect.Portal>
+      <AdsSelect.Positioner
         data-ui-popup-positioner=""
         side={side}
         sideOffset={sideOffset}
@@ -159,26 +159,22 @@ function SelectContent({
         sticky={sticky}
         positionMethod={positionMethod}
         collisionAvoidance={collisionAvoidance}
-        className={cn("isolate", UI_LAYER_CLASS.popover)}
+        className={UI_LAYER_CLASS.popover}
       >
-        <SelectPrimitive.Popup
+        <AdsSelect.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
-          className={cn(
-            UI_ELEVATION_CLASS.floating,
-            "t-dropdown isolate relative max-h-(--available-height) w-max min-w-[max(8rem,var(--anchor-width))] max-w-[min(var(--available-width),calc(100vw-1rem))] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md bg-popover text-popover-foreground ring-1 ring-foreground/10 **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:focus:bg-foreground/10! **:data-[variant=destructive]:text-accent-foreground! **:data-[variant=destructive]:**:text-accent-foreground!",
-            className,
-          )}
+          className={className}
           {...props}
         >
           <SelectScrollUpButton />
-          <SelectPrimitive.List className="w-full min-w-0 p-1">
+          <AdsSelect.List className={sx(overlayLayout.selectList)}>
             {children}
-          </SelectPrimitive.List>
+          </AdsSelect.List>
           <SelectScrollDownButton />
-        </SelectPrimitive.Popup>
-      </SelectPrimitive.Positioner>
-    </SelectPrimitive.Portal>
+        </AdsSelect.Popup>
+      </AdsSelect.Positioner>
+    </AdsSelect.Portal>
   );
 }
 
@@ -187,12 +183,9 @@ function SelectLabel({
   ...props
 }: SelectPrimitive.GroupLabel.Props) {
   return (
-    <SelectPrimitive.GroupLabel
+    <AdsSelect.GroupLabel
       data-slot="select-label"
-      className={cn(
-        "w-full min-w-0 truncate px-2 py-1.5 text-xs text-muted-foreground",
-        className,
-      )}
+      className={className}
       {...props}
     />
   );
@@ -204,25 +197,22 @@ function SelectItem({
   ...props
 }: SelectPrimitive.Item.Props) {
   return (
-    <SelectPrimitive.Item
+    <AdsSelect.Item
       data-slot="select-item"
-      className={cn(
-        "relative flex w-full min-w-0 cursor-default items-center gap-2 overflow-hidden rounded-sm py-1.5 pr-8 pl-2 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className,
-      )}
+      className={className}
       {...props}
     >
-      <SelectPrimitive.ItemText className="flex min-w-0 flex-1 gap-2 truncate whitespace-nowrap">
+      <AdsSelect.ItemText className={sx(overlayLayout.selectLabel)}>
         {children}
-      </SelectPrimitive.ItemText>
-      <SelectPrimitive.ItemIndicator
+      </AdsSelect.ItemText>
+      <AdsSelect.ItemIndicator
         render={
-          <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
+          <span className={sx(overlayLayout.selectIndicator)} />
         }
       >
-        <CheckIcon className="pointer-events-none" />
-      </SelectPrimitive.ItemIndicator>
-    </SelectPrimitive.Item>
+        <CheckIcon className={sx(overlayLayout.decorative)} />
+      </AdsSelect.ItemIndicator>
+    </AdsSelect.Item>
   );
 }
 
@@ -231,9 +221,9 @@ function SelectSeparator({
   ...props
 }: SelectPrimitive.Separator.Props) {
   return (
-    <SelectPrimitive.Separator
+    <AdsSelect.Separator
       data-slot="select-separator"
-      className={cn("pointer-events-none -mx-1 my-1 h-px bg-border", className)}
+      className={className}
       {...props}
     />
   );
@@ -244,16 +234,13 @@ function SelectScrollUpButton({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollUpArrow>) {
   return (
-    <SelectPrimitive.ScrollUpArrow
+    <AdsSelect.ScrollUpArrow
       data-slot="select-scroll-up-button"
-      className={cn(
-        "top-0 z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={className}
       {...props}
     >
       <ChevronUpIcon />
-    </SelectPrimitive.ScrollUpArrow>
+    </AdsSelect.ScrollUpArrow>
   );
 }
 
@@ -262,16 +249,13 @@ function SelectScrollDownButton({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollDownArrow>) {
   return (
-    <SelectPrimitive.ScrollDownArrow
+    <AdsSelect.ScrollDownArrow
       data-slot="select-scroll-down-button"
-      className={cn(
-        "bottom-0 z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={className}
       {...props}
     >
       <ChevronDownIcon />
-    </SelectPrimitive.ScrollDownArrow>
+    </AdsSelect.ScrollDownArrow>
   );
 }
 

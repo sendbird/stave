@@ -159,6 +159,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "See every model call Stave makes on your behalf, switch each one off, and choose the provider and model it runs on.",
       },
       {
+        routePath: "project-memory",
+        sourcePath: "docs/features/project-memory.md",
+        title: "Project Memory",
+        description:
+          "Carry durable decisions, conventions, and gotchas across workspaces of the same project as a curated recall aid.",
+      },
+      {
         routePath: "notifications",
         sourcePath: "docs/features/notifications.md",
         title: "Notifications",

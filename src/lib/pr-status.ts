@@ -129,29 +129,12 @@ export const PR_STATUS_VISUAL: Record<WorkspacePrStatus, PrStatusVisual> = {
   closed_unmerged:   { icon: "GitPullRequestClosed",      tone: "closed",    label: "Closed" },
 };
 
-/** GitHub-style foreground classes for status icons. */
-export const PR_TONE_ICON_CLASS: Record<PrStatusTone, string> = {
-  neutral:   "text-[#59636e] dark:text-[#8b949e]",
-  open:      "text-[#1a7f37] dark:text-[#3fb950]",
-  attention: "text-[#9a6700] dark:text-[#d29922]",
-  danger:    "text-[#d1242f] dark:text-[#f85149]",
-  done:      "text-[#8250df] dark:text-[#a371f7]",
-  closed:    "text-[#d1242f] dark:text-[#f85149]",
-};
-
-/** GitHub-style muted label classes for status badges/buttons. */
-export const PR_TONE_BADGE_CLASS: Record<PrStatusTone, string> = {
-  neutral:   "border-[#d0d7de] bg-[#f6f8fa] text-[#57606a] hover:bg-[#eef1f4] dark:border-[#6e768166] dark:bg-[#6e76811a] dark:text-[#8b949e] dark:hover:bg-[#6e768126]",
-  open:      "border-[#1a7f37]/25 bg-[#dafbe1] text-[#1a7f37] hover:bg-[#c4f1cf] dark:border-[#2ea04366] dark:bg-[#2ea04326] dark:text-[#3fb950] dark:hover:bg-[#2ea04333]",
-  attention: "border-[#d4a72c66] bg-[#fff8c5] text-[#9a6700] hover:bg-[#fff1a8] dark:border-[#bb800966] dark:bg-[#bb800926] dark:text-[#d29922] dark:hover:bg-[#bb800933]",
-  danger:    "border-[#ff818266] bg-[#ffebe9] text-[#cf222e] hover:bg-[#ffd8d3] dark:border-[#f8514966] dark:bg-[#f851491a] dark:text-[#f85149] dark:hover:bg-[#f8514926]",
-  done:      "border-[#c297ff66] bg-[#fbefff] text-[#8250df] hover:bg-[#f3e8ff] dark:border-[#a371f766] dark:bg-[#a371f726] dark:text-[#a371f7] dark:hover:bg-[#a371f733]",
-  closed:    "border-[#ff818266] bg-[#ffebe9] text-[#cf222e] hover:bg-[#ffd8d3] dark:border-[#f8514966] dark:bg-[#f851491a] dark:text-[#f85149] dark:hover:bg-[#f8514926]",
-};
-
-/** Styling for the create-PR trigger when the branch has no linked PR yet. */
-export const PR_CREATE_BUTTON_CLASS =
-  "border-primary/30 bg-primary/10 text-foreground hover:bg-primary/15 shadow-sm";
+/**
+ * Semantic tone is the whole visual contract this module publishes. Mapping a
+ * tone to an ADS `Badge` tone or a StyleX declaration is a UI concern and lives
+ * in `src/components/layout/pr-status.styles.ts`; no class string leaves
+ * `src/lib`.
+ */
 
 // ---------------------------------------------------------------------------
 // Action config – primary + secondary actions per status

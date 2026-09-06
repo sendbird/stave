@@ -1,7 +1,9 @@
 import { Globe2 } from "lucide-react";
 import { Badge } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import type { WorkspaceConnectedBrowserTab } from "@/lib/provider-browser";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
+import { workspaceConnectedBrowserCardStyles as styles } from "./workspace-information-connected-browser-card.styles";
 
 const PROVIDER_LABELS = {
   "claude-code": "Claude Code",
@@ -24,38 +26,38 @@ export function WorkspaceInformationConnectedBrowserCard(props: {
   return (
     <section
       aria-label="Connected browser tab"
-      className="rounded-lg border border-border/70 bg-card/60 p-3"
+      className={sx(styles.root)}
     >
-      <div className="flex items-start gap-2.5">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/50">
-          <Globe2 className="size-4 text-muted-foreground" />
+      <div className={sx(styles.row)}>
+        <span className={sx(styles.iconBox)}>
+          <Globe2 className={sx(styles.icon)} />
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-medium text-foreground">
+        <div className={sx(styles.body)}>
+          <div className={sx(styles.titleRow)}>
+            <h3 className={sx(styles.title)}>
               Connected browser tab
             </h3>
             <Badge
               variant="outline"
-              className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none text-muted-foreground"
+              className={sx(styles.chip)}
             >
               {PROVIDER_LABELS[props.tab.providerId]}
             </Badge>
             <Badge
               variant="outline"
-              className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none text-muted-foreground"
+              className={sx(styles.chip)}
             >
               {STATUS_LABELS[props.tab.status]}
             </Badge>
           </div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          <p className={sx(styles.note)}>
             {props.tab.status === "connected"
               ? "The AI can use page content through the provider's native browser tools."
               : props.tab.status === "connecting"
                 ? "Waiting for the provider's native browser extension."
                 : "The provider could not confirm a native browser connection."}
           </p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          <p className={sx(styles.note)}>
             Last updated {formatTaskUpdatedAt({ value: props.tab.lastUpdatedAt })}.
             Live tab lifecycle and site approvals remain provider-owned.
           </p>

@@ -7,6 +7,8 @@ import {
   TrackerTasksEmptyListState,
   TrackerTasksUnavailableState,
 } from "@/components/layout/tasks/TrackerTasksEmptyState";
+import * as stylex from "@stylexjs/stylex";
+import { taskRowStyles } from "@/components/layout/tasks/tasks-row.styles";
 import { describeTrackerSources } from "@/lib/tracker-tasks/source-status";
 import type { TrackerSourceSyncStatus } from "@/lib/tracker-tasks/types";
 
@@ -160,7 +162,9 @@ describe("TrackerSourceStatusStrip", () => {
       crane: status(),
       jira: status({ source: "jira", lastErrorCode: "rate_limited" }),
     });
-    expect(transient).toContain("bg-destructive/5");
+    expect(transient).toContain(
+      stylex.props(taskRowStyles.sourceStripError).className,
+    );
     expect(transient).toContain("did not sync");
     expect(transient).toContain("Retry");
 
@@ -168,7 +172,9 @@ describe("TrackerSourceStatusStrip", () => {
       crane: status({ lastErrorCode: "tasks_api_unavailable" }),
       jira: status({ source: "jira" }),
     });
-    expect(blocked).not.toContain("bg-destructive/5");
+    expect(blocked).not.toContain(
+      stylex.props(taskRowStyles.sourceStripError).className,
+    );
     expect(blocked).not.toContain("Retry");
   });
 

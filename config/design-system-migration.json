@@ -1,0 +1,243 @@
+{
+  "schemaVersion": 1,
+  "families": [
+    "foundation",
+    "controls",
+    "overlays",
+    "navigation",
+    "product-surfaces"
+  ],
+  "files": {
+    "src/components/ui/accordion.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/badge.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/button.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/breadcrumb.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/card.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/context-menu.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/dialog.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/drawer.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/dropdown-menu.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/empty.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/input.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/input-group.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/kbd.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/loader.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/popover.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/select.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/separator.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/sheet.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/skeleton.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/slider.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/switch.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/table.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/tabs.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/textarea.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/toggle.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/tooltip.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/command.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/sonner.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/system/WorkspaceSurface.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/system/NavigationItem.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/system/ChoiceChips.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/system/SectionTabs.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/system/OptionButton.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/system/SelectionRail.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/sidebar.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/calendar.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    },
+    "src/components/ui/image-lightbox.tsx": {
+      "legacyRecipeCount": 0,
+      "requiresCanonicalSource": true
+    }
+  },
+  "specializedAdapters": {},
+  "hostUtilities": {
+    "src/components/ui/service-link-badge.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
+    "src/components/ui/border-beam.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
+    "src/components/ui/linkified-text.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters.",
+    "src/components/ui/external-anchor.tsx": "Host content, integration, or effect composition; shared controls inherit canonical adapters."
+  },
+  "productButtons": {
+    "src/components/ai-elements/chain-of-thought.tsx": 0,
+    "src/components/ai-elements/code-block.tsx": 0,
+    "src/components/ai-elements/composer-option-menu.tsx": 0,
+    "src/components/ai-elements/cursor-model-config-list.tsx": 0,
+    "src/components/ai-elements/local-change-review-dialog.tsx": 0,
+    "src/components/ai-elements/message.tsx": 0,
+    "src/components/ai-elements/model-effort-grid.tsx": 0,
+    "src/components/ai-elements/model-effort-selector.tsx": 0,
+    "src/components/ai-elements/model-selector.tsx": 0,
+    "src/components/ai-elements/permission-mode-selector.tsx": 0,
+    "src/components/ai-elements/prompt-input.tsx": 0,
+    "src/components/ai-elements/snippet.tsx": 0,
+    "src/components/ai-elements/subagent.tsx": 0,
+    "src/components/ai-elements/todo.tsx": 0,
+    "src/components/ai-elements/tool-result.tsx": 0,
+    "src/components/ai-elements/tool.tsx": 0,
+    "src/components/compare/CompareRunHistoryDialog.tsx": 0,
+    "src/components/git-graph/CommitDetailPanel.tsx": 0,
+    "src/components/layout/CreateWorkspaceBranchPicker.tsx": 0,
+    "src/components/layout/CreateWorkspaceDialog.tsx": 0,
+    "src/components/layout/FleetAttentionInbox.tsx": 0,
+    "src/components/layout/FleetView.tsx": 0,
+    "src/components/layout/FleetWorkspaceCard.tsx": 0,
+    "src/components/layout/PresetBar.tsx": 0,
+    "src/components/layout/ProjectWorkspaceSidebar.tsx": 0,
+    "src/components/layout/RoutineInformationResourceCreator.tsx": 0,
+    "src/components/layout/SourceControlReviewsPanel.tsx": 0,
+    "src/components/layout/TopBar.tsx": 0,
+    "src/components/layout/TopBarBranchDropdown.tsx": 0,
+    "src/components/layout/TopBarFileSearch.tsx": 0,
+    "src/components/layout/TopBarNotifications.tsx": 0,
+    "src/components/layout/TopBarOpenPR.tsx": 0,
+    "src/components/layout/WorkspaceChangesPanel.tsx": 0,
+    "src/components/layout/WorkspaceExplorerPanel.tsx": 0,
+    "src/components/layout/WorkspaceInformationMartinCard.tsx": 0,
+    "src/components/layout/WorkspaceInformationPanel.tsx": 0,
+    "src/components/layout/WorkspaceMemorySection.tsx": 0,
+    "src/components/layout/WorkspacePlansSection.tsx": 0,
+    "src/components/layout/WorkspaceProgressTaskTree.tsx": 0,
+    "src/components/layout/WorkspaceScriptsPanel.tsx": 0,
+    "src/components/layout/WorkspaceSkillsPanel.tsx": 0,
+    "src/components/layout/automation-center/AutomationCenterView.tsx": 0,
+    "src/components/layout/automation-center/AutomationEditor.tsx": 0,
+    "src/components/layout/automation-center/AutomationRunDetail.tsx": 0,
+    "src/components/layout/editor-diff-review-hover-menu.tsx": 0,
+    "src/components/layout/settings-dialog-codex-section.tsx": 0,
+    "src/components/layout/settings-dialog-delegation-section.tsx": 0,
+    "src/components/layout/settings-dialog-developer-section.tsx": 0,
+    "src/components/layout/settings-dialog-kickoff-section.tsx": 0,
+    "src/components/layout/settings-dialog-sections.tsx": 0,
+    "src/components/layout/settings-dialog-tooling-section.tsx": 0,
+    "src/components/layout/standalone-cli/StandaloneCliTerminal.tsx": 0,
+    "src/components/layout/tasks/TasksBoard.tsx": 0,
+    "src/components/layout/tasks/TasksPeekPanel.tsx": 0,
+    "src/components/layout/tasks/TrackerTaskDetailPane.tsx": 0,
+    "src/components/layout/tasks/TrackerTaskList.tsx": 0,
+    "src/components/layout/tasks/TrackerTaskRow.tsx": 0,
+    "src/components/panes/PaneTabChip.tsx": 0,
+    "src/components/panes/WorkspacePaneHost.tsx": 0,
+    "src/components/panes/surfaces/lens/LensConsoleWorkbench.tsx": 0,
+    "src/components/panes/surfaces/lens/LensLogDetail.tsx": 0,
+    "src/components/panes/surfaces/lens/LensNetworkWorkbench.tsx": 0,
+    "src/components/scripts/ScriptEntryCard.tsx": 0,
+    "src/components/scripts/ScriptHooksTab.tsx": 0,
+    "src/components/scripts/ScriptsManager.tsx": 0,
+    "src/components/session/AdvisorConsultLogDialog.tsx": 0,
+    "src/components/session/ConversationTurnRail.tsx": 0,
+    "src/components/session/PlanViewer.tsx": 0,
+    "src/components/session/TaskSourceContextNotice.tsx": 0,
+    "src/components/session/TurnActivity.tsx": 0,
+    "src/components/session/WorkGraphTree.tsx": 0,
+    "src/components/session/chat-input-approval-queue.tsx": 0,
+    "src/components/session/chat-panel-file-blocks.tsx": 0,
+    "src/components/session/message-usage-summary.tsx": 0
+  }
+}

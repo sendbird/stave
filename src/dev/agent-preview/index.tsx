@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { AgentStyleProvider, type AgentStyle } from "@/components/ai-elements/agent-style-context";
+import {
+  AgentStyleProvider,
+  type AgentStyle,
+} from "@/components/ai-elements/agent-style-context";
 import type { ReasoningTextVariant } from "@/components/ai-elements/reasoning-text";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
+import { Button } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import { applyThemeClass } from "@/lib/themes/apply";
-import { cn } from "@/lib/utils";
+import { agentPreviewStyles as a } from "./agent-preview.styles";
 import {
   createCompletedPreviewMessage,
   createStreamingPreviewMessage,
@@ -18,8 +24,16 @@ import {
  */
 
 const STYLES: { style: AgentStyle; title: string; note: string }[] = [
-  { style: "legacy", title: "Legacy", note: "Brain icon · fade rows · uncapped viewport" },
-  { style: "beui", title: "Current", note: "Thinking orb · spring rows · capped glide" },
+  {
+    style: "legacy",
+    title: "Legacy",
+    note: "Brain icon · fade rows · uncapped viewport",
+  },
+  {
+    style: "beui",
+    title: "Current",
+    note: "Thinking orb · spring rows · capped glide",
+  },
 ];
 
 const PHRASE_VARIANTS: ReasoningTextVariant[] = ["cascade", "swap", "scramble"];
@@ -34,18 +48,14 @@ function Toggle({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button
+      layout="host"
       type="button"
       onClick={onClick}
-      className={cn(
-        "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-        active
-          ? "border-primary bg-primary/15 text-foreground"
-          : "border-border text-muted-foreground hover:text-foreground",
-      )}
+      xstyle={[a.toggle, transition.colors, active && a.toggleActive]}
     >
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -65,15 +75,12 @@ function PreviewColumn({
   phraseVariant: ReasoningTextVariant;
 }) {
   return (
-    <section className="flex min-w-0 flex-1 flex-col gap-3">
-      <header className="flex flex-col gap-0.5 border-b border-border pb-2">
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="text-xs text-muted-foreground">{note}</p>
+    <section className={sx(a.column)}>
+      <header className={sx(a.columnHeader)}>
+        <h2 className={sx(a.columnTitle)}>{title}</h2>
+        <p className={sx(a.columnNote)}>{note}</p>
       </header>
-      <div
-        className="min-w-0 rounded-lg border border-border bg-card p-4"
-        style={{ fontSize: `${fontSize}px` }}
-      >
+      <div className={sx(a.columnBody)} style={{ fontSize: `${fontSize}px` }}>
         <AgentStyleProvider style={style} phraseVariant={phraseVariant}>
           <AssistantMessageBody
             message={message}
@@ -92,23 +99,27 @@ export function AgentPreviewApp() {
   const [streaming, setStreaming] = useState(true);
   const [dark, setDark] = useState(true);
   const [fontSize, setFontSize] = useState(18);
-  const [phraseVariant, setPhraseVariant] = useState<ReasoningTextVariant>("cascade");
+  const [phraseVariant, setPhraseVariant] =
+    useState<ReasoningTextVariant>("cascade");
 
   useEffect(() => {
     applyThemeClass({ enabled: dark });
   }, [dark]);
 
   const message = useMemo(
-    () => (streaming ? createStreamingPreviewMessage() : createCompletedPreviewMessage()),
+    () =>
+      streaming
+        ? createStreamingPreviewMessage()
+        : createCompletedPreviewMessage(),
     [streaming],
   );
 
   return (
-    <div className="min-h-screen bg-background p-6 text-foreground">
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-5">
-        <div className="flex flex-wrap items-center gap-4">
-          <h1 className="text-base font-semibold">Agent trace preview</h1>
-          <div className="flex items-center gap-1.5">
+    <div className={sx(a.page)}>
+      <div className={sx(a.container)}>
+        <div className={sx(a.controlsRow)}>
+          <h1 className={sx(a.heading)}>Agent trace preview</h1>
+          <div className={sx(a.toggleGroup)}>
             <Toggle
               label={streaming ? "Streaming" : "Completed"}
               active={streaming}
@@ -120,7 +131,7 @@ export function AgentPreviewApp() {
               onClick={() => setDark((value) => !value)}
             />
           </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <label className={sx(a.fontLabel)}>
             Font size
             <input
               type="range"
@@ -130,9 +141,9 @@ export function AgentPreviewApp() {
               value={fontSize}
               onChange={(event) => setFontSize(Number(event.target.value))}
             />
-            <span className="tabular-nums text-foreground">{fontSize}px</span>
+            <span className={sx(a.fontValue)}>{fontSize}px</span>
           </label>
-          <div className="flex items-center gap-1.5">
+          <div className={sx(a.toggleGroup)}>
             {PHRASE_VARIANTS.map((variant) => (
               <Toggle
                 key={variant}
@@ -144,7 +155,7 @@ export function AgentPreviewApp() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-6 lg:flex-row">
+        <div className={sx(a.columns)}>
           {STYLES.map((entry) => (
             <PreviewColumn
               key={entry.style}

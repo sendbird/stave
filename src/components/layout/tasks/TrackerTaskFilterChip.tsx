@@ -12,7 +12,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import * as stylex from "@stylexjs/stylex";
+import { taskRowStyles as styles } from "./tasks-row.styles";
 
 export interface TrackerTaskFilterOption {
   value: string;
@@ -65,20 +66,20 @@ export function TrackerTaskFilterChip(props: TrackerTaskFilterChipProps) {
             type="button"
             size="sm"
             variant={selected.length > 0 ? "secondary" : "ghost"}
-            className={cn(
-              "h-8 gap-1.5 px-2.5 text-xs",
-              selected.length > 0 && "border-border/55 bg-background/85",
-            )}
+            xstyle={[
+              styles.filterTrigger,
+              selected.length > 0 && styles.filterActive,
+            ]}
           />
         }
       >
         {props.label}
         {summary ? (
-          <span className="max-w-28 truncate text-foreground">{summary}</span>
+          <span {...stylex.props(styles.filterSummary)}>{summary}</span>
         ) : null}
-        <ChevronDown className="size-3.5 text-muted-foreground" />
+        <ChevronDown {...stylex.props(styles.filterChevron)} />
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-0" align="start">
+      <PopoverContent xstyle={styles.filterPopup} align="start">
         <Command>
           {props.searchable === false ? null : (
             <CommandInput placeholder={`Filter ${props.label.toLowerCase()}`} />
@@ -95,19 +96,21 @@ export function TrackerTaskFilterChip(props: TrackerTaskFilterChipProps) {
                     key={option.value}
                     value={option.label}
                     onSelect={() => toggle(option.value)}
-                    className="text-sm"
+                    className={stylex.props(styles.commandItem).className}
                   >
                     <Check
-                      className={cn(
-                        "size-3.5",
-                        active ? "opacity-100" : "opacity-0",
-                      )}
+                      className={
+                        stylex.props(
+                          styles.commandCheck,
+                          active ? styles.visible : styles.hidden,
+                        ).className
+                      }
                     />
-                    <span className="min-w-0 flex-1 truncate">
+                    <span {...stylex.props(styles.commandOption)}>
                       {option.label}
                     </span>
                     {option.count === undefined ? null : (
-                      <span className="tabular-nums text-xs text-muted-foreground">
+                      <span {...stylex.props(styles.optionCount)}>
                         {option.count}
                       </span>
                     )}

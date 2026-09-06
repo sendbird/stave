@@ -160,8 +160,11 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
   expect(rendered.width).toBeGreaterThan(0);
 
   const warningColor = await sidebar.evaluate((element) => {
+    // The glyph paints with the semantic warning token (`vars.colorWarning`
+    // maps to `--warning`). Resolve that token the same way the icon does so
+    // the assertion tracks the color contract rather than a utility class.
     const probe = document.createElement("span");
-    probe.className = "text-warning";
+    probe.style.color = "var(--warning)";
     element.append(probe);
     const color = window.getComputedStyle(probe).color;
     probe.remove();
@@ -193,7 +196,7 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
   expect(await readSlot()).toEqual({ slotOpacity: 1, pointerEvents: "auto" });
 
   const projectLabel = sidebar
-    .locator("span.font-medium", { hasText: "stave-lnb-attention" })
+    .getByText("stave-lnb-attention", { exact: true })
     .first();
   await projectLabel.hover();
   // Let the 200ms opacity transition settle before sampling.
@@ -207,9 +210,18 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
   // measured gap itself rather than sampling mid-transition.
   const readOverlap = () =>
     alert.evaluate((element) => {
-      const actions = element
-        .closest("[class*='relative']")
-        ?.querySelector<HTMLElement>(".absolute.right-0");
+      // The row actions are the cluster anchored at the inline end of the
+      // project row. Find them through the stable "Kick off workspace" action
+      // label rather than a utility class string that the design system owns.
+      const row = element.closest("li, [role='listitem'], div");
+      const kickoff =
+        row?.querySelector<HTMLElement>(
+          'button[aria-label^="Kick off workspace"]',
+        ) ??
+        document.querySelector<HTMLElement>(
+          'button[aria-label^="Kick off workspace"]',
+        );
+      const actions = kickoff?.parentElement;
       if (!actions) {
         throw new Error("Row actions were not found");
       }

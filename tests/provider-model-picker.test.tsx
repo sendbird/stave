@@ -36,6 +36,10 @@ describe("ProviderModelPicker", () => {
     const { ProviderModelPicker } = await import(
       "@/components/session/ProviderModelPicker"
     );
+    const { sx } = await import("@/components/ads/utils/stylex");
+    const { providerModelPickerStyles } = await import(
+      "@/components/session/provider-model-picker.styles"
+    );
     const html = renderToStaticMarkup(
       createElement(ProviderModelPicker, {
         selectedProvider: "codex",
@@ -45,9 +49,14 @@ describe("ProviderModelPicker", () => {
       }),
     );
 
-    expect(html).toContain("flex w-full");
-    expect(html).toContain("w-[150px] shrink-0");
-    expect(html).toContain("min-w-0 flex-1");
+    // Both triggers keep their accessible names and DOM presence.
+    expect(html).toContain('aria-label="Model provider"');
+    expect(html).toContain('aria-label="Model model"');
+    // Fixed-width provider trigger and full-width model trigger are distinct
+    // StyleX styles; assert the compiled classes both appear rather than the
+    // Tailwind strings the migration removed.
+    expect(html).toContain(sx(providerModelPickerStyles.providerTriggerWidth));
+    expect(html).toContain(sx(providerModelPickerStyles.modelTriggerWidth));
   });
 });
 

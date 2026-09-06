@@ -13,7 +13,8 @@ import {
   SquareTerminal,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { layoutShellStyles } from "./layout-shell.styles";
 import {
   normalizeProjectAppearanceColor,
   normalizeProjectAppearanceIcon,
@@ -80,17 +81,14 @@ export function ProjectIdentityMark(args: {
 
   return (
     <span
-      className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center rounded-[0.55rem] border",
-        args.className,
-      )}
+      className={cx(sx(layoutShellStyles.projectIdentityMark), args.className)}
       style={{
         backgroundColor: tone.background,
         borderColor: tone.border,
         color: tone.foreground,
       }}
     >
-      <Icon className={cn("size-3.5", args.iconClassName)} />
+      <Icon className={cx(sx(layoutShellStyles.projectIcon), args.iconClassName)} />
     </span>
   );
 }
@@ -102,7 +100,7 @@ export function ProjectColorSwatch(args: {
   const tone = getProjectAppearanceTone(args.color);
   return (
     <span
-      className={cn("inline-flex size-5 rounded-full border", args.className)}
+      className={cx(sx(layoutShellStyles.projectColorSwatch), args.className)}
       style={{
         backgroundColor: tone.accent,
         borderColor: tone.border,

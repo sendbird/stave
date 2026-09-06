@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ArrowRight,
   ChevronDown,
@@ -37,7 +38,9 @@ import {
   isFleetBoardFilterActive,
   type FleetBoardFilter,
 } from "@/lib/fleet/workspace-activity";
-import { cn } from "@/lib/utils";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { sx } from "@/components/ads/utils/stylex";
+import { fleetStyles as styles } from "./fleet-view.styles";
 import { useAppStore } from "@/store/app.store";
 
 type FleetProjectView = {
@@ -205,7 +208,9 @@ export function FleetView() {
   const [boardFilter, setBoardFilter] = useState<FleetBoardFilter>("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTaskKey, setExpandedTaskKey] = useState<string | null>(null);
-  const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(null);
+  const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(
+    null,
+  );
   const [busyAttentionId, setBusyAttentionId] = useState<string | null>(null);
   const filterInputRef = useRef<HTMLInputElement>(null);
 
@@ -329,7 +334,9 @@ export function FleetView() {
           await switchWorkspace({ workspaceId: target.workspaceId });
         }
       })().finally(() => {
-        setBusyAttentionId((current) => (current === target.id ? null : current));
+        setBusyAttentionId((current) =>
+          current === target.id ? null : current,
+        );
       });
     },
     [openNotificationContext, openProject, switchWorkspace],
@@ -360,7 +367,9 @@ export function FleetView() {
         id: target.notificationId,
         resolvedAt: new Date().toISOString(),
       }).finally(() => {
-        setBusyAttentionId((current) => (current === target.id ? null : current));
+        setBusyAttentionId((current) =>
+          current === target.id ? null : current,
+        );
       });
     },
     [markNotificationRead],
@@ -466,33 +475,34 @@ export function FleetView() {
   }, []);
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <header className="flex min-h-14 shrink-0 items-center justify-between gap-4 border-b border-border/65 bg-[linear-gradient(110deg,color-mix(in_oklch,var(--surface)_92%,var(--background)),var(--background))] px-4 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <Radar className="size-4 shrink-0 text-primary" aria-hidden="true" />
-          <h1 className="font-heading truncate text-sm font-semibold tracking-[-0.01em] text-foreground">
-            Fleet View
-          </h1>
-          <span className="truncate text-[11px] text-muted-foreground">
+    <div className={sx(styles.root)}>
+      <header className={sx(styles.header)}>
+        <div className={sx(styles.headerIdentity)}>
+          <Radar className={sx(styles.headerIcon)} aria-hidden="true" />
+          <h1 className={sx(styles.headerTitle)}>Fleet View</h1>
+          <span className={sx(styles.headerSummary)}>
             {liveCount > 0
               ? `${liveCount} workspace${liveCount === 1 ? "" : "s"} in flight`
               : "No agent turns in flight"}
             {visibleCount > 0 ? ` · ${visibleCount} shown` : ""}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className={sx(styles.headerActions)}>
           <Button
             type="button"
             size="sm"
             variant={blockingItems.length > 0 ? "default" : "ghost"}
-            className="h-7"
+            xstyle={styles.headerAction}
             disabled={attentionTargets.length === 0}
             onClick={openNextAttentionItem}
           >
             {blockingItems.length > 0 ? (
-              <ArrowRight className="size-3.5" aria-hidden="true" />
+              <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
             ) : (
-              <ShieldCheck className="size-3.5" aria-hidden="true" />
+              <ShieldCheck
+                className={sx(styles.actionIcon)}
+                aria-hidden="true"
+              />
             )}
             {blockingItems.length > 0
               ? "Open next item"
@@ -500,36 +510,34 @@ export function FleetView() {
                 ? "Review queue"
                 : "All clear"}
             {blockingItems.length > 0 ? (
-              <kbd className="ml-1 rounded-[0.25rem] border border-primary-foreground/20 bg-primary-foreground/10 px-1 font-mono text-[9px]">
-                N
-              </kbd>
+              <kbd className={sx(styles.shortcut)}>N</kbd>
             ) : null}
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0"
+            xstyle={styles.headerIconAction}
             aria-label="close-fleet-view"
             title="Close Fleet View"
             onClick={closeFleetView}
           >
-            <X className="size-4" />
+            <X className={sx(styles.closeIcon)} />
           </Button>
         </div>
       </header>
 
       <div
         data-fleet-view-root="true"
-        className="flex min-h-0 flex-1 flex-col sm:flex-row"
+        className={sx(styles.body)}
       >
         {/* On narrow screens the inbox becomes a compact top rail; from the
             small breakpoint up it remains a layout-level column and widens
             while an inline task control surface is open. */}
         <aside
-          className={cn(
-            "h-40 min-h-0 w-full shrink-0 border-b border-border/65 sm:h-full sm:border-b-0",
-            selectedAttentionId ? "sm:w-80 lg:w-112" : "sm:w-64 lg:w-80",
+          className={sx(
+            styles.inbox,
+            selectedAttentionId ? styles.inboxExpanded : styles.inboxRested,
           )}
         >
           <FleetAttentionInbox
@@ -545,20 +553,19 @@ export function FleetView() {
           />
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 bg-background/85 px-4 py-2">
-            <div className="flex flex-wrap items-center gap-0.5 rounded-md bg-muted/45 p-0.5">
+        <div className={sx(styles.board)}>
+          <div className={sx(styles.toolbar)}>
+            <div className={sx(styles.filterGroup)}>
               {FLEET_BOARD_FILTER_OPTIONS.map((option) => (
                 <Button
                   key={option.value}
                   type="button"
                   size="sm"
                   variant={boardFilter === option.value ? "secondary" : "ghost"}
-                  className={cn(
-                    "h-6.5 px-2 text-[11px]",
-                    boardFilter === option.value &&
-                      "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
-                  )}
+                  xstyle={[
+                    styles.filterChip,
+                    boardFilter === option.value && styles.filterChipActive,
+                  ]}
                   aria-pressed={boardFilter === option.value}
                   title={option.hint}
                   onClick={() => setBoardFilter(option.value)}
@@ -567,11 +574,8 @@ export function FleetView() {
                 </Button>
               ))}
             </div>
-            <div className="relative ml-auto w-full min-w-48 max-w-xs sm:w-64">
-              <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
+            <div className={sx(styles.searchField)}>
+              <Search className={sx(styles.searchIcon)} aria-hidden="true" />
               <Input
                 ref={filterInputRef}
                 data-fleet-filter-input="true"
@@ -579,19 +583,19 @@ export function FleetView() {
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Find workspace, branch, or task…"
                 aria-label="Search workspaces, branches, or tasks"
-                className="h-7 border-transparent bg-muted/35 pl-8 pr-8 text-xs hover:border-border/70"
+                xstyle={styles.searchInput}
               />
               {searchQuery ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  xstyle={styles.searchClear}
                   aria-label="Clear search"
                   title="Clear search"
                   onClick={() => setSearchQuery("")}
                 >
-                  <X className="size-3.5" />
+                  <X className={sx(styles.actionIcon)} />
                 </Button>
               ) : null}
             </div>
@@ -600,7 +604,7 @@ export function FleetView() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-6.5 px-2 text-[11px]"
+                xstyle={styles.filterChip}
                 onClick={clearFilters}
               >
                 Reset
@@ -610,7 +614,7 @@ export function FleetView() {
 
           <div
             data-fleet-board-scroll="true"
-            className="min-h-0 flex-1 overflow-y-auto"
+            className={sx(styles.scroller)}
           >
             {projects.length === 0 ? (
               <Empty>
@@ -627,11 +631,9 @@ export function FleetView() {
             ) : (
               <>
                 {isBoardEmpty ? (
-                  <div className="px-4 py-12 text-center">
-                    <p className="text-sm font-medium text-foreground">
-                      Nothing active
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                  <div className={sx(styles.boardEmpty)}>
+                    <p className={sx(styles.boardEmptyTitle)}>Nothing active</p>
+                    <p className={sx(styles.boardEmptyHint)}>
                       {hiddenDormantCount > 0
                         ? `${hiddenDormantCount} dormant workspace${hiddenDormantCount === 1 ? "" : "s"} hidden.`
                         : "No workspaces match the current filter."}
@@ -640,7 +642,7 @@ export function FleetView() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="mt-3 rounded-sm"
+                      xstyle={styles.boardEmptyAction}
                       onClick={
                         hiddenDormantCount > 0
                           ? () => setBoardFilter("all")
@@ -669,39 +671,40 @@ export function FleetView() {
                   return (
                     <section
                       key={project.projectPath}
-                      className="border-b border-border/50 last:border-b-0"
+                      className={sx(styles.projectSection)}
                       hidden={hideProject}
                     >
-                      <button
+                      <AdsButton
+                        layout="host"
                         type="button"
-                        className="sticky top-0 z-10 flex min-h-9 w-full items-center gap-1.5 border-b border-border/40 bg-background/95 px-4 py-1.5 text-left backdrop-blur transition-colors hover:bg-accent/15 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
+                        xstyle={[styles.projectHeader, focusRing.ringInset]}
                         aria-expanded={!isCollapsed}
                         aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${project.projectName} project`}
                         onClick={() => toggleProject(project.projectPath)}
                       >
                         {isCollapsed ? (
                           <ChevronRight
-                            className="size-3.5 shrink-0 text-muted-foreground"
+                            className={sx(styles.projectChevron)}
                             aria-hidden="true"
                           />
                         ) : (
                           <ChevronDown
-                            className="size-3.5 shrink-0 text-muted-foreground"
+                            className={sx(styles.projectChevron)}
                             aria-hidden="true"
                           />
                         )}
-                        <span className="truncate text-xs font-semibold text-foreground">
+                        <span className={sx(styles.projectName)}>
                           {project.projectName}
                         </span>
-                        <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                        <span className={sx(styles.projectCount)}>
                           {projectVisibleCount}
                         </span>
                         {project.isCurrent ? (
-                          <span className="ml-1 shrink-0 rounded-sm border border-border/60 px-1 text-[9px] text-muted-foreground">
+                          <span className={sx(styles.projectCurrent)}>
                             Current
                           </span>
                         ) : null}
-                      </button>
+                      </AdsButton>
                       <div
                         hidden={isCollapsed}
                         // Width-driven rather than breakpoint-driven: the board
@@ -715,7 +718,7 @@ export function FleetView() {
                         // exact third of the row (minus the two 0.625rem gaps),
                         // so wide rows land on exactly three and narrow rows
                         // still collapse to two and then one.
-                        className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,max(17rem,calc((100%_-_2_*_0.625rem)_/_3))),1fr))] items-start gap-2.5 px-4 py-3"
+                        className={sx(styles.cardGrid)}
                       >
                         {orderProjectWorkspaces(
                           project,
@@ -737,7 +740,8 @@ export function FleetView() {
                               searchQuery={searchQuery}
                               nowMs={nowMs}
                               attentionItems={
-                                attentionItemsByWorkspaceId[workspace.id] ?? EMPTY_NEEDS
+                                attentionItemsByWorkspaceId[workspace.id] ??
+                                EMPTY_NEEDS
                               }
                               expandedTaskKey={expandedTaskKey}
                               onOpenTask={handleOpenTask}
@@ -753,8 +757,11 @@ export function FleetView() {
                 })}
 
                 {hiddenDormantCount > 0 || suppressedDefaultCount > 0 ? (
-                  <div className="flex flex-wrap items-center gap-2 px-4 py-3 text-[11px] text-muted-foreground">
-                    <CircleDashed className="size-3.5" aria-hidden="true" />
+                  <div className={sx(styles.footnote)}>
+                    <CircleDashed
+                      className={sx(styles.footnoteIcon)}
+                      aria-hidden="true"
+                    />
                     {hiddenDormantCount > 0 ? (
                       <span>
                         {hiddenDormantCount} dormant workspace
@@ -773,7 +780,7 @@ export function FleetView() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[11px]"
+                        xstyle={styles.footnoteAction}
                         onClick={() => setBoardFilter("all")}
                       >
                         Show dormant

@@ -35,9 +35,9 @@ export function createNotificationAttentionSync(
       return Promise.resolve();
     }
     const resolvedAt = new Date().toISOString();
-    return Promise.all(
-      ids.map((id) => deps.markRead({ id, resolvedAt })),
-    ).then(() => undefined);
+    return Promise.all(ids.map((id) => deps.markRead({ id, resolvedAt }))).then(
+      () => undefined,
+    );
   };
 
   return {

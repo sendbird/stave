@@ -1,3 +1,6 @@
+import { toolStyles } from "./workspace-tools.styles";
+import { sx } from "../ads/utils/stylex";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   useCallback,
   useEffect,
@@ -88,7 +91,7 @@ function LiveDuration(props: { startedAt: number }) {
     return () => clearInterval(id);
   }, []);
   const label = formatScriptDuration(Math.max(0, now - props.startedAt));
-  return label ? <span className="tabular-nums">{label}</span> : null;
+  return label ? <span className={sx(toolStyles.duration)}>{label}</span> : null;
 }
 
 function OriginLabel(props: { origin?: ScriptEntryOrigin }) {
@@ -110,9 +113,9 @@ function OrbitUrlBadge(props: {
   onOpenInLens: (url: string) => Promise<void>;
 }) {
   return (
-    <button
+    <AdsButton layout="host"
       type="button"
-      className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground active:bg-muted"
+      xstyle={toolStyles.url}
       onClick={() => void props.onOpenInLens(props.url)}
       title={props.lensAvailable ? "Open in Lens" : "Open in browser"}
       aria-label={
@@ -121,16 +124,16 @@ function OrbitUrlBadge(props: {
           : "Open Orbit URL in browser"
       }
     >
-      <Globe className="size-3 shrink-0" />
-      <span className="truncate">{props.url}</span>
+      <Globe className={sx(toolStyles.smallIcon)} />
+      <span className={sx(toolStyles.truncated)}>{props.url}</span>
       {props.lensAvailable ? (
-        <span className="shrink-0 text-[10px] leading-4 text-muted-foreground">
+        <span className={sx(toolStyles.urlHint)}>
           Lens
         </span>
       ) : (
-        <ExternalLink className="size-3 shrink-0 opacity-60" />
+        <ExternalLink className={sx(toolStyles.externalIcon)} />
       )}
-    </button>
+    </AdsButton>
   );
 }
 
@@ -140,12 +143,12 @@ function RuntimeSection(props: {
   children: ReactNode;
 }) {
   return (
-    <section className="border-t border-border first:border-t-0">
-      <div className="flex items-center justify-between py-2.5">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+    <section className={sx(toolStyles.section)}>
+      <div className={sx(toolStyles.sectionHeader)}>
+        <h3 className={sx(toolStyles.sectionTitle)}>
           {props.title}
         </h3>
-        <span className="text-[11px] tabular-nums text-muted-foreground">
+        <span className={sx(toolStyles.sectionCount)}>
           {props.count}
         </span>
       </div>
@@ -257,15 +260,15 @@ function WorkspaceToolsEmptyState(props: {
   compact?: boolean;
 }) {
   return (
-    <Empty className={cn(props.compact && "flex-none gap-2 px-4 py-5")}>
-      <EmptyHeader className={cn(props.compact && "gap-1")}>
-        <EmptyMedia className={cn(props.compact && "mb-0")}>
+    <Empty xstyle={props.compact && toolStyles.compactEmpty}>
+      <EmptyHeader xstyle={props.compact && toolStyles.compactHeader}>
+        <EmptyMedia xstyle={props.compact && toolStyles.compactMedia}>
           {props.icon}
         </EmptyMedia>
-        <EmptyTitle className={cn(props.compact && "text-sm")}>
+        <EmptyTitle xstyle={props.compact && toolStyles.compactTitle}>
           {props.title}
         </EmptyTitle>
-        <EmptyDescription className={cn(props.compact && "text-xs/relaxed")}>
+        <EmptyDescription xstyle={props.compact && toolStyles.description}>
           {props.description}
         </EmptyDescription>
       </EmptyHeader>
@@ -283,15 +286,15 @@ function HookRow(props: {
 }) {
   const triggerMeta = SCRIPT_TRIGGER_METADATA[props.trigger];
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-border py-3 last:border-b-0">
-      <div className="min-w-0 space-y-1">
-        <p className="text-sm font-medium text-foreground">
+    <div className={sx(toolStyles.hook)}>
+      <div className={sx(toolStyles.hookText)}>
+        <p className={sx(toolStyles.title)}>
           {triggerMeta.label}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className={sx(toolStyles.muted)}>
           {triggerMeta.description}
         </p>
-        <p className="truncate text-[11px] text-muted-foreground">
+        <p className={sx(toolStyles.truncatedHint)}>
           {props.refs
             .map((ref) => `${ref.scriptKind}:${ref.scriptId}`)
             .join(" · ")}
@@ -300,15 +303,15 @@ function HookRow(props: {
       <Button
         size="sm"
         variant="outline"
-        className="h-8 rounded-md px-2.5"
+        xstyle={toolStyles.runButton}
         onClick={() => void props.onRun(props.trigger)}
         disabled={props.running}
         aria-label={`Run ${triggerMeta.label} hook`}
       >
         {props.running ? (
-          <Loader aria-hidden className="mr-1" size="xs" variant="steps" />
+          <Loader aria-hidden className={sx(toolStyles.loader)} size="xs" variant="steps" />
         ) : (
-          <Play className="mr-1 size-3.5" />
+          <Play className={sx(toolStyles.runIcon)} />
         )}
         Run
       </Button>
@@ -365,26 +368,25 @@ function ScriptEntryRow(props: {
               {props.orbitEnabled ? " · Orbit" : ""}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px]">
+          <div className={sx(toolStyles.stateRow)}>
             {isRunning ? (
-              <span className="inline-flex items-center gap-1 font-medium text-primary">
-                <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+              <span className={sx(toolStyles.running)}>
+                <span className={sx(toolStyles.runningMark)} />
                 Running
                 {state?.startedAt !== undefined ? (
                   <>
-                    <span className="text-muted-foreground/60">·</span>
-                    <span className="text-muted-foreground">
+                    <span className={sx(toolStyles.separator)}>·</span>
+                    <span className={sx(toolStyles.metadata)}>
                       <LiveDuration startedAt={state.startedAt} />
                     </span>
                   </>
                 ) : null}
               </span>
             ) : isFinished ? (
-              <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <span className={sx(toolStyles.finished)}>
                 <span
-                  className={cn(
-                    "font-medium",
-                    didFail ? "text-destructive" : "text-success",
+                  className={sx(
+                    didFail ? toolStyles.failed : toolStyles.success,
                   )}
                 >
                   {state?.exitCode !== undefined
@@ -395,7 +397,7 @@ function ScriptEntryRow(props: {
                 </span>
                 {state?.endedAt !== undefined ? (
                   <>
-                    <span className="text-muted-foreground/60">·</span>
+                    <span className={sx(toolStyles.separator)}>·</span>
                     <span>{formatScriptRelativeTime(state.endedAt)}</span>
                   </>
                 ) : null}
@@ -403,12 +405,12 @@ function ScriptEntryRow(props: {
             ) : null}
           </div>
           {props.description ? (
-            <p className="text-xs leading-relaxed text-muted-foreground">
+            <p className={sx(toolStyles.description)}>
               {props.description}
             </p>
           ) : null}
           {state?.sourceLabel ? (
-            <p className="text-[11px] text-muted-foreground/70">
+            <p className={sx(toolStyles.detail)}>
               {state.sourceLabel}
             </p>
           ) : null}
@@ -420,34 +422,34 @@ function ScriptEntryRow(props: {
             />
           ) : null}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={sx(toolStyles.actions)}>
           {state?.orbitUrl ? (
             <>
               <Button
                 size="icon"
                 variant="ghost"
-                className="size-7 rounded-md"
+                xstyle={toolStyles.iconButton}
                 onClick={() => openExternalUrl(state.orbitUrl ?? "")}
                 title="Open in browser"
                 aria-label="Open Orbit URL in browser"
               >
-                <ExternalLink className="size-3.5" />
+                <ExternalLink className={sx(toolStyles.icon)} />
               </Button>
               <Button
                 size="icon"
                 variant="ghost"
-                className="size-7 rounded-md"
+                xstyle={toolStyles.iconButton}
                 onClick={() => void copyTextToClipboard(state.orbitUrl ?? "")}
                 title="Copy URL"
                 aria-label="Copy Orbit URL"
               >
-                <Copy className="size-3.5" />
+                <Copy className={sx(toolStyles.icon)} />
               </Button>
             </>
           ) : null}
           <Button
             size="sm"
-            className="h-8 rounded-md px-2.5"
+            xstyle={toolStyles.runButton}
             variant={isRunning ? "outline" : "default"}
             onClick={() =>
               isRunning
@@ -738,7 +740,7 @@ export function WorkspaceScriptsPanel(props: {
       <Empty>
         <EmptyHeader>
           <EmptyMedia>
-            <Sparkles className="size-4" />
+            <Sparkles className={sx(toolStyles.sectionIcon)} />
           </EmptyMedia>
           <EmptyTitle>{WORKSPACE_TOOLS_LABEL} unavailable</EmptyTitle>
           <EmptyDescription>
@@ -856,11 +858,11 @@ export function WorkspaceScriptsPanel(props: {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="mt-1 h-8 rounded-md"
+                xstyle={toolStyles.settingsButton}
                 onClick={openScriptSettings}
                 disabled={!projectPath}
               >
-                <Settings2 className="mr-1 size-4" />
+                <Settings2 className={sx(toolStyles.settingsIcon)} />
                 Manage workspace tools
               </Button>
             }
@@ -952,7 +954,7 @@ export function WorkspaceScriptsPanel(props: {
         {config &&
         serviceCount > 0 &&
         runtimePartitions.running.length === 0 ? (
-          <p className="px-1 pb-3 text-xs leading-5 text-muted-foreground">
+          <p className={sx(toolStyles.viewDescription)}>
             Nothing is running. Start a process below and leave it up while you
             work. Output and stop stay on this tab.
           </p>
@@ -970,13 +972,13 @@ export function WorkspaceScriptsPanel(props: {
         ) : null}
 
         {detachedRunningCount > 0 ? (
-          <div className="border-t border-border px-2 py-6 text-center">
-            <p className="text-sm font-medium text-foreground">
+          <div className={sx(toolStyles.inactive)}>
+            <p className={sx(toolStyles.title)}>
               {detachedRunningCount === 1
                 ? "A detached process is still running"
                 : `${detachedRunningCount} detached processes are still running`}
             </p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <p className={sx(toolStyles.inactiveHint)}>
               Their commands are no longer in the active config. Use Stop all to
               terminate them safely.
             </p>
@@ -1019,7 +1021,7 @@ export function WorkspaceScriptsPanel(props: {
 
         {runtime.configStatus === "ready" && hookCount === 0 ? (
           <WorkspaceToolsEmptyState
-            icon={<Sparkles className="size-4" />}
+            icon={<Sparkles className={sx(toolStyles.sectionIcon)} />}
             title="No triggers configured"
             description="Connect commands or processes to task, turn, and pull request lifecycle events in Settings."
             action={

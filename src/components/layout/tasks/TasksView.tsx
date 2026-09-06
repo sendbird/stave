@@ -21,7 +21,7 @@ import {
   TRACKER_SOURCE_IDS,
   type TrackerSourceId,
 } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { TasksBoard } from "./TasksBoard";
 import { TasksPeekPanel } from "./TasksPeekPanel";
@@ -39,6 +39,7 @@ import { openTrackerTaskInBrowser } from "./tracker-task-ui";
 import { useTrackerTaskActions } from "./useTrackerTaskActions";
 import { useTrackerTaskListPipeline } from "./useTrackerTaskListPipeline";
 import { useTrackerTasksKeyboard } from "./useTrackerTasksKeyboard";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 
 /** How often the due-date labels are recomputed. */
 const CLOCK_TICK_MS = 60_000;
@@ -242,7 +243,7 @@ export function TasksView(props: { onClose: () => void }) {
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
+    <div className={sx(taskLayoutStyles.surface)}>
       <TasksSurfaceHeader
         summaries={summaries}
         statuses={sourceStatuses}
@@ -274,11 +275,11 @@ export function TasksView(props: { onClose: () => void }) {
         // strip would say the same thing twice.
         hidden={layoutKeys.length === 0}
       />
-      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+      <div className={sx(taskLayoutStyles.content)}>
         <div
-          className={cn(
-            "min-h-0 min-w-0 flex-1 overflow-hidden",
-            selectedItem ? "max-md:hidden" : null,
+          className={sx(
+            taskLayoutStyles.listPane,
+            !selectedItem && taskLayoutStyles.listPaneVisible,
           )}
         >
           {layoutKeys.length === 0 ? (
@@ -290,8 +291,8 @@ export function TasksView(props: { onClose: () => void }) {
               onRefresh={() => refresh()}
             />
           ) : (
-            <div className="flex h-full min-h-0 flex-col">
-              <div className="min-h-0 flex-1">
+            <div className={sx(taskLayoutStyles.listColumn)}>
+              <div className={sx(taskLayoutStyles.listBody)}>
                 {layout === "board" ? (
                   <TasksBoard
                     items={boardItems}
@@ -320,7 +321,7 @@ export function TasksView(props: { onClose: () => void }) {
                 )}
               </div>
               {sourceStatuses.some((status) => status.truncated) ? (
-                <p className="shrink-0 border-t border-border/60 px-4 py-2 text-xs text-muted-foreground">
+                <p className={sx(taskLayoutStyles.truncationNotice)}>
                   Showing {layoutKeys.length} loaded tickets. A tracker had more
                   than one refresh can load.
                 </p>

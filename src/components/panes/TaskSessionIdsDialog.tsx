@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -73,23 +76,23 @@ export function TaskSessionIdsDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/70 px-5 py-5 pr-14">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <DialogTitle className="text-base">Session IDs</DialogTitle>
-              <DialogDescription className="mt-2 leading-5">
+      <DialogContent className={sx(styles.dialog)}>
+        <DialogHeader className={sx(styles.header)}>
+          <div className={sx(styles.heading)}>
+            <div className={sx(styles.content)}>
+              <DialogTitle className={sx(styles.title)}>Session IDs</DialogTitle>
+              <DialogDescription className={sx(styles.description)}>
                 Stave keeps one stable task ID while each provider keeps its own
                 native session ID. A task can collect both Claude and Codex IDs
                 as it switches providers.
               </DialogDescription>
             </div>
-            <span className="shrink-0 rounded-md border border-border/70 px-2 py-1 text-xs text-muted-foreground">
+            <span className={sx(styles.current)}>
               Current: {getProviderLabel({ providerId: task.provider })}
             </span>
           </div>
         </DialogHeader>
-        <div className="space-y-3 px-5 py-4">
+        <div className={sx(styles.rows)}>
           <SessionIdentifierRow
             label="Stave task ID"
             value={task.id}
@@ -103,7 +106,7 @@ export function TaskSessionIdsDialog({
             }
           />
           {sessionRows.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
+            <div className={sx(styles.empty)}>
               No provider-native session IDs have been recorded for this task
               yet.
             </div>
@@ -132,12 +135,12 @@ export function TaskSessionIdsDialog({
               );
             })
           )}
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className={sx(styles.note)}>
             Provider-native IDs are used for in-app resume and may not be
             resumable from an external Claude or Codex terminal session.
           </p>
         </div>
-        <DialogFooter className="border-t border-border/70 px-5 py-4">
+        <DialogFooter className={sx(styles.footer)}>
           <Button
             type="button"
             variant="outline"
@@ -159,32 +162,32 @@ function SessionIdentifierRow(props: {
   onCopy: () => void;
 }) {
   return (
-    <div className="rounded-md border border-border/80 bg-background px-3 py-2">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+    <div className={sx(styles.row)}>
+      <div className={sx(styles.rowHeader)}>
+        <p className={sx(styles.rowLabel)}>
           {props.label}
         </p>
         {props.providerLabel ? (
-          <span className="rounded-md border border-border/70 px-2 py-1 text-xs text-muted-foreground">
+          <span className={sx(styles.provider)}>
             {props.providerLabel}
           </span>
         ) : null}
       </div>
-      <div className="mt-1 flex items-center justify-between gap-3">
-        <p className="min-w-0 flex-1 truncate font-mono text-sm text-foreground">
+      <div className={sx(styles.valueRow)}>
+        <p className={sx(styles.value)}>
           {props.value}
         </p>
         <Button
           type="button"
           size="sm"
           variant="ghost"
-          className="h-8 shrink-0 px-2"
+          className={sx(styles.copy)}
           onClick={props.onCopy}
         >
           {props.copied ? (
-            <Check className="size-4" />
+            <Check className={sx(styles.icon)} />
           ) : (
-            <Copy className="size-4" />
+            <Copy className={sx(styles.icon)} />
           )}
           {props.copied ? "Copied" : "Copy"}
         </Button>
@@ -192,3 +195,25 @@ function SessionIdentifierRow(props: {
     </div>
   );
 }
+
+const styles = stylex.create({
+dialog: {maxWidth:512,gap:0,overflow:"hidden",padding:0},
+header: {borderBottomWidth:1,borderBottomStyle:"solid",borderBottomColor:vars.colorBorder,padding:20,paddingRight:56},
+heading: {display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12},
+content: {minWidth:0},
+title: {fontSize:16},
+description: {marginTop:8,lineHeight:"20px"},
+current: {flexShrink:0,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,paddingInline:8,paddingBlock:4,fontSize:12,color:vars.colorTextMuted},
+rows: {display:"flex",flexDirection:"column",gap:12,paddingInline:20,paddingBlock:16},
+empty: {borderRadius:6,borderWidth:1,borderStyle:"dashed",borderColor:vars.colorBorder,backgroundColor:vars.colorCanvasSubtle,padding:12,fontSize:14,color:vars.colorTextMuted},
+note: {fontSize:12,lineHeight:"20px",color:vars.colorTextMuted},
+footer: {borderTopWidth:1,borderTopStyle:"solid",borderTopColor:vars.colorBorder,paddingInline:20,paddingBlock:16},
+row: {borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,backgroundColor:vars.colorCanvas,paddingInline:12,paddingBlock:8},
+rowHeader: {display:"flex",alignItems:"center",justifyContent:"space-between",gap:12},
+rowLabel: {fontSize:11,textTransform:"uppercase",letterSpacing:"0.025em",color:vars.colorTextMuted},
+provider: {borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,paddingInline:8,paddingBlock:4,fontSize:12,color:vars.colorTextMuted},
+valueRow: {marginTop:4,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12},
+value: {minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:vars.fontMono,fontSize:14,color:vars.colorText},
+copy: {height:32,flexShrink:0,paddingInline:8},
+icon: {width:16,height:16}
+});

@@ -1,3 +1,5 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Badge } from "@/components/ads/components/Badge";
 import {
   ChevronRight,
   ExternalLink,
@@ -12,7 +14,6 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-  Badge,
   Button,
 } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,8 +33,9 @@ import {
 } from "@/lib/tracker-tasks/client-state";
 import { trackerTaskKey } from "@/lib/tracker-tasks/client-store";
 import type { TrackerTaskListItem } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import { TrackerTaskMeta } from "./TrackerTaskMeta";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 import {
   TRACKER_LINK_STATE_PRESENTATION,
   copyTrackerTaskValue,
@@ -72,14 +74,14 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
 
   return (
     <div
-      className={cn(
-        "flex h-full min-h-0 flex-col overflow-hidden bg-background",
-        props.embedded ? "" : "border-l border-border/60 bg-surface/40",
+      className={sx(
+        taskLayoutStyles.detailRoot,
+        !props.embedded && taskLayoutStyles.detailStandalone,
       )}
     >
-      <header className="shrink-0 space-y-2 border-b border-border/60 px-4 py-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="font-mono">{task.key}</span>
+      <header className={sx(taskLayoutStyles.detailHeader)}>
+        <div className={sx(taskLayoutStyles.detailKey)}>
+          <span className={sx(taskLayoutStyles.detailKeyText)}>{task.key}</span>
           {jiraBadge && jiraLink ? (
             <ServiceLinkBadge
               href={jiraLink.url}
@@ -88,26 +90,24 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
             />
           ) : null}
         </div>
-        <h2 className="font-heading text-base font-semibold leading-6 text-foreground">
-          {task.title}
-        </h2>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <h2 className={sx(taskLayoutStyles.detailTitle)}>{task.title}</h2>
+        <div className={sx(taskLayoutStyles.detailActions)}>
           <Button
             type="button"
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            xstyle={taskLayoutStyles.detailAction}
             onClick={() =>
               link ? props.onOpenStaveTask(key) : props.onKickoff(key)
             }
           >
             {link ? (
               <>
-                <ChevronRight className="size-3.5" />
+                <ChevronRight className={sx(taskLayoutStyles.icon14)} />
                 Open in Stave
               </>
             ) : (
               <>
-                <Play className="size-3.5" />
+                <Play className={sx(taskLayoutStyles.icon14)} />
                 Kick off
               </>
             )}
@@ -116,10 +116,10 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 gap-1.5 text-xs"
+            xstyle={taskLayoutStyles.detailAction}
             onClick={() => openTrackerTaskInBrowser(task.url)}
           >
-            <ExternalLink className="size-3.5" />
+            <ExternalLink className={sx(taskLayoutStyles.icon14)} />
             Open in browser
           </Button>
           <DropdownMenu>
@@ -129,7 +129,7 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-8 px-2.5 text-xs"
+                  xstyle={taskLayoutStyles.detailMenuAction}
                   aria-label="More ticket actions"
                 />
               }
@@ -157,14 +157,14 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
                   })
                 }
               >
-                <Link2 className="size-3.5" />
+                <Link2 className={sx(taskLayoutStyles.icon14)} />
                 Copy link
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={props.attachTargetLabel === null}
                 onSelect={() => props.onAttach(key)}
               >
-                <Paperclip className="size-3.5" />
+                <Paperclip className={sx(taskLayoutStyles.icon14)} />
                 {props.attachTargetLabel
                   ? `Attach to ${props.attachTargetLabel}`
                   : "Attach to current workspace"}
@@ -174,12 +174,13 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
+      <div className={sx(taskLayoutStyles.detailBody)}>
         {linkPresentation && link ? (
-          <button
+          <AdsButton
+            layout="host"
             type="button"
             onClick={() => props.onOpenStaveTask(key)}
-            className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/30 p-2.5 text-left transition-colors hover:bg-muted/50"
+            xstyle={taskLayoutStyles.detailLink}
           >
             {linkPresentation.live ? (
               <ThinkingOrb
@@ -189,29 +190,26 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
                 aria-label="Stave run in progress"
               />
             ) : null}
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-medium text-foreground">
+            <span className={sx(taskLayoutStyles.detailLinkCopy)}>
+              <span className={sx(taskLayoutStyles.detailLinkTitle)}>
                 {linkPresentation.label} in Stave
               </span>
-              <span className="block truncate text-xs text-muted-foreground">
+              <span className={sx(taskLayoutStyles.detailLinkSubtitle)}>
                 {link.errorCode
                   ? `Workspace ${link.workspaceId} — ${link.errorCode}`
                   : `Workspace ${link.workspaceId}`}
               </span>
             </span>
-            <Badge
-              variant="outline"
-              className={cn("text-xs", linkPresentation.toneClassName)}
-            >
+            <Badge variant="outline" tone={linkPresentation.tone}>
               {link.craneJobId ? "Reported to Crane" : "Local only"}
             </Badge>
-          </button>
+          </AdsButton>
         ) : null}
 
         <TrackerTaskMeta task={task} now={props.now} />
 
-        <section className="space-y-1.5">
-          <h3 className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+        <section className={sx(taskLayoutStyles.detailSection)}>
+          <h3 className={sx(taskLayoutStyles.detailSectionTitle)}>
             Description
           </h3>
           {detail ? (
@@ -222,40 +220,44 @@ export function TrackerTaskDetailPane(props: TrackerTaskDetailPaneProps) {
                 messageCodeFontSize={props.messageCodeFontSize}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p className={sx(taskLayoutStyles.detailMuted)}>
                 This ticket has no description.
               </p>
             )
           ) : detailPending ? (
-            <div className="space-y-1.5">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-11/12" />
-              <Skeleton className="h-3 w-8/12" />
+            <div className={sx(taskLayoutStyles.detailSkeletons)}>
+              <Skeleton className={sx(taskLayoutStyles.detailSkeletonFull)} />
+              <Skeleton className={sx(taskLayoutStyles.detailSkeletonEleven)} />
+              <Skeleton className={sx(taskLayoutStyles.detailSkeletonEight)} />
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">
+            <p className={sx(taskLayoutStyles.detailMuted)}>
               The description could not be loaded.
             </p>
           )}
         </section>
 
         {detail?.comments && detail.comments.length > 0 ? (
-          <Accordion className="border-t border-border/60">
-            <AccordionItem value="comments" className="border-b-0">
-              <AccordionTrigger className="py-2 text-xs font-medium text-muted-foreground hover:no-underline">
+          <Accordion className={sx(taskLayoutStyles.detailComments)}>
+            <AccordionItem value="comments">
+              <AccordionTrigger
+                className={sx(taskLayoutStyles.detailAccordionTrigger)}
+              >
                 Comments ({detail.comments.length})
               </AccordionTrigger>
-              <AccordionContent className="space-y-2 pb-2">
+              <AccordionContent
+                className={sx(taskLayoutStyles.detailAccordionContent)}
+              >
                 {detail.comments.map((comment, index) => (
                   <div
                     key={`${comment.author}-${comment.createdAt}-${index}`}
-                    className="space-y-0.5"
+                    className={sx(taskLayoutStyles.detailComment)}
                   >
-                    <p className="text-xs text-muted-foreground">
+                    <p className={sx(taskLayoutStyles.detailCommentMeta)}>
                       {comment.author} ·{" "}
                       {new Date(comment.createdAt).toLocaleString()}
                     </p>
-                    <p className="whitespace-pre-wrap text-xs leading-5 text-foreground">
+                    <p className={sx(taskLayoutStyles.detailCommentBody)}>
                       {comment.body}
                     </p>
                   </div>

@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useMemo, useState } from "react";
 import {
   Calendar,
@@ -27,9 +28,10 @@ import type {
   GraphFileChange,
   GraphWorkingTreeSummary,
 } from "@/lib/git-graph/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import type { GitGraphSelection } from "./useGitGraphData";
+import { commitDetailPanelStyles as styles } from "./commit-detail-panel.styles";
 
 interface CommitDetailPanelProps {
   selection: GitGraphSelection;
@@ -53,22 +55,22 @@ function formatDate(isoDate: string): string {
   }).format(date);
 }
 
-function fileStatusClass(status: string): string {
+function fileStatusStyle(status: string) {
   switch (status.toUpperCase()) {
     case "A":
-      return "border-success/35 bg-success/10 text-success";
+      return styles.statusAdded;
     case "D":
     case "!":
     case "U":
-      return "border-destructive/35 bg-destructive/10 text-destructive";
+      return styles.statusRemoved;
     case "M":
-      return "border-warning/40 bg-warning/10 text-warning";
+      return styles.statusModified;
     case "R":
     case "C":
     case "?":
-      return "border-info/35 bg-info/10 text-info";
+      return styles.statusRenamed;
     default:
-      return "border-border bg-muted text-muted-foreground";
+      return styles.statusDefault;
   }
 }
 
@@ -82,26 +84,21 @@ function copyText(value: string, label: string) {
 function MetadataRow({
   icon: Icon,
   label,
-  labelClassName,
+  labelStyle,
   children,
 }: {
   icon: typeof User;
   label: string;
-  labelClassName?: string;
+  labelStyle?: Parameters<typeof sx>[0];
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-start gap-2 text-[11px]">
-      <span
-        className={cn(
-          "flex items-center gap-1.5 text-muted-foreground",
-          labelClassName,
-        )}
-      >
-        <Icon className="size-3" />
+    <div className={sx(styles.metaRow)}>
+      <span className={sx(styles.metaLabel, labelStyle)}>
+        <Icon className={sx(styles.metaIcon)} />
         {label}
       </span>
-      <span className="min-w-0 break-words text-foreground/85">{children}</span>
+      <span className={sx(styles.metaValue)}>{children}</span>
     </div>
   );
 }
@@ -113,49 +110,49 @@ function SignatureMetadata({ signature }: { signature: GraphCommitSignature }) {
         return {
           Icon: ShieldCheck,
           label: "Verified",
-          tone: "text-success",
+          tone: styles.toneSuccess,
         };
       case "U":
         return {
           Icon: ShieldCheck,
           label: "Good · unknown trust",
-          tone: "text-warning",
+          tone: styles.toneWarning,
         };
       case "X":
         return {
           Icon: ShieldAlert,
           label: "Expired signature",
-          tone: "text-warning",
+          tone: styles.toneWarning,
         };
       case "Y":
         return {
           Icon: ShieldAlert,
           label: "Expired signing key",
-          tone: "text-warning",
+          tone: styles.toneWarning,
         };
       case "R":
         return {
           Icon: ShieldAlert,
           label: "Revoked signing key",
-          tone: "text-destructive",
+          tone: styles.toneDanger,
         };
       case "B":
         return {
           Icon: ShieldAlert,
           label: "Bad signature",
-          tone: "text-destructive",
+          tone: styles.toneDanger,
         };
       case "E":
         return {
           Icon: ShieldAlert,
           label: "Verification error",
-          tone: "text-destructive",
+          tone: styles.toneDanger,
         };
       default:
         return {
           Icon: ShieldAlert,
           label: `Status ${signature.status}`,
-          tone: "text-muted-foreground",
+          tone: styles.toneMuted,
         };
     }
   })();
@@ -165,11 +162,11 @@ function SignatureMetadata({ signature }: { signature: GraphCommitSignature }) {
     <MetadataRow
       icon={presentation.Icon}
       label="Signature"
-      labelClassName={presentation.tone}
+      labelStyle={presentation.tone}
     >
-      <span className={presentation.tone}>{presentation.label}</span>
+      <span className={sx(presentation.tone)}>{presentation.label}</span>
       {identity ? (
-        <span className="ml-1 text-muted-foreground">· {identity}</span>
+        <span className={sx(styles.signatureIdentity)}>· {identity}</span>
       ) : null}
     </MetadataRow>
   );
@@ -177,22 +174,17 @@ function SignatureMetadata({ signature }: { signature: GraphCommitSignature }) {
 
 function WorkingTreeSummary({ summary }: { summary: GraphWorkingTreeSummary }) {
   const items = [
-    ["Staged", summary.staged, "text-success"],
-    ["Changed", summary.unstaged, "text-warning"],
-    ["Untracked", summary.untracked, "text-info"],
-    ["Conflicts", summary.conflicts, "text-destructive"],
+    ["Staged", summary.staged, styles.toneSuccess],
+    ["Changed", summary.unstaged, styles.toneWarning],
+    ["Untracked", summary.untracked, styles.toneInfo],
+    ["Conflicts", summary.conflicts, styles.toneDanger],
   ] as const;
   return (
-    <div className="grid grid-cols-2 gap-1.5">
+    <div className={sx(styles.summaryGrid)}>
       {items.map(([label, count, tone]) => (
-        <div
-          key={label}
-          className="rounded-md border border-border/55 bg-muted/20 px-2 py-1.5"
-        >
-          <div className={cn("text-sm font-semibold tabular-nums", tone)}>
-            {count}
-          </div>
-          <div className="text-[10px] text-muted-foreground">{label}</div>
+        <div key={label} className={sx(styles.summaryCell)}>
+          <div className={sx(styles.summaryCount, tone)}>{count}</div>
+          <div className={sx(styles.summaryLabel)}>{label}</div>
         </div>
       ))}
     </div>
@@ -236,51 +228,52 @@ export function CommitDetailPanel({
   return (
     <aside
       aria-label={isWorkingTree ? "Working tree details" : "Commit details"}
-      className="flex h-full min-h-0 flex-col overflow-hidden bg-editor"
+      className={sx(styles.aside)}
       data-testid="git-graph-details"
     >
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="border-b border-border/65 px-3 py-3">
-          <div className="mb-2 flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold leading-snug text-foreground">
+      <div className={sx(styles.scroll)}>
+        <div className={sx(styles.header)}>
+          <div className={sx(styles.headerTop)}>
+            <div className={sx(styles.headerTitleWrap)}>
+              <p className={sx(styles.title)}>
                 {isWorkingTree
                   ? "Uncommitted changes"
                   : (details?.subject ?? commit?.subject ?? "Commit")}
               </p>
               {!isWorkingTree && commit ? (
-                <button
+                <AdsButton
+                  layout="host"
                   type="button"
-                  className="mt-1 inline-flex items-center gap-1 font-mono text-[10px] text-muted-foreground hover:text-foreground"
+                  xstyle={styles.hashButton}
                   onClick={() => copyText(commit.hash, "Commit hash")}
                   title="Copy full commit hash"
                 >
                   {commit.hash.slice(0, 12)}
-                  <Copy className="size-2.5" />
-                </button>
+                  <Copy className={sx(styles.hashIcon)} />
+                </AdsButton>
               ) : null}
             </div>
             <Button
               type="button"
               size="icon-xs"
               variant="ghost"
-              className="size-6"
+              xstyle={styles.closeButton}
               onClick={onClose}
               aria-label="Close details"
             >
-              <X className="size-3.5" />
+              <X className={sx(styles.closeIcon)} />
             </Button>
           </div>
 
           {isWorkingTree ? (
             <WorkingTreeSummary summary={workingTree} />
           ) : loading && !details ? (
-            <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
+            <div className={sx(styles.loadingRow)}>
               <Loader aria-hidden size="xs" variant="scan" />
               Loading commit details…
             </div>
           ) : details ? (
-            <div className="space-y-1.5">
+            <div className={sx(styles.metaGroup)}>
               <MetadataRow icon={User} label="Author">
                 {details.author}
               </MetadataRow>
@@ -298,7 +291,7 @@ export function CommitDetailPanel({
               ) : null}
               {details.parents.length > 0 ? (
                 <MetadataRow icon={GitCommitHorizontal} label="Parents">
-                  <span className="font-mono text-[10px]">
+                  <span className={sx(styles.metaMono)}>
                     {details.parents
                       .map((parent) => parent.slice(0, 8))
                       .join(", ")}
@@ -312,57 +305,50 @@ export function CommitDetailPanel({
           ) : null}
 
           {!isWorkingTree && details?.body ? (
-            <p className="mt-3 whitespace-pre-wrap break-words border-t border-border/50 pt-3 text-xs leading-5 text-foreground/80">
-              {details.body}
-            </p>
+            <p className={sx(styles.body)}>{details.body}</p>
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2 border-b border-border/45 px-3 py-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Changed files
-          </span>
+        <div className={sx(styles.filesHeader)}>
+          <span className={sx(styles.filesHeaderLabel)}>Changed files</span>
           {loading ? (
             <Loader
               aria-hidden
-              className="text-muted-foreground"
+              className={sx(styles.loaderMuted)}
               size="xs"
               variant="scan"
             />
           ) : (
-            <span className="text-[10px] tabular-nums text-muted-foreground">
-              {files.length}
-            </span>
+            <span className={sx(styles.filesCount)}>{files.length}</span>
           )}
           {totals.additions > 0 || totals.deletions > 0 ? (
-            <span className="ml-auto flex gap-1 font-mono text-[10px] tabular-nums">
-              <span className="text-success">+{totals.additions}</span>
-              <span className="text-destructive">−{totals.deletions}</span>
+            <span className={sx(styles.totals)}>
+              <span className={sx(styles.additions)}>+{totals.additions}</span>
+              <span className={sx(styles.deletions)}>−{totals.deletions}</span>
             </span>
           ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 p-2">
+        <div className={sx(styles.fileList)}>
           {loading && files.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
+            <div className={sx(styles.emptyCenter)}>
               <Loader
                 aria-hidden
-                className="text-muted-foreground"
+                className={sx(styles.loaderMuted)}
                 size="xs"
                 variant="scan"
               />
             </div>
           ) : files.length === 0 ? (
-            <p className="px-1 py-3 text-xs text-muted-foreground">
-              No file changes to display.
-            </p>
+            <p className={sx(styles.emptyText)}>No file changes to display.</p>
           ) : (
-            <div className="space-y-0.5">
+            <div className={sx(styles.fileListEntries)}>
               {files.map((file) => (
-                <button
+                <AdsButton
+                  layout="host"
                   key={`${file.status}:${file.oldPath ?? ""}:${file.path}`}
                   type="button"
-                  className="group flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-[11px] hover:bg-accent/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  xstyle={styles.fileRow}
                   title={
                     file.oldPath
                       ? `${file.oldPath} → ${file.path}`
@@ -379,30 +365,30 @@ export function CommitDetailPanel({
                   }}
                 >
                   <span
-                    className={cn(
-                      "flex size-5 shrink-0 items-center justify-center rounded-sm border font-mono text-[9px] font-semibold",
-                      fileStatusClass(file.status),
+                    className={sx(
+                      styles.fileStatus,
+                      fileStatusStyle(file.status),
                     )}
                   >
                     {file.status.charAt(0).toUpperCase()}
                   </span>
-                  <FileCode2 className="size-3 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-foreground">
-                    {file.path}
-                  </span>
+                  <FileCode2 className={sx(styles.fileIcon)} />
+                  <span className={sx(styles.filePath)}>{file.path}</span>
                   {file.additions !== null || file.deletions !== null ? (
-                    <span className="hidden shrink-0 gap-1 font-mono text-[9px] tabular-nums group-hover:flex">
+                    <span className={sx(styles.fileStats)}>
                       {file.additions !== null ? (
-                        <span className="text-success">+{file.additions}</span>
+                        <span className={sx(styles.additions)}>
+                          +{file.additions}
+                        </span>
                       ) : null}
                       {file.deletions !== null ? (
-                        <span className="text-destructive">
+                        <span className={sx(styles.deletions)}>
                           −{file.deletions}
                         </span>
                       ) : null}
                     </span>
                   ) : null}
-                </button>
+                </AdsButton>
               ))}
             </div>
           )}
@@ -446,7 +432,7 @@ export function CommitDetailPanel({
               setFileMenuAnchor(null);
             }}
           >
-            <FolderOpen className="size-4" />
+            <FolderOpen className={sx(styles.menuIcon)} />
             Open current file
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -457,7 +443,7 @@ export function CommitDetailPanel({
               setFileMenuAnchor(null);
             }}
           >
-            <Copy className="size-4" />
+            <Copy className={sx(styles.menuIcon)} />
             Copy path
           </DropdownMenuItem>
         </DropdownMenuContent>

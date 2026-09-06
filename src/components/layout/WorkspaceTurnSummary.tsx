@@ -1,7 +1,11 @@
 import { Bot, ChevronDown, UserRound } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import type { WorkspaceTurnSummary as WorkspaceTurnSummaryValue } from "@/lib/workspace-information";
+import { workspaceTurnSummaryStyles as styles } from "./workspace-turn-summary.styles";
 
 function SummaryEntry(props: {
   icon: ReactNode;
@@ -9,16 +13,12 @@ function SummaryEntry(props: {
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-        <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground/80">
-          {props.icon}
-        </span>
+    <div className={sx(styles.entry)}>
+      <div className={sx(styles.entryLabel)}>
+        <span className={sx(styles.entryIcon)}>{props.icon}</span>
         <span>{props.label}</span>
       </div>
-      <p className="pl-[22px] text-[13px] leading-5 text-foreground/85">
-        {props.children}
-      </p>
+      <p className={sx(styles.entryBody)}>{props.children}</p>
     </div>
   );
 }
@@ -26,32 +26,40 @@ function SummaryEntry(props: {
 export function WorkspaceTurnSummary(props: {
   summary: WorkspaceTurnSummaryValue;
 }) {
+  // `<details>` still owns open/closed; this mirrors it so the chevron can
+  // rotate without an ancestor-scoped utility selector.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
+    <div className={sx(styles.root)}>
+      <div className={sx(styles.head)}>
         {props.summary.taskTitle ? (
-          <p className="truncate text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-            {props.summary.taskTitle}
-          </p>
+          <p className={sx(styles.taskTitle)}>{props.summary.taskTitle}</p>
         ) : null}
-        <p className="text-sm font-medium leading-6 text-foreground/95">
-          {props.summary.workSummary}
-        </p>
+        <p className={sx(styles.workSummary)}>{props.summary.workSummary}</p>
       </div>
-      <details className="group">
-        <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md py-1 pr-1 text-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
+      <details
+        onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+      >
+        <summary
+          className={sx(styles.summary, transition.colors, focusRing.ring)}
+        >
           <span>Details</span>
-          <ChevronDown className="size-3.5 transition-transform duration-150 group-open:rotate-180" />
+          <ChevronDown
+            className={sx(
+              styles.summaryChevron,
+              detailsOpen && styles.summaryChevronOpen,
+            )}
+          />
         </summary>
-        <div className="mt-2 space-y-3 border-l border-border/60 pl-3">
+        <div className={sx(styles.details)}>
           <SummaryEntry
-            icon={<UserRound className="size-3.5" />}
+            icon={<UserRound className={sx(styles.entryIconGlyph)} />}
             label="Original request"
           >
             {props.summary.requestSummary}
           </SummaryEntry>
-          <div className="flex items-center gap-2 pl-[22px] text-[11px] text-muted-foreground">
-            <Bot className="size-3.5" />
+          <div className={sx(styles.modelRow)}>
+            <Bot className={sx(styles.entryIconGlyph)} />
             <span>
               Response by{" "}
               {toHumanModelName({

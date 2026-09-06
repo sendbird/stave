@@ -1,5 +1,7 @@
 import { ClipboardCheck } from "lucide-react";
 import { MessageResponse } from "@/components/ai-elements";
+import { sx } from "@/components/ads/utils/stylex";
+import { conversationPlanCardStyles as styles } from "./conversation-plan-card.styles";
 
 /**
  * Renders a plan response inline in the conversation.
@@ -10,15 +12,12 @@ import { MessageResponse } from "@/components/ai-elements";
  */
 export function ConversationPlanCard(props: { planText: string }) {
   return (
-    <div
-      data-plan-card="true"
-      className="overflow-hidden rounded-xl border border-border/80 bg-card"
-    >
-      <div className="flex items-center gap-2 border-b border-border/80 px-4 py-2.5">
-        <ClipboardCheck className="size-4 shrink-0 text-primary" />
-        <p className="text-sm font-medium">Plan</p>
+    <div data-plan-card="true" className={sx(styles.root)}>
+      <div className={sx(styles.header)}>
+        <ClipboardCheck className={sx(styles.headerIcon)} />
+        <p className={sx(styles.headerTitle)}>Plan</p>
       </div>
-      <div className="px-4 py-3">
+      <div className={sx(styles.body)}>
         <MessageResponse>{props.planText}</MessageResponse>
       </div>
     </div>

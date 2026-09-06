@@ -23,7 +23,7 @@ import {
 import type { AdvisorArmState } from "@/lib/providers/advisor";
 import {
   getProviderLabel,
-  getProviderWaveToneClass,
+  getProviderWaveTone,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type {
@@ -46,7 +46,19 @@ import {
   ComposerControlLabel,
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "../ads/utils/stylex";
+import * as stylex from "@stylexjs/stylex";
+import { vars } from "../ads/tokens/tokens.stylex";
+import { advisorModeStyles } from "./prompt-input-advisor-mode.styles";
+
+// Provider wave tone → StyleX style. `getProviderWaveTone` returns a semantic
+// tone (this file consumes that contract); themed provider CSS variables and
+// the ADS accent token carry the color.
+const providerWaveToneStyles = stylex.create({
+  claude: { color: "var(--provider-claude)" },
+  codex: { color: "var(--provider-codex)" },
+  accent: { color: vars.colorAccent },
+});
 
 /**
  * Composer control for arming the Advisor per task, next to the plan and
@@ -104,182 +116,191 @@ export function PromptInputAdvisorPill(args: {
   const effortSelection = resolveAdvisorEffortSelection(selectedTarget);
   const { onOpenChange, onSetEnabled } = args;
 
-  const iconToneClass =
-    presentation.tone === "warning"
-      ? "text-warning"
-      : presentation.tone === "armed" && args.arm.target
-        ? getProviderWaveToneClass({
-            providerId: args.arm.target.providerId,
-          })
-        : undefined;
+  const isWarningTone = presentation.tone === "warning";
+  const waveToneStyle =
+    presentation.tone === "armed" && args.arm.target
+      ? providerWaveToneStyles[
+          getProviderWaveTone({ providerId: args.arm.target.providerId })
+        ]
+      : undefined;
 
   return (
     <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <PopoverTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={args.disabled}
-                    aria-label={`Configure Advisor · ${presentation.label}`}
-                    {...composerControlAttributes}
-                    data-advisor-control="true"
-                    data-testid="advisor-mode-pill"
-                    data-advisor-tone={presentation.tone}
-                    className={cn(
-                      COMPOSER_CONTROL_BUTTON,
-                      args.className,
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={args.disabled}
+                  aria-label={`Configure Advisor · ${presentation.label}`}
+                  {...composerControlAttributes}
+                  data-advisor-control="true"
+                  data-testid="advisor-mode-pill"
+                  data-advisor-tone={presentation.tone}
+                  className={cx(
+                    COMPOSER_CONTROL_BUTTON,
+                    args.className,
+                    sx(
                       presentation.tone === "off"
-                        ? "text-muted-foreground hover:text-foreground"
-                        : "font-medium text-foreground",
-                    )}
-                  />
-                }
-              />
-            }
-          >
-            <ArrowLeftRight className={cn("size-4 shrink-0", iconToneClass)} />
-            <ComposerControlLabel>
-              {presentation.label}
-              {presentation.effortLabel ? (
-                <span
-                  data-testid="advisor-mode-effort"
-                  className="shrink-0 rounded bg-muted/70 px-1 text-[10px] leading-4 font-medium text-muted-foreground"
-                >
-                  {presentation.effortLabel}
-                </span>
-              ) : null}
-              {args.consultBlock ? (
-                <span
-                  data-testid="advisor-mode-unreachable"
-                  className="shrink-0 rounded bg-warning/10 px-1 text-[10px] leading-4 font-medium text-warning dark:bg-warning/15"
-                >
-                  Unreachable
-                </span>
-              ) : null}
-            </ComposerControlLabel>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-72">
-            {presentation.tooltip} Open to enable or configure Advisor.
-          </TooltipContent>
-        </Tooltip>
-
-        <PopoverContent
-          align="start"
-          side="top"
-          sideOffset={8}
-          className={cn("w-[23rem]", COMPOSER_OPTION_MENU_CONTENT)}
-          data-testid="advisor-mode-options"
-        >
-          <ComposerOptionMenuToggle
-            id="advisor-mode-switch"
-            title="Advisor"
-            description={`The primary may consult ${getProviderLabel({ providerId: selectedProviderId })} · ${toHumanModelName({ model: selectedTarget.model })} on demand.`}
-            checked={args.arm.enabled}
-            onCheckedChange={(checked) => onSetEnabled(checked)}
-            testId="advisor-mode-switch"
-          />
-
-          <ComposerOptionMenuSection title="Advisor provider">
-            <div className="grid grid-cols-2 gap-1">
-              {buildAdvisorProviderOptions().map((option) => (
-                <ComposerOptionCard
-                  key={option.id}
-                  label={option.label}
-                  summary={option.summary}
-                  icon={
-                    <ModelIcon
-                      providerId={option.id}
-                      className="size-4 shrink-0 self-start"
-                    />
-                  }
-                  active={selectedProviderId === option.id}
-                  onSelect={() => {
-                    args.onSelectProvider(option.id);
-                  }}
-                  testId={`advisor-mode-provider-${option.id}`}
+                        ? advisorModeStyles.pillOff
+                        : advisorModeStyles.pillActive,
+                    ),
+                  )}
                 />
-              ))}
-            </div>
-          </ComposerOptionMenuSection>
+              }
+            />
+          }
+        >
+          <ArrowLeftRight
+            className={sx(
+              advisorModeStyles.icon,
+              isWarningTone && advisorModeStyles.iconWarning,
+              waveToneStyle,
+            )}
+          />
+          <ComposerControlLabel>
+            {presentation.label}
+            {presentation.effortLabel ? (
+              <span
+                data-testid="advisor-mode-effort"
+                className={sx(advisorModeStyles.effortBadge)}
+              >
+                {presentation.effortLabel}
+              </span>
+            ) : null}
+            {args.consultBlock ? (
+              <span
+                data-testid="advisor-mode-unreachable"
+                className={sx(advisorModeStyles.unreachableBadge)}
+              >
+                Unreachable
+              </span>
+            ) : null}
+          </ComposerControlLabel>
+        </TooltipTrigger>
+        <TooltipContent side="top" className={sx(advisorModeStyles.tooltip)}>
+          {presentation.tooltip} Open to enable or configure Advisor.
+        </TooltipContent>
+      </Tooltip>
 
-          <ComposerOptionMenuSection title="Advisor model" scroll>
-            {args.advisorModelOptions.map((model) => (
-              <ComposerOptionModelRow
-                key={model}
-                label={toHumanModelName({ model })}
+      <PopoverContent
+        align="start"
+        side="top"
+        sideOffset={8}
+        className={sx(advisorModeStyles.popover)}
+        xstyle={COMPOSER_OPTION_MENU_CONTENT}
+        data-testid="advisor-mode-options"
+      >
+        <ComposerOptionMenuToggle
+          id="advisor-mode-switch"
+          title="Advisor"
+          description={`The primary may consult ${getProviderLabel({ providerId: selectedProviderId })} · ${toHumanModelName({ model: selectedTarget.model })} on demand.`}
+          checked={args.arm.enabled}
+          onCheckedChange={(checked) => onSetEnabled(checked)}
+          testId="advisor-mode-switch"
+        />
+
+        <ComposerOptionMenuSection title="Advisor provider">
+          <div className={sx(advisorModeStyles.providerGrid)}>
+            {buildAdvisorProviderOptions().map((option) => (
+              <ComposerOptionCard
+                key={option.id}
+                label={option.label}
+                summary={option.summary}
                 icon={
                   <ModelIcon
-                    providerId={selectedProviderId}
-                    model={model}
-                    className="size-3.5"
+                    providerId={option.id}
+                    className={sx(advisorModeStyles.modelIconLead)}
                   />
                 }
-                active={selectedTarget.model === model}
+                active={selectedProviderId === option.id}
                 onSelect={() => {
-                  args.onSelectModel(model);
+                  args.onSelectProvider(option.id);
                 }}
-                testId={`advisor-mode-model-${model}`}
+                testId={`advisor-mode-provider-${option.id}`}
               />
             ))}
-          </ComposerOptionMenuSection>
+          </div>
+        </ComposerOptionMenuSection>
 
-          <ComposerOptionMenuSection
-            title="Advisor effort"
-            testId="advisor-mode-effort-row"
-          >
-            <ComposerOptionEffortChips
-              options={buildAdvisorEffortOptions(selectedTarget)}
-              selected={effortSelection}
-              onSelect={(value) => {
-                args.onSelectEffort(value);
+        <ComposerOptionMenuSection title="Advisor model" scroll>
+          {args.advisorModelOptions.map((model) => (
+            <ComposerOptionModelRow
+              key={model}
+              label={toHumanModelName({ model })}
+              icon={
+                <ModelIcon
+                  providerId={selectedProviderId}
+                  model={model}
+                  className={sx(advisorModeStyles.modelIconSize)}
+                />
+              }
+              active={selectedTarget.model === model}
+              onSelect={() => {
+                args.onSelectModel(model);
               }}
-              testId={(value) => `advisor-mode-effort-${value ?? "auto"}`}
+              testId={`advisor-mode-model-${model}`}
             />
-            <ComposerOptionMenuHint>
-              Higher tiers give better advice and make the turn wait longer.
-            </ComposerOptionMenuHint>
-          </ComposerOptionMenuSection>
+          ))}
+        </ComposerOptionMenuSection>
 
-          {presentation.note ? (
-            <ComposerOptionMenuCallout tone="note" testId="advisor-mode-note">
-              {presentation.note}
-            </ComposerOptionMenuCallout>
-          ) : null}
-
-          {presentation.warning ? (
-            <ComposerOptionMenuCallout
-              tone="warning"
-              testId="advisor-mode-warning"
-            >
-              {presentation.warning}
-            </ComposerOptionMenuCallout>
-          ) : null}
-
+        <ComposerOptionMenuSection
+          title="Advisor effort"
+          testId="advisor-mode-effort-row"
+        >
+          <ComposerOptionEffortChips
+            options={buildAdvisorEffortOptions(selectedTarget)}
+            selected={effortSelection}
+            onSelect={(value) => {
+              args.onSelectEffort(value);
+            }}
+            testId={(value) => `advisor-mode-effort-${value ?? "auto"}`}
+          />
           <ComposerOptionMenuHint>
-            Applies to this task only. The primary model may consult the
-            read-only Advisor on demand during its turn; every consult is one
-            extra model call it waits on.{" "}
-            <span className="whitespace-nowrap">
-              {ADVISOR_TOGGLE_SHORTCUT_LABEL} toggles
-            </span>
-            ,{" "}
-            <span className="whitespace-nowrap">
-              {ADVISOR_PICKER_SHORTCUT_LABEL} opens this menu
-            </span>
-            .
+            Higher effort allows more reasoning and can make the turn wait
+            longer.
           </ComposerOptionMenuHint>
-          <ComposerOptionMenuSettingsLink
-            section="providers"
-            testId="advisor-mode-open-settings"
+        </ComposerOptionMenuSection>
+
+        {presentation.note ? (
+          <ComposerOptionMenuCallout tone="note" testId="advisor-mode-note">
+            {presentation.note}
+          </ComposerOptionMenuCallout>
+        ) : null}
+
+        {presentation.warning ? (
+          <ComposerOptionMenuCallout
+            tone="warning"
+            testId="advisor-mode-warning"
           >
-            Defaults and consult budget live in Settings → Providers → Advisor.
-          </ComposerOptionMenuSettingsLink>
-        </PopoverContent>
+            {presentation.warning}
+          </ComposerOptionMenuCallout>
+        ) : null}
+
+        <ComposerOptionMenuHint>
+          Applies to this task only. The primary model may consult the read-only
+          Advisor on demand during its turn; every consult is one extra model
+          call it waits on.{" "}
+          <span className={sx(advisorModeStyles.nowrap)}>
+            {ADVISOR_TOGGLE_SHORTCUT_LABEL} toggles
+          </span>
+          ,{" "}
+          <span className={sx(advisorModeStyles.nowrap)}>
+            {ADVISOR_PICKER_SHORTCUT_LABEL} opens this menu
+          </span>
+          .
+        </ComposerOptionMenuHint>
+        <ComposerOptionMenuSettingsLink
+          section="providers"
+          testId="advisor-mode-open-settings"
+        >
+          Defaults and consult budget live in Settings → Providers → Advisor.
+        </ComposerOptionMenuSettingsLink>
+      </PopoverContent>
     </Popover>
   );
 }

@@ -1,14 +1,18 @@
+import type { StyleXValue } from "../ads/utils/stylex";
+import { overlayLayout } from "./overlay-layout.styles";
+import { sx } from "../ads/utils/stylex";
+import { cx } from "../ads/utils/stylex";
+import { mergeClassName } from "../ads/components/merge-class-name";
+import { popoverStyles } from "../ads/components/Popover";
 import * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { useRender } from "@base-ui/react/use-render";
 
 import {
-  UI_ELEVATION_CLASS,
   UI_LAYER_CLASS,
   type UiLayerName,
 } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
 
 type PopoverContextValue = {
   anchorElement: Element | null;
@@ -78,6 +82,7 @@ function PopoverContent({
   collisionAvoidance,
   keepMounted,
   layer = "popover",
+  xstyle,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<PopoverPrimitive.Portal.Props, "keepMounted"> & {
@@ -89,6 +94,7 @@ function PopoverContent({
      * portal node) paints underneath it.
      */
     layer?: UiLayerName;
+    xstyle?: StyleXValue;
   } & Pick<
     PopoverPrimitive.Positioner.Props,
     | "align"
@@ -120,13 +126,16 @@ function PopoverContent({
         sticky={sticky}
         positionMethod={positionMethod}
         collisionAvoidance={collisionAvoidance}
-        className={cn("isolate", UI_LAYER_CLASS[layer])}
+        className={cx(sx(overlayLayout.positioner), UI_LAYER_CLASS[layer])}
       >
         <PopoverPrimitive.Popup
           data-slot="popover-content"
-          className={cn(
-            UI_ELEVATION_CLASS.floating,
-            "t-dropdown flex w-72 origin-(--transform-origin) flex-col gap-4 rounded-md bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 outline-hidden",
+          className={mergeClassName(
+            () =>
+              cx(
+                "atelier-motion-dropdown",
+                sx(popoverStyles.surface, overlayLayout.popover, xstyle),
+              ) ?? "",
             className,
           )}
           {...props}
@@ -140,7 +149,7 @@ function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="popover-header"
-      className={cn("flex flex-col gap-1 text-sm", className)}
+      className={cx(sx(overlayLayout.popoverHeader), className)}
       {...props}
     />
   );
@@ -150,7 +159,7 @@ function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
   return (
     <PopoverPrimitive.Title
       data-slot="popover-title"
-      className={cn("font-medium", className)}
+      className={mergeClassName(() => sx(popoverStyles.title), className)}
       {...props}
     />
   );
@@ -163,7 +172,7 @@ function PopoverDescription({
   return (
     <PopoverPrimitive.Description
       data-slot="popover-description"
-      className={cn("text-muted-foreground", className)}
+      className={mergeClassName(() => sx(overlayLayout.muted), className)}
       {...props}
     />
   );

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { ArrowDown, Check, Copy, Maximize2, Minimize2, Trash2 } from "lucide-react";
 import { Button, toast } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "../ads/utils/stylex";
+import { logMarker, logStyles } from "./script-log.stylex";
 import {
   formatScriptDuration,
   stripAnsiControlSequences,
@@ -103,33 +104,33 @@ export function ScriptLogView(props: ScriptLogViewProps) {
   }
 
   return (
-    <div className={cn("mt-2.5 space-y-1", props.className)}>
-      <div className="group relative overflow-hidden rounded-md border border-border/50">
+    <div className={cx(sx(logStyles.root), props.className)}>
+      <div className={sx(logMarker, logStyles.viewport)}>
         {hasLog ? (
           <>
-            <div className="pointer-events-none absolute right-1.5 top-1.5 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <div className={sx(logStyles.actions)}>
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="pointer-events-auto size-6 rounded-md bg-background text-muted-foreground hover:text-foreground"
+                xstyle={logStyles.action}
                 onClick={() => void handleCopy()}
                 title="Copy log"
                 aria-label="Copy log"
               >
-                {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+                {copied ? <Check className={sx(logStyles.icon, logStyles.success)} /> : <Copy className={sx(logStyles.icon)} />}
               </Button>
               {onClear ? (
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="pointer-events-auto size-6 rounded-md bg-background text-muted-foreground hover:text-foreground"
+                  xstyle={logStyles.action}
                   onClick={onClear}
                   title="Clear log"
                   aria-label="Clear log"
                 >
-                  <Trash2 className="size-3.5" />
+                  <Trash2 className={sx(logStyles.icon)} />
                 </Button>
               ) : null}
               {expandable ? (
@@ -137,22 +138,19 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="pointer-events-auto size-6 rounded-md bg-background text-muted-foreground hover:text-foreground"
+                  xstyle={logStyles.action}
                   onClick={() => setExpanded((value) => !value)}
                   title={expanded ? "Collapse log" : "Expand log"}
                   aria-label={expanded ? "Collapse log" : "Expand log"}
                 >
-                  {expanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+                  {expanded ? <Minimize2 className={sx(logStyles.icon)} /> : <Maximize2 className={sx(logStyles.icon)} />}
                 </Button>
               ) : null}
             </div>
             <pre
               ref={scrollRef}
               onScroll={handleScroll}
-              className={cn(
-                "overflow-auto whitespace-pre-wrap bg-terminal px-3 py-2 font-mono text-[11px] leading-[1.6] text-terminal-foreground",
-                expanded ? "max-h-[28rem]" : "max-h-44",
-              )}
+              className={sx(logStyles.output, expanded && logStyles.expanded)}
             >
               {displayLog}
             </pre>
@@ -161,25 +159,25 @@ export function ScriptLogView(props: ScriptLogViewProps) {
                 type="button"
                 size="sm"
                 variant="secondary"
-                className="absolute bottom-1.5 left-1/2 h-6 -translate-x-1/2 gap-1 rounded-full px-2.5 text-[10px] shadow"
+                xstyle={logStyles.jump}
                 onClick={scrollToBottom}
               >
-                <ArrowDown className="size-3" />
+                <ArrowDown className={sx(logStyles.smallIcon)} />
                 Jump to bottom
               </Button>
             ) : null}
           </>
         ) : null}
         {error ? (
-          <div className="border-t border-destructive/20 bg-destructive/8 px-2.5 py-2 text-xs text-destructive">
+          <div className={sx(logStyles.error)}>
             {error}
           </div>
         ) : null}
       </div>
       {showFooter ? (
-        <div className="flex items-center gap-2 px-0.5 text-[10px] text-muted-foreground">
+        <div className={sx(logStyles.footer)}>
           {exitCode !== undefined ? (
-            <span className={cn("font-medium", exitCode === 0 ? "text-success" : "text-destructive")}>
+            <span className={sx(logStyles.exit, exitCode === 0 ? logStyles.success : logStyles.failed)}>
               Exit {exitCode}
             </span>
           ) : null}

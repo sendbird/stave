@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
@@ -164,8 +167,8 @@ export function TaskHistoryDrawer(args: {
       onOpenChange={handleOpenChange}
       swipeDirection="right"
     >
-      <DrawerContent className="data-[swipe-direction=right]:w-[min(28rem,92vw)] data-[swipe-direction=right]:sm:max-w-[28rem]">
-        <DrawerHeader className="border-b border-border/70 px-5 py-5 text-left">
+      <DrawerContent className={sx(styles.drawer)}>
+        <DrawerHeader className={sx(styles.header)}>
           <DrawerTitle>Task History</DrawerTitle>
           <DrawerDescription>
             {isActiveWorkspace
@@ -173,48 +176,48 @@ export function TaskHistoryDrawer(args: {
               : "Closed and archived tasks for this workspace."}
           </DrawerDescription>
           <Input
-            className="mt-3 h-9 rounded-sm border-border/80 bg-background"
+            className={sx(styles.search)}
             placeholder="Search tasks..."
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
         </DrawerHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className={sx(styles.body)}>
           {isFetching ? (
-            <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+            <div className={sx(styles.empty)}>
               Loading tasks...
             </div>
           ) : historyTasks.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+            <div className={sx(styles.empty)}>
               No past tasks yet.
             </div>
           ) : filteredTasks.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+            <div className={sx(styles.empty)}>
               No tasks match &ldquo;{searchQuery}&rdquo;.
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className={sx(styles.list)}>
               {filteredTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center gap-3 rounded-md border border-border/70 bg-background/70 px-3 py-3"
+                  className={sx(styles.row)}
                 >
                   <ModelIcon
                     providerId={task.provider}
-                    className="size-4 shrink-0 text-muted-foreground"
+                    className={sx(styles.icon)}
                   />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  <span className={sx(styles.title)}>
                     {task.title}
                   </span>
                   {isTaskArchived(task) ? (
-                    <span className="shrink-0 rounded-sm border border-border/70 px-1.5 py-0.5 text-[0.6875rem] text-muted-foreground">
+                    <span className={sx(styles.badge)}>
                       Archived
                     </span>
                   ) : null}
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 shrink-0"
+                    className={sx(styles.action)}
                     onClick={() => {
                       void handleReopen(task);
                     }}
@@ -226,10 +229,25 @@ export function TaskHistoryDrawer(args: {
             </div>
           )}
         </div>
-        <DrawerFooter className="border-t border-border/70 px-5 py-4">
+        <DrawerFooter className={sx(styles.footer)}>
           <DrawerClose render={<Button variant="outline" />}>Close</DrawerClose>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
   );
 }
+
+const styles = stylex.create({
+drawer: {width:"min(28rem, 92vw)",maxWidth:448},
+header: {borderBottomWidth:1,borderBottomStyle:"solid",borderBottomColor:vars.colorBorder,padding:20,textAlign:"left"},
+search: {marginTop:12,height:36,borderRadius:4,borderColor:vars.colorBorder,backgroundColor:vars.colorCanvas},
+body: {minHeight:0,flex:1,overflowY:"auto",paddingInline:20,paddingBlock:16},
+empty: {borderRadius:6,borderWidth:1,borderStyle:"dashed",borderColor:vars.colorBorder,paddingInline:12,paddingBlock:16,fontSize:14,color:vars.colorTextMuted},
+list: {display:"flex",flexDirection:"column",gap:8},
+row: {display:"flex",alignItems:"center",gap:12,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,backgroundColor:vars.colorCanvas,padding:12},
+icon: {width:16,height:16,flexShrink:0,color:vars.colorTextMuted},
+title: {minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14,fontWeight:500},
+badge: {flexShrink:0,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,paddingInline:6,paddingBlock:2,fontSize:11,color:vars.colorTextMuted},
+action: {height:32,flexShrink:0},
+footer: {borderTopWidth:1,borderTopStyle:"solid",borderTopColor:vars.colorBorder,paddingInline:20,paddingBlock:16}
+});

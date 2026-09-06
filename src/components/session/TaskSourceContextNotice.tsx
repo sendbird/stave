@@ -1,4 +1,7 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { AlertTriangle, ChevronDown, FileText, X } from "lucide-react";
+import { sx } from "@/components/ads/utils/stylex";
+import { taskSourceContextNoticeStyles as styles } from "./task-source-context-notice.styles";
 import {
   isPrContextSourceId,
   partitionStalePrContexts,
@@ -61,7 +64,9 @@ export function TaskSourceContextNotice(props: {
   onRefreshPrContext?: () => void;
 }) {
   const attached = props.sourceContexts.filter((part) =>
-    SUPPORTED_SOURCE_PREFIXES.some((prefix) => part.sourceId.startsWith(prefix)),
+    SUPPORTED_SOURCE_PREFIXES.some((prefix) =>
+      part.sourceId.startsWith(prefix),
+    ),
   );
   if (attached.length === 0) {
     return null;
@@ -75,95 +80,86 @@ export function TaskSourceContextNotice(props: {
   const staleSourceIds = new Set(stale.map((part) => part.sourceId));
 
   return (
-    <div className="mb-2 rounded-lg border border-border bg-muted/20 px-3 py-2">
-      <div className="flex items-center gap-2">
-        <FileText
-          className="size-4 shrink-0 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">
-            {resolveNoticeTitle(attached)}
-          </p>
-          <p className="text-xs text-muted-foreground">
+    <div className={sx(styles.root)}>
+      <div className={sx(styles.headerRow)}>
+        <FileText className={sx(styles.headerIcon)} aria-hidden="true" />
+        <div className={sx(styles.headerText)}>
+          <p className={sx(styles.title)}>{resolveNoticeTitle(attached)}</p>
+          <p className={sx(styles.subtitle)}>
             Stored locally with this task · Attached to every turn
           </p>
         </div>
         {props.onClear ? (
-          <button
+          <AdsButton
+            layout="host"
             type="button"
             aria-label="Remove all attached context"
-            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
+            xstyle={styles.clearButton}
             onClick={props.onClear}
           >
             Clear all
-          </button>
+          </AdsButton>
         ) : null}
       </div>
 
       {stale.length > 0 ? (
-        <div
-          role="status"
-          className="mt-2 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-xs text-foreground dark:bg-warning/15"
-        >
-          <AlertTriangle
-            className="mt-0.5 size-3.5 shrink-0 text-warning"
-            aria-hidden="true"
-          />
-          <div className="min-w-0 flex-1">
+        <div role="status" className={sx(styles.staleNotice)}>
+          <AlertTriangle className={sx(styles.staleIcon)} aria-hidden="true" />
+          <div className={sx(styles.staleBody)}>
             <p>
               The pull request moved to a new commit. This evidence is held back
               from further turns until you refresh it.
             </p>
             {props.onRefreshPrContext ? (
-              <button
+              <AdsButton
+                layout="host"
                 type="button"
-                className="mt-1 rounded-md text-xs font-medium underline underline-offset-2 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
+                xstyle={styles.refreshButton}
                 onClick={props.onRefreshPrContext}
               >
                 Refresh PR context
-              </button>
+              </AdsButton>
             ) : null}
           </div>
         </div>
       ) : null}
 
-      <details className="group mt-1.5">
-        <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-md py-1 text-xs font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30 [&::-webkit-details-marker]:hidden">
+      <details className={sx(styles.details)}>
+        <summary className={sx(styles.summary)}>
           View attached context
           <ChevronDown
-            className="size-3.5 transition-transform group-open:rotate-180"
+            className={sx(styles.summaryChevron)}
             aria-hidden="true"
           />
         </summary>
-        <div className="mt-1.5 max-h-56 space-y-3 overflow-y-auto border-l border-border/60 pl-3">
+        <div className={sx(styles.attachedList)}>
           {attached.map((part) => (
-            <section key={part.sourceId} aria-label={part.title ?? part.sourceId}>
+            <section
+              key={part.sourceId}
+              aria-label={part.title ?? part.sourceId}
+            >
               {attached.length > 1 || props.onRemove ? (
-                <div className="mb-1 flex items-start gap-2">
-                  <p className="min-w-0 flex-1 text-xs font-medium text-foreground">
+                <div className={sx(styles.attachedHeaderRow)}>
+                  <p className={sx(styles.attachedTitle)}>
                     {part.title ?? part.sourceId}
                     {staleSourceIds.has(part.sourceId) ? (
-                      <span className="ml-1.5 text-[10px] font-normal text-warning">
-                        stale
-                      </span>
+                      <span className={sx(styles.staleTag)}>stale</span>
                     ) : null}
                   </p>
                   {props.onRemove ? (
-                    <button
+                    <AdsButton
+                      layout="host"
                       type="button"
                       aria-label={`Remove ${part.title ?? part.sourceId}`}
-                      className="shrink-0 rounded-md p-0.5 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
+                      xstyle={styles.removeButton}
                       onClick={() => props.onRemove?.(part.sourceId)}
                     >
-                      <X className="size-3.5" aria-hidden="true" />
-                    </button>
+                      <X className={sx(styles.removeIcon)} aria-hidden="true" />
+                    </AdsButton>
                   ) : null}
                 </div>
               ) : null}
-              <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-5 text-muted-foreground">
-                {part.content}
-              </pre>
+              <pre className={sx(styles.attachedContent)}>{part.content}</pre>
             </section>
           ))}
         </div>

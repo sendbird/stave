@@ -1,6 +1,15 @@
+import {
+  trackerVisualStyles,
+  priorityToneStyles,
+  labelColorStyles,
+} from "./tracker-visual.styles";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { memo } from "react";
 
-import { Badge } from "@/components/ui";
+import { Badge } from "../../ads/components/Badge";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import { groupTrackerTasksForBoard } from "@/lib/tracker-tasks/board";
 import {
@@ -11,11 +20,11 @@ import {
 } from "@/lib/tracker-tasks/presentation";
 import type { TrackerTaskListItem } from "@/lib/tracker-tasks/types";
 import { trackerTaskKey } from "@/lib/tracker-tasks/client-store";
-import { cn } from "@/lib/utils";
 import {
   TRACKER_PRIORITY_ICONS,
   TRACKER_SOURCE_LABELS,
 } from "./tracker-task-ui";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 
 const VISIBLE_LABEL_COUNT = 2;
 
@@ -35,30 +44,24 @@ export function TasksBoard(props: TasksBoardProps) {
   const columns = groupTrackerTasksForBoard(props.items);
 
   return (
-    <div
-      data-stave-tasks-board=""
-      className="flex h-full min-h-0 gap-3 overflow-x-auto overflow-y-hidden px-4 py-3 [scrollbar-width:thin]"
-    >
+    <div data-stave-tasks-board="" className={sx(taskLayoutStyles.board)}>
       {columns.map((column) => {
         const tone = TRACKER_STATUS_PRESENTATION[column.id];
         return (
           <section
             key={column.id}
             data-board-column={column.id}
-            className="flex w-[17rem] shrink-0 flex-col rounded-lg border border-border/60 bg-muted/25"
+            className={sx(taskLayoutStyles.boardColumn)}
           >
-            <header className="flex shrink-0 items-center gap-2 px-3 py-2">
-              <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+            <header className={sx(taskLayoutStyles.boardHeader)}>
+              <h3 className={sx(taskLayoutStyles.boardTitle)}>
                 {column.title}
               </h3>
-              <Badge
-                variant="outline"
-                className={cn("tabular-nums text-xs", tone.toneClassName)}
-              >
+              <Badge variant="outline" tone={tone.tone}>
                 {column.items.length}
               </Badge>
             </header>
-            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
+            <div className={sx(taskLayoutStyles.boardItems)}>
               {column.items.map((item) => {
                 const key = trackerTaskKey(item.task.source, item.task.ref);
                 return (
@@ -94,52 +97,55 @@ const TasksBoardCard = memo(function TasksBoardCard(props: {
   const initials = task.assignee ? getInitials(task.assignee.name) : null;
 
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
       data-tracker-task-key={key}
       aria-pressed={props.selected}
       onClick={() => props.onSelect(key)}
-      className={cn(
-        "flex w-full flex-col gap-2 rounded-md border px-3 py-2.5 text-left transition-colors",
-        props.selected
-          ? "border-primary/40 bg-accent/50"
-          : "border-border/70 bg-card hover:border-border hover:bg-accent/25",
-      )}
+      xstyle={[
+        taskLayoutStyles.boardCard,
+        focusRing.ring,
+        transition.colors,
+        props.selected && taskLayoutStyles.boardCardSelected,
+      ]}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5">
+      <div className={sx(taskLayoutStyles.boardCardTop)}>
+        <span className={sx(taskLayoutStyles.boardCardKeyGroup)}>
           <span title={TRACKER_SOURCE_LABELS[task.source]}>
             <ServiceLinkIcon
               kind={task.source === "crane" ? "crane" : "jira"}
-              className="text-[13px] text-muted-foreground"
+              className={sx(taskLayoutStyles.boardCardKey)}
             />
           </span>
-          <span className="truncate font-mono text-xs text-muted-foreground">
-            {task.key}
-          </span>
+          <span className={sx(taskLayoutStyles.boardCardKey)}>{task.key}</span>
         </span>
-        <span className={priority.toneClassName} title={priority.label}>
-          <PriorityIcon className="size-4" aria-label={priority.label} />
+        <span
+          className={sx(priorityToneStyles[priority.tone])}
+          title={priority.label}
+        >
+          <PriorityIcon
+            className={sx(trackerVisualStyles.priorityIcon)}
+            aria-label={priority.label}
+          />
         </span>
       </div>
-      <span className="line-clamp-3 text-sm font-medium leading-5 text-foreground">
-        {task.title}
-      </span>
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 flex-wrap items-center gap-1">
+      <span className={sx(taskLayoutStyles.boardCardTitle)}>{task.title}</span>
+      <div className={sx(taskLayoutStyles.boardCardFooter)}>
+        <span className={sx(taskLayoutStyles.boardLabels)}>
           {task.labels.slice(0, VISIBLE_LABEL_COUNT).map((label) => {
             const color = resolveTrackerLabelColor(label.color);
             return (
               <span
                 key={label.name}
-                className="inline-flex max-w-[7rem] items-center gap-1 truncate rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground"
+                className={sx(taskLayoutStyles.boardLabel)}
               >
                 {color === null ? null : (
                   <span
                     aria-hidden="true"
-                    className={cn(
-                      "size-1.5 shrink-0 rounded-full",
-                      color.kind === "token" && color.className,
+                    className={sx(
+                      taskLayoutStyles.labelDot,
+                      color.kind === "token" && labelColorStyles[color.token],
                     )}
                     style={
                       color.kind === "css"
@@ -153,20 +159,20 @@ const TasksBoardCard = memo(function TasksBoardCard(props: {
             );
           })}
           {hiddenLabelCount > 0 ? (
-            <span className="text-xs text-muted-foreground">
+            <span className={sx(taskLayoutStyles.boardCardKey)}>
               +{hiddenLabelCount}
             </span>
           ) : null}
         </span>
         {initials ? (
           <span
-            className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground"
+            className={sx(taskLayoutStyles.boardAvatar)}
             title={task.assignee?.name}
           >
             {initials}
           </span>
         ) : null}
       </div>
-    </button>
+    </AdsButton>
   );
 });

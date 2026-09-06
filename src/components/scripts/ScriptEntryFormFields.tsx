@@ -10,20 +10,21 @@ import {
   Switch,
   Textarea,
 } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   entryHasAdvancedValues,
   type ScriptEditorEntry,
   type ScriptEntryFieldIssues,
 } from "@/lib/workspace-scripts/editor";
 import type { ScriptKind } from "@/lib/workspace-scripts/types";
-import { cn } from "@/lib/utils";
+import { entryFormStyles } from "./script-entry-form-fields.styles";
 
 function FieldError(props: { message?: string }) {
   if (!props.message) {
     return null;
   }
   return (
-    <span className="block text-[11px] text-destructive">{props.message}</span>
+    <span className={sx(entryFormStyles.fieldError)}>{props.message}</span>
   );
 }
 
@@ -53,9 +54,9 @@ export function ScriptEntryFormFields(props: {
   }, [hasAdvancedIssues, props.entry, props.kind]);
 
   return (
-    <div className="space-y-3">
-      <label className="space-y-1.5">
-        <span className="text-xs font-medium text-foreground">Label</span>
+    <div className={sx(entryFormStyles.root)}>
+      <label className={sx(entryFormStyles.field)}>
+        <span className={sx(entryFormStyles.fieldLabel)}>Label</span>
         <Input
           value={props.entry.label}
           onChange={(event) => props.onFieldChange("label", event.target.value)}
@@ -63,35 +64,40 @@ export function ScriptEntryFormFields(props: {
         />
       </label>
 
-      <label className="space-y-1.5">
-        <span className="text-xs font-medium text-foreground">Commands</span>
+      <label className={sx(entryFormStyles.field)}>
+        <span className={sx(entryFormStyles.fieldLabel)}>Commands</span>
         <Textarea
           value={props.entry.commandsText}
           onChange={(event) =>
             props.onFieldChange("commandsText", event.target.value)
           }
-          className={cn("min-h-28", issues.commands && "border-destructive")}
+          xstyle={[
+            entryFormStyles.commands,
+            Boolean(issues.commands) && entryFormStyles.invalidControl,
+          ]}
           placeholder={"bun install\nbun run dev"}
           aria-invalid={Boolean(issues.commands)}
         />
         {issues.commands ? (
           <FieldError message={issues.commands} />
         ) : (
-          <span className="block text-[11px] text-muted-foreground">
+          <span className={sx(entryFormStyles.hint)}>
             One shell command per line.
           </span>
         )}
       </label>
 
       {props.kind === "service" ? (
-        <div className="flex items-center gap-2">
+        <div className={sx(entryFormStyles.switchRow)}>
           <Switch
             checked={props.entry.restartOnRun}
             onCheckedChange={(checked) =>
               props.onFieldChange("restartOnRun", checked)
             }
           />
-          <span className="text-xs text-foreground">Restart on run</span>
+          <span className={sx(entryFormStyles.switchLabel)}>
+            Restart on run
+          </span>
         </div>
       ) : null}
 
@@ -100,7 +106,7 @@ export function ScriptEntryFormFields(props: {
           type="button"
           size="sm"
           variant="ghost"
-          className="h-8 px-2 text-xs"
+          xstyle={entryFormStyles.advancedToggle}
           onClick={() => setAdvancedOpen((open) => !open)}
           aria-expanded={advancedOpen}
         >
@@ -109,9 +115,9 @@ export function ScriptEntryFormFields(props: {
       </div>
 
       {advancedOpen ? (
-        <div className="space-y-3 border-t border-border/60 pt-3">
-          <label className="space-y-1.5">
-            <span className="text-xs font-medium text-foreground">ID</span>
+        <div className={sx(entryFormStyles.advanced)}>
+          <label className={sx(entryFormStyles.field)}>
+            <span className={sx(entryFormStyles.fieldLabel)}>ID</span>
             {idEditing ? (
               <Input
                 value={props.entry.id}
@@ -122,16 +128,16 @@ export function ScriptEntryFormFields(props: {
                   props.kind === "service" ? "dev-server" : "bootstrap"
                 }
                 aria-invalid={Boolean(issues.id)}
-                className={cn(issues.id && "border-destructive")}
+                xstyle={Boolean(issues.id) && entryFormStyles.invalidControl}
               />
             ) : (
-              <div className="flex items-center gap-2">
+              <div className={sx(entryFormStyles.idDisplayRow)}>
                 <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate font-mono text-xs",
+                  className={sx(
+                    entryFormStyles.idDisplay,
                     props.entry.id.trim()
-                      ? "text-foreground"
-                      : "text-muted-foreground",
+                      ? entryFormStyles.idDisplaySet
+                      : entryFormStyles.idDisplayEmpty,
                   )}
                 >
                   {props.entry.id.trim() || "Generated from the label"}
@@ -140,7 +146,7 @@ export function ScriptEntryFormFields(props: {
                   type="button"
                   size="sm"
                   variant="outline"
-                  className="h-8"
+                  xstyle={entryFormStyles.idEditButton}
                   onClick={() => setIdEditing(true)}
                 >
                   Edit
@@ -150,10 +156,8 @@ export function ScriptEntryFormFields(props: {
             <FieldError message={issues.id} />
           </label>
 
-          <label className="space-y-1.5">
-            <span className="text-xs font-medium text-foreground">
-              Description
-            </span>
+          <label className={sx(entryFormStyles.field)}>
+            <span className={sx(entryFormStyles.fieldLabel)}>Description</span>
             <Input
               value={props.entry.description}
               onChange={(event) =>
@@ -163,9 +167,9 @@ export function ScriptEntryFormFields(props: {
             />
           </label>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-foreground">
+          <div className={sx(entryFormStyles.grid)}>
+            <label className={sx(entryFormStyles.field)}>
+              <span className={sx(entryFormStyles.fieldLabel)}>
                 Environment
               </span>
               <Select
@@ -173,9 +177,9 @@ export function ScriptEntryFormFields(props: {
                 onValueChange={(value) => props.onFieldChange("target", value)}
               >
                 <SelectTrigger
-                  className={cn(
-                    "w-full",
-                    issues.target && "border-destructive",
+                  className={sx(
+                    entryFormStyles.triggerFull,
+                    Boolean(issues.target) && entryFormStyles.invalidControl,
                   )}
                 >
                   <SelectValue placeholder="Select an environment" />
@@ -190,8 +194,8 @@ export function ScriptEntryFormFields(props: {
               </Select>
               <FieldError message={issues.target} />
             </label>
-            <label className="space-y-1.5">
-              <span className="text-xs font-medium text-foreground">
+            <label className={sx(entryFormStyles.field)}>
+              <span className={sx(entryFormStyles.fieldLabel)}>
                 Timeout (ms)
               </span>
               <Input
@@ -202,34 +206,38 @@ export function ScriptEntryFormFields(props: {
                 inputMode="numeric"
                 placeholder="Optional"
                 aria-invalid={Boolean(issues.timeoutMs)}
-                className={cn(issues.timeoutMs && "border-destructive")}
+                xstyle={
+                  Boolean(issues.timeoutMs) && entryFormStyles.invalidControl
+                }
               />
               <FieldError message={issues.timeoutMs} />
             </label>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border/70 bg-muted/15 px-3 py-2.5">
-            <div className="flex items-center gap-2">
+          <div className={sx(entryFormStyles.toggleGroup)}>
+            <div className={sx(entryFormStyles.switchRow)}>
               <Switch
                 checked={props.entry.enabled}
                 onCheckedChange={(checked) =>
                   props.onFieldChange("enabled", checked)
                 }
               />
-              <span className="text-xs text-foreground">Enabled</span>
+              <span className={sx(entryFormStyles.switchLabel)}>Enabled</span>
             </div>
             {props.kind === "service" ? (
               <>
-                <div className="flex items-center gap-2">
+                <div className={sx(entryFormStyles.switchRow)}>
                   <Switch
                     checked={props.entry.orbitEnabled}
                     onCheckedChange={(checked) =>
                       props.onFieldChange("orbitEnabled", checked)
                     }
                   />
-                  <span className="text-xs text-foreground">Use Orbit</span>
+                  <span className={sx(entryFormStyles.switchLabel)}>
+                    Use Orbit
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className={sx(entryFormStyles.switchRow)}>
                   <Switch
                     checked={props.entry.orbitNoTls}
                     disabled={!props.entry.orbitEnabled}
@@ -237,16 +245,18 @@ export function ScriptEntryFormFields(props: {
                       props.onFieldChange("orbitNoTls", checked)
                     }
                   />
-                  <span className="text-xs text-foreground">Plain HTTP</span>
+                  <span className={sx(entryFormStyles.switchLabel)}>
+                    Plain HTTP
+                  </span>
                 </div>
               </>
             ) : null}
           </div>
 
           {props.kind === "service" && props.entry.orbitEnabled ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1.5">
-                <span className="text-xs font-medium text-foreground">
+            <div className={sx(entryFormStyles.grid)}>
+              <label className={sx(entryFormStyles.field)}>
+                <span className={sx(entryFormStyles.fieldLabel)}>
                   Orbit Name
                 </span>
                 <Input
@@ -256,13 +266,13 @@ export function ScriptEntryFormFields(props: {
                   }
                   placeholder="Optional base host name override"
                 />
-                <span className="block text-[11px] text-muted-foreground">
+                <span className={sx(entryFormStyles.hint)}>
                   Optional `portless --name` override. Orbit processes must use
                   the workspace environment.
                 </span>
               </label>
-              <label className="space-y-1.5">
-                <span className="text-xs font-medium text-foreground">
+              <label className={sx(entryFormStyles.field)}>
+                <span className={sx(entryFormStyles.fieldLabel)}>
                   Orbit Proxy Port
                 </span>
                 <Input
@@ -273,12 +283,15 @@ export function ScriptEntryFormFields(props: {
                   inputMode="numeric"
                   placeholder="Optional"
                   aria-invalid={Boolean(issues.orbitProxyPort)}
-                  className={cn(issues.orbitProxyPort && "border-destructive")}
+                  xstyle={
+                    Boolean(issues.orbitProxyPort) &&
+                    entryFormStyles.invalidControl
+                  }
                 />
                 {issues.orbitProxyPort ? (
                   <FieldError message={issues.orbitProxyPort} />
                 ) : (
-                  <span className="block text-[11px] text-muted-foreground">
+                  <span className={sx(entryFormStyles.hint)}>
                     Optional portless proxy port override.
                   </span>
                 )}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Button } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   buildConnectedToolOverviews,
   buildMcpServerOverviews,
@@ -32,6 +33,7 @@ import {
   McpServerConfigShareDialog,
 } from "./settings-dialog-mcp-config-editor";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
+import { mcpSectionStyles as styles } from "./settings-dialog-mcp-section.styles";
 
 type McpManagementViewState = {
   discovery: McpDiscoveryResponse | null;
@@ -177,16 +179,16 @@ function McpProviderStatus(args: {
   const errorTime = formatStatusTime(args.overview.lastErrorAt);
 
   return (
-    <div className="min-w-0 rounded-md border border-border/70 bg-background/45 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">{providerLabel}</p>
+    <div className={sx(styles.providerCard)}>
+      <div className={sx(styles.providerHead)}>
+        <p className={sx(styles.providerName)}>{providerLabel}</p>
         <Badge variant={getConnectionBadgeVariant(args.overview.state)}>
           {args.authPending && args.overview.state !== "connected"
             ? "Waiting for sign-in"
             : args.overview.label}
         </Badge>
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+      <div className={sx(styles.providerMeta)}>
         {args.overview.detail ? <span>{args.overview.detail}</span> : null}
         {typeof args.overview.toolCount === "number" ? (
           <span>
@@ -197,18 +199,16 @@ function McpProviderStatus(args: {
         {statusTime ? <span>Checked {statusTime}</span> : null}
       </div>
       {args.overview.lastError ? (
-        <div className="mt-2 rounded-md border border-destructive/25 bg-destructive/5 px-2.5 py-2 text-xs">
-          <p className="font-medium text-destructive">
+        <div className={sx(styles.errorBox)}>
+          <p className={sx(styles.errorTitle)}>
             Recent error{errorTime ? ` · ${errorTime}` : ""}
           </p>
-          <p className="mt-1 break-words text-muted-foreground">
-            {args.overview.lastError}
-          </p>
+          <p className={sx(styles.errorDetail)}>{args.overview.lastError}</p>
         </div>
       ) : null}
       {args.overview.canAuthenticate && args.onAuthenticate ? (
         <Button
-          className="mt-3"
+          className={sx(styles.signInButton)}
           size="sm"
           variant="outline"
           disabled={args.authBusy || args.authPending}
@@ -257,7 +257,8 @@ function McpShareActions(args: {
     args.codexConfigured &&
     args.cursorConfigured &&
     args.kiroConfigured
-  ) return null;
+  )
+    return null;
   const toCodex = args.codexConfigured
     ? null
     : pickShareSource(args.configs, "codex");
@@ -272,7 +273,7 @@ function McpShareActions(args: {
     : pickShareSource(args.configs, "kiro");
   if (!toCodex && !toClaude && !toCursor && !toKiro) return null;
   return (
-    <div className="mt-3 flex flex-wrap gap-2">
+    <div className={sx(styles.shareActions)}>
       {toCodex ? (
         <Button
           type="button"
@@ -324,19 +325,14 @@ function McpConfigurationRows(args: {
 }) {
   if (args.configs.length === 0) return null;
   return (
-    <div className="mt-3 border-t border-border/60 pt-3">
-      <p className="text-xs font-medium text-muted-foreground">
-        Native configuration
-      </p>
-      <div className="mt-2 space-y-2">
+    <div className={sx(styles.configSection)}>
+      <p className={sx(styles.configHeading)}>Native configuration</p>
+      <div className={sx(styles.configList)}>
         {args.configs.map((config) => (
-          <div
-            key={config.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/65 bg-background/45 px-3 py-2"
-          >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs font-medium text-foreground">
+          <div key={config.id} className={sx(styles.configRow)}>
+            <div className={sx(styles.configMeta)}>
+              <div className={sx(styles.configLabelLine)}>
+                <span className={sx(styles.configLabel)}>
                   {config.sourceLabel}
                 </span>
                 <Badge variant="outline">
@@ -347,14 +343,14 @@ function McpConfigurationRows(args: {
                 ) : null}
               </div>
               {config.hiddenValueCount ? (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className={sx(styles.configHidden)}>
                   {config.hiddenValueCount} protected value
                   {config.hiddenValueCount === 1 ? "" : "s"} hidden
                 </p>
               ) : null}
             </div>
             {config.canEdit || config.canDelete ? (
-              <div className="flex items-center gap-1.5">
+              <div className={sx(styles.configActions)}>
                 {config.canEdit ? (
                   <Button
                     type="button"
@@ -659,9 +655,7 @@ function McpServerConnectionsCard() {
           cwd: workspaceCwd,
           runtimeOptions: args.runtimeOptions,
         });
-        setAuthNotice(
-          result?.detail ?? "Cursor OAuth login API unavailable.",
-        );
+        setAuthNotice(result?.detail ?? "Cursor OAuth login API unavailable.");
         if (result?.ok) void refresh();
         return;
       }
@@ -746,7 +740,7 @@ function McpServerConnectionsCard() {
       title="MCP Connections"
       description="Install native MCP servers for Claude, Codex, Cursor, and Kiro. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route."
       titleAccessory={
-        <div className="flex items-center gap-2">
+        <div className={sx(styles.titleActions)}>
           <Button
             type="button"
             size="sm"
@@ -770,35 +764,31 @@ function McpServerConnectionsCard() {
         </div>
       }
     >
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className={sx(styles.statsGrid)}>
         {[
           ["Servers", servers.length],
           ["Connected", `${connectedCount}/${configuredCount}`],
           ["Needs attention", attentionCount],
         ].map(([label, value]) => (
-          <div
-            key={label}
-            className="rounded-md border border-border/70 bg-muted/25 px-3 py-2"
-          >
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="mt-1 font-mono text-sm font-medium text-foreground">
-              {value}
-            </p>
+          <div key={label} className={sx(styles.statCard)}>
+            <p className={sx(styles.statLabel)}>{label}</p>
+            <p className={sx(styles.statValue)}>{value}</p>
           </div>
         ))}
       </div>
 
       {servers.length > 0 ? (
         <div
-          className="rounded-md border border-border/70 bg-muted/20 px-3 py-2"
+          className={sx(styles.availabilityBox)}
           role="group"
           aria-label="Connector availability"
         >
-          <p className="text-xs text-muted-foreground">
+          <p className={sx(styles.availabilityText)}>
             Provider-native configuration and available runtime status.
-            Account-managed OAuth sessions stay with the provider that owns them.
+            Account-managed OAuth sessions stay with the provider that owns
+            them.
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className={sx(styles.availabilityChips)}>
             {connectedTools.map((tool) => (
               <Badge
                 key={tool.id}
@@ -817,30 +807,30 @@ function McpServerConnectionsCard() {
       ) : null}
 
       {state.busy && servers.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Loading MCP connections…
-        </p>
+        <p className={sx(styles.mutedText)}>Loading MCP connections…</p>
       ) : null}
       {!state.busy && state.refreshedAt && servers.length === 0 ? (
-        <p className="rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
+        <p className={sx(styles.emptyBox)}>
           No MCP servers were found in the current Claude, Codex, Cursor, or
           Kiro configuration.
         </p>
       ) : null}
 
-      <div className="space-y-3" role="list" aria-label="MCP server status">
+      <div
+        className={sx(styles.serverList)}
+        role="list"
+        aria-label="MCP server status"
+      >
         {servers.map((server) => (
           <article
             key={server.name}
             role="listitem"
-            className="rounded-lg border border-border/75 bg-muted/15 p-3"
+            className={sx(styles.serverArticle)}
           >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h4 className="truncate text-sm font-semibold text-foreground">
-                  {server.name}
-                </h4>
-                <p className="mt-1 text-xs text-muted-foreground">
+            <div className={sx(styles.serverHead)}>
+              <div>
+                <h4 className={sx(styles.serverName)}>{server.name}</h4>
+                <p className={sx(styles.serverSources)}>
                   {server.sources.length > 0
                     ? [...new Set(server.sources)]
                         .map(formatMcpSourceLabel)
@@ -848,7 +838,7 @@ function McpServerConnectionsCard() {
                     : "Runtime detected"}
                 </p>
               </div>
-              <div className="flex flex-wrap justify-end gap-1.5">
+              <div className={sx(styles.serverBadges)}>
                 <Badge variant="outline">
                   {formatMcpTransportLabel(server.transport)}
                 </Badge>
@@ -861,11 +851,11 @@ function McpServerConnectionsCard() {
               </div>
             </div>
             {server.acpAvailability !== "portable" ? (
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className={sx(styles.serverAvailability)}>
                 {getAcpAvailabilityCopy(server.acpAvailability).detail}
               </p>
             ) : null}
-            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            <div className={sx(styles.providerGrid)}>
               <McpProviderStatus
                 serverName={server.name}
                 overview={server.claude}
@@ -950,11 +940,11 @@ function McpServerConnectionsCard() {
 
       {mutationNotice ? (
         <p
-          className={
+          className={sx(
             mutationNotice.outcome === "partial"
-              ? "rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning-foreground"
-              : "rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success"
-          }
+              ? styles.noticePartial
+              : styles.noticeSuccess,
+          )}
           aria-live="polite"
           role="status"
         >
@@ -962,19 +952,12 @@ function McpServerConnectionsCard() {
         </p>
       ) : null}
       {authNotice ? (
-        <p
-          className="rounded-md border border-border/75 bg-muted/25 px-3 py-2 text-sm text-muted-foreground"
-          aria-live="polite"
-          role="status"
-        >
+        <p className={sx(styles.authNotice)} aria-live="polite" role="status">
           {authNotice}
         </p>
       ) : null}
       {state.errors.length > 0 ? (
-        <div
-          className="space-y-1 rounded-md border border-destructive/25 bg-destructive/5 px-3 py-2 text-xs text-destructive"
-          role="status"
-        >
+        <div className={sx(styles.errorList)} role="status">
           {state.errors.map((error) => (
             <p key={error}>{error}</p>
           ))}

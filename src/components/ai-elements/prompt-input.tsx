@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Brain,
   ClipboardCheck,
@@ -116,7 +117,8 @@ import {
   getActiveMacroTokenMatch,
 } from "@/lib/macros/token";
 import type { Macro, MacroTokenMatch } from "@/lib/macros/types";
-import { cn } from "@/lib/utils";
+import { sx, cx } from "../ads/utils/stylex";
+import { promptInputStyles } from "./prompt-input.styles";
 import {
   collectClipboardFiles,
   mergeClipboardImageAttachments,
@@ -416,15 +418,12 @@ const PALETTE_ITEM_INDEX_ATTRIBUTE = "data-palette-index";
  */
 const SHORTCUT_ECHO_GUARD_WINDOW_MS = 120;
 
-const PROMPT_SURFACE_FOCUS_VISIBLE_RESET =
-  "focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
+const PROMPT_SURFACE_PRIMARY_FOCUS = sx(promptInputStyles.surfacePrimaryFocus);
+const PROMPT_FLOATING_SURFACE = sx(promptInputStyles.floatingSurface);
+const PROMPT_TOOLBAR_ICON_BUTTON = sx(promptInputStyles.toolbarIconButton);
 type WorkspaceInformationTokenMatch = NonNullable<
   ReturnType<typeof getActiveWorkspaceInformationTokenMatch>
 >;
-const PROMPT_SURFACE_PRIMARY_FOCUS = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} focus-visible:border-transparent`;
-const PROMPT_FLOATING_SURFACE =
-  "border border-border/60 bg-background/90 text-foreground hover:bg-background/95";
-const PROMPT_TOOLBAR_ICON_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} rounded-md border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-muted/60 hover:text-foreground`;
 
 /*
  * Typography the enhancement reveal has to mirror exactly. The overlay is a
@@ -432,13 +431,12 @@ const PROMPT_TOOLBAR_ICON_BUTTON = `${PROMPT_SURFACE_FOCUS_VISIBLE_RESET} rounde
  * size, leading or tracking would make it wrap on different words than the
  * editor it is standing in for.
  */
-const PROMPT_EDITOR_TYPOGRAPHY_MINIMAL =
-  "font-mono text-[15px] leading-7 tracking-[-0.01em] md:text-[15px]";
-const PROMPT_EDITOR_TYPOGRAPHY_DEFAULT = "text-lg leading-8 md:text-lg";
+const PROMPT_EDITOR_TYPOGRAPHY_MINIMAL = promptInputStyles.editorTypographyMinimal;
+const PROMPT_EDITOR_TYPOGRAPHY_DEFAULT = promptInputStyles.editorTypographyDefault;
 // Icon-only reservation. The busy chip overlays the draft instead of growing
 // this inset — expanding to a label-width pad reflowed the first line twice
 // (enter busy, leave busy) on top of the reveal animation.
-const PROMPT_ENHANCEMENT_EDITOR_INSET = "pr-9";
+const PROMPT_ENHANCEMENT_EDITOR_INSET = promptInputStyles.enhancementEditorInset;
 
 /**
  * Drives the enhancement reveal.
@@ -554,17 +552,14 @@ function PromptEnhancementRevealOverlay(args: {
     <div
       aria-hidden="true"
       data-prompt-enhancement-reveal="true"
-      className={cn(
-        "pointer-events-none absolute inset-0 select-none overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-        args.className,
-      )}
+      className={cx(sx(promptInputStyles.revealOverlay), args.className)}
       style={{ "--prompt-diff-step": `${args.stepMs}ms` } as CSSProperties}
     >
       {args.segments.map((segment, index) =>
         segment.changed ? (
           <span
             key={index}
-            className="rounded-[3px] [box-decoration-break:clone] motion-safe:animate-prompt-diff-word"
+            className={sx(promptInputStyles.revealWord)}
             style={{ "--prompt-diff-i": segment.order } as CSSProperties}
           >
             {segment.text}
@@ -591,40 +586,44 @@ function tooltipTriggerButtonClassName(args: {
   });
 }
 
-function getPromptToolbarAccentClass(tone: "plan" | "thinking") {
-  if (tone === "thinking")
-    return "text-prompt-role-thinking hover:text-prompt-role-thinking";
-  return "text-prompt-role-plan hover:text-prompt-role-plan";
+function getPromptToolbarAccentStyle(tone: "plan" | "thinking") {
+  if (tone === "thinking") return promptInputStyles.accentThinking;
+  return promptInputStyles.accentPlan;
 }
 
-function getRuntimeProfileToneClass(tone: PromptInputRuntimeProfile["tone"]) {
+function getRuntimeProfileToneStyle(tone: PromptInputRuntimeProfile["tone"]) {
   if (tone === "warning") {
-    return "text-warning";
+    return promptInputStyles.toneWarning;
   }
   if (tone === "custom") {
-    return "text-primary";
+    return promptInputStyles.tonePrimary;
   }
-  return "text-success";
+  return promptInputStyles.toneSuccess;
 }
 
 function PromptInputRuntimeTriggerIcon(args: {
   profile: PromptInputRuntimeProfile;
 }) {
   return (
-    <span className="relative inline-flex size-4 items-center justify-center">
-      <SlidersHorizontal aria-hidden="true" className="size-4" />
+    <span className={sx(promptInputStyles.runtimeTriggerIcon)}>
+      <SlidersHorizontal
+        aria-hidden="true"
+        className={sx(promptInputStyles.runtimeTriggerGlyph)}
+      />
       <span
         aria-hidden="true"
-        className={cn(
-          "absolute -right-1 -top-1 size-2 rounded-full border-2 border-card",
+        className={sx(
+          promptInputStyles.runtimeTriggerDot,
           args.profile.tone === "warning"
-            ? "bg-warning"
+            ? promptInputStyles.runtimeDotWarning
             : args.profile.tone === "custom"
-              ? "bg-primary"
-              : "bg-success",
+              ? promptInputStyles.runtimeDotCustom
+              : promptInputStyles.runtimeDotSuccess,
         )}
       />
-      <span className="sr-only">Runtime profile: {args.profile.label}</span>
+      <span className={sx(promptInputStyles.srOnly)}>
+        Runtime profile: {args.profile.label}
+      </span>
     </span>
   );
 }
@@ -695,19 +694,19 @@ function LensAnnotationStylePopover(args: {
           />
         }
       >
-        <SlidersHorizontal className="size-3" />
+        <SlidersHorizontal className={sx(promptInputStyles.icon3)} />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 space-y-3">
+      <PopoverContent align="end" className={sx(promptInputStyles.lensPopover72)}>
         <div>
           <PopoverTitle>Style</PopoverTitle>
           <PopoverDescription>
             Live inline edits for the selected element.
           </PopoverDescription>
         </div>
-        <div className="grid gap-2">
+        <div className={sx(promptInputStyles.fieldGrid)}>
           {LENS_ANNOTATION_STYLE_FIELDS.map((field) => (
-            <label key={field} className="grid gap-1 text-xs">
-              <span className="font-medium text-muted-foreground">{field}</span>
+            <label key={field} className={sx(promptInputStyles.fieldLabel)}>
+              <span className={sx(promptInputStyles.fieldLabelText)}>{field}</span>
               <Input
                 value={draft[field] ?? ""}
                 onChange={(event) =>
@@ -716,7 +715,7 @@ function LensAnnotationStylePopover(args: {
                     [field]: event.target.value,
                   }))
                 }
-                className="h-7 font-mono text-xs"
+                className={sx(promptInputStyles.inputField)}
               />
             </label>
           ))}
@@ -724,7 +723,7 @@ function LensAnnotationStylePopover(args: {
         <Button
           type="button"
           size="xs"
-          className="w-full"
+          className={sx(promptInputStyles.fullWidth)}
           disabled={saving || Object.keys(patch).length === 0}
           onClick={() => {
             setSaving(true);
@@ -775,22 +774,22 @@ function LensAnnotationFeedbackPopover(args: {
           />
         }
       >
-        <Pencil className="size-3" />
+        <Pencil className={sx(promptInputStyles.icon3)} />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 space-y-3">
+      <PopoverContent align="end" className={sx(promptInputStyles.lensPopover64)}>
         <div>
           <PopoverTitle>Review details</PopoverTitle>
           <PopoverDescription>
             Set what this comment asks for and how urgent it is.
           </PopoverDescription>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-1 text-xs">
-            <span className="font-medium text-muted-foreground">Intent</span>
+        <div className={sx(promptInputStyles.fieldGridCols2)}>
+          <label className={sx(promptInputStyles.fieldLabel)}>
+            <span className={sx(promptInputStyles.fieldLabelText)}>Intent</span>
             <Select value={intent} onValueChange={setIntent}>
               <SelectTrigger
                 size="sm"
-                className="w-full"
+                className={sx(promptInputStyles.fullWidth)}
                 aria-label={`Intent for comment ${annotation.pin}`}
               >
                 <SelectValue />
@@ -804,12 +803,12 @@ function LensAnnotationFeedbackPopover(args: {
               </SelectContent>
             </Select>
           </label>
-          <label className="grid gap-1 text-xs">
-            <span className="font-medium text-muted-foreground">Priority</span>
+          <label className={sx(promptInputStyles.fieldLabel)}>
+            <span className={sx(promptInputStyles.fieldLabelText)}>Priority</span>
             <Select value={priority} onValueChange={setPriority}>
               <SelectTrigger
                 size="sm"
-                className="w-full"
+                className={sx(promptInputStyles.fullWidth)}
                 aria-label={`Priority for comment ${annotation.pin}`}
               >
                 <SelectValue />
@@ -827,7 +826,7 @@ function LensAnnotationFeedbackPopover(args: {
         <Button
           type="button"
           size="xs"
-          className="w-full"
+          className={sx(promptInputStyles.fullWidth)}
           disabled={!changed}
           onClick={() =>
             onApply(annotation, {
@@ -2255,18 +2254,18 @@ export function PromptInput(args: PromptInputProps) {
 
   function renderSkillScopeIcon(scope: SkillCatalogEntry["scope"]) {
     if (scope === "local") {
-      return <FolderOpen className="size-3.5 text-foreground/80" />;
+      return <FolderOpen className={sx(promptInputStyles.scopeIcon)} />;
     }
     if (scope === "user") {
-      return <UserRound className="size-3.5 text-foreground/80" />;
+      return <UserRound className={sx(promptInputStyles.scopeIcon)} />;
     }
-    return <Globe2 className="size-3.5 text-foreground/80" />;
+    return <Globe2 className={sx(promptInputStyles.scopeIcon)} />;
   }
 
   if (pendingUserInput && onUserInputSubmit && onUserInputDeny) {
     return (
       <div
-        className="prompt-input-shell relative z-10 rounded-xl bg-card outline-none"
+        className={cx("prompt-input-shell", sx(promptInputStyles.pendingShell))}
         data-testid="user-input-composer"
         data-turn-active={isTurnActive ? "true" : undefined}
         data-pending-interaction="true"
@@ -2334,14 +2333,16 @@ export function PromptInput(args: PromptInputProps) {
           onClick={() => onPlanModeChange(!planMode)}
           {...composerControlAttributes}
           className={tooltipTriggerButtonClassName({
-            className: cn(
+            className: cx(
               COMPOSER_CONTROL_BUTTON,
-              planMode ? getPromptToolbarAccentClass("plan") : undefined,
-              interactionsDisabled && "cursor-not-allowed opacity-60",
+              sx(
+                planMode && getPromptToolbarAccentStyle("plan"),
+                interactionsDisabled && promptInputStyles.cursorDisabled,
+              ),
             ),
           })}
         >
-          <ClipboardCheck className="size-4" />
+          <ClipboardCheck className={sx(promptInputStyles.icon4)} />
           <ComposerControlLabel>
             <span>Plan</span>
           </ComposerControlLabel>
@@ -2376,21 +2377,23 @@ export function PromptInput(args: PromptInputProps) {
           }}
           {...composerControlAttributes}
           className={tooltipTriggerButtonClassName({
-            className: cn(
+            className: cx(
               COMPOSER_CONTROL_BUTTON,
-              thinkingMode === "enabled"
-                ? getPromptToolbarAccentClass("thinking")
-                : thinkingMode === "disabled"
-                  ? "text-muted-foreground/50"
-                  : undefined,
-              interactionsDisabled && "cursor-not-allowed opacity-60",
+              sx(
+                thinkingMode === "enabled"
+                  ? getPromptToolbarAccentStyle("thinking")
+                  : thinkingMode === "disabled"
+                    ? promptInputStyles.toneMutedHalf
+                    : undefined,
+                interactionsDisabled && promptInputStyles.cursorDisabled,
+              ),
             ),
           })}
         >
           <Brain
-            className={cn(
-              "size-4",
-              thinkingMode === "adaptive" && "text-prompt-role-thinking",
+            className={sx(
+              promptInputStyles.icon4,
+              thinkingMode === "adaptive" && promptInputStyles.iconThinking,
             )}
           />
           <ComposerControlLabel>
@@ -2425,7 +2428,7 @@ export function PromptInput(args: PromptInputProps) {
                 size="icon"
                 disabled={interactionsDisabled}
                 {...composerControlAttributes}
-                className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
+                className={cx(PROMPT_TOOLBAR_ICON_BUTTON, sx(promptInputStyles.iconButton9))}
                 aria-label={`Runtime · ${runtimeProfile.label}`}
                 title="Runtime profile for the next turn"
               />
@@ -2434,16 +2437,16 @@ export function PromptInput(args: PromptInputProps) {
             <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
             <ComposerControlLabel wingOnly>Runtime</ComposerControlLabel>
           </DrawerTrigger>
-          <DrawerContent className="bg-popover shadow-2xl data-[swipe-direction=down]:max-h-[78vh]">
-            <DrawerHeader className="gap-1.5 px-5 pb-4 pt-4 text-left">
-              <div className="flex items-baseline justify-between gap-4">
-                <DrawerTitle className="text-base font-semibold">
+          <DrawerContent className={sx(promptInputStyles.drawerContent)}>
+            <DrawerHeader className={sx(promptInputStyles.drawerHeader)}>
+              <div className={sx(promptInputStyles.rowBaseline)}>
+                <DrawerTitle className={sx(promptInputStyles.titleBase)}>
                   Runtime profile
                 </DrawerTitle>
                 <span
-                  className={cn(
-                    "text-xs font-semibold",
-                    getRuntimeProfileToneClass(runtimeProfile.tone),
+                  className={sx(
+                    promptInputStyles.toneLabel,
+                    getRuntimeProfileToneStyle(runtimeProfile.tone),
                   )}
                 >
                   {runtimeProfile.label}
@@ -2454,7 +2457,7 @@ export function PromptInput(args: PromptInputProps) {
                 are shown below.
               </DrawerDescription>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className={sx(promptInputStyles.drawerScroll)}>
               <PromptInputRuntimeBar statusItems={runtimeStatusItems} />
             </div>
           </DrawerContent>
@@ -2469,7 +2472,7 @@ export function PromptInput(args: PromptInputProps) {
                 size="icon"
                 disabled={interactionsDisabled}
                 {...composerControlAttributes}
-                className={cn(PROMPT_TOOLBAR_ICON_BUTTON, "size-9")}
+                className={cx(PROMPT_TOOLBAR_ICON_BUTTON, sx(promptInputStyles.iconButton9))}
                 aria-label={`Runtime · ${runtimeProfile.label}`}
                 title="Runtime profile for the next turn"
               />
@@ -2482,23 +2485,23 @@ export function PromptInput(args: PromptInputProps) {
             align="start"
             side="top"
             sideOffset={10}
-            className="w-[min(25rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-0 shadow-xl ring-1 ring-foreground/10"
+            className={sx(promptInputStyles.runtimePopover)}
           >
-            <div className="px-5 pb-3.5 pt-4">
-              <div className="flex items-baseline justify-between gap-4">
-                <PopoverTitle className="text-base font-semibold">
+            <div className={sx(promptInputStyles.runtimePopoverHeader)}>
+              <div className={sx(promptInputStyles.rowBaseline)}>
+                <PopoverTitle className={sx(promptInputStyles.titleBase)}>
                   Runtime profile
                 </PopoverTitle>
                 <span
-                  className={cn(
-                    "text-xs font-semibold",
-                    getRuntimeProfileToneClass(runtimeProfile.tone),
+                  className={sx(
+                    promptInputStyles.toneLabel,
+                    getRuntimeProfileToneStyle(runtimeProfile.tone),
                   )}
                 >
                   {runtimeProfile.label}
                 </span>
               </div>
-              <PopoverDescription className="mt-1">
+              <PopoverDescription className={sx(promptInputStyles.mt1)}>
                 {runtimeProfile.description} Effective values for the next turn
                 are shown below.
               </PopoverDescription>
@@ -2574,18 +2577,18 @@ export function PromptInput(args: PromptInputProps) {
     }));
   const composerCustomizeMenuFooter = canCustomizeComposerControls ? (
     <>
-      <div className="my-1.5 h-px bg-border/60" />
+      <div className={sx(promptInputStyles.menuSeparator)} />
       <Button
         type="button"
         variant="ghost"
         size="xs"
-        className="w-full justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        className={sx(promptInputStyles.customizeButton)}
         onClick={() => {
           setComposerTrayOpen(false);
           setComposerCustomizeOpen(true);
         }}
       >
-        <SlidersHorizontal className="size-3" />
+        <SlidersHorizontal className={sx(promptInputStyles.icon3)} />
         Customize controls…
       </Button>
     </>
@@ -2600,12 +2603,16 @@ export function PromptInput(args: PromptInputProps) {
               variant="ghost"
               size="icon"
               disabled={interactionsDisabled}
-              className={cn(
+              className={cx(
                 PROMPT_TOOLBAR_ICON_BUTTON,
                 // Sized for the row it stands in rather than by a lane rule:
                 // `size-*` owns both axes, and a glyph-only button has to stay
                 // square in each of them.
-                useComposerWings ? "size-6 min-h-6" : "size-9",
+                sx(
+                  useComposerWings
+                    ? promptInputStyles.iconButton6
+                    : promptInputStyles.iconButton9,
+                ),
               )}
               aria-label={`More composer controls (${overflowMenuItems.length})`}
               title="More composer controls"
@@ -2613,7 +2620,7 @@ export function PromptInput(args: PromptInputProps) {
             />
           }
         >
-          <Ellipsis className="size-4" />
+          <Ellipsis className={sx(promptInputStyles.icon4)} />
         </PopoverTrigger>
         <PopoverContent
           align={useComposerWings ? "end" : "start"}
@@ -2625,7 +2632,7 @@ export function PromptInput(args: PromptInputProps) {
           // over the dialog band (`z-[80]`) it just opened. Composer-anchored
           // chrome is the honest band for it anyway.
           layer="floatingChrome"
-          className={COMPOSER_CONTROL_MENU_CONTENT}
+          xstyle={COMPOSER_CONTROL_MENU_CONTENT}
         >
           <ComposerControlMenuList items={overflowMenuItems} />
           {composerCustomizeMenuFooter}
@@ -2669,12 +2676,13 @@ export function PromptInput(args: PromptInputProps) {
         colorVariant={borderBeamVariant}
         strength={borderBeamStrength}
         theme="auto"
-        className={cn(
-          "transition-[box-shadow] duration-200 ease-out motion-reduce:transition-none",
+        className={cx(
+          sx(promptInputStyles.borderBeamTransition),
           // `relative z-10` is load-bearing: the turn activity shelf overlaps
           // the composer from above with a negative bottom margin, and this
           // keeps the composer painting on top of that tucked-under edge.
-          !minimal && "prompt-input-shell relative z-10 rounded-xl",
+          !minimal && "prompt-input-shell",
+          !minimal ? sx(promptInputStyles.composerShell) : undefined,
         )}
       >
         <form
@@ -2684,18 +2692,16 @@ export function PromptInput(args: PromptInputProps) {
           onBlurCapture={() => {
             window.requestAnimationFrame(syncComposerFocus);
           }}
-          className={cn(
-            "relative space-y-3 transition-[border-color,background-color]",
-            minimal
-              ? "space-y-2 border-0 border-t border-border/60 bg-transparent p-0 pt-3 focus-within:border-border/60"
-              : "rounded-xl border-0 bg-card p-3",
+          className={sx(
+            promptInputStyles.formBase,
+            minimal ? promptInputStyles.formMinimal : promptInputStyles.formDefault,
           )}
         >
           {goalStatus ? (
             <PromptInputGoalStatusStrip status={goalStatus} compact={minimal} />
           ) : null}
           {!minimal && promptSuggestions && promptSuggestions.length > 0 ? (
-            <Suggestions aria-label="Suggestions" className="-ml-1.5 mb-0.5">
+            <Suggestions aria-label="Suggestions" className={sx(promptInputStyles.suggestions)}>
               {promptSuggestions.map((suggestion) => (
                 <Suggestion
                   key={suggestion}
@@ -2703,7 +2709,7 @@ export function PromptInput(args: PromptInputProps) {
                   onClick={onSuggestionSelect}
                   title={suggestion}
                   variant="ghost"
-                  className="h-7 rounded-full bg-muted/40 px-3.5 text-xs text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                  className={sx(promptInputStyles.suggestionChip)}
                 />
               ))}
             </Suggestions>
@@ -2776,41 +2782,45 @@ export function PromptInput(args: PromptInputProps) {
           >
             <PopoverAnchor
               render={
-                <div className={cn("space-y-2", minimal && "space-y-3")} />
+                <div
+                  className={sx(
+                    minimal ? promptInputStyles.stackMd : promptInputStyles.stackSm,
+                  )}
+                />
               }
             >
               <div
-                className={cn(
-                  minimal
-                    ? "rounded-md border border-border/60 bg-background px-3 py-2.5"
-                    : undefined,
-                )}
+                className={
+                  minimal ? sx(promptInputStyles.minimalBox) : undefined
+                }
               >
                 <div
-                  className={cn(
-                    minimal ? "flex items-start gap-3" : "space-y-2",
+                  className={sx(
+                    minimal ? promptInputStyles.minimalRow : promptInputStyles.stackSm,
                   )}
                 >
                   {minimal ? (
-                    <span className="select-none font-mono text-base leading-7 text-primary/90">
+                    <span className={sx(promptInputStyles.promptCaretGlyph)}>
                       &gt;
                     </span>
                   ) : null}
                   <div
-                    className="relative min-w-0 flex-1"
+                    className={sx(promptInputStyles.editorArea)}
                     data-prompt-enhancement-surface={promptEnhancementState}
                   >
                     {shouldShowPromptEnhancement ? (
                       <div
                         data-prompt-enhancement-state={promptEnhancementState}
-                        className={cn(
-                          "pointer-events-none absolute right-0 top-0",
+                        className={cx(
+                          sx(promptInputStyles.enhanceOverlay),
                           UI_LAYER_CLASS.floatingChrome,
-                          promptEnhancementBusy &&
-                            cn(
-                              "bg-gradient-to-l to-transparent pl-4",
-                              minimal ? "from-background" : "from-card",
-                            ),
+                          promptEnhancementBusy
+                            ? sx(
+                                minimal
+                                  ? promptInputStyles.enhanceGradientMinimal
+                                  : promptInputStyles.enhanceGradientDefault,
+                              )
+                            : undefined,
                         )}
                       >
                         <Tooltip>
@@ -2826,15 +2836,16 @@ export function PromptInput(args: PromptInputProps) {
                                 aria-label={promptEnhancementLabel}
                                 aria-busy={promptEnhancementBusy}
                                 onClick={() => void onEnhancePrompt?.()}
-                                className={cn(
+                                className={cx(
                                   PROMPT_TOOLBAR_ICON_BUTTON,
-                                  "pointer-events-auto disabled:opacity-100",
-                                  promptEnhancementBusy
-                                    ? cn(
-                                        "h-7 gap-1.5 rounded-full border-primary/25 px-2 text-xs font-medium text-primary",
-                                        minimal ? "bg-background" : "bg-card",
-                                      )
-                                    : "size-7 opacity-70 hover:opacity-100",
+                                  sx(
+                                    promptInputStyles.enhanceButtonBase,
+                                    promptEnhancementBusy
+                                      ? minimal
+                                        ? promptInputStyles.enhanceBusyMinimal
+                                        : promptInputStyles.enhanceBusyDefault
+                                      : promptInputStyles.enhanceIdle,
+                                  ),
                                 )}
                               />
                             }
@@ -2842,17 +2853,17 @@ export function PromptInput(args: PromptInputProps) {
                             {promptEnhancementPending ? (
                               <Loader
                                 aria-hidden
-                                className="text-primary"
+                                className={sx(promptInputStyles.loaderPrimary)}
                                 size="xs"
                                 variant="orbit"
                               />
                             ) : (
                               <WandSparkles
                                 aria-hidden="true"
-                                className={cn(
-                                  "size-3.5 shrink-0",
+                                className={sx(
+                                  promptInputStyles.icon35Shrink,
                                   promptEnhancementRevealing &&
-                                    "motion-safe:animate-pulse",
+                                    promptInputStyles.pulseAnimation,
                                 )}
                               />
                             )}
@@ -2864,7 +2875,7 @@ export function PromptInput(args: PromptInputProps) {
                               </span>
                             ) : null}
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-64">
+                          <TooltipContent side="top" className={sx(promptInputStyles.maxW64)}>
                             {promptEnhancementBusy
                               ? promptEnhancementLabel
                               : "Enhance prompt — rewrite this draft into a clearer, execution-ready prompt."}
@@ -2872,7 +2883,7 @@ export function PromptInput(args: PromptInputProps) {
                         </Tooltip>
                         {promptEnhancementBusy ? (
                           <span
-                            className="sr-only"
+                            className={sx(promptInputStyles.srOnly)}
                             role="status"
                             aria-live="polite"
                           >
@@ -3340,44 +3351,37 @@ export function PromptInput(args: PromptInputProps) {
                                 ? "Queue the next turn… (↵)"
                                 : "Use / for commands, $ for skills, ! for macros, @ for Information"
                       }
-                      className={cn(
+                      className={sx(
                         // Height and overflow belong to these classes alone.
                         // The editor is a `contenteditable` div, not a
                         // `<textarea>`, so it grows with its content natively.
-                        // An imperative autosize pass used to write inline
-                        // `height` / `overflow-y` here, keyed on `value` - and
-                        // a trailing newline never changes `value` (see
-                        // `getEditorTextContent`), so a Shift+Enter at the end
-                        // of a draft left the height frozen and `overflow-y:
-                        // hidden` pinned: the box stopped growing and the wheel
-                        // could not reach the clipped lines.
-                        "resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-0 shadow-none dark:bg-transparent",
+                        promptInputStyles.editorReset,
                         minimal
-                          ? `min-h-[32px] max-h-[168px] caret-primary ${PROMPT_EDITOR_TYPOGRAPHY_MINIMAL}`
-                          : `min-h-[104px] max-h-[240px] ${PROMPT_EDITOR_TYPOGRAPHY_DEFAULT}`,
+                          ? promptInputStyles.editorSizeMinimal
+                          : promptInputStyles.editorSizeDefault,
+                        minimal
+                          ? PROMPT_EDITOR_TYPOGRAPHY_MINIMAL
+                          : PROMPT_EDITOR_TYPOGRAPHY_DEFAULT,
                         shouldShowPromptEnhancement &&
                           PROMPT_ENHANCEMENT_EDITOR_INSET,
                         // The editable is held non-editable for the whole
-                        // enhancement, so it has to *look* non-editable too -
-                        // otherwise only the spinner distinguishes a locked
-                        // composer from an editable one.
-                        promptEnhancementPending &&
-                          "cursor-progress select-none text-muted-foreground/70 motion-safe:animate-pulse",
+                        // enhancement, so it has to *look* non-editable too.
+                        promptEnhancementPending && promptInputStyles.editorProgress,
+                        promptEnhancementPending && promptInputStyles.pulseAnimation,
                         promptEnhancementRevealing &&
-                          "cursor-progress select-none",
+                          promptInputStyles.editorRevealing,
                         // The reveal overlay stands in for the editor while the
                         // diff animates, so the editor itself has to get out of
-                        // the way - it keeps its box (and therefore the
-                        // overlay's) but shows nothing.
-                        promptEnhancementReveal !== null && "opacity-0",
-                        PROMPT_SURFACE_FOCUS_VISIBLE_RESET,
+                        // the way.
+                        promptEnhancementReveal !== null &&
+                          promptInputStyles.editorHidden,
                       )}
                     />
                     {promptEnhancementReveal ? (
                       <PromptEnhancementRevealOverlay
                         segments={promptEnhancementReveal.segments}
                         stepMs={promptEnhancementReveal.stepMs}
-                        className={cn(
+                        className={sx(
                           minimal
                             ? PROMPT_EDITOR_TYPOGRAPHY_MINIMAL
                             : PROMPT_EDITOR_TYPOGRAPHY_DEFAULT,
@@ -3389,7 +3393,7 @@ export function PromptInput(args: PromptInputProps) {
                     {minimal && isPromptInputFocused && value.length === 0 ? (
                       <span
                         aria-hidden="true"
-                        className="pointer-events-none absolute left-0 top-1.5 h-5 w-2 rounded-[1px] bg-foreground/85 motion-safe:animate-terminal-caret"
+                        className={sx(promptInputStyles.terminalCaret)}
                       />
                     ) : null}
                   </div>
@@ -3401,17 +3405,17 @@ export function PromptInput(args: PromptInputProps) {
               side="top"
               sideOffset={8}
               initialFocus={false}
-              className="max-h-[min(40rem,var(--available-height))] w-[min(44rem,calc(100vw-2rem))] gap-0 overflow-hidden rounded-xl border border-border/80 bg-popover p-1 shadow-lg"
+              className={sx(promptInputStyles.commandPopover)}
             >
               <Command
                 shouldFilter={false}
                 value={paletteValue}
                 onValueChange={() => {}}
-                className="rounded-lg border border-border/60 bg-background/70 p-0"
+                className={sx(promptInputStyles.commandRoot)}
               >
                 <CommandList
                   ref={commandListRef}
-                  className="max-h-[32rem] scroll-py-2"
+                  className={sx(promptInputStyles.commandList)}
                 >
                   {activePalette === "info" &&
                   filteredWorkspaceInformationItems.length === 0 ? (
@@ -3441,7 +3445,7 @@ export function PromptInput(args: PromptInputProps) {
                               <CommandItem
                                 key={item.reference.token}
                                 value={item.reference.token}
-                                className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
+                                className={sx(promptInputStyles.itemStandard)}
                                 data-palette-index={index}
                                 onMouseEnter={() =>
                                   setSelectedWorkspaceInformationIndex(index)
@@ -3454,22 +3458,22 @@ export function PromptInput(args: PromptInputProps) {
                                   applyWorkspaceInformationSelection(item)
                                 }
                               >
-                                <div className="flex items-start pt-0.5 text-primary">
-                                  <Info className="size-4" />
+                                <div className={sx(promptInputStyles.iconWrapPrimary)}>
+                                  <Info className={sx(promptInputStyles.icon4)} />
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">
+                                <div className={sx(promptInputStyles.flex1Min)}>
+                                  <div className={sx(promptInputStyles.rowCenter)}>
+                                    <span className={sx(promptInputStyles.fontMedium)}>
                                       {item.title}
                                     </span>
                                     <Badge
                                       variant="secondary"
-                                      className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                      className={sx(promptInputStyles.badgeUpper)}
                                     >
                                       Section
                                     </Badge>
                                   </div>
-                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                  <p className={sx(promptInputStyles.itemDesc)}>
                                     {item.description}
                                   </p>
                                 </div>
@@ -3486,7 +3490,7 @@ export function PromptInput(args: PromptInputProps) {
                               <CommandItem
                                 key={item.reference.token}
                                 value={item.reference.token}
-                                className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
+                                className={sx(promptInputStyles.itemStandard)}
                                 data-palette-index={index}
                                 onMouseEnter={() =>
                                   setSelectedWorkspaceInformationIndex(index)
@@ -3499,22 +3503,22 @@ export function PromptInput(args: PromptInputProps) {
                                   applyWorkspaceInformationSelection(item)
                                 }
                               >
-                                <div className="flex items-start pt-0.5 text-primary">
-                                  <Info className="size-4" />
+                                <div className={sx(promptInputStyles.iconWrapPrimary)}>
+                                  <Info className={sx(promptInputStyles.icon4)} />
                                 </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">
+                                <div className={sx(promptInputStyles.flex1Min)}>
+                                  <div className={sx(promptInputStyles.rowCenter)}>
+                                    <span className={sx(promptInputStyles.fontMedium)}>
                                       {item.title}
                                     </span>
                                     <Badge
                                       variant="outline"
-                                      className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                      className={sx(promptInputStyles.badgeUpper)}
                                     >
                                       Item
                                     </Badge>
                                   </div>
-                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                  <p className={sx(promptInputStyles.itemDesc)}>
                                     {item.description}
                                   </p>
                                 </div>
@@ -3530,7 +3534,7 @@ export function PromptInput(args: PromptInputProps) {
                             <CommandItem
                               key={item.id}
                               value={item.slug}
-                              className="h-[4.5rem] min-h-[4.5rem] cursor-pointer items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5"
+                              className={sx(promptInputStyles.itemTall)}
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
                               onMouseDown={(event) => {
@@ -3539,17 +3543,17 @@ export function PromptInput(args: PromptInputProps) {
                               }}
                               onSelect={() => applySkillSelection(item)}
                             >
-                              <div className="flex items-start pt-0.5">
+                              <div className={sx(promptInputStyles.iconWrap)}>
                                 {renderSkillScopeIcon(item.scope)}
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="truncate font-medium">
+                              <div className={sx(promptInputStyles.flex1Min)}>
+                                <div className={sx(promptInputStyles.rowCenterMin)}>
+                                  <span className={sx(promptInputStyles.truncMedium)}>
                                     {item.name}
                                   </span>
                                   <Badge
                                     variant="secondary"
-                                    className="h-5 shrink-0 px-1.5 text-[10px] uppercase tracking-wide"
+                                    className={sx(promptInputStyles.badgeUpperShrink)}
                                   >
                                     {item.provider === "shared"
                                       ? "Shared"
@@ -3559,7 +3563,7 @@ export function PromptInput(args: PromptInputProps) {
                                   </Badge>
                                 </div>
                                 <p
-                                  className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground"
+                                  className={sx(promptInputStyles.itemDescClamp)}
                                   title={item.description}
                                 >
                                   {item.description}
@@ -3576,7 +3580,7 @@ export function PromptInput(args: PromptInputProps) {
                             <CommandItem
                               key={item.id}
                               value={item.slug}
-                              className="h-[4.5rem] min-h-[4.5rem] cursor-pointer items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5"
+                              className={sx(promptInputStyles.itemTall)}
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
                               onMouseDown={(event) => {
@@ -3585,17 +3589,17 @@ export function PromptInput(args: PromptInputProps) {
                               }}
                               onSelect={() => applySkillSelection(item)}
                             >
-                              <div className="flex items-start pt-0.5">
+                              <div className={sx(promptInputStyles.iconWrap)}>
                                 {renderSkillScopeIcon(item.scope)}
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="truncate font-medium">
+                              <div className={sx(promptInputStyles.flex1Min)}>
+                                <div className={sx(promptInputStyles.rowCenterMin)}>
+                                  <span className={sx(promptInputStyles.truncMedium)}>
                                     {item.name}
                                   </span>
                                   <Badge
                                     variant="outline"
-                                    className="h-5 shrink-0 px-1.5 text-[10px] uppercase tracking-wide"
+                                    className={sx(promptInputStyles.badgeUpperShrink)}
                                   >
                                     {item.provider === "shared"
                                       ? "Shared"
@@ -3605,7 +3609,7 @@ export function PromptInput(args: PromptInputProps) {
                                   </Badge>
                                 </div>
                                 <p
-                                  className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground"
+                                  className={sx(promptInputStyles.itemDescClamp)}
                                   title={item.description}
                                 >
                                   {item.description}
@@ -3622,7 +3626,7 @@ export function PromptInput(args: PromptInputProps) {
                             <CommandItem
                               key={item.id}
                               value={item.slug}
-                              className="h-[4.5rem] min-h-[4.5rem] cursor-pointer items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5"
+                              className={sx(promptInputStyles.itemTall)}
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedSkillIndex(index)}
                               onMouseDown={(event) => {
@@ -3631,17 +3635,17 @@ export function PromptInput(args: PromptInputProps) {
                               }}
                               onSelect={() => applySkillSelection(item)}
                             >
-                              <div className="flex items-start pt-0.5">
+                              <div className={sx(promptInputStyles.iconWrap)}>
                                 {renderSkillScopeIcon(item.scope)}
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="truncate font-medium">
+                              <div className={sx(promptInputStyles.flex1Min)}>
+                                <div className={sx(promptInputStyles.rowCenterMin)}>
+                                  <span className={sx(promptInputStyles.truncMedium)}>
                                     {item.name}
                                   </span>
                                   <Badge
                                     variant="outline"
-                                    className="h-5 shrink-0 px-1.5 text-[10px] uppercase tracking-wide"
+                                    className={sx(promptInputStyles.badgeUpperShrink)}
                                   >
                                     {item.provider === "shared"
                                       ? "Shared"
@@ -3651,7 +3655,7 @@ export function PromptInput(args: PromptInputProps) {
                                   </Badge>
                                 </div>
                                 <p
-                                  className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground"
+                                  className={sx(promptInputStyles.itemDescClamp)}
                                   title={item.description}
                                 >
                                   {item.description}
@@ -3668,7 +3672,7 @@ export function PromptInput(args: PromptInputProps) {
                             <CommandItem
                               key={item.id}
                               value={item.slug}
-                              className="h-[4.5rem] min-h-[4.5rem] cursor-pointer items-start gap-3 overflow-hidden rounded-lg px-3 py-2.5"
+                              className={sx(promptInputStyles.itemTall)}
                               data-palette-index={index}
                               onMouseEnter={() => setSelectedMacroIndex(index)}
                               onMouseDown={(event) => {
@@ -3677,23 +3681,23 @@ export function PromptInput(args: PromptInputProps) {
                               }}
                               onSelect={() => applyMacroSelection(item)}
                             >
-                              <div className="flex items-start pt-0.5">
-                                <Zap className="size-4 text-muted-foreground" />
+                              <div className={sx(promptInputStyles.iconWrap)}>
+                                <Zap className={sx(promptInputStyles.iconMuted)} />
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <span className="truncate font-medium">
+                              <div className={sx(promptInputStyles.flex1Min)}>
+                                <div className={sx(promptInputStyles.rowCenterMin)}>
+                                  <span className={sx(promptInputStyles.truncMedium)}>
                                     {item.label}
                                   </span>
                                   <Badge
                                     variant="outline"
-                                    className="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wide"
+                                    className={sx(promptInputStyles.badgeMonoShrink)}
                                   >
                                     !{item.slug}
                                   </Badge>
                                 </div>
                                 <p
-                                  className="mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground"
+                                  className={sx(promptInputStyles.itemDescClamp)}
                                   title={item.description ?? item.body}
                                 >
                                   {item.description || item.body}
@@ -3718,7 +3722,7 @@ export function PromptInput(args: PromptInputProps) {
                             <CommandItem
                               key={item.id}
                               value={item.command}
-                              className="min-h-14 cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5"
+                              className={sx(promptInputStyles.itemStandard)}
                               data-palette-index={index}
                               onMouseEnter={() =>
                                 setSelectedCommandIndex(index)
@@ -3729,14 +3733,14 @@ export function PromptInput(args: PromptInputProps) {
                               }}
                               onSelect={() => applyCommandSelection(item)}
                             >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
+                              <div className={sx(promptInputStyles.flex1Min)}>
+                                <div className={sx(promptInputStyles.rowCenter)}>
+                                  <span className={sx(promptInputStyles.fontMedium)}>
                                     {item.command}
                                   </span>
                                   <Badge
                                     variant="outline"
-                                    className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                    className={sx(promptInputStyles.badgeUpper)}
                                   >
                                     {selectedModel.providerId === "claude-code"
                                       ? "Claude"
@@ -3745,7 +3749,7 @@ export function PromptInput(args: PromptInputProps) {
                                         : "Provider"}
                                   </Badge>
                                 </div>
-                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                <p className={sx(promptInputStyles.itemDesc)}>
                                   {item.description}
                                 </p>
                               </div>
@@ -3757,13 +3761,13 @@ export function PromptInput(args: PromptInputProps) {
                   )}
                 </CommandList>
                 {activePalette === "info" ? (
-                  <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
-                    <p className="flex items-center gap-2 font-medium text-foreground">
-                      <Info className="size-3.5" />
+                  <div className={sx(promptInputStyles.paletteFooter)}>
+                    <p className={sx(promptInputStyles.paletteFooterTitle)}>
+                      <Info className={sx(promptInputStyles.icon35)} />
                       Enter or Tab inserts the highlighted Information
                       reference.
                     </p>
-                    <p className="mt-2">
+                    <p className={sx(promptInputStyles.mt2)}>
                       Type `@` to search Information. Selection inserts
                       `@info:section` for a full section or `@info:section/item`
                       for one item. `@lens` references the current Lens browser
@@ -3772,41 +3776,41 @@ export function PromptInput(args: PromptInputProps) {
                     </p>
                   </div>
                 ) : activePalette === "skill" ? (
-                  <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
-                    <p className="flex items-center gap-2 font-medium text-foreground">
-                      <Sparkles className="size-3.5" />
+                  <div className={sx(promptInputStyles.paletteFooter)}>
+                    <p className={sx(promptInputStyles.paletteFooterTitle)}>
+                      <Sparkles className={sx(promptInputStyles.icon35)} />
                       Enter or Tab inserts the highlighted skill token. Selected
                       skills are normalized on send.
                     </p>
-                    <p className="mt-2">
+                    <p className={sx(promptInputStyles.mt2)}>
                       `$skill` activates Stave skill instructions for both
                       `Claude` and `Codex` via prompt context. Use `/` commands
                       only for provider-native commands.
                     </p>
                   </div>
                 ) : activePalette === "macro" ? (
-                  <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
-                    <p className="flex items-center gap-2 font-medium text-foreground">
-                      <Zap className="size-3.5" />
+                  <div className={sx(promptInputStyles.paletteFooter)}>
+                    <p className={sx(promptInputStyles.paletteFooterTitle)}>
+                      <Zap className={sx(promptInputStyles.icon35)} />
                       Enter or Tab expands the highlighted macro into the draft.
                     </p>
-                    <p className="mt-2">
+                    <p className={sx(promptInputStyles.mt2)}>
                       The prompt text is inserted immediately so you can edit it
                       before sending. A pinned model or effort updates this
                       turn&apos;s selector.
                     </p>
                   </div>
                 ) : activePalette === "command" ? (
-                  <div className="border-t border-border/70 px-3 py-2.5 text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground">
+                  <div className={sx(promptInputStyles.paletteFooter)}>
+                    <p className={sx(promptInputStyles.paletteFooterTitlePlain)}>
                       Enter or Tab inserts the highlighted command.
                     </p>
                     {commandPaletteProviderNote ? (
                       <>
-                        <p className="mt-2 font-medium text-foreground">
+                        <p className={sx(promptInputStyles.mt2Title)}>
                           {commandPaletteProviderNote.title}
                         </p>
-                        <p className="mt-1 whitespace-pre-line">
+                        <p className={sx(promptInputStyles.mt1Pre)}>
                           {commandPaletteProviderNote.description}
                         </p>
                       </>
@@ -3817,20 +3821,20 @@ export function PromptInput(args: PromptInputProps) {
             </PopoverContent>
           </Popover>
           {commentItemCount > 0 ? (
-            <div className="space-y-1.5 rounded-lg border border-border/60 bg-muted/15 px-3 py-2">
-              <div className="flex items-center gap-2">
+            <div className={sx(promptInputStyles.commentBox)}>
+              <div className={sx(promptInputStyles.rowCenter)}>
                 <Badge
                   variant="outline"
-                  className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                  className={sx(promptInputStyles.badgeUpper)}
                 >
                   Comment
                 </Badge>
-                <span className="text-xs text-muted-foreground">
+                <span className={sx(promptInputStyles.captionMuted)}>
                   {commentItemCount} item
                   {commentItemCount === 1 ? "" : "s"} will send as one prompt
                 </span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className={sx(promptInputStyles.flexWrapGap)}>
                 {promptBatch.map((item, index) => {
                   const summary = item.content.replace(/\s+/g, " ").trim();
                   const attachmentCount =
@@ -3841,35 +3845,35 @@ export function PromptInput(args: PromptInputProps) {
                   return (
                     <div
                       key={item.id}
-                      className="flex max-w-full items-center gap-1.5 rounded-md border border-border/70 bg-background/75 px-2 py-1 text-xs"
+                      className={sx(promptInputStyles.commentChip)}
                       title={item.content}
                     >
-                      <span className="shrink-0 font-medium text-muted-foreground">
+                      <span className={sx(promptInputStyles.chipIndex)}>
                         {index + 1}
                       </span>
-                      <span className="truncate text-foreground">
+                      <span className={sx(promptInputStyles.chipTrunc)}>
                         {summary}
                       </span>
                       {attachmentCount > 0 ? (
                         <span
-                          className="inline-flex shrink-0 items-center gap-0.5 text-muted-foreground"
+                          className={sx(promptInputStyles.chipAttachCount)}
                           title={`${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`}
                         >
-                          <Paperclip className="size-3" />
+                          <Paperclip className={sx(promptInputStyles.icon3)} />
                           {attachmentCount}
                         </span>
                       ) : null}
-                      <button
+                      <AdsButton layout="host"
                         type="button"
                         disabled={interactionsDisabled}
                         onClick={() =>
                           onRemovePromptBatchItem?.({ itemId: item.id })
                         }
-                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                        className={sx(promptInputStyles.chipRemove)}
                         aria-label={`Remove comment ${index + 1}`}
                       >
-                        <X className="size-3" />
-                      </button>
+                        <X className={sx(promptInputStyles.icon3)} />
+                      </AdsButton>
                     </div>
                   );
                 })}
@@ -3879,7 +3883,7 @@ export function PromptInput(args: PromptInputProps) {
                     return (
                       <div
                         key={attachment.id}
-                        className="flex max-w-full items-center rounded-md border border-border/70 bg-secondary/50 text-xs text-foreground"
+                        className={sx(promptInputStyles.lensChip)}
                       >
                         <Popover modal={false}>
                           <Tooltip>
@@ -3887,44 +3891,44 @@ export function PromptInput(args: PromptInputProps) {
                               render={
                                 <PopoverTrigger
                                   render={
-                                    <button
+                                    <AdsButton layout="host"
                                       type="button"
                                       title={
                                         attachment.displayContent ??
                                         attachment.content
                                       }
-                                      className="flex min-w-0 items-center gap-1.5 px-2 py-1 hover:bg-secondary/70"
+                                      className={sx(promptInputStyles.lensChipTrigger)}
                                     />
                                   }
                                 />
                               }
                             >
-                              <FileText className="size-3.5 shrink-0" />
-                              <span className="truncate">
+                              <FileText className={sx(promptInputStyles.icon35Shrink)} />
+                              <span className={sx(promptInputStyles.truncPlain)}>
                                 {attachment.label}
                               </span>
                               <Badge
                                 variant="outline"
-                                className="h-5 px-1.5 text-[10px]"
+                                className={sx(promptInputStyles.badgePlain)}
                               >
                                 {attachment.count}
                               </Badge>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-80">
+                            <TooltipContent side="top" className={sx(promptInputStyles.maxW80)}>
                               {attachment.summary}
                             </TooltipContent>
                           </Tooltip>
                           <PopoverContent
                             side="top"
                             align="start"
-                            className="max-h-96 w-[min(42rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-border/80 bg-popover p-3 shadow-lg"
+                            className={sx(promptInputStyles.lensPopoverContent)}
                           >
-                            <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-popover-foreground">
+                            <pre className={sx(promptInputStyles.lensPre)}>
                               {attachment.displayContent ?? attachment.content}
                             </pre>
                           </PopoverContent>
                         </Popover>
-                        <button
+                        <AdsButton layout="host"
                           type="button"
                           disabled={interactionsDisabled}
                           onClick={() =>
@@ -3938,11 +3942,11 @@ export function PromptInput(args: PromptInputProps) {
                               ),
                             })
                           }
-                          className="border-l border-border/70 px-1.5 py-1 text-muted-foreground hover:text-foreground"
+                          className={sx(promptInputStyles.lensChipRemove)}
                           aria-label={`Remove ${attachment.label}`}
                         >
-                          <X className="size-3" />
-                        </button>
+                          <X className={sx(promptInputStyles.icon3)} />
+                        </AdsButton>
                       </div>
                     );
                   }
@@ -3961,15 +3965,15 @@ export function PromptInput(args: PromptInputProps) {
                     return (
                       <div
                         key={`${attachment.id}:${annotation.id}`}
-                        className="flex max-w-full items-start gap-2 rounded-md border border-border/70 bg-secondary/50 px-2 py-1.5 text-xs text-foreground"
+                        className={sx(promptInputStyles.annotationChip)}
                       >
-                        <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                        <span className={sx(promptInputStyles.annotationPin)}>
                           {annotation.pin}
                         </span>
                         {screenshot ? (
-                          <button
+                          <AdsButton layout="host"
                             type="button"
-                            className="shrink-0 rounded-sm border border-border/70 bg-background p-0.5 hover:border-border"
+                            className={sx(promptInputStyles.screenshotButton)}
                             title="View visual comment screenshot"
                             onClick={() =>
                               setImagePreviewSrc({
@@ -3981,9 +3985,9 @@ export function PromptInput(args: PromptInputProps) {
                             <img
                               src={screenshot.dataUrl}
                               alt={screenshot.label}
-                              className="h-10 w-16 rounded-[2px] object-cover"
+                              className={sx(promptInputStyles.screenshotImage)}
                             />
-                          </button>
+                          </AdsButton>
                         ) : null}
                         <Popover modal={false}>
                           <Tooltip>
@@ -3991,19 +3995,19 @@ export function PromptInput(args: PromptInputProps) {
                               render={
                                 <PopoverTrigger
                                   render={
-                                    <button
+                                    <AdsButton layout="host"
                                       type="button"
                                       title={annotation.comment}
-                                      className="min-w-0 flex-1 text-left hover:text-foreground"
+                                      className={sx(promptInputStyles.annotationTextButton)}
                                     />
                                   }
                                 />
                               }
                             >
-                              <span className="block truncate font-medium">
+                              <span className={sx(promptInputStyles.annotationComment)}>
                                 {annotation.comment}
                               </span>
-                              <span className="block truncate text-[10px] text-muted-foreground">
+                              <span className={sx(promptInputStyles.annotationMeta)}>
                                 {formatLensFeedbackOption(feedback.intent)} ·{" "}
                                 {formatLensFeedbackOption(feedback.priority)}
                                 {" · "}
@@ -4012,16 +4016,16 @@ export function PromptInput(args: PromptInputProps) {
                                   : annotation.selector}
                               </span>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-80">
+                            <TooltipContent side="top" className={sx(promptInputStyles.maxW80)}>
                               {annotation.comment}
                             </TooltipContent>
                           </Tooltip>
                           <PopoverContent
                             side="top"
                             align="start"
-                            className="max-h-96 w-[min(42rem,calc(100vw-2rem))] overflow-auto rounded-lg border border-border/80 bg-popover p-3 shadow-lg"
+                            className={sx(promptInputStyles.lensPopoverContent)}
                           >
-                            <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-popover-foreground">
+                            <pre className={sx(promptInputStyles.lensPre)}>
                               {attachment.displayContent ?? attachment.content}
                             </pre>
                           </PopoverContent>
@@ -4062,7 +4066,7 @@ export function PromptInput(args: PromptInputProps) {
                             void removeLensAnnotation(attachment, annotation);
                           }}
                         >
-                          <Trash2 className="size-3" />
+                          <Trash2 className={sx(promptInputStyles.icon3)} />
                         </Button>
                       </div>
                     );
@@ -4077,10 +4081,10 @@ export function PromptInput(args: PromptInputProps) {
             <div
               role="group"
               aria-label="Current prompt attachments"
-              className="flex flex-wrap items-center gap-1.5"
+              className={sx(promptInputStyles.attachmentsRow)}
             >
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <Paperclip className="size-3" aria-hidden="true" />
+              <span className={sx(promptInputStyles.attachmentsCount)}>
+                <Paperclip className={sx(promptInputStyles.icon3)} aria-hidden="true" />
                 {currentAttachmentCount} attached
               </span>
               {workspaceInformationAttachments.map((attachment) => (
@@ -4105,11 +4109,11 @@ export function PromptInput(args: PromptInputProps) {
               {attachedFilePaths.map((filePath) => (
                 <div
                   key={filePath}
-                  className={cn(
-                    "flex max-w-full items-center rounded-sm border p-0.5 text-sm",
+                  className={sx(
+                    promptInputStyles.fileChip,
                     minimal
-                      ? "border-border/60 bg-transparent font-mono text-xs text-muted-foreground"
-                      : "border-border/80 bg-secondary/50",
+                      ? promptInputStyles.fileChipMinimal
+                      : promptInputStyles.fileChipDefault,
                   )}
                 >
                   <Button
@@ -4119,14 +4123,14 @@ export function PromptInput(args: PromptInputProps) {
                     disabled={interactionsDisabled || !onOpenAttachedFile}
                     aria-label={`Open attached file ${filePath}`}
                     title="Open in editor"
-                    className="h-7 min-w-0 justify-start gap-1 rounded-sm px-1.5 font-inherit text-inherit"
+                    className={sx(promptInputStyles.fileOpenButton)}
                     onClick={() => void onOpenAttachedFile?.({ filePath })}
                   >
                     <FileText
-                      className="size-3.5 shrink-0"
+                      className={sx(promptInputStyles.icon35Shrink)}
                       aria-hidden="true"
                     />
-                    <span className="truncate font-medium">{filePath}</span>
+                    <span className={sx(promptInputStyles.truncMedium)}>{filePath}</span>
                   </Button>
                   <Button
                     type="button"
@@ -4142,28 +4146,28 @@ export function PromptInput(args: PromptInputProps) {
                         ),
                       })
                     }
-                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    className={sx(promptInputStyles.fileRemoveButton)}
                   >
-                    <X className="size-3" />
+                    <X className={sx(promptInputStyles.icon3)} />
                   </Button>
                 </div>
               ))}
               {standaloneImageAttachments.map((img) => (
                 <div
                   key={img.id}
-                  className={cn(
-                    "relative flex items-center gap-1 rounded-sm border p-1",
+                  className={sx(
+                    promptInputStyles.imageChip,
                     minimal
-                      ? "border-border/60 bg-transparent"
-                      : "border-border/80 bg-secondary/50",
+                      ? promptInputStyles.imageChipMinimal
+                      : promptInputStyles.imageChipDefault,
                   )}
                 >
-                  <button
+                  <AdsButton layout="host"
                     type="button"
                     disabled={interactionsDisabled}
                     aria-label={`Preview attached image ${img.label}`}
                     title="View full size"
-                    className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+                    className={sx(promptInputStyles.imagePreviewButton)}
                     onClick={() =>
                       setImagePreviewSrc({
                         dataUrl: img.dataUrl,
@@ -4174,9 +4178,9 @@ export function PromptInput(args: PromptInputProps) {
                     <img
                       src={img.dataUrl}
                       alt={img.label}
-                      className="max-h-16 max-w-24 cursor-zoom-in rounded-sm object-cover"
+                      className={sx(promptInputStyles.imagePreview)}
                     />
-                  </button>
+                  </AdsButton>
                   <Button
                     type="button"
                     size="icon-xs"
@@ -4191,24 +4195,24 @@ export function PromptInput(args: PromptInputProps) {
                         ),
                       })
                     }
-                    className="absolute -right-1 -top-1 rounded-full bg-background text-muted-foreground shadow-sm hover:bg-background hover:text-foreground"
+                    className={sx(promptInputStyles.imageRemoveButton)}
                   >
-                    <X className="size-3" />
+                    <X className={sx(promptInputStyles.icon3)} />
                   </Button>
                 </div>
               ))}
             </div>
           ) : null}
           <div
-            className={cn(
-              "flex flex-wrap items-center justify-between gap-2",
-              minimal && "justify-end",
+            className={sx(
+              promptInputStyles.toolbarRow,
+              minimal && promptInputStyles.toolbarRowEnd,
             )}
           >
             {!minimal ? (
               <div
-                className={cn(
-                  "relative flex flex-wrap items-center gap-1.5",
+                className={cx(
+                  sx(promptInputStyles.controlLane),
                   COMPOSER_CONTROL_LANE.toolbar,
                 )}
                 data-composer-toolbar="true"
@@ -4235,14 +4239,14 @@ export function PromptInput(args: PromptInputProps) {
                     open={composerCustomizeOpen}
                     onOpenChange={setComposerCustomizeOpen}
                   >
-                    <PopoverAnchor className="pointer-events-none absolute left-0 top-0 size-0" />
+                    <PopoverAnchor className={sx(promptInputStyles.customizeAnchor)} />
                     <PopoverContent
                       align="start"
                       side="top"
                       sideOffset={10}
-                      className="w-[min(30rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10"
+                      className={sx(promptInputStyles.customizePopover)}
                     >
-                      <PopoverTitle className="px-2 pb-1 pt-1 text-sm font-semibold">
+                      <PopoverTitle className={sx(promptInputStyles.customizeTitle)}>
                         Composer controls
                       </PopoverTitle>
                       <ComposerControlPlacementList
@@ -4291,7 +4295,7 @@ export function PromptInput(args: PromptInputProps) {
                 ))}
               </div>
             ) : null}
-            <div className="flex items-center gap-2">
+            <div className={sx(promptInputStyles.actionsRow)}>
               {contextMeter}
               {minimal &&
               reviewModelOptions?.length &&
@@ -4320,15 +4324,16 @@ export function PromptInput(args: PromptInputProps) {
                   }}
                   className={tooltipTriggerButtonClassName({
                     size: "icon-sm",
-                    className: cn(
+                    className: cx(
                       PROMPT_TOOLBAR_ICON_BUTTON,
-                      minimal &&
-                        "h-8 w-8 rounded-md border border-border/60 bg-background/50 text-foreground hover:bg-muted/40",
+                      minimal
+                        ? sx(promptInputStyles.attachButtonMinimal)
+                        : undefined,
                     ),
                   })}
                   aria-label="Attach files"
                 >
-                  <Paperclip className="size-3.5" />
+                  <Paperclip className={sx(promptInputStyles.icon35)} />
                 </TooltipTrigger>
                 <TooltipContent side="top">Attach files</TooltipContent>
               </Tooltip>
@@ -4338,20 +4343,21 @@ export function PromptInput(args: PromptInputProps) {
                     type="button"
                     className={tooltipTriggerButtonClassName({
                       size: "icon-sm",
-                      className: cn(
+                      className: cx(
                         PROMPT_TOOLBAR_ICON_BUTTON,
-                        "text-destructive hover:bg-destructive/10 hover:text-destructive",
-                        minimal &&
-                          "h-8 w-8 rounded-md border border-destructive/30 bg-background/50",
+                        sx(
+                          promptInputStyles.stopButton,
+                          minimal && promptInputStyles.stopButtonMinimal,
+                        ),
                       ),
                     })}
                     aria-label="Stop responding"
                     onClick={() => onAbort?.()}
                   >
-                    <Square className="size-3 fill-current" />
+                    <Square className={sx(promptInputStyles.iconSquare)} />
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <span className="inline-flex items-center gap-1">
+                    <span className={sx(promptInputStyles.inlineGap1)}>
                       Stop responding
                       <KbdGroup>
                         <Kbd>Esc</Kbd>
@@ -4366,11 +4372,12 @@ export function PromptInput(args: PromptInputProps) {
                     className={tooltipTriggerButtonClassName({
                       variant: "default",
                       size: "icon-sm",
-                      className: cn(
-                        "rounded-md",
+                      className: cx(
+                        sx(promptInputStyles.roundedMd),
                         PROMPT_SURFACE_PRIMARY_FOCUS,
-                        minimal &&
-                          "h-8 w-8 border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15",
+                        minimal
+                          ? sx(promptInputStyles.sendButtonMinimal)
+                          : undefined,
                       ),
                     })}
                     disabled={primaryActionDisabled}
@@ -4384,17 +4391,17 @@ export function PromptInput(args: PromptInputProps) {
                           : "Send"
                     }
                   >
-                    <Send className="size-3.5" />
+                    <Send className={sx(promptInputStyles.icon35)} />
                   </TooltipTrigger>
                   <TooltipContent
                     side="top"
                     className={
                       isSteerOrQueueMode
-                        ? "flex-col items-start gap-0.5"
+                        ? sx(promptInputStyles.tooltipColStart)
                         : undefined
                     }
                   >
-                    <span className="inline-flex items-center gap-1">
+                    <span className={sx(promptInputStyles.inlineGap1)}>
                       {isSteerOrQueueMode
                         ? steerQueueEnterAction === "steer"
                           ? "Steer"
@@ -4407,7 +4414,7 @@ export function PromptInput(args: PromptInputProps) {
                       </KbdGroup>
                     </span>
                     {isSteerOrQueueMode ? (
-                      <span className="inline-flex items-center gap-1 text-background/70">
+                      <span className={sx(promptInputStyles.inlineGapBg70)}>
                         {steerQueueEnterAction === "steer" ? "Queue" : "Steer"}
                         <KbdGroup>
                           <Kbd>Tab</Kbd>

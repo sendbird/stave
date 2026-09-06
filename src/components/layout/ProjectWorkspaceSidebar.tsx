@@ -1,3 +1,5 @@
+import { Checkbox } from "@/components/ads/components/Checkbox";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
 import {
   AlertTriangle,
@@ -35,7 +37,12 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
-import { PANEL_BAR_HEIGHT_CLASS } from "@/components/layout/panel-bar.constants";
+import { panelBarStyles } from "@/components/layout/panel-bar.constants";
+import { projectSidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   buildCollapsedWorkspaceEntries,
   buildProjectSidebarAttentionAlert,
@@ -47,9 +54,9 @@ import {
   buildWorkspaceHoverPreview,
   buildVisibleWorkspaceShortcutTargets,
   getWorkspaceShortcutLabel,
-  getWorkspaceHoverActionVisibilityClasses,
+  getWorkspaceHoverActionVisibilityStyle,
   getWorkspaceLeadingAttentionKind,
-  getWorkspaceRespondingCountVisibilityClasses,
+  getWorkspaceRespondingCountVisibilityStyle,
   WORKSPACE_SHORTCUT_COUNT,
   type ProjectSidebarAttentionAlert,
   type ProjectSidebarCollapsedProjectView,
@@ -110,11 +117,10 @@ import {
   type SidebarWorkQueueSignals,
 } from "@/lib/fleet/sidebar-work-queue";
 import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
-import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import { getProviderWaveTone } from "@/lib/providers/model-catalog";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
 import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
@@ -161,20 +167,32 @@ function resolveRespondingToneClass(args: {
   if (summary.respondingTaskCount === 0) {
     return {
       respondingTaskCount: 0,
-      respondingToneClass: "text-primary",
+      respondingToneClass: sx(projectSidebarStyles.toneAccent),
     };
   }
 
   return {
     respondingTaskCount: summary.respondingTaskCount,
     respondingToneClass: summary.hasWarningTask
-      ? "text-warning"
+      ? sx(projectSidebarStyles.toneWarning)
       : summary.respondingProviderIds.length === 1 &&
           summary.respondingProviderIds[0]
-        ? getProviderWaveToneClass({
-            providerId: summary.respondingProviderIds[0],
-          })
-        : "text-primary",
+        ? // `getProviderWaveTone` is shared provider presentation and is
+          // not part of this file's migration surface; map its semantic tone
+          // to a local StyleX style.
+          sx(
+            (() => {
+              const tone = getProviderWaveTone({
+                providerId: summary.respondingProviderIds[0],
+              });
+              return tone === "claude"
+                ? projectSidebarStyles.toneClaude
+                : tone === "codex"
+                  ? projectSidebarStyles.toneCodex
+                  : projectSidebarStyles.toneAccent;
+            })(),
+          )
+        : sx(projectSidebarStyles.toneAccent),
   };
 }
 
@@ -185,7 +203,7 @@ function formatWorkspaceName(name: string, branch?: string) {
       <>
         Default
         {branch ? (
-          <span className="ml-1 inline-flex max-w-20 truncate rounded border border-border/60 bg-muted/60 px-1 py-px text-[10px] font-medium leading-tight text-muted-foreground">
+          <span className={sx(projectSidebarStyles.defaultBranchChip)}>
             {formatBranchLabel(branch)}
           </span>
         ) : null}
@@ -395,53 +413,55 @@ function WorkspaceHoverPreviewTooltip(args: {
         side={args.side}
         sideOffset={args.sideOffset}
         align="start"
-        className="max-w-[260px] break-words px-3 py-2"
+        className={sx(projectSidebarStyles.previewContent)}
       >
-        <div className="space-y-2">
-          <div className="space-y-0.5">
-            <p className="text-sm font-medium leading-snug text-background">
+        <div className={sx(projectSidebarStyles.previewStack)}>
+          <div className={sx(projectSidebarStyles.previewHeadStack)}>
+            <p className={sx(projectSidebarStyles.previewTitle)}>
               {formatWorkspaceName(args.workspaceName, args.branch)}
             </p>
             {args.projectName ? (
-              <p className="text-[11px] leading-snug text-background/70">
+              <p className={sx(projectSidebarStyles.previewMeta)}>
                 {args.projectName}
               </p>
             ) : null}
           </div>
-          <div className="space-y-1.5">
+          <div className={sx(projectSidebarStyles.previewBodyStack)}>
             {didShellLoadFail && !preview ? (
-              <p className="text-[11px] leading-snug text-background/70">
+              <p className={sx(projectSidebarStyles.previewMeta)}>
                 Preview unavailable
               </p>
             ) : !preview || isShellLoading ? (
-              <p className="text-[11px] leading-snug text-background/70">
+              <p className={sx(projectSidebarStyles.previewMeta)}>
                 Loading summary...
               </p>
             ) : preview.isEmpty ? (
-              <p className="text-[11px] leading-snug text-background/70">
+              <p className={sx(projectSidebarStyles.previewMeta)}>
                 No tasks yet
               </p>
             ) : (
               <>
-                <div className="flex flex-wrap items-center gap-1.5 text-[11px] leading-snug text-background/70">
+                <div className={sx(projectSidebarStyles.previewMetaRow)}>
                   <span>{metaLabel}</span>
                   {preview.runningTaskCount > 0 ? (
-                    <span className="rounded-sm border border-background/20 bg-background/10 px-1 py-0.5 font-medium text-background">
+                    <span
+                      className={sx(projectSidebarStyles.previewRunningChip)}
+                    >
                       {`${preview.runningTaskCount} running`}
                     </span>
                   ) : null}
                 </div>
-                <div className="space-y-1">
+                <div className={sx(projectSidebarStyles.previewTaskStack)}>
                   {preview.taskTitles.map((title, index) => (
                     <p
                       key={`${args.workspaceId}:${index}`}
-                      className="text-xs leading-4 text-background"
+                      className={sx(projectSidebarStyles.previewTaskTitle)}
                     >
                       {title}
                     </p>
                   ))}
                   {preview.moreTaskCount > 0 ? (
-                    <p className="text-[11px] leading-snug text-background/70">
+                    <p className={sx(projectSidebarStyles.previewMeta)}>
                       +{preview.moreTaskCount} more
                     </p>
                   ) : null}
@@ -452,7 +472,7 @@ function WorkspaceHoverPreviewTooltip(args: {
               <WorkspaceShortcutChip
                 modifier={workspaceShortcutModifierLabel}
                 label={args.shortcutLabel}
-                className="mt-0.5 h-4 px-1 text-[10px]"
+                className={sx(projectSidebarStyles.previewShortcutChip)}
               />
             ) : null}
           </div>
@@ -480,7 +500,7 @@ const WorkspaceLeadingStatusIcon = memo(
       return (
         <Loader
           aria-hidden
-          className="text-muted-foreground"
+          className={sx(projectSidebarStyles.statusMuted)}
           size="xs"
           variant="spinner"
         />
@@ -488,10 +508,20 @@ const WorkspaceLeadingStatusIcon = memo(
     }
 
     if (leadingAttentionKind === "user-input") {
-      return <UserRound className="size-4 text-warning" aria-hidden="true" />;
+      return (
+        <UserRound
+          className={sx(projectSidebarStyles.statusIconWarning)}
+          aria-hidden="true"
+        />
+      );
     }
     if (leadingAttentionKind === "approval") {
-      return <ShieldCheck className="size-4 text-warning" aria-hidden="true" />;
+      return (
+        <ShieldCheck
+          className={sx(projectSidebarStyles.statusIconWarning)}
+          aria-hidden="true"
+        />
+      );
     }
     if (
       leadingAttentionKind === "run-failed" ||
@@ -501,11 +531,19 @@ const WorkspaceLeadingStatusIcon = memo(
       leadingAttentionKind === "pr-behind-base"
     ) {
       return (
-        <AlertTriangle className="size-4 text-destructive" aria-hidden="true" />
+        <AlertTriangle
+          className={sx(projectSidebarStyles.statusIconDanger)}
+          aria-hidden="true"
+        />
       );
     }
     if (leadingAttentionKind === "pr-ready-to-merge") {
-      return <GitMerge className="size-4 text-success" aria-hidden="true" />;
+      return (
+        <GitMerge
+          className={sx(projectSidebarStyles.statusIconSuccess)}
+          aria-hidden="true"
+        />
+      );
     }
 
     if (respondingTaskCount > 0) {
@@ -520,15 +558,20 @@ const WorkspaceLeadingStatusIcon = memo(
     }
 
     if (!args.isDefault && prStatus) {
-      return <PrStatusIcon status={prStatus} className="size-4" />;
+      return (
+        <PrStatusIcon
+          status={prStatus}
+          className={sx(projectSidebarStyles.statusIcon)}
+        />
+      );
     }
 
     return (
       <WorkspaceIdentityMark
         workspaceName={args.workspaceName}
         isDefault={args.isDefault}
-        className="size-4 rounded"
-        iconClassName="size-2.5"
+        className={sx(projectSidebarStyles.identityMark)}
+        iconClassName={sx(projectSidebarStyles.identityMarkIcon)}
       />
     );
   },
@@ -553,7 +596,7 @@ function WorkQueueRow(args: {
   const { entry } = args;
 
   return (
-    <div className="min-w-0">
+    <div className={sx(projectSidebarStyles.queueRow)}>
       <WorkspaceHoverPreviewTooltip
         workspaceId={entry.workspaceId}
         workspaceName={entry.workspaceName}
@@ -561,7 +604,8 @@ function WorkQueueRow(args: {
         projectName={entry.projectName}
         side="right"
       >
-        <button
+        <AdsButton
+          layout="host"
           type="button"
           onClick={() =>
             args.onOpen({
@@ -570,12 +614,13 @@ function WorkQueueRow(args: {
             })
           }
           aria-label={`active-workspace-${entry.workspaceId}`}
-          className={cn(
-            "flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-2 text-sm transition-colors",
+          xstyle={[
+            projectSidebarStyles.queueButton,
+            transition.colors,
             entry.isActive
-              ? "bg-primary/12 text-foreground"
-              : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-          )}
+              ? projectSidebarStyles.queueButtonActive
+              : projectSidebarStyles.queueButtonIdle,
+          ]}
         >
           <WorkspaceLeadingStatusIcon
             workspaceId={entry.workspaceId}
@@ -584,18 +629,18 @@ function WorkQueueRow(args: {
             busy={false}
             attentionKind={args.attentionKind}
           />
-          <span className="min-w-0 flex-1 truncate text-left">
+          <span className={sx(projectSidebarStyles.queueLabel)}>
             {formatWorkQueueWorkspaceLabel({
               name: entry.workspaceName,
               branch: entry.branch,
               isDefault: entry.isDefault,
             })}
           </span>
-          <span className="shrink-0 truncate text-xs text-muted-foreground">
+          <span className={sx(projectSidebarStyles.queueProject)}>
             {entry.projectName}
           </span>
           <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
-        </button>
+        </AdsButton>
       </WorkspaceHoverPreviewTooltip>
       <WorkspaceProgressTaskTree
         workspaceId={entry.workspaceId}
@@ -621,16 +666,22 @@ const ProjectAttentionAlertIcon = memo(
     const icon =
       alert.tier === "review" ? (
         <span
-          className="size-1.5 rounded-full bg-muted-foreground/70"
+          className={sx(projectSidebarStyles.attentionDot)}
           aria-hidden="true"
         />
       ) : alert.kind === "user-input" ? (
-        <UserRound className="size-3.5 text-warning" aria-hidden="true" />
+        <UserRound
+          className={sx(projectSidebarStyles.attentionIconWarning)}
+          aria-hidden="true"
+        />
       ) : alert.kind === "approval" ? (
-        <ShieldCheck className="size-3.5 text-warning" aria-hidden="true" />
+        <ShieldCheck
+          className={sx(projectSidebarStyles.attentionIconWarning)}
+          aria-hidden="true"
+        />
       ) : (
         <AlertTriangle
-          className="size-3.5 text-destructive"
+          className={sx(projectSidebarStyles.attentionIconDanger)}
           aria-hidden="true"
         />
       );
@@ -640,7 +691,7 @@ const ProjectAttentionAlertIcon = memo(
         <TooltipTrigger
           render={
             <span
-              className="ml-auto inline-flex h-5 shrink-0 items-center justify-center gap-0.5 px-0.5"
+              className={sx(projectSidebarStyles.attentionSlot)}
               role="status"
               aria-label={`project-attention-${args.projectName}`}
             />
@@ -648,7 +699,7 @@ const ProjectAttentionAlertIcon = memo(
         >
           {icon}
           {alert.attentionItemCount > 1 ? (
-            <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
+            <span className={sx(projectSidebarStyles.attentionCount)}>
               {alert.attentionItemCount}
             </span>
           ) : null}
@@ -679,12 +730,13 @@ const WorkspaceRespondingCountBadge = memo(
     }
 
     return (
-      <div className="flex h-7 min-w-7 items-center justify-center pr-1">
+      <div className={sx(projectSidebarStyles.respondingSlot)}>
         <Badge
           variant="outline"
-          className={cn(
-            "min-w-7 justify-center rounded-sm border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-primary transition-opacity",
-            getWorkspaceRespondingCountVisibilityClasses({
+          className={sx(
+            projectSidebarStyles.respondingBadge,
+            transition.fade,
+            getWorkspaceRespondingCountVisibilityStyle({
               hasHoverActions: args.hasHoverActions,
               isClosing: args.isClosing,
             }),
@@ -781,10 +833,12 @@ function InlineWorkspaceLabel(args: {
           }
         }}
         onBlur={() => void commitDraft()}
-        className={cn(
-          "h-7 min-w-0 bg-background px-2 text-sm",
-          args.compact ? "flex-1" : "w-full",
-        )}
+        xstyle={[
+          projectSidebarStyles.labelInput,
+          args.compact
+            ? projectSidebarStyles.labelInputCompact
+            : projectSidebarStyles.labelInputWide,
+        ]}
         aria-label={`edit-workspace-label-${args.workspaceId}`}
       />
     );
@@ -792,13 +846,13 @@ function InlineWorkspaceLabel(args: {
 
   return (
     <span
-      className={cn(
-        "min-w-0 truncate leading-5",
-        args.compact && "flex-1",
-        !args.compact && "pr-8",
-        args.isActive && "font-medium text-foreground",
-        canEdit &&
-          "cursor-text rounded-sm outline-none hover:bg-background/30 focus-visible:ring-1 focus-visible:ring-ring",
+      className={sx(
+        projectSidebarStyles.label,
+        args.compact && projectSidebarStyles.labelCompact,
+        !args.compact && projectSidebarStyles.labelRoomy,
+        args.isActive && projectSidebarStyles.labelActive,
+        canEdit && projectSidebarStyles.labelEditable,
+        canEdit && focusRing.ring,
       )}
       title={canEdit ? "Edit workspace label" : String(displayName)}
       tabIndex={canEdit ? 0 : undefined}
@@ -842,17 +896,20 @@ const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
   const hasMetaActions = Boolean(args.shortcutLabel) || respondingTaskCount > 0;
 
   return (
-    <span className="col-span-2 grid min-w-0 grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2 text-[11px] leading-4 text-muted-foreground">
-      <span className="flex size-4 items-center justify-center">
-        <GitBranch className="size-4 shrink-0 text-muted-foreground/70" />
+    <span className={sx(projectSidebarStyles.metaGrid)}>
+      <span className={sx(projectSidebarStyles.metaIconSlot)}>
+        <GitBranch className={sx(projectSidebarStyles.metaIcon)} />
       </span>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate">{branchLabel}</span>
+      <span className={sx(projectSidebarStyles.metaBody)}>
+        <span className={sx(projectSidebarStyles.metaBranch)}>
+          {branchLabel}
+        </span>
         {hasMetaActions ? (
           <span
-            className={cn(
-              "ml-auto flex shrink-0 items-center gap-1.5 transition-opacity",
-              getWorkspaceRespondingCountVisibilityClasses({
+            className={sx(
+              projectSidebarStyles.metaActions,
+              transition.fade,
+              getWorkspaceRespondingCountVisibilityStyle({
                 hasHoverActions: args.hasHoverActions,
                 isClosing: args.isClosing,
               }),
@@ -862,13 +919,13 @@ const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
               <WorkspaceShortcutChip
                 modifier={workspaceShortcutModifierLabel}
                 label={args.shortcutLabel}
-                className="h-4 shrink-0 px-1 text-[10px]"
+                className={sx(projectSidebarStyles.metaShortcutChip)}
               />
             ) : null}
             {respondingTaskCount > 0 ? (
               <Badge
                 variant="outline"
-                className="h-4 min-w-5 shrink-0 justify-center rounded-sm border-primary/30 bg-primary/10 px-1 text-[10px] font-medium tabular-nums text-primary"
+                className={sx(projectSidebarStyles.respondingBadgeInline)}
               >
                 {respondingTaskCount}
               </Badge>
@@ -975,7 +1032,10 @@ function SortableSidebarItem(args: SortableSidebarItemProps) {
   return (
     <div
       ref={setRowElement}
-      className={cn("relative", isDragging && "opacity-50")}
+      className={sx(
+        projectSidebarStyles.sortableRow,
+        isDragging && projectSidebarStyles.sortableRowDragging,
+      )}
     >
       {args.children({
         isDragging,
@@ -1015,20 +1075,22 @@ function WorkspaceRowActions(args: {
   return (
     <>
       <div
-        className={cn(
+        className={sx(
+          projectSidebarStyles.rowActions,
+          transition.fade,
           args.placement === "top"
-            ? "absolute right-1 top-1.5 flex items-center gap-1 transition-opacity"
-            : "absolute inset-y-0 right-0 flex items-center gap-1 pr-1 transition-opacity",
+            ? projectSidebarStyles.rowActionsTop
+            : projectSidebarStyles.rowActionsInline,
           forceVisible
-            ? "pointer-events-auto opacity-100"
-            : getWorkspaceHoverActionVisibilityClasses({ isClosing }),
+            ? projectSidebarStyles.rowActionsPinned
+            : getWorkspaceHoverActionVisibilityStyle({ isClosing }),
         )}
       >
         {args.shortcutLabel ? (
           <WorkspaceShortcutChip
             modifier={args.shortcutModifier}
             label={args.shortcutLabel}
-            className="shrink-0"
+            className={sx(projectSidebarStyles.rowActionsShortcut)}
           />
         ) : null}
         <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
@@ -1038,7 +1100,7 @@ function WorkspaceRowActions(args: {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 rounded-md p-0 text-muted-foreground"
+                xstyle={projectSidebarStyles.rowActionsTrigger}
                 disabled={isClosing}
                 aria-label={`workspace-actions-${args.workspaceId}`}
               />
@@ -1047,7 +1109,9 @@ function WorkspaceRowActions(args: {
             {isClosing ? (
               <Loader aria-hidden size="xs" variant="spinner" />
             ) : (
-              <MoreVertical className="size-3.5" />
+              <MoreVertical
+                className={sx(projectSidebarStyles.rowActionsIcon)}
+              />
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -1682,9 +1746,7 @@ export function ProjectWorkspaceSidebar(args: {
     <>
       <aside
         data-testid="project-workspace-sidebar"
-        className={cn(
-          "relative z-0 stave-project-sidebar hidden h-full shrink-0 overflow-hidden text-sidebar-foreground lg:flex lg:flex-col",
-        )}
+        className={cx("stave-project-sidebar", sx(projectSidebarStyles.aside))}
         style={{
           width: `${args.collapsed ? COLLAPSED_PROJECT_SIDEBAR_WIDTH : args.width}px`,
           minWidth: `${args.collapsed ? COLLAPSED_PROJECT_SIDEBAR_WIDTH : args.width}px`,
@@ -1694,17 +1756,17 @@ export function ProjectWorkspaceSidebar(args: {
               : undefined,
         }}
       >
-        <span className="sr-only" aria-live="polite" aria-atomic="true">
+        <VisuallyHidden aria-live="polite" aria-atomic="true">
           {reorderAnnouncement}
-        </span>
+        </VisuallyHidden>
         {/* Expanded height and hairline match TopBar so the chrome border continues. */}
         <div
           data-testid="project-workspace-sidebar-chrome"
-          className={cn(
-            "border-b",
+          className={sx(
+            projectSidebarStyles.chrome,
             args.collapsed
-              ? "border-sidebar-border/55 px-2 pb-3"
-              : "flex h-12 shrink-0 items-center border-border/70 px-3",
+              ? projectSidebarStyles.chromeCollapsed
+              : projectSidebarStyles.chromeExpanded,
           )}
           style={
             args.collapsed && IS_MAC
@@ -1716,20 +1778,20 @@ export function ProjectWorkspaceSidebar(args: {
         >
           <TooltipProvider>
             {args.collapsed ? (
-              <div className="flex flex-col items-center">
+              <div className={sx(projectSidebarStyles.columnCenter)}>
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-10 w-10 rounded-md bg-sidebar-accent/60 p-0 hover:bg-sidebar-accent"
+                        xstyle={projectSidebarStyles.collapsedPrimaryButton}
                         onClick={() => setOpenPathDialogOpen(true)}
                         aria-label="open-project"
                       />
                     }
                   >
-                    <FolderOpen className="size-4" />
+                    <FolderOpen className={sx(projectSidebarStyles.iconMd)} />
                   </TooltipTrigger>
                   <TooltipContent side="right">Open Project</TooltipContent>
                 </Tooltip>
@@ -1740,32 +1802,32 @@ export function ProjectWorkspaceSidebar(args: {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className={cn(
-                            "h-10 w-10 rounded-md p-0",
+                          xstyle={[
+                            projectSidebarStyles.collapsedButton,
                             activeAppSurface.kind === "fleet-view"
-                              ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                              : "hover:bg-sidebar-accent",
-                          )}
+                              ? projectSidebarStyles.collapsedButtonActive
+                              : projectSidebarStyles.collapsedButtonIdle,
+                          ]}
                           onClick={() => openFleetView()}
                           aria-label="open-fleet-view"
                         />
                       }
                     >
-                      <LayoutGrid className="size-4" />
+                      <LayoutGrid className={sx(projectSidebarStyles.iconMd)} />
                     </TooltipTrigger>
                     <TooltipContent side="right">Fleet View</TooltipContent>
                   </Tooltip>
                 ) : null}
               </div>
             ) : (
-              <div className="flex w-full items-center justify-end gap-2">
+              <div className={sx(projectSidebarStyles.chromeTrailing)}>
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                        xstyle={projectSidebarStyles.chromeButton}
                         onClick={() =>
                           setLayout({
                             patch: { workspaceSidebarCollapsed: true },
@@ -1775,7 +1837,7 @@ export function ProjectWorkspaceSidebar(args: {
                       />
                     }
                   >
-                    <PanelLeft className="size-4" />
+                    <PanelLeft className={sx(projectSidebarStyles.iconMd)} />
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     Collapse Project List
@@ -1786,9 +1848,9 @@ export function ProjectWorkspaceSidebar(args: {
           </TooltipProvider>
         </div>
         {args.collapsed ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+          <div className={sx(projectSidebarStyles.scrollArea)}>
             <TooltipProvider>
-              <div className="flex flex-col items-center gap-2">
+              <div className={sx(projectSidebarStyles.columnCenterGap)}>
                 {collapsedWorkspaceEntries.map((entry) => {
                   const entryKey = `${entry.projectPath}:${entry.workspaceId}`;
                   const shortcutLabel = workspaceShortcutLabels.get(entryKey);
@@ -1797,12 +1859,14 @@ export function ProjectWorkspaceSidebar(args: {
                   return (
                     <div
                       key={entryKey}
-                      className="flex w-full flex-col items-center"
+                      className={sx(projectSidebarStyles.collapsedEntry)}
                     >
                       {entry.startsProjectGroup ? (
                         <div
                           aria-hidden="true"
-                          className="mb-2 h-px w-5 rounded-full bg-sidebar-border/70"
+                          className={sx(
+                            projectSidebarStyles.collapsedGroupRule,
+                          )}
                         />
                       ) : null}
                       <WorkspaceHoverPreviewTooltip
@@ -1813,14 +1877,16 @@ export function ProjectWorkspaceSidebar(args: {
                         shortcutLabel={shortcutLabel}
                         side="right"
                       >
-                        <button
+                        <AdsButton
+                          layout="host"
                           type="button"
-                          className={cn(
-                            "flex h-10 w-10 items-center justify-center rounded-md border transition-colors",
+                          xstyle={[
+                            projectSidebarStyles.collapsedWorkspaceButton,
+                            transition.colors,
                             entry.isActive
-                              ? "border-primary/40 bg-primary/10 text-primary"
-                              : "border-transparent bg-transparent text-muted-foreground hover:border-border/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                          )}
+                              ? projectSidebarStyles.collapsedWorkspaceActive
+                              : projectSidebarStyles.collapsedWorkspaceIdle,
+                          ]}
                           onClick={() =>
                             void handleProjectWorkspaceOpen({
                               projectPath: entry.projectPath,
@@ -1839,7 +1905,7 @@ export function ProjectWorkspaceSidebar(args: {
                                 ?.kind
                             }
                           />
-                        </button>
+                        </AdsButton>
                       </WorkspaceHoverPreviewTooltip>
                     </div>
                   );
@@ -1849,38 +1915,40 @@ export function ProjectWorkspaceSidebar(args: {
           </div>
         ) : null}
         {!args.collapsed ? (
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1.5">
+          <div className={sx(projectSidebarStyles.scrollAreaExpanded)}>
             <TooltipProvider>
               <div
-                className={cn("space-y-0.5", sidebarShowFleetView && "mb-2")}
+                className={sx(
+                  projectSidebarStyles.navStack,
+                  sidebarShowFleetView && projectSidebarStyles.navStackSpaced,
+                )}
               >
                 {sidebarShowFleetView ? (
-                  <button
+                  <AdsButton
+                    layout="host"
                     type="button"
                     onClick={() => openFleetView()}
                     aria-label="open-fleet-view"
-                    className={cn(
-                      "flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors",
+                    xstyle={[
+                      projectSidebarStyles.navButton,
+                      transition.colors,
                       activeAppSurface.kind === "fleet-view"
-                        ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                    )}
+                        ? projectSidebarStyles.navButtonActive
+                        : projectSidebarStyles.navButtonIdle,
+                    ]}
                   >
-                    <LayoutGrid className="size-4" />
+                    <LayoutGrid className={sx(projectSidebarStyles.iconMd)} />
                     Fleet View
-                  </button>
+                  </AdsButton>
                 ) : null}
               </div>
               <div
-                className={cn(
-                  "mb-1.5 flex items-center justify-between border-b border-sidebar-border/45 px-2",
-                  PANEL_BAR_HEIGHT_CLASS,
-                )}
+                className={sx(projectSidebarStyles.viewBar, panelBarStyles.bar)}
               >
                 {/* The toggle replaces the old static "Projects" heading: it
                     names the view you are in *and* is the control that leaves
                     it, so the bar never claims one thing while showing another. */}
-                <div className="flex items-center gap-0.5 rounded-md border border-sidebar-border/50 p-0.5">
+                <div className={sx(projectSidebarStyles.viewToggle)}>
                   {SIDEBAR_NAV_VIEW_OPTIONS.map((option) => {
                     const isSelected = sidebarNavView === option.value;
                     return (
@@ -1891,12 +1959,12 @@ export function ProjectWorkspaceSidebar(args: {
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className={cn(
-                                "h-6 w-7 rounded-[5px] p-0",
+                              xstyle={[
+                                projectSidebarStyles.viewToggleButton,
                                 isSelected
-                                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                                  : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                              )}
+                                  ? projectSidebarStyles.viewToggleButtonActive
+                                  : projectSidebarStyles.viewToggleButtonIdle,
+                              ]}
                               aria-label={`sidebar-view-${option.value}`}
                               aria-pressed={isSelected}
                               onClick={() =>
@@ -1907,7 +1975,9 @@ export function ProjectWorkspaceSidebar(args: {
                             />
                           }
                         >
-                          <option.Icon className="size-3.5" />
+                          <option.Icon
+                            className={sx(projectSidebarStyles.iconSm)}
+                          />
                         </TooltipTrigger>
                         <TooltipContent side="top">
                           {option.label}
@@ -1916,7 +1986,7 @@ export function ProjectWorkspaceSidebar(args: {
                     );
                   })}
                 </div>
-                <div className="flex items-center gap-1">
+                <div className={sx(projectSidebarStyles.viewBarActions)}>
                   <Tooltip>
                     <TooltipTrigger
                       render={
@@ -1924,13 +1994,13 @@ export function ProjectWorkspaceSidebar(args: {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          xstyle={projectSidebarStyles.chromeButtonSidebar}
                           onClick={() => setOpenPathDialogOpen(true)}
                           aria-label="open-project"
                         />
                       }
                     >
-                      <FolderOpen className="size-4" />
+                      <FolderOpen className={sx(projectSidebarStyles.iconMd)} />
                     </TooltipTrigger>
                     <TooltipContent side="top">Open Project</TooltipContent>
                   </Tooltip>
@@ -1939,7 +2009,11 @@ export function ProjectWorkspaceSidebar(args: {
                     <DropdownMenu>
                       <Tooltip>
                         <TooltipTrigger
-                          render={<span className="inline-flex" />}
+                          render={
+                            <span
+                              className={sx(projectSidebarStyles.triggerHost)}
+                            />
+                          }
                         >
                           <DropdownMenuTrigger
                             render={
@@ -1947,15 +2021,21 @@ export function ProjectWorkspaceSidebar(args: {
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 rounded-md p-0 text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                xstyle={
+                                  projectSidebarStyles.chromeButtonSidebar
+                                }
                                 aria-label="workspace-item-display-mode"
                               />
                             }
                           >
                             {workspaceSidebarItemDisplayMode === "expanded" ? (
-                              <Rows3 className="size-4" />
+                              <Rows3
+                                className={sx(projectSidebarStyles.iconMd)}
+                              />
                             ) : (
-                              <Rows2 className="size-4" />
+                              <Rows2
+                                className={sx(projectSidebarStyles.iconMd)}
+                              />
                             )}
                           </DropdownMenuTrigger>
                         </TooltipTrigger>
@@ -1963,7 +2043,10 @@ export function ProjectWorkspaceSidebar(args: {
                           Workspace row display
                         </TooltipContent>
                       </Tooltip>
-                      <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuContent
+                        align="end"
+                        className={sx(projectSidebarStyles.displayModeMenu)}
+                      >
                         <DropdownMenuLabel>Workspace rows</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuRadioGroup
@@ -1971,11 +2054,15 @@ export function ProjectWorkspaceSidebar(args: {
                           onValueChange={handleWorkspaceItemDisplayModeChange}
                         >
                           <DropdownMenuRadioItem value="expanded">
-                            <Rows3 className="size-4" />
+                            <Rows3
+                              className={sx(projectSidebarStyles.iconMd)}
+                            />
                             Expanded
                           </DropdownMenuRadioItem>
                           <DropdownMenuRadioItem value="compact">
-                            <Rows2 className="size-4" />
+                            <Rows2
+                              className={sx(projectSidebarStyles.iconMd)}
+                            />
                             Compact
                           </DropdownMenuRadioItem>
                         </DropdownMenuRadioGroup>
@@ -1984,15 +2071,15 @@ export function ProjectWorkspaceSidebar(args: {
                   )}
                 </div>
               </div>
-              <div className="relative mb-2 px-2">
-                <Search className="pointer-events-none absolute left-4 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
+              <div className={sx(projectSidebarStyles.searchRow)}>
+                <Search className={sx(projectSidebarStyles.searchIcon)} />
                 <Input
                   value={workspaceSearchQuery}
                   onChange={(event) =>
                     setWorkspaceSearchQuery(event.target.value)
                   }
                   placeholder="Search labels or branches"
-                  className="h-8 rounded-md border-sidebar-border/60 bg-transparent pl-7 pr-7 text-xs"
+                  xstyle={projectSidebarStyles.searchInput}
                   aria-label="search-workspaces"
                 />
                 {workspaceSearchQuery.trim() ? (
@@ -2000,26 +2087,26 @@ export function ProjectWorkspaceSidebar(args: {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-md p-0 text-muted-foreground hover:text-foreground"
+                    xstyle={projectSidebarStyles.searchClear}
                     onClick={() => setWorkspaceSearchQuery("")}
                     aria-label="clear-workspace-search"
                   >
-                    <X className="size-3.5" />
+                    <X className={sx(projectSidebarStyles.iconSm)} />
                   </Button>
                 ) : null}
               </div>
               {projects.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                <div className={sx(projectSidebarStyles.emptyState)}>
                   No projects yet.
                 </div>
               ) : visibleProjects.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                <div className={sx(projectSidebarStyles.emptyState)}>
                   No matching workspaces.
                 </div>
               ) : isWorkQueueView ? (
-                <div className="space-y-0.5">
+                <div className={sx(projectSidebarStyles.navStack)}>
                   {workQueueGroups.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                    <div className={sx(projectSidebarStyles.emptyState)}>
                       No workspaces yet.
                     </div>
                   ) : (
@@ -2027,8 +2114,12 @@ export function ProjectWorkspaceSidebar(args: {
                       const laneCollapsed =
                         collapsedWorkQueueLanes[group.lane] === true;
                       return (
-                        <div key={group.lane} className="space-y-0.5">
-                          <button
+                        <div
+                          key={group.lane}
+                          className={sx(projectSidebarStyles.laneStack)}
+                        >
+                          <AdsButton
+                            layout="host"
                             type="button"
                             onClick={() =>
                               setCollapsedWorkQueueLanes((previous) => ({
@@ -2038,20 +2129,31 @@ export function ProjectWorkspaceSidebar(args: {
                             }
                             aria-label={`work-queue-lane-${group.lane}`}
                             aria-expanded={!laneCollapsed}
-                            className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            xstyle={[
+                              projectSidebarStyles.laneButton,
+                              transition.colors,
+                            ]}
                           >
                             {laneCollapsed ? (
-                              <ChevronRight className="size-3 shrink-0" />
+                              <ChevronRight
+                                className={sx(projectSidebarStyles.laneChevron)}
+                              />
                             ) : (
-                              <ChevronDown className="size-3 shrink-0" />
+                              <ChevronDown
+                                className={sx(projectSidebarStyles.laneChevron)}
+                              />
                             )}
-                            <span className="min-w-0 flex-1 truncate text-left">
+                            <span
+                              className={sx(projectSidebarStyles.laneLabel)}
+                            >
                               {group.label}
                             </span>
-                            <span className="shrink-0 tabular-nums">
+                            <span
+                              className={sx(projectSidebarStyles.laneCount)}
+                            >
                               {group.entries.length}
                             </span>
-                          </button>
+                          </AdsButton>
                           {laneCollapsed
                             ? null
                             : group.entries.map((entry) => (
@@ -2075,7 +2177,7 @@ export function ProjectWorkspaceSidebar(args: {
                 </div>
               ) : (
                 <>
-                  <div className="space-y-3">
+                  <div className={sx(projectSidebarStyles.projectStack)}>
                     {visibleProjects.map((project) => {
                       const collapsed =
                         collapsedByProjectPath[project.projectPath] ?? false;
@@ -2102,19 +2204,28 @@ export function ProjectWorkspaceSidebar(args: {
                             <ProjectIdentityMark
                               icon={project.appearanceIcon}
                               color={project.appearanceColor}
-                              className="size-5 rounded-md"
-                              iconClassName="size-3"
+                              className={sx(
+                                projectSidebarStyles.projectDragPreviewMark,
+                              )}
+                              iconClassName={sx(
+                                projectSidebarStyles.projectDragPreviewIcon,
+                              )}
                             />
                           }
                           indicatorGap="0.75rem"
                         >
                           {({ handleRef, isDragging }) => (
                             <section
-                              className={cn(
-                                isDragging && "rounded-md bg-sidebar-accent/60",
+                              className={sx(
+                                isDragging &&
+                                  projectSidebarStyles.projectSectionDragging,
                               )}
                             >
-                              <div className="flex items-center gap-1">
+                              <div
+                                className={sx(
+                                  projectSidebarStyles.projectHeaderRow,
+                                )}
+                              >
                                 <div
                                   ref={handleRef ?? undefined}
                                   role={handleRef ? "group" : undefined}
@@ -2177,11 +2288,13 @@ export function ProjectWorkspaceSidebar(args: {
                                         }
                                       : undefined
                                   }
-                                  className={cn(
-                                    "group/project-row flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-within:bg-sidebar-accent",
+                                  className={sx(
+                                    projectSidebarStyles.projectRow,
+                                    transition.colors,
                                     handleRef &&
-                                      "cursor-pointer active:cursor-grabbing",
-                                    isDragging && "cursor-grabbing",
+                                      projectSidebarStyles.projectRowDraggable,
+                                    isDragging &&
+                                      projectSidebarStyles.projectRowDragging,
                                   )}
                                 >
                                   <Tooltip>
@@ -2191,7 +2304,9 @@ export function ProjectWorkspaceSidebar(args: {
                                           type="button"
                                           variant="ghost"
                                           size="sm"
-                                          className="relative h-8 w-8 shrink-0 rounded-md p-0 text-muted-foreground"
+                                          xstyle={
+                                            projectSidebarStyles.projectToggle
+                                          }
                                           onClick={() => {
                                             setCollapsedByProjectPath(
                                               (current) => ({
@@ -2209,7 +2324,9 @@ export function ProjectWorkspaceSidebar(args: {
                                       {projectBusy ? (
                                         <Loader
                                           aria-hidden
-                                          className="text-muted-foreground"
+                                          className={sx(
+                                            projectSidebarStyles.statusMuted,
+                                          )}
                                           size="xs"
                                           variant="spinner"
                                         />
@@ -2218,28 +2335,28 @@ export function ProjectWorkspaceSidebar(args: {
                                           <ProjectIdentityMark
                                             icon={project.appearanceIcon}
                                             color={project.appearanceColor}
-                                            className={cn(
-                                              "size-7 transition-all duration-200",
-                                              "group-hover/project-row:scale-75 group-hover/project-row:opacity-0",
-                                              "group-focus-within/project-row:scale-75 group-focus-within/project-row:opacity-0",
+                                            className={sx(
+                                              projectSidebarStyles.projectMark,
                                             )}
-                                            iconClassName="size-3.5"
+                                            iconClassName={sx(
+                                              projectSidebarStyles.projectMarkIcon,
+                                            )}
                                           />
-                                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                          <span
+                                            className={sx(
+                                              projectSidebarStyles.projectChevronSlot,
+                                            )}
+                                          >
                                             {collapsed ? (
                                               <ChevronRight
-                                                className={cn(
-                                                  "size-4 scale-75 opacity-0 transition-all duration-200",
-                                                  "group-hover/project-row:scale-100 group-hover/project-row:opacity-100",
-                                                  "group-focus-within/project-row:scale-100 group-focus-within/project-row:opacity-100",
+                                                className={sx(
+                                                  projectSidebarStyles.projectChevron,
                                                 )}
                                               />
                                             ) : (
                                               <ChevronDown
-                                                className={cn(
-                                                  "size-4 scale-75 opacity-0 transition-all duration-200",
-                                                  "group-hover/project-row:scale-100 group-hover/project-row:opacity-100",
-                                                  "group-focus-within/project-row:scale-100 group-focus-within/project-row:opacity-100",
+                                                className={sx(
+                                                  projectSidebarStyles.projectChevron,
                                                 )}
                                               />
                                             )}
@@ -2254,35 +2371,37 @@ export function ProjectWorkspaceSidebar(args: {
                                     </TooltipContent>
                                   </Tooltip>
                                   <div
-                                    className={cn(
-                                      "relative flex min-w-0 flex-1 items-center gap-2 transition-[padding] duration-200",
-                                      // The row actions are absolutely positioned at `right-0`, so
-                                      // hovering reserves room for them. An attention alert stays
-                                      // visible through that hover (unlike the count badge it
-                                      // replaces), so it needs its own slot reserved beyond the
-                                      // actions or the two would overlap.
+                                    className={sx(
+                                      projectSidebarStyles.projectLead,
+                                      // The row actions are absolutely positioned at the inline
+                                      // end, so hovering reserves room for them. An attention
+                                      // alert stays visible through that hover (unlike the count
+                                      // badge it replaces), so it needs its own slot reserved
+                                      // beyond the actions or the two would overlap.
                                       projectAlertPinnedOnHover
-                                        ? "group-hover/project-row:pr-[7.75rem] group-focus-within/project-row:pr-[7.75rem]"
-                                        : "group-hover/project-row:pr-[5.75rem] group-focus-within/project-row:pr-[5.75rem]",
+                                        ? projectSidebarStyles.projectLeadPinned
+                                        : projectSidebarStyles.projectLeadDefault,
                                     )}
                                   >
-                                    <span className="min-w-0 flex-1 truncate font-medium">
+                                    <span
+                                      className={sx(
+                                        projectSidebarStyles.projectName,
+                                      )}
+                                    >
                                       {project.projectName}
                                     </span>
                                     <div
-                                      className={cn(
-                                        "ml-auto flex shrink-0 items-center transition-all duration-200",
+                                      className={sx(
+                                        projectSidebarStyles.projectCountSlot,
                                         // The workspace count is decorative, so it yields to the
                                         // row actions on hover. An attention alert must not: the
                                         // moment you reach for the row is exactly when you need to
                                         // see that something inside it is blocked, and fading the
                                         // slot would also make its tooltip unreachable. The row
-                                        // reserves `pr-[5.75rem]` on hover, so the alert stays
-                                        // clear of the absolutely positioned actions.
-                                        !projectAlertPinnedOnHover && [
-                                          "group-hover/project-row:pointer-events-none group-hover/project-row:translate-x-1 group-hover/project-row:opacity-0",
-                                          "group-focus-within/project-row:pointer-events-none group-focus-within/project-row:translate-x-1 group-focus-within/project-row:opacity-0",
-                                        ],
+                                        // reserves hover padding, so the alert stays clear of the
+                                        // absolutely positioned actions.
+                                        !projectAlertPinnedOnHover &&
+                                          projectSidebarStyles.projectCountSlotYields,
                                       )}
                                     >
                                       {projectAttentionAlert ? (
@@ -2292,7 +2411,9 @@ export function ProjectWorkspaceSidebar(args: {
                                         />
                                       ) : (
                                         <span
-                                          className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-sidebar-border/60 bg-sidebar-accent/45 px-1.5 text-[10px] font-medium tabular-nums text-muted-foreground"
+                                          className={sx(
+                                            projectSidebarStyles.projectCount,
+                                          )}
                                           aria-label={`${project.workspaces.length} workspaces`}
                                         >
                                           {project.workspaces.length}
@@ -2300,11 +2421,8 @@ export function ProjectWorkspaceSidebar(args: {
                                       )}
                                     </div>
                                     <div
-                                      className={cn(
-                                        "absolute right-0 top-1/2 flex shrink-0 -translate-y-1/2 items-center gap-0.5 transition-all duration-200",
-                                        "pointer-events-none translate-x-1 opacity-0",
-                                        "group-hover/project-row:pointer-events-auto group-hover/project-row:translate-x-0 group-hover/project-row:opacity-100",
-                                        "group-focus-within/project-row:pointer-events-auto group-focus-within/project-row:translate-x-0 group-focus-within/project-row:opacity-100",
+                                      className={sx(
+                                        projectSidebarStyles.projectActions,
                                       )}
                                     >
                                       <Tooltip>
@@ -2314,7 +2432,9 @@ export function ProjectWorkspaceSidebar(args: {
                                               type="button"
                                               variant="ghost"
                                               size="sm"
-                                              className="h-7 w-7 rounded-md p-0"
+                                              xstyle={
+                                                projectSidebarStyles.projectActionButton
+                                              }
                                               disabled={projectBusy}
                                               onClick={() =>
                                                 void args.onKickoffWorkspace(
@@ -2325,7 +2445,11 @@ export function ProjectWorkspaceSidebar(args: {
                                             />
                                           }
                                         >
-                                          <Rocket className="size-3.5" />
+                                          <Rocket
+                                            className={sx(
+                                              projectSidebarStyles.iconSm,
+                                            )}
+                                          />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
                                           Kick off workspace
@@ -2338,7 +2462,9 @@ export function ProjectWorkspaceSidebar(args: {
                                               type="button"
                                               variant="ghost"
                                               size="sm"
-                                              className="h-7 w-7 rounded-md p-0"
+                                              xstyle={
+                                                projectSidebarStyles.projectActionButton
+                                              }
                                               disabled={projectBusy}
                                               onClick={() =>
                                                 void handleCreateWorkspaceRequest(
@@ -2349,7 +2475,11 @@ export function ProjectWorkspaceSidebar(args: {
                                             />
                                           }
                                         >
-                                          <Plus className="size-3.5" />
+                                          <Plus
+                                            className={sx(
+                                              projectSidebarStyles.iconSm,
+                                            )}
+                                          />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
                                           New workspace
@@ -2362,7 +2492,9 @@ export function ProjectWorkspaceSidebar(args: {
                                               type="button"
                                               variant="ghost"
                                               size="sm"
-                                              className="h-7 w-7 rounded-md p-0"
+                                              xstyle={
+                                                projectSidebarStyles.projectActionButton
+                                              }
                                               disabled={projectBusy}
                                               onClick={() =>
                                                 void hydrateWorkspaces()
@@ -2371,7 +2503,11 @@ export function ProjectWorkspaceSidebar(args: {
                                             />
                                           }
                                         >
-                                          <RefreshCw className="size-3.5" />
+                                          <RefreshCw
+                                            className={sx(
+                                              projectSidebarStyles.iconSm,
+                                            )}
+                                          />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
                                           Refresh workspaces
@@ -2384,7 +2520,9 @@ export function ProjectWorkspaceSidebar(args: {
                                               type="button"
                                               variant="ghost"
                                               size="sm"
-                                              className="h-7 w-7 rounded-md p-0"
+                                              xstyle={
+                                                projectSidebarStyles.projectActionButton
+                                              }
                                               disabled={projectBusy}
                                               onMouseEnter={
                                                 args.onPreloadSettings
@@ -2401,7 +2539,11 @@ export function ProjectWorkspaceSidebar(args: {
                                             />
                                           }
                                         >
-                                          <Settings className="size-3.5" />
+                                          <Settings
+                                            className={sx(
+                                              projectSidebarStyles.iconSm,
+                                            )}
+                                          />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
                                           Project settings
@@ -2412,8 +2554,16 @@ export function ProjectWorkspaceSidebar(args: {
                                 </div>
                               </div>
                               {!collapsed ? (
-                                <div className="pb-1 pt-0.5">
-                                  <div className="space-y-1">
+                                <div
+                                  className={sx(
+                                    projectSidebarStyles.workspaceList,
+                                  )}
+                                >
+                                  <div
+                                    className={sx(
+                                      projectSidebarStyles.workspaceListInner,
+                                    )}
+                                  >
                                     {project.workspaces.map((workspace) => {
                                       const workspaceShortcutLabel =
                                         workspaceShortcutLabels.get(
@@ -2457,28 +2607,36 @@ export function ProjectWorkspaceSidebar(args: {
                                             <WorkspaceIdentityMark
                                               workspaceName={workspace.name}
                                               isDefault={workspace.isDefault}
-                                              className="size-4 rounded"
-                                              iconClassName="size-2.5"
+                                              className={sx(
+                                                projectSidebarStyles.identityMark,
+                                              )}
+                                              iconClassName={sx(
+                                                projectSidebarStyles.identityMarkIcon,
+                                              )}
                                             />
                                           }
                                           indicatorGap="0.25rem"
                                         >
                                           {({ handleRef, isDragging }) => (
-                                            <div className="min-w-0">
+                                            <div
+                                              className={sx(
+                                                projectSidebarStyles.workspaceItem,
+                                              )}
+                                            >
                                               <WorkspaceBorderBeam
                                                 workspaceId={workspace.id}
                                               >
                                                 <div
-                                                  className={cn(
-                                                    "group/workspace-row relative flex rounded-md border transition-[background-color,border-color,box-shadow,color]",
+                                                  className={sx(
+                                                    projectSidebarStyles.workspaceRow,
                                                     isExpandedWorkspaceItem
-                                                      ? "items-stretch gap-1"
-                                                      : "items-center gap-1",
+                                                      ? projectSidebarStyles.workspaceRowExpanded
+                                                      : projectSidebarStyles.workspaceRowCompact,
                                                     isActive
-                                                      ? "border-primary/45 bg-primary/12 text-foreground shadow-sm before:pointer-events-none before:absolute before:-left-px before:-top-px before:h-3 before:w-3 before:rounded-tl-md before:border-l-2 before:border-t-2 before:border-primary hover:bg-primary/16"
-                                                      : "border-transparent bg-transparent hover:border-sidebar-border/45 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                                                      ? projectSidebarStyles.workspaceRowActive
+                                                      : projectSidebarStyles.workspaceRowIdle,
                                                     isDragging &&
-                                                      "border-sidebar-border/45 bg-sidebar-accent shadow-sm",
+                                                      projectSidebarStyles.workspaceRowDragging,
                                                   )}
                                                 >
                                                   <WorkspaceHoverPreviewTooltip
@@ -2509,15 +2667,15 @@ export function ProjectWorkspaceSidebar(args: {
                                                           ? "Use Alt plus Arrow Up or Arrow Down to reorder."
                                                           : undefined
                                                       }
-                                                      className={cn(
-                                                        "min-w-0 flex-1 text-left text-sm",
+                                                      className={sx(
+                                                        projectSidebarStyles.workspaceOpen,
                                                         isExpandedWorkspaceItem
-                                                          ? "grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-x-2 gap-y-1 px-3 py-2.5"
-                                                          : "flex items-center gap-2 px-3 py-2",
+                                                          ? projectSidebarStyles.workspaceOpenExpanded
+                                                          : projectSidebarStyles.workspaceOpenCompact,
                                                         handleRef &&
-                                                          "cursor-pointer active:cursor-grabbing",
+                                                          projectSidebarStyles.workspaceOpenDraggable,
                                                         isDragging &&
-                                                          "cursor-grabbing",
+                                                          projectSidebarStyles.workspaceOpenDragging,
                                                       )}
                                                       onClick={() => {
                                                         if (
@@ -2607,10 +2765,10 @@ export function ProjectWorkspaceSidebar(args: {
                                                       }}
                                                     >
                                                       <span
-                                                        className={cn(
-                                                          "flex h-4 w-4 shrink-0 items-center justify-center",
+                                                        className={sx(
+                                                          projectSidebarStyles.workspaceLeadSlot,
                                                           isExpandedWorkspaceItem &&
-                                                            "mt-0.5",
+                                                            projectSidebarStyles.workspaceLeadSlotExpanded,
                                                         )}
                                                       >
                                                         <WorkspaceLeadingStatusIcon
@@ -2763,7 +2921,11 @@ export function ProjectWorkspaceSidebar(args: {
                                                     />
                                                   ) : (
                                                     <>
-                                                      <div className="relative shrink-0">
+                                                      <div
+                                                        className={sx(
+                                                          projectSidebarStyles.workspaceCountHost,
+                                                        )}
+                                                      >
                                                         <WorkspaceRespondingCountBadge
                                                           workspaceId={
                                                             workspace.id
@@ -2853,14 +3015,16 @@ export function ProjectWorkspaceSidebar(args: {
           </div>
         ) : null}
         <div
-          className={cn(
-            "border-t border-sidebar-border/55",
-            args.collapsed ? "px-2 py-2" : "px-3 py-2",
+          className={sx(
+            projectSidebarStyles.footer,
+            args.collapsed
+              ? projectSidebarStyles.footerCollapsed
+              : projectSidebarStyles.footerExpanded,
           )}
         >
           <TooltipProvider>
             {args.collapsed ? (
-              <div className="flex flex-col items-center gap-2">
+              <div className={sx(projectSidebarStyles.columnCenterGap)}>
                 <StaveAppMenuButton
                   compact
                   onOpenCommandPalette={args.onOpenCommandPalette}
@@ -2873,7 +3037,7 @@ export function ProjectWorkspaceSidebar(args: {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-10 w-10 rounded-md p-0"
+                        xstyle={projectSidebarStyles.collapsedButton}
                         aria-label="open-settings"
                         onMouseEnter={args.onPreloadSettings}
                         onFocus={args.onPreloadSettings}
@@ -2881,14 +3045,14 @@ export function ProjectWorkspaceSidebar(args: {
                       />
                     }
                   >
-                    <Settings className="size-4" />
+                    <Settings className={sx(projectSidebarStyles.iconMd)} />
                   </TooltipTrigger>
                   <TooltipContent side="right">Settings</TooltipContent>
                 </Tooltip>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+              <div className={sx(projectSidebarStyles.footerRow)}>
+                <div className={sx(projectSidebarStyles.footerGroup)}>
                   <StaveAppMenuButton
                     compact
                     onOpenCommandPalette={args.onOpenCommandPalette}
@@ -2902,7 +3066,7 @@ export function ProjectWorkspaceSidebar(args: {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 rounded-md p-0"
+                        xstyle={projectSidebarStyles.chromeButton}
                         aria-label="open-settings"
                         onMouseEnter={args.onPreloadSettings}
                         onFocus={args.onPreloadSettings}
@@ -2910,7 +3074,7 @@ export function ProjectWorkspaceSidebar(args: {
                       />
                     }
                   >
-                    <Settings className="size-3.5" />
+                    <Settings className={sx(projectSidebarStyles.iconSm)} />
                   </TooltipTrigger>
                   <TooltipContent side="top">Settings</TooltipContent>
                 </Tooltip>
@@ -2947,22 +3111,20 @@ export function ProjectWorkspaceSidebar(args: {
         }}
       >
         {archiveDialogCopy?.canDeleteBranch ? (
-          <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm hover:bg-muted/30">
-            <input
-              type="checkbox"
-              className="accent-destructive"
+          <label className={sx(projectSidebarStyles.archiveOption)}>
+            <Checkbox
+              controlOnly
+              className={sx(projectSidebarStyles.archiveCheckbox)}
               checked={archiveDeletesBranch}
               disabled={closingWorkspaceId !== null}
-              onChange={(event) =>
-                setArchiveDeletesBranch(event.target.checked)
-              }
+              onCheckedChange={(checked) => setArchiveDeletesBranch(checked)}
             />
             <span
-              className={
+              className={sx(
                 archiveDeletesBranch
-                  ? "text-destructive"
-                  : "text-muted-foreground"
-              }
+                  ? projectSidebarStyles.archiveLabelOn
+                  : projectSidebarStyles.archiveLabelOff,
+              )}
             >
               Delete the git branch too
             </span>

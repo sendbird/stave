@@ -19,14 +19,9 @@ import {
 } from "@/lib/right-rail-panels";
 import { useRunningWorkspaceProcessCount } from "@/lib/workspace-scripts";
 import { workspaceToolsRunningLabel } from "@/lib/workspace-tools-presentation";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { rightRailStyles } from "@/components/layout/right-rail.styles";
 import { useAppStore } from "@/store/app.store";
-
-const RAIL_BUTTON_CLASS =
-  "h-9 w-9 rounded-md border border-transparent p-0 lg:h-10 lg:w-10";
-const RAIL_BUTTON_INACTIVE_CLASS =
-  "hover:border-border/80 hover:bg-secondary/70";
-const RAIL_ICON_CLASS = "size-3.5 lg:size-4";
 
 function RightRailWorkspaceToolsButton(props: {
   disabled: boolean;
@@ -70,24 +65,24 @@ function RightRailWorkspaceToolsButton(props: {
 
   return (
     <Tooltip>
-      <TooltipTrigger render={<span className="inline-flex" />}>
+      <TooltipTrigger render={<span className={sx(rightRailStyles.triggerHost)} />}>
         <Button
           size="sm"
           variant={props.isActive ? "default" : "ghost"}
           disabled={props.disabled}
-          className={cn(
-            RAIL_BUTTON_CLASS,
-            "relative",
-            !props.isActive && RAIL_BUTTON_INACTIVE_CLASS,
-          )}
+          xstyle={[
+            rightRailStyles.railButton,
+            rightRailStyles.railButtonRelative,
+            !props.isActive && rightRailStyles.railButtonInactive,
+          ]}
           onClick={props.onClick}
           aria-label={label}
         >
-          <Icon className={RAIL_ICON_CLASS} />
+          <Icon className={sx(rightRailStyles.railIcon)} />
           {runningCount > 0 ? (
             <span
               data-testid="workspace-tools-running-count"
-              className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary px-0.5 text-[10px] font-medium leading-none text-primary-foreground"
+              className={sx(rightRailStyles.runningBadge)}
             >
               {runningCount}
             </span>
@@ -142,10 +137,10 @@ export function RightRail() {
   return (
     <aside
       data-testid="workspace-bar"
-      className="stave-workspace-rail flex h-full w-12 shrink-0 flex-col items-center py-2 lg:w-14 lg:py-3"
+      className={cx("stave-workspace-rail", sx(rightRailStyles.rail))}
     >
       <TooltipProvider>
-        <div className="flex w-full flex-col items-center gap-2">
+        <div className={sx(rightRailStyles.stack)}>
           {RIGHT_RAIL_PANEL_IDS.map((panelId) => {
             const isActive =
               sidebarOverlayVisible && sidebarOverlayTab === panelId;
@@ -164,19 +159,19 @@ export function RightRail() {
             const Icon = RIGHT_RAIL_PANEL_ICONS[panelId];
             return (
               <Tooltip key={panelId}>
-                <TooltipTrigger render={<span className="inline-flex" />}>
+                <TooltipTrigger render={<span className={sx(rightRailStyles.triggerHost)} />}>
                   <Button
                     size="sm"
                     variant={isActive ? "default" : "ghost"}
                     disabled={!hasProject}
-                    className={cn(
-                      RAIL_BUTTON_CLASS,
-                      !isActive && RAIL_BUTTON_INACTIVE_CLASS,
-                    )}
+                    xstyle={[
+                      rightRailStyles.railButton,
+                      !isActive && rightRailStyles.railButtonInactive,
+                    ]}
                     onClick={() => toggleSidebarTab(panelId)}
                     aria-label={RIGHT_RAIL_PANEL_TITLES[panelId]}
                   >
-                    <Icon className={RAIL_ICON_CLASS} />
+                    <Icon className={sx(rightRailStyles.railIcon)} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left">
@@ -186,19 +181,19 @@ export function RightRail() {
             );
           })}
           <Tooltip>
-            <TooltipTrigger render={<span className="inline-flex" />}>
+            <TooltipTrigger render={<span className={sx(rightRailStyles.triggerHost)} />}>
               <Button
                 size="sm"
                 variant={lensActive ? "default" : "ghost"}
                 disabled={!hasProject || !hasLensApi}
-                className={cn(
-                  RAIL_BUTTON_CLASS,
-                  !lensActive && RAIL_BUTTON_INACTIVE_CLASS,
-                )}
+                xstyle={[
+                  rightRailStyles.railButton,
+                  !lensActive && rightRailStyles.railButtonInactive,
+                ]}
                 onClick={openLensSurface}
                 aria-label="Lens"
               >
-                <Globe className={RAIL_ICON_CLASS} />
+                <Globe className={sx(rightRailStyles.railIcon)} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">
@@ -212,16 +207,16 @@ export function RightRail() {
                   size="sm"
                   variant={terminalActive ? "default" : "ghost"}
                   disabled={!hasProject}
-                  className={cn(
-                    RAIL_BUTTON_CLASS,
-                    !terminalActive && RAIL_BUTTON_INACTIVE_CLASS,
-                  )}
+                  xstyle={[
+                    rightRailStyles.railButton,
+                    !terminalActive && rightRailStyles.railButtonInactive,
+                  ]}
                   onClick={() => paneHost.toggleTerminalGroup()}
                   aria-label="Terminal"
                 />
               }
             >
-              <TerminalSquare className={RAIL_ICON_CLASS} />
+              <TerminalSquare className={sx(rightRailStyles.railIcon)} />
             </TooltipTrigger>
             <TooltipContent side="left">Terminal</TooltipContent>
           </Tooltip>

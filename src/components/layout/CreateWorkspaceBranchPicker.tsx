@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, ChevronDown, GitBranch, Search } from "lucide-react";
 import {
   useDeferredValue,
@@ -15,11 +16,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   buildCreateWorkspaceBranchPickerRows,
   type CreateWorkspaceBranchOption,
 } from "@/components/layout/CreateWorkspaceBranchPicker.utils";
+import { branchPickerStyles } from "./create-workspace-branch-picker.styles";
 
 interface CreateWorkspaceBranchPickerProps {
   defaultBranch?: string;
@@ -231,46 +233,47 @@ export function CreateWorkspaceBranchPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <button
+          <AdsButton layout="host"
             type="button"
             disabled={disabled}
-            className={cn(
-              "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
-              open && "border-primary/70 bg-secondary/50",
-            )}
+            xstyle={[
+              branchPickerStyles.trigger,
+              open && branchPickerStyles.triggerOpen,
+            ]}
           />
         }
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{value}</span>
+        <span className={sx(branchPickerStyles.triggerValue)}>
+          <GitBranch className={sx(branchPickerStyles.branchIcon)} />
+          <span className={sx(branchPickerStyles.truncated)}>{value}</span>
         </span>
-        <span className="ml-auto flex items-center gap-2">
+        <span className={sx(branchPickerStyles.triggerMeta)}>
           {loading ? (
             <Loader
               aria-hidden
-              className="shrink-0 text-muted-foreground"
+              className={sx(branchPickerStyles.loaderInline)}
               size="xs"
+              tone="neutral"
               variant="sync"
             />
           ) : showScopeBadges ? (
-            <span className="rounded border border-border/70 bg-background/80 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            <span className={sx(branchPickerStyles.scopeBadge)}>
               {getScopeLabel(selectedScope)}
             </span>
           ) : null}
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          <ChevronDown className={sx(branchPickerStyles.chevronIcon)} />
         </span>
       </PopoverTrigger>
       <PopoverContent
         align="start"
         sideOffset={8}
-        className="max-w-[32rem] gap-0 overflow-hidden border border-border/80 bg-card p-0"
+        xstyle={branchPickerStyles.popover}
         style={{ width: "var(--anchor-width)" }}
         initialFocus={false}
       >
-        <div className="border-b border-border/70 p-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <div className={sx(branchPickerStyles.searchBar)}>
+          <div className={sx(branchPickerStyles.searchField)}>
+            <Search className={sx(branchPickerStyles.searchIcon)} />
             <Input
               ref={searchInputRef}
               value={query}
@@ -278,19 +281,19 @@ export function CreateWorkspaceBranchPicker({
                 hasLocalBranches,
                 hasRemoteBranches,
               })}
-              className="h-9 border-border/70 bg-background/80 pl-9"
+              xstyle={branchPickerStyles.searchInput}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={handleSearchKeyDown}
             />
           </div>
         </div>
         {loading && rows.length === 0 ? (
-          <div className="flex items-center gap-2 px-3 py-8 text-sm text-muted-foreground">
+          <div className={sx(branchPickerStyles.loadingRow)}>
             <Loader aria-hidden size="xs" variant="sync" />
             Loading branches...
           </div>
         ) : rows.length === 0 ? (
-          <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+          <div className={sx(branchPickerStyles.emptyRow)}>
             No matching branches.
           </div>
         ) : (
@@ -307,7 +310,7 @@ export function CreateWorkspaceBranchPicker({
 
               if (row.type === "label") {
                 return (
-                  <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  <div className={sx(branchPickerStyles.groupLabel)}>
                     {row.label}
                   </div>
                 );
@@ -320,15 +323,16 @@ export function CreateWorkspaceBranchPicker({
               const isHighlighted = optionId === highlightedOptionId;
 
               return (
-                <div className="px-1 pb-1">
-                  <button
+                <div className={sx(branchPickerStyles.optionRow)}>
+                  <AdsButton layout="host"
                     type="button"
                     aria-selected={isSelected}
-                    className={cn(
-                      "relative flex w-full cursor-default items-center gap-2 rounded-sm py-2 pr-2 pl-3 text-left text-sm outline-hidden transition-colors select-none",
-                      isHighlighted && "bg-accent text-accent-foreground",
-                      !isHighlighted && "hover:bg-accent/60",
-                    )}
+                    xstyle={[
+                      branchPickerStyles.option,
+                      isHighlighted
+                        ? branchPickerStyles.optionHighlighted
+                        : branchPickerStyles.optionIdle,
+                    ]}
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => {
                       if (optionId === highlightedOptionId) {
@@ -339,18 +343,20 @@ export function CreateWorkspaceBranchPicker({
                     }}
                     onClick={() => handleSelect(row.option)}
                   >
-                    <span className="min-w-0 flex-1 truncate">
+                    <span className={sx(branchPickerStyles.optionLabel)}>
                       {row.option.value}
                     </span>
                     {showScopeBadges ? (
-                      <span className="rounded border border-border/70 bg-background/80 px-1.5 py-px text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                      <span className={sx(branchPickerStyles.scopeBadge)}>
                         {getScopeLabel(row.option.scope)}
                       </span>
                     ) : null}
-                    <span className="flex size-4 items-center justify-center text-foreground">
-                      {isSelected ? <Check className="size-4" /> : null}
+                    <span className={sx(branchPickerStyles.optionCheck)}>
+                      {isSelected ? (
+                        <Check className={sx(branchPickerStyles.checkIcon)} />
+                      ) : null}
                     </span>
-                  </button>
+                  </AdsButton>
                 </div>
               );
             }}

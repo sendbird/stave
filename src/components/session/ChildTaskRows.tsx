@@ -5,7 +5,14 @@ import {
   Square,
   Unlink,
 } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   useChildTasks,
   type ChildTaskActionResult,
@@ -13,6 +20,11 @@ import {
 } from "@/components/session/useChildTasks";
 import { Button, Textarea } from "@/components/ui";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { sx, cx } from "@/components/ads/utils/stylex";
+import {
+  childTaskRowsStyles as styles,
+  childTaskPhaseToneStyles,
+} from "./child-task-rows.styles";
 import {
   resolveChildTaskControls,
   type ChildTaskExpectedIdentity,
@@ -23,9 +35,7 @@ import {
   describeChildTaskPhase,
   selectChildTaskBlockedKinds,
   type ChildTaskBlockedKind,
-  type ChildTaskPhaseTone,
 } from "@/lib/runs/child-task-view";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -34,17 +44,11 @@ import { useAppStore } from "@/store/app.store";
  * child's transcript, which stays behind the child task's own surfaces.
  */
 
-const PHASE_TONE_CLASS: Record<ChildTaskPhaseTone, string> = {
-  active: "border-primary/25 bg-primary/10 text-primary",
-  waiting: "border-warning/30 bg-warning/10 text-warning",
-  done: "border-success/25 bg-success/10 text-success",
-  failed: "border-destructive/25 bg-destructive/10 text-destructive",
-  released: "border-border/60 bg-muted/40 text-muted-foreground",
-};
-
 const BLOCKED_HINT: Record<ChildTaskBlockedKind, string> = {
-  "user-input": "This child task asked a question and cannot continue until it is answered.",
-  approval: "This child task is waiting on a tool approval, which expires if nobody responds.",
+  "user-input":
+    "This child task asked a question and cannot continue until it is answered.",
+  approval:
+    "This child task is waiting on a tool approval, which expires if nobody responds.",
 };
 
 type ChildTaskComposerKind = "follow-up" | "retry";
@@ -83,6 +87,10 @@ function ChildTaskRow(props: {
   const phase = describeChildTaskPhase(child, props.blockedKind);
   const controls = resolveChildTaskControls(child);
   const copy = composer ? COMPOSER_COPY[composer] : null;
+  const requestedDetails = [
+    child.requestedModel ? `model ${child.requestedModel}` : null,
+    child.requestedEffort ? `effort ${child.requestedEffort}` : null,
+  ].filter((detail): detail is string => detail !== null);
 
   const openComposer = (kind: ChildTaskComposerKind) => {
     setComposer((current) => (current === kind ? null : kind));
@@ -107,50 +115,56 @@ function ChildTaskRow(props: {
     <div
       data-child-task-delegation-key={child.delegationKey}
       data-child-task-blocked={phase.blocked ? "true" : undefined}
-      className={cn(
-        "min-w-0 rounded-md border bg-background/55 px-2.5 py-2",
-        phase.blocked ? "border-warning/40" : "border-border/60",
+      className={sx(
+        styles.row,
+        phase.blocked ? styles.rowBorderBlocked : styles.rowBorderDefault,
       )}
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <div className={sx(styles.headerRow)}>
         <span
-          className={cn(
-            "shrink-0 rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
-            PHASE_TONE_CLASS[phase.tone],
+          className={sx(
+            styles.phaseBadge,
+            childTaskPhaseToneStyles[phase.tone],
           )}
         >
           {phase.label}
         </span>
-        <span className="truncate text-xs font-medium text-foreground">
-          {child.delegationKey}
-        </span>
-        <span className="shrink-0 text-[11px] text-muted-foreground">
+        <span className={sx(styles.delegationName)}>{child.delegationKey}</span>
+        <span className={sx(styles.metaText)}>
           {getProviderLabel({ providerId: child.providerId })}
         </span>
+        {requestedDetails.length ? (
+          <span
+            className={sx(styles.metaText)}
+            data-testid="child-task-requested-details"
+          >
+            Requested: {requestedDetails.join(" · ")}
+          </span>
+        ) : null}
         {child.attempt > 0 ? (
-          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+          <span className={sx(styles.metaTextNums)}>
             Attempt {child.attempt + 1}
           </span>
         ) : null}
       </div>
 
       {phase.blocked && props.blockedKind ? (
-        <p className="mt-1 text-[11px] text-warning">
+        <p className={sx(styles.blockedHint)}>
           {BLOCKED_HINT[props.blockedKind]}
         </p>
       ) : null}
 
       {child.reason ? (
-        <p className="mt-1 text-[11px] text-muted-foreground">{child.reason}</p>
+        <p className={sx(styles.reasonText)}>{child.reason}</p>
       ) : null}
 
       {props.error ? (
-        <p className="mt-1 text-[11px] text-destructive" role="alert">
+        <p className={sx(styles.errorText)} role="alert">
           {props.error}
         </p>
       ) : null}
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      <div className={sx(styles.actionsRow)}>
         <Button
           type="button"
           size="xs"
@@ -158,7 +172,7 @@ function ChildTaskRow(props: {
           onClick={() => props.onOpen(child)}
         >
           Open
-          <ArrowRight className="size-3" aria-hidden="true" />
+          <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
         </Button>
         {controls.canFollowUp ? (
           <Button
@@ -169,7 +183,10 @@ function ChildTaskRow(props: {
             aria-expanded={composer === "follow-up"}
             onClick={() => openComposer("follow-up")}
           >
-            <CornerDownRight className="size-3" aria-hidden="true" />
+            <CornerDownRight
+              className={sx(styles.actionIcon)}
+              aria-hidden="true"
+            />
             Follow-up
           </Button>
         ) : null}
@@ -181,7 +198,7 @@ function ChildTaskRow(props: {
             disabled={props.busy}
             onClick={() => props.onStop(child)}
           >
-            <Square className="size-3" aria-hidden="true" />
+            <Square className={sx(styles.actionIcon)} aria-hidden="true" />
             Stop
           </Button>
         ) : null}
@@ -194,7 +211,7 @@ function ChildTaskRow(props: {
             aria-expanded={composer === "retry"}
             onClick={() => openComposer("retry")}
           >
-            <RotateCcw className="size-3" aria-hidden="true" />
+            <RotateCcw className={sx(styles.actionIcon)} aria-hidden="true" />
             Retry
           </Button>
         ) : null}
@@ -206,18 +223,15 @@ function ChildTaskRow(props: {
             disabled={props.busy}
             onClick={() => props.onDetach(child)}
           >
-            <Unlink className="size-3" aria-hidden="true" />
+            <Unlink className={sx(styles.actionIcon)} aria-hidden="true" />
             Detach
           </Button>
         ) : null}
       </div>
 
       {copy ? (
-        <div className="mt-1.5 rounded-md border border-border/60 bg-muted/18 p-2">
-          <label
-            htmlFor={composerId}
-            className="text-[11px] font-medium text-foreground"
-          >
+        <div className={sx(styles.composer)}>
+          <label htmlFor={composerId} className={sx(styles.composerLabel)}>
             {copy.label}
           </label>
           <Textarea
@@ -225,11 +239,11 @@ function ChildTaskRow(props: {
             autoFocus
             value={prompt}
             disabled={props.busy}
-            className="mt-1 min-h-16 resize-y bg-background text-xs"
+            xstyle={styles.composerTextarea}
             placeholder={copy.placeholder}
             onChange={(event) => setPrompt(event.target.value)}
           />
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          <div className={sx(styles.composerActions)}>
             <Button
               type="button"
               size="xs"
@@ -249,7 +263,7 @@ function ChildTaskRow(props: {
             >
               Cancel
             </Button>
-            <span className="text-[10px] text-muted-foreground">
+            <span className={sx(styles.composerHint)}>
               Runs with guided permissions.
             </span>
           </div>
@@ -283,14 +297,12 @@ export function ChildTaskRowsSurface(props: ChildTaskRowsSurfaceProps) {
   }
   return (
     <section
-      className={cn("min-w-0", props.className)}
+      className={cx(sx(styles.sectionRoot), props.className)}
       aria-label="Child tasks"
       data-testid="child-task-rows"
     >
-      <h3 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-        Child tasks
-      </h3>
-      <div className="mt-1.5 flex min-w-0 flex-col gap-1.5">
+      <h3 className={sx(styles.sectionHeading)}>Child tasks</h3>
+      <div className={sx(styles.sectionList)}>
         {props.rows.map((child) => (
           <ChildTaskRow
             key={child.delegationKey}
@@ -552,21 +564,14 @@ export function ChildTaskParentBacklink(props: {
 
   return (
     <div
-      className={cn(
-        "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1",
-        props.className,
-      )}
+      className={cx(sx(styles.backlink), props.className)}
       data-testid="child-task-parent-backlink"
     >
-      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-        Delegated by
-      </span>
-      <span className="truncate text-[11px] text-foreground">
+      <span className={sx(styles.backlinkLabel)}>Delegated by</span>
+      <span className={sx(styles.backlinkTitle)}>
         {parentTitle?.trim() || parentTaskId}
       </span>
-      <span className="shrink-0 text-[11px] text-muted-foreground">
-        {link.delegationKey}
-      </span>
+      <span className={sx(styles.metaText)}>{link.delegationKey}</span>
       <Button
         type="button"
         size="xs"
@@ -579,7 +584,7 @@ export function ChildTaskParentBacklink(props: {
         }}
       >
         Open parent task
-        <ArrowRight className="size-3" aria-hidden="true" />
+        <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
       </Button>
     </div>
   );

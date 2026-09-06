@@ -1,0 +1,66 @@
+/*
+ * Inline AI evidence disclosures identify their object at rest, then reveal
+ * direction in the same fixed slot on pointer hover or keyboard focus. The
+ * trigger's `aria-expanded` remains the state signal; this motion is only a
+ * spatial hint and never carries meaning on its own.
+ */
+.atelier-inline-disclosure-glyph,
+.atelier-inline-disclosure-chevron {
+  transition:
+    opacity var(--atelier-motion-duration-quick)
+      var(--atelier-motion-ease-expressive),
+    transform var(--atelier-motion-duration-quick)
+      var(--atelier-motion-ease-expressive);
+}
+
+.atelier-inline-disclosure-chevron {
+  transform: rotate(0deg) scale(0.75);
+}
+
+[data-ads-inline-disclosure-icon][data-open="true"]
+  .atelier-inline-disclosure-chevron {
+  transform: rotate(90deg) scale(0.75);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .atelier-inline-disclosure-trigger:hover .atelier-inline-disclosure-glyph {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+
+  .atelier-inline-disclosure-trigger:hover .atelier-inline-disclosure-chevron {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+
+  .atelier-inline-disclosure-trigger:hover
+    [data-ads-inline-disclosure-icon][data-open="true"]
+    .atelier-inline-disclosure-chevron {
+    transform: rotate(90deg) scale(1);
+  }
+}
+
+.atelier-inline-disclosure-trigger:focus-visible
+  .atelier-inline-disclosure-glyph {
+  opacity: 0;
+  transform: scale(0.75);
+}
+
+.atelier-inline-disclosure-trigger:focus-visible
+  .atelier-inline-disclosure-chevron {
+  opacity: 1;
+  transform: rotate(0deg) scale(1);
+}
+
+.atelier-inline-disclosure-trigger:focus-visible
+  [data-ads-inline-disclosure-icon][data-open="true"]
+  .atelier-inline-disclosure-chevron {
+  transform: rotate(90deg) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atelier-inline-disclosure-glyph,
+  .atelier-inline-disclosure-chevron {
+    transition-duration: var(--atelier-motion-duration-micro), 0ms;
+  }
+}

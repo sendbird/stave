@@ -12,7 +12,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import { isMacroInstantRun, type Macro } from "@/lib/macros/types";
+import { macroControlStyles as styles } from "./macro-control.styles";
 
 interface MacroControlProps {
   macros: readonly Macro[];
@@ -38,16 +40,20 @@ export function MacroControl(args: MacroControlProps) {
           />
         }
       >
-        <Zap className="size-4" />
+        <Zap />
         <ComposerControlLabel>Macros</ComposerControlLabel>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={6} className="w-80">
-        <DropdownMenuLabel className="flex items-center gap-2">
-          <Zap className="size-3.5" />
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className={sx(styles.content)}
+      >
+        <DropdownMenuLabel className={sx(styles.label)}>
+          <Zap className={sx(styles.labelIcon)} />
           Insert a macro
         </DropdownMenuLabel>
         {args.macros.length === 0 ? (
-          <p className="px-2 py-3 text-xs leading-5 text-muted-foreground">
+          <p className={sx(styles.empty)}>
             No macros yet. Add one in Settings → Macros, or type ! in the
             composer after you create the first.
           </p>
@@ -56,22 +62,18 @@ export function MacroControl(args: MacroControlProps) {
             <DropdownMenuItem
               key={macro.id}
               onClick={() => args.onSelect(macro)}
-              className="items-start gap-2"
+              className={sx(styles.item)}
             >
-              <span className="min-w-0 flex-1">
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate text-sm">{macro.label}</span>
-                  <code className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] leading-4 text-muted-foreground">
-                    !{macro.slug}
-                  </code>
+              <span className={sx(styles.itemBody)}>
+                <span className={sx(styles.itemTitleRow)}>
+                  <span className={sx(styles.itemTitle)}>{macro.label}</span>
+                  <code className={sx(styles.itemSlug)}>!{macro.slug}</code>
                   {isMacroInstantRun(macro) ? (
-                    <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
-                      Instant
-                    </span>
+                    <span className={sx(styles.itemInstant)}>Instant</span>
                   ) : null}
                 </span>
                 {macro.description ? (
-                  <span className="block truncate text-xs text-muted-foreground">
+                  <span className={sx(styles.itemDescription)}>
                     {macro.description}
                   </span>
                 ) : null}

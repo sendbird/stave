@@ -8,6 +8,8 @@ import {
   EmptyTitle,
 } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
+import { sx } from "@/components/ads/utils/stylex";
+import { sessionLoadingStateStyles as styles } from "./session-loading-state.styles";
 
 interface SessionLoadingStateProps {
   title: string;
@@ -17,16 +19,10 @@ interface SessionLoadingStateProps {
 
 export function SessionLoadingState(args: SessionLoadingStateProps) {
   return (
-    <section className="flex min-h-0 flex-1 items-center justify-center px-6 py-8">
-      <Empty
-        data-testid={args.testId}
-        className="max-w-5xl items-stretch gap-5 rounded-[28px] border border-border/70 bg-card p-6 text-left shadow-sm"
-      >
-        <EmptyHeader className="max-w-none flex-row items-center gap-4">
-          <EmptyMedia
-            variant="icon"
-            className="size-16 rounded-full bg-muted/45 ring-1 ring-border/70"
-          >
+    <section className={sx(styles.section)}>
+      <Empty data-testid={args.testId} xstyle={styles.empty}>
+        <EmptyHeader xstyle={styles.header}>
+          <EmptyMedia variant="icon" xstyle={styles.media}>
             <ThinkingOrb
               state="working"
               size={64}
@@ -34,29 +30,27 @@ export function SessionLoadingState(args: SessionLoadingStateProps) {
               aria-label={args.title}
             />
           </EmptyMedia>
-          <div className="min-w-0 space-y-1">
-            <EmptyTitle className="text-left text-base">
-              {args.title}
-            </EmptyTitle>
-            <EmptyDescription className="text-left">
+          <div className={sx(styles.copy)}>
+            <EmptyTitle xstyle={styles.title}>{args.title}</EmptyTitle>
+            <EmptyDescription xstyle={styles.description}>
               {args.description}
             </EmptyDescription>
           </div>
         </EmptyHeader>
-        <EmptyContent className="max-w-none items-stretch gap-4">
-          <div className="space-y-3">
-            <div className="flex justify-start">
-              <Skeleton className="h-24 w-full max-w-3xl rounded-3xl bg-muted/75" />
+        <EmptyContent xstyle={styles.content}>
+          <div className={sx(styles.lines)}>
+            <div className={sx(styles.rowStart)}>
+              <Skeleton className={sx(styles.bubbleLarge)} />
             </div>
-            <div className="flex justify-end">
-              <Skeleton className="h-14 w-[min(28rem,78%)] rounded-3xl bg-muted/60" />
+            <div className={sx(styles.rowEnd)}>
+              <Skeleton className={sx(styles.bubbleMedium)} />
             </div>
-            <div className="flex justify-start">
-              <Skeleton className="h-20 w-full max-w-2xl rounded-3xl bg-muted/70" />
+            <div className={sx(styles.rowStart)}>
+              <Skeleton className={sx(styles.bubbleSmall)} />
             </div>
-            <div className="flex items-center gap-2 px-1 pt-1">
-              <Skeleton className="h-3 w-16 rounded-full bg-muted/70" />
-              <Skeleton className="h-3 w-24 rounded-full bg-muted/55" />
+            <div className={sx(styles.metaRow)}>
+              <Skeleton className={sx(styles.chipWide)} />
+              <Skeleton className={sx(styles.chipWider)} />
             </div>
           </div>
         </EmptyContent>

@@ -6,6 +6,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
 import { ScriptEntryFormFields } from "./ScriptEntryFormFields";
 import { targetLabel } from "./scripts-manager-state";
 import type {
@@ -14,7 +16,7 @@ import type {
 } from "@/lib/workspace-scripts/editor";
 import { SCRIPT_TRIGGER_METADATA } from "@/lib/workspace-scripts/constants";
 import type { ScriptKind, ScriptTrigger } from "@/lib/workspace-scripts/types";
-import { cn } from "@/lib/utils";
+import { entryCardStyles } from "./script-entry-card.styles";
 
 export function ScriptEntryCard(props: {
   entry: ScriptEditorEntry;
@@ -52,67 +54,64 @@ export function ScriptEntryCard(props: {
 
   return (
     <div
-      className={cn(
-        "rounded-lg border bg-card/60",
-        hasIssues && !props.expanded
-          ? "border-destructive/50"
-          : "border-border/70",
+      className={sx(
+        entryCardStyles.root,
+        hasIssues && !props.expanded && entryCardStyles.rootAttention,
       )}
     >
-      <div className="flex flex-col gap-3 p-3 xl:flex-row xl:items-start xl:justify-between">
-        <button
+      <div className={sx(entryCardStyles.header)}>
+        <AdsButton
           type="button"
-          className="flex min-w-0 flex-1 items-start gap-2 text-left"
+          layout="host"
+          xstyle={entryCardStyles.summaryButton}
           onClick={props.onToggleExpand}
           aria-expanded={props.expanded}
         >
-          <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+          <span className={sx(entryCardStyles.chevron)}>
             {props.expanded ? (
-              <ChevronDown className="size-4" />
+              <ChevronDown className={sx(entryCardStyles.chevronIcon)} />
             ) : (
-              <ChevronRight className="size-4" />
+              <ChevronRight className={sx(entryCardStyles.chevronIcon)} />
             )}
           </span>
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="truncate text-sm font-medium text-foreground">
-                {title}
-              </span>
+          <div className={sx(entryCardStyles.summaryBody)}>
+            <div className={sx(entryCardStyles.titleRow)}>
+              <span className={sx(entryCardStyles.title)}>{title}</span>
               {props.isRunning ? (
                 <Badge
                   variant="secondary"
-                  className="rounded-sm px-2 py-0 font-medium text-primary"
+                  className={sx(entryCardStyles.runningBadge)}
                 >
                   Running
                 </Badge>
               ) : null}
               {hasIssues ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-destructive">
-                  <AlertCircle className="size-3" />
+                <span className={sx(entryCardStyles.attention)}>
+                  <AlertCircle className={sx(entryCardStyles.attentionIcon)} />
                   Needs attention
                 </span>
               ) : null}
             </div>
             {metaParts.length > 0 ? (
-              <p className="text-xs text-muted-foreground">
+              <p className={sx(entryCardStyles.metaText)}>
                 {metaParts.join(" · ")}
               </p>
             ) : null}
             {props.entry.description.trim() ? (
-              <p className="text-xs text-muted-foreground">
+              <p className={sx(entryCardStyles.metaText)}>
                 {props.entry.description.trim()}
               </p>
             ) : null}
             {props.triggers.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              <div className={sx(entryCardStyles.triggerRow)}>
+                <span className={sx(entryCardStyles.triggerLabel)}>
                   Triggers
                 </span>
                 {props.triggers.map((trigger) => (
                   <Badge
                     key={trigger}
                     variant="outline"
-                    className="rounded-full px-2 py-0 text-[10px]"
+                    className={sx(entryCardStyles.triggerBadge)}
                   >
                     {SCRIPT_TRIGGER_METADATA[trigger].label}
                   </Badge>
@@ -120,14 +119,14 @@ export function ScriptEntryCard(props: {
               </div>
             ) : null}
           </div>
-        </button>
+        </AdsButton>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className={sx(entryCardStyles.actions)}>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8"
+            xstyle={entryCardStyles.actionButtonTall}
             onClick={props.onOpenInRail}
           >
             Open in rail
@@ -135,34 +134,34 @@ export function ScriptEntryCard(props: {
           <Button
             variant="outline"
             size="icon"
-            className="size-8"
+            xstyle={entryCardStyles.iconButton}
             disabled={moveUpDisabled}
             onClick={props.onMove.bind(null, -1)}
             aria-label="Move up"
             title="Move up"
           >
-            <ChevronDown className="size-3.5 rotate-180" />
+            <ChevronDown className={sx(entryCardStyles.iconFlipped)} />
           </Button>
           <Button
             variant="outline"
             size="icon"
-            className="size-8"
+            xstyle={entryCardStyles.iconButton}
             disabled={moveDownDisabled}
             onClick={props.onMove.bind(null, 1)}
             aria-label="Move down"
             title="Move down"
           >
-            <ChevronDown className="size-3.5" />
+            <ChevronDown className={sx(entryCardStyles.icon)} />
           </Button>
           <Button
             variant="outline"
             size="icon"
-            className="size-8"
+            xstyle={entryCardStyles.iconButton}
             onClick={props.onDuplicate}
             aria-label={`Duplicate ${kindLabel}`}
             title={`Duplicate ${kindLabel}`}
           >
-            <Copy className="size-3.5" />
+            <Copy className={sx(entryCardStyles.icon)} />
           </Button>
           <Button variant="outline" size="sm" onClick={props.onToggleExpand}>
             {props.expanded ? "Done" : "Edit"}
@@ -170,18 +169,18 @@ export function ScriptEntryCard(props: {
           <Button
             variant="outline"
             size="icon"
-            className="size-8 text-destructive hover:text-destructive"
+            xstyle={entryCardStyles.destructiveButton}
             onClick={props.onRemove}
             aria-label={`Delete ${kindLabel}`}
             title={`Delete ${kindLabel}`}
           >
-            <Trash2 className="size-3.5" />
+            <Trash2 className={sx(entryCardStyles.icon)} />
           </Button>
         </div>
       </div>
 
       {props.expanded ? (
-        <div className="border-t border-border/60 p-3">
+        <div className={sx(entryCardStyles.body)}>
           <ScriptEntryFormFields
             entry={props.entry}
             kind={props.kind}

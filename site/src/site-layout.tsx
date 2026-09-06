@@ -1,11 +1,12 @@
 import * as React from "react";
 import { Search } from "lucide-react";
 
+import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 
+import { siteLayoutStyles as s } from "./site-layout.styles";
 import { ThemeToggle } from "./theme";
 
 const REPO_URL = "https://github.com/sendbird/stave";
@@ -30,13 +31,7 @@ function GithubIcon({ className }: { className?: string }) {
 
 export function StaveMark({ className }: { className?: string }) {
   return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "inline-block size-5 rounded-md bg-gradient-to-br from-primary to-primary/70 ring-1 ring-inset ring-primary/40",
-        className,
-      )}
-    />
+    <span aria-hidden="true" className={className ?? sx(s.mark)} />
   );
 }
 
@@ -50,14 +45,11 @@ export function Brand({
   sublabel?: string;
 }) {
   return (
-    <a
-      className="inline-flex items-center gap-2.5 font-heading text-sm font-semibold tracking-tight text-foreground"
-      href={href}
-    >
+    <a className={sx(s.brand)} href={href}>
       <StaveMark />
-      <span className="leading-none">{label}</span>
+      <span className={sx(s.brandLabel)}>{label}</span>
       {sublabel ? (
-        <span className="font-medium text-muted-foreground">{sublabel}</span>
+        <span className={sx(s.brandSublabel)}>{sublabel}</span>
       ) : null}
     </a>
   );
@@ -82,19 +74,14 @@ export function SiteHeader({
   onSearchClick?: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-background/85 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-screen-2xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+    <header className={sx(s.header)}>
+      <div className={sx(s.headerInner)}>
         <Brand href={brandHref} sublabel={brandSublabel} />
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className={sx(s.nav)}>
           {primaryLinks.map((link) => (
             <a
               key={link.href}
-              className={cn(
-                "rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                link.active
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
+              className={sx(s.navLink, link.active && s.navLinkActive)}
               href={link.href}
               rel={link.external ? "noreferrer" : undefined}
               target={link.external ? "_blank" : undefined}
@@ -103,30 +90,30 @@ export function SiteHeader({
             </a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-2">
+        <div className={sx(s.headerActions)}>
           {onSearchClick ? (
             <Button
               aria-label="Search docs"
-              className="hidden h-9 w-60 justify-between gap-2 border-border/80 bg-muted/40 text-sm font-normal text-muted-foreground hover:bg-muted hover:text-muted-foreground md:inline-flex"
+              className={sx(s.searchButton)}
               onClick={onSearchClick}
               variant="outline"
             >
-              <span className="inline-flex items-center gap-2">
-                <Search className="size-4" />
+              <span className={sx(s.searchButtonInner)}>
+                <Search className={sx(s.icon)} />
                 Search docs
               </span>
-              <Kbd className="pointer-events-none">⌘K</Kbd>
+              <Kbd className={sx(s.searchKbd)}>⌘K</Kbd>
             </Button>
           ) : null}
           {onSearchClick ? (
             <Button
               aria-label="Search docs"
-              className="md:hidden"
+              className={sx(s.searchButtonMobile)}
               onClick={onSearchClick}
               size="icon"
               variant="ghost"
             >
-              <Search className="size-4" />
+              <Search className={sx(s.icon)} />
             </Button>
           ) : null}
           <Button asChild size="icon" variant="ghost">
@@ -136,7 +123,7 @@ export function SiteHeader({
               rel="noreferrer"
               target="_blank"
             >
-              <GithubIcon className="size-4" />
+              <GithubIcon className={sx(s.icon)} />
             </a>
           </Button>
           <ThemeToggle />
@@ -148,19 +135,22 @@ export function SiteHeader({
 
 export function SiteFooter({ docsHref }: { docsHref: string }) {
   return (
-    <footer className="border-t border-border/70">
-      <div className="mx-auto flex max-w-screen-2xl flex-col gap-6 px-4 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
+    <footer className={sx(s.footer)}>
+      <div className={sx(s.footerInner)}>
+        <div className={sx(s.footerBrandRow)}>
           <Brand href="/" />
-          <Separator className="h-4" orientation="vertical" />
+          <Separator
+            className={sx(s.footerVerticalSeparator)}
+            orientation="vertical"
+          />
           <span>Desktop AI coding workspace for Claude and Codex.</span>
         </div>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <a className="hover:text-foreground" href={docsHref}>
+        <div className={sx(s.footerLinks)}>
+          <a className={sx(s.footerLink)} href={docsHref}>
             Docs
           </a>
           <a
-            className="hover:text-foreground"
+            className={sx(s.footerLink)}
             href={REPO_URL}
             rel="noreferrer"
             target="_blank"
@@ -168,7 +158,7 @@ export function SiteFooter({ docsHref }: { docsHref: string }) {
             GitHub
           </a>
           <a
-            className="hover:text-foreground"
+            className={sx(s.footerLink)}
             href={`${REPO_URL}/releases`}
             rel="noreferrer"
             target="_blank"

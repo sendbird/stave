@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 /**
- * The 27 core design-token names consumed by shadcn/ui components.
+ * The 27 core design-token names mapped into canonical component colors.
  * These are the tokens that appear in the settings Design Tokens editor.
  */
 export const THEME_TOKEN_NAMES = [
@@ -37,7 +37,7 @@ export const THEME_TOKEN_NAMES = [
 ] as const;
 
 /**
- * Extended theme tokens used by Stave-specific surfaces outside the shadcn core.
+ * Extended theme tokens used by Stave-specific surfaces outside the core component roles.
  * Built-in themes must define these as well so theme application stays complete.
  */
 export const EXTENDED_THEME_TOKEN_NAMES = [

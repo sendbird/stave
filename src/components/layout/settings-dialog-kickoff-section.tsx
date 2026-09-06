@@ -27,6 +27,8 @@ import {
   Switch,
   Textarea,
 } from "@/components/ui";
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
 import { DEFAULT_PROMPT_WORKSPACE_KICKOFF } from "@/lib/providers/prompt-defaults";
 import type { McpDiscoveryResponse } from "@/lib/providers/provider.types";
 import {
@@ -43,6 +45,7 @@ import {
   SectionStack,
   SettingsCard,
 } from "./settings-dialog.shared";
+import { kickoffSectionStyles } from "./settings-dialog-kickoff-section.styles";
 
 const KICKOFF_MODEL_PROVIDERS = ["claude-code", "codex"] as const;
 
@@ -69,7 +72,7 @@ function parseList(value: string) {
 
 function KickoffDraftTextarea(props: {
   value: string;
-  className?: string;
+  xstyle?: Parameters<typeof sx>[0];
   onCommit: (value: string) => void;
 }) {
   const [draft, setDraft] = useState(props.value);
@@ -77,7 +80,7 @@ function KickoffDraftTextarea(props: {
   return (
     <Textarea
       value={draft}
-      className={props.className}
+      xstyle={props.xstyle}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => {
         if (draft !== props.value) {
@@ -117,8 +120,8 @@ function KickoffModelField(props: {
         value={buildModelSelectorValue({ model: props.value })}
         options={options}
         recommendedOptions={recommendedOptions}
-        className="w-full"
-        triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
+        className={sx(kickoffSectionStyles.modelSelector)}
+        triggerClassName={sx(kickoffSectionStyles.modelSelectorTrigger)}
         onSelect={({ selection }) => props.onSelect(selection.model)}
       />
     </LabeledField>
@@ -138,7 +141,7 @@ function KickoffPromptField(props: {
       title="Resolution prompt"
       description="Instructs the one-shot resolver. Source metadata, project instructions, and branch naming rules are appended automatically. Empty skips AI resolution."
     >
-      <div className="space-y-2">
+      <div className={sx(kickoffSectionStyles.promptField)}>
         <Textarea
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -147,10 +150,10 @@ function KickoffPromptField(props: {
               props.onCommit(draft);
             }
           }}
-          className="min-h-56 bg-background font-mono text-xs leading-5"
+          xstyle={kickoffSectionStyles.promptTextarea}
         />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground">
+        <div className={sx(kickoffSectionStyles.promptFooter)}>
+          <span className={sx(kickoffSectionStyles.promptStatus)}>
             {isDefault ? "Using default" : "Customised"}
           </span>
           {!isDefault ? (
@@ -158,13 +161,13 @@ function KickoffPromptField(props: {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 text-xs"
+              xstyle={kickoffSectionStyles.resetButton}
               onClick={() => {
                 setDraft(DEFAULT_PROMPT_WORKSPACE_KICKOFF);
                 props.onCommit(DEFAULT_PROMPT_WORKSPACE_KICKOFF);
               }}
             >
-              <RefreshCcw className="size-3" />
+              <RefreshCcw className={sx(kickoffSectionStyles.actionIcon)} />
               Reset to default
             </Button>
           ) : null}
@@ -270,7 +273,7 @@ export function KickoffSection() {
           title="Kickoff Sources"
           description="Enabled matchers classify pasted URLs or keys. MCP dependencies improve resolution but never block workspace creation."
           titleAccessory={
-            <div className="flex gap-2">
+            <div className={sx(kickoffSectionStyles.accessoryRow)}>
               <Button
                 type="button"
                 variant="outline"
@@ -279,7 +282,11 @@ export function KickoffSection() {
                 onClick={() => void refreshMcpServers()}
               >
                 <RefreshCcw
-                  className={discovering ? "size-3.5 animate-spin" : "size-3.5"}
+                  className={sx(
+                    discovering
+                      ? kickoffSectionStyles.actionIconSpinning
+                      : kickoffSectionStyles.actionIcon,
+                  )}
                 />
                 Refresh MCP
               </Button>
@@ -305,21 +312,21 @@ export function KickoffSection() {
                   setExpandedSourceId(config.id);
                 }}
               >
-                <Plus className="size-3.5" />
+                <Plus className={sx(kickoffSectionStyles.actionIcon)} />
                 Add source
               </Button>
             </div>
           }
         >
-          <div className="space-y-2">
+          <div className={sx(kickoffSectionStyles.sourceList)}>
             {sourceConfigs.map((config, index) => {
               const expanded = expandedSourceId === config.id;
               return (
                 <div
                   key={config.id}
-                  className="rounded-md border border-border/70 bg-background"
+                  className={sx(kickoffSectionStyles.sourceItem)}
                 >
-                  <div className="flex items-center gap-3 px-3 py-2.5">
+                  <div className={sx(kickoffSectionStyles.sourceHeader)}>
                     <Switch
                       checked={config.enabled}
                       aria-label={`${config.enabled ? "Disable" : "Enable"} ${config.label}`}
@@ -327,31 +334,42 @@ export function KickoffSection() {
                         patchConfig(config.id, { enabled })
                       }
                     />
-                    <button
+                    <AdsButton
                       type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      variant="quiet"
+                      flushInline
+                      layout="host"
+                      xstyle={kickoffSectionStyles.sourceTrigger}
                       onClick={() =>
                         setExpandedSourceId(expanded ? null : config.id)
                       }
                     >
                       {expanded ? (
-                        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+                        <ChevronDown
+                          className={sx(kickoffSectionStyles.chevron)}
+                        />
                       ) : (
-                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+                        <ChevronRight
+                          className={sx(kickoffSectionStyles.chevron)}
+                        />
                       )}
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2 text-sm font-medium">
+                      <span className={sx(kickoffSectionStyles.triggerBody)}>
+                        <span
+                          className={sx(kickoffSectionStyles.triggerLabelRow)}
+                        >
                           {config.label}
                           {config.builtIn ? (
                             <Badge variant="secondary">Built-in</Badge>
                           ) : null}
                         </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        <span
+                          className={sx(kickoffSectionStyles.triggerSummary)}
+                        >
                           {matchSummary(config)}
                         </span>
                       </span>
-                    </button>
-                    <div className="flex shrink-0 items-center">
+                    </AdsButton>
+                    <div className={sx(kickoffSectionStyles.moveButtons)}>
                       <Button
                         type="button"
                         variant="ghost"
@@ -360,7 +378,9 @@ export function KickoffSection() {
                         aria-label={`Move ${config.label} earlier`}
                         onClick={() => moveConfig(index, -1)}
                       >
-                        <ArrowUp className="size-3.5" />
+                        <ArrowUp
+                          className={sx(kickoffSectionStyles.moveIcon)}
+                        />
                       </Button>
                       <Button
                         type="button"
@@ -370,10 +390,12 @@ export function KickoffSection() {
                         aria-label={`Move ${config.label} later`}
                         onClick={() => moveConfig(index, 1)}
                       >
-                        <ArrowDown className="size-3.5" />
+                        <ArrowDown
+                          className={sx(kickoffSectionStyles.moveIcon)}
+                        />
                       </Button>
                     </div>
-                    <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                    <div className={sx(kickoffSectionStyles.serverBadges)}>
                       {config.mcpServers.map((server) => {
                         const available = discoveredServerNames.has(
                           server.toLowerCase(),
@@ -390,9 +412,9 @@ export function KickoffSection() {
                     </div>
                   </div>
                   {expanded ? (
-                    <div className="space-y-4 border-t border-border/60 px-3 py-3">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="space-y-1.5 text-xs font-medium">
+                    <div className={sx(kickoffSectionStyles.sourcePanel)}>
+                      <div className={sx(kickoffSectionStyles.fieldGrid)}>
+                        <label className={sx(kickoffSectionStyles.labelField)}>
                           Label
                           <DraftInput
                             value={config.label}
@@ -403,7 +425,7 @@ export function KickoffSection() {
                             }
                           />
                         </label>
-                        <label className="space-y-1.5 text-xs font-medium">
+                        <label className={sx(kickoffSectionStyles.labelField)}>
                           Information panel target
                           <Select
                             value={config.panelTarget}
@@ -413,7 +435,9 @@ export function KickoffSection() {
                               })
                             }
                           >
-                            <SelectTrigger className="w-full bg-background">
+                            <SelectTrigger
+                              className={sx(kickoffSectionStyles.selectTrigger)}
+                            >
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -426,7 +450,12 @@ export function KickoffSection() {
                           </Select>
                         </label>
                       </div>
-                      <label className="block space-y-1.5 text-xs font-medium">
+                      <label
+                        className={sx(
+                          kickoffSectionStyles.labelField,
+                          kickoffSectionStyles.labelFieldBlock,
+                        )}
+                      >
                         Host suffixes
                         <DraftInput
                           value={config.match.hostSuffixes.join(", ")}
@@ -438,12 +467,12 @@ export function KickoffSection() {
                           }
                         />
                       </label>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="space-y-1.5 text-xs font-medium">
+                      <div className={sx(kickoffSectionStyles.fieldGrid)}>
+                        <label className={sx(kickoffSectionStyles.labelField)}>
                           Path regex
                           <Input
                             value={config.match.pathPattern}
-                            className="font-mono text-xs"
+                            xstyle={kickoffSectionStyles.monoInput}
                             placeholder="^/issues/"
                             onChange={(event) =>
                               patchConfigMatch(config.id, {
@@ -452,11 +481,11 @@ export function KickoffSection() {
                             }
                           />
                         </label>
-                        <label className="space-y-1.5 text-xs font-medium">
+                        <label className={sx(kickoffSectionStyles.labelField)}>
                           Key regex
                           <Input
                             value={config.match.keyPattern}
-                            className="font-mono text-xs"
+                            xstyle={kickoffSectionStyles.monoInput}
                             placeholder="\\bPROJ-\\d+\\b"
                             onChange={(event) =>
                               patchConfigMatch(config.id, {
@@ -466,7 +495,12 @@ export function KickoffSection() {
                           />
                         </label>
                       </div>
-                      <label className="block space-y-1.5 text-xs font-medium">
+                      <label
+                        className={sx(
+                          kickoffSectionStyles.labelField,
+                          kickoffSectionStyles.labelFieldBlock,
+                        )}
+                      >
                         MCP server names
                         <DraftInput
                           value={config.mcpServers.join(", ")}
@@ -478,11 +512,16 @@ export function KickoffSection() {
                           }
                         />
                       </label>
-                      <label className="block space-y-1.5 text-xs font-medium">
+                      <label
+                        className={sx(
+                          kickoffSectionStyles.labelField,
+                          kickoffSectionStyles.labelFieldBlock,
+                        )}
+                      >
                         Resolution hint
                         <KickoffDraftTextarea
                           value={config.resolutionHint}
-                          className="min-h-20"
+                          xstyle={kickoffSectionStyles.resolutionHint}
                           onCommit={(resolutionHint) =>
                             patchConfig(config.id, {
                               resolutionHint,
@@ -490,7 +529,7 @@ export function KickoffSection() {
                           }
                         />
                       </label>
-                      <div className="flex justify-end">
+                      <div className={sx(kickoffSectionStyles.removeRow)}>
                         <Button
                           type="button"
                           variant="destructive"
@@ -504,7 +543,9 @@ export function KickoffSection() {
                             setExpandedSourceId(null);
                           }}
                         >
-                          <Trash2 className="size-3.5" />
+                          <Trash2
+                            className={sx(kickoffSectionStyles.actionIcon)}
+                          />
                           Remove source
                         </Button>
                       </div>
@@ -515,12 +556,12 @@ export function KickoffSection() {
             })}
           </div>
           {sourceConfigs.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+            <p className={sx(kickoffSectionStyles.emptyNote)}>
               No configured sources. Free-form prompts still work.
             </p>
           ) : null}
-          <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
-            <p className="text-xs text-muted-foreground">
+          <div className={sx(kickoffSectionStyles.footer)}>
+            <p className={sx(kickoffSectionStyles.footerNote)}>
               Source order controls match priority. Confluence precedes Jira by
               default because they can share a host.
             </p>
@@ -541,7 +582,7 @@ export function KickoffSection() {
                 ]);
               }}
             >
-              <RefreshCcw className="size-3.5" />
+              <RefreshCcw className={sx(kickoffSectionStyles.actionIcon)} />
               Restore default sources
             </Button>
           </div>

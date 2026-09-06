@@ -1,6 +1,9 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import {
+  cloneElement,
   createContext,
+  isValidElement,
   useContext,
   useEffect,
   useMemo,
@@ -9,13 +12,14 @@ import {
 } from "react";
 import { Brain, Check, ChevronDown, Circle } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   getRandomCompletionPhrase,
   getSeededCompletionPhrase,
 } from "@/lib/completion-phrases";
 import { useAgentStyle } from "./agent-style-context";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
+import { chainOfThoughtStyles as s } from "./chain-of-thought.styles";
 
 /* ─── Data type (used by the `steps` prop shorthand) ─────────────── */
 
@@ -71,7 +75,7 @@ interface ChainOfThoughtStepProps extends HTMLAttributes<HTMLDivElement> {
   variant?: "default" | "bullet";
   defaultOpen?: boolean;
   openWhen?: boolean;
-  /** Close once when this flips true (beui `collapseOnComplete`). */
+  /** Close once when this flips true. */
   collapseWhen?: boolean;
 }
 
@@ -100,11 +104,17 @@ function useChainOfThoughtContext() {
   return context;
 }
 
-/* ─── Step icon (status + optional kind icon) ────────────────────── */
+/* Icons are supplied as bare lucide elements that inherit no size, so the em
+   sizing that used to live on the wrapping `[&>svg]` selector is applied by
+   cloning the element with an em-based `width`/`height`. */
+function withIconSize(icon: ReactNode, size = "1.15em"): ReactNode {
+  if (isValidElement<{ width?: number | string; height?: number | string }>(icon)) {
+    return cloneElement(icon, { width: size, height: size });
+  }
+  return icon;
+}
 
-/* Icon size token — em-based so icons scale with the step's font-size. */
-const ICON_SIZE = "size-[1.15em]";
-const ICON_CHILD = "[&>svg]:size-[1.15em]";
+/* ─── Step icon (status + optional kind icon) ────────────────────── */
 
 function StepIcon(args: {
   status?: ChainOfThoughtStep["status"];
@@ -115,16 +125,11 @@ function StepIcon(args: {
   /* Bullet variant — small dot for text-only steps. */
   if (args.variant === "bullet") {
     return (
-      <span
-        className={cn("flex items-center justify-center", ICON_SIZE)}
-        aria-hidden="true"
-      >
+      <span className={sx(s.iconBox)} aria-hidden="true">
         <span
-          className={cn(
-            "size-[0.35em] rounded-full",
-            args.status === "active"
-              ? "bg-foreground"
-              : "bg-muted-foreground/50",
+          className={sx(
+            s.bullet,
+            args.status === "active" ? s.bulletActive : s.bulletIdle,
           )}
         />
       </span>
@@ -134,13 +139,8 @@ function StepIcon(args: {
   /* Active reasoning — pulse the kind icon instead of a generic spinner. */
   if (args.status === "active" && args.kind === "thinking" && args.icon) {
     return (
-      <span
-        className={cn(
-          ICON_CHILD,
-          "text-foreground motion-safe:animate-thinking-shimmer",
-        )}
-      >
-        {args.icon}
+      <span className={sx(s.iconChild, s.iconThinking)}>
+        {withIconSize(args.icon)}
       </span>
     );
   }
@@ -148,7 +148,9 @@ function StepIcon(args: {
   /* Active agent — keep the icon visible (title shimmer conveys activity). */
   if (args.status === "active" && args.kind === "agent" && args.icon) {
     return (
-      <span className={cn(ICON_CHILD, "text-foreground")}>{args.icon}</span>
+      <span className={sx(s.iconChild, s.iconAgent)}>
+        {withIconSize(args.icon)}
+      </span>
     );
   }
 
@@ -157,7 +159,7 @@ function StepIcon(args: {
     return (
       <Loader
         aria-hidden
-        className="text-foreground"
+        className={sx(s.loaderColor)}
         size="xs"
         variant="steps"
       />
@@ -168,23 +170,21 @@ function StepIcon(args: {
   if (args.icon) {
     return (
       <span
-        className={cn(
-          ICON_CHILD,
-          args.status === "done"
-            ? "text-muted-foreground"
-            : "text-muted-foreground/50",
+        className={sx(
+          s.iconChild,
+          args.status === "done" ? s.iconDone : s.iconPending,
         )}
       >
-        {args.icon}
+        {withIconSize(args.icon)}
       </span>
     );
   }
 
   /* Default status-only fallback. */
   if (args.status === "done") {
-    return <Check className={cn(ICON_SIZE, "text-muted-foreground")} />;
+    return <Check className={sx(s.statusIcon, s.iconDone)} />;
   }
-  return <Circle className={cn(ICON_SIZE, "text-muted-foreground/50")} />;
+  return <Circle className={sx(s.statusIcon, s.iconPending)} />;
 }
 
 /* ─── Root ────────────────────────────────────────────────────────── */
@@ -248,7 +248,8 @@ export function ChainOfThought({
 
   return (
     <ChainOfThoughtContext.Provider value={contextValue}>
-      <div className={cn("not-prose w-full", className)} {...props}>
+      {/* `not-prose` is a markdown-descendant reset integration hook. */}
+      <div className={cx("not-prose", sx(s.root), className)} {...props}>
         {resolvedChildren}
       </div>
     </ChainOfThoughtContext.Provider>
@@ -268,7 +269,11 @@ function formatTriggerDuration(seconds: number): string {
 }
 
 export function ChainOfThoughtTrigger(
-  args: ButtonHTMLAttributes<HTMLButtonElement>,
+  {
+    completionLabel,
+    className,
+    ...args
+  }: ButtonHTMLAttributes<HTMLButtonElement> & { completionLabel?: string },
 ) {
   const { isStreaming, open, setOpen, summaryItems, seed, durationSeconds } =
     useChainOfThoughtContext();
@@ -288,24 +293,19 @@ export function ChainOfThoughtTrigger(
     !open && !isStreaming && durationSeconds != null && durationSeconds > 0;
 
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
-      className={cn(
-        /* Wraps rather than squeezing: the completion phrase and the summary
-           chips both stay on one line each, and the chip row drops below the
-           phrase in narrow columns instead of collapsing into a word column. */
-        "flex w-full flex-wrap items-center gap-x-[0.5em] gap-y-[0.3em] text-[0.875em] text-muted-foreground transition-colors hover:text-foreground",
-        args.className,
-      )}
+      className={cx(sx(s.trigger), className)}
       onClick={() => setOpen(!open)}
       {...args}
     >
       {isStreaming ? (
-        <span className="inline-flex min-w-0 items-center gap-[0.5em] font-medium">
+        <span className={sx(s.streamingLabel)}>
           <Loader
             aria-hidden
             cadence="reduced"
-            className="shrink-0 text-foreground"
+            className={sx(s.streamingLoader)}
             size="sm"
             variant="matrix"
           />
@@ -313,12 +313,12 @@ export function ChainOfThoughtTrigger(
         </span>
       ) : (
         <>
-          <Brain className="size-[1.15em] shrink-0" />
-          <span className="shrink-0 whitespace-nowrap font-medium">
-            {completionPhrase}
+          <Brain className={sx(s.brainIcon)} />
+          <span className={sx(s.completionLabel)}>
+            {completionLabel ?? completionPhrase}
           </span>
           {showDuration ? (
-            <span className="shrink-0 text-[0.9em] tabular-nums text-muted-foreground/70">
+            <span className={sx(s.durationLabel)}>
               for {formatTriggerDuration(durationSeconds)}
             </span>
           ) : null}
@@ -327,18 +327,17 @@ export function ChainOfThoughtTrigger(
 
       {/* Collapsed summary — inline after the label */}
       {showSummary ? (
-        <span className="ml-auto flex shrink-0 items-center gap-x-[0.6em] whitespace-nowrap text-[0.75em] text-muted-foreground/70 motion-safe:animate-cot-step-in">
+        <span className={sx(s.summary)}>
           {summaryItems.map((item, index) => (
-            <span
-              key={item.label}
-              className="inline-flex items-center gap-[0.3em]"
-            >
+            <span key={item.label} className={sx(s.summaryItem)}>
               {index > 0 ? (
-                <span className="text-border" aria-hidden="true">
+                <span className={sx(s.summaryDivider)} aria-hidden="true">
                   ·
                 </span>
               ) : null}
-              <span className="[&>svg]:size-[1.15em]">{item.icon}</span>
+              <span className={sx(s.summaryItemIcon)}>
+                {withIconSize(item.icon)}
+              </span>
               <span>
                 {item.count} {item.label}
               </span>
@@ -348,13 +347,13 @@ export function ChainOfThoughtTrigger(
       ) : null}
 
       <ChevronDown
-        className={cn(
-          "size-[1.15em] shrink-0 transition-transform",
-          showSummary ? "" : "ml-auto",
-          open ? "rotate-180" : "rotate-0",
+        className={sx(
+          s.chevron,
+          !showSummary && s.chevronAuto,
+          open && s.chevronOpen,
         )}
       />
-    </button>
+    </AdsButton>
   );
 }
 
@@ -365,7 +364,10 @@ export function ChainOfThoughtTrigger(
  * subtrees out of the render tree matters more than a close transition here —
  * see docs/architecture/chat-message-rendering.md.
  */
-export function ChainOfThoughtContent(args: HTMLAttributes<HTMLDivElement>) {
+export function ChainOfThoughtContent({
+  className,
+  ...args
+}: HTMLAttributes<HTMLDivElement>) {
   const { open } = useChainOfThoughtContext();
   const agentStyle = useAgentStyle();
   if (!open) return null;
@@ -379,13 +381,16 @@ export function ChainOfThoughtContent(args: HTMLAttributes<HTMLDivElement>) {
    */
   return (
     <div
-      className={cn(
-        "mt-[0.75em] [&>*:last-child_.cot-connector]:hidden",
-        agentStyle === "legacy"
-          ? /* TODO(agent-style-legacy): remove with the legacy trace visual. */
-            "motion-safe:animate-cot-content-in"
-          : "motion-safe:animate-trace-reveal",
-        args.className,
+      className={cx(
+        "cot-trace-content",
+        sx(
+          s.content,
+          agentStyle === "legacy"
+            ? /* TODO(agent-style-legacy): remove with the legacy trace visual. */
+              s.contentLegacyMotion
+            : s.contentTraceMotion,
+        ),
+        className,
       )}
       {...args}
     />
@@ -408,18 +413,11 @@ export function ChainOfThoughtContent(args: HTMLAttributes<HTMLDivElement>) {
  * opaque tail and the fade only appears once the box grows into the gradient
  * band. The `em` cap tracks `messageFontSize`.
  */
-export function StreamingThoughtViewport(args: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn(
-        "flex max-h-[14em] flex-col justify-end overflow-hidden [&>*]:shrink-0",
-        "[mask-image:linear-gradient(to_bottom,transparent_0,black_2.5em)]",
-        "[mask-size:100%_14em] [mask-position:bottom] [mask-repeat:no-repeat]",
-        args.className,
-      )}
-      {...args}
-    />
-  );
+export function StreamingThoughtViewport({
+  className,
+  ...args
+}: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cx(sx(s.viewport), className)} {...args} />;
 }
 
 /* ─── Step ─────────────────────────────────────────────────────────── */
@@ -467,54 +465,49 @@ export function ChainOfThoughtStep({
 
   const hasContent = children != null;
   const resolvedTitle = titleContent ?? title;
-  /* TODO(agent-style-legacy): collapse to the `beui` classes once signed off. */
-  const rowMotionClass =
-    agentStyle === "legacy"
-      ? "motion-safe:animate-cot-step-in"
-      : "motion-safe:animate-trace-row-in";
-  const revealMotionClass =
-    agentStyle === "legacy"
-      ? "motion-safe:animate-cot-step-in"
-      : "motion-safe:animate-trace-reveal";
+  const rowMotionStyle =
+    agentStyle === "legacy" ? s.stepMotionRowLegacy : s.stepMotionRowTrace;
+  const revealMotionStyle =
+    agentStyle === "legacy" ? s.revealMotionLegacy : s.revealMotionTrace;
 
   return (
     <div
-      className={cn(
-        "flex gap-[0.7em] text-[0.875em]",
-        status === "active" && "text-foreground",
-        status === "done" && "text-muted-foreground",
-        status === "pending" && "text-muted-foreground/50",
-        rowMotionClass,
+      className={cx(
+        sx(
+          s.step,
+          status === "active" && s.stepActive,
+          status === "done" && s.stepDone,
+          status === "pending" && s.stepPending,
+          rowMotionStyle,
+        ),
         className,
       )}
       {...props}
     >
       {/* Icon column with vertical connector */}
-      <div className="relative mt-[0.265em] flex flex-col items-center">
+      <div className={sx(s.iconColumn)}>
         <StepIcon status={status} kind={kind} icon={icon} variant={variant} />
-        <div className="cot-connector mt-[0.35em] w-px flex-1 bg-border" />
+        <div className={cx("cot-connector", sx(s.connector))} />
       </div>
 
       {/* Content column */}
-      <div className="min-w-0 flex-1 pb-[1em]">
+      <div className={sx(s.contentColumn)}>
         {hasContent ? (
-          <button
+          <AdsButton
+            layout="host"
             type="button"
-            className="flex items-center gap-[0.35em] text-left"
+            className={sx(s.disclosure)}
             onClick={() => setOpen((prev) => !prev)}
           >
             <span>{resolvedTitle}</span>
             {summary}
             {trailing}
             <ChevronDown
-              className={cn(
-                "size-[0.85em] shrink-0 text-muted-foreground/70 transition-transform",
-                open && "rotate-180",
-              )}
+              className={sx(s.disclosureChevron, open && s.disclosureChevronOpen)}
             />
-          </button>
+          </AdsButton>
         ) : (
-          <div className="flex items-center gap-[0.35em]">
+          <div className={sx(s.staticRow)}>
             <span>{resolvedTitle}</span>
             {summary}
             {trailing}
@@ -522,11 +515,11 @@ export function ChainOfThoughtStep({
         )}
 
         {description != null ? (
-          <div className="mt-[0.25em] text-muted-foreground">{description}</div>
+          <div className={sx(s.description)}>{description}</div>
         ) : null}
 
         {hasContent && open ? (
-          <div className={cn("mt-[0.5em]", revealMotionClass)}>{children}</div>
+          <div className={sx(s.reveal, revealMotionStyle)}>{children}</div>
         ) : null}
       </div>
     </div>

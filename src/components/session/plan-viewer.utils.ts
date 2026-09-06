@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { planViewerStyles } from "./plan-viewer.styles";
 import type { ChatMessage } from "@/types/chat";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
@@ -8,11 +10,11 @@ const PLAN_VIEWER_COLLAPSED_GAP_PX = 8;
 const PLAN_VIEWER_EXPANDED_TOP_PX = 12;
 const PLAN_VIEWER_SIDE_GAP_PX = 16;
 const PLAN_VIEWER_NORMAL_MAX_WIDTH_PX = 672;
-// Float plan/todo cards above chat-input chrome (`z-30` in `ChatArea`) and
-// any shell blur/fade treatment. The outer wrapper keeps `pointer-events-none`
+// Float plan/todo cards above chat-input chrome (session-floater layer) and
+// any shell blur/fade treatment. The outer wrapper keeps pointer events off
 // so clicks fall through until an inner card explicitly opts back in.
 export const SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME =
-  `pointer-events-none absolute ${UI_LAYER_CLASS.sessionFloater}`;
+  cx(sx(planViewerStyles.floatingWrapper), UI_LAYER_CLASS.sessionFloater) ?? "";
 
 export type PlanViewerViewState = "normal" | "minimized" | "expanded";
 
@@ -164,10 +166,10 @@ export function resolvePlanViewerLayout(args: {
         top: args.dragPos.y,
         left: args.dragPos.x,
       },
-      cardClassName: [
-        "pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg",
-        "w-72",
-      ].join(" "),
+      cardClassName: sx(
+        planViewerStyles.cardBase,
+        planViewerStyles.cardMinimized,
+      ),
     };
   }
 
@@ -193,12 +195,10 @@ export function resolvePlanViewerLayout(args: {
   return {
     wrapperClassName: SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
     wrapperStyle,
-    cardClassName: [
-      "pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg",
-      isExpanded ? "h-full w-full" : "",
-      isMinimized ? "w-72" : "",
-    ]
-      .filter(Boolean)
-      .join(" "),
+    cardClassName: sx(
+      planViewerStyles.cardBase,
+      isExpanded && planViewerStyles.cardExpanded,
+      isMinimized && planViewerStyles.cardMinimized,
+    ),
   };
 }

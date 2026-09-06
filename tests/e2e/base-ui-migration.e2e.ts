@@ -256,7 +256,7 @@ test("command palette persists pins and recent commands from the keyboard", asyn
 
 test("settings sliders respond to keyboard input and persist scalar values", async ({
   page,
-}) => {
+}, testInfo) => {
   await seedShell(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
@@ -273,10 +273,28 @@ test("settings sliders respond to keyboard input and persist scalar values", asy
     .getByText("Open Settings: Models", { exact: true })
     .click();
 
+  // Settings is code split (`AppShell` lazy-loads `SettingsDialog`), so the
+  // surface can still be showing the Suspense fallback right after the command
+  // palette entry is activated. Wait for the dialog itself the way the other
+  // settings specs do implicitly through their first click — assertions below
+  // keep the default 5s budget so slider state stays strictly verified.
+  const settingsDialog = page.getByRole("dialog", {
+    name: "Settings",
+    exact: true,
+  });
+  const waitStart = Date.now();
+  await settingsDialog.waitFor();
+  console.log(`settings dialog mounted in ${Date.now() - waitStart}ms`);
+
   const objectiveSlider = page.getByRole("slider", {
     name: "Auto routing objective",
   });
   await expect(objectiveSlider).toHaveAttribute("aria-valuenow", "0.5");
+  const settingsMain = settingsDialog.locator("main");
+  await expect(settingsMain).toBeInViewport({ ratio: 0.9 });
+  const sliderSurface = objectiveSlider.locator("xpath=ancestor::*[@data-slot='slider'][1]");
+  await sliderSurface.scrollIntoViewIfNeeded();
+  await expect(sliderSurface).toBeInViewport();
   await objectiveSlider.focus();
   await objectiveSlider.press("ArrowRight");
   await expect(objectiveSlider).toHaveAttribute("aria-valuenow", "0.55");
@@ -292,4 +310,62 @@ test("settings sliders respond to keyboard input and persist scalar values", asy
       }),
     )
     .toBe(0.55);
+  await settingsDialog.screenshot({ path: testInfo.outputPath("ads-settings.png") });
+});
+
+
+test("workspace date selection supports keyboard changes and clearing", async ({ page }, testInfo) => {
+  await seedShell(page);
+  await page.addInitScript(() => {
+    const information = { customFields: [{ id: "due-date", label: "Due date", type: "date", value: "2026-09-06" }] };
+    const workspaces = JSON.parse(localStorage.getItem("stave:workspace-fallback:v1")!);
+    workspaces[0].snapshot.workspaceInformation = information;
+    localStorage.setItem("stave:workspace-fallback:v1", JSON.stringify(workspaces));
+    const store = JSON.parse(localStorage.getItem("stave-store")!);
+    store.state.workspaceInformation = information;
+    localStorage.setItem("stave-store", JSON.stringify(store));
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Information", exact: true }).click();
+  const label = page.getByPlaceholder("Label", { exact: true }).filter({ visible: true });
+  if (!await label.count()) await page.getByRole("button", { name: /Custom Fields/ }).click();
+  const dateButton = page.getByRole("button", { name: "Sep 6, 2026", exact: true });
+  await dateButton.click();
+  const selected = page.getByRole("button", { name: "September 6, 2026", exact: true });
+  await expect(selected).toHaveAttribute("aria-pressed", "true");
+  await selected.focus();
+  await selected.press("ArrowRight");
+  const next = page.getByRole("button", { name: "September 7, 2026", exact: true });
+  await expect(next).toBeFocused();
+  await next.press("Enter");
+  await expect(next).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("group", { name: "September 2026", exact: true }).screenshot({ path: testInfo.outputPath("ads-calendar.png") });
+  await next.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Pick a date", exact: true })).toBeVisible();
+});
+
+test("notification actions use the visible toast control and dismiss on activation", async ({ page }) => {
+  await seedShell(page);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Open Stave menu" })).toBeVisible();
+  await page.evaluate(async () => {
+    const modulePath = "/src/lib/notifications/toast.ts";
+    const { toast } = await import(modulePath);
+    toast.error("Check failed", {
+      id: "review-notification", duration: 0,
+      description: "Open the task to inspect the result.",
+      action: { label: "Open task", onClick: () => { document.documentElement.dataset.toastAction = "opened"; } },
+    });
+  });
+  // High-priority notices announce separately until focus enters the viewport.
+  await expect(page.getByRole("alert").filter({ hasText: "Check failed" })).toBeVisible();
+  await page.keyboard.press("F6");
+  const action = page.getByRole("button", { name: "Open task", exact: true });
+  await expect(action).toBeVisible();
+  await action.focus();
+  await action.press("Enter");
+  await expect(page.locator("html")).toHaveAttribute("data-toast-action", "opened");
+  await expect(page.locator("[role=alertdialog]")).toBeHidden();
 });

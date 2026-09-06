@@ -24,6 +24,8 @@ import {
 } from "@/lib/tracker-tasks/types";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { TRACKER_SOURCE_LABELS } from "@/lib/tracker-tasks/context";
+import { sx } from "@/components/ads/utils/stylex";
+import { tasksSectionStyles as styles } from "./settings-dialog-tasks-section.styles";
 
 const VIEW_LABELS: Record<(typeof TRACKER_TASK_VIEWS)[number], string> = {
   "assigned-open": "Assigned to me",
@@ -40,7 +42,7 @@ const START_MODE_LABELS: Record<
   stage: "Stage the prompt in the composer",
 };
 
-const HINT = "text-xs leading-5 text-muted-foreground";
+const HINT = sx(styles.hint);
 
 function describeInterval(seconds: number): string {
   if (seconds % 60 !== 0) return `${seconds} seconds`;
@@ -90,21 +92,21 @@ export function TrackerTasksSettingsSection() {
     <div
       id="settings-field-tracker-tasks"
       tabIndex={-1}
-      className="rounded-xl border border-border bg-card"
+      className={sx(styles.card)}
     >
-      <div className="border-b border-border/70 px-5 py-4">
-        <h3 className="text-sm font-semibold">Tasks</h3>
-        <p className={`mt-1 ${HINT}`}>
+      <div className={sx(styles.cardHeader)}>
+        <h3 className={sx(styles.cardTitle)}>Tasks</h3>
+        <p className={sx(styles.hintSpaced)}>
           The ticket list opens on Assigned to me, with no extra filters. Chips
           you pick narrow that list; Reset clears the chips and keeps the tab.
         </p>
       </div>
 
-      <div className="space-y-5 px-5 py-4">
-        <div className="grid gap-2">
+      <div className={sx(styles.cardBody)}>
+        <div className={sx(styles.field)}>
           <label
             htmlFor="settings-tasks-default-view"
-            className="text-xs font-medium"
+            className={sx(styles.fieldLabel)}
           >
             Default view
           </label>
@@ -114,7 +116,10 @@ export function TrackerTasksSettingsSection() {
               save({ defaultView: value as typeof tasks.defaultView })
             }
           >
-            <SelectTrigger id="settings-tasks-default-view" className="w-64">
+            <SelectTrigger
+              id="settings-tasks-default-view"
+              className={sx(styles.triggerWide)}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -132,10 +137,10 @@ export function TrackerTasksSettingsSection() {
           </p>
         </div>
 
-        <div className="grid gap-2">
+        <div className={sx(styles.field)}>
           <label
             htmlFor="settings-tasks-refresh-interval"
-            className="text-xs font-medium"
+            className={sx(styles.fieldLabel)}
           >
             Refresh interval (seconds)
           </label>
@@ -143,7 +148,7 @@ export function TrackerTasksSettingsSection() {
             id="settings-tasks-refresh-interval"
             type="number"
             inputMode="numeric"
-            className="w-40"
+            xstyle={styles.intervalInput}
             min={MIN_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS}
             max={MAX_TRACKER_TASKS_REFRESH_INTERVAL_SECONDS}
             step={30}
@@ -161,10 +166,10 @@ export function TrackerTasksSettingsSection() {
           </p>
         </div>
 
-        <div className="grid gap-2">
+        <div className={sx(styles.field)}>
           <label
             htmlFor="settings-tasks-start-mode"
-            className="text-xs font-medium"
+            className={sx(styles.fieldLabel)}
           >
             When a ticket starts work
           </label>
@@ -177,7 +182,10 @@ export function TrackerTasksSettingsSection() {
               })
             }
           >
-            <SelectTrigger id="settings-tasks-start-mode" className="w-64">
+            <SelectTrigger
+              id="settings-tasks-start-mode"
+              className={sx(styles.triggerWide)}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -194,31 +202,28 @@ export function TrackerTasksSettingsSection() {
           </p>
         </div>
 
-        <div className="space-y-3 rounded-lg border border-border bg-muted/25 p-4">
+        <div className={sx(styles.sourcesCard)}>
           <div>
-            <h4 className="text-sm font-medium">Sources</h4>
-            <p className={`mt-1 ${HINT}`}>
+            <h4 className={sx(styles.sourcesTitle)}>Sources</h4>
+            <p className={sx(styles.hintSpaced)}>
               Choose which trackers Tasks reads. Pairing and credentials stay
               under Settings → Integrations. Jira is first in the list; Crane
               follows.
             </p>
           </div>
-          <ul className="space-y-3">
+          <ul className={sx(styles.sourceList)}>
             {TRACKER_SOURCE_IDS.map((source) => {
               const summary = summaries.find(
                 (entry) => entry.source === source,
               );
               const enabled = tasks.sourceEnabled[source];
               return (
-                <li
-                  key={source}
-                  className="flex items-start justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                <li key={source} className={sx(styles.sourceRow)}>
+                  <div className={sx(styles.sourceMain)}>
+                    <div className={sx(styles.sourceHead)}>
                       <label
                         htmlFor={`settings-tasks-source-${source}`}
-                        className="text-sm font-medium text-foreground"
+                        className={sx(styles.sourceLabel)}
                       >
                         {TRACKER_SOURCE_LABELS[source]}
                       </label>
@@ -232,25 +237,25 @@ export function TrackerTasksSettingsSection() {
                                 ? "destructive"
                                 : "outline"
                           }
-                          className="text-xs"
+                          className={sx(styles.sourceBadge)}
                         >
                           {summary.headline}
                         </Badge>
                       ) : null}
                     </div>
-                    <p className={`mt-0.5 ${HINT}`}>
+                    <p className={sx(styles.hintTight)}>
                       {enabled
                         ? (summary?.detail ?? "Used in the Tasks list.")
                         : "Hidden from Tasks. Pairing and credentials are unchanged."}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className={sx(styles.sourceActions)}>
                     {summary?.fixInSettings ? (
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="h-8"
+                        xstyle={styles.setUpButton}
                         onClick={() => {
                           window.dispatchEvent(
                             new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
@@ -283,7 +288,7 @@ export function TrackerTasksSettingsSection() {
             type="button"
             size="xs"
             variant="link"
-            className="h-auto px-0 text-xs"
+            xstyle={styles.openIntegrations}
             onClick={() => {
               window.dispatchEvent(
                 new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {

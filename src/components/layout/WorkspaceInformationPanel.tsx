@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   BookOpen,
   Brain,
@@ -111,8 +112,8 @@ import {
   type GitHubPrPayload,
   type WorkspacePrStatus,
   PR_STATUS_VISUAL,
-  PR_TONE_BADGE_CLASS,
 } from "@/lib/pr-status";
+import { PR_TONE_BADGE_VARIANT } from "./pr-status.styles";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import {
   formatWorkspaceInfoTaskSeedPrompt,
@@ -124,7 +125,7 @@ import {
   resolveVisibleWorkspaceInformationSections,
   type WorkspaceInformationSectionId,
 } from "@/lib/workspace-information-sections";
-import { cn } from "@/lib/utils";
+import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { extractPlanTodoItems } from "@/lib/plans";
 import {
@@ -141,6 +142,7 @@ import {
 } from "./WorkspaceInformationMartinCard";
 import { WorkspaceInformationConnectedBrowserCard } from "./WorkspaceInformationConnectedBrowserCard";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
+import { workspaceInformationPanelStyles as styles } from "./workspace-information-panel.styles";
 
 // ---------------------------------------------------------------------------
 // Utility helpers (unchanged business logic)
@@ -272,13 +274,12 @@ function formatStorybookAccessBadgeLabel(
   return null;
 }
 
-function storybookAccessBadgeClass(
+function storybookAccessBadgeVariant(
   access?: WorkspaceStorybookResourceAccess | null,
 ) {
-  if (access?.kind === "requires_github_auth") {
-    return "border-warning/30 bg-warning/10 text-warning";
-  }
-  return "border-border/70 bg-muted/40 text-muted-foreground";
+  return access?.kind === "requires_github_auth"
+    ? ("warning" as const)
+    : ("outline" as const);
 }
 
 async function fetchLinkedPullRequestPreview(args: {
@@ -337,7 +338,7 @@ function GitHubIcon({ className }: { className?: string }) {
     <svg
       viewBox="0 0 16 16"
       fill="currentColor"
-      className={cn("size-4", className)}
+      className={cx(sx(styles.brandGlyph), className)}
     >
       <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
     </svg>
@@ -346,7 +347,7 @@ function GitHubIcon({ className }: { className?: string }) {
 
 function JiraIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("size-4", className)}>
+    <svg viewBox="0 0 24 24" fill="none" className={cx(sx(styles.brandGlyph), className)}>
       <defs>
         <linearGradient
           id="jira-grad-1"
@@ -385,7 +386,7 @@ function JiraIcon({ className }: { className?: string }) {
 
 function FigmaIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 38 57" fill="none" className={cn("size-4", className)}>
+    <svg viewBox="0 0 38 57" fill="none" className={cx(sx(styles.brandGlyph), className)}>
       <path
         d="M19 28.5a9.5 9.5 0 119 9.5 9.5 9.5 0 01-9.5-9.5z"
         fill="#1ABCFE"
@@ -409,7 +410,7 @@ function FigmaIcon({ className }: { className?: string }) {
 
 function SlackIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("size-4", className)}>
+    <svg viewBox="0 0 24 24" fill="none" className={cx(sx(styles.brandGlyph), className)}>
       <path
         d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z"
         fill="#E01E5A"
@@ -432,7 +433,7 @@ function SlackIcon({ className }: { className?: string }) {
 
 function ConfluenceIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("size-4", className)}>
+    <svg viewBox="0 0 24 24" fill="none" className={cx(sx(styles.brandGlyph), className)}>
       <defs>
         <linearGradient
           id="confluence-grad"
@@ -471,6 +472,14 @@ const SectionDragSuppressionContext = createContext<{ current: boolean }>({
 const SectionVisibilityContext = createContext<
   ReadonlySet<WorkspaceInformationSectionId> | undefined
 >(undefined);
+/**
+ * Which sections are open. The chevron used to read the trigger's
+ * `aria-expanded` through a Tailwind `group-aria-expanded` variant; StyleX has
+ * no ancestor selector, so the same state is read from React instead.
+ */
+const SectionOpenContext = createContext<
+  ReadonlySet<WorkspaceInformationSectionId>
+>(new Set());
 /** Keyboard fallback for section reordering (Alt+ArrowUp / Alt+ArrowDown). */
 const SectionReorderContext = createContext<
   (args: {
@@ -494,6 +503,7 @@ function SectionHeader(props: {
   const isDraggable = props.value !== "overview";
   const suppressClickRef = useContext(SectionDragSuppressionContext);
   const visibleSections = useContext(SectionVisibilityContext);
+  const isOpen = useContext(SectionOpenContext).has(props.value);
   const moveSection = useContext(SectionReorderContext);
   const { setRowElement, setHandleElement, isDragging, closestEdge } =
     useSortableRow({
@@ -515,13 +525,13 @@ function SectionHeader(props: {
       ref={setRowElement}
       style={style}
       value={props.value}
-      className={cn(
-        "relative border-b border-border/50",
-        props.first && "border-t-0",
-        isDragging && "opacity-50",
+      className={sx(
+        styles.sectionItem,
+        props.first && styles.sectionItemFirst,
+        isDragging && styles.sectionItemDragging,
       )}
     >
-      <div className="group/section-row flex items-center">
+      <div className={sx(styles.sectionRow)}>
         <AccordionTrigger
           ref={isDraggable ? setHandleElement : undefined}
           onClick={(event) => {
@@ -546,40 +556,35 @@ function SectionHeader(props: {
               direction: event.key === "ArrowUp" ? "up" : "down",
             });
           }}
-          className={cn(
-            "flex-1 gap-2 py-2.5 pr-1 pl-0 hover:no-underline [&>svg[data-slot=accordion-trigger-icon]]:hidden",
-            isDraggable && "cursor-grab active:cursor-grabbing",
+          className={sx(
+            styles.sectionTrigger,
+            isDraggable && styles.sectionTriggerDraggable,
           )}
         >
-          <div className="flex items-center gap-2 text-left">
-            <span className="relative flex size-[18px] shrink-0 items-center justify-center text-muted-foreground">
+          <div className={sx(styles.sectionTitleRow)}>
+            <span className={sx(styles.sectionMark)}>
               {/* Section icon — visible by default, fades out on row hover */}
-              <span className="flex items-center justify-center transition-all duration-150 group-hover/section-row:scale-75 group-hover/section-row:opacity-0">
-                {props.icon}
-              </span>
+              <span className={sx(styles.sectionMarkIcon)}>{props.icon}</span>
               {/* Chevron — hidden by default, fades in on row hover */}
-              <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <ChevronRight className="size-[18px] scale-75 opacity-0 transition-all duration-150 group-aria-expanded/accordion-trigger:hidden group-hover/section-row:scale-100 group-hover/section-row:opacity-100" />
-                <ChevronDown className="hidden size-[18px] scale-75 opacity-0 transition-all duration-150 group-aria-expanded/accordion-trigger:block group-hover/section-row:scale-100 group-hover/section-row:opacity-100" />
+              <span className={sx(styles.sectionMarkChevronSlot)}>
+                {isOpen ? (
+                  <ChevronDown className={sx(styles.sectionMarkChevron)} />
+                ) : (
+                  <ChevronRight className={sx(styles.sectionMarkChevron)} />
+                )}
               </span>
             </span>
-            <span className="text-sm font-medium text-foreground/80">
-              {props.title}
-            </span>
+            <span className={sx(styles.sectionTitle)}>{props.title}</span>
             {props.count !== undefined && props.count > 0 ? (
-              <span className="text-xs tabular-nums text-muted-foreground/60">
-                {props.count}
-              </span>
+              <span className={sx(styles.sectionCount)}>{props.count}</span>
             ) : null}
           </div>
         </AccordionTrigger>
         {props.action ? (
-          <div className="ml-auto flex shrink-0 items-center">
-            {props.action}
-          </div>
+          <div className={sx(styles.sectionAction)}>{props.action}</div>
         ) : null}
       </div>
-      <AccordionContent className="pb-3 pl-2 pt-0">
+      <AccordionContent className={sx(styles.sectionPanel)}>
         {props.children}
       </AccordionContent>
       {closestEdge ? <SortableDropIndicator edge={closestEdge} /> : null}
@@ -603,42 +608,40 @@ function InlineLinkRow(props: {
   onTogglePin?: () => void;
 }) {
   return (
-    <div className="group/link-row flex items-center gap-2.5 rounded-md px-1.5 py-2 transition-colors hover:bg-muted/40 focus-within:bg-muted/40">
-      <span className="flex size-6 shrink-0 items-center justify-center">
-        {props.icon}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <button
+    <div className={sx(styles.linkRow)}>
+      <span className={sx(styles.linkRowMark)}>{props.icon}</span>
+      <div className={sx(styles.linkRowBody)}>
+        <div className={sx(styles.linkRowTitleLine)}>
+          <AdsButton
+            layout="host"
             type="button"
-            className="min-w-0 truncate text-sm font-medium text-foreground hover:text-primary hover:underline"
+            xstyle={styles.linkRowTitle}
             onClick={() => openExternalUrl(props.url)}
             title={props.label}
           >
             {props.label}
-          </button>
+          </AdsButton>
           {props.badge}
         </div>
         {props.sublabel ? (
-          <p className="truncate text-xs text-muted-foreground/70">
-            {props.sublabel}
-          </p>
+          <p className={sx(styles.linkRowSublabel)}>{props.sublabel}</p>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className={sx(styles.linkRowTrail)}>
         {props.onTogglePin ? (
           <TooltipProvider delay={300}>
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <button
+                  <AdsButton
+                    layout="host"
                     type="button"
-                    className={cn(
-                      "flex size-7 items-center justify-center rounded-sm transition-opacity hover:bg-muted",
+                    xstyle={[
+                      styles.iconButtonPinBase,
                       props.pinned
-                        ? "text-primary opacity-100"
-                        : "text-muted-foreground/60 opacity-0 hover:text-foreground group-hover/link-row:opacity-100",
-                    )}
+                        ? styles.iconButtonPinned
+                        : styles.iconButtonPinReveal,
+                    ]}
                     onClick={props.onTogglePin}
                     aria-pressed={props.pinned}
                     aria-label={
@@ -650,19 +653,22 @@ function InlineLinkRow(props: {
                 }
               >
                 <Pin
-                  className={cn("size-3.5", props.pinned ? "fill-current" : "")}
+                  className={sx(
+                    styles.glyphSm,
+                    props.pinned && styles.glyphFilled,
+                  )}
                 />
               </TooltipTrigger>
               <TooltipContent
                 side="left"
-                className="max-w-60 flex-col items-start gap-0.5 whitespace-normal break-normal text-left"
+                className={sx(styles.pinTooltip)}
               >
-                <span className="font-medium">
+                <span className={sx(styles.pinTooltipTitle)}>
                   {props.pinned
                     ? "Pinned as intent anchor"
                     : "Pin as intent anchor"}
                 </span>
-                <span className="text-background/70">
+                <span className={sx(styles.pinTooltipBody)}>
                   {props.pinned
                     ? "The intent guard checks your changes against this and flags scope or intent drift. Click to unpin."
                     : "Pin this PRD, spec, or design so the AI checks each change against it after a turn."}
@@ -671,21 +677,22 @@ function InlineLinkRow(props: {
             </Tooltip>
           </TooltipProvider>
         ) : null}
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/link-row:opacity-100">
+        <div className={sx(styles.linkRowTrailReveal)}>
           {props.actions}
           <TooltipProvider delay={300}>
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <button
+                  <AdsButton
+                    layout="host"
                     type="button"
-                    className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                    xstyle={[styles.iconButton, styles.iconButtonDanger]}
                     onClick={props.onRemove}
                     aria-label="Remove"
                   />
                 }
               >
-                <X className="size-3.5" />
+                <X className={sx(styles.glyphSm)} />
               </TooltipTrigger>
               <TooltipContent side="left">Remove</TooltipContent>
             </Tooltip>
@@ -705,16 +712,21 @@ function CreateTaskActionButton(props: {
       <Tooltip>
         <TooltipTrigger
           render={
-            <button
+            <AdsButton
+              layout="host"
               type="button"
-              className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+              xstyle={[
+                styles.iconButton,
+                styles.iconButtonHoverSurface,
+                styles.iconButtonDisabledQuiet,
+              ]}
               disabled={props.disabled}
               onClick={props.onClick}
               aria-label="Create task"
             />
           }
         >
-          <MessageSquarePlus className="size-3.5" />
+          <MessageSquarePlus className={sx(styles.glyphSm)} />
         </TooltipTrigger>
         <TooltipContent side="left">Create task</TooltipContent>
       </Tooltip>
@@ -734,25 +746,28 @@ function InlineUrlInput(props: {
   icon: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 px-1.5 py-1.5">
-      <span className="flex size-6 shrink-0 items-center justify-center text-muted-foreground/50">
-        {props.icon}
-      </span>
+    <div className={sx(styles.urlInputRow)}>
+      <span className={sx(styles.urlInputMark)}>{props.icon}</span>
       <Input
         value={props.value}
         onChange={(event) => props.onChange(event.target.value)}
         placeholder={props.placeholder}
-        className="h-8 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
+        xstyle={styles.bareInput}
         autoFocus
       />
-      <button
+      <AdsButton
+        layout="host"
         type="button"
-        className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+        xstyle={[
+          styles.iconButton,
+          styles.iconButtonShrink0,
+          styles.iconButtonDanger,
+        ]}
         onClick={props.onRemove}
         aria-label="Remove"
       >
-        <X className="size-3.5" />
-      </button>
+        <X className={sx(styles.glyphSm)} />
+      </AdsButton>
     </div>
   );
 }
@@ -763,34 +778,24 @@ function InlineUrlInput(props: {
 
 function GitHubPrStatusIcon(props: {
   status: WorkspacePrStatus;
-  className?: string;
+  xstyle?: StyleXValue;
 }) {
   const { status } = props;
-  const cls = cn("size-[18px] shrink-0", props.className);
+  const glyph = [styles.prStatusGlyph, props.xstyle];
 
   if (status === "merged") {
-    return (
-      <GitMerge className={cn(cls, "text-[#8250df] dark:text-[#a371f7]")} />
-    );
+    return <GitMerge className={sx(glyph, styles.prStatusMerged)} />;
   }
   if (status === "closed_unmerged") {
     return (
-      <GitPullRequestClosed
-        className={cn(cls, "text-[#cf222e] dark:text-[#f85149]")}
-      />
+      <GitPullRequestClosed className={sx(glyph, styles.prStatusClosed)} />
     );
   }
   if (status === "draft") {
-    return (
-      <GitPullRequestDraft
-        className={cn(cls, "text-[#59636e] dark:text-[#8b949e]")}
-      />
-    );
+    return <GitPullRequestDraft className={sx(glyph, styles.prStatusDraft)} />;
   }
   // Open states
-  return (
-    <GitPullRequest className={cn(cls, "text-[#1a7f37] dark:text-[#3fb950]")} />
-  );
+  return <GitPullRequest className={sx(glyph, styles.prStatusOpen)} />;
 }
 
 function GitHubPrRow(props: {
@@ -809,82 +814,76 @@ function GitHubPrRow(props: {
   const visual = PR_STATUS_VISUAL[props.status];
 
   return (
-    <div className="group/pr-row flex items-start gap-2.5 rounded-md px-1.5 py-2.5 transition-colors hover:bg-muted/50">
-      <GitHubPrStatusIcon status={props.status} className="mt-0.5 size-4" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-2">
-          <button
+    <div className={sx(styles.prRow)}>
+      <GitHubPrStatusIcon status={props.status} xstyle={styles.prRowMark} />
+      <div className={sx(styles.prRowBody)}>
+        <div className={sx(styles.prRowTitleLine)}>
+          <AdsButton
+            layout="host"
             type="button"
-            className="min-w-0 text-left text-sm font-medium leading-snug text-foreground hover:text-primary hover:underline"
+            xstyle={styles.prRowTitle}
             onClick={() => openExternalUrl(props.url)}
           >
             {props.title}
-          </button>
+          </AdsButton>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className="text-xs tabular-nums text-muted-foreground/70">
-            #{props.number}
-          </span>
+        <div className={sx(styles.prRowMeta)}>
+          <span className={sx(styles.prRowNumber)}>#{props.number}</span>
           <Badge
-            className={cn(
-              "h-5 rounded-full border px-1.5 py-0 text-[11px] font-medium leading-none",
-              PR_TONE_BADGE_CLASS[visual.tone],
-            )}
+            variant={PR_TONE_BADGE_VARIANT[visual.tone]}
+            className={sx(styles.chipStatus)}
           >
             {visual.label}
           </Badge>
           {props.isCurrent ? (
-            <Badge
-              variant="outline"
-              className="h-5 rounded-full px-1.5 py-0 text-[11px] font-normal leading-none"
-            >
+            <Badge variant="outline" className={sx(styles.chipTight)}>
               Current branch
             </Badge>
           ) : null}
           {props.repo ? (
-            <span className="text-xs text-muted-foreground/60">
-              {props.repo}
-            </span>
+            <span className={sx(styles.prRowRepo)}>{props.repo}</span>
           ) : null}
           {props.branch ? (
-            <span className="font-mono text-[11px] text-muted-foreground/50">
-              {props.branch}
-            </span>
+            <span className={sx(styles.prRowBranch)}>{props.branch}</span>
           ) : null}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover/pr-row:opacity-100">
+      <div className={sx(styles.prRowTrail)}>
         {props.actions}
         {props.onRefresh ? (
-          <button
+          <AdsButton
+            layout="host"
             type="button"
-            className={cn(
-              "flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-muted hover:text-foreground",
-              props.loading && "animate-spin",
-            )}
+            xstyle={[
+              styles.iconButton,
+              styles.iconButtonHoverSurface,
+              props.loading && styles.glyphSpinning,
+            ]}
             onClick={props.onRefresh}
             aria-label="Refresh"
           >
-            <RefreshCcw className="size-3.5" />
-          </button>
+            <RefreshCcw className={sx(styles.glyphSm)} />
+          </AdsButton>
         ) : null}
-        <button
+        <AdsButton
+          layout="host"
           type="button"
-          className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-muted hover:text-foreground"
+          xstyle={[styles.iconButton, styles.iconButtonHoverSurface]}
           onClick={() => openExternalUrl(props.url)}
           aria-label="Open on GitHub"
         >
-          <ExternalLink className="size-3.5" />
-        </button>
+          <ExternalLink className={sx(styles.glyphSm)} />
+        </AdsButton>
         {props.onRemove ? (
-          <button
+          <AdsButton
+            layout="host"
             type="button"
-            className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+            xstyle={[styles.iconButton, styles.iconButtonDanger]}
             onClick={props.onRemove}
             aria-label="Remove"
           >
-            <X className="size-3.5" />
-          </button>
+            <X className={sx(styles.glyphSm)} />
+          </AdsButton>
         ) : null}
       </div>
     </div>
@@ -911,14 +910,14 @@ function CustomFieldDatePicker(props: {
           <Button
             type="button"
             variant="outline"
-            className={cn(
-              "h-9 w-full justify-start text-left text-sm font-normal",
-              !props.value && "text-muted-foreground",
-            )}
+            xstyle={[
+              styles.datePickerTrigger,
+              !props.value && styles.datePickerTriggerEmpty,
+            ]}
           />
         }
       >
-        <CalendarIcon className="mr-2 size-4" />
+        <CalendarIcon className={sx(styles.datePickerIcon)} />
         {isValid
           ? selected.toLocaleDateString(undefined, {
               year: "numeric",
@@ -927,21 +926,10 @@ function CustomFieldDatePicker(props: {
             })
           : "Pick a date"}
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent xstyle={styles.datePickerPopover} align="start">
         <Calendar
-          mode="single"
-          selected={isValid ? selected : undefined}
-          onSelect={(date) => {
-            if (!date) {
-              props.onChange("");
-              return;
-            }
-            const yyyy = date.getFullYear();
-            const mm = String(date.getMonth() + 1).padStart(2, "0");
-            const dd = String(date.getDate()).padStart(2, "0");
-            props.onChange(`${yyyy}-${mm}-${dd}`);
-          }}
-          initialFocus
+          value={isValid ? props.value : undefined}
+          onDateSelect={(date) => props.onChange(date === props.value ? "" : date)}
         />
       </PopoverContent>
     </Popover>
@@ -985,9 +973,9 @@ function SingleSelectOptionsInput(props: {
     field.value.length > 0 && validOptions.includes(field.value);
 
   return (
-    <div className="space-y-1.5">
+    <div className={sx(styles.fieldStack)}>
       <Input
-        className="h-9 text-sm"
+        xstyle={styles.control}
         value={rawValue}
         onChange={(event) => setRawValue(event.target.value)}
         onBlur={(event) => commit(event.target.value)}
@@ -1002,7 +990,7 @@ function SingleSelectOptionsInput(props: {
         value={hasValidSelection ? field.value : undefined}
         onValueChange={(value) => onFieldChange({ ...field, value })}
       >
-        <SelectTrigger className="h-9 w-full text-sm">
+        <SelectTrigger className={sx(styles.controlBlock)}>
           <SelectValue placeholder="Select" />
         </SelectTrigger>
         <SelectContent>
@@ -1033,7 +1021,7 @@ function renderCustomFieldInput(args: {
     case "textarea":
       return (
         <Textarea
-          className="min-h-20 text-sm"
+          xstyle={styles.controlTextarea}
           value={field.value}
           onChange={(event) =>
             onFieldChange({ ...field, value: event.target.value })
@@ -1045,7 +1033,7 @@ function renderCustomFieldInput(args: {
       return (
         <Input
           type="number"
-          className="h-9 text-sm"
+          xstyle={styles.control}
           value={field.value ?? ""}
           onChange={(event) =>
             onFieldChange({
@@ -1061,7 +1049,7 @@ function renderCustomFieldInput(args: {
       );
     case "boolean":
       return (
-        <div className="flex items-center gap-2">
+        <div className={sx(styles.switchRow)}>
           <Switch
             checked={field.value}
             onCheckedChange={(checked) =>
@@ -1069,7 +1057,7 @@ function renderCustomFieldInput(args: {
             }
             size="sm"
           />
-          <span className="text-[13px] text-muted-foreground">
+          <span className={sx(styles.switchLabel)}>
             {field.value ? "Enabled" : "Disabled"}
           </span>
         </div>
@@ -1083,9 +1071,9 @@ function renderCustomFieldInput(args: {
       );
     case "url":
       return (
-        <div className="flex items-center gap-1.5">
+        <div className={sx(styles.urlFieldRow)}>
           <Input
-            className="h-9 flex-1 text-sm"
+            xstyle={styles.controlFlex}
             value={field.value}
             onChange={(event) =>
               onFieldChange({ ...field, value: event.target.value })
@@ -1093,14 +1081,15 @@ function renderCustomFieldInput(args: {
             placeholder="https://..."
           />
           {isWorkspaceInfoUrl(field.value) ? (
-            <button
+            <AdsButton
+              layout="host"
               type="button"
-              className="flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground"
+              xstyle={styles.urlFieldOpen}
               onClick={() => openExternalUrl(field.value)}
               aria-label="Open link"
             >
-              <ExternalLink className="size-4" />
-            </button>
+              <ExternalLink className={sx(styles.glyphMd)} />
+            </AdsButton>
           ) : null}
         </div>
       );
@@ -1112,7 +1101,7 @@ function renderCustomFieldInput(args: {
     default:
       return (
         <Input
-          className="h-9 text-sm"
+          xstyle={styles.control}
           value={field.value}
           onChange={(event) =>
             onFieldChange({ ...field, value: event.target.value })
@@ -1129,14 +1118,15 @@ function renderCustomFieldInput(args: {
 
 function AddButton(props: { onClick: () => void; label?: string }) {
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
-      className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+      xstyle={[styles.iconButtonQuiet, styles.iconButtonHoverSurface]}
       onClick={props.onClick}
       aria-label={props.label ?? "Add"}
     >
-      <Plus className="size-4" />
-    </button>
+      <Plus className={sx(styles.glyphMd)} />
+    </AdsButton>
   );
 }
 
@@ -1146,7 +1136,7 @@ function AddButton(props: { onClick: () => void; label?: string }) {
 
 function EmptyHint(props: { children: ReactNode }) {
   return (
-    <p className="px-2 py-1.5 text-[13px] text-muted-foreground/50">
+    <p className={sx(styles.emptyHint)}>
       {props.children}
     </p>
   );
@@ -1181,10 +1171,10 @@ function NotesSectionBody(props: {
 
   if (isEditing) {
     return (
-      <div className="space-y-2">
+      <div className={sx(styles.notesEditor)}>
         <Textarea
           autoFocus
-          className="min-h-40 resize-y text-sm leading-6"
+          xstyle={styles.notesTextarea}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onFocus={(event) => {
@@ -1205,16 +1195,16 @@ function NotesSectionBody(props: {
           }}
           placeholder="Notes, blockers, handoff details..."
         />
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-[11px] text-muted-foreground">
+        <div className={sx(styles.notesFooter)}>
+          <span className={sx(styles.notesHint)}>
             Markdown · ⌘/Ctrl+Enter to save
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className={sx(styles.notesActions)}>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8"
+              xstyle={styles.notesButton}
               onClick={cancel}
             >
               Cancel
@@ -1222,7 +1212,7 @@ function NotesSectionBody(props: {
             <Button
               type="button"
               size="sm"
-              className="h-8"
+              xstyle={styles.notesButton}
               onClick={commit}
               disabled={draft === props.notes}
             >
@@ -1236,13 +1226,14 @@ function NotesSectionBody(props: {
 
   if (!props.notes.trim()) {
     return (
-      <button
+      <AdsButton
+        layout="host"
         type="button"
         onClick={startEditing}
-        className="w-full rounded-md px-2 py-3 text-left text-sm text-muted-foreground/50 transition-colors hover:bg-muted/40"
+        xstyle={styles.notesPlaceholder}
       >
         Add notes… (markdown supported)
-      </button>
+      </AdsButton>
     );
   }
 
@@ -1262,7 +1253,7 @@ function NotesSectionBody(props: {
           startEditing();
         }
       }}
-      className="w-full cursor-text rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/40"
+      className={sx(styles.notesPreview)}
     >
       <EditorMarkdownPreview
         content={props.notes}
@@ -1364,6 +1355,7 @@ export function WorkspaceInformationPanel() {
     () => new Set(visibleSectionIds),
     [visibleSectionIds],
   );
+  const openSectionSet = useMemo(() => new Set(openSections), [openSections]);
   const showMartinCard = useMartinInformationCardAvailable();
   const sectionOrderIndexById = Object.fromEntries(
     sectionOrder.map((id, index) => [id, index]),
@@ -1692,12 +1684,12 @@ export function WorkspaceInformationPanel() {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col overflow-auto origin-top-left"
+      className={sx(styles.root)}
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
-      <div className="px-3 py-2">
+      <div className={sx(styles.body)}>
         {showInformationTopCards ? (
-          <div className="mb-2 space-y-2">
+          <div className={sx(styles.topCards)}>
             {showMartinCard ? <WorkspaceInformationMartinCard /> : null}
             <WorkspaceInformationConnectedBrowserCard
               tab={connectedBrowserTab}
@@ -1707,6 +1699,7 @@ export function WorkspaceInformationPanel() {
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>
             <SectionVisibilityContext.Provider value={visibleSections}>
+              <SectionOpenContext.Provider value={openSectionSet}>
               <Accordion
                 multiple
                 value={openSections}
@@ -1718,11 +1711,11 @@ export function WorkspaceInformationPanel() {
                   value="overview"
                   order={sectionOrderIndexById.overview}
                   title="Summary"
-                  icon={<Sparkles className="size-4" />}
+                  icon={<Sparkles className={sx(styles.glyphMd)} />}
                   first
                   action={
                     latestTurnSummary ? (
-                      <span className="pr-1 text-[11px] text-muted-foreground/70">
+                      <span className={sx(styles.sectionStamp)}>
                         {formatTaskUpdatedAt({
                           value: latestTurnSummary.generatedAt,
                         })}
@@ -1733,11 +1726,11 @@ export function WorkspaceInformationPanel() {
                   {latestTurnSummary ? (
                     <WorkspaceTurnSummary summary={latestTurnSummary} />
                   ) : (
-                    <div className="bg-muted/18 px-3 py-4">
-                      <p className="text-sm font-medium text-foreground">
+                    <div className={sx(styles.summaryEmpty)}>
+                      <p className={sx(styles.summaryEmptyTitle)}>
                         No completed turn yet
                       </p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      <p className={sx(styles.summaryEmptyBody)}>
                         The latest request, outcome, and model will appear here
                         after the first completed response.
                       </p>
@@ -1750,7 +1743,7 @@ export function WorkspaceInformationPanel() {
                   value="todo"
                   order={sectionOrderIndexById.todo}
                   title="Todos"
-                  icon={<CheckCircle2 className="size-4" />}
+                  icon={<CheckCircle2 className={sx(styles.glyphMd)} />}
                   count={openTodoCount}
                   action={
                     <AddButton
@@ -1765,10 +1758,10 @@ export function WorkspaceInformationPanel() {
                   }
                 >
                   {totalTodoCount > 0 ? (
-                    <div className="mb-1.5 flex items-center gap-2 px-0.5">
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                    <div className={sx(styles.todoProgressRow)}>
+                      <div className={sx(styles.todoProgressTrack)}>
                         <div
-                          className="h-full rounded-full bg-primary transition-all"
+                          className={sx(styles.todoProgressFill)}
                           style={{
                             width: `${Math.round(
                               (completedTodoCount / totalTodoCount) * 100,
@@ -1776,28 +1769,29 @@ export function WorkspaceInformationPanel() {
                           }}
                         />
                       </div>
-                      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                      <span className={sx(styles.todoProgressCount)}>
                         {completedTodoCount}/{totalTodoCount}
                       </span>
                     </div>
                   ) : null}
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {workspaceInformation.todos.length === 0 ? (
                       <EmptyHint>No todos yet</EmptyHint>
                     ) : null}
                     {workspaceInformation.todos.map((todo) => (
                       <div
                         key={todo.id}
-                        className="group/todo flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-muted/50"
+                        className={sx(styles.todoRow)}
                       >
-                        <button
+                        <AdsButton
+                          layout="host"
                           type="button"
-                          className={cn(
-                            "flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors",
+                          xstyle={[
+                            styles.todoStatus,
                             resolveWorkspaceTodoStatus(todo) === "pending"
-                              ? "text-muted-foreground/40 hover:text-muted-foreground"
-                              : "text-primary",
-                          )}
+                              ? styles.todoStatusPending
+                              : styles.todoStatusActive,
+                          ]}
                           onClick={() =>
                             patchWorkspaceInformation((current) => ({
                               ...current,
@@ -1819,14 +1813,14 @@ export function WorkspaceInformationPanel() {
                           )}. Click to advance.`}
                         >
                           {resolveWorkspaceTodoStatus(todo) === "completed" ? (
-                            <CheckCircle2 className="size-4" />
+                            <CheckCircle2 className={sx(styles.glyphMd)} />
                           ) : resolveWorkspaceTodoStatus(todo) ===
                             "in_progress" ? (
-                            <CircleDot className="size-4" />
+                            <CircleDot className={sx(styles.glyphMd)} />
                           ) : (
-                            <Circle className="size-4" />
+                            <Circle className={sx(styles.glyphMd)} />
                           )}
-                        </button>
+                        </AdsButton>
                         <Input
                           value={todo.text}
                           onChange={(event) =>
@@ -1843,15 +1837,16 @@ export function WorkspaceInformationPanel() {
                             }))
                           }
                           placeholder="Todo item"
-                          className={cn(
-                            "h-8 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0",
+                          xstyle={[
+                            styles.bareInputPadded,
                             resolveWorkspaceTodoStatus(todo) === "completed" &&
-                              "text-muted-foreground/50 line-through",
-                          )}
+                              styles.bareInputDone,
+                          ]}
                         />
-                        <button
+                        <AdsButton
+                          layout="host"
                           type="button"
-                          className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/todo:opacity-100"
+                          xstyle={[styles.rowRemove, styles.rowRemoveSm]}
                           onClick={() =>
                             patchWorkspaceInformation((current) => ({
                               ...current,
@@ -1860,8 +1855,8 @@ export function WorkspaceInformationPanel() {
                           }
                           aria-label="Remove todo"
                         >
-                          <X className="size-3.5" />
-                        </button>
+                          <X className={sx(styles.glyphSm)} />
+                        </AdsButton>
                       </div>
                     ))}
                   </div>
@@ -1872,7 +1867,7 @@ export function WorkspaceInformationPanel() {
                   value="note"
                   order={sectionOrderIndexById.note}
                   title="Notes"
-                  icon={<StickyNote className="size-4" />}
+                  icon={<StickyNote className={sx(styles.glyphMd)} />}
                 >
                   <NotesSectionBody
                     notes={workspaceInformation.notes}
@@ -1890,24 +1885,28 @@ export function WorkspaceInformationPanel() {
                   value="memory"
                   order={sectionOrderIndexById.memory}
                   title="Memory"
-                  icon={<Brain className="size-4" />}
+                  icon={<Brain className={sx(styles.glyphMd)} />}
                   count={memoryHeader.count}
                   action={
-                    <button
+                    <AdsButton
+                      layout="host"
                       type="button"
-                      className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                      xstyle={[
+                        styles.iconButtonQuiet,
+                        styles.iconButtonHoverSurface,
+                      ]}
                       onClick={() =>
                         setMemoryRefreshNonce((nonce) => nonce + 1)
                       }
                       aria-label="Refresh memory"
                     >
                       <RefreshCcw
-                        className={cn(
-                          "size-4",
-                          memoryHeader.loading && "animate-spin",
+                        className={sx(
+                          styles.glyphMd,
+                          memoryHeader.loading && styles.glyphSpinning,
                         )}
                       />
-                    </button>
+                    </AdsButton>
                   }
                 >
                   <WorkspaceMemorySection
@@ -1921,22 +1920,26 @@ export function WorkspaceInformationPanel() {
                   value="plans"
                   order={sectionOrderIndexById.plans}
                   title="Plans"
-                  icon={<ClipboardCheck className="size-4" />}
+                  icon={<ClipboardCheck className={sx(styles.glyphMd)} />}
                   count={plansHeader.count}
                   action={
-                    <button
+                    <AdsButton
+                      layout="host"
                       type="button"
-                      className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                      xstyle={[
+                        styles.iconButtonQuiet,
+                        styles.iconButtonHoverSurface,
+                      ]}
                       onClick={() => notifyWorkspacePlansChanged()}
                       aria-label="Refresh plans"
                     >
                       <RefreshCcw
-                        className={cn(
-                          "size-4",
-                          plansHeader.loading && "animate-spin",
+                        className={sx(
+                          styles.glyphMd,
+                          plansHeader.loading && styles.glyphSpinning,
                         )}
                       />
-                    </button>
+                    </AdsButton>
                   }
                 >
                   <WorkspacePlansSection
@@ -2008,16 +2011,20 @@ export function WorkspaceInformationPanel() {
                   value="github"
                   order={sectionOrderIndexById.github}
                   title="Pull Requests"
-                  icon={<GitHubIcon className="size-4" />}
+                  icon={<GitHubIcon />}
                   count={
                     visibleLinkedPullRequests.length + (currentBranchPr ? 1 : 0)
                   }
                   action={
-                    <div className="flex items-center gap-0.5">
+                    <div className={sx(styles.sectionActionGroup)}>
                       {!isDefaultWorkspace ? (
-                        <button
+                        <AdsButton
+                          layout="host"
                           type="button"
-                          className="flex size-7 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                          xstyle={[
+                            styles.iconButtonQuiet,
+                            styles.iconButtonHoverSurface,
+                          ]}
                           onClick={() =>
                             void fetchWorkspacePrStatus({
                               workspaceId: activeWorkspaceId,
@@ -2025,8 +2032,8 @@ export function WorkspaceInformationPanel() {
                           }
                           aria-label="Refresh"
                         >
-                          <RefreshCcw className="size-4" />
-                        </button>
+                          <RefreshCcw className={sx(styles.glyphMd)} />
+                        </AdsButton>
                       ) : null}
                       <AddButton
                         onClick={() =>
@@ -2043,7 +2050,7 @@ export function WorkspaceInformationPanel() {
                     </div>
                   }
                 >
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {/* Current branch PR */}
                     {!isDefaultWorkspace &&
                     currentBranchPr &&
@@ -2074,7 +2081,7 @@ export function WorkspaceInformationPanel() {
                           <InlineUrlInput
                             key={item.id}
                             value={item.url}
-                            icon={<Link className="size-4" />}
+                            icon={<Link className={sx(styles.glyphMd)} />}
                             placeholder="https://github.com/owner/repo/pull/123"
                             onChange={(url) =>
                               patchLinkedPullRequestUrl(item.id, url)
@@ -2176,7 +2183,7 @@ export function WorkspaceInformationPanel() {
                   value="jira"
                   order={sectionOrderIndexById.jira}
                   title="Jira Issues"
-                  icon={<JiraIcon className="size-4" />}
+                  icon={<JiraIcon />}
                   count={workspaceInformation.jiraIssues.length}
                   action={
                     <AddButton
@@ -2193,7 +2200,7 @@ export function WorkspaceInformationPanel() {
                     />
                   }
                 >
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {workspaceInformation.jiraIssues.length === 0 ? (
                       <EmptyHint>No linked Jira issues</EmptyHint>
                     ) : null}
@@ -2213,7 +2220,7 @@ export function WorkspaceInformationPanel() {
                           <InlineUrlInput
                             key={issue.id}
                             value={issue.url}
-                            icon={<Link className="size-4" />}
+                            icon={<Link className={sx(styles.glyphMd)} />}
                             placeholder="https://company.atlassian.net/browse/ABC-123"
                             onChange={(url) =>
                               patchWorkspaceInformation((current) => ({
@@ -2260,7 +2267,7 @@ export function WorkspaceInformationPanel() {
                             )
                           }
                           icon={
-                            <Globe className="size-4 text-muted-foreground/70" />
+                            <Globe className={sx(styles.mutedGlyph)} />
                           }
                           label={title}
                           sublabel={
@@ -2272,7 +2279,7 @@ export function WorkspaceInformationPanel() {
                             issue.status.trim() ? (
                               <Badge
                                 variant="outline"
-                                className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none"
+                                className={sx(styles.chip)}
                               >
                                 {issue.status.trim()}
                               </Badge>
@@ -2314,7 +2321,7 @@ export function WorkspaceInformationPanel() {
                   value="crane"
                   order={sectionOrderIndexById.crane}
                   title="Crane Issues"
-                  icon={<Cable className="size-4" />}
+                  icon={<Cable className={sx(styles.glyphMd)} />}
                   count={(workspaceInformation.craneIssues ?? []).length}
                   action={
                     <AddButton
@@ -2331,7 +2338,7 @@ export function WorkspaceInformationPanel() {
                     />
                   }
                 >
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {(workspaceInformation.craneIssues ?? []).length === 0 ? (
                       <EmptyHint>No linked Crane issues</EmptyHint>
                     ) : null}
@@ -2351,7 +2358,7 @@ export function WorkspaceInformationPanel() {
                           <InlineUrlInput
                             key={issue.id}
                             value={issue.url}
-                            icon={<Link className="size-4" />}
+                            icon={<Link className={sx(styles.glyphMd)} />}
                             placeholder="https://atelier.delight-tools.ai/apps/crane/w/TEAM/task/CRN-42"
                             onChange={(url) =>
                               patchWorkspaceInformation((current) => ({
@@ -2398,7 +2405,7 @@ export function WorkspaceInformationPanel() {
                             )
                           }
                           icon={
-                            <Cable className="size-4 text-muted-foreground/70" />
+                            <Cable className={sx(styles.mutedGlyph)} />
                           }
                           label={title}
                           sublabel={
@@ -2410,7 +2417,7 @@ export function WorkspaceInformationPanel() {
                             issue.status.trim() ? (
                               <Badge
                                 variant="outline"
-                                className="h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none"
+                                className={sx(styles.chip)}
                               >
                                 {issue.status.trim()}
                               </Badge>
@@ -2452,7 +2459,7 @@ export function WorkspaceInformationPanel() {
                   value="confluence"
                   order={sectionOrderIndexById.confluence}
                   title="Confluence"
-                  icon={<ConfluenceIcon className="size-4" />}
+                  icon={<ConfluenceIcon />}
                   count={(workspaceInformation.confluencePages ?? []).length}
                   action={
                     <AddButton
@@ -2469,7 +2476,7 @@ export function WorkspaceInformationPanel() {
                     />
                   }
                 >
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {(workspaceInformation.confluencePages ?? []).length ===
                     0 ? (
                       <EmptyHint>No linked Confluence pages</EmptyHint>
@@ -2494,7 +2501,7 @@ export function WorkspaceInformationPanel() {
                             <InlineUrlInput
                               key={page.id}
                               value={page.url}
-                              icon={<Link className="size-4" />}
+                              icon={<Link className={sx(styles.glyphMd)} />}
                               placeholder="https://company.atlassian.net/wiki/spaces/..."
                               onChange={(url) =>
                                 patchWorkspaceInformation((current) => ({
@@ -2542,7 +2549,7 @@ export function WorkspaceInformationPanel() {
                               )
                             }
                             icon={
-                              <Globe className="size-4 text-muted-foreground/70" />
+                              <Globe className={sx(styles.mutedGlyph)} />
                             }
                             label={title}
                             sublabel={
@@ -2572,7 +2579,7 @@ export function WorkspaceInformationPanel() {
                   value="storybook"
                   order={sectionOrderIndexById.storybook}
                   title="Storybook"
-                  icon={<BookOpen className="size-4" />}
+                  icon={<BookOpen className={sx(styles.glyphMd)} />}
                   count={workspaceInformation.storybookResources?.length ?? 0}
                   action={
                     <AddButton
@@ -2589,7 +2596,7 @@ export function WorkspaceInformationPanel() {
                     />
                   }
                 >
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {(workspaceInformation.storybookResources?.length ?? 0) ===
                     0 ? (
                       <EmptyHint>No linked Storybook resources</EmptyHint>
@@ -2621,7 +2628,7 @@ export function WorkspaceInformationPanel() {
                             <InlineUrlInput
                               key={resource.id}
                               value={resource.url}
-                              icon={<Link className="size-4" />}
+                              icon={<Link className={sx(styles.glyphMd)} />}
                               placeholder="https://storybook.example.com/?path=/docs/..."
                               onChange={(url) =>
                                 patchWorkspaceInformation((current) => ({
@@ -2661,7 +2668,7 @@ export function WorkspaceInformationPanel() {
                           <InlineLinkRow
                             key={resource.id}
                             icon={
-                              <Globe className="size-4 text-muted-foreground/70" />
+                              <Globe className={sx(styles.mutedGlyph)} />
                             }
                             label={title}
                             sublabel={sublabel}
@@ -2670,11 +2677,10 @@ export function WorkspaceInformationPanel() {
                                 <>
                                   {accessBadgeLabel ? (
                                     <Badge
-                                      variant="outline"
-                                      className={cn(
-                                        "h-5 rounded-full px-2 py-0 text-[11px] font-normal leading-none",
-                                        storybookAccessBadgeClass(access),
+                                      variant={storybookAccessBadgeVariant(
+                                        access,
                                       )}
+                                      className={sx(styles.chip)}
                                     >
                                       {accessBadgeLabel}
                                     </Badge>
@@ -2682,10 +2688,13 @@ export function WorkspaceInformationPanel() {
                                   {access?.externalRepo ? (
                                     <Badge
                                       variant="outline"
-                                      className="h-5 max-w-36 rounded-full px-2 py-0 text-[11px] font-normal leading-none text-muted-foreground"
+                                      className={sx(
+                                        styles.chip,
+                                        styles.chipRepo,
+                                      )}
                                       title={access.externalRepo}
                                     >
-                                      <span className="truncate">
+                                      <span className={sx(styles.chipRepoLabel)}>
                                         repo {access.externalRepo}
                                       </span>
                                     </Badge>
@@ -2715,7 +2724,7 @@ export function WorkspaceInformationPanel() {
                   value="amplify"
                   order={sectionOrderIndexById.amplify}
                   title="Amplify"
-                  icon={<AmplifyIcon className="h-4 w-auto shrink-0" />}
+                  icon={<AmplifyIcon className={sx(styles.amplifyGlyph)} />}
                   count={workspaceInformation.amplifyLinks?.length ?? 0}
                   action={
                     <AddButton
@@ -2732,7 +2741,7 @@ export function WorkspaceInformationPanel() {
                     />
                   }
                 >
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {(workspaceInformation.amplifyLinks?.length ?? 0) === 0 ? (
                       <EmptyHint>No linked Amplify deploys</EmptyHint>
                     ) : null}
@@ -2750,7 +2759,7 @@ export function WorkspaceInformationPanel() {
                           <InlineUrlInput
                             key={link.id}
                             value={link.url}
-                            icon={<Link className="size-4" />}
+                            icon={<Link className={sx(styles.glyphMd)} />}
                             placeholder="https://<branch>.<appid>.amplifyapp.com"
                             onChange={(url) =>
                               patchWorkspaceInformation((current) => ({
@@ -2778,7 +2787,7 @@ export function WorkspaceInformationPanel() {
                       return (
                         <InlineLinkRow
                           key={link.id}
-                          icon={<AmplifyIcon className="h-4 w-auto shrink-0" />}
+                          icon={<AmplifyIcon className={sx(styles.amplifyGlyph)} />}
                           label={label}
                           sublabel={host || undefined}
                           url={link.url}
@@ -2802,7 +2811,7 @@ export function WorkspaceInformationPanel() {
                   value="slack"
                   order={sectionOrderIndexById.slack}
                   title="Slack"
-                  icon={<SlackIcon className="size-4" />}
+                  icon={<SlackIcon />}
                   count={workspaceInformation.slackThreads?.length ?? 0}
                   action={
                     <AddButton
@@ -2819,7 +2828,7 @@ export function WorkspaceInformationPanel() {
                     />
                   }
                 >
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {(workspaceInformation.slackThreads?.length ?? 0) === 0 ? (
                       <EmptyHint>No linked Slack threads</EmptyHint>
                     ) : null}
@@ -2837,7 +2846,7 @@ export function WorkspaceInformationPanel() {
                           <InlineUrlInput
                             key={thread.id}
                             value={thread.url}
-                            icon={<Link className="size-4" />}
+                            icon={<Link className={sx(styles.glyphMd)} />}
                             placeholder="https://team.slack.com/archives/C.../p..."
                             onChange={(url) =>
                               patchWorkspaceInformation((current) => ({
@@ -2866,7 +2875,7 @@ export function WorkspaceInformationPanel() {
                         <InlineLinkRow
                           key={thread.id}
                           icon={
-                            <Hash className="size-4 text-muted-foreground/70" />
+                            <Hash className={sx(styles.mutedGlyph)} />
                           }
                           label={label}
                           sublabel={host || undefined}
@@ -2891,7 +2900,7 @@ export function WorkspaceInformationPanel() {
                   value="figma"
                   order={sectionOrderIndexById.figma}
                   title="Figma"
-                  icon={<FigmaIcon className="size-4" />}
+                  icon={<FigmaIcon />}
                   count={workspaceInformation.figmaResources.length}
                   action={
                     <AddButton
@@ -2908,7 +2917,7 @@ export function WorkspaceInformationPanel() {
                     />
                   }
                 >
-                  <div className="-mx-2 space-y-0.5">
+                  <div className={sx(styles.itemList)}>
                     {workspaceInformation.figmaResources.length === 0 ? (
                       <EmptyHint>No linked Figma resources</EmptyHint>
                     ) : null}
@@ -2929,7 +2938,7 @@ export function WorkspaceInformationPanel() {
                           <InlineUrlInput
                             key={resource.id}
                             value={resource.url}
-                            icon={<Link className="size-4" />}
+                            icon={<Link className={sx(styles.glyphMd)} />}
                             placeholder="https://www.figma.com/file/..."
                             onChange={(url) =>
                               patchWorkspaceInformation((current) => ({
@@ -2976,7 +2985,7 @@ export function WorkspaceInformationPanel() {
                             )
                           }
                           icon={
-                            <Globe className="size-4 text-muted-foreground/70" />
+                            <Globe className={sx(styles.mutedGlyph)} />
                           }
                           label={title}
                           sublabel={
@@ -3007,7 +3016,7 @@ export function WorkspaceInformationPanel() {
                   value="custom"
                   order={sectionOrderIndexById.custom}
                   title="Custom Fields"
-                  icon={<SlidersHorizontal className="size-4" />}
+                  icon={<SlidersHorizontal className={sx(styles.glyphMd)} />}
                   count={workspaceInformation.customFields.length}
                   action={
                     <AddButton
@@ -3024,16 +3033,16 @@ export function WorkspaceInformationPanel() {
                     />
                   }
                 >
-                  <div className="-mx-2 space-y-3">
+                  <div className={sx(styles.itemListLoose)}>
                     {workspaceInformation.customFields.length === 0 ? (
                       <EmptyHint>No custom fields</EmptyHint>
                     ) : null}
                     {workspaceInformation.customFields.map((field) => (
                       <div
                         key={field.id}
-                        className="group/field space-y-1.5 px-1.5"
+                        className={sx(styles.customField)}
                       >
-                        <div className="flex items-center gap-1.5">
+                        <div className={sx(styles.customFieldHead)}>
                           <Input
                             value={field.label}
                             onChange={(event) =>
@@ -3043,7 +3052,10 @@ export function WorkspaceInformationPanel() {
                               }))
                             }
                             placeholder="Label"
-                            className="h-8 flex-1 border-0 bg-transparent px-1 text-sm font-medium shadow-none focus-visible:ring-0"
+                            xstyle={[
+                              styles.bareInputPadded,
+                              styles.bareInputStrong,
+                            ]}
                           />
                           <Select
                             value={field.type}
@@ -3056,7 +3068,7 @@ export function WorkspaceInformationPanel() {
                               )
                             }
                           >
-                            <SelectTrigger className="h-8 w-auto min-w-[5.5rem] border-0 bg-transparent text-xs text-muted-foreground shadow-none">
+                            <SelectTrigger className={sx(styles.customFieldType)}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -3067,9 +3079,10 @@ export function WorkspaceInformationPanel() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <button
+                          <AdsButton
+                            layout="host"
                             type="button"
-                            className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/field:opacity-100"
+                            xstyle={styles.rowRemove}
                             onClick={() =>
                               patchWorkspaceInformation((current) => ({
                                 ...current,
@@ -3081,8 +3094,8 @@ export function WorkspaceInformationPanel() {
                             }
                             aria-label="Remove field"
                           >
-                            <X className="size-3.5" />
-                          </button>
+                            <X className={sx(styles.glyphSm)} />
+                          </AdsButton>
                         </div>
                         {renderCustomFieldInput({
                           field,
@@ -3094,6 +3107,7 @@ export function WorkspaceInformationPanel() {
                   </div>
                 </SectionHeader>
               </Accordion>
+              </SectionOpenContext.Provider>
             </SectionVisibilityContext.Provider>
           </SectionReorderContext.Provider>
         </SectionDragSuppressionContext.Provider>

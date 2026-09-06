@@ -1,6 +1,10 @@
+import { sliderLayout } from "./slider-layout.styles";
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 
-import { cn } from "@/lib/utils";
+import { sliderStyles } from "../ads/components/Slider";
+import { sx } from "../ads/utils/stylex";
+import { mergeClassName } from "../ads/components/merge-class-name";
+import { focusRing } from "../ads/recipes/focus-ring";
 
 type SliderProps = SliderPrimitive.Root.Props<number> &
   Pick<
@@ -20,19 +24,19 @@ function Slider({
 }: SliderProps) {
   return (
     <SliderPrimitive.Root
-      className={cn("data-horizontal:w-full data-vertical:h-full", className)}
+      className={mergeClassName(() => sx(sliderLayout.root), className)}
       data-slot="slider"
       thumbAlignment="edge"
       {...props}
     >
-      <SliderPrimitive.Control className="relative flex h-7 w-full touch-none items-center select-none data-disabled:opacity-45 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-7 data-vertical:flex-col">
+      <SliderPrimitive.Control className={sx(sliderLayout.control)}>
         <SliderPrimitive.Track
           data-slot="slider-track"
-          className="relative grow rounded-full bg-muted shadow-[inset_0_1px_1px_color-mix(in_oklch,var(--foreground)_8%,transparent)] select-none data-horizontal:h-1.5 data-horizontal:w-full data-vertical:h-full data-vertical:w-1.5"
+          className={sx(sliderStyles.track, sliderLayout.track)}
         >
           <SliderPrimitive.Indicator
             data-slot="slider-range"
-            className="rounded-full bg-primary select-none data-horizontal:h-full data-vertical:w-full"
+            className={sx(sliderStyles.indicator, sliderLayout.indicator)}
           />
           <SliderPrimitive.Thumb
             aria-label={ariaLabel}
@@ -42,7 +46,7 @@ function Slider({
             getAriaLabel={getAriaLabel}
             getAriaValueText={getAriaValueText}
             data-slot="slider-thumb"
-            className="block size-[1.125rem] shrink-0 rounded-full bg-foreground shadow-[0_1px_3px_color-mix(in_oklch,var(--background)_25%,transparent),0_0_0_2px_var(--background)] ring-ring/45 transition-[transform,box-shadow] duration-150 select-none hover:scale-110 focus-visible:scale-110 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none"
+            className={sx(sliderStyles.thumb, focusRing.ring)}
           />
         </SliderPrimitive.Track>
       </SliderPrimitive.Control>

@@ -16,65 +16,70 @@ import {
 } from "lucide-react";
 import { FileIcon, defaultStyles, type FileIconProps } from "react-file-icon";
 import type { WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
-import { cn } from "@/lib/utils";
+import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import {
+  explorerIconStyles,
+  folderToneStyles,
+  type FolderTone,
+} from "./explorer-entry-icon.styles";
 
 type FolderVisual = {
   icon: LucideIcon;
   openIcon?: LucideIcon;
-  className: string;
+  tone: FolderTone;
 };
 
 const folderVisualGroups: Array<{ names: string[]; visual: FolderVisual }> = [
   {
     names: ["src", "app", "pages", "routes", "components", "hooks", "lib", "utils"],
-    visual: { icon: Braces, className: "bg-sky-500/12 text-sky-600 dark:text-sky-300" },
+    visual: { icon: Braces, tone: "code" },
   },
   {
     names: ["electron", "server", "db", "database", "migrations"],
-    visual: { icon: Database, className: "bg-indigo-500/12 text-indigo-600 dark:text-indigo-300" },
+    visual: { icon: Database, tone: "data" },
   },
   {
     names: ["docs", "doc"],
-    visual: { icon: BookOpenText, className: "bg-amber-500/14 text-amber-700 dark:text-amber-300" },
+    visual: { icon: BookOpenText, tone: "docs" },
   },
   {
     names: ["public", "assets", "images", "img", "media", "static"],
-    visual: { icon: Image, className: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-300" },
+    visual: { icon: Image, tone: "media" },
   },
   {
     names: ["tests", "__tests__", "__mocks__", "fixtures"],
-    visual: { icon: FlaskConical, className: "bg-lime-500/14 text-lime-700 dark:text-lime-300" },
+    visual: { icon: FlaskConical, tone: "tests" },
   },
   {
     names: ["scripts", "bin"],
-    visual: { icon: TerminalSquare, className: "bg-orange-500/14 text-orange-700 dark:text-orange-300" },
+    visual: { icon: TerminalSquare, tone: "scripts" },
   },
   {
     names: [".github", ".gitlab", "security"],
-    visual: { icon: Shield, className: "bg-rose-500/12 text-rose-600 dark:text-rose-300" },
+    visual: { icon: Shield, tone: "security" },
   },
   {
     names: [".vscode", ".idea", ".stave", "config", "configs"],
-    visual: { icon: Settings2, className: "bg-slate-500/14 text-slate-700 dark:text-slate-300" },
+    visual: { icon: Settings2, tone: "config" },
   },
   {
     names: ["node_modules", "packages", "vendor"],
-    visual: { icon: Package, className: "bg-fuchsia-500/12 text-fuchsia-600 dark:text-fuchsia-300" },
+    visual: { icon: Package, tone: "packages" },
   },
   {
     names: ["styles", "style", "theme"],
-    visual: { icon: Palette, className: "bg-pink-500/12 text-pink-600 dark:text-pink-300" },
+    visual: { icon: Palette, tone: "styles" },
   },
   {
     names: [".git"],
-    visual: { icon: FolderGit2, className: "bg-orange-500/12 text-orange-600 dark:text-orange-300" },
+    visual: { icon: FolderGit2, tone: "git" },
   },
 ];
 
 const defaultFolderVisual: FolderVisual = {
   icon: Folder,
   openIcon: FolderOpen,
-  className: "bg-yellow-500/14 text-yellow-700 dark:text-yellow-300",
+  tone: "folder",
 };
 
 const fileIconStyles = defaultStyles as unknown as Record<string, Partial<FileIconProps>>;
@@ -376,8 +381,13 @@ export function ExplorerEntryIcon(args: { entry: WorkspaceDirectoryEntry; isOpen
     const Icon = args.isOpen ? (visual.openIcon ?? visual.icon) : visual.icon;
 
     return (
-      <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-[5px]", visual.className)}>
-        <Icon className="size-[13px]" />
+      <span
+        className={sx(
+          explorerIconStyles.folderBadge,
+          folderToneStyles[visual.tone],
+        )}
+      >
+        <Icon className={sx(explorerIconStyles.folderGlyph)} />
       </span>
     );
   }
@@ -385,9 +395,18 @@ export function ExplorerEntryIcon(args: { entry: WorkspaceDirectoryEntry; isOpen
   return <WorkspaceFileIcon fileName={args.entry.name} />;
 }
 
-export function WorkspaceFileIcon(args: { fileName: string; className?: string }) {
+export function WorkspaceFileIcon(args: {
+  fileName: string;
+  className?: string;
+  xstyle?: StyleXValue;
+}) {
   return (
-    <span className={cn("flex h-4 w-[14px] shrink-0 items-center justify-center [&_svg]:block [&_svg]:h-full [&_svg]:w-full", args.className)}>
+    <span
+      className={cx(
+        sx(explorerIconStyles.fileIcon, args.xstyle),
+        args.className,
+      )}
+    >
       <FileIcon {...resolveFileIconProps(args.fileName)} />
     </span>
   );

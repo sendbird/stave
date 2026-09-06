@@ -7,7 +7,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import * as stylex from "@stylexjs/stylex";
+import { layoutShellStyles } from "./layout-shell.styles";
 
 interface TopBarWindowControlsProps {
   noDragStyle: CSSProperties;
@@ -54,22 +55,22 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
 
   return (
     <TooltipProvider>
-      <div className="flex shrink-0 items-center gap-1.5">
-        <span className="mx-1 h-4 w-px bg-border/80" aria-hidden="true" />
+      <div {...stylex.props(layoutShellStyles.windowControls)}>
+        <span {...stylex.props(layoutShellStyles.windowDivider)} aria-hidden="true" />
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9 w-9 rounded-md p-0"
+                xstyle={layoutShellStyles.windowButton}
                 onClick={() => void window.api?.window?.minimize?.()}
                 aria-label="window-minimize"
                 style={noDragStyle}
               />
             }
           >
-            <Minus className="size-3.5" />
+            <Minus {...stylex.props(layoutShellStyles.icon14)} />
           </TooltipTrigger>
           <TooltipContent side="bottom">Minimize</TooltipContent>
         </Tooltip>
@@ -79,7 +80,7 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9 w-9 rounded-md p-0"
+                xstyle={layoutShellStyles.windowButton}
                 onClick={async () => {
                   const next = await window.api?.window?.toggleMaximize?.();
                   if (next) {
@@ -91,7 +92,7 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
               />
             }
           >
-            <Square className={cn("size-3.5", isMaximized && "opacity-80")} />
+            <Square {...stylex.props(layoutShellStyles.icon14, isMaximized && layoutShellStyles.subdued)} />
           </TooltipTrigger>
           <TooltipContent side="bottom">
             {isMaximized ? "Restore window" : "Maximize"}
@@ -103,14 +104,14 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9 w-9 rounded-md p-0 hover:bg-destructive hover:text-destructive-foreground"
+                xstyle={[layoutShellStyles.windowButton, layoutShellStyles.closeWindowButton]}
                 onClick={() => void window.api?.window?.close?.()}
                 aria-label="window-close"
                 style={noDragStyle}
               />
             }
           >
-            <X className="size-3.5" />
+            <X {...stylex.props(layoutShellStyles.icon14)} />
           </TooltipTrigger>
           <TooltipContent side="bottom">Close window</TooltipContent>
         </Tooltip>

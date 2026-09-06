@@ -37,7 +37,8 @@ import {
 } from "@/lib/providers/codex-command-catalog";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useAppStore } from "@/store/app.store";
 import {
   AlertCircle,
@@ -62,6 +63,7 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { DraftInput } from "./settings-dialog.shared";
+import { codexStyles } from "./settings-dialog-codex-section.styles";
 
 type SnapshotState = {
   status: "idle" | "loading" | "ready" | "error";
@@ -133,23 +135,19 @@ function DenseMetric(args: {
 }) {
   return (
     <div
-      className={cn(
-        "rounded-xl border px-3 py-3",
+      className={sx(
+        codexStyles.metric,
         args.tone === "success"
-          ? "border-emerald-500/20 bg-emerald-500/5"
+          ? codexStyles.metricSuccess
           : args.tone === "warning"
-            ? "border-amber-500/20 bg-amber-500/5"
+            ? codexStyles.metricWarning
             : args.tone === "muted"
-              ? "border-border/60 bg-muted/20"
-              : "border-border/70 bg-background/60",
+              ? codexStyles.metricMuted
+              : codexStyles.metricDefault,
       )}
     >
-      <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        {args.label}
-      </p>
-      <p className="mt-1 text-lg font-semibold tracking-tight text-foreground">
-        {args.value}
-      </p>
+      <p className={sx(codexStyles.metricLabel)}>{args.label}</p>
+      <p className={sx(codexStyles.metricValue)}>{args.value}</p>
     </div>
   );
 }
@@ -162,26 +160,19 @@ function DenseSection(args: {
   className?: string;
 }) {
   return (
-    <section
-      className={cn(
-        "rounded-xl border border-border/70 bg-background/60",
-        args.className,
-      )}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <h4 className="text-sm font-semibold text-foreground">
-            {args.title}
-          </h4>
+    <section className={cx(sx(codexStyles.section), args.className)}>
+      <div className={sx(codexStyles.sectionHeader)}>
+        <div className={sx(codexStyles.sectionHeaderText)}>
+          <h4 className={sx(codexStyles.sectionTitle)}>{args.title}</h4>
           {args.description ? (
-            <p className="break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
+            <p className={sx(codexStyles.sectionDescription)}>
               {args.description}
             </p>
           ) : null}
         </div>
         {args.action}
       </div>
-      <div className="px-4 py-4">{args.children}</div>
+      <div className={sx(codexStyles.sectionBody)}>{args.children}</div>
     </section>
   );
 }
@@ -193,15 +184,15 @@ function StatusPill(args: {
   return (
     <Badge
       variant="outline"
-      className={cn(
-        "rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
+      className={sx(
+        codexStyles.pill,
         args.tone === "success"
-          ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+          ? codexStyles.pillSuccess
           : args.tone === "warning"
-            ? "border-amber-500/30 text-amber-700 dark:text-amber-300"
+            ? codexStyles.pillWarning
             : args.tone === "danger"
-              ? "border-destructive/30 text-destructive"
-              : "border-border/70 text-muted-foreground",
+              ? codexStyles.pillDanger
+              : codexStyles.pillDefault,
       )}
     >
       {args.label}
@@ -209,15 +200,13 @@ function StatusPill(args: {
   );
 }
 
-function ReadOnlyCodeBlock(args: { value: string; minHeight?: string }) {
+function ReadOnlyCodeBlock(args: { value: string; minHeight?: number }) {
   return (
     <Textarea
       readOnly
       value={args.value}
-      className={cn(
-        "font-mono text-[12px] leading-5",
-        args.minHeight ?? "min-h-[180px]",
-      )}
+      xstyle={codexStyles.codeBlock}
+      style={{ minHeight: args.minHeight ?? 180 }}
     />
   );
 }
@@ -1115,9 +1104,9 @@ export function CodexSection() {
 
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-border/70 bg-background/70">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3.5">
-          <div className="flex flex-wrap items-center gap-2">
+      <section className={sx(codexStyles.rootPanel)}>
+        <div className={sx(codexStyles.rootHeader)}>
+          <div className={sx(codexStyles.rowWrapCenterGap2)}>
             <StatusPill
               label={
                 snapshotState.status === "error"
@@ -1151,7 +1140,7 @@ export function CodexSection() {
               <StatusPill label={snapshot.account.planType} />
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className={sx(codexStyles.headerMeta)}>
             {snapshotState.updatedAt ? (
               <span>Updated {formatDateTime(snapshotState.updatedAt)}</span>
             ) : null}
@@ -1159,15 +1148,15 @@ export function CodexSection() {
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5"
+              xstyle={codexStyles.refreshBtn}
               onClick={() => {
                 void loadSnapshot();
               }}
             >
               <RefreshCcw
-                className={cn(
-                  "size-3.5",
-                  snapshotState.status === "loading" && "animate-spin",
+                className={sx(
+                  codexStyles.size35Icon,
+                  snapshotState.status === "loading" && codexStyles.iconSpin,
                 )}
               />
               Refresh
@@ -1175,49 +1164,49 @@ export function CodexSection() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-0">
-          <div className="border-b border-border/60 px-4 py-2">
-            <TabsList className="h-auto w-full justify-start rounded-xl border border-border/70 bg-muted/20 p-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className={sx(codexStyles.tabs)}>
+          <div className={sx(codexStyles.tabsBar)}>
+            <TabsList className={sx(codexStyles.tabsList)}>
               <TabsTrigger
                 value="overview"
-                className="h-8 rounded-lg px-3 text-xs font-medium"
+                className={sx(codexStyles.tabsTrigger)}
               >
                 Overview
               </TabsTrigger>
               <TabsTrigger
                 value="extensions"
-                className="h-8 rounded-lg px-3 text-xs font-medium"
+                className={sx(codexStyles.tabsTrigger)}
               >
                 Extensions
               </TabsTrigger>
               <TabsTrigger
                 value="threads"
-                className="h-8 rounded-lg px-3 text-xs font-medium"
+                className={sx(codexStyles.tabsTrigger)}
               >
                 Threads
               </TabsTrigger>
               <TabsTrigger
                 value="commands"
-                className="h-8 rounded-lg px-3 text-xs font-medium"
+                className={sx(codexStyles.tabsTrigger)}
               >
                 Commands
               </TabsTrigger>
               <TabsTrigger
                 value="config"
-                className="h-8 rounded-lg px-3 text-xs font-medium"
+                className={sx(codexStyles.tabsTrigger)}
               >
                 Advanced
               </TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="overview" className="m-0 p-4">
+          <TabsContent value="overview" className={sx(codexStyles.tabContent)}>
             {!snapshot ? (
-              <Empty className="border-none bg-transparent px-6 py-16">
+              <Empty xstyle={codexStyles.emptyRoot}>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     {snapshotState.status === "error" ? (
-                      <AlertCircle className="size-5" />
+                      <AlertCircle className={sx(codexStyles.size5Icon)} />
                     ) : (
                       <Loader aria-hidden size="sm" variant="spinner" />
                     )}
@@ -1231,8 +1220,8 @@ export function CodexSection() {
                 </EmptyHeader>
               </Empty>
             ) : (
-              <div className="space-y-4">
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+              <div className={sx(codexStyles.stack4)}>
+                <div className={sx(codexStyles.metricsGrid)}>
                   {metrics.map((metric) => (
                     <DenseMetric
                       key={metric.label}
@@ -1243,16 +1232,16 @@ export function CodexSection() {
                   ))}
                 </div>
 
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
+                <div className={sx(codexStyles.twoColGrid1)}>
                   <DenseSection
                     title="Runtime summary"
                     description="Live App Server data for the current workspace and Codex binary."
                   >
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="space-y-3">
-                        <div className="rounded-xl border border-border/70 bg-muted/10 px-3 py-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium text-foreground">
+                    <div className={sx(codexStyles.lgTwoCol)}>
+                      <div className={sx(codexStyles.stack3)}>
+                        <div className={sx(codexStyles.tile)}>
+                          <div className={sx(codexStyles.rowCenterBetween)}>
+                            <p className={sx(codexStyles.textSmMedium)}>
                               Account
                             </p>
                             <StatusPill
@@ -1260,7 +1249,7 @@ export function CodexSection() {
                               tone={accountBadge.tone}
                             />
                           </div>
-                          <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                          <div className={sx(codexStyles.mt2Space1SmMuted)}>
                             <p>Type: {snapshot.account?.type ?? "unknown"}</p>
                             <p>Email: {snapshot.account?.email ?? "unknown"}</p>
                             <p>
@@ -1269,12 +1258,12 @@ export function CodexSection() {
                           </div>
                         </div>
 
-                        <div className="rounded-xl border border-border/70 bg-muted/10 px-3 py-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium text-foreground">
+                        <div className={sx(codexStyles.tile)}>
+                          <div className={sx(codexStyles.rowCenterBetween)}>
+                            <p className={sx(codexStyles.textSmMedium)}>
                               Model catalog
                             </p>
-                            <div className="flex items-center gap-2">
+                            <div className={sx(codexStyles.rowCenterGap2)}>
                               <StatusPill
                                 label={
                                   codexModelCatalog.isDynamic
@@ -1291,52 +1280,52 @@ export function CodexSection() {
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-6 px-1.5"
+                                xstyle={codexStyles.h6Px15}
                                 onClick={() => codexModelCatalog.refresh()}
                               >
                                 <RefreshCcw
-                                  className={cn(
-                                    "size-3",
+                                  className={sx(
+                                    codexStyles.size3Icon,
                                     codexModelCatalog.status === "loading" &&
-                                      "animate-spin",
+                                      codexStyles.iconSpin,
                                   )}
                                 />
                               </Button>
                             </div>
                           </div>
-                          <p className="mt-2 text-sm text-muted-foreground">
+                          <p className={sx(codexStyles.textSmMutedMt2)}>
                             {codexModelCatalog.detail ||
                               "Using the configured Codex model catalog."}
                           </p>
                           {codexModelCatalog.entries.length > 0 ? (
-                            <div className="mt-3 space-y-1.5">
+                            <div className={sx(codexStyles.mt3Space15)}>
                               {codexModelCatalog.entries.map((entry) => (
                                 <div
                                   key={entry.id}
-                                  className="flex items-start justify-between gap-2 text-xs"
+                                  className={sx(codexStyles.metricStartRowXs)}
                                 >
-                                  <div className="min-w-0">
-                                    <span className="font-medium text-foreground">
+                                  <div className={sx(codexStyles.minW0)}>
+                                    <span className={sx(codexStyles.fontMediumFg)}>
                                       {entry.displayName || entry.model}
                                     </span>
                                     {entry.description ? (
-                                      <span className="ml-1.5 text-muted-foreground">
+                                      <span className={sx(codexStyles.mlSmMutedFg)}>
                                         {entry.description}
                                       </span>
                                     ) : null}
                                   </div>
-                                  <div className="flex shrink-0 items-center gap-1.5">
+                                  <div className={sx(codexStyles.shrink0RowGap15)}>
                                     {entry.isDefault ? (
                                       <Badge
                                         variant="outline"
-                                        className="h-4 px-1 text-[10px]"
+                                        className={sx(codexStyles.badgeTiny)}
                                       >
                                         default
                                       </Badge>
                                     ) : null}
                                     {entry.supportedReasoningEfforts.length >
                                     0 ? (
-                                      <span className="text-muted-foreground">
+                                      <span className={sx(codexStyles.mutedFg)}>
                                         {entry.supportedReasoningEfforts.join(
                                           "/",
                                         )}
@@ -1347,24 +1336,24 @@ export function CodexSection() {
                               ))}
                             </div>
                           ) : codexModelCatalog.models.length > 0 ? (
-                            <p className="mt-2 text-xs text-muted-foreground">
+                            <p className={sx(codexStyles.textXsMutedMt3)}>
                               {codexModelCatalog.models.join(", ")}
                             </p>
                           ) : null}
                         </div>
                       </div>
 
-                      <div className="space-y-3">
-                        <div className="rounded-xl border border-border/70 bg-muted/10 px-3 py-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium text-foreground">
+                      <div className={sx(codexStyles.stack3)}>
+                        <div className={sx(codexStyles.tile)}>
+                          <div className={sx(codexStyles.rowCenterBetween)}>
+                            <p className={sx(codexStyles.textSmMedium)}>
                               Workspace scope
                             </p>
                             {workspaceCwd ? (
                               <StatusPill label="scoped" />
                             ) : null}
                           </div>
-                          <div className="mt-2 space-y-1 break-all text-sm text-muted-foreground">
+                          <div className={sx(codexStyles.mt2Space1BreakAllSmMuted)}>
                             <p>
                               {workspaceCwd ?? "No workspace cwd available."}
                             </p>
@@ -1375,16 +1364,16 @@ export function CodexSection() {
                           </div>
                         </div>
 
-                        <div className="rounded-xl border border-border/70 bg-muted/10 px-3 py-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium text-foreground">
+                        <div className={sx(codexStyles.tile)}>
+                          <div className={sx(codexStyles.rowCenterBetween)}>
+                            <p className={sx(codexStyles.textSmMedium)}>
                               Slash commands
                             </p>
                             <StatusPill
                               label={`${CODEX_CLI_SLASH_COMMANDS.length} built-in`}
                             />
                           </div>
-                          <p className="mt-2 text-sm text-muted-foreground">
+                          <p className={sx(codexStyles.textSmMutedMt2)}>
                             {getCodexSlashCommandCatalogDetail()}
                           </p>
                         </div>
@@ -1398,21 +1387,21 @@ export function CodexSection() {
                   >
                     {Object.entries(snapshotState.sectionErrors).length ===
                     0 ? (
-                      <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                      <div className={sx(codexStyles.tileDashed)}>
                         No partial section failures.
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className={sx(codexStyles.stack2)}>
                         {Object.entries(snapshotState.sectionErrors).map(
                           ([key, value]) => (
                             <div
                               key={key}
-                              className="rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-3"
+                              className={sx(codexStyles.tileDanger)}
                             >
-                              <p className="text-sm font-medium text-foreground">
+                              <p className={sx(codexStyles.textSmMedium)}>
                                 {key}
                               </p>
-                              <p className="mt-1 text-sm text-muted-foreground">
+                              <p className={sx(codexStyles.textSmMutedMt1)}>
                                 {value}
                               </p>
                             </div>
@@ -1428,24 +1417,24 @@ export function CodexSection() {
                   description="Current limit buckets and credit state reported by Codex."
                 >
                   {snapshot.rateLimits.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                    <div className={sx(codexStyles.tileDashed)}>
                       No rate-limit buckets returned by the App Server.
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className={sx(codexStyles.stack3)}>
                       {snapshot.rateLimits.map((limit, index) => (
                         <div
                           key={`${limit.limitId ?? "limit"}:${index}`}
-                          className="rounded-xl border border-border/70 bg-muted/10 px-3 py-3"
+                          className={sx(codexStyles.tile)}
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className={sx(codexStyles.rowWrapCenterBetween)}>
                             <div>
-                              <p className="text-sm font-medium text-foreground">
+                              <p className={sx(codexStyles.textSmMedium)}>
                                 {limit.limitName ??
                                   limit.limitId ??
                                   "Unnamed bucket"}
                               </p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className={sx(codexStyles.textXsMuted)}>
                                 {limit.planType ?? "unknown plan"}
                               </p>
                             </div>
@@ -1467,15 +1456,15 @@ export function CodexSection() {
                             ) : null}
                           </div>
 
-                          <div className="mt-3 space-y-3">
+                          <div className={sx(codexStyles.mt3Space3)}>
                             {[
                               ["Primary", limit.primary] as const,
                               ["Secondary", limit.secondary] as const,
                             ]
                               .filter(([, bucket]) => bucket)
                               .map(([label, bucket]) => (
-                                <div key={label} className="space-y-1.5">
-                                  <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                                <div key={label} className={sx(codexStyles.space15)}>
+                                  <div className={sx(codexStyles.rateRow)}>
                                     <span>{label}</span>
                                     <span>
                                       {formatPercent(bucket?.usedPercent)}
@@ -1484,9 +1473,9 @@ export function CodexSection() {
                                         : ""}
                                     </span>
                                   </div>
-                                  <div className="h-2 rounded-full bg-muted/60">
+                                  <div className={sx(codexStyles.progressTrack)}>
                                     <div
-                                      className="h-2 rounded-full bg-primary/70"
+                                      className={sx(codexStyles.progressFill)}
                                       style={{
                                         width: `${getPercentWidth(bucket?.usedPercent)}%`,
                                       }}
@@ -1504,48 +1493,50 @@ export function CodexSection() {
             )}
           </TabsContent>
 
-          <TabsContent value="extensions" className="m-0 p-4">
+          <TabsContent value="extensions" className={sx(codexStyles.tabContent)}>
             {!snapshot ? null : (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-                <div className="space-y-4">
+              <div className={sx(codexStyles.twoColGrid1b)}>
+                <div className={sx(codexStyles.stack4)}>
                   <DenseSection
                     title="Plugins and apps"
                     description="Installed, discoverable, and currently accessible extension surfaces."
                   >
-                    <Accordion multiple className="w-full space-y-3">
+                    <Accordion multiple className={sx(codexStyles.wFullSpace3)}>
                       <AccordionItem
                         value="plugins"
-                        className="rounded-xl border border-border/70 px-3"
+                        className={sx(codexStyles.accordionItem)}
                       >
-                        <AccordionTrigger className="py-3">
-                          <div className="flex items-center gap-2">
-                            <Package2 className="size-4 text-muted-foreground" />
+                        <AccordionTrigger className={sx(codexStyles.py3)}>
+                          <div className={sx(codexStyles.rowCenterGap2)}>
+                            <Package2 className={sx(codexStyles.icon4)} />
                             <span>Plugins</span>
                             <StatusPill label={`${snapshot.plugins.length}`} />
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-2 pb-3">
+                        <AccordionContent className={sx(codexStyles.space2Pb3)}>
                           {snapshot.plugins.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className={sx(codexStyles.textSmMuted)}>
                               No plugins returned by the current App Server
                               runtime.
                             </p>
                           ) : (
                             snapshot.plugins.map((plugin) => (
-                              <button
+                              <AdsButton
                                 key={plugin.id}
                                 type="button"
+                                layout="host"
+                                press="none"
                                 onClick={() => setSelectedPluginId(plugin.id)}
-                                className={cn(
-                                  "flex w-full flex-col gap-2 rounded-xl border px-3 py-3 text-left transition sm:flex-row sm:items-start sm:justify-between",
+                                xstyle={[
+                                  codexStyles.rowButton,
                                   selectedPluginId === plugin.id
-                                    ? "border-primary/30 bg-primary/5"
-                                    : "border-border/70 bg-background/40 hover:bg-muted/20",
-                                )}
+                                    ? codexStyles.rowButtonSelected
+                                    : codexStyles.rowButtonResting,
+                                ]}
                               >
-                                <div className="min-w-0 flex-1 space-y-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm font-medium text-foreground">
+                                <div className={sx(codexStyles.minW0Grow1Space1)}>
+                                  <div className={sx(codexStyles.rowWrapCenterGap2)}>
+                                    <p className={sx(codexStyles.textSmMedium)}>
                                       {plugin.name}
                                     </p>
                                     <StatusPill
@@ -1565,18 +1556,18 @@ export function CodexSection() {
                                       />
                                     ) : null}
                                   </div>
-                                  <p className="break-words text-xs text-muted-foreground">
+                                  <p className={sx(codexStyles.breakWordsXsMuted)}>
                                     {plugin.marketplaceDisplayName ??
                                       plugin.marketplaceName}
                                   </p>
                                 </div>
                                 <div
-                                  className="max-w-full break-all text-xs text-muted-foreground sm:max-w-[16rem] sm:text-right"
+                                  className={sx(codexStyles.rowSource)}
                                   title={plugin.source}
                                 >
                                   {plugin.source}
                                 </div>
-                              </button>
+                              </AdsButton>
                             ))
                           )}
                         </AccordionContent>
@@ -1584,18 +1575,18 @@ export function CodexSection() {
 
                       <AccordionItem
                         value="apps"
-                        className="rounded-xl border border-border/70 px-3"
+                        className={sx(codexStyles.accordionItem)}
                       >
-                        <AccordionTrigger className="py-3">
-                          <div className="flex items-center gap-2">
-                            <AppWindow className="size-4 text-muted-foreground" />
+                        <AccordionTrigger className={sx(codexStyles.py3)}>
+                          <div className={sx(codexStyles.rowCenterGap2)}>
+                            <AppWindow className={sx(codexStyles.icon4)} />
                             <span>Apps</span>
                             <StatusPill label={`${snapshot.apps.length}`} />
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-2 pb-3">
+                        <AccordionContent className={sx(codexStyles.space2Pb3)}>
                           {snapshot.apps.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className={sx(codexStyles.textSmMuted)}>
                               No apps returned by the current App Server
                               runtime.
                             </p>
@@ -1603,18 +1594,18 @@ export function CodexSection() {
                             snapshot.apps.map((app) => (
                               <div
                                 key={app.id}
-                                className="rounded-xl border border-border/70 bg-background/40 px-3 py-3"
+                                className={sx(codexStyles.bgTile40)}
                               >
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="break-words text-sm font-medium text-foreground">
+                                <div className={sx(codexStyles.rowColSmRow)}>
+                                  <div className={sx(codexStyles.minW0Grow1)}>
+                                    <p className={sx(codexStyles.breakWordsSmMedium)}>
                                       {app.name}
                                     </p>
-                                    <p className="break-words text-xs text-muted-foreground">
+                                    <p className={sx(codexStyles.breakWordsXsMuted)}>
                                       {app.description ?? "No description"}
                                     </p>
                                   </div>
-                                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                  <div className={sx(codexStyles.shrink0WrapRow)}>
                                     <StatusPill
                                       label={
                                         app.isAccessible
@@ -1634,10 +1625,10 @@ export function CodexSection() {
                                     {app.installUrl ? (
                                       <ExternalAnchor
                                         href={app.installUrl}
-                                        className="inline-flex items-center gap-1 text-xs"
+                                        className={sx(codexStyles.inlineAnchorXs)}
                                       >
                                         Open
-                                        <ExternalLink className="size-3" />
+                                        <ExternalLink className={sx(codexStyles.size3Icon)} />
                                       </ExternalAnchor>
                                     ) : null}
                                   </div>
@@ -1650,11 +1641,11 @@ export function CodexSection() {
 
                       <AccordionItem
                         value="skills"
-                        className="rounded-xl border border-border/70 px-3"
+                        className={sx(codexStyles.accordionItem)}
                       >
-                        <AccordionTrigger className="py-3">
-                          <div className="flex items-center gap-2">
-                            <Bot className="size-4 text-muted-foreground" />
+                        <AccordionTrigger className={sx(codexStyles.py3)}>
+                          <div className={sx(codexStyles.rowCenterGap2)}>
+                            <Bot className={sx(codexStyles.icon4)} />
                             <span>Skills</span>
                             <StatusPill
                               label={String(
@@ -1666,21 +1657,21 @@ export function CodexSection() {
                             />
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-3 pb-3">
+                        <AccordionContent className={sx(codexStyles.space3Pb3)}>
                           {snapshot.skills.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className={sx(codexStyles.textSmMuted)}>
                               No skill groups returned by the current workspace.
                             </p>
                           ) : (
                             snapshot.skills.map((group) => (
                               <div
                                 key={group.cwd}
-                                className="rounded-xl border border-border/70 bg-background/40 px-3 py-3"
+                                className={sx(codexStyles.bgTile40)}
                               >
-                                <p className="break-all text-xs text-muted-foreground">
+                                <p className={sx(codexStyles.breakAllXsMuted)}>
                                   {group.cwd}
                                 </p>
-                                <div className="mt-2 flex flex-wrap gap-2">
+                                <div className={sx(codexStyles.mt2Chips)}>
                                   {group.skills.map((skill) => (
                                     <StatusPill
                                       key={`${group.cwd}:${skill.path}`}
@@ -1692,7 +1683,7 @@ export function CodexSection() {
                                   ))}
                                 </div>
                                 {group.errors.length > 0 ? (
-                                  <div className="mt-3 space-y-1 text-xs text-destructive">
+                                  <div className={sx(codexStyles.mt3Space1XsDangerErr)}>
                                     {group.errors.map((error, index) => (
                                       <p key={`${group.cwd}:error:${index}`}>
                                         {error}
@@ -1708,20 +1699,20 @@ export function CodexSection() {
 
                       <AccordionItem
                         value="mcp"
-                        className="rounded-xl border border-border/70 px-3"
+                        className={sx(codexStyles.accordionItem)}
                       >
-                        <AccordionTrigger className="py-3">
-                          <div className="flex items-center gap-2">
-                            <Plug2 className="size-4 text-muted-foreground" />
+                        <AccordionTrigger className={sx(codexStyles.py3)}>
+                          <div className={sx(codexStyles.rowCenterGap2)}>
+                            <Plug2 className={sx(codexStyles.icon4)} />
                             <span>MCP servers</span>
                             <StatusPill
                               label={`${snapshot.mcpServers.length}`}
                             />
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-2 pb-3">
+                        <AccordionContent className={sx(codexStyles.space2Pb3)}>
                           {snapshot.mcpServers.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className={sx(codexStyles.textSmMuted)}>
                               No MCP servers returned by the current App Server
                               runtime.
                             </p>
@@ -1729,19 +1720,19 @@ export function CodexSection() {
                             snapshot.mcpServers.map((server) => (
                               <div
                                 key={server.name}
-                                className="rounded-xl border border-border/70 bg-background/40 px-3 py-3"
+                                className={sx(codexStyles.bgTile40)}
                               >
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="break-words text-sm font-medium text-foreground">
+                                <div className={sx(codexStyles.rowColSmRow)}>
+                                  <div className={sx(codexStyles.minW0Grow1)}>
+                                    <p className={sx(codexStyles.breakWordsSmMedium)}>
                                       {server.name}
                                     </p>
-                                    <p className="break-all text-xs text-muted-foreground">
+                                    <p className={sx(codexStyles.breakAllXsMuted)}>
                                       {server.transportType}
                                       {server.url ? ` · ${server.url}` : ""}
                                     </p>
                                   </div>
-                                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                  <div className={sx(codexStyles.shrink0WrapRow)}>
                                     <StatusPill
                                       label={
                                         server.authStatus ?? "unknown auth"
@@ -1768,7 +1759,7 @@ export function CodexSection() {
                                         type="button"
                                         size="sm"
                                         variant="outline"
-                                        className="h-7"
+                                        xstyle={codexStyles.h7Only}
                                         onClick={() => {
                                           void handleOauthLogin(server.name);
                                         }}
@@ -1779,7 +1770,7 @@ export function CodexSection() {
                                         {busyKey === `oauth:${server.name}` ? (
                                           <Loader
                                             aria-hidden
-                                            className="mr-1"
+                                            className={sx(codexStyles.mr1)}
                                             size="xs"
                                             variant="spinner"
                                           />
@@ -1791,19 +1782,19 @@ export function CodexSection() {
                                 </div>
 
                                 {(server.resources?.length ?? 0) > 0 ? (
-                                  <div className="mt-3 space-y-2">
+                                  <div className={sx(codexStyles.mt3Space2)}>
                                     {server.resources
                                       ?.slice(0, 5)
                                       .map((resource) => (
                                         <div
                                           key={`${server.name}:${resource.uri}`}
-                                          className="flex flex-col gap-2 rounded-lg border border-border/60 px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between"
+                                          className={sx(codexStyles.resourceRow)}
                                         >
-                                          <div className="min-w-0 flex-1">
-                                            <p className="break-words text-xs font-medium text-foreground">
+                                          <div className={sx(codexStyles.minW0Grow1)}>
+                                            <p className={sx(codexStyles.breakWordsXsFontMedium)}>
                                               {resource.title ?? resource.name}
                                             </p>
-                                            <p className="break-all text-xs text-muted-foreground">
+                                            <p className={sx(codexStyles.breakAllXsMuted)}>
                                               {resource.uri}
                                             </p>
                                           </div>
@@ -1811,7 +1802,7 @@ export function CodexSection() {
                                             type="button"
                                             size="sm"
                                             variant="ghost"
-                                            className="h-7 text-xs"
+                                            xstyle={codexStyles.h7Xs}
                                             onClick={() => {
                                               void handleReadResource({
                                                 server: server.name,
@@ -1837,11 +1828,11 @@ export function CodexSection() {
 
                       <AccordionItem
                         value="hooks"
-                        className="rounded-xl border border-border/70 px-3"
+                        className={sx(codexStyles.accordionItem)}
                       >
-                        <AccordionTrigger className="py-3">
-                          <div className="flex items-center gap-2">
-                            <Webhook className="size-4 text-muted-foreground" />
+                        <AccordionTrigger className={sx(codexStyles.py3)}>
+                          <div className={sx(codexStyles.rowCenterGap2)}>
+                            <Webhook className={sx(codexStyles.icon4)} />
                             <span>Provider hooks</span>
                             <StatusPill
                               label={`${snapshot.hooks.reduce(
@@ -1851,38 +1842,38 @@ export function CodexSection() {
                             />
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-3 pb-3">
+                        <AccordionContent className={sx(codexStyles.space3Pb3)}>
                           {snapshot.hooks.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className={sx(codexStyles.textSmMuted)}>
                               No hook inventory was returned by the selected
                               Codex runtime.
                             </p>
                           ) : (
                             snapshot.hooks.map((group) => (
-                              <div key={group.cwd} className="space-y-2">
-                                <p className="break-all text-xs text-muted-foreground">
+                              <div key={group.cwd} className={sx(codexStyles.stack2)}>
+                                <p className={sx(codexStyles.breakAllXsMuted)}>
                                   {group.cwd}
                                 </p>
                                 {group.hooks.map((hook) => (
                                   <div
                                     key={`${group.cwd}:${hook.key}`}
-                                    className="rounded-xl border border-border/70 bg-background/40 px-3 py-3"
+                                    className={sx(codexStyles.bgTile40)}
                                   >
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                      <div className="min-w-0 space-y-1">
-                                        <p className="break-words text-sm font-medium text-foreground">
+                                    <div className={sx(codexStyles.rowColSmRow)}>
+                                      <div className={sx(codexStyles.minW0Space1)}>
+                                        <p className={sx(codexStyles.breakWordsSmMedium)}>
                                           {hook.key || hook.handlerType}
                                         </p>
-                                        <p className="break-all text-xs text-muted-foreground">
+                                        <p className={sx(codexStyles.breakAllXsMuted)}>
                                           {hook.sourcePath}
                                         </p>
                                         {hook.statusMessage ? (
-                                          <p className="text-xs text-muted-foreground">
+                                          <p className={sx(codexStyles.textXsMuted)}>
                                             {hook.statusMessage}
                                           </p>
                                         ) : null}
                                       </div>
-                                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                      <div className={sx(codexStyles.shrink0WrapRow)}>
                                         <StatusPill
                                           label={hook.eventName}
                                           tone={
@@ -1908,7 +1899,7 @@ export function CodexSection() {
                                 {group.warnings.map((warning, index) => (
                                   <p
                                     key={`${group.cwd}:warning:${index}`}
-                                    className="text-xs text-muted-foreground"
+                                    className={sx(codexStyles.textXsMuted)}
                                   >
                                     {warning}
                                   </p>
@@ -1916,7 +1907,7 @@ export function CodexSection() {
                                 {group.errors.map((error, index) => (
                                   <p
                                     key={`${group.cwd}:error:${index}`}
-                                    className="text-xs text-destructive"
+                                    className={sx(codexStyles.textXsDangerOnly)}
                                   >
                                     {error}
                                   </p>
@@ -1929,31 +1920,31 @@ export function CodexSection() {
 
                       <AccordionItem
                         value="experimental"
-                        className="rounded-xl border border-border/70 px-3"
+                        className={sx(codexStyles.accordionItem)}
                       >
-                        <AccordionTrigger className="py-3">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="size-4 text-muted-foreground" />
+                        <AccordionTrigger className={sx(codexStyles.py3)}>
+                          <div className={sx(codexStyles.rowCenterGap2)}>
+                            <Sparkles className={sx(codexStyles.icon4)} />
                             <span>Experimental features</span>
                             <StatusPill
                               label={`${snapshot.experimentalFeatures.length}`}
                             />
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="space-y-2 pb-3">
+                        <AccordionContent className={sx(codexStyles.space2Pb3)}>
                           {snapshot.experimentalFeatures.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
+                            <p className={sx(codexStyles.textSmMuted)}>
                               No experimental features are currently reported.
                             </p>
                           ) : (
                             snapshot.experimentalFeatures.map((feature) => (
                               <div
                                 key={feature.name}
-                                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/70 bg-background/40 px-3 py-3"
+                                className={sx(codexStyles.featureRow)}
                               >
-                                <div className="space-y-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-sm font-medium text-foreground">
+                                <div className={sx(codexStyles.stack1)}>
+                                  <div className={sx(codexStyles.rowWrapCenterGap2)}>
+                                    <p className={sx(codexStyles.textSmMedium)}>
                                       {feature.displayName ?? feature.name}
                                     </p>
                                     <StatusPill label={feature.stage} />
@@ -1961,7 +1952,7 @@ export function CodexSection() {
                                       <StatusPill label="default on" />
                                     ) : null}
                                   </div>
-                                  <p className="text-xs text-muted-foreground">
+                                  <p className={sx(codexStyles.textXsMuted)}>
                                     {feature.description ?? "No description"}
                                   </p>
                                 </div>
@@ -1971,7 +1962,7 @@ export function CodexSection() {
                                   variant={
                                     feature.enabled ? "default" : "outline"
                                   }
-                                  className="h-8"
+                                  xstyle={codexStyles.h8Only}
                                   onClick={() => {
                                     void handleFeatureToggle(
                                       feature.name,
@@ -1985,7 +1976,7 @@ export function CodexSection() {
                                   {busyKey === `feature:${feature.name}` ? (
                                     <Loader
                                       aria-hidden
-                                      className="mr-1"
+                                      className={sx(codexStyles.mr1)}
                                       size="xs"
                                       variant="spinner"
                                     />
@@ -2001,17 +1992,17 @@ export function CodexSection() {
                   </DenseSection>
                 </div>
 
-                <div className="space-y-4">
+                <div className={sx(codexStyles.stack4)}>
                   <DenseSection
                     title="Inspector"
                     description="Selected plugin detail or the latest MCP resource preview."
                   >
                     {pluginDetailState.status === "ready" &&
                     pluginDetailState.value ? (
-                      <div className="space-y-4">
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-base font-semibold tracking-tight text-foreground">
+                      <div className={sx(codexStyles.stack4)}>
+                        <div className={sx(codexStyles.stack1)}>
+                          <div className={sx(codexStyles.rowWrapCenterGap2)}>
+                            <p className={sx(codexStyles.inspectorTitle)}>
                               {pluginDetailState.value.name}
                             </p>
                             <StatusPill
@@ -2027,13 +2018,13 @@ export function CodexSection() {
                               }
                             />
                           </div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className={sx(codexStyles.textSmMuted)}>
                             {pluginDetailState.value.description ??
                               "No plugin description."}
                           </p>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className={sx(codexStyles.rowWrapCenterGap2)}>
                           {selectedPluginSummary?.installed ? (
                             <Button
                               type="button"
@@ -2051,7 +2042,7 @@ export function CodexSection() {
                               `plugin-uninstall:${selectedPluginSummary.id}` ? (
                                 <Loader
                                   aria-hidden
-                                  className="mr-1"
+                                  className={sx(codexStyles.mr1)}
                                   size="xs"
                                   variant="spinner"
                                 />
@@ -2074,7 +2065,7 @@ export function CodexSection() {
                               `plugin-install:${selectedPluginSummary?.id ?? ""}` ? (
                                 <Loader
                                   aria-hidden
-                                  className="mr-1"
+                                  className={sx(codexStyles.mr1)}
                                   size="xs"
                                   variant="compile"
                                 />
@@ -2084,12 +2075,12 @@ export function CodexSection() {
                           )}
                         </div>
 
-                        <div className="space-y-3">
+                        <div className={sx(codexStyles.stack3)}>
                           <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            <p className={sx(codexStyles.eyebrow)}>
                               Skills
                             </p>
-                            <div className="mt-2 flex flex-wrap gap-2">
+                            <div className={sx(codexStyles.mt2Chips)}>
                               {pluginDetailState.value.skills.length > 0 ? (
                                 pluginDetailState.value.skills.map((skill) => (
                                   <StatusPill
@@ -2099,7 +2090,7 @@ export function CodexSection() {
                                   />
                                 ))
                               ) : (
-                                <p className="text-sm text-muted-foreground">
+                                <p className={sx(codexStyles.textSmMuted)}>
                                   No plugin skills.
                                 </p>
                               )}
@@ -2107,37 +2098,37 @@ export function CodexSection() {
                           </div>
 
                           <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                            <p className={sx(codexStyles.eyebrow)}>
                               Apps needing auth
                             </p>
-                            <div className="mt-2 space-y-2">
+                            <div className={sx(codexStyles.mt2Space2)}>
                               {pluginDetailState.value.apps.length > 0 ? (
                                 pluginDetailState.value.apps.map((app) => (
                                   <div
                                     key={app.id}
-                                    className="rounded-lg border border-border/60 px-3 py-2"
+                                    className={sx(codexStyles.smallTile)}
                                   >
-                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                      <p className="min-w-0 break-words text-sm font-medium text-foreground">
+                                    <div className={sx(codexStyles.rowColSmRow)}>
+                                      <p className={sx(codexStyles.minW0BreakSmMedium)}>
                                         {app.name}
                                       </p>
                                       {app.installUrl ? (
                                         <ExternalAnchor
                                           href={app.installUrl}
-                                          className="inline-flex items-center gap-1 text-xs"
+                                          className={sx(codexStyles.inlineAnchorXs)}
                                         >
                                           Open
-                                          <ExternalLink className="size-3" />
+                                          <ExternalLink className={sx(codexStyles.size3Icon)} />
                                         </ExternalAnchor>
                                       ) : null}
                                     </div>
-                                    <p className="mt-1 break-words text-xs text-muted-foreground">
+                                    <p className={sx(codexStyles.mt1BreakXsMuted)}>
                                       {app.description ?? "No description"}
                                     </p>
                                   </div>
                                 ))
                               ) : (
-                                <p className="text-sm text-muted-foreground">
+                                <p className={sx(codexStyles.textSmMuted)}>
                                   No app-level auth requirements.
                                 </p>
                               )}
@@ -2146,12 +2137,12 @@ export function CodexSection() {
                         </div>
                       </div>
                     ) : resourcePreview.status !== "idle" ? (
-                      <div className="space-y-3">
+                      <div className={sx(codexStyles.stack3)}>
                         <div>
-                          <p className="text-base font-semibold tracking-tight text-foreground">
+                          <p className={sx(codexStyles.inspectorTitle)}>
                             {resourcePreview.title}
                           </p>
-                          <p className="mt-1 text-sm text-muted-foreground">
+                          <p className={sx(codexStyles.textSmMutedMt1)}>
                             {resourcePreview.detail}
                           </p>
                         </div>
@@ -2166,14 +2157,14 @@ export function CodexSection() {
                         )}
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-dashed border-border/70 px-3 py-10 text-center text-sm text-muted-foreground">
+                      <div className={sx(codexStyles.tileDashedCentered)}>
                         Select a plugin or preview an MCP resource to inspect it
                         here.
                       </div>
                     )}
 
                     {pluginDetailState.status === "error" ? (
-                      <p className="mt-3 text-sm text-destructive">
+                      <p className={sx(codexStyles.mt3TextSmDanger)}>
                         {pluginDetailState.detail}
                       </p>
                     ) : null}
@@ -2183,46 +2174,48 @@ export function CodexSection() {
             )}
           </TabsContent>
 
-          <TabsContent value="threads" className="m-0 p-4">
+          <TabsContent value="threads" className={sx(codexStyles.tabContent)}>
             {!snapshot ? null : (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(340px,1.05fr)]">
+              <div className={sx(codexStyles.twoColGridThreads)}>
                 <DenseSection
                   title="Thread list"
                   description="Active and archived Codex threads returned for the current workspace."
                 >
-                  <div className="space-y-4">
+                  <div className={sx(codexStyles.stack4)}>
                     {[
                       ["Active", snapshot.threads] as const,
                       ["Archived", snapshot.archivedThreads] as const,
                     ].map(([label, threads]) => (
-                      <div key={label} className="space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      <div key={label} className={sx(codexStyles.stack2)}>
+                        <div className={sx(codexStyles.rowCenterBetweenGap2)}>
+                          <p className={sx(codexStyles.eyebrow)}>
                             {label}
                           </p>
                           <StatusPill label={`${threads.length}`} />
                         </div>
                         {threads.length === 0 ? (
-                          <div className="rounded-xl border border-dashed border-border/70 px-3 py-4 text-sm text-muted-foreground">
+                          <div className={sx(codexStyles.tileDashed)}>
                             No {label.toLowerCase()} threads.
                           </div>
                         ) : (
-                          <div className="space-y-2">
+                          <div className={sx(codexStyles.stack2)}>
                             {threads.map((thread) => (
-                              <button
+                              <AdsButton
                                 key={thread.id}
                                 type="button"
+                                layout="host"
+                                press="none"
                                 onClick={() => setSelectedThreadId(thread.id)}
-                                className={cn(
-                                  "flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-3 text-left transition",
+                                xstyle={[
+                                  codexStyles.rowButtonThread,
                                   selectedThreadId === thread.id
-                                    ? "border-primary/30 bg-primary/5"
-                                    : "border-border/70 bg-background/40 hover:bg-muted/20",
-                                )}
+                                    ? codexStyles.rowButtonSelected
+                                    : codexStyles.rowButtonResting,
+                                ]}
                               >
-                                <div className="min-w-0 space-y-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-sm font-medium text-foreground">
+                                <div className={sx(codexStyles.minW0Space1)}>
+                                  <div className={sx(codexStyles.rowWrapCenterGap2)}>
+                                    <p className={sx(codexStyles.truncateSmMedium)}>
                                       {(thread.name ?? thread.preview) ||
                                         thread.id}
                                     </p>
@@ -2233,18 +2226,18 @@ export function CodexSection() {
                                       />
                                     ) : null}
                                   </div>
-                                  <p className="truncate text-xs text-muted-foreground">
+                                  <p className={sx(codexStyles.truncateXsMuted)}>
                                     {thread.preview || thread.id}
                                   </p>
-                                  <p className="text-[11px] text-muted-foreground">
+                                  <p className={sx(codexStyles.truncateMicroMuted)}>
                                     Updated {formatDateTime(thread.updatedAt)}
                                   </p>
                                 </div>
-                                <div className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-muted-foreground">
+                                <div className={sx(codexStyles.threadStatusMeta)}>
                                   <span>{thread.modelProvider}</span>
                                   <span>{thread.status}</span>
                                 </div>
-                              </button>
+                              </AdsButton>
                             ))}
                           </div>
                         )}
@@ -2253,16 +2246,16 @@ export function CodexSection() {
                   </div>
                 </DenseSection>
 
-                <div className="space-y-4">
+                <div className={sx(codexStyles.stack4)}>
                   <DenseSection
                     title="Thread inspector"
                     description="Inspect the selected thread and run fork, review, rename, compact, archive, or rollback actions."
                   >
                     {selectedThreadSummary ? (
-                      <div className="space-y-4">
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-base font-semibold tracking-tight text-foreground">
+                      <div className={sx(codexStyles.stack4)}>
+                        <div className={sx(codexStyles.stack1)}>
+                          <div className={sx(codexStyles.rowWrapCenterGap2)}>
+                            <p className={sx(codexStyles.inspectorTitle)}>
                               {selectedThreadSummary.name ??
                                 selectedThreadSummary.id}
                             </p>
@@ -2276,13 +2269,13 @@ export function CodexSection() {
                               <StatusPill label="archived" />
                             ) : null}
                           </div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className={sx(codexStyles.textSmMuted)}>
                             {selectedThreadSummary.preview ||
                               selectedThreadSummary.id}
                           </p>
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-2">
+                        <div className={sx(codexStyles.smTwoCol)}>
                           <DenseMetric
                             label="Turns"
                             value={String(
@@ -2305,12 +2298,12 @@ export function CodexSection() {
                           />
                         </div>
 
-                        <div className="grid gap-3 lg:grid-cols-2">
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        <div className={sx(codexStyles.lgTwoColGap3)}>
+                          <div className={sx(codexStyles.stack2)}>
+                            <p className={sx(codexStyles.eyebrow)}>
                               Rename
                             </p>
-                            <div className="flex items-center gap-2">
+                            <div className={sx(codexStyles.rowCenterGap2)}>
                               <Input
                                 value={renameDraft}
                                 onChange={(event) =>
@@ -2335,11 +2328,11 @@ export function CodexSection() {
                             </div>
                           </div>
 
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          <div className={sx(codexStyles.stack2)}>
+                            <p className={sx(codexStyles.eyebrow)}>
                               Quick actions
                             </p>
-                            <div className="flex flex-wrap gap-2">
+                            <div className={sx(codexStyles.wrapGap2)}>
                               <Button
                                 type="button"
                                 size="sm"
@@ -2389,15 +2382,15 @@ export function CodexSection() {
                           </div>
                         </div>
 
-                        <div className="max-w-sm">
-                          <div className="space-y-3 rounded-xl border border-border/70 bg-muted/10 px-3 py-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                        <div className={sx(codexStyles.maxWSm)}>
+                          <div className={sx(codexStyles.rollbackTile)}>
+                            <p className={sx(codexStyles.eyebrow)}>
                               Rollback
                             </p>
                             <DraftInput
                               value={rollbackTurns}
                               onCommit={setRollbackTurns}
-                              className="h-10"
+                              xstyle={codexStyles.rollbackInput}
                             />
                             <Button
                               type="button"
@@ -2424,16 +2417,16 @@ export function CodexSection() {
                               null,
                               2,
                             )}
-                            minHeight="min-h-[260px]"
+                            minHeight={260}
                           />
                         ) : (
-                          <p className="text-sm text-muted-foreground">
+                          <p className={sx(codexStyles.textSmMuted)}>
                             {threadDetailState.detail}
                           </p>
                         )}
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-dashed border-border/70 px-3 py-10 text-center text-sm text-muted-foreground">
+                      <div className={sx(codexStyles.tileDashedCentered)}>
                         Select a thread to inspect it here.
                       </div>
                     )}
@@ -2443,20 +2436,20 @@ export function CodexSection() {
             )}
           </TabsContent>
 
-          <TabsContent value="commands" className="m-0 p-4">
-            <div className="space-y-4">
+          <TabsContent value="commands" className={sx(codexStyles.tabContent)}>
+            <div className={sx(codexStyles.stack4)}>
               <DenseSection
                 title="Slash command catalog"
                 description="Bundled from the official Codex CLI slash-command guide so the popup stays useful even though App Server does not expose a live command-list RPC."
               >
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="relative min-w-[260px] flex-1">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <div className={sx(codexStyles.rowWrapCenterGap3)}>
+                  <div className={sx(codexStyles.searchWrap)}>
+                    <Search className={sx(codexStyles.searchIcon)} />
                     <Input
                       value={commandQuery}
                       onChange={(event) => setCommandQuery(event.target.value)}
                       placeholder="Filter by command, behavior, or category"
-                      className="pl-9"
+                      xstyle={codexStyles.searchInput}
                     />
                   </div>
                   <StatusPill
@@ -2464,7 +2457,7 @@ export function CodexSection() {
                   />
                 </div>
 
-                <p className="mt-3 text-sm text-muted-foreground">
+                <p className={sx(codexStyles.textSmMutedMt3)}>
                   {getCodexSlashCommandCatalogDetail()}
                 </p>
               </DenseSection>
@@ -2474,9 +2467,9 @@ export function CodexSection() {
                   title="No matches"
                   description="Try a shorter query or clear the filter."
                 >
-                  <div className="rounded-xl border border-dashed border-border/70 px-3 py-8 text-center text-sm text-muted-foreground">
+                  <div className={sx(codexStyles.tileDashedCenteredSm)}>
                     No slash commands matched{" "}
-                    <span className="font-medium text-foreground">
+                    <span className={sx(codexStyles.fontMediumFg)}>
                       {commandQuery}
                     </span>
                     .
@@ -2489,14 +2482,14 @@ export function CodexSection() {
                     title={COMMAND_CATEGORY_LABELS[group.category]}
                     description={`${group.items.length} command${group.items.length === 1 ? "" : "s"}`}
                   >
-                    <div className="space-y-2">
+                    <div className={sx(codexStyles.stack2)}>
                       {group.items.map((command) => (
                         <div
                           key={command.command}
-                          className="rounded-xl border border-border/70 bg-background/50 px-3 py-3"
+                          className={sx(codexStyles.bgTile50)}
                         >
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold text-foreground">
+                          <div className={sx(codexStyles.rowWrapCenterGap2)}>
+                            <p className={sx(codexStyles.commandTitle)}>
                               {command.command}
                             </p>
                             {command.argumentHint ? (
@@ -2509,7 +2502,7 @@ export function CodexSection() {
                               />
                             ) : null}
                           </div>
-                          <p className="mt-1 text-sm text-muted-foreground">
+                          <p className={sx(codexStyles.textSmMutedMt1)}>
                             {command.description}
                           </p>
                         </div>
@@ -2521,10 +2514,10 @@ export function CodexSection() {
             </div>
           </TabsContent>
 
-          <TabsContent value="config" className="m-0 p-4">
+          <TabsContent value="config" className={sx(codexStyles.tabContent)}>
             {!snapshot ? null : (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.95fr)]">
-                <div className="space-y-4">
+              <div className={sx(codexStyles.twoColGridConfig)}>
+                <div className={sx(codexStyles.stack4)}>
                   <DenseSection
                     title="Config requirements"
                     description="Policy limits the App Server reports for approvals, sandbox, residency, and feature gates."
@@ -2542,7 +2535,7 @@ export function CodexSection() {
                           {busyKey === "config-import" ? (
                             <Loader
                               aria-hidden
-                              className="mr-1"
+                              className={sx(codexStyles.mr1)}
                               size="xs"
                               variant="spinner"
                             />
@@ -2552,8 +2545,8 @@ export function CodexSection() {
                       ) : null
                     }
                   >
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
+                    <div className={sx(codexStyles.stack3)}>
+                      <div className={sx(codexStyles.wrapGap2)}>
                         {(
                           snapshot.configRequirements
                             ?.allowedApprovalPolicies ?? []
@@ -2588,25 +2581,25 @@ export function CodexSection() {
                       </div>
 
                       {snapshot.externalAgentConfigItems.length > 0 ? (
-                        <div className="rounded-xl border border-border/70 bg-muted/10 px-3 py-3">
-                          <p className="text-sm font-medium text-foreground">
+                        <div className={sx(codexStyles.tile)}>
+                          <p className={sx(codexStyles.textSmMedium)}>
                             Detected external configs
                           </p>
-                          <div className="mt-2 space-y-2">
+                          <div className={sx(codexStyles.mt2Space2)}>
                             {snapshot.externalAgentConfigItems.map(
                               (item, index) => (
                                 <div
                                   key={`${item.itemType}:${item.description}:${index}`}
-                                  className="rounded-lg border border-border/60 px-3 py-2"
+                                  className={sx(codexStyles.smallTile)}
                                 >
-                                  <p className="text-sm font-medium text-foreground">
+                                  <p className={sx(codexStyles.textSmMedium)}>
                                     {item.itemType}
                                   </p>
-                                  <p className="mt-1 text-xs text-muted-foreground">
+                                  <p className={sx(codexStyles.mt1TextXsMuted)}>
                                     {item.description}
                                   </p>
                                   {item.cwd ? (
-                                    <p className="mt-1 break-all text-[11px] text-muted-foreground">
+                                    <p className={sx(codexStyles.breakAllMicroMutedMt1)}>
                                       {item.cwd}
                                     </p>
                                   ) : null}
@@ -2623,17 +2616,17 @@ export function CodexSection() {
                     title="Config layers"
                     description="Merged config plus per-layer diagnostics returned by Codex."
                   >
-                    <Accordion multiple className="w-full space-y-3">
+                    <Accordion multiple className={sx(codexStyles.wFullSpace3)}>
                       {snapshot.config?.layers.map((layer, index) => (
                         <AccordionItem
                           key={`${layer.name}:${layer.version}:${index}`}
                           value={`${layer.name}:${layer.version}:${index}`}
-                          className="rounded-xl border border-border/70 px-3"
+                          className={sx(codexStyles.accordionItem)}
                         >
-                          <AccordionTrigger className="py-3">
-                            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 pr-3">
-                              <Layers2 className="size-4 text-muted-foreground" />
-                              <span className="min-w-0 break-words text-left [overflow-wrap:anywhere]">
+                          <AccordionTrigger className={sx(codexStyles.py3)}>
+                            <div className={sx(codexStyles.accordionTriggerRow)}>
+                              <Layers2 className={sx(codexStyles.icon4)} />
+                              <span className={sx(codexStyles.accordionLayerName)}>
                                 {layer.name}
                               </span>
                               {layer.version ? (
@@ -2644,9 +2637,9 @@ export function CodexSection() {
                               ) : null}
                             </div>
                           </AccordionTrigger>
-                          <AccordionContent className="space-y-2 pb-3">
+                          <AccordionContent className={sx(codexStyles.space2Pb3)}>
                             {layer.disabledReason ? (
-                              <p className="break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                              <p className={sx(codexStyles.descAnywhere)}>
                                 {layer.disabledReason}
                               </p>
                             ) : null}
@@ -2660,14 +2653,14 @@ export function CodexSection() {
                   </DenseSection>
                 </div>
 
-                <div className="space-y-4">
+                <div className={sx(codexStyles.stack4)}>
                   <DenseSection
                     title="Advanced config edits"
                     description="Raw JSON utilities for targeted Codex config changes. Most users should only inspect this area when diagnosing App Server behavior."
                   >
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    <div className={sx(codexStyles.stack4)}>
+                      <div className={sx(codexStyles.stack2)}>
+                        <p className={sx(codexStyles.eyebrow)}>
                           Single edit
                         </p>
                         <Input
@@ -2689,7 +2682,7 @@ export function CodexSection() {
                           onChange={(event) =>
                             setSingleConfigValue(event.target.value)
                           }
-                          className="min-h-[140px] font-mono text-[12px]"
+                          xstyle={codexStyles.configTextarea140}
                         />
                         <Button
                           type="button"
@@ -2702,7 +2695,7 @@ export function CodexSection() {
                           {busyKey === "config-write-single" ? (
                             <Loader
                               aria-hidden
-                              className="mr-1"
+                              className={sx(codexStyles.mr1)}
                               size="xs"
                               variant="spinner"
                             />
@@ -2711,8 +2704,8 @@ export function CodexSection() {
                         </Button>
                       </div>
 
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      <div className={sx(codexStyles.stack2)}>
+                        <p className={sx(codexStyles.eyebrow)}>
                           Batch edits
                         </p>
                         <Textarea
@@ -2720,7 +2713,7 @@ export function CodexSection() {
                           onChange={(event) =>
                             setBatchConfigEdits(event.target.value)
                           }
-                          className="min-h-[220px] font-mono text-[12px]"
+                          xstyle={codexStyles.configTextarea220}
                         />
                         <Button
                           type="button"
@@ -2734,7 +2727,7 @@ export function CodexSection() {
                           {busyKey === "config-write-batch" ? (
                             <Loader
                               aria-hidden
-                              className="mr-1"
+                              className={sx(codexStyles.mr1)}
                               size="xs"
                               variant="spinner"
                             />
@@ -2755,7 +2748,7 @@ export function CodexSection() {
                         null,
                         2,
                       )}
-                      minHeight="min-h-[280px]"
+                      minHeight={280}
                     />
                   </DenseSection>
                 </div>

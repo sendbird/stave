@@ -11,10 +11,13 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { sx } from "@/components/ads/utils/stylex";
 import type {
   TurnActivityIconKey,
   TurnActivityRowStatus,
 } from "@/components/session/turn-activity.utils";
+import { turnActivityStatusIconStyles as styles } from "./turn-activity-status-icon.styles";
 
 /**
  * The shelf's status vocabulary, shared by the flat activity list and the work
@@ -71,41 +74,47 @@ export function TurnActivityStatusIcon({
 }) {
   if (status === "completed") {
     return (
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        <CheckCircle2 className="size-4 text-success" aria-hidden />
-        <span className="sr-only">{label ?? "Done"}</span>
+      <span className={sx(styles.slot)}>
+        <CheckCircle2
+          className={sx(styles.iconLg, styles.success)}
+          aria-hidden
+        />
+        <VisuallyHidden>{label ?? "Done"}</VisuallyHidden>
       </span>
     );
   }
   if (status === "failed") {
     return (
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        <CircleAlert className="size-4 text-destructive" aria-hidden />
-        <span className="sr-only">{label ?? "Failed"}</span>
+      <span className={sx(styles.slot)}>
+        <CircleAlert className={sx(styles.iconLg, styles.danger)} aria-hidden />
+        <VisuallyHidden>{label ?? "Failed"}</VisuallyHidden>
       </span>
     );
   }
   if (status === "waiting") {
     return (
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        <CirclePause className="size-4 text-warning" aria-hidden />
-        <span className="sr-only">{label ?? "Waiting"}</span>
+      <span className={sx(styles.slot)}>
+        <CirclePause
+          className={sx(styles.iconLg, styles.warning)}
+          aria-hidden
+        />
+        <VisuallyHidden>{label ?? "Waiting"}</VisuallyHidden>
       </span>
     );
   }
   if (status === "pending") {
     return (
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        <Circle className="size-3.5 text-muted-foreground/45" aria-hidden />
-        <span className="sr-only">{label ?? "Queued"}</span>
+      <span className={sx(styles.slot)}>
+        <Circle className={sx(styles.iconSm, styles.pending)} aria-hidden />
+        <VisuallyHidden>{label ?? "Queued"}</VisuallyHidden>
       </span>
     );
   }
   const Icon = TURN_ACTIVITY_ICONS[iconKey];
   return (
-    <span className="flex size-4 shrink-0 items-center justify-center">
-      <Icon className="size-3.5 text-muted-foreground" aria-hidden />
-      <span className="sr-only">{label ?? "Running"}</span>
+    <span className={sx(styles.slot)}>
+      <Icon className={sx(styles.iconSm, styles.running)} aria-hidden />
+      <VisuallyHidden>{label ?? "Running"}</VisuallyHidden>
     </span>
   );
 }

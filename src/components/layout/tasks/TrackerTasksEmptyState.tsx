@@ -24,8 +24,9 @@ import {
   type TrackerSourceSummary,
 } from "@/lib/tracker-tasks/source-status";
 import type { TrackerSourceId } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
+import * as stylex from "@stylexjs/stylex";
+import { taskRowStyles as styles } from "./tasks-row.styles";
 
 export function openTrackerIntegrationsSettings() {
   window.dispatchEvent(
@@ -37,7 +38,7 @@ export function openTrackerIntegrationsSettings() {
 
 export function TrackerTasksUnavailableState() {
   return (
-    <Empty className="h-full">
+    <Empty xstyle={styles.emptyFull}>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <ListTodo />
@@ -73,10 +74,10 @@ export function TrackerTasksEmptyListState(props: {
   // there would be a wrong answer that corrects itself a moment later.
   if (!producing && hasPendingTrackerSource(props.summaries)) {
     return (
-      <Empty className="h-full">
+      <Empty xstyle={styles.emptyFull}>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <RefreshCw className="animate-spin" />
+            <RefreshCw {...stylex.props(styles.spin)} />
           </EmptyMedia>
           <EmptyTitle>Checking your trackers</EmptyTitle>
           <EmptyDescription>
@@ -89,7 +90,7 @@ export function TrackerTasksEmptyListState(props: {
 
   if (!producing) {
     return (
-      <Empty className="h-full">
+      <Empty xstyle={styles.emptyFull}>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <Plug />
@@ -101,14 +102,16 @@ export function TrackerTasksEmptyListState(props: {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <ul className="mb-3 space-y-2 text-left text-sm">
+          <ul {...stylex.props(styles.summaryList)}>
             {props.summaries.map((summary) => (
-              <li key={summary.source} className="flex gap-2">
-                <span className="w-14 shrink-0 font-medium text-foreground">
+              <li key={summary.source} {...stylex.props(styles.summaryItem)}>
+                <span {...stylex.props(styles.summarySource)}>
                   {summary.label}
                 </span>
-                <span className="text-muted-foreground">
-                  <span className="text-foreground">{summary.headline}</span>
+                <span {...stylex.props(styles.summaryDetail)}>
+                  <span {...stylex.props(styles.summaryHeadline)}>
+                    {summary.headline}
+                  </span>
                   {" — "}
                   {summary.detail}
                 </span>
@@ -121,7 +124,7 @@ export function TrackerTasksEmptyListState(props: {
               size="sm"
               onClick={openTrackerIntegrationsSettings}
             >
-              <Settings className="size-3.5" />
+              <Settings {...stylex.props(styles.buttonIcon)} />
               Open Settings → Integrations
             </Button>
           ) : (
@@ -133,7 +136,10 @@ export function TrackerTasksEmptyListState(props: {
               onClick={props.onRefresh}
             >
               <RefreshCw
-                className={cn("size-3.5", props.refreshing && "animate-spin")}
+                {...stylex.props(
+                  styles.buttonIcon,
+                  props.refreshing && styles.spin,
+                )}
               />
               Check again
             </Button>
@@ -144,7 +150,7 @@ export function TrackerTasksEmptyListState(props: {
   }
 
   return (
-    <Empty className="h-full">
+    <Empty xstyle={styles.emptyFull}>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <SearchX />
@@ -159,7 +165,7 @@ export function TrackerTasksEmptyListState(props: {
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <div className="flex items-center justify-center gap-2">
+        <div {...stylex.props(styles.emptyActions)}>
           {props.hasFilters ? (
             <Button
               type="button"
@@ -177,7 +183,10 @@ export function TrackerTasksEmptyListState(props: {
             onClick={props.onRefresh}
           >
             <RefreshCw
-              className={cn("size-3.5", props.refreshing && "animate-spin")}
+              {...stylex.props(
+                styles.buttonIcon,
+                props.refreshing && styles.spin,
+              )}
             />
             Refresh
           </Button>
@@ -210,11 +219,9 @@ export function TrackerSourceStatusStrip(props: {
 
   return (
     <div
-      className={cn(
-        "shrink-0 space-y-1 border-b px-4 py-2",
-        anyError
-          ? "border-destructive/25 bg-destructive/5"
-          : "border-border/60 bg-muted/40",
+      {...stylex.props(
+        styles.sourceStrip,
+        anyError ? styles.sourceStripError : styles.sourceStripQuiet,
       )}
     >
       {actionable.map((summary) => {
@@ -222,18 +229,18 @@ export function TrackerSourceStatusStrip(props: {
         return (
           <div
             key={summary.source}
-            className={cn(
-              "flex items-center gap-2 text-xs",
-              isError ? "text-destructive" : "text-muted-foreground",
+            {...stylex.props(
+              styles.sourceRow,
+              isError ? styles.danger : styles.muted,
             )}
           >
             {isError ? (
-              <AlertCircle className="size-3.5 shrink-0" />
+              <AlertCircle {...stylex.props(styles.buttonIcon)} />
             ) : (
-              <Info className="size-3.5 shrink-0" />
+              <Info {...stylex.props(styles.buttonIcon)} />
             )}
-            <span className="min-w-0 flex-1">
-              <span className="font-medium">{summary.label}</span>
+            <span {...stylex.props(styles.stripText)}>
+              <span {...stylex.props(styles.stripLabel)}>{summary.label}</span>
               {isError ? " did not sync: " : ": "}
               {summary.detail}
             </span>
@@ -242,7 +249,7 @@ export function TrackerSourceStatusStrip(props: {
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-8 px-2.5 text-xs"
+                className={stylex.props(styles.filterTrigger).className}
                 onClick={openTrackerIntegrationsSettings}
               >
                 Settings
@@ -253,10 +260,10 @@ export function TrackerSourceStatusStrip(props: {
                 type="button"
                 size="sm"
                 variant="ghost"
-                className={cn(
-                  "h-8 px-2.5 text-xs",
-                  isError && "text-destructive hover:text-destructive",
-                )}
+                className={
+                  stylex.props(styles.filterTrigger, isError && styles.danger)
+                    .className
+                }
                 onClick={() => props.onRetry(summary.source)}
               >
                 Retry

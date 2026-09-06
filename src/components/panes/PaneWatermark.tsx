@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { IWatermarkPanelProps } from "dockview-react";
 import { Layers, Plus, SquareTerminal } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -29,8 +32,8 @@ export function PaneWatermark(_props: IWatermarkPanelProps) {
   );
 
   return (
-    <div className="flex h-full w-full items-center justify-center bg-background">
-      <Empty data-testid="pane-watermark" className="border-none bg-transparent">
+    <div className={sx(styles.root)}>
+      <Empty data-testid="pane-watermark" className={sx(styles.empty)}>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <Layers strokeWidth={1.25} />
@@ -46,16 +49,16 @@ export function PaneWatermark(_props: IWatermarkPanelProps) {
         </EmptyHeader>
         {hasWorkspace ? (
           <EmptyContent>
-            <div className="flex items-center gap-2">
+            <div className={sx(styles.actions)}>
               <Button onClick={() => createTask({ title: "" })}>
-                <Plus className="size-4" />
+                <Plus className={sx(styles.icon)} />
                 New Task
               </Button>
               <Button
                 variant="outline"
                 onClick={() => createTerminalTab()}
               >
-                <SquareTerminal className="size-4" />
+                <SquareTerminal className={sx(styles.icon)} />
                 New Terminal
               </Button>
             </div>
@@ -65,3 +68,10 @@ export function PaneWatermark(_props: IWatermarkPanelProps) {
     </div>
   );
 }
+
+const styles = stylex.create({
+root: {display:"flex",height:"100%",width:"100%",alignItems:"center",justifyContent:"center",backgroundColor:vars.colorCanvas},
+empty: {borderWidth:0,backgroundColor:"transparent"},
+actions: {display:"flex",alignItems:"center",gap:8},
+icon: {width:16,height:16}
+});

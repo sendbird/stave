@@ -19,7 +19,10 @@ import {
   type ResolvedWorkspaceFileLink,
 } from "@/lib/message-file-links";
 import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { markdownStyles as styles } from "./message-markdown.styles";
 import {
   Tooltip,
   TooltipContent,
@@ -77,6 +80,27 @@ interface MarkdownCodeNodeLike {
 
 const MarkdownTableCellContext = createContext(false);
 
+function InlineCode({
+  fontSize,
+  children,
+}: {
+  fontSize: number;
+  children?: ReactNode;
+}) {
+  const isInTableCell = useContext(MarkdownTableCellContext);
+  return (
+    <code
+      className={sx(
+        styles.inlineCode,
+        isInTableCell && styles.inlineCodeInCell,
+      )}
+      style={{ fontSize: `${fontSize}px` }}
+    >
+      {children}
+    </code>
+  );
+}
+
 function extractPlainText(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
     return String(node);
@@ -124,22 +148,22 @@ function MessageExternalLinkChip({
               href={href}
               data-message-external-link-chip="true"
               aria-label={tooltipLabel}
-              className="inline-flex max-w-full items-center gap-[0.35em] rounded-md border border-border/70 bg-muted/45 px-[0.5em] py-[0.14em] align-middle text-[0.8125em] font-medium leading-none text-foreground no-underline shadow-xs transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-muted hover:text-foreground hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className={sx(styles.externalChip, focusRing.ring, transition.colors)}
               onClick={onClick}
             />
           }
         >
           <Globe2
             aria-hidden="true"
-            className="size-[1em] shrink-0 text-muted-foreground"
+            className={sx(styles.externalChipIcon)}
           />
-          <span className="min-w-0 max-w-64 truncate">{children}</span>
+          <span className={sx(styles.externalChipLabel)}>{children}</span>
           <ExternalLink
             aria-hidden="true"
-            className="size-[0.9em] shrink-0 text-muted-foreground"
+            className={sx(styles.externalChipExternalIcon)}
           />
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-96 break-all">
+        <TooltipContent side="top" className={sx(styles.tooltipContent)}>
           {tooltipLabel}
         </TooltipContent>
       </Tooltip>
@@ -240,15 +264,13 @@ export function MessageFileLink({
       href={href}
       data-message-file-link="true"
       aria-label={tooltipLabel}
-      className={cn(
-        "inline-flex max-w-full items-center gap-[0.3em] rounded-md border border-border/80 bg-muted/40 px-[0.45em] py-[0.1em] align-middle text-[0.8125em] font-medium leading-none text-foreground no-underline transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-      )}
+      className={sx(styles.fileLink, focusRing.ring, transition.colors)}
       onClick={onClick}
     >
-      <WorkspaceFileIcon fileName={fileName} className="h-[1.1em] w-[0.9em]" />
-      <span className="min-w-0 max-w-64 truncate">{fileName}</span>
+      <WorkspaceFileIcon fileName={fileName} className={sx(styles.fileLinkIcon)} />
+      <span className={sx(styles.fileLinkName)}>{fileName}</span>
       {locationLabel ? (
-        <span className="shrink-0 rounded-sm border border-border bg-background/70 px-[0.4em] py-0 text-[0.625em] leading-[1.4] text-muted-foreground">
+        <span className={sx(styles.fileLinkLocation)}>
           {locationLabel}
         </span>
       ) : null}
@@ -300,28 +322,28 @@ export function MarkdownMessage({
   const components = useMemo(
     () => ({
       hr: () => (
-        <hr className="my-4 h-px border-0 bg-border first:mt-0 last:mb-0" />
+        <hr className={sx(styles.hr)} />
       ),
       strong: ({ children }: { children?: ReactNode }) => (
-        <strong className="font-semibold">{children}</strong>
+        <strong className={sx(styles.strong)}>{children}</strong>
       ),
       p: ({ children }: { children?: ReactNode }) => (
-        <p className="my-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] first:mt-0 last:mb-0">
+        <p className={sx(styles.paragraph)}>
           {children}
         </p>
       ),
       ul: ({ children }: { children?: ReactNode }) => (
-        <ul className="my-2 ml-5 list-disc pl-1 marker:text-muted-foreground [&_ol]:my-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_ul]:my-1 [&_ul]:ml-5 [&_ul]:list-disc">
+        <ul className={sx(styles.list, styles.listUnordered)}>
           {children}
         </ul>
       ),
       ol: ({ children }: { children?: ReactNode }) => (
-        <ol className="my-2 ml-5 list-decimal pl-1 marker:text-muted-foreground [&_ol]:my-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_ul]:my-1 [&_ul]:ml-5 [&_ul]:list-disc">
+        <ol className={sx(styles.list, styles.listOrdered)}>
           {children}
         </ol>
       ),
       li: ({ children }: { children?: ReactNode }) => (
-        <li className="my-1 marker:text-muted-foreground [&>p]:my-0">
+        <li className={sx(styles.listItem)}>
           {children}
         </li>
       ),
@@ -412,12 +434,9 @@ export function MarkdownMessage({
         }
 
         return (
-          <code
-            className="mx-0.5 rounded-md border border-border/80 bg-muted/40 px-1.5 py-0.5 font-mono break-words [overflow-wrap:anywhere]"
-            style={{ fontSize: `${messageCodeFontSizeRef.current}px` }}
-          >
+          <InlineCode fontSize={messageCodeFontSizeRef.current}>
             {children}
-          </code>
+          </InlineCode>
         );
       },
       pre: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -490,7 +509,7 @@ export function MarkdownMessage({
         return (
           <ExternalAnchor
             href={href}
-            className="text-primary underline underline-offset-2"
+            className={sx(styles.link)}
             onClick={(event: MouseEvent<HTMLAnchorElement>) =>
               void onFileLinkClickRef.current?.({ event, href })
             }
@@ -500,27 +519,27 @@ export function MarkdownMessage({
         );
       },
       table: ({ children }: { children?: ReactNode }) => (
-        <Table className="my-3 w-full table-fixed border-separate border-spacing-0 rounded-md border border-border/70 bg-card text-[0.875em]">
+        <Table className={sx(styles.table)}>
           {children}
         </Table>
       ),
       thead: ({ children }: { children?: ReactNode }) => (
-        <TableHeader className="bg-muted/40">{children}</TableHeader>
+        <TableHeader className={sx(styles.tableHeader)}>{children}</TableHeader>
       ),
       tbody: ({ children }: { children?: ReactNode }) => (
         <TableBody>{children}</TableBody>
       ),
       tr: ({ children }: { children?: ReactNode }) => (
-        <TableRow className="hover:bg-muted/30">{children}</TableRow>
+        <TableRow className={sx(styles.tableRow)}>{children}</TableRow>
       ),
       th: ({ children }: { children?: ReactNode }) => (
-        <TableHead className="h-auto border-r border-border/70 px-3 py-2 align-top whitespace-normal break-words [overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-all last:border-r-0">
+        <TableHead className={sx(styles.tableHead)}>
           {children}
         </TableHead>
       ),
       td: ({ children }: { children?: ReactNode }) => (
         <MarkdownTableCellContext.Provider value>
-          <TableCell className="border-r border-border/70 px-3 py-2 align-top whitespace-normal break-words [overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-all last:border-r-0">
+          <TableCell className={sx(styles.tableCell)}>
             {children}
           </TableCell>
         </MarkdownTableCellContext.Provider>
@@ -532,7 +551,7 @@ export function MarkdownMessage({
 
   return (
     <div
-      className={cn("min-w-0 max-w-full", className)}
+      className={cx(sx(styles.body), className)}
       style={{
         fontSize: `${messageFontSize}px`,
         lineHeight: MESSAGE_BODY_LINE_HEIGHT,
@@ -541,7 +560,7 @@ export function MarkdownMessage({
       {...props}
     >
       {isStreaming ? (
-        <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+        <div className={sx(styles.streamingBody)}>
           {content}
         </div>
       ) : (

@@ -14,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   Select,
   SelectContent,
@@ -47,6 +49,7 @@ import {
   SettingsCard,
   SwitchField,
 } from "./settings-dialog.shared";
+import { developerStyles } from "./settings-dialog-developer-section.styles";
 
 interface GpuStatusSnapshot {
   hardwareAccelerationEnabled: boolean;
@@ -126,7 +129,7 @@ export function ProviderTimeoutCard() {
         title="Timeout Window"
         description="Default is 12 hours so long-running coding turns, refactors, and tool-heavy sessions do not time out too early."
       >
-        <div className="flex flex-wrap items-start gap-3">
+        <div className={sx(developerStyles.timeoutRow)}>
           <Select
             value={String(selectedValue)}
             onValueChange={(value) =>
@@ -135,7 +138,7 @@ export function ProviderTimeoutCard() {
               })
             }
           >
-            <SelectTrigger className="w-40 rounded-md border-border/80 bg-background">
+            <SelectTrigger className={sx(developerStyles.timeoutTrigger)}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -146,7 +149,7 @@ export function ProviderTimeoutCard() {
               ))}
             </SelectContent>
           </Select>
-          <span className="pt-2 text-sm text-muted-foreground">
+          <span className={sx(developerStyles.timeoutLabel)}>
             {formatProviderTimeoutLabel(selectedValue)}
           </span>
         </div>
@@ -167,19 +170,19 @@ export function CodexBinaryPathCard() {
       description="Override the path to the local `codex` binary. Leave empty to use the system install discovered from your PATH/home bin locations."
     >
       <DraftInput
-        className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+        xstyle={developerStyles.binaryInput}
         placeholder="/usr/local/bin/codex"
         value={codexBinaryPath}
         onCommit={(nextValue) =>
           updateSettings({ patch: { codexBinaryPath: nextValue } })
         }
       />
-      <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-muted-foreground">
-        <p className="flex items-center gap-2 font-medium text-foreground">
-          <TriangleAlert className="size-4 text-warning" />
+      <div className={sx(developerStyles.warningNote)}>
+        <p className={sx(developerStyles.warningTitle)}>
+          <TriangleAlert className={sx(developerStyles.warningIcon)} />
           Supported Codex baseline
         </p>
-        <p className="mt-1">
+        <p className={sx(developerStyles.warningNoteBody)}>
           Stave targets the Codex App Server path in local `codex` CLI
           `0.145.0`. Older binaries may work for existing features, but newly
           adopted controls must be capability-gated. Update Codex or point this
@@ -202,14 +205,14 @@ export function ClaudeBinaryPathCard() {
       description="Override the path to the local `claude` binary. Leave empty to let Stave auto-select the newest working Claude install it can resolve."
     >
       <DraftInput
-        className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+        xstyle={developerStyles.binaryInput}
         placeholder="/usr/local/bin/claude"
         value={claudeBinaryPath}
         onCommit={(nextValue) =>
           updateSettings({ patch: { claudeBinaryPath: nextValue } })
         }
       />
-      <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
+      <p className={sx(developerStyles.note)}>
         Use this when the shell `claude` auth state and Stave&apos;s Tooling
         panel disagree, or when multiple Claude installs exist on the same
         machine.
@@ -326,9 +329,9 @@ export function ClaudeRuntimeToolsCard() {
       title="Claude Runtime Tools"
       description="Inspect current Claude session/workspace context pressure and refresh plugin-driven commands without leaving Stave."
     >
-      <div className="flex flex-wrap gap-2">
+      <div className={sx(developerStyles.buttonRow)}>
         <Button
-          className="h-9"
+          xstyle={developerStyles.actionButtonMd}
           variant="outline"
           disabled={isLoadingClaudeContextUsage}
           onClick={() => void handleLoadClaudeContextUsage()}
@@ -338,7 +341,7 @@ export function ClaudeRuntimeToolsCard() {
             : "Inspect Context Usage"}
         </Button>
         <Button
-          className="h-9"
+          xstyle={developerStyles.actionButtonMd}
           disabled={isReloadingClaudePlugins}
           onClick={() => void handleReloadClaudePlugins()}
         >
@@ -346,107 +349,108 @@ export function ClaudeRuntimeToolsCard() {
         </Button>
       </div>
 
-      <div className="space-y-1 rounded-md border border-border/80 bg-background px-3 py-2">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="text-muted-foreground">Workspace</span>
-          <span className="font-mono text-foreground">
+      <div className={sx(developerStyles.infoPanel)}>
+        <div className={sx(developerStyles.infoRow)}>
+          <span className={sx(developerStyles.infoLabel)}>Workspace</span>
+          <span className={sx(developerStyles.infoValueMono)}>
             {workspaceCwd ?? "<process cwd>"}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="text-muted-foreground">Setting Sources</span>
-          <span className="font-mono text-foreground">
+        <div className={sx(developerStyles.infoRow)}>
+          <span className={sx(developerStyles.infoLabel)}>Setting Sources</span>
+          <span className={sx(developerStyles.infoValueMono)}>
             {formatClaudeSettingSources(settings.claudeSettingSources)}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="text-muted-foreground">Task Budget</span>
-          <span className="font-mono text-foreground">
+        <div className={sx(developerStyles.infoRow)}>
+          <span className={sx(developerStyles.infoLabel)}>Task Budget</span>
+          <span className={sx(developerStyles.infoValueMono)}>
             {formatTokenBudget(settings.claudeTaskBudgetTokens)}
           </span>
         </div>
       </div>
 
       {claudeContextUsage ? (
-        <div className="space-y-2 rounded-md border border-border/80 bg-background px-3 py-2">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="font-medium text-foreground">Context usage</span>
-            <span className="font-mono text-muted-foreground">
+        <div className={sx(developerStyles.infoPanelSpaced)}>
+          <div className={sx(developerStyles.infoRow)}>
+            <span className={sx(developerStyles.infoValueStrong)}>
+              Context usage
+            </span>
+            <span className={sx(developerStyles.infoValueMonoMuted)}>
               {claudeContextUsage.totalTokens.toLocaleString()} /{" "}
               {claudeContextUsage.maxTokens.toLocaleString()} (
               {Math.round(claudeContextUsage.percentage)}%)
             </span>
           </div>
-          <div className="space-y-1">
+          <div className={sx(developerStyles.rowStack)}>
             {claudeContextUsage.categories.map((category) => (
-              <div
-                key={category.name}
-                className="flex items-center justify-between gap-3 text-sm"
-              >
-                <span className="text-muted-foreground">{category.name}</span>
-                <span className="font-mono text-foreground">
+              <div key={category.name} className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoLabel)}>
+                  {category.name}
+                </span>
+                <span className={sx(developerStyles.infoValueMono)}>
                   {category.tokens.toLocaleString()}
                 </span>
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">Memory files</span>
-            <span className="font-mono text-foreground">
+          <div className={sx(developerStyles.infoRow)}>
+            <span className={sx(developerStyles.infoLabel)}>Memory files</span>
+            <span className={sx(developerStyles.infoValueMono)}>
               {claudeContextUsage.memoryFiles.length}
             </span>
           </div>
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">MCP tools</span>
-            <span className="font-mono text-foreground">
+          <div className={sx(developerStyles.infoRow)}>
+            <span className={sx(developerStyles.infoLabel)}>MCP tools</span>
+            <span className={sx(developerStyles.infoValueMono)}>
               {claudeContextUsage.mcpTools.length}
             </span>
           </div>
         </div>
       ) : null}
       {claudeContextUsageDetail ? (
-        <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
-          {claudeContextUsageDetail}
-        </p>
+        <p className={sx(developerStyles.note)}>{claudeContextUsageDetail}</p>
       ) : null}
 
       {claudePluginReload ? (
-        <div className="space-y-2 rounded-md border border-border/80 bg-background px-3 py-2">
-          <div className="grid gap-2 sm:grid-cols-4">
-            <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
-              <p className="text-muted-foreground">Commands</p>
-              <p className="font-mono text-foreground">
+        <div className={sx(developerStyles.infoPanelSpaced)}>
+          <div className={sx(developerStyles.pluginGrid)}>
+            <div className={sx(developerStyles.pluginCell)}>
+              <p className={sx(developerStyles.pluginCellLabel)}>Commands</p>
+              <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.commandCount}
               </p>
             </div>
-            <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
-              <p className="text-muted-foreground">Agents</p>
-              <p className="font-mono text-foreground">
+            <div className={sx(developerStyles.pluginCell)}>
+              <p className={sx(developerStyles.pluginCellLabel)}>Agents</p>
+              <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.agentCount}
               </p>
             </div>
-            <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
-              <p className="text-muted-foreground">Plugins</p>
-              <p className="font-mono text-foreground">
+            <div className={sx(developerStyles.pluginCell)}>
+              <p className={sx(developerStyles.pluginCellLabel)}>Plugins</p>
+              <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.plugins.length}
               </p>
             </div>
-            <div className="rounded-md border border-border/70 bg-muted/25 px-3 py-2 text-sm">
-              <p className="text-muted-foreground">Errors</p>
-              <p className="font-mono text-foreground">
+            <div className={sx(developerStyles.pluginCell)}>
+              <p className={sx(developerStyles.pluginCellLabel)}>Errors</p>
+              <p className={sx(developerStyles.pluginCellValue)}>
                 {claudePluginReload.errorCount}
               </p>
             </div>
           </div>
           {claudePluginReload.plugins.length > 0 ? (
-            <div className="space-y-1">
+            <div className={sx(developerStyles.rowStack)}>
               {claudePluginReload.plugins.map((plugin) => (
                 <div
                   key={`${plugin.name}:${plugin.path}`}
-                  className="flex items-center justify-between gap-3 text-sm"
+                  className={sx(developerStyles.infoRow)}
                 >
-                  <span className="text-muted-foreground">{plugin.name}</span>
-                  <span className="font-mono text-foreground">
+                  <span className={sx(developerStyles.infoLabel)}>
+                    {plugin.name}
+                  </span>
+                  <span className={sx(developerStyles.infoValueMono)}>
                     {plugin.path}
                   </span>
                 </div>
@@ -454,14 +458,13 @@ export function ClaudeRuntimeToolsCard() {
             </div>
           ) : null}
           {claudePluginReload.mcpServers.length > 0 ? (
-            <div className="space-y-1">
+            <div className={sx(developerStyles.rowStack)}>
               {claudePluginReload.mcpServers.map((server) => (
-                <div
-                  key={server.name}
-                  className="flex items-center justify-between gap-3 text-sm"
-                >
-                  <span className="text-muted-foreground">{server.name}</span>
-                  <span className="font-mono text-foreground">
+                <div key={server.name} className={sx(developerStyles.infoRow)}>
+                  <span className={sx(developerStyles.infoLabel)}>
+                    {server.name}
+                  </span>
+                  <span className={sx(developerStyles.infoValueMono)}>
                     {server.status}
                   </span>
                 </div>
@@ -471,9 +474,7 @@ export function ClaudeRuntimeToolsCard() {
         </div>
       ) : null}
       {claudePluginReloadDetail ? (
-        <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
-          {claudePluginReloadDetail}
-        </p>
+        <p className={sx(developerStyles.note)}>{claudePluginReloadDetail}</p>
       ) : null}
     </SettingsCard>
   );
@@ -549,36 +550,35 @@ export function DeveloperSection() {
           description="Electron-reported compositor status for diagnosing WSL2 and filtered transparency performance."
         >
           {gpuStatus ? (
-            <div className="space-y-2 rounded-md border border-border/80 bg-background px-3 py-2">
-              <div className="flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium text-foreground">
+            <div className={sx(developerStyles.infoPanelSpaced)}>
+              <div className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoValueStrong)}>
                   Hardware acceleration
                 </span>
-                <span className="font-mono text-muted-foreground">
+                <span className={sx(developerStyles.infoValueMonoMuted)}>
                   {gpuStatus.hardwareAccelerationEnabled
                     ? "enabled"
                     : "disabled"}
                 </span>
               </div>
-              <div className="space-y-1">
+              <div className={sx(developerStyles.gpuStatusRows)}>
                 {gpuStatusRows.map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between gap-3 text-sm"
-                  >
-                    <span className="text-muted-foreground">{key}</span>
-                    <span className="font-mono text-foreground">{value}</span>
+                  <div key={key} className={sx(developerStyles.infoRow)}>
+                    <span className={sx(developerStyles.infoLabel)}>{key}</span>
+                    <span className={sx(developerStyles.infoValueMono)}>
+                      {value}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
           ) : gpuStatusError ? null : (
-            <p className="text-sm text-muted-foreground">Loading GPU status…</p>
+            <p className={sx(developerStyles.loadingCopy)}>
+              Loading GPU status…
+            </p>
           )}
           {gpuStatusError ? (
-            <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-muted-foreground">
-              {gpuStatusError}
-            </p>
+            <p className={sx(developerStyles.warningNote)}>{gpuStatusError}</p>
           ) : null}
         </SettingsCard>
       </SectionStack>
@@ -784,7 +784,7 @@ export function LocalMcpServerCard() {
         title="Local MCP Server"
         description="Manage the packaged-app loopback MCP endpoint used by same-machine bots and helpers."
       >
-        <p className="text-sm text-muted-foreground">
+        <p className={sx(developerStyles.loadingCopy)}>
           Loading local MCP server status...
         </p>
       </SettingsCard>
@@ -804,7 +804,7 @@ export function LocalMcpServerCard() {
     >
       {snapshot && config ? (
         <>
-          <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
+          <p className={sx(developerStyles.note)}>
             `Claude Code` and `Codex` are opt-in. Stave only writes its managed
             MCP entry to your user-level CLI config files after you turn those
             settings on.
@@ -824,7 +824,7 @@ export function LocalMcpServerCard() {
             description="A fixed port keeps the endpoint stable across restarts, so clients that cached it keep working. Use `0` to let Stave choose any available localhost port instead."
           >
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+              xstyle={developerStyles.binaryInput}
               inputMode="numeric"
               placeholder={String(DEFAULT_LOCAL_MCP_PORT)}
               value={String(config.port)}
@@ -870,18 +870,18 @@ export function LocalMcpServerCard() {
             title="Token"
             description="Bearer token required by local clients. Rotate it to immediately revoke previous access."
           >
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className={sx(developerStyles.tokenFieldRow)}>
               <DraftInput
-                className="h-10 flex-1 rounded-md border-border/80 bg-background font-mono text-sm"
+                xstyle={developerStyles.tokenInput}
                 spellCheck={false}
                 value={config.token}
                 onCommit={(nextValue) =>
                   void applyConfigPatch({ token: nextValue.trim() })
                 }
               />
-              <div className="flex gap-2">
+              <div className={sx(developerStyles.tokenButtons)}>
                 <Button
-                  className="h-10"
+                  xstyle={developerStyles.actionButtonLg}
                   variant="outline"
                   disabled={state.busy}
                   onClick={() => void handleCopy(config.token, "Token")}
@@ -889,7 +889,7 @@ export function LocalMcpServerCard() {
                   Copy
                 </Button>
                 <Button
-                  className="h-10"
+                  xstyle={developerStyles.actionButtonLg}
                   variant="outline"
                   disabled={state.busy}
                   onClick={() => void handleRotateToken()}
@@ -900,10 +900,10 @@ export function LocalMcpServerCard() {
             </div>
           </LabeledField>
 
-          <div className="space-y-2 rounded-md border border-border/80 bg-background px-3 py-2">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Status</span>
-              <span className="font-mono text-foreground">
+          <div className={sx(developerStyles.infoPanelSpaced)}>
+            <div className={sx(developerStyles.infoRow)}>
+              <span className={sx(developerStyles.infoLabel)}>Status</span>
+              <span className={sx(developerStyles.infoValueMono)}>
                 {snapshot.running
                   ? "running"
                   : config.enabled
@@ -911,70 +911,73 @@ export function LocalMcpServerCard() {
                     : "disabled"}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Config file</span>
-              <span className="font-mono text-foreground">
+            <div className={sx(developerStyles.infoRow)}>
+              <span className={sx(developerStyles.infoLabel)}>Config file</span>
+              <span className={sx(developerStyles.infoValueMono)}>
                 {snapshot.configPath}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Claude Code</span>
-              <span className="font-mono text-foreground">
+            <div className={sx(developerStyles.infoRow)}>
+              <span className={sx(developerStyles.infoLabel)}>Claude Code</span>
+              <span className={sx(developerStyles.infoValueMono)}>
                 {formatClaudeCodeRegistrationState(
                   snapshot.claudeCodeRegistration,
                 )}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Claude settings</span>
-              <span className="font-mono text-foreground">
+            <div className={sx(developerStyles.infoRow)}>
+              <span className={sx(developerStyles.infoLabel)}>
+                Claude settings
+              </span>
+              <span className={sx(developerStyles.infoValueMono)}>
                 {snapshot.claudeCodeRegistration.configPath}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Codex</span>
-              <span className="font-mono text-foreground">
+            <div className={sx(developerStyles.infoRow)}>
+              <span className={sx(developerStyles.infoLabel)}>Codex</span>
+              <span className={sx(developerStyles.infoValueMono)}>
                 {formatCodexRegistrationState(snapshot.codexRegistration)}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">Codex config</span>
-              <span className="font-mono text-foreground">
+            <div className={sx(developerStyles.infoRow)}>
+              <span className={sx(developerStyles.infoLabel)}>
+                Codex config
+              </span>
+              <span className={sx(developerStyles.infoValueMono)}>
                 {snapshot.codexRegistration.configPath}
               </span>
             </div>
             {manifest ? (
               <>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-muted-foreground">MCP URL</span>
-                  <span className="font-mono text-foreground">
+                <div className={sx(developerStyles.infoRow)}>
+                  <span className={sx(developerStyles.infoLabel)}>MCP URL</span>
+                  <span className={sx(developerStyles.infoValueMono)}>
                     {manifest.url}
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-muted-foreground">Health URL</span>
-                  <span className="font-mono text-foreground">
+                <div className={sx(developerStyles.infoRow)}>
+                  <span className={sx(developerStyles.infoLabel)}>
+                    Health URL
+                  </span>
+                  <span className={sx(developerStyles.infoValueMono)}>
                     {manifest.healthUrl}
                   </span>
                 </div>
               </>
             ) : null}
             {snapshot.manifestPaths.map((manifestPath) => (
-              <div
-                key={manifestPath}
-                className="flex items-center justify-between gap-3 text-sm"
-              >
-                <span className="text-muted-foreground">Manifest</span>
-                <span className="font-mono text-foreground">
+              <div key={manifestPath} className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoLabel)}>Manifest</span>
+                <span className={sx(developerStyles.infoValueMono)}>
                   {manifestPath}
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className={sx(developerStyles.buttonRow)}>
             <Button
-              className="h-9"
+              xstyle={developerStyles.actionButtonMd}
               size="sm"
               variant="outline"
               disabled={state.busy}
@@ -984,7 +987,7 @@ export function LocalMcpServerCard() {
             </Button>
             {manifest?.url ? (
               <Button
-                className="h-9"
+                xstyle={developerStyles.actionButtonMd}
                 size="sm"
                 variant="outline"
                 disabled={state.busy}
@@ -994,7 +997,7 @@ export function LocalMcpServerCard() {
               </Button>
             ) : null}
             <Button
-              className="h-9"
+              xstyle={developerStyles.actionButtonMd}
               size="sm"
               variant="outline"
               disabled={state.busy}
@@ -1009,19 +1012,15 @@ export function LocalMcpServerCard() {
       ) : null}
 
       {state.detail ? (
-        <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
-          {state.detail}
-        </p>
+        <p className={sx(developerStyles.note)}>{state.detail}</p>
       ) : null}
       {claudeCodeRegistration?.detail ? (
-        <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
+        <p className={sx(developerStyles.note)}>
           {claudeCodeRegistration.detail}
         </p>
       ) : null}
       {codexRegistration?.detail ? (
-        <p className="rounded-md border border-border/80 bg-muted/25 px-3 py-2 text-sm text-muted-foreground">
-          {codexRegistration.detail}
-        </p>
+        <p className={sx(developerStyles.note)}>{codexRegistration.detail}</p>
       ) : null}
     </SettingsCard>
   );
@@ -1186,47 +1185,50 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
   }
 
   if (!log.hasRequestPayload) {
-    return <span className="text-xs text-muted-foreground">No payload</span>;
+    return (
+      <span className={sx(developerStyles.payloadEmptyLabel)}>No payload</span>
+    );
   }
 
   return (
-    <div className="rounded-md border border-border/70 bg-muted/20">
-      <button
+    <div className={sx(developerStyles.payloadFrame)}>
+      <AdsButton
         type="button"
-        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        variant="quiet"
+        flushInline
+        layout="host"
+        xstyle={developerStyles.payloadToggle}
         onClick={() => void handleTogglePayload()}
       >
         <span>{open ? "Hide request payload" : "View request payload"}</span>
         {payloadState.status === "loading" ? (
           <Loader
             aria-hidden
-            className="text-muted-foreground"
+            className={sx(developerStyles.loaderMuted)}
             size="xs"
             variant="spinner"
           />
         ) : null}
-      </button>
+      </AdsButton>
 
       {open && payloadState.status === "loading" ? (
-        <div className="border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+        <div className={sx(developerStyles.payloadLoaderCell)}>
           Loading request payload...
         </div>
       ) : null}
 
       {open && payloadState.status === "ready" ? (
-        <pre className="max-h-64 overflow-auto border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
-          {payloadText}
-        </pre>
+        <pre className={sx(developerStyles.payloadPre)}>{payloadText}</pre>
       ) : null}
 
       {open && payloadState.status === "empty" ? (
-        <div className="border-t border-border/70 px-3 py-2 text-xs text-muted-foreground">
+        <div className={sx(developerStyles.payloadLoaderCell)}>
           No payload recorded for this request.
         </div>
       ) : null}
 
       {open && payloadState.status === "error" ? (
-        <div className="border-t border-border/70 px-3 py-2 text-xs text-destructive">
+        <div className={sx(developerStyles.payloadError)}>
           {payloadState.error}
         </div>
       ) : null}
@@ -1429,31 +1431,31 @@ export function LocalMcpRequestLogCard() {
       title="Local MCP Request Log"
       description="Captures recent inbound requests to the embedded local MCP server."
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <span className="max-w-3xl text-sm text-muted-foreground">
+      <div className={sx(developerStyles.logHeaderRow)}>
+        <span className={sx(developerStyles.logHeaderDetail)}>
           {state.detail}
         </span>
-        <div className="flex flex-wrap gap-2">
+        <div className={sx(developerStyles.buttonRow)}>
           <Button
-            className="h-8 gap-1 text-xs"
+            xstyle={developerStyles.actionButtonSmGap}
             variant="outline"
             disabled={state.busy || state.offset === 0}
             onClick={handleShowNewerLogs}
           >
-            <ChevronLeft className="size-3.5" />
+            <ChevronLeft className={sx(developerStyles.pagerIcon)} />
             Newer
           </Button>
           <Button
-            className="h-8 gap-1 text-xs"
+            xstyle={developerStyles.actionButtonSmGap}
             variant="outline"
             disabled={state.busy || !state.hasMore}
             onClick={handleShowOlderLogs}
           >
             Older
-            <ChevronRight className="size-3.5" />
+            <ChevronRight className={sx(developerStyles.pagerIcon)} />
           </Button>
           <Button
-            className="h-8 text-xs"
+            xstyle={developerStyles.actionButtonSmText}
             variant="outline"
             disabled={state.busy}
             onClick={() => void refreshLogs({ offset: state.offset })}
@@ -1461,7 +1463,7 @@ export function LocalMcpRequestLogCard() {
             Refresh
           </Button>
           <Button
-            className="h-8 text-xs"
+            xstyle={developerStyles.actionButtonSmText}
             variant="outline"
             disabled={state.busy || state.total === 0}
             onClick={() => void handleClearLogs()}
@@ -1472,19 +1474,23 @@ export function LocalMcpRequestLogCard() {
       </div>
 
       {state.logs.length === 0 ? (
-        <p className="rounded-md border border-border/80 bg-background px-3 py-2 text-sm text-muted-foreground">
+        <p className={sx(developerStyles.logEmpty)}>
           No requests yet. Health checks are excluded, the latest page
           auto-refreshes while it stays open, and payloads load only when you
           expand a row.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-md border border-border/80 bg-background">
+        <div className={sx(developerStyles.logTableFrame)}>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-28">Time</TableHead>
+                <TableHead className={sx(developerStyles.colTime)}>
+                  Time
+                </TableHead>
                 <TableHead>Request</TableHead>
-                <TableHead className="w-28">Status</TableHead>
+                <TableHead className={sx(developerStyles.colStatus)}>
+                  Status
+                </TableHead>
                 <TableHead>Payload</TableHead>
               </TableRow>
             </TableHeader>
@@ -1492,13 +1498,13 @@ export function LocalMcpRequestLogCard() {
               {state.logs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell
-                    className="align-top text-xs text-muted-foreground"
+                    className={sx(developerStyles.cellTopTime)}
                     title={log.createdAt}
                   >
                     {formatRelativeTime(log.createdAt)}
                   </TableCell>
-                  <TableCell className="align-top">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <TableCell className={sx(developerStyles.cellTop)}>
+                    <div className={sx(developerStyles.requestBadges)}>
                       <Badge variant="outline">
                         {getLocalMcpRequestPrimaryLabel(log)}
                       </Badge>
@@ -1506,43 +1512,43 @@ export function LocalMcpRequestLogCard() {
                         <Badge variant="secondary">{log.rpcMethod}</Badge>
                       ) : null}
                     </div>
-                    <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
+                    <p className={sx(developerStyles.requestMeta)}>
                       {getLocalMcpRequestMeta(log)}
                     </p>
                   </TableCell>
-                  <TableCell className="align-top">
-                    <div className="flex flex-col gap-1">
+                  <TableCell className={sx(developerStyles.cellTop)}>
+                    <div className={sx(developerStyles.statusCell)}>
                       <Badge variant={getLocalMcpRequestBadgeVariant(log)}>
                         {log.statusCode}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
+                      <span className={sx(developerStyles.statusDuration)}>
                         {log.durationMs}ms
                       </span>
                       {log.errorMessage ? (
-                        <span className="text-xs text-destructive">
+                        <span className={sx(developerStyles.statusError)}>
                           {log.errorMessage}
                         </span>
                       ) : null}
                     </div>
                   </TableCell>
-                  <TableCell className="align-top">
+                  <TableCell className={sx(developerStyles.cellTop)}>
                     <LocalMcpRequestPayloadCell log={log} />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 bg-muted/10 px-3 py-2">
-            <span className="text-xs text-muted-foreground">
+          <div className={sx(developerStyles.tableFooter)}>
+            <span className={sx(developerStyles.tableFooterNote)}>
               Page {page} of {totalPages}
             </span>
             {state.offset === 0 ? (
-              <span className="text-xs text-muted-foreground">
+              <span className={sx(developerStyles.tableFooterNote)}>
                 Auto-refreshing latest page every{" "}
                 {Math.floor(LOCAL_MCP_REQUEST_LOG_AUTO_REFRESH_MS / 1000)}s.
               </span>
             ) : (
-              <span className="text-xs text-muted-foreground">
+              <span className={sx(developerStyles.tableFooterNote)}>
                 Auto-refresh is paused on older pages to keep pagination stable.
               </span>
             )}

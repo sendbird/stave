@@ -1,8 +1,10 @@
 import type { CSSProperties, ReactNode } from "react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import type { StyleXValue } from "@/components/ads/utils/stylex";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { Shimmer } from "./shimmer";
+import { reasoningTextStyles as styles } from "./reasoning-text.styles";
 
 export type ReasoningTextVariant = "cascade" | "swap" | "scramble";
 
@@ -56,33 +58,33 @@ function longestPhrase(phrases: string[]): string {
 function PhraseSurface({
   shimmer,
   textLength,
-  className,
+  surfaceStyle,
   children,
 }: {
   shimmer: boolean;
   textLength: number;
-  className?: string;
+  surfaceStyle?: StyleXValue;
   children: ReactNode;
 }) {
   if (shimmer) {
     return (
-      <Shimmer as="span" textLength={textLength} className={cn("flex", className)}>
+      <Shimmer as="span" textLength={textLength} className={sx(styles.surface, surfaceStyle)}>
         {children}
       </Shimmer>
     );
   }
-  return <span className={cn("flex", className)}>{children}</span>;
+  return <span className={sx(styles.surface, surfaceStyle)}>{children}</span>;
 }
 
 /* ─── Variants ────────────────────────────────────────────────────────── */
 
 function CascadePhrase({ phrase, shimmer }: { phrase: string; shimmer: boolean }) {
   return (
-    <PhraseSurface shimmer={shimmer} textLength={phrase.length} className="overflow-hidden">
+    <PhraseSurface shimmer={shimmer} textLength={phrase.length} surfaceStyle={styles.surfaceClipped}>
       {Array.from(phrase).map((char, index) => (
         <span
           key={`${phrase}-${index}`}
-          className="inline-block whitespace-pre motion-safe:animate-cascade-char"
+          className={sx(styles.cascadeChar)}
           style={{ "--cascade-i": index } as CSSProperties}
         >
           {char}
@@ -100,7 +102,7 @@ function SwapPhrase({ phrase, shimmer }: { phrase: string; shimmer: boolean }) {
    * has no such conflict because its animation sits on the per-character spans.
    */
   return (
-    <span className="flex motion-safe:animate-thinking-phrase-soft">
+    <span className={sx(styles.swapPhrase)}>
       <PhraseSurface shimmer={shimmer} textLength={phrase.length}>
         {phrase}
       </PhraseSurface>
@@ -169,7 +171,7 @@ function ScramblePhrase({
 }) {
   const rendered = useScrambledPhrase({ phrase, enabled });
   return (
-    <PhraseSurface shimmer={shimmer} textLength={phrase.length} className="whitespace-pre">
+    <PhraseSurface shimmer={shimmer} textLength={phrase.length} surfaceStyle={styles.surfacePre}>
       {rendered}
     </PhraseSurface>
   );
@@ -234,20 +236,20 @@ function ReasoningTextComponent({
   );
 
   return (
-    <span className={cn("inline-flex items-center gap-[0.4em]", className)}>
+    <span className={cx(sx(styles.root), className)}>
       {indicator}
       {/*
-       * `leading-[1.25]` gives the clip box room for the full glyph box. The
+       * `lineHeight: 1.25` gives the clip box room for the full glyph box. The
        * previous `leading-none` made it exactly font-size tall, so the cascade's
        * `overflow-hidden` sheared the descenders off `g`, `y`, and `p`.
        */}
-      <span className="grid leading-[1.25]">
+      <span className={sx(styles.anchorGrid)}>
         {/* Width anchor — reserves the widest phrase's inline size so rotation
             never resizes the label. Collapses to a no-op for single phrases. */}
-        <span aria-hidden="true" className="invisible col-start-1 row-start-1 whitespace-pre">
+        <span aria-hidden="true" className={sx(styles.widthAnchor)}>
           {widthAnchor}
         </span>
-        <span className="col-start-1 row-start-1 flex items-center">{body}</span>
+        <span className={sx(styles.bodyCell)}>{body}</span>
       </span>
     </span>
   );

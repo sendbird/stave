@@ -31,7 +31,8 @@ import type {
   GraphWorkingTreeSummary,
 } from "@/lib/git-graph/types";
 import { MAX_GRAPH_SELECTED_REFS } from "@/lib/git-graph/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { gitGraphToolbarStyles as styles } from "./git-graph-toolbar.styles";
 
 export interface GitGraphColumnVisibility {
   author: boolean;
@@ -116,19 +117,19 @@ function BranchFilter({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 w-full min-w-0 max-w-56 justify-start gap-1.5 px-2.5 text-xs @min-[30rem]/git-graph-toolbar:w-auto"
+            xstyle={styles.branchTrigger}
             aria-label={`Branch filter: ${label}`}
           />
         }
       >
-        <GitBranch className="size-3.5 text-primary" />
-        <span className="min-w-0 flex-1 truncate">{label}</span>
-        <ChevronDown className="size-3 text-muted-foreground" />
+        <GitBranch className={sx(styles.branchIcon)} />
+        <span className={sx(styles.branchLabel)}>{label}</span>
+        <ChevronDown className={sx(styles.chevronMuted)} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
+      <DropdownMenuContent align="start" className={sx(styles.branchMenu)}>
         <DropdownMenuLabel>History scope</DropdownMenuLabel>
         {selectionLimitReached ? (
-          <DropdownMenuLabel className="text-[10px] font-normal text-warning">
+          <DropdownMenuLabel className={sx(styles.limitLabel)}>
             Select up to {MAX_GRAPH_SELECTED_REFS} branches.
           </DropdownMenuLabel>
         ) : null}
@@ -155,11 +156,9 @@ function BranchFilter({
                   toggleRef(ref.revision, checked === true)
                 }
               >
-                <span className="truncate">{ref.name}</span>
+                <span className={sx(styles.truncate)}>{ref.name}</span>
                 {ref.isHead ? (
-                  <span className="ml-auto text-[10px] font-medium text-primary">
-                    HEAD
-                  </span>
+                  <span className={sx(styles.headBadge)}>HEAD</span>
                 ) : null}
               </DropdownMenuCheckboxItem>
             ))}
@@ -183,7 +182,7 @@ function BranchFilter({
                   toggleRef(ref.revision, checked === true)
                 }
               >
-                <span className="truncate">{ref.name}</span>
+                <span className={sx(styles.truncate)}>{ref.name}</span>
               </DropdownMenuCheckboxItem>
             ))}
           </>
@@ -203,43 +202,47 @@ function WorkingTreeStatus({
   if (!available) {
     return (
       <span
-        className="flex items-center gap-1 text-[10px] text-warning"
+        className={sx(styles.statusUnavailable)}
         title="Working tree status is too large or unavailable."
         role="status"
         aria-label="Working tree status unavailable"
       >
-        <AlertTriangle className="size-3.5" aria-hidden="true" />
-        <span className="hidden @min-[62rem]/git-graph-toolbar:inline">
+        <AlertTriangle className={sx(styles.statusIcon)} aria-hidden="true" />
+        <span className={sx(styles.statusUnavailableText)}>
           status unavailable
         </span>
       </span>
     );
   }
   const entries = [
-    { label: "staged", value: summary.staged, className: "text-success" },
-    { label: "changed", value: summary.unstaged, className: "text-warning" },
-    { label: "untracked", value: summary.untracked, className: "text-info" },
+    { label: "staged", value: summary.staged, tone: styles.statusEntryStaged },
+    {
+      label: "changed",
+      value: summary.unstaged,
+      tone: styles.statusEntryChanged,
+    },
+    {
+      label: "untracked",
+      value: summary.untracked,
+      tone: styles.statusEntryUntracked,
+    },
     {
       label: "conflicts",
       value: summary.conflicts,
-      className: "text-destructive",
+      tone: styles.statusEntryConflicts,
     },
   ].filter((entry) => entry.value > 0);
 
   if (entries.length === 0) {
-    return (
-      <span className="hidden text-[10px] text-muted-foreground @min-[62rem]/git-graph-toolbar:inline">
-        clean
-      </span>
-    );
+    return <span className={sx(styles.statusClean)}>clean</span>;
   }
 
   return (
-    <span className="hidden items-center gap-1.5 @min-[62rem]/git-graph-toolbar:flex">
+    <span className={sx(styles.statusEntries)}>
       {entries.map((entry) => (
         <span
           key={entry.label}
-          className={cn("text-[10px] tabular-nums", entry.className)}
+          className={sx(styles.statusEntry, entry.tone)}
           title={`${entry.value} ${entry.label}`}
         >
           {entry.value} {entry.label}
@@ -274,11 +277,8 @@ export function GitGraphToolbar({
   searchInputRef,
 }: GitGraphToolbarProps) {
   return (
-    <div
-      className="@container/git-graph-toolbar grid shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 border-b border-border/75 bg-editor px-2.5 py-1.5 @min-[30rem]/git-graph-toolbar:grid-cols-[minmax(0,auto)_minmax(7rem,1fr)_auto]"
-      data-testid="git-graph-toolbar"
-    >
-      <div className="flex min-w-0 items-center gap-2">
+    <div className={sx(styles.root)} data-testid="git-graph-toolbar">
+      <div className={sx(styles.leftGroup)}>
         <BranchFilter
           head={head}
           availableRefs={availableRefs}
@@ -291,22 +291,24 @@ export function GitGraphToolbar({
         />
       </div>
 
-      <div className="relative col-span-2 row-start-2 min-w-0 @min-[30rem]/git-graph-toolbar:col-span-1 @min-[30rem]/git-graph-toolbar:col-start-2 @min-[30rem]/git-graph-toolbar:row-start-1">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      <div className={sx(styles.searchWrap)}>
+        <Search className={sx(styles.searchIcon)} />
         <Input
           ref={searchInputRef}
           value={searchQuery}
           onChange={(event) => onSearchQueryChange(event.target.value)}
-          className={cn(
-            "h-8 rounded-md bg-background/60 pl-8 text-xs",
-            searchQuery ? "pr-36" : "pr-16",
-          )}
+          xstyle={[
+            styles.searchInput,
+            searchQuery
+              ? styles.searchInputWithMatches
+              : styles.searchInputNoMatches,
+          ]}
           placeholder="Find commits, authors, refs…"
           aria-label="Find commits"
         />
-        <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+        <div className={sx(styles.searchControls)}>
           {searchQuery ? (
-            <span className="mr-0.5 text-[10px] tabular-nums text-muted-foreground">
+            <span className={sx(styles.matchCount)}>
               {matchCount > 0 ? `${matchPosition}/${matchCount}` : "No matches"}
             </span>
           ) : null}
@@ -314,42 +316,42 @@ export function GitGraphToolbar({
             type="button"
             size="icon-xs"
             variant="ghost"
-            className="size-6"
+            xstyle={styles.iconButtonSm}
             disabled={matchCount === 0}
             onClick={onPreviousMatch}
             aria-label="Previous search match"
           >
-            <ChevronUp className="size-3" />
+            <ChevronUp className={sx(styles.iconGlyphSm)} />
           </Button>
           <Button
             type="button"
             size="icon-xs"
             variant="ghost"
-            className="size-6"
+            xstyle={styles.iconButtonSm}
             disabled={matchCount === 0}
             onClick={onNextMatch}
             aria-label="Next search match"
           >
-            <ChevronDown className="size-3" />
+            <ChevronDown className={sx(styles.iconGlyphSm)} />
           </Button>
           {searchQuery ? (
             <Button
               type="button"
               size="icon-xs"
               variant="ghost"
-              className="size-6"
+              xstyle={styles.iconButtonSm}
               onClick={() => onSearchQueryChange("")}
               aria-label="Clear commit search"
             >
-              <X className="size-3" />
+              <X className={sx(styles.iconGlyphSm)} />
             </Button>
           ) : null}
         </div>
       </div>
 
       <TooltipProvider>
-        <div className="col-start-2 row-start-1 flex items-center gap-0.5 @min-[30rem]/git-graph-toolbar:col-start-3">
-          <span className="mr-1 hidden text-[10px] tabular-nums text-muted-foreground @min-[48rem]/git-graph-toolbar:inline">
+        <div className={sx(styles.rightGroup)}>
+          <span className={sx(styles.commitCount)}>
             {loadedCount}
             {hasMore ? "+" : ""} commits
           </span>
@@ -360,13 +362,13 @@ export function GitGraphToolbar({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  className="size-8"
+                  xstyle={styles.iconButtonMd}
                   onClick={onLocateHead}
                   aria-label="Locate HEAD"
                 />
               }
             >
-              <LocateFixed className="size-3.5" />
+              <LocateFixed className={sx(styles.iconGlyphMd)} />
             </TooltipTrigger>
             <TooltipContent>Locate HEAD (Ctrl/Cmd H)</TooltipContent>
           </Tooltip>
@@ -377,7 +379,7 @@ export function GitGraphToolbar({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  className="size-8"
+                  xstyle={styles.iconButtonMd}
                   disabled={fetching}
                   onClick={onFetch}
                   aria-label="Fetch all remotes"
@@ -387,7 +389,7 @@ export function GitGraphToolbar({
               {fetching ? (
                 <Loader aria-hidden size="xs" variant="scan" />
               ) : (
-                <Download className="size-3.5" />
+                <Download className={sx(styles.iconGlyphMd)} />
               )}
             </TooltipTrigger>
             <TooltipContent>Fetch all remotes</TooltipContent>
@@ -402,18 +404,18 @@ export function GitGraphToolbar({
                         type="button"
                         size="icon-sm"
                         variant="ghost"
-                        className="size-8"
+                        xstyle={styles.iconButtonMd}
                         aria-label="Choose visible graph columns"
                       />
                     }
                   />
                 }
               >
-                <Columns3 className="size-3.5" />
+                <Columns3 className={sx(styles.iconGlyphMd)} />
               </TooltipTrigger>
               <TooltipContent>Visible columns</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className={sx(styles.columnsMenu)}>
               <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
               {(
                 [
@@ -444,7 +446,7 @@ export function GitGraphToolbar({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  className="size-8"
+                  xstyle={styles.iconButtonMd}
                   disabled={loading}
                   onClick={onRefresh}
                   aria-label="Refresh commit graph"
@@ -452,7 +454,10 @@ export function GitGraphToolbar({
               }
             >
               <RefreshCw
-                className={cn("size-3.5", loading && "animate-spin")}
+                className={sx(
+                  styles.iconGlyphMd,
+                  loading && styles.refreshSpin,
+                )}
               />
             </TooltipTrigger>
             <TooltipContent>Refresh (Ctrl/Cmd R)</TooltipContent>

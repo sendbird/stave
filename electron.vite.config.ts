@@ -1,6 +1,6 @@
+import stylex from "@stylexjs/unplugin";
 import { defineConfig } from "electron-vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
 const srcAlias = {
@@ -15,9 +15,7 @@ const mainExternalDeps = [
   "@vscode/ripgrep",
 ];
 
-const preloadExternalDeps = [
-  "electron",
-];
+const preloadExternalDeps = ["electron"];
 
 export default defineConfig({
   main: {
@@ -35,12 +33,17 @@ export default defineConfig({
           "host-service": path.resolve(__dirname, "electron/host-service.ts"),
           // Standalone stdio proxy — compiled separately so it can be
           // executed by `node` outside the Electron process.
-          "stave-mcp-stdio-proxy": path.resolve(__dirname, "electron/main/stave-mcp-stdio-proxy.ts"),
+          "stave-mcp-stdio-proxy": path.resolve(
+            __dirname,
+            "electron/main/stave-mcp-stdio-proxy.ts",
+          ),
         },
         output: {
           format: "es",
           entryFileNames: (chunkInfo) =>
-            chunkInfo.name === "stave-mcp-stdio-proxy" ? "[name].mjs" : "[name].js",
+            chunkInfo.name === "stave-mcp-stdio-proxy"
+              ? "[name].mjs"
+              : "[name].js",
         },
       },
     },
@@ -57,7 +60,10 @@ export default defineConfig({
         external: preloadExternalDeps,
         input: {
           index: path.resolve(__dirname, "electron/preload.ts"),
-          "lens-guest": path.resolve(__dirname, "electron/lens-guest-preload.ts"),
+          "lens-guest": path.resolve(
+            __dirname,
+            "electron/lens-guest-preload.ts",
+          ),
         },
         output: {
           format: "cjs",
@@ -68,7 +74,15 @@ export default defineConfig({
   },
   renderer: {
     root: ".",
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      stylex.vite({
+        useCSSLayers: true,
+        enableMediaQueryOrder: false,
+        unstable_moduleResolution: { type: "commonJS", rootDir: __dirname },
+        aliases: { "@/*": [path.resolve(__dirname, "src", "*")] },
+      }),
+      react(),
+    ],
     server: {
       host: "127.0.0.1",
       port: 4174,

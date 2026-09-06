@@ -1,7 +1,9 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, ChevronDown, Shield } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { layers } from "@/lib/ui-layers.stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { permissionModeSelectorStyles as styles } from "./permission-mode-selector.styles";
 import type { ClaudePermissionMode } from "@/types/chat";
 export type { ClaudePermissionMode } from "@/types/chat";
 
@@ -28,7 +30,9 @@ const CODEX_OPTIONS: PermissionModeOption[] = [
   { value: "never", label: "Never" },
 ];
 
-export function getPermissionModeOptions(providerId: "claude-code" | "codex"): readonly PermissionModeOption[] {
+export function getPermissionModeOptions(
+  providerId: "claude-code" | "codex",
+): readonly PermissionModeOption[] {
   return providerId === "claude-code" ? CLAUDE_OPTIONS : CODEX_OPTIONS;
 }
 
@@ -36,7 +40,11 @@ export function getPermissionModeLabel(args: {
   providerId: "claude-code" | "codex";
   value: PermissionModeValue;
 }) {
-  return getPermissionModeOptions(args.providerId).find((option) => option.value === args.value)?.label ?? args.value;
+  return (
+    getPermissionModeOptions(args.providerId).find(
+      (option) => option.value === args.value,
+    )?.label ?? args.value
+  );
 }
 
 interface PermissionModeSelectorProps {
@@ -64,30 +72,29 @@ export function PermissionModeSelector(args: PermissionModeSelectorProps) {
   }, [open]);
 
   return (
-    <div className="relative" ref={rootRef}>
-      <button
+    <div className={sx(styles.root)} ref={rootRef}>
+      <AdsButton
+        layout="host"
         type="button"
-        className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-sm border border-border/80 bg-secondary px-2 text-sm text-foreground transition-colors hover:bg-secondary/80",
-          open && "border-primary/60 bg-secondary/90",
-        )}
+        className={sx(styles.trigger, open && styles.triggerOpen)}
         onClick={() => setOpen((prev) => !prev)}
         disabled={disabled}
         title="Permission mode"
       >
-        <Shield className="size-3.5 text-muted-foreground" />
+        <Shield className={sx(styles.triggerIcon)} />
         <span>{current?.label ?? value}</span>
-        <ChevronDown className="size-3.5 text-muted-foreground" />
-      </button>
+        <ChevronDown className={sx(styles.triggerIcon)} />
+      </AdsButton>
       {open ? (
-        <div className={cn(UI_LAYER_CLASS.floatingChrome, "absolute bottom-[calc(100%+0.375rem)] left-0 w-44 rounded-sm border border-border/90 bg-card p-1 shadow-xl")}>
+        <div className={sx(styles.menu, layers.floatingChrome)}>
           {options.map((option) => (
-            <button
+            <AdsButton
+              layout="host"
               key={option.value}
               type="button"
-              className={cn(
-                "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary/70",
-                option.value === value && "bg-secondary/80",
+              className={sx(
+                styles.option,
+                option.value === value && styles.optionSelected,
               )}
               onClick={() => {
                 onSelect(option.value);
@@ -95,8 +102,10 @@ export function PermissionModeSelector(args: PermissionModeSelectorProps) {
               }}
             >
               {option.label}
-              {option.value === value ? <Check className="size-3.5 text-primary" /> : null}
-            </button>
+              {option.value === value ? (
+                <Check className={sx(styles.optionCheck)} />
+              ) : null}
+            </AdsButton>
           ))}
         </div>
       ) : null}
@@ -104,7 +113,10 @@ export function PermissionModeSelector(args: PermissionModeSelectorProps) {
   );
 }
 
-export function cyclePermissionMode(args: { providerId: "claude-code" | "codex"; current: PermissionModeValue }): PermissionModeValue {
+export function cyclePermissionMode(args: {
+  providerId: "claude-code" | "codex";
+  current: PermissionModeValue;
+}): PermissionModeValue {
   const options = getPermissionModeOptions(args.providerId);
   const idx = options.findIndex((o) => o.value === args.current);
   return options[(idx + 1) % options.length]!.value;

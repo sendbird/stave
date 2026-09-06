@@ -1,5 +1,6 @@
 import { ListTodo } from "lucide-react";
 import type { CSSProperties } from "react";
+import * as stylex from "@stylexjs/stylex";
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
@@ -8,7 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { useTrackerTasksAttention } from "@/lib/tracker-tasks/client-state";
-import { cn } from "@/lib/utils";
+import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
 export function TopBarTasks(props: { noDragStyle: CSSProperties }) {
@@ -31,11 +32,11 @@ export function TopBarTasks(props: { noDragStyle: CSSProperties }) {
             type="button"
             variant="ghost"
             size="sm"
-            className={cn(
-              "relative h-8 w-8 shrink-0 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
-              attentionCount > 0 && "text-warning hover:text-warning",
-              isTasksActive && "bg-secondary/70 text-foreground",
-            )}
+            xstyle={[
+              layoutShellStyles.topBarButton,
+              attentionCount > 0 && layoutShellStyles.topBarButtonWarning,
+              isTasksActive && layoutShellStyles.topBarButtonActive,
+            ]}
             style={props.noDragStyle}
             aria-label={isTasksActive ? "close-tasks" : "open-tasks"}
             aria-pressed={isTasksActive}
@@ -43,9 +44,9 @@ export function TopBarTasks(props: { noDragStyle: CSSProperties }) {
           />
         }
       >
-        <ListTodo className="size-4" />
+        <ListTodo {...stylex.props(layoutShellStyles.icon16)} />
         {attentionCount > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-card bg-warning px-1 text-[10px] font-semibold leading-none text-warning-foreground">
+          <span {...stylex.props(layoutShellStyles.topBarAttentionBadge)}>
             {attentionCount > 99 ? "99+" : attentionCount}
           </span>
         ) : null}

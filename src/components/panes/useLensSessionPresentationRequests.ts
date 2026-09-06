@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { resolveLensPresentationRequestPolicy } from "@/lib/lens/lens-agent-presentation";
 import type { LensSessionPresentationRequestPayload } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";

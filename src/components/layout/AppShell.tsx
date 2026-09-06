@@ -35,7 +35,10 @@ import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDial
 import { requestComparePreparation } from "@/components/compare/compare-prepare-request";
 import { listLatestWorkspaceTurns } from "@/lib/db/turns.db";
 import { LENS_SURFACE_ROOT_ID } from "@/lib/lens/lens-guest-host";
-import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { layers } from "@/lib/ui-layers.stylex";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
+import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { isTaskArchived } from "@/lib/tasks";
 import { refreshTrackerTasks } from "@/lib/tracker-tasks/client-state";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
@@ -415,11 +418,9 @@ export function AppShell() {
 
   function OverlayLoadingFallback(args: { title: string }) {
     return (
-      <div
-        className={`${UI_LAYER_CLASS.dialog} fixed inset-0 flex items-center justify-center bg-overlay p-4`}
-      >
-        <Card className="w-full max-w-md border-border/80 bg-background/95 p-6 shadow-2xl">
-          <div className="text-sm text-muted-foreground">
+      <div className={sx(layers.dialog, appShellStyles.overlayFallback)}>
+        <Card className={sx(appShellStyles.overlayCard)}>
+          <div className={sx(appShellStyles.overlayText)}>
             Loading {args.title.toLowerCase()}
             ...
           </div>
@@ -1266,12 +1267,10 @@ export function AppShell() {
     !showFleetView && !showAutomationCenter && !showTasks;
 
   return (
-    <div className="relative flex h-full w-full flex-col bg-background text-foreground">
+    <div className={sx(appShellStyles.root)}>
       {zoomHudPercent !== null ? (
-        <div
-          className={`pointer-events-none absolute left-1/2 top-16 ${UI_LAYER_CLASS.floatingChrome} -translate-x-1/2`}
-        >
-          <div className="rounded-full border border-border/80 bg-card px-3 py-1 text-sm font-medium text-foreground shadow-lg">
+        <div className={sx(appShellStyles.zoomHud, layers.floatingChrome)}>
+          <div className={sx(appShellStyles.zoomHudPill)}>
             Zoom {zoomHudPercent}%
           </div>
         </div>
@@ -1353,7 +1352,7 @@ export function AppShell() {
           <KickoffDialog open={kickoffOpen} onOpenChange={setKickoffOpen} />
         </Suspense>
       ) : null}
-      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className={sx(appShellStyles.shellRow)}>
         <RenderProfiler id="ProjectWorkspaceSidebar">
           <ProjectWorkspaceSidebar
             width={Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)}
@@ -1370,7 +1369,7 @@ export function AppShell() {
         </RenderProfiler>
         {!workspaceSidebarCollapsed ? (
           <div
-            className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
+            className={sx(appShellStyles.resizer, layers.resizer)}
             onMouseDown={(event) => {
               event.preventDefault();
               setSidebarResizing(true);
@@ -1399,11 +1398,11 @@ export function AppShell() {
               window.addEventListener("mouseup", onUp);
             }}
           >
-            <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
+            <div className={sx(appShellStyles.resizerSash, transition.colors)} />
           </div>
         ) : null}
         <div
-          className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background lg:rounded-tl-xl"
+          className={sx(appShellStyles.appSurface)}
           data-stave-app-surface=""
         >
           {/*
@@ -1415,23 +1414,23 @@ export function AppShell() {
           */}
           <div
             id={LENS_SURFACE_ROOT_ID}
-            className={`pointer-events-none fixed inset-0 ${UI_LAYER_CLASS.lensSurface}`}
+            className={sx(appShellStyles.lensSurfaceRoot, layers.lensSurface)}
           />
           <TopBar />
           <div
             ref={panelRowRef}
-            className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+            className={sx(appShellStyles.panelRow)}
           >
             <div
               ref={contentRowRef}
               data-stave-content-row=""
-              className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+              className={sx(appShellStyles.panelRow)}
             >
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <div className={sx(appShellStyles.mainColumn)}>
                 {hasProject && showWorkspaceSurface && showPresetBar ? (
                   <PresetBar />
                 ) : null}
-                <div className="min-h-0 min-w-0 flex-1 overflow-hidden sm:min-w-[420px]">
+                <div className={sx(appShellStyles.mainSurface)}>
                   {showFleetView ? (
                     <FleetView />
                   ) : showAutomationCenter ? (
@@ -1439,7 +1438,7 @@ export function AppShell() {
                   ) : showTasks ? (
                     <Suspense
                       fallback={
-                        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                        <div className={sx(appShellStyles.suspenseCenter)}>
                           Loading tasks...
                         </div>
                       }
@@ -1456,7 +1455,7 @@ export function AppShell() {
               {showDesktopSidebar ? (
                 <>
                   <div
-                    className={`group relative hidden w-[9px] -mx-[4px] ${UI_LAYER_CLASS.resizer} shrink-0 cursor-col-resize lg:block`}
+                    className={sx(appShellStyles.resizer, layers.resizer)}
                     onMouseDown={(event) => {
                       event.preventDefault();
                       const startX = event.clientX;
@@ -1484,12 +1483,12 @@ export function AppShell() {
                       window.addEventListener("mouseup", onUp);
                     }}
                   >
-                    <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/40 transition-colors group-hover:bg-primary/50 group-active:bg-primary/70" />
+                    <div className={sx(appShellStyles.resizerSash, transition.colors)} />
                   </div>
                   <Suspense
                     fallback={
                       <aside
-                        className="bg-card p-3 text-sm text-muted-foreground"
+                        className={sx(appShellStyles.panelFallback)}
                         style={{ width: `${desktopSidebarWidth}px` }}
                       >
                         Loading panel...
@@ -1497,7 +1496,7 @@ export function AppShell() {
                     }
                   >
                     <div
-                      className="hidden min-h-0 min-w-0 lg:block"
+                      className={sx(appShellStyles.desktopPanel)}
                       style={{ width: `${desktopSidebarWidth}px` }}
                     >
                       <RenderProfiler id="EditorPanel" thresholdMs={8}>
@@ -1508,10 +1507,10 @@ export function AppShell() {
                 </>
               ) : null}
               {showOverlayRightPanel ? (
-                <div className="min-h-0 min-w-0 w-[min(22rem,56vw)] max-w-[22rem] border-l border-border/40">
+                <div className={sx(appShellStyles.overlayPanel)}>
                   <Suspense
                     fallback={
-                      <aside className="h-full bg-card p-3 text-sm text-muted-foreground">
+                      <aside className={sx(appShellStyles.panelFallbackFull)}>
                         Loading panel...
                       </aside>
                     }

@@ -1,3 +1,9 @@
+import { Checkbox } from "@/components/ads/components/Checkbox";
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Skeleton } from "@/components/ads/components/Skeleton";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { sx } from "@/components/ads/utils/stylex";
+import * as stylex from "@stylexjs/stylex";
 import {
   useCallback,
   useEffect,
@@ -83,9 +89,13 @@ import {
   type WorkspacePrStatus,
   PR_STATUS_VISUAL,
   PR_STATUS_ACTIONS,
-  PR_CREATE_BUTTON_CLASS,
-  PR_TONE_BADGE_CLASS,
 } from "@/lib/pr-status";
+import {
+  prCreateButtonStyles,
+  prToneBadgeStyles,
+} from "./pr-status.styles";
+import { layoutShellStyles } from "./layout-shell.styles";
+import { openPrStyles } from "./top-bar-open-pr.styles";
 import { isTaskArchived } from "@/lib/tasks";
 import {
   collectIntentContext,
@@ -103,7 +113,6 @@ import {
   buildReadOnlyAuxRuntimeOptions,
   resolveAuxLaneRuntime,
 } from "@/lib/providers/auxiliary-inference-policy";
-import { cn } from "@/lib/utils";
 import {
   collectMartinTriggerContext,
   notifyMartinPrOpened,
@@ -169,18 +178,17 @@ type Step = CreatePrDialogStep;
  * Single label language for every field inside the Create PR dialog so labels,
  * controls, and card padding line up on one grid.
  */
-const FIELD_LABEL_CLASS =
-  "block text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground";
+const FIELD_LABEL_CLASS = sx(openPrStyles.fieldLabel);
 
 function InlineNoticeBanner(props: { notice: InlineNotice }) {
-  const toneClassName =
+  const toneStyle =
     props.notice.tone === "success"
-      ? "border-success/30 bg-success/10 text-success dark:bg-success/15"
+      ? openPrStyles.noticeSuccess
       : props.notice.tone === "warning"
-        ? "border-warning/40 bg-warning/10 text-warning dark:bg-warning/15"
+        ? openPrStyles.noticeWarning
         : props.notice.tone === "error"
-          ? "border-destructive/40 bg-destructive/10 text-destructive"
-          : "border-border/70 bg-muted/30 text-foreground";
+          ? openPrStyles.noticeError
+          : openPrStyles.noticeInfo;
 
   const Icon =
     props.notice.tone === "success"
@@ -191,18 +199,15 @@ function InlineNoticeBanner(props: { notice: InlineNotice }) {
 
   return (
     <div
-      className={cn(
-        "flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm",
-        toneClassName,
-      )}
+      className={sx(openPrStyles.notice, toneStyle)}
       role="status"
       aria-live="polite"
     >
-      <Icon className="mt-0.5 size-4 shrink-0" />
-      <div className="min-w-0 space-y-1">
-        <p className="break-words font-medium">{props.notice.title}</p>
+      <Icon {...stylex.props(openPrStyles.noticeIcon)} />
+      <div className={sx(openPrStyles.noticeBody)}>
+        <p className={sx(openPrStyles.noticeTitle)}>{props.notice.title}</p>
         {props.notice.description ? (
-          <p className="break-words text-xs leading-5 opacity-80">
+          <p className={sx(openPrStyles.noticeDescription)}>
             {props.notice.description}
           </p>
         ) : null}
@@ -216,20 +221,20 @@ function CreatePrLoadingSplash(props: {
   baseBranch: string;
 }) {
   return (
-    <div className="space-y-4" role="status" aria-live="polite">
-      <div className="rounded-xl border border-border/70 bg-muted/20 p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/80">
+    <div className={sx(openPrStyles.splash)} role="status" aria-live="polite">
+      <div className={sx(openPrStyles.splashCard)}>
+        <div className={sx(openPrStyles.splashRow)}>
+          <div className={sx(openPrStyles.splashMark)}>
             <Loader
               aria-hidden
-              className="text-primary"
+              className={sx(openPrStyles.splashLoader)}
               size="xs"
               variant="scan"
             />
           </div>
-          <div className="space-y-1.5">
-            <p className="text-sm font-medium">Preparing a PR draft</p>
-            <p className="text-sm text-muted-foreground">
+          <div className={sx(openPrStyles.splashCopy)}>
+            <p className={sx(openPrStyles.splashTitle)}>Preparing a PR draft</p>
+            <p className={sx(openPrStyles.splashText)}>
               Reviewing {props.currentBranch ?? "HEAD"} against{" "}
               {props.baseBranch}, recent commits, and workspace PR guidance.
             </p>
@@ -237,18 +242,18 @@ function CreatePrLoadingSplash(props: {
         </div>
       </div>
 
-      <div className="space-y-3 rounded-xl border border-border/70 bg-background/80 p-4">
-        <div className="space-y-2">
-          <div className="h-3.5 w-14 animate-pulse rounded-full bg-muted" />
-          <div className="h-9 w-full animate-pulse rounded-md bg-muted/80" />
+      <div className={sx(openPrStyles.skeletonCard)}>
+        <div className={sx(openPrStyles.skeletonGroup)}>
+          <Skeleton height={14} radius="9999px" width={56} />
+          <Skeleton height={36} radius="0.5rem" width="100%" />
         </div>
 
-        <div className="space-y-2">
-          <div className="h-3.5 w-24 animate-pulse rounded-full bg-muted" />
-          <div className="space-y-2 rounded-md border border-border/60 bg-muted/25 p-3">
-            <div className="h-3 w-11/12 animate-pulse rounded-full bg-muted/80" />
-            <div className="h-3 w-4/5 animate-pulse rounded-full bg-muted/70" />
-            <div className="h-3 w-3/5 animate-pulse rounded-full bg-muted/60" />
+        <div className={sx(openPrStyles.skeletonGroup)}>
+          <Skeleton height={14} radius="9999px" width={96} />
+          <div className={sx(openPrStyles.skeletonBlock)}>
+            <Skeleton height={12} radius="9999px" width="91.666667%" />
+            <Skeleton height={12} radius="9999px" width="80%" />
+            <Skeleton height={12} radius="9999px" width="60%" />
           </div>
         </div>
       </div>
@@ -264,14 +269,14 @@ function formatReviewFindingKind(kind: PrePrReviewFinding["kind"]) {
   return kind.replace(/_/g, " ");
 }
 
-function getReviewSeverityClassName(severity: PrePrReviewFinding["severity"]) {
+function getReviewSeverityStyle(severity: PrePrReviewFinding["severity"]) {
   if (severity === "critical" || severity === "high") {
-    return "border-destructive/40 bg-destructive/10 text-destructive";
+    return openPrStyles.tagDanger;
   }
   if (severity === "medium") {
-    return "border-warning/40 bg-warning/10 text-warning";
+    return openPrStyles.tagWarning;
   }
-  return "border-border/70 bg-muted text-muted-foreground";
+  return openPrStyles.tagNeutral;
 }
 
 function PrePrReviewFindingsPanel(props: {
@@ -283,15 +288,20 @@ function PrePrReviewFindingsPanel(props: {
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/5 p-3">
-      <div className="flex items-start gap-2">
-        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm font-medium text-foreground">
+    <div className={sx(openPrStyles.panel, openPrStyles.panelWarning)}>
+      <div className={sx(openPrStyles.panelHead)}>
+        <TriangleAlert
+          {...stylex.props(
+            openPrStyles.panelIcon,
+            openPrStyles.panelIconWarning,
+          )}
+        />
+        <div className={sx(openPrStyles.panelCopy)}>
+          <p className={sx(openPrStyles.panelTitle)}>
             AI review found {props.findings.length} issue
             {props.findings.length === 1 ? "" : "s"}
           </p>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className={sx(openPrStyles.panelText)}>
             Stop to fix these before opening the PR, or proceed if they are not
             relevant.
             {props.truncated ? " The review used a truncated diff." : ""}
@@ -299,29 +309,29 @@ function PrePrReviewFindingsPanel(props: {
         </div>
       </div>
 
-      <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+      <div className={sx(openPrStyles.panelList)}>
         {props.findings.map((finding, index) => (
           <div
             key={`${finding.file}:${finding.line ?? "file"}:${index}`}
-            className="rounded-md border border-border/70 bg-background/80 p-2"
+            className={sx(openPrStyles.panelItem)}
           >
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <div className={sx(openPrStyles.panelItemTags)}>
               <span
-                className={cn(
-                  "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase",
-                  getReviewSeverityClassName(finding.severity),
+                className={sx(
+                  openPrStyles.tag,
+                  getReviewSeverityStyle(finding.severity),
                 )}
               >
                 {finding.severity}
               </span>
-              <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+              <span className={sx(openPrStyles.tag, openPrStyles.tagNeutral)}>
                 {formatReviewFindingKind(finding.kind)}
               </span>
-              <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">
+              <span className={sx(openPrStyles.tagLocation)}>
                 {formatReviewFindingLocation(finding)}
               </span>
             </div>
-            <p className="mt-1.5 text-xs leading-5 text-foreground">
+            <p className={sx(openPrStyles.panelItemMessage)}>
               {finding.message}
             </p>
           </div>
@@ -339,22 +349,24 @@ function PrePrVerificationPanel(props: {
     return null;
   }
 
-  const containerClass = props.blocking
-    ? "border-destructive/40 bg-destructive/5"
-    : "border-warning/40 bg-warning/5";
-  const iconClass = props.blocking ? "text-destructive" : "text-warning";
+  const containerStyle = props.blocking
+    ? openPrStyles.panelDanger
+    : openPrStyles.panelWarning;
+  const iconStyle = props.blocking
+    ? openPrStyles.panelIconDanger
+    : openPrStyles.panelIconWarning;
 
   return (
-    <div className={cn("space-y-2 rounded-lg border p-3", containerClass)}>
-      <div className="flex items-start gap-2">
-        <TriangleAlert className={cn("mt-0.5 size-4 shrink-0", iconClass)} />
-        <div className="min-w-0 space-y-1">
-          <p className="text-sm font-medium text-foreground">
+    <div className={sx(openPrStyles.panel, containerStyle)}>
+      <div className={sx(openPrStyles.panelHead)}>
+        <TriangleAlert {...stylex.props(openPrStyles.panelIcon, iconStyle)} />
+        <div className={sx(openPrStyles.panelCopy)}>
+          <p className={sx(openPrStyles.panelTitle)}>
             Verification {props.blocking ? "failed" : "reported warnings"} —{" "}
             {props.failures.length} check
             {props.failures.length === 1 ? "" : "s"}
           </p>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className={sx(openPrStyles.panelText)}>
             {props.blocking
               ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
               : "These pr.beforeOpen checks are non-blocking — proceed anyway, or stop to fix them first."}
@@ -362,28 +374,28 @@ function PrePrVerificationPanel(props: {
         </div>
       </div>
 
-      <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+      <div className={sx(openPrStyles.panelList)}>
         {props.failures.map((failure, index) => (
           <div
             key={`${failure.scriptId}:${index}`}
-            className="rounded-md border border-border/70 bg-background/80 p-2"
+            className={sx(openPrStyles.panelItem)}
           >
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <span className="rounded-sm border border-border/70 bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+            <div className={sx(openPrStyles.panelItemTags)}>
+              <span className={sx(openPrStyles.tag, openPrStyles.tagNeutral)}>
                 {failure.scriptId}
               </span>
               <span
-                className={cn(
-                  "rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase",
+                className={sx(
+                  openPrStyles.tag,
                   failure.blocking
-                    ? "border-destructive/40 text-destructive"
-                    : "border-warning/40 text-warning",
+                    ? openPrStyles.tagOutlineDanger
+                    : openPrStyles.tagOutlineWarning,
                 )}
               >
                 {failure.blocking ? "blocking" : "non-blocking"}
               </span>
             </div>
-            <p className="mt-1.5 break-words text-xs leading-5 text-foreground">
+            <p className={sx(openPrStyles.panelItemMessage)}>
               {failure.message}
             </p>
           </div>
@@ -405,22 +417,22 @@ function PullRequestBranchFields(props: {
   const headBranch = props.currentBranch?.trim() || "HEAD";
 
   return (
-    <div className="min-w-0 rounded-xl border border-border/70 bg-muted/20 p-3">
-      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
-        <div className="min-w-0 space-y-1.5">
+    <div className={sx(openPrStyles.branchCard)}>
+      <div className={sx(openPrStyles.branchGrid)}>
+        <div className={sx(openPrStyles.branchField)}>
           <p className={FIELD_LABEL_CLASS}>From</p>
-          <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background/80 px-3 text-sm shadow-xs">
-            <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">{headBranch}</span>
+          <div className={sx(openPrStyles.branchReadout)}>
+            <GitBranch {...stylex.props(openPrStyles.branchReadoutIcon)} />
+            <span className={sx(openPrStyles.truncate)}>{headBranch}</span>
           </div>
         </div>
 
         <ArrowRight
-          className="hidden size-4 shrink-0 text-muted-foreground sm:mb-2.5 sm:block"
+          {...stylex.props(openPrStyles.branchArrow)}
           aria-hidden="true"
         />
 
-        <div className="min-w-0 space-y-1.5">
+        <div className={sx(openPrStyles.branchField)}>
           <p className={FIELD_LABEL_CLASS}>Into</p>
           <CreateWorkspaceBranchPicker
             value={props.targetBranch}
@@ -1815,7 +1827,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     ? "Pause or finish the running task before continuing into a new workspace"
     : "Create a new workspace and attach a continuation brief from this completed branch";
 
-  const badgeColorClass = PR_TONE_BADGE_CLASS[visual.tone];
+  const badgeToneStyle = prToneBadgeStyles[visual.tone];
 
   useEffect(() => {
     const onTopBarPrAction = (event: Event) => {
@@ -1893,12 +1905,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         <Tooltip>
           <TooltipTrigger
             render={
-              <button
+              <AdsButton
+                layout="host"
                 type="button"
-                className={cn(
-                  "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors disabled:opacity-50",
-                  PR_CREATE_BUTTON_CLASS,
-                )}
+                xstyle={[openPrStyles.trigger, prCreateButtonStyles.trigger]}
                 style={props.noDragStyle}
                 onClick={() => void handleCreateClick()}
                 disabled={isCreateDisabled}
@@ -1908,12 +1918,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             {isBusy ? (
               <Loader
                 aria-hidden
-                className="shrink-0"
+                className={sx(openPrStyles.flexNone)}
                 size="xs"
                 variant="persist"
               />
             ) : (
-              <GitPullRequest className="size-3.5 shrink-0" />
+              <GitPullRequest />
             )}
             {statusLabel ?? "Create PR"}
           </TooltipTrigger>
@@ -1921,18 +1931,20 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         </Tooltip>
       ) : (
         /* Has PR – show status dropdown */
-        <div className="flex items-center gap-1.5">
+        <div className={sx(openPrStyles.triggerGroup)}>
           <DropdownMenu>
             <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
+              <TooltipTrigger
+                render={
+                  <span {...stylex.props(layoutShellStyles.inlineFlex)} />
+                }
+              >
                 <DropdownMenuTrigger
                   render={
-                    <button
+                    <AdsButton
+                      layout="host"
                       type="button"
-                      className={cn(
-                        "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors disabled:opacity-50",
-                        badgeColorClass,
-                      )}
+                      xstyle={[openPrStyles.trigger, badgeToneStyle]}
                       style={props.noDragStyle}
                       disabled={isBusy || continuingWorkspace}
                       aria-label="open-pr-status-menu"
@@ -1942,12 +1954,15 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   {isBusy ? (
                     <Loader
                       aria-hidden
-                      className="shrink-0"
+                      className={sx(openPrStyles.flexNone)}
                       size="xs"
                       variant="scan"
                     />
                   ) : (
-                    <PrStatusIcon status={prStatus} className="size-3.5" />
+                    <PrStatusIcon
+                      status={prStatus}
+                      className={sx(openPrStyles.statusIcon)}
+                    />
                   )}
                   {statusLabel ?? visual.label}
                 </DropdownMenuTrigger>
@@ -1957,13 +1972,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               </TooltipContent>
             </Tooltip>
 
-            <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuContent
+              align="end"
+              className={sx(openPrStyles.statusMenu)}
+            >
               {/* PR info header */}
-              <DropdownMenuLabel className="flex flex-col gap-0.5">
-                <span className="truncate text-xs font-medium">
+              <DropdownMenuLabel
+                className={sx(openPrStyles.statusMenuLabel)}
+              >
+                <span className={sx(openPrStyles.statusMenuTitle)}>
                   #{prInfo?.pr?.number} {prInfo?.pr?.title}
                 </span>
-                <span className="text-[10px] font-normal text-muted-foreground">
+                <span className={sx(openPrStyles.statusMenuSubtitle)}>
                   {currentBranch} &rarr;{" "}
                   {prInfo?.pr?.baseRefName ?? defaultBaseBranch}
                 </span>
@@ -1974,7 +1994,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               {/* Primary action */}
               {actions.primary ? (
                 <DropdownMenuItem
-                  className="font-medium"
+                  className={sx(openPrStyles.menuItemStrong)}
                   onSelect={() => handleAction(actions.primary!.key)}
                 >
                   {actions.primary.label}
@@ -1988,11 +2008,15 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   onSelect={() => handleAction(action.key)}
                 >
                   {action.key === "open_github" || action.key === "refresh" ? (
-                    <span className="flex items-center gap-2">
+                    <span className={sx(openPrStyles.menuItemRow)}>
                       {action.key === "open_github" ? (
-                        <ExternalLink className="size-3.5 text-muted-foreground" />
+                        <ExternalLink
+                          {...stylex.props(openPrStyles.menuItemIcon)}
+                        />
                       ) : (
-                        <RefreshCw className="size-3.5 text-muted-foreground" />
+                        <RefreshCw
+                          {...stylex.props(openPrStyles.menuItemIcon)}
+                        />
                       )}
                       {action.label}
                     </span>
@@ -2009,8 +2033,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   <DropdownMenuItem
                     onSelect={() => setPrContextDialogOpen(true)}
                   >
-                    <span className="flex items-center gap-2">
-                      <MessageSquare className="size-3.5 text-muted-foreground" />
+                    <span className={sx(openPrStyles.menuItemRow)}>
+                      <MessageSquare
+                        {...stylex.props(openPrStyles.menuItemIcon)}
+                      />
                       Attach PR context&hellip;
                     </span>
                   </DropdownMenuItem>
@@ -2023,9 +2049,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <button
+                  <AdsButton
+                    layout="host"
                     type="button"
-                    className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/70 bg-background/80 px-2.5 text-xs text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                    xstyle={[
+                      openPrStyles.trigger,
+                      openPrStyles.continueTrigger,
+                    ]}
                     style={props.noDragStyle}
                     onClick={() => setContinueDialogOpen(true)}
                     disabled={isContinueDisabled}
@@ -2035,12 +2065,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 {continuingWorkspace ? (
                   <Loader
                     aria-hidden
-                    className="shrink-0"
+                    className={sx(openPrStyles.flexNone)}
                     size="xs"
                     variant="sync"
                   />
                 ) : (
-                  <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+                  <GitBranch />
                 )}
                 Continue
               </TooltipTrigger>
@@ -2066,27 +2096,29 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         }}
       >
         <DialogContent
-          className="min-w-0 sm:max-w-lg"
+          xstyle={openPrStyles.dialogSurface}
           showCloseButton={!isDialogBusy}
         >
           <DialogHeader>
             <DialogTitle>Create Pull Request</DialogTitle>
-            <DialogDescription className="sr-only">
-              Create a pull request from {currentBranch ?? "HEAD"} into{" "}
-              {effectiveTargetBranch}
-            </DialogDescription>
+            <VisuallyHidden>
+              <DialogDescription>
+                Create a pull request from {currentBranch ?? "HEAD"} into{" "}
+                {effectiveTargetBranch}
+              </DialogDescription>
+            </VisuallyHidden>
           </DialogHeader>
 
           {step === "loading" ? (
-            <div className="min-w-0 pr-1">
+            <div className={sx(openPrStyles.loadingSlot)}>
               <CreatePrLoadingSplash
                 currentBranch={currentBranch}
                 baseBranch={effectiveTargetBranch}
               />
             </div>
           ) : (
-            <form className="min-w-0 space-y-4" onSubmit={handleFormSubmit}>
-              <div className="min-w-0 space-y-4 pr-1">
+            <form className={sx(openPrStyles.form)} onSubmit={handleFormSubmit}>
+              <div className={sx(openPrStyles.formBody)}>
                 <PullRequestBranchFields
                   currentBranch={currentBranch}
                   defaultBranch={defaultBaseBranch}
@@ -2099,18 +2131,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   }}
                 />
 
-                <div className="min-w-0 space-y-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+                <div className={sx(openPrStyles.mergeCard)}>
                   <p className={FIELD_LABEL_CLASS}>Merge behavior</p>
 
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                    <div className="min-w-0">
+                  <div className={sx(openPrStyles.settingRow)}>
+                    <div className={sx(openPrStyles.minWidthZero)}>
                       <label
-                        className="block text-sm font-medium leading-5"
+                        className={sx(openPrStyles.settingLabel)}
                         htmlFor="create-pr-merge-method"
                       >
                         Merge method
                       </label>
-                      <p className="text-xs leading-4 text-muted-foreground">
+                      <p className={sx(openPrStyles.settingHint)}>
                         Used when the PR is merged.
                       </p>
                     </div>
@@ -2123,7 +2155,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     >
                       <SelectTrigger
                         id="create-pr-merge-method"
-                        className="h-9 w-40 shrink-0 justify-self-end"
+                        className={sx(openPrStyles.mergeMethodTrigger)}
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -2165,17 +2197,20 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     </Select>
                   </div>
 
-                  <div className="h-px bg-border/60" aria-hidden="true" />
+                  <div
+                    {...stylex.props(openPrStyles.divider)}
+                    aria-hidden="true"
+                  />
 
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                    <div className="min-w-0">
+                  <div className={sx(openPrStyles.settingRow)}>
+                    <div className={sx(openPrStyles.minWidthZero)}>
                       <label
-                        className="block text-sm font-medium leading-5"
+                        className={sx(openPrStyles.settingLabel)}
                         htmlFor="create-pr-auto-merge"
                       >
                         Auto-merge
                       </label>
-                      <p className="text-xs leading-4 text-muted-foreground">
+                      <p className={sx(openPrStyles.settingHint)}>
                         {repoMergeSettings?.autoMergeAllowed === false
                           ? "Disabled by repository settings."
                           : "Merge automatically after required checks pass."}
@@ -2183,7 +2218,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     </div>
                     <Switch
                       id="create-pr-auto-merge"
-                      className="shrink-0 justify-self-end"
+                      className={sx(openPrStyles.autoMergeSwitch)}
                       checked={dialogAutoMerge}
                       onCheckedChange={setDialogAutoMerge}
                       disabled={
@@ -2207,9 +2242,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 />
 
                 {/* PR Title */}
-                <div className="space-y-2">
+                <div className={sx(openPrStyles.field)}>
                   <label
-                    className="block text-sm font-medium leading-5"
+                    className={sx(openPrStyles.settingLabel)}
                     htmlFor="pr-title-input"
                   >
                     Title
@@ -2217,7 +2252,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   <Input
                     autoFocus
                     id="pr-title-input"
-                    className="h-9 text-sm"
+                    xstyle={openPrStyles.textInput}
                     placeholder="PR title"
                     value={prTitle}
                     onChange={(e) => {
@@ -2227,7 +2262,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     aria-invalid={isTitleInvalid}
                   />
                   {isTitleInvalid ? (
-                    <p className="text-xs text-destructive">
+                    <p className={sx(openPrStyles.fieldError)}>
                       Use a lowercase Conventional Commit title, for example{" "}
                       <code>fix(topbar): stabilize create pr flow</code>.
                     </p>
@@ -2235,16 +2270,21 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </div>
 
                 {/* PR Description */}
-                <div className="min-w-0 space-y-2">
+                <div
+                  className={sx(
+                    openPrStyles.field,
+                    openPrStyles.fieldMinWidthZero,
+                  )}
+                >
                   <label
-                    className="block text-sm font-medium leading-5"
+                    className={sx(openPrStyles.settingLabel)}
                     htmlFor="pr-body-input"
                   >
                     Description
                   </label>
                   <Textarea
                     id="pr-body-input"
-                    className="min-h-24 max-h-80 min-w-0 resize-y whitespace-pre-wrap break-words [field-sizing:fixed] [overflow-wrap:anywhere] text-sm"
+                    xstyle={openPrStyles.bodyTextarea}
                     rows={6}
                     wrap="soft"
                     placeholder="Describe your changes..."
@@ -2258,45 +2298,49 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
                 {/* Uncommitted Changes */}
                 {changedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <button
+                  <div className={sx(openPrStyles.field)}>
+                    <AdsButton
+                      layout="host"
                       type="button"
-                      className="flex w-full min-w-0 items-center gap-1.5 text-left text-sm font-medium leading-5 text-warning"
+                      xstyle={openPrStyles.changesToggle}
                       onClick={() => setChangesExpanded((v) => !v)}
                       aria-expanded={changesExpanded}
                       aria-controls="create-pr-changed-files"
                     >
-                      {changesExpanded ? (
-                        <ChevronDown className="size-3.5 shrink-0" />
-                      ) : (
-                        <ChevronRight className="size-3.5 shrink-0" />
-                      )}
-                      <span className="shrink-0">
+                      {changesExpanded ? <ChevronDown /> : <ChevronRight />}
+                      <span className={sx(openPrStyles.changesCountLabel)}>
                         {changedFiles.length} uncommitted file
                         {changedFiles.length !== 1 ? "s" : ""}
                       </span>
-                      <span className="min-w-0 truncate text-xs font-normal text-muted-foreground">
+                      <span className={sx(openPrStyles.changesHint)}>
                         all files selected by default
                       </span>
-                    </button>
+                    </AdsButton>
 
-                    <div id="create-pr-changed-files" className="min-w-0">
+                    <div
+                      id="create-pr-changed-files"
+                      className={sx(openPrStyles.minWidthZero)}
+                    >
                       {changesExpanded && (
-                        <div className="min-w-0 space-y-2">
-                          <div className="max-h-40 min-w-0 overflow-y-auto rounded-md border border-border/70 bg-muted/30 p-2 text-xs">
+                        <div
+                          className={sx(
+                            openPrStyles.field,
+                            openPrStyles.fieldMinWidthZero,
+                          )}
+                        >
+                          <div className={sx(openPrStyles.changesList)}>
                             {changedFiles.map((file) => (
                               <label
                                 key={file.path}
-                                className="flex min-w-0 items-center gap-2 rounded-sm px-1 py-1 hover:bg-muted/50"
+                                className={sx(openPrStyles.changesRow)}
                               >
-                                <input
-                                  type="checkbox"
-                                  className="size-3.5 shrink-0 accent-primary"
+                                <Checkbox
+                                  controlOnly
                                   checked={selectedFilePaths.includes(
                                     file.path,
                                   )}
-                                  onChange={(event) => {
-                                    if (event.target.checked) {
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
                                       userDeselectedPathsRef.current.delete(
                                         file.path,
                                       );
@@ -2306,7 +2350,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                                       );
                                     }
                                     setSelectedFilePaths((paths) =>
-                                      event.target.checked
+                                      checked
                                         ? [...new Set([...paths, file.path])]
                                         : paths.filter(
                                             (path) => path !== file.path,
@@ -2316,10 +2360,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                                   disabled={isDialogBusy}
                                   aria-label={`Include ${file.path} in the automatic commit`}
                                 />
-                                <span className="w-5 shrink-0 text-center font-mono font-medium text-muted-foreground">
+                                <span className={sx(openPrStyles.changesCode)}>
                                   {file.code}
                                 </span>
-                                <span className="min-w-0 truncate font-mono">
+                                <span className={sx(openPrStyles.changesPath)}>
                                   {file.path}
                                 </span>
                               </label>
@@ -2327,13 +2371,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                           </div>
 
                           {selectedFilePaths.length === 0 ? (
-                            <p className="text-xs leading-4 text-muted-foreground">
+                            <p className={sx(openPrStyles.fieldHint)}>
                               Select at least one file to enable automatic
                               commit. Unselected files will remain untouched.
                             </p>
                           ) : null}
 
-                          <div className="min-w-0 space-y-2">
+                          <div
+                            className={sx(
+                              openPrStyles.field,
+                              openPrStyles.fieldMinWidthZero,
+                            )}
+                          >
                             <label
                               className={FIELD_LABEL_CLASS}
                               htmlFor="commit-message-input"
@@ -2342,7 +2391,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                             </label>
                             <Input
                               id="commit-message-input"
-                              className="h-9 text-sm"
+                              xstyle={openPrStyles.textInput}
                               placeholder={generateFallbackCommitMessage(
                                 selectedFilePaths.length > 0
                                   ? changedFiles.filter((file) =>
@@ -2356,7 +2405,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                               aria-invalid={isCommitMessageInvalid}
                             />
                             {isCommitMessageInvalid ? (
-                              <p className="text-xs leading-4 text-destructive">
+                              <p className={sx(openPrStyles.fieldErrorTight)}>
                                 Use a Conventional Commit message such as{" "}
                                 <code>
                                   fix(topbar): stabilize create pr flow
@@ -2373,7 +2422,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               </div>
 
               {step === "reviewing" && reviewFindings.length > 0 ? (
-                <DialogFooter className="shrink-0">
+                <DialogFooter className={sx(openPrStyles.dialogFooter)}>
                   <Button
                     type="button"
                     variant="outline"
@@ -2386,7 +2435,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   </Button>
                 </DialogFooter>
               ) : verificationFailures.length > 0 ? (
-                <DialogFooter className="shrink-0">
+                <DialogFooter className={sx(openPrStyles.dialogFooter)}>
                   <Button
                     type="button"
                     variant="outline"
@@ -2404,7 +2453,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   )}
                 </DialogFooter>
               ) : (
-                <DialogFooter className="shrink-0">
+                <DialogFooter className={sx(openPrStyles.dialogFooter)}>
                   <Button type="submit" disabled={!canSubmitPr || isDialogBusy}>
                     {isCreatePrSubmitting ? (
                       <Loader aria-hidden size="xs" variant="persist" />

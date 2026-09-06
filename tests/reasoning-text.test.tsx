@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ReasoningText } from "@/components/ai-elements/reasoning-text";
+import { reasoningTextStyles } from "@/components/ai-elements/reasoning-text.styles";
+import { sx } from "@/components/ads/utils/stylex";
 
 /* These are `renderToStaticMarkup` substring assertions — there is no DOM
    runner in this repo, so only the initial (server) render is observable. */
@@ -14,11 +16,19 @@ describe("ReasoningText", () => {
     }));
 
     /* The invisible anchor holds the longest phrase; the live phrase is the
-       first pool entry on the initial render. */
-    expect(html).toContain("invisible");
+       first pool entry on the initial render. StyleX hashes the class, so
+       identity is checked against the compiled width-anchor style. */
     expect(html).toContain("A much longer phrase");
-    expect(html).toContain("col-start-1");
-    expect(html).toContain("row-start-1");
+    const anchorClass = sx(reasoningTextStyles.widthAnchor);
+    for (const token of anchorClass.split(/\s+/)) {
+      expect(html).toContain(token);
+    }
+    // The anchor and the live phrase share one grid cell so rotation cannot
+    // resize the label.
+    const bodyCellClass = sx(reasoningTextStyles.bodyCell);
+    for (const token of bodyCellClass.split(/\s+/)) {
+      expect(html).toContain(token);
+    }
   });
 
   test("cascade splits the phrase into per-character animation slots", () => {
@@ -28,7 +38,11 @@ describe("ReasoningText", () => {
       active: true,
     }));
 
-    expect(html).toContain("motion-safe:animate-cascade-char");
+    // Each character is a separate animated slot carrying its stagger index.
+    const cascadeClass = sx(reasoningTextStyles.cascadeChar);
+    for (const token of cascadeClass.split(/\s+/)) {
+      expect(html).toContain(token);
+    }
     expect(html).toContain("--cascade-i:0");
     expect(html).toContain("--cascade-i:1");
     expect(html).toContain("--cascade-i:2");
@@ -41,8 +55,13 @@ describe("ReasoningText", () => {
       active: true,
     }));
 
-    expect(html).not.toContain("animate-cascade-char");
-    expect(html).toContain("motion-safe:animate-thinking-phrase-soft");
+    const swapClass = sx(reasoningTextStyles.swapPhrase);
+    // No per-character cascade slots on a swap render (the cascade stagger var
+    // is the reliable signal since StyleX hashes the class names).
+    expect(html).not.toContain("--cascade-i");
+    for (const token of swapClass.split(/\s+/)) {
+      expect(html).toContain(token);
+    }
   });
 
   test("scramble renders the settled phrase before the rAF loop starts", () => {
@@ -63,8 +82,10 @@ describe("ReasoningText", () => {
       active: true,
     }));
 
-    /* One shimmer surface, not one per character. */
-    expect(html.match(/bg-clip-text/g)?.length ?? 0).toBe(1);
+    /* One shimmer surface, not one per character. The Shimmer wrapper paints a
+       single gradient via one inline `background-image`; assert exactly one
+       even though the phrase is split into per-character animation slots. */
+    expect(html.match(/background-image:linear-gradient/g)?.length ?? 0).toBe(1);
     expect(html).toContain("--shimmer-base-color");
   });
 

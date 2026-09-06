@@ -1,3 +1,7 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   DockviewReact,
   type DockviewApi,
@@ -97,35 +101,31 @@ function PaneIconPicker(props: IContextMenuItemComponentProps) {
   };
 
   return (
-    <div className="flex min-w-48 items-center gap-1 px-2 py-1.5">
-      <span className="mr-1 text-xs text-muted-foreground">Icon</span>
-      <button
+    <div className={sx(styles.picker)}>
+      <span className={sx(styles.label)}>Icon</span>
+      <AdsButton layout="host"
         type="button"
-        className="flex size-7 items-center justify-center rounded-sm border border-border/70 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+        className={sx(styles.reset)}
         aria-label="Use default tab icon"
         title="Default"
         onClick={() => setIcon(undefined)}
       >
         ×
-      </button>
+      </AdsButton>
       {PANE_CUSTOM_ICON_OPTIONS.map((option) => {
         const Icon = option.icon;
         const selected = options?.selectedIcon === option.id;
         return (
-          <button
+          <AdsButton layout="host"
             key={option.id}
             type="button"
-            className={
-              selected
-                ? "flex size-7 items-center justify-center rounded-sm bg-accent text-accent-foreground"
-                : "flex size-7 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-            }
+            xstyle={[styles.choice, selected && styles.selected]}
             aria-label={`Use ${option.label} tab icon`}
             title={option.label}
             onClick={() => setIcon(option.id)}
           >
-            <Icon className="size-4" />
-          </button>
+            <Icon className={sx(styles.icon)} />
+          </AdsButton>
         );
       })}
     </div>
@@ -1118,7 +1118,7 @@ export function WorkspacePaneHost() {
 
   return (
     <div
-      className="h-full min-h-0 w-full min-w-0"
+      className={sx(styles.root)}
       data-testid="workspace-pane-host"
     >
       <DockviewReact
@@ -1187,3 +1187,13 @@ export function WorkspacePaneHost() {
     </div>
   );
 }
+
+const styles = stylex.create({
+choice: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,color:{default:vars.colorTextMuted,":hover":vars.colorText},backgroundColor:{default:"transparent",":hover":vars.colorCanvasSubtle}},
+selected:{backgroundColor:vars.colorAccentSoft,color:vars.colorText},
+picker: {display:"flex",minWidth:192,alignItems:"center",gap:4,paddingInline:8,paddingBlock:6},
+label: {marginRight:4,fontSize:12,color:vars.colorTextMuted},
+reset: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,fontSize:12,color:{default:vars.colorTextMuted,":hover":vars.colorText},backgroundColor:{default:"transparent",":hover":vars.colorCanvasSubtle}},
+icon: {width:16,height:16},
+root: {height:"100%",minHeight:0,width:"100%",minWidth:0}
+});

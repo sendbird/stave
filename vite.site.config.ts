@@ -1,12 +1,20 @@
 import path from "node:path"
+import stylex from "@stylexjs/unplugin"
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
-import tailwindcss from "@tailwindcss/vite"
 
 export default defineConfig({
   root: path.resolve(__dirname, "site"),
   base: "./",
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    stylex.vite({
+      useCSSLayers: true,
+      enableMediaQueryOrder: false,
+      unstable_moduleResolution: { type: "commonJS", rootDir: __dirname },
+      aliases: { "@/*": [path.resolve(__dirname, "src", "*")] },
+    }),
+    react(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

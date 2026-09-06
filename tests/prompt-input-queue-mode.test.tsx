@@ -2,6 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { COMPOSER_CONTROL_BUTTON } from "@/components/ai-elements/composer-control-density";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { sx } from "@/components/ads/utils/stylex";
+import { promptInputStyles } from "@/components/ai-elements/prompt-input.styles";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 
 const originalWindowDescriptor = Object.getOwnPropertyDescriptor(
@@ -135,10 +138,12 @@ describe("PromptInput queue mode", () => {
     );
 
     expect(html).toContain('aria-label="Enhance prompt"');
-    expect(html).toContain("pointer-events-none absolute right-0 top-0");
-    expect(html).toContain("pointer-events-auto disabled:opacity-100 size-7");
+    expect(html).toContain(sx(promptInputStyles.enhanceOverlay));
+    expect(html).toContain(
+      sx(promptInputStyles.enhanceButtonBase, promptInputStyles.enhanceIdle),
+    );
     expect(html).toContain("lucide-wand-sparkles");
-    expect(html).toContain("z-40");
+    expect(html).toContain(UI_LAYER_CLASS.floatingChrome);
   });
 
   test("renders the local-change review CTA before attach with visible text", async () => {
@@ -317,7 +322,7 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain("1 file");
     expect(html).toContain("1 image");
     expect(html).toContain("Clear all");
-    expect(html).toContain("dark:bg-transparent");
+    expect(html).toContain(sx(promptInputStyles.editorReset));
     expect(html).not.toContain("absolute right-4 top-4");
     expect(html).not.toContain("README.md");
     expect(html).not.toContain("Focus");

@@ -14,7 +14,9 @@ import {
   DEFAULT_PROJECT_MEMORY_SETTINGS,
   type ProjectMemorySettings,
 } from "@/lib/project-memory-settings";
+import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { projectMemoryControlsStyles as styles } from "./ProjectMemoryControls.styles";
 
 export const PROJECT_MEMORY_CHANGED_EVENT = "stave:project-memory-changed";
 const KIND_DESCRIPTIONS = {
@@ -146,9 +148,9 @@ export function ProjectMemoryControls({
   };
 
   return (
-    <div className="space-y-4">
+    <div className={sx(styles.root)}>
       {error && (
-        <div role="alert" className="space-y-2 text-sm text-destructive">
+        <div role="alert" className={sx(styles.errorBlock)}>
           <p>{error}</p>
           <Button
             variant="outline"
@@ -164,18 +166,18 @@ export function ProjectMemoryControls({
         </div>
       )}
       {!draft ? (
-        <p className="text-sm text-muted-foreground">
+        <p className={sx(styles.loading)}>
           {error
             ? "Memory settings are unavailable."
             : "Loading memory settings…"}
         </p>
       ) : (
         <>
-          <fieldset disabled={busy} className="space-y-4">
-            <label className="flex items-start justify-between gap-4 text-sm">
+          <fieldset disabled={busy} className={sx(styles.fieldset)}>
+            <label className={sx(styles.toggleRow)}>
               <span>
                 Use project memory
-                <span className="mt-1 block text-xs text-muted-foreground">
+                <span className={sx(styles.toggleHint)}>
                   Include relevant saved knowledge in new turns. Turning this
                   off keeps stored memories.
                 </span>
@@ -187,10 +189,10 @@ export function ProjectMemoryControls({
                 }
               />
             </label>
-            <label className="flex items-start justify-between gap-4 text-sm">
+            <label className={sx(styles.toggleRow)}>
               <span>
                 Collect memory candidates
-                <span className="mt-1 block text-xs text-muted-foreground">
+                <span className={sx(styles.toggleHint)}>
                   Use completed-turn summaries to suggest memories. Requires
                   Background AI → Turn summary. Explicit agent saves remain
                   available.
@@ -203,12 +205,10 @@ export function ProjectMemoryControls({
                 }
               />
             </label>
-            <fieldset className="space-y-2">
-              <legend className="mb-2 text-sm font-medium">
-                What to collect
-              </legend>
+            <fieldset className={sx(styles.kindsFieldset)}>
+              <legend className={sx(styles.legend)}>What to collect</legend>
               {PROJECT_MEMORY_KINDS.map((kind) => (
-                <label key={kind} className="flex items-center gap-2 text-sm">
+                <label key={kind} className={sx(styles.kindRow)}>
                   <input
                     type="checkbox"
                     checked={draft.kinds.includes(kind)}
@@ -225,15 +225,17 @@ export function ProjectMemoryControls({
                 </label>
               ))}
             </fieldset>
-            <label className="block space-y-2 text-sm">
-              <span className="font-medium">Collection template</span>
-              <span className="block text-xs text-muted-foreground">
+            <label className={sx(styles.templateLabelStack)}>
+              <span className={sx(styles.templateTitle)}>
+                Collection template
+              </span>
+              <span className={sx(styles.templateHint)}>
                 Describe what is worth remembering and what to exclude. Each
                 summary can propose one candidate; review and recall limits
                 still apply.
               </span>
               <Textarea
-                className="min-h-48 resize-y text-sm"
+                xstyle={styles.templateTextarea}
                 value={draft.collectionTemplate}
                 maxLength={4000}
                 onChange={(event) =>
@@ -241,7 +243,7 @@ export function ProjectMemoryControls({
                 }
               />
             </label>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className={sx(styles.actionRow)}>
               <Button
                 size="sm"
                 onClick={() => void save()}
@@ -268,12 +270,12 @@ export function ProjectMemoryControls({
               </Button>
             </div>
           </fieldset>
-          <div className="space-y-2 border-t pt-4">
-            <p className="text-sm text-muted-foreground">
+          <div className={sx(styles.footer)}>
+            <p className={sx(styles.footerCount)}>
               {counts.all} memories · {counts.candidates} candidates in this
               project
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div className={sx(styles.footerActions)}>
               <Button
                 variant="outline"
                 size="sm"
@@ -320,7 +322,7 @@ export function ProjectMemoryControls({
         }}
       >
         {error && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className={sx(styles.dialogError)}>
             {error}
           </p>
         )}
@@ -338,10 +340,10 @@ export function ProjectMemorySettingsSection(props: {
     ? selected
     : (props.projects[0]?.projectPath ?? "");
   return (
-    <section className="max-w-3xl space-y-5">
+    <section className={sx(styles.section)}>
       <div>
-        <h2 className="text-lg font-semibold">Project memory</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h2 className={sx(styles.sectionTitle)}>Project memory</h2>
+        <p className={sx(styles.sectionLead)}>
           Choose how this project collects and recalls knowledge across its
           workspaces.
         </p>
@@ -366,7 +368,7 @@ export function ProjectMemorySettingsSection(props: {
           <ProjectMemoryControls key={projectPath} projectPath={projectPath} />
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <p className={sx(styles.loading)}>
           Open a project to configure memory.
         </p>
       )}

@@ -1,3 +1,5 @@
+import { Checkbox } from "@/components/ads/components/Checkbox";
+import { sx } from "@/components/ads/utils/stylex";
 // ---------------------------------------------------------------------------
 // PR context dialog — pick review threads and failed checks to attach
 // ---------------------------------------------------------------------------
@@ -29,6 +31,7 @@ import {
   type PrContextIndex,
 } from "@/lib/pr-context";
 import { useAppStore } from "@/store/app.store";
+import { prContextStyles } from "./pr-context-dialog.styles";
 
 interface PrContextDialogProps {
   open: boolean;
@@ -178,7 +181,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[80vh] flex-col sm:max-w-2xl">
+      <DialogContent xstyle={prContextStyles.content}>
         <DialogHeader>
           <DialogTitle>Attach PR context</DialogTitle>
           <DialogDescription>
@@ -189,7 +192,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+          <div className={sx(prContextStyles.loading)}>
             <Loader aria-hidden="true" size="xs" variant="scan" />
             Reading the pull request…
           </div>
@@ -198,10 +201,10 @@ export function PrContextDialog(props: PrContextDialogProps) {
         {error ? (
           <p
             role="alert"
-            className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+            className={sx(prContextStyles.error)}
           >
             <AlertTriangle
-              className="mt-0.5 size-3.5 shrink-0"
+              className={sx(prContextStyles.errorIcon)}
               aria-hidden="true"
             />
             {error}
@@ -209,8 +212,8 @@ export function PrContextDialog(props: PrContextDialogProps) {
         ) : null}
 
         {index && !loading ? (
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-            <p className="text-xs text-muted-foreground">
+          <div className={sx(prContextStyles.body)}>
+            <p className={sx(prContextStyles.meta)}>
               {index.ref.owner}/{index.ref.repo}#{index.ref.number} · {summary}{" "}
               · head {index.headSha.slice(0, 7) || "unknown"}
             </p>
@@ -218,41 +221,45 @@ export function PrContextDialog(props: PrContextDialogProps) {
             <section aria-labelledby="pr-context-threads">
               <h3
                 id="pr-context-threads"
-                className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground"
+                className={sx(prContextStyles.sectionHeading)}
               >
                 <MessageSquare
-                  className="size-3.5 text-muted-foreground"
+                  className={sx(prContextStyles.sectionHeadingIcon)}
                   aria-hidden="true"
                 />
                 Review threads
               </h3>
               {index.threads.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(prContextStyles.emptyNote)}>
                   No review threads on this pull request.
                 </p>
               ) : (
-                <ul className="space-y-1">
+                <ul className={sx(prContextStyles.list)}>
                   {index.threads.map((thread) => (
                     <li key={thread.id}>
-                      <label className="flex min-w-0 cursor-pointer items-start gap-2 rounded-md px-1.5 py-1.5 hover:bg-muted/50">
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 size-3.5 shrink-0 accent-primary"
+                      <label
+                        className={sx(
+                          prContextStyles.row,
+                          prContextStyles.rowEnabled,
+                        )}
+                      >
+                        <Checkbox controlOnly
+                          className={sx(prContextStyles.rowCheckbox)}
                           checked={selectedThreadIds.includes(thread.id)}
-                          onChange={() => toggleThread(thread.id)}
+                          onCheckedChange={() => toggleThread(thread.id)}
                         />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-baseline gap-2">
-                            <span className="truncate text-xs font-medium text-foreground">
+                        <span className={sx(prContextStyles.rowText)}>
+                          <span className={sx(prContextStyles.rowTitleLine)}>
+                            <span className={sx(prContextStyles.rowTitle)}>
                               {thread.path || "(no file)"}
                               {thread.line === null ? "" : `:${thread.line}`}
                             </span>
-                            <span className="shrink-0 text-[10px] text-muted-foreground">
+                            <span className={sx(prContextStyles.rowStatus)}>
                               {thread.isResolved ? "resolved" : "unresolved"}
                               {thread.isOutdated ? " · outdated" : ""}
                             </span>
                           </span>
-                          <span className="line-clamp-2 text-xs text-muted-foreground">
+                          <span className={sx(prContextStyles.rowExcerpt)}>
                             {thread.comments.at(-1)?.author
                               ? `${thread.comments.at(-1)?.author}: `
                               : ""}
@@ -265,7 +272,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                 </ul>
               )}
               {index.truncatedThreads > 0 ? (
-                <p className="mt-1 text-[10px] text-muted-foreground">
+                <p className={sx(prContextStyles.footnote)}>
                   {index.truncatedThreads} further thread(s) not listed.
                 </p>
               ) : null}
@@ -274,43 +281,43 @@ export function PrContextDialog(props: PrContextDialogProps) {
             <section aria-labelledby="pr-context-checks">
               <h3
                 id="pr-context-checks"
-                className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-foreground"
+                className={sx(prContextStyles.sectionHeading)}
               >
                 <Zap
-                  className="size-3.5 text-muted-foreground"
+                  className={sx(prContextStyles.sectionHeadingIcon)}
                   aria-hidden="true"
                 />
                 Failed checks
               </h3>
               {index.failedChecks.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(prContextStyles.emptyNote)}>
                   No failed checks on this commit.
                 </p>
               ) : (
-                <ul className="space-y-1">
+                <ul className={sx(prContextStyles.list)}>
                   {index.failedChecks.map((check) => {
                     const checked = selectedCheckIds.includes(check.id);
                     return (
                       <li key={check.id}>
                         <label
-                          className={`flex min-w-0 items-start gap-2 rounded-md px-1.5 py-1.5 ${
+                          className={sx(
+                            prContextStyles.row,
                             !checked && checkSelectionFull
-                              ? "cursor-not-allowed opacity-50"
-                              : "cursor-pointer hover:bg-muted/50"
-                          }`}
+                              ? prContextStyles.rowDisabled
+                              : prContextStyles.rowEnabled,
+                          )}
                         >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 size-3.5 shrink-0 accent-primary"
+                          <Checkbox controlOnly
+                            className={sx(prContextStyles.rowCheckbox)}
                             checked={checked}
                             disabled={!checked && checkSelectionFull}
-                            onChange={() => toggleCheck(check.id)}
+                            onCheckedChange={() => toggleCheck(check.id)}
                           />
-                          <span className="min-w-0 flex-1">
-                            <span className="truncate text-xs font-medium text-foreground">
+                          <span className={sx(prContextStyles.rowText)}>
+                            <span className={sx(prContextStyles.rowTitle)}>
                               {check.name || `Check ${check.id}`}
                             </span>
-                            <span className="block truncate text-[10px] text-muted-foreground">
+                            <span className={sx(prContextStyles.rowSubtitle)}>
                               {check.workflowName
                                 ? `${check.workflowName} · `
                                 : ""}
@@ -326,7 +333,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                   })}
                 </ul>
               )}
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p className={sx(prContextStyles.footnote)}>
                 Log evidence is fetched only for the checks you tick, at most{" "}
                 {PR_CONTEXT_LIMITS.maxSelectedChecks} at a time.
                 {index.truncatedFailedChecks > 0

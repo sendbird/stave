@@ -215,39 +215,47 @@ export function formatRunDuration(run: RoutineRun, now = Date.now()) {
   return `${seconds}s`;
 }
 
-export function getRunStatusPresentation(status: RoutineRun["status"]) {
-  switch (status) {
-    case "completed":
-      return {
-        label: "Completed",
-        className: "border-success/40 bg-success/10 text-success",
-        dotClassName: "bg-success",
-      };
-    case "failed":
-      return {
-        label: "Failed",
-        className: "border-destructive/40 bg-destructive/10 text-destructive",
-        dotClassName: "bg-destructive",
-      };
-    case "waiting":
-      return {
-        label: "Waiting",
-        className: "border-warning/50 bg-warning/10 text-warning",
-        dotClassName: "bg-warning",
-      };
-    case "skipped":
-      return {
-        label: "Skipped",
-        className: "border-border bg-muted text-muted-foreground",
-        dotClassName: "bg-muted-foreground",
-      };
-    default:
-      return {
-        label: "Running",
-        className: "border-primary/40 bg-primary/10 text-primary",
-        dotClassName: "bg-primary",
-      };
-  }
+/**
+ * Semantic tone for a run status, in the same vocabulary the ADS `Badge`
+ * tones use. Values only: this module stays free of styling so a worker, a
+ * test, or a menu can import it without pulling in a stylesheet.
+ */
+export type AutomationRunTone =
+  | "neutral"
+  | "accent"
+  | "info"
+  | "warning"
+  | "success"
+  | "danger";
+
+export interface AutomationRunStatusPresentation {
+  label: string;
+  tone: AutomationRunTone;
+}
+
+/**
+ * Status chip label and tone. `waiting` borrows the warning tone because it is
+ * the state blocked on a person; `skipped` stays neutral so work that never
+ * ran does not read as a failure.
+ */
+export const AUTOMATION_RUN_STATUS_PRESENTATION: Record<
+  RoutineRun["status"],
+  AutomationRunStatusPresentation
+> = {
+  running: { label: "Running", tone: "accent" },
+  waiting: { label: "Waiting", tone: "warning" },
+  completed: { label: "Completed", tone: "success" },
+  failed: { label: "Failed", tone: "danger" },
+  skipped: { label: "Skipped", tone: "neutral" },
+};
+
+export function getRunStatusPresentation(
+  status: RoutineRun["status"],
+): AutomationRunStatusPresentation {
+  return (
+    AUTOMATION_RUN_STATUS_PRESENTATION[status] ??
+    AUTOMATION_RUN_STATUS_PRESENTATION.running
+  );
 }
 
 export function isActiveRunStatus(status: RoutineRun["status"]) {

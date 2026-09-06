@@ -1,4 +1,5 @@
-import { cn } from "@/lib/utils";
+import { cx, sx } from "../ads/utils/stylex";
+import { runtimeBarStyles } from "./prompt-input-runtime-bar.styles";
 
 export interface PromptInputRuntimeStatusItem {
   id: string;
@@ -157,57 +158,59 @@ export function PromptInputRuntimeBar(args: PromptInputRuntimeBarProps) {
     return null;
   }
 
+  const renderedSections = RUNTIME_SECTIONS.map((section) => ({
+    section,
+    sectionItems: statusItems.filter(
+      (item) => getRuntimeSectionId(item) === section.id,
+    ),
+  })).filter(({ sectionItems }) => sectionItems.length > 0);
+
   return (
     <div
-      className={cn(
-        args.withBorder !== false && "border-t border-border/60",
+      className={cx(
+        args.withBorder !== false ? sx(runtimeBarStyles.rootBorder) : undefined,
         args.className,
       )}
     >
-      <div className="divide-y divide-border/60">
-        {RUNTIME_SECTIONS.map((section) => {
-          const sectionItems = statusItems.filter(
-            (item) => getRuntimeSectionId(item) === section.id,
-          );
-          if (sectionItems.length === 0) {
-            return null;
-          }
-
-          return (
-            <section
-              key={section.id}
-              aria-label={`${section.label} runtime settings`}
-              className="px-5 py-3.5"
-            >
-              <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {section.label}
-              </h3>
-              <dl className="divide-y divide-border/45">
-                {sectionItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="grid min-h-9 grid-cols-[minmax(0,1fr)_minmax(6rem,auto)] items-center gap-5 py-2 text-[13px]"
+      <div className={sx(runtimeBarStyles.sections)}>
+        {renderedSections.map(({ section, sectionItems }, sectionIndex) => (
+          <section
+            key={section.id}
+            aria-label={`${section.label} runtime settings`}
+            className={sx(
+              runtimeBarStyles.section,
+              sectionIndex === 0 && runtimeBarStyles.sectionFirst,
+            )}
+          >
+            <h3 className={sx(runtimeBarStyles.sectionHeading)}>
+              {section.label}
+            </h3>
+            <dl className={sx(runtimeBarStyles.list)}>
+              {sectionItems.map((item, itemIndex) => (
+                <div
+                  key={item.id}
+                  className={sx(
+                    runtimeBarStyles.row,
+                    itemIndex === 0 && runtimeBarStyles.rowFirst,
+                  )}
+                >
+                  <dt className={sx(runtimeBarStyles.term)}>{item.label}</dt>
+                  <dd
+                    className={sx(
+                      runtimeBarStyles.value,
+                      (item.tone === "warning" ||
+                        isElevatedRuntimeItem(item)) &&
+                        runtimeBarStyles.valueWarning,
+                    )}
+                    title={item.value}
                   >
-                    <dt className="min-w-0 text-muted-foreground">
-                      {item.label}
-                    </dt>
-                    <dd
-                      className={cn(
-                        "max-w-48 truncate text-right font-medium text-foreground",
-                        (item.tone === "warning" ||
-                          isElevatedRuntimeItem(item)) &&
-                          "text-warning",
-                      )}
-                      title={item.value}
-                    >
-                      {item.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          );
-        })}
+                    {item.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
       </div>
     </div>
   );

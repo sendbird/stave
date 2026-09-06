@@ -20,6 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { sx } from "@/components/ads/utils/stylex";
 import type {
   McpConfigProvider,
   McpConfigScope,
@@ -36,6 +38,7 @@ import {
 } from "@/lib/providers/mcp-config-form";
 import { resolveMcpShareDestinationScope } from "@/lib/providers/mcp-config-share";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
+import { mcpConfigEditorStyles as styles } from "./settings-dialog-mcp-config-editor.styles";
 
 type McpEditorRuntimeOptions = {
   claude: ProviderRuntimeOptions;
@@ -71,15 +74,13 @@ function FormField(props: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={props.htmlFor} className="text-sm font-medium">
+    <div className={sx(styles.fieldStack)}>
+      <label htmlFor={props.htmlFor} className={sx(styles.fieldLabel)}>
         {props.label}
       </label>
       {props.children}
       {props.description ? (
-        <p className="text-xs leading-5 text-muted-foreground">
-          {props.description}
-        </p>
+        <p className={sx(styles.fieldDescription)}>{props.description}</p>
       ) : null}
     </div>
   );
@@ -87,28 +88,26 @@ function FormField(props: {
 
 function ReviewPanel(props: { preview: McpServerConfigMutationPreview }) {
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-border/75 bg-muted/20 p-4">
-        <p className="text-sm font-medium">{props.preview.title}</p>
-        <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+    <div className={sx(styles.reviewStack)}>
+      <div className={sx(styles.reviewCard)}>
+        <p className={sx(styles.reviewTitle)}>{props.preview.title}</p>
+        <ul className={sx(styles.reviewList)}>
           {props.preview.changes.map((change) => (
             <li key={change}>• {change}</li>
           ))}
         </ul>
       </div>
       {props.preview.warnings.length ? (
-        <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
-          <p className="font-medium text-warning-foreground">
-            Before you apply
-          </p>
-          <ul className="mt-2 space-y-1 text-muted-foreground">
+        <div className={sx(styles.warningCard)}>
+          <p className={sx(styles.warningTitle)}>Before you apply</p>
+          <ul className={sx(styles.warningList)}>
             {props.preview.warnings.map((warning) => (
               <li key={warning}>• {warning}</li>
             ))}
           </ul>
         </div>
       ) : null}
-      <p className="text-xs leading-5 text-muted-foreground">
+      <p className={sx(styles.reviewNote)}>
         Stave will verify that the provider configuration has not changed since
         this preview before writing it.
       </p>
@@ -254,15 +253,16 @@ export function McpServerConfigEditorDialog(props: {
         ...current,
         installProviders: nextProviders,
         provider: primary,
-        scope: !nextProviders.includes("claude-code") && current.scope === "local"
-          ? nextProviders.some(
-              (entry) => entry === "cursor" || entry === "kiro",
-            )
-            ? "project"
-            : "user"
-          : nextProviders.length === 1 && nextProviders[0] === "codex"
-            ? "user"
-            : current.scope,
+        scope:
+          !nextProviders.includes("claude-code") && current.scope === "local"
+            ? nextProviders.some(
+                (entry) => entry === "cursor" || entry === "kiro",
+              )
+              ? "project"
+              : "user"
+            : nextProviders.length === 1 && nextProviders[0] === "codex"
+              ? "user"
+              : current.scope,
         transport:
           nextProviders.includes("codex") && current.transport === "sse"
             ? "http"
@@ -278,31 +278,31 @@ export function McpServerConfigEditorDialog(props: {
         if (!busy) props.onOpenChange(open);
       }}
     >
-      <DialogContent className="flex max-h-[88vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/70 px-6 py-5 pr-14">
-          <DialogTitle className="text-base">
+      <DialogContent xstyle={styles.dialogSurface}>
+        <DialogHeader className={sx(styles.headerBlock)}>
+          <DialogTitle className={sx(styles.headerTitle)}>
             {editing ? "Edit MCP server" : "Add MCP server"}
           </DialogTitle>
-          <DialogDescription className="leading-5">
+          <DialogDescription className={sx(styles.headerDescription)}>
             Credentials stay outside Stave: bind authentication through
             environment-variable names, then review the native provider change
             before applying it.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className={sx(styles.scrollArea)}>
           {preview ? (
             <ReviewPanel preview={preview} />
           ) : (
             <form
               id={`${baseId}-form`}
-              className="space-y-5"
+              className={sx(styles.form)}
               onSubmit={(event) => {
                 event.preventDefault();
                 void previewChange();
               }}
             >
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className={sx(styles.columns)}>
                 <FormField
                   label={editing ? "Provider" : "Install to"}
                   htmlFor={`${baseId}-provider`}
@@ -318,7 +318,7 @@ export function McpServerConfigEditorDialog(props: {
                     <Select value={form.provider} disabled>
                       <SelectTrigger
                         id={`${baseId}-provider`}
-                        className="w-full"
+                        className={sx(styles.fullWidth)}
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -332,7 +332,7 @@ export function McpServerConfigEditorDialog(props: {
                   ) : (
                     <div
                       id={`${baseId}-provider`}
-                      className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3"
+                      className={sx(styles.providerToggles)}
                     >
                       {(
                         [
@@ -342,11 +342,8 @@ export function McpServerConfigEditorDialog(props: {
                           ["kiro", "Kiro"],
                         ] as const
                       ).map(([provider, label]) => (
-                        <div
-                          key={provider}
-                          className="flex items-center justify-between gap-3"
-                        >
-                          <span className="text-sm text-foreground">
+                        <div key={provider} className={sx(styles.providerRow)}>
+                          <span className={sx(styles.providerLabel)}>
                             {label}
                           </span>
                           <Switch
@@ -388,7 +385,10 @@ export function McpServerConfigEditorDialog(props: {
                       }))
                     }
                   >
-                    <SelectTrigger id={`${baseId}-scope`} className="w-full">
+                    <SelectTrigger
+                      id={`${baseId}-scope`}
+                      className={sx(styles.fullWidth)}
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -416,7 +416,7 @@ export function McpServerConfigEditorDialog(props: {
                 </FormField>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className={sx(styles.columns)}>
                 <FormField label="Server name" htmlFor={`${baseId}-name`}>
                   <Input
                     id={`${baseId}-name`}
@@ -443,7 +443,7 @@ export function McpServerConfigEditorDialog(props: {
                   >
                     <SelectTrigger
                       id={`${baseId}-transport`}
-                      className="w-full"
+                      className={sx(styles.fullWidth)}
                     >
                       <SelectValue />
                     </SelectTrigger>
@@ -475,12 +475,12 @@ export function McpServerConfigEditorDialog(props: {
                     />
                   </FormField>
                   {editing && props.snapshot?.argumentCount ? (
-                    <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <div className={sx(styles.toggleRow)}>
                       <div>
-                        <p className="text-sm font-medium">
+                        <p className={sx(styles.toggleTitle)}>
                           Replace command arguments
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        <p className={sx(styles.toggleHint)}>
                           {props.snapshot.argumentCount === 1
                             ? "1 existing argument is hidden"
                             : `${props.snapshot.argumentCount} existing arguments are hidden`}{" "}
@@ -510,7 +510,7 @@ export function McpServerConfigEditorDialog(props: {
                         value={form.argsText}
                         placeholder={"--yes\n@modelcontextprotocol/server"}
                         spellCheck={false}
-                        className="min-h-24 font-mono text-xs"
+                        className={sx(styles.monoAreaTall)}
                         onChange={(event) =>
                           setForm((current) => ({
                             ...current,
@@ -530,7 +530,7 @@ export function McpServerConfigEditorDialog(props: {
                       value={form.envVarsText}
                       placeholder={"GITHUB_TOKEN\nWORKSPACE_ID"}
                       spellCheck={false}
-                      className="min-h-20 font-mono text-xs"
+                      className={sx(styles.monoAreaShort)}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
@@ -543,12 +543,12 @@ export function McpServerConfigEditorDialog(props: {
               ) : (
                 <>
                   {editing && props.snapshot?.urlRedacted ? (
-                    <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 p-3">
+                    <div className={sx(styles.toggleRow)}>
                       <div>
-                        <p className="text-sm font-medium">
+                        <p className={sx(styles.toggleTitle)}>
                           Replace remote URL
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        <p className={sx(styles.toggleHint)}>
                           Credentials or query details are hidden. Leave this
                           off to preserve the complete URL.
                         </p>
@@ -610,7 +610,7 @@ export function McpServerConfigEditorDialog(props: {
                       value={form.headerBindingsText}
                       placeholder={"X-Workspace=WORKSPACE_ID"}
                       spellCheck={false}
-                      className="min-h-20 font-mono text-xs"
+                      className={sx(styles.monoAreaShort)}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
@@ -623,10 +623,10 @@ export function McpServerConfigEditorDialog(props: {
               )}
 
               {form.provider !== "claude-code" ? (
-                <div className="flex items-start justify-between gap-4 rounded-lg border border-border/70 p-3">
+                <div className={sx(styles.toggleRowPlain)}>
                   <div>
-                    <p className="text-sm font-medium">Enabled</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className={sx(styles.toggleTitle)}>Enabled</p>
+                    <p className={sx(styles.toggleHintTight)}>
                       Disabled servers stay in the provider's native
                       configuration without connecting.
                     </p>
@@ -645,8 +645,8 @@ export function McpServerConfigEditorDialog(props: {
               ) : null}
 
               {editing && props.snapshot?.hiddenValueCount ? (
-                <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
-                  <span className="font-medium text-warning-foreground">
+                <div className={sx(styles.protectedNote)}>
+                  <span className={sx(styles.protectedStrong)}>
                     Protected existing values.
                   </span>{" "}
                   {props.snapshot.hiddenValueCount === 1
@@ -660,23 +660,20 @@ export function McpServerConfigEditorDialog(props: {
           )}
 
           {error ? (
-            <p
-              className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
-              role="alert"
-            >
+            <p className={sx(styles.errorText)} role="alert">
               {error}
             </p>
           ) : null}
-          <p className="sr-only" aria-live="polite" role="status">
+          <VisuallyHidden aria-live="polite" role="status">
             {busy
               ? preview
                 ? "Applying MCP configuration"
                 : "Preparing MCP configuration preview"
               : ""}
-          </p>
+          </VisuallyHidden>
         </div>
 
-        <DialogFooter className="border-t border-border/70 bg-muted/15 px-6 py-4">
+        <DialogFooter className={sx(styles.footer)}>
           {preview ? (
             <Button
               type="button"
@@ -810,10 +807,10 @@ export function McpServerConfigDeleteDialog(props: {
         if (!busy) props.onOpenChange(open);
       }}
     >
-      <DialogContent showCloseButton={false} className="max-w-md">
+      <DialogContent showCloseButton={false} xstyle={styles.deleteSurface}>
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <DialogTitle className="text-destructive">
+          <div className={sx(styles.deleteTitleLine)}>
+            <DialogTitle className={sx(styles.deleteTitle)}>
               Delete MCP server?
             </DialogTitle>
             {props.snapshot ? (
@@ -827,20 +824,17 @@ export function McpServerConfigDeleteDialog(props: {
           </DialogDescription>
         </DialogHeader>
         {busy && !preview ? (
-          <p className="text-sm text-muted-foreground" role="status">
+          <p className={sx(styles.statusText)} role="status">
             Checking the latest provider configuration…
           </p>
         ) : null}
         {preview?.warnings.length ? (
-          <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+          <div className={sx(styles.deleteWarning)}>
             {preview.warnings.join(" ")}
           </div>
         ) : null}
         {error ? (
-          <p
-            className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
-            role="alert"
-          >
+          <p className={sx(styles.errorText)} role="alert">
             {error}
           </p>
         ) : null}
@@ -992,34 +986,31 @@ export function McpServerConfigShareDialog(props: {
         if (!busy) props.onOpenChange(open);
       }}
     >
-      <DialogContent className="flex max-h-[88vh] max-w-xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/70 px-6 py-5 pr-14">
-          <DialogTitle className="text-base">
+      <DialogContent xstyle={styles.shareSurface}>
+        <DialogHeader className={sx(styles.headerBlock)}>
+          <DialogTitle className={sx(styles.headerTitle)}>
             Add to {destinationLabel}
           </DialogTitle>
-          <DialogDescription className="leading-5">
+          <DialogDescription className={sx(styles.headerDescription)}>
             Copy this server into {destinationLabel} using the same name,
             transport, and environment-variable bindings. Opaque values stay in
             the source and are not copied.
           </DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className={sx(styles.scrollArea)}>
           {busy && !preview ? (
-            <p className="text-sm text-muted-foreground" role="status">
+            <p className={sx(styles.statusText)} role="status">
               Checking the latest provider configuration…
             </p>
           ) : null}
           {preview ? <ReviewPanel preview={preview} /> : null}
           {error ? (
-            <p
-              className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm text-destructive"
-              role="alert"
-            >
+            <p className={sx(styles.errorText)} role="alert">
               {error}
             </p>
           ) : null}
         </div>
-        <DialogFooter className="border-t border-border/70 bg-muted/15 px-6 py-4">
+        <DialogFooter className={sx(styles.footer)}>
           <DialogClose render={<Button type="button" variant="outline" />}>
             Cancel
           </DialogClose>

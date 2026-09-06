@@ -13,7 +13,9 @@ import {
   type ComposerControlPlacement,
   type ComposerControlPlacements,
 } from "@/lib/composer-controls";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "../ads/utils/stylex";
+import { focusRing } from "../ads/recipes/focus-ring";
+import { controlMenuStyles } from "./prompt-input-control-menu.styles";
 
 const PLACEMENT_LABELS: Record<ComposerControlPlacement, string> = {
   toolbar: "Bar",
@@ -64,7 +66,7 @@ function PlacementSegments(args: {
         if (nextPlacement) args.onSelect(nextPlacement);
       }}
       aria-label={`${COMPOSER_CONTROL_LABELS[args.id]} placement`}
-      className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-muted/60 p-0.5"
+      className={sx(controlMenuStyles.segmentGroup)}
     >
       {options.map((placement) => {
         const selected = placement === args.value;
@@ -73,12 +75,13 @@ function PlacementSegments(args: {
             key={placement}
             value={placement}
             title={PLACEMENT_HINTS[placement]}
-            className={cn(
-              "rounded-[5px] px-2 py-1 text-[11px] font-medium transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45",
+            className={sx(
+              controlMenuStyles.segment,
+              focusRing.ring,
+              focusRing.ringInset,
               selected
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+                ? controlMenuStyles.segmentSelected
+                : controlMenuStyles.segmentUnselected,
             )}
           >
             {PLACEMENT_LABELS[placement]}
@@ -115,19 +118,19 @@ export function ComposerControlPlacementList(args: {
   };
 
   return (
-    <div className={cn("flex flex-col gap-0.5", args.className)}>
+    <div className={cx(sx(controlMenuStyles.list), args.className)}>
       {COMPOSER_CONTROL_IDS.map((id) => {
         const value = placements[id] ?? DEFAULT_COMPOSER_CONTROL_PLACEMENT;
         return (
           <div
             key={id}
-            className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-muted/40"
+            className={sx(controlMenuStyles.row)}
           >
-            <div className="min-w-0">
-              <div className="truncate text-sm text-foreground">
+            <div className={sx(controlMenuStyles.rowLabel)}>
+              <div className={sx(controlMenuStyles.rowTitle)}>
                 {COMPOSER_CONTROL_LABELS[id]}
               </div>
-              <div className="truncate text-xs text-muted-foreground">
+              <div className={sx(controlMenuStyles.rowDescription)}>
                 {forced.has(id)
                   ? `Showing now — ${COMPOSER_CONTROL_LABELS[id]} is active.`
                   : COMPOSER_CONTROL_DESCRIPTIONS[id]}
@@ -142,22 +145,22 @@ export function ComposerControlPlacementList(args: {
         );
       })}
 
-      <p className="px-2 pt-1.5 text-xs text-muted-foreground">
+      <p className={sx(controlMenuStyles.footerNote)}>
         A control set to Tray or Off returns to the toolbar while it is active,
         so an armed Advisor or a forced Thinking mode is never running out of
         sight.
       </p>
 
       {isDefault ? null : (
-        <div className="px-2 pt-1">
+        <div className={sx(controlMenuStyles.resetWrap)}>
           <Button
             type="button"
             variant="ghost"
             size="xs"
-            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className={sx(controlMenuStyles.resetButton)}
             onClick={() => args.onChange({})}
           >
-            <RotateCcw className="size-3" />
+            <RotateCcw className={sx(controlMenuStyles.resetIcon)} />
             Reset to defaults
           </Button>
         </div>

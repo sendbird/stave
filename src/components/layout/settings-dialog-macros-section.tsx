@@ -20,6 +20,8 @@ import { useAppStore } from "@/store/app.store";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { createEmptyMacroDraft, MacroEditor } from "./macro-editor";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
+import { sx } from "@/components/ads/utils/stylex";
+import { macrosSectionStyles as styles } from "./settings-dialog-macros-section.styles";
 
 type MacroEditorTarget =
   { kind: "edit"; macroId: string } | { kind: "new" } | null;
@@ -132,19 +134,19 @@ export function MacrosSection() {
           <Button
             type="button"
             size="sm"
-            className="gap-1.5"
+            xstyle={styles.addButton}
             onClick={() => {
               setEditorError(undefined);
               setEditorTarget({ kind: "new" });
             }}
           >
-            <Plus className="size-3.5" />
+            <Plus className={sx(styles.addIcon)} />
             Add macro
           </Button>
         }
       >
         {isAddingNew ? (
-          <div className="rounded-md border border-border/80 bg-background/60 p-4">
+          <div className={sx(styles.editorWrap)}>
             <MacroEditor
               initialMacro={newMacroDraft}
               submitLabel="Add macro"
@@ -156,57 +158,55 @@ export function MacrosSection() {
         ) : null}
 
         {macros.length === 0 && !isAddingNew ? (
-          <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
+          <div className={sx(styles.empty)}>
             No macros yet. Add one to insert a saved prompt from the composer
             toolbar or by typing !.
           </div>
         ) : macros.length === 0 ? null : (
-          <div className="divide-y divide-border/70 rounded-md border border-border/70">
+          <div className={sx(styles.list)}>
             {macros.map((macro, index) => {
               const isEditing =
                 editorTarget?.kind === "edit" &&
                 editorTarget.macroId === macro.id;
               return (
-                <div key={macro.id} className="p-3">
-                  <div className="flex items-start gap-3">
-                    <div className="relative flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60">
+                <div key={macro.id} className={sx(styles.row)}>
+                  <div className={sx(styles.rowMain)}>
+                    <div className={sx(styles.mark)}>
                       {macro.runtime ? (
                         <ModelIcon
                           providerId={macro.runtime.providerId}
                           model={macro.runtime.model}
-                          className="size-4 text-muted-foreground"
+                          className={sx(styles.markIcon)}
                         />
                       ) : (
-                        <Zap className="size-4 text-muted-foreground" />
+                        <Zap className={sx(styles.markIcon)} />
                       )}
                     </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {macro.label}
-                        </p>
-                        <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] leading-4 text-muted-foreground">
+                    <div className={sx(styles.rowBody)}>
+                      <div className={sx(styles.rowHead)}>
+                        <p className={sx(styles.rowLabel)}>{macro.label}</p>
+                        <code className={sx(styles.slugCode)}>
                           !{macro.slug}
                         </code>
                         {isMacroInstantRun(macro) ? (
                           <Badge
                             variant="secondary"
-                            className="h-5 px-1.5 text-[10px] font-medium"
+                            className={sx(styles.instantBadge)}
                           >
                             Instant
                           </Badge>
                         ) : null}
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className={sx(styles.rowMeta)}>
                         {describeMacro(macro)}
                       </p>
                       {macro.description ? (
-                        <p className="text-xs text-muted-foreground">
+                        <p className={sx(styles.rowMeta)}>
                           {macro.description}
                         </p>
                       ) : null}
                     </div>
-                    <div className="flex shrink-0 items-center gap-0.5">
+                    <div className={sx(styles.rowActions)}>
                       <Button
                         type="button"
                         variant="ghost"
@@ -215,7 +215,7 @@ export function MacrosSection() {
                         aria-label={`Move ${macro.label} up`}
                         onClick={() => handleMoveMacro(macro.id, -1)}
                       >
-                        <ChevronUp className="size-3.5" />
+                        <ChevronUp className={sx(styles.actionIcon)} />
                       </Button>
                       <Button
                         type="button"
@@ -225,7 +225,7 @@ export function MacrosSection() {
                         aria-label={`Move ${macro.label} down`}
                         onClick={() => handleMoveMacro(macro.id, 1)}
                       >
-                        <ChevronDown className="size-3.5" />
+                        <ChevronDown className={sx(styles.actionIcon)} />
                       </Button>
                       <Button
                         type="button"
@@ -240,22 +240,22 @@ export function MacrosSection() {
                           });
                         }}
                       >
-                        <Pencil className="size-3.5" />
+                        <Pencil className={sx(styles.actionIcon)} />
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        className="text-destructive hover:text-destructive"
+                        xstyle={styles.deleteButton}
                         aria-label={`Delete ${macro.label}`}
                         onClick={() => setDeletingId(macro.id)}
                       >
-                        <Trash2 className="size-3.5" />
+                        <Trash2 className={sx(styles.actionIcon)} />
                       </Button>
                     </div>
                   </div>
                   {isEditing ? (
-                    <div className="mt-3 rounded-md border border-border/80 bg-background/60 p-4">
+                    <div className={sx(styles.editorWrapInline)}>
                       <MacroEditor
                         initialMacro={macro}
                         submitLabel="Save macro"

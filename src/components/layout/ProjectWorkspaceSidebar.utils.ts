@@ -3,6 +3,7 @@ import type {
   FleetAttentionKind,
   FleetAttentionTier,
 } from "@/lib/fleet/attention-projection";
+import { projectSidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
 import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
 import {
   classifyTaskStatus,
@@ -52,9 +53,6 @@ export interface ProjectSidebarCollapsedProjectView {
 export const WORKSPACE_SHORTCUT_COUNT = 9;
 const WORKSPACE_HOVER_PREVIEW_TASK_LIMIT = 2;
 const UNTITLED_TASK_FALLBACK = "Untitled task";
-
-const WORKSPACE_ROW_ACTION_REVEAL_CLASSES =
-  "group-hover/workspace-row:pointer-events-auto group-hover/workspace-row:opacity-100 group-has-[:focus-visible]/workspace-row:pointer-events-auto group-has-[:focus-visible]/workspace-row:opacity-100";
 
 export function getWorkspaceLeadingAttentionKind(
   attentionKind?: FleetAttentionKind,
@@ -191,12 +189,19 @@ export function buildProjectSidebarAttentionAlert(args: {
   };
 }
 
-export function getWorkspaceHoverActionVisibilityClasses(args: {
+/**
+ * Row actions stay pinned while the workspace is closing; otherwise they follow
+ * the row's hover / keyboard-focus reveal, which the row publishes as custom
+ * properties (`projectSidebarStyles.workspaceRow`). Keyboard reveal is
+ * `:has(:focus-visible)`, not `:focus-within`, so a mouse click on the row does
+ * not latch the actions open.
+ */
+export function getWorkspaceHoverActionVisibilityStyle(args: {
   isClosing: boolean;
 }) {
   return args.isClosing
-    ? "pointer-events-auto opacity-100"
-    : `pointer-events-none opacity-0 ${WORKSPACE_ROW_ACTION_REVEAL_CLASSES}`;
+    ? projectSidebarStyles.rowActionsPinned
+    : projectSidebarStyles.rowActionsReveal;
 }
 
 export interface CollapsedWorkspaceEntry {
@@ -554,17 +559,21 @@ export function buildWorkspaceArchiveDialogCopy(args: {
   };
 }
 
-export function getWorkspaceRespondingCountVisibilityClasses(args: {
+/**
+ * The responding count yields to the row actions under the same reveal rules.
+ * `null` when the row has no hover actions, so the count simply stays visible.
+ */
+export function getWorkspaceRespondingCountVisibilityStyle(args: {
   hasHoverActions: boolean;
   isClosing: boolean;
 }) {
   if (!args.hasHoverActions) {
-    return "";
+    return null;
   }
 
   return args.isClosing
-    ? "opacity-0"
-    : "group-hover/workspace-row:opacity-0 group-has-[:focus-visible]/workspace-row:opacity-0";
+    ? projectSidebarStyles.rowCountHidden
+    : projectSidebarStyles.rowCountYields;
 }
 
 const WORKSPACE_PROGRESS_TASK_TITLE_MAX = 42;

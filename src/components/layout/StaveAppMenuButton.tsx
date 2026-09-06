@@ -7,6 +7,7 @@ import {
   Settings,
   Sun,
 } from "lucide-react";
+import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -21,11 +22,9 @@ import {
 } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { STAVE_LOGO_URL } from "@/lib/providers/model-catalog";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
-
-export const SIDEBAR_HOME_BUTTON_CLASS =
-  "h-10 w-10 rounded-md border border-border/80 bg-background/70 p-0 hover:bg-secondary/70";
+import { staveAppMenuStyles } from "./stave-app-menu.styles";
 
 export function StaveAppMenuButton(args?: {
   compact?: boolean;
@@ -81,70 +80,69 @@ export function StaveAppMenuButton(args?: {
               variant="ghost"
               size="sm"
               aria-label="Open Stave menu"
-              className={cn(
+              xstyle={[
                 compact
-                  ? SIDEBAR_HOME_BUTTON_CLASS
-                  : "h-8 gap-1.5 rounded-md border border-border/80 bg-card px-2.5 hover:bg-secondary/70",
-                open && "border-primary/70 bg-secondary/80",
-                args?.className,
-              )}
+                  ? staveAppMenuStyles.triggerCompact
+                  : staveAppMenuStyles.trigger,
+                open && staveAppMenuStyles.triggerOpen,
+              ]}
+              className={args?.className}
             />
           }
         >
           <img
             src={STAVE_LOGO_URL}
             alt="Stave"
-            className="size-4 rounded-sm"
+            {...stylex.props(staveAppMenuStyles.logo)}
             draggable={false}
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
           sideOffset={8}
-          className={`${UI_LAYER_CLASS.appMenu} w-64`}
+          className={cx(UI_LAYER_CLASS.appMenu, sx(staveAppMenuStyles.menu))}
         >
           <DropdownMenuLabel>Stave</DropdownMenuLabel>
-          <DropdownMenuItem className="gap-2" onSelect={clearTaskSelection}>
-            <Home className="size-4 text-muted-foreground" />
+          <DropdownMenuItem onSelect={clearTaskSelection}>
+            <Home {...stylex.props(staveAppMenuStyles.itemIcon)} />
             Home
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="gap-2"
             onSelect={args?.onOpenCommandPalette}
           >
-            <Command className="size-4 text-muted-foreground" />
+            <Command {...stylex.props(staveAppMenuStyles.itemIcon)} />
             Command Palette
-            <DropdownMenuShortcut className="text-[11px] tracking-normal">
+            <DropdownMenuShortcut
+              className={sx(staveAppMenuStyles.shortcut)}
+            >
               {commandPaletteShortcutLabel}
             </DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {projectPath ? (
             <DropdownMenuItem
-              className="gap-2"
               onSelect={handleRefreshProjectFiles}
             >
-              <RefreshCw className="size-4 text-muted-foreground" />
+              <RefreshCw {...stylex.props(staveAppMenuStyles.itemIcon)} />
               Refresh project files
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem className="gap-2" onSelect={handleToggleTheme}>
+          <DropdownMenuItem onSelect={handleToggleTheme}>
             {isDarkMode ? (
-              <Sun className="size-4 text-muted-foreground" />
+              <Sun {...stylex.props(staveAppMenuStyles.itemIcon)} />
             ) : (
-              <Moon className="size-4 text-muted-foreground" />
+              <Moon {...stylex.props(staveAppMenuStyles.itemIcon)} />
             )}
             {isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="gap-2"
             onSelect={args?.onOpenKeyboardShortcuts}
           >
-            <Keyboard className="size-4 text-muted-foreground" />
+            <Keyboard {...stylex.props(staveAppMenuStyles.itemIcon)} />
             Keyboard shortcuts
           </DropdownMenuItem>
-          <DropdownMenuItem className="gap-2" onSelect={args?.onOpenSettings}>
-            <Settings className="size-4 text-muted-foreground" />
+          <DropdownMenuItem onSelect={args?.onOpenSettings}>
+            <Settings {...stylex.props(staveAppMenuStyles.itemIcon)} />
             Settings
           </DropdownMenuItem>
         </DropdownMenuContent>

@@ -11,6 +11,7 @@ import {
   buildKiroProviderModeSettingsPatch,
 } from "@/lib/providers/provider-mode-presets";
 import { KIRO_EFFORT_OPTIONS } from "@/lib/providers/runtime-option-contract";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -20,6 +21,7 @@ import {
   SectionStack,
   SettingsCard,
 } from "./settings-dialog.shared";
+import { kiroSectionStyles } from "./settings-dialog-kiro-section.styles";
 
 export function SettingsKiroSection() {
   const [modelKiro, kiroBinaryPath, kiroEffort, kiroApprovalMode] = useAppStore(
@@ -57,7 +59,7 @@ export function SettingsKiroSection() {
               })
             }
           />
-          <p className="text-xs text-muted-foreground">
+          <p className={sx(kiroSectionStyles.note)}>
             Kiro has no partial-trust tier: its CLI accepts unknown tool names
             for a partial grant without reporting an error, so Stave does not
             offer a middle setting it cannot verify. Worker runs always stay on
@@ -69,7 +71,7 @@ export function SettingsKiroSection() {
           description="Use Auto unless the connected CLI reports another model identifier. The composer shows a warning if a saved model disappears from the runtime catalog."
         >
           <DraftInput
-            className="h-10 rounded-md border-border/80 bg-background"
+            xstyle={kiroSectionStyles.field}
             value={modelKiro}
             placeholder="auto"
             onCommit={(value) =>
@@ -93,7 +95,10 @@ export function SettingsKiroSection() {
               })
             }
           >
-            <SelectTrigger aria-label="Kiro default effort" className="h-10">
+            <SelectTrigger
+              aria-label="Kiro default effort"
+              className={sx(kiroSectionStyles.field)}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -115,7 +120,7 @@ export function SettingsKiroSection() {
           description="Leave blank to use automatic discovery. The configured executable must support ACP and be signed in."
         >
           <DraftInput
-            className="h-10 rounded-md border-border/80 bg-background"
+            xstyle={kiroSectionStyles.field}
             value={kiroBinaryPath}
             placeholder="kiro-cli"
             onCommit={(value) =>

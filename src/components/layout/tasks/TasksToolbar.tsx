@@ -1,3 +1,4 @@
+import { trackerVisualStyles } from "./tracker-visual.styles";
 import type { RefObject } from "react";
 import { LayoutGrid, LayoutList, Search, X } from "lucide-react";
 
@@ -39,12 +40,13 @@ import {
   type TrackerSourceId,
   type TrackerStatusCategory,
 } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   TrackerTaskFilterChip,
   type TrackerTaskFilterOption,
 } from "./TrackerTaskFilterChip";
 import { TRACKER_SOURCE_LABELS } from "./tracker-task-ui";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 
 const VIEW_LABELS: Record<TrackerTaskView, string> = {
   "assigned-open": "Assigned to me",
@@ -116,10 +118,10 @@ export function TasksToolbar(props: TasksToolbarProps) {
   };
 
   return (
-    <div className="flex shrink-0 flex-col gap-2 border-b border-border/60 bg-background/85 px-4 py-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className={sx(taskLayoutStyles.toolbar)}>
+      <div className={sx(taskLayoutStyles.toolbarRow)}>
         <div
-          className="flex items-center gap-0.5 rounded-md bg-muted/45 p-0.5"
+          className={sx(taskLayoutStyles.tabList)}
           role="tablist"
           aria-label="Tracker task views"
         >
@@ -131,11 +133,10 @@ export function TasksToolbar(props: TasksToolbarProps) {
               role="tab"
               aria-selected={filter.view === view}
               variant={filter.view === view ? "secondary" : "ghost"}
-              className={cn(
-                "h-8 gap-1.5 px-2.5 text-xs",
-                filter.view === view &&
-                  "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
-              )}
+              xstyle={[
+                taskLayoutStyles.tab,
+                filter.view === view && taskLayoutStyles.activeTab,
+              ]}
               // Switching tabs starts a clean filter: the chips answer a
               // different question in each view, and carrying them across is
               // how a tab looks broken on arrival.
@@ -144,27 +145,27 @@ export function TasksToolbar(props: TasksToolbarProps) {
               }
             >
               {VIEW_LABELS[view]}
-              <span className="tabular-nums text-muted-foreground">
+              <span className={sx(trackerVisualStyles.count)}>
                 {props.viewCounts[view]}
               </span>
             </Button>
           ))}
         </div>
 
-        <div className="relative ml-auto">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <div className={sx(taskLayoutStyles.search)}>
+          <Search className={sx(taskLayoutStyles.searchIcon)} />
           <Input
             ref={props.searchInputRef}
             value={filter.query}
             onChange={(event) => patch({ query: event.target.value })}
             placeholder="Search key, title, #label"
             aria-label="Search tracker tickets"
-            className="h-8 w-64 pl-8 text-xs"
+            xstyle={taskLayoutStyles.searchInput}
           />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className={sx(taskLayoutStyles.toolbarRow)}>
         <TrackerTaskFilterChip
           label="Source"
           searchable={false}
@@ -212,7 +213,7 @@ export function TasksToolbar(props: TasksToolbarProps) {
           }
         >
           <SelectTrigger
-            className="h-8 w-36 text-xs"
+            className={sx(taskLayoutStyles.selectShort)}
             aria-label="Filter by Stave runs"
           >
             <SelectValue />
@@ -228,9 +229,9 @@ export function TasksToolbar(props: TasksToolbarProps) {
           </SelectContent>
         </Select>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className={sx(taskLayoutStyles.toolbarActions)}>
           <div
-            className="flex items-center rounded-md border border-border/70 bg-muted/40 p-0.5"
+            className={sx(taskLayoutStyles.segmented)}
             role="group"
             aria-label="Ticket layout"
           >
@@ -239,10 +240,10 @@ export function TasksToolbar(props: TasksToolbarProps) {
               size="sm"
               variant={props.layout === "list" ? "secondary" : "ghost"}
               aria-pressed={props.layout === "list"}
-              className="h-8 gap-1.5 px-2.5 text-xs"
+              xstyle={taskLayoutStyles.tab}
               onClick={() => props.onLayoutChange("list")}
             >
-              <LayoutList className="size-3.5" />
+              <LayoutList className={sx(trackerVisualStyles.icon)} />
               List
             </Button>
             <Button
@@ -250,10 +251,10 @@ export function TasksToolbar(props: TasksToolbarProps) {
               size="sm"
               variant={props.layout === "board" ? "secondary" : "ghost"}
               aria-pressed={props.layout === "board"}
-              className="h-8 gap-1.5 px-2.5 text-xs"
+              xstyle={taskLayoutStyles.tab}
               onClick={() => props.onLayoutChange("board")}
             >
-              <LayoutGrid className="size-3.5" />
+              <LayoutGrid className={sx(trackerVisualStyles.icon)} />
               Board
             </Button>
           </div>
@@ -265,7 +266,7 @@ export function TasksToolbar(props: TasksToolbarProps) {
               }
             >
               <SelectTrigger
-                className="h-8 w-40 text-xs"
+                className={sx(taskLayoutStyles.selectMedium)}
                 aria-label="Group tickets"
               >
                 <SelectValue />
@@ -286,7 +287,7 @@ export function TasksToolbar(props: TasksToolbarProps) {
             }
           >
             <SelectTrigger
-              className="h-8 w-40 text-xs"
+              className={sx(taskLayoutStyles.selectMedium)}
               aria-label="Sort tickets"
             >
               <SelectValue />
@@ -304,14 +305,14 @@ export function TasksToolbar(props: TasksToolbarProps) {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-8 gap-1 px-2.5 text-xs"
+              xstyle={taskLayoutStyles.tab}
               // The view is preserved: Reset clears chips, it does not bounce
               // the reader out of the list they are in.
               onClick={() =>
                 props.onFilterChange(createTrackerTaskFilter(filter.view))
               }
             >
-              <X className="size-3.5" />
+              <X className={sx(trackerVisualStyles.icon)} />
               Reset {activeFilterCount}
             </Button>
           ) : null}

@@ -1,4 +1,6 @@
 import { GitBranch } from "lucide-react";
+import { sessionCoreStyles } from "./session-core.styles";
+import { sx } from "../ads/utils/stylex";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
 
@@ -37,14 +39,14 @@ export function ComposerWorkspaceBarView(props: {
     // `ComposerFrameStatusBar`, which also hosts the trailing readouts.
     <div
       data-testid="composer-workspace-bar"
-      className="flex min-w-0 items-center gap-2 overflow-hidden"
+      className={sx(sessionCoreStyles.workspaceBar)}
     >
       {project ? (
         // Kept whole while the branch truncates: project names are short, and
         // this is the half that says which codebase you are looking at.
         <span
           data-testid="composer-workspace-project"
-          className="max-w-40 shrink-0 truncate"
+          className={sx(sessionCoreStyles.project)}
           title={project}
         >
           {project}
@@ -52,11 +54,11 @@ export function ComposerWorkspaceBarView(props: {
       ) : null}
       {label ? (
         <span
-          className="inline-flex min-w-0 items-center gap-1.5"
+          className={sx(sessionCoreStyles.branchGroup)}
           title={detail ? `${label} · ${detail}` : label}
         >
-          <GitBranch className="size-3 shrink-0" aria-hidden="true" />
-          <span className="truncate font-mono">{label}</span>
+          <GitBranch className={sx(sessionCoreStyles.branchIcon)} aria-hidden="true" />
+          <span className={sx(sessionCoreStyles.monoTruncate)}>{label}</span>
         </span>
       ) : null}
     </div>

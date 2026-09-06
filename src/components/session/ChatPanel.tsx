@@ -7,17 +7,8 @@ import {
   type ClipboardEvent as ReactClipboardEvent,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
-import { MessageSquareIcon, Undo2 } from "lucide-react";
-import {
-  Button,
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  Loader,
-  toast,
-} from "@/components/ui";
+import { Undo2 } from "lucide-react";
+import { Button, Loader, toast } from "@/components/ui";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +43,8 @@ import {
   getTurnModelInfoLabel,
   getTurnModelInfoParts,
 } from "@/lib/providers/turn-model-info";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { chatPanelStyles as styles } from "./chat-panel.styles";
 import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
 import { useAppStore } from "@/store/app.store";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
@@ -81,6 +73,7 @@ import {
   findActiveConversationTurnMessageId,
 } from "./conversation-turn-rail.utils";
 import { AssistantMessageBody } from "./message/assistant-trace";
+import { TaskStartGuide } from "./TaskStartGuide";
 import { SessionLoadingState } from "./SessionLoadingState";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import {
@@ -300,19 +293,23 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ? message.id
           : undefined
       }
-      className={cn(isFirst && "pt-3 sm:pt-4")}
+      className={sx(isFirst && styles.rowFirst)}
     >
       <Message from={message.role}>
         <div
-          className={cn(
-            "group/message-shell flex flex-col items-stretch",
+          className={sx(
+            styles.shell,
             message.role === "assistant"
-              ? "w-full max-w-4xl gap-1.5"
-              : "min-w-0 max-w-[88%] w-fit gap-1",
+              ? styles.shellAssistant
+              : styles.shellUser,
           )}
         >
           <MessageContent
-            className={message.role === "assistant" ? "pb-1" : undefined}
+            className={
+              message.role === "assistant"
+                ? sx(styles.assistantContent)
+                : undefined
+            }
             onCopy={handleUserMessageCopy}
           >
             {planPresentation.showPlanCard ? (
@@ -330,25 +327,22 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
             ) : null}
           </MessageContent>
           {message.role === "user" && steerDeliveryLabel ? (
-            <span className="self-end px-1 text-[11px] text-muted-foreground">
-              {steerDeliveryLabel}
-            </span>
+            <span className={sx(styles.steerLabel)}>{steerDeliveryLabel}</span>
           ) : null}
           <MessageActions
-            className={cn(
-              message.role === "user" &&
-                "pointer-events-none self-end !ml-0 !mt-1 opacity-0 transition-opacity group-hover/message-shell:pointer-events-auto group-hover/message-shell:opacity-100 group-focus-within/message-shell:pointer-events-auto group-focus-within/message-shell:opacity-100",
-              message.role === "assistant" && "self-stretch !ml-0 !mt-1",
+            className={sx(
+              message.role === "user" && styles.actionsUser,
+              message.role === "assistant" && styles.actionsAssistant,
             )}
           >
-            <div className="flex min-w-0 flex-wrap items-center gap-1">
+            <div className={sx(styles.actionRow)}>
               {message.providerId !== "user" && message.model ? (
                 <MessageAction
                   key="provider-action"
                   label={turnModelInfoLabel}
                   // The chip owns its own border and fill, so the action shell
                   // is stripped back to a positioning wrapper.
-                  className="pointer-events-none h-auto max-w-full cursor-default gap-0 rounded-sm border-0 bg-transparent p-0 font-normal opacity-100 hover:bg-transparent"
+                  className={sx(styles.providerAction)}
                 >
                   <TurnModelChip
                     providerId={message.providerId}
@@ -361,7 +355,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 <MessageAction
                   key="elapsed-action"
                   label="Elapsed time"
-                  className="pointer-events-none h-7 cursor-default gap-1.5 rounded-sm px-2 text-sm font-normal text-muted-foreground opacity-100"
+                  className={sx(styles.elapsedAction)}
                 >
                   {showRespondingWave ? (
                     <Loader
@@ -391,7 +385,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   {historyAction === "preview" ? (
                     <Loader aria-hidden size="xs" variant="scan" />
                   ) : (
-                    <Undo2 className="size-3.5" />
+                    <Undo2 className={sx(styles.rewindIcon)} />
                   )}
                 </MessageAction>
               ) : null}
@@ -415,7 +409,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   taskId={taskId}
                   messageId={message.id}
                   state={threadActionState}
-                  className="pointer-events-none opacity-0 transition-opacity duration-150 group-hover/message-shell:pointer-events-auto group-hover/message-shell:opacity-100 group-focus-within/message-shell:pointer-events-auto group-focus-within/message-shell:opacity-100 motion-reduce:transition-none"
+                  className={sx(styles.turnActionsReveal)}
                 />
               ) : null}
             </div>
@@ -429,7 +423,10 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 }
               }}
             >
-              <DialogContent showCloseButton={false} className="max-w-md">
+              <DialogContent
+                showCloseButton={false}
+                xstyle={styles.dialogContent}
+              >
                 <DialogHeader>
                   <DialogTitle>Rewind Claude file changes?</DialogTitle>
                   <DialogDescription>
@@ -438,15 +435,15 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     changed.
                   </DialogDescription>
                 </DialogHeader>
-                <div aria-live="polite" className="min-w-0 space-y-3">
+                <div aria-live="polite" className={sx(styles.dialogBody)}>
                   {historyAction === "preview" && !rewindPreview ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className={sx(styles.dialogStatusRow)}>
                       <Loader aria-hidden size="xs" variant="scan" />
                       Checking affected files…
                     </div>
                   ) : rewindPreview?.ok && rewindPreview.canRewind ? (
                     <>
-                      <p className="text-sm text-foreground">
+                      <p className={sx(styles.dialogFilesLine)}>
                         {rewindPreview.filesChanged?.length ?? 0} file(s) will
                         change
                         {rewindPreview.insertions != null ||
@@ -458,22 +455,25 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                       {rewindPreview.filesChanged?.length ? (
                         <ul
                           aria-label="Files affected by rewind"
-                          className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-xs"
+                          className={sx(styles.dialogFileList)}
                         >
                           {rewindPreview.filesChanged.map((filePath) => (
-                            <li key={filePath} className="break-all">
+                            <li
+                              key={filePath}
+                              className={sx(styles.dialogFileItem)}
+                            >
                               {filePath}
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-sm text-muted-foreground">
+                        <p className={sx(styles.dialogEmpty)}>
                           Claude reported no changed file paths.
                         </p>
                       )}
                     </>
                   ) : rewindPreview ? (
-                    <p className="text-sm text-destructive">
+                    <p className={sx(styles.dialogError)}>
                       {rewindPreview.detail}
                     </p>
                   ) : null}
@@ -582,6 +582,19 @@ function ChatPanelMessageList(props: {
     retainedScrollToLatestMessageNonceRef.current;
   const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
   const [turnCompletionScrollTick, setTurnCompletionScrollTick] = useState(0);
+  // A width change (e.g. a pane split narrowing this surface) re-wraps the
+  // transcript taller. Virtuoso's own resize handler only re-pins while it
+  // still believes it is at the bottom; if the initial bottom-pin had not yet
+  // settled when the resize lands, that belief is already lost and the last
+  // message is left stranded above the fold. Re-issue an explicit bottom
+  // scroll on such a resize while the pane still intends the bottom.
+  const [layoutRepinTick, setLayoutRepinTick] = useState(0);
+  // While a layout reflow (a pane split narrowing this surface) is re-pinning
+  // to the bottom, the scroll handler must not misread the transient gap as a
+  // deliberate scroll-up and freeze the transcript on a reading anchor. The
+  // window is short and only opens on a width change, so ordinary scroll-up
+  // anchoring is unaffected.
+  const suppressAnchorUntilRef = useRef(0);
   const previousActiveTurnIdRef = useRef<string | undefined>(activeTurnId);
 
   // Plan responses stay in the transcript and render as a dedicated plan card
@@ -627,6 +640,7 @@ function ChatPanelMessageList(props: {
     scrollToLatestMessageRequestNonce,
     latestVisibleMessageId ?? "none",
     turnCompletionScrollTick,
+    layoutRepinTick,
   ].join(":");
   const scrollContextKey = taskId;
   const messageIndexById = useMemo(
@@ -640,6 +654,42 @@ function ChatPanelMessageList(props: {
   const restoreItemIndex = restoreAnchor
     ? messageIndexById.get(restoreAnchor.messageId)
     : undefined;
+  // Re-pin to the bottom when this surface's width changes and the pane still
+  // intends the bottom (no saved reading anchor). A pane split narrows the
+  // conversation and re-wraps its messages taller; the explicit bottom intent
+  // must survive that reflow. Width-only: a height change is the composer
+  // growing/shrinking, which Virtuoso already follows.
+  const hasBottomIntent = restoreItemIndex == null;
+  useEffect(() => {
+    if (!hasBottomIntent || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const container = document.querySelector<HTMLElement>(
+      `[data-testid="conversation-scroll-${escapeAttributeSelectorValue(taskId)}"]`,
+    );
+    if (!container) {
+      return;
+    }
+    let lastWidth = container.clientWidth;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = container.clientWidth;
+      if (nextWidth === lastWidth || nextWidth <= 0) {
+        return;
+      }
+      lastWidth = nextWidth;
+      // The pane still intends the bottom (guarded by `hasBottomIntent`, which
+      // turns false as soon as the scroll handler saves a reading anchor), so a
+      // width reflow should snap the latest message back into view. Open a
+      // short window that stops the scroll handler from anchoring on the
+      // transient gap this reflow opens, drop any anchor already recorded, and
+      // ask the conversation to re-pin.
+      suppressAnchorUntilRef.current = Date.now() + 500;
+      taskScrollAnchorCache.delete(scrollContextKey);
+      setLayoutRepinTick((current) => current + 1);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [hasBottomIntent, taskId]);
   const traceExpansionMode = getReasoningTraceExpansionMode({
     reasoningExpansionMode,
   });
@@ -833,6 +883,11 @@ function ChatPanelMessageList(props: {
             taskScrollAnchorCache.delete(scrollContextKey);
             return;
           }
+          // A width reflow is mid-repin: ignore the transient non-bottom gap it
+          // opens rather than freezing the transcript on a reading anchor.
+          if (Date.now() < suppressAnchorUntilRef.current) {
+            return;
+          }
           const containerTop = container.getBoundingClientRect().top;
           const anchorNode = Array.from(
             container.querySelectorAll<HTMLElement>("[data-message-id]"),
@@ -853,13 +908,13 @@ function ChatPanelMessageList(props: {
         }}
       >
         {hasOlderMessages ? (
-          <div className="mx-auto mb-3 flex w-full max-w-6xl px-3 pt-3 sm:px-5 sm:pt-4">
+          <div className={sx(styles.loadOlderRow)}>
             <Button
               type="button"
               size="sm"
               variant="outline"
               disabled={taskMessagesLoading}
-              className="h-8 rounded-sm"
+              className={sx(styles.loadOlderButton)}
               onClick={() => {
                 void loadTaskMessages({ taskId, mode: "older" });
               }}
@@ -877,17 +932,7 @@ function ChatPanelMessageList(props: {
             description="Fetching the latest messages for this task."
           />
         ) : visibleMessages.length === 0 && !hasFailedSends ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <MessageSquareIcon />
-              </EmptyMedia>
-              <EmptyTitle>Start a conversation</EmptyTitle>
-              <EmptyDescription>
-                Send a prompt to begin this task.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <TaskStartGuide />
         ) : (
           <ConversationVirtualList
             listKey={scrollContextKey}
@@ -959,7 +1004,7 @@ const MemoizedChatPanelMessageList = memo(ChatPanelMessageList);
 export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   return (
     <Conversation>
-      <div className="flex h-full w-full flex-col">
+      <div className={sx(styles.panelColumn)}>
         <MemoizedChatPanelMessageList
           scrollActivationKey={props.scrollActivationKey}
         />

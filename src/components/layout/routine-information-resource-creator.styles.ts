@@ -1,0 +1,160 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "../ads/tokens/tokens.stylex";
+
+export const resourceCreatorStyles = stylex.create({
+  field: {
+    color: vars.colorText,
+    display: "grid",
+    fontSize: vars.fontSizeCaption,
+    gap: 6,
+  },
+  fieldLabel: { fontWeight: vars.fontWeightMedium },
+  fieldDescription: {
+    color: vars.colorTextMuted,
+    fontSize: 10,
+    lineHeight: vars.lineHeightControl,
+  },
+  fieldPair: {
+    display: "grid",
+    gap: vars.space12,
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  },
+  noteTextarea: { minBlockSize: 80, resize: "vertical" },
+  customTextarea: { minBlockSize: 96, resize: "vertical" },
+  bodyTextarea: { minBlockSize: 128, resize: "vertical" },
+  booleanRow: {
+    alignItems: "center",
+    blockSize: 36,
+    borderColor: vars.colorBorder,
+    borderRadius: vars.radiusControl,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    justifyContent: "space-between",
+    paddingInline: vars.space12,
+  },
+  booleanValue: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+  },
+
+  trigger: {
+    blockSize: 32,
+    fontSize: vars.fontSizeCaption,
+    gap: vars.space8,
+    justifyContent: "flex-start",
+  },
+  triggerIcon: { blockSize: 14, inlineSize: 14 },
+
+  /** Full-bleed shell: header, scrolling body, and footer own their padding. */
+  content: {
+    maxBlockSize: "84vh",
+    maxWidth: {
+      default: "28rem",
+      "@media (min-width: 640px)": "36rem",
+    },
+    overflow: "hidden",
+    padding: 0,
+  },
+  header: {
+    borderBlockEndColor: vars.colorBorderSubtle,
+    borderBlockEndStyle: "solid",
+    borderBlockEndWidth: vars.borderWidthHairline,
+    paddingBlockEnd: vars.space16,
+    paddingBlockStart: vars.space20,
+    paddingInlineEnd: vars.space48,
+    paddingInlineStart: vars.space20,
+  },
+  headerRow: { alignItems: "flex-start", display: "flex", gap: vars.space12 },
+  backButton: { blockSize: 32, flexShrink: 0, inlineSize: 32, marginInlineStart: -8 },
+  backIcon: {
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
+  },
+  headerText: { minInlineSize: 0 },
+  headerDescription: { marginBlockStart: vars.space4 },
+
+  body: {
+    display: "grid",
+    gap: vars.space16,
+    maxBlockSize: "60vh",
+    overflowY: "auto",
+    paddingBlock: vars.space16,
+    paddingInline: vars.space20,
+  },
+  error: {
+    backgroundColor: vars.colorDangerSoft,
+    borderColor: vars.colorDangerBorder,
+    borderRadius: vars.radiusControl,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    color: vars.colorDangerText,
+    fontSize: vars.fontSizeCaption,
+    margin: 0,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
+  },
+  footer: {
+    backgroundColor: vars.colorCanvasSubtle,
+    borderBlockStartColor: vars.colorBorderSubtle,
+    borderBlockStartStyle: "solid",
+    borderBlockStartWidth: vars.borderWidthHairline,
+    paddingBlock: vars.space16,
+    paddingInline: vars.space20,
+  },
+
+  typeGrid: {
+    display: "grid",
+    gap: vars.space8,
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    maxBlockSize: "65vh",
+    overflowY: "auto",
+    padding: vars.space20,
+  },
+  typeCard: {
+    alignItems: "flex-start",
+    backgroundColor: { default: vars.colorSurface, ":hover": vars.colorCanvasSubtle },
+    borderColor: {
+      default: vars.colorBorderSubtle,
+      ":hover": `color-mix(in oklch, ${vars.colorAccent} 40%, transparent)`,
+    },
+    borderRadius: vars.radiusPanel,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: vars.space12,
+    minBlockSize: 96,
+    padding: vars.space12,
+    textAlign: "left",
+  },
+  typeIconBox: {
+    alignItems: "center",
+    backgroundColor: vars.colorCanvasSubtle,
+    blockSize: 32,
+    borderRadius: vars.radiusControl,
+    color: vars.colorTextMuted,
+    display: "flex",
+    flexShrink: 0,
+    inlineSize: 32,
+    justifyContent: "center",
+  },
+  typeIcon: {
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
+  },
+  typeText: { minInlineSize: 0 },
+  typeLabel: {
+    color: vars.colorText,
+    display: "block",
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightSemibold,
+  },
+  typeDescription: {
+    color: vars.colorTextMuted,
+    display: "block",
+    fontSize: 10,
+    lineHeight: vars.lineHeightControl,
+    marginBlockStart: vars.space4,
+  },
+});

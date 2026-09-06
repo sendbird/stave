@@ -1,8 +1,10 @@
 import { FolderOpen } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { dialogStyles } from "@/components/ads/components/Dialog";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { Button, Input } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { openPathDialogStyles } from "./open-path-dialog.styles";
 
 type OpenPathDialogSubmitResult = { ok: boolean; stderr?: string };
 
@@ -91,22 +93,22 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
 
   return (
     <div
-      className={cn(UI_LAYER_CLASS.dialog, "fixed inset-0 flex items-center justify-center bg-overlay p-4")}
+      className={cx(UI_LAYER_CLASS.dialog, sx(openPathDialogStyles.backdrop))}
       onMouseDown={close}
     >
-      <Card
-        className="w-full max-w-md rounded-lg border-border/80 bg-card p-4 shadow-xl"
+      <section
+        className={sx(dialogStyles.surface, openPathDialogStyles.panel)}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleDialogKeyDown}>
-          <h3 className="text-base font-semibold text-foreground">Open Project</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h3 className={sx(openPathDialogStyles.title)}>Open Project</h3>
+          <p className={sx(openPathDialogStyles.description)}>
             Enter a path or browse for a folder.
           </p>
-          <div className="mt-3 flex items-center gap-2">
+          <div className={sx(openPathDialogStyles.pathRow)}>
             <Input
               autoFocus
-              className="flex-1"
+              xstyle={openPathDialogStyles.pathInput}
               placeholder="~/projects/my-app"
               value={inputPath}
               onChange={(event) => {
@@ -118,18 +120,18 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
             <Button
               type="button"
               variant="outline"
-              className="shrink-0 gap-1.5"
+              xstyle={openPathDialogStyles.browseButton}
               onClick={() => void handleBrowse()}
               disabled={busy}
             >
-              <FolderOpen className="size-4" />
+              <FolderOpen className={sx(openPathDialogStyles.browseIcon)} />
               Browse
             </Button>
           </div>
           {error ? (
-            <p className="mt-2 text-sm text-destructive">{error}</p>
+            <p className={sx(openPathDialogStyles.error)}>{error}</p>
           ) : null}
-          <div className="mt-4 flex justify-end gap-2">
+          <div className={sx(openPathDialogStyles.actions)}>
             <Button type="button" variant="outline" onClick={close} disabled={busy}>
               Cancel
             </Button>
@@ -138,7 +140,7 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
             </Button>
           </div>
         </form>
-      </Card>
+      </section>
     </div>
   );
 }

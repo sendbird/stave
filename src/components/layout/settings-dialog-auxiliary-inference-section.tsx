@@ -18,7 +18,9 @@ import {
 } from "@/lib/providers/auxiliary-inference-policy";
 import { PROMPT_ENHANCEMENT_STYLE_PROFILE_CHARS } from "@/lib/providers/prompt-enhancement-context";
 import { Button, Textarea } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
+import { auxiliaryInferenceSectionStyles as styles } from "./settings-dialog-auxiliary-inference-section.styles";
 
 /**
  * Settings → Background AI.
@@ -85,13 +87,15 @@ const PROVIDER_OPTIONS = [
     value: "claude-code" as const,
     label: "Claude",
     description: "Run this lane on Claude.",
-    icon: <ModelIcon providerId="claude-code" className="size-3.5" />,
+    icon: (
+      <ModelIcon providerId="claude-code" className={sx(styles.providerIcon)} />
+    ),
   },
   {
     value: "codex" as const,
     label: "Codex",
     description: "Run this lane on Codex.",
-    icon: <ModelIcon providerId="codex" className="size-3.5" />,
+    icon: <ModelIcon providerId="codex" className={sx(styles.providerIcon)} />,
   },
 ];
 

@@ -20,6 +20,8 @@ import { useAppStore } from "@/store/app.store";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
 import { RightRailPanelShell } from "./RightRailPanelShell";
+import { layoutShellStyles } from "./layout-shell.styles";
+import * as stylex from "@stylexjs/stylex";
 import { WorkspaceScriptsPanel } from "./WorkspaceScriptsPanel";
 import { WorkspaceSkillsPanel } from "./WorkspaceSkillsPanel";
 import { WorkspaceChangesPanel, type WorkspaceChecksViewModel } from "./WorkspaceChangesPanel";
@@ -1016,9 +1018,9 @@ export function EditorPanel(props: EditorPanelProps) {
   return (
     <aside
       data-testid="editor-panel"
-      className="h-full min-w-0 w-full overflow-hidden"
+      {...stylex.props(layoutShellStyles.editorPanel)}
     >
-      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
+      <div {...stylex.props(layoutShellStyles.editorPanelBody)}>
         <RightRailPanelShell
           panelId={rightTab}
           actions={

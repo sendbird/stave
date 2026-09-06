@@ -1,8 +1,14 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "@/App";
+import "@/components/ads/styles.css";
 import "@/globals.css";
+import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { installDevApiBridge } from "@/lib/dev-bridge";
+
+if (import.meta.env.DEV) {
+  void import("virtual:stylex:runtime");
+}
 
 installDevApiBridge();
 
@@ -40,7 +46,9 @@ if (preview === "agent-messages") {
     ({ ComposerFramePreviewApp }) => {
       root.render(
         <StrictMode>
-          <ComposerFramePreviewApp />
+          <StaveDesignProvider>
+            <ComposerFramePreviewApp />
+          </StaveDesignProvider>
         </StrictMode>,
       );
     },
@@ -48,7 +56,9 @@ if (preview === "agent-messages") {
 } else {
   root.render(
     <StrictMode>
-      <App />
+      <StaveDesignProvider>
+        <App />
+      </StaveDesignProvider>
     </StrictMode>,
   );
 }

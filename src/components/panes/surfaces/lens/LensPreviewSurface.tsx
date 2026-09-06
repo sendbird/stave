@@ -1,5 +1,7 @@
 import { createPortal } from "react-dom";
+import * as stylex from "@stylexjs/stylex";
 import { ScanSearch } from "lucide-react";
+import { ActionButton } from "@/components/system/ActionButton";
 import {
   Empty,
   EmptyContent,
@@ -9,6 +11,7 @@ import {
   EmptyTitle,
   Loader,
 } from "@/components/ui";
+import { workbenchStyles as w } from "./lens-workbench.styles";
 
 /**
  * The preview tab: the rectangle the guest page occupies, plus the pane-local
@@ -33,30 +36,33 @@ export function LensPreviewSurface(args: {
   hasLensApi: boolean;
   isLoading: boolean;
   lastLoadError: string | null;
+  isBlank?: boolean;
+  onEnterAddress?: () => void;
+  onOpenTools?: () => void;
+  onRetry?: () => void;
 }) {
   const { placeholderRef, chromeLayer, hasLensApi, isLoading, lastLoadError } =
     args;
 
   if (!hasLensApi) {
     return (
-      <div className="absolute inset-0 p-3">
-        <Empty className="h-full justify-center rounded-xl border-border/70 bg-background/70 p-6">
+      <div {...stylex.props(w.previewHost)}>
+        <Empty xstyle={w.runtimeEmpty}>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <ScanSearch />
             </EmptyMedia>
             <EmptyTitle>Lens needs the desktop runtime</EmptyTitle>
             <EmptyDescription>
-              {
-                "The embedded browser is an Electron `<webview>` guest, so it is unavailable in browser-only mode."
-              }
+              Open Stave on your desktop to preview pages, inspect elements, and
+              bring visual evidence into your tasks.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <div className="space-y-1 text-xs text-muted-foreground">
+            <div {...stylex.props(w.runtimeCopy)}>
               <p>
-                Use `bun run dev:desktop` or a packaged desktop build to inspect
-                pages, capture screenshots, and send element context to a task.
+                Your regular browser remains available for research. Lens keeps
+                page inspection and task feedback together inside Stave.
               </p>
             </div>
           </EmptyContent>
@@ -66,19 +72,92 @@ export function LensPreviewSurface(args: {
   }
 
   const statusChrome =
-    isLoading || lastLoadError ? (
+    isLoading || lastLoadError || args.isBlank ? (
       <>
+        {args.isBlank && !isLoading && !lastLoadError ? (
+          <section
+            aria-label="Get started with Lens"
+            {...stylex.props(w.overlay)}
+          >
+            <div {...stylex.props(w.onboarding)}>
+              <ScanSearch
+                aria-hidden="true"
+                {...stylex.props(w.onboardingIcon)}
+              />
+              <h2 {...stylex.props(w.onboardingTitle)}>
+                See the page. Bring the evidence.
+              </h2>
+              <p {...stylex.props(w.onboardingCopy)}>
+                Open a development preview or a web page. Point to what needs
+                attention and send the element, image, or comment to your active
+                task.
+              </p>
+              <div {...stylex.props(w.actions)}>
+                {args.onEnterAddress ? (
+                  <ActionButton weight="primary" onClick={args.onEnterAddress}>
+                    Enter a page address
+                  </ActionButton>
+                ) : null}
+                {args.onOpenTools ? (
+                  <ActionButton onClick={args.onOpenTools}>
+                    Start a dev server
+                  </ActionButton>
+                ) : null}
+              </div>
+              <ul {...stylex.props(w.onboardingList)}>
+                <li>
+                  <strong {...stylex.props(w.strong)}>
+                    Inspect & comment.
+                  </strong>{" "}
+                  Select an element or mark an area to give an agent precise
+                  context.
+                </li>
+                <li>
+                  <strong {...stylex.props(w.strong)}>Check behavior.</strong>{" "}
+                  Use Console and Network to inspect errors and requests.
+                </li>
+                <li>
+                  <strong {...stylex.props(w.strong)}>Keep evidence.</strong>{" "}
+                  Capture a screenshot or download page assets for review.
+                </li>
+              </ul>
+            </div>
+          </section>
+        ) : null}
         {isLoading ? (
-          <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-border/70 bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm">
-            <span className="inline-flex items-center gap-1.5">
+          <div {...stylex.props(w.loading)}>
+            <span {...stylex.props(w.loadingContent)}>
               <Loader aria-hidden size="xs" variant="scan" />
               Loading page
             </span>
           </div>
         ) : null}
         {lastLoadError ? (
-          <div className="absolute inset-x-3 bottom-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive shadow-sm">
-            {lastLoadError}
+          <div role="alert" {...stylex.props(w.error)}>
+            <p {...stylex.props(w.errorTitle)}>The page could not be loaded.</p>
+            <p {...stylex.props(w.onboardingCopy, w.breakWords)}>
+              {lastLoadError}
+            </p>
+            <div {...stylex.props(w.actions)}>
+              {args.onRetry ? (
+                <ActionButton
+                  size="xs"
+                  disabled={isLoading}
+                  onClick={args.onRetry}
+                >
+                  Retry loading
+                </ActionButton>
+              ) : null}
+              {args.onEnterAddress ? (
+                <ActionButton
+                  size="xs"
+                  weight="quiet"
+                  onClick={args.onEnterAddress}
+                >
+                  Check the address
+                </ActionButton>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </>
@@ -89,7 +168,7 @@ export function LensPreviewSurface(args: {
       <div
         ref={placeholderRef}
         data-lens-guest-placeholder=""
-        className="absolute inset-0 min-h-0 overflow-hidden bg-background"
+        {...stylex.props(w.guestPlaceholder)}
       />
       {/*
         Before a guest exists there is no page to be hidden behind, so the same

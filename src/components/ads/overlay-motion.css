@@ -1,0 +1,325 @@
+/*
+ * Overlay & surface motion.
+ *
+ * The enter/exit transitions for every Base UI-driven overlay surface
+ * (backdrop, modal, fullscreen, dropdown, drawer, collapsible panel, tooltip)
+ * plus the toast stack — and, at the bottom of this file, the
+ * `prefers-reduced-motion` override that has to out-specify them. They live
+ * together so the specificity relationship between an arm and its Reduce Motion
+ * counterpart is local and reviewable, the same way `data-table-motion.css` pairs
+ * its own arm with its own override. Imported from `styles.css`, unlayered,
+ * ahead of every rule that file declares itself.
+ *
+ * Keyframe-driven motion (skeleton, icon spinner, marquee, brand spinner) and
+ * its Reduce Motion switch stay in `styles.css`.
+ */
+
+.atelier-motion-backdrop {
+  opacity: 1;
+  transition: opacity var(--atelier-motion-duration-quick)
+    var(--atelier-motion-ease-expressive);
+}
+
+.atelier-motion-backdrop[data-starting-style],
+.atelier-motion-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.atelier-motion-modal,
+.atelier-motion-fullscreen {
+  opacity: 1;
+  transform: var(--atelier-surface-translate, translate(0, 0)) scale(1);
+  transition:
+    transform var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-expressive),
+    opacity var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-expressive);
+  will-change: transform, opacity;
+}
+
+.atelier-motion-modal[data-starting-style],
+.atelier-motion-fullscreen[data-starting-style] {
+  opacity: 0;
+  transform: var(--atelier-surface-translate, translate(0, 0))
+    scale(var(--atelier-surface-scale));
+}
+
+.atelier-motion-modal[data-ending-style],
+.atelier-motion-fullscreen[data-ending-style] {
+  opacity: 0;
+  transform: var(--atelier-surface-translate, translate(0, 0))
+    scale(var(--atelier-surface-close-scale));
+  transition-duration: var(--atelier-motion-duration-quick);
+}
+
+.atelier-motion-modal {
+  --atelier-surface-translate: translate(-50%, -50%);
+  --atelier-surface-scale: var(--atelier-motion-modal-scale);
+  --atelier-surface-close-scale: var(--atelier-motion-modal-close-scale);
+
+  transform-origin: center;
+}
+
+.atelier-motion-fullscreen {
+  --atelier-surface-scale: var(--atelier-motion-fullscreen-scale);
+  --atelier-surface-close-scale: var(--atelier-motion-fullscreen-close-scale);
+
+  transform-origin: center;
+}
+
+/*
+ * Anchored popups (menus, selects, comboboxes) open dozens of times a minute —
+ * `--atelier-motion-duration-quick` (150ms), scale-and-fade only. No `filter`
+ * blur pass: at the emphasis duration a modal gets (250ms) a 4px full-surface
+ * blur is long enough that a fast user watches the text un-blur, which reads
+ * as lag, not polish. `.atelier-motion-modal`/`-drawer`/`-fullscreen`/
+ * tooltip use the same no-blur rule: text stays sharp throughout
+ * the transition and motion explains only spatial entry/exit.
+ */
+.atelier-motion-dropdown {
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: var(--transform-origin, top center);
+  transition:
+    transform var(--atelier-motion-duration-quick)
+      var(--atelier-motion-ease-expressive),
+    opacity var(--atelier-motion-duration-quick)
+      var(--atelier-motion-ease-expressive);
+  will-change: transform, opacity;
+}
+
+.atelier-motion-dropdown[data-starting-style] {
+  opacity: 0;
+  transform: scale(var(--atelier-motion-dropdown-scale));
+}
+
+.atelier-motion-dropdown[data-ending-style] {
+  opacity: 0;
+  transform: scale(var(--atelier-motion-dropdown-close-scale));
+  transition-duration: var(--atelier-motion-duration-quick);
+}
+
+.atelier-motion-drawer {
+  opacity: 1;
+  transform: translate(0, 0);
+  transition:
+    transform var(--atelier-motion-duration-panel)
+      var(--atelier-motion-ease-expressive),
+    opacity var(--atelier-motion-duration-panel)
+      var(--atelier-motion-ease-expressive);
+  will-change: transform, opacity;
+}
+
+.atelier-motion-drawer[data-starting-style] {
+  opacity: 0;
+  transform: translate(
+    calc(
+      var(--atelier-drawer-axis-x, 1) * var(--atelier-motion-drawer-distance)
+    ),
+    calc(
+      var(--atelier-drawer-axis-y, 0) * var(--atelier-motion-drawer-distance)
+    )
+  );
+}
+
+.atelier-motion-drawer[data-ending-style] {
+  opacity: 0;
+  transform: translate(
+    calc(
+      var(--atelier-drawer-axis-x, 1) *
+        var(--atelier-motion-drawer-close-distance)
+    ),
+    calc(
+      var(--atelier-drawer-axis-y, 0) *
+        var(--atelier-motion-drawer-close-distance)
+    )
+  );
+  transition-duration: var(--atelier-motion-duration-quick);
+}
+
+.atelier-motion-collapse {
+  block-size: var(--accordion-panel-height, var(--collapsible-panel-height));
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
+  /* The curve explains expansion without overshooting the measured height. */
+  transition: block-size var(--atelier-motion-duration-emphasis)
+    var(--atelier-motion-ease-expressive);
+}
+
+/*
+ * A closed `keepMounted` panel carries `hidden`, and the UA rule behind it is
+ * only `[hidden] { display: none }` — the weakest kind of declaration there is.
+ * Any author `display` on the panel beats it, so a caller who renders the panel
+ * as their own list (`render={<ul />}` with `display: grid`) kept a *closed*
+ * group at full height with every row still hit-testable. The class + attribute
+ * selector wins that fight for every caller instead of asking each one not to
+ * declare `display`.
+ */
+.atelier-motion-collapse[hidden] {
+  display: none;
+}
+
+/* Close on the quicker standard curve. */
+.atelier-motion-collapse[data-ending-style] {
+  transition-duration: var(--atelier-motion-duration-quick);
+  transition-timing-function: var(--atelier-motion-ease-standard);
+}
+
+.atelier-motion-collapse[data-starting-style],
+.atelier-motion-collapse[data-ending-style] {
+  block-size: 0;
+}
+
+.atelier-motion-panel-inner {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    transform var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-expressive),
+    opacity var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-expressive);
+}
+
+.atelier-motion-collapse[data-starting-style] .atelier-motion-panel-inner,
+.atelier-motion-collapse[data-ending-style] .atelier-motion-panel-inner {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.atelier-motion-tooltip {
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: var(--transform-origin, center bottom);
+  transition:
+    transform var(--atelier-motion-duration-quick)
+      var(--atelier-motion-ease-out) var(--atelier-motion-tooltip-delay),
+    opacity var(--atelier-motion-duration-quick) var(--atelier-motion-ease-out)
+      var(--atelier-motion-tooltip-delay);
+  will-change: transform, opacity;
+}
+
+.atelier-motion-tooltip[data-starting-style] {
+  opacity: 0;
+  transform: scale(var(--atelier-motion-tooltip-scale));
+}
+
+.atelier-motion-tooltip[data-ending-style] {
+  opacity: 0;
+  transform: scale(var(--atelier-motion-tooltip-close-scale));
+  transition-delay: 0ms;
+  transition-duration: var(--atelier-motion-duration-micro);
+}
+
+/*
+ * Animated toast stack (beUI-style). Base UI exposes `--toast-index`
+ * (depth), `--toast-offset-y` (cumulative expanded offset), the swipe-movement
+ * vars, and `data-expanded` on hover/focus. Collapsed: toasts peek up + scale
+ * down behind the front one. Expanded: they fan out to their natural stacked
+ * positions at full scale. New toasts slide up from below.
+ */
+.atelier-toast-stack {
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(
+      calc(var(--toast-swipe-movement-y) - (var(--toast-index) * 12px))
+    )
+    scale(calc(max(0.86, 1 - (var(--toast-index) * 0.05))));
+  transition:
+    transform var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-expressive),
+    opacity var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-in-out),
+    block-size var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-expressive);
+}
+
+.atelier-toast-stack[data-expanded] {
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(calc(var(--toast-swipe-movement-y) - var(--toast-offset-y)))
+    scale(1);
+}
+
+.atelier-toast-stack[data-starting-style],
+.atelier-toast-stack[data-ending-style] {
+  opacity: 0;
+  transform: translateY(150%) scale(0.95);
+}
+
+.atelier-toast-stack[data-swiping] {
+  transition: none;
+}
+
+/* Top-anchored positions: stack downward and enter from above. */
+.atelier-toast-stack-top {
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(
+      calc(var(--toast-swipe-movement-y) + (var(--toast-index) * 12px))
+    )
+    scale(calc(max(0.86, 1 - (var(--toast-index) * 0.05))));
+}
+
+.atelier-toast-stack-top[data-expanded] {
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(calc(var(--toast-swipe-movement-y) + var(--toast-offset-y)))
+    scale(1);
+}
+
+.atelier-toast-stack-top[data-starting-style],
+.atelier-toast-stack-top[data-ending-style] {
+  transform: translateY(-150%) scale(0.95);
+}
+
+/*
+ * Reduce Motion has to outrank the ANIMATED ARMS, not just the resting rules.
+ *
+ * The enter/exit arms above are written as `.atelier-motion-x[data-starting-style]`
+ * / `[data-ending-style]` — specificity (0,2,0) — and several of them re-declare
+ * their own `transition-duration` / `transition-delay`. A media query adds no
+ * specificity, and `styles.css` declares only `@layer reset, base`, so both rule
+ * sets are unlayered and compete directly. A bare `.atelier-motion-x` (0,1,0)
+ * override here therefore LOSES to every exit arm: enter animations were killed
+ * but every overlay close still played its full transition under Reduce Motion.
+ *
+ * The list below is repeated with `:is([data-starting-style], [data-ending-style])`
+ * — `:is()` takes the specificity of its most specific argument, so each selector
+ * lands at (0,2,0), matching the arm it must beat, and source order (this block
+ * is last in this file) decides. Do NOT "simplify" these back into the single
+ * bare list, and do not drop the `:is()` for a `:where()`: both reintroduce the
+ * bug silently.
+ *
+ * Keyframe-driven motion (skeleton, spinners, marquee, brand spinner) needs none
+ * of this — it is switched off by `animation: none` in `styles.css` and has no
+ * attribute arms to outrank.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .atelier-motion-backdrop,
+  .atelier-motion-modal,
+  .atelier-motion-fullscreen,
+  .atelier-motion-dropdown,
+  .atelier-motion-drawer,
+  .atelier-motion-collapse,
+  .atelier-motion-tooltip,
+  .atelier-toast-stack,
+  .atelier-motion-backdrop:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-modal:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-fullscreen:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-dropdown:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-drawer:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-collapse:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-tooltip:is([data-starting-style], [data-ending-style]),
+  .atelier-toast-stack:is([data-starting-style], [data-ending-style]),
+  .atelier-toast-stack-top:is([data-starting-style], [data-ending-style]) {
+    filter: none;
+    transition-duration: 0ms;
+    transition-delay: 0ms;
+  }
+
+  .atelier-motion-panel-inner,
+  .atelier-motion-collapse:is([data-starting-style], [data-ending-style])
+    .atelier-motion-panel-inner {
+    filter: none;
+    transition-duration: 0ms, var(--atelier-motion-duration-micro);
+    transition-delay: 0ms;
+  }
+}

@@ -9,7 +9,9 @@ import type {
 import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS } from "@/lib/provider-browser";
+import { sx } from "@/components/ads/utils/stylex";
 import { SettingsCard, SwitchField } from "./settings-dialog.shared";
+import { providerBrowserAccessSettingsCardStyles as styles } from "./ProviderBrowserAccessSettingsCard.styles";
 
 const PROVIDER_BROWSER_SETUP = {
   "claude-code": {
@@ -36,9 +38,7 @@ const STATUS_LABELS = {
 } as const;
 
 type SettingsBrowserStatus =
-  | ProviderBrowserConnectionStatus
-  | "unchecked"
-  | "superseded";
+  ProviderBrowserConnectionStatus | "unchecked" | "superseded";
 
 function resolveSettingsBrowserStatus(args: {
   providerId: ManagedExecutionProviderId;
@@ -82,18 +82,19 @@ function ProviderBrowserStatusCard(args: {
   return (
     <article
       aria-label={`${provider.label} browser access: ${STATUS_LABELS[status]}`}
-      className="rounded-lg border border-border/70 bg-muted/20 p-3.5"
+      className={sx(styles.statusCard)}
     >
-      <div className="flex items-center gap-2.5">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/70">
-          <ModelIcon providerId={args.providerId} className="size-4" />
+      <div className={sx(styles.statusHead)}>
+        <span className={sx(styles.statusMark)}>
+          <ModelIcon
+            providerId={args.providerId}
+            className={sx(styles.statusIcon)}
+          />
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground">
-            {provider.label}
-          </p>
+        <div className={sx(styles.statusBody)}>
+          <p className={sx(styles.statusName)}>{provider.label}</p>
           {checkedTab ? (
-            <p className="text-xs text-muted-foreground">
+            <p className={sx(styles.statusMeta)}>
               Last checked{" "}
               {formatTaskUpdatedAt({ value: checkedTab.lastUpdatedAt })}
             </p>
@@ -111,12 +112,11 @@ function ProviderBrowserStatusCard(args: {
           {STATUS_LABELS[status]}
         </Badge>
       </div>
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">
+      <p className={sx(styles.statusDescription)}>
         {statusDescription({ providerLabel: provider.label, status })}
       </p>
-      <p className="mt-2 text-xs leading-5 text-muted-foreground">
-        <span className="font-medium text-foreground">Setup:</span>{" "}
-        {provider.setup}
+      <p className={sx(styles.statusSetup)}>
+        <span className={sx(styles.emphasis)}>Setup:</span> {provider.setup}
       </p>
     </article>
   );
@@ -129,10 +129,10 @@ function AutoFallbackDomainsField(args: {
   const [draft, setDraft] = useState(args.value);
   useEffect(() => setDraft(args.value), [args.value]);
   return (
-    <div className="space-y-1.5">
+    <div className={sx(styles.domainsField)}>
       <label
         htmlFor="settings-field-browser-auto-fallback-domains"
-        className="text-sm font-medium"
+        className={sx(styles.domainsLabel)}
       >
         Additional auto-arm hosts
       </label>
@@ -148,7 +148,7 @@ function AutoFallbackDomainsField(args: {
           }
         }}
       />
-      <p className="text-xs leading-5 text-muted-foreground">
+      <p className={sx(styles.domainsHint)}>
         Comma- or space-separated; subdomains match. Always included:{" "}
         {PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS.join(", ")}.
       </p>
@@ -171,7 +171,7 @@ export function ProviderBrowserAccessSettingsCard(args: {
       description="Use the active provider's native Chrome extension to reference existing tabs and signed-in page state. Stave requests access only for an interactive prompt containing @web."
       titleAccessory={<Badge variant="outline">Per prompt</Badge>}
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={sx(styles.grid)}>
         <ProviderBrowserStatusCard providerId="claude-code" tab={args.tab} />
         <ProviderBrowserStatusCard providerId="codex" tab={args.tab} />
       </div>
@@ -187,18 +187,17 @@ export function ProviderBrowserAccessSettingsCard(args: {
           onCommit={args.onAutoFallbackDomainsChange}
         />
       ) : null}
-      <div className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
+      <div className={sx(styles.noteCard)}>
         <p>
-          <span className="font-medium text-foreground">Recheck:</span> send a
-          new interactive prompt containing <code>@web</code>. Connection and
-          site approval remain in the provider&apos;s extension; Stave cannot
+          <span className={sx(styles.emphasis)}>Recheck:</span> send a new
+          interactive prompt containing <code>@web</code>. Connection and site
+          approval remain in the provider&apos;s extension; Stave cannot
           install, enable, or grant access on its behalf.
         </p>
-        <p className="mt-1">
+        <p className={sx(styles.noteSpacer)}>
           Plan mode, unattended automation, and secondary analysis keep
           provider-native browser access off, and automatic fallback never
-          overrides them. With fallback off, a prompt without <code>@web</code>
-          {" "}
+          overrides them. With fallback off, a prompt without <code>@web</code>{" "}
           also keeps it off.
         </p>
       </div>

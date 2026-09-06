@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ClipboardCheck,
@@ -17,7 +18,8 @@ import {
   WORKSPACE_PLANS_DIRECTORY,
   type WorkspacePlanListEntry,
 } from "@/lib/plans";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { planStyles } from "./workspace-plans.styles";
 
 interface WorkspacePlansSectionProps {
   workspacePath: string;
@@ -196,28 +198,31 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
 
   return (
     <>
-      <div className="space-y-3">
+      <div className={sx(planStyles.root)}>
         {!embedded ? (
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">Plans</p>
-              <p className="text-xs leading-4 text-muted-foreground">
+          <div className={sx(planStyles.headerRow)}>
+            <div className={sx(planStyles.headerText)}>
+              <p className={sx(planStyles.headerTitle)}>Plans</p>
+              <p className={sx(planStyles.headerHint)}>
                 Open the saved plan markdown directly in the editor.
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="rounded-sm">
+            <div className={sx(planStyles.headerActions)}>
+              <Badge variant="outline" className={sx(planStyles.headerBadge)}>
                 {entries.length} saved
               </Badge>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 rounded-sm"
+                xstyle={planStyles.refreshButton}
                 onClick={() => void loadPlans()}
               >
                 <RefreshCcw
-                  className={cn("mr-1 size-4", listLoading && "animate-spin")}
+                  className={sx(
+                    planStyles.refreshIcon,
+                    listLoading && planStyles.spinning,
+                  )}
                 />
                 Refresh
               </Button>
@@ -226,45 +231,50 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
         ) : null}
 
         {!workspacePath ? (
-          <div className="rounded-lg border border-dashed border-border/70 bg-muted/15 px-3 py-2 text-xs leading-5 text-muted-foreground">
+          <div className={sx(planStyles.unavailable)}>
             Workspace path unavailable, so plans cannot be listed here.
           </div>
         ) : listLoading && entries.length === 0 ? (
-          <div
-            className="flex items-center gap-2 px-2 py-4 text-xs text-muted-foreground"
-            role="status"
-          >
-            <RefreshCcw className="size-3.5 animate-spin" aria-hidden="true" />
+          <div className={sx(planStyles.loading)} role="status">
+            <RefreshCcw
+              className={sx(planStyles.smallIcon, planStyles.spinning)}
+              aria-hidden="true"
+            />
             Loading plans…
           </div>
         ) : entries.length === 0 ? (
-          <div className="bg-muted/18 px-3 py-4" data-workspace-plans-empty="">
-            <div className="flex items-start gap-3">
-              <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-background text-primary shadow-sm ring-1 ring-border/65">
-                <ClipboardCheck className="size-4" aria-hidden="true" />
+          <div className={sx(planStyles.empty)} data-workspace-plans-empty="">
+            <div className={sx(planStyles.emptyLead)}>
+              <div className={sx(planStyles.emptyMark)}>
+                <ClipboardCheck
+                  className={sx(planStyles.emptyIcon)}
+                  aria-hidden="true"
+                />
               </div>
-              <div className="min-w-0 space-y-1">
-                <p className="text-sm leading-5 font-medium text-foreground">
+              <div className={sx(planStyles.emptyText)}>
+                <p className={sx(planStyles.emptyTitle)}>
                   Start with a lightweight plan
                 </p>
-                <p className="text-xs leading-4 text-muted-foreground">
+                <p className={sx(planStyles.emptyDescription)}>
                   Plans stay as editable markdown and can promote checklist
                   items into workspace todos.
                 </p>
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className={sx(planStyles.emptyActions)}>
               <Button
                 type="button"
                 size="sm"
-                className="h-8"
+                xstyle={planStyles.emptyButton}
                 onClick={() => void createPlan()}
                 disabled={creatingPlan || !args.taskId}
               >
                 {creatingPlan ? (
-                  <RefreshCcw className="size-3.5 animate-spin" />
+                  <RefreshCcw
+                    className={sx(planStyles.smallIcon, planStyles.spinning)}
+                  />
                 ) : (
-                  <FilePlus2 className="size-3.5" />
+                  <FilePlus2 className={sx(planStyles.smallIcon)} />
                 )}
                 Create plan
               </Button>
@@ -272,72 +282,76 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-8"
+                xstyle={planStyles.emptyButton}
                 onClick={() => void revealPlansFolder()}
               >
-                <FolderOpen className="size-3.5" />
+                <FolderOpen className={sx(planStyles.smallIcon)} />
                 Reveal folder
               </Button>
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className={sx(planStyles.list)}>
             {entries.map((entry) => (
-              <div
-                key={entry.filePath}
-                className="group flex w-full items-stretch gap-1 overflow-hidden rounded-lg border border-border/70 bg-muted/20 transition-colors hover:bg-muted/35"
-              >
-                <button
+              <div key={entry.filePath} className={sx(planStyles.row)}>
+                <AdsButton
+                  layout="host"
                   type="button"
                   onClick={() => void onOpenFile({ filePath: entry.filePath })}
-                  className="flex min-w-0 flex-1 items-start gap-3 px-3 py-2.5 text-left"
+                  xstyle={planStyles.rowOpen}
                   title={entry.filePath}
                 >
                   <ClipboardCheck
-                    className="mt-0.5 size-4 shrink-0 text-primary"
+                    className={sx(planStyles.rowIcon)}
                     aria-hidden="true"
                   />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {entry.label}
-                      </p>
+                  <div className={sx(planStyles.rowBody)}>
+                    <div className={sx(planStyles.rowTitleLine)}>
+                      <p className={sx(planStyles.rowTitle)}>{entry.label}</p>
                       {entry.source === "legacy" ? (
                         <Badge
                           variant="outline"
-                          className="rounded-sm px-1.5 py-0 text-[10px]"
+                          className={sx(planStyles.rowBadge)}
                         >
                           legacy
                         </Badge>
                       ) : null}
                     </div>
-                    <p className="truncate text-[11px] text-muted-foreground/80">
+                    <p className={sx(planStyles.rowMeta)}>
                       Task {entry.taskIdPrefix || "unknown"}
                     </p>
                   </div>
-                </button>
+                </AdsButton>
                 {onImportTodos ? (
-                  <button
+                  <AdsButton
+                    layout="host"
                     type="button"
                     onClick={() =>
                       void onImportTodos({ filePath: entry.filePath })
                     }
-                    className="flex w-9 shrink-0 items-center justify-center text-muted-foreground/60 transition-colors hover:bg-muted/50 hover:text-foreground"
+                    xstyle={planStyles.rowAction}
                     title="Import checklist items as todos"
                     aria-label={`Import checklist items from ${entry.label} as todos`}
                   >
-                    <ListPlus className="size-4" aria-hidden="true" />
-                  </button>
+                    <ListPlus
+                      className={sx(planStyles.rowActionIcon)}
+                      aria-hidden="true"
+                    />
+                  </AdsButton>
                 ) : null}
-                <button
+                <AdsButton
+                  layout="host"
                   type="button"
                   onClick={() => setDeleteTarget(entry)}
-                  className="flex w-9 shrink-0 items-center justify-center text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:text-destructive"
+                  xstyle={[planStyles.rowAction, planStyles.rowActionDanger]}
                   title="Delete saved plan"
                   aria-label={`Delete plan ${entry.label}`}
                 >
-                  <Trash2 className="size-4" aria-hidden="true" />
-                </button>
+                  <Trash2
+                    className={sx(planStyles.rowActionIcon)}
+                    aria-hidden="true"
+                  />
+                </AdsButton>
               </div>
             ))}
           </div>
@@ -369,8 +383,8 @@ export function WorkspacePlansSection(args: WorkspacePlansSectionProps) {
   }
 
   return (
-    <Card size="sm" className="border border-border/70 bg-background/80">
-      <CardContent className="pt-4">
+    <Card size="sm" className={sx(planStyles.card)}>
+      <CardContent className={sx(planStyles.cardContent)}>
         <WorkspacePlansSectionBody key={args.workspacePath} {...args} />
       </CardContent>
     </Card>

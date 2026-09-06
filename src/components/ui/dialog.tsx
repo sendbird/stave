@@ -1,10 +1,16 @@
+import type { StyleXValue } from "../ads/utils/stylex";
+import { VisuallyHidden } from "../ads/components/VisuallyHidden";
+import { overlayLayout } from "./overlay-layout.styles";
 "use client";
 
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 
-import { UI_ELEVATION_CLASS, UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { Dialog as AdsDialog, dialogStyles } from "../ads/components/Dialog";
+import { sx } from "../ads/utils/stylex";
+import { cx } from "../ads/utils/stylex";
+import { mergeClassName } from "../ads/components/merge-class-name";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 
@@ -13,19 +19,19 @@ type DialogProps = Omit<DialogPrimitive.Root.Props, "children"> & {
 };
 
 function Dialog({ ...props }: DialogProps) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+  return <AdsDialog.Root data-slot="dialog" {...props} />;
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
+  return <AdsDialog.Trigger data-slot="dialog-trigger" {...props} />;
 }
 
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
+  return <AdsDialog.Portal data-slot="dialog-portal" {...props} />;
 }
 
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
+  return <AdsDialog.Close data-slot="dialog-close" {...props} />;
 }
 
 function DialogOverlay({
@@ -33,11 +39,10 @@ function DialogOverlay({
   ...props
 }: DialogPrimitive.Backdrop.Props) {
   return (
-    <DialogPrimitive.Backdrop
+    <AdsDialog.Backdrop
       data-slot="dialog-overlay"
-      className={cn(
-        UI_LAYER_CLASS.dialog,
-        "t-overlay fixed inset-0 isolate bg-overlay",
+      className={mergeClassName(
+        () => cx(UI_LAYER_CLASS.dialog, sx(overlayLayout.positioner)) ?? "",
         className,
       )}
       {...props}
@@ -49,38 +54,43 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  xstyle,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
+  xstyle?: StyleXValue;
 }) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
-        className={cn(
-          UI_LAYER_CLASS.dialog,
-          UI_ELEVATION_CLASS.modal,
-          "t-modal fixed top-1/2 left-1/2 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-6 rounded-xl bg-background p-6 text-sm text-foreground ring-1 ring-foreground/10 outline-none",
+        className={mergeClassName(
+          () =>
+            cx(
+              UI_LAYER_CLASS.dialog,
+              "t-modal",
+              sx(dialogStyles.surface, overlayLayout.dialog, xstyle),
+            ) ?? "",
           className,
         )}
         {...props}
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
+          <AdsDialog.Close
             data-slot="dialog-close"
             render={
               <Button
                 variant="ghost"
-                className="absolute top-4 right-4"
+                className={sx(overlayLayout.close)}
                 size="icon-sm"
               />
             }
           >
             <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
+            <VisuallyHidden>Close</VisuallyHidden>
+          </AdsDialog.Close>
         )}
       </DialogPrimitive.Popup>
     </DialogPortal>
@@ -91,7 +101,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      className={cx(sx(overlayLayout.header), className)}
       {...props}
     />
   );
@@ -108,17 +118,17 @@ function DialogFooter({
   return (
     <div
       data-slot="dialog-footer"
-      className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+      className={cx(
+        sx(overlayLayout.footer),
         className,
       )}
       {...props}
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>
+        <AdsDialog.Close render={<Button variant="outline" />}>
           Close
-        </DialogPrimitive.Close>
+        </AdsDialog.Close>
       )}
     </div>
   );
@@ -126,9 +136,9 @@ function DialogFooter({
 
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
-    <DialogPrimitive.Title
+    <AdsDialog.Title
       data-slot="dialog-title"
-      className={cn("font-heading leading-none font-medium", className)}
+      className={className}
       {...props}
     />
   );
@@ -139,10 +149,10 @@ function DialogDescription({
   ...props
 }: DialogPrimitive.Description.Props) {
   return (
-    <DialogPrimitive.Description
+    <AdsDialog.Description
       data-slot="dialog-description"
-      className={cn(
-        "text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground",
+      className={mergeClassName(
+        () => sx(overlayLayout.description),
         className,
       )}
       {...props}

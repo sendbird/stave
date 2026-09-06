@@ -1,7 +1,8 @@
 import { AlertTriangle } from "lucide-react";
 import type { HTMLAttributes } from "react";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import type { TruncationNotice } from "@/lib/truncation-visibility";
-import { cn } from "@/lib/utils";
+import { truncationWarningStyles as styles } from "./truncation-warning.styles";
 
 export function TruncationWarningBanner({
   notice,
@@ -15,23 +16,19 @@ export function TruncationWarningBanner({
   return (
     <div
       role="note"
-      className={cn(
-        "flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 text-warning dark:bg-warning/15",
-        compact ? "px-2 py-1.5 text-[0.75em]" : "px-3 py-2 text-[0.875em]",
+      className={cx(
+        sx(
+          styles.banner,
+          compact ? styles.bannerCompact : styles.bannerRegular,
+        ),
         className,
       )}
       {...props}
     >
-      <AlertTriangle
-        className={cn("mt-0.5 shrink-0", compact ? "size-3.5" : "size-4")}
-      />
-      <div className="min-w-0 space-y-0.5">
-        <p className="font-medium leading-snug text-foreground">
-          {notice.title}
-        </p>
-        <p className="leading-snug text-muted-foreground">
-          {notice.description}
-        </p>
+      <AlertTriangle className={sx(styles.icon, compact && styles.iconCompact)} />
+      <div className={sx(styles.body)}>
+        <p className={sx(styles.title)}>{notice.title}</p>
+        <p className={sx(styles.description)}>{notice.description}</p>
       </div>
     </div>
   );

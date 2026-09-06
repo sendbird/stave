@@ -1,7 +1,8 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { memo } from "react";
 import { CornerDownRight, ExternalLink, GitBranch, Link2 } from "lucide-react";
 
-import { Badge } from "@/components/ui";
+import { Badge } from "@/components/ads/components/Badge";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -20,7 +21,13 @@ import {
   resolveTrackerLabelColor,
 } from "@/lib/tracker-tasks/presentation";
 import type { TrackerTaskListItem } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
+import * as stylex from "@stylexjs/stylex";
+import {
+  taskRowFocus,
+  taskRowStyles as styles,
+  taskRowTransition,
+} from "./tasks-row.styles";
+import { labelColorStyles, priorityToneStyles } from "./tracker-visual.styles";
 import {
   TRACKER_LINK_STATE_PRESENTATION,
   TRACKER_PRIORITY_ICONS,
@@ -33,12 +40,12 @@ import {
 /** Label chips shown inline before the row collapses the rest into "+N". */
 const VISIBLE_LABEL_COUNT = 2;
 
-const DUE_TONE_CLASS: Record<string, string> = {
-  overdue: "text-destructive",
-  today: "text-warning",
-  soon: "text-foreground",
-  normal: "text-muted-foreground",
-  none: "text-muted-foreground",
+const DUE_TONE_STYLE = {
+  overdue: styles.danger,
+  today: styles.warning,
+  soon: styles.foreground,
+  normal: styles.muted,
+  none: styles.muted,
 };
 
 export interface TrackerTaskRowProps {
@@ -100,53 +107,46 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
             tabIndex={-1}
             onClick={() => props.onSelect(key)}
             onDoubleClick={() => props.onKickoff(key)}
-            className={cn(
-              "flex cursor-default items-center gap-3 border-b border-border/40 px-4 py-2.5 text-sm transition-colors",
-              props.selected
-                ? "bg-accent/45"
-                : "hover:bg-accent/25 focus-visible:bg-accent/25",
+            {...stylex.props(
+              styles.row,
+              taskRowTransition,
+              taskRowFocus,
+              props.selected && styles.selected,
             )}
           />
         }
       >
         <span
-          className="flex size-5 shrink-0 items-center justify-center text-muted-foreground"
+          {...stylex.props(styles.sourceIcon)}
           title={TRACKER_SOURCE_LABELS[task.source]}
         >
           <ServiceLinkIcon
             kind={task.source === "crane" ? "crane" : "jira"}
-            className="text-[15px]"
+            className={stylex.props(styles.icon15).className}
           />
         </span>
 
-        <span
-          className={cn(
-            "shrink-0 font-mono text-xs",
-            priority.toneClassName === "text-destructive"
-              ? "text-foreground"
-              : "text-muted-foreground",
-          )}
-        >
+        <span {...stylex.props(styles.key, priorityToneStyles[priority.tone])}>
           {task.key}
         </span>
 
         <span
-          className={cn("shrink-0", priority.toneClassName)}
+          {...stylex.props(styles.priority, priorityToneStyles[priority.tone])}
           title={priority.label}
         >
-          <PriorityIcon className="size-4" aria-label={priority.label} />
+          <PriorityIcon
+            {...stylex.props(styles.priority)}
+            aria-label={priority.label}
+          />
         </span>
 
         <span
-          className={cn(
-            "min-w-0 flex-1 truncate",
-            finished && "text-muted-foreground line-through",
-          )}
+          {...stylex.props(styles.title, finished && styles.finished)}
           title={task.title}
         >
           {task.parentKey ? (
             <CornerDownRight
-              className="mr-1 inline size-3.5 text-muted-foreground/70"
+              className={stylex.props(styles.inlineParent).className}
               aria-label={`Subtask of ${task.parentKey}`}
             />
           ) : null}
@@ -156,17 +156,18 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
         {task.labels.slice(0, VISIBLE_LABEL_COUNT).map((label) => {
           const color = resolveTrackerLabelColor(label.color);
           return (
-            <span
-              key={label.name}
-              className="hidden shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground lg:inline-flex"
-            >
+            <span key={label.name} {...stylex.props(styles.label)}>
               {color === null ? null : (
                 <span
                   aria-hidden="true"
-                  className={cn(
-                    "size-2 rounded-full",
-                    color.kind === "token" && color.className,
-                  )}
+                  className={
+                    stylex.props(
+                      styles.labelDot,
+                      color.kind === "token"
+                        ? labelColorStyles[color.token]
+                        : null,
+                    ).className
+                  }
                   style={
                     color.kind === "css"
                       ? { backgroundColor: color.value }
@@ -179,71 +180,69 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
           );
         })}
         {hiddenLabelCount > 0 ? (
-          <span className="hidden shrink-0 text-xs text-muted-foreground lg:inline">
-            +{hiddenLabelCount}
-          </span>
+          <span {...stylex.props(styles.hiddenCount)}>+{hiddenLabelCount}</span>
         ) : null}
 
         {jiraLink ? (
           <span
-            className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground md:inline-flex"
+            {...stylex.props(styles.external)}
             title={`Mirrors ${jiraLink.key ?? "a Jira issue"}`}
           >
-            <ServiceLinkIcon kind="jira" className="text-xs" />
+            <ServiceLinkIcon
+              kind="jira"
+              className={stylex.props(styles.icon15).className}
+            />
             {jiraLink.key ?? "Jira"}
           </span>
         ) : null}
 
         {linkPresentation ? (
-          <button
+          <AdsButton
+            layout="host"
             type="button"
-            className={cn(
-              "flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
-              linkPresentation.toneClassName,
-            )}
+            variant="quiet"
+            xstyle={styles.link}
             onClick={(event) => {
               event.stopPropagation();
               props.onOpenStaveTask(key);
             }}
           >
-            {linkPresentation.live ? (
-              // A dot rather than the animated orb: the smallest tuned orb is
-              // 20px and would set the height of a compact list row.
-              <span
-                aria-hidden="true"
-                className="size-2 animate-pulse rounded-full bg-current"
-              />
-            ) : (
-              <GitBranch className="size-3" />
-            )}
-            {linkPresentation.label}
-          </button>
+            <Badge
+              variant="outline"
+              tone={linkPresentation.tone}
+              dot={linkPresentation.live}
+            >
+              {!linkPresentation.live ? (
+                <GitBranch {...stylex.props(styles.linkIcon)} />
+              ) : null}
+              {linkPresentation.label}
+            </Badge>
+          </AdsButton>
         ) : null}
 
         <Badge
           variant="outline"
-          className={cn("shrink-0 text-xs", status.toneClassName)}
+          tone={status.tone}
+          {...stylex.props(styles.status)}
         >
           {status.label}
         </Badge>
 
         {task.effort !== null ? (
-          <span className="hidden w-6 shrink-0 text-right text-xs tabular-nums text-muted-foreground sm:inline">
-            {task.effort}
-          </span>
+          <span {...stylex.props(styles.effort)}>{task.effort}</span>
         ) : null}
 
         <span
-          className={cn(
-            "w-[4.5rem] shrink-0 text-right text-xs",
-            due ? DUE_TONE_CLASS[due.tone] : "text-transparent",
+          {...stylex.props(
+            styles.due,
+            due ? DUE_TONE_STYLE[due.tone] : styles.transparent,
           )}
         >
           {due?.label ?? "—"}
         </span>
 
         <span
-          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground"
+          {...stylex.props(styles.assignee)}
           title={task.assignee?.name ?? "Unassigned"}
         >
           {task.assignee ? getInitials(task.assignee.name) : "—"}
@@ -261,7 +260,7 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
         ) : null}
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => openTrackerTaskInBrowser(task.url)}>
-          <ExternalLink className="size-3.5" />
+          <ExternalLink {...stylex.props(styles.icon15)} />
           Open in browser
         </ContextMenuItem>
         <ContextMenuItem
@@ -276,7 +275,7 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
             copyTrackerTaskValue({ value: task.url, label: "ticket link" })
           }
         >
-          <Link2 className="size-3.5" />
+          <Link2 {...stylex.props(styles.icon15)} />
           Copy link
         </ContextMenuItem>
         <ContextMenuSeparator />

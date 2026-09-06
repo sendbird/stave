@@ -18,6 +18,9 @@ import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/typ
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { ScriptsManager } from "@/components/scripts";
 import { WorkspaceSyncStatusCard } from "./WorkspaceSyncStatusCard";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { sx } from "@/components/ads/utils/stylex";
+import { workspaceSettingsDialogStyles as styles } from "./workspace-settings-dialog.styles";
 
 export interface WorkspaceSettingsDialogProps {
   open: boolean;
@@ -95,28 +98,19 @@ export function WorkspaceSettingsContent(props: {
 
   return (
     <>
-      <div data-slot="dialog-header" className="flex flex-col gap-2">
-        <h2 className="font-heading leading-none font-medium">
-          Workspace settings
-        </h2>
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-sm font-semibold text-foreground">
-            {props.workspaceName}
-          </span>
+      <div data-slot="dialog-header" className={sx(styles.header)}>
+        <h2 className={sx(styles.headerTitle)}>Workspace settings</h2>
+        <div className={sx(styles.headerMeta)}>
+          <span className={sx(styles.headerName)}>{props.workspaceName}</span>
           {props.branch ? (
             <Badge variant="secondary">{formatBranchLabel(props.branch)}</Badge>
           ) : null}
         </div>
-        <p className="break-all pt-1 text-xs text-muted-foreground">
-          {props.workspacePath}
-        </p>
+        <p className={sx(styles.headerPath)}>{props.workspacePath}</p>
       </div>
-      <form
-        className="rounded-md border border-border/70 bg-muted/20 p-3"
-        onSubmit={handleLabelSubmit}
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
+      <form className={sx(styles.labelForm)} onSubmit={handleLabelSubmit}>
+        <div className={sx(styles.labelRow)}>
+          <label className={sx(styles.labelField)}>
             Label
             <Input
               value={label}
@@ -125,7 +119,7 @@ export function WorkspaceSettingsContent(props: {
                 setLabelMessage(null);
               }}
               disabled={!canEditLabel || isSavingLabel}
-              className="mt-1 h-8 bg-background"
+              xstyle={styles.labelInput}
               placeholder="Workspace label"
             />
           </label>
@@ -133,12 +127,12 @@ export function WorkspaceSettingsContent(props: {
             type="submit"
             size="sm"
             disabled={!canEditLabel || !labelChanged || isSavingLabel}
-            className="h-8"
+            xstyle={styles.labelSubmit}
           >
             Save label
           </Button>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className={sx(styles.labelHint)}>
           {props.isDefault
             ? "Default workspace labels are fixed."
             : props.branch
@@ -146,26 +140,23 @@ export function WorkspaceSettingsContent(props: {
               : "Shown in the project sidebar."}
         </p>
         {labelMessage ? (
-          <p className="mt-2 text-xs text-muted-foreground">{labelMessage}</p>
+          <p className={sx(styles.labelHint)}>{labelMessage}</p>
         ) : null}
       </form>
 
       <Tabs
         defaultValue="sync"
         orientation="vertical"
-        className="w-full gap-4 pt-2"
+        className={sx(styles.tabs)}
       >
-        <TabsList className="min-w-36 shrink-0">
+        <TabsList className={sx(styles.tabsList)}>
           <TabsTrigger value="sync">Sync</TabsTrigger>
           <TabsTrigger value="scripts">{WORKSPACE_TOOLS_LABEL}</TabsTrigger>
         </TabsList>
-        <TabsContent value="sync" className="max-h-[60vh] overflow-y-auto pt-2">
+        <TabsContent value="sync" className={sx(styles.tabPanel)}>
           <WorkspaceSyncStatusCard cwd={props.workspacePath} />
         </TabsContent>
-        <TabsContent
-          value="scripts"
-          className="max-h-[60vh] overflow-y-auto pt-2"
-        >
+        <TabsContent value="scripts" className={sx(styles.tabPanel)}>
           <ScriptsManager
             projectPath={props.projectPath}
             workspacePath={props.workspacePath}
@@ -233,7 +224,7 @@ export function WorkspaceSettingsDialog(
   // ImageLightbox pattern so tests can assert on structure without a browser DOM.
   if (props.open && (typeof document === "undefined" || !document.body)) {
     return (
-      <div data-slot="dialog-content" className="max-w-4xl">
+      <div data-slot="dialog-content" className={sx(styles.staticSurface)}>
         {sharedContent}
       </div>
     );
@@ -241,9 +232,11 @@ export function WorkspaceSettingsDialog(
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent xstyle={styles.surface}>
         <DialogHeader>
-          <DialogTitle className="sr-only">Workspace settings</DialogTitle>
+          <VisuallyHidden>
+            <DialogTitle>Workspace settings</DialogTitle>
+          </VisuallyHidden>
         </DialogHeader>
         {sharedContent}
       </DialogContent>

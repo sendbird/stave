@@ -1,8 +1,11 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes } from "react";
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { cn } from "@/lib/utils";
+import { snippetStyles as styles } from "./snippet.styles";
 
 // ---------------------------------------------------------------------------
 // Snippet — lightweight inline code / terminal command display
@@ -16,19 +19,9 @@ interface SnippetProps extends HTMLAttributes<HTMLDivElement> {
 
 export function Snippet({ code, prefix, className, ...props }: SnippetProps) {
   return (
-    <div
-      className={cn(
-        "inline-flex items-center rounded-md border border-border/70 bg-muted/30 font-mono text-xs",
-        className,
-      )}
-      {...props}
-    >
-      {prefix ? (
-        <span className="select-none border-r border-border/70 px-2 py-1 text-muted-foreground">
-          {prefix}
-        </span>
-      ) : null}
-      <span className="px-2 py-1">{code}</span>
+    <div className={cx(sx(styles.root), className)} {...props}>
+      {prefix ? <span className={sx(styles.prefix)}>{prefix}</span> : null}
+      <span className={sx(styles.code)}>{code}</span>
       <SnippetCopyButton code={code} />
     </div>
   );
@@ -41,9 +34,10 @@ export function Snippet({ code, prefix, className, ...props }: SnippetProps) {
 function SnippetCopyButton({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
-      className="border-l border-border/70 px-2 py-1 text-muted-foreground transition-colors hover:text-foreground"
+      xstyle={[styles.copyButton, transition.colors]}
       onClick={() => {
         void copyTextToClipboard(code)
           .then(() => {
@@ -55,7 +49,11 @@ function SnippetCopyButton({ code }: { code: string }) {
       aria-label="Copy"
       title="Copy"
     >
-      {copied ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
-    </button>
+      {copied ? (
+        <Check className={sx(styles.copiedIcon)} />
+      ) : (
+        <Copy className={sx(styles.copyIcon)} />
+      )}
+    </AdsButton>
   );
 }

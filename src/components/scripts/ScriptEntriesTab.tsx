@@ -7,6 +7,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import { ScriptEntryCard } from "./ScriptEntryCard";
 import {
   collectEntryTriggers,
@@ -20,6 +21,7 @@ import {
 import { scriptEntryKey } from "@/lib/workspace-scripts/runtime-state";
 import type { ScriptUiState } from "@/lib/workspace-scripts/runtime-state";
 import type { ScriptKind } from "@/lib/workspace-scripts/types";
+import { entriesTabStyles } from "./script-entries-tab.styles";
 
 export function ScriptEntriesTab(props: {
   kind: ScriptKind;
@@ -50,28 +52,28 @@ export function ScriptEntriesTab(props: {
   const duplicates = findDuplicateEntryIds(props.entries);
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="text-sm font-semibold text-foreground">{kindLabel}</p>
-          <p className="text-xs text-muted-foreground">{kindDescription}</p>
+    <div className={sx(entriesTabStyles.root)}>
+      <div className={sx(entriesTabStyles.header)}>
+        <div className={sx(entriesTabStyles.headerText)}>
+          <p className={sx(entriesTabStyles.title)}>{kindLabel}</p>
+          <p className={sx(entriesTabStyles.description)}>{kindDescription}</p>
         </div>
         <Button
           type="button"
           size="sm"
-          className="gap-1.5"
+          xstyle={entriesTabStyles.addButton}
           onClick={props.onAdd}
         >
-          <Plus className="size-3.5" />
+          <Plus className={sx(entriesTabStyles.buttonIcon)} />
           {addLabel}
         </Button>
       </div>
 
       {props.entries.length === 0 ? (
-        <Empty className="border border-dashed border-border/70 bg-muted/15">
+        <Empty xstyle={entriesTabStyles.emptyState}>
           <EmptyHeader>
             <EmptyMedia>
-              <FilePenLine className="size-4" />
+              <FilePenLine className={sx(entriesTabStyles.emptyIcon)} />
             </EmptyMedia>
             <EmptyTitle>
               No {props.kind === "service" ? "processes" : "commands"} yet
@@ -84,7 +86,7 @@ export function ScriptEntriesTab(props: {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="space-y-2.5">
+        <div className={sx(entriesTabStyles.list)}>
           {props.entries.map((entry, index) => {
             const stableKey = `${props.kind}:${index}`;
             const triggers = collectEntryTriggers({

@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { coreStyles } from "./ai-element-core.styles";
+import { cx, sx } from "../ads/utils/stylex";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { useRotatingThinkingPhrase } from "@/lib/thinking-phrases";
 import { useAgentPhraseVariant, useAgentStyle } from "./agent-style-context";
@@ -89,10 +90,7 @@ function ThinkingAnimatedTextComponent({
       variant={resolvedVariant}
       active={active}
       shimmer={shimmer}
-      className={cn(
-        isSettling && "motion-safe:animate-thinking-label-settle",
-        className,
-      )}
+      className={cx(isSettling ? sx(coreStyles.settle) : undefined, className)}
     />
   );
 }

@@ -1,3 +1,6 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
+import { diffReviewHoverMenuStyles as styles } from "@/components/layout/editor-diff-review-hover-menu.styles";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import { Plus } from "lucide-react";
 import type { MouseEvent } from "react";
@@ -28,19 +31,19 @@ export function DiffReviewHoverMenu(args: {
   };
 
   return (
-    <button
+    <AdsButton layout="host"
       type="button"
       data-testid="diff-review-hover-menu"
       data-review-line={args.line}
       data-review-side="modified"
       aria-label={ariaLabel}
       title={ariaLabel}
-      className="flex size-7 animate-in items-center justify-center rounded-md border border-primary bg-primary text-primary-foreground shadow-md fade-in-0 zoom-in-95 duration-100 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      xstyle={styles.trigger}
       onMouseDown={stopEditorMouseDown}
       onClick={args.onAddComment}
     >
-      <Plus className="size-4" />
-    </button>
+      <Plus className={sx(styles.glyph)} />
+    </AdsButton>
   );
 }
 

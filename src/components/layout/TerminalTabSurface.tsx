@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import {
-  TERMINAL_SURFACE_CLASS_NAME,
   TERMINAL_SURFACE_FRAME_CLASS_NAME,
+  terminalSurfaceStyles,
 } from "@/components/layout/terminal-surface-styles";
+import { sx } from "@/components/ads/utils/stylex";
 import { useTerminalInstance } from "@/components/layout/useTerminalInstance";
 import type { UseTerminalTabManagerReturn } from "@/components/layout/useTerminalTabManager";
 import { getTerminalSessionRouter } from "@/lib/terminal/terminal-session-router";
-import { cn } from "@/lib/utils";
 
 export function TerminalTabSurface(args: {
   tabKey: string;
@@ -109,7 +109,10 @@ export function TerminalTabSurface(args: {
       <div
         ref={containerRef}
         data-terminal-surface
-        className={cn(TERMINAL_SURFACE_CLASS_NAME, args.dimmed && "opacity-60")}
+        className={sx(
+          terminalSurfaceStyles.surface,
+          args.dimmed && terminalSurfaceStyles.dimmed,
+        )}
       />
     </div>
   );

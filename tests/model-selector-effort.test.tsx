@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { modelEffortSelectorStyles } from "@/components/ai-elements/model-effort-selector.styles";
+import { sx } from "@/components/ads/utils/stylex";
 
 const originalWindow = globalThis.window;
 
@@ -107,8 +109,15 @@ describe("model capability toggles", () => {
       html.lastIndexOf("<button", fastAt),
       html.indexOf(">", fastAt),
     );
-    expect(fastTag).toContain("rounded-md");
-    expect(fastTag).not.toContain("rounded-none");
+    // Its own full corner radius (formerly `rounded-md`), never a squared-off
+    // segment corner (`rounded-none`): the capability toggle style owns the
+    // standalone rounding. Active Fast merges the fast-active tone on top.
+    expect(fastTag).toContain(
+      sx(
+        modelEffortSelectorStyles.capabilityToggle,
+        modelEffortSelectorStyles.capabilityToggleFastActive,
+      ),
+    );
   });
 
   test("stands 1M beside the model button on the same terms", async () => {
@@ -125,7 +134,15 @@ describe("model capability toggles", () => {
       html.lastIndexOf("<button", contextAt),
       html.indexOf(">", contextAt),
     );
-    expect(contextTag).toContain("rounded-md");
+    // Stands beside the model button with its own full radius (formerly
+    // `rounded-md`), same capability-toggle style as Fast (with its semibold
+    // weight). Off state adds no active tone.
+    expect(contextTag).toContain(
+      sx(
+        modelEffortSelectorStyles.capabilityToggle,
+        modelEffortSelectorStyles.capabilityToggleSemibold,
+      ),
+    );
   });
 });
 

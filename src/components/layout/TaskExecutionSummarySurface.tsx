@@ -13,7 +13,9 @@ import type {
   TaskExecutionMetricProvenance,
   TaskExecutionSummary,
 } from "@/lib/fleet/task-execution-summary";
-import { cn } from "@/lib/utils";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { summaryStyles as styles } from "./task-execution-summary.styles";
 
 type MetricTone = "default" | "success" | "warning" | "danger";
 
@@ -62,22 +64,18 @@ function provenanceLabel(provenance: TaskExecutionMetricProvenance) {
   }
 }
 
-function toneTextClassName(tone: MetricTone) {
-  switch (tone) {
-    case "success":
-      return "text-success";
-    case "warning":
-      return "text-warning";
-    case "danger":
-      return "text-destructive";
-    case "default":
-      return "text-foreground";
-  }
-}
+const TONE_TEXT_STYLE: Record<MetricTone, StyleXValue> = {
+  default: styles.toneDefault,
+  success: styles.toneSuccess,
+  warning: styles.toneWarning,
+  danger: styles.toneDanger,
+};
 
-function toneIconClassName(tone: MetricTone) {
-  return tone === "default" ? "text-muted-foreground" : toneTextClassName(tone);
-}
+/** A neutral tile keeps its icon quiet; a toned one carries the tone color. */
+const TONE_ICON_STYLE: Record<MetricTone, StyleXValue> = {
+  ...TONE_TEXT_STYLE,
+  default: styles.toneIconDefault,
+};
 
 /**
  * Provenance moved from a third text line to a dot on the label row.
@@ -91,17 +89,17 @@ function ProvenanceDot(args: { provenance: TaskExecutionMetricProvenance }) {
   const label = provenanceLabel(args.provenance);
   return (
     <span
-      className={cn(
-        "ml-auto size-1.5 shrink-0 rounded-full",
+      className={sx(
+        styles.provenanceDot,
         args.provenance === "reported"
-          ? "bg-muted-foreground/70"
+          ? styles.provenanceReported
           : args.provenance === "derived"
-            ? "border border-muted-foreground/70"
-            : "bg-muted-foreground/25",
+            ? styles.provenanceDerived
+            : styles.provenanceUnavailable,
       )}
       title={label}
     >
-      <span className="sr-only">{label}</span>
+      <VisuallyHidden>{label}</VisuallyHidden>
     </span>
   );
 }
@@ -115,33 +113,25 @@ function SummaryMetricTile(args: {
   const unavailable = descriptor.provenance === "unavailable";
   return (
     <div
-      className={cn(
-        "flex min-w-0 flex-col justify-between rounded-lg border border-border/60 bg-background/55",
-        args.compact ? "px-2.5 py-2" : "px-3 py-2.5",
-      )}
+      className={sx(styles.tile, args.compact && styles.tileCompact)}
       data-metric={descriptor.key}
       title={descriptor.detail}
     >
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className={sx(styles.tileHead)}>
         <Icon
-          className={cn(
-            "size-3.5 shrink-0",
-            toneIconClassName(descriptor.tone),
-          )}
+          className={sx(styles.tileIcon, TONE_ICON_STYLE[descriptor.tone])}
           aria-hidden="true"
         />
-        <dt className="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-          {descriptor.label}
-        </dt>
+        <dt className={sx(styles.tileLabel)}>{descriptor.label}</dt>
         <ProvenanceDot provenance={descriptor.provenance} />
       </div>
       <dd
-        className={cn(
-          "mt-1 truncate font-medium tabular-nums",
-          args.compact ? "text-[11px]" : "text-xs",
+        className={sx(
+          styles.tileValue,
+          args.compact ? styles.tileValueCompact : styles.tileValueRoomy,
           unavailable
-            ? "font-normal text-muted-foreground"
-            : toneTextClassName(descriptor.tone),
+            ? styles.tileValueUnavailable
+            : TONE_TEXT_STYLE[descriptor.tone],
         )}
       >
         {descriptor.value}
@@ -341,28 +331,25 @@ function LatestActivityRow(args: {
 }) {
   const latest = args.metric.value;
   return (
-    <div className="flex min-w-0 items-start gap-2 rounded-lg border border-border/60 bg-muted/18 px-3 py-2">
-      <Activity
-        className="mt-0.5 size-3.5 shrink-0 text-primary"
-        aria-hidden="true"
-      />
-      <div className="min-w-0">
-        <h3 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-          Latest activity
-        </h3>
+    <div className={sx(styles.activityRow)}>
+      <Activity className={sx(styles.activityIcon)} aria-hidden="true" />
+      <div className={sx(styles.activityBody)}>
+        <h3 className={sx(styles.activityHeading)}>Latest activity</h3>
         <p
-          className={cn(
-            "mt-0.5 text-xs text-foreground",
-            args.compact ? "line-clamp-1" : "line-clamp-2",
+          className={sx(
+            styles.activityText,
+            args.compact
+              ? styles.activityTextClampOne
+              : styles.activityTextClampTwo,
           )}
         >
           {latest?.label ?? "No activity reported"}
           {latest?.detail ? (
-            <span className="text-muted-foreground"> · {latest.detail}</span>
+            <span className={sx(styles.activityDetail)}> · {latest.detail}</span>
           ) : null}
         </p>
       </div>
-      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+      <span className={sx(styles.activityProvenance)}>
         {provenanceLabel(args.metric.provenance)}
       </span>
     </div>
@@ -373,14 +360,16 @@ export function TaskExecutionSummarySurface(args: {
   summary: TaskExecutionSummary;
   compact?: boolean;
   showLatestActivity?: boolean;
+  /** Kept for callers that still hand this surface a global/utility class. */
   className?: string;
+  xstyle?: StyleXValue;
 }) {
   const showLatestActivity = args.showLatestActivity ?? true;
   const descriptors = buildMetricDescriptors(args.summary);
 
   return (
     <section
-      className={cn("min-w-0", args.className)}
+      className={cx(sx(styles.root, args.xstyle), args.className)}
       aria-label="Task execution summary"
     >
       {showLatestActivity ? (
@@ -390,12 +379,10 @@ export function TaskExecutionSummarySurface(args: {
         />
       ) : null}
       <dl
-        className={cn(
-          "grid auto-rows-fr gap-2",
-          showLatestActivity && "mt-2",
-          args.compact
-            ? "grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
-            : "grid-cols-2 sm:grid-cols-3",
+        className={sx(
+          styles.grid,
+          showLatestActivity && styles.gridSpaced,
+          args.compact ? styles.gridCompact : styles.gridMedium,
         )}
       >
         {descriptors.map((descriptor) => (

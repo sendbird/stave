@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   forwardRef,
   useCallback,
@@ -11,8 +12,10 @@ import {
 } from "react";
 import { ModelIcon } from "@/components/ai-elements";
 import { UI_ELEVATION_CLASS, UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { ConversationTurnActions } from "./ConversationTurnActions";
+import { conversationTurnRailStyles as styles } from "./conversation-turn-rail.styles";
 import {
   getConversationRailTickScale,
   type ConversationTurnRailItem,
@@ -37,7 +40,7 @@ export const ConversationTurnRail = forwardRef<
   const rootRef = useRef<HTMLElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLElement>(null);
-  const triggerRefs = useRef(new Map<string, HTMLButtonElement>());
+  const triggerRefs = useRef(new Map<string, HTMLElement>());
   const suppressNextFocusPreviewRef = useRef(false);
   const [railHovered, setRailHovered] = useState(false);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
@@ -251,12 +254,12 @@ export const ConversationTurnRail = forwardRef<
       ref={rootRef}
       data-testid="conversation-turn-rail"
       aria-label="Conversation turn navigator"
-      className={cn(
-        UI_LAYER_CLASS.sessionFloater,
+      className={cx(
         // The rail floats over the conversation, so only its own affordances
         // (tick hit strips and the open preview) may capture pointer events.
         // Everything else stays transparent to clicks, drags, and wheel.
-        "pointer-events-none absolute right-2 top-1/2 h-[min(22.5rem,calc(100%-4rem))] min-h-40 w-12 -translate-y-1/2",
+        UI_LAYER_CLASS.sessionFloater,
+        sx(styles.root),
       )}
       onPointerEnter={(event) => {
         if (event.pointerType !== "touch") {
@@ -291,15 +294,13 @@ export const ConversationTurnRail = forwardRef<
         aria-label="Conversation turns"
         aria-orientation="vertical"
         data-surface={surfaceVisible ? "visible" : "hidden"}
-        className={cn(
-          "h-full overflow-y-auto overscroll-contain rounded-full py-2 transition-[background-color,backdrop-filter] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          surfaceVisible
-            ? "bg-background/60 backdrop-blur-md"
-            : "bg-transparent backdrop-blur-none",
+        className={sx(
+          styles.viewport,
+          surfaceVisible ? styles.viewportVisible : styles.viewportHidden,
         )}
         onScroll={updatePreviewPosition}
       >
-        <div className="flex min-h-full flex-col items-end justify-center">
+        <div className={sx(styles.tickColumn)}>
           {props.items.map((item, index) => {
             const active = item.messageId === activeMessageId;
             const displayed = item.messageId === displayedMessageId;
@@ -313,7 +314,8 @@ export const ConversationTurnRail = forwardRef<
               ? `Loaded turn ${index + 1} of ${props.items.length}`
               : `Turn ${index + 1} of ${props.items.length}`;
             return (
-              <button
+              <AdsButton
+                layout="host"
                 key={item.messageId}
                 ref={(node) => {
                   if (node) {
@@ -331,7 +333,11 @@ export const ConversationTurnRail = forwardRef<
                 aria-controls={displayed ? previewId : undefined}
                 data-turn-rail-message-id={item.messageId}
                 data-active={active ? "true" : undefined}
-                className="group/turn-tick pointer-events-auto flex h-6 w-8 shrink-0 items-center justify-end rounded-sm text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/45"
+                className={sx(
+                  styles.trigger,
+                  focusRing.ring,
+                  focusRing.ringInset,
+                )}
                 onPointerEnter={(event) => {
                   if (event.pointerType !== "touch") {
                     setHoveredMessageId(item.messageId);
@@ -356,15 +362,14 @@ export const ConversationTurnRail = forwardRef<
               >
                 <span
                   aria-hidden="true"
-                  className={cn(
-                    "block h-px w-8 origin-right bg-current transition-[transform,color,opacity] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-                    displayed && "text-foreground",
-                    active && !displayed && "text-primary",
-                    !active && !displayed && "opacity-70",
+                  className={sx(
+                    styles.tick,
+                    displayed && styles.tickDisplayed,
+                    active && !displayed && styles.tickActive,
                   )}
                   style={{ transform: `scaleX(${scale})` }}
                 />
-              </button>
+              </AdsButton>
             );
           })}
         </div>
@@ -379,37 +384,36 @@ export const ConversationTurnRail = forwardRef<
         aria-hidden={!displayedItem}
         inert={!displayedItem}
         data-state={displayedItem ? "open" : "closed"}
-        className={cn(
+        className={cx(
           UI_ELEVATION_CLASS.floating,
-          "absolute right-full mr-2 w-80 origin-right -translate-y-1/2 rounded-md border border-border/70 bg-popover p-3 text-popover-foreground ring-1 ring-foreground/10 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none motion-reduce:scale-100",
-          displayedItem
-            ? "visible pointer-events-auto scale-100 opacity-100"
-            : "invisible pointer-events-none scale-[0.97] opacity-0",
+          sx(
+            styles.preview,
+            displayedItem ? styles.previewOpen : styles.previewClosed,
+          ),
         )}
         style={{ top: previewTop ?? "50%" }}
       >
         {renderedItem ? (
-          <div key={renderedItem.messageId} className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div key={renderedItem.messageId} className={sx(styles.previewBody)}>
+            <div className={sx(styles.previewMeta)}>
               <ModelIcon
                 providerId={renderedItem.providerId}
-                className="size-3.5"
+                className={sx(styles.previewMetaIcon)}
               />
               <span>
                 {props.hasEarlierMessages ? "Loaded turn" : "Turn"}{" "}
                 {props.items.indexOf(renderedItem) + 1} of {props.items.length}
               </span>
               <span aria-hidden="true">·</span>
-              <span className="min-w-0 truncate">{renderedItem.model}</span>
+              <span className={sx(styles.previewMetaModel)}>
+                {renderedItem.model}
+              </span>
             </div>
-            <div className="space-y-1">
-              <h3
-                id={`${previewId}-title`}
-                className="line-clamp-2 text-sm font-medium leading-5"
-              >
+            <div className={sx(styles.previewText)}>
+              <h3 id={`${previewId}-title`} className={sx(styles.previewTitle)}>
                 {renderedItem.promptPreview}
               </h3>
-              <p className="line-clamp-3 text-xs leading-5 text-muted-foreground">
+              <p className={sx(styles.previewResponse)}>
                 {renderedItem.responsePreview}
               </p>
             </div>
@@ -426,7 +430,7 @@ export const ConversationTurnRail = forwardRef<
                 }
               }}
             />
-            <p className="text-[11px] leading-4 text-muted-foreground/75">
+            <p className={sx(styles.previewHint)}>
               Select a tick to jump to that response. Workspace files stay
               unchanged.
             </p>

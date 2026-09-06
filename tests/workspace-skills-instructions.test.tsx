@@ -6,6 +6,8 @@ import {
   SkillInstructionsContent,
   SkillMetadataDetails,
 } from "@/components/layout/WorkspaceSkillsPanel";
+import { skillStyles } from "@/components/layout/workspace-skills.styles";
+import { sx } from "@/components/ads/utils/stylex";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 
 const skill: SkillCatalogEntry = {
@@ -42,11 +44,13 @@ describe("SkillInstructionsContent", () => {
     expect(html).toContain("<h2");
     expect(html).toContain("<ul");
     expect(html).toContain("font-size:14px");
-    expect(html).toContain("bg-surface");
-    expect(html).toContain("text-foreground");
+    // The rendered surface uses the themed ADS surface + text tokens
+    // (formerly `bg-surface` / `text-foreground`), never a hardcoded dark slab
+    // (the removed `bg-neutral-950` / `text-neutral-300`). Binding to this style
+    // identity is the guarantee; the hashed StyleX class can only be the themed
+    // surface.
+    expect(html).toContain(sx(skillStyles.instructionsRendered));
     expect(html).not.toContain("<script>");
-    expect(html).not.toContain("bg-neutral-950");
-    expect(html).not.toContain("text-neutral-300");
   });
 
   test("keeps source mode readable without a hardcoded dark surface", () => {
@@ -59,13 +63,12 @@ describe("SkillInstructionsContent", () => {
 
     expect(html).toContain('data-skill-instructions-source=""');
     expect(html).toContain("<pre");
-    expect(html).toContain("text-[13px]");
-    expect(html).toContain("leading-6");
-    expect(html).toContain("bg-muted/25");
-    expect(html).toContain("text-foreground");
+    // 13px reading step, 24px line-height, and a themed (not hardcoded-dark)
+    // surface all live on this one source style (formerly `text-[13px]`,
+    // `leading-6`, `bg-muted/25`, `text-foreground`, and never the removed
+    // `bg-neutral-950` / `text-neutral-300` dark slab).
+    expect(html).toContain(sx(skillStyles.instructionsSource));
     expect(html).toContain("## Workflow");
-    expect(html).not.toContain("bg-neutral-950");
-    expect(html).not.toContain("text-neutral-300");
   });
 });
 
@@ -80,7 +83,12 @@ describe("SkillMetadataDetails", () => {
     expect(html).toContain("<dl");
     expect(html).toContain('data-skill-metadata-details=""');
     expect(html).not.toContain("<details open");
-    expect(html).toContain("group-open:rotate-90");
+    // The chevron rotates open on toggle. StyleX has no `group-open:` parent
+    // selector, so the rotate now rides a React-state style (`summaryChevronOpen`,
+    // formerly `group-open:rotate-90`). Collapsed markup carries the base chevron
+    // style but not the rotated one.
+    expect(html).toContain(sx(skillStyles.summaryChevron));
+    expect(html).not.toContain(sx(skillStyles.summaryChevronOpen));
   });
 });
 
@@ -123,11 +131,14 @@ describe("SkillDetail", () => {
 
     expect(html).toContain('data-skill-detail-body=""');
     expect(html).toContain('data-skill-detail-overview=""');
-    expect(html).toContain("max-h-[42%]");
-    expect(html).toContain("overflow-y-auto");
-    expect(html).toContain("overscroll-contain");
+    // With instructions present, the overview is bounded (max-height 42%) and
+    // scrolls with contained overscroll (formerly `max-h-[42%] overflow-y-auto
+    // overscroll-contain`), so the instructions pane can fill the rest.
+    expect(html).toContain(sx(skillStyles.overviewScrolled));
     expect(html).toContain('data-skill-detail-instructions=""');
-    expect(html).toContain("min-h-0 flex-1 flex-col");
+    // The instructions pane is the bottom-filling flex column
+    // (formerly `min-h-0 flex-1 flex-col`).
+    expect(html).toContain(sx(skillStyles.instructionsBlock));
     expect(html).not.toContain("<details open");
     expect(html.indexOf('data-skill-detail-overview=""')).toBeLessThan(
       html.indexOf('data-skill-detail-instructions=""'),

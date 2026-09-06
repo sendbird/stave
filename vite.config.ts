@@ -1,16 +1,27 @@
+import stylex from "@stylexjs/unplugin";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
+import { createWorkspaceWatchIgnore } from "./config/workspace-watch";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    stylex.vite({
+      useCSSLayers: true,
+      enableMediaQueryOrder: false,
+      unstable_moduleResolution: { type: "commonJS", rootDir: __dirname },
+      aliases: { "@/*": [path.resolve(__dirname, "src", "*")] },
+    }),
+    react(),
+  ],
   server: {
     watch: {
-      ignored: ["**/.stave/**"],
+      ignored: createWorkspaceWatchIgnore(__dirname),
     },
   },
   resolve: {
+    // React hooks and editor nodes must share one runtime across dependency trees.
+    dedupe: ["react", "react-dom", "lexical"],
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
@@ -25,7 +36,10 @@ export default defineConfig({
                 if (id.includes("react-virtuoso")) {
                   return "virtuoso";
                 }
-                if (id.includes("@monaco-editor") || id.includes("monaco-editor")) {
+                if (
+                  id.includes("@monaco-editor") ||
+                  id.includes("monaco-editor")
+                ) {
                   return "monaco";
                 }
                 if (id.includes("react-diff-viewer-continued")) {

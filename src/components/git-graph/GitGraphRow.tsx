@@ -1,13 +1,18 @@
 import * as React from "react";
 import { GitBranch, Tag } from "lucide-react";
+import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
 import type {
   GraphCommit,
   GraphRef,
-  GraphRefType,
   GraphWorkingTreeSummary,
 } from "@/lib/git-graph/types";
-import { cn } from "@/lib/utils";
 import type { GitGraphColumnVisibility } from "./GitGraphToolbar";
+import {
+  gitGraphRefTypeStyles,
+  gitGraphRowStyles as styles,
+} from "./git-graph-row.styles";
 
 export const ROW_HEIGHT = 24;
 export const LANE_WIDTH = 16;
@@ -62,13 +67,6 @@ export function graphGridTemplate(args: {
     .join(" ");
 }
 
-const REF_STYLES: Record<GraphRefType, string> = {
-  head: "border-primary/35 bg-primary/12 text-primary",
-  localBranch: "border-success/35 bg-success/10 text-success",
-  remoteBranch: "border-info/35 bg-info/10 text-info",
-  tag: "border-warning/40 bg-warning/12 text-warning",
-};
-
 function HighlightText({ value, query }: { value: string; query: string }) {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) {
@@ -81,7 +79,7 @@ function HighlightText({ value, query }: { value: string; query: string }) {
   return (
     <>
       {value.slice(0, index)}
-      <mark className="rounded-sm bg-warning/30 px-0.5 text-inherit">
+      <mark className={sx(styles.highlightMark)}>
         {value.slice(index, index + normalizedQuery.length)}
       </mark>
       {value.slice(index + normalizedQuery.length)}
@@ -101,10 +99,10 @@ function RefLabel({
   const Icon = graphRef.type === "tag" ? Tag : GitBranch;
   return (
     <span
-      className={cn(
-        "inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-sm border px-1.5 text-[10px] font-medium leading-none",
-        REF_STYLES[graphRef.type],
-        graphRef.isHead && "ring-1 ring-primary/30",
+      className={sx(
+        styles.refLabel,
+        gitGraphRefTypeStyles[graphRef.type],
+        graphRef.isHead && styles.refHead,
       )}
       title={graphRef.isHead ? `${graphRef.name} (HEAD)` : graphRef.name}
       onClick={(event) => event.stopPropagation()}
@@ -117,12 +115,10 @@ function RefLabel({
         onContextMenu(event, graphRef);
       }}
     >
-      <Icon className="size-2.5" />
+      <Icon className={sx(styles.refIcon)} />
       {graphRef.name}
       {graphRef.isHead ? (
-        <span className="text-[8px] font-semibold uppercase tracking-wide">
-          head
-        </span>
+        <span className={sx(styles.refHeadTag)}>head</span>
       ) : null}
     </span>
   );
@@ -164,11 +160,13 @@ export const GitGraphRow = React.memo(function GitGraphRow({
       role="row"
       aria-selected={isSelected}
       tabIndex={isSelected ? 0 : -1}
-      className={cn(
-        "grid cursor-default select-none items-center border-b border-border/30 text-xs outline-none transition-colors",
-        "hover:bg-accent/35 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50",
-        isSelected && "bg-accent/65 text-accent-foreground",
-        isSearchMatch && !isSelected && "bg-warning/8",
+      className={sx(
+        styles.row,
+        transition.colors,
+        focusRing.ring,
+        focusRing.ringInset,
+        isSelected && styles.rowSelected,
+        isSearchMatch && !isSelected && styles.rowSearchMatch,
       )}
       style={{
         height: ROW_HEIGHT,
@@ -187,20 +185,17 @@ export const GitGraphRow = React.memo(function GitGraphRow({
       onContextMenu={(event) => onContextMenu(event, commit.hash)}
       data-commit-hash={commit.hash}
     >
-      <div role="gridcell" className="flex min-w-0 items-center gap-1.5 pr-3">
+      <div role="gridcell" className={sx(styles.leadCell)}>
         <span
-          className="shrink-0"
+          className={sx(styles.laneSpacer)}
           style={{ width: graphWidth }}
           aria-hidden="true"
         />
-        <span
-          className="min-w-[5rem] flex-1 truncate font-medium text-foreground"
-          title={commit.subject}
-        >
+        <span className={sx(styles.subject)} title={commit.subject}>
           <HighlightText value={commit.subject} query={searchQuery} />
         </span>
         {commit.refs.length > 0 ? (
-          <span className="flex shrink-0 items-center gap-1">
+          <span className={sx(styles.refList)}>
             {commit.refs.map((graphRef) => (
               <RefLabel
                 key={`${graphRef.type}:${graphRef.name}`}
@@ -217,7 +212,7 @@ export const GitGraphRow = React.memo(function GitGraphRow({
       {columns.author ? (
         <div
           role="gridcell"
-          className="truncate border-l border-border/25 px-2.5 text-muted-foreground"
+          className={sx(styles.cell)}
           title={
             commit.authorEmail
               ? `${commit.author} <${commit.authorEmail}>`
@@ -230,7 +225,7 @@ export const GitGraphRow = React.memo(function GitGraphRow({
       {columns.date ? (
         <div
           role="gridcell"
-          className="truncate border-l border-border/25 px-2.5 text-muted-foreground tabular-nums"
+          className={sx(styles.cell, styles.cellDate)}
           title={commit.authorDate}
         >
           {formatRelativeDate(commit.authorDate)}
@@ -239,7 +234,7 @@ export const GitGraphRow = React.memo(function GitGraphRow({
       {columns.hash ? (
         <div
           role="gridcell"
-          className="truncate border-l border-border/25 px-2.5 font-mono text-[10px] text-muted-foreground"
+          className={sx(styles.cell, styles.cellHash)}
           title={commit.hash}
         >
           <HighlightText value={commit.hash.slice(0, 8)} query={searchQuery} />
@@ -271,9 +266,11 @@ export function GitGraphWorkingTreeRow({
       role="row"
       aria-selected={isSelected}
       tabIndex={isSelected ? 0 : -1}
-      className={cn(
-        "grid cursor-default select-none items-center border-b border-border/45 bg-editor-muted/35 text-xs outline-none hover:bg-accent/35 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50",
-        isSelected && "bg-accent/65",
+      className={sx(
+        styles.workingTreeRow,
+        focusRing.ring,
+        focusRing.ringInset,
+        isSelected && styles.workingTreeRowSelected,
       )}
       style={{
         height: ROW_HEIGHT,
@@ -291,30 +288,30 @@ export function GitGraphWorkingTreeRow({
       }}
       data-working-tree-row=""
     >
-      <div role="gridcell" className="flex min-w-0 items-center gap-2 pr-3">
+      <div role="gridcell" className={sx(styles.workingTreeLeadCell)}>
         <span
-          className="shrink-0"
+          className={sx(styles.laneSpacer)}
           style={{ width: graphWidth }}
           aria-hidden="true"
         />
-        <span className="font-medium text-foreground">Uncommitted changes</span>
-        <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+        <span className={sx(styles.workingTreeLabel)}>Uncommitted changes</span>
+        <span className={sx(styles.workingTreeBadge)}>
           {total} {total === 1 ? "change" : "changes"}
         </span>
         {summary.conflicts > 0 ? (
-          <span className="text-[10px] font-medium text-destructive">
+          <span className={sx(styles.workingTreeConflicts)}>
             {summary.conflicts} conflicts
           </span>
         ) : null}
       </div>
       {columns.author ? (
-        <div role="gridcell" className="border-l border-border/25 px-2.5" />
+        <div role="gridcell" className={sx(styles.emptyCell)} />
       ) : null}
       {columns.date ? (
-        <div role="gridcell" className="border-l border-border/25 px-2.5" />
+        <div role="gridcell" className={sx(styles.emptyCell)} />
       ) : null}
       {columns.hash ? (
-        <div role="gridcell" className="border-l border-border/25 px-2.5" />
+        <div role="gridcell" className={sx(styles.emptyCell)} />
       ) : null}
     </div>
   );

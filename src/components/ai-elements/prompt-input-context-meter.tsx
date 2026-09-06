@@ -8,7 +8,8 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { sx } from "../ads/utils/stylex";
+import { contextMeterStyles } from "./prompt-input-context-meter.styles";
 import {
   conversationContextUsageTone,
   formatConversationContextCounts,
@@ -16,16 +17,14 @@ import {
   type ConversationContextUsage,
 } from "@/components/ai-elements/prompt-input.utils";
 
-function usageToneClass(
-  tone: ReturnType<typeof conversationContextUsageTone>,
-): string {
+function usageToneStyle(tone: ReturnType<typeof conversationContextUsageTone>) {
   if (tone === "ok") {
-    return "bg-success";
+    return contextMeterStyles.fillOk;
   }
   if (tone === "warn") {
-    return "bg-warning";
+    return contextMeterStyles.fillWarn;
   }
-  return "bg-destructive";
+  return contextMeterStyles.fillDanger;
 }
 
 export function PromptInputContextMeter(args: {
@@ -49,40 +48,40 @@ export function PromptInputContextMeter(args: {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+            className={sx(contextMeterStyles.trigger)}
             aria-label={`Conversation context ${percentLabel} used`}
           />
         }
       >
         <span
           aria-hidden="true"
-          className="h-1.5 w-8 overflow-hidden rounded-full bg-muted-foreground/15"
+          className={sx(contextMeterStyles.track)}
         >
           <span
-            className={cn("block h-full rounded-full", usageToneClass(tone))}
+            className={sx(contextMeterStyles.fill, usageToneStyle(tone))}
             style={{ width: `${fillPercent}%` }}
           />
         </span>
-        <span className="font-mono text-[11px] tabular-nums">
+        <span className={sx(contextMeterStyles.percent)}>
           {percentLabel}
         </span>
       </PopoverTrigger>
-      <PopoverContent align="end" side="top" className="w-64 gap-0 p-3">
-        <PopoverTitle className="flex items-center gap-1.5 text-sm">
-          <Gauge className="size-3.5" />
+      <PopoverContent align="end" side="top" className={sx(contextMeterStyles.popover)}>
+        <PopoverTitle className={sx(contextMeterStyles.popoverTitle)}>
+          <Gauge className={sx(contextMeterStyles.titleIcon)} />
           Conversation context
         </PopoverTitle>
-        <PopoverDescription className="mt-1 text-xs">
+        <PopoverDescription className={sx(contextMeterStyles.popoverDescription)}>
           Latest context usage for the selected provider. Compact summarizes this
           provider's session.
         </PopoverDescription>
-        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-          <dt className="text-muted-foreground">Used</dt>
-          <dd className="text-right font-mono">{percentLabel}</dd>
+        <dl className={sx(contextMeterStyles.metricsList)}>
+          <dt className={sx(contextMeterStyles.metricTerm)}>Used</dt>
+          <dd className={sx(contextMeterStyles.metricValue)}>{percentLabel}</dd>
           {countLabel ? (
             <>
-              <dt className="text-muted-foreground">Tokens</dt>
-              <dd className="text-right font-mono">{countLabel}</dd>
+              <dt className={sx(contextMeterStyles.metricTerm)}>Tokens</dt>
+              <dd className={sx(contextMeterStyles.metricValue)}>{countLabel}</dd>
             </>
           ) : null}
         </dl>
@@ -91,7 +90,7 @@ export function PromptInputContextMeter(args: {
             type="button"
             size="sm"
             variant="outline"
-            className="mt-3 w-full"
+            className={sx(contextMeterStyles.compactButton)}
             disabled={args.compactDisabled || args.compactPending}
             title={
               args.compactDisabled ? args.compactDisabledReason : undefined
@@ -101,7 +100,7 @@ export function PromptInputContextMeter(args: {
             {args.compactPending ? "Compacting…" : "Compact context"}
           </Button>
         ) : (
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className={sx(contextMeterStyles.emptyNote)}>
             This provider has no compact command.
           </p>
         )}

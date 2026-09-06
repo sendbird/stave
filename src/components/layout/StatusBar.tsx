@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { StatusBarMemorySegment } from "@/components/layout/StatusBarMemorySegment";
 import { StatusBarUsageSegment } from "@/components/layout/StatusBarUsageSegment";
 import { useAppStore } from "@/store/app.store";
+import * as stylex from "@stylexjs/stylex";
+import { layoutShellStyles } from "./layout-shell.styles";
 
 const RATE_LIMITS_POLL_INTERVAL_MS = 60_000;
 
@@ -29,14 +31,14 @@ export function StatusBar() {
   }, [refreshRateLimits]);
 
   return (
-    <div className="flex h-7 shrink-0 items-center justify-between border-t border-border/70 bg-card px-1 text-xs">
-      <div className="flex items-center gap-0.5">
+    <div {...stylex.props(layoutShellStyles.statusBar)}>
+      <div {...stylex.props(layoutShellStyles.statusGroup)}>
         <StatusBarUsageSegment provider="claude" />
         <StatusBarUsageSegment provider="codex" />
         <StatusBarUsageSegment provider="cursor" />
         <StatusBarUsageSegment provider="kiro" />
       </div>
-      <div className="flex items-center gap-0.5">
+      <div {...stylex.props(layoutShellStyles.statusGroup)}>
         <StatusBarMemorySegment />
       </div>
     </div>

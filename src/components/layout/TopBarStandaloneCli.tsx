@@ -9,7 +9,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { StandaloneCliPopoverContent } from "@/components/layout/standalone-cli/StandaloneCliPopover";
-import { cn } from "@/lib/utils";
+import * as stylex from "@stylexjs/stylex";
+import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 
@@ -58,7 +59,7 @@ export function TopBarStandaloneCli(props: { noDragStyle: CSSProperties }) {
       }}
     >
       <Tooltip>
-        <TooltipTrigger render={<span className="inline-flex" />}>
+        <TooltipTrigger render={<span {...stylex.props(layoutShellStyles.inlineFlex)} />}>
           <PopoverTrigger
             render={
               <Button
@@ -66,14 +67,14 @@ export function TopBarStandaloneCli(props: { noDragStyle: CSSProperties }) {
                 size="sm"
                 aria-label={label}
                 style={props.noDragStyle}
-                className={cn(
-                  "relative h-8 w-8 shrink-0 rounded-md p-0 hover:bg-secondary/70 hover:text-foreground",
-                  open ? "text-foreground" : "text-muted-foreground",
-                )}
+                xstyle={[
+                  layoutShellStyles.topBarButton,
+                  open && layoutShellStyles.topBarButtonActive,
+                ]}
               />
             }
           >
-            <Terminal className="size-4" />
+            <Terminal {...stylex.props(layoutShellStyles.icon16)} />
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side="bottom">{label}</TooltipContent>

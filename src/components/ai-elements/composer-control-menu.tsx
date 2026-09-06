@@ -1,10 +1,12 @@
+import { controlStyles } from "./composer-control.stylex";
+import { sx } from "../ads/utils/stylex";
 import type { ReactNode } from "react";
 
 import {
   COMPOSER_CONTROL_LANE,
   ComposerControlDensityProvider,
 } from "@/components/ai-elements/composer-control-density";
-import { cn } from "@/lib/utils";
+import { cx } from "../ads/utils/stylex";
 
 export interface ComposerControlMenuItem {
   id: string;
@@ -20,8 +22,7 @@ export interface ComposerControlMenuItem {
  * one surface: composer-anchored chrome that must not paint over the dialog it
  * just opened (hence `layer="floatingChrome"` at both call sites).
  */
-export const COMPOSER_CONTROL_MENU_CONTENT =
-  "w-auto min-w-56 max-w-[min(26rem,calc(100vw-2rem))] gap-0 rounded-xl bg-popover p-2 shadow-xl ring-1 ring-foreground/10";
+export const COMPOSER_CONTROL_MENU_CONTENT = controlStyles.menu;
 
 /**
  * A demoted control, stacked.
@@ -40,19 +41,19 @@ export function ComposerControlMenuList(props: {
     <ComposerControlDensityProvider value="default">
       <div
         data-composer-control-menu="true"
-        className={cn(
-          "flex flex-col items-stretch gap-1",
+        className={cx(
+          sx(controlStyles.menuList),
           COMPOSER_CONTROL_LANE.menu,
           props.className,
         )}
       >
         {props.items.map((item) => (
-          <div key={item.id} className="flex items-center gap-2">
+          <div key={item.id} data-composer-control-menu-item={item.id} className={sx(controlStyles.menuRow)}>
             {item.node}
             {item.iconOnly ? (
               // Decorative: the control is already named for assistive tech,
               // but a stacked glyph needs a visible caption.
-              <span aria-hidden="true" className="text-sm text-muted-foreground">
+              <span aria-hidden="true" className={sx(controlStyles.menuLabel)}>
                 {item.label}
               </span>
             ) : null}

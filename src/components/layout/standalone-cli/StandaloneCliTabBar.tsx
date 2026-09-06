@@ -5,7 +5,8 @@ import {
   getStandaloneCliTabTitle,
   STANDALONE_CLI_TAB_IDS,
 } from "@/lib/terminal/standalone-cli";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 
 export function StandaloneCliTabBar() {
@@ -17,7 +18,7 @@ export function StandaloneCliTabBar() {
     <div
       role="group"
       aria-label="Standalone CLI providers"
-      className="flex items-center gap-1"
+      className={sx(styles.tabBar)}
     >
       {STANDALONE_CLI_TAB_IDS.map((tabId) => (
         <Button
@@ -26,15 +27,10 @@ export function StandaloneCliTabBar() {
           variant="ghost"
           size="sm"
           aria-pressed={tabId === activeTabId}
-          className={cn(
-            "h-7 gap-2 px-2 text-xs",
-            tabId === activeTabId
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+          xstyle={[styles.tab, tabId === activeTabId && styles.tabActive]}
           onClick={() => setActiveTab({ tabId })}
         >
-          <ModelIcon providerId={tabId} className="size-3.5" />
+          <ModelIcon providerId={tabId} className={sx(styles.tabIcon)} />
           {getStandaloneCliTabTitle(tabId)}
         </Button>
       ))}

@@ -1,7 +1,5 @@
-import { createPortal } from "react-dom";
-import { useDismissibleLayer } from "@/lib/dismissible-layer";
+import { Lightbox } from "../ads/components/Lightbox";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
 
 export function ImageLightbox(args: {
   open: boolean;
@@ -12,57 +10,18 @@ export function ImageLightbox(args: {
   closeLabel?: string;
   imageTitle?: string;
 }) {
-  const { containerRef, handleKeyDown } = useDismissibleLayer<HTMLDivElement>({
-    enabled: args.open,
-    onDismiss: args.onClose,
-  });
-
-  if (!args.open) {
-    return null;
-  }
-
-  const overlay = (
-    <div
-      ref={containerRef}
-      data-testid="image-lightbox"
-      className={cn(
-        UI_LAYER_CLASS.lightbox,
-        "fixed inset-0 flex items-center justify-center bg-overlay p-6",
-      )}
-      role="dialog"
-      aria-modal="true"
-      aria-label={args.ariaLabel ?? "Image full screen preview"}
-      tabIndex={-1}
-      onKeyDown={handleKeyDown}
-      onClick={args.onClose}
-    >
-      <button
-        type="button"
-        className="absolute right-4 top-4 rounded-sm border border-border/80 bg-card/90 px-2 py-1 text-sm text-foreground hover:bg-accent"
-        onClick={(event) => {
-          event.stopPropagation();
-          args.onClose();
-        }}
-      >
-        {args.closeLabel ?? "Close"}
-      </button>
-      <img
-        src={args.imageSrc}
-        alt={args.alt}
-        className="max-h-full max-w-full cursor-zoom-out object-contain"
-        title={args.imageTitle ?? "Click to close full screen"}
-        onClick={(event) => {
-          event.stopPropagation();
-          args.onClose();
-        }}
-      />
-    </div>
+  return (
+    <Lightbox
+      open={args.open}
+      onOpenChange={(open) => {
+        if (!open) args.onClose();
+      }}
+      media={{ src: args.imageSrc, alt: args.alt }}
+      hasZoom
+      title={args.ariaLabel ?? "Image full screen preview"}
+      closeLabel={args.closeLabel ?? "Close preview"}
+      className={UI_LAYER_CLASS.lightbox}
+      testId="image-lightbox"
+    />
   );
-
-  // Keep server/static render paths testable while using a root-level portal in the app.
-  if (typeof document === "undefined" || !document.body) {
-    return overlay;
-  }
-
-  return createPortal(overlay, document.body);
 }

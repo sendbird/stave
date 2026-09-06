@@ -54,7 +54,23 @@ High-signal files:
 
 ## UI And Theme Guardrails
 
-Use `shadcn-ui` when the task adds or changes shadcn/ui components and the runtime supports that skill.
+Stave's design system uses locally owned ADS tokens, recipes, and StyleX.
+Existing compound component APIs may remain when they preserve useful behavior;
+component ancestry is not a reason to replace an implementation. Custom product
+components follow the same ADS state, focus, motion, and token contracts.
+
+- Author new styles with `stylex.create` and compose styles before compiling
+  them. Do not introduce Tailwind utility strings, `@apply`, CVA recipes, or a
+  utility-to-StyleX translation layer.
+- `src/components/ui` contains no utility syntax. `config/style-utility-baseline.json`
+  records unfinished consumers elsewhere; it is a decreasing migration inventory,
+  not an approved exception list. New files have a zero allowance.
+- Use global CSS for resets, rich-text/third-party descendants, and engine
+  integration that cannot receive StyleX props. Keep those boundaries explicit.
+- Preserve PromptInput control positions, panel placement, and functionality
+  when changing tokens or component implementations.
+- Use Impeccable only to remove generic decorative patterns, redundant cards,
+  and visual noise. It must not choose a replacement visual identity.
 
 Any UI, layout, or visual change must verify the theme system. Required check files:
 

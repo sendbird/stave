@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Moon, Sun, Laptop } from "lucide-react";
 
+import { cx, sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,6 +9,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+import { themeStyles as s } from "./theme.styles";
 
 type ThemeChoice = "light" | "dark" | "system";
 
@@ -66,25 +69,25 @@ export function ThemeToggle({ className }: { className?: string }) {
           size="icon"
           variant="ghost"
         >
-          <Sun className="size-4 dark:hidden" />
-          <Moon className="hidden size-4 dark:block" />
+          <Sun className={cx(sx(s.icon), "site-theme-sun")} />
+          <Moon className={cx(sx(s.icon), "site-theme-moon")} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-36">
+      <DropdownMenuContent align="end" className={sx(s.menuContent)}>
         <DropdownMenuItem onSelect={() => update("light")}>
-          <Sun className="size-4" />
+          <Sun className={sx(s.icon)} />
           Light
-          {choice === "light" ? <span className="ml-auto text-xs">•</span> : null}
+          {choice === "light" ? <span className={sx(s.activeMark)}>•</span> : null}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => update("dark")}>
-          <Moon className="size-4" />
+          <Moon className={sx(s.icon)} />
           Dark
-          {choice === "dark" ? <span className="ml-auto text-xs">•</span> : null}
+          {choice === "dark" ? <span className={sx(s.activeMark)}>•</span> : null}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => update("system")}>
-          <Laptop className="size-4" />
+          <Laptop className={sx(s.icon)} />
           System
-          {choice === "system" ? <span className="ml-auto text-xs">•</span> : null}
+          {choice === "system" ? <span className={sx(s.activeMark)}>•</span> : null}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

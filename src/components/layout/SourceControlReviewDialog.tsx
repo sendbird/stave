@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, MessageSquare, RotateCcw } from "lucide-react";
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import { Button, Textarea } from "@/components/ui";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +19,7 @@ import type {
   GitHubPrReviewDetail,
   GitHubPrReviewEvent,
 } from "@/lib/github-pr-review";
-import { cn } from "@/lib/utils";
+import { reviewDialogStyles } from "./source-control-review-dialog.styles";
 
 const REVIEW_OPTIONS: Array<{
   event: GitHubPrReviewEvent;
@@ -96,13 +100,13 @@ export function SourceControlReviewDialog(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogTrigger
         data-source-control-review-trigger=""
-        className={cn(buttonVariants({ variant: "default" }), "w-full")}
         disabled={props.detail.isDraft || !props.detail.headRefOid}
+        render={<AdsButton fullWidth type="button" />}
       >
         Review changes
       </DialogTrigger>
       <DialogContent
-        className="max-w-lg gap-5"
+        xstyle={reviewDialogStyles.content}
         finalFocus={() =>
           document.querySelector<HTMLElement>(
             "[data-source-control-review-trigger]",
@@ -113,15 +117,15 @@ export function SourceControlReviewDialog(props: {
           <DialogTitle>Review changes</DialogTitle>
           <DialogDescription>
             Your decision will be pinned to commit{" "}
-            <span className="font-mono text-foreground">
+            <span className={sx(reviewDialogStyles.commitHash)}>
               {props.detail.headRefOid.slice(0, 8)}
             </span>
             . Stave checks the head again before submitting.
           </DialogDescription>
         </DialogHeader>
 
-        <fieldset className="space-y-2">
-          <legend className="mb-2 text-xs font-medium text-foreground">
+        <fieldset>
+          <legend className={sx(reviewDialogStyles.legend)}>
             Review decision
           </legend>
           {REVIEW_OPTIONS.map((option) => {
@@ -131,36 +135,41 @@ export function SourceControlReviewDialog(props: {
             return (
               <label
                 key={option.event}
-                className={cn(
-                  "flex min-h-12 items-start gap-3 rounded-lg border border-border/70 px-3 py-2.5 transition-colors",
+                className={sx(
+                  reviewDialogStyles.option,
+                  transition.colors,
+                  // The tile owns the keyboard ring because the focusable
+                  // element inside it is visually hidden.
+                  focusRing.ringWithin,
                   disabled
-                    ? "cursor-not-allowed opacity-50"
-                    : "cursor-pointer hover:bg-muted/45",
-                  selected && "border-primary/40 bg-primary/5",
+                    ? reviewDialogStyles.optionDisabled
+                    : reviewDialogStyles.optionEnabled,
+                  selected && reviewDialogStyles.optionSelected,
                 )}
               >
-                <input
-                  type="radio"
-                  name="github-pr-review-event"
-                  value={option.event}
-                  checked={selected}
-                  disabled={disabled}
-                  onChange={() => setEvent(option.event)}
-                  className="peer sr-only"
-                />
+                <VisuallyHidden>
+                  <input
+                    type="radio"
+                    name="github-pr-review-event"
+                    value={option.event}
+                    checked={selected}
+                    disabled={disabled}
+                    onChange={() => setEvent(option.event)}
+                  />
+                </VisuallyHidden>
                 <span
-                  className={cn(
-                    "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background",
-                    selected && "bg-primary/12 text-primary",
+                  className={sx(
+                    reviewDialogStyles.optionMark,
+                    selected && reviewDialogStyles.optionMarkSelected,
                   )}
                 >
-                  <Icon className="size-3.5" />
+                  <Icon className={sx(reviewDialogStyles.optionIcon)} />
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-foreground">
+                <span className={sx(reviewDialogStyles.optionText)}>
+                  <span className={sx(reviewDialogStyles.optionTitle)}>
                     {option.title}
                   </span>
-                  <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                  <span className={sx(reviewDialogStyles.optionDescription)}>
                     {disabled
                       ? "You cannot approve your own pull request."
                       : option.description}
@@ -171,10 +180,10 @@ export function SourceControlReviewDialog(props: {
           })}
         </fieldset>
 
-        <div className="space-y-2">
+        <div className={sx(reviewDialogStyles.summaryField)}>
           <label
             htmlFor="github-pr-review-body"
-            className="text-xs font-medium text-foreground"
+            className={sx(reviewDialogStyles.summaryLabel)}
           >
             Summary{needsBody ? " (required)" : " (optional)"}
           </label>
@@ -196,9 +205,9 @@ export function SourceControlReviewDialog(props: {
           />
           <p
             id="github-pr-review-error"
-            className={cn(
-              "min-h-5 text-xs leading-5",
-              props.error ? "text-destructive" : "text-muted-foreground",
+            className={sx(
+              reviewDialogStyles.helpText,
+              Boolean(props.error) && reviewDialogStyles.helpTextError,
             )}
             aria-live="assertive"
           >

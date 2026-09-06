@@ -1,4 +1,5 @@
 import { ArrowUpCircle, RefreshCcw } from "lucide-react";
+import * as stylex from "@stylexjs/stylex";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -25,16 +26,16 @@ import {
 } from "@/components/ui/dialog";
 import type { AppUpdateStatusSnapshot } from "@/lib/app-update";
 import { getRespondingTasks } from "@/lib/tasks";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
+import { layoutShellStyles } from "./layout-shell.styles";
+import { updateStyles } from "./top-bar-update.styles";
 
 function InfoRow(args: { label: string; value: string | null }) {
   return (
-    <div className="flex items-start justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{args.label}</span>
-      <span className="max-w-[70%] text-right font-mono text-xs text-foreground break-all">
-        {args.value ?? "-"}
-      </span>
+    <div className={sx(updateStyles.infoRow)}>
+      <span className={sx(updateStyles.infoLabel)}>{args.label}</span>
+      <span className={sx(updateStyles.infoValue)}>{args.value ?? "-"}</span>
     </div>
   );
 }
@@ -154,16 +155,18 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <Tooltip>
-          <TooltipTrigger render={<span className="inline-flex" />}>
+          <TooltipTrigger
+            render={<span {...stylex.props(layoutShellStyles.inlineFlex)} />}
+          >
             <PopoverTrigger
               render={
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={cn(
-                    "relative h-8 w-8 shrink-0 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
-                    hasUpdate && "text-primary",
-                  )}
+                  xstyle={[
+                    updateStyles.trigger,
+                    hasUpdate && updateStyles.triggerHasUpdate,
+                  ]}
                   style={props.noDragStyle}
                   aria-label="app-update"
                 />
@@ -172,13 +175,17 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
               {loading ? (
                 <Loader aria-hidden size="xs" variant="spinner" />
               ) : (
-                <ArrowUpCircle className="size-4" />
+                <ArrowUpCircle />
               )}
               {hasUpdate ? (
-                <span className="absolute -right-0.5 -top-0.5 inline-flex size-2.5 rounded-full bg-primary" />
+                <span
+                  {...stylex.props(updateStyles.pip, updateStyles.pipUpdate)}
+                />
               ) : null}
               {!hasUpdate && hasIssue ? (
-                <span className="absolute -right-0.5 -top-0.5 inline-flex size-2.5 rounded-full bg-warning" />
+                <span
+                  {...stylex.props(updateStyles.pip, updateStyles.pipIssue)}
+                />
               ) : null}
             </PopoverTrigger>
           </TooltipTrigger>
@@ -187,16 +194,14 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
         <PopoverContent
           align="end"
           sideOffset={10}
-          className="w-[min(24rem,calc(100vw-1rem))] rounded-xl border-border/80 bg-card p-0"
+          xstyle={updateStyles.panel}
           style={props.noDragStyle}
         >
-          <PopoverHeader className="border-b border-border/70 px-4 py-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <PopoverTitle className="text-sm font-semibold text-foreground">
-                  App Update
-                </PopoverTitle>
-                <p className="text-xs text-muted-foreground">
+          <PopoverHeader className={sx(updateStyles.panelHeader)}>
+            <div className={sx(updateStyles.panelHeaderRow)}>
+              <div className={sx(updateStyles.panelHeaderText)}>
+                <PopoverTitle>App Update</PopoverTitle>
+                <p className={sx(updateStyles.panelSummary)}>
                   {snapshot?.summary ??
                     "Checking for the latest Stave release..."}
                 </p>
@@ -206,7 +211,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                   variant={
                     hasUpdate ? "success" : hasIssue ? "warning" : "secondary"
                   }
-                  className="shrink-0"
+                  className={sx(updateStyles.stateBadge)}
                 >
                   {snapshot.state === "available"
                     ? "Available"
@@ -220,8 +225,8 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
             </div>
           </PopoverHeader>
 
-          <div className="space-y-3 px-4 py-3">
-            <div className="space-y-2">
+          <div className={sx(updateStyles.panelBody)}>
+            <div className={sx(updateStyles.infoList)}>
               <InfoRow
                 label="Installed"
                 value={snapshot?.currentVersion ?? null}
@@ -231,14 +236,12 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
             </div>
 
             {snapshot?.detail ? (
-              <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                <p className="text-xs leading-5 text-muted-foreground whitespace-pre-wrap">
-                  {snapshot.detail}
-                </p>
+              <div className={sx(updateStyles.detailBox)}>
+                <p className={sx(updateStyles.detailText)}>{snapshot.detail}</p>
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-2">
+            <div className={sx(updateStyles.actions)}>
               <Button
                 type="button"
                 size="sm"
@@ -247,7 +250,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                 onClick={() => void refreshStatus()}
               >
                 <RefreshCcw
-                  className={cn("size-4", loading && "animate-spin")}
+                  {...stylex.props(loading && updateStyles.spinning)}
                 />
                 Refresh
               </Button>
@@ -260,7 +263,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                 {installing ? (
                   <Loader aria-hidden size="xs" variant="spinner" />
                 ) : (
-                  <ArrowUpCircle className="size-4" />
+                  <ArrowUpCircle />
                 )}
                 Install & Restart
               </Button>
@@ -270,7 +273,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
       </Popover>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent xstyle={updateStyles.confirmSurface}>
           <DialogHeader>
             <DialogTitle>Interrupt active tasks and update Stave?</DialogTitle>
             <DialogDescription>
@@ -280,24 +283,22 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+          <div className={sx(updateStyles.confirmBody)}>
+            <div className={sx(updateStyles.warningNote)}>
               Save any context you still need before continuing. Stave will
               close and restart to apply the update.
             </div>
 
-            <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-              <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                Active Tasks
-              </p>
-              <ul className="mt-2 space-y-1 text-sm text-foreground">
+            <div className={sx(updateStyles.detailBox)}>
+              <p className={sx(updateStyles.taskListEyebrow)}>Active Tasks</p>
+              <ul className={sx(updateStyles.taskList)}>
                 {respondingTaskSummaries.map((task) => (
-                  <li key={task.id} className="truncate">
+                  <li key={task.id} className={sx(updateStyles.taskListItem)}>
                     {task.title}
                   </li>
                 ))}
                 {respondingTasks.length > respondingTaskSummaries.length ? (
-                  <li className="text-muted-foreground">
+                  <li className={sx(updateStyles.taskListOverflow)}>
                     +{respondingTasks.length - respondingTaskSummaries.length}{" "}
                     more
                   </li>
@@ -326,7 +327,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
               {installing ? (
                 <Loader aria-hidden size="xs" variant="spinner" />
               ) : (
-                <ArrowUpCircle className="size-4" />
+                <ArrowUpCircle />
               )}
               Continue Update
             </Button>

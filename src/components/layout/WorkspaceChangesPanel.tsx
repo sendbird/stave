@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Check,
   ClipboardList,
@@ -49,16 +50,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   PR_STATUS_VISUAL,
-  PR_TONE_ICON_CLASS,
   type PrStatusTone,
   type WorkspacePrStatus,
 } from "@/lib/pr-status";
+import { prToneIconStyles } from "./pr-status.styles";
 import type { SourceControlStatusItem } from "@/lib/source-control-status";
-import { cn } from "@/lib/utils";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
+import {
+  changesStyles,
+  checkToneStyles,
+  scmActionToneStyles,
+  scmStatusToneStyles,
+  scmSummaryToneStyles,
+} from "./workspace-changes.styles";
 import {
   type TurnVerificationResult,
   type TurnVerificationStatus,
-  VERIFICATION_STATUS_VISUAL,
   describeTurnVerification,
 } from "@/lib/workspace-scripts";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
@@ -93,13 +102,6 @@ export interface WorkspaceChecksViewModel {
 
 type ChecksTone = "ok" | "warn" | "fail" | "neutral";
 
-const CHECKS_TONE_TEXT: Record<ChecksTone, string> = {
-  ok: "text-success",
-  warn: "text-warning",
-  fail: "text-destructive",
-  neutral: "text-muted-foreground",
-};
-
 /** Collapse a verification/intent status into the local check tone. */
 function statusToChecksTone(status: TurnVerificationStatus): ChecksTone {
   if (status === "pass") return "ok";
@@ -123,22 +125,16 @@ function ChecksSection(args: {
   children?: ReactNode;
 }) {
   return (
-    <section className="space-y-2 rounded-xl border border-border/70 bg-background/60 px-3 py-2.5">
-      <div className="flex items-center gap-2">
+    <section className={sx(changesStyles.checksSection)}>
+      <div className={sx(changesStyles.checksHead)}>
         <span
-          className={cn(
-            "flex size-4 items-center justify-center",
-            CHECKS_TONE_TEXT[args.tone],
-          )}
+          className={sx(changesStyles.checksIcon, checkToneStyles[args.tone])}
         >
           {args.icon}
         </span>
-        <p className="text-xs font-medium text-foreground">{args.title}</p>
+        <p className={sx(changesStyles.checksTitle)}>{args.title}</p>
         <span
-          className={cn(
-            "ml-auto truncate text-[11px] font-medium",
-            CHECKS_TONE_TEXT[args.tone],
-          )}
+          className={sx(changesStyles.checksSummary, checkToneStyles[args.tone])}
         >
           {args.summary}
         </span>
@@ -185,31 +181,34 @@ function ChecksTabContent(props: {
         : "Clean";
 
   return (
-    <div className="space-y-2.5 px-3 py-3">
+    <div className={sx(changesStyles.checks)}>
       <ChecksSection
-        icon={<GitPullRequest className="size-4" />}
+        icon={<GitPullRequest className={sx(changesStyles.glyphMd)} />}
         title="Pull request"
         summary={prVisual.label}
         tone={prToneToChecksTone(prVisual.tone)}
       >
         {props.checks.pr ? (
-          <p className="truncate text-[11px] text-muted-foreground">
+          <p className={sx(changesStyles.checksLine)}>
             <span
-              className={cn("font-medium", PR_TONE_ICON_CLASS[prVisual.tone])}
+              className={sx(
+                changesStyles.checksStrong,
+                prToneIconStyles[prVisual.tone],
+              )}
             >
               #{props.checks.pr.number}
             </span>{" "}
             {props.checks.pr.title}
           </p>
         ) : (
-          <p className="text-[11px] text-muted-foreground">
+          <p className={sx(changesStyles.checksLine)}>
             No pull request linked to this branch yet.
           </p>
         )}
       </ChecksSection>
 
       <ChecksSection
-        icon={<ListChecks className="size-4" />}
+        icon={<ListChecks className={sx(changesStyles.glyphMd)} />}
         title="Verification"
         summary={verificationSummary}
         tone={
@@ -217,47 +216,49 @@ function ChecksTabContent(props: {
         }
       >
         {verification && verification.failures.length > 0 ? (
-          <div className="space-y-1.5">
+          <div className={sx(changesStyles.checksStack)}>
             {props.onFixVerificationWithAgent ? (
               <Button
                 type="button"
                 size="xs"
                 variant="outline"
-                className="h-6 gap-1 px-2 text-[11px]"
+                xstyle={changesStyles.fixAllButton}
                 onClick={() => props.onFixVerificationWithAgent?.()}
                 title="Send these failures to the agent as the next turn"
               >
-                <Wrench className="size-3" />
+                <Wrench className={sx(changesStyles.glyphXs)} />
                 {verification.failures.length > 1
                   ? "Fix all with agent"
                   : "Fix with agent"}
               </Button>
             ) : null}
-            <ul className="space-y-1.5">
+            <ul className={sx(changesStyles.checksStack)}>
               {verification.failures.map((failure, index) => (
                 <li
                   key={`${failure.scriptId}-${index}`}
-                  className="text-[11px]"
+                  className={sx(changesStyles.failureItem)}
                 >
-                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                  <div className={sx(changesStyles.failureHead)}>
                     <span
-                      className={cn(
-                        "rounded px-1 py-px text-[10px] uppercase tracking-wide",
+                      className={sx(
+                        changesStyles.failureTag,
                         failure.blocking
-                          ? "bg-destructive/15 text-destructive"
-                          : "bg-warning/15 text-warning",
+                          ? changesStyles.failureTagBlocking
+                          : changesStyles.failureTagWarn,
                       )}
                     >
                       {failure.blocking ? "blocking" : "warn"}
                     </span>
-                    <span className="truncate">{failure.scriptId}</span>
+                    <span className={sx(changesStyles.truncate)}>
+                      {failure.scriptId}
+                    </span>
                     {props.onFixVerificationWithAgent &&
                     verification.failures.length > 1 ? (
                       <Button
                         type="button"
                         size="xs"
                         variant="ghost"
-                        className="ml-auto h-5 shrink-0 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                        xstyle={changesStyles.fixOneButton}
                         onClick={() =>
                           props.onFixVerificationWithAgent?.({
                             scriptId: failure.scriptId,
@@ -265,12 +266,12 @@ function ChecksTabContent(props: {
                         }
                         title={`Send only ${failure.scriptId} to the agent`}
                       >
-                        <Wrench className="size-3" />
+                        <Wrench className={sx(changesStyles.glyphXs)} />
                         Fix
                       </Button>
                     ) : null}
                   </div>
-                  <p className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground">
+                  <p className={sx(changesStyles.failureMessage)}>
                     {failure.message}
                   </p>
                 </li>
@@ -281,36 +282,40 @@ function ChecksTabContent(props: {
       </ChecksSection>
 
       <ChecksSection
-        icon={<Crosshair className="size-4" />}
+        icon={<Crosshair className={sx(changesStyles.glyphMd)} />}
         title="Intent guard"
         summary={intentSummary}
         tone={intent ? statusToChecksTone(intent.status) : "neutral"}
       >
         {intent && intent.findings.length > 0 ? (
-          <ul className="space-y-1">
+          <ul className={sx(changesStyles.checksList)}>
             {intent.findings.map((finding, index) => (
               <li key={`${finding.file}-${index}`}>
-                <button
+                <AdsButton
+                  layout="host"
                   type="button"
-                  className="flex w-full flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left text-[11px] hover:bg-muted"
+                  xstyle={[
+                    changesStyles.findingButton,
+                    changesStyles.findingButtonInline,
+                  ]}
                   onClick={() => void props.onSelectDiff(finding.file)}
                   title={`Open ${finding.file}`}
                 >
-                  <span className="flex max-w-full items-center gap-1.5 font-medium text-foreground">
-                    <span className="rounded bg-muted px-1 py-px text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span className={sx(changesStyles.findingHead)}>
+                    <span className={sx(changesStyles.findingSeverity)}>
                       {finding.severity}
                     </span>
-                    <span className="truncate">
+                    <span className={sx(changesStyles.truncate)}>
                       {finding.file}
                       {typeof finding.line === "number"
                         ? `:${finding.line}`
                         : ""}
                     </span>
                   </span>
-                  <span className="whitespace-pre-wrap break-words text-muted-foreground">
+                  <span className={sx(changesStyles.findingMessage)}>
                     {finding.message}
                   </span>
-                </button>
+                </AdsButton>
               </li>
             ))}
           </ul>
@@ -318,13 +323,13 @@ function ChecksTabContent(props: {
       </ChecksSection>
 
       <ChecksSection
-        icon={<GitBranch className="size-4" />}
+        icon={<GitBranch className={sx(changesStyles.glyphMd)} />}
         title="Working tree"
         summary={treeSummary}
         tone={treeTone}
       >
-        <p className="truncate text-[11px] text-muted-foreground">
-          <span className="font-medium text-foreground">
+        <p className={sx(changesStyles.checksLine)}>
+          <span className={sx(changesStyles.checksStrong)}>
             {props.sourceBranch}
           </span>
           {" · "}
@@ -334,7 +339,7 @@ function ChecksTabContent(props: {
       </ChecksSection>
 
       <ChecksSection
-        icon={<ClipboardList className="size-4" />}
+        icon={<ClipboardList className={sx(changesStyles.glyphMd)} />}
         title="Todos"
         summary={
           totalTodoCount === 0
@@ -344,15 +349,15 @@ function ChecksTabContent(props: {
         tone={openTodoCount > 0 ? "warn" : "ok"}
       >
         {openTodos.length > 0 ? (
-          <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+          <ul className={sx(changesStyles.checksTodoList)}>
             {openTodos.slice(0, 6).map((text, index) => (
-              <li key={`${index}-${text}`} className="flex items-start gap-1.5">
-                <span className="mt-1 size-1 shrink-0 rounded-full bg-warning" />
-                <span className="truncate">{text}</span>
+              <li key={`${index}-${text}`} className={sx(changesStyles.checksTodoRow)}>
+                <span className={sx(changesStyles.checksTodoDot)} />
+                <span className={sx(changesStyles.truncate)}>{text}</span>
               </li>
             ))}
             {openTodos.length > 6 ? (
-              <li className="pl-2.5 text-[10px]">
+              <li className={sx(changesStyles.checksTodoMore)}>
                 +{openTodos.length - 6} more
               </li>
             ) : null}
@@ -399,13 +404,6 @@ function SourceControlActionButton(args: {
   onClick: () => void;
   tone?: "default" | "destructive" | "success";
 }) {
-  const toneClassName =
-    args.tone === "destructive"
-      ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
-      : args.tone === "success"
-        ? "text-success hover:bg-success/10 hover:text-success"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground";
-
   return (
     <Button
       type="button"
@@ -413,10 +411,11 @@ function SourceControlActionButton(args: {
       variant="ghost"
       aria-label={args.label}
       title={args.label}
-      className={cn(
-        "size-6 rounded-sm border border-transparent p-0 transition-colors",
-        toneClassName,
-      )}
+      xstyle={[
+        changesStyles.rowActionButton,
+        transition.colors,
+        scmActionToneStyles[args.tone ?? "default"],
+      ]}
       disabled={args.disabled}
       onClick={args.onClick}
     >
@@ -434,39 +433,37 @@ function SourceControlRow(args: {
   onStage: (item: SourceControlStatusItem) => void;
   onUnstage: (item: SourceControlStatusItem) => void;
 }) {
-  const statusClassName = args.item.isConflict
-    ? "text-destructive"
+  const statusTone = args.item.isConflict
+    ? "conflict"
     : args.item.hasMixedChanges || args.item.hasUnstagedChanges
-      ? "text-warning"
+      ? "unstaged"
       : args.item.hasStagedChanges
-        ? "text-success"
-        : "text-muted-foreground";
+        ? "staged"
+        : "none";
 
   return (
     <ContextMenu>
       <ContextMenuTrigger
         render={
-          <div className="group flex items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 transition-colors hover:bg-muted/30 focus-within:bg-muted/30" />
+          <div className={sx(changesStyles.fileRow, transition.colors)} />
         }
       >
-        <button
+        <AdsButton
+          layout="host"
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          xstyle={[changesStyles.fileOpen, focusRing.ring]}
           onClick={() => args.onOpenDiff(args.item.pathLabel)}
         >
-          <WorkspaceFileIcon
-            fileName={args.item.fileName}
-            className="h-4 w-[14px]"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-medium">
+          <WorkspaceFileIcon fileName={args.item.fileName} />
+          <div className={sx(changesStyles.fileBody)}>
+            <div className={sx(changesStyles.fileTitleRow)}>
+              <span className={sx(changesStyles.fileName)}>
                 {args.item.fileName}
               </span>
               {args.item.hasMixedChanges ? (
                 <Badge
                   variant="outline"
-                  className="rounded-md px-1.5 text-[10px]"
+                  className={sx(changesStyles.fileBadge)}
                 >
                   partial
                 </Badge>
@@ -474,7 +471,7 @@ function SourceControlRow(args: {
               {args.item.isUntracked ? (
                 <Badge
                   variant="outline"
-                  className="rounded-md px-1.5 text-[10px]"
+                  className={sx(changesStyles.fileBadge)}
                 >
                   new
                 </Badge>
@@ -482,31 +479,29 @@ function SourceControlRow(args: {
               {args.item.verificationStatus ? (
                 <VerificationStatusIcon
                   status={args.item.verificationStatus}
-                  className="size-3"
+                  className={sx(changesStyles.fileVerification)}
                 />
               ) : null}
             </div>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {args.item.pathDetail}
-            </p>
+            <p className={sx(changesStyles.filePath)}>{args.item.pathDetail}</p>
           </div>
-        </button>
+        </AdsButton>
 
-        <div className="relative flex h-6 w-[84px] shrink-0 items-center justify-end">
+        <div className={sx(changesStyles.fileTail)}>
           <span
-            className={cn(
-              "pointer-events-none absolute inset-0 flex items-center justify-end pr-1 font-mono text-[11px] font-medium transition-opacity duration-150 group-hover:opacity-0 group-focus-within:opacity-0",
-              statusClassName,
+            className={sx(
+              changesStyles.fileCode,
+              scmStatusToneStyles[statusTone],
             )}
           >
             {args.item.displayCode}
           </span>
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+          <div className={sx(changesStyles.fileActions)}>
             {args.item.canStage ? (
               <SourceControlActionButton
                 label="Stage"
                 disabled={args.isScmBusy}
-                icon={<Plus className="size-3.5" />}
+                icon={<Plus className={sx(changesStyles.glyphSm)} />}
                 onClick={() => args.onStage(args.item.item)}
                 tone="success"
               />
@@ -515,7 +510,7 @@ function SourceControlRow(args: {
               <SourceControlActionButton
                 label="Unstage"
                 disabled={args.isScmBusy}
-                icon={<Minus className="size-3.5" />}
+                icon={<Minus className={sx(changesStyles.glyphSm)} />}
                 onClick={() => args.onUnstage(args.item.item)}
                 tone="default"
               />
@@ -524,7 +519,7 @@ function SourceControlRow(args: {
               <SourceControlActionButton
                 label="Discard"
                 disabled={args.isScmBusy}
-                icon={<RotateCcw className="size-3.5" />}
+                icon={<RotateCcw className={sx(changesStyles.glyphSm)} />}
                 onClick={() => args.onDiscard(args.item.item)}
                 tone="destructive"
               />
@@ -532,9 +527,9 @@ function SourceControlRow(args: {
           </div>
         </div>
       </ContextMenuTrigger>
-      <ContextMenuContent className="w-52">
+      <ContextMenuContent className={sx(changesStyles.contextMenu)}>
         <ContextMenuItem onSelect={() => args.onOpenDiff(args.item.pathLabel)}>
-          <File className="size-4" />
+          <File className={sx(changesStyles.glyphMd)} />
           Open Changes
         </ContextMenuItem>
         {args.item.canStage || args.item.canUnstage || args.item.canDiscard ? (
@@ -545,7 +540,7 @@ function SourceControlRow(args: {
             disabled={args.isScmBusy}
             onSelect={() => args.onStage(args.item.item)}
           >
-            <Plus className="size-4" />
+            <Plus className={sx(changesStyles.glyphMd)} />
             Stage
           </ContextMenuItem>
         ) : null}
@@ -554,7 +549,7 @@ function SourceControlRow(args: {
             disabled={args.isScmBusy}
             onSelect={() => args.onUnstage(args.item.item)}
           >
-            <Minus className="size-4" />
+            <Minus className={sx(changesStyles.glyphMd)} />
             Unstage
           </ContextMenuItem>
         ) : null}
@@ -564,13 +559,13 @@ function SourceControlRow(args: {
             disabled={args.isScmBusy}
             onSelect={() => args.onDiscard(args.item.item)}
           >
-            <RotateCcw className="size-4" />
+            <RotateCcw className={sx(changesStyles.glyphMd)} />
             Discard
           </ContextMenuItem>
         ) : null}
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={() => args.onCopyPath(args.item.pathLabel)}>
-          <Copy className="size-4" />
+          <Copy className={sx(changesStyles.glyphMd)} />
           Copy path
         </ContextMenuItem>
       </ContextMenuContent>
@@ -583,28 +578,30 @@ function SourceControlHistoryRow(args: {
   item: SourceControlHistoryEntry;
 }) {
   return (
-    <div className="flex gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-muted/20">
-      <div className="relative flex w-5 shrink-0 justify-center pt-1.5">
-        <span className="size-2.5 rounded-full border border-border/80 bg-background shadow-xs" />
+    <div className={sx(changesStyles.historyRow, transition.colors)}>
+      <div className={sx(changesStyles.historyRail)}>
+        <span className={sx(changesStyles.historyNode)} />
         {!args.isLast ? (
-          <span className="absolute bottom-[-12px] top-4 w-px bg-border/70" />
+          <span className={sx(changesStyles.historyThread)} />
         ) : null}
       </div>
-      <div className="min-w-0 flex-1 py-0.5">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">
+      <div className={sx(changesStyles.historyContent)}>
+        <div className={sx(changesStyles.historyLead)}>
+          <div className={sx(changesStyles.fileBody)}>
+            <p className={sx(changesStyles.historySubject)}>
               {args.item.subject}
             </p>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-mono text-[11px] text-foreground/70">
+            <div className={sx(changesStyles.historyMeta)}>
+              <span className={sx(changesStyles.historyHash)}>
                 {args.item.hash}
               </span>
-              <span className="size-1 rounded-full bg-border" />
+              <span className={sx(changesStyles.historyDot)} />
               <span>{args.item.relativeDate}</span>
             </div>
           </div>
-          <GitCommitHorizontal className="mt-0.5 size-4 shrink-0 text-muted-foreground/70" />
+          <GitCommitHorizontal
+            className={sx(changesStyles.historyCommitIcon)}
+          />
         </div>
       </div>
     </div>
@@ -672,23 +669,26 @@ export function WorkspaceChangesPanel(props: {
   const summaryLabels = [
     props.sourceControlSummary.stagedCount > 0
       ? {
-          className: "text-success",
+          tone: "staged" as const,
           text: `Staged ${props.sourceControlSummary.stagedCount}`,
         }
       : null,
     props.sourceControlSummary.workingTreeCount > 0
       ? {
-          className: "text-muted-foreground",
+          tone: "workingTree" as const,
           text: `Working tree ${props.sourceControlSummary.workingTreeCount}`,
         }
       : null,
     props.sourceControlSummary.conflictCount > 0
       ? {
-          className: "text-destructive",
+          tone: "conflicts" as const,
           text: `Conflicts ${props.sourceControlSummary.conflictCount}`,
         }
       : null,
-  ].filter(Boolean) as Array<{ className: string; text: string }>;
+  ].filter(Boolean) as Array<{
+    tone: keyof typeof scmSummaryToneStyles;
+    text: string;
+  }>;
 
   return (
     <Tabs
@@ -696,72 +696,60 @@ export function WorkspaceChangesPanel(props: {
       onValueChange={(nextValue) =>
         setMode(nextValue as SourceControlPanelMode)
       }
-      className="flex h-full min-h-0 flex-col gap-0"
+      className={sx(changesStyles.shell)}
     >
-      <div className="shrink-0 border-b border-border/80 px-3 py-2">
-        <TabsList className="h-auto w-full justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
+      <div className={sx(changesStyles.modeBar)}>
+        <TabsList className={sx(changesStyles.tabList)}>
           <TabsTrigger
             value="workspace"
-            className="h-8 flex-1 gap-1.5 rounded-lg px-3 text-xs font-medium"
+            className={sx(changesStyles.tabWide)}
           >
-            <GitBranch className="size-3.5" />
+            <GitBranch className={sx(changesStyles.glyphSm)} />
             Workspace
           </TabsTrigger>
-          <TabsTrigger
-            value="reviews"
-            className="h-8 flex-1 gap-1.5 rounded-lg px-3 text-xs font-medium"
-          >
-            <GitPullRequest className="size-3.5" />
+          <TabsTrigger value="reviews" className={sx(changesStyles.tabWide)}>
+            <GitPullRequest className={sx(changesStyles.glyphSm)} />
             Reviews
           </TabsTrigger>
         </TabsList>
       </div>
 
-      <TabsContent value="reviews" className="min-h-0 flex-1">
+      <TabsContent value="reviews" className={sx(changesStyles.pane)}>
         <SourceControlReviewsPanel
           cwd={props.reviewCwd}
           onOpenDiff={props.onOpenPrDiff}
         />
       </TabsContent>
 
-      <TabsContent value="workspace" className="min-h-0 flex-1">
+      <TabsContent value="workspace" className={sx(changesStyles.pane)}>
         <Tabs
           value={view}
           onValueChange={(nextValue) =>
             setView(nextValue as SourceControlPanelView)
           }
-          className="flex h-full min-h-0 flex-col gap-0"
+          className={sx(changesStyles.shell)}
         >
-          <div className="flex items-center gap-2 border-b border-border/80 px-3 py-2">
-            <TabsList className="h-auto flex-1 justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
-              <TabsTrigger
-                value="changes"
-                className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
-              >
+          <div className={sx(changesStyles.viewBar)}>
+            <TabsList className={sx(changesStyles.tabListInline)}>
+              <TabsTrigger value="changes" className={sx(changesStyles.tab)}>
                 <span>Changes</span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className={sx(changesStyles.tabCount)}>
                   {props.filteredScmItems.length}
                 </span>
               </TabsTrigger>
-              <TabsTrigger
-                value="history"
-                className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
-              >
-                <History className="size-3.5" />
+              <TabsTrigger value="history" className={sx(changesStyles.tab)}>
+                <History className={sx(changesStyles.glyphSm)} />
                 <span>History</span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className={sx(changesStyles.tabCount)}>
                   {props.sourceHistory.length}
                 </span>
               </TabsTrigger>
               {showChecksTab ? (
-                <TabsTrigger
-                  value="checks"
-                  className="h-8 flex-none gap-2 rounded-lg px-3 text-xs font-medium"
-                >
-                  <ListChecks className="size-3.5" />
+                <TabsTrigger value="checks" className={sx(changesStyles.tab)}>
+                  <ListChecks className={sx(changesStyles.glyphSm)} />
                   <span>Checks</span>
                   {checksAttentionCount > 0 ? (
-                    <span className="text-[11px] text-destructive">
+                    <span className={sx(changesStyles.tabAlert)}>
                       {checksAttentionCount}
                     </span>
                   ) : null}
@@ -773,13 +761,17 @@ export function WorkspaceChangesPanel(props: {
                 <Popover>
                   <PopoverTrigger
                     render={
-                      <button
+                      <AdsButton
+                        layout="host"
                         type="button"
-                        className={cn(
-                          "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
-                          VERIFICATION_STATUS_VISUAL[props.verification.status]
-                            .iconClassName,
-                        )}
+                        xstyle={[
+                          changesStyles.statusChip,
+                          changesStyles.statusChipPressable,
+                          transition.colors,
+                          checkToneStyles[
+                            statusToChecksTone(props.verification.status)
+                          ],
+                        ]}
                         aria-label={describeTurnVerification(
                           props.verification,
                         )}
@@ -791,10 +783,15 @@ export function WorkspaceChangesPanel(props: {
                     />
                     <span>{props.verification.failures.length}</span>
                   </PopoverTrigger>
-                  <PopoverContent align="end" className="w-80 p-0">
-                    <PopoverHeader className="border-b border-border/70 px-3 py-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <PopoverTitle className="text-xs">
+                  <PopoverContent
+                    align="end"
+                    className={sx(changesStyles.popover)}
+                  >
+                    <PopoverHeader className={sx(changesStyles.popoverHeader)}>
+                      <div className={sx(changesStyles.popoverHeaderRow)}>
+                        <PopoverTitle
+                          className={sx(changesStyles.popoverTitle)}
+                        >
                           Verification
                         </PopoverTitle>
                         {props.onFixVerificationWithAgent ? (
@@ -802,46 +799,48 @@ export function WorkspaceChangesPanel(props: {
                             type="button"
                             size="xs"
                             variant="outline"
-                            className="h-6 gap-1 px-2 text-[11px]"
+                            xstyle={changesStyles.fixAllButton}
                             onClick={() => props.onFixVerificationWithAgent?.()}
                             title="Send these failures to the agent as the next turn"
                           >
-                            <Wrench className="size-3" />
+                            <Wrench className={sx(changesStyles.glyphXs)} />
                             {verificationFailureCount > 1
                               ? "Fix all with agent"
                               : "Fix with agent"}
                           </Button>
                         ) : null}
                       </div>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      <p className={sx(changesStyles.popoverHint)}>
                         {describeTurnVerification(props.verification)}
                       </p>
                     </PopoverHeader>
-                    <ul className="max-h-72 overflow-y-auto py-1">
+                    <ul className={sx(changesStyles.popoverList)}>
                       {props.verification.failures.map((failure, index) => (
                         <li
                           key={`${failure.scriptId}-${index}`}
-                          className="px-3 py-1.5 text-[11px]"
+                          className={sx(changesStyles.popoverItem)}
                         >
-                          <div className="flex items-center gap-1.5 font-medium text-foreground">
+                          <div className={sx(changesStyles.failureHead)}>
                             <span
-                              className={cn(
-                                "rounded px-1 py-px text-[10px] uppercase tracking-wide",
+                              className={sx(
+                                changesStyles.failureTag,
                                 failure.blocking
-                                  ? "bg-destructive/15 text-destructive"
-                                  : "bg-warning/15 text-warning",
+                                  ? changesStyles.failureTagBlocking
+                                  : changesStyles.failureTagWarn,
                               )}
                             >
                               {failure.blocking ? "blocking" : "warn"}
                             </span>
-                            <span className="truncate">{failure.scriptId}</span>
+                            <span className={sx(changesStyles.truncate)}>
+                              {failure.scriptId}
+                            </span>
                             {props.onFixVerificationWithAgent &&
                             verificationFailureCount > 1 ? (
                               <Button
                                 type="button"
                                 size="xs"
                                 variant="ghost"
-                                className="ml-auto h-5 shrink-0 gap-1 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+                                xstyle={changesStyles.fixOneButton}
                                 onClick={() =>
                                   props.onFixVerificationWithAgent?.({
                                     scriptId: failure.scriptId,
@@ -849,12 +848,12 @@ export function WorkspaceChangesPanel(props: {
                                 }
                                 title={`Send only ${failure.scriptId} to the agent`}
                               >
-                                <Wrench className="size-3" />
+                                <Wrench className={sx(changesStyles.glyphXs)} />
                                 Fix
                               </Button>
                             ) : null}
                           </div>
-                          <p className="mt-0.5 whitespace-pre-wrap break-words text-muted-foreground">
+                          <p className={sx(changesStyles.failureMessage)}>
                             {failure.message}
                           </p>
                         </li>
@@ -864,10 +863,11 @@ export function WorkspaceChangesPanel(props: {
                 </Popover>
               ) : (
                 <div
-                  className={cn(
-                    "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
-                    VERIFICATION_STATUS_VISUAL[props.verification.status]
-                      .iconClassName,
+                  className={sx(
+                    changesStyles.statusChip,
+                    checkToneStyles[
+                      statusToChecksTone(props.verification.status)
+                    ],
                   )}
                   title={describeTurnVerification(props.verification)}
                 >
@@ -880,57 +880,66 @@ export function WorkspaceChangesPanel(props: {
                 <Popover>
                   <PopoverTrigger
                     render={
-                      <button
+                      <AdsButton
+                        layout="host"
                         type="button"
-                        className={cn(
-                          "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium transition-colors hover:bg-muted",
-                          VERIFICATION_STATUS_VISUAL[
-                            props.intentCompliance.status
-                          ].iconClassName,
-                        )}
+                        xstyle={[
+                          changesStyles.statusChip,
+                          changesStyles.statusChipPressable,
+                          transition.colors,
+                          checkToneStyles[
+                            statusToChecksTone(props.intentCompliance.status)
+                          ],
+                        ]}
                         aria-label={`Intent guard: ${props.intentCompliance.findings.length} possible issue${props.intentCompliance.findings.length === 1 ? "" : "s"} vs the pinned intent`}
                       />
                     }
                   >
-                    <Crosshair className="size-3.5" />
+                    <Crosshair className={sx(changesStyles.glyphSm)} />
                     <span>{props.intentCompliance.findings.length}</span>
                   </PopoverTrigger>
-                  <PopoverContent align="end" className="w-80 p-0">
-                    <PopoverHeader className="border-b border-border/70 px-3 py-2">
-                      <PopoverTitle className="text-xs">
+                  <PopoverContent
+                    align="end"
+                    className={sx(changesStyles.popover)}
+                  >
+                    <PopoverHeader className={sx(changesStyles.popoverHeader)}>
+                      <PopoverTitle className={sx(changesStyles.popoverTitle)}>
                         Intent guard
                       </PopoverTitle>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      <p className={sx(changesStyles.popoverHint)}>
                         Possible deviations from the pinned intent. Click to
                         open the file.
                       </p>
                     </PopoverHeader>
-                    <ul className="max-h-72 overflow-y-auto py-1">
+                    <ul className={sx(changesStyles.popoverList)}>
                       {props.intentCompliance.findings.map((finding, index) => (
                         <li key={`${finding.file}-${index}`}>
-                          <button
+                          <AdsButton
+                            layout="host"
                             type="button"
-                            className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-[11px] hover:bg-muted"
+                            xstyle={changesStyles.findingButton}
                             onClick={() =>
                               void props.onSelectDiff(finding.file)
                             }
                             title={`Open ${finding.file}`}
                           >
-                            <span className="flex max-w-full items-center gap-1.5 font-medium text-foreground">
-                              <span className="rounded bg-muted px-1 py-px text-[10px] uppercase tracking-wide text-muted-foreground">
+                            <span className={sx(changesStyles.findingHead)}>
+                              <span
+                                className={sx(changesStyles.findingSeverity)}
+                              >
                                 {finding.severity}
                               </span>
-                              <span className="truncate">
+                              <span className={sx(changesStyles.truncate)}>
                                 {finding.file}
                                 {typeof finding.line === "number"
                                   ? `:${finding.line}`
                                   : ""}
                               </span>
                             </span>
-                            <span className="whitespace-pre-wrap break-words text-muted-foreground">
+                            <span className={sx(changesStyles.findingMessage)}>
                               {finding.message}
                             </span>
-                          </button>
+                          </AdsButton>
                         </li>
                       ))}
                     </ul>
@@ -938,30 +947,34 @@ export function WorkspaceChangesPanel(props: {
                 </Popover>
               ) : (
                 <div
-                  className={cn(
-                    "flex shrink-0 items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] font-medium",
-                    VERIFICATION_STATUS_VISUAL[props.intentCompliance.status]
-                      .iconClassName,
+                  className={sx(
+                    changesStyles.statusChip,
+                    checkToneStyles[
+                      statusToChecksTone(props.intentCompliance.status)
+                    ],
                   )}
                   title="Intent guard: consistent with the pinned intent"
                 >
-                  <Crosshair className="size-3.5" />
+                  <Crosshair className={sx(changesStyles.glyphSm)} />
                 </div>
               )
             ) : null}
-            <div className="flex shrink-0 items-center gap-1">
+            <div className={sx(changesStyles.toolbar)}>
               <Button
                 type="button"
                 size="icon-xs"
                 variant="ghost"
                 aria-label="Refresh source control"
                 title="Refresh"
-                className="size-8 rounded-lg text-muted-foreground hover:text-foreground"
+                xstyle={changesStyles.refreshButton}
                 disabled={props.isScmBusy}
                 onClick={() => void props.onRefresh()}
               >
                 <RefreshCw
-                  className={cn("size-3.5", props.isScmBusy && "animate-spin")}
+                  className={sx(
+                    changesStyles.glyphSm,
+                    props.isScmBusy && changesStyles.spinning,
+                  )}
                 />
               </Button>
               <DropdownMenu>
@@ -977,21 +990,26 @@ export function WorkspaceChangesPanel(props: {
                           ? `Auto refresh: ${formatAutoRefreshShortLabel(props.autoRefreshSeconds)}`
                           : "Auto refresh: Off"
                       }
-                      className={cn(
-                        "h-8 gap-1 rounded-lg px-1.5 text-muted-foreground hover:text-foreground",
+                      xstyle={[
+                        changesStyles.autoRefreshButton,
                         props.autoRefreshSeconds > 0 &&
-                          "text-success hover:text-success",
-                      )}
+                          changesStyles.autoRefreshButtonOn,
+                      ]}
                     />
                   }
                 >
-                  <Timer className="size-3.5" />
-                  <span className="text-[11px] font-medium">
+                  <Timer className={sx(changesStyles.glyphSm)} />
+                  <span className={sx(changesStyles.autoRefreshLabel)}>
                     {formatAutoRefreshShortLabel(props.autoRefreshSeconds)}
                   </span>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuLabel className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                <DropdownMenuContent
+                  align="end"
+                  className={sx(changesStyles.autoRefreshMenu)}
+                >
+                  <DropdownMenuLabel
+                    className={sx(changesStyles.autoRefreshMenuLabel)}
+                  >
                     Auto refresh
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -1004,11 +1022,11 @@ export function WorkspaceChangesPanel(props: {
                         onSelect={() =>
                           props.onAutoRefreshSecondsChange(option.seconds)
                         }
-                        className="justify-between"
+                        className={sx(changesStyles.autoRefreshItem)}
                       >
                         <span>{option.label}</span>
                         {isActive ? (
-                          <Check className="size-3.5 text-success" />
+                          <Check className={sx(changesStyles.autoRefreshCheck)} />
                         ) : null}
                       </DropdownMenuItem>
                     );
@@ -1018,26 +1036,31 @@ export function WorkspaceChangesPanel(props: {
             </div>
           </div>
 
-          <TabsContent value="changes" className="min-h-0 flex-1 overflow-auto">
-            <div className="space-y-4 px-3 py-2">
-              <section className="space-y-3 px-1">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <TabsContent
+            value="changes"
+            className={sx(changesStyles.paneScroll)}
+          >
+            <div className={sx(changesStyles.changesBody)}>
+              <section className={sx(changesStyles.summarySection)}>
+                <div className={sx(changesStyles.summaryHead)}>
+                  <div className={sx(changesStyles.summaryLead)}>
                     <Badge
                       variant="outline"
-                      className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
+                      className={sx(changesStyles.branchBadge)}
                     >
-                      <GitBranch className="size-3.5 text-muted-foreground" />
-                      <span className="truncate">{props.sourceBranch}</span>
+                      <GitBranch className={sx(changesStyles.branchIcon)} />
+                      <span className={sx(changesStyles.truncate)}>
+                        {props.sourceBranch}
+                      </span>
                     </Badge>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className={sx(changesStyles.summaryCount)}>
                       {formatFileCount(props.filteredScmItems.length)} changed
                     </p>
                   </div>
                   {props.isScmBusy ? (
                     <Loader
                       aria-hidden
-                      className="shrink-0 text-muted-foreground"
+                      className={sx(changesStyles.busyLoader)}
                       size="xs"
                       variant="scan"
                     />
@@ -1045,24 +1068,27 @@ export function WorkspaceChangesPanel(props: {
                 </div>
 
                 {summaryLabels.length > 0 ? (
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className={sx(changesStyles.summaryLabels)}>
                     {summaryLabels.map((item) => (
-                      <span key={item.text} className={item.className}>
+                      <span
+                        key={item.text}
+                        className={sx(scmSummaryToneStyles[item.tone])}
+                      >
                         {item.text}
                       </span>
                     ))}
                   </div>
                 ) : null}
 
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(changesStyles.summaryHint)}>
                   {props.sourceControlHint}
                 </p>
 
                 {showComposer ? (
-                  <div className="space-y-3 border-t border-border/70 pt-3">
-                    <div className="flex items-start gap-2">
+                  <div className={sx(changesStyles.composer)}>
+                    <div className={sx(changesStyles.composerRow)}>
                       <Input
-                        className="h-9 rounded-lg border-border/70 bg-background/90 text-sm"
+                        xstyle={changesStyles.composerInput}
                         placeholder={`Commit staged changes on "${props.sourceBranch}"`}
                         value={props.commitMessage}
                         onChange={(event) =>
@@ -1084,7 +1110,7 @@ export function WorkspaceChangesPanel(props: {
                       />
                       <Button
                         size="sm"
-                        className="h-9 rounded-lg px-3 text-sm"
+                        xstyle={changesStyles.commitButton}
                         disabled={
                           props.isScmBusy ||
                           !props.commitMessage.trim() ||
@@ -1096,12 +1122,12 @@ export function WorkspaceChangesPanel(props: {
                       </Button>
                     </div>
                     {showStageAll || showUnstageAll ? (
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className={sx(changesStyles.bulkRow)}>
                         {showStageAll ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 rounded-lg text-sm"
+                            xstyle={changesStyles.bulkButton}
                             disabled={props.isScmBusy}
                             onClick={() => void props.onStageAll()}
                           >
@@ -1112,7 +1138,7 @@ export function WorkspaceChangesPanel(props: {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 rounded-lg text-sm"
+                            xstyle={changesStyles.bulkButton}
                             disabled={props.isScmBusy}
                             onClick={() => void props.onUnstageAll()}
                           >
@@ -1125,39 +1151,39 @@ export function WorkspaceChangesPanel(props: {
                 ) : null}
               </section>
 
-              <div className="space-y-3">
+              <div className={sx(changesStyles.sections)}>
                 {props.hasConflicts ? (
-                  <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning dark:bg-warning/15">
+                  <div className={sx(changesStyles.conflictNotice)}>
                     Conflict detected. Resolve, stage, or discard the affected
                     files before committing.
                   </div>
                 ) : null}
                 {props.sourceError ? (
-                  <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  <div className={sx(changesStyles.errorNotice)}>
                     {props.sourceError}
                   </div>
                 ) : null}
                 {!props.sourceError && props.filteredScmItems.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-3 py-3">
-                    <p className="text-sm text-muted-foreground">
+                  <div className={sx(changesStyles.emptyNotice)}>
+                    <p className={sx(changesStyles.emptyNoticeText)}>
                       No local changes.
                     </p>
                   </div>
                 ) : null}
                 {props.sourceControlSections.map((section) => (
-                  <section key={section.id} className="space-y-1.5">
-                    <div className="flex items-center justify-between gap-2 px-1">
-                      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  <section key={section.id} className={sx(changesStyles.section)}>
+                    <div className={sx(changesStyles.sectionHead)}>
+                      <p className={sx(changesStyles.sectionTitle)}>
                         {section.title}
                       </p>
                       <Badge
                         variant={section.badgeVariant}
-                        className="rounded-md px-2 font-normal"
+                        className={sx(changesStyles.sectionBadge)}
                       >
                         {section.items.length}
                       </Badge>
                     </div>
-                    <div className="space-y-1.5">
+                    <div className={sx(changesStyles.sectionItems)}>
                       {section.items.map((item) => (
                         <SourceControlRow
                           key={`${item.displayCode}:${item.pathLabel}`}
@@ -1191,25 +1217,30 @@ export function WorkspaceChangesPanel(props: {
             </div>
           </TabsContent>
 
-          <TabsContent value="history" className="min-h-0 flex-1 overflow-auto">
-            <div className="space-y-3 px-3 py-2">
-              <div className="flex items-center justify-between gap-3 px-1">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <TabsContent
+            value="history"
+            className={sx(changesStyles.paneScroll)}
+          >
+            <div className={sx(changesStyles.historyBody)}>
+              <div className={sx(changesStyles.historyHead)}>
+                <div className={sx(changesStyles.summaryLead)}>
                   <Badge
                     variant="outline"
-                    className="h-6 max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
+                    className={sx(changesStyles.branchBadge)}
                   >
-                    <GitBranch className="size-3.5 text-muted-foreground" />
-                    <span className="truncate">{props.sourceBranch}</span>
+                    <GitBranch className={sx(changesStyles.branchIcon)} />
+                    <span className={sx(changesStyles.truncate)}>
+                      {props.sourceBranch}
+                    </span>
                   </Badge>
-                  <p className="text-xs text-muted-foreground">
+                  <p className={sx(changesStyles.historyCount)}>
                     {formatRecentCommitCount(props.sourceHistory.length)}
                   </p>
                 </div>
                 {props.isScmBusy ? (
                   <Loader
                     aria-hidden
-                    className="shrink-0 text-muted-foreground"
+                    className={sx(changesStyles.busyLoader)}
                     size="xs"
                     variant="scan"
                   />
@@ -1217,13 +1248,13 @@ export function WorkspaceChangesPanel(props: {
               </div>
 
               {props.sourceHistory.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 px-3 py-3">
-                  <p className="text-sm text-muted-foreground">
+                <div className={sx(changesStyles.emptyNotice)}>
+                  <p className={sx(changesStyles.emptyNoticeText)}>
                     Initial commit
                   </p>
                 </div>
               ) : (
-                <div className="space-y-0">
+                <div className={sx(changesStyles.historyList)}>
                   {props.sourceHistory.slice(0, 10).map((item, index) => (
                     <SourceControlHistoryRow
                       key={`${item.hash}:${item.subject}`}
@@ -1241,7 +1272,7 @@ export function WorkspaceChangesPanel(props: {
           {props.checks ? (
             <TabsContent
               value="checks"
-              className="min-h-0 flex-1 overflow-auto"
+              className={sx(changesStyles.paneScroll)}
             >
               <ChecksTabContent
                 checks={props.checks}

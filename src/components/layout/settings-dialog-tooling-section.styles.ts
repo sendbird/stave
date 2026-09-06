@@ -1,0 +1,225 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+
+const spin = stylex.keyframes({
+  from: { transform: "rotate(0deg)" },
+  to: { transform: "rotate(360deg)" },
+});
+
+export const toolingStyles = stylex.create({
+  authBadge: {
+    height: 24,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    paddingInline: 10,
+    fontWeight: vars.fontWeightMedium,
+    letterSpacing: "normal",
+  },
+  authBadgeAuthenticated: {
+    borderColor: vars.colorSuccessBorder,
+    backgroundColor: vars.colorSuccessSoft,
+    color: vars.colorSuccessText,
+  },
+  authBadgeUnauthenticated: {
+    borderColor: vars.colorWarningBorder,
+    backgroundColor: vars.colorWarningSoft,
+    color: vars.colorWarningText,
+  },
+  authBadgeNeutral: {
+    borderColor: vars.colorBorder,
+    backgroundColor: vars.colorSurfaceTint,
+    color: vars.colorTextMuted,
+  },
+  versionBadge: {
+    height: 24,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: vars.colorBorder,
+    backgroundColor: vars.colorSurfaceTint,
+    paddingInline: 10,
+    fontFamily: vars.fontMono,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightRegular,
+    letterSpacing: "normal",
+    color: vars.colorTextMuted,
+  },
+  toolIcon: {
+    width: 16,
+    height: 16,
+  },
+  pathRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.space8,
+    fontSize: vars.fontSizeBody,
+  },
+  pathRowEmpty: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars.space12,
+    fontSize: vars.fontSizeBody,
+  },
+  pathLabel: {
+    color: vars.colorTextMuted,
+  },
+  pathLabelShrink: {
+    flexShrink: 0,
+    color: vars.colorTextMuted,
+  },
+  pathValueDash: {
+    color: vars.colorText,
+  },
+  pathValueGroup: {
+    display: "flex",
+    minWidth: 0,
+    alignItems: "center",
+    gap: vars.space4,
+  },
+  pathValue: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontFamily: vars.fontMono,
+    fontSize: vars.fontSizeCaption,
+    color: vars.colorText,
+  },
+  copyButton: {
+    flexShrink: 0,
+    color: {
+      default: vars.colorTextSubtle,
+      ":hover": vars.colorTextMuted,
+    },
+  },
+  copyIcon: {
+    width: 12,
+    height: 12,
+  },
+  card: {
+    borderRadius: vars.radiusFrame,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: vars.colorBorder,
+    backgroundColor: vars.colorSurface,
+    padding: vars.space16,
+  },
+  cardHeaderRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: vars.space12,
+  },
+  cardHeaderInfo: {
+    minWidth: 0,
+    display: "grid",
+    gap: vars.space4,
+  },
+  cardTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: vars.space8,
+  },
+  iconPlate: {
+    display: "flex",
+    width: 32,
+    height: 32,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: vars.radiusControl,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: vars.colorBorder,
+    backgroundColor: vars.colorSurfaceTint,
+    color: vars.colorTextMuted,
+  },
+  cardTitleText: {
+    minWidth: 0,
+    display: "grid",
+    gap: vars.space4,
+  },
+  toolLabel: {
+    marginBlock: 0,
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightSemibold,
+    color: vars.colorText,
+  },
+  toolPurpose: {
+    marginBlock: 0,
+    fontSize: vars.fontSizeCaption,
+    color: vars.colorTextMuted,
+  },
+  badgeGroup: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: vars.space8,
+  },
+  cardBody: {
+    marginBlockStart: vars.space16,
+    display: "grid",
+    gap: vars.space8,
+  },
+  detailBox: {
+    marginBlockStart: vars.space16,
+    borderRadius: vars.radiusControl,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: vars.colorBorder,
+    backgroundColor: vars.colorSurfaceTint,
+    paddingInline: vars.space12,
+    paddingBlock: vars.space8,
+  },
+  detailText: {
+    marginBlock: 0,
+    fontFamily: vars.fontMono,
+    fontSize: vars.fontSizeCaption,
+    lineHeight: "20px",
+    color: vars.colorTextMuted,
+    whiteSpace: "pre-wrap",
+  },
+  cardActions: {
+    marginBlockStart: vars.space16,
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars.space8,
+  },
+  actionIcon: {
+    width: 16,
+    height: 16,
+  },
+  toolsGrid: {
+    display: "grid",
+    gap: vars.space12,
+  },
+  emptyState: {
+    borderRadius: vars.radiusFrame,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: vars.colorBorder,
+    backgroundColor: vars.colorSurfaceTint,
+    paddingInline: vars.space16,
+    paddingBlock: vars.space12,
+    fontSize: vars.fontSizeBody,
+    color: vars.colorTextMuted,
+  },
+  refreshIcon: {
+    width: 16,
+    height: 16,
+  },
+  refreshIconSpinning: {
+    width: 16,
+    height: 16,
+    animationName: spin,
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    "@media (prefers-reduced-motion: reduce)": {
+      animationName: "none",
+    },
+  },
+});

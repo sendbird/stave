@@ -68,24 +68,31 @@ export function buildTurnVerificationResult(args: {
   };
 }
 
+/**
+ * Semantic tone for a verification status. The consuming component maps this
+ * onto its own ADS Badge/StyleX styling; this module stays free of any
+ * presentation detail (no color classes, no token names).
+ */
+export type VerificationTone = "success" | "warning" | "danger";
+
 export interface VerificationStatusVisual {
   label: string;
-  /** Tailwind text-color class using existing semantic theme tokens. */
-  iconClassName: string;
+  /** Semantic tone the consumer maps to an ADS Badge/StyleX style. */
+  tone: VerificationTone;
 }
 
 /**
- * Reuses the existing `success` / `warning` / `destructive` semantic tokens so
- * no new theme colors are introduced (light/dark + every built-in theme keep
- * working without edits).
+ * Reuses the existing `success` / `warning` / `danger` semantic tones so no new
+ * theme colors are introduced (light/dark + every built-in theme keep working
+ * without edits). The mapping from tone to a concrete color lives in the UI.
  */
 export const VERIFICATION_STATUS_VISUAL: Record<
   TurnVerificationStatus,
   VerificationStatusVisual
 > = {
-  pass: { label: "Verification passed", iconClassName: "text-success" },
-  warn: { label: "Verification warnings", iconClassName: "text-warning" },
-  fail: { label: "Verification failed", iconClassName: "text-destructive" },
+  pass: { label: "Verification passed", tone: "success" },
+  warn: { label: "Verification warnings", tone: "warning" },
+  fail: { label: "Verification failed", tone: "danger" },
 };
 
 /**
@@ -176,7 +183,9 @@ export function buildVerificationFixPrompt(
   const blocks = failures.map((failure) => {
     const label = failure.blocking ? "blocking" : "warning";
     const header = `### ${failure.scriptId} (${label})`;
-    const message = failure.message?.trim() ? `\n${failure.message.trim()}` : "";
+    const message = failure.message?.trim()
+      ? `\n${failure.message.trim()}`
+      : "";
     const output = failure.output?.trim()
       ? `\n\n\`\`\`\n${boundFailureOutput(failure.output.trim(), limit)}\n\`\`\``
       : "";
@@ -188,7 +197,9 @@ export function buildVerificationFixPrompt(
 }
 
 /** Human-readable tooltip describing a turn verification result. */
-export function describeTurnVerification(result: TurnVerificationResult): string {
+export function describeTurnVerification(
+  result: TurnVerificationResult,
+): string {
   if (result.status === "pass") {
     return `Verification passed — ${result.executedEntries}/${result.totalEntries} checks`;
   }

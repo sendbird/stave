@@ -7,9 +7,11 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { Card, Button, Loader } from "@/components/ui";
+import { dialogStyles } from "@/components/ads/components/Dialog";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { Button, Loader } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { confirmDialogStyles } from "./confirm-dialog.styles";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -68,34 +70,33 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
 
   const dialog = (
     <div
-      className={cn(
-        UI_LAYER_CLASS.dialog,
-        "fixed inset-0 flex items-center justify-center bg-overlay p-4",
-      )}
+      className={cx(UI_LAYER_CLASS.dialog, sx(confirmDialogStyles.backdrop))}
       onMouseDown={loading ? undefined : onCancel}
     >
-      <Card
+      <section
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        className="w-full max-w-md rounded-lg border-border/80 bg-card p-4 shadow-xl"
+        className={sx(dialogStyles.surface, confirmDialogStyles.panel)}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>
-          <h3 id={titleId} className="text-base font-semibold text-foreground">
+          <h3 id={titleId} className={sx(confirmDialogStyles.title)}>
             {title}
           </h3>
           {description ? (
             <p
               id={descriptionId}
-              className="mt-2 text-sm text-muted-foreground"
+              className={sx(confirmDialogStyles.description)}
             >
               {description}
             </p>
           ) : null}
-          {children ? <div className="mt-3">{children}</div> : null}
-          <div className="mt-4 flex justify-end gap-2">
+          {children ? (
+            <div className={sx(confirmDialogStyles.extra)}>{children}</div>
+          ) : null}
+          <div className={sx(confirmDialogStyles.actions)}>
             <Button
               type="button"
               variant="outline"
@@ -117,7 +118,7 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
             </Button>
           </div>
         </form>
-      </Card>
+      </section>
     </div>
   );
 

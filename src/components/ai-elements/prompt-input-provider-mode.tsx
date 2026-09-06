@@ -26,38 +26,39 @@ import {
   ComposerControlLabel,
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "../ads/utils/stylex";
+import { providerModeStyles } from "./prompt-input-provider-mode.styles";
 
 export type PromptInputProviderModeStatus = ProviderModePresentation & {
   providerLabel: string;
 };
 
-function modeIconToneClass(status: Pick<PromptInputProviderModeStatus, "id">) {
+function modeIconToneStyle(status: Pick<PromptInputProviderModeStatus, "id">) {
   if (status.id === "manual") {
-    return "text-prompt-mode-manual";
+    return providerModeStyles.iconManual;
   }
   if (status.id === "guided") {
-    return "text-prompt-mode-guided";
+    return providerModeStyles.iconGuided;
   }
   if (status.id === "auto") {
-    return "text-prompt-mode-auto";
+    return providerModeStyles.iconAuto;
   }
-  return "text-prompt-mode-custom";
+  return providerModeStyles.iconCustom;
 }
 
 function modeOptionActiveClass(
   status: Pick<PromptInputProviderModeStatus, "id">,
 ) {
   if (status.id === "manual") {
-    return "border-prompt-mode-manual/25 bg-prompt-mode-manual/10 hover:bg-prompt-mode-manual/14";
+    return sx(providerModeStyles.optionManual);
   }
   if (status.id === "guided") {
-    return "border-prompt-mode-guided/25 bg-prompt-mode-guided/10 hover:bg-prompt-mode-guided/14";
+    return sx(providerModeStyles.optionGuided);
   }
   if (status.id === "auto") {
-    return "border-prompt-mode-auto/30 bg-prompt-mode-auto/10 hover:bg-prompt-mode-auto/14";
+    return sx(providerModeStyles.optionAuto);
   }
-  return "border-prompt-mode-custom/30 bg-prompt-mode-custom/10 hover:bg-prompt-mode-custom/14";
+  return sx(providerModeStyles.optionCustom);
 }
 
 function modeVisual(status: PromptInputProviderModeStatus): {
@@ -113,19 +114,19 @@ export function PromptInputProviderModePill(args: {
             aria-label={`${args.status.providerLabel} ${args.status.label}: ${args.status.description}`}
             title={`${args.status.label}: ${args.status.description}`}
             {...composerControlAttributes}
-            className={cn(
+            className={cx(
               COMPOSER_CONTROL_BUTTON,
-              "max-w-full justify-start text-left",
+              sx(providerModeStyles.triggerPill),
               args.className,
             )}
           />
         }
       >
         <Icon
-          className={cn("size-4 shrink-0", modeIconToneClass(args.status))}
+          className={sx(providerModeStyles.icon, modeIconToneStyle(args.status))}
         />
         <ComposerControlLabel>
-          <span className="min-w-0 flex-1 truncate font-medium leading-none">
+          <span className={sx(providerModeStyles.label)}>
             {args.status.label}
           </span>
         </ComposerControlLabel>
@@ -136,9 +137,10 @@ export function PromptInputProviderModePill(args: {
           side="top"
           sideOffset={8}
           aria-label={`${args.status.providerLabel} mode presets`}
-          className={cn("w-[22rem]", COMPOSER_OPTION_MENU_CONTENT)}
+          className={sx(providerModeStyles.popover)}
+        xstyle={COMPOSER_OPTION_MENU_CONTENT}
         >
-          <div className="space-y-1">
+          <div className={sx(providerModeStyles.optionList)}>
             {args.presets.map((preset) => {
               const presetStatus = {
                 ...args.status,
@@ -159,15 +161,15 @@ export function PromptInputProviderModePill(args: {
                   description={preset.description}
                   icon={
                     <PresetIcon
-                      className={cn(
-                        "size-4 shrink-0",
-                        modeIconToneClass(presetStatus),
+                      className={sx(
+                        providerModeStyles.icon,
+                        modeIconToneStyle(presetStatus),
                       )}
                     />
                   }
                   active={isActive}
                   activeClassName={modeOptionActiveClass(presetStatus)}
-                  checkClassName={modeIconToneClass(presetStatus)}
+                  checkClassName={sx(modeIconToneStyle(presetStatus))}
                   onSelect={() => {
                     args.onSelect?.(preset.id);
                     setOpen(false);

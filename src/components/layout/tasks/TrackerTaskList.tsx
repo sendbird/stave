@@ -1,11 +1,16 @@
+import { trackerVisualStyles } from "./tracker-visual.styles";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useMemo } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { GroupedVirtuoso } from "react-virtuoso";
 
 import type { TrackerTaskGroup } from "@/lib/tracker-tasks/group";
 import type { TrackerTaskListItem } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import { TrackerTaskRow, type TrackerTaskRowProps } from "./TrackerTaskRow";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 
 /**
  * Row count above which the list virtualizes.
@@ -39,22 +44,23 @@ function GroupHeader(props: {
   onToggle: () => void;
 }) {
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
       onClick={props.onToggle}
       aria-expanded={!props.collapsed}
-      className="flex w-full items-center gap-1.5 border-b border-border/50 bg-background/95 px-4 py-2 text-left text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground backdrop-blur-sm hover:text-foreground"
+      xstyle={[taskLayoutStyles.listHeader, focusRing.ring, transition.colors]}
     >
       {props.collapsed ? (
-        <ChevronRight className="size-3.5" />
+        <ChevronRight className={sx(trackerVisualStyles.icon)} />
       ) : (
-        <ChevronDown className="size-3.5" />
+        <ChevronDown className={sx(trackerVisualStyles.icon)} />
       )}
       {props.group.label}
-      <span className="tabular-nums font-normal text-muted-foreground/80">
+      <span className={sx(taskLayoutStyles.listCount)}>
         {props.group.items.length}
       </span>
-    </button>
+    </AdsButton>
   );
 }
 
@@ -106,7 +112,7 @@ export function TrackerTaskList(props: TrackerTaskListProps) {
   if (totalVisibleRows > TRACKER_TASK_VIRTUALIZATION_THRESHOLD) {
     return (
       <GroupedVirtuoso
-        className={cn("h-full")}
+        className={sx(taskLayoutStyles.list)}
         groupCounts={visibleGroups.map((entry) => entry.items.length)}
         groupContent={(index) => {
           const entry = visibleGroups[index];
@@ -133,11 +139,11 @@ export function TrackerTaskList(props: TrackerTaskListProps) {
     <div
       role="listbox"
       aria-label="Tracker tickets"
-      className="h-full overflow-y-auto"
+      className={sx(taskLayoutStyles.list)}
     >
       {visibleGroups.map((entry) => (
         <div key={entry.group.id}>
-          <div className="sticky top-0 z-10">
+          <div className={sx(taskLayoutStyles.listGroup)}>
             <GroupHeader
               group={entry.group}
               collapsed={collapsed.has(entry.group.id)}

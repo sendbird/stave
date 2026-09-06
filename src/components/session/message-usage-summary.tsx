@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowDownRight, ArrowUpRight, Gauge, Zap } from "lucide-react";
 import { useId } from "react";
 
@@ -8,6 +9,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { sx } from "@/components/ads/utils/stylex";
+import { messageUsageSummaryStyles as styles } from "./message-usage-summary.styles";
 import {
   computePromptCacheStats,
   formatCacheHitLabel,
@@ -92,10 +95,10 @@ function hasTokenCounts(usage: {
 }): boolean {
   return Boolean(
     usage.inputTokens ||
-      usage.outputTokens ||
-      usage.cacheReadTokens ||
-      usage.cacheCreationTokens ||
-      usage.thoughtTokens,
+    usage.outputTokens ||
+    usage.cacheReadTokens ||
+    usage.cacheCreationTokens ||
+    usage.thoughtTokens,
   );
 }
 
@@ -121,53 +124,54 @@ function DelegatedUsageDetails(props: {
     return null;
   }
   return (
-    <div className="mt-2 space-y-2 border-t border-background/20 pt-2">
-      <p className="font-medium">Delegated breakdown</p>
-      <p className="text-background/70">
+    <div className={sx(styles.delegatedSection)}>
+      <p className={sx(styles.sectionTitle)}>Delegated breakdown</p>
+      <p className={sx(styles.mutedLine)}>
         {props.includedInTurnTotal
           ? "Included in the turn total above."
           : "Reported by delegated executions."}
       </p>
       {props.entries.map((entry) => (
-        <div key={entry.executionId} className="space-y-1">
-          <div className="flex items-start justify-between gap-3">
-            <span className="font-medium">
+        <div key={entry.executionId} className={sx(styles.entry)}>
+          <div className={sx(styles.entryHeader)}>
+            <span className={sx(styles.entryLabel)}>
               {entry.role === "advisor" ? "Advisor" : "Worker"}
             </span>
-            <span className="min-w-0 break-all text-right text-background/70">
-              {getProviderLabel({ providerId: entry.providerId })} · {entry.model}
+            <span className={sx(styles.entryMeta)}>
+              {getProviderLabel({ providerId: entry.providerId })} ·{" "}
+              {entry.model}
             </span>
           </div>
           {hasReportedDelegatedTokens(entry) ? (
-            <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-              <span className="text-background/70">Input</span>
-              <span className="text-right font-mono">
+            <div className={sx(styles.metricsGrid)}>
+              <span className={sx(styles.metricLabel)}>Input</span>
+              <span className={sx(styles.metricValue)}>
                 {(entry.inputTokens ?? 0).toLocaleString()} tokens
               </span>
-              <span className="text-background/70">Output</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Output</span>
+              <span className={sx(styles.metricValue)}>
                 {(entry.outputTokens ?? 0).toLocaleString()} tokens
               </span>
               {entry.cacheReadTokens !== undefined ? (
                 <>
-                  <span className="text-background/70">Cache read</span>
-                  <span className="text-right font-mono">
+                  <span className={sx(styles.metricLabel)}>Cache read</span>
+                  <span className={sx(styles.metricValue)}>
                     {entry.cacheReadTokens.toLocaleString()} tokens
                   </span>
                 </>
               ) : null}
               {entry.cacheCreationTokens !== undefined ? (
                 <>
-                  <span className="text-background/70">Cache write</span>
-                  <span className="text-right font-mono">
+                  <span className={sx(styles.metricLabel)}>Cache write</span>
+                  <span className={sx(styles.metricValue)}>
                     {entry.cacheCreationTokens.toLocaleString()} tokens
                   </span>
                 </>
               ) : null}
               {entry.thoughtTokens !== undefined ? (
                 <>
-                  <span className="text-background/70">Reasoning</span>
-                  <span className="text-right font-mono">
+                  <span className={sx(styles.metricLabel)}>Reasoning</span>
+                  <span className={sx(styles.metricValue)}>
                     {entry.thoughtTokens.toLocaleString()} tokens
                   </span>
                 </>
@@ -175,31 +179,32 @@ function DelegatedUsageDetails(props: {
               {entry.contextUsedTokens !== undefined &&
               entry.contextWindowTokens !== undefined ? (
                 <>
-                  <span className="text-background/70">Context</span>
-                  <span className="text-right font-mono">
-                    {entry.contextUsedTokens.toLocaleString()} / {entry.contextWindowTokens.toLocaleString()}
+                  <span className={sx(styles.metricLabel)}>Context</span>
+                  <span className={sx(styles.metricValue)}>
+                    {entry.contextUsedTokens.toLocaleString()} /{" "}
+                    {entry.contextWindowTokens.toLocaleString()}
                   </span>
                 </>
               ) : entry.contextUsedPercent !== undefined ? (
                 <>
-                  <span className="text-background/70">Context</span>
-                  <span className="text-right font-mono">
+                  <span className={sx(styles.metricLabel)}>Context</span>
+                  <span className={sx(styles.metricValue)}>
                     {formatContextPercent(entry.contextUsedPercent)} used
                   </span>
                 </>
               ) : null}
               {entry.totalCostUsd !== undefined ? (
                 <>
-                  <span className="text-background/70">Cost</span>
-                  <span className="text-right font-mono">
+                  <span className={sx(styles.metricLabel)}>Cost</span>
+                  <span className={sx(styles.metricValue)}>
                     {formatCostUsd(entry.totalCostUsd)}
                   </span>
                 </>
               ) : entry.contextCostAmount !== undefined &&
                 entry.contextCostCurrency ? (
                 <>
-                  <span className="text-background/70">Session cost</span>
-                  <span className="text-right font-mono">
+                  <span className={sx(styles.metricLabel)}>Session cost</span>
+                  <span className={sx(styles.metricValue)}>
                     {formatReportedCost(
                       entry.contextCostAmount,
                       entry.contextCostCurrency,
@@ -209,12 +214,12 @@ function DelegatedUsageDetails(props: {
               ) : null}
             </div>
           ) : (
-            <p className="text-background/70">
+            <p className={sx(styles.mutedLine)}>
               This provider did not report delegated token usage.
             </p>
           )}
           {entry.sessionReused !== undefined ? (
-            <p className="text-background/70">
+            <p className={sx(styles.mutedLine)}>
               {entry.sessionReused ? "Session resumed" : "New role session"}
             </p>
           ) : null}
@@ -236,9 +241,7 @@ function TurnUsageDetails(props: {
   // prompt caching is working; input + output alone hides cache reads entirely.
   const cacheStats = computePromptCacheStats({
     providerId:
-      props.providerId && props.providerId !== "user"
-        ? props.providerId
-        : null,
+      props.providerId && props.providerId !== "user" ? props.providerId : null,
     usage,
   });
   const cacheHitLabel = tokensReported ? formatCacheHitLabel(cacheStats) : null;
@@ -247,64 +250,64 @@ function TurnUsageDetails(props: {
       ? getProviderLabel({ providerId: props.providerId })
       : "This provider";
   return (
-    <div className="space-y-1">
-      <div className="flex items-start justify-between gap-3">
-        <p className="font-medium">Turn total</p>
+    <div className={sx(styles.turnTotal)}>
+      <div className={sx(styles.turnTotalHeader)}>
+        <p className={sx(styles.turnTotalTitle)}>Turn total</p>
         {props.providerId && props.providerId !== "user" && props.model ? (
-          <span className="min-w-0 break-all text-right text-background/70">
+          <span className={sx(styles.entryMeta)}>
             {getProviderLabel({ providerId: props.providerId })} · {props.model}
           </span>
         ) : null}
       </div>
       {tokensReported ? null : (
-        <p className="text-background/70">
+        <p className={sx(styles.mutedLine)}>
           {providerName} did not report token usage for this turn.
         </p>
       )}
       {usage ? (
-        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+        <div className={sx(styles.metricsGrid)}>
           {tokensReported ? (
             <>
-              <span className="text-background/70">Prompt</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Prompt</span>
+              <span className={sx(styles.metricValue)}>
                 {cacheStats.promptTokens.toLocaleString()} tokens
               </span>
-              <span className="text-background/70">Input</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Input</span>
+              <span className={sx(styles.metricValue)}>
                 {usage.inputTokens.toLocaleString()} tokens
               </span>
-              <span className="text-background/70">Output</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Output</span>
+              <span className={sx(styles.metricValue)}>
                 {usage.outputTokens.toLocaleString()} tokens
               </span>
             </>
           ) : null}
           {cacheHitLabel ? (
             <>
-              <span className="text-background/70">Cache hit</span>
-              <span className="text-right font-mono">{cacheHitLabel}</span>
+              <span className={sx(styles.metricLabel)}>Cache hit</span>
+              <span className={sx(styles.metricValue)}>{cacheHitLabel}</span>
             </>
           ) : null}
           {usage.cacheReadTokens ? (
             <>
-              <span className="text-background/70">Cache read</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Cache read</span>
+              <span className={sx(styles.metricValue)}>
                 {usage.cacheReadTokens.toLocaleString()} tokens
               </span>
             </>
           ) : null}
           {usage.cacheCreationTokens ? (
             <>
-              <span className="text-background/70">Cache write</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Cache write</span>
+              <span className={sx(styles.metricValue)}>
                 {usage.cacheCreationTokens.toLocaleString()} tokens
               </span>
             </>
           ) : null}
           {usage.thoughtTokens ? (
             <>
-              <span className="text-background/70">Reasoning</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Reasoning</span>
+              <span className={sx(styles.metricValue)}>
                 {usage.thoughtTokens.toLocaleString()} tokens
               </span>
             </>
@@ -312,31 +315,32 @@ function TurnUsageDetails(props: {
           {usage.contextUsedTokens !== undefined &&
           usage.contextWindowTokens !== undefined ? (
             <>
-              <span className="text-background/70">Context</span>
-              <span className="text-right font-mono">
-                {usage.contextUsedTokens.toLocaleString()} / {usage.contextWindowTokens.toLocaleString()}
+              <span className={sx(styles.metricLabel)}>Context</span>
+              <span className={sx(styles.metricValue)}>
+                {usage.contextUsedTokens.toLocaleString()} /{" "}
+                {usage.contextWindowTokens.toLocaleString()}
               </span>
             </>
           ) : usage.contextUsedPercent !== undefined ? (
             <>
-              <span className="text-background/70">Context</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Context</span>
+              <span className={sx(styles.metricValue)}>
                 {formatContextPercent(usage.contextUsedPercent)} used
               </span>
             </>
           ) : null}
           {usage.totalCostUsd != null ? (
             <>
-              <span className="text-background/70">Cost</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Cost</span>
+              <span className={sx(styles.metricValue)}>
                 {formatCostUsd(usage.totalCostUsd)}
               </span>
             </>
           ) : usage.contextCostAmount !== undefined &&
             usage.contextCostCurrency ? (
             <>
-              <span className="text-background/70">Session cost</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>Session cost</span>
+              <span className={sx(styles.metricValue)}>
                 {formatReportedCost(
                   usage.contextCostAmount,
                   usage.contextCostCurrency,
@@ -346,8 +350,8 @@ function TurnUsageDetails(props: {
           ) : null}
           {usage.ttftMs != null ? (
             <>
-              <span className="text-background/70">TTFT</span>
-              <span className="text-right font-mono">
+              <span className={sx(styles.metricLabel)}>TTFT</span>
+              <span className={sx(styles.metricValue)}>
                 {usage.ttftMs >= 1000
                   ? `${(usage.ttftMs / 1000).toFixed(1)}s`
                   : `${Math.round(usage.ttftMs)}ms`}
@@ -380,9 +384,9 @@ export function MessageUsageSummary(props: {
     : false;
   const contextOrCostReported = Boolean(
     usage &&
-      (usage.contextUsedPercent !== undefined ||
-        usage.totalCostUsd != null ||
-        usage.contextCostAmount !== undefined),
+    (usage.contextUsedPercent !== undefined ||
+      usage.totalCostUsd != null ||
+      usage.contextCostAmount !== undefined),
   );
   // "Not reported" is a claim about a specific provider, so it needs
   // attribution. Without it there is nothing honest to show.
@@ -424,35 +428,42 @@ export function MessageUsageSummary(props: {
       <Tooltip>
         <TooltipTrigger
           render={
-            <button
+            <AdsButton
+              layout="host"
               type="button"
               aria-label={accessibleLabel}
               aria-describedby={tooltipId}
-              className="flex cursor-default items-center gap-1.5 rounded-sm pl-1 text-[11px] leading-none text-muted-foreground/60 outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              xstyle={styles.trigger}
             />
           }
         >
           {tokensReported && usage ? (
             <>
-              <span className="inline-flex items-center gap-0.5">
-                <ArrowUpRight aria-hidden="true" className="size-2.5" />
+              <span className={sx(styles.triggerChip)}>
+                <ArrowUpRight
+                  aria-hidden="true"
+                  className={sx(styles.triggerIcon)}
+                />
                 {formatTokenCount(usage.inputTokens)}
               </span>
-              <span className="inline-flex items-center gap-0.5">
-                <ArrowDownRight aria-hidden="true" className="size-2.5" />
+              <span className={sx(styles.triggerChip)}>
+                <ArrowDownRight
+                  aria-hidden="true"
+                  className={sx(styles.triggerIcon)}
+                />
                 {formatTokenCount(usage.outputTokens)}
               </span>
             </>
           ) : null}
           {tokensReported && usage?.cacheReadTokens ? (
-            <span className="inline-flex items-center gap-0.5">
-              <Zap aria-hidden="true" className="size-2.5" />
+            <span className={sx(styles.triggerChip)}>
+              <Zap aria-hidden="true" className={sx(styles.triggerIcon)} />
               {formatTokenCount(usage.cacheReadTokens)}
             </span>
           ) : null}
           {usage?.contextUsedPercent !== undefined ? (
-            <span className="inline-flex items-center gap-0.5">
-              <Gauge aria-hidden="true" className="size-2.5" />
+            <span className={sx(styles.triggerChip)}>
+              <Gauge aria-hidden="true" className={sx(styles.triggerIcon)} />
               {formatContextPercent(usage.contextUsedPercent)}
             </span>
           ) : null}
@@ -482,7 +493,7 @@ export function MessageUsageSummary(props: {
           id={tooltipId}
           role="tooltip"
           side="top"
-          className="max-h-80 w-72 max-w-[calc(100vw-2rem)] flex-col items-stretch gap-0 overflow-y-auto text-xs"
+          className={sx(styles.tooltipContent)}
         >
           {usage || delegatedUsage.length === 0 ? (
             <TurnUsageDetails

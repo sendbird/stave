@@ -32,6 +32,8 @@ import {
 } from "./settings-dialog.shared";
 import { TaskPresetEditor } from "./task-preset-editor";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
+import { sx } from "@/components/ads/utils/stylex";
+import { presetsSectionStyles as styles } from "./settings-dialog-presets-section.styles";
 
 type PresetEditorTarget =
   { kind: "edit"; presetId: string } | { kind: "new" } | null;
@@ -134,9 +136,9 @@ export function PresetsSection() {
               updateSettings({ patch: { showPresetBar: checked } })
             }
           />
-          <p className="text-sm text-muted-foreground">
+          <p className={sx(styles.shortcutNote)}>
             The first nine presets in the list below respond to{" "}
-            <span className="font-medium text-foreground">Ctrl+1..9</span> from
+            <span className={sx(styles.emphasis)}>Ctrl+1..9</span> from
             top-to-bottom order.
           </p>
         </SettingsCard>
@@ -151,11 +153,13 @@ export function PresetsSection() {
                 setEditorTarget(open ? { kind: "new" } : null)
               }
             >
-              <PopoverTrigger render={<Button size="sm" className="gap-1.5" />}>
-                <Plus className="size-3.5" />
+              <PopoverTrigger
+                render={<Button size="sm" xstyle={styles.addButton} />}
+              >
+                <Plus className={sx(styles.addIcon)} />
                 Add preset
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-80">
+              <PopoverContent align="end" className={sx(styles.editorPopover)}>
                 <TaskPresetEditor
                   initialPreset={newPresetDraft}
                   submitLabel="Add preset"
@@ -166,7 +170,7 @@ export function PresetsSection() {
             </Popover>
           }
         >
-          <div className="flex flex-wrap gap-2">
+          <div className={sx(styles.restoreRow)}>
             <Button
               variant="outline"
               onClick={() => resetTaskPresetsToDefault()}
@@ -177,12 +181,12 @@ export function PresetsSection() {
           </div>
 
           {presets.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
+            <div className={sx(styles.empty)}>
               No presets yet. Add one to create task and CLI-session launch
               shortcuts.
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className={sx(styles.list)}>
               {presets.map((preset, index) => {
                 const shortcutLabel = getTaskPresetShortcutLabel(index);
                 const isEditing =
@@ -206,57 +210,57 @@ export function PresetsSection() {
                       }
                     }}
                   >
-                    <div className="rounded-lg border border-border/70 bg-card/60 p-3">
-                      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-                        <div className="flex min-w-0 flex-1 items-start gap-3">
-                          <div className="relative flex size-9 shrink-0 items-center justify-center rounded-md border border-border/70 bg-background/80">
+                    <div className={sx(styles.row)}>
+                      <div className={sx(styles.rowInner)}>
+                        <div className={sx(styles.rowMain)}>
+                          <div className={sx(styles.mark)}>
                             <ModelIcon
                               providerId={preset.provider}
                               model={preset.model}
-                              className="size-4 text-muted-foreground"
+                              className={sx(styles.markIcon)}
                             />
                             {preset.kind === "cli-session" ? (
-                              <SquareTerminal className="absolute -bottom-1 -right-1 size-3 rounded-sm bg-background text-muted-foreground" />
+                              <SquareTerminal className={sx(styles.cliBadge)} />
                             ) : null}
                           </div>
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-medium text-foreground">
+                          <div className={sx(styles.rowBody)}>
+                            <div className={sx(styles.rowHead)}>
+                              <p className={sx(styles.rowLabel)}>
                                 {preset.label}
                               </p>
                               {shortcutLabel ? (
                                 <WorkspaceShortcutChip
                                   modifier="Ctrl"
                                   label={shortcutLabel}
-                                  className="h-5 px-1.5 text-[10px]"
+                                  className={sx(styles.shortcutChip)}
                                 />
                               ) : null}
                             </div>
-                            <p className="text-xs text-muted-foreground">
+                            <p className={sx(styles.rowMeta)}>
                               {describePreset(preset)}
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className={sx(styles.rowActions)}>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="gap-1.5"
+                            xstyle={styles.actionButton}
                             disabled={moveUpDisabled}
                             onClick={() => handleMovePreset(preset.id, -1)}
                           >
-                            <ChevronUp className="size-3.5" />
+                            <ChevronUp className={sx(styles.actionIcon)} />
                             Move up
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="gap-1.5"
+                            xstyle={styles.actionButton}
                             disabled={moveDownDisabled}
                             onClick={() => handleMovePreset(preset.id, 1)}
                           >
-                            <ChevronDown className="size-3.5" />
+                            <ChevronDown className={sx(styles.actionIcon)} />
                             Move down
                           </Button>
                           <PopoverTrigger
@@ -278,16 +282,19 @@ export function PresetsSection() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="gap-1.5 text-destructive hover:text-destructive"
+                            xstyle={styles.deleteButton}
                             onClick={() => handleDeletePreset(preset.id)}
                           >
-                            <Trash2 className="size-3.5" />
+                            <Trash2 className={sx(styles.actionIcon)} />
                             Delete
                           </Button>
                         </div>
                       </div>
                     </div>
-                    <PopoverContent align="end" className="w-80">
+                    <PopoverContent
+                      align="end"
+                      className={sx(styles.editorPopover)}
+                    >
                       <TaskPresetEditor
                         initialPreset={preset}
                         submitLabel="Save preset"

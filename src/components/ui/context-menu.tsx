@@ -1,17 +1,20 @@
+import { overlayLayout } from "./overlay-layout.styles";
+import { ContextMenu as AdsMenu } from "../ads/components/ContextMenu";
+import { menu } from "../ads/recipes/menu";
+import { sx, cx } from "../ads/utils/stylex";
 import * as React from "react";
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
 
-import { UI_ELEVATION_CLASS, UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {
-  return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />;
+  return <AdsMenu.Root data-slot="context-menu" {...props} />;
 }
 
 function ContextMenuPortal({ ...props }: ContextMenuPrimitive.Portal.Props) {
   return (
-    <ContextMenuPrimitive.Portal data-slot="context-menu-portal" {...props} />
+    <AdsMenu.Portal data-slot="context-menu-portal" {...props} />
   );
 }
 
@@ -20,9 +23,9 @@ function ContextMenuTrigger({
   ...props
 }: ContextMenuPrimitive.Trigger.Props) {
   return (
-    <ContextMenuPrimitive.Trigger
+    <AdsMenu.Trigger
       data-slot="context-menu-trigger"
-      className={cn("select-none", className)}
+      className={className}
       {...props}
     />
   );
@@ -54,10 +57,10 @@ function ContextMenuContent({
     | "collisionAvoidance"
   >) {
   return (
-    <ContextMenuPrimitive.Portal>
-      <ContextMenuPrimitive.Positioner
+    <AdsMenu.Portal>
+      <AdsMenu.Positioner
         data-ui-popup-positioner=""
-        className={cn("isolate outline-none", UI_LAYER_CLASS.popover)}
+        className={UI_LAYER_CLASS.popover}
         align={align}
         alignOffset={alignOffset}
         side={side}
@@ -68,23 +71,19 @@ function ContextMenuContent({
         positionMethod={positionMethod}
         collisionAvoidance={collisionAvoidance}
       >
-        <ContextMenuPrimitive.Popup
+        <AdsMenu.Popup
           data-slot="context-menu-content"
-          className={cn(
-            UI_ELEVATION_CLASS.floating,
-            "t-dropdown relative max-h-(--available-height) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md bg-popover p-1 text-popover-foreground ring-1 ring-foreground/10 outline-none **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:focus:bg-foreground/10! **:data-[variant=destructive]:text-accent-foreground! **:data-[variant=destructive]:**:text-accent-foreground!",
-            className,
-          )}
+          className={className}
           {...props}
         />
-      </ContextMenuPrimitive.Positioner>
-    </ContextMenuPrimitive.Portal>
+      </AdsMenu.Positioner>
+    </AdsMenu.Portal>
   );
 }
 
 function ContextMenuGroup({ ...props }: ContextMenuPrimitive.Group.Props) {
   return (
-    <ContextMenuPrimitive.Group data-slot="context-menu-group" {...props} />
+    <AdsMenu.Group data-slot="context-menu-group" {...props} />
   );
 }
 
@@ -99,10 +98,7 @@ function ContextMenuLabel({
     <div
       data-slot="context-menu-label"
       data-inset={inset}
-      className={cn(
-        "px-2 py-1.5 text-xs font-medium text-muted-foreground data-inset:pl-8",
-        className,
-      )}
+      className={cx(sx(menu.groupLabel), className)}
       {...props}
     />
   );
@@ -124,14 +120,12 @@ function ContextMenuItem({
   onSelect?: ContextMenuPrimitive.Item.Props["onClick"];
 }) {
   return (
-    <ContextMenuPrimitive.Item
+    <AdsMenu.Item
       data-slot="context-menu-item"
       data-inset={inset}
       data-variant={variant}
-      className={cn(
-        "group/context-menu-item relative flex w-full min-w-0 cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus:*:[svg]:text-accent-foreground data-[variant=destructive]:*:[svg]:text-destructive",
-        className,
-      )}
+      tone={variant === "destructive" ? "danger" : "default"}
+      className={className}
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) {
@@ -147,7 +141,7 @@ function ContextMenuItem({
 
 function ContextMenuSub({ ...props }: ContextMenuPrimitive.SubmenuRoot.Props) {
   return (
-    <ContextMenuPrimitive.SubmenuRoot data-slot="context-menu-sub" {...props} />
+    <AdsMenu.SubmenuRoot data-slot="context-menu-sub" {...props} />
   );
 }
 
@@ -160,18 +154,15 @@ function ContextMenuSubTrigger({
   inset?: boolean;
 }) {
   return (
-    <ContextMenuPrimitive.SubmenuTrigger
+    <AdsMenu.SubmenuTrigger
       data-slot="context-menu-sub-trigger"
       data-inset={inset}
-      className={cn(
-        "flex w-full min-w-0 cursor-default items-center rounded-sm px-2 py-1.5 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-8 data-open:bg-accent data-open:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={className}
       {...props}
     >
       {children}
-      <ChevronRightIcon className="ml-auto" />
-    </ContextMenuPrimitive.SubmenuTrigger>
+      <ChevronRightIcon className={sx(overlayLayout.submenuArrow)} />
+    </AdsMenu.SubmenuTrigger>
   );
 }
 
@@ -199,23 +190,20 @@ function ContextMenuCheckboxItem({
   inset?: boolean;
 }) {
   return (
-    <ContextMenuPrimitive.CheckboxItem
+    <AdsMenu.CheckboxItem
       data-slot="context-menu-checkbox-item"
       data-inset={inset}
-      className={cn(
-        "relative flex w-full min-w-0 cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={className}
       checked={checked}
       {...props}
     >
-      <span className="pointer-events-none absolute right-2">
-        <ContextMenuPrimitive.CheckboxItemIndicator>
+      <span className={sx(overlayLayout.menuIndicator)}>
+        <AdsMenu.CheckboxItemIndicator>
           <CheckIcon />
-        </ContextMenuPrimitive.CheckboxItemIndicator>
+        </AdsMenu.CheckboxItemIndicator>
       </span>
       {children}
-    </ContextMenuPrimitive.CheckboxItem>
+    </AdsMenu.CheckboxItem>
   );
 }
 
@@ -223,7 +211,7 @@ function ContextMenuRadioGroup({
   ...props
 }: ContextMenuPrimitive.RadioGroup.Props) {
   return (
-    <ContextMenuPrimitive.RadioGroup
+    <AdsMenu.RadioGroup
       data-slot="context-menu-radio-group"
       {...props}
     />
@@ -239,22 +227,19 @@ function ContextMenuRadioItem({
   inset?: boolean;
 }) {
   return (
-    <ContextMenuPrimitive.RadioItem
+    <AdsMenu.RadioItem
       data-slot="context-menu-radio-item"
       data-inset={inset}
-      className={cn(
-        "relative flex w-full min-w-0 cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={className}
       {...props}
     >
-      <span className="pointer-events-none absolute right-2">
-        <ContextMenuPrimitive.RadioItemIndicator>
+      <span className={sx(overlayLayout.menuIndicator)}>
+        <AdsMenu.RadioItemIndicator>
           <CheckIcon />
-        </ContextMenuPrimitive.RadioItemIndicator>
+        </AdsMenu.RadioItemIndicator>
       </span>
       {children}
-    </ContextMenuPrimitive.RadioItem>
+    </AdsMenu.RadioItem>
   );
 }
 
@@ -263,9 +248,9 @@ function ContextMenuSeparator({
   ...props
 }: ContextMenuPrimitive.Separator.Props) {
   return (
-    <ContextMenuPrimitive.Separator
+    <AdsMenu.Separator
       data-slot="context-menu-separator"
-      className={cn("-mx-1 my-1 h-px bg-border", className)}
+      className={className}
       {...props}
     />
   );
@@ -276,12 +261,9 @@ function ContextMenuShortcut({
   ...props
 }: React.ComponentProps<"span">) {
   return (
-    <span
+    <AdsMenu.Shortcut
       data-slot="context-menu-shortcut"
-      className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-focus/context-menu-item:text-accent-foreground",
-        className,
-      )}
+      className={className}
       {...props}
     />
   );

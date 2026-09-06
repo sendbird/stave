@@ -1,0 +1,349 @@
+{
+  "bundleIntegrity": "sha256-200730ce0b7e7d6a48a3994047848da1f42893517f6e1e8ff11a28641ded2d99",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@stylexjs/stylex": "0.19.0",
+    "lucide-react": "1.21.0",
+    "motion": "^12.42.0",
+    "pretendard": "^1.3.9",
+    "react": "19.2.7"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "theme-provider",
+      "kind": "foundation",
+      "name": "ThemeProvider",
+      "path": "src/components/ads/components/ThemeProvider.tsx"
+    },
+    {
+      "id": "styles",
+      "kind": "foundation",
+      "name": "Global styles",
+      "path": "src/components/ads/styles.css"
+    },
+    {
+      "id": "checkbox",
+      "kind": "component",
+      "name": "Checkbox",
+      "path": "src/components/ads/components/Checkbox.tsx"
+    },
+    {
+      "id": "nativeselect",
+      "kind": "component",
+      "name": "Native Select",
+      "path": "src/components/ads/components/NativeSelect.tsx"
+    },
+    {
+      "id": "radiogroup",
+      "kind": "component",
+      "name": "Radio Group",
+      "path": "src/components/ads/components/RadioGroup.tsx"
+    },
+    {
+      "id": "sidebar",
+      "kind": "component",
+      "name": "Sidebar",
+      "path": "src/components/ads/components/AppShell.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-a16ebe5df3981c39f610ccb7c81cbd8a39b35a3f5fda2504f8b09224eaad58c1",
+      "path": "src/components/ads/.ads-source.json",
+      "sourcePath": "generated:get_source_bundle"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.PageHeader.tsx",
+      "sourcePath": "packages/design-system/src/components/AppShell.PageHeader.tsx",
+      "integrity": "sha256-5e02e816bd35ab6fa1f1c35286b3e5a18de23166a1e6fe12bc79914a40510371"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.Root.tsx",
+      "sourcePath": "packages/design-system/src/components/AppShell.Root.tsx",
+      "integrity": "sha256-422054a6b639b5f2f3a870cc293caa28c673f067b313c22eaa0b2d3fc1c234da"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.shell.styles.ts",
+      "sourcePath": "packages/design-system/src/components/AppShell.shell.styles.ts",
+      "integrity": "sha256-643ceff9004792b224e6e23944bc976f0a84661c08ddb574277d5f23906420cc"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.sidebar.styles.ts",
+      "sourcePath": "packages/design-system/src/components/AppShell.sidebar.styles.ts",
+      "integrity": "sha256-4becdf06da5f0173fe91106861c6224ca97e4ec0ec6a3ccd8fb1d52423889ec0"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.SidebarMenuSlot.tsx",
+      "sourcePath": "packages/design-system/src/components/AppShell.SidebarMenuSlot.tsx",
+      "integrity": "sha256-cbd4ae2690bc1cd2bb65c717d7634a9b586440cc8e7476f6a06f681292e56f32"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.SidebarSearch.tsx",
+      "sourcePath": "packages/design-system/src/components/AppShell.SidebarSearch.tsx",
+      "integrity": "sha256-426bdd4d1b32bc324e69439da2923feea596cc796f65163efcf86e1241fe5dc2"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.SidebarTrigger.tsx",
+      "sourcePath": "packages/design-system/src/components/AppShell.SidebarTrigger.tsx",
+      "integrity": "sha256-25272d2802bb835997583a8f6af5636aee9459e67f0ef1985f8c80174e7e3d9f"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.Topbar.tsx",
+      "sourcePath": "packages/design-system/src/components/AppShell.Topbar.tsx",
+      "integrity": "sha256-63f6f3d9d3a41469041d80137aa5279be8587c81c5aa07bff61c00de31cbd206"
+    },
+    {
+      "path": "src/components/ads/components/AppShell.tsx",
+      "sourcePath": "packages/design-system/src/components/AppShell.tsx",
+      "integrity": "sha256-6858e86bbc03780e4439b82b3006d8610318bc2d75b3fc48284dea34932163a9"
+    },
+    {
+      "path": "src/components/ads/components/Breadcrumb.tsx",
+      "sourcePath": "packages/design-system/src/components/Breadcrumb.tsx",
+      "integrity": "sha256-e92b59225464fedec7c6a79775018a05f69bf1648d5ed7672f6c6e01e201e7fe"
+    },
+    {
+      "path": "src/components/ads/components/Button.config.tsx",
+      "sourcePath": "packages/design-system/src/components/Button.config.tsx",
+      "integrity": "sha256-61e77308d8e19e5db6b25523284f64393df6b603a9ade703b85a58bd7b4900dd"
+    },
+    {
+      "path": "src/components/ads/components/Button.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Button.styles.ts",
+      "integrity": "sha256-1abd6912b932856d35f739ed55d6220f8fb7213073cf1a7f9e8b4bd34a785081"
+    },
+    {
+      "path": "src/components/ads/components/Button.tsx",
+      "sourcePath": "packages/design-system/src/components/Button.tsx",
+      "integrity": "sha256-f75c3d7f153be4ad30360d650a074c23551445b56a6062b59397d4d05e3ea686"
+    },
+    {
+      "path": "src/components/ads/components/Button.types.ts",
+      "sourcePath": "packages/design-system/src/components/Button.types.ts",
+      "integrity": "sha256-ec746eff1a2428dd06b77c4460acd28c862638ed3edc455566b651c396ca4dfc"
+    },
+    {
+      "path": "src/components/ads/components/Checkbox.tsx",
+      "sourcePath": "packages/design-system/src/components/Checkbox.tsx",
+      "integrity": "sha256-e6df7edae2de97e259431073b1b4599050767adcb44b8ef102d1680624fcea7d"
+    },
+    {
+      "path": "src/components/ads/components/field-anatomy.tsx",
+      "sourcePath": "packages/design-system/src/components/field-anatomy.tsx",
+      "integrity": "sha256-6e4ac8b674135ef4e58bb75352c292cfc6e1de2e193b7563058ab299560b23aa"
+    },
+    {
+      "path": "src/components/ads/components/Label.tsx",
+      "sourcePath": "packages/design-system/src/components/Label.tsx",
+      "integrity": "sha256-602081b07d8e2348039fe10f861ec1ae07ab2d7c694ce5621836f13c139a9944"
+    },
+    {
+      "path": "src/components/ads/components/Loader.extended-parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Loader.extended-parts.tsx",
+      "integrity": "sha256-3531511130f553f28192c079c857f7d9fba116e1506881bebce1b0fe1d38e717"
+    },
+    {
+      "path": "src/components/ads/components/Loader.extended-styles.ts",
+      "sourcePath": "packages/design-system/src/components/Loader.extended-styles.ts",
+      "integrity": "sha256-ee40ae589b53007f16459777f0346c5de8be1b8c9c7ee7b6161a97cff8d1cc8a"
+    },
+    {
+      "path": "src/components/ads/components/Loader.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Loader.parts.tsx",
+      "integrity": "sha256-adafca420a32e05a3e3692e90e9df67b0be4fa9960c79b9fe4867c56c3ca594c"
+    },
+    {
+      "path": "src/components/ads/components/Loader.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Loader.styles.ts",
+      "integrity": "sha256-32e231736942955f1c1825ac8c5534842bc605f40429e50053e40411b7c5e2e2"
+    },
+    {
+      "path": "src/components/ads/components/Loader.tsx",
+      "sourcePath": "packages/design-system/src/components/Loader.tsx",
+      "integrity": "sha256-7fd2385a1b369635266070bf7db1862e249f3e43e733e519309352a7bd9a2330"
+    },
+    {
+      "path": "src/components/ads/components/Loader.types.ts",
+      "sourcePath": "packages/design-system/src/components/Loader.types.ts",
+      "integrity": "sha256-86ef5e260de6c941d491d17af1f67a1fa4117bfb6fd9db9b24b4f185ca7989cc"
+    },
+    {
+      "path": "src/components/ads/components/NativeSelect.tsx",
+      "sourcePath": "packages/design-system/src/components/NativeSelect.tsx",
+      "integrity": "sha256-fe018ab1d27054e18428f1104379a7558ac0992d525ef846cb9b36a1c6a3c14a"
+    },
+    {
+      "path": "src/components/ads/components/RadioGroup.tsx",
+      "sourcePath": "packages/design-system/src/components/RadioGroup.tsx",
+      "integrity": "sha256-f7ceb374308707e69d2882e52d312f5bc3fc7e449c1ba0596b6ce2384816c49f"
+    },
+    {
+      "path": "src/components/ads/components/sidebar-context.ts",
+      "sourcePath": "packages/design-system/src/components/sidebar-context.ts",
+      "integrity": "sha256-6a93e9fe0f583a5d2bc217f522b6f9a3b4844c0fe34c2cb72a0254102a65d473"
+    },
+    {
+      "path": "src/components/ads/components/sidebar-menu-disclosure.tsx",
+      "sourcePath": "packages/design-system/src/components/sidebar-menu-disclosure.tsx",
+      "integrity": "sha256-0faa577ae5a6945155d3a14c75f74484c49a9e8a3d86c81f20d5e4da1c488861"
+    },
+    {
+      "path": "src/components/ads/components/sidebar-menu-initial.tsx",
+      "sourcePath": "packages/design-system/src/components/sidebar-menu-initial.tsx",
+      "integrity": "sha256-bff71b2b0c9c73cc6d297289b43dd20e2d857f676b7c23eb618be47fd663282c"
+    },
+    {
+      "path": "src/components/ads/components/ThemeProvider.tsx",
+      "sourcePath": "packages/design-system/src/components/ThemeProvider.tsx",
+      "integrity": "sha256-67ec6c2349506cd436e9fe186e1b72f976c48068724fe53b223caf0d5acc48fa"
+    },
+    {
+      "path": "src/components/ads/components/Tooltip.tsx",
+      "sourcePath": "packages/design-system/src/components/Tooltip.tsx",
+      "integrity": "sha256-130ab74b793ade629ad59d8ab40b7972616193b0a30bf177af76b7d07921d343"
+    },
+    {
+      "path": "src/components/ads/components/VisuallyHidden.tsx",
+      "sourcePath": "packages/design-system/src/components/VisuallyHidden.tsx",
+      "integrity": "sha256-1aea49d6f39a82b91ed1c536ff6ae9a0fd523e7be20081d34afae4834948a383"
+    },
+    {
+      "path": "src/components/ads/data-table-motion.css",
+      "sourcePath": "packages/design-system/src/data-table-motion.css",
+      "integrity": "sha256-7d63dcff7eaf6ea314f40a92bb151496680493adfe382f5e9dc7ddd0775947ce"
+    },
+    {
+      "path": "src/components/ads/fonts.css",
+      "sourcePath": "packages/design-system/src/fonts.css",
+      "integrity": "sha256-d44f090c7108ca6ca92dfc5803547d0b5d2c0a95acca6e6f3fb4dcef3ed46f73"
+    },
+    {
+      "path": "src/components/ads/headless/breadcrumb.tsx",
+      "sourcePath": "packages/design-system/src/headless/breadcrumb.tsx",
+      "integrity": "sha256-84d7b39764aad28f800c5812517902bce89bacb534c2a9468b7d1524c370ca9a"
+    },
+    {
+      "path": "src/components/ads/headless/button.tsx",
+      "sourcePath": "packages/design-system/src/headless/button.tsx",
+      "integrity": "sha256-1307fc61701308ad120059a978f697124ae588d2093325af26f927387678b89b"
+    },
+    {
+      "path": "src/components/ads/headless/checkbox.tsx",
+      "sourcePath": "packages/design-system/src/headless/checkbox.tsx",
+      "integrity": "sha256-a03f670136ca41f933eef7dcb3f26d8a81cff90a6efeff00bd1efae4013e1aab"
+    },
+    {
+      "path": "src/components/ads/headless/collapsible.tsx",
+      "sourcePath": "packages/design-system/src/headless/collapsible.tsx",
+      "integrity": "sha256-6cfad5557c21df71225cab8301ff81bc14f94a117bd6847bd92dd147ccdb15d6"
+    },
+    {
+      "path": "src/components/ads/headless/dialog.tsx",
+      "sourcePath": "packages/design-system/src/headless/dialog.tsx",
+      "integrity": "sha256-84151afa2782c121f50fc223a4d2eaff677212528a9cd6b42792e50004752e95"
+    },
+    {
+      "path": "src/components/ads/headless/radio-group.tsx",
+      "sourcePath": "packages/design-system/src/headless/radio-group.tsx",
+      "integrity": "sha256-d7d2286aa87fe11675e0c6b371ace2e34b0995eaa0db70b0015e62b2f7c149b2"
+    },
+    {
+      "path": "src/components/ads/headless/tooltip.tsx",
+      "sourcePath": "packages/design-system/src/headless/tooltip.tsx",
+      "integrity": "sha256-4ee58f5e575a3276f4f2df6678e6476397aca2936297b73282f568a6811ef240"
+    },
+    {
+      "path": "src/components/ads/inline-disclosure-motion.css",
+      "sourcePath": "packages/design-system/src/inline-disclosure-motion.css",
+      "integrity": "sha256-91d6db160fa1374e7a83c79e09110d2a3fe059d84101269b2e9401903231f885"
+    },
+    {
+      "path": "src/components/ads/overlay-motion.css",
+      "sourcePath": "packages/design-system/src/overlay-motion.css",
+      "integrity": "sha256-f114563d4070b8770a33ab6d2d5bd98de3323f5f2570c02bb5f43844e07b268b"
+    },
+    {
+      "path": "src/components/ads/recipes/control-chrome.ts",
+      "sourcePath": "packages/design-system/src/recipes/control-chrome.ts",
+      "integrity": "sha256-c306b327c5cbe293353a96eb242c2f4955a24f6e37cba280cdafa9c36f8207c1"
+    },
+    {
+      "path": "src/components/ads/recipes/control-metrics.ts",
+      "sourcePath": "packages/design-system/src/recipes/control-metrics.ts",
+      "integrity": "sha256-3e200b435be24f237cfdf3b00c1fad4ef19a325c961d32c094720180d63f0122"
+    },
+    {
+      "path": "src/components/ads/recipes/control-width.ts",
+      "sourcePath": "packages/design-system/src/recipes/control-width.ts",
+      "integrity": "sha256-012e0118cf0205b70b4c424302a4e77aa964313036019cfd53107a533d6292be"
+    },
+    {
+      "path": "src/components/ads/recipes/focus-ring.ts",
+      "sourcePath": "packages/design-system/src/recipes/focus-ring.ts",
+      "integrity": "sha256-fbd38f7fbdfdb4eba44d8e51b8534fd01c64257f932e838964b846e2e42bdf81"
+    },
+    {
+      "path": "src/components/ads/recipes/touch-target.ts",
+      "sourcePath": "packages/design-system/src/recipes/touch-target.ts",
+      "integrity": "sha256-22c620b64759e02ae00c08e8177977ee38dfa939987b3faab4e73fb56cc67f07"
+    },
+    {
+      "path": "src/components/ads/recipes/transition.ts",
+      "sourcePath": "packages/design-system/src/recipes/transition.ts",
+      "integrity": "sha256-9796cb70e3698f91331bc10946b666ea299ae08dadbc21e49a1f4972347d28a0"
+    },
+    {
+      "path": "src/components/ads/sidebar-motion.css",
+      "sourcePath": "packages/design-system/src/sidebar-motion.css",
+      "integrity": "sha256-0eb3d9bd9655dec35a4aa07abd073bcc3ada0e450aa937c970d1788fe775ca4d"
+    },
+    {
+      "path": "src/components/ads/styles.css",
+      "sourcePath": "packages/design-system/src/styles.css",
+      "integrity": "sha256-3134465e9d6cc03e1cc6d56c0950a273541029e841683e484dac52e1e493712d"
+    },
+    {
+      "path": "src/components/ads/tokens/density.stylex.ts",
+      "sourcePath": "packages/design-system/src/tokens/density.stylex.ts",
+      "integrity": "sha256-edd0944b1e0533a04c8600e11a8d95b5f3a4d53c4dd2b0440487d84104a4f2d2"
+    },
+    {
+      "path": "src/components/ads/tokens/motion-presets.ts",
+      "sourcePath": "packages/design-system/src/tokens/motion-presets.ts",
+      "integrity": "sha256-f23678201d551bb5e15b9c21c3c42a6f88aefec0065873e45dd3863b572060d9"
+    },
+    {
+      "path": "src/components/ads/tokens/themes.stylex.ts",
+      "sourcePath": "packages/design-system/src/tokens/themes.stylex.ts",
+      "integrity": "sha256-a55bb9e2c30739d3da14fdf2ea4edd1caa5f1d76fdb1161cd599f5c1d4eb27dd"
+    },
+    {
+      "path": "src/components/ads/tokens/tokens.stylex.ts",
+      "sourcePath": "packages/design-system/src/tokens/tokens.stylex.ts",
+      "integrity": "sha256-2cdc1087683cf431cecbd41900d6b467416bf969c44a65fcbc8fc467759aad74"
+    },
+    {
+      "path": "src/components/ads/utils/stylex.ts",
+      "sourcePath": "packages/design-system/src/utils/stylex.ts",
+      "integrity": "sha256-8def0eda1e82eba8d1d64c34b1fdc84e0e84a656815f39faa5589467a3b5cb7b"
+    }
+  ],
+  "instructions": [
+    "Write every returned file at its path in the host repository; the MCP server does not write host files.",
+    "Preserve existing host files unless the user authorizes an overwrite; compare src/components/ads/.ads-source.json integrity records before updating a previously installed bundle.",
+    "Install the returned dependencies with the host package manager and configure the existing build for StyleX source files under src/components/ads.",
+    "Load src/components/ads/styles.css once at the host application entrypoint and mount the returned ThemeProvider at the host-owned theme seam.",
+    "Import installed ADS code from the returned local entrypoints. Do not add @delightai/ads as a dependency.",
+    "Keep routing, data, authorization, persistence, analytics, and side effects in host-owned modules."
+  ],
+  "schemaVersion": "1.0",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/ads"
+}
