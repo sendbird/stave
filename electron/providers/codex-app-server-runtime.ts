@@ -1,3 +1,5 @@
+import { buildCodexCompactionCompletedEvent, compactCodexThreadWithClient } from "./codex-compaction";
+import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -151,7 +153,7 @@ import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 import { createProviderBrowserConnectionTracker, parseProviderBrowserDomains, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
 import { buildCodexNativeBrowserTurnConfigOverrides, resolveCodexNativeBrowserPluginEnabled } from "./codex-runtime-config";
 import { prepareCodexImageAwareTurnInput } from "./native-image-input";
-import { normalizeCodexTokenUsage } from "./codex-token-usage";
+import { normalizeCodexTokenUsage, normalizeCodexContextUsage } from "./codex-token-usage";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -1152,6 +1154,7 @@ async function ensureCodexThread(args: {
   executablePath: string;
   taskId?: string;
   cwd: string;
+  input?: string;
   conversation?: StreamTurnArgs["conversation"];
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   ephemeral?: boolean;
@@ -1186,6 +1189,8 @@ async function ensureCodexThread(args: {
               runtimeOptions: args.runtimeOptions,
             }),
       });
+
+  requireCompactResumeSession(args.conversation?.input.content ?? args.input ?? "", resumeThreadId);
 
   const response = resumeThreadId
     ? await args.client.request<{ thread: { id: string } }>("thread/resume", {
@@ -1935,21 +1940,11 @@ export async function compactCodexThread(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Promise<CodexMutationResponse> {
   try {
-    const client = getCodexAppServerClientFromRuntimeOptions(args);
-    await client.request("thread/compact/start", {
-      threadId: args.threadId,
-    });
-    return {
-      ok: true,
-      detail: "Started Codex thread compaction.",
-    };
+    return await compactCodexThreadWithClient(
+      getCodexAppServerClientFromRuntimeOptions(args), args.threadId,
+    );
   } catch (error) {
-    return {
-      ok: false,
-      detail: toCodexUserFacingErrorMessage({
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    };
+    return { ok: false, detail: toCodexUserFacingErrorMessage({ message: toErrorMessage(error) }) };
   }
 }
 
@@ -2470,6 +2465,7 @@ export async function streamCodexWithAppServer(
   try {
     ({ threadId, resumedThreadId } = await ensureCodexThread({
       client,
+      input: args.prompt,
       executablePath: codexExecutablePath,
       taskId: args.taskId,
       cwd: runtimeCwd,
@@ -2581,6 +2577,8 @@ export async function streamCodexWithAppServer(
       threadId,
       input: providerPrompt,
       cwd: runtimeCwd,
+      registerAbort: args.registerAbort,
+      onProgress: emitBridgeEvent,
     });
     if (compactCommandEvents) {
       emitBridgeEvents(compactCommandEvents);
@@ -3283,6 +3281,10 @@ export async function streamCodexWithAppServer(
             | undefined;
           const startedItemId =
             typeof startedItem?.id === "string" ? startedItem.id : "";
+          if (startedItem?.type === "contextCompaction") {
+            emitBridgeEvent({ type: "system", content: "Compacting conversation context…" });
+            return;
+          }
           if (startedItem?.type === "commandExecution") {
             if (!startedItemId || startedCommandExecutionIds.has(startedItemId)) {
               return;
@@ -3465,6 +3467,8 @@ export async function streamCodexWithAppServer(
           return;
         }
         case "thread/tokenUsage/updated": {
+          const contextUsage = normalizeCodexContextUsage(params.tokenUsage);
+          if (contextUsage) emitBridgeEvent(contextUsage);
           const normalizedUsage = normalizeCodexTokenUsage(
             params.tokenUsage as Parameters<
               typeof normalizeCodexTokenUsage
@@ -3515,6 +3519,9 @@ export async function streamCodexWithAppServer(
           }
           const itemId = typeof item.id === "string" ? item.id : "";
           switch (item.type) {
+            case "contextCompaction":
+              emitBridgeEvent(buildCodexCompactionCompletedEvent("auto", runtimeCwd));
+              return;
             case "agentMessage": {
               const text =
                 typeof (item as { text?: unknown }).text === "string"

@@ -73,7 +73,8 @@ export function PromptInputContextMeter(args: {
           Conversation context
         </PopoverTitle>
         <PopoverDescription className="mt-1 text-xs">
-          How full this task's context window is, from the latest reported turn.
+          Latest context usage for the selected provider. Compact summarizes this
+          provider's session.
         </PopoverDescription>
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
           <dt className="text-muted-foreground">Used</dt>

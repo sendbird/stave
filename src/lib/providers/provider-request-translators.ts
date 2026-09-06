@@ -37,7 +37,14 @@ export function selectHistoryForProviderPrompt(args: {
 
   const cursor = args.conversation.resume?.syncedThroughMessageId?.trim();
   if (!cursor) {
-    return [];
+    // Legacy sessions have no proof that turns from another provider reached
+    // this session. Replay conservatively until a normal turn establishes one.
+    const hasOtherProviderTurns = args.conversation.history.some((message) =>
+      message.role === "assistant" &&
+      message.providerId &&
+      message.providerId !== args.conversation.target.providerId,
+    );
+    return hasOtherProviderTurns ? args.conversation.history : [];
   }
 
   const cursorIndex = args.conversation.history.findIndex(
@@ -50,11 +57,15 @@ export function selectHistoryForProviderPrompt(args: {
 
 const PROVIDER_NATIVE_SLASH_COMMAND_PATTERN = /^\/[A-Za-z0-9:._-]+(?:\s|$)/;
 
+export function isProviderNativeSlashCommandInput(input: string): boolean {
+  return PROVIDER_NATIVE_SLASH_COMMAND_PATTERN.test(input.trimStart());
+}
+
 export function getProviderNativeSlashCommandInput(
   conversation: CanonicalConversationRequest,
 ) {
   const input = conversation.input.content.trimStart();
-  return PROVIDER_NATIVE_SLASH_COMMAND_PATTERN.test(input) ? input : null;
+  return isProviderNativeSlashCommandInput(input) ? input : null;
 }
 
 export function filterPromptRetrievedContext(args: {

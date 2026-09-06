@@ -1,3 +1,4 @@
+import { buildBoundedHistory } from "./bounded-history";
 import type {
   ChatMessage,
   FileContextPart,
@@ -291,19 +292,19 @@ function canonicalPartToContextText(
   }
 }
 
-function toHistoryLine(args: { message: CanonicalConversationMessage }) {
+function toHistoryText(args: { message: CanonicalConversationMessage }) {
   const primary = args.message.content.trim();
   if (primary.length > 0) {
-    return `${args.message.role}: ${primary}`;
+    return primary;
   }
   if (args.message.isPlanResponse && args.message.planText?.trim()) {
-    return `${args.message.role}: ${args.message.planText.trim()}`;
+    return args.message.planText.trim();
   }
   const partText = args.message.parts
     .map((part) => canonicalPartToContextText(part))
     .join(" | ")
     .trim();
-  return `${args.message.role}: ${partText}`;
+  return partText;
 }
 
 /**
@@ -328,7 +329,6 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
   includeSkillContext?: boolean;
   includeImageData?: boolean;
 }) {
-  const maxHistoryChars = 12000;
   const includeWorkspaceGuidance = args.includeHistory !== false;
   const hasVisibleSkillContext = args.request.contextParts.some(
     (part) =>
@@ -360,10 +360,12 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
     ...(args.includeHistory !== false
       ? [
           "[Task Shared Context]",
-          args.request.history
-            .map((message) => toHistoryLine({ message }))
-            .join("\n")
-            .slice(-maxHistoryChars) || "(no prior messages)",
+          buildBoundedHistory({
+            messages: args.request.history.map((message) => ({
+              role: message.role,
+              text: toHistoryText({ message }),
+            })),
+          }),
         ]
       : []),
   ];

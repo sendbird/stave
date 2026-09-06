@@ -4,6 +4,7 @@ import type {
   CanonicalConversationRequest,
   ProviderId,
 } from "../../src/lib/providers/provider.types";
+import { isConversationCompactCommand } from "../../src/lib/providers/native-compaction";
 import {
   buildProviderTurnPrompt,
   filterPromptRetrievedContext,
@@ -125,6 +126,15 @@ export function collectNativeImageInputs(args: {
   cwd: string;
   conversation?: CanonicalConversationRequest;
 }) {
+  // Compact preserves the composer draft. Its pending attachments must not turn
+  // a native slash command into a multimodal model prompt or trigger file reads.
+  if (isConversationCompactCommand(args.conversation?.input.content ?? "")) {
+    return {
+      inputs: [] as NativeImageInput[],
+      inlineImageCount: 0,
+      unresolvedInlineImageCount: 0,
+    };
+  }
   const inputs: NativeImageInput[] = [];
   const seen = new Set<string>();
   let inlineImageCount = 0;

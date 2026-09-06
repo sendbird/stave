@@ -403,17 +403,27 @@ export function formatConversationContextPercent(usedPercent: number): string {
  */
 export function resolveLatestConversationContextUsage(
   messages: readonly ChatMessage[],
+  providerId?: ProviderId,
 ): ConversationContextUsage | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
+    if (providerId && message?.providerId !== providerId) continue;
     const usage = message?.usage;
+    // A completed compact invalidates older snapshots. Wait for this provider
+    // to report a new one instead of showing its pre-compaction fill forever.
+    const compacted = message?.parts.some((part) =>
+      part.type === "system_event" &&
+      (part.compactBoundary?.trigger === "manual" || part.compactBoundary?.trigger === "auto"),
+    );
     if (!usage) {
+      if (compacted) return null;
       continue;
     }
     const used = usage.contextUsedTokens;
     const window = usage.contextWindowTokens;
     const percent = usage.contextUsedPercent;
     if (used === undefined && window === undefined && percent === undefined) {
+      if (compacted) return null;
       continue;
     }
     if (used !== undefined && window !== undefined && window > 0) {

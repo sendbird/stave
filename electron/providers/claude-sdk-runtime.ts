@@ -1,3 +1,6 @@
+import { createClaudeContextUsageTracker } from "./claude-context-usage";
+import { createClaudeCompactionTracker } from "./claude-compaction";
+import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -6,6 +9,7 @@ import type {
 } from "./types";
 import {
   buildProviderTurnPrompt,
+  isProviderNativeSlashCommandInput,
   filterPromptRetrievedContext,
   resolveProviderResumeSessionId,
 } from "../../src/lib/providers/provider-request-translators";
@@ -5133,6 +5137,9 @@ export async function streamClaudeWithSdk(
                 fallbackResumeId: args.runtimeOptions?.claudeResumeSessionId,
               }),
         });
+    requireCompactResumeSession(
+      args.conversation?.input.content ?? args.prompt, existingSessionId,
+    );
     // Resolved once and reused for both the system prompt and the agent
     // registration, so the brief can never describe a worker the query did not
     // actually register.
@@ -5211,6 +5218,7 @@ export async function streamClaudeWithSdk(
             : [...STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS],
         })
       : args.conversation;
+    const trackContextUsage = createClaudeContextUsageTracker();
     // Blocks that are rebuilt from live state every turn but usually come out
     // byte-identical are collapsed to a pointer once the session already has
     // them. Committed only after the prompt is accepted below.
@@ -5245,6 +5253,7 @@ export async function streamClaudeWithSdk(
     const activatedSkillSlugs = collectClaudeActivatedSkillSlugs({
       conversation: args.conversation,
     });
+    const compactTracker = createClaudeCompactionTracker(providerPrompt);
     // Always run in streaming-input mode so a follow-up can be steered into the
     // live turn. The SDK requires an AsyncIterable prompt from the start for
     // this to be legal — a plain string prompt cannot be upgraded mid-turn.
@@ -5734,7 +5743,7 @@ export async function streamClaudeWithSdk(
           "Claude input queue closed before the initial prompt was accepted.",
         );
       }
-      if (accepted) {
+      if (accepted && !isProviderNativeSlashCommandInput(providerPrompt)) {
         retrievedContextDedup.commit();
       }
     }
@@ -5917,6 +5926,9 @@ export async function streamClaudeWithSdk(
         ownerAgentIdResolver: subagentTracker,
         providerBrowserRequested,
       });
+      const contextUsage = trackContextUsage(message);
+      if (contextUsage) normalizedEvents.push(contextUsage);
+      compactTracker.observe(normalizedEvents);
       normalizedEvents = attachClaudeWorkerExecutionMetadata({
         events: normalizedEvents,
         profile:
@@ -5955,6 +5967,12 @@ export async function streamClaudeWithSdk(
       }
     }
 
+    const compactError = compactTracker.finish(abortRequested);
+    if (compactError && finalStopReason !== "runtime_failure") {
+      eventCollector.append(compactError);
+      args.onEvent?.(compactError);
+      finalStopReason = "runtime_failure";
+    }
     const terminalStopReason = resolveClaudeStreamTerminalStopReason({
       abortRequested,
       currentStopReason: finalStopReason,

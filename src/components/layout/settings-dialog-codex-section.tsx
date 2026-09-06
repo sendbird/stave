@@ -899,7 +899,7 @@ export function CodexSection() {
     }
     await runMutation({
       busyKey: `thread-compact:${selectedThreadId}`,
-      label: "Started thread compaction",
+      label: "Compacted thread context",
       action: () =>
         compactCodexThread({
           threadId: selectedThreadId,

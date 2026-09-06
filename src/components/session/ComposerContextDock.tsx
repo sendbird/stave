@@ -33,8 +33,8 @@ export function ComposerContextDock() {
     );
 
   const usage = useMemo(
-    () => resolveLatestConversationContextUsage(messages),
-    [messages],
+    () => resolveLatestConversationContextUsage(messages, providerId),
+    [messages, providerId],
   );
   const compactAvailable = providerOffersConversationCompact({
     providerId,

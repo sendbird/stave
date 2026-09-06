@@ -27,6 +27,39 @@ function createConversation(
 }
 
 describe("native provider image input", () => {
+  test("keeps draft images out of native compaction without modifying the draft", async () => {
+    const conversation = createConversation([
+      {
+        type: "image_context",
+        dataUrl: "data:image/png;base64,aGVsbG8=",
+        mimeType: "image/png",
+        label: "draft.png",
+      },
+      {
+        type: "file_context",
+        filePath: "draft.png",
+        content: "",
+        language: "image",
+      },
+    ]);
+    conversation.input.content = "/compact";
+    const collection = collectNativeImageInputs({
+      cwd: "/tmp/project",
+      conversation,
+    });
+    expect(collection).toEqual({
+      inputs: [],
+      inlineImageCount: 0,
+      unresolvedInlineImageCount: 0,
+    });
+    expect(conversation.contextParts.length).toBe(2);
+    const images = await buildClaudeNativeImageBlocks({
+      inputs: collection.inputs,
+    });
+    expect(
+      buildClaudeNativeUserContent({ text: "/compact", blocks: images.blocks }),
+    ).toBe("/compact");
+  });
   test("collects workspace images as absolute local paths", () => {
     const collection = collectNativeImageInputs({
       cwd: "/tmp/project",
