@@ -8,8 +8,8 @@ import {
 
 const MAX_CONTEXT_CHARS = 4_000;
 const MAX_SUMMARY_CHARS = 180;
-/** Auto-extraction stays conservative: the prompt asks for 0–3, the parser keeps at most this many. */
-export const MAX_TURN_SUMMARY_DURABLE_FACTS = 3;
+/** Summary extraction proposes at most one candidate, never active memory. */
+export const MAX_TURN_SUMMARY_DURABLE_FACTS = 1;
 
 export interface WorkspaceTurnSummaryDraft {
   requestSummary: string;

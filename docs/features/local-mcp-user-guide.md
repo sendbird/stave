@@ -145,13 +145,14 @@ For workspace Information panel management, also use:
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`
 
-To keep a project-scoped fact for every future task of the same project
-(injected each turn as `stave:project-memory`, capped at 20 lines / ~2 KB,
-editable from the Information panel's Memory section):
+To curate reusable knowledge for the same project (see [Project memory](project-memory.md)):
+contextual entries are recalled only for relevant requests; at most three core
+entries are always included. The injected block is capped at six entries /
+1,200 characters. Summary candidates are excluded until reviewed.
 
-- `stave_remember` — `{ workspaceId, kind: decision|convention|gotcha|fact, content }`
+- `stave_remember` — `{ workspaceId, kind: decision|convention|gotcha|fact, content, memoryId?, recallMode?: contextual|core }`; pass an existing id to revise or promote it
 - `stave_forget` — `{ workspaceId, memoryId }`
-- `stave_list_project_memories` — `{ workspaceId }`, returns ids for `stave_forget`
+- `stave_list_project_memories` — `{ workspaceId, query?, recallMode?, offset? }`, returns up to 12 entries and `nextOffset` for continued retrieval
 
 To read the tracker tickets Stave has cached for the signed-in user:
 

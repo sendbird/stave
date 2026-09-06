@@ -121,7 +121,7 @@ export const LEGACY_DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = [
   "- No markdown, no code fences, no extra keys, no commentary.",
 ].join("\n");
 
-export const DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = [
+export const LEGACY_FACTS_PROMPT_WORKSPACE_TURN_SUMMARY = [
   "You summarize the latest completed Stave task turn for the workspace Information panel.",
   "Return ONLY valid JSON with this exact shape:",
   '{"requestSummary":"...","workSummary":"...","durableFacts":[{"kind":"decision|convention|gotcha|fact","content":"..."}]}',
@@ -136,9 +136,15 @@ export const DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = [
   "- No markdown, no code fences, no extra keys, no commentary.",
 ].join("\n");
 
+export const DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = LEGACY_FACTS_PROMPT_WORKSPACE_TURN_SUMMARY.replace(
+  /- durableFacts:.*\n/,
+  "- durableFacts: 0 or 1 candidate for reusable project knowledge, not a work summary. Save only an explicit user correction, a lasting decision with its reason, or a verified non-obvious pitfall. State when it applies and why it matters in one sentence under 200 characters. Exclude completed work, temporary status, unchanged settings, code inventories, detailed styling values, and facts easily read from repository files. Candidates are reviewed separately before use. Default to [] when unsure.\n",
+);
+
 export function normalizeWorkspaceTurnSummaryPrompt(value: string) {
-  return normalizePromptTemplateValue(value) ===
-    normalizePromptTemplateValue(LEGACY_DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY)
+  return [LEGACY_DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY, LEGACY_FACTS_PROMPT_WORKSPACE_TURN_SUMMARY].some(
+    (legacy) => normalizePromptTemplateValue(value) === normalizePromptTemplateValue(legacy),
+  )
     ? DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY
     : value;
 }

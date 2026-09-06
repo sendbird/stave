@@ -1,239 +1,311 @@
-import { useCallback, useEffect, useState } from "react";
-import { Copy, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Input,
+  Button,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Textarea,
   toast,
 } from "@/components/ui";
 import {
   PROJECT_MEMORY_KINDS,
-  isProjectMemoryStale,
+  PROJECT_MEMORY_RECALL_MODES,
+  PROJECT_MEMORY_CONTENT_MAX_CHARS,
   type ProjectMemory,
-  type ProjectMemoryKind,
+  type ProjectMemoryUpdateArgs,
 } from "@/lib/project-memory";
-import { cn } from "@/lib/utils";
+import {
+  ProjectMemoryControls,
+  PROJECT_MEMORY_CHANGED_EVENT,
+} from "./ProjectMemoryControls";
 
-interface WorkspaceMemorySectionProps {
-  projectPath: string | null;
-  /** Change to re-read the list (a turn completed, the user hit refresh). */
-  refreshKey: string;
-  onEntriesChange?: (args: { count: number; loading: boolean }) => void;
-}
-
-const KIND_LABELS: Record<ProjectMemoryKind, string> = {
-  decision: "decision",
-  convention: "convention",
-  gotcha: "gotcha",
-  fact: "fact",
+const RECALL_LABELS = {
+  candidate: "Candidate · not used yet",
+  contextual: "When relevant",
+  core: "Always included",
 };
 
-function EmptyHint(props: { children: string }) {
-  return (
-    <p className="px-2 py-1.5 text-[13px] text-muted-foreground/50">
-      {props.children}
-    </p>
-  );
-}
-
-/**
- * Project-level memory list for the Information panel: what every turn in this
- * project is told, editable in place. Rows are the store's own ordering
- * (confidence, then recency); stale rows — no longer injected — are dimmed.
- */
-export function WorkspaceMemorySection(props: WorkspaceMemorySectionProps) {
+export function WorkspaceMemorySection(props: {
+  projectPath: string | null;
+  refreshKey: string;
+  onEntriesChange?: (args: { count: number; loading: boolean }) => void;
+}) {
   const { projectPath, refreshKey, onEntriesChange } = props;
   const [items, setItems] = useState<ProjectMemory[]>([]);
   const [loading, setLoading] = useState(Boolean(projectPath));
-
+  const [error, setError] = useState("");
+  const generation = useRef(0);
   const reload = useCallback(async () => {
-    const list = window.api?.projectMemory?.list;
-    if (!projectPath || !list) {
-      setItems([]);
+    const request = ++generation.current;
+    if (!projectPath || !window.api?.projectMemory?.list) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const result = await list({ projectPath });
-      setItems(result.ok ? result.items : []);
-    } catch {
-      setItems([]);
+      const result = await window.api.projectMemory.list({ projectPath });
+      if (request !== generation.current) return;
+      if (!result.ok)
+        throw new Error(result.message ?? "Could not load project memory.");
+      setItems(result.items);
+      setError("");
+    } catch (err) {
+      if (request === generation.current)
+        setError(
+          err instanceof Error ? err.message : "Could not load project memory.",
+        );
     } finally {
-      setLoading(false);
+      if (request === generation.current) setLoading(false);
     }
   }, [projectPath]);
-
   useEffect(() => {
+    setItems([]);
     void reload();
+    const listener = () => {
+      void reload();
+    };
+    window.addEventListener(PROJECT_MEMORY_CHANGED_EVENT, listener);
+    return () => {
+      generation.current += 1;
+      window.removeEventListener(PROJECT_MEMORY_CHANGED_EVENT, listener);
+    };
   }, [reload, refreshKey]);
-
   useEffect(() => {
     onEntriesChange?.({ count: items.length, loading });
   }, [items.length, loading, onEntriesChange]);
-
-  const applyUpdate = async (
-    id: string,
-    patch: { kind?: ProjectMemoryKind; content?: string },
-  ) => {
-    const update = window.api?.projectMemory?.update;
-    if (!update) {
-      return;
+  const update = async (patch: ProjectMemoryUpdateArgs) => {
+    const request = generation.current;
+    try {
+      const result = await window.api?.projectMemory?.update?.(patch);
+      if (request !== generation.current) return false;
+      if (!result?.ok || !result.memory)
+        throw new Error(result?.message ?? "Could not save memory.");
+      setItems((current) =>
+        current.map((item) => (item.id === patch.id ? result.memory! : item)),
+      );
+      window.dispatchEvent(new Event(PROJECT_MEMORY_CHANGED_EVENT));
+      return true;
+    } catch (err) {
+      if (request === generation.current)
+        toast.error(
+          err instanceof Error ? err.message : "Could not save memory.",
+        );
+      return false;
     }
-    const result = await update({ id, ...patch });
-    if (!result.ok || !result.memory) {
-      toast.error(result.message ?? "Could not update project memory");
-      await reload();
-      return;
-    }
-    const memory = result.memory;
-    setItems((current) =>
-      current.map((item) => (item.id === id ? memory : item)),
-    );
   };
-
   const remove = async (id: string) => {
-    const remove = window.api?.projectMemory?.delete;
-    if (!remove) {
-      return;
+    const request = generation.current;
+    try {
+      const result = await window.api?.projectMemory?.delete?.({ id });
+      if (request !== generation.current) return;
+      if (!result?.ok)
+        throw new Error(result?.message ?? "Could not forget memory.");
+      window.dispatchEvent(new Event(PROJECT_MEMORY_CHANGED_EVENT));
+    } catch (err) {
+      if (request === generation.current)
+        toast.error(
+          err instanceof Error ? err.message : "Could not forget memory.",
+        );
     }
-    const result = await remove({ id });
-    if (!result.ok) {
-      toast.error(result.message ?? "Could not forget project memory");
-      return;
-    }
-    setItems((current) => current.filter((item) => item.id !== id));
   };
-
-  if (!projectPath) {
-    return <EmptyHint>Open a project to see its memory</EmptyHint>;
-  }
-
-  const now = Date.now();
-
+  if (!projectPath)
+    return (
+      <p className="text-sm text-muted-foreground">
+        Open a project to see its memory.
+      </p>
+    );
   return (
-    <div className="-mx-2 space-y-0.5">
-      {items.length === 0 && !loading ? (
-        <EmptyHint>
-          No project memory yet — agents add facts with stave_remember
-        </EmptyHint>
-      ) : null}
+    <div className="space-y-3">
+      <details className="rounded-md border p-3">
+        <summary className="cursor-pointer text-sm font-medium">
+          Memory settings and actions
+        </summary>
+        <div className="pt-4">
+          <ProjectMemoryControls key={projectPath} projectPath={projectPath} />
+        </div>
+      </details>
+      <p className="text-xs text-muted-foreground">
+        Read the full memory below. Candidates stay out of conversations until
+        reviewed. Edit to change the text or how it is used.
+      </p>
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}{" "}
+          <button className="underline" onClick={() => void reload()}>
+            Retry
+          </button>
+        </p>
+      )}
+      {!loading && !error && !items.length && (
+        <p className="text-sm text-muted-foreground">
+          No memories yet. Ask the agent to remember a lasting project decision.
+        </p>
+      )}
       {items.map((memory) => (
         <MemoryRow
           key={memory.id}
           memory={memory}
-          stale={isProjectMemoryStale({ memory, now })}
-          onKindChange={(kind) => void applyUpdate(memory.id, { kind })}
-          onContentCommit={(content) =>
-            void applyUpdate(memory.id, { content })
-          }
-          onRemove={() => void remove(memory.id)}
+          onSave={update}
+          onRemove={() => remove(memory.id)}
         />
       ))}
     </div>
   );
 }
 
-function MemoryRow(props: {
+export function MemoryRow(props: {
   memory: ProjectMemory;
-  stale: boolean;
-  onKindChange: (kind: ProjectMemoryKind) => void;
-  onContentCommit: (content: string) => void;
-  onRemove: () => void;
+  onSave: (patch: ProjectMemoryUpdateArgs) => Promise<boolean>;
+  onRemove: () => Promise<void>;
 }) {
-  const { memory, stale } = props;
+  const { memory } = props;
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(memory.content);
-
-  useEffect(() => {
-    setDraft(memory.content);
-  }, [memory.content]);
-
-  const commit = () => {
-    const next = draft.trim();
-    if (!next) {
-      setDraft(memory.content);
-      return;
-    }
-    if (next !== memory.content) {
-      props.onContentCommit(next);
+  const [kind, setKind] = useState(memory.kind);
+  const [mode, setMode] = useState(memory.recallMode);
+  const [busy, setBusy] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const finish = () => {
+    setEditing(false);
+    requestAnimationFrame(() => editButton.current?.focus());
+  };
+  const save = async () => {
+    setBusy(true);
+    try {
+      if (
+        await props.onSave({
+          id: memory.id,
+          projectPath: memory.projectPath,
+          content: draft.trim(),
+          kind,
+          recallMode: mode,
+        })
+      )
+        finish();
+    } finally {
+      setBusy(false);
     }
   };
-
   return (
-    <div
-      className={cn(
-        "group/memory flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-muted/50",
-        stale && "opacity-60",
-      )}
-      title={[
-        stale
-          ? "Stale: unconfirmed for 60+ days at low confidence, no longer injected"
-          : `confidence ${memory.confidence.toFixed(2)}`,
-        memory.sourceTaskId ? `from task ${memory.sourceTaskId}` : null,
-        `id ${memory.id}`,
-      ]
-        .filter(Boolean)
-        .join(" · ")}
-    >
-      <Select
-        value={memory.kind}
-        onValueChange={(value) => props.onKindChange(value as ProjectMemoryKind)}
-      >
-        <SelectTrigger
-          className="h-7 w-[104px] shrink-0 border-0 bg-transparent px-1.5 text-[11px] text-muted-foreground shadow-none focus:ring-0"
-          aria-label="Memory kind"
+    <article className="min-w-0 space-y-3 rounded-lg border bg-card p-3">
+      {editing ? (
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !busy) {
+              event.preventDefault();
+              event.stopPropagation();
+              finish();
+            }
+          }}
         >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {PROJECT_MEMORY_KINDS.map((kind) => (
-            <SelectItem key={kind} value={kind} className="text-xs">
-              {KIND_LABELS[kind]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Input
-        value={draft}
-        maxLength={280}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.currentTarget.blur();
-          } else if (event.key === "Escape") {
-            setDraft(memory.content);
-            event.currentTarget.blur();
-          }
-        }}
-        placeholder="One short sentence"
-        className="h-8 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
-      />
-      <button
-        type="button"
-        className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-foreground group-hover/memory:opacity-100"
-        onClick={() => {
-          void navigator.clipboard
-            ?.writeText(memory.id)
-            .then(() => toast.success("Memory id copied"))
-            .catch(() => toast.error("Could not copy memory id"));
-        }}
-        aria-label="Copy memory id"
-        title="Copy memory id (for stave_forget)"
-      >
-        <Copy className="size-3.5" />
-      </button>
-      <button
-        type="button"
-        className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/memory:opacity-100"
-        onClick={props.onRemove}
-        aria-label="Forget memory"
-      >
-        <X className="size-3.5" />
-      </button>
-    </div>
+          <label className="block space-y-1 text-xs font-medium">
+            Memory text
+            <Textarea
+              autoFocus
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={busy}
+              maxLength={PROJECT_MEMORY_CONTENT_MAX_CHARS}
+              rows={5}
+              className="mt-1 min-h-28 resize-y text-sm"
+            />
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {draft.length} / {PROJECT_MEMORY_CONTENT_MAX_CHARS} characters
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Select value={kind} onValueChange={setKind} disabled={busy}>
+              <SelectTrigger aria-label="Memory kind" className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROJECT_MEMORY_KINDS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={mode} onValueChange={setMode} disabled={busy}>
+              <SelectTrigger
+                aria-label="Memory usage"
+                className="w-52 max-w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROJECT_MEMORY_RECALL_MODES.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {RECALL_LABELS[value]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={busy || !draft.trim()}>
+              Save memory
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={finish}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>{RECALL_LABELS[memory.recallMode]}</span>
+            <span>{memory.kind}</span>
+          </div>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+            {memory.content}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              ref={editButton}
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                setDraft(memory.content);
+                setKind(memory.kind);
+                setMode(memory.recallMode);
+                setEditing(true);
+              }}
+            >
+              Edit memory
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await props.onRemove();
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Forget
+            </Button>
+          </div>
+        </>
+      )}
+    </article>
   );
 }

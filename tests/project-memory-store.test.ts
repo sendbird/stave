@@ -21,8 +21,8 @@ function seedDistinctFacts(args: {
   const insert = args.database.prepare(`
     INSERT INTO project_memories (
       id, project_path, kind, content, source_task_id, source_turn_id,
-      confidence, created_at, last_confirmed_at, updated_at, deleted_at
-    ) VALUES (?, ?, 'fact', ?, NULL, NULL, 0.9, ?, ?, ?, NULL)
+      confidence, created_at, last_confirmed_at, updated_at, deleted_at, recall_mode
+    ) VALUES (?, ?, 'fact', ?, NULL, NULL, 0.9, ?, ?, ?, NULL, 'contextual')
   `);
   const seed = args.database.transaction(() => {
     for (let index = 0; index < args.count; index += 1) {
@@ -77,13 +77,13 @@ describe("ProjectMemoryStore", () => {
     expect(
       store.list({ projectPath: PROJECT_P }).map((m) => m.content),
     ).toEqual(["Use Bun commands and `bunx --bun`."]);
-    expect(store.recall({ projectPath: PROJECT_Q, now: NOW })).toHaveLength(1);
+    expect(store.recall({ projectPath: PROJECT_Q, query: "release", now: NOW })).toHaveLength(1);
     expect(
-      store.recall({ projectPath: PROJECT_P, now: NOW })[0]?.sourceTaskId,
+      store.recall({ projectPath: PROJECT_P, query: "Bun", now: NOW })[0]?.sourceTaskId,
     ).toBe("task-a");
   });
 
-  test("a same-kind near-duplicate confirms the existing row instead of inserting", () => {
+  test("an exact same-kind duplicate confirms the existing row instead of inserting", () => {
     const first = store.remember({
       projectPath: PROJECT_P,
       kind: "gotcha",
@@ -94,7 +94,7 @@ describe("ProjectMemoryStore", () => {
     const second = store.remember({
       projectPath: PROJECT_P,
       kind: "gotcha",
-      content: "tests/sqlite-store.test.ts  is skipped under `bun test`",
+      content: "tests/sqlite-store.test.ts  is skipped under bun test.",
       confidence: 0.9,
       now: NOW + 1_000,
     });
@@ -143,7 +143,7 @@ describe("ProjectMemoryStore", () => {
     });
     expect(again).toBeNull();
     expect(store.recall({ projectPath: PROJECT_P, now: NOW + 5 })).toEqual([]);
-    expect(store.update({ id: inserted.memory.id, content: "x" })).toBeNull();
+    expect(store.update({ id: inserted.memory.id, projectPath: PROJECT_P, content: "x" })).toBeNull();
   });
 
   test("update rewrites content and kind and refreshes the FTS index", () => {
@@ -156,6 +156,7 @@ describe("ProjectMemoryStore", () => {
     })!;
     const updated = store.update({
       id: inserted.memory.id,
+      projectPath: PROJECT_P,
       kind: "convention",
       content: "Renderer reaches main only through preload IPC.",
       now: NOW + 1,
@@ -172,7 +173,7 @@ describe("ProjectMemoryStore", () => {
           now: NOW + 1,
         })
         .map((m) => m.content),
-    ).toEqual(["Renderer reaches main only through preload IPC."]);
+    ).toEqual([]);
   });
 
   test("recall promotes query hits ahead of stronger rows and never crosses projects", () => {
@@ -188,7 +189,7 @@ describe("ProjectMemoryStore", () => {
       projectPath: PROJECT_P,
       kind: "gotcha",
       content: "Terminal snapshots are keyed by slotKey, not by tab id.",
-      confidence: 0.6,
+      confidence: 0.9,
       now: NOW,
     });
     store.remember({
@@ -204,7 +205,7 @@ describe("ProjectMemoryStore", () => {
       query: "Why does the terminal snapshot restore the wrong tab?",
       now: NOW,
     });
-    expect(recalled.map((m) => m.kind)).toEqual(["gotcha", "fact"]);
+    expect(recalled.map((m) => m.kind)).toEqual(["gotcha"]);
     expect(recalled.every((m) => m.projectPath === PROJECT_P)).toBe(true);
   });
 
@@ -225,7 +226,7 @@ describe("ProjectMemoryStore", () => {
     });
 
     expect(
-      store.recall({ projectPath: PROJECT_P, now: NOW }).map((m) => m.content),
+      store.recall({ projectPath: PROJECT_P, query: "explicit", now: NOW }).map((m) => m.content),
     ).toEqual(["An old explicit fact stays because confidence is high."]);
     expect(
       store.recall({
@@ -233,7 +234,7 @@ describe("ProjectMemoryStore", () => {
         query: "nobody confirmed",
         now: NOW,
       }),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(store.list({ projectPath: PROJECT_P })).toHaveLength(2);
   });
 
@@ -290,5 +291,132 @@ describe("ProjectMemoryStore", () => {
         confidence: 0.9,
       }),
     ).toThrow(/280/);
+  });
+});
+
+describe("curated memory lifecycle", () => {
+  function setup() {
+    const database = new Database(":memory:");
+    return { database, store: new ProjectMemoryStore(database) };
+  }
+
+  test("candidates never enter recall, including matching and repeated extraction", () => {
+    const { store } = setup();
+    const args = { projectPath: PROJECT_P, kind: "gotcha" as const, content: "Terminal snapshots require stable slot keys.", confidence: 0.6, now: NOW };
+    const first = store.remember(args)!;
+    store.remember({ ...args, now: NOW + 1 });
+    expect(store.list({ projectPath: PROJECT_P })).toHaveLength(1);
+    expect(store.recall({ projectPath: PROJECT_P, query: "Terminal", now: NOW })).toEqual([]);
+    const updated = store.update({ id: first.memory.id, projectPath: PROJECT_P, recallMode: "contextual", now: NOW + 2 })!;
+    expect(updated.recallMode).toBe("contextual");
+    expect(store.recall({ projectPath: PROJECT_P, query: "Terminal", now: NOW + 2 })).toHaveLength(1);
+    store.remember({ ...args, now: NOW + 3 });
+    expect(store.get(first.memory.id)?.lastConfirmedAt).toBe(NOW + 2);
+    expect(store.get(first.memory.id)?.recallMode).toBe("contextual");
+  });
+
+  test("explicit curation promotes a candidate and unrelated requests do not receive it", () => {
+    const { store } = setup();
+    const args = { projectPath: PROJECT_P, kind: "decision" as const, content: "Composer shelves use derived theme colors.", now: NOW };
+    const candidate = store.remember({ ...args, confidence: 0.6 })!;
+    const curated = store.remember({ ...args, confidence: 0.9 })!;
+    expect(curated.memory.id).toBe(candidate.memory.id);
+    expect(curated.memory.recallMode).toBe("contextual");
+    expect(store.recall({ projectPath: PROJECT_P, query: "database migrations", now: NOW })).toEqual([]);
+    expect(store.recall({ projectPath: PROJECT_P, query: "composer", now: NOW })).toHaveLength(1);
+    expect(store.recall({ projectPath: PROJECT_P, now: NOW })).toEqual([]);
+  });
+
+  test("core memory is small and survives unrelated queries; database also enforces its bound", () => {
+    const { database, store } = setup();
+    for (const content of ["Prefer durable decisions.", "Verify user corrections.", "Keep project context small."]) {
+      store.remember({ projectPath: PROJECT_P, kind: "convention", content, confidence: 0.9, recallMode: "core", now: NOW });
+    }
+    expect(store.recall({ projectPath: PROJECT_P, query: "unrelated", now: NOW })).toHaveLength(3);
+    const extra = store.remember({ projectPath: PROJECT_P, kind: "fact", content: "Database writes are serialized.", confidence: 0.9, now: NOW })!;
+    expect(() => store.update({ id: extra.memory.id, projectPath: PROJECT_P, recallMode: "core" })).toThrow(/three|3/);
+    expect(() => database.prepare("UPDATE project_memories SET recall_mode = 'core' WHERE id = ?").run(extra.memory.id)).toThrow(/full/);
+    expect(store.recall({ projectPath: PROJECT_P, limit: 1, now: NOW })).toHaveLength(1);
+    expect(store.recall({ projectPath: PROJECT_P, limit: 0, now: NOW })).toEqual([]);
+  });
+
+  test("a rewrite preserves identity, changes retrieval, and refuses another project", () => {
+    const { store } = setup();
+    const first = store.remember({ projectPath: PROJECT_P, kind: "decision", content: "Default engine is alpha.", confidence: 0.9, now: NOW })!;
+    expect(store.update({ id: first.memory.id, projectPath: PROJECT_Q, content: "Default engine is beta." })).toBeNull();
+    const updated = store.update({ id: first.memory.id, projectPath: PROJECT_P, content: "Default engine is beta.", now: NOW + 1 })!;
+    expect(updated.id).toBe(first.memory.id);
+    expect(store.recall({ projectPath: PROJECT_P, query: "alpha", now: NOW + 1 })).toEqual([]);
+    expect(store.recall({ projectPath: PROJECT_P, query: "beta", now: NOW + 1 })[0]?.content).toBe("Default engine is beta.");
+    store.softDelete({ id: updated.id, now: NOW + 2 });
+    expect(store.remember({ projectPath: PROJECT_P, kind: "decision", content: updated.content, confidence: 0.6, now: NOW + 3 })).toBeNull();
+  });
+
+  test("similar but opposite decisions are not silently confirmed as identical", () => {
+    const { store } = setup();
+    const args = { projectPath: PROJECT_P, kind: "decision" as const, confidence: 0.9, now: NOW };
+    const yes = store.remember({ ...args, content: "Enable the renderer recovery switch for all new projects." })!;
+    const no = store.remember({ ...args, content: "Disable the renderer recovery switch for all new projects." })!;
+    expect(no.memory.id).not.toBe(yes.memory.id);
+  });
+
+  test("candidate accumulation is bounded without deleting existing knowledge", () => {
+    const { store } = setup();
+    for (let i = 0; i < 60; i++) store.remember({ projectPath: PROJECT_P, kind: "fact", content: `Candidate ${i}.`, confidence: 0.6, now: NOW });
+    expect(store.list({ projectPath: PROJECT_P })).toHaveLength(50);
+    expect(store.recall({ projectPath: PROJECT_P, query: "candidate", now: NOW })).toEqual([]);
+  });
+
+  test("search pages are bounded, filterable and project-scoped", () => {
+    const { store } = setup();
+    for (let i = 0; i < 30; i++) store.remember({ projectPath: PROJECT_P, kind: "fact", content: `Terminal candidate ${i}.`, confidence: 0.6, now: NOW });
+    store.remember({ projectPath: PROJECT_Q, kind: "fact", content: "Terminal private detail.", confidence: 0.9, now: NOW });
+    const ids = new Set<string>();
+    let offset: number | null = 0;
+    do {
+      const page = store.search({ projectPath: PROJECT_P, query: "Terminal", recallMode: "candidate", offset });
+      expect(page.memories.length).toBeLessThanOrEqual(12);
+      for (const memory of page.memories) {
+        expect(memory.projectPath).toBe(PROJECT_P);
+        expect(ids.has(memory.id)).toBe(false);
+        ids.add(memory.id);
+      }
+      offset = page.nextOffset;
+    } while (offset !== null);
+    expect(ids.size).toBe(30);
+    expect(store.search({ projectPath: PROJECT_P, query: "unmatched" }).memories).toEqual([]);
+    expect(() => store.search({ projectPath: PROJECT_P, offset: -1 })).toThrow();
+  });
+
+  test("two-character Korean terms and literal underscores work without FTS", () => {
+    const { database } = setup();
+    const store = new ProjectMemoryStore({
+      exec(sql: string) { if (sql.includes("CREATE VIRTUAL TABLE")) throw new Error("FTS unavailable"); return database.exec(sql); },
+      prepare(sql: string) { return database.prepare(sql); },
+    });
+    store.remember({ projectPath: PROJECT_P, kind: "convention", content: "모델 설정은 task_key로 연결한다.", confidence: 0.9, now: NOW });
+    expect(store.recall({ projectPath: PROJECT_P, query: "모델", now: NOW })).toHaveLength(1);
+    expect(store.recall({ projectPath: PROJECT_P, query: "task_key", now: NOW })).toHaveLength(1);
+    expect(store.recall({ projectPath: PROJECT_P, query: "taskXkey", now: NOW })).toHaveLength(0);
+  });
+
+  test("legacy migration preserves rows and deletion, and reopening preserves curation", () => {
+    const database = new Database(":memory:");
+    database.exec(`CREATE TABLE project_memories (
+      id TEXT PRIMARY KEY, project_path TEXT NOT NULL, kind TEXT NOT NULL, content TEXT NOT NULL,
+      source_task_id TEXT, source_turn_id TEXT, confidence REAL NOT NULL,
+      created_at INTEGER NOT NULL, last_confirmed_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER
+    );`);
+    const insert = database.prepare("INSERT INTO project_memories VALUES (?, ?, 'fact', ?, NULL, NULL, ?, ?, ?, ?, ?)");
+    insert.run("auto", PROJECT_P, "Automatic terminal fact.", 0.6, NOW, NOW, NOW, null);
+    insert.run("explicit", PROJECT_P, "Explicit terminal fact.", 0.9, NOW, NOW, NOW, null);
+    insert.run("deleted", PROJECT_P, "Forgotten terminal fact.", 0.9, NOW, NOW, NOW, NOW);
+    const store = new ProjectMemoryStore(database);
+    expect(store.get("auto")?.recallMode).toBe("candidate");
+    expect(store.get("explicit")?.recallMode).toBe("contextual");
+    expect(store.get("deleted")?.deletedAt).toBe(NOW);
+    expect(store.recall({ projectPath: PROJECT_P, query: "terminal", now: NOW }).map((m) => m.id)).toEqual(["explicit"]);
+    store.update({ id: "auto", projectPath: PROJECT_P, recallMode: "core", now: NOW });
+    expect(new ProjectMemoryStore(database).get("auto")?.recallMode).toBe("core");
   });
 });
