@@ -3315,11 +3315,16 @@ export class SqliteStore {
     return this.projectMemories.get(id);
   }
 
+  searchProjectMemories(args: { projectPath: string } & import("../../src/lib/project-memory").ProjectMemorySearchOptions) {
+    return this.projectMemories.search(args);
+  }
+
   rememberProjectMemory(args: {
     projectPath: string;
     kind: ProjectMemoryKind;
     content: string;
     confidence: number;
+    recallMode?: import("../../src/lib/project-memory").ProjectMemoryRecallMode;
     sourceTaskId?: string | null;
     sourceTurnId?: string | null;
   }) {
@@ -3328,6 +3333,8 @@ export class SqliteStore {
 
   updateProjectMemory(args: {
     id: string;
+    projectPath: string;
+    recallMode?: import("../../src/lib/project-memory").ProjectMemoryRecallMode;
     kind?: ProjectMemoryKind;
     content?: string;
   }) {

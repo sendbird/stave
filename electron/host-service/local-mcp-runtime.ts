@@ -988,7 +988,7 @@ export async function appendWorkspaceNotes(args: {
 
 export interface ProjectMemoryRememberToolResult {
   projectPath: string;
-  outcome: "inserted" | "confirmed" | "rejected";
+  outcome: "inserted" | "confirmed" | "updated" | "rejected";
   memory: ProjectMemory | null;
 }
 
@@ -1016,16 +1016,30 @@ export async function rememberProjectMemory(args: {
   workspaceId: string;
   kind: ProjectMemoryKind;
   content: string;
+  memoryId?: string;
+  recallMode?: "contextual" | "core";
   taskId?: string;
 }): Promise<ProjectMemoryRememberToolResult> {
   const kind = ProjectMemoryKindSchema.parse(args.kind);
   const content = ProjectMemoryContentSchema.parse(args.content);
   const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
+  if (args.memoryId) {
+    const memory = store.updateProjectMemory({
+      id: args.memoryId,
+      projectPath,
+      kind,
+      content,
+      recallMode: args.recallMode ?? "contextual",
+    });
+    if (!memory) throw new Error("Project memory not found in this project.");
+    return { projectPath, outcome: "updated", memory };
+  }
   const result = store.rememberProjectMemory({
     projectPath,
     kind,
     content,
+    recallMode: args.recallMode,
     confidence: resolveProjectMemoryConfidence("explicit"),
     sourceTaskId: args.taskId ?? null,
   });
@@ -1037,18 +1051,20 @@ export async function rememberProjectMemory(args: {
 }
 
 /** `stave_list_project_memories`: ids + content, so `stave_forget` has something to target. */
-export async function listProjectMemories(args: { workspaceId: string }) {
+export async function listProjectMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").ProjectMemorySearchOptions) {
   const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
+  const { workspaceId: _workspaceId, ...options } = args;
+  const result = store.searchProjectMemories({ projectPath, ...options });
   return {
     projectPath,
-    memories: store
-      .listProjectMemories({ projectPath })
-      .map(({ id, kind, content, confidence, lastConfirmedAt }) => ({
+    nextOffset: result.nextOffset,
+    memories: result.memories
+      .map(({ id, kind, content, recallMode, lastConfirmedAt }) => ({
         id,
         kind,
         content,
-        confidence,
+        recallMode,
         lastConfirmedAt,
       })),
   };

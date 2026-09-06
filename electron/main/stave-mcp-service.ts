@@ -112,6 +112,8 @@ export async function rememberProjectMemory(args: {
   workspaceId: string;
   kind: import("../../src/lib/project-memory").ProjectMemoryKind;
   content: string;
+  memoryId?: string;
+  recallMode?: "contextual" | "core";
   taskId?: string;
 }) {
   return invokeLocalMcp<import("../host-service/local-mcp-runtime").ProjectMemoryRememberToolResult>(
@@ -120,7 +122,7 @@ export async function rememberProjectMemory(args: {
   );
 }
 
-export async function listProjectMemories(args: { workspaceId: string }) {
+export async function listProjectMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").ProjectMemorySearchOptions) {
   return invokeLocalMcp<
     Awaited<
       ReturnType<

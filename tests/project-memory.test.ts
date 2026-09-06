@@ -24,6 +24,7 @@ function memory(patch: Partial<ProjectMemory> & { id: string }): ProjectMemory {
   return {
     projectPath: "/tmp/p",
     kind: "fact",
+    recallMode: "contextual",
     content: `content ${patch.id}`,
     sourceTaskId: null,
     sourceTurnId: null,
@@ -111,10 +112,11 @@ describe("project memory domain rules", () => {
     expect(ordered.map((m) => m.id)).toEqual(["b", "a", "c"]);
   });
 
-  test("query terms drop short tokens and duplicates", () => {
+  test("query terms drop stop words and duplicates and retain Korean terms", () => {
     expect(
       extractProjectMemoryQueryTerms("Fix the FTS5 index in the store, the store!"),
-    ).toEqual(["index", "store", "fts5", "fix", "the"]);
+    ).toEqual(["index", "store", "fts5"]);
+    expect(extractProjectMemoryQueryTerms("메모리 모델 수정")).toEqual(["메모리", "모델"]);
     expect(extractProjectMemoryQueryTerms("a b")).toEqual([]);
   });
 
@@ -162,7 +164,7 @@ describe("project memory domain rules", () => {
     );
   });
 
-  test("recall query prefers the task's first user message", () => {
+  test("recall follows current work, with recent context for short continuations", () => {
     expect(
       resolveProjectMemoryRecallQuery({
         history: [
@@ -170,9 +172,9 @@ describe("project memory domain rules", () => {
           { role: "user", content: "  first ask  " },
           { role: "user", content: "second ask" },
         ],
-        prompt: "third ask",
+        prompt: "current terminal request",
       }),
-    ).toBe("first ask");
+    ).toBe("current terminal request");
     expect(
       resolveProjectMemoryRecallQuery({ history: [], prompt: " only ask " }),
     ).toBe("only ask");

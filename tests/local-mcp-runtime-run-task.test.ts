@@ -1229,3 +1229,36 @@ describe("local MCP runtime archived-task persistence", () => {
     expect(persistedTask?.archivedAt).toBe(archivedAt);
   });
 });
+
+describe("local MCP project memory curation", () => {
+  test("search and same-id curation stay scoped to the workspace project", async () => {
+    const { Database } = await import("bun:sqlite");
+    const { ProjectMemoryStore } = await import("../electron/persistence/project-memory-store");
+    const store = new ProjectMemoryStore(new Database(":memory:"));
+    const methods = {
+      rememberProjectMemory: store.remember.bind(store),
+      updateProjectMemory: store.update.bind(store),
+      getProjectMemory: store.get.bind(store),
+      searchProjectMemories: store.search.bind(store),
+      deleteProjectMemory: (id: string) => store.softDelete({ id }),
+    };
+    Object.assign(fakeStore, methods);
+    try {
+      const first = await runtime.rememberProjectMemory({ workspaceId: WORKSPACE_ID, kind: "decision", content: "Terminal snapshots use stable keys." });
+      const revised = await runtime.rememberProjectMemory({ workspaceId: WORKSPACE_ID, memoryId: first.memory!.id, kind: "decision", content: "Terminal snapshots use shared slot keys.", recallMode: "core" });
+      expect(revised.outcome).toBe("updated");
+      expect(revised.memory?.id).toBe(first.memory!.id);
+      expect(revised.memory?.recallMode).toBe("core");
+      const page = await runtime.listProjectMemories({ workspaceId: WORKSPACE_ID, query: "terminal" });
+      expect(page.memories).toHaveLength(1);
+      expect(page.nextOffset).toBeNull();
+      const foreign = store.remember({ projectPath: "/tmp/other-project", kind: "fact", content: "Foreign memory.", confidence: 0.9 })!;
+      await expect(runtime.rememberProjectMemory({ workspaceId: WORKSPACE_ID, memoryId: foreign.memory.id, kind: "fact", content: "Overwrite attempt." })).rejects.toThrow(/not found/);
+      expect(store.get(foreign.memory.id)?.content).toBe("Foreign memory.");
+      await runtime.forgetProjectMemory({ workspaceId: WORKSPACE_ID, memoryId: first.memory!.id });
+      expect((await runtime.listProjectMemories({ workspaceId: WORKSPACE_ID })).memories).toEqual([]);
+    } finally {
+      for (const key of Object.keys(methods)) Reflect.deleteProperty(fakeStore, key);
+    }
+  });
+});

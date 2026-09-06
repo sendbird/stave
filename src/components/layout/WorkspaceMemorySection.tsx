@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, X } from "lucide-react";
 import {
   Input,
@@ -11,9 +11,11 @@ import {
 } from "@/components/ui";
 import {
   PROJECT_MEMORY_KINDS,
+  PROJECT_MEMORY_RECALL_MODES,
   isProjectMemoryStale,
   type ProjectMemory,
   type ProjectMemoryKind,
+  type ProjectMemoryRecallMode,
 } from "@/lib/project-memory";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +33,12 @@ const KIND_LABELS: Record<ProjectMemoryKind, string> = {
   fact: "fact",
 };
 
+const RECALL_LABELS: Record<ProjectMemoryRecallMode, string> = {
+  candidate: "Candidate",
+  contextual: "When relevant",
+  core: "Always include",
+};
+
 function EmptyHint(props: { children: string }) {
   return (
     <p className="px-2 py-1.5 text-[13px] text-muted-foreground/50">
@@ -40,16 +48,17 @@ function EmptyHint(props: { children: string }) {
 }
 
 /**
- * Project-level memory list for the Information panel: what every turn in this
- * project is told, editable in place. Rows are the store's own ordering
- * (confidence, then recency); stale rows — no longer injected — are dimmed.
+ * Project-level curation surface: candidates, contextual memories and core
+ * essentials remain editable in place. Candidate text edits do not promote it.
  */
 export function WorkspaceMemorySection(props: WorkspaceMemorySectionProps) {
   const { projectPath, refreshKey, onEntriesChange } = props;
   const [items, setItems] = useState<ProjectMemory[]>([]);
   const [loading, setLoading] = useState(Boolean(projectPath));
+  const generation = useRef(0);
 
   const reload = useCallback(async () => {
+    const request = ++generation.current;
     const list = window.api?.projectMemory?.list;
     if (!projectPath || !list) {
       setItems([]);
@@ -59,16 +68,18 @@ export function WorkspaceMemorySection(props: WorkspaceMemorySectionProps) {
     setLoading(true);
     try {
       const result = await list({ projectPath });
-      setItems(result.ok ? result.items : []);
+      if (request === generation.current) setItems(result.ok ? result.items : []);
     } catch {
-      setItems([]);
+      if (request === generation.current) setItems([]);
     } finally {
-      setLoading(false);
+      if (request === generation.current) setLoading(false);
     }
   }, [projectPath]);
 
   useEffect(() => {
+    setItems([]);
     void reload();
+    return () => { generation.current += 1; };
   }, [reload, refreshKey]);
 
   useEffect(() => {
@@ -77,13 +88,15 @@ export function WorkspaceMemorySection(props: WorkspaceMemorySectionProps) {
 
   const applyUpdate = async (
     id: string,
-    patch: { kind?: ProjectMemoryKind; content?: string },
+    patch: { kind?: ProjectMemoryKind; content?: string; recallMode?: ProjectMemoryRecallMode },
   ) => {
     const update = window.api?.projectMemory?.update;
-    if (!update) {
+    if (!update || !projectPath) {
       return;
     }
-    const result = await update({ id, ...patch });
+    const request = generation.current;
+    const result = await update({ id, projectPath, ...patch }).catch(() => ({ ok: false, memory: null, message: "Could not save memory. Try again." }));
+    if (request !== generation.current) return;
     if (!result.ok || !result.memory) {
       toast.error(result.message ?? "Could not update project memory");
       await reload();
@@ -100,7 +113,9 @@ export function WorkspaceMemorySection(props: WorkspaceMemorySectionProps) {
     if (!remove) {
       return;
     }
-    const result = await remove({ id });
+    const request = generation.current;
+    const result = await remove({ id }).catch(() => ({ ok: false, message: "Could not forget memory. Try again." }));
+    if (request !== generation.current) return;
     if (!result.ok) {
       toast.error(result.message ?? "Could not forget project memory");
       return;
@@ -116,9 +131,14 @@ export function WorkspaceMemorySection(props: WorkspaceMemorySectionProps) {
 
   return (
     <div className="-mx-2 space-y-0.5">
+      <p className="px-2 py-1.5 text-xs text-muted-foreground">
+        Candidates stay out of conversations until reviewed. Include up to three
+        essentials always; other memories are used only for related requests.
+        Each turn receives at most six memories within 1,200 characters.
+      </p>
       {items.length === 0 && !loading ? (
         <EmptyHint>
-          No project memory yet — agents add facts with stave_remember
+          No memories yet. Ask the agent to remember a lasting project decision.
         </EmptyHint>
       ) : null}
       {items.map((memory) => (
@@ -127,6 +147,7 @@ export function WorkspaceMemorySection(props: WorkspaceMemorySectionProps) {
           memory={memory}
           stale={isProjectMemoryStale({ memory, now })}
           onKindChange={(kind) => void applyUpdate(memory.id, { kind })}
+          onRecallModeChange={(recallMode) => void applyUpdate(memory.id, { recallMode })}
           onContentCommit={(content) =>
             void applyUpdate(memory.id, { content })
           }
@@ -141,17 +162,23 @@ function MemoryRow(props: {
   memory: ProjectMemory;
   stale: boolean;
   onKindChange: (kind: ProjectMemoryKind) => void;
+  onRecallModeChange: (recallMode: ProjectMemoryRecallMode) => void;
   onContentCommit: (content: string) => void;
   onRemove: () => void;
 }) {
   const { memory, stale } = props;
   const [draft, setDraft] = useState(memory.content);
+  const cancelCommit = useRef(false);
 
   useEffect(() => {
     setDraft(memory.content);
   }, [memory.content]);
 
   const commit = () => {
+    if (cancelCommit.current) {
+      cancelCommit.current = false;
+      return;
+    }
     const next = draft.trim();
     if (!next) {
       setDraft(memory.content);
@@ -165,19 +192,29 @@ function MemoryRow(props: {
   return (
     <div
       className={cn(
-        "group/memory flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-muted/50",
-        stale && "opacity-60",
+        "group/memory flex flex-wrap items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-muted/50",
+        (stale || memory.recallMode === "candidate") && "opacity-60",
       )}
       title={[
         stale
           ? "Stale: unconfirmed for 60+ days at low confidence, no longer injected"
-          : `confidence ${memory.confidence.toFixed(2)}`,
+          : RECALL_LABELS[memory.recallMode],
         memory.sourceTaskId ? `from task ${memory.sourceTaskId}` : null,
         `id ${memory.id}`,
       ]
         .filter(Boolean)
         .join(" · ")}
     >
+      <Select value={memory.recallMode} onValueChange={(value) => props.onRecallModeChange(value as ProjectMemoryRecallMode)}>
+        <SelectTrigger className="h-7 w-[140px] shrink-0 text-xs" aria-label="Memory usage">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PROJECT_MEMORY_RECALL_MODES.map((mode) => (
+            <SelectItem key={mode} value={mode}>{RECALL_LABELS[mode]}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Select
         value={memory.kind}
         onValueChange={(value) => props.onKindChange(value as ProjectMemoryKind)}
@@ -197,6 +234,7 @@ function MemoryRow(props: {
         </SelectContent>
       </Select>
       <Input
+        aria-label="Memory content"
         value={draft}
         maxLength={280}
         onChange={(event) => setDraft(event.target.value)}
@@ -205,16 +243,17 @@ function MemoryRow(props: {
           if (event.key === "Enter") {
             event.currentTarget.blur();
           } else if (event.key === "Escape") {
+            cancelCommit.current = true;
             setDraft(memory.content);
             event.currentTarget.blur();
           }
         }}
         placeholder="One short sentence"
-        className="h-8 flex-1 border-0 bg-transparent px-1 text-sm shadow-none focus-visible:ring-0"
+        className="h-8 min-w-40 flex-1 border-0 bg-transparent px-1 text-sm shadow-none"
       />
       <button
         type="button"
-        className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-foreground group-hover/memory:opacity-100"
+        className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:text-foreground"
         onClick={() => {
           void navigator.clipboard
             ?.writeText(memory.id)
@@ -222,13 +261,13 @@ function MemoryRow(props: {
             .catch(() => toast.error("Could not copy memory id"));
         }}
         aria-label="Copy memory id"
-        title="Copy memory id (for stave_forget)"
+        title="Copy memory id"
       >
         <Copy className="size-3.5" />
       </button>
       <button
         type="button"
-        className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/memory:opacity-100"
+        className="flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-opacity hover:text-destructive"
         onClick={props.onRemove}
         aria-label="Forget memory"
       >

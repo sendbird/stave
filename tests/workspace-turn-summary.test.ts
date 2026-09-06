@@ -8,6 +8,7 @@ import {
 import {
   DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
   LEGACY_DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
+  LEGACY_FACTS_PROMPT_WORKSPACE_TURN_SUMMARY,
   normalizeWorkspaceTurnSummaryPrompt,
 } from "@/lib/providers/prompt-defaults";
 
@@ -87,16 +88,16 @@ describe("workspace turn summary helpers", () => {
     });
   });
 
-  test("keeps at most three well-formed durable facts and drops the rest", () => {
+  test("keeps at most one well-formed memory candidate and drops the rest", () => {
     const parsed = parseWorkspaceTurnSummaryResponse(
       JSON.stringify({
         requestSummary: "Add memory.",
         workSummary: "Added it.",
         durableFacts: [
-          { kind: "convention", content: "  Use Bun   commands. " },
           { kind: "rumor", content: "Not a known kind." },
           { kind: "fact", content: "" },
           { kind: "gotcha", content: "x".repeat(281) },
+          { kind: "convention", content: "  Use Bun   commands. " },
           { kind: "decision", content: "Memory is project-scoped." },
           { kind: "fact", content: "FTS5 is available in the bundled SQLite." },
           { kind: "fact", content: "A fourth valid fact is dropped." },
@@ -105,8 +106,6 @@ describe("workspace turn summary helpers", () => {
     );
     expect(parsed?.durableFacts).toEqual([
       { kind: "convention", content: "Use Bun commands." },
-      { kind: "decision", content: "Memory is project-scoped." },
-      { kind: "fact", content: "FTS5 is available in the bundled SQLite." },
     ]);
   });
 
@@ -126,6 +125,7 @@ describe("workspace turn summary helpers", () => {
       ),
     ).toBe(DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY);
     expect(DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY).toContain("durableFacts");
+    expect(normalizeWorkspaceTurnSummaryPrompt(LEGACY_FACTS_PROMPT_WORKSPACE_TURN_SUMMARY)).toBe(DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY);
     expect(normalizeWorkspaceTurnSummaryPrompt("My own prompt.")).toBe(
       "My own prompt.",
     );

@@ -1104,12 +1104,14 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
     "stave_remember",
     {
       description:
-        "Remember one project-scoped fact for every future task of this workspace's project (a decision, convention, gotcha, or stable fact). Not for task-specific notes — use workspace notes for those. Injected each turn as `stave:project-memory`, capped, deduplicated, and editable by the user.",
+        "Curate reusable project knowledge. Search stave_list_project_memories first. Pass memoryId to replace or consolidate an existing memory, including a candidate; forget superseded ids. Save durable user corrections, non-obvious conventions or verified pitfalls, never completion logs, temporary status, or facts easily read from code. Default contextual memories are recalled only for matching requests. Reserve core for at most three short project-wide essentials. AGENTS.md and current user instructions win.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
         kind: ProjectMemoryKindSchema.describe(
           "decision | convention | gotcha | fact",
         ),
+        memoryId: z.string().min(1).optional().describe("Existing memory to revise or promote, scoped to this project."),
+        recallMode: z.enum(["contextual", "core"]).optional().describe("contextual by default; core is reserved for project-wide essentials."),
         content: z
           .string()
           .min(1)
@@ -1124,13 +1126,15 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
           .describe("Calling task id, recorded as provenance."),
       },
     },
-    async ({ workspaceId, kind, content, taskId }) =>
+    async ({ workspaceId, kind, content, taskId, memoryId, recallMode }) =>
       toStructuredResult({
         result: await rememberProjectMemory({
           workspaceId,
           kind,
           content,
           taskId,
+          memoryId,
+          recallMode,
         }),
       }),
   );
@@ -1139,14 +1143,17 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
     "stave_list_project_memories",
     {
       description:
-        "List this workspace's project memory with ids (what `stave:project-memory` injects, plus stale rows). Use it to find the `memoryId` for `stave_forget` or to check before `stave_remember`.",
+        "Search project memory on demand before saving or when earlier decisions matter. Returns at most 12 entries, ids, recall modes and nextOffset; pass nextOffset as offset for another page. Candidates are unreviewed extraction, not established knowledge. Verify them against evidence before promoting with stave_remember. Consolidate related entries by rewriting one id and forgetting superseded ids.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
+        query: z.string().trim().max(500).optional().describe("Topic, symbol or keywords; omit to browse."),
+        recallMode: z.enum(["candidate", "contextual", "core"]).optional(),
+        offset: z.number().int().min(0).max(100_000).optional(),
       },
     },
-    async ({ workspaceId }) =>
+    async ({ workspaceId, query, recallMode, offset }) =>
       toStructuredResult({
-        result: await listProjectMemories({ workspaceId }),
+        result: await listProjectMemories({ workspaceId, query, recallMode, offset }),
       }),
   );
 

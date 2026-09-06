@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 /**
- * Project memory: short, project-scoped facts an agent (or the user) wants
- * every future turn in that project to know. It is deliberately not a chat log
+ * Project memory: short, reusable project knowledge selected for relevant
+ * requests, with a small explicit core and a separate candidate inbox.
+ * It is deliberately not a chat log
  * and not a replacement for `AGENTS.md` — human-authored rules win on
  * conflict. Rows are scoped by project path and never read across projects.
  */
@@ -14,6 +15,14 @@ export const PROJECT_MEMORY_KINDS = [
 ] as const;
 
 export type ProjectMemoryKind = (typeof PROJECT_MEMORY_KINDS)[number];
+
+export const PROJECT_MEMORY_RECALL_MODES = [
+  "candidate",
+  "contextual",
+  "core",
+] as const;
+export const ProjectMemoryRecallModeSchema = z.enum(PROJECT_MEMORY_RECALL_MODES);
+export type ProjectMemoryRecallMode = z.infer<typeof ProjectMemoryRecallModeSchema>;
 
 /** One short sentence. Enforced in the schema and again in the store. */
 export const PROJECT_MEMORY_CONTENT_MAX_CHARS = 280;
@@ -27,8 +36,10 @@ export const PROJECT_MEMORY_AUTO_CONFIDENCE = 0.6;
  * Hard cap on the injected block. The cap is enforced in code, not in the
  * prompt: memory must not grow per-turn context no matter how many rows exist.
  */
-export const PROJECT_MEMORY_INJECTION_MAX_ITEMS = 20;
-export const PROJECT_MEMORY_INJECTION_MAX_CHARS = 2048;
+export const PROJECT_MEMORY_INJECTION_MAX_ITEMS = 6;
+export const PROJECT_MEMORY_INJECTION_MAX_CHARS = 1200;
+export const PROJECT_MEMORY_CORE_MAX_ITEMS = 3;
+export const PROJECT_MEMORY_CANDIDATE_MAX_ITEMS = 50;
 
 /**
  * Forgetting rule: an item nobody has confirmed for this long, and that never
@@ -37,17 +48,11 @@ export const PROJECT_MEMORY_INJECTION_MAX_CHARS = 2048;
 export const PROJECT_MEMORY_STALE_AFTER_MS = 60 * 24 * 60 * 60 * 1000;
 export const PROJECT_MEMORY_STALE_CONFIDENCE_FLOOR = 0.7;
 
-/**
- * Two memories of the same kind whose normalized contents overlap at least
- * this much (trigram Jaccard) are the same memory; a re-write confirms the
- * existing row instead of inserting a near-duplicate.
- */
-export const PROJECT_MEMORY_DUPLICATE_SIMILARITY = 0.75;
-
 export interface ProjectMemory {
   id: string;
   projectPath: string;
   kind: ProjectMemoryKind;
+  recallMode: ProjectMemoryRecallMode;
   content: string;
   sourceTaskId: string | null;
   sourceTurnId: string | null;
@@ -88,6 +93,15 @@ export const ProjectMemoryListArgsSchema = z
   })
   .strict();
 
+export const ProjectMemorySearchOptionsSchema = z
+  .object({
+    query: z.string().trim().max(500).optional(),
+    recallMode: ProjectMemoryRecallModeSchema.optional(),
+    offset: z.number().int().min(0).max(100_000).optional(),
+  })
+  .strict();
+export type ProjectMemorySearchOptions = z.infer<typeof ProjectMemorySearchOptionsSchema>;
+
 export const ProjectMemoryRecallArgsSchema = z
   .object({
     projectPath: ProjectPathSchema,
@@ -108,6 +122,8 @@ export const ProjectMemoryRememberArgsSchema = z
 export const ProjectMemoryUpdateArgsSchema = z
   .object({
     id: z.string().min(1),
+    projectPath: ProjectPathSchema,
+    recallMode: ProjectMemoryRecallModeSchema.optional(),
     kind: ProjectMemoryKindSchema.optional(),
     content: ProjectMemoryContentSchema.optional(),
   })
@@ -166,6 +182,13 @@ function comparableText(value: string) {
     .replace(/[^\p{L}\p{N}\s]/gu, "");
 }
 
+/** Exact normalized equality only: similar wording can reverse a decision. */
+export function isSameProjectMemoryContent(left: string, right: string) {
+  return (
+    normalizeProjectMemoryContent(left) === normalizeProjectMemoryContent(right)
+  );
+}
+
 function trigrams(value: string) {
   const padded = `  ${value} `;
   const grams = new Set<string>();
@@ -216,23 +239,20 @@ export function isProjectMemoryDuplicate(args: {
 }) {
   return (
     args.candidate.kind === args.existing.kind &&
-    projectMemorySimilarity(args.candidate.content, args.existing.content) >=
-      PROJECT_MEMORY_DUPLICATE_SIMILARITY
+    isSameProjectMemoryContent(args.candidate.content, args.existing.content)
   );
 }
 
 /**
- * Query terms for an FTS lookup: distinct lower-cased tokens of at least three
- * characters (the trigram tokenizer cannot match anything shorter), most
- * informative first by simple length, capped so a long first message does not
- * become a giant MATCH expression.
+ * Bounded lexical query terms. Two-character terms use substring lookup
+ * because the trigram tokenizer cannot match them.
  */
 export function extractProjectMemoryQueryTerms(query: string, maxTerms = 24) {
   const seen = new Set<string>();
   const terms: string[] = [];
   for (const raw of query.toLowerCase().split(/[^\p{L}\p{N}_-]+/u)) {
     const term = raw.trim();
-    if (term.length < 3 || seen.has(term)) {
+    if (term.length < 2 || seen.has(term) || QUERY_STOP_WORDS.has(term)) {
       continue;
     }
     seen.add(term);
@@ -240,6 +260,15 @@ export function extractProjectMemoryQueryTerms(query: string, maxTerms = 24) {
   }
   return terms.sort((a, b) => b.length - a.length).slice(0, maxTerms);
 }
+
+const QUERY_STOP_WORDS = new Set([
+  "in", "of", "to", "is", "it", "on", "at", "be", "an", "as", "or", "by",
+  "do", "if", "we", "my", "the", "this", "that", "with", "from", "for",
+  "and", "are", "was", "does",
+  "why", "how", "can", "you", "please", "fix", "use", "not", "only", "into",
+  "what", "when", "where", "have", "has", "should", "would", "could",
+  "해줘", "해주세요", "수정", "지금", "이번", "작업", "기능",
+]);
 
 export function formatProjectMemoryLine(
   memory: Pick<ProjectMemory, "kind" | "content">,
@@ -268,7 +297,7 @@ export function capProjectMemoriesForInjection<
     }
     const lineLength = formatProjectMemoryLine(memory).length + 1;
     if (used + lineLength > maxChars) {
-      break;
+      continue;
     }
     kept.push(memory);
     used += lineLength;
@@ -287,7 +316,9 @@ export function orderProjectMemoriesForInjection<T extends ProjectMemory>(
   return memories
     .filter(
       (memory) =>
-        memory.deletedAt === null && !isProjectMemoryStale({ memory, now }),
+        memory.deletedAt === null &&
+        memory.recallMode !== "candidate" &&
+        !isProjectMemoryStale({ memory, now }),
     )
     .sort(
       (a, b) =>

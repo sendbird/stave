@@ -5,25 +5,29 @@
  * the renderer IPC handlers in main and the Local MCP tools in host-service.
  *
  * Rows are scoped by `project_path` and are never read across projects. An
- * FTS5 trigram index over `content` backs recall by the task's first message;
- * when the bundled SQLite lacks FTS5 the store degrades to `LIKE` and keeps
- * working. Dedup happens in code (trigram Jaccard on normalized text) so the
+ * FTS5 trigram index over `content` backs recall by the current request;
+ * when the bundled SQLite lacks FTS5 the store degrades to literal substring lookup and keeps
+ * working. Dedup compares exact normalized text so the
  * rule is identical on both index paths and unit-testable without SQLite.
  */
 import { randomUUID } from "node:crypto";
 import {
   PROJECT_MEMORY_CONTENT_MAX_CHARS,
   PROJECT_MEMORY_INJECTION_MAX_ITEMS,
+  PROJECT_MEMORY_CORE_MAX_ITEMS,
+  PROJECT_MEMORY_CANDIDATE_MAX_ITEMS,
   PROJECT_MEMORY_STALE_AFTER_MS,
   PROJECT_MEMORY_STALE_CONFIDENCE_FLOOR,
-  PROJECT_MEMORY_DUPLICATE_SIMILARITY,
   ProjectMemoryKindSchema,
-  createProjectMemorySimilarityMatcher,
+  ProjectMemoryRecallModeSchema,
+  ProjectMemorySearchOptionsSchema,
+  isSameProjectMemoryContent,
   extractProjectMemoryQueryTerms,
   normalizeProjectMemoryContent,
-  orderProjectMemoriesForInjection,
   type ProjectMemory,
   type ProjectMemoryKind,
+  type ProjectMemoryRecallMode,
+  type ProjectMemorySearchOptions,
   type ProjectMemoryRememberResult,
 } from "../../src/lib/project-memory";
 
@@ -42,6 +46,7 @@ interface ProjectMemoryRow {
   id: string;
   project_path: string;
   kind: string;
+  recall_mode: string;
   content: string;
   source_task_id: string | null;
   source_turn_id: string | null;
@@ -56,6 +61,7 @@ const COLUMNS = `
   id,
   project_path,
   kind,
+  recall_mode,
   content,
   source_task_id,
   source_turn_id,
@@ -66,9 +72,6 @@ const COLUMNS = `
   deleted_at
 `;
 
-/** Bound on rows scanned for in-code dedup; a project never gets near this. */
-const DEDUP_SCAN_LIMIT = 2000;
-
 export type ProjectMemoryIndexMode = "fts5-trigram" | "fts5" | "like";
 
 function parseRow(row: ProjectMemoryRow): ProjectMemory {
@@ -76,6 +79,7 @@ function parseRow(row: ProjectMemoryRow): ProjectMemory {
     id: row.id,
     projectPath: row.project_path,
     kind: ProjectMemoryKindSchema.parse(row.kind),
+    recallMode: ProjectMemoryRecallModeSchema.parse(row.recall_mode),
     content: row.content,
     sourceTaskId: row.source_task_id,
     sourceTurnId: row.source_turn_id,
@@ -143,7 +147,34 @@ export class ProjectMemoryStore {
       CREATE INDEX IF NOT EXISTS idx_project_memories_project
         ON project_memories (project_path, deleted_at, confidence DESC, last_confirmed_at DESC);
     `);
+    // Additive migration: existing explicit memories become searchable;
+    // automatically extracted rows remain available for curation, not recall.
+    const columns = this.db.prepare("PRAGMA table_info(project_memories)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "recall_mode")) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        const current = this.db.prepare("PRAGMA table_info(project_memories)").all() as Array<{ name: string }>;
+        if (!current.some((column) => column.name === "recall_mode")) {
+          this.db.exec(`ALTER TABLE project_memories ADD COLUMN recall_mode TEXT NOT NULL DEFAULT 'candidate';
+            UPDATE project_memories SET recall_mode = 'contextual' WHERE confidence >= 0.7;`);
+        }
+        this.db.exec("COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
     this.indexMode = this.bootstrapFts();
+    // Main and host-service have separate connections: enforce capacity at
+    // the write boundary, not just in the friendly preflight above it.
+    for (const event of ["INSERT", "UPDATE"] as const) {
+      this.db.exec(`CREATE TRIGGER IF NOT EXISTS project_memories_core_${event.toLowerCase()}
+        BEFORE ${event} ON project_memories
+        WHEN new.recall_mode = 'core' AND new.deleted_at IS NULL
+        AND (SELECT count(*) FROM project_memories WHERE project_path = new.project_path
+          AND recall_mode = 'core' AND deleted_at IS NULL AND id != new.id) >= ${PROJECT_MEMORY_CORE_MAX_ITEMS}
+        BEGIN SELECT RAISE(ABORT, 'Core memory is full; consolidate or unpin an existing memory first.'); END;`);
+    }
   }
 
   /**
@@ -151,6 +182,7 @@ export class ProjectMemoryStore {
    * for substring and CJK matches), then the default tokenizer, then none.
    */
   private bootstrapFts(): ProjectMemoryIndexMode {
+    const existed = Boolean(this.db.prepare("SELECT name FROM sqlite_master WHERE name = 'project_memories_fts'").get());
     const attempts: Array<{
       mode: ProjectMemoryIndexMode;
       tokenize: string;
@@ -186,6 +218,9 @@ export class ProjectMemoryStore {
               VALUES (new.rowid, new.content);
           END;
       `);
+      if (!existed) {
+        this.db.exec("INSERT INTO project_memories_fts(project_memories_fts) VALUES ('rebuild')");
+      }
       return attempt.mode;
     }
     return "like";
@@ -211,8 +246,33 @@ export class ProjectMemoryStore {
     return row ? parseRow(row) : null;
   }
 
+  search(args: { projectPath: string } & ProjectMemorySearchOptions) {
+    const { projectPath, ...options } = args;
+    const parsed = ProjectMemorySearchOptionsSchema.parse(options);
+    const terms = extractProjectMemoryQueryTerms(parsed.query ?? "", 8);
+    const offset = parsed.offset ?? 0;
+    const conditions = ["project_path = ?", "deleted_at IS NULL"];
+    const params: unknown[] = [projectPath];
+    if (parsed.recallMode) {
+      conditions.push("recall_mode = ?");
+      params.push(parsed.recallMode);
+    }
+    if (parsed.query?.trim()) {
+      if (!terms.length) return { memories: [], nextOffset: null };
+      conditions.push(`(${terms.map(() => "instr(lower(content), ?) > 0").join(" OR ")})`);
+      params.push(...terms);
+    }
+    const rows = this.db.prepare(`SELECT ${COLUMNS} FROM project_memories
+      WHERE ${conditions.join(" AND ")} ORDER BY id ASC LIMIT 13 OFFSET ?`)
+      .all(...params, offset) as ProjectMemoryRow[];
+    return {
+      memories: rows.slice(0, 12).map(parseRow),
+      nextOffset: rows.length > 12 ? offset + 12 : null,
+    };
+  }
+
   /**
-   * Insert, or — when a same-kind near-duplicate already exists for the
+   * Insert, or — when a same-kind exact duplicate already exists for the
    * project — confirm that row instead: bump `last_confirmed_at` and keep the
    * higher confidence. A soft-deleted duplicate is left deleted, so
    * re-extraction of a fact the user removed does not resurrect it.
@@ -222,6 +282,7 @@ export class ProjectMemoryStore {
     kind: ProjectMemoryKind;
     content: string;
     confidence: number;
+    recallMode?: ProjectMemoryRecallMode;
     sourceTaskId?: string | null;
     sourceTurnId?: string | null;
     now?: number;
@@ -230,15 +291,17 @@ export class ProjectMemoryStore {
     const kind = ProjectMemoryKindSchema.parse(args.kind);
     const confidence = clampConfidence(args.confidence);
     const now = args.now ?? Date.now();
+    const recallMode = ProjectMemoryRecallModeSchema.parse(
+      confidence < 0.7 ? "candidate" : (args.recallMode ?? "contextual"),
+    );
 
-    const similarity = createProjectMemorySimilarityMatcher(content);
     const duplicate = this.dedupCandidates({
       projectPath: args.projectPath,
       kind,
       content,
     }).find(
       (existing) =>
-        similarity(existing.content) >= PROJECT_MEMORY_DUPLICATE_SIMILARITY,
+        isSameProjectMemoryContent(existing.content, content),
     );
 
     if (duplicate) {
@@ -246,17 +309,26 @@ export class ProjectMemoryStore {
         return null;
       }
       const nextConfidence = Math.max(duplicate.confidence, confidence);
-      this.db
+      // Re-extraction must neither demote nor reconfirm curated memory.
+      if (recallMode === "candidate" && duplicate.recallMode !== "candidate") {
+        return { memory: duplicate, outcome: "confirmed" };
+      }
+      const nextMode = recallMode === "candidate" ? "candidate" :
+        (args.recallMode ?? (duplicate.recallMode === "candidate" ? recallMode : duplicate.recallMode));
+      this.assertCoreCapacity(args.projectPath, nextMode, duplicate.id);
+      const confirmed = this.db
         .prepare(
           `UPDATE project_memories
-           SET confidence = ?, last_confirmed_at = ?, updated_at = ?
-           WHERE id = ?`,
+           SET confidence = ?, last_confirmed_at = ?, updated_at = ?, recall_mode = ?
+           WHERE id = ? AND deleted_at IS NULL`,
         )
-        .run(nextConfidence, now, now, duplicate.id);
+        .run(nextConfidence, now, now, nextMode, duplicate.id);
+      if (Number(confirmed.changes ?? 0) === 0) return null;
       return {
         memory: {
           ...duplicate,
           confidence: nextConfidence,
+          recallMode: nextMode,
           lastConfirmedAt: now,
           updatedAt: now,
         },
@@ -264,10 +336,18 @@ export class ProjectMemoryStore {
       };
     }
 
+    this.assertCoreCapacity(args.projectPath, recallMode);
+    if (recallMode === "candidate") {
+      const count = this.db.prepare(`SELECT count(*) AS count FROM project_memories
+        WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate'`).get(args.projectPath) as { count: number };
+      if (count.count >= PROJECT_MEMORY_CANDIDATE_MAX_ITEMS) return null;
+    }
+
     const memory: ProjectMemory = {
       id: randomUUID(),
       projectPath: args.projectPath,
       kind,
+      recallMode,
       content,
       sourceTaskId: args.sourceTaskId ?? null,
       sourceTurnId: args.sourceTurnId ?? null,
@@ -277,15 +357,19 @@ export class ProjectMemoryStore {
       updatedAt: now,
       deletedAt: null,
     };
-    this.db
+    const inserted = this.db
       .prepare(
         `INSERT INTO project_memories (${COLUMNS})
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
+         WHERE (? != 'candidate' OR (SELECT count(*) FROM project_memories
+           WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate') < ${PROJECT_MEMORY_CANDIDATE_MAX_ITEMS})
+         AND NOT EXISTS (SELECT 1 FROM project_memories WHERE project_path = ? AND kind = ? AND content = ?)`,
       )
       .run(
         memory.id,
         memory.projectPath,
         memory.kind,
+        memory.recallMode,
         memory.content,
         memory.sourceTaskId,
         memory.sourceTurnId,
@@ -293,81 +377,65 @@ export class ProjectMemoryStore {
         memory.createdAt,
         memory.lastConfirmedAt,
         memory.updatedAt,
+        memory.recallMode,
+        memory.projectPath,
+        memory.projectPath,
+        memory.kind,
+        memory.content,
       );
+    if (Number(inserted.changes ?? 0) === 0) return null;
     return { memory, outcome: "inserted" };
   }
 
-  /**
-   * Rows worth comparing against a new memory. Deleted rows are included on
-   * purpose: a soft-deleted duplicate must block re-insertion. With FTS the
-   * candidate set is the rows sharing any query term; without it, the whole
-   * same-kind slice of the project (bounded, a project never gets near it).
-   * Live rows come first so an active duplicate wins over a deleted one.
-   */
+  /** Stored content is normalized at every write; exact lookup includes tombstones. */
   private dedupCandidates(args: {
     projectPath: string;
     kind: ProjectMemoryKind;
     content: string;
   }): ProjectMemory[] {
-    if (this.indexMode !== "like") {
-      const terms = extractProjectMemoryQueryTerms(args.content, 12);
-      if (terms.length > 0) {
-        try {
-          const rows = this.db
-            .prepare(
-              `SELECT ${qualifiedColumns("m")}
-               FROM project_memories_fts f
-               JOIN project_memories m ON m.rowid = f.rowid
-               WHERE project_memories_fts MATCH ?
-                 AND m.project_path = ? AND m.kind = ?
-               ORDER BY m.deleted_at IS NOT NULL, bm25(project_memories_fts)
-               LIMIT 64`,
-            )
-            .all(
-              terms.map(escapeFtsTerm).join(" OR "),
-              args.projectPath,
-              args.kind,
-            ) as ProjectMemoryRow[];
-          return rows.map(parseRow);
-        } catch {
-          // Fall through to the scan below.
-        }
-      }
-    }
-    const rows = this.db
-      .prepare(
-        `SELECT ${COLUMNS}
-         FROM project_memories
-         WHERE project_path = ? AND kind = ?
-         ORDER BY deleted_at IS NOT NULL, last_confirmed_at DESC
-         LIMIT ${DEDUP_SCAN_LIMIT}`,
-      )
-      .all(args.projectPath, args.kind) as ProjectMemoryRow[];
+    const rows = this.db.prepare(`SELECT ${COLUMNS} FROM project_memories
+      WHERE project_path = ? AND kind = ? AND content = ?
+      ORDER BY deleted_at IS NOT NULL, id ASC LIMIT 1`)
+      .all(args.projectPath, args.kind, args.content) as ProjectMemoryRow[];
     return rows.map(parseRow);
   }
 
   update(args: {
     id: string;
+    projectPath: string;
+    recallMode?: ProjectMemoryRecallMode;
     kind?: ProjectMemoryKind;
     content?: string;
     now?: number;
   }): ProjectMemory | null {
     const current = this.get(args.id);
-    if (!current || current.deletedAt !== null) {
+    if (!current || current.deletedAt !== null || current.projectPath !== args.projectPath) {
       return null;
     }
     const kind = args.kind ? ProjectMemoryKindSchema.parse(args.kind) : current.kind;
     const content =
       args.content !== undefined ? assertContent(args.content) : current.content;
     const now = args.now ?? Date.now();
-    this.db
+    const recallMode = ProjectMemoryRecallModeSchema.parse(args.recallMode ?? current.recallMode);
+    this.assertCoreCapacity(current.projectPath, recallMode, current.id);
+    const updated = this.db
       .prepare(
         `UPDATE project_memories
-         SET kind = ?, content = ?, updated_at = ?, last_confirmed_at = ?
-         WHERE id = ?`,
+         SET kind = ?, content = ?, updated_at = ?, last_confirmed_at = ?, recall_mode = ?, confidence = ?
+         WHERE id = ? AND deleted_at IS NULL`,
       )
-      .run(kind, content, now, now, args.id);
-    return { ...current, kind, content, updatedAt: now, lastConfirmedAt: now };
+      .run(kind, content, now, now, recallMode, 0.9, args.id);
+    if (Number(updated.changes ?? 0) === 0) return null;
+    return { ...current, kind, content, recallMode, confidence: 0.9, updatedAt: now, lastConfirmedAt: now };
+  }
+
+  private assertCoreCapacity(projectPath: string, mode: ProjectMemoryRecallMode, id = "") {
+    if (mode !== "core") return;
+    const row = this.db.prepare(`SELECT count(*) AS count FROM project_memories
+      WHERE project_path = ? AND recall_mode = 'core' AND deleted_at IS NULL AND id != ?`).get(projectPath, id) as { count: number };
+    if (row.count >= PROJECT_MEMORY_CORE_MAX_ITEMS) {
+      throw new Error(`Keep at most ${PROJECT_MEMORY_CORE_MAX_ITEMS} core memories. Merge or change an existing core memory to contextual first.`);
+    }
   }
 
   /** Soft delete. Returns false when the row is unknown or already deleted. */
@@ -384,9 +452,8 @@ export class ProjectMemoryStore {
   }
 
   /**
-   * Rows for injection: not deleted, not stale, strongest first, with rows the
-   * query text matches promoted ahead of the default order. Bounded by
-   * `limit`; the caller applies the byte cap on the rendered lines.
+   * Recall only curated core and query matches, never unrelated fallback.
+   * The caller applies the character cap on the rendered block.
    */
   recall(args: {
     projectPath: string;
@@ -395,34 +462,27 @@ export class ProjectMemoryStore {
     now?: number;
   }): ProjectMemory[] {
     const now = args.now ?? Date.now();
-    const limit = args.limit ?? PROJECT_MEMORY_INJECTION_MAX_ITEMS;
+    const limit = Math.max(0, Math.min(PROJECT_MEMORY_INJECTION_MAX_ITEMS, Math.floor(args.limit ?? PROJECT_MEMORY_INJECTION_MAX_ITEMS)));
     const staleBefore = now - PROJECT_MEMORY_STALE_AFTER_MS;
-
+    const rows = this.db
+      .prepare(
+        `SELECT ${COLUMNS}
+         FROM project_memories
+         WHERE ${activeWhereClause("")}
+           AND recall_mode = 'core'
+         ORDER BY confidence DESC, last_confirmed_at DESC, id ASC
+         LIMIT ?`,
+      )
+      .all(args.projectPath, staleBefore, Math.min(limit, PROJECT_MEMORY_CORE_MAX_ITEMS)) as ProjectMemoryRow[];
+    const core = rows.map(parseRow);
     const matched = this.recallByQuery({
       projectPath: args.projectPath,
       query: args.query ?? "",
       limit,
       staleBefore,
     });
-    if (matched.length >= limit) {
-      return matched.slice(0, limit);
-    }
-    const matchedIds = new Set(matched.map((memory) => memory.id));
-
-    const rows = this.db
-      .prepare(
-        `SELECT ${COLUMNS}
-         FROM project_memories
-         WHERE ${activeWhereClause("")}
-         ORDER BY confidence DESC, last_confirmed_at DESC, id ASC
-         LIMIT ?`,
-      )
-      .all(args.projectPath, staleBefore, limit) as ProjectMemoryRow[];
-    const rest = orderProjectMemoriesForInjection(
-      rows.map(parseRow),
-      now,
-    ).filter((memory) => !matchedIds.has(memory.id));
-    return [...matched, ...rest].slice(0, limit);
+    const coreIds = new Set(core.map((memory) => memory.id));
+    return [...core, ...matched.filter((memory) => !coreIds.has(memory.id))].slice(0, limit);
   }
 
   private recallByQuery(args: {
@@ -435,7 +495,7 @@ export class ProjectMemoryStore {
     if (terms.length === 0) {
       return [];
     }
-    if (this.indexMode !== "like") {
+    if (this.indexMode !== "like" && terms.every((term) => term.length >= 3)) {
       try {
         const match = terms.map(escapeFtsTerm).join(" OR ");
         const rows = this.db
@@ -456,8 +516,7 @@ export class ProjectMemoryStore {
           ) as ProjectMemoryRow[];
         return rows.map(parseRow);
       } catch {
-        // A MATCH expression SQLite rejects must never cost the turn its memory.
-        return [];
+        // Fall back to literal substring lookup.
       }
     }
     const likeTerms = terms.slice(0, 8);
@@ -466,16 +525,14 @@ export class ProjectMemoryStore {
         `SELECT ${COLUMNS}
          FROM project_memories
          WHERE ${activeWhereClause("")}
-           AND (${likeTerms.map(() => "lower(content) LIKE ?").join(" OR ")})
+           AND (${likeTerms.map(() => "instr(lower(content), ?) > 0").join(" OR ")})
          ORDER BY confidence DESC, last_confirmed_at DESC, id ASC
          LIMIT ?`,
       )
       .all(
         args.projectPath,
         args.staleBefore,
-        ...likeTerms.map(
-          (term) => `%${term.replaceAll("%", "").replaceAll("_", "")}%`,
-        ),
+        ...likeTerms,
         args.limit,
       ) as ProjectMemoryRow[];
     return rows.map(parseRow);
@@ -492,6 +549,7 @@ function qualifiedColumns(alias: string) {
 function activeWhereClause(prefix: string) {
   return `${prefix}project_path = ?
       AND ${prefix}deleted_at IS NULL
+      AND ${prefix}recall_mode != 'candidate'
       AND NOT (${prefix}confidence < ${PROJECT_MEMORY_STALE_CONFIDENCE_FLOOR}
                AND ${prefix}last_confirmed_at < ?)`;
 }
