@@ -8,8 +8,9 @@ import type { ProviderId } from "@/lib/providers/provider.types";
  *
  * Both capabilities are armed in one place and delivered in another: the user
  * arms them in the composer or Settings, but the tool only reaches the model
- * when the Local MCP server is running and — for a Codex primary — registered
- * with the installed CLI. When that link is broken the model simply never sees
+ * when the Local MCP server is running. Managed primary turns attach the
+ * connection directly, independently of CLI registration. When that link is
+ * broken the model simply never sees
  * the tool, so an armed capability does nothing and says nothing. This resolver
  * exists so the surfaces that arm a capability can name that gap themselves.
  *
@@ -21,8 +22,7 @@ export type LocalMcpReadinessState = "ready" | "unavailable" | "unknown";
 
 export type LocalMcpBlockReason =
   | "server-disabled"
-  | "server-stopped"
-  | "codex-not-registered";
+  | "server-stopped";
 
 export interface LocalMcpReadiness {
   state: LocalMcpReadinessState;
@@ -48,8 +48,6 @@ const BLOCK_DETAIL: Record<LocalMcpBlockReason, string> = {
     "The Local MCP server is turned off in Settings → Developer.",
   "server-stopped":
     "The Local MCP server is enabled but not running; restart it in Settings → Developer.",
-  "codex-not-registered":
-    "Codex has no current Stave MCP entry, so Stave's tools are missing from its session. Re-register it in Settings → Developer.",
 };
 
 function blocked(reason: LocalMcpBlockReason): LocalMcpReadiness {
@@ -58,9 +56,8 @@ function blocked(reason: LocalMcpBlockReason): LocalMcpReadiness {
 
 /**
  * Mirrors the provider-side gates that decide whether the tool is exposed:
- * Claude needs a live manifest (`resolveEmbeddedStaveLocalMcpServers`), and
- * Codex additionally needs its managed config entry to match the current
- * manifest (`hasConnectedStaveLocalMcpForCodex`).
+ * Claude and Codex attach the live manifest directly to managed primary turns.
+ * User CLI registration is independent of this internal connection.
  */
 export function resolveLocalMcpReadiness(args: {
   status: StaveLocalMcpStatus | null;
@@ -75,15 +72,6 @@ export function resolveLocalMcpReadiness(args: {
   }
   if (!status.running || !status.manifest) {
     return blocked("server-stopped");
-  }
-  if (
-    args.primaryProviderId === "codex" &&
-    !(
-      status.codexRegistration.installed &&
-      status.codexRegistration.matchesCurrentManifest
-    )
-  ) {
-    return blocked("codex-not-registered");
   }
   return READY_READINESS;
 }

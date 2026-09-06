@@ -66,7 +66,6 @@ import {
   mapCodexMcpServerStatus,
   type CodexMcpServerStatus,
 } from "./codex-app-server-mcp-status";
-import { getCodexMcpRegistrationStatus } from "../main/codex-mcp";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
 import { buildCodexInstructionProfileKey, resolveCodexWorkerProfile } from "./codex-runtime-config";
@@ -339,26 +338,14 @@ async function refreshCodexChatgptAuthTokens(args: {
   }
 }
 
-async function hasConnectedStaveLocalMcpForCodex() {
-  const manifest = await readPrimaryStaveLocalMcpManifest();
-  if (!manifest) {
-    return false;
-  }
-  const status = await getCodexMcpRegistrationStatus({
-    autoRegister: false,
-    manifest,
-  });
-  return status.installed && status.matchesCurrentManifest;
-}
-
 /**
  * Whether this thread will actually see `stave_lens_*` tools: the server has to
- * be registered *and* still be registering the browser tools. Instructing a
+ * be attached *and* still be registering the browser tools. Instructing a
  * model to prioritize tools it does not have is the same failure the
- * registration gate exists to prevent, just reached from the other side.
+ * connection gate exists to prevent, just reached from the other side.
  */
-async function hasStaveLensToolsForCodex() {
-  if (!(await hasConnectedStaveLocalMcpForCodex())) {
+async function hasStaveLensToolsForCodex(hasEmbeddedStaveLocalMcp: boolean) {
+  if (!hasEmbeddedStaveLocalMcp) {
     return false;
   }
   try {
@@ -2451,12 +2438,21 @@ export async function streamCodexWithAppServer(
 
   const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
   const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
+  const nativeSlashCommandTurn = Boolean(
+    args.conversation && getProviderNativeSlashCommandInput(args.conversation),
+  );
+  const staveLocalMcpManifest =
+    secondaryReadOnly || nativeSlashCommandTurn
+      ? null
+      : await readPrimaryStaveLocalMcpManifest();
   const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
     base: {
       ...(secondaryConfigOverrides ?? {}),
       ...buildCodexNativeBrowserTurnConfigOverrides({ requested: providerBrowserRequested, userEnabled: nativeBrowserPluginEnabled }),
     },
     secretShellOverrides,
+    staveLocalMcpManifest,
+    secondaryReadOnly,
     unattendedAutomationAuthorizationToken:
       args.unattendedAutomation?.authorizationToken,
   });
@@ -2464,15 +2460,10 @@ export async function streamCodexWithAppServer(
   // Resolved before the thread is keyed: it decides whether the Lens
   // instruction block is part of the developer instructions, which are hashed
   // into the thread key.
-  const nativeSlashCommandTurn = Boolean(
-    args.conversation && getProviderNativeSlashCommandInput(args.conversation),
+  const hasEmbeddedStaveLocalMcp = staveLocalMcpManifest !== null;
+  const hasStaveLensTools = await hasStaveLensToolsForCodex(
+    hasEmbeddedStaveLocalMcp,
   );
-  const hasEmbeddedStaveLocalMcp = nativeSlashCommandTurn
-    ? false
-    : await hasConnectedStaveLocalMcpForCodex();
-  const hasStaveLensTools = nativeSlashCommandTurn
-    ? false
-    : await hasStaveLensToolsForCodex();
 
   let threadId: string;
   let resumedThreadId: string | null;

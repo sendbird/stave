@@ -123,7 +123,7 @@ describe("local MCP readiness", () => {
     ).toBe("server-stopped");
   });
 
-  test("a stale Codex registration blocks Codex primaries only", () => {
+  test("missing or stale CLI registration does not block managed primary turns", () => {
     for (const overrides of [
       { codexInstalled: false },
       { codexMatchesManifest: false },
@@ -132,9 +132,8 @@ describe("local MCP readiness", () => {
         resolveLocalMcpReadiness({
           status: status(overrides),
           primaryProviderId: "codex",
-        }).reason,
-      ).toBe("codex-not-registered");
-      // Claude reaches the same server directly, so it is unaffected.
+        }).state,
+      ).toBe("ready");
       expect(
         resolveLocalMcpReadiness({
           status: status(overrides),
