@@ -1,10 +1,12 @@
 import { Gauge } from "lucide-react";
 import { memo, useMemo } from "react";
+import { sx } from "@/components/ads/utils/stylex";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
 import type { Task } from "@/types/chat";
+import { workspaceAccountLimitIconStyles } from "./workspace-account-limit-icon.styles";
 
 const EMPTY_TASKS: Task[] = [];
 
@@ -57,13 +59,16 @@ export const WorkspaceAccountLimitIcon = memo(
         <TooltipTrigger
           render={
             <span
-              className="inline-flex size-4 shrink-0 items-center justify-center"
+              className={sx(workspaceAccountLimitIconStyles.trigger)}
               role="status"
               aria-label={`${block.providerLabel.toLowerCase()}-account-limit`}
             />
           }
         >
-          <Gauge className="size-3.5 text-destructive" aria-hidden="true" />
+          <Gauge
+            className={sx(workspaceAccountLimitIconStyles.icon)}
+            aria-hidden="true"
+          />
         </TooltipTrigger>
         <TooltipContent side="right">{block.message}</TooltipContent>
       </Tooltip>
