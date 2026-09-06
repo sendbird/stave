@@ -25,10 +25,8 @@ import {
   buildWorkspaceSessionStateFromShell,
   type WorkspaceSessionState,
 } from "@/store/workspace-session-state";
-import {
-  TASK_MESSAGES_PAGE_SIZE,
-  trimLoadedTaskMessages,
-} from "@/store/task-message-loading";
+import { TASK_MESSAGES_PAGE_SIZE } from "@/store/task-message-loading";
+import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
 
 type HostTaskTurnStoreState = Parameters<
   typeof createWorkspaceSessionStateFromAppState
@@ -74,10 +72,11 @@ export async function loadHostTaskTurn(
     return null;
   }
 
+  const messages = trimPersistedMessageWindow({ messages: page.messages });
   const persistedSession = buildWorkspaceSessionStateFromShell({
     shell,
     messagesByTask: {
-      [update.taskId]: page.messages,
+      [update.taskId]: messages,
     },
     messageCountByTaskOverrides: {
       [update.taskId]: page.totalCount,
@@ -87,9 +86,7 @@ export async function loadHostTaskTurn(
   return {
     persistedSession,
     persistedActiveTurnId: persistedSession.activeTurnIdsByTask[update.taskId],
-    messages: trimLoadedTaskMessages({
-      messages: page.messages,
-    }),
+    messages,
     messageCount: Math.max(page.totalCount, page.messages.length),
   };
 }

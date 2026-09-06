@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { captureBrowserResult } from "@/lib/reviews/result-review-client";
 import type {
   AppNotification,
   AppNotificationAction,
@@ -321,6 +322,8 @@ function isPendingAttentionNotification(
 
 function pruneFallbackRows(now: string) {
   const rows = loadFallbackRows();
+  // Migrate old outcomes before retention can remove their only source.
+  for (const row of rows) captureBrowserResult(toPublicNotification(row));
   const nextRows = rows.filter(
     (row) =>
       isNotificationPendingAttention(row) ||
@@ -398,8 +401,10 @@ export async function createNotification(args: {
       ? (rows.find((row) => row.dedupeKey === candidate.dedupeKey) ?? null)
       : null;
     if (existing) {
+      captureBrowserResult(toPublicNotification(existing));
       return { inserted: false, notification: toPublicNotification(existing) };
     }
+    captureBrowserResult(toPublicNotification(candidate));
     const nextRows = sortNotificationsNewestFirst([candidate, ...rows]);
     saveFallbackRows(nextRows);
     return { inserted: true, notification: toPublicNotification(candidate) };

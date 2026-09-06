@@ -90,6 +90,8 @@ import { mapCodexThreadForkResponse } from "./codex-thread-actions";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 import {
+  buildCodexTerminalFailureEvents,
+  resolveCodexTurnCompletionStopReason,
   toCodexUserFacingErrorMessage,
   toErrorMessage,
 } from "./codex-app-server-errors";
@@ -699,7 +701,9 @@ class CodexAppServerClient {
     options?: { timeoutMs?: number },
   ): Promise<T> {
     await this.ensureStarted();
-    return this.sendRequest<T>(method, params, options);
+    // JSON-RPC carries unknown data. This generic is the caller's method
+    // contract, not runtime validation of the response.
+    return (await this.sendRequest(method, params, options)) as T;
   }
 
   async respond(requestId: JsonRpcId, result: unknown) {
@@ -905,18 +909,18 @@ class CodexAppServerClient {
     }
   }
 
-  private async sendRequest<T = unknown>(
+  private async sendRequest(
     method: string,
     params: unknown,
     options?: { timeoutMs?: number },
-  ): Promise<T> {
+  ): Promise<unknown> {
     const child = this.process;
     if (!child) {
       throw new Error("Codex App Server is not running.");
     }
 
     const requestId = this.nextRequestId++;
-    return new Promise<T>((resolve, reject) => {
+    return new Promise<unknown>((resolve, reject) => {
       registerPendingCodexAppServerResponse({
         pendingResponses: this.pendingResponses,
         requestId,
@@ -1295,13 +1299,14 @@ async function listPaginatedCodexData<T>(args: {
     if (args.signal?.aborted) {
       break;
     }
-    const response = await args.client.request<{
-      data?: T[];
-      nextCursor?: string | null;
-    }>(args.method, {
-      ...(args.params ?? {}),
-      ...(cursor ? { cursor } : {}),
-    });
+    const response: { data?: T[]; nextCursor?: string | null } =
+      await args.client.request<{
+        data?: T[];
+        nextCursor?: string | null;
+      }>(args.method, {
+        ...(args.params ?? {}),
+        ...(cursor ? { cursor } : {}),
+      });
     results.push(...(response.data ?? []));
     cursor = response.nextCursor ?? null;
     pages += 1;
@@ -2289,15 +2294,10 @@ export async function streamCodexWithAppServer(
     explicitPath: requestedRuntimeOptions?.codexBinaryPath,
   });
   if (!codexExecutablePath) {
-    const unavailableEvents: BridgeEvent[] = [
-      {
-        type: "error",
-        message:
-          "Codex runtime failure: Codex CLI not found in runtime override, STAVE_CODEX_CLI_PATH, login-shell PATH, or home-bin candidates. Install `codex` or configure a Codex path override.",
-        recoverable: true,
-      },
-      { type: "done" },
-    ];
+    const unavailableEvents = buildCodexTerminalFailureEvents({
+      message:
+        "Codex runtime failure: Codex CLI not found in runtime override, STAVE_CODEX_CLI_PATH, login-shell PATH, or home-bin candidates. Install `codex` or configure a Codex path override.",
+    });
     unavailableEvents.forEach((event) => args.onEvent?.(event));
     return unavailableEvents;
   }
@@ -2306,13 +2306,21 @@ export async function streamCodexWithAppServer(
     runtimeOptions: requestedRuntimeOptions,
   });
   const providerBrowserRequested = shouldActivateProviderBrowser({
-    prompt: args.prompt, secondaryReadOnly,
-    unattendedAutomation: Boolean(args.unattendedAutomation), planMode: runtimeOptions?.codexPlanMode === true,
+    prompt: args.prompt,
+    secondaryReadOnly,
+    unattendedAutomation: Boolean(args.unattendedAutomation),
+    planMode: runtimeOptions?.codexPlanMode === true,
     autoFallbackEnabled: runtimeOptions?.providerBrowserAutoFallback === true,
-    autoFallbackDomains: parseProviderBrowserDomains(runtimeOptions?.providerBrowserAutoFallbackDomains),
+    autoFallbackDomains: parseProviderBrowserDomains(
+      runtimeOptions?.providerBrowserAutoFallbackDomains,
+    ),
   });
-  const workerProfile = secondaryReadOnly ? null : resolveCodexWorkerProfile({ runtimeOptions });
-  const workerExecution = workerProfile ? buildWorkerExecutionMetadata(workerProfile) : null;
+  const workerProfile = secondaryReadOnly
+    ? null
+    : resolveCodexWorkerProfile({ runtimeOptions });
+  const workerExecution = workerProfile
+    ? buildWorkerExecutionMetadata(workerProfile)
+    : null;
   const codexCapabilities = getCodexVersionCapabilities(codexExecutablePath);
 
   // A per-turn process lets Codex resolve MCP bearer_token_env_var settings
@@ -2374,29 +2382,17 @@ export async function streamCodexWithAppServer(
       requiresOpenaiAuth: boolean;
     }>("account/read", { refreshToken: true });
     if (!account.account && account.requiresOpenaiAuth) {
-      const events: BridgeEvent[] = [
-        {
-          type: "error",
-          message: "Codex authentication failed. Run `codex login` and retry.",
-          recoverable: true,
-        },
-        { type: "done" },
-      ];
+      const events = buildCodexTerminalFailureEvents({
+        message: "Codex authentication failed. Run `codex login` and retry.",
+      });
       events.forEach((event) => args.onEvent?.(event));
       finishCodexTurn(codexExecutablePath, transientSecretClient);
       return events;
     }
   } catch (error) {
-    const events: BridgeEvent[] = [
-      {
-        type: "error",
-        message: toCodexUserFacingErrorMessage({
-          message: error instanceof Error ? error.message : String(error),
-        }),
-        recoverable: true,
-      },
-      { type: "done" },
-    ];
+    const events = buildCodexTerminalFailureEvents({
+      message: error instanceof Error ? error.message : String(error),
+    });
     events.forEach((event) => args.onEvent?.(event));
     finishCodexTurn(codexExecutablePath, transientSecretClient);
     return events;
@@ -2427,9 +2423,12 @@ export async function streamCodexWithAppServer(
     }
   }
 
-  const nativeBrowserPluginEnabled = await resolveCodexNativeBrowserPluginEnabled({
-    requested: providerBrowserRequested, cwd: runtimeCwd, request: client.request.bind(client),
-  });
+  const nativeBrowserPluginEnabled =
+    await resolveCodexNativeBrowserPluginEnabled({
+      requested: providerBrowserRequested,
+      cwd: runtimeCwd,
+      request: client.request.bind(client),
+    });
 
   const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
   const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
@@ -2443,7 +2442,10 @@ export async function streamCodexWithAppServer(
   const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
     base: {
       ...(secondaryConfigOverrides ?? {}),
-      ...buildCodexNativeBrowserTurnConfigOverrides({ requested: providerBrowserRequested, userEnabled: nativeBrowserPluginEnabled }),
+      ...buildCodexNativeBrowserTurnConfigOverrides({
+        requested: providerBrowserRequested,
+        userEnabled: nativeBrowserPluginEnabled,
+      }),
     },
     secretShellOverrides,
     staveLocalMcpManifest,
@@ -2478,16 +2480,9 @@ export async function streamCodexWithAppServer(
       hasStaveLocalMcp: hasStaveLensTools,
     }));
   } catch (error) {
-    const events: BridgeEvent[] = [
-      {
-        type: "error",
-        message: toCodexUserFacingErrorMessage({
-          message: error instanceof Error ? error.message : String(error),
-        }),
-        recoverable: true,
-      },
-      { type: "done" },
-    ];
+    const events = buildCodexTerminalFailureEvents({
+      message: error instanceof Error ? error.message : String(error),
+    });
     events.forEach((event) => args.onEvent?.(event));
     finishCodexTurn(codexExecutablePath, transientSecretClient);
     return events;
@@ -2501,7 +2496,9 @@ export async function streamCodexWithAppServer(
     const events: BridgeEvent[] = eventCollector.events;
     let hasEmittedDone = false;
     const providerBrowserTracker = createProviderBrowserConnectionTracker({
-      providerId: "codex", requested: providerBrowserRequested, available: nativeBrowserPluginEnabled,
+      providerId: "codex",
+      requested: providerBrowserRequested,
+      available: nativeBrowserPluginEnabled,
     });
     const emitBridgeEvent = (event: BridgeEvent) => {
       if (event.type === "done") {
@@ -2628,6 +2625,7 @@ export async function streamCodexWithAppServer(
     let sawNativePlan = false;
     let shouldInterruptPlanTurn = false;
     let sentPlanInterrupt = false;
+    let lastAppServerErrorMessage: string | null = null;
     const codexDebug =
       runtimeOptions?.debug ?? process.env.STAVE_CODEX_DEBUG === "1";
     const elicitationPauseController =
@@ -2970,7 +2968,12 @@ export async function streamCodexWithAppServer(
         // not: with the App Server client shared process-wide, a request raised
         // on another thread (an isolated Advisor thread, or another task's turn)
         // surfaced in *this* turn's UI and was answered on its behalf.
-        if (requestThreadId && threadId && requestThreadId !== threadId && !workerActivity.ownsChildThread(requestThreadId)) {
+        if (
+          requestThreadId &&
+          threadId &&
+          requestThreadId !== threadId &&
+          !workerActivity.ownsChildThread(requestThreadId)
+        ) {
           return;
         }
         const requestId = String(message.id);
@@ -3241,7 +3244,8 @@ export async function streamCodexWithAppServer(
         }
         return;
       }
-      const eventThreadId = typeof params.threadId === "string" ? params.threadId : "";
+      const eventThreadId =
+        typeof params.threadId === "string" ? params.threadId : "";
       if (eventThreadId && eventThreadId !== threadId) {
         const mapped = workerActivity.mapForeignNotification({
           method: message.method,
@@ -3277,8 +3281,7 @@ export async function streamCodexWithAppServer(
             return;
           }
           const startedItem = params.item as
-            | { type?: string; id?: string; command?: string }
-            | undefined;
+            { type?: string; id?: string; command?: string } | undefined;
           const startedItemId =
             typeof startedItem?.id === "string" ? startedItem.id : "";
           if (startedItem?.type === "contextCompaction") {
@@ -3286,7 +3289,10 @@ export async function streamCodexWithAppServer(
             return;
           }
           if (startedItem?.type === "commandExecution") {
-            if (!startedItemId || startedCommandExecutionIds.has(startedItemId)) {
+            if (
+              !startedItemId ||
+              startedCommandExecutionIds.has(startedItemId)
+            ) {
               return;
             }
             startedCommandExecutionIds.add(startedItemId);
@@ -3325,7 +3331,9 @@ export async function streamCodexWithAppServer(
             return;
           }
           startedMcpToolCallIds.add(itemId);
-          emitBridgeEvent(buildCodexMcpToolCallInputEvent(item, workerExecution));
+          emitBridgeEvent(
+            buildCodexMcpToolCallInputEvent(item, workerExecution),
+          );
           return;
         }
         case "item/agentMessage/delta": {
@@ -3470,9 +3478,7 @@ export async function streamCodexWithAppServer(
           const contextUsage = normalizeCodexContextUsage(params.tokenUsage);
           if (contextUsage) emitBridgeEvent(contextUsage);
           const normalizedUsage = normalizeCodexTokenUsage(
-            params.tokenUsage as Parameters<
-              typeof normalizeCodexTokenUsage
-            >[0],
+            params.tokenUsage as Parameters<typeof normalizeCodexTokenUsage>[0],
           );
           if (!normalizedUsage) {
             return;
@@ -3499,6 +3505,7 @@ export async function streamCodexWithAppServer(
           const errorMessage =
             extractCodexAppServerErrorMessage(params) ??
             "Codex App Server error.";
+          lastAppServerErrorMessage = errorMessage;
           emitBridgeEvent({
             type: "error",
             message: toCodexUserFacingErrorMessage({ message: errorMessage }),
@@ -3664,7 +3671,9 @@ export async function streamCodexWithAppServer(
               const mcpItem = item as CodexMcpToolCallItem;
               const completedEvents: BridgeEvent[] = [];
               if (!itemId || !startedMcpToolCallIds.delete(itemId)) {
-                completedEvents.push(buildCodexMcpToolCallInputEvent(mcpItem, workerExecution));
+                completedEvents.push(
+                  buildCodexMcpToolCallInputEvent(mcpItem, workerExecution),
+                );
               }
               completedEvents.push({
                 type: "tool_result",
@@ -3682,7 +3691,9 @@ export async function streamCodexWithAppServer(
                   server: mcpItem.server,
                   tool: mcpItem.tool,
                   input: serializeCodexMcpToolCallArguments(mcpItem.arguments),
-                  failed: Boolean(mcpItem.status === "failed" || mcpItem.error?.message),
+                  failed: Boolean(
+                    mcpItem.status === "failed" || mcpItem.error?.message,
+                  ),
                 });
               if (browserConnectionEvent) {
                 completedEvents.push(browserConnectionEvent);
@@ -3714,8 +3725,13 @@ export async function streamCodexWithAppServer(
             case "fileChange": {
               emitCodexFileChangeEvents({
                 itemId,
-                item: item as { changes?: Array<{ path?: string }>; status?: string },
-                alreadyStarted: Boolean(itemId && startedFileChangeIds.delete(itemId)),
+                item: item as {
+                  changes?: Array<{ path?: string }>;
+                  status?: string;
+                },
+                alreadyStarted: Boolean(
+                  itemId && startedFileChangeIds.delete(itemId),
+                ),
                 diffTracker,
                 emit: emitBridgeEvents,
               });
@@ -3771,13 +3787,14 @@ export async function streamCodexWithAppServer(
             }
           }
           if (turn?.status === "failed" && !abortRequested) {
-            emitBridgeEvent({
-              type: "error",
-              message: toCodexUserFacingErrorMessage({
-                message: turn.error?.message ?? "Codex App Server turn failed.",
-              }),
-              recoverable: true,
+            const [terminalError] = buildCodexTerminalFailureEvents({
+              message:
+                turn.error?.message ??
+                lastAppServerErrorMessage ??
+                "Codex App Server turn failed.",
+              stopReason: "failed",
             });
+            emitBridgeEvent(terminalError);
           }
           if (latestUsage) {
             emitBridgeEvent({
@@ -3786,11 +3803,14 @@ export async function streamCodexWithAppServer(
             });
           }
           settleMissingProviderBrowserConnection();
-          emitBridgeEvent(
-            abortRequested
-              ? { type: "done", stop_reason: "user_abort" }
-              : { type: "done" },
-          );
+          const stopReason = resolveCodexTurnCompletionStopReason({
+            status: turn?.status,
+            abortRequested,
+          });
+          emitBridgeEvent({
+            type: "done",
+            ...(stopReason ? { stop_reason: stopReason } : {}),
+          });
           finishTurnWait();
           return;
         }
@@ -3809,16 +3829,15 @@ export async function streamCodexWithAppServer(
         "[provider-runtime] Codex app-server process exited during turn",
         { threadId, appServerTurnId: appServerTurnId || null, exitMessage },
       );
-      emitBridgeEvent({
-        type: "error",
-        message: toCodexUserFacingErrorMessage({ message: exitMessage }),
-        recoverable: true,
+      const [terminalError] = buildCodexTerminalFailureEvents({
+        message: exitMessage,
       });
+      emitBridgeEvent(terminalError);
       settleMissingProviderBrowserConnection();
       emitBridgeEvent(
         abortRequested
           ? { type: "done", stop_reason: "user_abort" }
-          : { type: "done" },
+          : { type: "done", stop_reason: "runtime_failure" },
       );
       finishTurnWait();
     });
@@ -3979,16 +3998,12 @@ export async function streamCodexWithAppServer(
         emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
         return finalizeCollectedEvents();
       }
-      const errorEvent: BridgeEvent = {
-        type: "error",
-        message: toCodexUserFacingErrorMessage({
-          message: error instanceof Error ? error.message : String(error),
-        }),
-        recoverable: true,
-      };
+      const [errorEvent] = buildCodexTerminalFailureEvents({
+        message: error instanceof Error ? error.message : String(error),
+      });
       emitBridgeEvent(errorEvent);
       settleMissingProviderBrowserConnection();
-      emitBridgeEvent({ type: "done" });
+      emitBridgeEvent({ type: "done", stop_reason: "runtime_failure" });
       return finalizeCollectedEvents();
     } finally {
       clearInterruptFallback();

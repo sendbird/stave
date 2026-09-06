@@ -1,4 +1,5 @@
 import type { AppNotification } from "@/lib/notifications/notification.types";
+import type { ResultReview } from "@/lib/reviews/result-review";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
@@ -26,7 +27,7 @@ export type FleetAttentionKind =
   | "pr-behind-base"
   | "pr-ready-to-merge";
 
-export type FleetAttentionSource = "live" | "notification" | "pr";
+export type FleetAttentionSource = "live" | "notification" | "result" | "pr";
 
 /**
  * `blocking` items hold work up until the user acts. `review` items are worth
@@ -67,6 +68,7 @@ export interface FleetAttentionItem {
   turnId?: string;
   requestId?: string;
   notificationId?: string;
+  resultReview?: ResultReview;
   providerId?: ProviderId;
   createdAt: string;
   source: FleetAttentionSource;
@@ -123,6 +125,7 @@ export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
 const SOURCE_PRIORITY: Record<FleetAttentionSource, number> = {
   live: 0,
   notification: 1,
+  result: 1,
   pr: 2,
 };
 
@@ -519,6 +522,8 @@ export function compareFleetAttentionItems(
 
 export function buildFleetAttentionProjection(args: {
   notifications: readonly AppNotification[];
+  /** When supplied, durable results own terminal attention, regardless of reads. */
+  resultReviews?: readonly ResultReview[];
   liveWorkspaces: readonly FleetLiveWorkspaceInput[];
   prWorkspaces: readonly FleetPrWorkspaceInput[];
   /**
@@ -556,7 +561,35 @@ export function buildFleetAttentionProjection(args: {
   }
   const knownWorkspaceIds = args.knownWorkspaceIds;
   const candidates = [
-    ...collectFleetNotificationAttentionItems(args.notifications)
+    ...[
+      ...collectFleetNotificationAttentionItems(args.notifications).filter(
+        (item) =>
+          args.resultReviews === undefined ||
+          (item.kind !== "result-ready" && item.kind !== "run-failed"),
+      ),
+      ...(args.resultReviews ?? [])
+        .filter((result) => !result.reviewedAt)
+        .map((result): FleetAttentionItem => {
+          const kind =
+            result.outcome === "failed" ? "run-failed" : "result-ready";
+          return {
+            id: buildTurnAttentionId({ kind, ...result }),
+            kind,
+            priority: FLEET_ATTENTION_PRIORITY[kind],
+            source: "result",
+            projectPath: result.projectPath,
+            projectName: result.projectName,
+            workspaceId: result.workspaceId,
+            workspaceName: result.workspaceName,
+            taskId: result.taskId,
+            taskTitle: result.taskTitle,
+            turnId: result.turnId,
+            createdAt: result.createdAt,
+            detail: result.summary,
+            resultReview: result,
+          };
+        }),
+    ]
       .filter(
         (item) => !knownWorkspaceIds || knownWorkspaceIds.has(item.workspaceId),
       )

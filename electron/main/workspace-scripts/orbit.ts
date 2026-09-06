@@ -97,8 +97,7 @@ export function tokenizeOrbitCommand(command: string) {
     }
   };
 
-  for (let index = 0; index < command.length; index += 1) {
-    const char = command[index];
+  for (const char of command) {
 
     if (escaping) {
       current += char;

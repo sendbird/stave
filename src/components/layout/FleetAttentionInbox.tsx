@@ -122,7 +122,7 @@ function FleetNeedRow(args: {
   const detail = getFleetNeedDetail(item);
   const title = getFleetNeedTitle(item);
   const canMarkRead =
-    Boolean(item.notificationId) &&
+    Boolean(item.notificationId || item.resultReview) &&
     (item.kind === "run-failed" || item.kind === "result-ready");
   // An interaction can outlive the turn that asked it. Without an explicit
   // dismiss there is no way to clear it from the attention count. Live-sourced
@@ -195,7 +195,7 @@ function FleetNeedRow(args: {
               disabled={busy}
               onClick={() => args.onMarkRead(item)}
             >
-              {item.kind === "result-ready" ? "Mark reviewed" : "Mark read"}
+              {item.resultReview ? "Mark reviewed" : "Mark read"}
             </Button>
           ) : null}
           {canDismiss ? (

@@ -19,6 +19,20 @@ function sortStrings(values: readonly string[]) {
 }
 
 describe("provider runtime contracts", () => {
+  test("preserves every primary provider on advisor activity while validating the advisor target", () => {
+    for (const primaryProviderId of ["claude-code", "codex", "cursor", "kiro"]) {
+      const event = {
+        type: "advisor_activity",
+        phase: "started",
+        primaryProviderId,
+        advisorProviderId: "codex",
+        at: 1,
+      };
+      expect(NormalizedProviderEventSchema.safeParse(event).success).toBe(true);
+      expect(NormalizedProviderEventSchema.safeParse({ ...event, advisorProviderId: "unsupported" }).success).toBe(false);
+    }
+  });
+
   test("keeps runtime option keys aligned with the IPC schema", () => {
     expect(sortStrings(PROVIDER_RUNTIME_OPTION_KEYS)).toEqual(
       sortStrings(Object.keys(RuntimeOptionsObjectSchema.shape)),
@@ -36,6 +50,36 @@ describe("provider runtime contracts", () => {
     expect(sortStrings(NORMALIZED_PROVIDER_EVENT_TYPES)).toEqual(
       sortStrings(Object.keys(NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE)),
     );
+  });
+
+  test("accepts bounded auto-routing evidence while rejecting invalid targets", () => {
+    const event = {
+      type: "model_resolved",
+      resolvedProviderId: "cursor",
+      resolvedModel: "runtime-default",
+      modelResolution: {
+        selectedProviderId: "codex",
+        selectedModel: "gpt-5.6",
+        source: "classifier",
+        rationale: "The task needs an implementation-capable model.",
+        confidence: 0.91,
+        taskType: "implementation",
+      },
+    } as const;
+
+    expect(NormalizedProviderEventSchema.safeParse(event).success).toBe(true);
+    expect(
+      NormalizedProviderEventSchema.safeParse({
+        ...event,
+        modelResolution: { ...event.modelResolution, confidence: 1.01 },
+      }).success,
+    ).toBe(false);
+    expect(
+      NormalizedProviderEventSchema.safeParse({
+        ...event,
+        modelResolution: { ...event.modelResolution, selectedModel: "" },
+      }).success,
+    ).toBe(false);
   });
 
   test("accepts point-in-time fork and native rename payloads for both providers", () => {

@@ -215,6 +215,7 @@ import type {
 } from "../src/lib/runs/secondary-run";
 import type {
   ChildTaskActionResponse,
+  ChildTaskDelegateArgs,
   ChildTaskDetachArgs,
   ChildTaskFollowUpArgs,
   ChildTaskLinkArgs,
@@ -994,6 +995,8 @@ contextBridge.exposeInMainWorld("api", {
       args: SecondaryRunReceiptListArgs,
     ): Promise<SecondaryRunReceiptList> =>
       ipcRenderer.invoke("runs:list-receipts", args),
+    delegateChildTask: (args: ChildTaskDelegateArgs): Promise<ChildTaskActionResponse> =>
+      ipcRenderer.invoke("runs:delegate-child-task", args),
     listChildTasks: (args: ChildTaskListArgs): Promise<ChildTaskList> =>
       ipcRenderer.invoke("runs:list-child-tasks", args),
     followUpChildTask: (
@@ -1527,7 +1530,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:load-project-registry"),
     upsertWorkspace: (args: { id: string; name: string; snapshot: unknown }) =>
       ipcRenderer.invoke("persistence:upsert-workspace", args),
-    saveProjectRegistry: (args: { projects: unknown[] }) =>
+    saveProjectRegistry: (args: { projects: unknown[]; activeProjectPath?: string | null }) =>
       ipcRenderer.invoke("persistence:save-project-registry", args),
     /**
      * Quit-time flush handshake. `onFlushRequested` fires when main is about to
@@ -1541,12 +1544,33 @@ contextBridge.exposeInMainWorld("api", {
         persistenceFlushSubscribers.delete(listener);
       };
     },
-    notifyFlushComplete: (args: { requestId: number }) =>
+    notifyFlushComplete: (args: { requestId: number; success: boolean }) =>
       ipcRenderer.invoke("persistence:flush-complete", args) as Promise<{
         ok: boolean;
       }>,
     closeWorkspace: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("persistence:close-workspace", args),
+    loadDirectionDraft: (args: { workspaceId: string }) => ipcRenderer.invoke("persistence:load-direction-draft", args),
+    saveDirectionDraft: (args: { workspaceId: string; draft: import("../src/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null }) => ipcRenderer.invoke("persistence:save-direction-draft", args),
+    loadDelegationDraft: (args: {
+      scope: import("../src/lib/collaboration/delegation-draft").DelegationDraftScope;
+    }) => ipcRenderer.invoke("persistence:load-delegation-draft", args),
+    saveDelegationDraft: (args: {
+      scope: import("../src/lib/collaboration/delegation-draft").DelegationDraftScope;
+      draft: import("../src/lib/collaboration/delegation-draft").DelegationDraft | null;
+    }) => ipcRenderer.invoke("persistence:save-delegation-draft", args),
+    clearAcceptedDelegationDraft: (args: {
+      scope: import("../src/lib/collaboration/delegation-draft").DelegationDraftScope;
+      delegationKey: string;
+    }) =>
+      ipcRenderer.invoke(
+        "persistence:clear-accepted-delegation-draft",
+        args,
+      ),
+    listResultReviews: (args?: import("../src/lib/reviews/result-review").ListResultReviewsArgs) =>
+      ipcRenderer.invoke("persistence:list-result-reviews", args ?? {}),
+    setResultReviewed: (args: import("../src/lib/reviews/result-review").SetResultReviewedArgs) =>
+      ipcRenderer.invoke("persistence:set-result-reviewed", args),
     listNotifications: (args?: { limit?: number; unreadOnly?: boolean }) =>
       ipcRenderer.invoke("persistence:list-notifications", args ?? {}),
     createNotification: (args: { notification: AppNotificationCreateInput }) =>

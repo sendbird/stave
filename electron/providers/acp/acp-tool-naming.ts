@@ -131,10 +131,10 @@ export function deriveAcpToolPresentation(args: {
   if (canonicalName) {
     toolName = canonicalName;
     targetKeys = ACP_KIND_TARGET_KEYS[kind] ?? DEFAULT_TARGET_KEYS;
-  } else if (findTargetKey(record, ACP_KIND_TARGET_KEYS.execute)) {
+  } else if (findTargetKey(record, ACP_KIND_TARGET_KEYS.execute ?? DEFAULT_TARGET_KEYS)) {
     /* Agents that omit `kind` still send `command` for shells. */
     toolName = "Bash";
-    targetKeys = ACP_KIND_TARGET_KEYS.execute;
+    targetKeys = ACP_KIND_TARGET_KEYS.execute ?? DEFAULT_TARGET_KEYS;
   } else if (isLabelLikeTitle(title)) {
     /* Short labels (MCP tool names, "Fetch rules") already read like a name, so
        they stay in the title and the input is passed through untouched. */
@@ -148,7 +148,7 @@ export function deriveAcpToolPresentation(args: {
     targetKeys = DEFAULT_TARGET_KEYS;
   }
 
-  const canonicalKey = targetKeys[0];
+  const canonicalKey = targetKeys[0] ?? "description";
   const matchedKey = findTargetKey(record, targetKeys);
 
   if (record && matchedKey) {

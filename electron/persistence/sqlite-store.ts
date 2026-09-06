@@ -25,6 +25,8 @@ import type {
   PersistenceNotificationCreateInput,
   PersistenceNotificationRecord,
   PersistenceTurnSummary,
+  PersistenceTurnUsage,
+  PersistedWorkspaceShellPayload,
   PersistenceWorkspaceSnapshot,
   PersistenceWorkspaceSummary,
 } from "./types";
@@ -62,6 +64,9 @@ import type {
 } from "../../src/lib/tracker-tasks/types";
 import { TaskHeartbeatStore } from "./task-heartbeat-store";
 import { ProjectMemoryStore } from "./project-memory-store";
+import { ResultReviewStore } from "./result-review-store";
+import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
+import { DelegationDraftStore } from "./delegation-drafts";
 import type { ProjectMemoryKind } from "../../src/lib/project-memory";
 import type {
   TaskHeartbeat,
@@ -86,15 +91,6 @@ interface WorkspaceMetaRow {
 
 interface WorkspaceSnapshotRow {
   snapshot_json: string;
-}
-
-interface PersistedWorkspaceShellPayload extends Omit<
-  PersistenceWorkspaceShell,
-  "editorTabs"
-> {
-  editorTabs?: PersistenceWorkspaceShell["editorTabs"];
-  editorTabsArtifactId?: string | null;
-  editorTabsArtifactRelativePath?: string | null;
 }
 
 interface WorkspaceMessageRow {
@@ -214,6 +210,9 @@ export class SqliteStore {
   private martinSyncOutbox: MartinSyncOutboxStore;
   private taskHeartbeats: TaskHeartbeatStore;
   private projectMemories: ProjectMemoryStore;
+  readonly resultReviews: ResultReviewStore;
+  readonly directionDrafts: WorkspaceDirectionDraftStore;
+  readonly delegationDrafts: DelegationDraftStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -252,6 +251,9 @@ export class SqliteStore {
     this.db.pragma("busy_timeout = 5000");
     this.db.pragma("wal_autocheckpoint = 1000");
     this.bootstrap();
+    this.resultReviews = new ResultReviewStore(this.db);
+    this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
+    this.delegationDrafts = new DelegationDraftStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
     this.trackerTasks = new TrackerTasksStore(this.db, {
@@ -1018,7 +1020,7 @@ export class SqliteStore {
 
   private parseWorkspacePayload(args: {
     snapshotJson: string;
-  }): PersistenceWorkspaceShell | PersistenceWorkspaceSnapshot {
+  }): PersistedWorkspaceShellPayload | PersistenceWorkspaceSnapshot {
     return JSON.parse(args.snapshotJson) as
       PersistedWorkspaceShellPayload | PersistenceWorkspaceSnapshot;
   }
@@ -1065,7 +1067,6 @@ export class SqliteStore {
       promptDraftByTask: {},
       reviewCommentsByTask: {},
       providerSessionByTask: {},
-      editorTabs,
       activeEditorTabId: null,
       terminalTabs: [],
       activeTerminalTabId: null,
@@ -1100,7 +1101,6 @@ export class SqliteStore {
       promptDraftByTask: {},
       reviewCommentsByTask: {},
       providerSessionByTask: {},
-      editorTabs,
       activeEditorTabId: null,
       terminalTabs: [],
       activeTerminalTabId: null,
@@ -2038,9 +2038,16 @@ export class SqliteStore {
     return JSON.parse(row.value_json) as PersistenceProjectRegistryEntry[];
   }
 
-  saveProjectRegistry(args: { projects: PersistenceProjectRegistryEntry[] }) {
+  loadActiveProjectPath(): string | null | undefined {
+    const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = ?").get("active_project_path") as JsonValueRow | undefined;
+    if (!row) return undefined;
+    const value: unknown = JSON.parse(row.value_json);
+    return typeof value === "string" ? value : null;
+  }
+
+  saveProjectRegistry(args: { projects: PersistenceProjectRegistryEntry[]; activeProjectPath?: string | null }) {
     const now = new Date().toISOString();
-    this.db
+    const write = this.db
       .prepare(
         `
       INSERT INTO app_state (key, value_json, updated_at)
@@ -2049,8 +2056,13 @@ export class SqliteStore {
         value_json = excluded.value_json,
         updated_at = excluded.updated_at
     `,
-      )
-      .run("project_registry", JSON.stringify(args.projects), now);
+      );
+    this.db.transaction(() => {
+      write.run("project_registry", JSON.stringify(args.projects), now);
+      if (args.activeProjectPath !== undefined) {
+        write.run("active_project_path", JSON.stringify(args.activeProjectPath), now);
+      }
+    })();
   }
 
   loadRoutineState(): RoutineState {

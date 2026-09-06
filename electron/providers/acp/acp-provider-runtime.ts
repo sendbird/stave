@@ -20,6 +20,7 @@ import {
 } from "./acp-protocol";
 import {
   AcpRequestPermissionSchema,
+  AcpConfigSelectGroupSchema,
   normalizeAcpPromptUsage,
 } from "./acp-schemas";
 import { deriveAcpToolPresentation } from "./acp-tool-naming";
@@ -140,10 +141,11 @@ function listConfigOptionValues(
 ) {
   const values: string[] = [];
   for (const item of option.options ?? []) {
-    if ("value" in item) {
+    if (typeof item.value === "string") {
       values.push(item.value);
     } else {
-      values.push(...item.options.map((nested) => nested.value));
+      const group = AcpConfigSelectGroupSchema.safeParse(item);
+      if (group.success) values.push(...group.data.options.map((nested) => nested.value));
     }
   }
   return values;
@@ -672,7 +674,7 @@ export async function streamAcpProviderTurn(args: {
     try {
       result = await client.prompt({
         sessionId: session.sessionId,
-        prompt: [{ type: "text", text: prompt }, ...nativeImages.blocks],
+        prompt: [{ type: "text", text: prompt }, ...nativeImages.blocks.map((block) => ({ ...block }))],
         legacyContentPrompt: [{ type: "text", text: prompt }],
         parameterName: profile.promptParameterName,
       });

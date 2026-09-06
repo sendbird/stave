@@ -1,3 +1,4 @@
+import { WorkspaceWelcome } from "./WorkspaceWelcome";
 import {
   Suspense,
   lazy,
@@ -1446,9 +1447,18 @@ export function AppShell() {
                       <TasksView onClose={closeTasks} />
                     </Suspense>
                   ) : (
-                    <RenderProfiler id="WorkspacePaneHost" thresholdMs={10}>
-                      <WorkspacePaneHost />
-                    </RenderProfiler>
+                    <div className={sx(appShellStyles.paneHostFrame)}>
+                      <div
+                        className={sx(appShellStyles.paneHostInert)}
+                        inert={!hasProjectContext}
+                        aria-hidden={!hasProjectContext || undefined}
+                      >
+                        <RenderProfiler id="WorkspacePaneHost" thresholdMs={10}>
+                          <WorkspacePaneHost />
+                        </RenderProfiler>
+                      </div>
+                      {!hasProjectContext ? <WorkspaceWelcome /> : null}
+                    </div>
                   )}
                 </div>
               </div>

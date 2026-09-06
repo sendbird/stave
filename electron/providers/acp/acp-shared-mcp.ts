@@ -181,13 +181,13 @@ export function claudeServerToAcpDescriptor(args: {
   if (args.config.type === "sse") {
     return null;
   }
-  if (args.config.type === "http" || "url" in args.config) {
+  if ("url" in args.config && typeof args.config.url === "string") {
     const url = expandEnvReferences(args.config.url, args.env);
     if (!url || /\$\{[A-Za-z_][A-Za-z0-9_]*\}/.test(url)) {
       return null;
     }
     const headers = Object.fromEntries(
-      Object.entries(asStringRecord(args.config.headers)).map(
+      Object.entries(asStringRecord("headers" in args.config ? args.config.headers : undefined)).map(
         ([name, value]) => [name, expandEnvReferences(value, args.env)],
       ),
     );
@@ -446,11 +446,11 @@ export async function resolveNativeMcpRouteIndex(args: {
   env?: Record<string, string | undefined>;
   homeDirectory?: string;
 }): Promise<NativeMcpRouteIndex> {
-  const [userServers, workspaceServers] = await Promise.all(
+  const serverMaps = await Promise.all(
     getTargetNativeMcpPaths(args).map(readOptionalMcpServerMap),
   );
   const merged = new Map<string, { name: string; value: unknown }>();
-  for (const servers of [userServers, workspaceServers]) {
+  for (const servers of serverMaps) {
     for (const [name, value] of Object.entries(servers)) {
       const key = normalizeServerName(name);
       if (key) merged.set(key, { name, value });
@@ -494,7 +494,7 @@ function collectReferencedEnvNames(args: {
   };
   for (const server of Object.values(args.claudeServers)) {
     if ("url" in server) collect(server.url);
-    for (const value of Object.values(asStringRecord(server.headers))) {
+    for (const value of Object.values(asStringRecord("headers" in server ? server.headers : undefined))) {
       collect(value);
     }
     if ("env" in server) {

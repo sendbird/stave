@@ -108,7 +108,8 @@ async function getClaudeConnectedToolStatus(args: {
     runtimeOptions: args.runtimeOptions,
   });
 
-  if (!reloadResult.ok || !reloadResult.reload) {
+  const reload = reloadResult.reload;
+  if (!reloadResult.ok || !reload) {
     return {
       ok: false,
       providerId: "claude-code",
@@ -129,7 +130,7 @@ async function getClaudeConnectedToolStatus(args: {
     tools: toolIds.map((toolId) => mapClaudeMcpStatus({
       toolId,
       providerId: "claude-code",
-      reload: reloadResult.reload,
+      reload,
     })),
   };
 }

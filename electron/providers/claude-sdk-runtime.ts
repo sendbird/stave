@@ -31,6 +31,7 @@ import { modelAcceptsExplicitEffort } from "../../src/lib/providers/model-effort
 import {
   DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE,
   type ClaudePlanModeApprovalScope,
+  type UserInputQuestion,
 } from "../../src/types/chat";
 import {
   markRecommendedUserInputOptions,
@@ -157,7 +158,6 @@ const ClaudePermissionResultSchema = z.union([
   z.object({
     behavior: z.literal("allow"),
     updatedInput: z.record(z.string(), z.unknown()),
-    updatedPermissions: z.array(z.unknown()).optional(),
   }),
   z.object({
     behavior: z.literal("deny"),
@@ -379,7 +379,7 @@ function resolveClaudeRuntimeExecutablePath(args: {
 }
 
 /**
- * Trigger eager SDK module import and executable path resolution.
+ * Trigger eager SDK module import.
  * Call this early (e.g. at app startup) so the first query() is fast.
  * Safe to call multiple times — subsequent calls are no-ops.
  */
@@ -388,7 +388,9 @@ export function prewarmClaudeSdk(): void {
     // Reset so next attempt retries
     prewarmSdkModulePromise = null;
   });
-  getPrewarmedExecutablePath();
+  // CLI discovery invokes login shells and candidate version probes. Resolve
+  // it when needed instead of blocking the host's ready handshake and every
+  // unrelated request during startup.
 }
 
 function resolveClaudePermissionMode(args: {
@@ -1651,7 +1653,7 @@ export function shouldAutoAcceptClaudeElicitation(args: {
 
 function mapClaudeElicitationToUserInput(
   request: Parameters<OnElicitation>[0],
-) {
+): { mode: "url" | "form"; questions: UserInputQuestion[]; fields: ClaudeElicitationFieldDescriptor[] } | null {
   const mode = request.mode === "url" ? "url" : "form";
   const message =
     request.message.trim() || "Additional input is required to continue.";
@@ -1708,7 +1710,7 @@ function mapClaudeElicitationToUserInput(
   }
 
   const requiredKeys = new Set(
-    Array.isArray(requestedSchema.required)
+    Array.isArray(requestedSchema?.required)
       ? requestedSchema.required.filter(
           (value): value is string => typeof value === "string",
         )
@@ -1797,7 +1799,7 @@ function mapClaudeUserDialogToUserInput(request: Parameters<OnUserDialog>[0]) {
         allowCustom: true,
         required: true,
         placeholder: "Fallback prompt",
-        defaultValue,
+        defaultValue: defaultValue ?? undefined,
       },
     ],
   };
@@ -2487,13 +2489,13 @@ function toClaudePluginReloadSnapshot(reload: SDKControlReloadPluginsResponse) {
       path: plugin.path,
       ...(plugin.source ? { source: plugin.source } : {}),
     })),
-    mcpServers: reload.mcpServers.map(toClaudeMcpServerStatusSnapshot),
+    mcpServers: reload.mcpServers.map((status) => toClaudeMcpServerStatusSnapshot(status)),
     errorCount: reload.error_count,
   };
 }
 
 function buildClaudeTaskProgressEvents(
-  message: SDKSystemMessage & {
+  message: Extract<SDKMessage, { type: "system" }> & {
     subtype?: string;
     summary?: string;
   },
@@ -2788,7 +2790,7 @@ function buildClaudeUsageEvent(resultMsg: SDKResultMessage): BridgeEvent {
     ...(typeof resultMsg.total_cost_usd === "number"
       ? { totalCostUsd: resultMsg.total_cost_usd }
       : {}),
-    ...(typeof resultMsg.ttft_ms === "number"
+    ...("ttft_ms" in resultMsg && typeof resultMsg.ttft_ms === "number"
       ? { ttftMs: resultMsg.ttft_ms }
       : {}),
   };
@@ -3016,8 +3018,11 @@ export type ClaudeOwnerAgentIdResolver = {
   resolveOwnerAgentId(toolUseId: string | undefined): string | undefined;
 };
 
+// Kept for transport adapters that report a failure outside the SDK union.
+type ClaudeIncomingMessage = SDKMessage | { type: "error"; message?: unknown };
+
 export function mapClaudeMessageToEvents(args: {
-  message: SDKMessage;
+  message: ClaudeIncomingMessage;
   claudeDebugStream: boolean;
   cwd?: string;
   planState?: ClaudePlanStreamState;
@@ -3027,11 +3032,20 @@ export function mapClaudeMessageToEvents(args: {
   const { message, claudeDebugStream } = args;
 
   if (message.type === "system") {
-    const sysMsg = message as SDKSystemMessage & {
+    const sysMsg = message as Extract<SDKMessage, { type: "system" }> & {
       subtype?: string;
       content?: string;
       summary?: string;
     };
+    if (sysMsg.subtype === "plugin_install") {
+      if (sysMsg.status === "installed" && sysMsg.name) {
+        return [{ type: "system", content: `Plugin installed: ${sysMsg.name}` }];
+      }
+      if (sysMsg.status === "failed" && sysMsg.name) {
+        return [{ type: "system", content: `Plugin install failed: ${sysMsg.name}${sysMsg.error ? ` — ${sysMsg.error}` : ""}` }];
+      }
+      return [];
+    }
     if (sysMsg.subtype === "permission_denied") {
       const denied = message as SDKPermissionDeniedMessage;
       return [
@@ -3544,45 +3558,8 @@ export function mapClaudeMessageToEvents(args: {
     return [];
   }
 
-  // plugin_install — headless plugin installation progress (SDK 0.2.110+).
-  // Subtype lives under the system message umbrella but arrives with type set
-  // directly. Surface completed installs as system events; silence the rest.
-  if (
-    message.type === "system" &&
-    (message as { subtype?: string }).subtype === "plugin_install"
-  ) {
-    const pluginMsg = message as {
-      status: "started" | "installed" | "failed" | "completed";
-      name?: string;
-      error?: string;
-    };
-    if (pluginMsg.status === "installed" && pluginMsg.name) {
-      return [
-        { type: "system", content: `Plugin installed: ${pluginMsg.name}` },
-      ];
-    }
-    if (pluginMsg.status === "failed" && pluginMsg.name) {
-      return [
-        {
-          type: "system",
-          content: `Plugin install failed: ${pluginMsg.name}${pluginMsg.error ? ` — ${pluginMsg.error}` : ""}`,
-        },
-      ];
-    }
-    return [];
-  }
-
-  if (
-    message.type === "auth_status" ||
-    message.type === "task_notification" ||
-    message.type === "task_started" ||
-    message.type === "task_progress" ||
-    message.type === "files_persisted" ||
-    message.type === "session_state_changed"
-  ) {
-    if (claudeDebugStream) {
-      console.debug("[claude-sdk-runtime] meta", message.type, message);
-    }
+  if (message.type === "auth_status") {
+    if (claudeDebugStream) console.debug("[claude-sdk-runtime] meta", message.type, message);
     return [];
   }
 
@@ -3626,7 +3603,7 @@ export function attachClaudeWorkerExecutionMetadata(args: {
 }
 
 export function resolveClaudeTurnStopReason(args: {
-  message: SDKMessage;
+  message: ClaudeIncomingMessage;
   currentStopReason?: string;
 }): string | undefined {
   if (args.message.type === "result") {
@@ -5006,7 +4983,7 @@ export async function streamClaudeWithSdk(
 ): Promise<BridgeEvent[] | null> {
   const taskKey = args.taskId ?? "default";
   const previousRun = activeRunByTask.get(taskKey) ?? Promise.resolve();
-  let releaseCurrentRun: (() => void) | null = null;
+  let releaseCurrentRun!: () => void;
   const currentRun = new Promise<void>((resolve) => {
     releaseCurrentRun = resolve;
   });
@@ -5022,10 +4999,8 @@ export async function streamClaudeWithSdk(
     string,
     (approved: boolean) => void
   >();
-  const pendingUserInputResolvers = new Map<
-    string,
-    (response: { answers?: Record<string, string>; denied?: boolean }) => void
-  >();
+  type ClaudeUserInputDecision = { answers?: Record<string, string>; denied?: boolean };
+  const pendingUserInputResolvers = new Map<string, (response: ClaudeUserInputDecision) => void>();
   let stream: Query | null = null;
   let inputQueue: SteerableUserMessageQueue | null = null;
   try {
@@ -5310,7 +5285,7 @@ export async function streamClaudeWithSdk(
           };
 
           try {
-            const response = await waitForClaudeToolDecision({
+            const response = await waitForClaudeToolDecision<ClaudeUserInputDecision>({
               signal: options.signal,
               register: (resolve) => {
                 pendingUserInputResolvers.set(requestId, resolve);
@@ -5374,7 +5349,7 @@ export async function streamClaudeWithSdk(
           };
 
           try {
-            const response = await waitForClaudeToolDecision({
+            const response = await waitForClaudeToolDecision<ClaudeUserInputDecision>({
               signal: options.signal,
               register: (resolve) => {
                 pendingUserInputResolvers.set(requestId, resolve);
@@ -5537,7 +5512,7 @@ export async function streamClaudeWithSdk(
             };
 
             try {
-              const response = await waitForClaudeToolDecision({
+              const response = await waitForClaudeToolDecision<ClaudeUserInputDecision>({
                 signal: options.signal,
                 register: (resolve) => {
                   pendingUserInputResolvers.set(requestId, resolve);
@@ -5653,7 +5628,7 @@ export async function streamClaudeWithSdk(
           };
 
           try {
-            const approved = await waitForClaudeToolDecision({
+            const approved = await waitForClaudeToolDecision<boolean>({
               signal: options.signal,
               register: (resolve) => {
                 pendingApprovalResolvers.set(requestId, resolve);
@@ -5831,9 +5806,9 @@ export async function streamClaudeWithSdk(
       }
       if (
         message.type === "system" &&
-        (message as SDKSystemMessage).subtype === "files_persisted"
+        message.subtype === "files_persisted"
       ) {
-        const persistedMessage = message as SDKSystemMessage & {
+        const persistedMessage = message as Extract<SDKMessage, { type: "system" }> & {
           subtype: "files_persisted";
           files?: Array<{ filename?: string }>;
           failed?: Array<{ filename?: string; error?: string }>;
@@ -5862,7 +5837,7 @@ export async function streamClaudeWithSdk(
 
       // Intercept task_progress messages to emit subagent_progress events with
       // toolUseId correlation instead of generic system events.
-      const sysMsg = message as SDKSystemMessage & {
+      const sysMsg = message as Extract<SDKMessage, { type: "system" }> & {
         subtype?: string;
         summary?: string;
       };
@@ -6064,7 +6039,7 @@ export async function streamClaudeWithSdk(
       // stream.close() may throw if already closed — ignore.
     }
 
-    releaseCurrentRun?.();
+    releaseCurrentRun();
     if (activeRunByTask.get(taskKey) === chainedRun) {
       activeRunByTask.delete(taskKey);
     }

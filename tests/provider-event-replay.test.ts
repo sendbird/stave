@@ -7,6 +7,8 @@ import {
   PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE,
   PROVIDER_OUTPUT_OVERFLOW_TRUNCATION_NOTICE,
 } from "@/lib/truncation-visibility";
+import { NormalizedProviderEventSchema } from "@/lib/providers/schemas";
+import { ChatMessageSchema } from "@/lib/task-context/schemas";
 import type { ChatMessage, TextPart } from "@/types/chat";
 
 function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
@@ -22,7 +24,159 @@ function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   };
 }
 
+test("binds split plan rows to the Stave execution and isolates a failed later run", () => {
+  for (const provider of ["claude-code", "codex", "cursor", "kiro"] as const) {
+    const first = replayProviderEventsToTaskState({
+      taskId: "task",
+      messages: [],
+      provider,
+      model: "model",
+      turnId: "stave-first",
+      events: [
+        { type: "text", text: "Preparing" },
+        { type: "plan_ready", planText: "Make the change." },
+        { type: "text", text: "Completed the change." },
+        { type: "done", stop_reason: "end_turn" },
+      ],
+    });
+    expect(first.messages.length).toBeGreaterThan(1);
+    expect(
+      first.messages.every((message) => message.turnId === "stave-first"),
+    ).toBe(true);
+    const second = replayProviderEventsToTaskState({
+      taskId: "task",
+      messages: first.messages,
+      provider,
+      model: "model",
+      turnId: "stave-second",
+      events: [
+        { type: "error", message: "Could not start", recoverable: false },
+        { type: "done", stop_reason: "runtime_failure" },
+      ],
+    });
+    expect(second.messages.slice(0, -1)).toEqual(first.messages);
+    expect(second.messages.at(-1)).toMatchObject({
+      turnId: "stave-second",
+      content: "",
+    });
+  }
+});
+
 describe("appendProviderEventToAssistant", () => {
+  test("persists auto-routing rationale without letting a later adapter resolution replace it", () => {
+    const explicit = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: {
+        type: "model_resolved",
+        resolvedProviderId: "codex",
+        resolvedModel: "gpt-5.6",
+      },
+    });
+    expect(explicit.modelResolution).toBeUndefined();
+
+    const routedEvent = NormalizedProviderEventSchema.parse({
+      type: "model_resolved",
+      resolvedProviderId: "codex",
+      resolvedModel: "gpt-5.6",
+      modelResolution: {
+        selectedProviderId: "codex",
+        selectedModel: "gpt-5.6",
+        source: "classifier",
+        rationale: "The request needs a deeper implementation pass.",
+        confidence: 0.91,
+        taskType: "implementation",
+      },
+    });
+    const routed = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: routedEvent,
+    });
+    const restored = ChatMessageSchema.parse(
+      JSON.parse(JSON.stringify(routed)),
+    );
+    const adapterResolved = appendProviderEventToAssistant({
+      message: restored,
+      event: {
+        type: "model_resolved",
+        resolvedProviderId: "cursor",
+        resolvedModel: "runtime-default",
+      },
+    });
+
+    expect(adapterResolved.providerId).toBe("cursor");
+    expect(adapterResolved.model).toBe("runtime-default");
+    expect(adapterResolved.modelResolution).toEqual({
+      selectedProviderId: "codex",
+      selectedModel: "gpt-5.6",
+      source: "classifier",
+      rationale: "The request needs a deeper implementation pass.",
+      confidence: 0.91,
+      taskType: "implementation",
+    });
+  });
+
+  test("does not classify a recovered capacity warning as terminal failure", () => {
+    const warning = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: {
+        type: "error",
+        message: "Selected model is at capacity.",
+        recoverable: true,
+      },
+    });
+    const completed = appendProviderEventToAssistant({
+      message: warning,
+      event: { type: "done", stop_reason: "end_turn" },
+    });
+
+    expect(completed.terminalStopReason).toBe("end_turn");
+  });
+
+  test("clears a stale stop reason when a persisted row resumes streaming", () => {
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [
+        createMessage({
+          terminalStopReason: "failed",
+          turnId: "turn-1",
+          isStreaming: false,
+        }),
+      ],
+      provider: "codex",
+      model: "gpt-5.6",
+      turnId: "turn-1",
+      events: [{ type: "text", text: "Recovered." }],
+    });
+
+    expect(replayed.messages.at(-1)?.terminalStopReason).toBeUndefined();
+  });
+
+  test("keeps one transcript row when a retrying error becomes terminal", () => {
+    const recovering = appendProviderEventToAssistant({
+      message: createMessage(),
+      event: {
+        type: "error",
+        message: "Selected model is at capacity.",
+        recoverable: true,
+      },
+    });
+    const failed = appendProviderEventToAssistant({
+      message: recovering,
+      event: {
+        type: "error",
+        message: "Selected model is at capacity.",
+        recoverable: false,
+      },
+    });
+
+    expect(failed.parts).toEqual([
+      {
+        type: "system_event",
+        content: "[error] Selected model is at capacity.",
+      },
+    ]);
+  });
+
   test("persists ACP context usage independently from turn tokens", () => {
     const message = appendProviderEventToAssistant({
       message: createMessage(),
@@ -59,6 +213,11 @@ describe("appendProviderEventToAssistant", () => {
           primaryModel: "gpt-5.6-sol",
           presetId: "verified-patch",
           workerModel: "gpt-5.6-terra",
+          requestedWorkerModel: "auto",
+          resolvedWorkerModel: "gpt-5.6-terra",
+          workerModelSource: "preset",
+          workerModelRationale: "Selected by the configured task route.",
+          runtimeWorkerModel: "gpt-5.6-terra-20260901",
           workerEffort: "max",
         },
       },
@@ -68,6 +227,11 @@ describe("appendProviderEventToAssistant", () => {
       type: "tool_use",
       workerExecution: {
         workerModel: "gpt-5.6-terra",
+        requestedWorkerModel: "auto",
+        resolvedWorkerModel: "gpt-5.6-terra",
+        workerModelSource: "preset",
+        workerModelRationale: "Selected by the configured task route.",
+        runtimeWorkerModel: "gpt-5.6-terra-20260901",
         workerEffort: "max",
       },
     });
@@ -1170,6 +1334,46 @@ describe("plan response replay", () => {
       nativeProviderSessionId: "sess-1",
       nativeProviderTurnId: "turn-a",
     });
+  });
+
+  test("carries the executed model and auto-routing target across a same-turn plan split", () => {
+    const modelResolution = {
+      selectedProviderId: "codex" as const,
+      selectedModel: "gpt-5.6",
+      source: "classifier" as const,
+      rationale: "The task needs an implementation-capable model.",
+      confidence: 0.91,
+      taskType: "implementation" as const,
+    };
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [],
+      events: [
+        {
+          type: "model_resolved",
+          resolvedProviderId: "codex",
+          resolvedModel: "gpt-5.6",
+          modelResolution,
+        },
+        {
+          type: "model_resolved",
+          resolvedProviderId: "cursor",
+          resolvedModel: "runtime-default",
+        },
+        { type: "plan_ready", planText: "1. Inspect\n2. Patch" },
+        { type: "text", text: "Shall I proceed?" },
+        { type: "done" },
+      ],
+      provider: "codex",
+      model: "gpt-5.4",
+    });
+
+    expect(replayed.messages).toHaveLength(2);
+    for (const message of replayed.messages) {
+      expect(message.providerId).toBe("cursor");
+      expect(message.model).toBe("runtime-default");
+      expect(message.modelResolution).toEqual(modelResolution);
+    }
   });
 
   test("carries the native turn onto a plan split off from streamed commentary", () => {

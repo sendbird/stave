@@ -1,3 +1,4 @@
+import { createScriptOutputCapture } from "./output-capture";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Execution Engine (Electron main process)
 // ---------------------------------------------------------------------------
@@ -276,22 +277,16 @@ async function runFiniteScript(args: {
 
   // Capture a bounded copy of combined stdout/stderr so turn.completed
   // verification can map failures back to individual changed files.
-  let capturedOutput = "";
-  const captureOutput = (text: string) => {
-    if (capturedOutput.length < 64 * 1024) {
-      capturedOutput += text;
-    }
-  };
+  const outputCapture = createScriptOutputCapture();
 
   let lastExitCode = 0;
 
-  for (let index = 0; index < args.scriptEntry.commands.length; index += 1) {
+  for (const [index, command] of args.scriptEntry.commands.entries()) {
     if (entry.aborted) {
       deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: -1, error: "Aborted", output: capturedOutput };
+      return { ok: false as const, runId, exitCode: -1, error: "Aborted", output: outputCapture.read() };
     }
 
-    const command = args.scriptEntry.commands[index];
     emitScriptEvent({
       workspaceId: args.workspaceId,
       scriptId: args.scriptEntry.id,
@@ -326,13 +321,13 @@ async function runFiniteScript(args: {
         child.stdout?.on("data", (chunk: Buffer) => {
           const text = chunk.toString();
           outputBuffer.push(text);
-          captureOutput(text);
+          outputCapture.append(text);
         });
 
         child.stderr?.on("data", (chunk: Buffer) => {
           const text = chunk.toString();
           outputBuffer.push(text);
-          captureOutput(text);
+          outputCapture.append(text);
         });
 
         child.once("error", (error) => {
@@ -375,7 +370,7 @@ async function runFiniteScript(args: {
         event: { type: "error", error: message },
       });
       deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: -1, error: message, output: capturedOutput };
+      return { ok: false as const, runId, exitCode: -1, error: message, output: outputCapture.read() };
     }
 
     outputBuffer.flush();
@@ -403,7 +398,7 @@ async function runFiniteScript(args: {
         event: { type: "completed", exitCode: lastExitCode },
       });
       deleteWorkspaceScriptProcess(key);
-      return { ok: false as const, runId, exitCode: lastExitCode, output: capturedOutput };
+      return { ok: false as const, runId, exitCode: lastExitCode, output: outputCapture.read() };
     }
   }
 
@@ -416,7 +411,7 @@ async function runFiniteScript(args: {
     event: { type: "completed", exitCode: 0 },
   });
   deleteWorkspaceScriptProcess(key);
-  return { ok: true as const, runId, exitCode: 0, output: capturedOutput };
+  return { ok: true as const, runId, exitCode: 0, output: outputCapture.read() };
 }
 
 async function runServiceScript(args: {
@@ -526,7 +521,7 @@ async function runServiceScript(args: {
   const orbitUsesShellWrapper = Boolean(
     args.scriptEntry.orbit && orbitCommand && !orbitCommandArgs,
   );
-  const commandToRun = orbitLaunchSpec
+  const commandToRun = orbitLaunchSpec && orbitCommand && orbitRunArgs
     ? buildOrbitDisplayCommand({
         portlessCommand: orbitCommand,
         orbitArgs: orbitRunArgs,

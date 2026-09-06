@@ -1,4 +1,5 @@
 import { isLensGuestPartition } from "./browser-session-profile";
+import type { WebPreferences } from "electron";
 
 /**
  * Web preferences a Lens guest is allowed to run with. Every one of these is
@@ -94,12 +95,10 @@ export function decideLensWebviewAttach(args: {
  * Electron adds later are covered by the explicit list above, not by omission.
  */
 export function applyLensWebviewPreferences(
-  target: Record<string, unknown>,
+  target: WebPreferences,
   preferences: LensGuestWebPreferences,
 ): void {
-  for (const [key, value] of Object.entries(preferences)) {
-    target[key] = value;
-  }
+  Object.assign(target, preferences);
 }
 
 /**
@@ -113,8 +112,8 @@ export type LensWebviewAttachTarget = {
     event: "will-attach-webview",
     listener: (
       event: { preventDefault: () => void },
-      webPreferences: Record<string, unknown>,
-      params: Record<string, unknown>,
+      webPreferences: WebPreferences,
+      params: Record<string, string>,
     ) => void,
   ): unknown;
 };

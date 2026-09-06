@@ -117,6 +117,7 @@ describe("selectEvictableLensGuests", () => {
     ];
     expect(ids(selectEvictableLensGuests(sessions, { maxHidden: 1 }))).toEqual([
       "hidden-a",
+      "hidden-b",
     ]);
   });
 
@@ -135,7 +136,21 @@ describe("selectEvictableLensGuests", () => {
           exempt: { workspaceId: "workspace-1", lensSessionId: "just-bound" },
         }),
       ),
-    ).toEqual(["older"]);
+    ).toEqual(["older", "oldest"]);
+  });
+
+  test("allows temporary overflow only when every hidden guest is protected", () => {
+    const sessions = [
+      candidate({ lensSessionId: "busy-a", cdpInFlight: 1 }),
+      candidate({ lensSessionId: "busy-b", cdpInFlight: 1 }),
+      candidate({ lensSessionId: "idle" }),
+    ];
+    expect(ids(selectEvictableLensGuests(sessions, { maxHidden: 1 }))).toEqual([
+      "idle",
+    ]);
+    expect(
+      selectEvictableLensGuests(sessions.slice(0, 2), { maxHidden: 1 }),
+    ).toEqual([]);
   });
 
   test("the exempt match is scoped to a workspace", () => {
@@ -276,7 +291,11 @@ describe("selectIdleLensGuests", () => {
         lastHiddenAtMs: 100,
         lastAgentTouchedAtMs: 900,
       }),
-      candidate({ lensSessionId: "visible", lastHiddenAtMs: 100, visible: true }),
+      candidate({
+        lensSessionId: "visible",
+        lastHiddenAtMs: 100,
+        visible: true,
+      }),
       candidate({ lensSessionId: "busy", lastHiddenAtMs: 100, cdpInFlight: 1 }),
     ];
 

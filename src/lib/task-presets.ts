@@ -5,6 +5,8 @@ import {
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDefaultModelForProvider,
   getProviderLabel,
+  resolveDefaultClaudeEffortForModel,
+  resolveDefaultCodexEffortForModel,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -14,6 +16,26 @@ import {
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 import type { CliSessionContextMode } from "@/lib/terminal/types";
+import type { PromptDraftRuntimeOverrides } from "@/types/chat";
+
+export function resolveTaskPresetRuntimeOverrides(preset: TaskPreset): PromptDraftRuntimeOverrides {
+  if (preset.kind !== "task" || !preset.model) return {};
+  const overrides: PromptDraftRuntimeOverrides = {
+    model: preset.model,
+    modelProviderId: preset.provider,
+    autoRouting: false,
+  };
+  if (preset.provider === "claude-code") {
+    overrides.claudeEffort = CLAUDE_EFFORT_OPTIONS.find(
+      (option) => option.value === preset.effort,
+    )?.value ?? resolveDefaultClaudeEffortForModel({ model: preset.model });
+  } else if (preset.provider === "codex") {
+    overrides.codexReasoningEffort = listCodexEffortOptionsForModel({ model: preset.model }).find(
+      (option) => option.value === preset.effort,
+    )?.value ?? resolveDefaultCodexEffortForModel({ model: preset.model });
+  }
+  return overrides;
+}
 
 /**
  * A user-configurable preset shown in the preset bar that lives between the

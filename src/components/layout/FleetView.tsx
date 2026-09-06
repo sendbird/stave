@@ -42,6 +42,8 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx } from "@/components/ads/utils/stylex";
 import { fleetStyles as styles } from "./fleet-view.styles";
 import { useAppStore } from "@/store/app.store";
+import { setResultReviewed } from "@/lib/reviews/result-review-client";
+import { toast } from "@/lib/notifications/toast";
 
 type FleetProjectView = {
   projectPath: string;
@@ -197,6 +199,10 @@ export function FleetView() {
     items: attentionTargets,
     blockingItems,
     attentionItemsByWorkspaceId,
+    resultReviewError,
+    resultReviewTotal,
+    resultReviewHasMore,
+    refreshResultReviews,
   } = useFleetAttentionProjection();
 
   const nowMs = useCoarseClock();
@@ -344,13 +350,33 @@ export function FleetView() {
 
   const markNeedRead = useCallback(
     (target: FleetAttentionItem) => {
-      if (!target.notificationId) {
+      if (!target.notificationId && !target.resultReview) {
         return;
       }
       setBusyAttentionId(target.id);
-      void markNotificationRead({ id: target.notificationId }).finally(() => {
-        setBusyAttentionId((current) => (current === target.id ? null : current));
-      });
+      const result = target.resultReview;
+      const action = result
+        ? setResultReviewed({
+            projectPath: result.projectPath,
+            workspaceId: result.workspaceId,
+            taskId: result.taskId,
+            turnId: result.turnId,
+            reviewed: true,
+          })
+        : markNotificationRead({ id: target.notificationId! });
+      void action
+        .catch((error: unknown) => {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Review was not saved. Retry.",
+          );
+        })
+        .finally(() => {
+          setBusyAttentionId((current) =>
+            current === target.id ? null : current,
+          );
+        });
     },
     [markNotificationRead],
   );
@@ -527,6 +553,25 @@ export function FleetView() {
         </div>
       </header>
 
+      {resultReviewError ? (
+        <div
+          role="alert"
+          className={sx(styles.notice)}
+        >
+          <span>{resultReviewError}</span>
+          <Button size="sm" variant="outline" onClick={refreshResultReviews}>
+            Retry result reviews
+          </Button>
+        </div>
+      ) : resultReviewHasMore ? (
+        <p
+          role="status"
+          className={sx(styles.noticeMuted)}
+        >
+          Showing the latest 200 of {resultReviewTotal} pending results. Open a
+          task to review its full result history.
+        </p>
+      ) : null}
       <div
         data-fleet-view-root="true"
         className={sx(styles.body)}

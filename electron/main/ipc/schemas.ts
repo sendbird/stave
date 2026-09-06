@@ -1,3 +1,5 @@
+import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
+import { WORKER_PRESET_IDS } from "../../../src/lib/providers/worker-preset-ids";
 import { z } from "zod";
 import {
   RoutineInformationResourceCreateInputSchema,
@@ -350,9 +352,7 @@ export const SecretRevealArgsSchema = z
 export const SuggestTaskNameArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
-    utilityProviderId: z
-      .union([z.literal("auto"), ProviderIdSchema])
-      .optional(),
+    utilityProviderId: z.enum(["auto", "claude-code", "codex"]).optional(),
     activeProviderId: ProviderIdSchema.optional(),
     utilityModel: z.string().max(200).optional(),
     utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
@@ -375,9 +375,7 @@ export const SuggestTaskNameArgsSchema = z
 export const ClassifyRouteArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
-    utilityProviderId: z
-      .union([z.literal("auto"), ProviderIdSchema])
-      .optional(),
+    utilityProviderId: z.enum(["auto", "claude-code", "codex"]).optional(),
     activeProviderId: ProviderIdSchema.optional(),
     utilityModel: z.string().max(200).optional(),
     utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
@@ -403,9 +401,7 @@ export const ClassifyRouteArgsSchema = z
 export const EnhancePromptArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
-    utilityProviderId: z
-      .union([z.literal("auto"), ProviderIdSchema])
-      .optional(),
+    utilityProviderId: z.enum(["auto", "claude-code", "codex"]).optional(),
     activeProviderId: ProviderIdSchema.optional(),
     utilityModel: z.string().max(200).optional(),
     utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
@@ -445,9 +441,7 @@ export const EnhancePromptArgsSchema = z
 export const SuggestCommitMessageArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),
-    utilityProviderId: z
-      .union([z.literal("auto"), ProviderIdSchema])
-      .optional(),
+    utilityProviderId: z.enum(["auto", "claude-code", "codex"]).optional(),
     activeProviderId: ProviderIdSchema.optional(),
     utilityModel: z.string().max(200).optional(),
     utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
@@ -481,7 +475,7 @@ export const ReviewDiffArgsSchema = z
     cwd: z.string().max(4096).optional(),
     baseBranch: z.string().max(200).optional(),
     headBranch: z.string().max(200).optional(),
-    providerId: ProviderIdSchema.optional(),
+    providerId: z.enum(["claude-code", "codex"]).optional(),
     model: z.string().max(200).optional(),
     mode: z.enum(["review", "intent"]).optional(),
     intentContext: z.string().max(8000).optional(),
@@ -1069,7 +1063,7 @@ export const RuntimeOptionsObjectSchema = z
     workerIntent: z
       .object({
         mode: z.literal("task-executor"),
-        presetId: z.string().trim().min(1).max(64),
+        presetId: z.string().trim().pipe(z.enum(WORKER_PRESET_IDS)),
         // "auto" defers to the preset's per-provider recommendation.
         workerModel: z.string().trim().min(1).max(200),
         workerEffort: z.union([
@@ -1153,15 +1147,19 @@ const WorkerExecutionMetadataSchema = z
   .object({
     providerId: ProviderIdSchema,
     primaryModel: z.string().max(200),
-    presetId: z.union([
-      z.literal("patch-hand"),
-      z.literal("verified-patch"),
-      z.literal("sweep"),
-      z.literal("scout"),
-      z.literal("deep-packet"),
-      z.literal("second-pair"),
-    ]),
+    presetId: z.enum(WORKER_PRESET_IDS),
     workerModel: z.string().max(200),
+    requestedWorkerModel: z.string().max(200).optional(),
+    resolvedWorkerModel: z.string().max(200).optional(),
+    workerModelSource: z
+      .union([
+        z.literal("explicit"),
+        z.literal("preset"),
+        z.literal("provider-default"),
+      ])
+      .optional(),
+    workerModelRationale: z.string().max(4_000).optional(),
+    runtimeWorkerModel: z.string().max(200).optional(),
     workerEffort: z.union([
       z.literal("low"),
       z.literal("medium"),
@@ -1908,13 +1906,14 @@ export const PersistenceUpsertArgsSchema = z
   .object({
     id: z.string().min(1).max(200),
     name: z.string().min(1).max(200),
-    snapshot: z.record(z.string(), z.unknown()),
+    snapshot: WorkspaceSnapshotSchema,
   })
   .strict();
 
 export const SaveProjectRegistryArgsSchema = z
   .object({
     projects: z.array(z.record(z.string(), z.unknown())).max(100),
+    activeProjectPath: z.string().trim().min(1).max(4096).nullable().optional(),
   })
   .strict();
 
@@ -2098,7 +2097,8 @@ export const RoutineInformationResourceCreateArgsSchema =
 
 export const PersistenceFlushCompleteArgsSchema = z
   .object({
-    requestId: z.number().int().nonnegative().optional(),
+    requestId: z.number().int().nonnegative(),
+    success: z.boolean(),
   })
   .strict();
 

@@ -74,6 +74,16 @@ describe("Claude MCP OAuth", () => {
 });
 
 describe("mapClaudeMessageToEvents", () => {
+  test("surfaces plugin installation outcomes from SDK system messages", () => {
+    const base = { type: "system", subtype: "plugin_install", uuid: "00000000-0000-0000-0000-000000000001", session_id: "session-1", name: "project-tools" } as const;
+    expect(mapClaudeMessageToEvents({ message: { ...base, status: "installed" }, claudeDebugStream: false })).toEqual([
+      { type: "system", content: "Plugin installed: project-tools" },
+    ]);
+    expect(mapClaudeMessageToEvents({ message: { ...base, status: "failed", error: "Unavailable" }, claudeDebugStream: false })).toEqual([
+      { type: "system", content: "Plugin install failed: project-tools — Unavailable" },
+    ]);
+    expect(mapClaudeMessageToEvents({ message: { ...base, status: "started" }, claudeDebugStream: false })).toEqual([]);
+  });
   test("surfaces Claude init session ids as provider conversation metadata", () => {
     const events = mapClaudeMessageToEvents({
       message: {

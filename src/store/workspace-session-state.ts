@@ -1,3 +1,5 @@
+import { createAcknowledgedWriteQueue } from "@/lib/acknowledged-write-queue";
+import { setWorkspaceSaveFailure } from "@/store/workspace-save-status";
 import { type PersistedTurnSummary } from "@/lib/db/turns.db";
 import {
   type TaskProviderSessionState,
@@ -827,7 +829,7 @@ export function createWorkspaceSnapshot(args: {
   };
 }
 
-export async function persistWorkspaceSnapshot(args: {
+async function persistWorkspaceSnapshotNow(args: {
   workspaceId: string;
   workspaceName: string;
   activeTaskId: string;
@@ -925,42 +927,24 @@ export async function persistWorkspaceSnapshot(args: {
   });
 }
 
-/**
- * Trailing-edge debounce for fire-and-forget `persistWorkspaceSnapshot` calls.
- * Groups by workspaceId — rapid calls for the same workspace are coalesced so
- * only the last snapshot is persisted after a short quiet period.
- */
-const pendingSnapshots = new Map<
-  string,
-  {
-    timer: ReturnType<typeof setTimeout>;
-    args: Parameters<typeof persistWorkspaceSnapshot>[0];
-  }
->();
-const SNAPSHOT_DEBOUNCE_MS = 400;
+type SnapshotWrite = Parameters<typeof persistWorkspaceSnapshotNow>[0];
+const snapshotWrites = createAcknowledgedWriteQueue<string, SnapshotWrite>({
+  write: (_workspaceId, args) => persistWorkspaceSnapshotNow(args),
+  delayMs: 400,
+  onFailure: (workspaceId) => setWorkspaceSaveFailure(workspaceId, true),
+  onSuccess: (workspaceId) => setWorkspaceSaveFailure(workspaceId, false),
+});
 
-export function scheduleWorkspaceSnapshotPersist(
-  args: Parameters<typeof persistWorkspaceSnapshot>[0],
-) {
-  const existing = pendingSnapshots.get(args.workspaceId);
-  if (existing) {
-    clearTimeout(existing.timer);
-  }
-  pendingSnapshots.set(args.workspaceId, {
-    timer: setTimeout(() => {
-      pendingSnapshots.delete(args.workspaceId);
-      void persistWorkspaceSnapshot(args);
-    }, SNAPSHOT_DEBOUNCE_MS),
-    args,
-  });
+/** Direct writes supersede pending snapshots and await earlier writes. */
+export function persistWorkspaceSnapshot(args: SnapshotWrite) {
+  return snapshotWrites.save(args.workspaceId, args);
 }
 
-/** Immediately execute all pending debounced snapshot persists. */
-export async function flushPendingSnapshotPersists() {
-  const entries = Array.from(pendingSnapshots.entries());
-  for (const [workspaceId, entry] of entries) {
-    clearTimeout(entry.timer);
-    pendingSnapshots.delete(workspaceId);
-    await persistWorkspaceSnapshot(entry.args);
-  }
+export function scheduleWorkspaceSnapshotPersist(args: SnapshotWrite) {
+  snapshotWrites.schedule(args.workspaceId, args);
+}
+
+/** Includes in-flight and failed writes, not just active debounce timers. */
+export function flushPendingSnapshotPersists() {
+  return snapshotWrites.flushAll();
 }

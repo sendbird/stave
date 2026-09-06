@@ -19,6 +19,7 @@ import { resolveWorkspaceTodoStatus } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
+import { TaskWorkPanel } from "@/components/session/TaskWorkPanel";
 import { RightRailPanelShell } from "./RightRailPanelShell";
 import { layoutShellStyles } from "./layout-shell.styles";
 import * as stylex from "@stylexjs/stylex";
@@ -1109,6 +1110,7 @@ export function EditorPanel(props: EditorPanelProps) {
             <WorkspaceScriptsPanel onOpenSettings={props.onOpenSettings} />
           ) : null}
           {rightTab === "activity" ? <TurnActivityPanel /> : null}
+          {rightTab === "results" || rightTab === "collaboration" ? <TaskWorkPanel kind={rightTab} /> : null}
         </RightRailPanelShell>
       </div>
       <ConfirmDialog

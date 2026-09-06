@@ -48,6 +48,11 @@ import {
 } from "../electron/providers/codex-runtime-config";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
 import { normalizeCodexTokenUsage } from "../electron/providers/codex-token-usage";
+import {
+  buildCodexTerminalFailureEvents,
+  resolveCodexTurnCompletionStopReason,
+  toCodexUserFacingErrorMessage,
+} from "../electron/providers/codex-app-server-errors";
 
 function encodeJwtPayload(payload: Record<string, unknown>) {
   const encoded = Buffer.from(JSON.stringify(payload))
@@ -1029,14 +1034,22 @@ describe("Codex H1 runtime capability guards", () => {
     });
     // A patch that named no file never opens a row.
     expect(
-      buildCodexFileChangeToolEvent({ itemId: "item-2", item: { changes: [] } }),
+      buildCodexFileChangeToolEvent({
+        itemId: "item-2",
+        item: { changes: [] },
+      }),
     ).toBeNull();
   });
 
   test("settles a completed file change and still emits its diffs", async () => {
     const emitted: unknown[] = [];
     const diffEvents = [
-      { type: "code_diff" as const, filePath: "src/a.ts", oldContent: "", newContent: "a" },
+      {
+        type: "code_diff" as const,
+        filePath: "src/a.ts",
+        oldContent: "",
+        newContent: "a",
+      },
     ];
     let resolveDiffs: () => void = () => {};
     const diffsDone = new Promise<void>((resolve) => {
@@ -1394,6 +1407,50 @@ describe("Codex App Server plan-mode payloads", () => {
 });
 
 describe("summarizeCodexAppServerDebugMessage", () => {
+  test("keeps capacity failures actionable and terminal", () => {
+    expect(
+      toCodexUserFacingErrorMessage({
+        message: JSON.stringify({
+          error: {
+            type: "server_overloaded",
+            message: "Selected model is at capacity.",
+          },
+          status: 503,
+        }),
+      }),
+    ).toBe(
+      "Selected model is at capacity. (status: 503)\nRetry later, or choose another model before resuming.",
+    );
+
+    expect(
+      buildCodexTerminalFailureEvents({
+        message: "Selected model is at capacity.",
+        stopReason: "failed",
+      }),
+    ).toEqual([
+      {
+        type: "error",
+        message:
+          "Selected model is at capacity.\nRetry later, or choose another model before resuming.",
+        recoverable: false,
+      },
+      { type: "done", stop_reason: "failed" },
+    ]);
+
+    expect(
+      resolveCodexTurnCompletionStopReason({
+        status: "interrupted",
+        abortRequested: false,
+      }),
+    ).toBe("interrupted");
+    expect(
+      resolveCodexTurnCompletionStopReason({
+        status: "completed",
+        abortRequested: false,
+      }),
+    ).toBeUndefined();
+  });
+
   test("summarizes app-server error notifications", () => {
     const summary = summarizeCodexAppServerDebugMessage({
       jsonrpc: "2.0",

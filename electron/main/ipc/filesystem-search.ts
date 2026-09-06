@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface FilesystemSearchMatch {
   line: number;
   text: string;
@@ -8,20 +10,10 @@ export interface FilesystemSearchFileResult {
   matches: FilesystemSearchMatch[];
 }
 
-interface RipgrepJsonMatchEvent {
-  type: "match";
-  data?: {
-    line_number?: number;
-    lines?: { text?: string };
-    path?: { text?: string };
-  };
-}
-
-interface RipgrepJsonNonMatchEvent {
-  type: string;
-}
-
-type RipgrepJsonEvent = RipgrepJsonMatchEvent | RipgrepJsonNonMatchEvent;
+const RipgrepJsonMatchSchema = z.object({
+  type: z.literal("match"),
+  data: z.object({ line_number: z.number().int().positive(), lines: z.object({ text: z.string() }), path: z.object({ text: z.string() }) }),
+});
 
 export function normalizeFilesystemSearchQuery(rawQuery: string) {
   const normalizedLineEndings = rawQuery.replace(/\r\n?/g, "\n");
@@ -51,15 +43,13 @@ export function buildFilesystemSearchRgArgs(query: string) {
 export function parseFilesystemSearchMatchLine(
   rawLine: string,
 ): { file: string; match: FilesystemSearchMatch } | null {
-  let event: RipgrepJsonEvent;
+  let event: z.infer<typeof RipgrepJsonMatchSchema>;
 
   try {
-    event = JSON.parse(rawLine) as RipgrepJsonEvent;
+    const parsed = RipgrepJsonMatchSchema.safeParse(JSON.parse(rawLine));
+    if (!parsed.success) return null;
+    event = parsed.data;
   } catch {
-    return null;
-  }
-
-  if (event.type !== "match") {
     return null;
   }
 

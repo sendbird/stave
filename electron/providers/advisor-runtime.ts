@@ -601,7 +601,7 @@ export async function runAdvisorCall(args: {
         ? runners.runClaude({
             cwd: args.cwd,
             prompt: args.prompt,
-            effort: resolveAdvisorEffort(target),
+            effort: resolveAdvisorEffort({ ...target, providerId: "claude-code" }),
             model: target.model,
             runtimeOptions: {
               model: target.model,

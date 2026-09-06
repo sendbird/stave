@@ -40,8 +40,9 @@ function resolveFileAccessMode(args: {
   planMode?: boolean;
   fallback: "read-only" | "workspace-write" | "danger-full-access";
 }) {
+  const candidate = args.runtimeValue ?? args.envValue;
   return resolveEffectiveCodexFileAccessMode({
-    fileAccessMode: args.runtimeValue ?? args.envValue,
+    fileAccessMode: candidate === "read-only" || candidate === "workspace-write" || candidate === "danger-full-access" ? candidate : undefined,
     planMode: args.planMode,
     fallback: args.fallback,
   });

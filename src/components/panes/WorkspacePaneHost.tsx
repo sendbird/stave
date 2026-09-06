@@ -17,6 +17,7 @@ import {
 } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { openTaskInspection } from "@/components/session/task-inspection-navigation";
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { PaneHeaderActions } from "@/components/panes/PaneHeaderActions";
@@ -489,6 +490,16 @@ function buildTabContextMenuItems(
 
   if (surface.kind === "task") {
     items.push("separator");
+    items.push({
+      label: "View results",
+      action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "results"),
+    });
+    if (!isManagedTask) {
+      items.push({
+        label: "View collaboration",
+        action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "collaboration"),
+      });
+    }
     if (isManagedTask) {
       items.push({
         label: "Take Over",

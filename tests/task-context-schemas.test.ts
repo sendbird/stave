@@ -45,6 +45,48 @@ function createWorkspaceBase() {
 }
 
 describe("task-context workspace schemas", () => {
+  test("corrupt saved pins and worker preset keep the task draft and its textual evidence", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        messagesByTask: {},
+        promptDraftByTask: {
+          "task-1": {
+            text: "Continue the review",
+            attachedFilePaths: [],
+            runtimeOverrides: {
+              workerConfigByProvider: {
+                codex: { presetId: "unknown", model: "preserved-model" },
+              },
+            },
+            attachments: [
+              {
+                kind: "lens-annotations",
+                id: "lens-1",
+                workspaceId: "workspace-1",
+                lensSessionId: "session-1",
+                label: "Visual feedback",
+                count: 1,
+                summary: "Fix spacing",
+                content: "The header is cramped",
+                annotations: [{ broken: true }],
+              },
+            ],
+          },
+        },
+      },
+    });
+    const draft = parsed?.promptDraftByTask["task-1"];
+    expect(draft?.text).toBe("Continue the review");
+    expect(draft?.attachments?.[0]).toMatchObject({
+      content: "The header is cramped",
+      summary: "Fix spacing",
+    });
+    expect(draft?.runtimeOverrides?.workerConfigByProvider?.codex).toEqual({
+      model: "preserved-model",
+      presetId: undefined,
+    });
+  });
   test("accepts legacy session ids and persisted session cursors", () => {
     const parsed = parseWorkspaceShell({
       payload: {
@@ -129,7 +171,28 @@ describe("task-context workspace schemas", () => {
                   sessionReused: true,
                 },
               ],
-              parts: [{ type: "text", text: "Done." }],
+              parts: [
+                { type: "text", text: "Done." },
+                {
+                  type: "tool_use",
+                  toolUseId: "worker-1",
+                  toolName: "Worker",
+                  input: "Inspect the implementation.",
+                  output: "Done.",
+                  state: "output-available",
+                  workerExecution: {
+                    providerId: "kiro",
+                    primaryModel: "kiro-primary",
+                    presetId: "verified-patch",
+                    workerModel: "configured-worker",
+                    requestedWorkerModel: "auto",
+                    resolvedWorkerModel: "configured-worker",
+                    workerModelSource: "preset",
+                    runtimeWorkerModel: "runtime-worker",
+                    workerEffort: "max",
+                  },
+                },
+              ],
             },
           ],
         },
@@ -170,6 +233,16 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.providerSessionByTask["task-kiro"]?.kiro).toBe(
       "kiro-session-1",
     );
+    expect(parsed?.messagesByTask["task-kiro"]?.[0]?.parts[1]).toMatchObject({
+      type: "tool_use",
+      workerExecution: {
+        providerId: "kiro",
+        requestedWorkerModel: "auto",
+        resolvedWorkerModel: "configured-worker",
+        workerModelSource: "preset",
+        runtimeWorkerModel: "runtime-worker",
+      },
+    });
   });
 
   test("preserves recommended user-input options across workspace parsing", () => {
@@ -222,9 +295,7 @@ describe("task-context workspace schemas", () => {
       },
     });
 
-    expect(
-      parsed?.messagesByTask["task-1"]?.[0]?.parts[0],
-    ).toMatchObject({
+    expect(parsed?.messagesByTask["task-1"]?.[0]?.parts[0]).toMatchObject({
       type: "user_input",
       questions: [
         {
@@ -399,6 +470,7 @@ describe("task-context workspace schemas", () => {
               providerId: "codex",
               nativeProviderSessionId: "thread-1",
               nativeProviderTurnId: "turn-1",
+              turnId: "stave-turn-1",
               content: "Done.",
               parts: [{ type: "text", text: "Done." }],
             },
@@ -410,6 +482,7 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.messagesByTask["task-1"]?.[0]).toMatchObject({
       nativeProviderSessionId: "thread-1",
       nativeProviderTurnId: "turn-1",
+      turnId: "stave-turn-1",
     });
   });
 

@@ -64,7 +64,7 @@ const AcpConfigSelectOptionSchema = z
   })
   .passthrough();
 
-const AcpConfigSelectGroupSchema = z
+export const AcpConfigSelectGroupSchema = z
   .object({
     group: z.string(),
     name: z.string(),

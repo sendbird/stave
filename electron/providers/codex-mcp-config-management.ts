@@ -59,7 +59,7 @@ function isBaseCodexUserLayer(layer: Record<string, unknown>) {
 function parseCodexUserLayer(response: unknown): CodexUserConfigLayer {
   const root = asMcpRecord(response) ?? {};
   const layers = Array.isArray(root.layers)
-    ? root.layers.map(asMcpRecord).filter(Boolean)
+    ? root.layers.map(asMcpRecord).filter((layer): layer is Record<string, unknown> => layer !== null)
     : [];
   const layer = layers.find(isBaseCodexUserLayer);
   if (!layer) {
@@ -258,7 +258,8 @@ export function toCodexShareDraft(args: { name: string; value: unknown }): {
   };
 }
 
-function assertCodexMutationShape(args: McpServerConfigMutationRequest) {
+function assertCodexMutationShape(args: McpServerConfigMutationRequest): asserts args is McpServerConfigMutationRequest & { operation: "create" | "update" | "delete" } {
+    if (args.operation === "share") throw new Error("Sharing uses the dedicated MCP sharing flow.");
   if (args.operation === "create") {
     if (!args.draft || args.target) {
       throw new Error("Create requires a new MCP server configuration.");

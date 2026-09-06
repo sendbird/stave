@@ -4,7 +4,7 @@ import {
   closeWorkspacePersistence,
   listWorkspaceSummaries,
   loadTaskMessagesPage,
-  loadProjectRegistrySnapshot,
+  loadProjectRegistryState,
   loadWorkspaceShellForRestore,
   loadWorkspaceShellSummary,
   saveProjectRegistrySnapshot,
@@ -63,6 +63,7 @@ import {
   persistWorkspaceSnapshot,
 } from "@/store/workspace-session-state";
 import { TASK_MESSAGES_PAGE_SIZE } from "@/store/task-message-loading";
+import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
 import {
   shouldPreferLoadedWorkspaceState,
   shouldReloadWorkspaceShellFromPersistence,
@@ -225,7 +226,7 @@ export const loadWorkspaceSessionFromPersistence = async (args: {
   const workspaceState = buildWorkspaceSessionStateFromShell({
     shell,
     messagesByTask: Object.fromEntries(
-      pageEntries.map(({ taskId, page }) => [taskId, page.messages] as const),
+      pageEntries.map(({ taskId, page }) => [taskId, trimPersistedMessageWindow({ messages: page.messages })] as const),
     ),
     messageCountByTaskOverrides: Object.fromEntries(
       pageEntries.map(({ taskId, page }) => [taskId, page.totalCount] as const),
@@ -267,13 +268,32 @@ export function createWorkspaceHydrationActions(args: {
 
   return {
     hydrateProjectRegistry: async () => {
-      const rawPersistedProjects =
-        (await loadProjectRegistrySnapshot()) as RecentProjectState[];
+      const registry = await loadProjectRegistryState();
+      const rawPersistedProjects = registry.projects as RecentProjectState[];
       const persistedProjects = normalizeRecentProjectStates({
         projects: rawPersistedProjects,
       });
       if (persistedProjects.length === 0) {
         return;
+      }
+      // Chromium's lightweight selection cache can be absent after a crash.
+      // Restore the acknowledged selection without opening a different project
+      // over a user's in-flight selection. An explicit null stays unselected.
+      const restoredProject = registry.activeProjectPath
+        ? persistedProjects.find((project) => project.projectPath === registry.activeProjectPath)
+        : undefined;
+      if (!get().projectPath && restoredProject) {
+        set((current) => current.projectPath ? current : ({
+          projectPath: restoredProject.projectPath,
+          projectName: restoredProject.projectName,
+          defaultBranch: restoredProject.defaultBranch,
+          workspaces: restoredProject.workspaces,
+          activeWorkspaceId: restoredProject.activeWorkspaceId,
+          workspaceBranchById: restoredProject.workspaceBranchById,
+          workspacePathById: restoredProject.workspacePathById,
+          workspaceDefaultById: restoredProject.workspaceDefaultById,
+          workspaceLastActiveAtById: restoredProject.workspaceLastActiveAtById ?? {},
+        }));
       }
       const state = get();
       const mergedProjects = mergeRecentProjectsByPath({
@@ -333,6 +353,7 @@ export function createWorkspaceHydrationActions(args: {
       });
       await saveProjectRegistrySnapshot({
         projects,
+        activeProjectPath: state.projectPath,
       });
     },
     hydrateWorkspaces: async () => {
@@ -1171,7 +1192,12 @@ export function createWorkspaceHydrationActions(args: {
       });
 
       set((current) => {
-        if (current.activeWorkspaceId !== workspaceId) {
+        if (
+          current.activeWorkspaceId !== workspaceId ||
+          current.messagesByTask !== state.messagesByTask
+        ) {
+          // Messages arriving while the write was in flight are not covered
+          // by its acknowledgement. Never evict those unsaved rows.
           return current;
         }
         const compactedMessagesByTask = compactLoadedMessagesByTask({

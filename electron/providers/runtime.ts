@@ -38,7 +38,7 @@ import {
   listCodexSlashCommands,
 } from "../../src/lib/providers/codex-command-catalog";
 import { randomUUID } from "node:crypto";
-import { probeExecutableVersion } from "./runtime-shared";
+import { runExecutableProbe } from "./runtime-shared";
 import {
   createEmptyProviderRuntimeCapabilities,
   extractRuntimeVersion,
@@ -317,7 +317,7 @@ async function deliverResponderResult<
   requestId: string;
   selectResponder: (session: ActiveRuntimeSession) => Responder | undefined;
   invoke: (
-    responder: Responder,
+    responder: NoInfer<Responder>,
   ) => ProviderResponderResult | Promise<ProviderResponderResult>;
   timeoutMs?: number;
 }): Promise<{ ok: boolean; message: string; timedOut?: boolean }> {
@@ -440,7 +440,7 @@ function clearActiveTaskSessions(args: { taskId: string }) {
   }
 }
 
-function describeClaudeAvailability(
+async function describeClaudeAvailability(
   args: { runtimeOptions?: StreamTurnArgs["runtimeOptions"] } = {},
 ) {
   const executablePath = resolveClaudeExecutablePath({
@@ -455,8 +455,11 @@ function describeClaudeAvailability(
     };
   }
 
-  const versionProbe = probeExecutableVersion({
+  const versionProbe = await runExecutableProbe({
     executablePath,
+    commandArgs: ["--version"],
+    timeoutMs: 2_000,
+    maxBytes: 64 * 1024,
     env: buildClaudeEnv({ executablePath }),
   });
   const available = versionProbe.status === 0;
@@ -482,7 +485,7 @@ function describeClaudeAvailability(
   };
 }
 
-function describeCodexAvailability(
+async function describeCodexAvailability(
   args: { runtimeOptions?: StreamTurnArgs["runtimeOptions"] } = {},
 ) {
   const executablePath = resolveCodexExecutablePath({
@@ -497,8 +500,11 @@ function describeCodexAvailability(
     };
   }
 
-  const versionProbe = probeExecutableVersion({
+  const versionProbe = await runExecutableProbe({
     executablePath,
+    commandArgs: ["--version"],
+    timeoutMs: 2_000,
+    maxBytes: 64 * 1024,
     env: buildCodexCliEnv({ executablePath }),
   });
   const available = versionProbe.status === 0;
@@ -893,7 +899,7 @@ async function runProviderTurn(
         ? { primaryModel: args.runtimeOptions.model }
         : {}),
       consultLimit,
-      cwd: args.cwd,
+      cwd: args.cwd ?? process.cwd(),
       runtimeOptions: {
         ...(args.runtimeOptions?.claudeBinaryPath
           ? { claudeBinaryPath: args.runtimeOptions.claudeBinaryPath }
@@ -1049,7 +1055,7 @@ async function runProviderTurn(
       turnId,
       ...(args.taskId ? { taskId: args.taskId } : {}),
       profile: acpWorkerGrant.profile,
-      cwd: args.cwd,
+      cwd: args.cwd ?? process.cwd(),
       runtimeOptions: {
         ...(args.runtimeOptions?.cursorBinaryPath
           ? { cursorBinaryPath: args.runtimeOptions.cursorBinaryPath }
@@ -1332,6 +1338,7 @@ export const providerRuntime: ProviderRuntime = {
           deliveryLifecycle.emit(event);
         },
       })
+        .then(() => undefined)
         .catch((error) => {
           const errorEvent: BridgeEvent = {
             type: "error",
@@ -1447,7 +1454,7 @@ export const providerRuntime: ProviderRuntime = {
     };
   },
   respondApproval: ({ turnId, requestId, approved, reason, scope }) =>
-    deliverResponderResult({
+    deliverResponderResult<NonNullable<ActiveRuntimeSession["respondApproval"]>>({
       kind: "approval",
       turnId,
       requestId,
@@ -1456,7 +1463,7 @@ export const providerRuntime: ProviderRuntime = {
       timeoutMs: PROVIDER_STEER_ACK_TIMEOUT_MS,
     }),
   respondUserInput: ({ turnId, requestId, answers, denied }) =>
-    deliverResponderResult({
+    deliverResponderResult<NonNullable<ActiveRuntimeSession["respondUserInput"]>>({
       kind: "user-input",
       turnId,
       requestId,
@@ -1480,7 +1487,7 @@ export const providerRuntime: ProviderRuntime = {
         delivery: "rejected" as const,
       };
     }
-    const result = await deliverResponderResult({
+    const result = await deliverResponderResult<NonNullable<ActiveRuntimeSession["steer"]>>({
       kind: "steer",
       turnId,
       requestId: clientMessageId ?? turnId,
@@ -1500,11 +1507,11 @@ export const providerRuntime: ProviderRuntime = {
   },
   checkAvailability: async ({ providerId, runtimeOptions }) => {
     if (providerId === "claude-code") {
-      const result = describeClaudeAvailability({ runtimeOptions });
+      const result = await describeClaudeAvailability({ runtimeOptions });
       return { ok: true, ...result };
     }
     if (providerId === "codex") {
-      const result = describeCodexAvailability({ runtimeOptions });
+      const result = await describeCodexAvailability({ runtimeOptions });
       return { ok: true, ...result };
     }
     if (providerId === "cursor") {

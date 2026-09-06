@@ -50,13 +50,15 @@ export function discoverCodexEntries(toml: string) {
   const pattern = /^\s*\[mcp_servers\.(["']?)([^\]"']+)\1\]\s*$/gm;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(toml))) {
+    const name = match[2]?.trim();
+    if (!name) continue;
     const next = toml.slice(match.index + match[0].length).search(/^\s*\[/m);
     const section = toml.slice(
       match.index,
       next < 0 ? undefined : match.index + match[0].length + next,
     );
     servers.push({
-      name: match[2].trim(),
+      name,
       sources: ["codex-user"],
       claude: { configured: false },
       codex: { configured: true },

@@ -18,7 +18,10 @@ import {
   X,
 } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActionButton } from "@/components/system/ActionButton";
+import { WorkflowLibrary } from "@/components/collaboration/WorkflowLibrary";
+import { OpenPathDialog } from "../OpenPathDialog";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
@@ -49,7 +52,7 @@ import {
 } from "@/lib/routines";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { useAppStore } from "@/store/app.store";
-import { cn } from "@/lib/utils";
+import { createCoalescedLoader } from "@/lib/coalesced-loader";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { AutomationEditor } from "./AutomationEditor";
 import { AutomationLatestRun } from "./AutomationLatestRun";
@@ -72,7 +75,7 @@ import { centerStyles } from "./automation-center-view.styles";
 
 const ALL_AUTOMATIONS = "all";
 
-type AutomationCenterTab = "automations" | "runs";
+type AutomationCenterTab = "library" | "automations" | "runs";
 
 function Detail(props: { label: string; value: string }) {
   return (
@@ -91,6 +94,7 @@ function Detail(props: { label: string; value: string }) {
 }
 
 export function AutomationCenterView() {
+  const [openProjectDialog, setOpenProjectDialog] = useState(false);
   const [
     recentProjects,
     projectPath,
@@ -99,6 +103,7 @@ export function AutomationCenterView() {
     workspacePathById,
     workspaceDefaultById,
     activeWorkspaceId,
+    activeTaskId,
     flushActiveWorkspaceSnapshot,
     focusTaskAttention,
     setLayout,
@@ -114,6 +119,7 @@ export function AutomationCenterView() {
           state.workspacePathById,
           state.workspaceDefaultById,
           state.activeWorkspaceId,
+          state.activeTaskId,
           state.flushActiveWorkspaceSnapshot,
           state.focusTaskAttention,
           state.setLayout,
@@ -125,8 +131,7 @@ export function AutomationCenterView() {
     routines: [],
     runs: [],
   });
-  const [activeTab, setActiveTab] =
-    useState<AutomationCenterTab>("automations");
+  const [activeTab, setActiveTab] = useState<AutomationCenterTab>("library");
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(
     null,
   );
@@ -188,50 +193,72 @@ export function AutomationCenterView() {
       : null;
   }, [environmentOptions, projectPath]);
 
-  const loadSnapshot = useCallback(async (options?: { quiet?: boolean }) => {
-    const list = window.api?.routines?.list;
-    if (!list) {
-      setLoading(false);
-      setError("Automations are available in the Stave desktop app.");
-      return;
-    }
-    if (!options?.quiet) {
-      setLoading(true);
-    }
-    try {
-      const result = await list();
-      if (!result.ok) {
-        setError(result.message ?? "Failed to load automations.");
-        return;
-      }
-      setSnapshot(result.snapshot);
-      setError("");
-      setSelectedRoutineId((current) => {
-        if (
-          current &&
-          result.snapshot.routines.some((routine) => routine.id === current)
-        ) {
-          return current;
-        }
-        return result.snapshot.routines[0]?.id ?? null;
-      });
-    } catch (loadError) {
-      setError(
-        getRoutineErrorMessage(loadError, "Failed to load automations."),
-      );
-    } finally {
+  const activeLoadScope = useRef(false);
+  const loadSequence = useRef(0);
+  const readSnapshot = useMemo(
+    () =>
+      createCoalescedLoader(async () => {
+        const list = window.api?.routines?.list;
+        if (!list)
+          throw new Error(
+            "Automations are available in the Stave desktop app.",
+          );
+        return list();
+      }),
+    [],
+  );
+  const loadSnapshot = useCallback(
+    async (options?: { quiet?: boolean; poll?: boolean }) => {
+      if (!activeLoadScope.current) return;
+      const sequence = ++loadSequence.current;
+      const isCurrent = () =>
+        activeLoadScope.current && sequence === loadSequence.current;
       if (!options?.quiet) {
-        setLoading(false);
+        setLoading(true);
       }
-    }
-  }, []);
+      try {
+        const result = await readSnapshot({ fresh: !options?.poll });
+        if (!isCurrent()) return;
+        if (!result.ok) {
+          setError(result.message ?? "Failed to load automations.");
+          return;
+        }
+        setSnapshot(result.snapshot);
+        setError("");
+        setSelectedRoutineId((current) => {
+          if (
+            current &&
+            result.snapshot.routines.some((routine) => routine.id === current)
+          ) {
+            return current;
+          }
+          return result.snapshot.routines[0]?.id ?? null;
+        });
+      } catch (loadError) {
+        if (!isCurrent()) return;
+        setError(
+          getRoutineErrorMessage(loadError, "Failed to load automations."),
+        );
+      } finally {
+        if (isCurrent()) {
+          setLoading(false);
+        }
+      }
+    },
+    [readSnapshot],
+  );
 
   useEffect(() => {
+    activeLoadScope.current = true;
     void loadSnapshot();
     const interval = window.setInterval(() => {
-      void loadSnapshot({ quiet: true });
+      void loadSnapshot({ quiet: true, poll: true });
     }, 5_000);
-    return () => window.clearInterval(interval);
+    return () => {
+      activeLoadScope.current = false;
+      loadSequence.current += 1;
+      window.clearInterval(interval);
+    };
   }, [loadSnapshot]);
 
   const informationWorkspaceId = draft?.environment.workspaceId ?? null;
@@ -582,110 +609,96 @@ export function AutomationCenterView() {
     loading && snapshot.routines.length === 0 && snapshot.runs.length === 0;
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <header className="flex min-h-18 shrink-0 items-center justify-between gap-4 border-b border-border/65 bg-[linear-gradient(110deg,color-mix(in_oklch,var(--surface)_92%,var(--background)),var(--background))] px-5 py-3">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <Workflow className="size-4.5 shrink-0 text-primary" />
-            <h1 className="font-heading truncate text-base font-semibold tracking-[-0.01em] text-foreground">
-              Automation Center
-            </h1>
+    <div className={sx(centerStyles.root)}>
+      <header className={sx(centerStyles.header)}>
+        <div className={sx(centerStyles.headerText)}>
+          <div className={sx(centerStyles.headerTitleRow)}>
+            <Workflow className={sx(centerStyles.headerIcon)} />
+            <h1 className={sx(centerStyles.headerTitle)}>Library</h1>
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            Scheduled agent workflows and their auditable run history.
+          <p className={sx(centerStyles.headerSubtitle)}>
+            Reusable instructions, task setups, workspace tools, and scheduled
+            work.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className={sx(centerStyles.headerActions)}>
           <Button
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            xstyle={centerStyles.headerButton}
             onClick={startCreate}
           >
-            <Plus className="size-3.5" />
+            <Plus className={sx(centerStyles.buttonIcon)} />
             New automation
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            xstyle={centerStyles.iconButton}
             onClick={openCommandsAndProcesses}
             aria-label={`Open ${WORKSPACE_TOOLS_LABEL}`}
             title={WORKSPACE_TOOLS_LABEL}
           >
-            <SquareTerminal className="size-4" />
+            <SquareTerminal className={sx(centerStyles.actionIcon)} />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            xstyle={centerStyles.iconButton}
             onClick={() => void loadSnapshot()}
             aria-label="Refresh automations"
             title="Refresh"
           >
-            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+            <RefreshCw
+              className={sx(
+                centerStyles.actionIcon,
+                loading && centerStyles.actionIconSpinning,
+              )}
+            />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            xstyle={centerStyles.iconButton}
             aria-label="close-automation-center"
-            title="Close Automation Center"
+            title="Close Library"
             onClick={closeAutomationCenter}
           >
-            <X className="size-4" />
+            <X className={sx(centerStyles.actionIcon)} />
           </Button>
         </div>
       </header>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 bg-background/85 px-4 py-2">
-        <div
-          className="flex items-center gap-0.5 rounded-md bg-muted/45 p-0.5"
-          role="tablist"
-          aria-label="Automation Center views"
-        >
-          <Button
-            type="button"
-            size="sm"
-            variant={activeTab === "automations" ? "secondary" : "ghost"}
-            role="tab"
-            aria-selected={activeTab === "automations"}
-            className={cn(
-              "h-6.5 gap-1.5 px-2 text-[11px]",
-              activeTab === "automations" &&
-                "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
-            )}
-            onClick={() => setActiveTab("automations")}
-          >
-            <Workflow className="size-3.5" />
-            Automations
-            <span className="tabular-nums text-muted-foreground">
-              {snapshot.routines.length}
-            </span>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={activeTab === "runs" ? "secondary" : "ghost"}
-            role="tab"
-            aria-selected={activeTab === "runs"}
-            className={cn(
-              "h-6.5 gap-1.5 px-2 text-[11px]",
-              activeTab === "runs" &&
-                "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
-            )}
-            onClick={() => setActiveTab("runs")}
-          >
-            <ListChecks className="size-3.5" />
-            Run history
-            <span className="tabular-nums text-muted-foreground">
-              {snapshot.runs.length}
-            </span>
-          </Button>
-        </div>
+      <div className={sx(centerStyles.toolbar)}>
+        <nav aria-label="Library views" className={sx(centerStyles.tabNav)}>
+          {(
+            [
+              ["library", "Library"],
+              ["automations", `Schedules · ${snapshot.routines.length}`],
+              ["runs", `Run history · ${snapshot.runs.length}`],
+            ] as const
+          ).map(([id, label]) => (
+            <ActionButton
+              key={id}
+              size="sm"
+              weight={activeTab === id ? "secondary" : "quiet"}
+              aria-current={activeTab === id ? "page" : undefined}
+              onClick={() => setActiveTab(id)}
+            >
+              {label}
+            </ActionButton>
+          ))}
+        </nav>
+
+        {activeTab === "automations" ? (
+          <p className={sx(centerStyles.toolbarNote)}>
+            Runs while Stave is open. After reopening, one missed occurrence is
+            caught up.
+          </p>
+        ) : null}
 
         {activeTab === "runs" ? (
           <>
-            <div className="flex items-center gap-0.5 rounded-md bg-muted/45 p-0.5">
+            <div className={sx(centerStyles.filterGroup)}>
               {AUTOMATION_RUN_FILTERS.map((option) => (
                 <Button
                   key={option.value}
@@ -733,19 +746,31 @@ export function AutomationCenterView() {
       </div>
 
       {error ? (
-        <div className="mx-4 mt-3 flex shrink-0 items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-          <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+        <div className={sx(centerStyles.errorBanner)}>
+          <AlertCircle className={sx(centerStyles.errorIcon)} />
           {error}
         </div>
       ) : null}
 
-      {showLoadingState ? (
+      {activeTab === "library" ? (
+        <div className={sx(centerStyles.libraryPane)}>
+          <div className={sx(centerStyles.libraryColumn)}>
+            <WorkflowLibrary
+              taskId={activeTaskId}
+              workspaceId={activeWorkspaceId}
+              projectPath={projectPath}
+              onDraftReady={closeAutomationCenter}
+              onOpenProject={() => setOpenProjectDialog(true)}
+            />
+          </div>
+        </div>
+      ) : showLoadingState ? (
         <div
-          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 py-10 text-center"
+          className={sx(centerStyles.loadingPane)}
           role="status"
           aria-live="polite"
         >
-          <div className="grid size-20 place-items-center rounded-full bg-muted/45 ring-1 ring-border/70">
+          <div className={sx(centerStyles.loadingOrb)}>
             <ThinkingOrb
               state="searching"
               size={64}
@@ -754,9 +779,7 @@ export function AutomationCenterView() {
             />
           </div>
           <div>
-            <p className={sx(centerStyles.loadingTitle)}>
-              Loading Automation Center
-            </p>
+            <p className={sx(centerStyles.loadingTitle)}>Loading Library</p>
             <p className={sx(centerStyles.loadingHint)}>
               Restoring workflows, execution policy, and run history.
             </p>
@@ -771,8 +794,9 @@ export function AutomationCenterView() {
               </EmptyMedia>
               <EmptyTitle>No automations yet</EmptyTitle>
               <EmptyDescription>
-                Schedule fresh-context agent work with its own cadence,
-                permissions, model, repository, and Information resources.
+                Run recurring reviews and checks on a schedule. Each automation
+                keeps its own instructions, workspace, model, permissions, and
+                run history.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -1075,6 +1099,16 @@ export function AutomationCenterView() {
         </div>
       )}
 
+      <OpenPathDialog
+        open={openProjectDialog}
+        onOpenChange={setOpenProjectDialog}
+        onSubmitPath={(inputPath) =>
+          useAppStore.getState().openProjectFromPath({ inputPath })
+        }
+        onBrowse={async () => {
+          await useAppStore.getState().createProject({});
+        }}
+      />
       <ConfirmDialog
         open={Boolean(deleteRoutine)}
         title="Delete automation"

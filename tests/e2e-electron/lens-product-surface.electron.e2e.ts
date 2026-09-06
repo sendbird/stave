@@ -169,6 +169,10 @@ test.beforeAll(async () => {
   await seedProject(stave.page, { projectPath: projectDir });
 
   await openLensSurface(stave.page);
+  await expect(stave.page.getByRole("region", { name: "Get started with Lens" })).toBeVisible();
+  await stave.page.getByRole("button", { name: "Enter a page address", exact: true }).click();
+  await expect(stave.page.getByPlaceholder("http://localhost:3000 or https://example.com")).toBeFocused();
+  await stave.page.screenshot({ path: test.info().outputPath("lens-start-guide.png") });
 
   /*
    * Retried, because the panel appearing and its session being bound are not

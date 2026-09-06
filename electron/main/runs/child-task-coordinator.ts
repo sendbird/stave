@@ -278,13 +278,50 @@ function toRejectionReason(reason: string): ChildTaskRejectionReason {
     : "invalid-state";
 }
 
+function acceptedReceiptForRun(
+  ledger: Pick<ChildTaskLedgerPort, "listRunReceipts">,
+  runId: string,
+  attempt: number,
+) {
+  return ledger
+    .listRunReceipts({ runId })
+    .find(
+      (receipt) =>
+        receipt.type === "accepted" && receipt.detail?.attempt === attempt,
+    );
+}
+
 function summaryFromTransition(
+  ledger: Pick<ChildTaskLedgerPort, "listRunReceipts">,
   transition: RunLedgerTransitionResult,
 ): ChildTaskSummary | null {
   if (!transition.run || !transition.step) {
     return null;
   }
-  return toChildTaskSummary({ run: transition.run, step: transition.step });
+  return toChildTaskSummary({
+    run: transition.run,
+    step: transition.step,
+    acceptedReceipt: acceptedReceiptForRun(
+      ledger,
+      transition.run.id,
+      transition.step.attempt,
+    ),
+  });
+}
+
+function summaryFromAggregate(
+  ledger: Pick<ChildTaskLedgerPort, "listRunReceipts">,
+  aggregate: { run: RunRecord; step: RunStepRecord },
+): ChildTaskSummary | null {
+  return toChildTaskSummary({
+    run: aggregate.run,
+    step: aggregate.step,
+    acceptedReceipt: acceptedReceiptForRun(
+      ledger,
+      aggregate.run.id,
+      aggregate.step.attempt,
+    ),
+  });
 }
 
 function rejected(
@@ -489,7 +526,7 @@ export function createChildTaskCoordinator(
     let reconciled = 0;
     let deferred = 0;
     for (const aggregate of aggregates) {
-      const summary = toChildTaskSummary(aggregate);
+      const summary = summaryFromAggregate(ledger, aggregate);
       const target = aggregate.step.target;
       const executionId = aggregate.step.executionId;
       if (!summary || !target || !executionId) {
@@ -551,8 +588,8 @@ export function createChildTaskCoordinator(
       const claimedAt = aggregate.step.startedAt;
       const staleLatestTurn = Boolean(
         claimedAt &&
-          status.latestTurnCompletedAt &&
-          Date.parse(status.latestTurnCompletedAt) < Date.parse(claimedAt),
+        status.latestTurnCompletedAt &&
+        Date.parse(status.latestTurnCompletedAt) < Date.parse(claimedAt),
       );
       if (!staleLatestTurn && status.latestTurnError) {
         const transition = ledger.failRunStep({
@@ -570,7 +607,11 @@ export function createChildTaskCoordinator(
         reconciled += transition.accepted ? 1 : 0;
         continue;
       }
-      if (!staleLatestTurn && status.latestTurnId && status.latestTurnCompletedAt) {
+      if (
+        !staleLatestTurn &&
+        status.latestTurnId &&
+        status.latestTurnCompletedAt
+      ) {
         const transition = settleAfterTurn({
           ledger,
           runId: aggregate.run.id,
@@ -661,7 +702,7 @@ export function createChildTaskCoordinator(
     const ledger = await getLedger();
     await ensureReconciled();
     const aggregate = ledger.getRunAggregate({ runId, stepId });
-    const child = aggregate ? toChildTaskSummary(aggregate) : null;
+    const child = aggregate ? summaryFromAggregate(ledger, aggregate) : null;
     if (!child) {
       return { ok: false as const, rejection: rejected("not-found") };
     }
@@ -772,7 +813,9 @@ export function createChildTaskCoordinator(
     await ensureReconciled();
 
     const existing = ledger.getRunAggregate({ runId, stepId });
-    const existingSummary = existing ? toChildTaskSummary(existing) : null;
+    const existingSummary = existing
+      ? summaryFromAggregate(ledger, existing)
+      : null;
 
     // ── Concurrency ─────────────────────────────────────────────────────
     // Counted per parent task over live children only, and never against the
@@ -785,7 +828,7 @@ export function createChildTaskCoordinator(
         limit: CHILD_TASK_LIST_LIMIT,
       })
       .flatMap((aggregate) => {
-        const summary = toChildTaskSummary(aggregate);
+        const summary = summaryFromAggregate(ledger, aggregate);
         return summary && summary.runId !== runId ? [summary] : [];
       })
       .filter((summary) => isActiveChildTaskPhase(summary.phase));
@@ -871,10 +914,10 @@ export function createChildTaskCoordinator(
     if (!transition.accepted) {
       return rejected(
         toRejectionReason(transition.reason),
-        summaryFromTransition(transition) ?? existingSummary,
+        summaryFromTransition(ledger, transition) ?? existingSummary,
       );
     }
-    const child = summaryFromTransition(transition);
+    const child = summaryFromTransition(ledger, transition);
     if (transition.duplicate || !child) {
       return accepted({
         duplicate: true,
@@ -1047,7 +1090,7 @@ export function createChildTaskCoordinator(
       if (!transition.accepted) {
         return rejected(
           toRejectionReason(transition.reason),
-          summaryFromTransition(transition) ?? resolved.child,
+          summaryFromTransition(resolved.ledger, transition) ?? resolved.child,
         );
       }
       // The child is an ordinary task from here on, so its delegation stamp
@@ -1068,7 +1111,7 @@ export function createChildTaskCoordinator(
       notifyChanged(args.parentTaskId);
       return accepted({
         duplicate: transition.duplicate,
-        child: summaryFromTransition(transition),
+        child: summaryFromTransition(resolved.ledger, transition),
       });
     },
 
@@ -1086,7 +1129,7 @@ export function createChildTaskCoordinator(
           limit: CHILD_TASK_LIST_LIMIT,
         })
         .flatMap((aggregate) => {
-          const summary = toChildTaskSummary(aggregate);
+          const summary = summaryFromAggregate(ledger, aggregate);
           return summary ? [summary] : [];
         })
         .filter(
@@ -1124,7 +1167,7 @@ export function createChildTaskCoordinator(
       if (!transition.accepted) {
         return rejected(
           toRejectionReason(transition.reason),
-          summaryFromTransition(transition),
+          summaryFromTransition(resolved.ledger, transition),
         );
       }
       if (!transition.duplicate && target) {
@@ -1143,7 +1186,7 @@ export function createChildTaskCoordinator(
       notifyChanged(args.parentTaskId);
       return accepted({
         duplicate: transition.duplicate,
-        child: summaryFromTransition(transition),
+        child: summaryFromTransition(resolved.ledger, transition),
       });
     },
 
@@ -1171,7 +1214,7 @@ export function createChildTaskCoordinator(
           limit: CHILD_TASK_LIST_LIMIT,
         })
         .flatMap((aggregate) => {
-          const summary = toChildTaskSummary(aggregate);
+          const summary = summaryFromAggregate(ledger, aggregate);
           return summary && summary.childTaskId === args.childTaskId
             ? [summary]
             : [];
@@ -1186,7 +1229,9 @@ export function createChildTaskCoordinator(
         runId,
         stepId: buildChildTaskStepId(runId),
       });
-      const summary = aggregate ? toChildTaskSummary(aggregate) : null;
+      const summary = aggregate
+        ? summaryFromAggregate(ledger, aggregate)
+        : null;
       return summary ? ChildTaskSummarySchema.parse(summary) : null;
     },
   };

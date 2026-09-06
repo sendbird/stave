@@ -15,6 +15,7 @@ import {
   mergeDownloadEntry,
   type LensPanelTab,
 } from "@/lib/lens/lens-log-format";
+import { LensFeedbackTray } from "./lens/LensFeedbackTray";
 import { LensChrome } from "@/components/panes/surfaces/lens/LensChrome";
 import { LensConsoleWorkbench } from "@/components/panes/surfaces/lens/LensConsoleWorkbench";
 import { LensNetworkWorkbench } from "@/components/panes/surfaces/lens/LensNetworkWorkbench";
@@ -342,6 +343,14 @@ function LensSessionSurface(args: {
               hasLensApi={hasLensApi}
               isLoading={isLoading}
               lastLoadError={lastLoadError}
+              isBlank={!url || url === "about:blank"}
+              onEnterAddress={() => session.urlInputRef.current?.focus()}
+              onRetry={session.reload}
+              onOpenTools={() => {
+                const state = useAppStore.getState();
+                if (state.activeWorkspaceId !== workspaceId) return;
+                state.setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "scripts" } });
+              }}
               placeholderRef={surface.placeholderRef}
             />
           ) : lensPanelTab === "console" ? (
@@ -356,7 +365,13 @@ function LensSessionSurface(args: {
             />
           )}
         </div>
+        {lensPanelTab === "preview" && activeTaskId ? <LensFeedbackTray key={`${workspaceId}:${activeTaskId}`} workspaceId={workspaceId} lensSessionId={lensSessionId} taskId={activeTaskId} sourceMappingConfig={sourceMappingConfig} onReload={session.reload} onNavigate={session.navigate} /> : null}
       </div>
     </TooltipProvider>
   );
 }
+
+const styles = stylex.create({
+root: {display:"flex",height:"100%",minHeight:0,flexDirection:"column",overflow:"hidden",backgroundColor:vars.colorCanvasSubtle},
+body: {position:"relative",minHeight:0,flex:1,overflow:"hidden",backgroundColor:vars.colorCanvas}
+});

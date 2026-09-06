@@ -1,3 +1,4 @@
+import { ChatMessageSchema } from "../../src/lib/task-context/schemas";
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -30,7 +31,7 @@ import {
   projectLocalMcpTaskTurnActivityEvent,
   type LocalMcpTaskTurnUpdate,
 } from "../../src/lib/local-mcp/task-turn-update";
-import { workspaceHasActiveTurns } from "../../src/lib/notifications/notification.types";
+import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-status";
 import {
   applyDetectedWorkspaceResources,
   createWorkspaceInfoCustomField,
@@ -102,6 +103,8 @@ import {
   MAX_LOADED_TASK_MESSAGES,
   trimLoadedTaskMessages,
 } from "../../src/store/task-message-loading";
+import { trimPersistedMessageWindow } from "../../src/store/resident-message-budget";
+import { captureResultEvidence } from "../../src/lib/reviews/result-evidence";
 import { applyProviderEventsToWorkspaceSession } from "../../src/store/workspace-turn-replay";
 import {
   findLatestPendingApprovalPart,
@@ -317,18 +320,14 @@ async function detectDefaultBranch(projectPath: string) {
 }
 
 function createEmptyWorkspaceSnapshot() {
-  const empty = createEmptyWorkspaceState();
-  return createWorkspaceSnapshot({
-    activeTaskId: empty.activeTaskId,
-    tasks: empty.tasks,
-    messagesByTask: empty.messagesByTask,
-    promptDraftByTask: empty.promptDraftByTask,
-    editorTabs: empty.editorTabs,
-    activeEditorTabId: empty.activeEditorTabId,
-    terminalTabs: empty.terminalTabs,
-    activeTerminalTabId: empty.activeTerminalTabId,
-    terminalDocked: empty.terminalDocked,
-    providerSessionByTask: empty.providerSessionByTask,
+  return createWorkspaceSnapshot(createEmptyWorkspaceState());
+}
+
+function decodeTaskMessages(messages: unknown[]): ChatMessage[] {
+  return messages.map((message) => {
+    const parsed = ChatMessageSchema.safeParse(message);
+    if (!parsed.success) throw new Error("Saved task history could not be decoded. The original data remains on disk.");
+    return parsed.data;
   });
 }
 
@@ -421,6 +420,9 @@ async function persistWorkspaceSession(args: {
       terminalTabs: args.session.terminalTabs,
       activeTerminalTabId: args.session.activeTerminalTabId,
       terminalDocked: args.session.terminalDocked,
+      cliSessionTabs: args.session.cliSessionTabs,
+      activeCliSessionTabId: args.session.activeCliSessionTabId,
+      activeSurface: args.session.activeSurface,
       providerSessionByTask: args.session.providerSessionByTask,
     }) as never,
   });
@@ -651,6 +653,8 @@ async function loadWorkspaceSession(workspaceId: string) {
  * it back in on demand. Fresh native provider sessions therefore receive the
  * same bounded history the renderer-driven path already sends.
  */
+const loadedResidentMessageWindows = new WeakSet<ChatMessage[]>();
+
 function ensureResidentTaskMessages(args: {
   workspaceId: string;
   taskId: string;
@@ -660,7 +664,7 @@ function ensureResidentTaskMessages(args: {
   const totalCount =
     args.session.messageCountByTask[args.taskId] ?? loadedMessages.length;
   const residentTarget = Math.min(totalCount, MAX_LOADED_TASK_MESSAGES);
-  if (loadedMessages.length >= residentTarget) {
+  if (loadedResidentMessageWindows.has(loadedMessages) || loadedMessages.length >= residentTarget) {
     return args.session;
   }
   const page = ensureHostServicePersistenceReady().loadTaskMessagesPage({
@@ -669,11 +673,14 @@ function ensureResidentTaskMessages(args: {
     limit: MAX_LOADED_TASK_MESSAGES,
     offset: 0,
   });
+  if (!page) throw new Error("Task history is unavailable. Reopen the task before continuing.");
+  const messages = trimPersistedMessageWindow({ messages: decodeTaskMessages(page.messages) });
+  loadedResidentMessageWindows.add(messages);
   return cacheWorkspaceSession(args.workspaceId, {
     ...args.session,
     messagesByTask: {
       ...args.session.messagesByTask,
-      [args.taskId]: page.messages,
+      [args.taskId]: messages,
     },
     messageCountByTask: {
       ...args.session.messageCountByTask,
@@ -704,9 +711,15 @@ function trimResidentTaskMessages(args: {
   workspaceId: string;
   taskId: string;
   session: WorkspaceSessionState;
+  persisted?: boolean;
 }) {
   const messages = args.session.messagesByTask[args.taskId] ?? [];
-  const trimmed = trimLoadedTaskMessages({ messages });
+  const trimmed = args.persisted
+    ? trimPersistedMessageWindow({ messages })
+    : trimLoadedTaskMessages({ messages });
+  // A byte-bounded tail is intentionally smaller than the count target.
+  // Remember the loaded window so every streamed event does not read it again.
+  if (args.persisted) loadedResidentMessageWindows.add(trimmed);
   if (trimmed === messages) {
     return args.session;
   }
@@ -793,7 +806,8 @@ function emitTaskTurnUpdate(payload: LocalMcpTaskTurnUpdate) {
 function normalizeWorkspaceResourceKind(
   value: string,
 ): WorkspaceInformationResourceKind {
-  switch (value.trim()) {
+  const normalized = value.trim();
+  switch (normalized) {
     case "jira":
     case "crane":
     case "pull_request":
@@ -802,14 +816,15 @@ function normalizeWorkspaceResourceKind(
     case "storybook":
     case "slack":
     case "amplify":
-      return value.trim();
+      return normalized;
     default:
       throw new Error(`Unsupported workspace resource kind: ${value}`);
   }
 }
 
 function normalizeWorkspaceFieldType(value: string): WorkspaceInfoFieldType {
-  switch (value.trim()) {
+  const normalized = value.trim();
+  switch (normalized) {
     case "text":
     case "textarea":
     case "number":
@@ -817,7 +832,7 @@ function normalizeWorkspaceFieldType(value: string): WorkspaceInfoFieldType {
     case "date":
     case "url":
     case "single_select":
-      return value.trim();
+      return normalized;
     default:
       throw new Error(`Unsupported workspace custom field type: ${value}`);
   }
@@ -889,10 +904,8 @@ function coerceWorkspaceCustomFieldValue(args: {
       };
     }
     default:
-      return {
-        ...field,
-        value: value == null ? "" : String(value).trim(),
-      };
+      field satisfies never;
+      throw new Error("Unsupported workspace field type.");
   }
 }
 
@@ -2081,13 +2094,12 @@ async function persistTurnCompletedNotification(args: {
   event: Extract<NormalizedProviderEvent, { type: "done" }>;
   session: WorkspaceSessionState;
 }) {
-  if (
-    workspaceHasActiveTurns({
-      activeTurnIdsByTask: args.session.activeTurnIdsByTask,
-    })
-  ) {
+  if (args.session.activeTurnIdsByTask[args.taskId]) {
     return;
   }
+  const outcome = terminalTurnErrorById.has(args.turnId)
+    ? "failed" : classifyProviderTurnStopReason(args.event.stop_reason);
+  if (outcome === "cancelled") return;
 
   const { projects } = await loadNormalizedProjects();
   const registration = findWorkspaceRegistration({
@@ -2099,9 +2111,9 @@ async function persistTurnCompletedNotification(args: {
 
   await persistNotification({
     id: randomUUID(),
-    kind: "task.turn_completed",
+    kind: outcome === "failed" ? "task.turn_failed" : "task.turn_completed",
     title: taskTitle,
-    body: `Latest run finished in ${registration?.workspace.name ?? args.workspaceId}.`,
+    body: `Latest run ${outcome === "failed" ? "failed" : "finished"} in ${registration?.workspace.name ?? args.workspaceId}.`,
     projectPath: registration?.project.projectPath ?? null,
     projectName: registration?.project.projectName ?? null,
     workspaceId: args.workspaceId,
@@ -2113,8 +2125,9 @@ async function persistTurnCompletedNotification(args: {
     action: null,
     payload: {
       stopReason: args.event.stop_reason ?? null,
+      resultEvidence: captureResultEvidence(args.session.messagesByTask[args.taskId] ?? [], args.turnId),
     },
-    dedupeKey: `task.turn_completed:${args.turnId}`,
+    dedupeKey: `task.turn_${outcome}:${args.turnId}`,
   });
 }
 
@@ -2181,7 +2194,7 @@ async function handleProviderEvent(args: {
     turnId: args.turnId,
   });
   cacheWorkspaceSession(args.workspaceId, applied.session);
-  const appliedSession = trimResidentTaskMessages({
+  let appliedSession = trimResidentTaskMessages({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     session: applied.session,
@@ -2200,6 +2213,12 @@ async function handleProviderEvent(args: {
         after: appliedSession.messagesByTask[args.taskId] ?? [],
       }),
     },
+  });
+  appliedSession = trimResidentTaskMessages({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    session: appliedSession,
+    persisted: true,
   });
 
   if (args.event.type === "approval") {
@@ -2910,6 +2929,13 @@ export async function runTask(args: {
     },
   });
 
+  session = trimResidentTaskMessages({
+    workspaceId: args.workspaceId,
+    taskId: task.id,
+    session,
+    persisted: true,
+  });
+
   const store = ensureHostServicePersistenceReady();
   let sequence = 0;
   store.beginTurn({
@@ -3056,12 +3082,13 @@ export async function getTaskStatus(args: {
           events: store.getStreamEvents({ turnId: latestTurn.id }),
         })
       : null;
-  const messages =
+  const messages = decodeTaskMessages(
     store.loadTaskMessagesPage({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
       limit: 120,
-    })?.messages ?? [];
+    })?.messages ?? session.messagesByTask[args.taskId] ?? []);
+
   const latestAssistantText =
     [...messages]
       .reverse()
@@ -3180,12 +3207,13 @@ export async function getTaskSupervisionSnapshot(args: {
   }
 
   const store = ensureHostServicePersistenceReady();
-  const messages =
+  const messages = decodeTaskMessages(
     store.loadTaskMessagesPage({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
       limit: 40,
-    })?.messages ?? [];
+    })?.messages ?? session.messagesByTask[args.taskId] ?? []);
+
   // The model a task actually runs on is only recorded per message. Fall back
   // to the provider default, which is what `runTask` itself would resolve.
   const latestModel = [...messages]

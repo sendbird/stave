@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { promises as fs, type Dirent } from "node:fs";
 import path from "node:path";
 import type { RootFileEntry } from "../types";
 
@@ -129,7 +129,7 @@ export async function listFilesRecursive(args: { rootPath?: string | null; maxDe
     if (depth > maxDepth || files.length >= maxFiles) {
       return;
     }
-    let entries: Awaited<ReturnType<typeof fs.readdir>>;
+    let entries: Dirent<string>[];
     try {
       entries = await fs.readdir(currentPath, { withFileTypes: true });
     } catch {
@@ -223,7 +223,7 @@ export async function listDirectoryEntries(args: { rootPath?: string | null; dir
     }
   }
 
-  let entries: Awaited<ReturnType<typeof fs.readdir>>;
+  let entries: Dirent<string>[];
   try {
     entries = await fs.readdir(absolutePath, { withFileTypes: true });
   } catch (error) {

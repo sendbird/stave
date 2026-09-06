@@ -45,6 +45,16 @@ function createInput(
   };
 }
 
+test("unsupported automatic wake-up providers are rejected before saving a heartbeat", async () => {
+  for (const providerId of ["cursor", "kiro"] as const) {
+    const harness = createHarness();
+    harness.setSnapshot({ providerId });
+    await expect(harness.runtime.create(createInput())).rejects.toThrow("available for Claude and Codex");
+    expect(harness.store.list()).toEqual([]);
+    expect(harness.getRunCalls()).toEqual([]);
+  }
+});
+
 function createHarness(args?: {
   initialNow?: string;
   /** Omit entirely to model a supervisor with no run-ledger reader wired. */

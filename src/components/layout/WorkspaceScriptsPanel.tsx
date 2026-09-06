@@ -1,6 +1,10 @@
 import { toolStyles } from "./workspace-tools.styles";
 import { sx } from "../ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { WorkspaceToolQuickAdd } from "./WorkspaceToolQuickAdd";
+import { SectionTabs } from "@/components/system/SectionTabs";
+import { ActionButton } from "@/components/system/ActionButton";
+import { StatusBadge } from "@/components/system/WorkspaceSurface";
 import {
   useCallback,
   useEffect,
@@ -13,6 +17,7 @@ import {
   ExternalLink,
   Globe,
   History,
+  X,
   Play,
   Plus,
   RefreshCcw,
@@ -24,18 +29,13 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
+  Input,
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  Input,
   Loader,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Textarea,
   toast,
 } from "@/components/ui";
 import { ScriptLogView } from "@/components/scripts";
@@ -48,7 +48,6 @@ import {
   countRunningServiceEntries,
   formatScriptDuration,
   formatScriptRelativeTime,
-  persistWorkspaceServiceQuickAdd,
   refreshScriptsRuntime,
   runScriptEntry,
   runScriptHook,
@@ -72,7 +71,6 @@ import {
   WORKSPACE_TOOLS_VIEWS,
   type WorkspaceToolsViewId,
 } from "@/lib/workspace-tools-presentation";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import {
   openOrbitUrlWithLensPriority,
@@ -154,101 +152,6 @@ function RuntimeSection(props: {
       </div>
       <div>{props.children}</div>
     </section>
-  );
-}
-
-function ProcessQuickAddForm(props: {
-  workspaceId: string;
-  workspacePath: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState("");
-  const [command, setCommand] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const reset = useCallback(() => {
-    setLabel("");
-    setCommand("");
-    setOpen(false);
-  }, []);
-
-  const submit = useCallback(async () => {
-    if (saving) {
-      return;
-    }
-    setSaving(true);
-    const result = await persistWorkspaceServiceQuickAdd({
-      workspacePath: props.workspacePath,
-      label,
-      command,
-    });
-    setSaving(false);
-    if (!result.ok) {
-      toast.error("Could not add process", { description: result.message });
-      return;
-    }
-    reset();
-    void refreshScriptsRuntime(props.workspaceId);
-    toast.success("Process added");
-  }, [command, label, props.workspaceId, props.workspacePath, reset, saving]);
-
-  if (!open) {
-    return (
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-8 rounded-md"
-        onClick={() => setOpen(true)}
-      >
-        <Plus className="mr-1 size-3.5" />
-        Add process
-      </Button>
-    );
-  }
-
-  return (
-    <form
-      className="space-y-2 rounded-lg border border-border/70 bg-muted/15 p-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
-      <label className="space-y-1.5">
-        <span className="text-xs font-medium text-foreground">Name</span>
-        <Input
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-          placeholder="Dev server"
-          autoFocus
-        />
-      </label>
-      <label className="space-y-1.5">
-        <span className="text-xs font-medium text-foreground">Command</span>
-        <Textarea
-          value={command}
-          onChange={(event) => setCommand(event.target.value)}
-          placeholder={"bun run dev"}
-          className="min-h-16"
-        />
-      </label>
-      <div className="flex items-center justify-end gap-1.5">
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="h-8"
-          onClick={reset}
-          disabled={saving}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" size="sm" className="h-8" disabled={saving}>
-          {saving ? "Adding…" : "Add"}
-        </Button>
-      </div>
-    </form>
   );
 }
 
@@ -334,6 +237,8 @@ function ScriptEntryRow(props: {
   onRun: (args: { scriptId: string; scriptKind: ScriptKind }) => void;
   onStop: (args: { scriptId: string; scriptKind: ScriptKind }) => void;
   onClearLog: (args: { scriptId: string; scriptKind: ScriptKind }) => void;
+  selected: boolean;
+  onInspect: () => void;
 }) {
   const state = props.state;
   const isRunning = state?.running ?? false;
@@ -348,16 +253,13 @@ function ScriptEntryRow(props: {
 
   return (
     <div
-      className={cn(
-        "border-b border-border py-3 last:border-b-0",
-        isRunning && "border-l-2 border-l-primary pl-3",
-      )}
+      className={sx(toolStyles.entry, props.selected && toolStyles.selected)}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <p className="text-sm font-medium text-foreground">{props.label}</p>
-            <span className="text-[11px] text-muted-foreground">
+      <div className={sx(toolStyles.entryHeader)}>
+        <div className={sx(toolStyles.entryBody)}>
+          <div className={sx(toolStyles.entryTitleRow)}>
+            <AdsButton layout="host" type="button" onClick={props.onInspect} aria-pressed={props.selected} xstyle={toolStyles.inspect}>{props.label}</AdsButton>
+            <span className={sx(toolStyles.hint)}>
               {props.targetLabel}
               {props.origin ? (
                 <>
@@ -464,28 +366,15 @@ function ScriptEntryRow(props: {
             }
           >
             {isRunning ? (
-              <Square className="mr-1 size-3.5" />
+              <Square className={sx(toolStyles.runIcon)} />
             ) : (
-              <Play className="mr-1 size-3.5" />
+              <Play className={sx(toolStyles.runIcon)} />
             )}
             {isRunning ? "Stop" : props.orbitEnabled ? "Start" : "Run"}
           </Button>
         </div>
       </div>
-      <ScriptLogView
-        log={state?.log ?? ""}
-        running={isRunning}
-        error={state?.error}
-        exitCode={state?.exitCode}
-        startedAt={state?.startedAt}
-        endedAt={state?.endedAt}
-        onClear={() =>
-          props.onClearLog({
-            scriptId: props.scriptId,
-            scriptKind: props.scriptKind,
-          })
-        }
-      />
+      <Button size="xs" variant="ghost" onClick={props.onInspect} aria-pressed={props.selected}>View output</Button>
     </div>
   );
 }
@@ -525,6 +414,9 @@ export function WorkspaceScriptsPanel(props: {
         ] as const,
     ),
   );
+
+  const [selection, setSelection] = useState<{ workspaceId: string; key: string } | null>(null);
+  const [search, setSearch] = useState("");
 
   const [activeView, setActiveView] = useState<WorkspaceToolsViewId>(
     DEFAULT_WORKSPACE_TOOLS_VIEW,
@@ -566,6 +458,7 @@ export function WorkspaceScriptsPanel(props: {
         toast.error("Execution service unavailable");
         return;
       }
+      setSelection({ workspaceId: activeWorkspaceId, key: scriptEntryKey(args.scriptKind, args.scriptId) });
       void runScriptEntry({ workspaceId: activeWorkspaceId, ...args });
     },
     [activeWorkspaceId],
@@ -713,12 +606,17 @@ export function WorkspaceScriptsPanel(props: {
     [runtime.origins],
   );
 
+  const selectedEntry = selection?.workspaceId === activeWorkspaceId ? commandEntries.find((entry) => scriptEntryKey(entry.kind, entry.id) === selection.key) : undefined;
+  const selectedState = selectedEntry ? runtime.entries[scriptEntryKey(selectedEntry.kind, selectedEntry.id)] : undefined;
+
   const renderScriptEntry = (
     entry: ResolvedWorkspaceScript,
     state = runtime.entries[scriptEntryKey(entry.kind, entry.id)],
-  ) => (
+  ) => !`${entry.label} ${entry.description}`.toLowerCase().includes(search.trim().toLowerCase()) ? null : (
     <ScriptEntryRow
       key={scriptEntryKey(entry.kind, entry.id)}
+      selected={selectedEntry === entry}
+      onInspect={() => setSelection({ workspaceId: activeWorkspaceId, key: scriptEntryKey(entry.kind, entry.id) })}
       scriptId={entry.id}
       scriptKind={entry.kind}
       label={entry.label}
@@ -751,134 +649,33 @@ export function WorkspaceScriptsPanel(props: {
     );
   }
 
-  return (
-    <Tabs
-      value={activeView}
-      onValueChange={(value) => setActiveView(value as WorkspaceToolsViewId)}
-      className="h-full min-h-0 gap-0 overflow-hidden"
-    >
-      <div className="flex shrink-0 items-center gap-2 border-b border-border pr-2">
-        <TabsList
-          variant="soft"
-          className="h-10 min-w-0 flex-1 justify-start border-0 px-2 py-1"
-          aria-label={`${WORKSPACE_TOOLS_LABEL} views`}
-        >
-          {WORKSPACE_TOOLS_VIEWS.map(({ id, label }) => {
-            const count = viewCounts[id];
-            return (
-              <TabsTrigger
-                key={id}
-                value={id}
-                className="h-8 flex-none px-2.5 text-xs"
-              >
-                {label}
-                {count > 0 ? (
-                  <span
-                    className={cn(
-                      "tabular-nums text-muted-foreground",
-                      id === "processes" && runningCount > 0 && "text-primary",
-                    )}
-                  >
-                    {count}
-                  </span>
-                ) : null}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
-        <div className="flex items-center gap-1">
-          {activeView === "processes" && runningCount > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-8 rounded-md px-2 text-destructive hover:text-destructive"
-              onClick={stopAll}
-              title="Stop all running processes"
-            >
-              <Square className="mr-1 size-3.5" />
-              Stop all
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8 rounded-md"
-            onClick={refresh}
-            disabled={runtime.configStatus === "loading"}
-            title={`Refresh ${WORKSPACE_TOOLS_LABEL}`}
-            aria-label={`Refresh ${WORKSPACE_TOOLS_LABEL}`}
-          >
-            <RefreshCcw
-              className={cn(
-                "size-3.5",
-                runtime.configStatus === "loading" && "animate-spin",
-              )}
-            />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8 rounded-md"
-            onClick={openScriptSettings}
-            disabled={!projectPath}
-            title={`Open ${WORKSPACE_TOOLS_LABEL} settings`}
-            aria-label={`Open ${WORKSPACE_TOOLS_LABEL} settings`}
-          >
-            <Settings2 className="size-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      {runtime.configError ? (
-        <div
-          role="alert"
-          className="shrink-0 border-b border-destructive/30 px-3 py-2 text-xs text-destructive"
-        >
-          {runtime.configError}
-        </div>
-      ) : null}
-
-      <TabsContent value="commands" className="min-h-0 overflow-auto px-3 py-2">
+  const viewContents: Record<WorkspaceToolsViewId, ReactNode> = {
+    commands: <div className={sx(toolStyles.view)}>
         {runtime.configStatus === "loading" && !config ? (
-          <div className="px-1 py-4 text-xs text-muted-foreground">
+          <div className={sx(toolStyles.loading)}>
             Loading commands…
           </div>
         ) : null}
 
         {runtime.configStatus === "ready" && actionCount === 0 ? (
           <WorkspaceToolsEmptyState
-            icon={<Zap className="size-4" />}
+            icon={<Zap className={sx(toolStyles.sectionIcon)} />}
             title="No commands configured"
-            description="Add a one-shot command in Workspace Tools settings. Run it from this tab when you need it."
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                xstyle={toolStyles.settingsButton}
-                onClick={openScriptSettings}
-                disabled={!projectPath}
-              >
-                <Settings2 className={sx(toolStyles.settingsIcon)} />
-                Manage workspace tools
-              </Button>
-            }
+            description="Save a check, build, or other command. Run it when you need it and keep its output here."
+            action={activeWorkspaceId ? <div className={sx(toolStyles.quickAdd)}><WorkspaceToolQuickAdd key={`${activeWorkspaceId}:action`} kind="action" workspaceId={activeWorkspaceId} workspacePath={workspacePath} /></div> : null}
           />
         ) : null}
 
         {runtime.configStatus === "error" && !config ? (
-          <div className="px-2 py-8 text-center">
-            <p className="text-sm font-medium text-foreground">
+          <div className={sx(toolStyles.setup)}>
+            <p className={sx(toolStyles.title)}>
               Commands could not be loaded
             </p>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="mt-4"
+              xstyle={toolStyles.setupAction}
               onClick={refresh}
             >
               Try again
@@ -886,33 +683,30 @@ export function WorkspaceScriptsPanel(props: {
           </div>
         ) : null}
 
+        {config && actionCount > 0 ? <div className={sx(toolStyles.addForm)}><WorkspaceToolQuickAdd key={`${activeWorkspaceId}:action`} kind="action" workspaceId={activeWorkspaceId} workspacePath={workspacePath} /></div> : null}
         {config && actionCount > 0 ? (
           <RuntimeSection title="Commands" count={actionCount}>
             {config.actions.map((entry) => renderScriptEntry(entry))}
           </RuntimeSection>
         ) : null}
-      </TabsContent>
-
-      <TabsContent
-        value="processes"
-        className="min-h-0 overflow-auto px-3 py-2"
-      >
+      </div>,
+    processes: <div className={sx(toolStyles.view)}>
         {runtime.configStatus === "loading" && !config ? (
-          <div className="px-1 py-4 text-xs text-muted-foreground">
+          <div className={sx(toolStyles.loading)}>
             Loading processes…
           </div>
         ) : null}
 
         {runtime.configStatus === "error" && !config ? (
-          <div className="px-2 py-8 text-center">
-            <p className="text-sm font-medium text-foreground">
+          <div className={sx(toolStyles.setup)}>
+            <p className={sx(toolStyles.title)}>
               Processes could not be loaded
             </p>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="mt-4"
+              xstyle={toolStyles.setupAction}
               onClick={refresh}
             >
               Try again
@@ -924,13 +718,15 @@ export function WorkspaceScriptsPanel(props: {
         serviceCount === 0 &&
         detachedRunningCount === 0 ? (
           <WorkspaceToolsEmptyState
-            icon={<Play className="size-4" />}
+            icon={<Play className={sx(toolStyles.sectionIcon)} />}
             title="No processes configured"
             description="Add a long-running process such as a dev server in Workspace Tools settings. Start it here and leave it running while you work."
             action={
               activeWorkspaceId ? (
-                <div className="mt-1 w-full max-w-sm">
-                  <ProcessQuickAddForm
+                <div className={sx(toolStyles.quickAdd)}>
+                  <WorkspaceToolQuickAdd
+                    key={`${activeWorkspaceId}:service`}
+                    kind="service"
                     workspaceId={activeWorkspaceId}
                     workspacePath={workspacePath}
                   />
@@ -943,8 +739,10 @@ export function WorkspaceScriptsPanel(props: {
         {runtime.configStatus === "ready" &&
         serviceCount > 0 &&
         activeWorkspaceId ? (
-          <div className="mb-3">
-            <ProcessQuickAddForm
+          <div className={sx(toolStyles.addForm)}>
+            <WorkspaceToolQuickAdd
+                    key={`${activeWorkspaceId}:service`}
+                    kind="service"
               workspaceId={activeWorkspaceId}
               workspacePath={workspacePath}
             />
@@ -993,25 +791,24 @@ export function WorkspaceScriptsPanel(props: {
             {availableProcesses.map((entry) => renderScriptEntry(entry))}
           </RuntimeSection>
         ) : null}
-      </TabsContent>
-
-      <TabsContent value="triggers" className="min-h-0 overflow-auto px-3 py-2">
+      </div>,
+    triggers: <div className={sx(toolStyles.view)}>
         {runtime.configStatus === "loading" && !config ? (
-          <div className="px-1 py-4 text-xs text-muted-foreground">
+          <div className={sx(toolStyles.loading)}>
             Loading triggers…
           </div>
         ) : null}
 
         {runtime.configStatus === "error" && !config ? (
-          <div className="px-2 py-8 text-center">
-            <p className="text-sm font-medium text-foreground">
+          <div className={sx(toolStyles.setup)}>
+            <p className={sx(toolStyles.title)}>
               Triggers could not be loaded
             </p>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              className="mt-4"
+              xstyle={toolStyles.setupAction}
               onClick={refresh}
             >
               Try again
@@ -1029,11 +826,11 @@ export function WorkspaceScriptsPanel(props: {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="mt-1 h-8 rounded-md"
+                xstyle={toolStyles.settingsButton}
                 onClick={openScriptSettings}
                 disabled={!projectPath}
               >
-                <Settings2 className="mr-1 size-4" />
+                <Settings2 className={sx(toolStyles.settingsIcon)} />
                 Manage workspace tools
               </Button>
             }
@@ -1053,9 +850,8 @@ export function WorkspaceScriptsPanel(props: {
             ))}
           </RuntimeSection>
         ) : null}
-      </TabsContent>
-
-      <TabsContent value="runs" className="min-h-0 overflow-auto px-3 py-2">
+      </div>,
+    runs: <div className={sx(toolStyles.view)}>
         {runtimePartitions.activity.length > 0 ? (
           <RuntimeSection
             title="Recent runs"
@@ -1067,12 +863,62 @@ export function WorkspaceScriptsPanel(props: {
           </RuntimeSection>
         ) : (
           <WorkspaceToolsEmptyState
-            icon={<History className="size-4" />}
+            icon={<History className={sx(toolStyles.sectionIcon)} />}
             title="No recent activity"
             description="Completed commands and processes, including their output, appear here."
           />
         )}
-      </TabsContent>
-    </Tabs>
+      </div>,
+  };
+  return (
+    <section className={sx(toolStyles.panel)} aria-label="Workspace tools">
+      <header className={sx(toolStyles.header)}>
+        <div className={sx(toolStyles.headingRow)}>
+          <div className={sx(toolStyles.heading)}>
+            <h2 className={sx(toolStyles.panelTitle)}>Workspace tools</h2>
+            <p className={sx(toolStyles.workspaceName)} title={workspacePath}>{workspaceName}</p>
+          </div>
+          <div className={sx(toolStyles.headerActions)}>
+            {runningCount > 0 ? <StatusBadge tone="active">{runningCount} running</StatusBadge> : null}
+            {runningCount > 0 ? <ActionButton size="sm" weight="quiet" tone="danger" onClick={stopAll} title="Stop all running processes"><Square className={sx(toolStyles.icon)} />Stop all</ActionButton> : null}
+            <ActionButton size="sm" weight="quiet" onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label="Refresh Workspace tools" title="Refresh Workspace tools"><RefreshCcw className={sx(toolStyles.icon, runtime.configStatus === "loading" && toolStyles.refreshing)} /></ActionButton>
+            <ActionButton size="sm" weight="quiet" onClick={openScriptSettings} disabled={!projectPath} aria-label="Open Workspace tools settings" title="Open Workspace tools settings"><Settings2 className={sx(toolStyles.icon)} /></ActionButton>
+          </div>
+        </div>
+        <p className={sx(toolStyles.description)}>{WORKSPACE_TOOLS_VIEWS.find((view) => view.id === activeView)?.description}</p>
+        <Input aria-label="Find a workspace tool" placeholder="Find a command or process…" value={search} onChange={(event) => setSearch(event.target.value)} />
+      </header>
+      {runtime.configError ? <p role="alert" className={sx(toolStyles.configError)}>{runtime.configError}</p> : null}
+      {search.trim() ? <section aria-label="Tool search results" className={sx(toolStyles.search)}>
+        {commandEntries.some((entry) => `${entry.label} ${entry.description}`.toLowerCase().includes(search.trim().toLowerCase()))
+          ? commandEntries.map((entry) => renderScriptEntry(entry))
+          : <p role="status" className={sx(toolStyles.noResults)}>No matching commands or processes.</p>}
+      </section> : null}
+      <div className={sx(toolStyles.views, Boolean(search.trim()) && toolStyles.hidden)}>
+      <SectionTabs
+        fillHeight
+        wrap
+        label="Workspace tools views"
+        value={activeView}
+        onValueChange={(value) => {
+          const view = WORKSPACE_TOOLS_VIEWS.find((item) => item.id === value);
+          if (view) setActiveView(view.id);
+        }}
+        items={WORKSPACE_TOOLS_VIEWS.map((view) => ({
+          id: view.id,
+          label: viewCounts[view.id] ? `${view.label} · ${viewCounts[view.id]}` : view.label,
+          content: viewContents[view.id],
+          keepMounted: view.id === "processes" || view.id === "commands",
+        }))}
+      />
+      </div>
+      {selectedEntry ? <section aria-label={`Output: ${selectedEntry.label}`} className={sx(toolStyles.output)}>
+        <div className={sx(toolStyles.outputHeader)}>
+          <h3 className={sx(toolStyles.outputTitle)}>{selectedEntry.label}</h3>
+          <Button variant="ghost" size="icon-xs" aria-label="Close output" onClick={() => setSelection(null)}><X /></Button>
+        </div>
+        {selectedState?.log || selectedState?.error ? <ScriptLogView log={selectedState.log ?? ""} running={selectedState.running} error={selectedState.error} exitCode={selectedState.exitCode} startedAt={selectedState.startedAt} endedAt={selectedState.endedAt} onClear={() => clearLog({ scriptId: selectedEntry.id, scriptKind: selectedEntry.kind })} expandable={false} /> : <p role="status" className={sx(toolStyles.noOutput)}>{selectedState?.running ? "Waiting for output…" : "Run this tool to see its output here."}</p>}
+      </section> : null}
+    </section>
   );
 }

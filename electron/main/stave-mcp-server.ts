@@ -49,6 +49,7 @@ import {
   updateRoutine,
 } from "./routine-service";
 import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
+import { ChildTaskFollowUpArgsSchema } from "../../src/lib/runs/child-task";
 import { getChildTaskCoordinator } from "./runs/child-task-coordinator-instance";
 import {
   createTaskHeartbeat,
@@ -105,7 +106,7 @@ import {
   getCodexMcpRegistrationStatus,
   syncCodexMcpRegistration,
 } from "./codex-mcp";
-import { sanitizeMcpLogValue } from "./stave-mcp-log-sanitizer";
+import { sanitizeMcpLogValue, truncateLogString } from "./stave-mcp-log-sanitizer";
 import {
   linkMartinProject,
   listMartinProjects,
@@ -795,6 +796,17 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
   );
 
   server.registerTool(
+    "stave_follow_up_child_task",
+    {
+      description: "Continue an owned child task with a bounded follow-up. Read stave_list_child_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
+      inputSchema: ChildTaskFollowUpArgsSchema.shape,
+    },
+    async (input) => toStructuredResult({
+      followUp: await getChildTaskCoordinator().followUp(ChildTaskFollowUpArgsSchema.parse(input)),
+    }),
+  );
+
+  server.registerTool(
     "stave_get_task",
     {
       description: "Read the current persisted task state from Stave.",
@@ -827,7 +839,7 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
     },
     async ({ workspaceId }) =>
       toStructuredResult(
-        await listTaskHeartbeats(workspaceId ? { workspaceId } : {}),
+        { ...await listTaskHeartbeats(workspaceId ? { workspaceId } : {}) },
       ),
   );
 

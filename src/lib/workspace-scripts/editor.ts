@@ -169,10 +169,21 @@ export function appendServiceEntryToRawConfig(args: {
   label: string;
   commands: string[];
 }): Record<string, unknown> {
-  const services = isPlainRecord(args.rawConfig?.services)
-    ? { ...args.rawConfig.services }
+  return appendScriptEntryToRawConfig({ ...args, kind: "service" });
+}
+
+export function appendScriptEntryToRawConfig(args: {
+  rawConfig: Record<string, unknown> | null;
+  id: string;
+  label: string;
+  commands: string[];
+  kind: ScriptKind;
+}): Record<string, unknown> {
+  const key = args.kind === "service" ? "services" : "actions";
+  const entries = isPlainRecord(args.rawConfig?.[key])
+    ? { ...args.rawConfig[key] }
     : {};
-  services[args.id] = {
+  entries[args.id] = {
     label: args.label.trim() || args.id,
     commands: args.commands,
     target: DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE,
@@ -180,7 +191,7 @@ export function appendServiceEntryToRawConfig(args: {
   return {
     ...(args.rawConfig ?? {}),
     version: 2,
-    services,
+    [key]: entries,
   };
 }
 

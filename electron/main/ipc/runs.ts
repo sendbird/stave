@@ -5,6 +5,7 @@ import {
 } from "../../../src/lib/runs/secondary-run";
 import {
   ChildTaskActionResponseSchema,
+  ChildTaskDelegateArgsSchema,
   ChildTaskDetachArgsSchema,
   ChildTaskFollowUpArgsSchema,
   ChildTaskLinkArgsSchema,
@@ -124,6 +125,13 @@ export function registerRunHandlers() {
   // The renderer reads child summaries when it assembles a parent turn, so a
   // parent driven from the UI sees its children's lifecycle without having to
   // ask for it.
+  ipcMain.handle("runs:delegate-child-task", async (_event, rawArgs: unknown) => {
+    const args = ChildTaskDelegateArgsSchema.safeParse(rawArgs);
+    return args.success
+      ? await getChildTaskCoordinator().delegate(args.data)
+      : invalidChildTaskResponse();
+  });
+
   ipcMain.handle("runs:list-child-tasks", async (_event, rawArgs: unknown) => {
     const args = ChildTaskListArgsSchema.safeParse(rawArgs);
     return args.success ? await getChildTaskCoordinator().list(args.data) : [];

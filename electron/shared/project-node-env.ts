@@ -275,7 +275,7 @@ export function buildProjectShellEnv(args: {
 export function buildProjectNvmShellConfigOverrides(args: {
   cwd: string;
   baseEnv?: NodeJS.ProcessEnv;
-}) {
+}): Record<string, string> {
   const projectNvm = resolveProjectNvmEnvironment(args);
   if (!projectNvm) {
     return {};

@@ -220,6 +220,7 @@ export const LENS_IDLE_SWEEP_INTERVAL_MS = 60_000;
 
 /** Registry keyed by sessionKey(workspaceId, lensSessionId). */
 const sessions = new Map<string, BrowserSessionState>();
+const closingSessions = new Map<string, Promise<void>>();
 let lensIdleSweepTimer: ReturnType<typeof setInterval> | null = null;
 
 /**
@@ -1086,6 +1087,9 @@ export function bindBrowserSessionGuest(args: {
   );
 
   const host = getMainWindow()?.webContents;
+  if (closingSessions.has(sessionKey(args.workspaceId, lensSessionId))) {
+    return { ok: false, message: "Lens session is still closing" };
+  }
   if (!host || host.isDestroyed()) {
     return { ok: false, message: "No main window available to host a guest" };
   }
@@ -1561,6 +1565,12 @@ export function destroyBrowserSession(
   lensSessionId?: string,
   reason: LensSessionCloseReason = "closed",
 ): Promise<void> {
+  const closingKey = sessionKey(
+    workspaceId,
+    normalizeLensSessionId(lensSessionId),
+  );
+  const pendingClose = closingSessions.get(closingKey);
+  if (pendingClose) return pendingClose;
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session || session.closing) return Promise.resolve();
 
@@ -1597,60 +1607,74 @@ export function destroyBrowserSession(
    * and removing the element is what destroys the page — is the whole of it.
    * Calling `webContents.close()` here as well would only race that removal.
    */
-  const closePromise = (async () => {
-    // The target owns its remote objects, so dispose local CDP state without
-    // issuing cleanup commands that would race with the guest's destruction.
-    try {
-      disposeLensSnapshotState(session.webContentsId);
-      const drainResult = await disposeLensCdpDiagnostics(
-        session.webContentsId,
-      );
-      if (drainResult === "timed-out") {
-        await appendRuntimeDiagnostic({
-          scope: "lens",
-          context: "cdp-close-drain",
-          message: "Closing Lens with native CDP commands still in flight",
-          metadata: {
-            webContentsId: String(session.webContentsId),
-          },
-        }).catch(() => undefined);
-      }
-    } catch {
-      // Continue with popup teardown even if debugger state is already stale.
-    }
-
-    for (const popup of [...session.authPopups]) {
+  // Publish the close barrier before starting teardown. Reopening the same key
+  // must wait until the old guest's removal has been sent to the renderer.
+  const closePromise = Promise.resolve()
+    .then(async () => {
+      // The target owns its remote objects, so dispose local CDP state without
+      // issuing cleanup commands that would race with the guest's destruction.
       try {
-        if (!popup.isDestroyed()) {
-          webContentsSessionIndex.delete(popup.webContents.id);
-          popup.destroy();
+        disposeLensSnapshotState(session.webContentsId);
+        const drainResult = await disposeLensCdpDiagnostics(
+          session.webContentsId,
+        );
+        if (drainResult === "timed-out") {
+          await appendRuntimeDiagnostic({
+            scope: "lens",
+            context: "cdp-close-drain",
+            message: "Closing Lens with native CDP commands still in flight",
+            metadata: {
+              webContentsId: String(session.webContentsId),
+            },
+          }).catch(() => undefined);
         }
       } catch {
-        // Popup may already be closing.
+        // Continue with popup teardown even if debugger state is already stale.
       }
-    }
-    session.authPopups.clear();
-  })();
 
-  session.consoleLog.clear();
-  session.networkLog.clear();
-  session.downloadLog.clear();
-  releasePartitionHandlersIfUnused(session.sessionProfile.partition);
-
-  // Tell the renderer the view is gone so it can release the guest element, and
-  // drop the matching tab only when the close was deliberate. Emitted last so no
-  // renderer reaction can observe a half-torn-down session.
-  notifyLensSessionClosed(session, reason);
+      for (const popup of [...session.authPopups]) {
+        try {
+          if (!popup.isDestroyed()) {
+            webContentsSessionIndex.delete(popup.webContents.id);
+            popup.destroy();
+          }
+        } catch {
+          // Popup may already be closing.
+        }
+      }
+      session.authPopups.clear();
+    })
+    .finally(() => {
+      session.consoleLog.clear();
+      session.networkLog.clear();
+      session.downloadLog.clear();
+      releasePartitionHandlersIfUnused(session.sessionProfile.partition);
+      // This event removes the native guest. It must follow the bounded CDP
+      // drain, including its timeout diagnostic, rather than race that drain.
+      notifyLensSessionClosed(session, reason);
+      closingSessions.delete(key);
+    });
+  closingSessions.set(key, closePromise);
   return closePromise;
+}
+
+export async function waitForBrowserSessionClose(
+  workspaceId: string,
+  lensSessionId: string,
+): Promise<void> {
+  await closingSessions.get(
+    sessionKey(workspaceId, normalizeLensSessionId(lensSessionId)),
+  );
 }
 
 export async function destroyAllBrowserSessions(): Promise<void> {
   stopLensIdleSweep();
-  await Promise.allSettled(
-    [...sessions.values()].map((session) =>
+  await Promise.allSettled([
+    ...closingSessions.values(),
+    ...[...sessions.values()].map((session) =>
       destroyBrowserSession(session.workspaceId, session.lensSessionId),
     ),
-  );
+  ]);
 }
 
 /**

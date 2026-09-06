@@ -1,4 +1,5 @@
 import { readFile, readdir, realpath, stat } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { BridgeEvent } from "./types";
@@ -321,7 +322,7 @@ async function snapshotDirectory(args: {
       return;
     }
 
-    let entries: Awaited<ReturnType<typeof readdir>>;
+    let entries: Dirent<string>[];
     try {
       entries = await readdir(currentDir, { withFileTypes: true });
     } catch {

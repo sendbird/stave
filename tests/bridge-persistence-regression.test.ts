@@ -45,7 +45,10 @@ function createMemoryStorage() {
 }
 
 function setWindowApi(api: unknown) {
-  (globalThis as { window: unknown }).window = { api } as unknown;
+  (globalThis as { window: unknown }).window = {
+    api,
+    localStorage: createMemoryStorage(),
+  } as unknown;
 }
 
 function setWindowContext(args: {
@@ -58,7 +61,7 @@ function setWindowContext(args: {
     ...(typeof args.innerHeight === "number"
       ? { innerHeight: args.innerHeight }
       : {}),
-    ...(args.localStorage ? { localStorage: args.localStorage } : {}),
+    localStorage: args.localStorage ?? createMemoryStorage(),
   } as unknown;
 }
 

@@ -45,6 +45,7 @@ interface TrackerKickoffRow {
   crane_job_id: string | null;
   state: string;
   error_code: string | null;
+  local_turn_json: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -74,7 +75,7 @@ const REF_CHUNK_SIZE = 400;
 const TASK_COLUMNS = `source, task_ref, task_json`;
 
 const KICKOFF_COLUMNS = `id, source, task_ref, task_key, workspace_id,
-  stave_task_id, crane_job_id, state, error_code, created_at, updated_at`;
+  stave_task_id, crane_job_id, state, error_code, created_at, updated_at, local_turn_json`;
 
 const KICKOFF_ORDER = `ORDER BY created_at DESC, id ASC`;
 
@@ -89,6 +90,9 @@ function parseKickoffRow(row: TrackerKickoffRow): TrackerTaskStaveLink {
     craneJobId: row.crane_job_id,
     state: row.state,
     errorCode: row.error_code,
+    ...(row.local_turn_json
+      ? { localTurn: JSON.parse(row.local_turn_json) }
+      : {}),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
@@ -172,6 +176,14 @@ export class TrackerTasksStore {
       CREATE INDEX IF NOT EXISTS idx_tracker_task_kickoffs_stave_task
         ON tracker_task_kickoffs (stave_task_id);
     `);
+    const columns = this.db
+      .prepare("PRAGMA table_info(tracker_task_kickoffs)")
+      .all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "local_turn_json")) {
+      this.db.exec(
+        "ALTER TABLE tracker_task_kickoffs ADD COLUMN local_turn_json TEXT",
+      );
+    }
   }
 
   /** How many cached ticket rows have been skipped as unreadable since open. */
@@ -276,8 +288,8 @@ export class TrackerTasksStore {
       .prepare(
         `INSERT INTO tracker_task_kickoffs (
            id, source, task_ref, task_key, workspace_id, stave_task_id,
-           crane_job_id, state, error_code, created_at, updated_at
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           crane_job_id, state, error_code, created_at, updated_at, local_turn_json
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            task_key = excluded.task_key,
            workspace_id = excluded.workspace_id,
@@ -285,6 +297,7 @@ export class TrackerTasksStore {
            crane_job_id = excluded.crane_job_id,
            state = excluded.state,
            error_code = excluded.error_code,
+           local_turn_json = excluded.local_turn_json,
            updated_at = excluded.updated_at`,
       )
       .run(
@@ -299,6 +312,7 @@ export class TrackerTasksStore {
         kickoff.errorCode,
         kickoff.createdAt,
         kickoff.updatedAt,
+        kickoff.localTurn ? JSON.stringify(kickoff.localTurn) : null,
       );
   }
 

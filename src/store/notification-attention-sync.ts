@@ -107,8 +107,8 @@ export function createNotificationAttentionSync(
       void settle([...ids]);
     },
 
-    /** Reviewing a task in the task window clears its turn outcomes. */
-    markTaskReviewed: (taskId: string) => {
+    /** Opening a task reads notifications; result review is a separate action. */
+    markTaskNotificationsRead: (taskId: string) => {
       for (const id of findUnreadTurnNotificationIdsForTask({
         notifications: deps.getNotifications(),
         taskId,
@@ -118,8 +118,8 @@ export function createNotificationAttentionSync(
     },
 
     /**
-     * Marks a turn outcome as reviewed when it lands on the task the user is
-     * already watching, so it never queues up as an unseen result.
+     * Reads an outcome notification on the visible task. The durable result
+     * remains pending review regardless of notification reads or expiry.
      */
     noteTurnOutcome: (notification: AppNotification) => {
       if (

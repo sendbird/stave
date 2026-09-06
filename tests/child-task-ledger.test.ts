@@ -141,6 +141,7 @@ describe("run ledger widening for child tasks", () => {
       detail: {
         providerId: "codex",
         model: "gpt-5.3-codex",
+        effort: "high",
         permissionProfile: "auto",
         workspaceMode: "new-worktree",
       },
@@ -154,8 +155,23 @@ describe("run ledger widening for child tasks", () => {
       .find((receipt) => receipt.type === "accepted");
     expect(acceptedReceipt?.detail).toMatchObject({
       model: "gpt-5.3-codex",
+      effort: "high",
       permissionProfile: "auto",
       workspaceMode: "new-worktree",
+    });
+    const acceptedAggregate = store.getAggregate({
+      runId: records.run.id,
+      stepId: records.step.id,
+    });
+    const summary = acceptedAggregate
+      ? toChildTaskSummary({
+          ...acceptedAggregate,
+          acceptedReceipt,
+        })
+      : null;
+    expect(summary).toMatchObject({
+      requestedModel: "gpt-5.3-codex",
+      requestedEffort: "high",
     });
 
     const failed = store.failStep({
@@ -391,6 +407,23 @@ describe("run ledger widening for child tasks", () => {
   test("a Compare Judge row is never projected as a child task", () => {
     const secondary = createSecondaryRecords();
     expect(toChildTaskSummary(secondary)).toBeNull();
+  });
+
+  test("omits requested metadata when a receipt has no matching attempt", () => {
+    const records = createChildRecords();
+    const summary = toChildTaskSummary({
+      ...records,
+      acceptedReceipt: {
+        type: "accepted",
+        detail: {
+          model: "gpt-5.3-codex",
+          effort: "high",
+        },
+      },
+    });
+
+    expect(summary).not.toHaveProperty("requestedModel");
+    expect(summary).not.toHaveProperty("requestedEffort");
   });
 
   test("a delegation key round-trips through the run id", () => {

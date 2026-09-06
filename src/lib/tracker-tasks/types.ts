@@ -257,6 +257,14 @@ export const TrackerTaskStaveLinkSchema = z
     staveTaskId: z.string().trim().min(1).max(256).nullable(),
     craneJobId: z.string().trim().min(1).max(128).nullable(),
     state: z.enum(TRACKER_TASK_LINK_STATES),
+    localTurn: z
+      .object({
+        id: z.string().min(1).max(256),
+        sequence: z.number().int().min(0),
+        ended: z.boolean(),
+      })
+      .strict()
+      .optional(),
     errorCode: z.string().trim().min(1).max(64).nullable(),
     createdAt: timestampSchema,
     updatedAt: timestampSchema,

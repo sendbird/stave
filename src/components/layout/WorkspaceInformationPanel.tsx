@@ -142,6 +142,7 @@ import {
 } from "./WorkspaceInformationMartinCard";
 import { WorkspaceInformationConnectedBrowserCard } from "./WorkspaceInformationConnectedBrowserCard";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
+import { WorkspaceResumeBrief } from "./WorkspaceResumeBrief";
 import { workspaceInformationPanelStyles as styles } from "./workspace-information-panel.styles";
 
 // ---------------------------------------------------------------------------
@@ -1688,6 +1689,7 @@ export function WorkspaceInformationPanel() {
       style={infoPanelScale !== 1 ? { zoom: infoPanelScale } : undefined}
     >
       <div className={sx(styles.body)}>
+        <WorkspaceResumeBrief key={activeWorkspaceId} workspaceId={activeWorkspaceId} brief={workspaceInformation.resumeBrief} />
         {showInformationTopCards ? (
           <div className={sx(styles.topCards)}>
             {showMartinCard ? <WorkspaceInformationMartinCard /> : null}

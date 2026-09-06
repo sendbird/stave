@@ -210,6 +210,7 @@ import type {
 } from "@/lib/runs/secondary-run";
 import type {
   ChildTaskActionResponse,
+  ChildTaskDelegateArgs,
   ChildTaskDetachArgs,
   ChildTaskFollowUpArgs,
   ChildTaskList,
@@ -242,6 +243,7 @@ interface WindowRunsApi {
   listReceipts?: (
     args: SecondaryRunReceiptListArgs,
   ) => Promise<SecondaryRunReceiptList>;
+  delegateChildTask?: (args: ChildTaskDelegateArgs) => Promise<ChildTaskActionResponse>;
   listChildTasks?: (args: ChildTaskListArgs) => Promise<ChildTaskList>;
   followUpChildTask?: (
     args: ChildTaskFollowUpArgs,
@@ -1942,6 +1944,7 @@ interface WindowPersistenceApi {
   loadProjectRegistry?: () => Promise<{
     ok: boolean;
     projects: unknown[];
+    activeProjectPath?: string | null;
   }>;
   upsertWorkspace?: (args: {
     id: string;
@@ -2009,8 +2012,32 @@ interface WindowPersistenceApi {
   }) => Promise<{ ok: boolean }>;
   saveProjectRegistry?: (args: {
     projects: unknown[];
+    activeProjectPath?: string | null;
   }) => Promise<{ ok: boolean }>;
   closeWorkspace?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
+  loadDirectionDraft?: (args: { workspaceId: string }) => Promise<{ ok: boolean; draft: import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null }>;
+  saveDirectionDraft?: (args: { workspaceId: string; draft: import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null }) => Promise<{ ok: boolean }>;
+  loadDelegationDraft?: (args: {
+    scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
+  }) => Promise<{
+    ok: boolean;
+    draft: import("@/lib/collaboration/delegation-draft").DelegationDraft | null;
+  }>;
+  saveDelegationDraft?: (args: {
+    scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
+    draft: import("@/lib/collaboration/delegation-draft").DelegationDraft | null;
+  }) => Promise<{ ok: boolean }>;
+  clearAcceptedDelegationDraft?: (args: {
+    scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
+    delegationKey: string;
+  }) => Promise<{ ok: boolean; cleared: boolean }>;
+  listResultReviews?: (args?: import("@/lib/reviews/result-review").ListResultReviewsArgs) => Promise<
+    { ok: boolean } & import("@/lib/reviews/result-review").ResultReviewPage
+  >;
+  setResultReviewed?: (args: import("@/lib/reviews/result-review").SetResultReviewedArgs) => Promise<{
+    ok: boolean;
+    result: import("@/lib/reviews/result-review").ResultReview | null;
+  }>;
   listNotifications?: (args?: {
     limit?: number;
     unreadOnly?: boolean;
@@ -2107,7 +2134,7 @@ interface WindowPersistenceApi {
   onFlushRequested?: (
     listener: (args: { requestId: number }) => void,
   ) => () => void;
-  notifyFlushComplete?: (args: { requestId: number }) => Promise<{
+  notifyFlushComplete?: (args: { requestId: number; success: boolean }) => Promise<{
     ok: boolean;
   }>;
 }

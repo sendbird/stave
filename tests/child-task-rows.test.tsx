@@ -69,6 +69,23 @@ describe("ChildTaskRowsSurface", () => {
     expect(html).not.toContain("Retry");
   });
 
+  test("labels recorded model and effort as requested details", () => {
+    const html = renderRows([
+      buildChild({
+        requestedModel: "gpt-5.3-codex",
+        requestedEffort: "high",
+      }),
+    ]);
+
+    expect(html).toContain("Requested: model gpt-5.3-codex · effort high");
+
+    const modelOnly = renderRows([
+      buildChild({ requestedModel: "claude-sonnet-4" }),
+    ]);
+    expect(modelOnly).toContain("Requested: model claude-sonnet-4");
+    expect(modelOnly).not.toContain("effort");
+  });
+
   test("reads a detached delegation apart from the row's reason line", () => {
     const html = renderRows([
       buildChild({ phase: "cancelled", reason: CHILD_TASK_DETACHED_REASON }),

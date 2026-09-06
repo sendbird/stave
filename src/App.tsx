@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
+import { WorkspaceSaveNotice } from "@/components/layout/WorkspaceSaveNotice";
+import { flushPendingSnapshotPersists } from "@/store/workspace-session-state";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
 import { CraneDispatchApprovalDialog } from "@/components/layout/CraneDispatchApprovalDialog";
 import { useLensGuestHost } from "@/components/panes/useLensGuestHost";
@@ -358,7 +360,7 @@ export default function App() {
       }
       timer = window.setTimeout(() => {
         timer = null;
-        void useAppStore.getState().flushActiveWorkspaceSnapshot();
+        void useAppStore.getState().flushActiveWorkspaceSnapshot().catch(() => {});
       }, delayMs);
     };
 
@@ -398,17 +400,19 @@ export default function App() {
     }
     return subscribe(({ requestId }) => {
       void (async () => {
+        let success = false;
         try {
           await Promise.all([
             useAppStore.getState().flushActiveWorkspaceSnapshot(),
             useAppStore.getState().flushProjectRegistry(),
           ]);
+          await flushPendingSnapshotPersists();
+          success = true;
         } catch (error) {
           console.error("[persistence] quit flush failed", error);
         } finally {
-          // Acknowledge either way: a failed write must not hang the quit, and
-          // main's timeout is the backstop if this never arrives.
-          void window.api?.persistence?.notifyFlushComplete?.({ requestId });
+          // Report completion separately from success so main can offer retry.
+          void window.api?.persistence?.notifyFlushComplete?.({ requestId, success });
         }
       })();
     });
@@ -418,8 +422,11 @@ export default function App() {
   // and window closes that bypass the main-process quit path.
   useEffect(() => {
     const onBeforeUnload = () => {
-      void useAppStore.getState().flushActiveWorkspaceSnapshot();
-      void useAppStore.getState().flushProjectRegistry();
+      void useAppStore.getState().flushActiveWorkspaceSnapshot().catch(() => {});
+      void flushPendingSnapshotPersists().catch(() => {});
+      void useAppStore.getState().flushProjectRegistry().catch((error) => {
+        console.error("[persistence] project registry save failed", error);
+      });
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
@@ -429,7 +436,9 @@ export default function App() {
     let timer: number | null = null;
     const flush = () => {
       timer = null;
-      void useAppStore.getState().flushProjectRegistry();
+      void useAppStore.getState().flushProjectRegistry().catch((error) => {
+        console.error("[persistence] project registry save failed", error);
+      });
     };
     const unsubscribe = useAppStore.subscribe((state, prevState) => {
       if (
@@ -460,6 +469,7 @@ export default function App() {
   return (
     <TooltipProvider>
       <AppShell />
+      <WorkspaceSaveNotice />
       <LensCdpApprovalDialog />
       <CraneDispatchApprovalDialog />
     </TooltipProvider>

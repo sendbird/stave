@@ -13,10 +13,7 @@ import type { ProviderRuntimeOptions } from "../../../src/lib/providers/provider
 import { truncateBufferedText } from "../provider-buffering";
 import { streamCursorWorkerWithAcp } from "../cursor/cursor-acp-profile";
 import { streamKiroWorkerWithAcp } from "../kiro/kiro-acp-profile";
-import type {
-  BridgeEvent,
-  ProviderResponderResult,
-} from "../types";
+import type { BridgeEvent, ProviderResponderResult } from "../types";
 
 const ACP_WORKER_TIMEOUT_MS = 10 * 60_000;
 const ACP_WORKER_OUTPUT_MAX_BYTES = 96 * 1024;
@@ -101,7 +98,11 @@ export type AcpWorkerRunnerDependencies = {
 
 const DEFAULT_RUNNERS: AcpWorkerRunnerDependencies = {
   runCursor: streamCursorWorkerWithAcp,
-  runKiro: streamKiroWorkerWithAcp,
+  runKiro: (args) =>
+    streamKiroWorkerWithAcp({
+      ...args,
+      effort: args.effort === "ultra" ? "max" : (args.effort ?? undefined),
+    }),
 };
 
 const grantsByKey = new Map<string, ActiveGrant>();
@@ -316,16 +317,16 @@ export async function runAcpWorker(args: {
   const startedAt = Date.now();
   const exchangeId = randomUUID();
   const pauseKey = `acp-worker:${exchangeId}`;
-  const workerExecution = buildWorkerExecutionMetadata(grant.profile);
+  let workerExecution = buildWorkerExecutionMetadata(grant.profile);
   const workerAgentId = `stave-worker:${exchangeId}`;
   const requestedResumeSessionId = grant.nativeSessionId;
   let reportedUsage: UsageEvent | undefined;
   let reportedContextUsage: ContextUsageEvent | undefined;
   let reportedSessionId: string | undefined;
+  let reportedWorkerModel: string | undefined;
   const runners = grant.runners ?? defaultRunnersOverride ?? DEFAULT_RUNNERS;
-  const run = grant.profile.provider === "cursor"
-    ? runners.runCursor
-    : runners.runKiro;
+  const run =
+    grant.profile.provider === "cursor" ? runners.runCursor : runners.runKiro;
   let removeApprovalResponder = () => {};
   let exchangeActive = true;
   let timedOut = false;
@@ -391,6 +392,16 @@ export async function runAcpWorker(args: {
           reportedSessionId = event.nativeSessionId;
           return;
         }
+        if (
+          event.type === "model_resolved" &&
+          event.resolvedProviderId === grant.profile.provider
+        ) {
+          reportedWorkerModel = event.resolvedModel;
+          workerExecution = buildWorkerExecutionMetadata(grant.profile, {
+            runtimeWorkerModel: reportedWorkerModel,
+          });
+          return;
+        }
         emitWorkerEvent({
           grant,
           event,
@@ -417,8 +428,7 @@ export async function runAcpWorker(args: {
     reportedContextUsage ??= [...events]
       .reverse()
       .find(
-        (event): event is ContextUsageEvent =>
-          event.type === "context_usage",
+        (event): event is ContextUsageEvent => event.type === "context_usage",
       );
     reportedSessionId ??= [...events]
       .reverse()
@@ -426,6 +436,18 @@ export async function runAcpWorker(args: {
         (event): event is Extract<BridgeEvent, { type: "provider_session" }> =>
           event.type === "provider_session",
       )?.nativeSessionId;
+    reportedWorkerModel ??= [...events]
+      .reverse()
+      .find(
+        (event): event is Extract<BridgeEvent, { type: "model_resolved" }> =>
+          event.type === "model_resolved" &&
+          event.resolvedProviderId === grant.profile.provider,
+      )?.resolvedModel;
+    if (reportedWorkerModel) {
+      workerExecution = buildWorkerExecutionMetadata(grant.profile, {
+        runtimeWorkerModel: reportedWorkerModel,
+      });
+    }
     const providerSessionEstablished = Boolean(
       reportedSessionId || reportedUsage || reportedContextUsage,
     );
@@ -438,7 +460,7 @@ export async function runAcpWorker(args: {
         executionId: workerAgentId,
         role: "worker",
         providerId: grant.profile.provider,
-        model: grant.profile.resolvedWorkerModel,
+        model: reportedWorkerModel ?? grant.profile.resolvedWorkerModel,
         ...(reportedUsage
           ? {
               inputTokens: reportedUsage.inputTokens,
@@ -478,7 +500,7 @@ export async function runAcpWorker(args: {
           : {}),
         sessionReused: Boolean(
           requestedResumeSessionId &&
-            reportedSessionId === requestedResumeSessionId,
+          reportedSessionId === requestedResumeSessionId,
         ),
       });
     }
@@ -510,12 +532,14 @@ export async function runAcpWorker(args: {
     const result = collectWorkerText(events);
     const terminal = [...events]
       .reverse()
-      .find((event): event is Extract<BridgeEvent, { type: "done" }> =>
-        event.type === "done",
+      .find(
+        (event): event is Extract<BridgeEvent, { type: "done" }> =>
+          event.type === "done",
       );
     const failed = terminal?.stop_reason === "runtime_failure" || !result;
     if (failed) {
-      const detail = buildFailureDetail(events) ||
+      const detail =
+        buildFailureDetail(events) ||
         "The Worker did not return a usable result.";
       grant.emit({
         type: "tool",
@@ -557,7 +581,7 @@ export async function runAcpWorker(args: {
       ok: true,
       result,
       providerId: grant.profile.provider,
-      model: grant.profile.resolvedWorkerModel,
+      model: reportedWorkerModel ?? grant.profile.resolvedWorkerModel,
       durationMs,
     };
   } catch (error) {

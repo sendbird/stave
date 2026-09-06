@@ -28,6 +28,8 @@ export const PERSISTENCE_FLUSH_TIMEOUT_MS = 4_000;
 export type PersistenceFlushOutcome =
   /** Renderer acknowledged; its pending writes are durable. */
   | "flushed"
+  /** Renderer finished the request but one or more writes failed. */
+  | "failed"
   /** No renderer to ask (already destroyed, or still loading). */
   | "unavailable"
   /** Renderer never answered inside the timeout. */
@@ -94,7 +96,7 @@ export function requestRendererPersistenceFlush(args?: {
       console.warn(
         `[persistence] renderer flush did not acknowledge within ${
           args?.timeoutMs ?? PERSISTENCE_FLUSH_TIMEOUT_MS
-        }ms; quitting anyway`,
+        }ms; save remains unconfirmed`,
       );
       settle("timeout");
     }, args?.timeoutMs ?? PERSISTENCE_FLUSH_TIMEOUT_MS);
@@ -113,20 +115,20 @@ export function requestRendererPersistenceFlush(args?: {
 }
 
 /** Called from the renderer's `persistence:flush-complete` IPC handler. */
-export function resolveRendererPersistenceFlush(args?: {
-  requestId?: number;
+export function resolveRendererPersistenceFlush(args: {
+  requestId: number;
+  success: boolean;
 }) {
   if (!pending) {
     return { ok: false as const };
   }
   // Ignore an acknowledgement for a request we already gave up on.
   if (
-    typeof args?.requestId === "number" &&
     args.requestId !== pending.requestId
   ) {
     return { ok: false as const };
   }
-  settle("flushed");
+  settle(args.success ? "flushed" : "failed");
   return { ok: true as const };
 }
 

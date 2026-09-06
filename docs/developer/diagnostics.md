@@ -93,3 +93,15 @@ The Settings dialog includes desktop-only diagnostics for renderer and composito
 The GPU status card is available only when the preload bridge exposes `window.api.window.getGpuStatus()`.
 The Tooling section is available only when the preload bridge exposes `window.api.tooling.getStatus()` and `window.api.tooling.syncOriginMain()`.
 Tooling status checks and `origin/main` sync now run through the dedicated `host-service` child process, so CLI health and git-sync failures should be debugged from `electron/main/ipc/tooling.ts`, `electron/main/host-service-client.ts`, and `electron/main/utils/tooling-status.ts` before changing renderer settings UI.
+
+## Conversation window recovery
+
+If the conversation renderer crashes or stops responding, Electron main offers
+**Reload window** or **Keep open** in a native dialog. Reload restores saved
+workspace state; unacknowledged changes can be lost. It does not resend a prompt
+or restart a provider turn. Check restored task activity before resuming work.
+
+A responsive renderer dismisses its pending hang notice. A crash supersedes a
+hang notice, and a late response to the old notice cannot reload a recovered or
+closed window. Renderer process health metrics continue to record the original
+failure. Lens requests awaiting the failed renderer are aborted promptly.

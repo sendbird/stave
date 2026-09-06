@@ -290,7 +290,7 @@ test("workspace tools no-result views share one empty-state pattern", async ({
   await panel.getByRole("tab", { name: "Commands", exact: true }).click();
   const commandStyle = await assertEmptyState(
     "No commands configured",
-    "Add a one-shot command in Workspace Tools settings. Run it from this tab when you need it.",
+    "Save a check, build, or other command. Run it when you need it and keep its output here.",
   );
 
   await panel.getByRole("tab", { name: "Runs", exact: true }).click();

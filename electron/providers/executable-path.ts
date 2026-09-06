@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { accessSync, constants, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -21,6 +21,7 @@ let cachedLoginShellPath: string | null | undefined;
 const cachedLoginShellEnvVarValues = new Map<string, string | null>();
 const cachedLoginShellCommandPaths = new Map<string, string | null>();
 let cachedNodeVersionManagerBinDirs: string[] | null = null;
+let pendingExecutableLookup: Promise<void> | undefined;
 
 function sanitizeCommandName(args: { value: string }) {
   const trimmed = args.value.trim();
@@ -173,7 +174,7 @@ function getLoginShellCandidates() {
     "/bin/bash",
     "/bin/sh",
   ]
-    .filter(Boolean)
+    .filter((candidate): candidate is string => Boolean(candidate))
     .filter((candidate, index, entries) => entries.indexOf(candidate) === index)
     .filter((candidate) => canExecutePath({ path: candidate }));
 }
@@ -237,16 +238,24 @@ export function resolveLoginShellEnvVarValue(args: {
   if (!safeKey) {
     return null;
   }
-  return resolveLoginShellEnvVarValues({
-    keys: [safeKey],
-    cache: args.cache,
-  })[safeKey] ?? null;
+  return (
+    resolveLoginShellEnvVarValues({
+      keys: [safeKey],
+      cache: args.cache,
+    })[safeKey] ?? null
+  );
 }
 
-export function resolveLoginShellEnvVarValues(args: {
-  keys: readonly string[];
-  cache?: boolean;
-}) {
+type LoginShellEnvProbeArgs = { keys: readonly string[]; cache?: boolean };
+type LoginShellProbeOutput = { stdout: string | null; stderr: string | null };
+
+function* loginShellEnvProbes(
+  args: LoginShellEnvProbeArgs,
+): Generator<
+  { shell: string; command: string },
+  Record<string, string | null>,
+  LoginShellProbeOutput
+> {
   const shouldCache = args.cache !== false;
   const safeKeys = [
     ...new Set(
@@ -298,15 +307,7 @@ export function resolveLoginShellEnvVarValues(args: {
         return `printf '${marker}%s${marker}' "\${${key}:-}"`;
       })
       .join(";");
-    const result = spawnSync(shell, ["-ilc", command], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        TERM: process.env.TERM || "dumb",
-      },
-      timeout: LOGIN_SHELL_PROBE_TIMEOUT_MS,
-      maxBuffer: 1024 * 1024,
-    });
+    const result = yield { shell, command };
     const nextPendingKeys: string[] = [];
     for (const key of pendingKeys) {
       const parsed = parseMarkedProbeOutput({
@@ -334,6 +335,55 @@ export function resolveLoginShellEnvVarValues(args: {
   }
 
   return Object.fromEntries(values);
+}
+
+function loginShellProbeOptions() {
+  return {
+    encoding: "utf8" as const,
+    env: { ...process.env, TERM: process.env.TERM || "dumb" },
+    timeout: LOGIN_SHELL_PROBE_TIMEOUT_MS,
+    killSignal: "SIGKILL" as const,
+    maxBuffer: 1024 * 1024,
+  };
+}
+
+export function resolveLoginShellEnvVarValues(args: LoginShellEnvProbeArgs) {
+  const probes = loginShellEnvProbes(args);
+  let step = probes.next();
+  while (!step.done) {
+    step = probes.next(
+      spawnSync(
+        step.value.shell,
+        ["-ilc", step.value.command],
+        loginShellProbeOptions(),
+      ),
+    );
+  }
+  return step.value;
+}
+
+/** Same lookup and cache contract without blocking the shared service loop. */
+export async function resolveLoginShellEnvVarValuesAsync(
+  args: LoginShellEnvProbeArgs,
+) {
+  const probes = loginShellEnvProbes(args);
+  let step = probes.next();
+  while (!step.done) {
+    const { shell, command } = step.value;
+    const output = await new Promise<LoginShellProbeOutput>((resolve) => {
+      execFile(
+        shell,
+        ["-ilc", command],
+        loginShellProbeOptions(),
+        (_error, stdout, stderr) => {
+          // Shell diagnostics may contain private environment values. Never log them.
+          resolve({ stdout, stderr });
+        },
+      );
+    });
+    step = probes.next(output);
+  }
+  return step.value;
 }
 
 function safeReadDir(args: { path: string }) {
@@ -477,6 +527,81 @@ export function __resetExecutablePathCachesForTests() {
   cachedLoginShellEnvVarValues.clear();
   cachedLoginShellCommandPaths.clear();
   cachedNodeVersionManagerBinDirs = null;
+  pendingExecutableLookup = undefined;
+}
+
+/** Warm the shared shell caches without blocking unrelated host requests. */
+export function prepareExecutableLookup(
+  commands: readonly string[],
+): Promise<void> {
+  if (pendingExecutableLookup) {
+    return pendingExecutableLookup.then(() =>
+      prepareExecutableLookup(commands),
+    );
+  }
+  const missing = [...new Set(commands)]
+    .map((command) => sanitizeCommandName({ value: command }))
+    .filter((command): command is string => Boolean(command))
+    .filter((command) => !cachedLoginShellCommandPaths.has(command));
+  if (cachedLoginShellPath !== undefined && missing.length === 0) {
+    return Promise.resolve();
+  }
+  const lookup = (async () => {
+    for (const shell of process.platform === "win32"
+      ? []
+      : getLoginShellCandidates()) {
+      const pending = missing.filter(
+        (command) => !cachedLoginShellCommandPaths.has(command),
+      );
+      if (cachedLoginShellPath !== undefined && pending.length === 0) break;
+      const markers = pending.map((command, index) => ({
+        command,
+        marker: `__STAVE_EXECUTABLE_${index}__`,
+      }));
+      const script = [
+        `printf '${LOGIN_SHELL_PATH_MARKER}%s${LOGIN_SHELL_PATH_MARKER}' "$PATH"`,
+        ...markers.map(
+          ({ command, marker }) =>
+            `printf '${marker}%s${marker}' "$(command -v ${command} 2>/dev/null || true)"`,
+        ),
+      ].join(";");
+      const output = await new Promise<LoginShellProbeOutput>((resolve) => {
+        execFile(
+          shell,
+          ["-ilc", script],
+          loginShellProbeOptions(),
+          (_error, stdout, stderr) => {
+            // Never log shell output: initialization can print private values.
+            resolve({ stdout, stderr });
+          },
+        );
+      });
+      if (cachedLoginShellPath === undefined) {
+        const shellPath = parseMarkedProbeOutput({
+          ...output,
+          marker: LOGIN_SHELL_PATH_MARKER,
+        });
+        if (shellPath) cachedLoginShellPath = shellPath;
+      }
+      for (const { command, marker } of markers) {
+        const candidate = normalizeExecutablePathValue({
+          value: parseMarkedProbeOutput({ ...output, marker }),
+        });
+        if (candidate && canExecutePath({ path: candidate })) {
+          cachedLoginShellCommandPaths.set(command, candidate);
+        }
+      }
+    }
+    cachedLoginShellPath ??= null;
+    for (const command of missing) {
+      if (!cachedLoginShellCommandPaths.has(command))
+        cachedLoginShellCommandPaths.set(command, null);
+    }
+  })();
+  pendingExecutableLookup = lookup;
+  return lookup.finally(() => {
+    if (pendingExecutableLookup === lookup) pendingExecutableLookup = undefined;
+  });
 }
 
 export function resolveExecutableLookupPath(
@@ -563,7 +688,7 @@ export function normalizeExecutablePathValue(args: {
   }
 
   if (!candidate && lines.length === 1) {
-    const singleLine = stripMatchingQuotes(lines[0]);
+    const singleLine = stripMatchingQuotes(lines[0] ?? "");
     candidate = sanitizeCommandName({ value: singleLine });
   }
   if (!candidate) {
@@ -593,6 +718,14 @@ function resolveFromCommand(args: { command: string; env: NodeJS.ProcessEnv }) {
     return null;
   }
 
+  // The asynchronous discovery pass has already asked the login shell about
+  // this command. Reuse a validated result so synchronous availability
+  // consumers do not re-enter a child process on their first read.
+  const discoveredPath = cachedLoginShellCommandPaths.get(safeCommand);
+  if (discoveredPath && canExecutePath({ path: discoveredPath })) {
+    return discoveredPath;
+  }
+
   const result = spawnSync(getLookupCommand(), [safeCommand], {
     encoding: "utf8",
     env: args.env,
@@ -613,10 +746,6 @@ function resolveFromCommand(args: { command: string; env: NodeJS.ProcessEnv }) {
 }
 
 export function resolveExecutablePath(args: ResolveExecutablePathArgs) {
-  const env = buildExecutableLookupEnv({
-    extraPaths: args.extraPaths,
-  });
-
   const explicitPaths = [
     ...(args.explicitPaths ?? []),
     process.env[args.absolutePathEnvVar]?.trim() ?? "",
@@ -631,6 +760,8 @@ export function resolveExecutablePath(args: ResolveExecutablePathArgs) {
       return candidate;
     }
   }
+
+  const env = buildExecutableLookupEnv({ extraPaths: args.extraPaths });
 
   const commandCandidates = [
     process.env[args.commandEnvVar]?.trim() ?? "",

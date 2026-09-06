@@ -917,6 +917,20 @@ export function normalizeLensAnnotationArray(
   );
 }
 
+/** Restore saved evidence using its recorded identity, never the current page's identity. */
+export const PersistedLensAnnotationSchema = AnnotationInputSchema.transform((raw, context) => {
+  try {
+    return normalizeLensAnnotationPayload(raw, {
+      documentId: raw.review?.page.documentId ?? "legacy-persisted-annotation",
+      url: raw.review?.page.url ?? "about:blank",
+      title: raw.review?.page.title ?? "",
+    });
+  } catch (error) {
+    context.addIssue({ code: "custom", message: error instanceof Error ? error.message : "Invalid saved annotation" });
+    return z.NEVER;
+  }
+});
+
 export function normalizeLensAnnotationEventPayload(
   input: unknown,
   context: LensAnnotationNormalizationContext,

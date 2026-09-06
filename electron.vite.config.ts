@@ -1,4 +1,5 @@
 import stylex from "@stylexjs/unplugin";
+import { createWorkspaceWatchIgnore } from "./config/workspace-watch";
 import { defineConfig } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
@@ -88,10 +89,12 @@ export default defineConfig({
       port: 4174,
       strictPort: true,
       watch: {
-        ignored: ["**/.stave/**"],
+        ignored: createWorkspaceWatchIgnore(__dirname),
       },
     },
     resolve: {
+      // React hooks and editor nodes must share one runtime across dependency trees.
+      dedupe: ["react", "react-dom", "lexical"],
       alias: srcAlias,
     },
     build: {

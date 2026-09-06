@@ -6,6 +6,7 @@
  * re-exports `formatCodexAppServerErrorMessage` for existing consumers.
  */
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
+import type { BridgeEvent } from "./types";
 
 export function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -14,6 +15,14 @@ export function toErrorMessage(error: unknown) {
 export function toCodexUserFacingErrorMessage(args: { message: string }) {
   const message = formatCodexAppServerErrorMessage(args.message);
   const lower = message.toLowerCase();
+  const rawLower = args.message.toLowerCase();
+  if (
+    rawLower.includes("server_overloaded") ||
+    lower.includes("at capacity") ||
+    lower.includes("model is overloaded")
+  ) {
+    return `${message}\nRetry later, or choose another model before resuming.`;
+  }
   if (
     lower.includes("auth") ||
     lower.includes("api key") ||
@@ -39,6 +48,49 @@ export function toCodexUserFacingErrorMessage(args: { message: string }) {
     return "Codex network/model endpoint is unreachable. Check internet/proxy/firewall and retry.";
   }
   return message;
+}
+
+/**
+ * A terminal failure ends the current provider turn even when starting a new
+ * turn later is safe. `recoverable` means this stream can still recover; it
+ * must therefore be false once App Server has declared the turn failed.
+ */
+export function buildCodexTerminalFailureEvents(args: {
+  message: string;
+  stopReason?: "failed" | "runtime_failure";
+}): [BridgeEvent, BridgeEvent] {
+  return [
+    {
+      type: "error",
+      message: toCodexUserFacingErrorMessage({ message: args.message }),
+      recoverable: false,
+    },
+    {
+      type: "done",
+      stop_reason: args.stopReason ?? "runtime_failure",
+    },
+  ];
+}
+
+export function resolveCodexTurnCompletionStopReason(args: {
+  status?: string;
+  abortRequested: boolean;
+}) {
+  if (args.abortRequested) {
+    return "user_abort";
+  }
+  const status = args.status?.trim().toLowerCase();
+  if (status === "failed") {
+    return "failed";
+  }
+  if (
+    status === "interrupted" ||
+    status === "cancelled" ||
+    status === "canceled"
+  ) {
+    return "interrupted";
+  }
+  return undefined;
 }
 
 export function formatCodexAppServerErrorMessage(message: string) {

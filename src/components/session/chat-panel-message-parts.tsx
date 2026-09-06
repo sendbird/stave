@@ -19,6 +19,7 @@ import {
   TruncationWarningBanner,
 } from "@/components/ai-elements";
 import { LinkifiedText } from "@/components/ui/linkified-text";
+import { ProviderErrorRecovery } from "@/components/session/ProviderErrorRecovery";
 import {
   isSubagentToolPart,
   isTodoToolPart,
@@ -104,17 +105,21 @@ export function MessagePartRenderer(args: {
   part: MessagePart;
   taskId: string;
   messageId: string;
+  terminalStopReason?: string;
   isStreaming?: boolean;
   isLastTextPart?: boolean;
   userInputPresentation?: UserInputCardPresentation;
+  systemEventPresentation?: "full" | "detail";
 }) {
   const {
     part,
     taskId,
     messageId,
+    terminalStopReason,
     isStreaming,
     isLastTextPart,
     userInputPresentation,
+    systemEventPresentation = "full",
   } = args;
   const resolveApproval = useAppStore((state) => state.resolveApproval);
   const resolveUserInput = useAppStore((state) => state.resolveUserInput);
@@ -237,6 +242,17 @@ export function MessagePartRenderer(args: {
     case "system_event": {
       if (!shouldRenderInlineSystemEvent({ content: part.content })) {
         return null;
+      }
+      if (part.content.trimStart().toLowerCase().startsWith("[error]")) {
+        return (
+          <ProviderErrorRecovery
+            content={part.content}
+            taskId={taskId}
+            messageId={messageId}
+            terminalStopReason={terminalStopReason}
+            hideMessage={systemEventPresentation === "detail"}
+          />
+        );
       }
       const normalized = part.content.trim().toLowerCase();
       // "Compacting conversation context…" — in-progress spinner

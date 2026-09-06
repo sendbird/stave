@@ -94,7 +94,7 @@ export type BridgeEvent =
     }
   | {
       type: "browser_connection";
-      providerId: ProviderId;
+      providerId: "claude-code" | "codex";
       status: "connecting" | "connected" | "failed";
       at: number;
     }
@@ -159,7 +159,7 @@ export type BridgeEvent =
       primaryProviderId: ProviderId;
       /** Primary model id, so "a different model answered" is verifiable. */
       primaryModel?: string;
-      advisorProviderId?: ProviderId;
+      advisorProviderId?: ManagedExecutionProviderId;
       advisorModel?: string;
       /** Tier the call carries, after defaulting and clamping. */
       advisorEffort?: AdvisorEffort;

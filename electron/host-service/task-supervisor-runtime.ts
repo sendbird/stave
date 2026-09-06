@@ -411,7 +411,7 @@ export function createTaskSupervisorRuntime(
       pendingApprovalCount: snapshot.pendingApprovalCount,
       pendingUserInputCount: snapshot.pendingUserInputCount,
       fingerprint:
-        snapshot.providerId && snapshot.model
+        (snapshot.providerId === "claude-code" || snapshot.providerId === "codex") && snapshot.model
           ? { providerId: snapshot.providerId, model: snapshot.model }
           : null,
       identity: identity.ok ? { ok: true } : { ok: false, reason: identity.reason },
@@ -913,7 +913,10 @@ export function createTaskSupervisorRuntime(
     if (!snapshot.providerId || !snapshot.model) {
       throw new Error("This task has no resolved provider yet.");
     }
-    return snapshot;
+    if (snapshot.providerId !== "claude-code" && snapshot.providerId !== "codex") {
+      throw new Error("Automatic task wake-ups are available for Claude and Codex tasks.");
+    }
+    return { ...snapshot, providerId: snapshot.providerId, model: snapshot.model, projectPath: snapshot.projectPath };
   }
 
   /**

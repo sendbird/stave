@@ -34,8 +34,8 @@ afterEach(() => {
   (globalThis as { window?: unknown }).window = originalWindow;
 });
 
-describe("conversation turn rail setting", () => {
-  test("defaults to shown, normalizes invalid values, and persists hiding it", async () => {
+describe("conversation display settings", () => {
+  test("default to shown, normalize invalid values, and persist hiding them", async () => {
     const localStorage = createMemoryStorage();
     (globalThis as { window?: unknown }).window = {
       localStorage,
@@ -51,6 +51,9 @@ describe("conversation turn rail setting", () => {
         state: {
           settings: {
             showConversationTurnRail: "invalid",
+            showCollaborationShortcut: "invalid",
+            showCollaborationStatus: "invalid",
+            showTaskStartExamples: "invalid",
           },
         },
         version: 0,
@@ -74,14 +77,25 @@ describe("conversation turn rail setting", () => {
     await persistedStore.persist.rehydrate();
 
     expect(useAppStore.getState().settings.showConversationTurnRail).toBe(true);
+    expect(useAppStore.getState().settings).not.toHaveProperty("showCollaborationShortcut");
+    expect(useAppStore.getState().settings).not.toHaveProperty("showCollaborationStatus");
+    expect(useAppStore.getState().settings.showTaskStartExamples).toBe(true);
 
     useAppStore.getState().updateSettings({
-      patch: { showConversationTurnRail: false },
+      patch: {
+        showConversationTurnRail: false,
+        showTaskStartExamples: false,
+      },
     });
 
-    const persisted = JSON.parse(localStorage.getItem("stave-store") ?? "{}") as {
+    const persisted = JSON.parse(
+      localStorage.getItem("stave-store") ?? "{}",
+    ) as {
       state?: { settings?: Record<string, unknown> };
     };
     expect(persisted.state?.settings?.showConversationTurnRail).toBe(false);
+    expect(persisted.state?.settings?.showCollaborationShortcut).toBeUndefined();
+    expect(persisted.state?.settings?.showCollaborationStatus).toBeUndefined();
+    expect(persisted.state?.settings?.showTaskStartExamples).toBe(false);
   });
 });

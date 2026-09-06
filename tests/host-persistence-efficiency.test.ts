@@ -326,6 +326,35 @@ async function drainMicrotasks(iterations = 50) {
 }
 
 describe("host-service turn path on a very large task", () => {
+  test("a byte-bounded tail keeps originals durable and does not reload them per event", async () => {
+    const history = buildLargeTaskHistory({
+      count: 100,
+      largePartEveryNth: 2,
+      largePartBytes: 128 * 1024,
+      idPrefix: TASK_ID,
+    });
+    persistedMessagesByTask.set(TASK_ID, history);
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      taskId: TASK_ID,
+      prompt: "Continue the large output task",
+    });
+    const historyCount =
+      startTurnStreamCalls.at(-1)?.conversation?.history?.length ?? 0;
+    expect(historyCount).toBeGreaterThan(0);
+    expect(historyCount).toBeLessThan(100);
+    storeCalls.clear();
+    const handlers = startTurnStreamHandlers.at(-1);
+    for (let index = 0; index < 30; index += 1)
+      handlers?.onEvent?.({ type: "text", text: `update ${index}` });
+    await drainMicrotasks(100);
+    expect(callCount("loadTaskMessagesPage")).toBe(0);
+    expect(callCount("loadAllTaskMessages")).toBe(0);
+    const saved = persistedMessagesByTask.get(TASK_ID)!;
+    for (const original of history)
+      expect(saved.find((row) => row.id === original.id)).toEqual(original);
+  });
+
   test("run_task does not load the entire transcript", async () => {
     await runtime.runTask({
       workspaceId: WORKSPACE_ID,

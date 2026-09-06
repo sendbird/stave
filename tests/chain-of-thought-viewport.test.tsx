@@ -18,6 +18,7 @@ function renderTrace(args: {
   style?: "legacy" | "beui";
   durationSeconds?: number;
   defaultOpen?: boolean;
+  completionLabel?: string;
 }) {
   const trace = createElement(
     ChainOfThought,
@@ -28,7 +29,9 @@ function renderTrace(args: {
       seed: "message-1",
       summaryItems: [{ icon: null, label: "reads", count: 2 }],
     },
-    createElement(ChainOfThoughtTrigger, null),
+    createElement(ChainOfThoughtTrigger, {
+      completionLabel: args.completionLabel,
+    }),
     createElement(
       ChainOfThoughtContent,
       null,
@@ -128,5 +131,15 @@ describe("ChainOfThoughtTrigger", () => {
     const first = renderTrace({ isStreaming: false, defaultOpen: false });
     const second = renderTrace({ isStreaming: false, defaultOpen: false });
     expect(first).toBe(second);
+  });
+
+  test("uses an explicit terminal label instead of a success phrase", () => {
+    expect(
+      renderTrace({
+        isStreaming: false,
+        defaultOpen: true,
+        completionLabel: "Run failed",
+      }),
+    ).toContain("Run failed");
   });
 });

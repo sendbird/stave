@@ -19,7 +19,7 @@ import {
   getDefaultModelForProvider,
   getNextProviderId,
   getProviderLabel,
-  getProviderWaveToneClass,
+  getProviderWaveTone,
   inferProviderIdFromModel,
   registerDynamicDefaultReasoningEfforts,
   registerDynamicDisplayNames,
@@ -358,13 +358,11 @@ describe("model catalog", () => {
     ).toBeUndefined();
   });
 
-  test("returns provider wave tone classes", () => {
-    expect(getProviderWaveToneClass({ providerId: "claude-code" })).toBe(
-      "text-provider-claude",
-    );
-    expect(getProviderWaveToneClass({ providerId: "codex" })).toBe(
-      "text-provider-codex",
-    );
+  test("returns semantic provider wave tones", () => {
+    expect(getProviderWaveTone({ providerId: "claude-code" })).toBe("claude");
+    expect(getProviderWaveTone({ providerId: "codex" })).toBe("codex");
+    expect(getProviderWaveTone({ providerId: "cursor" })).toBe("accent");
+    expect(getProviderWaveTone({ providerId: "kiro" })).toBe("accent");
   });
 
   test("infers provider ids from routed model ids", () => {
@@ -400,19 +398,19 @@ describe("model catalog", () => {
     );
   });
 
-  test("wave tone class resolves correctly for [1m] variants", () => {
+  test("wave tone resolves correctly for [1m] variants", () => {
     expect(
-      getProviderWaveToneClass({
+      getProviderWaveTone({
         providerId: "claude-code",
         model: "claude-opus-4-8[1m]",
       }),
-    ).toBe("text-provider-claude");
+    ).toBe("claude");
     expect(
-      getProviderWaveToneClass({
+      getProviderWaveTone({
         providerId: "claude-code",
         model: "claude-sonnet-4-6[1m]",
       }),
-    ).toBe("text-provider-claude");
+    ).toBe("claude");
   });
 
   test("cycles provider order from the descriptor registry", () => {

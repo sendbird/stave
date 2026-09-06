@@ -105,8 +105,8 @@ function writeJsonRpcMessage(session: LspSession, payload: unknown) {
   session.child.stdin.write(encodeJsonRpcMessage(payload), "utf8");
 }
 
-function sendRequest<T>(session: LspSession, method: string, params: unknown): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
+function sendRequest(session: LspSession, method: string, params: unknown): Promise<unknown> {
+  return new Promise<unknown>((resolve, reject) => {
     const id = session.nextRequestId;
     session.nextRequestId += 1;
     session.pendingRequests.set(id, { resolve, reject });
@@ -196,7 +196,7 @@ function handleIncomingMessage(session: LspSession, message: unknown) {
 
 async function initializeSession(session: LspSession) {
   const rootUri = toLspWorkspaceRootUri(session.rootPath);
-  const initializeResult = await sendRequest<{ capabilities?: Record<string, unknown> }>(session, "initialize", {
+  const initializeResult = await sendRequest(session, "initialize", {
     processId: process.pid,
     clientInfo: {
       name: "stave",
@@ -567,7 +567,7 @@ export async function requestLspDefinition(args: {
     sender: args.sender,
     commandOverride: args.commandOverride,
     operation: async (session) => {
-      const response = await sendRequest<unknown>(session, "textDocument/definition", {
+      const response = await sendRequest(session, "textDocument/definition", {
         textDocument: {
           uri: getDocumentUri({ rootPath: args.rootPath, filePath: args.filePath }),
         },

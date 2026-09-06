@@ -53,6 +53,7 @@ export function buildChildTaskReceiptsRetrievedContext(args: {
       "Child tasks this task delegated, as recorded on the run ledger.",
       "Identity, phase and reason only — a child's transcript is never included here.",
       "Use `stave_list_child_tasks` for a fresh read and `stave_stop_child_task` to stop one.",
+      "Read `stave_get_task` with the child task and workspace ids to collect its latest answer. Use `stave_follow_up_child_task` with the fresh expected identity to request clarification or further work. Review results before reporting the parent complete.",
       "",
       ...lines,
       ...(omitted > 0 ? ["", `(${omitted} older delegations omitted)`] : []),

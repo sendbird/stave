@@ -33,11 +33,25 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "agent-messages") {
+if (preview === "collaboration") {
+  void import("@/dev/collaboration-preview").then(
+    ({ CollaborationPreview }) => {
+      root.render(
+        <StrictMode>
+          <StaveDesignProvider>
+            <CollaborationPreview />
+          </StaveDesignProvider>
+        </StrictMode>,
+      );
+    },
+  );
+} else if (preview === "agent-messages") {
   void import("@/dev/agent-preview").then(({ AgentPreviewApp }) => {
     root.render(
       <StrictMode>
-        <AgentPreviewApp />
+        <StaveDesignProvider>
+          <AgentPreviewApp />
+        </StaveDesignProvider>
       </StrictMode>,
     );
   });

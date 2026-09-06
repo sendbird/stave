@@ -1,9 +1,9 @@
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync } from "node:fs";
 import { homedir, userInfo } from "node:os";
 import path from "node:path";
-import { resolveLoginShellEnvVarValue } from "../executable-path";
+import { resolveLoginShellEnvVarValuesAsync } from "../executable-path";
 
 // Why: this is the same macOS Keychain service name the Claude Code CLI
 // itself writes to when a user runs `claude login` — reading it lets Stave
@@ -33,12 +33,15 @@ const DEFAULT_CLAUDE_CONFIG_DIR = path.join(homedir(), ".claude");
  * into `~/.agents/claude` — typically export CLAUDE_CONFIG_DIR there).
  * Symlinks are resolved so a dir and its target count as one candidate.
  */
-function listClaudeConfigDirCandidates(): string[] {
+async function listClaudeConfigDirCandidates(): Promise<string[]> {
+  const shellValues = await resolveLoginShellEnvVarValuesAsync({
+    keys: ["CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_CONFIG_DIR"],
+  });
   const rawCandidates = [
     process.env.CLAUDE_SECURESTORAGE_CONFIG_DIR,
-    resolveLoginShellEnvVarValue({ key: "CLAUDE_SECURESTORAGE_CONFIG_DIR" }),
+    shellValues.CLAUDE_SECURESTORAGE_CONFIG_DIR,
     process.env.CLAUDE_CONFIG_DIR,
-    resolveLoginShellEnvVarValue({ key: "CLAUDE_CONFIG_DIR" }),
+    shellValues.CLAUDE_CONFIG_DIR,
     DEFAULT_CLAUDE_CONFIG_DIR,
   ];
 
@@ -174,35 +177,36 @@ function listKeychainAccountCandidates(): (string | null)[] {
   return candidates;
 }
 
-function readMacKeychainCredentials(
+async function readMacKeychainCredentials(
   configDirs: string[],
-): ClaudeOAuthCredentials {
+): Promise<ClaudeOAuthCredentials> {
   if (process.platform !== "darwin") {
     return EMPTY_CREDENTIALS;
   }
   const accounts = listKeychainAccountCandidates();
-  return pickCredentials(
-    (function* () {
+  let accumulated = EMPTY_CREDENTIALS;
       for (const service of listKeychainServiceCandidates(configDirs)) {
         for (const account of accounts) {
           try {
-            yield parseOAuthCredentials(
-              execFileSync(
+            const read = parseOAuthCredentials(
+              await new Promise<string>((resolve) => execFile(
                 "security",
                 account === null
                   ? ["find-generic-password", "-s", service, "-w"]
                   : ["find-generic-password", "-s", service, "-a", account, "-w"],
-                { encoding: "utf8", timeout: 5_000 },
-              ),
+                { encoding: "utf8", timeout: 5_000, killSignal: "SIGKILL", maxBuffer: 64 * 1024 },
+                (error, stdout) => resolve(error ? "" : stdout),
+              )),
             );
+            accumulated = pickCredentials([accumulated, read]);
+            if (accumulated.accessToken) return accumulated;
           } catch {
             // Keychain entry missing, access denied, or `security` unavailable —
             // try the next candidate, then the credentials file, then the CLI.
           }
         }
       }
-    })(),
-  );
+  return accumulated;
 }
 
 function readCredentialsFileCredentials(
@@ -232,10 +236,10 @@ function readCredentialsFileCredentials(
  * is stale the caller instead runs the CLI (which rotates its own credentials
  * as a side effect) and re-reads them here.
  */
-export function readClaudeOAuthCredentials(): ClaudeOAuthCredentials {
-  const configDirs = listClaudeConfigDirCandidates();
+export async function readClaudeOAuthCredentials(): Promise<ClaudeOAuthCredentials> {
+  const configDirs = await listClaudeConfigDirCandidates();
   return pickCredentials([
-    readMacKeychainCredentials(configDirs),
+    await readMacKeychainCredentials(configDirs),
     readCredentialsFileCredentials(configDirs),
   ]);
 }
