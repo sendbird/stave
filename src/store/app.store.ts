@@ -198,6 +198,7 @@ import {
   scheduleWorkspaceSnapshotPersist,
   type WorkspaceSessionState,
 } from "@/store/workspace-session-state";
+import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
 import {
   TASK_MESSAGES_PAGE_SIZE,
   resolveInitialLatestTaskMessagesPageSize,
@@ -449,19 +450,6 @@ function clearRestoredTaskProviderSession(args: {
       [args.taskId]: false,
     },
   };
-}
-
-function cleanupRestoredTaskProviderRuntime(args: { taskId: string }) {
-  const cleanupTask = window.api?.provider?.cleanupTask;
-  if (!cleanupTask) {
-    return;
-  }
-  void cleanupTask({ taskId: args.taskId }).catch((error) => {
-    console.warn("[checkpoint-restore] provider cleanup failed", {
-      taskId: args.taskId,
-      error,
-    });
-  });
 }
 
 const ARCHIVED_TASK_TURN_NOTICE =
@@ -1008,7 +996,9 @@ export const useAppStore = create<AppState>()(
             targetSession.messagesByTask[args.taskId] ?? [];
           const nextMessages = mergeTaskMessagePage({
             currentMessages: sessionMessages,
-            pageMessages: page.messages,
+            pageMessages: args.mode === "latest" && sessionMessages.length === 0
+              ? trimPersistedMessageWindow({ messages: page.messages })
+              : page.messages,
             mode: args.mode,
           });
           const nextLoadingState = {
@@ -1140,7 +1130,9 @@ export const useAppStore = create<AppState>()(
                 targetSession.messagesByTask[result.value.taskId] ?? [];
               const mergedMessages = mergeTaskMessagePage({
                 currentMessages: sessionMessages,
-                pageMessages: result.value.page.messages,
+                pageMessages: sessionMessages.length === 0
+                  ? trimPersistedMessageWindow({ messages: result.value.page.messages })
+                  : result.value.page.messages,
                 mode: "latest",
               });
               const interruptedTurn = interruptedTurnByTaskId.get(
@@ -1288,7 +1280,6 @@ export const useAppStore = create<AppState>()(
       runScriptHookInBackground,
       attentionSync,
       clearRestoredTaskProviderSession,
-      cleanupRestoredTaskProviderRuntime,
       archivedTaskTurnNotice: ARCHIVED_TASK_TURN_NOTICE,
       incrementWorkspaceSnapshotVersion,
       findTaskById,
@@ -2891,6 +2882,18 @@ export const useAppStore = create<AppState>()(
               type: "model_resolved",
               resolvedProviderId: provider,
               resolvedModel: activeModel,
+              ...(autoRoutingDecision.source !== "manual"
+                ? {
+                    modelResolution: {
+                      selectedProviderId: provider,
+                      selectedModel: activeModel,
+                      source: autoRoutingDecision.source,
+                      rationale: autoRoutingDecision.rationale,
+                      confidence: autoRoutingDecision.confidence,
+                      taskType: autoRoutingDecision.taskType,
+                    },
+                  }
+                : {}),
             });
           }
 

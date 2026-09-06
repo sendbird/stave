@@ -1,5 +1,6 @@
 import { Kbd } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { layoutShellStyles } from "./layout-shell.styles";
 
 interface WorkspaceShortcutChipProps {
   modifier: string;
@@ -15,13 +16,10 @@ export function WorkspaceShortcutChip({
   return (
     <Kbd
       aria-label={`Keyboard shortcut ${modifier}+${label}`}
-      className={cn(
-        "h-5 min-w-0 gap-0.5 rounded-sm px-1.5 text-[10px] tabular-nums",
-        className,
-      )}
+      className={cx(sx(layoutShellStyles.shortcut), className)}
     >
       <span>{modifier}</span>
-      <span aria-hidden="true" className="text-muted-foreground/70">
+      <span aria-hidden="true" className={sx(layoutShellStyles.shortcutSeparator)}>
         +
       </span>
       <span>{label}</span>

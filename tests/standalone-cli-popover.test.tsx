@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { sx } from "@/components/ads/utils/stylex";
 import { Popover, TooltipProvider } from "@/components/ui";
 import {
   buildStandaloneCliEmptyStateText,
-  buildStandaloneCliPopoverClassName,
+  buildStandaloneCliPopoverStyle,
   StandaloneCliPanel,
   StandaloneCliPopoverContent,
 } from "@/components/layout/standalone-cli/StandaloneCliPopover";
+import { standaloneCliStyles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { StandaloneCliTabBar } from "@/components/layout/standalone-cli/StandaloneCliTabBar";
 import { shouldCancelStandaloneCliOpenChange } from "@/components/layout/TopBarStandaloneCli";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
@@ -168,22 +170,22 @@ describe("buildStandaloneCliEmptyStateText", () => {
   });
 });
 
-describe("buildStandaloneCliPopoverClassName", () => {
+describe("buildStandaloneCliPopoverStyle", () => {
   test("gives the terminal a bounded height it can fit into", () => {
-    const className = buildStandaloneCliPopoverClassName({
-      folderPath: "/tmp/notes",
-    });
+    const style = buildStandaloneCliPopoverStyle({ folderPath: "/tmp/notes" });
 
     // Without the positioner's available height the panel can extend past the
     // bottom of the window, and the terminal fits itself to a viewport that is
     // partly off screen.
-    expect(className).toContain("var(--available-height");
-    expect(className).toContain("min-h-0");
+    expect(style).toBe(standaloneCliStyles.popoverTerminal);
+    expect(sx(style)).toBe(sx(standaloneCliStyles.popoverTerminal));
+    expect(sx(style)).not.toBe(sx(standaloneCliStyles.popoverEmpty));
   });
 
   test("shrinks to the message when there is no folder to run in", () => {
-    const className = buildStandaloneCliPopoverClassName({ folderPath: "" });
+    const style = buildStandaloneCliPopoverStyle({ folderPath: "" });
 
-    expect(className).not.toContain("h-[min(40rem");
+    expect(style).toBe(standaloneCliStyles.popoverEmpty);
+    expect(sx(style)).not.toBe(sx(standaloneCliStyles.popoverTerminal));
   });
 });

@@ -69,6 +69,8 @@ import {
 import { WORKSPACE_INFORMATION_SECTION_LABELS } from "@/lib/workspace-information-sections";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { sanitizeBranchName } from "@/store/project.utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import { useAppStore, type AppSettings } from "@/store/app.store";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
@@ -121,27 +123,27 @@ function KickoffBusyState(props: {
   const resolving = props.mode === "resolving";
   return (
     <div
-      className="flex min-h-80 flex-col items-center justify-center px-6 py-12 text-center"
+      className={sx(kickoffStyles.busyState)}
       role="status"
       aria-live="polite"
     >
-      <div className="grid size-24 place-items-center rounded-full bg-muted/40 ring-1 ring-border/70">
+      <div className={sx(kickoffStyles.busyOrb)}>
         <ThinkingOrb
           state={resolving ? "searching" : "shaping"}
           size={64}
           aria-hidden="true"
         />
       </div>
-      <h3 className="mt-6 text-base font-semibold leading-6">
+      <h3 className={sx(kickoffStyles.busyTitle)}>
         {resolving ? "Resolving kickoff context" : "Creating your workspace"}
       </h3>
-      <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+      <p className={sx(kickoffStyles.busyCopy)}>
         {resolving
           ? "Stave is reading the source and preparing an editable workspace proposal."
           : "Stave is creating the worktree, seeding its context, and preparing the first task."}
       </p>
       {props.sourceType ? (
-        <Badge variant="secondary" className="mt-4">
+        <Badge variant="secondary" className={sx(kickoffStyles.busyBadge)}>
           {props.sourceType}
         </Badge>
       ) : null}
@@ -550,20 +552,20 @@ export function KickoffDialog(props: {
       }}
     >
       <DialogContent
-        className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        xstyle={kickoffStyles.surface}
         showCloseButton={!busy}
         aria-busy={busy}
       >
-        <DialogHeader className="border-b border-border/70 px-6 pt-6 pb-5 pr-14">
-          <div className="flex items-center gap-3">
-            <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <Rocket className="size-4" />
+        <DialogHeader className={sx(kickoffStyles.header)}>
+          <div className={sx(kickoffStyles.headerRow)}>
+            <div className={sx(kickoffStyles.headerMark)}>
+              <Rocket className={sx(kickoffStyles.headerMarkIcon)} />
             </div>
-            <div className="min-w-0">
-              <DialogTitle className="text-lg leading-6">
-                Kick off workspace
-              </DialogTitle>
-              <DialogDescription className="mt-1 leading-5">
+            <div className={sx(kickoffStyles.headerCopy)}>
+              <DialogTitle>Kick off workspace</DialogTitle>
+              <DialogDescription
+                className={sx(kickoffStyles.headerDescription)}
+              >
                 {phase === "source"
                   ? "Turn a work source into an editable workspace proposal."
                   : "Review what Stave found before creating the worktree."}
@@ -571,24 +573,26 @@ export function KickoffDialog(props: {
             </div>
           </div>
           <div
-            className="mt-4 flex items-center gap-2 text-xs font-medium"
+            className={sx(kickoffStyles.steps)}
             aria-label="Kickoff progress"
           >
             <span
-              className={
-                phase === "source" ? "text-foreground" : "text-muted-foreground"
-              }
+              className={sx(
+                phase === "source"
+                  ? kickoffStyles.stepActive
+                  : kickoffStyles.stepIdle,
+              )}
               aria-current={phase === "source" ? "step" : undefined}
             >
               1. Source
             </span>
-            <span className="h-px w-8 bg-border" aria-hidden="true" />
+            <span className={sx(kickoffStyles.stepDivider)} aria-hidden="true" />
             <span
-              className={
+              className={sx(
                 phase === "preview"
-                  ? "text-foreground"
-                  : "text-muted-foreground"
-              }
+                  ? kickoffStyles.stepActive
+                  : kickoffStyles.stepIdle,
+              )}
               aria-current={phase === "preview" ? "step" : undefined}
             >
               2. Review
@@ -602,7 +606,7 @@ export function KickoffDialog(props: {
               mode="resolving"
               sourceType={classification.config?.label ?? "Free-form prompt"}
             />
-            <DialogFooter className="border-t border-border/70 bg-muted/20 px-6 py-4">
+            <DialogFooter className={sx(kickoffStyles.footer)}>
               <Button
                 type="button"
                 variant="outline"
@@ -615,19 +619,19 @@ export function KickoffDialog(props: {
         ) : creating ? (
           <>
             <KickoffBusyState mode="creating" />
-            <div className="border-t border-border/70 bg-muted/20 px-6 py-4 text-center text-xs text-muted-foreground">
+            <div className={sx(kickoffStyles.creatingNote)}>
               Keep Stave open while the worktree is prepared.
             </div>
           </>
         ) : phase === "source" ? (
           <>
-            <div className="min-h-0 overflow-y-auto px-6 py-5">
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
+            <div className={sx(kickoffStyles.scroll)}>
+              <div className={sx(kickoffStyles.sourceStack)}>
+                <div className={sx(kickoffStyles.field)}>
+                  <div className={sx(kickoffStyles.fieldHeaderRow)}>
                     <label
                       htmlFor="kickoff-source"
-                      className="text-sm font-medium"
+                      className={sx(kickoffStyles.label)}
                     >
                       Work source
                     </label>
@@ -641,26 +645,30 @@ export function KickoffDialog(props: {
                     value={source}
                     onChange={(event) => setSource(event.target.value)}
                     placeholder="Paste a Jira issue, Slack thread, PRD, Figma link, report, or describe the work…"
-                    className="min-h-44 resize-y bg-background text-sm leading-6"
+                    xstyle={kickoffStyles.sourceTextarea}
                   />
-                  <p className="text-xs leading-5 text-muted-foreground">
+                  <p className={sx(kickoffStyles.hint)}>
                     Stave will extract the workspace name, branch, linked
                     context, and a ready-to-run first task.
                   </p>
                 </div>
 
                 {requiredMcpServers.length > 0 ? (
-                  <div className="rounded-lg border border-border/80 bg-muted/30 px-4 py-3">
-                    <div className="flex items-center gap-2 text-sm font-medium">
+                  <div className={sx(kickoffStyles.mcpPanel)}>
+                    <div className={sx(kickoffStyles.mcpHeading)}>
                       {missingMcpServers.length === 0 &&
                       !mcpDiscoveryPending ? (
-                        <CheckCircle2 className="size-4 text-success" />
+                        <CheckCircle2
+                          className={sx(kickoffStyles.successIcon)}
+                        />
                       ) : (
-                        <AlertTriangle className="size-4 text-warning" />
+                        <AlertTriangle
+                          className={sx(kickoffStyles.warningIcon)}
+                        />
                       )}
                       MCP dependencies
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className={sx(kickoffStyles.mcpBadges)}>
                       {requiredMcpServers.map((server) => {
                         const available = discoveredMcpServers.has(
                           server.toLowerCase(),
@@ -681,7 +689,7 @@ export function KickoffDialog(props: {
                       })}
                     </div>
                     {missingMcpServers.length > 0 && !mcpDiscoveryPending ? (
-                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      <p className={sx(kickoffStyles.hintSpaced)}>
                         Missing servers do not block creation. Resolution falls
                         back to the source text and URL metadata.
                       </p>
@@ -690,13 +698,13 @@ export function KickoffDialog(props: {
                 ) : null}
 
                 {error ? (
-                  <p className="text-sm text-destructive" role="alert">
+                  <p className={sx(kickoffStyles.error)} role="alert">
                     {error}
                   </p>
                 ) : null}
               </div>
             </div>
-            <DialogFooter className="border-t border-border/70 bg-muted/20 px-6 py-4">
+            <DialogFooter className={sx(kickoffStyles.footer)}>
               <Button
                 type="button"
                 variant="outline"
@@ -710,19 +718,19 @@ export function KickoffDialog(props: {
                 disabled={!source.trim()}
                 onClick={() => void handleResolve()}
               >
-                <Sparkles className="size-4" />
+                <Sparkles className={sx(kickoffStyles.buttonIcon)} />
                 Resolve source
               </Button>
             </DialogFooter>
           </>
         ) : draft ? (
           <>
-            <div className="min-h-0 overflow-y-auto px-6 py-5">
-              <div className="space-y-4">
+            <div className={sx(kickoffStyles.scroll)}>
+              <div className={sx(kickoffStyles.previewStack)}>
                 {draft.degraded ? (
-                  <div className="flex gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm">
-                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
-                    <p className="leading-5">
+                  <div className={sx(kickoffStyles.degradedNote)}>
+                    <AlertTriangle className={sx(kickoffStyles.degradedIcon)} />
+                    <p className={sx(kickoffStyles.degradedCopy)}>
                       This proposal uses deterministic URL and text parsing.
                       Review the fields before creating the workspace.
                     </p>
@@ -730,23 +738,23 @@ export function KickoffDialog(props: {
                 ) : null}
 
                 <section
-                  className="space-y-4 rounded-lg border border-border/80 bg-card/40 p-4"
+                  className={sx(kickoffStyles.section)}
                   aria-labelledby="kickoff-workspace-heading"
                 >
                   <div>
                     <h3
                       id="kickoff-workspace-heading"
-                      className="text-sm font-semibold"
+                      className={sx(kickoffStyles.sectionTitle)}
                     >
                       Workspace details
                     </h3>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    <p className={sx(kickoffStyles.sectionCopy)}>
                       Confirm where the worktree starts and how it appears in
                       Stave.
                     </p>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <label className="space-y-2 text-sm font-medium">
+                  <div className={sx(kickoffStyles.twoColumn)}>
+                    <label className={sx(kickoffStyles.labeledField)}>
                       Branch name
                       <Input
                         value={draft.branchName}
@@ -754,15 +762,15 @@ export function KickoffDialog(props: {
                           setDraft({ ...draft, branchName: event.target.value })
                         }
                         aria-invalid={!sanitizedBranchName}
-                        className="font-mono"
+                        xstyle={kickoffStyles.monoInput}
                       />
-                      <span className="block text-xs font-normal text-muted-foreground">
+                      <span className={sx(kickoffStyles.fieldNote)}>
                         {sanitizedBranchName
                           ? `Creates ${sanitizedBranchName}`
                           : "Enter a valid git branch name."}
                       </span>
                     </label>
-                    <label className="space-y-2 text-sm font-medium">
+                    <label className={sx(kickoffStyles.labeledField)}>
                       Workspace label
                       <Input
                         value={draft.workspaceLabel}
@@ -775,8 +783,8 @@ export function KickoffDialog(props: {
                       />
                     </label>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Base branch</p>
+                  <div className={sx(kickoffStyles.field)}>
+                    <p className={sx(kickoffStyles.label)}>Base branch</p>
                     <CreateWorkspaceBranchPicker
                       value={fromBranch}
                       valueScope={fromBranchKind}
@@ -790,7 +798,7 @@ export function KickoffDialog(props: {
                       }
                     />
                   </div>
-                  <label className="block space-y-2 text-sm font-medium">
+                  <label className={sx(kickoffStyles.labeledField)}>
                     Source summary
                     <Textarea
                       value={draft.sourceSummary}
@@ -800,24 +808,24 @@ export function KickoffDialog(props: {
                           sourceSummary: event.target.value,
                         })
                       }
-                      className="min-h-20 leading-5"
+                      xstyle={kickoffStyles.summaryTextarea}
                     />
                   </label>
                 </section>
 
                 <section
-                  className="space-y-4 rounded-lg border border-border/80 bg-card/40 p-4"
+                  className={sx(kickoffStyles.section)}
                   aria-labelledby="kickoff-information-heading"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className={sx(kickoffStyles.sectionHeaderRow)}>
                     <div>
                       <h3
                         id="kickoff-information-heading"
-                        className="text-sm font-semibold"
+                        className={sx(kickoffStyles.sectionTitle)}
                       >
                         Linked context
                       </h3>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      <p className={sx(kickoffStyles.sectionCopy)}>
                         These items will be added to the workspace Information
                         panel.
                       </p>
@@ -828,29 +836,36 @@ export function KickoffDialog(props: {
                     </Badge>
                   </div>
                   {draft.panelEntries.length === 0 ? (
-                    <p className="rounded-md border border-dashed border-border px-3 py-4 text-sm leading-5 text-muted-foreground">
+                    <p className={sx(kickoffStyles.emptyNote)}>
                       No structured items were found. The source remains in the
                       first task prompt.
                     </p>
                   ) : (
-                    <Accordion multiple className="space-y-2">
+                    <Accordion multiple>
                       {draft.panelEntries.map((entry, index) => (
                         <AccordionItem
                           key={`${entry.target}-${entry.url}-${index}`}
                           value={`${entry.target}-${index}`}
-                          className="rounded-md border border-border/80 px-3 not-last:border-b"
+                          className={sx(kickoffStyles.entryItem)}
                         >
-                          <div className="flex items-center gap-2">
-                            <AccordionTrigger className="min-w-0 py-3 hover:no-underline">
-                              <span className="flex min-w-0 items-center gap-2 pr-3">
-                                <Badge variant="outline" className="shrink-0">
+                          <div className={sx(kickoffStyles.entryHeaderRow)}>
+                            <AccordionTrigger>
+                              <span
+                                className={sx(kickoffStyles.entryTriggerLabel)}
+                              >
+                                <Badge
+                                  variant="outline"
+                                  className={sx(kickoffStyles.entryBadge)}
+                                >
                                   {panelTargetLabel(entry.target)}
                                 </Badge>
-                                <span className="min-w-0">
-                                  <span className="block truncate text-sm font-medium">
+                                <span className={sx(kickoffStyles.entryText)}>
+                                  <span
+                                    className={sx(kickoffStyles.entryTitle)}
+                                  >
                                     {entry.title || "Untitled item"}
                                   </span>
-                                  <span className="block truncate text-xs font-normal text-muted-foreground">
+                                  <span className={sx(kickoffStyles.entryMeta)}>
                                     {entry.reference || entry.url}
                                   </span>
                                 </span>
@@ -860,7 +875,7 @@ export function KickoffDialog(props: {
                               type="button"
                               variant="ghost"
                               size="icon-sm"
-                              className="shrink-0"
+                              xstyle={kickoffStyles.entryRemove}
                               aria-label={`Remove ${panelTargetLabel(entry.target)} item`}
                               onClick={() =>
                                 setDraft({
@@ -871,12 +886,16 @@ export function KickoffDialog(props: {
                                 })
                               }
                             >
-                              <Trash2 className="size-3.5" />
+                              <Trash2 className={sx(kickoffStyles.smallIcon)} />
                             </Button>
                           </div>
-                          <AccordionContent className="space-y-3 pb-3">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <label className="space-y-1.5 text-xs font-medium">
+                          <AccordionContent
+                            className={sx(kickoffStyles.entryPanel)}
+                          >
+                            <div className={sx(kickoffStyles.entryPanelGrid)}>
+                              <label
+                                className={sx(kickoffStyles.labeledFieldTight)}
+                              >
                                 Title
                                 <Input
                                   value={entry.title}
@@ -887,7 +906,9 @@ export function KickoffDialog(props: {
                                   }
                                 />
                               </label>
-                              <label className="space-y-1.5 text-xs font-medium">
+                              <label
+                                className={sx(kickoffStyles.labeledFieldTight)}
+                              >
                                 Reference
                                 <Input
                                   value={entry.reference}
@@ -899,7 +920,9 @@ export function KickoffDialog(props: {
                                 />
                               </label>
                             </div>
-                            <label className="block space-y-1.5 text-xs font-medium">
+                            <label
+                              className={sx(kickoffStyles.labeledFieldTight)}
+                            >
                               URL
                               <Input
                                 value={entry.url}
@@ -910,7 +933,9 @@ export function KickoffDialog(props: {
                                 }
                               />
                             </label>
-                            <label className="block space-y-1.5 text-xs font-medium">
+                            <label
+                              className={sx(kickoffStyles.labeledFieldTight)}
+                            >
                               Note
                               <Textarea
                                 value={entry.note}
@@ -919,7 +944,7 @@ export function KickoffDialog(props: {
                                     note: event.target.value,
                                   })
                                 }
-                                className="min-h-16"
+                                xstyle={kickoffStyles.noteTextarea}
                               />
                             </label>
                           </AccordionContent>
@@ -927,8 +952,8 @@ export function KickoffDialog(props: {
                       ))}
                     </Accordion>
                   )}
-                  <div className="grid gap-4 border-t border-border/70 pt-4 sm:grid-cols-2">
-                    <label className="space-y-2 text-sm font-medium">
+                  <div className={sx(kickoffStyles.splitSection)}>
+                    <label className={sx(kickoffStyles.labeledField)}>
                       Notes
                       <Textarea
                         value={draft.notes}
@@ -936,17 +961,17 @@ export function KickoffDialog(props: {
                           setDraft({ ...draft, notes: event.target.value })
                         }
                         placeholder="Optional workspace notes"
-                        className="min-h-28"
+                        xstyle={kickoffStyles.notesTextarea}
                       />
                     </label>
-                    <div className="space-y-2">
-                      <div className="flex min-h-9 items-center justify-between gap-2">
-                        <p className="text-sm font-medium">Todos</p>
+                    <div className={sx(kickoffStyles.field)}>
+                      <div className={sx(kickoffStyles.todoHeaderRow)}>
+                        <p className={sx(kickoffStyles.label)}>Todos</p>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="text-xs"
+                          xstyle={kickoffStyles.todoAddButton}
                           onClick={() =>
                             setDraft({
                               ...draft,
@@ -954,18 +979,21 @@ export function KickoffDialog(props: {
                             })
                           }
                         >
-                          <Plus className="size-3.5" />
+                          <Plus className={sx(kickoffStyles.smallIcon)} />
                           Add todo
                         </Button>
                       </div>
                       {draft.todos.length === 0 ? (
-                        <p className="rounded-md border border-dashed border-border px-3 py-4 text-xs leading-5 text-muted-foreground">
+                        <p className={sx(kickoffStyles.emptyNoteSmall)}>
                           No todos in this proposal.
                         </p>
                       ) : (
-                        <div className="space-y-2">
+                        <div className={sx(kickoffStyles.todoList)}>
                           {draft.todos.map((todo, index) => (
-                            <div key={index} className="flex gap-2">
+                            <div
+                              key={index}
+                              className={sx(kickoffStyles.todoRow)}
+                            >
                               <Input
                                 value={todo}
                                 aria-label={`Todo ${index + 1}`}
@@ -994,7 +1022,7 @@ export function KickoffDialog(props: {
                                   })
                                 }
                               >
-                                <Trash2 className="size-3.5" />
+                                <Trash2 className={sx(kickoffStyles.smallIcon)} />
                               </Button>
                             </div>
                           ))}
@@ -1005,25 +1033,25 @@ export function KickoffDialog(props: {
                 </section>
 
                 <section
-                  className="space-y-4 rounded-lg border border-border/80 bg-card/40 p-4"
+                  className={sx(kickoffStyles.section)}
                   aria-labelledby="kickoff-task-heading"
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className={sx(kickoffStyles.sectionHeaderRowWide)}>
                     <div>
                       <h3
                         id="kickoff-task-heading"
-                        className="text-sm font-semibold"
+                        className={sx(kickoffStyles.sectionTitle)}
                       >
                         First task
                       </h3>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      <p className={sx(kickoffStyles.sectionCopy)}>
                         Choose how the task will run, then refine its prompt.
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
+                    <div className={sx(kickoffStyles.startToggle)}>
                       <label
                         htmlFor="kickoff-start-task"
-                        className="text-sm font-medium"
+                        className={sx(kickoffStyles.label)}
                       >
                         Start now
                       </label>
@@ -1035,14 +1063,14 @@ export function KickoffDialog(props: {
                     </div>
                   </div>
                   <div
-                    className={
+                    className={sx(
                       firstTaskProvider === "codex"
-                        ? "grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]"
-                        : "grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem]"
-                    }
+                        ? kickoffStyles.runtimeGridWithFast
+                        : kickoffStyles.runtimeGrid,
+                    )}
                   >
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Model</p>
+                    <div className={sx(kickoffStyles.field)}>
+                      <p className={sx(kickoffStyles.label)}>Model</p>
                       <ModelSelector
                         value={selectedFirstTaskModel}
                         options={firstTaskModelOptions}
@@ -1050,16 +1078,18 @@ export function KickoffDialog(props: {
                         onSelect={({ selection }) =>
                           handleFirstTaskModelSelect(selection)
                         }
-                        className="w-full"
-                        triggerClassName="h-9 w-full max-w-none border-input bg-background px-3"
+                        className={sx(kickoffStyles.fullWidth)}
+                        triggerClassName={sx(
+                          kickoffStyles.modelSelectorTrigger,
+                        )}
                         triggerAriaLabel={`First task model: ${selectedFirstTaskModel.label}`}
-                        menuClassName="sm:max-w-lg"
+                        menuClassName={sx(kickoffStyles.modelSelectorMenu)}
                       />
                     </div>
-                    <div className="space-y-2">
+                    <div className={sx(kickoffStyles.field)}>
                       <p
                         id="kickoff-first-task-effort-label"
-                        className="text-sm font-medium"
+                        className={sx(kickoffStyles.label)}
                       >
                         Effort
                       </p>
@@ -1070,7 +1100,7 @@ export function KickoffDialog(props: {
                         }
                       >
                         <SelectTrigger
-                          className="w-full"
+                          className={sx(kickoffStyles.fullWidth)}
                           aria-labelledby="kickoff-first-task-effort-label"
                         >
                           <SelectValue />
@@ -1085,10 +1115,10 @@ export function KickoffDialog(props: {
                       </Select>
                     </div>
                     {firstTaskProvider === "codex" ? (
-                      <div className="space-y-2">
+                      <div className={sx(kickoffStyles.field)}>
                         <p
                           id="kickoff-first-task-fast-label"
-                          className="text-sm font-medium"
+                          className={sx(kickoffStyles.label)}
                         >
                           Fast mode
                         </p>
@@ -1099,7 +1129,7 @@ export function KickoffDialog(props: {
                           }
                         >
                           <SelectTrigger
-                            className="w-full"
+                            className={sx(kickoffStyles.fullWidth)}
                             aria-labelledby="kickoff-first-task-fast-label"
                           >
                             <SelectValue />
@@ -1113,21 +1143,18 @@ export function KickoffDialog(props: {
                     ) : null}
                   </div>
                   {!firstTaskProviderAvailable ? (
-                    <p
-                      className="text-xs leading-5 text-destructive"
-                      role="alert"
-                    >
+                    <p className={sx(kickoffStyles.errorHint)} role="alert">
                       This provider is unavailable. Choose another model before
                       starting the task.
                     </p>
                   ) : (
-                    <p className="text-xs leading-5 text-muted-foreground">
+                    <p className={sx(kickoffStyles.hint)}>
                       {firstTaskProvider === "codex"
                         ? "The model, effort, and Fast mode stay attached to this task, even if you leave the prompt ready instead of starting now."
                         : "The model and effort stay attached to this task, even if you leave the prompt ready instead of starting now."}
                     </p>
                   )}
-                  <label className="block space-y-2 text-sm font-medium">
+                  <label className={sx(kickoffStyles.labeledField)}>
                     Task title
                     <Input
                       value={draft.firstTaskTitle}
@@ -1139,7 +1166,7 @@ export function KickoffDialog(props: {
                       }
                     />
                   </label>
-                  <label className="block space-y-2 text-sm font-medium">
+                  <label className={sx(kickoffStyles.labeledField)}>
                     Task prompt
                     <Textarea
                       value={draft.firstTaskPrompt}
@@ -1149,10 +1176,10 @@ export function KickoffDialog(props: {
                           firstTaskPrompt: event.target.value,
                         })
                       }
-                      className="min-h-36 leading-6"
+                      xstyle={kickoffStyles.promptTextarea}
                     />
                   </label>
-                  <label className="block space-y-2 text-sm font-medium">
+                  <label className={sx(kickoffStyles.labeledField)}>
                     Additional instructions
                     <Textarea
                       value={extraInstructions}
@@ -1160,19 +1187,19 @@ export function KickoffDialog(props: {
                         setExtraInstructions(event.target.value)
                       }
                       placeholder="Optional constraints or context to append to the first task."
-                      className="min-h-20"
+                      xstyle={kickoffStyles.instructionsTextarea}
                     />
                   </label>
                 </section>
 
                 {error ? (
-                  <p className="text-sm text-destructive" role="alert">
+                  <p className={sx(kickoffStyles.error)} role="alert">
                     {error}
                   </p>
                 ) : null}
               </div>
             </div>
-            <DialogFooter className="border-t border-border/70 bg-muted/20 px-6 py-4">
+            <DialogFooter className={sx(kickoffStyles.footer)}>
               <Button
                 type="button"
                 variant="outline"
@@ -1181,7 +1208,7 @@ export function KickoffDialog(props: {
                   setPhase("source");
                 }}
               >
-                <ArrowLeft className="size-4" />
+                <ArrowLeft className={sx(kickoffStyles.buttonIcon)} />
                 Back
               </Button>
               <Button
@@ -1192,7 +1219,7 @@ export function KickoffDialog(props: {
                 }
                 onClick={() => void handleCreate()}
               >
-                <Rocket className="size-4" />
+                <Rocket className={sx(kickoffStyles.buttonIcon)} />
                 {startFirstTask ? "Create and start" : "Create workspace"}
               </Button>
             </DialogFooter>

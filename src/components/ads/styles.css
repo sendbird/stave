@@ -1,0 +1,761 @@
+@import "./fonts.css";
+@import "./data-table-motion.css";
+@import "./sidebar-motion.css";
+@import "./overlay-motion.css";
+@import "./inline-disclosure-motion.css";
+@layer reset, base;
+
+:root {
+  --atelier-motion-duration-micro: 80ms;
+  --atelier-motion-duration-fast: 120ms;
+  --atelier-motion-duration-quick: 150ms;
+  --atelier-motion-duration-normal: 180ms;
+  --atelier-motion-duration-emphasis: 250ms;
+  --atelier-motion-duration-panel: 400ms;
+  --atelier-motion-duration-loop-fast: 800ms;
+  --atelier-motion-duration-loop: 1200ms;
+  --atelier-motion-duration-loop-slow: 2000ms;
+  --atelier-motion-duration-loop-brand: 2900ms;
+  --atelier-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --atelier-motion-ease-expressive: cubic-bezier(0.22, 1, 0.36, 1);
+  --atelier-motion-ease-in-out: ease-in-out;
+  --atelier-motion-ease-out: ease-out;
+  --atelier-motion-dropdown-scale: 0.97;
+  --atelier-motion-dropdown-close-scale: 0.985;
+  --atelier-motion-modal-scale: 0.96;
+  --atelier-motion-modal-close-scale: 0.98;
+  --atelier-motion-fullscreen-scale: 0.98;
+  --atelier-motion-fullscreen-close-scale: 0.99;
+  --atelier-motion-tooltip-scale: 0.98;
+  --atelier-motion-tooltip-close-scale: 0.99;
+  --atelier-motion-panel-distance: 12px;
+  --atelier-motion-drawer-distance: 48px;
+  --atelier-motion-drawer-close-distance: 24px;
+  --atelier-motion-tooltip-delay: 80ms;
+  --atelier-motion-distance-small: 4px;
+  --atelier-motion-distance-medium: 8px;
+  --atelier-motion-scale-enter: 0.96;
+}
+
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-inline-size: 320px;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-block-size: 100vh;
+    position: relative;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+    /* Or the control takes the UA's own size — 13.33px for a Chrome button. */
+    font-size: inherit;
+  }
+}
+
+/*
+ * Smooth theme flips (transitions.dev-style): ThemeProvider attaches this
+ * class during a theme change so every surface color eases to its new value.
+ * It is scoped by the provider and removed after the transition window.
+ */
+.atelier-theme-transition,
+.atelier-theme-transition *,
+.atelier-theme-transition *::before,
+.atelier-theme-transition *::after {
+  transition:
+    background-color var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-standard),
+    border-color var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-standard),
+    color var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-standard),
+    fill var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-standard),
+    stroke var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-standard) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atelier-theme-transition,
+  .atelier-theme-transition *,
+  .atelier-theme-transition *::before,
+  .atelier-theme-transition *::after {
+    transition: none !important;
+  }
+}
+
+/*
+ * Controls own their glyph box. Lucide's default 24px SVG viewport is useful
+ * in illustrations, but it must not leak into a 28–40px control or sidebar
+ * slot. The component sets the tokenized custom property; this shared rule
+ * normalizes only direct control icons and preserves the surrounding layout.
+ */
+[data-ads-control] > svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+[data-ads-control="button"] > svg {
+  block-size: var(--ads-control-icon-size);
+  display: block;
+  flex-shrink: 0;
+  inline-size: var(--ads-control-icon-size);
+}
+
+[data-ads-control="sidebar-menu-button"] > svg,
+[data-ads-control-icon-button="true"] > svg {
+  block-size: var(--ads-control-icon-size, 16px);
+  display: block;
+  flex-shrink: 0;
+  inline-size: var(--ads-control-icon-size, 16px);
+}
+
+[data-ads-control-icon-slot] > svg {
+  block-size: 100%;
+  display: block;
+  flex-shrink: 0;
+  inline-size: 100%;
+}
+
+[data-ads-control-icon-slot] {
+  flex-shrink: 0;
+}
+
+.atelier-motion-skeleton::after {
+  animation: atelier-skeleton-pulse var(--atelier-motion-duration-loop)
+    var(--atelier-motion-ease-in-out) infinite;
+  background: currentColor;
+  content: "";
+  inset: 0;
+  opacity: 0.12;
+  position: absolute;
+}
+
+@keyframes atelier-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.08;
+  }
+
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* Small inline progress affordance used by buttons and pending menu items. */
+.atelier-icon-spinner {
+  animation: atelier-icon-spinner var(--atelier-motion-duration-loop-fast)
+    linear infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+}
+
+@keyframes atelier-icon-spinner {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.atelier-delight-spinner {
+  --atelier-delight-cycle: var(--atelier-motion-duration-loop-brand);
+  color: currentColor;
+}
+
+.atelier-delight-spinner__logo {
+  block-size: 100%;
+  display: block;
+  inline-size: 100%;
+  position: relative;
+}
+
+.atelier-delight-spinner__arm {
+  animation-duration: var(--atelier-delight-cycle);
+  animation-iteration-count: infinite;
+  animation-timing-function: var(--atelier-motion-ease-standard);
+  fill: none;
+  opacity: 0;
+  stroke: currentColor;
+  stroke-dasharray: 0.12 1;
+  stroke-linecap: butt;
+  stroke-width: 4.4375;
+  transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  transform-box: view-box;
+  transform-origin: center;
+  will-change: opacity, stroke-dasharray, stroke-width, transform;
+}
+
+.atelier-delight-spinner__arm--top {
+  --atelier-delight-angle: 0deg;
+  animation-name: atelier-delight-spinner-arm-top;
+}
+
+.atelier-delight-spinner__arm--right {
+  --atelier-delight-angle: 90deg;
+  animation-name: atelier-delight-spinner-arm-right;
+}
+
+.atelier-delight-spinner__arm--lower-right {
+  --atelier-delight-angle: 135deg;
+  animation-name: atelier-delight-spinner-arm-lower-right;
+}
+
+.atelier-delight-spinner__arm--bottom {
+  --atelier-delight-angle: 180deg;
+  animation-name: atelier-delight-spinner-arm-bottom;
+}
+
+.atelier-delight-spinner__arm--lower-left {
+  --atelier-delight-angle: 225deg;
+  animation-name: atelier-delight-spinner-arm-lower-left;
+}
+
+.atelier-delight-spinner__arm--left {
+  --atelier-delight-angle: 270deg;
+  animation-name: atelier-delight-spinner-arm-left;
+}
+
+.atelier-delight-spinner__arm--upper-left {
+  --atelier-delight-angle: 315deg;
+  animation-name: atelier-delight-spinner-arm-upper-left;
+}
+
+.atelier-delight-spinner__dot {
+  animation: atelier-delight-spinner-dot-pulse
+    var(--atelier-motion-duration-loop-fast)
+    var(--atelier-motion-ease-expressive) infinite;
+  opacity: 0.46;
+  transform: scale(0.82);
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: opacity, transform;
+}
+
+@keyframes atelier-delight-spinner-arm-top {
+  0%,
+  3% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+
+  12% {
+    opacity: 0.7;
+    stroke-dasharray: 0.58 1;
+    stroke-width: 4.28;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
+  }
+
+  20%,
+  96% {
+    opacity: 1;
+    stroke-dasharray: 1 1;
+    stroke-width: 4.4375;
+    transform: rotate(var(--atelier-delight-angle)) scale(1);
+  }
+
+  98% {
+    opacity: 0.55;
+    stroke-dasharray: 0.48 1;
+    stroke-width: 4;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
+  }
+
+  100% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+}
+
+@keyframes atelier-delight-spinner-arm-right {
+  0%,
+  9% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+
+  16% {
+    opacity: 0.72;
+    stroke-dasharray: 0.62 1;
+    stroke-width: 4.25;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
+  }
+
+  22%,
+  92% {
+    opacity: 1;
+    stroke-dasharray: 1 1;
+    stroke-width: 4.4375;
+    transform: rotate(var(--atelier-delight-angle)) scale(1);
+  }
+
+  96% {
+    opacity: 0.55;
+    stroke-dasharray: 0.48 1;
+    stroke-width: 4;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
+  }
+
+  99%,
+  100% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+}
+
+@keyframes atelier-delight-spinner-arm-lower-right {
+  0%,
+  15% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+
+  22% {
+    opacity: 0.72;
+    stroke-dasharray: 0.62 1;
+    stroke-width: 4.25;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
+  }
+
+  28%,
+  88% {
+    opacity: 1;
+    stroke-dasharray: 1 1;
+    stroke-width: 4.4375;
+    transform: rotate(var(--atelier-delight-angle)) scale(1);
+  }
+
+  92% {
+    opacity: 0.55;
+    stroke-dasharray: 0.48 1;
+    stroke-width: 4;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
+  }
+
+  96%,
+  100% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+}
+
+@keyframes atelier-delight-spinner-arm-bottom {
+  0%,
+  21% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+
+  28% {
+    opacity: 0.7;
+    stroke-dasharray: 0.62 1;
+    stroke-width: 4.22;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
+  }
+
+  34%,
+  84% {
+    opacity: 1;
+    stroke-dasharray: 1 1;
+    stroke-width: 4.4375;
+    transform: rotate(var(--atelier-delight-angle)) scale(1);
+  }
+
+  88% {
+    opacity: 0.55;
+    stroke-dasharray: 0.48 1;
+    stroke-width: 4;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
+  }
+
+  92%,
+  100% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+}
+
+@keyframes atelier-delight-spinner-arm-lower-left {
+  0%,
+  27% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+
+  34% {
+    opacity: 0.7;
+    stroke-dasharray: 0.62 1;
+    stroke-width: 4.22;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
+  }
+
+  40%,
+  80% {
+    opacity: 1;
+    stroke-dasharray: 1 1;
+    stroke-width: 4.4375;
+    transform: rotate(var(--atelier-delight-angle)) scale(1);
+  }
+
+  84% {
+    opacity: 0.55;
+    stroke-dasharray: 0.48 1;
+    stroke-width: 4;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
+  }
+
+  88%,
+  100% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+}
+
+@keyframes atelier-delight-spinner-arm-left {
+  0%,
+  33% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+
+  40% {
+    opacity: 0.68;
+    stroke-dasharray: 0.6 1;
+    stroke-width: 4.2;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
+  }
+
+  46%,
+  76% {
+    opacity: 1;
+    stroke-dasharray: 1 1;
+    stroke-width: 4.4375;
+    transform: rotate(var(--atelier-delight-angle)) scale(1);
+  }
+
+  80% {
+    opacity: 0.55;
+    stroke-dasharray: 0.48 1;
+    stroke-width: 4;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
+  }
+
+  84%,
+  100% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+}
+
+@keyframes atelier-delight-spinner-arm-upper-left {
+  0%,
+  39% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+
+  46% {
+    opacity: 0.72;
+    stroke-dasharray: 0.62 1;
+    stroke-width: 4.25;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
+  }
+
+  52%,
+  72% {
+    opacity: 1;
+    stroke-dasharray: 1 1;
+    stroke-width: 4.4375;
+    transform: rotate(var(--atelier-delight-angle)) scale(1);
+  }
+
+  76% {
+    opacity: 0.55;
+    stroke-dasharray: 0.48 1;
+    stroke-width: 4;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
+  }
+
+  80%,
+  100% {
+    opacity: 0;
+    stroke-dasharray: 0.12 1;
+    stroke-width: 3.65;
+    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
+  }
+}
+
+@keyframes atelier-delight-spinner-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.46;
+    transform: scale(0.82);
+  }
+
+  42% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+
+  68% {
+    opacity: 0.76;
+    transform: scale(0.96);
+  }
+}
+
+.atelier-accordion-trigger[data-open] .atelier-accordion-chevron {
+  transform: rotate(180deg);
+}
+
+.atelier-collapsible-trigger[data-open] .atelier-collapsible-chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atelier-motion-skeleton::after {
+    animation: none;
+  }
+
+  .atelier-icon-spinner {
+    animation: none;
+  }
+
+  .atelier-delight-spinner__arm {
+    animation: none;
+    opacity: 1;
+    stroke-dasharray: 1 1;
+    stroke-width: 4.4375;
+    transform: rotate(var(--atelier-delight-angle)) scale(1);
+  }
+
+  .atelier-delight-spinner__dot {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .atelier-accordion-chevron,
+  .atelier-collapsible-chevron {
+    transition-duration: 0ms;
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    /* Verbatim copy of `fontSans` — StyleX hashes the var name. `check:tokens` gates the drift. */
+    font-family:
+      Pretendard,
+      "Apple SD Gothic Neo",
+      "Noto Sans KR",
+      "Malgun Gothic",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    font-kerning: normal;
+    /* Style synthesis ON: no face ships an italic. design-direction.md §5. */
+    font-synthesis: style;
+    line-height: 1.428571;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /*
+   * Control-text baseline guard. Components pin `fontSizeBody` (14px)
+   * themselves, but raw text in tool/template markup otherwise inherits the
+   * browser's 16px default and reads oversized next to 14px controls. Scoped
+   * to `body` (NOT `html`/`:root`) so rem-based tokens keep their 16px root
+   * reference. Long-form docs prose can opt back up locally.
+   */
+  body {
+    font-size: 0.875rem;
+  }
+
+  /*
+   * Composite menu-item label guard. `menu.itemLabel` truncates via
+   * `white-space: nowrap` + `text-overflow: ellipsis`, which only ellipsizes
+   * text nodes. An element child (an icon + key + title row, a badge chip) is
+   * an atomic inline, and a nowrap line box is effectively unbounded, so it
+   * sizes to max-content and gets hard-cut mid-word at the popup edge instead
+   * of ellipsized. Clamping it to the label restores shrink-to-fit so the
+   * consumer's own inner ellipsis can do its job. Layered and specificity 0,0,1
+   * so any StyleX class can opt back out.
+   */
+  :where([role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"])
+    > span
+    > * {
+    max-inline-size: 100%;
+  }
+
+  .root {
+    isolation: isolate;
+    min-block-size: 100vh;
+  }
+
+  /*
+   * Text `::selection`.
+   *
+   * This used to be one unthemed pair of literals (`oklch(0.205 0 0)` fill on
+   * `oklch(0.985 0 0)` glyph). Against the dark theme's page fills that
+   * highlight measured 1.02:1 — a dark-theme user dragging across text saw no
+   * highlight at all. The right roles are `colorText` (fill) and
+   * `colorTextInverted` (glyph): they are theme-flipped, so one pair per theme
+   * is correct everywhere, and `scripts/check-colors.mjs` already gates
+   * `colorTextInverted` on `colorText` at 4.5:1. Deliberately NOT
+   * `colorSelectionFill` — that is the row-selection tint (design direction
+   * §1.7, guarded by `scripts/check-selection.mjs`), a different role.
+   *
+   * Stable CSS variables are assigned on each `data-theme` wrapper and then
+   * inherited by the originating element's pseudo-element. That matters for a
+   * light theme nested inside a dark one (and vice versa): descendant selectors
+   * let the outer theme win by source order, while inherited variables always
+   * come from the nearest provider.
+   *
+   * KEEP IN SYNC with `colorText` / `colorTextInverted` in
+   * src/tokens/theme-values.ts.
+   */
+  :root,
+  [data-theme="light"] {
+    --ads-selection-background: oklch(0 0 0);
+    --ads-selection-color: oklch(0.97 0.007 89);
+  }
+
+  [data-theme="dark"] {
+    --ads-selection-background: oklch(0.985 0.007 89);
+    --ads-selection-color: oklch(0.1925 0.007 89);
+  }
+
+  [data-theme="high-contrast"] {
+    --ads-selection-background: oklch(0 0 0);
+    --ads-selection-color: oklch(1 0 0);
+  }
+
+  ::selection {
+    background: var(--ads-selection-background);
+    color: var(--ads-selection-color);
+  }
+
+  /*
+   * Theming is opt-in via <ThemeProvider> (src/components/ThemeProvider.tsx),
+   * which applies the StyleX `lightTheme` / `darkTheme` / `highContrastTheme`
+   * token sets to a wrapper element. That is the single source of truth for
+   * theme colors, so this stylesheet does NOT globally override tokens for
+   * `prefers-color-scheme: dark`.
+   *
+   * The hint below only flips the native `color-scheme` (form controls,
+   * scrollbars) for consumers that mount the unthemed defaults at the document
+   * root. To make app surfaces follow the OS preference, wrap the tree in
+   * <ThemeProvider theme="system">.
+   */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+    }
+  }
+
+  /*
+   * Windows High Contrast Mode / forced colors.
+   *
+   * When forced colors are active the OS replaces author colors with a small
+   * system palette (Canvas, CanvasText, Highlight, ButtonText, etc.) and
+   * ignores most color/background/border-color declarations. Our token-based
+   * surfaces and *subtle* borders (e.g. `oklch(... / 10%)`) therefore vanish,
+   * which can make separators, control outlines, and focus rings disappear.
+   *
+   * This block restores the essential affordances using system color keywords
+   * so components stay legible without overriding the OS palette. It is scoped
+   * to `forced-colors: active`, so normal (non-forced) rendering is untouched.
+   */
+  @media (forced-colors: active) {
+    /*
+     * Keep the keyboard focus ring visible. Components share the StyleX
+     * `focusRing` recipe (recipes/focus-ring.ts) which already maps the
+     * focus-visible outline to `Highlight`; this is the global safety net for
+     * any focusable element that does not opt into that recipe.
+     */
+    :where(a, button, input, textarea, select, [tabindex]):focus-visible {
+      outline: 2px solid Highlight;
+      outline-offset: 2px;
+    }
+
+    /*
+     * Components lean on subtle, low-opacity token borders for separation.
+     * Those are dropped in forced-colors mode, so promote any element that
+     * declares a visible border to the system `CanvasText` color. This keeps
+     * cards, fields, separators, and grouped surfaces readable. `currentColor`
+     * is forced to `CanvasText` by the UA, so this is a no-op for borderless
+     * elements and only affects ones that already opted into a border.
+     */
+    :where([class]) {
+      border-color: CanvasText;
+    }
+
+    /*
+     * Decorative-only graphics (the brand spinner, skeleton shimmer) should not
+     * be repainted with the forced palette — let them keep their own colors so
+     * they remain recognizable rather than turning into solid system blocks.
+     */
+    .atelier-delight-spinner,
+    .atelier-motion-skeleton::after {
+      forced-color-adjust: none;
+    }
+  }
+
+  /*
+   * Increased-contrast preference (trivial consideration).
+   *
+   * For users who request more contrast but are NOT in forced-colors mode,
+   * strengthen the shared focus ring so it reads clearly against busier
+   * surfaces. Theme tokens still drive the colors; we only widen the outline.
+   */
+  @media (prefers-contrast: more) {
+    :where(a, button, input, textarea, select, [tabindex]):focus-visible {
+      outline-width: 3px;
+    }
+  }
+}

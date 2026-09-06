@@ -59,6 +59,12 @@ export function selectEvictableLensGuests<
   options: LensGuestEvictionOptions,
 ): Candidate[] {
   const { maxHidden, exempt } = options;
+  // Protected guests still consume the budget. Protection chooses victims;
+  // it must not make an allocated renderer disappear from the total.
+  const hiddenCount = candidates.filter(
+    (candidate) =>
+      !candidate.visible && !candidate.managedByMcp && !candidate.closing,
+  ).length;
   const evictable = candidates.filter(
     (candidate) =>
       !candidate.visible &&
@@ -71,7 +77,7 @@ export function selectEvictableLensGuests<
         candidate.lensSessionId === exempt.lensSessionId
       ),
   );
-  const surplus = evictable.length - Math.max(0, maxHidden);
+  const surplus = hiddenCount - Math.max(0, maxHidden);
   if (surplus <= 0) {
     return [];
   }

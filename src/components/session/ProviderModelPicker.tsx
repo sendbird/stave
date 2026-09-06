@@ -15,7 +15,8 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { providerModelPickerStyles as styles } from "./provider-model-picker.styles";
 
 /**
  * Reusable provider + model selector duo.
@@ -65,9 +66,8 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
   const providerAvailable = args.providerAvailable !== false;
   return (
     <div
-      className={cn(
-        "flex w-full min-w-0 items-center gap-2",
-        !providerAvailable && "rounded-md ring-1 ring-destructive/40",
+      className={cx(
+        sx(styles.root, !providerAvailable && styles.rootUnavailable),
       )}
     >
       <Select
@@ -77,18 +77,28 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
       >
         <SelectTrigger
           aria-label={`${args.ariaLabel ?? "Model"} provider`}
-          className={cn(
-            "h-8 text-xs",
-            args.providerSelectClassName ?? "w-[150px] shrink-0",
+          className={cx(
+            sx(
+              styles.trigger,
+              args.providerSelectClassName ? null : styles.providerTriggerWidth,
+            ),
+            args.providerSelectClassName,
           )}
         >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {providerIds.map((providerId) => (
-            <SelectItem key={providerId} value={providerId} className="text-xs">
-              <span className="flex items-center gap-2">
-                <ModelIcon providerId={providerId} className="size-3.5" />
+            <SelectItem
+              key={providerId}
+              value={providerId}
+              className={sx(styles.item)}
+            >
+              <span className={sx(styles.itemInner)}>
+                <ModelIcon
+                  providerId={providerId}
+                  className={sx(styles.icon)}
+                />
                 {getProviderLabel({ providerId, variant: "full" })}
               </span>
             </SelectItem>
@@ -103,23 +113,25 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
       >
         <SelectTrigger
           aria-label={`${args.ariaLabel ?? "Model"} model`}
-          className={cn(
-            "h-8 w-full min-w-0 flex-1 text-xs",
-            args.modelSelectClassName ?? "",
+          className={cx(
+            sx(styles.trigger, styles.modelTriggerWidth),
+            args.modelSelectClassName,
           )}
         >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {providerModels.map((model) => (
-            <SelectItem key={model} value={model} className="text-xs">
-              <span className="flex min-w-0 items-center gap-2">
+            <SelectItem key={model} value={model} className={sx(styles.item)}>
+              <span className={sx(styles.modelItemInner)}>
                 <ModelIcon
                   providerId={args.selectedProvider}
                   model={model}
-                  className="size-3.5"
+                  className={sx(styles.icon)}
                 />
-                <span className="truncate">{toHumanModelName({ model })}</span>
+                <span className={sx(styles.modelName)}>
+                  {toHumanModelName({ model })}
+                </span>
               </span>
             </SelectItem>
           ))}

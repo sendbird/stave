@@ -1,0 +1,549 @@
+{
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@stylexjs/stylex": "0.19.0",
+    "lucide-react": "1.21.0",
+    "motion": "^12.42.0",
+    "pretendard": "^1.3.9",
+    "react": "19.2.7"
+  },
+  "files": [
+    {
+      "path": "src/components/ads/components/Accordion.tsx",
+      "sourcePath": "packages/design-system/src/components/Accordion.tsx",
+      "integrity": "sha256-2be2ce2830e752d508f56d607572c8a766a8ad4f06adade2f9f97dd8d179c2e4"
+    },
+    {
+      "path": "src/components/ads/components/Badge.tsx",
+      "sourcePath": "packages/design-system/src/components/Badge.tsx",
+      "integrity": "sha256-16900faf6c97b278641517726bffaa8ced9fc0a1f7d31b1eb7fc4244f3743e81"
+    },
+    {
+      "integrity": "sha256-61e77308d8e19e5db6b25523284f64393df6b603a9ade703b85a58bd7b4900dd",
+      "path": "src/components/ads/components/Button.config.tsx",
+      "sourcePath": "packages/design-system/src/components/Button.config.tsx"
+    },
+    {
+      "integrity": "sha256-1abd6912b932856d35f739ed55d6220f8fb7213073cf1a7f9e8b4bd34a785081",
+      "path": "src/components/ads/components/Button.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Button.styles.ts"
+    },
+    {
+      "integrity": "sha256-f75c3d7f153be4ad30360d650a074c23551445b56a6062b59397d4d05e3ea686",
+      "path": "src/components/ads/components/Button.tsx",
+      "sourcePath": "packages/design-system/src/components/Button.tsx"
+    },
+    {
+      "integrity": "sha256-ec746eff1a2428dd06b77c4460acd28c862638ed3edc455566b651c396ca4dfc",
+      "path": "src/components/ads/components/Button.types.ts",
+      "sourcePath": "packages/design-system/src/components/Button.types.ts"
+    },
+    {
+      "path": "src/components/ads/components/Card.tsx",
+      "sourcePath": "packages/design-system/src/components/Card.tsx",
+      "integrity": "sha256-b082ee77dc18c691369e15fcefec0a74d8f5c93298b0234afdf4ad3acb9fee94"
+    },
+    {
+      "path": "src/components/ads/components/Collapsible.panel-mount.tsx",
+      "sourcePath": "packages/design-system/src/components/Collapsible.panel-mount.tsx",
+      "integrity": "sha256-22171e36bdb13dbec2472dad04e2c0c0f72cb1607e9ef7bd1646f4f1b5e23393"
+    },
+    {
+      "path": "src/components/ads/components/ContextMenu.tsx",
+      "sourcePath": "packages/design-system/src/components/ContextMenu.tsx",
+      "integrity": "sha256-7cef04de6d9410ddc4b94acd53eab015a10e5de9baba4cd032d051fd790cd18a"
+    },
+    {
+      "path": "src/components/ads/components/Dialog.tsx",
+      "sourcePath": "packages/design-system/src/components/Dialog.tsx",
+      "integrity": "sha256-cbf4f6e3cf6f6af80bdca95acc39beb2ae1f2b5a1427b27355e45d01c609bf94"
+    },
+    {
+      "path": "src/components/ads/components/DirectionProvider.tsx",
+      "sourcePath": "packages/design-system/src/components/DirectionProvider.tsx",
+      "integrity": "sha256-8590c363f7ec7e7c5befbadbab52852c4221836357928f74f4ff57485eb6fdf8"
+    },
+    {
+      "path": "src/components/ads/components/Drawer.tsx",
+      "sourcePath": "packages/design-system/src/components/Drawer.tsx",
+      "integrity": "sha256-27cea9e5840955acd8282c1a0160c7ed34bff3a6cb318203f37e2a175b2c7f51"
+    },
+    {
+      "path": "src/components/ads/components/DropdownMenu.tsx",
+      "sourcePath": "packages/design-system/src/components/DropdownMenu.tsx",
+      "integrity": "sha256-13375a1093dbbd5655b0f102fd18674145c909063718a0032d398e6ac8268de6"
+    },
+    {
+      "path": "src/components/ads/components/InputGroup.styles.ts",
+      "sourcePath": "packages/design-system/src/components/InputGroup.styles.ts",
+      "integrity": "sha256-a777e3bbfda72905dbc6c6656183d3bbf92fc6ff85e94aa9a01baf6be2900ee9"
+    },
+    {
+      "path": "src/components/ads/components/InputGroup.tsx",
+      "sourcePath": "packages/design-system/src/components/InputGroup.tsx",
+      "integrity": "sha256-37da7fa5f7ee47cdd8a328891fd1e9f15bd63eb11bfe44d7229d37f1a166bba4"
+    },
+    {
+      "path": "src/components/ads/components/Kbd.tsx",
+      "sourcePath": "packages/design-system/src/components/Kbd.tsx",
+      "integrity": "sha256-dfb0a346aaf22e0ea4e4fda1403fc0467d1d0d4a0496fa9ba39d309fd5067f42"
+    },
+    {
+      "path": "src/components/ads/components/Label.tsx",
+      "sourcePath": "packages/design-system/src/components/Label.tsx",
+      "integrity": "sha256-602081b07d8e2348039fe10f861ec1ae07ab2d7c694ce5621836f13c139a9944"
+    },
+    {
+      "integrity": "sha256-3531511130f553f28192c079c857f7d9fba116e1506881bebce1b0fe1d38e717",
+      "path": "src/components/ads/components/Loader.extended-parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Loader.extended-parts.tsx"
+    },
+    {
+      "integrity": "sha256-ee40ae589b53007f16459777f0346c5de8be1b8c9c7ee7b6161a97cff8d1cc8a",
+      "path": "src/components/ads/components/Loader.extended-styles.ts",
+      "sourcePath": "packages/design-system/src/components/Loader.extended-styles.ts"
+    },
+    {
+      "integrity": "sha256-adafca420a32e05a3e3692e90e9df67b0be4fa9960c79b9fe4867c56c3ca594c",
+      "path": "src/components/ads/components/Loader.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Loader.parts.tsx"
+    },
+    {
+      "integrity": "sha256-32e231736942955f1c1825ac8c5534842bc605f40429e50053e40411b7c5e2e2",
+      "path": "src/components/ads/components/Loader.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Loader.styles.ts"
+    },
+    {
+      "integrity": "sha256-7fd2385a1b369635266070bf7db1862e249f3e43e733e519309352a7bd9a2330",
+      "path": "src/components/ads/components/Loader.tsx",
+      "sourcePath": "packages/design-system/src/components/Loader.tsx"
+    },
+    {
+      "integrity": "sha256-86ef5e260de6c941d491d17af1f67a1fa4117bfb6fd9db9b24b4f185ca7989cc",
+      "path": "src/components/ads/components/Loader.types.ts",
+      "sourcePath": "packages/design-system/src/components/Loader.types.ts"
+    },
+    {
+      "path": "src/components/ads/components/Menu.shortcut.tsx",
+      "sourcePath": "packages/design-system/src/components/Menu.shortcut.tsx",
+      "integrity": "sha256-d09ff7f618e19f0b174957639749340c83b4a7d258d084e6bea528428208769b"
+    },
+    {
+      "path": "src/components/ads/components/Menu.trigger.tsx",
+      "sourcePath": "packages/design-system/src/components/Menu.trigger.tsx",
+      "integrity": "sha256-f1a0b102e26fda9d3066350b1591cf8842c6f9c2c4aae2c006ccf6dba58e33d3"
+    },
+    {
+      "path": "src/components/ads/components/Menu.tsx",
+      "sourcePath": "packages/design-system/src/components/Menu.tsx",
+      "integrity": "sha256-f74832563c42e85c1e81cb9bb5589efa0ee35c683930ea729daf7907959e6cd2"
+    },
+    {
+      "path": "src/components/ads/components/Popover.tsx",
+      "sourcePath": "packages/design-system/src/components/Popover.tsx",
+      "integrity": "sha256-798ed58e0ebf0243950f01e3ea8fd27cc384b6b1fd62b91a3d6c6bc0d32ae9e4"
+    },
+    {
+      "path": "src/components/ads/components/Select.array.tsx",
+      "sourcePath": "packages/design-system/src/components/Select.array.tsx",
+      "integrity": "sha256-43b037f0141b5ea73a395d2fd45d1708ebd514110bb4ec705c0d90fbee9819c8"
+    },
+    {
+      "path": "src/components/ads/components/Select.clear.tsx",
+      "sourcePath": "packages/design-system/src/components/Select.clear.tsx",
+      "integrity": "sha256-35ca008e8ff57f41494c0c6adc1ef0f9c56990ddf031e6cb920f366b1df62495"
+    },
+    {
+      "path": "src/components/ads/components/Select.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Select.parts.tsx",
+      "integrity": "sha256-98715ff2ffe96edfbb946835ad53ed53ee7a5230360222d7124ce5aef48b4467"
+    },
+    {
+      "path": "src/components/ads/components/Select.tsx",
+      "sourcePath": "packages/design-system/src/components/Select.tsx",
+      "integrity": "sha256-476af0ff9b4e77160fc8cbdedddfd2dd63be1d8e091c449ac420b93d998b2504"
+    },
+    {
+      "integrity": "sha256-9ea4a50ad87feacf6e9042d40e5aa1cfc6b8ecbb9f975d0446b8cda2660d8346",
+      "path": "src/components/ads/components/Separator.tsx",
+      "sourcePath": "packages/design-system/src/components/Separator.tsx"
+    },
+    {
+      "path": "src/components/ads/components/Skeleton.tsx",
+      "sourcePath": "packages/design-system/src/components/Skeleton.tsx",
+      "integrity": "sha256-74f679f57a899acd4b9c6f55b161c64a065025673489682a605ccc771ac952e2"
+    },
+    {
+      "path": "src/components/ads/components/Slider.tsx",
+      "sourcePath": "packages/design-system/src/components/Slider.tsx",
+      "integrity": "sha256-faae694fb04839d5c527b7af9d9f5ff47932f3949dd31c43b3399471a5604413"
+    },
+    {
+      "integrity": "sha256-c72492c2ce7d71ea8903b675c60dca5b79b8f99b78d417e55dc1999891cc38d7",
+      "path": "src/components/ads/components/Switch.tsx",
+      "sourcePath": "packages/design-system/src/components/Switch.tsx"
+    },
+    {
+      "path": "src/components/ads/components/Table.tsx",
+      "sourcePath": "packages/design-system/src/components/Table.tsx",
+      "integrity": "sha256-b8f2b5aa3f9caf11cde7b20f32dbad323a77cc13c9e2b7828ffb7309f9780527"
+    },
+    {
+      "integrity": "sha256-464be0d9db40c952f13cdc426a1dde12ec79c56b7443e634b1fccb1013f29ced",
+      "path": "src/components/ads/components/Tabs.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Tabs.styles.ts"
+    },
+    {
+      "integrity": "sha256-e9a5d5899e965da921cf2b8643842bef5d7643e126fb12131656ecbf5bb1e3e6",
+      "path": "src/components/ads/components/Tabs.tsx",
+      "sourcePath": "packages/design-system/src/components/Tabs.tsx"
+    },
+    {
+      "path": "src/components/ads/components/TextField.count.tsx",
+      "sourcePath": "packages/design-system/src/components/TextField.count.tsx",
+      "integrity": "sha256-1d06c8c2f816fdaa53fc789cb14157f22d66eadf8657d3211673cd623ee96db0"
+    },
+    {
+      "path": "src/components/ads/components/TextField.tsx",
+      "sourcePath": "packages/design-system/src/components/TextField.tsx",
+      "integrity": "sha256-ba1da3c732ad1355f7ec192839b6a398bcb74fddf5401d82d5f02b5b75dd81e0"
+    },
+    {
+      "path": "src/components/ads/components/Textarea.tsx",
+      "sourcePath": "packages/design-system/src/components/Textarea.tsx",
+      "integrity": "sha256-1bb77c53d81362a8bf52d7e9b3e8453c1cadd26f2b68d082ee931863c903c585"
+    },
+    {
+      "integrity": "sha256-67ec6c2349506cd436e9fe186e1b72f976c48068724fe53b223caf0d5acc48fa",
+      "path": "src/components/ads/components/ThemeProvider.tsx",
+      "sourcePath": "packages/design-system/src/components/ThemeProvider.tsx"
+    },
+    {
+      "path": "src/components/ads/components/Toggle.tsx",
+      "sourcePath": "packages/design-system/src/components/Toggle.tsx",
+      "integrity": "sha256-b3145681d678561d4a638a0ab7912f22fc12cc59adeedadba4396f7bdc9dabfe"
+    },
+    {
+      "path": "src/components/ads/components/Tooltip.tsx",
+      "sourcePath": "packages/design-system/src/components/Tooltip.tsx",
+      "integrity": "sha256-130ab74b793ade629ad59d8ab40b7972616193b0a30bf177af76b7d07921d343"
+    },
+    {
+      "path": "src/components/ads/components/VisuallyHidden.tsx",
+      "sourcePath": "packages/design-system/src/components/VisuallyHidden.tsx",
+      "integrity": "sha256-1aea49d6f39a82b91ed1c536ff6ae9a0fd523e7be20081d34afae4834948a383"
+    },
+    {
+      "path": "src/components/ads/components/field-anatomy.tsx",
+      "sourcePath": "packages/design-system/src/components/field-anatomy.tsx",
+      "integrity": "sha256-6e4ac8b674135ef4e58bb75352c292cfc6e1de2e193b7563058ab299560b23aa"
+    },
+    {
+      "integrity": "sha256-2d1c3e5f7217efdfd23e2af5213383a23598d2cc8e4aea1a58eab3ebecba4731",
+      "path": "src/components/ads/components/merge-class-name.ts",
+      "sourcePath": "packages/design-system/src/components/merge-class-name.ts"
+    },
+    {
+      "integrity": "sha256-7d63dcff7eaf6ea314f40a92bb151496680493adfe382f5e9dc7ddd0775947ce",
+      "path": "src/components/ads/data-table-motion.css",
+      "sourcePath": "packages/design-system/src/data-table-motion.css"
+    },
+    {
+      "integrity": "sha256-d44f090c7108ca6ca92dfc5803547d0b5d2c0a95acca6e6f3fb4dcef3ed46f73",
+      "path": "src/components/ads/fonts.css",
+      "sourcePath": "packages/design-system/src/fonts.css"
+    },
+    {
+      "path": "src/components/ads/headless/accordion.tsx",
+      "sourcePath": "packages/design-system/src/headless/accordion.tsx",
+      "integrity": "sha256-eb0f6fd8fc8f6a76877042c249a1a0cfb802fc95b3723f76354ac74dace440c1"
+    },
+    {
+      "integrity": "sha256-1307fc61701308ad120059a978f697124ae588d2093325af26f927387678b89b",
+      "path": "src/components/ads/headless/button.tsx",
+      "sourcePath": "packages/design-system/src/headless/button.tsx"
+    },
+    {
+      "path": "src/components/ads/headless/context-menu.tsx",
+      "sourcePath": "packages/design-system/src/headless/context-menu.tsx",
+      "integrity": "sha256-1e2653226a85cf424f1d4bea1f2636da8eaf7fff94763efec5ec43f5b71f4fcf"
+    },
+    {
+      "integrity": "sha256-84151afa2782c121f50fc223a4d2eaff677212528a9cd6b42792e50004752e95",
+      "path": "src/components/ads/headless/dialog.tsx",
+      "sourcePath": "packages/design-system/src/headless/dialog.tsx"
+    },
+    {
+      "path": "src/components/ads/headless/drawer.tsx",
+      "sourcePath": "packages/design-system/src/headless/drawer.tsx",
+      "integrity": "sha256-4725d1f6c308a38a5e3cf29cf58667278d196422dfb794580cfc48b5a7d6b2c1"
+    },
+    {
+      "path": "src/components/ads/headless/input.tsx",
+      "sourcePath": "packages/design-system/src/headless/input.tsx",
+      "integrity": "sha256-665f83fef46dce895f6b0f63968c91cd218b955614b6a93212d6aa5bf30e6ff7"
+    },
+    {
+      "path": "src/components/ads/headless/menu.tsx",
+      "sourcePath": "packages/design-system/src/headless/menu.tsx",
+      "integrity": "sha256-990b0f46c6e6564339b89ba14bc7f3b7fd9e178685fc5d966aa82fff03c4bf9b"
+    },
+    {
+      "path": "src/components/ads/headless/popover.tsx",
+      "sourcePath": "packages/design-system/src/headless/popover.tsx",
+      "integrity": "sha256-6e390b82cfa931546ee89610e950c14bc0908bf931b3b9210b274bdddc51b857"
+    },
+    {
+      "path": "src/components/ads/headless/select.tsx",
+      "sourcePath": "packages/design-system/src/headless/select.tsx",
+      "integrity": "sha256-ca20507464931bc14b13fe279a88db70361acfd8f1f366073e8f19343dca9b9a"
+    },
+    {
+      "integrity": "sha256-80816065f214aef27151ef90d947638d10adc5bfd9eff07b4d85cfa89dc799fb",
+      "path": "src/components/ads/headless/separator.tsx",
+      "sourcePath": "packages/design-system/src/headless/separator.tsx"
+    },
+    {
+      "path": "src/components/ads/headless/skeleton.tsx",
+      "sourcePath": "packages/design-system/src/headless/skeleton.tsx",
+      "integrity": "sha256-16bbe47bc10c4a435f61b7338f4e68b0a630d06efcf88e7f87d7b58bc5de3ac9"
+    },
+    {
+      "path": "src/components/ads/headless/slider.tsx",
+      "sourcePath": "packages/design-system/src/headless/slider.tsx",
+      "integrity": "sha256-6569f64c47d99f428bfe21956b5e10d487501271e8e2474d9c64d240ad2d88c5"
+    },
+    {
+      "integrity": "sha256-be80a8fc9c92d19fa030463c0a7ab08cf79c875b9e86030a672b36f5ffd94061",
+      "path": "src/components/ads/headless/switch.tsx",
+      "sourcePath": "packages/design-system/src/headless/switch.tsx"
+    },
+    {
+      "integrity": "sha256-381b447d8b54d4b3b3fcd6184785aaa998500aaaf5298043f10488701f5228c9",
+      "path": "src/components/ads/headless/tabs.tsx",
+      "sourcePath": "packages/design-system/src/headless/tabs.tsx"
+    },
+    {
+      "path": "src/components/ads/headless/textarea.tsx",
+      "sourcePath": "packages/design-system/src/headless/textarea.tsx",
+      "integrity": "sha256-6aaef4687d31f3549fbe939199318cb2e5e5fedf5b855456761621321da17ff6"
+    },
+    {
+      "path": "src/components/ads/headless/toggle.tsx",
+      "sourcePath": "packages/design-system/src/headless/toggle.tsx",
+      "integrity": "sha256-dc6826ff833aa956367242fe267b0af00e05c8819bad4e9264bd59ee2378f7dc"
+    },
+    {
+      "path": "src/components/ads/headless/tooltip.tsx",
+      "sourcePath": "packages/design-system/src/headless/tooltip.tsx",
+      "integrity": "sha256-4ee58f5e575a3276f4f2df6678e6476397aca2936297b73282f568a6811ef240"
+    },
+    {
+      "integrity": "sha256-91d6db160fa1374e7a83c79e09110d2a3fe059d84101269b2e9401903231f885",
+      "path": "src/components/ads/inline-disclosure-motion.css",
+      "sourcePath": "packages/design-system/src/inline-disclosure-motion.css"
+    },
+    {
+      "integrity": "sha256-f114563d4070b8770a33ab6d2d5bd98de3323f5f2570c02bb5f43844e07b268b",
+      "path": "src/components/ads/overlay-motion.css",
+      "sourcePath": "packages/design-system/src/overlay-motion.css"
+    },
+    {
+      "integrity": "sha256-c306b327c5cbe293353a96eb242c2f4955a24f6e37cba280cdafa9c36f8207c1",
+      "path": "src/components/ads/recipes/control-chrome.ts",
+      "sourcePath": "packages/design-system/src/recipes/control-chrome.ts"
+    },
+    {
+      "integrity": "sha256-3e200b435be24f237cfdf3b00c1fad4ef19a325c961d32c094720180d63f0122",
+      "path": "src/components/ads/recipes/control-metrics.ts",
+      "sourcePath": "packages/design-system/src/recipes/control-metrics.ts"
+    },
+    {
+      "integrity": "sha256-012e0118cf0205b70b4c424302a4e77aa964313036019cfd53107a533d6292be",
+      "path": "src/components/ads/recipes/control-width.ts",
+      "sourcePath": "packages/design-system/src/recipes/control-width.ts"
+    },
+    {
+      "integrity": "sha256-fbd38f7fbdfdb4eba44d8e51b8534fd01c64257f932e838964b846e2e42bdf81",
+      "path": "src/components/ads/recipes/focus-ring.ts",
+      "sourcePath": "packages/design-system/src/recipes/focus-ring.ts"
+    },
+    {
+      "integrity": "sha256-f9d01fcedfc33995f81f776d7c0e455dcf627ee2deecbe2bba3ec668f9228629",
+      "path": "src/components/ads/recipes/listbox.ts",
+      "sourcePath": "packages/design-system/src/recipes/listbox.ts"
+    },
+    {
+      "path": "src/components/ads/recipes/menu.ts",
+      "sourcePath": "packages/design-system/src/recipes/menu.ts",
+      "integrity": "sha256-a3a4f2c2421596d7127e1382595687bb3d4bafdb7173ddf943b4262564e4e967"
+    },
+    {
+      "path": "src/components/ads/recipes/select-styles.ts",
+      "sourcePath": "packages/design-system/src/recipes/select-styles.ts",
+      "integrity": "sha256-9599c27fe39b9de2168e3d38eddfd121ecf2a8170ec99259ac04bd545f864301"
+    },
+    {
+      "integrity": "sha256-11045cd1a8adef4182326c58391759d12bf47594e6b2d0a4a116d2244ef7080e",
+      "path": "src/components/ads/recipes/surface-chrome.ts",
+      "sourcePath": "packages/design-system/src/recipes/surface-chrome.ts"
+    },
+    {
+      "path": "src/components/ads/recipes/touch-target.ts",
+      "sourcePath": "packages/design-system/src/recipes/touch-target.ts",
+      "integrity": "sha256-22c620b64759e02ae00c08e8177977ee38dfa939987b3faab4e73fb56cc67f07"
+    },
+    {
+      "integrity": "sha256-9796cb70e3698f91331bc10946b666ea299ae08dadbc21e49a1f4972347d28a0",
+      "path": "src/components/ads/recipes/transition.ts",
+      "sourcePath": "packages/design-system/src/recipes/transition.ts"
+    },
+    {
+      "integrity": "sha256-0eb3d9bd9655dec35a4aa07abd073bcc3ada0e450aa937c970d1788fe775ca4d",
+      "path": "src/components/ads/sidebar-motion.css",
+      "sourcePath": "packages/design-system/src/sidebar-motion.css"
+    },
+    {
+      "integrity": "sha256-3134465e9d6cc03e1cc6d56c0950a273541029e841683e484dac52e1e493712d",
+      "path": "src/components/ads/styles.css",
+      "sourcePath": "packages/design-system/src/styles.css"
+    },
+    {
+      "path": "src/components/ads/tokens/density.stylex.ts",
+      "sourcePath": "packages/design-system/src/tokens/density.stylex.ts",
+      "integrity": "sha256-edd0944b1e0533a04c8600e11a8d95b5f3a4d53c4dd2b0440487d84104a4f2d2"
+    },
+    {
+      "integrity": "sha256-f23678201d551bb5e15b9c21c3c42a6f88aefec0065873e45dd3863b572060d9",
+      "path": "src/components/ads/tokens/motion-presets.ts",
+      "sourcePath": "packages/design-system/src/tokens/motion-presets.ts"
+    },
+    {
+      "integrity": "sha256-a55bb9e2c30739d3da14fdf2ea4edd1caa5f1d76fdb1161cd599f5c1d4eb27dd",
+      "path": "src/components/ads/tokens/themes.stylex.ts",
+      "sourcePath": "packages/design-system/src/tokens/themes.stylex.ts"
+    },
+    {
+      "integrity": "sha256-2cdc1087683cf431cecbd41900d6b467416bf969c44a65fcbc8fc467759aad74",
+      "path": "src/components/ads/tokens/tokens.stylex.ts",
+      "sourcePath": "packages/design-system/src/tokens/tokens.stylex.ts"
+    },
+    {
+      "path": "src/components/ads/utils/placement.ts",
+      "sourcePath": "packages/design-system/src/utils/placement.ts",
+      "integrity": "sha256-14c8f09cfa59434f911aa9b87b050e2d84cef285dcab5f8e20deefe6bac23e28"
+    },
+    {
+      "integrity": "sha256-8def0eda1e82eba8d1d64c34b1fdc84e0e84a656815f39faa5589467a3b5cb7b",
+      "path": "src/components/ads/utils/stylex.ts",
+      "sourcePath": "packages/design-system/src/utils/stylex.ts"
+    },
+    {
+      "integrity": "sha256-e92b59225464fedec7c6a79775018a05f69bf1648d5ed7672f6c6e01e201e7fe",
+      "path": "src/components/ads/components/Breadcrumb.tsx",
+      "sourcePath": "packages/design-system/src/components/Breadcrumb.tsx"
+    },
+    {
+      "integrity": "sha256-4f96c5408bff543e1737022177530338ca24ff86f9149d65e5686ccf8c76865a",
+      "path": "src/components/ads/components/Calendar.keyboard.ts",
+      "sourcePath": "packages/design-system/src/components/Calendar.keyboard.ts"
+    },
+    {
+      "integrity": "sha256-0106960f6dc6eeb1c3f52cdd20aa938911bf0b042f3614c5e2e5e3ba523a0342",
+      "path": "src/components/ads/components/Calendar.tsx",
+      "sourcePath": "packages/design-system/src/components/Calendar.tsx"
+    },
+    {
+      "integrity": "sha256-01c6ead95c441ac6aac1bac9f47eeb7640ae55d406b0e54c0ebc08887e3233f4",
+      "path": "src/components/ads/components/Command.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Command.parts.tsx"
+    },
+    {
+      "integrity": "sha256-96986e66e228ea17e9385565c36105f81bf63b389831d40b137521f7cf25e35f",
+      "path": "src/components/ads/components/Command.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Command.styles.ts"
+    },
+    {
+      "integrity": "sha256-6f86b18cc42d4bb4924d79859c1a3ed04609275f1376908a7f0a8637d769445e",
+      "path": "src/components/ads/components/Command.tsx",
+      "sourcePath": "packages/design-system/src/components/Command.tsx"
+    },
+    {
+      "integrity": "sha256-033a7f2cab64b9b7bc6f0cdc7150866555095795a602f748a852dfd87e8f243c",
+      "path": "src/components/ads/components/EmptyState.tsx",
+      "sourcePath": "packages/design-system/src/components/EmptyState.tsx"
+    },
+    {
+      "integrity": "sha256-78a872c422bbbd7fb0277210a52f24d7b3a19292bf3868af391761b97e14bd10",
+      "path": "src/components/ads/components/Toast.tsx",
+      "sourcePath": "packages/design-system/src/components/Toast.tsx"
+    },
+    {
+      "integrity": "sha256-42f490d44bf6ebd90c04d00280b27f89ddba7c8ab84eaf940799a95655345dcc",
+      "path": "src/components/ads/components/ToastHost.promise.ts",
+      "sourcePath": "packages/design-system/src/components/ToastHost.promise.ts"
+    },
+    {
+      "integrity": "sha256-0ec86f29028c6b677eaa7ae506b31ae3e31c3b78b0fba8ab6984148341ca3fa9",
+      "path": "src/components/ads/components/ToastHost.tsx",
+      "sourcePath": "packages/design-system/src/components/ToastHost.tsx"
+    },
+    {
+      "integrity": "sha256-4465ce2e4231cb215d7360c9b9f0464fe812b367cceaf13179b5342f8db5c54e",
+      "path": "src/components/ads/headless/autocomplete.tsx",
+      "sourcePath": "packages/design-system/src/headless/autocomplete.tsx"
+    },
+    {
+      "integrity": "sha256-84d7b39764aad28f800c5812517902bce89bacb534c2a9468b7d1524c370ca9a",
+      "path": "src/components/ads/headless/breadcrumb.tsx",
+      "sourcePath": "packages/design-system/src/headless/breadcrumb.tsx"
+    },
+    {
+      "integrity": "sha256-e3bb8b6a015039f5dc238dee9425884c1f20d80846885c2fedad0fe747050f98",
+      "path": "src/components/ads/headless/toast.tsx",
+      "sourcePath": "packages/design-system/src/headless/toast.tsx"
+    }
+  ],
+  "items": [
+    {
+      "id": "button",
+      "kind": "component"
+    },
+    {
+      "id": "tabs",
+      "kind": "component"
+    },
+    {
+      "id": "separator",
+      "kind": "component"
+    },
+    {
+      "id": "switch",
+      "kind": "component"
+    },
+    {
+      "id": "command",
+      "kind": "component"
+    },
+    {
+      "id": "breadcrumb",
+      "kind": "component"
+    },
+    {
+      "id": "toast",
+      "kind": "component"
+    },
+    {
+      "id": "calendar",
+      "kind": "component"
+    },
+    {
+      "id": "emptystate",
+      "kind": "component"
+    }
+  ],
+  "schemaVersion": "1.0",
+  "sourceVersion": "0.1.0"
+}

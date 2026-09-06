@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
@@ -17,8 +18,10 @@ import { TruncationWarningBanner } from "@/components/ai-elements/truncation-war
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { Loader } from "@/components/ui/loader";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import type { ToolState } from "./tool";
+import { toolResultStyles as s } from "./tool-result.styles";
 
 /* ─── Types ───────────────────────────────────────────────────────── */
 
@@ -48,7 +51,7 @@ export interface ToolResultProps extends Omit<
   defaultOpen?: boolean;
   /**
    * Render body and footer only. The trace uses its own step row as the
-   * header, so duplicating the beui header bar inside an already-expanded
+   * header, so duplicating the header bar inside an already-expanded
    * step would stack two identical titles.
    */
   headless?: boolean;
@@ -82,37 +85,61 @@ const STATUS_LABEL: Record<ToolResultStatus, string> = {
 };
 
 /**
- * Semantic tokens only — `success` / `destructive` / `muted-foreground` are
+ * Semantic tokens only — `success` / `danger` / `muted` are
  * defined by every built-in theme, so no new colour tokens are introduced.
  */
-const STATUS_TEXT_CLASS: Record<ToolResultStatus, string> = {
-  running: "text-muted-foreground",
-  success: "text-success",
-  error: "text-destructive",
-  cancelled: "text-muted-foreground/70",
+const STATUS_TEXT_STYLE: Record<
+  ToolResultStatus,
+  (typeof s)[keyof typeof s]
+> = {
+  running: s.statusTextRunning,
+  success: s.statusTextSuccess,
+  error: s.statusTextError,
+  cancelled: s.statusTextCancelled,
+};
+
+const STATUS_ICON_STYLE: Record<
+  ToolResultStatus,
+  (typeof s)[keyof typeof s]
+> = {
+  running: s.statusIconMuted,
+  success: s.statusIconSuccess,
+  error: s.statusIconError,
+  cancelled: s.statusIconCancelled,
 };
 
 export function ToolResultStatusIcon(args: {
   status: ToolResultStatus;
   className?: string;
 }) {
-  const className = cn("size-[1.05em] shrink-0", args.className);
   switch (args.status) {
     case "running":
       return (
         <Loader
           aria-hidden
-          className={cn(className, "text-muted-foreground")}
+          className={cx(sx(s.statusIcon, s.statusIconMuted), args.className)}
           size="xs"
           variant="steps"
         />
       );
     case "success":
-      return <CircleCheck className={cn(className, "text-success")} />;
+      return (
+        <CircleCheck
+          className={cx(sx(s.statusIcon, s.statusIconSuccess), args.className)}
+        />
+      );
     case "error":
-      return <CircleAlert className={cn(className, "text-destructive")} />;
+      return (
+        <CircleAlert
+          className={cx(sx(s.statusIcon, s.statusIconError), args.className)}
+        />
+      );
     case "cancelled":
-      return <Ban className={cn(className, "text-muted-foreground/70")} />;
+      return (
+        <Ban
+          className={cx(sx(s.statusIcon, s.statusIconCancelled), args.className)}
+        />
+      );
   }
 }
 
@@ -120,7 +147,7 @@ function ToolResultKindIcon(args: {
   kind: ToolResultKind;
   className?: string;
 }) {
-  const className = cn("size-[1.05em] shrink-0", args.className);
+  const className = cx(sx(s.statusIcon), args.className);
   switch (args.kind) {
     case "terminal":
       return <Terminal className={className} />;
@@ -151,9 +178,6 @@ function useToolResultContext(): ToolResultContextValue {
 
 /* ─── Actions ─────────────────────────────────────────────────────── */
 
-const ACTION_CLASS =
-  "inline-flex items-center gap-[0.3em] rounded-md px-[0.5em] py-[0.25em] text-[0.75em] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground";
-
 function CopyAction(args: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -166,9 +190,10 @@ function CopyAction(args: { text: string }) {
   }, [copied]);
 
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
-      className={ACTION_CLASS}
+      className={sx(s.action, transition.colors)}
       onClick={() => {
         /* `copyTextToClipboard` throws when every copy path fails, so the
            "Copied" confirmation only shows on an actual write. */
@@ -178,12 +203,12 @@ function CopyAction(args: { text: string }) {
       }}
     >
       {copied ? (
-        <Check className="size-[1.05em]" />
+        <Check className={sx(s.actionIcon)} />
       ) : (
-        <Copy className="size-[1.05em]" />
+        <Copy className={sx(s.actionIcon)} />
       )}
       {copied ? "Copied" : "Copy"}
-    </button>
+    </AdsButton>
   );
 }
 
@@ -221,49 +246,38 @@ export function ToolResultOutput({
   const hasBody = typeof body === "string" && body.trim() !== "";
 
   return (
-    <div
-      className={cn(
-        "rounded-md border border-border/70 bg-background/40",
-        className,
-      )}
-    >
-      {label ? (
-        <p className="border-b border-border/70 px-[0.6em] py-[0.35em] text-[0.7em] uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-      ) : null}
+    <div className={cx(sx(s.outputBlock), className)}>
+      {label ? <p className={sx(s.outputLabel)}>{label}</p> : null}
       {truncationNotice ? (
         <TruncationWarningBanner
           notice={truncationNotice}
           compact
-          className="m-[0.5em]"
+          className={sx(s.outputBanner)}
         />
       ) : null}
-      <div className="overflow-auto p-[0.6em]" style={{ maxHeight }}>
+      <div className={sx(s.outputScroll)} style={{ maxHeight }}>
         {hasBody ? (
           linkify ? (
             <LinkifiedText
               as="pre"
               text={body}
-              className={cn(
-                "whitespace-pre-wrap break-words font-mono text-[0.8em] leading-relaxed [overflow-wrap:anywhere]",
-                errorText ? "text-destructive" : "text-muted-foreground",
+              className={sx(
+                s.outputPre,
+                errorText ? s.outputPreError : s.outputPreMuted,
               )}
             />
           ) : (
             <pre
-              className={cn(
-                "whitespace-pre-wrap break-words font-mono text-[0.8em] leading-relaxed [overflow-wrap:anywhere]",
-                errorText ? "text-destructive" : "text-muted-foreground",
+              className={sx(
+                s.outputPre,
+                errorText ? s.outputPreError : s.outputPreMuted,
               )}
             >
               {body}
             </pre>
           )
         ) : (
-          <span className="text-[0.8em] text-muted-foreground/70">
-            No output.
-          </span>
+          <span className={sx(s.outputEmpty)}>No output.</span>
         )}
       </div>
     </div>
@@ -314,24 +328,24 @@ export function ToolResult({
 
   const footer =
     hasActions || !headless ? (
-      <div className="flex items-center gap-[0.4em] pt-[0.5em]">
-        <span
-          className={cn(
-            "inline-flex items-center gap-[0.35em] text-[0.75em] font-medium",
-            STATUS_TEXT_CLASS[status],
-          )}
-        >
+      <div className={sx(s.footer)}>
+        <span className={sx(s.footerStatus, STATUS_TEXT_STYLE[status])}>
           <ToolResultStatusIcon status={status} />
           {STATUS_LABEL[status]}
         </span>
         {hasActions ? (
-          <span className="ml-auto inline-flex items-center gap-[0.2em]">
+          <span className={sx(s.footerActions)}>
             {copyText ? <CopyAction text={copyText} /> : null}
             {onRetry ? (
-              <button type="button" className={ACTION_CLASS} onClick={onRetry}>
-                <RotateCcw className="size-[1.05em]" />
+              <AdsButton
+                layout="host"
+                type="button"
+                className={sx(s.action, transition.colors)}
+                onClick={onRetry}
+              >
+                <RotateCcw className={sx(s.actionIcon)} />
                 Retry
-              </button>
+              </AdsButton>
             ) : null}
           </span>
         ) : null}
@@ -339,12 +353,7 @@ export function ToolResult({
     ) : null;
 
   const body = (
-    <div
-      className={cn(
-        "space-y-[0.5em]",
-        headless ? undefined : "px-[0.75em] pb-[0.6em]",
-      )}
-    >
+    <div className={sx(s.body, headless ? null : s.bodyPadded)}>
       {children}
       {footer}
     </div>
@@ -353,7 +362,7 @@ export function ToolResult({
   if (headless) {
     return (
       <ToolResultContext.Provider value={contextValue}>
-        <div className={cn("not-prose", className)} {...props}>
+        <div className={cx("not-prose", className)} {...props}>
           {body}
         </div>
       </ToolResultContext.Provider>
@@ -362,46 +371,25 @@ export function ToolResult({
 
   return (
     <ToolResultContext.Provider value={contextValue}>
-      <section
-        className={cn(
-          "not-prose overflow-hidden rounded-lg border bg-card",
-          className,
-        )}
-        {...props}
-      >
-        <button
+      <section className={cx("not-prose", sx(s.rootSection), className)} {...props}>
+        <AdsButton
+          layout="host"
           type="button"
-          className={cn(
-            "flex w-full items-center gap-[0.5em] px-[0.75em] py-[0.5em] text-[0.875em] text-left",
-            open && "border-b",
-          )}
+          className={sx(s.header, open && s.headerOpen)}
           onClick={() => setOpen((previous) => !previous)}
         >
-          <ToolResultKindIcon kind={kind} className="text-muted-foreground" />
-          <span className="min-w-0 truncate font-medium">
-            {title ?? tool ?? "Tool"}
-          </span>
+          <ToolResultKindIcon kind={kind} className={sx(s.kindIcon)} />
+          <span className={sx(s.headerTitle)}>{title ?? tool ?? "Tool"}</span>
           {tool && title ? (
-            <span className="shrink-0 font-mono text-[0.8em] text-muted-foreground">
-              {tool}
-            </span>
+            <span className={sx(s.headerTool)}>{tool}</span>
           ) : null}
-          {meta ? (
-            <span className="shrink-0 text-[0.8em] text-muted-foreground/70">
-              {meta}
-            </span>
-          ) : null}
-          <span className="ml-auto inline-flex shrink-0 items-center gap-[0.4em]">
+          {meta ? <span className={sx(s.headerMeta)}>{meta}</span> : null}
+          <span className={sx(s.headerTrailing)}>
             <ToolResultStatusIcon status={status} />
-            <ChevronDown
-              className={cn(
-                "size-[1.05em] transition-transform",
-                open ? "rotate-180" : "rotate-0",
-              )}
-            />
+            <ChevronDown className={sx(s.chevron, transition.transform, open && s.chevronOpen)} />
           </span>
-        </button>
-        {open ? <div className="pt-[0.6em]">{body}</div> : null}
+        </AdsButton>
+        {open ? <div className={sx(s.headerBody)}>{body}</div> : null}
       </section>
     </ToolResultContext.Provider>
   );

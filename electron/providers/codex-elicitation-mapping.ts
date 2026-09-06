@@ -243,7 +243,11 @@ function buildElicitationQuestionFromProperty(args: {
 
 export function mapCodexElicitationToUserInput(
   params: Record<string, unknown>,
-) {
+): {
+  mode: "url" | "form";
+  questions: UserInputQuestion[];
+  fields: ElicitationFieldDescriptor[];
+} | null {
   const mode = params.mode === "url" ? "url" : "form";
   const message =
     toTrimmedString(params.message) ??
@@ -307,7 +311,7 @@ export function mapCodexElicitationToUserInput(
     };
   }
   const requiredKeys = new Set(
-    Array.isArray(requestedSchema.required)
+    Array.isArray(requestedSchema?.required)
       ? requestedSchema.required.filter(
           (value): value is string => typeof value === "string",
         )

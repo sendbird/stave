@@ -43,6 +43,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { sx } from "@/components/ads/utils/stylex";
+import { commitContextMenuStyles as styles } from "./commit-context-menu.styles";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,12 +94,14 @@ function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-w-sm">
+      <DialogContent showCloseButton={false} xstyle={styles.dialogNarrow}>
         <DialogHeader>
           {destructive ? (
-            <div className="mb-1 flex items-center gap-2 text-destructive">
-              <AlertTriangle className="size-4 shrink-0" />
-              <DialogTitle className="text-destructive">{title}</DialogTitle>
+            <div className={sx(styles.destructiveHeader)}>
+              <AlertTriangle className={sx(styles.destructiveIcon)} />
+              <DialogTitle className={sx(styles.destructiveTitle)}>
+                {title}
+              </DialogTitle>
             </div>
           ) : (
             <DialogTitle>{title}</DialogTitle>
@@ -165,7 +169,7 @@ function NameInputDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-w-sm">
+      <DialogContent showCloseButton={false} xstyle={styles.dialogNarrow}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -267,13 +271,13 @@ export function CommitContextMenu({
         ></DropdownMenuTrigger>
 
         <DropdownMenuContent
-          className="w-56"
+          className={sx(styles.menu)}
           align="start"
           alignOffset={0}
           collisionPadding={8}
           finalFocus={false}
         >
-          <DropdownMenuLabel className="font-mono text-xs text-muted-foreground truncate">
+          <DropdownMenuLabel className={sx(styles.menuLabel)}>
             {shortHash} {subject}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
@@ -284,7 +288,7 @@ export function CommitContextMenu({
               onClose();
             }}
           >
-            <GitCommitHorizontal className="size-4" />
+            <GitCommitHorizontal className={sx(styles.menuIcon)} />
             Checkout (detached)
           </DropdownMenuItem>
 
@@ -294,7 +298,7 @@ export function CommitContextMenu({
               setPendingDialog({ kind: "createBranch" });
             }}
           >
-            <GitBranch className="size-4" />
+            <GitBranch className={sx(styles.menuIcon)} />
             Create branch here
           </DropdownMenuItem>
 
@@ -304,7 +308,7 @@ export function CommitContextMenu({
               setPendingDialog({ kind: "createTag" });
             }}
           >
-            <Tag className="size-4" />
+            <Tag className={sx(styles.menuIcon)} />
             Create tag
           </DropdownMenuItem>
 
@@ -316,7 +320,7 @@ export function CommitContextMenu({
               setPendingDialog({ kind: "cherryPick" });
             }}
           >
-            <Cherry className="size-4" />
+            <Cherry className={sx(styles.menuIcon)} />
             Cherry-pick
           </DropdownMenuItem>
 
@@ -327,13 +331,13 @@ export function CommitContextMenu({
               setPendingDialog({ kind: "revert" });
             }}
           >
-            <RotateCcw className="size-4" />
+            <RotateCcw className={sx(styles.menuIcon)} />
             Revert
           </DropdownMenuItem>
 
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
-              <ChevronsUp className="size-4" />
+              <ChevronsUp className={sx(styles.menuIcon)} />
               Reset to here
             </DropdownMenuSubTrigger>
             {/*
@@ -382,7 +386,7 @@ export function CommitContextMenu({
               onClose();
             }}
           >
-            <Copy className="size-4" />
+            <Copy className={sx(styles.menuIcon)} />
             Copy hash
           </DropdownMenuItem>
         </DropdownMenuContent>

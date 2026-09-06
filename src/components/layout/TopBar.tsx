@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   FolderTree,
   SquareTerminal,
@@ -8,6 +9,7 @@ import {
   PanelLeft,
 } from "lucide-react";
 import { GhosttyIcon, VSCodeIcon } from "@/components/brand-icons";
+import * as stylex from "@stylexjs/stylex";
 import { useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -42,6 +44,9 @@ import { TopBarStandaloneCli } from "@/components/layout/TopBarStandaloneCli";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
 import { formatWorkspacePathLabel } from "@/store/project.utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { layoutShellStyles } from "./layout-shell.styles";
+import { topBarStyles } from "./top-bar.styles";
 
 const IS_MAC =
   typeof window !== "undefined" && window.api?.platform === "darwin";
@@ -90,10 +95,10 @@ export function TopBar() {
   return (
     <header
       data-testid="top-bar"
-      className="relative z-30 flex h-12 items-center justify-between gap-3 border-b border-border/70 bg-card px-3.5"
+      className={sx(topBarStyles.header)}
       style={TOP_BAR_DRAG_STYLE}
     >
-      <div className="flex min-w-0 shrink-0 items-center gap-2">
+      <div className={sx(topBarStyles.lead)}>
         <TooltipProvider>
           {workspaceSidebarCollapsed ? (
             <Tooltip>
@@ -102,7 +107,7 @@ export function TopBar() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 shrink-0 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+                    xstyle={topBarStyles.sidebarToggle}
                     style={TOP_BAR_NO_DRAG_STYLE}
                     onClick={() =>
                       setLayout({
@@ -113,24 +118,24 @@ export function TopBar() {
                   />
                 }
               >
-                <PanelLeft className="size-4" />
+                <PanelLeft />
               </TooltipTrigger>
               <TooltipContent side="bottom">Expand Project List</TooltipContent>
             </Tooltip>
           ) : null}
           {hasProjectContext && activeWorkspacePath ? (
             <div
-              className="flex min-w-0 items-center"
+              className={sx(topBarStyles.pathGroup)}
               style={TOP_BAR_NO_DRAG_STYLE}
             >
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <div className="inline-flex h-7 max-w-[220px] items-center gap-2 rounded-l-md border border-r-0 border-border/60 bg-background/60 px-2.5 text-xs text-muted-foreground" />
+                    <div className={sx(topBarStyles.pathChip)} />
                   }
                 >
-                  <FolderTree className="size-3.5 shrink-0" />
-                  <span className="truncate font-mono">
+                  <FolderTree {...stylex.props(topBarStyles.pathIcon)} />
+                  <span className={sx(topBarStyles.pathLabel)}>
                     {workspacePathLabel}
                   </span>
                 </TooltipTrigger>
@@ -143,22 +148,30 @@ export function TopBar() {
                 onOpenChange={setWorkspacePathMenuOpen}
               >
                 <Tooltip>
-                  <TooltipTrigger render={<span className="inline-flex" />}>
+                  <TooltipTrigger
+                    render={
+                      <span {...stylex.props(layoutShellStyles.inlineFlex)} />
+                    }
+                  >
                     <DropdownMenuTrigger
                       render={
-                        <button
+                        <AdsButton
+                          layout="host"
                           type="button"
-                          className="flex h-7 w-7 items-center justify-center rounded-r-md border border-border/60 bg-background/60 p-0 text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                          xstyle={topBarStyles.pathMenuTrigger}
                           aria-label="open-workspace-path-actions"
                         />
                       }
                     >
-                      <ChevronDown className="size-3.5" />
+                      <ChevronDown />
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">Open in…</TooltipContent>
                 </Tooltip>
-                <DropdownMenuContent align="start" className="min-w-[184px]">
+                <DropdownMenuContent
+                  align="start"
+                  className={sx(topBarStyles.pathMenu)}
+                >
                   <DropdownMenuItem
                     onSelect={() => {
                       setWorkspacePathMenuOpen(false);
@@ -167,7 +180,7 @@ export function TopBar() {
                       });
                     }}
                   >
-                    <FolderOpen className="size-4" />
+                    <FolderOpen {...stylex.props(layoutShellStyles.icon16)} />
                     Open in Finder
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -178,7 +191,7 @@ export function TopBar() {
                       });
                     }}
                   >
-                    <VSCodeIcon className="size-4" />
+                    <VSCodeIcon {...stylex.props(layoutShellStyles.icon16)} />
                     Open in VS Code
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -189,7 +202,7 @@ export function TopBar() {
                       });
                     }}
                   >
-                    <GhosttyIcon className="size-4" />
+                    <GhosttyIcon {...stylex.props(layoutShellStyles.icon16)} />
                     Open in Ghostty
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -200,7 +213,7 @@ export function TopBar() {
                       });
                     }}
                   >
-                    <SquareTerminal className="size-4" />
+                    <SquareTerminal {...stylex.props(layoutShellStyles.icon16)} />
                     Open in Terminal
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -213,7 +226,7 @@ export function TopBar() {
                       );
                     }}
                   >
-                    <Copy className="size-4" />
+                    <Copy {...stylex.props(layoutShellStyles.icon16)} />
                     Copy workspace path
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -225,17 +238,21 @@ export function TopBar() {
           ) : null}
           {hasProjectContext ? (
             <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
+              <TooltipTrigger
+                render={
+                  <span {...stylex.props(layoutShellStyles.inlineFlex)} />
+                }
+              >
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 shrink-0 gap-1.5 rounded-md border border-border/60 bg-background/60 px-2.5 text-xs font-normal text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                  xstyle={topBarStyles.gitGraphButton}
                   style={TOP_BAR_NO_DRAG_STYLE}
                   disabled={!canOpenGitGraph}
                   onClick={focusOrCreateGitGraphSurface}
                   aria-label={COMMIT_GRAPH_TITLE}
                 >
-                  <GitGraph className="size-3.5 shrink-0" />
+                  <GitGraph />
                   <span>{COMMIT_GRAPH_TITLE}</span>
                 </Button>
               </TooltipTrigger>
@@ -254,8 +271,8 @@ export function TopBar() {
           ) : null}
         </TooltipProvider>
       </div>
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-        <div className="hidden min-w-0 flex-1 justify-end lg:flex [&>div]:min-w-0 [&>div]:w-full [&>div]:max-w-[380px]">
+      <div className={sx(topBarStyles.trail)}>
+        <div className={sx(topBarStyles.searchSlot)}>
           {hasProjectContext ? (
             <TopBarFileSearch noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           ) : null}
@@ -273,7 +290,7 @@ export function TopBar() {
         <TopBarUpdate noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         {IS_MAC ? null : (
           <div
-            className="flex shrink-0 items-center gap-1.5"
+            className={sx(topBarStyles.windowControls)}
             style={TOP_BAR_NO_DRAG_STYLE}
           >
             <TopBarWindowControls noDragStyle={TOP_BAR_NO_DRAG_STYLE} />

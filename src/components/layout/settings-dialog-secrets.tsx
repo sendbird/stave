@@ -11,8 +11,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button, Input, Loader, Textarea, toast } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SettingsCard } from "./settings-dialog.shared";
+import { secretsStyles as styles } from "./settings-dialog-secrets.styles";
 import type { SecretMetadata } from "@/lib/secrets/secrets";
 
 export function SecretsSettingsCard() {
@@ -236,17 +238,17 @@ export function SecretsSettingsCard() {
             type="button"
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className={sx(styles.addButton)}
             onClick={openNewEditor}
           >
-            <Plus className="size-3.5" />
+            <Plus className={sx(styles.addIcon)} />
             Add secret
           </Button>
         }
       >
-        <div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 p-3">
-          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
-          <p className="text-xs leading-5 text-muted-foreground">
+        <div className={sx(styles.notice)}>
+          <ShieldCheck className={sx(styles.noticeIcon)} />
+          <p className={sx(styles.noticeText)}>
             A secret's value is never shown to an agent. Give a secret an
             environment variable name to bind it to a task from the composer —
             its value is then available to that task's shell and supported MCP
@@ -258,25 +260,25 @@ export function SecretsSettingsCard() {
 
         {editorOpen ? (
           <form
-            className="space-y-3 rounded-md border border-border/80 bg-background/60 p-3"
+            className={sx(styles.form)}
             onSubmit={(event) => {
               event.preventDefault();
               void saveSecret();
             }}
           >
-            <label className="block space-y-1.5 text-xs font-medium">
+            <label className={sx(styles.fieldLabel)}>
               Name
               <Input
                 value={name}
                 placeholder="OpenAI API key"
                 aria-label="Secret name"
-                className="h-8 text-xs"
+                className={sx(styles.stacked, styles.fieldControl)}
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
-            <label className="block space-y-1.5 text-xs font-medium">
+            <label className={sx(styles.fieldLabel)}>
               Value
-              <div className="flex items-center gap-1.5">
+              <div className={sx(styles.stacked, styles.valueRow)}>
                 <Input
                   type={showValue ? "text" : "password"}
                   value={value}
@@ -287,30 +289,28 @@ export function SecretsSettingsCard() {
                   }
                   aria-label="Secret value"
                   autoComplete="off"
-                  className="h-8 font-mono text-xs"
+                  className={sx(styles.fieldControlMono)}
                   onChange={(event) => setValue(event.target.value)}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  className="shrink-0"
+                  className={sx(styles.iconAction)}
                   aria-label={showValue ? "Hide value" : "Show value"}
                   onClick={() => setShowValue((current) => !current)}
                 >
                   {showValue ? (
-                    <EyeOff className="size-3.5" />
+                    <EyeOff className={sx(styles.actionIcon)} />
                   ) : (
-                    <Eye className="size-3.5" />
+                    <Eye className={sx(styles.actionIcon)} />
                   )}
                 </Button>
               </div>
             </label>
-            <label className="block space-y-1.5 text-xs font-medium">
+            <label className={sx(styles.fieldLabel)}>
               Environment variable name
-              <span className="ml-1 font-normal text-muted-foreground">
-                (optional)
-              </span>
+              <span className={sx(styles.fieldOptional)}>(optional)</span>
               <Input
                 value={envVarName}
                 placeholder="OPENAI_API_KEY"
@@ -319,32 +319,30 @@ export function SecretsSettingsCard() {
                 autoCapitalize="off"
                 autoCorrect="off"
                 spellCheck={false}
-                className="h-8 font-mono text-xs"
+                className={sx(styles.stacked, styles.fieldControlMono)}
                 onChange={(event) => setEnvVarName(event.target.value)}
               />
-              <span className="block font-normal leading-4 text-muted-foreground">
+              <span className={sx(styles.stacked, styles.hint)}>
                 Set this to let a task inject the value into its runtime as
-                <code className="mx-1 rounded bg-muted px-1 py-0.5">
+                <code className={sx(styles.hintCode)}>
                   ${envVarName.trim() || "NAME"}
                 </code>
                 . Shell commands and supported MCP authentication can read it,
                 but the value is never shown to the agent.
               </span>
             </label>
-            <label className="block space-y-1.5 text-xs font-medium">
+            <label className={sx(styles.fieldLabel)}>
               Description
-              <span className="ml-1 font-normal text-muted-foreground">
-                (optional)
-              </span>
+              <span className={sx(styles.fieldOptional)}>(optional)</span>
               <Textarea
                 value={description}
                 placeholder="Where this token is used"
                 aria-label="Secret description"
-                className="min-h-16 text-xs"
+                className={sx(styles.stacked, styles.descriptionArea)}
                 onChange={(event) => setDescription(event.target.value)}
               />
             </label>
-            <div className="flex justify-end gap-2">
+            <div className={sx(styles.formActions)}>
               <Button
                 type="button"
                 variant="ghost"
@@ -365,42 +363,38 @@ export function SecretsSettingsCard() {
         ) : null}
 
         {loading ? (
-          <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+          <div className={sx(styles.loadingRow)}>
             <Loader aria-hidden size="xs" variant="persist" />
             Loading secrets…
           </div>
         ) : secrets.length === 0 ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            No secrets are saved yet.
-          </p>
+          <p className={sx(styles.emptyText)}>No secrets are saved yet.</p>
         ) : (
-          <div className="divide-y divide-border/70 rounded-md border border-border/70">
+          <div className={sx(styles.list)}>
             {secrets.map((secret) => {
               const revealed = revealedId === secret.id;
               return (
-                <div key={secret.id} className="flex items-center gap-3 p-3">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted/60">
-                    <Lock className="size-4 text-muted-foreground" />
+                <div key={secret.id} className={sx(styles.row)}>
+                  <div className={sx(styles.rowMark)}>
+                    <Lock className={sx(styles.rowMarkIcon)} />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <p className="truncate text-xs font-medium">
-                        {secret.name}
-                      </p>
+                  <div className={sx(styles.rowBody)}>
+                    <div className={sx(styles.rowTitleLine)}>
+                      <p className={sx(styles.rowTitle)}>{secret.name}</p>
                       {secret.envVarName ? (
                         <code
-                          className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] leading-4 text-muted-foreground"
+                          className={sx(styles.rowEnvVar)}
                           title={`Injectable as $${secret.envVarName} when bound to a task`}
                         >
                           ${secret.envVarName}
                         </code>
                       ) : null}
                     </div>
-                    <p className="truncate font-mono text-xs text-muted-foreground">
+                    <p className={sx(styles.rowValue)}>
                       {revealed ? revealedValue : secret.valuePreview || "••••"}
                     </p>
                     {secret.description ? (
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className={sx(styles.rowDescription)}>
                         {secret.description}
                       </p>
                     ) : null}
@@ -415,9 +409,9 @@ export function SecretsSettingsCard() {
                     onClick={() => void toggleReveal(secret)}
                   >
                     {revealed ? (
-                      <EyeOff className="size-3.5" />
+                      <EyeOff className={sx(styles.actionIcon)} />
                     ) : (
-                      <Eye className="size-3.5" />
+                      <Eye className={sx(styles.actionIcon)} />
                     )}
                   </Button>
                   <Button
@@ -428,9 +422,9 @@ export function SecretsSettingsCard() {
                     onClick={() => void copySecret(secret)}
                   >
                     {copiedId === secret.id ? (
-                      <Check className="size-3.5 text-success" />
+                      <Check className={sx(styles.copiedIcon)} />
                     ) : (
-                      <Copy className="size-3.5" />
+                      <Copy className={sx(styles.actionIcon)} />
                     )}
                   </Button>
                   <Button
@@ -440,7 +434,7 @@ export function SecretsSettingsCard() {
                     aria-label={`Edit ${secret.name}`}
                     onClick={() => openEditEditor(secret)}
                   >
-                    <Pencil className="size-3.5" />
+                    <Pencil className={sx(styles.actionIcon)} />
                   </Button>
                   <Button
                     type="button"
@@ -449,7 +443,7 @@ export function SecretsSettingsCard() {
                     aria-label={`Delete ${secret.name}`}
                     onClick={() => setDeletingId(secret.id)}
                   >
-                    <Trash2 className="size-3.5" />
+                    <Trash2 className={sx(styles.actionIcon)} />
                   </Button>
                 </div>
               );

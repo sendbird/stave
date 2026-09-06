@@ -222,7 +222,7 @@ export type AdvisorConsultOutcome =
   | {
       ok: true;
       advice: string;
-      advisorProviderId: ProviderId;
+      advisorProviderId: AdvisorTarget["providerId"];
       advisorModel: string;
       advisorEffort: string;
       consultIndex: number;

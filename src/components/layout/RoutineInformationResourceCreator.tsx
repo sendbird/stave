@@ -1,3 +1,6 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   ArrowLeft,
   BookOpen,
@@ -40,6 +43,7 @@ import {
   type RoutineInformationResourceKind,
 } from "@/lib/routines";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
+import { resourceCreatorStyles } from "./routine-information-resource-creator.styles";
 
 interface ResourceTypeDefinition {
   kind: RoutineInformationResourceKind;
@@ -257,11 +261,11 @@ function Field(props: {
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-1.5 text-xs text-foreground">
-      <span className="font-medium">{props.label}</span>
+    <label className={sx(resourceCreatorStyles.field)}>
+      <span className={sx(resourceCreatorStyles.fieldLabel)}>{props.label}</span>
       {props.children}
       {props.description ? (
-        <span className="text-[10px] leading-4 text-muted-foreground">
+        <span className={sx(resourceCreatorStyles.fieldDescription)}>
           {props.description}
         </span>
       ) : null}
@@ -323,7 +327,7 @@ function ExternalResourceFields(props: {
         </Field>
       ) : null}
       {props.kind === "jira" ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className={sx(resourceCreatorStyles.fieldPair)}>
           <Field label="Issue key (optional)">
             <Input
               value={props.draft.issueKey}
@@ -381,7 +385,7 @@ function ExternalResourceFields(props: {
           value={props.draft.note}
           onChange={(event) => props.onChange({ note: event.target.value })}
           placeholder="How this resource should guide the routine"
-          className="min-h-20 resize-y"
+          xstyle={resourceCreatorStyles.noteTextarea}
         />
       </Field>
     </>
@@ -394,8 +398,8 @@ function CustomFieldValue(props: {
 }) {
   if (props.draft.fieldType === "boolean") {
     return (
-      <div className="flex h-9 items-center justify-between rounded-md border border-border px-3">
-        <span className="text-xs text-muted-foreground">
+      <div className={sx(resourceCreatorStyles.booleanRow)}>
+        <span className={sx(resourceCreatorStyles.booleanValue)}>
           {props.draft.customBoolean ? "True" : "False"}
         </span>
         <Switch
@@ -414,7 +418,7 @@ function CustomFieldValue(props: {
         onChange={(event) =>
           props.onChange({ customValue: event.target.value })
         }
-        className="min-h-24 resize-y"
+        xstyle={resourceCreatorStyles.customTextarea}
       />
     );
   }
@@ -535,39 +539,39 @@ export function RoutineInformationResourceCreator(props: {
         type="button"
         variant="outline"
         size="sm"
-      className="h-8 justify-start gap-2 text-xs"
+      xstyle={resourceCreatorStyles.trigger}
       disabled={props.disabled}
       onClick={() => {
         reset();
         setOpen(true);
       }}
       >
-        <Paperclip className="size-3.5" />
+        <Paperclip className={sx(resourceCreatorStyles.triggerIcon)} />
         Add Information resource
       </Button>
-      <DialogContent className="max-h-[84vh] overflow-hidden p-0 sm:max-w-xl">
-        <DialogHeader className="border-b border-border/70 px-5 pt-5 pb-4 pr-12">
-          <div className="flex items-start gap-3">
+      <DialogContent xstyle={resourceCreatorStyles.content}>
+        <DialogHeader className={sx(resourceCreatorStyles.header)}>
+          <div className={sx(resourceCreatorStyles.headerRow)}>
             {kind ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="-ml-2 size-8 shrink-0"
+                xstyle={resourceCreatorStyles.backButton}
                 onClick={clearKind}
                 aria-label="Choose another resource type"
                 disabled={creating}
               >
-                <ArrowLeft className="size-4" />
+                <ArrowLeft className={sx(resourceCreatorStyles.backIcon)} />
               </Button>
             ) : null}
-            <div className="min-w-0">
+            <div className={sx(resourceCreatorStyles.headerText)}>
               <DialogTitle>
                 {definition
                   ? `Add ${definition.label}`
                   : "Add Information resource"}
               </DialogTitle>
-              <DialogDescription className="mt-1">
+              <DialogDescription className={sx(resourceCreatorStyles.headerDescription)}>
                 {definition
                   ? `Create it in ${props.repositoryLabel} Default Workspace and attach it to this routine.`
                   : "Choose the resource type you want to create for this routine."}
@@ -578,7 +582,7 @@ export function RoutineInformationResourceCreator(props: {
 
         {kind && definition ? (
           <>
-            <div className="grid max-h-[60vh] gap-4 overflow-y-auto px-5 py-4">
+            <div className={sx(resourceCreatorStyles.body)}>
               {kind === "notes" || kind === "todo" ? (
                 <Field label={kind === "notes" ? "Notes" : "Todo"}>
                   <Textarea
@@ -595,7 +599,7 @@ export function RoutineInformationResourceCreator(props: {
                         ? "Context or instructions for every run"
                         : "An item the routine should keep in context"
                     }
-                    className="min-h-32 resize-y"
+                    xstyle={resourceCreatorStyles.bodyTextarea}
                   />
                 </Field>
               ) : kind === "custom" ? (
@@ -675,12 +679,12 @@ export function RoutineInformationResourceCreator(props: {
                 />
               )}
               {error ? (
-                <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                <p className={sx(resourceCreatorStyles.error)}>
                   {error}
                 </p>
               ) : null}
             </div>
-            <DialogFooter className="border-t border-border/70 bg-muted/20 px-5 py-4">
+            <DialogFooter className={sx(resourceCreatorStyles.footer)}>
               <Button
                 type="button"
                 variant="ghost"
@@ -702,28 +706,28 @@ export function RoutineInformationResourceCreator(props: {
             </DialogFooter>
           </>
         ) : (
-          <div className="grid max-h-[65vh] grid-cols-2 gap-2 overflow-y-auto p-5">
+          <div className={sx(resourceCreatorStyles.typeGrid)}>
             {RESOURCE_TYPES.map((item) => {
               const Icon = item.icon;
               return (
-                <button
+                <AdsButton layout="host"
                   key={item.kind}
                   type="button"
-                  className="flex min-h-24 items-start gap-3 rounded-lg border border-border/70 bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
+                  xstyle={[resourceCreatorStyles.typeCard, transition.colors]}
                   onClick={() => selectKind(item.kind)}
                 >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                    <Icon className="size-4" />
+                  <span className={sx(resourceCreatorStyles.typeIconBox)}>
+                    <Icon className={sx(resourceCreatorStyles.typeIcon)} />
                   </span>
-                  <span className="min-w-0">
-                    <span className="block text-xs font-semibold text-foreground">
+                  <span className={sx(resourceCreatorStyles.typeText)}>
+                    <span className={sx(resourceCreatorStyles.typeLabel)}>
                       {item.label}
                     </span>
-                    <span className="mt-1 block text-[10px] leading-4 text-muted-foreground">
+                    <span className={sx(resourceCreatorStyles.typeDescription)}>
                       {item.description}
                     </span>
                   </span>
-                </button>
+                </AdsButton>
               );
             })}
           </div>

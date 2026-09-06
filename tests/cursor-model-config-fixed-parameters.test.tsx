@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CursorModelConfigList } from "@/components/ai-elements/cursor-model-config-list";
+import { cursorModelConfigStyles } from "@/components/ai-elements/cursor-model-config-list.styles";
+import { sx } from "@/components/ads/utils/stylex";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
 
 function option(model: string, label: string): ModelSelectorOption {
@@ -60,8 +62,10 @@ describe("Cursor model configuration rows", () => {
       }),
     );
     expect(longLabel).toContain('title="Composer 2.5 Fast"');
-    expect(longLabel).toContain("min-w-[10rem]");
-    expect(longLabel).not.toContain("w-24");
+    // The model button reserves a generous minimum width before its label can
+    // truncate (formerly `min-w-[10rem]`), never a fixed narrow `w-24`. That
+    // room lives on the model-button style.
+    expect(longLabel).toContain(sx(cursorModelConfigStyles.modelButton));
   });
 
   test("keeps real controls where Cursor advertises a second variant", () => {

@@ -23,7 +23,13 @@ import {
   type ResourceMetricSummary,
 } from "@/lib/performance/resource-metric-history";
 import { getLatestWorkspaceSwitchPerformance } from "@/lib/performance/workspace-switch-metrics";
-import { cn } from "@/lib/utils";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import {
+  processTypeStyles,
+  resourceStyles,
+  usageRampStyles,
+} from "./resources-popover.styles";
 
 interface ProcessMetric {
   pid: number;
@@ -134,12 +140,12 @@ const processRoleLabel: Record<ProcessMetric["role"], string> = {
   other: "Other",
 };
 
-/** Colour classes for the process-type pills. */
-const processColor: Record<string, string> = {
-  Browser: "bg-blue-500",
-  Tab: "bg-emerald-500",
-  GPU: "bg-purple-500",
-  Utility: "bg-amber-500",
+/** Tone per Electron process type for the pills. */
+const processColor: Record<string, StyleXValue> = {
+  Browser: processTypeStyles.Browser,
+  Tab: processTypeStyles.Tab,
+  GPU: processTypeStyles.GPU,
+  Utility: processTypeStyles.Utility,
 };
 
 function formatBytes(bytes: number): string {
@@ -174,10 +180,10 @@ function formatDuration(milliseconds: number | undefined): string {
   return `${(milliseconds / 1_000).toFixed(2)} s`;
 }
 
-function barColor(ratio: number): string {
-  if (ratio < 0.6) return "bg-emerald-500";
-  if (ratio < 0.85) return "bg-amber-500";
-  return "bg-red-500";
+function barColor(ratio: number): StyleXValue {
+  if (ratio < 0.6) return usageRampStyles.healthy;
+  if (ratio < 0.85) return usageRampStyles.watch;
+  return usageRampStyles.saturated;
 }
 
 function UsageBar({
@@ -193,17 +199,14 @@ function UsageBar({
 }) {
   const ratio = total > 0 ? used / total : 0;
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-mono text-foreground/80">{detail}</span>
+    <div className={sx(resourceStyles.usageBar)}>
+      <div className={sx(resourceStyles.usageBarHead)}>
+        <span className={sx(resourceStyles.usageBarLabel)}>{label}</span>
+        <span className={sx(resourceStyles.usageBarDetail)}>{detail}</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/60">
+      <div className={sx(resourceStyles.usageBarTrack)}>
         <div
-          className={cn(
-            "h-full rounded-full transition-all duration-300",
-            barColor(ratio),
-          )}
+          className={sx(resourceStyles.usageBarFill, barColor(ratio))}
           style={{ width: `${Math.min(ratio * 100, 100)}%` }}
         />
       </div>
@@ -316,23 +319,30 @@ export function MemoryUsagePopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
-        <TooltipTrigger render={<span className="inline-flex" />}>
+        <TooltipTrigger
+          render={<span className={sx(resourceStyles.tooltipAnchor)} />}
+        >
           <PopoverTrigger
             render={
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn(
-                  "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
+                xstyle={[
+                  resourceStyles.trigger,
                   isBar
-                    ? "h-6 gap-1.5 rounded-none px-2 text-xs"
-                    : cn("rounded-md p-0", collapsed ? "h-10 w-10" : "h-9 w-9"),
-                )}
+                    ? resourceStyles.triggerBar
+                    : [
+                        resourceStyles.triggerRail,
+                        collapsed
+                          ? resourceStyles.triggerRailCollapsed
+                          : resourceStyles.triggerRailExpanded,
+                      ],
+                ]}
                 aria-label="memory-usage"
               />
             }
           >
-            <Activity className="size-4" />
+            <Activity className={sx(resourceStyles.triggerIcon)} />
             {isBar ? <span>Memory</span> : null}
           </PopoverTrigger>
         </TooltipTrigger>
@@ -347,70 +357,77 @@ export function MemoryUsagePopover({
         side={isBar ? "top" : "right"}
         align={isBar ? "end" : "start"}
         sideOffset={isBar ? 8 : 12}
-        className="w-80 gap-0 overflow-hidden border border-border/80 bg-card p-0"
+        xstyle={resourceStyles.popover}
         initialFocus={false}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-border/70 px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <Activity className="size-3.5 text-muted-foreground" />
-            <span className="text-sm font-medium">Memory Usage</span>
+        <div className={sx(resourceStyles.header)}>
+          <div className={sx(resourceStyles.headerTitleGroup)}>
+            <Activity className={sx(resourceStyles.headerIcon)} />
+            <span className={sx(resourceStyles.headerTitle)}>Memory Usage</span>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+            xstyle={resourceStyles.refreshButton}
             aria-label="refresh-metrics"
             onClick={() => {
               setLoading(true);
               fetchMetrics();
             }}
           >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            <RefreshCw
+              className={sx(
+                resourceStyles.refreshIcon,
+                loading && resourceStyles.refreshIconSpinning,
+              )}
+            />
           </Button>
         </div>
 
         {/* Content */}
-        <div className="max-h-96 overflow-y-auto p-3">
+        <div className={sx(resourceStyles.body)}>
           {!metrics ? (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
-              <Activity className="size-8 text-muted-foreground/40" />
-              <p className="text-xs text-muted-foreground/70">
+            <div className={sx(resourceStyles.emptyState)}>
+              <Activity className={sx(resourceStyles.emptyIcon)} />
+              <p className={sx(resourceStyles.emptyCopy)}>
                 {loading ? "Loading metrics…" : "Metrics unavailable"}
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className={sx(resourceStyles.stack)}>
               {/* Summary row */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-md border border-border/50 bg-secondary/30 px-2.5 py-2 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <MemoryStick className="size-3 text-muted-foreground" />
+              <div className={sx(resourceStyles.summaryGrid)}>
+                <div className={sx(resourceStyles.summaryTile)}>
+                  <div className={sx(resourceStyles.summaryTileIconRow)}>
+                    <MemoryStick
+                      className={sx(resourceStyles.summaryTileIcon)}
+                    />
                   </div>
-                  <div className="mt-1 font-mono text-sm font-semibold text-foreground">
+                  <div className={sx(resourceStyles.summaryTileValue)}>
                     {formatKB(totalWorkingSetKB)}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className={sx(resourceStyles.summaryTileLabel)}>
                     Electron
                   </div>
                 </div>
-                <div className="rounded-md border border-border/50 bg-secondary/30 px-2.5 py-2 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Cpu className="size-3 text-muted-foreground" />
+                <div className={sx(resourceStyles.summaryTile)}>
+                  <div className={sx(resourceStyles.summaryTileIconRow)}>
+                    <Cpu className={sx(resourceStyles.summaryTileIcon)} />
                   </div>
-                  <div className="mt-1 font-mono text-sm font-semibold text-foreground">
+                  <div className={sx(resourceStyles.summaryTileValue)}>
                     {totalCpu.toFixed(1)}%
                   </div>
-                  <div className="text-[10px] text-muted-foreground">CPU</div>
+                  <div className={sx(resourceStyles.summaryTileLabel)}>CPU</div>
                 </div>
-                <div className="rounded-md border border-border/50 bg-secondary/30 px-2.5 py-2 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Clock className="size-3 text-muted-foreground" />
+                <div className={sx(resourceStyles.summaryTile)}>
+                  <div className={sx(resourceStyles.summaryTileIconRow)}>
+                    <Clock className={sx(resourceStyles.summaryTileIcon)} />
                   </div>
-                  <div className="mt-1 font-mono text-sm font-semibold text-foreground">
+                  <div className={sx(resourceStyles.summaryTileValue)}>
                     {formatUptime(metrics.uptimeSeconds)}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className={sx(resourceStyles.summaryTileLabel)}>
                     Uptime
                   </div>
                 </div>
@@ -445,13 +462,13 @@ export function MemoryUsagePopover({
                 />
               ) : null}
 
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+              <div className={sx(resourceStyles.detailGrid)}>
                 {rendererMemory ? (
                   <>
-                    <span className="text-muted-foreground/70">
+                    <span className={sx(resourceStyles.detailKey)}>
                       Renderer memory
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {formatKB(
                         rendererMemory.process.residentSet ??
                           rendererMemory.process.private,
@@ -461,30 +478,30 @@ export function MemoryUsagePopover({
                 ) : null}
                 {rendererMemory ? (
                   <>
-                    <span className="text-muted-foreground/70">
+                    <span className={sx(resourceStyles.detailKey)}>
                       Blink allocated
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {formatKB(rendererMemory.blink.allocated)}
                     </span>
                   </>
                 ) : null}
-                <span className="text-muted-foreground/70">
+                <span className={sx(resourceStyles.detailKey)}>
                   Renderer stalls
                 </span>
                 <span
-                  className={cn(
-                    "text-right font-mono",
+                  className={sx(
+                    resourceStyles.detailValuePlain,
                     metrics.renderer.currentlyUnresponsive
-                      ? "text-red-500"
-                      : "text-muted-foreground/80",
+                      ? resourceStyles.detailValueDanger
+                      : resourceStyles.detailValueMuted,
                   )}
                 >
                   {metrics.renderer.unresponsiveEvents}
                   {metrics.renderer.currentlyUnresponsive ? " active" : ""}
                 </span>
-                <span className="text-muted-foreground/70">Renderer exits</span>
-                <span className="truncate text-right font-mono text-muted-foreground/80">
+                <span className={sx(resourceStyles.detailKey)}>Renderer exits</span>
+                <span className={sx(resourceStyles.detailValue, resourceStyles.truncated)}>
                   {metrics.renderer.renderProcessGoneEvents}
                   {metrics.renderer.lastRenderProcessGoneReason
                     ? ` · ${metrics.renderer.lastRenderProcessGoneReason}`
@@ -493,35 +510,35 @@ export function MemoryUsagePopover({
               </div>
 
               {recentMetrics && recentMetrics.sampleCount > 1 ? (
-                <div className="border-t border-border/50 pt-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
+                <div className={sx(resourceStyles.group)}>
+                  <div className={sx(resourceStyles.groupHead)}>
+                    <span className={sx(resourceStyles.groupTitle)}>
                       Recent pressure
                     </span>
-                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                    <span className={sx(resourceStyles.groupMeta)}>
                       {Math.max(1, Math.round(recentMetrics.durationMs / 1_000))}s
                       · {recentMetrics.sampleCount} samples
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                    <span className="text-muted-foreground/70">
+                  <div className={sx(resourceStyles.detailGrid)}>
+                    <span className={sx(resourceStyles.detailKey)}>
                       App renderer CPU
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {recentMetrics.rendererCpuAverage.toFixed(1)}% avg ·{" "}
                       {recentMetrics.rendererCpuPeak.toFixed(1)}% peak
                     </span>
-                    <span className="text-muted-foreground/70">GPU CPU</span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailKey)}>GPU CPU</span>
+                    <span className={sx(resourceStyles.detailValue)}>
                       {recentMetrics.gpuCpuAverage.toFixed(1)}% avg ·{" "}
                       {recentMetrics.gpuCpuPeak.toFixed(1)}% peak
                     </span>
                     {recentMetrics.rendererHeapDeltaKB != null ? (
                       <>
-                        <span className="text-muted-foreground/70">
+                        <span className={sx(resourceStyles.detailKey)}>
                           Renderer heap change
                         </span>
-                        <span className="text-right font-mono text-muted-foreground/80">
+                        <span className={sx(resourceStyles.detailValue)}>
                           {formatSignedKB(recentMetrics.rendererHeapDeltaKB)}
                         </span>
                       </>
@@ -531,32 +548,32 @@ export function MemoryUsagePopover({
               ) : null}
 
               {metrics.hostService ? (
-                <div className="border-t border-border/50 pt-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
+                <div className={sx(resourceStyles.group)}>
+                  <div className={sx(resourceStyles.groupHead)}>
+                    <span className={sx(resourceStyles.groupTitle)}>
                       Host service
                     </span>
-                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                    <span className={sx(resourceStyles.groupMeta)}>
                       {formatBytes(metrics.hostService.memory.rss)} RSS
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                    <span className="text-muted-foreground/70">
+                  <div className={sx(resourceStyles.detailGrid)}>
+                    <span className={sx(resourceStyles.detailKey)}>
                       All descendants
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {metrics.hostService.childProcesses.length} ·{" "}
                       {formatBytes(childProcessRss)}
                     </span>
-                    <span className="text-muted-foreground/70">
+                    <span className={sx(resourceStyles.detailKey)}>
                       ↳ Provider trees (subset)
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {providerChildProcesses.length} ·{" "}
                       {formatBytes(providerChildRss)}
                     </span>
-                    <span className="text-muted-foreground/70">PTY sessions</span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailKey)}>PTY sessions</span>
+                    <span className={sx(resourceStyles.detailValue)}>
                       {metrics.hostService.terminalSessions}
                     </span>
                   </div>
@@ -564,65 +581,65 @@ export function MemoryUsagePopover({
               ) : null}
 
               {/* Lens lifecycle and bounded-log cardinalities */}
-              <div className="border-t border-border/50 pt-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">
+              <div className={sx(resourceStyles.group)}>
+                <div className={sx(resourceStyles.groupHead)}>
+                  <span className={sx(resourceStyles.groupTitle)}>
                     Lens resources
                   </span>
-                  <span className="font-mono text-[10px] text-muted-foreground/70">
+                  <span className={sx(resourceStyles.groupMeta)}>
                     {metrics.lens.sessions} sessions ·{" "}
                     {metrics.lens.visibleSessions} visible
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                  <span className="text-muted-foreground/70">Diagnostics</span>
-                  <span className="text-right font-mono text-muted-foreground/80">
+                <div className={sx(resourceStyles.detailGrid)}>
+                  <span className={sx(resourceStyles.detailKey)}>Diagnostics</span>
+                  <span className={sx(resourceStyles.detailValue)}>
                     {metrics.lens.diagnosticsSessions} active
                   </span>
-                  <span className="text-muted-foreground/70">MCP sessions</span>
-                  <span className="text-right font-mono text-muted-foreground/80">
+                  <span className={sx(resourceStyles.detailKey)}>MCP sessions</span>
+                  <span className={sx(resourceStyles.detailValue)}>
                     {metrics.lens.managedByMcpSessions}
                   </span>
-                  <span className="text-muted-foreground/70">Hidden guests</span>
-                  <span className="text-right font-mono text-muted-foreground/80">
+                  <span className={sx(resourceStyles.detailKey)}>Hidden guests</span>
+                  <span className={sx(resourceStyles.detailValue)}>
                     {metrics.lens.sessions - metrics.lens.visibleSessions}
                   </span>
-                  <span className="text-muted-foreground/70">
+                  <span className={sx(resourceStyles.detailKey)}>
                     Guest working set
                   </span>
-                  <span className="text-right font-mono text-muted-foreground/80">
+                  <span className={sx(resourceStyles.detailValue)}>
                     {formatKB(lensWorkingSetKB)}
                   </span>
-                  <span className="text-muted-foreground/70">
+                  <span className={sx(resourceStyles.detailKey)}>
                     Buffered logs
                   </span>
-                  <span className="text-right font-mono text-muted-foreground/80">
+                  <span className={sx(resourceStyles.detailValue)}>
                     {metrics.lens.consoleEntries} C ·{" "}
                     {metrics.lens.networkEntries} N ·{" "}
                     {metrics.lens.downloadEntries} D
                   </span>
-                  <span className="text-muted-foreground/70">
+                  <span className={sx(resourceStyles.detailKey)}>
                     Auth popups
                   </span>
-                  <span className="text-right font-mono text-muted-foreground/80">
+                  <span className={sx(resourceStyles.detailValue)}>
                     {metrics.lens.authPopups}
                   </span>
-                  <span className="text-muted-foreground/70">
+                  <span className={sx(resourceStyles.detailKey)}>
                     CDP active / closing
                   </span>
-                  <span className="text-right font-mono text-muted-foreground/80">
+                  <span className={sx(resourceStyles.detailValue)}>
                     {metrics.lens.cdpControllers} /{" "}
                     {metrics.lens.cdpClosingControllers}
                   </span>
-                  <span className="text-muted-foreground/70">
+                  <span className={sx(resourceStyles.detailKey)}>
                     CDP in-flight / timeouts
                   </span>
                   <span
-                    className={cn(
-                      "text-right font-mono",
+                    className={sx(
+                      resourceStyles.detailValuePlain,
                       metrics.lens.cdpCloseDrainTimeouts > 0
-                        ? "text-amber-500"
-                        : "text-muted-foreground/80",
+                        ? resourceStyles.detailValueWarning
+                        : resourceStyles.detailValueMuted,
                     )}
                   >
                     {metrics.lens.cdpInFlightCommands} /{" "}
@@ -632,31 +649,31 @@ export function MemoryUsagePopover({
               </div>
 
               {metrics.persistence ? (
-                <div className="border-t border-border/50 pt-3">
-                  <div className="mb-2 text-xs font-medium text-muted-foreground">
+                <div className={sx(resourceStyles.group)}>
+                  <div className={sx(resourceStyles.groupTitleBlock)}>
                     Persistence
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                    <span className="text-muted-foreground/70">
+                  <div className={sx(resourceStyles.detailGrid)}>
+                    <span className={sx(resourceStyles.detailKey)}>
                       SQLite used
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {formatBytes(metrics.persistence.usedBytes)}
                     </span>
-                    <span className="text-muted-foreground/70">
+                    <span className={sx(resourceStyles.detailKey)}>
                       File / reclaimable
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {formatBytes(metrics.persistence.fileBytes)} /{" "}
                       {formatBytes(
                         metrics.persistence.freePages *
                           metrics.persistence.pageSizeBytes,
                       )}
                     </span>
-                    <span className="text-muted-foreground/70">
+                    <span className={sx(resourceStyles.detailKey)}>
                       Incremental vacuum
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {metrics.persistence.autoVacuum === 2 ? "on" : "pending"}
                     </span>
                   </div>
@@ -664,42 +681,42 @@ export function MemoryUsagePopover({
               ) : null}
 
               {latestWorkspaceSwitch ? (
-                <div className="border-t border-border/50 pt-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
+                <div className={sx(resourceStyles.group)}>
+                  <div className={sx(resourceStyles.groupHead)}>
+                    <span className={sx(resourceStyles.groupTitle)}>
                       Last workspace switch
                     </span>
-                    <span className="font-mono text-[10px] text-muted-foreground/70">
+                    <span className={sx(resourceStyles.groupMeta)}>
                       {latestWorkspaceSwitch.cacheHit ? "cache" : "storage"}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                    <span className="text-muted-foreground/70">
+                  <div className={sx(resourceStyles.detailGrid)}>
+                    <span className={sx(resourceStyles.detailKey)}>
                       Interactive
                     </span>
-                    <span className="text-right font-mono text-foreground/80">
+                    <span className={sx(resourceStyles.detailValueStrong)}>
                       {formatDuration(latestWorkspaceSwitch.totalMs)}
                     </span>
-                    <span className="text-muted-foreground/70">
+                    <span className={sx(resourceStyles.detailKey)}>
                       Outgoing save
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {formatDuration(latestWorkspaceSwitch.flushMs)}
                     </span>
-                    <span className="text-muted-foreground/70">Shell load</span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailKey)}>Shell load</span>
+                    <span className={sx(resourceStyles.detailValue)}>
                       {formatDuration(latestWorkspaceSwitch.shellMs)}
                     </span>
-                    <span className="text-muted-foreground/70">
+                    <span className={sx(resourceStyles.detailKey)}>
                       Files ready
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {formatDuration(latestWorkspaceSwitch.filesMs)}
                     </span>
-                    <span className="text-muted-foreground/70">
+                    <span className={sx(resourceStyles.detailKey)}>
                       Messages ready
                     </span>
-                    <span className="text-right font-mono text-muted-foreground/80">
+                    <span className={sx(resourceStyles.detailValue)}>
                       {formatDuration(latestWorkspaceSwitch.messagesMs)}
                     </span>
                   </div>
@@ -708,13 +725,13 @@ export function MemoryUsagePopover({
 
               {/* Process breakdown */}
               <div>
-                <div className="mb-2 flex items-center gap-1.5">
-                  <HardDrive className="size-3 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground">
+                <div className={sx(resourceStyles.processHead)}>
+                  <HardDrive className={sx(resourceStyles.processHeadIcon)} />
+                  <span className={sx(resourceStyles.groupTitle)}>
                     Processes ({metrics.processes.length})
                   </span>
                 </div>
-                <div className="space-y-1">
+                <div className={sx(resourceStyles.processList)}>
                   {metrics.processes
                     .slice()
                     .sort(
@@ -724,24 +741,24 @@ export function MemoryUsagePopover({
                     .map((proc) => (
                       <div
                         key={proc.pid}
-                        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-secondary/40"
+                        className={sx(resourceStyles.processRow, transition.colors)}
                       >
                         <span
-                          className={cn(
-                            "inline-block size-2 shrink-0 rounded-full",
-                            processColor[proc.type] ?? "bg-zinc-500",
+                          className={sx(
+                            resourceStyles.processDot,
+                            processColor[proc.type] ?? processTypeStyles.other,
                           )}
                         />
-                        <span className="min-w-0 flex-1 truncate text-foreground/80">
+                        <span className={sx(resourceStyles.processName)}>
                           {proc.role === "other"
                             ? (processLabel[proc.type] ?? proc.type)
                             : processRoleLabel[proc.role]}
                         </span>
-                        <span className="font-mono text-muted-foreground">
+                        <span className={sx(resourceStyles.processMemory)}>
                           {formatKB(proc.memory.workingSetSizeKB)}
                         </span>
                         {proc.cpu.percentCPUUsage > 0.1 && (
-                          <span className="font-mono text-muted-foreground/60">
+                          <span className={sx(resourceStyles.processCpu)}>
                             {proc.cpu.percentCPUUsage.toFixed(1)}%
                           </span>
                         )}
@@ -751,16 +768,16 @@ export function MemoryUsagePopover({
               </div>
 
               {/* External / ArrayBuffers detail */}
-              <div className="border-t border-border/50 pt-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground/70">External</span>
-                  <span className="font-mono text-muted-foreground/70">
+              <div className={sx(resourceStyles.group)}>
+                <div className={sx(resourceStyles.externalRow)}>
+                  <span className={sx(resourceStyles.detailKey)}>External</span>
+                  <span className={sx(resourceStyles.externalValue)}>
                     {formatBytes(metrics.mainProcess.external)}
                   </span>
                 </div>
-                <div className="mt-1 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground/70">ArrayBuffers</span>
-                  <span className="font-mono text-muted-foreground/70">
+                <div className={sx(resourceStyles.externalRowSpaced)}>
+                  <span className={sx(resourceStyles.detailKey)}>ArrayBuffers</span>
+                  <span className={sx(resourceStyles.externalValue)}>
                     {formatBytes(metrics.mainProcess.arrayBuffers)}
                   </span>
                 </div>

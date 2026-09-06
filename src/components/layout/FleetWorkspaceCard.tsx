@@ -1,10 +1,10 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   AlertTriangle,
   ArrowRight,
   CircleDashed,
   GitBranch,
   Moon,
-  Radio,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
@@ -16,7 +16,13 @@ import {
 } from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
-import { Badge, Button } from "@/components/ui";
+import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { Button, Loader } from "@/components/ui";
+import { cardStyles as styles } from "./fleet-workspace-card.styles";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import {
   loadWorkspaceShellSummary,
@@ -43,12 +49,11 @@ import {
 } from "@/lib/fleet/workspace-activity";
 import {
   PR_STATUS_VISUAL,
-  PR_TONE_BADGE_CLASS,
+  type PrStatusTone,
   type WorkspacePrStatus,
 } from "@/lib/pr-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
-import { cn } from "@/lib/utils";
 import {
   resolveWorkspaceTodoStatus,
   type WorkspaceTodoItem,
@@ -119,55 +124,65 @@ function getStatusPriority(status: FleetDisplayStatus) {
 
 const FLEET_STATUS_VISUAL: Record<
   FleetDisplayStatus,
-  { label: string; icon: ReactNode; text: string; rail: string }
+  { label: string; icon: ReactNode; tone: StyleXValue; rail: StyleXValue }
 > = {
   "waiting-input": {
     label: "Awaiting input",
-    icon: <UserRound className="size-3" aria-hidden="true" />,
-    text: "text-warning",
-    rail: "before:bg-warning",
+    icon: <UserRound className={sx(styles.statusIcon)} aria-hidden="true" />,
+    tone: styles.toneWarning,
+    rail: styles.railWarning,
   },
   "waiting-approval": {
     label: "Awaiting approval",
-    icon: <ShieldCheck className="size-3" aria-hidden="true" />,
-    text: "text-warning",
-    rail: "before:bg-warning",
+    icon: <ShieldCheck className={sx(styles.statusIcon)} aria-hidden="true" />,
+    tone: styles.toneWarning,
+    rail: styles.railWarning,
   },
   error: {
     label: "Error",
-    icon: <AlertTriangle className="size-3" aria-hidden="true" />,
-    text: "text-destructive",
-    rail: "before:bg-destructive",
+    icon: <AlertTriangle className={sx(styles.statusIcon)} aria-hidden="true" />,
+    tone: styles.toneDanger,
+    rail: styles.railDanger,
   },
   running: {
     label: "Running",
-    icon: <Radio className="size-3" aria-hidden="true" />,
-    text: "text-primary",
-    rail: "before:bg-primary",
+    // A live turn gets the canonical activity mark, not a static glyph: the
+    // row already names the state, so the loader carries the "still moving"
+    // half of it.
+    icon: <Loader aria-hidden="true" size="xs" variant="pulse" />,
+    tone: styles.toneAccent,
+    rail: styles.railAccent,
   },
   idle: {
     label: "Idle",
-    icon: <CircleDashed className="size-3" aria-hidden="true" />,
-    text: "text-muted-foreground",
-    rail: "before:bg-border",
+    icon: <CircleDashed className={sx(styles.statusIcon)} aria-hidden="true" />,
+    tone: styles.toneMuted,
+    rail: styles.railNeutral,
   },
   unknown: {
     label: "Not loaded",
-    icon: <CircleDashed className="size-3" aria-hidden="true" />,
-    text: "text-muted-foreground",
-    rail: "before:bg-muted-foreground/35",
+    icon: <CircleDashed className={sx(styles.statusIcon)} aria-hidden="true" />,
+    tone: styles.toneMuted,
+    rail: styles.railUnknown,
   },
+};
+
+/** PR tones are published as semantics; the Badge owns their colors. */
+const PR_BADGE_TONE: Record<PrStatusTone, BadgeTone> = {
+  neutral: "neutral",
+  open: "success",
+  attention: "warning",
+  danger: "danger",
+  done: "accent",
+  closed: "danger",
 };
 
 function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
   const label = getProviderLabel({ providerId: provider });
   return (
-    <span
-      className="inline-flex size-3.5 shrink-0 items-center justify-center"
-      title={`${label} provider`}
-    >
-      <ModelIcon providerId={provider} className="size-3" />
-      <span className="sr-only">{label} provider</span>
+    <span className={sx(styles.providerMark)} title={`${label} provider`}>
+      <ModelIcon providerId={provider} className={sx(styles.providerIcon)} />
+      <VisuallyHidden>{label} provider</VisuallyHidden>
     </span>
   );
 }
@@ -178,16 +193,14 @@ function FleetCardPrBadge({ status }: { status: WorkspacePrStatus | null }) {
   }
   const visual = PR_STATUS_VISUAL[status];
   return (
-    <span
-      className={cn(
-        "inline-flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm border px-1.5 text-[10px] font-medium",
-        PR_TONE_BADGE_CLASS[visual.tone],
-      )}
+    <Badge
+      className={sx(styles.chip)}
       title={`Pull request: ${visual.label}`}
+      tone={PR_BADGE_TONE[visual.tone]}
     >
-      <PrStatusIcon status={status} className="size-3" />
-      <span className="truncate">{visual.label}</span>
-    </span>
+      <PrStatusIcon status={status} />
+      {visual.label}
+    </Badge>
   );
 }
 
@@ -502,59 +515,48 @@ export function FleetWorkspaceCard(args: {
   const branchLabel = formatBranchLabel(args.workspace.branch);
   const accent =
     activity === "live"
-      ? "before:bg-primary"
+      ? styles.accentLive
       : hasBlockingAttention
-        ? "before:bg-warning"
+        ? styles.accentBlocking
         : activity === "dormant"
-          ? "before:bg-border"
-          : "before:bg-border/70";
+          ? styles.accentDormant
+          : styles.accentQuiet;
 
   return (
     <article
-      className={cn(
-        "relative flex min-w-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-surface/40 transition-colors",
-        "before:absolute before:inset-x-0 before:top-0 before:h-0.5",
+      className={sx(
+        styles.card,
+        transition.colors,
         accent,
-        activity === "dormant" && "opacity-70 hover:opacity-100",
-        expandedRow && "ring-1 ring-ring/40",
-        "hover:border-border hover:bg-surface/70",
+        activity === "dormant" && styles.cardDormant,
+        expandedRow && styles.cardExpanded,
       )}
       aria-label={`${displayName} workspace in ${args.projectName}`}
     >
-      <div className="flex min-w-0 items-start gap-2 px-3 pb-2 pt-2.5">
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-[13px] font-semibold text-foreground">
-              {displayName}
-            </span>
+      <div className={sx(styles.header)}>
+        <div className={sx(styles.headerMain)}>
+          <div className={sx(styles.titleRow)}>
+            <span className={sx(styles.name)}>{displayName}</span>
             {args.workspace.isDefault ? (
-              <Badge
-                variant="secondary"
-                className="shrink-0 rounded-sm px-1 text-[9px] leading-4"
-              >
-                Default
-              </Badge>
+              <Badge className={sx(styles.chip)}>Default</Badge>
             ) : null}
             {activity === "dormant" ? (
               <span
-                className="inline-flex shrink-0 items-center"
+                className={sx(styles.dormantMark)}
                 title="Dormant: no recorded activity recently"
               >
-                <Moon
-                  className="size-3 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <span className="sr-only">Dormant workspace</span>
+                <Moon className={sx(styles.dormantIcon)} aria-hidden="true" />
+                <VisuallyHidden>Dormant workspace</VisuallyHidden>
               </span>
             ) : null}
           </div>
-          <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
-            <span className="truncate">{args.projectName}</span>
+          <div className={sx(styles.metaRow)}>
+            <span className={sx(styles.metaPart)}>{args.projectName}</span>
             {branchLabel ? (
               <>
                 <span aria-hidden="true">·</span>
-                <GitBranch className="size-3 shrink-0" aria-hidden="true" />
-                <span className="truncate">{branchLabel}</span>
+                <GitBranch className={sx(styles.metaIcon)} aria-hidden="true" />
+                <span className={sx(styles.metaPart)}>{branchLabel}</span>
               </>
             ) : null}
           </div>
@@ -562,9 +564,9 @@ export function FleetWorkspaceCard(args: {
         <FleetCardPrBadge status={prStatus} />
       </div>
 
-      <div className="min-w-0 border-t border-border/45">
+      <div className={sx(styles.tasks)}>
         {rows.length === 0 ? (
-          <p className="px-3 py-3 text-[11px] text-muted-foreground">
+          <p className={sx(styles.tasksEmpty)}>
             {taskState.hasRuntimeState || loadedShell !== undefined
               ? "No open tasks"
               : didShellLoadFail
@@ -572,27 +574,26 @@ export function FleetWorkspaceCard(args: {
                 : "Loading tasks…"}
           </p>
         ) : (
-          <ul className="min-w-0">
+          <ul className={sx(styles.list)}>
             {visibleRows.map((row) => {
               const visual = FLEET_STATUS_VISUAL[row.status];
               const taskKey = taskKeyFor(row.task.id);
               const isExpanded = args.expandedTaskKey === taskKey;
               const taskTitle = row.task.title || "Untitled Task";
               return (
-                <li key={row.task.id} className="min-w-0">
-                  <button
+                <li key={row.task.id} className={sx(styles.listItem)}>
+                  <AdsButton
+                    layout="host"
                     id={`fleet-task-trigger-${taskKey}`}
                     type="button"
                     data-fleet-task-row="true"
                     data-task-key={taskKey}
-                    className={cn(
-                      "relative flex min-h-9 w-full min-w-0 items-center gap-2 py-1.5 pl-4 pr-3 text-left transition-colors",
-                      "before:absolute before:inset-y-1.5 before:left-1.5 before:w-0.5 before:rounded-full",
+                    xstyle={[
+                      styles.taskRow,
+                      focusRing.ringInset,
                       visual.rail,
-                      "before:content-['']",
-                      "hover:bg-accent/20 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55",
-                      isExpanded && "bg-accent/18",
-                    )}
+                      isExpanded && styles.taskRowExpanded,
+                    ]}
                     aria-expanded={isExpanded}
                     aria-label={`${isExpanded ? "Hide" : "Show"} controls for ${taskTitle}, ${visual.label}`}
                     onClick={() =>
@@ -607,35 +608,33 @@ export function FleetWorkspaceCard(args: {
                     }
                   >
                     <FleetProviderIcon provider={row.task.provider} />
-                    <span className="min-w-0 flex-1 truncate text-xs text-foreground">
-                      {taskTitle}
-                    </span>
+                    <span className={sx(styles.taskTitle)}>{taskTitle}</span>
                     <span
-                      className={cn(
-                        "inline-flex shrink-0 items-center gap-1 text-[10px] font-medium",
-                        visual.text,
-                      )}
+                      className={sx(styles.taskStatus, visual.tone)}
                       title={`${visual.label} · updated ${row.updatedLabel}`}
                     >
                       {visual.icon}
-                      <span className="hidden sm:inline">{visual.label}</span>
+                      <span className={sx(styles.statusLabel)}>
+                        {visual.label}
+                      </span>
                     </span>
-                  </button>
+                  </AdsButton>
                 </li>
               );
             })}
             {hiddenTaskCount > 0 || showAllTasks ? (
               <li>
-                <button
+                <AdsButton
+                  layout="host"
                   type="button"
-                  className="w-full px-4 py-1 text-left text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
+                  xstyle={[styles.disclosure, focusRing.ringInset]}
                   aria-expanded={showAllTasks}
                   onClick={toggleTaskDisclosure}
                 >
                   {showAllTasks
                     ? "Show fewer"
                     : `+${hiddenTaskCount} more task${hiddenTaskCount === 1 ? "" : "s"}`}
-                </button>
+                </AdsButton>
               </li>
             ) : null}
           </ul>
@@ -645,7 +644,7 @@ export function FleetWorkspaceCard(args: {
       {expandedRow ? (
         <div
           id={`fleet-task-controls-${taskKeyFor(expandedRow.task.id)}`}
-          className="border-t border-border/45"
+          className={sx(styles.controls)}
         >
           <FleetTaskControlPanel
             target={{
@@ -670,15 +669,15 @@ export function FleetWorkspaceCard(args: {
         </div>
       ) : null}
 
-      <div className="mt-auto flex min-w-0 items-center gap-2 border-t border-border/45 px-3 py-1.5">
+      <div className={sx(styles.footer)}>
         {todoProgress.total > 0 ? (
           <span
-            className="flex shrink-0 items-center gap-1.5"
+            className={sx(styles.todo)}
             title={`${todoProgress.completed} of ${todoProgress.total} todos done`}
           >
-            <span className="h-1 w-10 overflow-hidden rounded-full bg-muted">
+            <span className={sx(styles.todoTrack)}>
               <span
-                className="block h-full rounded-full bg-primary"
+                className={sx(styles.todoFill)}
                 style={{
                   width: `${Math.round(
                     (todoProgress.completed / todoProgress.total) * 100,
@@ -686,12 +685,12 @@ export function FleetWorkspaceCard(args: {
                 }}
               />
             </span>
-            <span className="text-[10px] tabular-nums text-muted-foreground">
+            <span className={sx(styles.todoCount)}>
               {todoProgress.completed}/{todoProgress.total}
             </span>
           </span>
         ) : null}
-        <span className="min-w-0 truncate text-[10px] text-muted-foreground">
+        <span className={sx(styles.activity)}>
           {activityAt
             ? formatTaskUpdatedAt({ value: activityAt })
             : "No recorded activity"}
@@ -700,7 +699,7 @@ export function FleetWorkspaceCard(args: {
           type="button"
           size="sm"
           variant="ghost"
-          className="ml-auto h-6 shrink-0 px-2 text-[11px]"
+          xstyle={styles.openAction}
           aria-label={`Open ${displayName} workspace`}
           onClick={() =>
             args.onOpenWorkspace({
@@ -710,7 +709,7 @@ export function FleetWorkspaceCard(args: {
           }
         >
           Open
-          <ArrowRight className="size-3" aria-hidden="true" />
+          <ArrowRight className={sx(styles.openIcon)} aria-hidden="true" />
         </Button>
       </div>
     </article>

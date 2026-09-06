@@ -45,6 +45,8 @@ import {
   SettingsCard,
   SwitchField,
 } from "./settings-dialog.shared";
+import { sx } from "@/components/ads/utils/stylex";
+import { advisorSectionStyles as styles } from "./settings-dialog-advisor-section.styles";
 
 /**
  * Longer than the composer's one-word summaries on purpose: this card is the
@@ -196,7 +198,12 @@ export function SettingsAdvisorSection(args: {
             value: option.id,
             label: option.label,
             description: ADVISOR_PROVIDER_DESCRIPTIONS[option.id],
-            icon: <ModelIcon providerId={option.id} className="size-3.5" />,
+            icon: (
+              <ModelIcon
+                providerId={option.id}
+                className={sx(styles.providerIcon)}
+              />
+            ),
           }))}
         />
       </LabeledField>
@@ -211,12 +218,12 @@ export function SettingsAdvisorSection(args: {
             available: selectedModelSupported,
           })}
           options={modelOptions}
-          className="w-full"
+          className={sx(styles.selector)}
           triggerAriaLabel={`Advisor model: ${toHumanModelName({
             model: selectedTarget.model,
           })}`}
-          triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
-          menuClassName="sm:max-w-lg"
+          triggerClassName={sx(styles.trigger)}
+          menuClassName={sx(styles.menu)}
           onSelect={({ selection }) => {
             if (!isManagedExecutionProviderId(selection.providerId)) {
               return;
@@ -226,12 +233,14 @@ export function SettingsAdvisorSection(args: {
               model: selection.model,
               // Switching models must not silently reset the pinned tier; an
               // unsupported one is clamped at resolution time.
-              ...(selectedTarget.effort ? { effort: selectedTarget.effort } : {}),
-            })
+              ...(selectedTarget.effort
+                ? { effort: selectedTarget.effort }
+                : {}),
+            });
           }}
         />
         {!selectedModelSupported ? (
-          <p className="mt-2 text-xs leading-5 text-destructive">
+          <p className={sx(styles.invalidNote)}>
             This persisted model is not in Stave&apos;s current{" "}
             {getProviderLabel({ providerId: selectedProviderId })} catalog.
             Advisor will stay skipped until you select a valid model.
@@ -264,7 +273,7 @@ export function SettingsAdvisorSection(args: {
           }))}
         />
         {selectedTarget.effort && isAdvisorEffortClamped(selectedTarget) ? (
-          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          <p className={sx(styles.clampNote)}>
             The saved tier is {formatAdvisorEffortLabel(selectedTarget.effort)},
             which {toHumanModelName({ model: selectedTarget.model })} does not
             accept, so the Advisor runs at{" "}
@@ -277,7 +286,7 @@ export function SettingsAdvisorSection(args: {
         description={`How many times the primary may consult the Advisor in one turn (${MIN_ADVISOR_CONSULT_LIMIT}–${MAX_ADVISOR_CONSULT_LIMIT}). Each consult is one full Advisor call — the budget is the spend ceiling per turn.`}
       >
         <DraftInput
-          className="h-10 w-24 rounded-md border-border/80 bg-background"
+          xstyle={styles.consultInput}
           value={String(args.advisorConsultLimit)}
           onCommit={(value) =>
             args.onChange({
@@ -286,9 +295,9 @@ export function SettingsAdvisorSection(args: {
           }
         />
       </LabeledField>
-      <div className="rounded-lg border border-border/70 bg-muted/20 px-3.5 py-3 text-xs leading-5 text-muted-foreground">
+      <div className={sx(styles.noteCard)}>
         <p>
-          <span className="font-medium text-foreground">
+          <span className={sx(styles.emphasis)}>
             {args.executorIsActiveTask ? "Active pair:" : "Default pair:"}
           </span>{" "}
           {getProviderLabel({ providerId: args.executorProvider })} ·{" "}
@@ -304,14 +313,14 @@ export function SettingsAdvisorSection(args: {
               )}`
             : "Advisor off"}
         </p>
-        <p className="mt-1">
+        <p className={sx(styles.noteSpacer)}>
           Each consult adds one model call, latency, and usage — the primary
           decides when to ask, the user decides who answers and how often. A
           recoverable Advisor failure is traced and the primary turn still runs;
           Stave never switches Advisor models automatically. Consults require
           Local MCP to be enabled.
         </p>
-        <p className="mt-1">
+        <p className={sx(styles.noteSpacer)}>
           This is only the default. Each task&apos;s composer has an Advisor
           control with the same provider, model, and effort rows, so a task can
           diverge from this without changing it.

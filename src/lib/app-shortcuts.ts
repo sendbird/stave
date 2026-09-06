@@ -49,7 +49,7 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
   },
   {
     commandId: "navigation.automation-center",
-    title: "Open Automation Center",
+    title: "Open Library",
     description: "Open scheduled agent automations and their run history.",
     defaultKey: "a",
   },

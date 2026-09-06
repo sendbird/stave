@@ -35,6 +35,8 @@ import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-cat
 import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
 import { SettingsCard } from "./settings-dialog.shared";
+import { sx } from "@/components/ads/utils/stylex";
+import { modelVisibilityStyles as styles } from "./settings-dialog-model-visibility.styles";
 
 const PROVIDER_IDS = listProviderIds();
 
@@ -135,7 +137,7 @@ function ModelVisibilityProviderPanel(args: {
 
   if (rows.length === 0) {
     return (
-      <p className="py-3 text-sm text-muted-foreground">
+      <p className={sx(styles.emptyPanel)}>
         {args.catalogDetail ||
           `No ${getProviderLabel({ providerId: args.providerId })} models are available yet. Sign in to the runtime, then reopen this section.`}
       </p>
@@ -143,9 +145,9 @@ function ModelVisibilityProviderPanel(args: {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
+    <div className={sx(styles.panel)}>
+      <div className={sx(styles.panelHead)}>
+        <p className={sx(styles.panelSummary)}>
           {visibleCount} of {rows.length} shown by default
         </p>
         <Button
@@ -161,41 +163,37 @@ function ModelVisibilityProviderPanel(args: {
               }),
             )
           }
-          className="h-8 shrink-0 gap-1.5 px-2 text-xs"
+          xstyle={styles.resetButton}
         >
-          <RotateCcw className="size-3.5" aria-hidden="true" />
+          <RotateCcw className={sx(styles.resetIcon)} aria-hidden="true" />
           Reset to current models
         </Button>
       </div>
-      <ul className="max-h-80 divide-y divide-border/55 overflow-y-auto overscroll-contain rounded-lg border border-border/65">
+      <ul className={sx(styles.list)}>
         {rows.map((row) => (
           <li
             key={row.key}
             data-model-visibility-row={row.key}
-            className="flex min-h-12 items-center justify-between gap-3 px-3 py-2"
+            className={sx(styles.listItem)}
           >
-            <div className="flex min-w-0 items-center gap-2.5">
+            <div className={sx(styles.rowMain)}>
               <ModelIcon
                 providerId={row.option.providerId}
                 model={row.option.model}
-                className="size-4 shrink-0"
+                className={sx(styles.rowIcon)}
               />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">
-                  {row.label}
-                </p>
+              <div className={sx(styles.rowLabelWrap)}>
+                <p className={sx(styles.rowLabel)}>{row.label}</p>
                 {row.key.toLowerCase() === row.label.toLowerCase() ? null : (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {row.key}
-                  </p>
+                  <p className={sx(styles.rowKey)}>{row.key}</p>
                 )}
               </div>
               {row.current ? (
-                <Badge variant="secondary" className="shrink-0 text-[10px]">
+                <Badge variant="secondary" className={sx(styles.rowBadge)}>
                   Current
                 </Badge>
               ) : row.visible ? (
-                <Badge variant="outline" className="shrink-0 text-[10px]">
+                <Badge variant="outline" className={sx(styles.rowBadge)}>
                   Pinned
                 </Badge>
               ) : null}
@@ -215,7 +213,7 @@ function ModelVisibilityProviderPanel(args: {
                   }),
                 )
               }
-              className="shrink-0"
+              className={sx(styles.rowSwitch)}
             />
           </li>
         ))}
@@ -320,9 +318,9 @@ export function SettingsModelVisibilitySection() {
           size="sm"
           disabled={Object.keys(modelVisibility).length === 0}
           onClick={() => updateSettings({ patch: { modelVisibility: {} } })}
-          className="h-8 gap-1.5 px-2 text-xs"
+          xstyle={styles.titleResetButton}
         >
-          <RotateCcw className="size-3.5" aria-hidden="true" />
+          <RotateCcw className={sx(styles.resetIcon)} aria-hidden="true" />
           Reset all providers
         </Button>
       }
@@ -331,20 +329,30 @@ export function SettingsModelVisibilitySection() {
         value={activeProviderId}
         onValueChange={(value) => setActiveProviderId(value as ProviderId)}
       >
-        <TabsList aria-label="Model visibility provider" className="w-full">
+        <TabsList
+          aria-label="Model visibility provider"
+          className={sx(styles.tabsList)}
+        >
           {PROVIDER_IDS.map((providerId) => (
             <TabsTrigger
               key={providerId}
               value={providerId}
-              className="min-h-9 gap-1.5"
+              className={sx(styles.tabsTrigger)}
             >
-              <ModelIcon providerId={providerId} className="size-4" />
+              <ModelIcon
+                providerId={providerId}
+                className={sx(styles.tabIcon)}
+              />
               {getProviderLabel({ providerId })}
             </TabsTrigger>
           ))}
         </TabsList>
         {PROVIDER_IDS.map((providerId) => (
-          <TabsContent key={providerId} value={providerId} className="pt-1">
+          <TabsContent
+            key={providerId}
+            value={providerId}
+            className={sx(styles.tabsContent)}
+          >
             <ModelVisibilityProviderPanel
               providerId={providerId}
               options={optionsByProvider.get(providerId) ?? []}

@@ -76,7 +76,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import { History, SplitSquareHorizontal } from "lucide-react";
+import { ChevronDown, History, SplitSquareHorizontal } from "lucide-react";
 import { listCompareRunHistoryEntries } from "@/lib/compare-run-history";
 import {
   buildCommandPaletteItems,
@@ -160,7 +160,8 @@ import {
   isTaskManaged,
 } from "@/lib/tasks";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { chatInputStyles } from "./chat-input.styles";
 import { buildLocalChangeReviewPrompt } from "@/lib/local-change-review";
 import { useAppStore } from "@/store/app.store";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
@@ -1602,9 +1603,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
 
   return (
     <div
-      className={cn(
-        "bg-background px-3 py-2.5 sm:px-4",
-        args.isEmpty && "pb-6",
+      className={sx(
+        chatInputStyles.root,
+        args.isEmpty && chatInputStyles.rootEmpty,
       )}
     >
       {comparePrepareOpen ? (
@@ -1626,7 +1627,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
         />
       ) : null}
-      <div className="mx-auto max-w-6xl" ref={composerMeasureRef}>
+      <div className={sx(chatInputStyles.measure)} ref={composerMeasureRef}>
         <TaskSourceContextNotice
           sourceContexts={args.sourceContexts}
           currentPrUrl={args.currentPrUrl}
@@ -1697,21 +1698,21 @@ function ChatInputComposer(args: ChatInputComposerProps) {
         ) : null}
         {isSteerSubmitting ? (
           <div
-            className="mb-2 flex items-center gap-1.5 px-1 text-xs text-muted-foreground"
+            className={sx(chatInputStyles.steerRow)}
             role="status"
             aria-live="polite"
           >
             <span
-              className="size-1.5 animate-pulse rounded-full bg-primary"
+              className={sx(chatInputStyles.steerDot)}
               aria-hidden
             />
             <span>Steering · waiting for provider acknowledgement</span>
           </div>
         ) : null}
         {providerTurnDisplayState === "stalled" ? (
-          <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-muted-foreground dark:bg-warning/15">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="warning" className="uppercase tracking-[0.12em]">
+          <div className={sx(chatInputStyles.stalledBanner)}>
+            <div className={sx(chatInputStyles.stalledInner)}>
+              <Badge variant="warning" className={sx(chatInputStyles.stalledBadge)}>
                 Stalled
               </Badge>
               <span>
@@ -1936,84 +1937,106 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           }
           compareControl={
             args.isTurnActive ? null : (
-              <DropdownMenu>
+              <div
+                className={sx(chatInputStyles.compareControlGroup)}
+                data-compare-control="true"
+              >
                 <Tooltip>
                   <TooltipTrigger
                     render={
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className={COMPOSER_CONTROL_BUTTON}
-                            aria-label="Compare options and recent runs"
-                            {...composerControlAttributes}
-                            data-compare-control="true"
-                            disabled={
-                              recentCompareRuns.length === 0 &&
-                              (isInputBlocked || draftText.trim().length === 0)
-                            }
-                          />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className={COMPOSER_CONTROL_BUTTON}
+                        aria-label="Prepare a comparison in isolated candidate workspaces"
+                        {...composerControlAttributes}
+                        disabled={
+                          isInputBlocked || draftText.trim().length === 0
                         }
+                        onClick={handleOpenComparePreparation}
                       />
                     }
                   >
-                    <SplitSquareHorizontal className="size-4" />
+                    <SplitSquareHorizontal size={16} />
                     <ComposerControlLabel>Compare</ComposerControlLabel>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-72">
-                    Prepare a comparison or inspect recent runs.
+                  <TooltipContent side="top" className={sx(chatInputStyles.tooltipContent)}>
+                    Prepare a shared brief and review criteria before running
+                    two configurable candidates in separate workspaces.
                   </TooltipContent>
                 </Tooltip>
 
-                <DropdownMenuContent
-                  align="start"
-                  sideOffset={6}
-                  className="w-80"
-                >
-                  <DropdownMenuLabel className="flex items-center gap-2">
-                    <SplitSquareHorizontal className="size-3.5" />
-                    Compare
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem
-                    disabled={isInputBlocked || draftText.trim().length === 0}
-                    onSelect={handleOpenComparePreparation}
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className={cx(
+                          COMPOSER_CONTROL_BUTTON,
+                          sx(chatInputStyles.compareControlMenuTrigger),
+                        )}
+                        aria-label="Compare options and recent runs"
+                        {...composerControlAttributes}
+                        disabled={
+                          recentCompareRuns.length === 0 &&
+                          (isInputBlocked || draftText.trim().length === 0)
+                        }
+                      >
+                        <ChevronDown size={14} />
+                      </Button>
+                    }
+                  />
+
+                  <DropdownMenuContent
+                    align="start"
+                    sideOffset={6}
+                    className={sx(chatInputStyles.menuContentWide)}
                   >
-                    <SplitSquareHorizontal className="size-4" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm">
-                        Prepare new comparison
+                    <DropdownMenuLabel className={sx(chatInputStyles.menuLabelRow)}>
+                      <SplitSquareHorizontal size={14} />
+                      Compare
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem
+                      disabled={isInputBlocked || draftText.trim().length === 0}
+                      onSelect={handleOpenComparePreparation}
+                    >
+                      <SplitSquareHorizontal size={16} />
+                      <span className={sx(chatInputStyles.itemText)}>
+                        <span className={sx(chatInputStyles.itemTitle)}>
+                          Prepare new comparison
+                        </span>
+                        <span className={sx(chatInputStyles.itemDescription)}>
+                          Configure candidates, criteria, and judge
+                        </span>
                       </span>
-                      <span className="block text-xs text-muted-foreground">
-                        Configure candidates, criteria, and judge
-                      </span>
-                    </span>
-                  </DropdownMenuItem>
+                    </DropdownMenuItem>
 
                   {recentCompareRuns.length > 0 ? (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="flex items-center gap-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-                        <History className="size-3.5" />
+                      <DropdownMenuLabel className={sx(chatInputStyles.menuLabelRecent)}>
+                        <History size={14} />
                         Recent runs
                       </DropdownMenuLabel>
                       {recentCompareRuns.map((run) => (
                         <DropdownMenuItem
                           key={run.id}
-                          className="items-start gap-2"
+                          className={sx(chatInputStyles.menuItemStart)}
                           onSelect={() =>
                             useAppStore
                               .getState()
                               .openCompareRun({ compareRunId: run.id })
                           }
                         >
-                          <span className="mt-1 size-1.5 shrink-0 rounded-full bg-primary/70" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block w-full truncate text-sm">
+                          <span className={sx(chatInputStyles.runDot)} />
+                          <span className={sx(chatInputStyles.itemText)}>
+                            <span className={sx(chatInputStyles.itemTitleTruncate)}>
                               {run.title}
                             </span>
-                            <span className="block text-xs capitalize text-muted-foreground">
+                            <span className={sx(chatInputStyles.itemDescriptionCapitalize)}>
                               {run.stateLabel}
                             </span>
                           </span>
@@ -2021,15 +2044,15 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                       ))}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        className="gap-2"
+                        className={sx(chatInputStyles.menuItemGap)}
                         onSelect={() => setCompareHistoryOpen(true)}
                       >
-                        <History className="size-4" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-sm">
+                        <History size={16} />
+                        <span className={sx(chatInputStyles.itemText)}>
+                          <span className={sx(chatInputStyles.itemTitle)}>
                             View all compare runs…
                           </span>
-                          <span className="block text-xs text-muted-foreground">
+                          <span className={sx(chatInputStyles.itemDescription)}>
                             Search and filter {compareRunHistoryEntries.length}{" "}
                             saved runs
                           </span>
@@ -2037,8 +2060,9 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                       </DropdownMenuItem>
                     </>
                   ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )
           }
           submitMode={managedTaskComposerAccess.submitMode}

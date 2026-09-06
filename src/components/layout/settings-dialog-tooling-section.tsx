@@ -9,7 +9,9 @@ import {
   TerminalSquare,
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { Badge, Button, toast } from "@/components/ui";
+import { Badge, toast } from "@/components/ui";
+import { Button } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import type {
   ToolingStatusEntry,
@@ -17,7 +19,6 @@ import type {
   ToolingStatusSnapshot,
   ToolingStatusState,
 } from "@/lib/tooling-status";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import {
   InfoRow,
@@ -25,6 +26,7 @@ import {
   SettingsCard,
   StatusBadge,
 } from "./settings-dialog.shared";
+import { toolingStyles } from "./settings-dialog-tooling-section.styles";
 
 const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
   shell: "Integrated terminal sessions and command execution surfaces.",
@@ -54,17 +56,17 @@ function AuthBadge(args: { tool: ToolingStatusEntry }) {
           ? "No Auth"
           : "Unknown Auth";
 
-  const className =
+  const toneStyle =
     args.tool.authState === "authenticated"
-      ? "border-success/30 bg-success/10 text-success dark:bg-success/15"
+      ? toolingStyles.authBadgeAuthenticated
       : args.tool.authState === "unauthenticated"
-        ? "border-warning/40 bg-warning/10 text-warning dark:bg-warning/15"
-        : "border-border/80 bg-muted/30 text-muted-foreground";
+        ? toolingStyles.authBadgeUnauthenticated
+        : toolingStyles.authBadgeNeutral;
 
   return (
     <Badge
       variant="secondary"
-      className={cn("h-6 border px-2.5 font-medium tracking-normal", className)}
+      className={sx(toolingStyles.authBadge, toneStyle)}
     >
       {label}
     </Badge>
@@ -96,36 +98,38 @@ function ToolIcon(args: { id: ToolingStatusId }) {
             ? Bot
             : Code2;
 
-  return <Icon className="size-4" />;
+  return <Icon className={sx(toolingStyles.toolIcon)} />;
 }
 
 function PathRow(args: { label: string; value: string | null }) {
   if (!args.value) {
     return (
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="text-muted-foreground">{args.label}</span>
-        <span className="text-foreground">-</span>
+      <div className={sx(toolingStyles.pathRowEmpty)}>
+        <span className={sx(toolingStyles.pathLabel)}>{args.label}</span>
+        <span className={sx(toolingStyles.pathValueDash)}>-</span>
       </div>
     );
   }
   return (
-    <div className="flex items-center justify-between gap-2 text-sm">
-      <span className="shrink-0 text-muted-foreground">{args.label}</span>
-      <div className="flex min-w-0 items-center gap-1">
-        <span className="min-w-0 truncate font-mono text-xs text-foreground">
-          {args.value}
-        </span>
-        <button
+    <div className={sx(toolingStyles.pathRow)}>
+      <span className={sx(toolingStyles.pathLabelShrink)}>{args.label}</span>
+      <div className={sx(toolingStyles.pathValueGroup)}>
+        <span className={sx(toolingStyles.pathValue)}>{args.value}</span>
+        <Button
           type="button"
-          className="shrink-0 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+          variant="quiet"
+          iconOnly
+          size="xs"
+          aria-label={`Copy ${args.label}`}
+          xstyle={toolingStyles.copyButton}
           onClick={() => {
             void copyTextToClipboard(args.value!).then(() => {
               toast.success("Path copied");
             });
           }}
         >
-          <Copy className="size-3" />
-        </button>
+          <Copy className={sx(toolingStyles.copyIcon)} />
+        </Button>
       </div>
     </div>
   );
@@ -144,25 +148,23 @@ function ToolCard(args: {
   const repairCommand = AUTH_COMMAND_BY_ID[args.tool.id] ?? null;
 
   return (
-    <div className="rounded-xl border border-border/80 bg-background/80 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/30 text-muted-foreground">
+    <div className={sx(toolingStyles.card)}>
+      <div className={sx(toolingStyles.cardHeaderRow)}>
+        <div className={sx(toolingStyles.cardHeaderInfo)}>
+          <div className={sx(toolingStyles.cardTitleRow)}>
+            <span className={sx(toolingStyles.iconPlate)}>
               <ToolIcon id={args.tool.id} />
             </span>
-            <div className="min-w-0 space-y-1">
-              <p className="text-sm font-semibold text-foreground">
-                {args.tool.label}
-              </p>
-              <p className="text-xs text-muted-foreground">
+            <div className={sx(toolingStyles.cardTitleText)}>
+              <p className={sx(toolingStyles.toolLabel)}>{args.tool.label}</p>
+              <p className={sx(toolingStyles.toolPurpose)}>
                 {TOOL_PURPOSE_BY_ID[args.tool.id]}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={sx(toolingStyles.badgeGroup)}>
           <StatusBadge
             state={args.tool.state}
             label={ToolStateLabel(args.tool.state)}
@@ -171,7 +173,7 @@ function ToolCard(args: {
           {args.tool.version ? (
             <Badge
               variant="secondary"
-              className="h-6 border border-border/60 bg-muted/40 px-2.5 font-mono text-xs font-normal tracking-normal text-muted-foreground"
+              className={sx(toolingStyles.versionBadge)}
             >
               {args.tool.version}
             </Badge>
@@ -179,20 +181,18 @@ function ToolCard(args: {
         </div>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className={sx(toolingStyles.cardBody)}>
         <InfoRow label="Summary" value={args.tool.summary} />
         <PathRow label="Executable" value={args.tool.executablePath} />
       </div>
 
       {args.tool.detail ? (
-        <div className="mt-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-          <p className="font-mono text-xs leading-5 text-muted-foreground whitespace-pre-wrap">
-            {args.tool.detail}
-          </p>
+        <div className={sx(toolingStyles.detailBox)}>
+          <p className={sx(toolingStyles.detailText)}>{args.tool.detail}</p>
         </div>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className={sx(toolingStyles.cardActions)}>
         {repairCommand ? (
           <>
             <Button
@@ -203,7 +203,7 @@ function ToolCard(args: {
                 void args.onCopyRepairCommand(repairCommand, args.tool.label)
               }
             >
-              <Copy className="size-4" />
+              <Copy className={sx(toolingStyles.actionIcon)} />
               Copy Login Command
             </Button>
             <Button
@@ -217,7 +217,7 @@ function ToolCard(args: {
                 )
               }
             >
-              <TerminalSquare className="size-4" />
+              <TerminalSquare className={sx(toolingStyles.actionIcon)} />
               Fix In Terminal
             </Button>
           </>
@@ -229,7 +229,7 @@ function ToolCard(args: {
             disabled={!args.canOpenTerminal}
             onClick={() => void args.onOpenTerminal()}
           >
-            <TerminalSquare className="size-4" />
+            <TerminalSquare className={sx(toolingStyles.actionIcon)} />
             Open Terminal
           </Button>
         )}
@@ -393,9 +393,10 @@ export function ToolingSection() {
               onClick={() => setRefreshNonce((value) => value + 1)}
             >
               <RefreshCcw
-                className={cn(
-                  "size-4",
-                  viewState.status === "loading" && "animate-spin",
+                className={sx(
+                  viewState.status === "loading"
+                    ? toolingStyles.refreshIconSpinning
+                    : toolingStyles.refreshIcon,
                 )}
               />
               Refresh
@@ -403,7 +404,7 @@ export function ToolingSection() {
           }
         >
           {snapshot ? (
-            <div className="grid gap-3">
+            <div className={sx(toolingStyles.toolsGrid)}>
               {snapshot.tools.map((tool) => (
                 <ToolCard
                   key={tool.id}
@@ -416,7 +417,7 @@ export function ToolingSection() {
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-border/80 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            <div className={sx(toolingStyles.emptyState)}>
               {viewState.detail}
             </div>
           )}

@@ -74,7 +74,9 @@ import type {
   ScriptTrigger,
   ResolvedWorkspaceScriptsConfig,
 } from "@/lib/workspace-scripts/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { managerStyles } from "./scripts-manager.styles";
 
 export interface ScriptsManagerRuntimeProps {
   workspaceId: string;
@@ -892,17 +894,17 @@ export function ScriptsManager(props: {
   if (!selectedScope) {
     if (!initialScopeResolved) {
       return (
-        <div className="px-1 py-4 text-xs text-muted-foreground">
+        <div className={sx(managerStyles.loadingMuted)}>
           Loading workspace tools…
         </div>
       );
     }
 
     return (
-      <Empty className="border border-dashed border-border/70 bg-muted/15">
+      <Empty xstyle={managerStyles.emptyState}>
         <EmptyHeader>
           <EmptyMedia>
-            <FilePenLine className="size-4" />
+            <FilePenLine className={sx(managerStyles.emptyIcon)} />
           </EmptyMedia>
           <EmptyTitle>Workspace tools unavailable</EmptyTitle>
           <EmptyDescription>
@@ -914,20 +916,20 @@ export function ScriptsManager(props: {
   }
 
   return (
-    <div className="space-y-4">
+    <div className={sx(managerStyles.root)}>
       {/* ── Header ── */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className={sx(managerStyles.header)}>
         {props.hideTitle ? (
           <div />
         ) : (
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">
+          <div className={sx(managerStyles.titleBlock)}>
+            <div className={sx(managerStyles.titleRow)}>
+              <p className={sx(managerStyles.titleText)}>
                 {WORKSPACE_TOOLS_LABEL}
               </p>
               <Badge
                 variant={isDirty ? "secondary" : "outline"}
-                className="rounded-full px-2 py-0 text-[10px]"
+                className={sx(managerStyles.statusBadge)}
               >
                 {isDirty
                   ? "Unsaved"
@@ -936,27 +938,28 @@ export function ScriptsManager(props: {
                     : "New file"}
               </Badge>
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <p className={sx(managerStyles.subtitle)}>
               Keep a long-running process such as a dev server up while you
               work. Commands are one-shot. Triggers fire on task and pull
               request events.
             </p>
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className={sx(managerStyles.headerActions)}>
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="h-9 rounded-md px-3"
+            xstyle={managerStyles.toolbarButton}
             onClick={() => void reloadSelectedScope()}
             disabled={fileState.status === "loading" || saving}
             title="Reload the saved config"
           >
             <RefreshCcw
-              className={cn(
-                "mr-1 size-3.5",
-                fileState.status === "loading" && "animate-spin",
+              className={sx(
+                fileState.status === "loading"
+                  ? managerStyles.spinnerIconAnimated
+                  : managerStyles.spinnerIcon,
               )}
             />
             Reload
@@ -965,24 +968,25 @@ export function ScriptsManager(props: {
       </div>
 
       {/* ── Scope selector ── */}
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,280px)_1fr]">
-        <label className="space-y-1.5">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
+      <div className={sx(managerStyles.scopeGrid)}>
+        <label className={sx(managerStyles.scopeLabel)}>
+          <span className={sx(managerStyles.scopeLabelText)}>
             Config Scope
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <button
+                    <AdsButton
                       type="button"
-                      className="inline-flex size-4 items-center justify-center text-muted-foreground"
+                      layout="host"
+                      xstyle={managerStyles.helpTrigger}
                       aria-label="Config scope help"
                     />
                   }
                 >
-                  <CircleHelp className="size-3.5" />
+                  <CircleHelp className={sx(managerStyles.helpIcon)} />
                 </TooltipTrigger>
-                <TooltipContent className="max-w-xs text-xs">
+                <TooltipContent className={sx(managerStyles.tooltipContent)}>
                   {selectedScope.id === "workspace"
                     ? "Workspace config overrides the project shared config for this workspace."
                     : "Project config is the shared fallback. If a workspace-level config exists, it wins for the active workspace."}
@@ -991,7 +995,7 @@ export function ScriptsManager(props: {
             </TooltipProvider>
           </span>
           <Select value={selectedScope.id} onValueChange={handleScopeChange}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className={sx(managerStyles.triggerFull)}>
               <SelectValue>{selectedScope.label}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -1003,24 +1007,22 @@ export function ScriptsManager(props: {
             </SelectContent>
           </Select>
         </label>
-        <div className="rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5">
-          <p className="text-xs font-medium text-foreground">
+        <div className={sx(managerStyles.scopeInfo)}>
+          <p className={sx(managerStyles.scopeInfoTitle)}>
             {selectedScope.description}
           </p>
-          <p className="mt-1 break-all text-[11px] leading-5 text-muted-foreground">
+          <p className={sx(managerStyles.scopeInfoPath)}>
             {selectedScope.rootPath}/{selectedScope.filePath}
           </p>
         </div>
       </div>
 
       {fileState.error ? (
-        <div className="rounded-md border border-destructive/30 bg-destructive/8 px-3 py-2 text-xs text-destructive">
-          {fileState.error}
-        </div>
+        <div className={sx(managerStyles.errorBox)}>{fileState.error}</div>
       ) : null}
 
       {fileState.status === "loading" ? (
-        <div className="px-1 py-4 text-xs text-muted-foreground">Loading…</div>
+        <div className={sx(managerStyles.loadingMuted)}>Loading…</div>
       ) : null}
 
       {fileState.status === "ready" ? (
@@ -1028,63 +1030,36 @@ export function ScriptsManager(props: {
           orientation="vertical"
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as ScriptsTabValue)}
-          className="grid items-start gap-5 lg:grid-cols-[13rem_minmax(0,1fr)]"
+          className={sx(managerStyles.tabsRoot)}
         >
-          <TabsList
-            variant="soft"
-            className="sticky top-20 w-full items-stretch justify-start gap-1 rounded-xl bg-muted/20 p-1"
-          >
-            <TabsTrigger
-              value="services"
-              className="h-11 w-full justify-start gap-1.5 px-3"
-            >
+          <TabsList variant="soft" className={sx(managerStyles.tabsList)}>
+            <TabsTrigger value="services" className={sx(managerStyles.tab)}>
               Processes
-              <Badge
-                variant="outline"
-                className="rounded-full px-1.5 py-0 text-[10px]"
-              >
+              <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {servicesCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger
-              value="actions"
-              className="h-11 w-full justify-start gap-1.5 px-3"
-            >
+            <TabsTrigger value="actions" className={sx(managerStyles.tab)}>
               Commands
-              <Badge
-                variant="outline"
-                className="rounded-full px-1.5 py-0 text-[10px]"
-              >
+              <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {actionsCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger
-              value="hooks"
-              className="h-11 w-full justify-start gap-1.5 px-3"
-            >
+            <TabsTrigger value="hooks" className={sx(managerStyles.tab)}>
               Triggers
-              <Badge
-                variant="outline"
-                className="rounded-full px-1.5 py-0 text-[10px]"
-              >
+              <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {hookLinkCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger
-              value="targets"
-              className="h-11 w-full justify-start gap-1.5 px-3"
-            >
+            <TabsTrigger value="targets" className={sx(managerStyles.tab)}>
               Environments
-              <Badge
-                variant="outline"
-                className="rounded-full px-1.5 py-0 text-[10px]"
-              >
+              <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {targetsCount}
               </Badge>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="services" className="mt-0">
+          <TabsContent value="services" className={sx(managerStyles.tabPanel)}>
             <ScriptEntriesTab
               kind="service"
               entries={editorState.services}
@@ -1106,7 +1081,7 @@ export function ScriptsManager(props: {
             />
           </TabsContent>
 
-          <TabsContent value="actions" className="mt-0">
+          <TabsContent value="actions" className={sx(managerStyles.tabPanel)}>
             <ScriptEntriesTab
               kind="action"
               entries={editorState.actions}
@@ -1128,7 +1103,7 @@ export function ScriptsManager(props: {
             />
           </TabsContent>
 
-          <TabsContent value="hooks" className="mt-0">
+          <TabsContent value="hooks" className={sx(managerStyles.tabPanel)}>
             <ScriptHooksTab
               hooks={editorState.hooks}
               candidates={hookCandidates}
@@ -1138,7 +1113,7 @@ export function ScriptsManager(props: {
             />
           </TabsContent>
 
-          <TabsContent value="targets" className="mt-0">
+          <TabsContent value="targets" className={sx(managerStyles.tabPanel)}>
             <ScriptTargetsTab
               targets={editorState.targets}
               usageCountById={usageCountById}
@@ -1153,9 +1128,9 @@ export function ScriptsManager(props: {
         </Tabs>
       ) : null}
 
-      <div className="sticky bottom-0 z-20 -mx-2 mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background px-2 py-3">
-        <div className="min-w-0" aria-live="polite">
-          <p className="text-xs font-medium text-foreground">
+      <div className={sx(managerStyles.footer)}>
+        <div className={sx(managerStyles.footerStatus)} aria-live="polite">
+          <p className={sx(managerStyles.footerStatusTitle)}>
             {saving
               ? "Saving changes…"
               : isDirty
@@ -1164,18 +1139,18 @@ export function ScriptsManager(props: {
                   ? "All changes saved"
                   : "No config file yet"}
           </p>
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+          <p className={sx(managerStyles.footerStatusDetail)}>
             {isDirty
               ? "Edits and deletions are staged until you save this config."
               : `${selectedScope.label} · ${selectedScope.filePath}`}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={sx(managerStyles.footerActions)}>
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="h-9 rounded-md px-3"
+            xstyle={managerStyles.toolbarButton}
             onClick={() => void discardChanges()}
             disabled={!isDirty || saving}
           >
@@ -1184,14 +1159,14 @@ export function ScriptsManager(props: {
           <Button
             type="button"
             size="sm"
-            className="h-9 rounded-md px-3"
+            xstyle={managerStyles.toolbarButton}
             onClick={() => void saveChanges()}
             disabled={fileState.status !== "ready" || !isDirty || saving}
           >
             {saving ? (
-              <RefreshCcw className="mr-1 size-3.5 animate-spin" />
+              <RefreshCcw className={sx(managerStyles.spinnerIconAnimated)} />
             ) : (
-              <Save className="mr-1 size-3.5" />
+              <Save className={sx(managerStyles.spinnerIcon)} />
             )}
             {fileState.exists ? "Save changes" : "Create config"}
           </Button>
@@ -1210,7 +1185,7 @@ export function ScriptsManager(props: {
       >
         <Button
           type="button"
-          className="w-full"
+          xstyle={managerStyles.fullWidthButton}
           disabled={saving}
           onClick={() => void confirmSaveAndSwitch()}
         >

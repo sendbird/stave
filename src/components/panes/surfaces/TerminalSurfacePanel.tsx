@@ -3,14 +3,13 @@ import { Eraser, SquareTerminal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { TerminalTabSurface } from "@/components/layout/TerminalTabSurface";
-import {
-  TERMINAL_SURFACE_PANEL_CLASS_NAME,
-  TERMINAL_SURFACE_VIEWPORT_CLASS_NAME,
-} from "@/components/layout/terminal-surface-styles";
+import { terminalSurfaceStyles } from "@/components/layout/terminal-surface-styles";
 import { TERMINAL_WRITE_ERROR_THRESHOLD } from "@/components/layout/useTerminalInstance";
 import { useTerminalSessionManager } from "@/components/layout/useTerminalSessionManager";
 import { useTerminalTabManager } from "@/components/layout/useTerminalTabManager";
+import { sx } from "@/components/ads/utils/stylex";
 import { Button, Loader } from "@/components/ui";
+import { terminalSurfacePanelStyles } from "./terminal-surface-panel.styles";
 import { parsePanePanelId } from "@/lib/panes/types";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -22,7 +21,6 @@ import {
   type TerminalCreateSessionArgs,
   type WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -230,61 +228,81 @@ function TerminalSurfacePanelContent(props: {
   return (
     <section
       data-testid={`terminal-surface-${props.terminalTabId}`}
-      className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+      className={sx(terminalSurfacePanelStyles.root)}
     >
-      <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border/60 px-3 text-xs text-muted-foreground">
-        <SquareTerminal className="size-3.5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate">
+      <div className={sx(terminalSurfacePanelStyles.header)}>
+        <SquareTerminal className={sx(terminalSurfacePanelStyles.headerIcon)} />
+        <span className={sx(terminalSurfacePanelStyles.headerPath)}>
           {tab?.cwd ?? workspacePath ?? "Terminal"}
         </span>
         {sessionExited ? (
           <span
-            className={cn(
-              "truncate text-[11px] font-medium",
+            className={sx(
+              terminalSurfacePanelStyles.status,
               sessionExited.exitCode === 0
-                ? "text-muted-foreground/80"
-                : "text-destructive",
+                ? terminalSurfacePanelStyles.statusExited
+                : terminalSurfacePanelStyles.statusExitedFailed,
             )}
           >
             exited ({sessionExited.exitCode})
           </span>
         ) : shellStatus ? (
-          <span className="truncate text-[11px] text-sky-600 dark:text-sky-400">
+          <span
+            className={sx(
+              terminalSurfacePanelStyles.status,
+              terminalSurfacePanelStyles.statusShell,
+            )}
+          >
             {shellStatus.status.replaceAll("-", " ")}
             {shellStatus.exitCode === undefined
               ? ""
               : ` (${shellStatus.exitCode})`}
           </span>
         ) : activeSessionId ? (
-          <span className="truncate text-[11px] text-emerald-600 dark:text-emerald-400">
+          <span
+            className={sx(
+              terminalSurfacePanelStyles.status,
+              terminalSurfacePanelStyles.statusLive,
+            )}
+          >
             live
           </span>
         ) : null}
         <Button
           variant="ghost"
-          size="sm"
-          className="h-6 w-6 shrink-0 rounded-md p-0 text-muted-foreground"
+          size="icon-xs"
+          xstyle={terminalSurfacePanelStyles.clearButton}
           onClick={clearActiveTranscript}
           aria-label={`clear-terminal-${props.terminalTabId}`}
           disabled={!tab}
         >
-          <Eraser className="size-3" />
+          <Eraser aria-hidden size={12} />
         </Button>
       </div>
-      <div className={TERMINAL_SURFACE_PANEL_CLASS_NAME}>
-        <div className={TERMINAL_SURFACE_VIEWPORT_CLASS_NAME}>
+      <div className={sx(terminalSurfaceStyles.panel)}>
+        <div className={sx(terminalSurfaceStyles.viewport)}>
           {bridgeError ? (
-            <div className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            <div
+              className={sx(
+                terminalSurfacePanelStyles.notice,
+                terminalSurfacePanelStyles.noticeDanger,
+              )}
+            >
               {bridgeError}
             </div>
           ) : null}
           {activeWriteErrorCount > TERMINAL_WRITE_ERROR_THRESHOLD ? (
-            <div className="flex items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+            <div
+              className={sx(
+                terminalSurfacePanelStyles.notice,
+                terminalSurfacePanelStyles.noticeWarning,
+              )}
+            >
               <span>Terminal rendering may be degraded.</span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 px-2 text-[11px] text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200"
+                xstyle={terminalSurfacePanelStyles.restartButton}
                 onClick={restartActiveTerminalRenderer}
                 disabled={!tab}
               >
@@ -293,8 +311,8 @@ function TerminalSurfacePanelContent(props: {
             </div>
           ) : null}
           {!terminalReady ? (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-terminal">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className={sx(terminalSurfacePanelStyles.loadingOverlay)}>
+              <div className={sx(terminalSurfacePanelStyles.loadingLabel)}>
                 <Loader aria-hidden size="xs" variant="spinner" />
                 <span>Initializing terminal…</span>
               </div>

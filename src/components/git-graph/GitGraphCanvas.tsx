@@ -12,6 +12,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Loader } from "@/components/ui/loader";
+import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { buildGraphBranchPaths, graphLaneX } from "@/lib/git-graph/edge-path";
 import { buildGraphLayout } from "@/lib/git-graph/graph-layout";
 import type {
@@ -34,6 +36,7 @@ import {
   WORKING_TREE_SELECTION,
   type GitGraphSelection,
 } from "./useGitGraphData";
+import { gitGraphCanvasStyles as styles } from "./git-graph-canvas.styles";
 
 // Stave-authored colours balanced for light and dark editor surfaces.
 export const GIT_GRAPH_LANE_PALETTE = [
@@ -133,7 +136,7 @@ const GraphSvg = memo(function GraphSvg({
   return (
     <svg
       aria-hidden="true"
-      className="pointer-events-none absolute left-0 top-0 z-[2] overflow-visible"
+      className={sx(styles.svg)}
       width={Math.max(graphWidth, (laneCount + 1) * LANE_WIDTH)}
       height={totalHeight}
     >
@@ -315,7 +318,7 @@ function ResizeHandle({
       role="separator"
       aria-orientation="vertical"
       aria-label={`Resize ${column} column`}
-      className="absolute -left-1 top-0 h-full w-2 cursor-col-resize touch-none hover:bg-primary/30"
+      className={sx(styles.resizeHandle)}
       onPointerDown={onPointerDown}
     />
   );
@@ -494,12 +497,12 @@ export const GitGraphCanvas = forwardRef<
       role="grid"
       aria-label="Commit graph"
       aria-rowcount={rowCount + 1}
-      className="flex min-h-0 min-w-0 flex-1 flex-col bg-editor"
+      className={sx(styles.root)}
     >
-      <div className="h-8 shrink-0 overflow-hidden border-b border-border/65 bg-editor-muted/45">
+      <div className={sx(styles.headerBar)}>
         <div
           role="row"
-          className="grid h-full items-center text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground"
+          className={sx(styles.headerRow)}
           style={{
             width: Math.max(minWidth, virtualRows.viewportWidth),
             transform: `translateX(${-virtualRows.scrollLeft}px)`,
@@ -509,14 +512,11 @@ export const GitGraphCanvas = forwardRef<
             }),
           }}
         >
-          <div role="columnheader" className="px-3">
+          <div role="columnheader" className={sx(styles.headerCellLead)}>
             Graph / Description
           </div>
           {columns.author ? (
-            <div
-              role="columnheader"
-              className="relative h-full border-l border-border/40 px-2.5 py-2"
-            >
+            <div role="columnheader" className={sx(styles.headerCell)}>
               <ResizeHandle
                 column="author"
                 width={columnWidths.author}
@@ -526,10 +526,7 @@ export const GitGraphCanvas = forwardRef<
             </div>
           ) : null}
           {columns.date ? (
-            <div
-              role="columnheader"
-              className="relative h-full border-l border-border/40 px-2.5 py-2"
-            >
+            <div role="columnheader" className={sx(styles.headerCell)}>
               <ResizeHandle
                 column="date"
                 width={columnWidths.date}
@@ -539,10 +536,7 @@ export const GitGraphCanvas = forwardRef<
             </div>
           ) : null}
           {columns.hash ? (
-            <div
-              role="columnheader"
-              className="relative h-full border-l border-border/40 px-2.5 py-2"
-            >
+            <div role="columnheader" className={sx(styles.headerCell)}>
               <ResizeHandle
                 column="hash"
                 width={columnWidths.hash}
@@ -557,10 +551,10 @@ export const GitGraphCanvas = forwardRef<
       <div
         ref={setScrollRef}
         tabIndex={0}
-        className="relative min-h-0 flex-1 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40"
+        className={sx(styles.scroller, focusRing.ring, focusRing.ringInset)}
       >
         <div
-          className="relative w-full"
+          className={sx(styles.canvas)}
           style={{ height: rowCount * ROW_HEIGHT, minWidth }}
         >
           <GraphSvg
@@ -583,7 +577,7 @@ export const GitGraphCanvas = forwardRef<
               return (
                 <div
                   key={WORKING_TREE_SELECTION}
-                  className="absolute left-0 right-0"
+                  className={sx(styles.rowSlot)}
                   style={{ top: 0, height: ROW_HEIGHT }}
                 >
                   <GitGraphWorkingTreeRow
@@ -605,7 +599,7 @@ export const GitGraphCanvas = forwardRef<
             return (
               <div
                 key={commit.hash}
-                className="absolute left-0 right-0"
+                className={sx(styles.rowSlot)}
                 style={{
                   top: rowIndex * ROW_HEIGHT,
                   height: ROW_HEIGHT,
@@ -629,7 +623,7 @@ export const GitGraphCanvas = forwardRef<
           })}
         </div>
         {loadingMore ? (
-          <div className="sticky bottom-2 ml-auto mr-2 flex w-max items-center gap-1.5 rounded-md border border-border/70 bg-popover/95 px-2 py-1 text-[10px] text-muted-foreground shadow-sm">
+          <div className={sx(styles.loadingMore)}>
             <Loader aria-hidden size="xs" variant="scan" />
             Loading more commits…
           </div>

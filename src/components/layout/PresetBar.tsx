@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useCallback, useState } from "react";
 import { Cog, Ellipsis, SquareTerminal } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -15,9 +16,12 @@ import {
 } from "@/components/ui";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { type TaskPreset } from "@/lib/task-presets";
-import { cn } from "@/lib/utils";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { TaskPresetEditor } from "@/components/layout/task-preset-editor";
+import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { presetBarStyles as styles } from "./preset-bar.styles";
 
 type PresetEditorTarget = { kind: "edit"; presetId: string } | null;
 
@@ -87,14 +91,8 @@ export function PresetBar() {
   }, []);
 
   return (
-    <div
-      className={cn(
-        "flex min-w-0 shrink-0 items-center gap-2",
-        "border-b border-border/70 bg-muted/20 px-2 py-1",
-      )}
-      data-testid="preset-bar"
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+    <div className={sx(styles.root)} data-testid="preset-bar">
+      <div className={sx(styles.chips)}>
         {presets.map((preset) => (
           <PresetChip
             key={preset.id}
@@ -118,7 +116,7 @@ export function PresetBar() {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-foreground"
+            xstyle={styles.restore}
             onClick={() => resetTaskPresetsToDefault()}
           >
             Restore default presets
@@ -126,16 +124,16 @@ export function PresetBar() {
         ) : null}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div className={sx(styles.trailing)}>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+          xstyle={styles.manage}
           aria-label="Manage presets"
           onClick={handleOpenPresetSettings}
         >
-          <Cog className="size-3.5" />
+          <Cog className={sx(styles.chipIcon)} />
         </Button>
       </div>
     </div>
@@ -175,37 +173,31 @@ function PresetChip(props: PresetChipProps) {
       <PopoverAnchor
         render={
           <div
-            className={cn(
-              "group relative flex h-7 shrink-0 items-stretch rounded-md border border-border/60",
-              "bg-card/70 text-foreground shadow-sm transition-colors hover:bg-card",
-              "focus-within:ring-1 focus-within:ring-primary/40",
-            )}
+            className={sx(styles.chip, transition.colors, focusRing.ringWithin)}
             data-preset-id={preset.id}
           />
         }
       >
-        <button
+        <AdsButton
+          layout="host"
           type="button"
           onClick={() => onApply(preset)}
-          className={cn(
-            "flex min-w-0 items-center gap-1.5 rounded-l-md px-2 text-xs",
-            "outline-none focus-visible:ring-1 focus-visible:ring-primary/40",
-          )}
+          xstyle={styles.chipApply}
           title={buildChipTitle(preset)}
         >
           <ModelIcon
             providerId={preset.provider}
             model={preset.model}
-            className="size-3.5 shrink-0"
+            className={sx(styles.chipIcon)}
           />
-          <span className="truncate max-w-[140px]">{preset.label}</span>
+          <span className={sx(styles.chipLabel)}>{preset.label}</span>
           {preset.kind === "cli-session" ? (
             <SquareTerminal
-              className="size-3 shrink-0 text-muted-foreground"
+              className={sx(styles.chipCliMark)}
               aria-label="CLI session"
             />
           ) : null}
-        </button>
+        </AdsButton>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -213,20 +205,16 @@ function PresetChip(props: PresetChipProps) {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className={cn(
-                  "h-full w-5 shrink-0 rounded-l-none rounded-r-md px-0 text-muted-foreground",
-                  "opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100",
-                  "data-open:opacity-100",
-                )}
+                xstyle={[styles.chipActions, transition.fade]}
                 aria-label="Preset actions"
               />
             }
           >
-            <Ellipsis className="size-3" />
+            <Ellipsis className={sx(styles.chipActionsIcon)} />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="w-40"
+            className={sx(styles.chipMenu)}
             // Keep focus where it is when the menu closes after "Edit…".
             // The default focus return lands outside the freshly opened
             // preset editor Popover and immediately dismisses it.
@@ -242,7 +230,7 @@ function PresetChip(props: PresetChipProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </PopoverAnchor>
-      <PopoverContent align="start" className="w-72">
+      <PopoverContent align="start" xstyle={styles.chipEditor}>
         <TaskPresetEditor
           initialPreset={preset}
           submitLabel="Save"

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { sx } from "@/components/ads/utils/stylex";
+import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { X } from "lucide-react";
 import { Button, PopoverContent } from "@/components/ui";
 import { StandaloneCliTabBar } from "@/components/layout/standalone-cli/StandaloneCliTabBar";
@@ -18,13 +20,8 @@ export function buildStandaloneCliEmptyStateText() {
  * terminal against, so it shrinks to its message rather than parking a 40rem
  * void under the top bar.
  */
-export function buildStandaloneCliPopoverClassName(args: {
-  folderPath: string;
-}) {
-  if (!args.folderPath) {
-    return "w-[min(34rem,92vw)] gap-0 p-0";
-  }
-  return "h-[min(40rem,var(--available-height,100vh))] w-[min(60rem,92vw)] min-h-0 min-w-0 gap-0 overflow-hidden p-0";
+export function buildStandaloneCliPopoverStyle(args: { folderPath: string }) {
+  return args.folderPath ? styles.popoverTerminal : styles.popoverEmpty;
 }
 
 /** Prop-driven so the panel can be asserted without a popover or a store. */
@@ -43,13 +40,13 @@ export function StandaloneCliPanel(props: {
     <section
       data-testid="standalone-cli-panel"
       aria-label="Standalone CLI"
-      className="flex h-full w-full min-h-0 min-w-0 flex-col overflow-hidden"
+      className={sx(styles.panel)}
     >
-      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className={sx(styles.panelHeader)}>
+        <div className={sx(styles.panelHeaderLead)}>
           <StandaloneCliTabBar />
           <span
-            className="truncate font-mono text-xs text-muted-foreground"
+            className={sx(styles.folderLabel)}
             title={folderPath || undefined}
           >
             {folderLabel}
@@ -60,10 +57,10 @@ export function StandaloneCliPanel(props: {
           variant="ghost"
           size="sm"
           aria-label="Close Standalone CLI"
-          className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+          xstyle={styles.closeButton}
           onClick={onClose}
         >
-          <X className="size-4" />
+          <X />
         </Button>
       </header>
       {folderPath ? (
@@ -72,8 +69,8 @@ export function StandaloneCliPanel(props: {
         // and the xterm buffer intact, so reopening is a repaint.
         <StandaloneCliTerminal folderPath={folderPath} visible={visible} />
       ) : (
-        <div className="flex flex-col items-start gap-3 px-4 py-6">
-          <p className="text-sm text-muted-foreground">
+        <div className={sx(styles.emptyState)}>
+          <p className={sx(styles.emptyStateText)}>
             {buildStandaloneCliEmptyStateText()}
           </p>
           <Button
@@ -121,7 +118,7 @@ export function StandaloneCliPopoverContent() {
       align="end"
       sideOffset={6}
       collisionPadding={12}
-      className={buildStandaloneCliPopoverClassName({ folderPath })}
+      xstyle={buildStandaloneCliPopoverStyle({ folderPath })}
     >
       {booted ? (
         <StandaloneCliPanel

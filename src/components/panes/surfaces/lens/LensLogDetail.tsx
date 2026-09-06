@@ -1,3 +1,6 @@
+import { chromeStyles } from "./lens-chrome.styles";
+import { sx } from "../../../ads/utils/stylex";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   useCallback,
   useState,
@@ -21,13 +24,13 @@ import type {
   BrowserNetworkTiming,
   LensDiagnosticsCaptureState,
 } from "@/lib/lens/lens.types";
-import { cn } from "@/lib/utils";
+import { detailStyles as d } from "./lens-detail.styles";
+import { focusRing } from "../../../ads/recipes/focus-ring";
+import { transition } from "../../../ads/recipes/transition";
 
-export const LENS_TOOL_ACTIVE_CLASS =
-  "border-primary/50 bg-primary/10 text-primary shadow-sm hover:bg-primary/15 hover:text-primary dark:bg-primary/15";
-export const LENS_TOOL_INACTIVE_CLASS =
-  "text-muted-foreground hover:text-foreground";
-export const LENS_TOOL_ICON_CLASS = "size-4";
+export const LENS_TOOL_ACTIVE_CLASS = sx(chromeStyles.toolActive);
+export const LENS_TOOL_INACTIVE_CLASS = sx(chromeStyles.toolInactive);
+export const LENS_TOOL_ICON_CLASS = sx(chromeStyles.toolIcon);
 
 export type LensLogDetailTab = {
   id: string;
@@ -41,10 +44,10 @@ export function LensLogDetailBlock(props: {
 }) {
   return (
     <div>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className={sx(d.label)}>
         {props.label}
       </div>
-      <div className="mt-1 rounded-md border border-border/70 bg-background/75 p-2 font-mono text-[11px] leading-relaxed text-foreground">
+      <div className={sx(d.block)}>
         {props.children}
       </div>
     </div>
@@ -103,19 +106,16 @@ export function ConsoleInspectableRow(props: {
 
   return (
     <div
-      className={cn(
-        "rounded-md border border-border/70 bg-background/70",
-        depth > 0 && "ml-4",
-      )}
+      className={sx(d.object, depth > 0 && d.nested)}
       data-console-entry-id={entryId}
     >
-      <div className="flex min-w-0 items-start gap-1.5 px-2 py-1.5">
+      <div className={sx(d.objectRow)}>
         {canExpand ? (
           <Button
             type="button"
             size="icon-xs"
             variant="ghost"
-            className="mt-[-2px] size-6 shrink-0"
+            xstyle={d.toggle}
             onClick={() => void toggleExpanded()}
             aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
             aria-expanded={expanded}
@@ -124,28 +124,25 @@ export function ConsoleInspectableRow(props: {
               <Loader size="xs" variant="scan" />
             ) : (
               <ChevronRight
-                className={cn(
-                  "size-3 transition-transform duration-150 motion-reduce:transition-none",
-                  expanded && "rotate-90",
-                )}
+                className={sx(d.chevron, expanded && d.expanded)}
               />
             )}
           </Button>
         ) : (
-          <span className="block size-6 shrink-0" aria-hidden />
+          <span className={sx(d.spacer)} aria-hidden />
         )}
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 font-mono text-[11px]">
-            <span className="shrink-0 text-primary">{label}</span>
-            <span className="break-all text-foreground">
+        <div className={sx(d.fill)}>
+          <div className={sx(d.valueRow)}>
+            <span className={sx(d.property)}>{label}</span>
+            <span className={sx(d.value)}>
               {formatConsoleInspectableValue(value)}
             </span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className={sx(d.hint)}>
               {value.subtype ?? value.type}
             </span>
           </div>
           {!expanded && preview?.properties.length ? (
-            <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground">
+            <p className={sx(d.preview)}>
               {preview.properties
                 .slice(0, 4)
                 .map(
@@ -159,9 +156,9 @@ export function ConsoleInspectableRow(props: {
         </div>
       </div>
       {expanded ? (
-        <div className="space-y-1 border-t border-border/60 p-1.5">
+        <div className={sx(d.properties)}>
           {error ? (
-            <div className="rounded-md bg-destructive/10 px-2 py-1.5 text-[11px] text-destructive">
+            <div className={sx(d.error)}>
               {error}
             </div>
           ) : properties?.properties.length ? (
@@ -177,17 +174,17 @@ export function ConsoleInspectableRow(props: {
                 />
               ))}
               {properties.overflow ? (
-                <p className="px-2 py-1 text-[10px] text-muted-foreground">
+                <p className={sx(d.note)}>
                   Additional properties were omitted by the capture limit.
                 </p>
               ) : null}
             </>
           ) : loading ? (
-            <p className="px-2 py-1 text-[11px] text-muted-foreground">
+            <p className={sx(d.note)}>
               Loading properties…
             </p>
           ) : (
-            <p className="px-2 py-1 text-[11px] text-muted-foreground">
+            <p className={sx(d.note)}>
               No enumerable properties.
             </p>
           )}
@@ -204,7 +201,7 @@ export function DetailLoadState(props: {
 }) {
   if (props.loading) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-border/70 bg-background/70 px-3 py-2 text-[11px] text-muted-foreground">
+      <div className={sx(d.state)}>
         <Loader aria-hidden size="xs" variant="scan" />
         Loading diagnostic detail…
       </div>
@@ -212,13 +209,13 @@ export function DetailLoadState(props: {
   }
   if (props.error) {
     return (
-      <div className="rounded-md bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+      <div className={sx(d.error, d.stateError)}>
         {props.error}
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-border/70 bg-background/70 px-3 py-2 text-[11px] text-muted-foreground">
+    <div className={sx(d.state)}>
       {props.empty}
     </div>
   );
@@ -270,9 +267,9 @@ export function NetworkBodyView(props: {
 
   const content = body ? formatNetworkBodyContent(body) : "";
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-        <span className="rounded-full bg-muted px-2 py-0.5 font-medium uppercase">
+    <div className={sx(d.stack)}>
+      <div className={sx(d.metadata)}>
+        <span className={sx(d.kind)}>
           {resolved.kind}
         </span>
         {resolved.mimeType ? <span>{resolved.mimeType}</span> : null}
@@ -283,12 +280,12 @@ export function NetworkBodyView(props: {
             : ""}
         </span>
         {resolved.redacted ? (
-          <span className="rounded-full bg-warning/10 px-2 py-0.5 font-medium text-warning">
+          <span className={sx(d.warning)}>
             Sensitive fields redacted
           </span>
         ) : null}
         {resolved.truncated ? (
-          <span className="rounded-full bg-warning/10 px-2 py-0.5 font-medium text-warning">
+          <span className={sx(d.warning)}>
             Truncated
           </span>
         ) : null}
@@ -301,7 +298,7 @@ export function NetworkBodyView(props: {
         />
       ) : content ? (
         <LensLogDetailBlock label={label}>
-          <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-all">
+          <pre className={sx(d.body)}>
             {content}
           </pre>
         </LensLogDetailBlock>
@@ -336,22 +333,22 @@ export function NetworkTimingView(props: {
     1,
   );
   return (
-    <div className="space-y-3">
+    <div className={sx(d.spacedStack)}>
       <LensLogDetailBlock label="Raw timestamps">
-        <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
-          <dt className="text-muted-foreground">Request monotonic</dt>
+        <dl className={sx(d.timestamps)}>
+          <dt className={sx(d.muted)}>Request monotonic</dt>
           <dd>{props.timing.requestTimestamp}</dd>
-          <dt className="text-muted-foreground">Wall time</dt>
+          <dt className={sx(d.muted)}>Wall time</dt>
           <dd>{props.timing.wallTime ?? "-"}</dd>
-          <dt className="text-muted-foreground">Response monotonic</dt>
+          <dt className={sx(d.muted)}>Response monotonic</dt>
           <dd>{props.timing.responseTimestamp ?? "-"}</dd>
-          <dt className="text-muted-foreground">Finished monotonic</dt>
+          <dt className={sx(d.muted)}>Finished monotonic</dt>
           <dd>{props.timing.finishedTimestamp ?? "-"}</dd>
         </dl>
       </LensLogDetailBlock>
       {phases.length ? (
-        <div className="overflow-hidden rounded-md border border-border/70 bg-background/70">
-          <div className="grid grid-cols-[4.5rem_3.5rem_3.5rem_minmax(7rem,1fr)] gap-2 border-b border-border/60 px-2 py-1.5 text-[10px] font-medium uppercase text-muted-foreground">
+        <div className={sx(d.table)}>
+          <div className={sx(d.phaseRow, d.phaseHeading)}>
             <span>Phase</span>
             <span>Start</span>
             <span>Time</span>
@@ -362,20 +359,20 @@ export function NetworkTimingView(props: {
             return (
               <div
                 key={phase.label}
-                className="grid grid-cols-[4.5rem_3.5rem_3.5rem_minmax(7rem,1fr)] items-center gap-2 border-b border-border/50 px-2 py-1.5 text-[10px] last:border-b-0"
+                className={sx(d.phaseRow)}
               >
-                <span className="font-medium text-foreground">
+                <span className={sx(d.phaseName)}>
                   {phase.label}
                 </span>
-                <span className="font-mono text-muted-foreground">
+                <span className={sx(d.monoMuted)}>
                   {formatDuration(phase.start)}
                 </span>
-                <span className="font-mono text-muted-foreground">
+                <span className={sx(d.monoMuted)}>
                   {formatDuration(duration)}
                 </span>
-                <span className="relative h-2 overflow-hidden rounded-full bg-muted">
+                <span className={sx(d.track)}>
                   <span
-                    className="absolute inset-y-0 rounded-full bg-primary/70"
+                    className={sx(d.bar)}
                     style={{
                       left: `${Math.min(100, (phase.start / maxEnd) * 100)}%`,
                       width: `${Math.max(2, (duration / maxEnd) * 100)}%`,
@@ -408,7 +405,7 @@ export function NetworkWaterfallCell(props: {
       : Math.max(3, Math.min(100, (duration / props.maxDurationMs) * 100));
   return (
     <span
-      className="relative h-1.5 overflow-hidden rounded-full bg-muted"
+      className={sx(d.track, d.smallTrack)}
       aria-label={
         props.entry.state === "pending"
           ? "Request pending"
@@ -416,14 +413,7 @@ export function NetworkWaterfallCell(props: {
       }
     >
       <span
-        className={cn(
-          "absolute inset-y-0 left-0 rounded-full",
-          props.entry.state === "failed"
-            ? "bg-destructive/75"
-            : "bg-primary/70",
-          props.entry.state === "pending" &&
-            "animate-pulse motion-reduce:animate-none",
-        )}
+        className={sx(d.bar, d.barOrigin, props.entry.state === "failed" && d.failed)}
         style={{ width: `${width}%` }}
       />
     </span>
@@ -440,15 +430,15 @@ export function LensDiagnosticsCaptureControls(props: {
   const enabled = Boolean(state?.enabled);
   return (
     <div
-      className="flex min-w-0 items-center gap-1"
+      className={sx(d.capture)}
       aria-live="polite"
       title={state?.message}
     >
       {enabled ? (
         <>
-          <span className="flex min-w-0 items-center gap-1.5 rounded-full bg-success/10 px-2 py-1 text-[10px] font-medium text-success">
-            <span className="size-1.5 shrink-0 rounded-full bg-success" />
-            <span className="truncate">
+          <span className={sx(d.captureStatus)}>
+            <span className={sx(d.dot)} />
+            <span className={sx(d.truncated)}>
               Full capture · {state?.host ?? "current host"}
             </span>
           </span>
@@ -456,7 +446,7 @@ export function LensDiagnosticsCaptureControls(props: {
             type="button"
             size="xs"
             variant="ghost"
-            className="h-7 px-2 text-[11px]"
+            xstyle={d.captureButton}
             disabled={disabled || busy}
             onClick={() => onChange(false)}
             aria-label="Stop full diagnostics capture"
@@ -464,7 +454,7 @@ export function LensDiagnosticsCaptureControls(props: {
             {busy ? (
               <Loader aria-hidden size="xs" variant="scan" />
             ) : (
-              <Square className="size-3 fill-current" />
+              <Square className={sx(d.stopIcon)} />
             )}
             Stop
           </Button>
@@ -474,7 +464,7 @@ export function LensDiagnosticsCaptureControls(props: {
           type="button"
           size="xs"
           variant="ghost"
-          className="h-7 px-2 text-[11px]"
+          xstyle={d.captureButton}
           disabled={disabled || busy}
           onClick={() => onChange(true)}
           aria-label="Enable full diagnostics capture for the current host"
@@ -482,7 +472,7 @@ export function LensDiagnosticsCaptureControls(props: {
           {busy ? (
             <Loader aria-hidden size="xs" variant="scan" />
           ) : (
-            <Crosshair className="size-3.5" />
+            <Crosshair className={sx(d.icon)} />
           )}
           Full capture
         </Button>
@@ -545,14 +535,14 @@ export function LensLogEntryDetail(props: {
       aria-label={ariaLabel}
       data-testid={testId}
       data-lens-inspector-placement="right"
-      className="order-last h-full min-h-0 w-[min(38%,34rem)] min-w-[min(18rem,48%)] max-w-[48%] shrink-0 overflow-auto border-l border-border bg-card"
+      className={sx(d.inspector)}
     >
-      <div className="sticky top-0 z-10 border-b border-border bg-card">
-        <div className="flex items-center justify-between gap-3 px-3 py-2">
-          <span className="text-xs font-semibold text-foreground">
+      <div className={sx(d.sticky)}>
+        <div className={sx(d.header)}>
+          <span className={sx(d.title)}>
             Entry details
           </span>
-          <div className="flex items-center gap-1">
+          <div className={sx(d.actions)}>
             <Button
               type="button"
               size="icon-xs"
@@ -560,7 +550,7 @@ export function LensLogEntryDetail(props: {
               onClick={onCopy}
               aria-label={`Copy ${ariaLabel.toLowerCase()}`}
             >
-              <Copy className="size-3.5" />
+              <Copy className={sx(d.icon)} />
             </Button>
             <Button
               type="button"
@@ -569,19 +559,19 @@ export function LensLogEntryDetail(props: {
               onClick={onClose}
               aria-label={`Close ${ariaLabel.toLowerCase()}`}
             >
-              <X className="size-3.5" />
+              <X className={sx(d.icon)} />
             </Button>
           </div>
         </div>
         <div
           role="tablist"
           aria-label={`${ariaLabel} sections`}
-          className="flex min-w-0 items-center gap-1 overflow-x-auto px-2"
+          className={sx(d.tablist)}
         >
           {tabs.map((tab, index) => {
             const selected = tab.id === activeTab?.id;
             return (
-              <button
+              <AdsButton layout="host"
                 key={tab.id}
                 id={`${testId}-${tab.id}-tab`}
                 type="button"
@@ -589,27 +579,24 @@ export function LensLogEntryDetail(props: {
                 aria-selected={selected}
                 aria-controls={`${testId}-${tab.id}-panel`}
                 tabIndex={selected ? 0 : -1}
-                className={cn(
-                  "relative h-8 shrink-0 px-2 text-[11px] font-medium text-muted-foreground outline-none transition-colors after:absolute after:inset-x-2 after:bottom-0 after:h-px after:scale-x-0 after:bg-primary after:transition-transform hover:text-foreground focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring",
-                  selected && "text-foreground after:scale-x-100",
-                )}
+                xstyle={[d.tab, transition.colors, focusRing.ringInset, selected && d.selectedTab]}
                 onClick={() => onActiveTabChange(tab.id)}
                 onKeyDown={(event) => moveTabFocus(event, index)}
               >
                 {tab.label}
-              </button>
+              </AdsButton>
             );
           })}
         </div>
       </div>
-      <div className="space-y-3 p-3">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+      <div className={sx(d.spacedStack, d.content)}>
+        <dl className={sx(d.fields)}>
           {fields.map((field) => (
-            <div key={field.label} className="min-w-0">
-              <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <div key={field.label} className={sx(d.field)}>
+              <dt className={sx(d.label)}>
                 {field.label}
               </dt>
-              <dd className="mt-0.5 break-words font-mono text-[11px] text-foreground">
+              <dd className={sx(d.fieldValue)}>
                 {field.value}
               </dd>
             </div>
@@ -621,7 +608,7 @@ export function LensLogEntryDetail(props: {
             role="tabpanel"
             aria-labelledby={`${testId}-${activeTab.id}-tab`}
             tabIndex={0}
-            className="space-y-3 outline-none focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-ring"
+            className={sx(d.spacedStack, focusRing.ringInset)}
           >
             {activeTab.content}
           </div>

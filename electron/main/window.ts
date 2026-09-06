@@ -1,4 +1,5 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, dialog } from "electron";
+import { createRendererRecovery } from "./renderer-recovery";
 import { abortPendingLensGuestRequests } from "./browser/browser-guest-broker";
 import { installLensWebviewAttachClamp } from "./browser/browser-webview-attach";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
@@ -82,7 +83,30 @@ export function createMainWindow() {
   });
 
   mainWindow = window;
+  const recovery = createRendererRecovery({
+    isDestroyed: () => window.isDestroyed() || window.webContents.isDestroyed(),
+    reload: () => window.webContents.reload(),
+    choose: async (failure, signal) => {
+      const { response } = await dialog.showMessageBox(window, {
+        type: "warning",
+        title: "Stave",
+        message:
+          failure === "crashed"
+            ? "The Stave conversation window stopped."
+            : "The Stave conversation window is not responding.",
+        detail:
+          "Reload to restore saved work. Recent changes that were not saved may be lost. Running tasks may continue in the background; check their activity after reloading before starting another run. Reloading does not resend your request.",
+        buttons: ["Reload window", "Keep open"],
+        defaultId: 1,
+        cancelId: 1,
+        noLink: true,
+        signal,
+      });
+      return response === 0 ? "reload" : "stay";
+    },
+  });
   window.on("closed", () => {
+    recovery.dispose();
     mainWindow = null;
     /*
      * Every outstanding Lens request was waiting on this renderer. Without this
@@ -115,13 +139,16 @@ export function createMainWindow() {
   // A Lens guest is a `<webview>` in this window's document now, so a reload or
   // a renderer hang cannot leave one painting over freshly mounted UI: the
   // element goes away with the document, and it lives behind every overlay
-  // plane regardless. Only the renderer-health metrics remain here.
+  // plane regardless. Recovery must be main-owned because React is unavailable.
   window.on("unresponsive", () => {
     recordRendererUnresponsive();
+    recovery.failed("unresponsive");
   });
   window.on("responsive", () => {
     recordRendererResponsive();
+    recovery.responsive();
   });
+  window.webContents.on("did-finish-load", () => recovery.restored());
   window.webContents.on("render-process-gone", (_event, details) => {
     recordRendererProcessGone(details.reason);
     // The renderer that owed these answers is gone, and every Lens guest died
@@ -129,6 +156,7 @@ export function createMainWindow() {
     abortPendingLensGuestRequests(
       "The Stave window's renderer stopped before Lens could answer",
     );
+    if (details.reason !== "clean-exit") recovery.failed("crashed");
   });
 
   window.webContents.session.setPermissionRequestHandler(

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   appendServiceEntryToRawConfig,
+  appendScriptEntryToRawConfig,
   buildScriptConfigFromEditorState,
   buildScriptEditorState,
   collectScriptIdsFromRaw,
@@ -17,6 +18,20 @@ import type {
   ResolvedWorkspaceScriptsConfig,
   WorkspaceScriptsConfig,
 } from "../src/lib/workspace-scripts/types";
+
+test("quick-added commands preserve existing services, targets and triggers", () => {
+  const raw = {
+    services: { dev: { commands: ["bun run dev"] } },
+    targets: { custom: { cwd: "project" } },
+    hooks: { "turn.completed": ["check"] },
+  };
+  const next = appendScriptEntryToRawConfig({ rawConfig: raw, id: "check", label: "Check", commands: ["bun run typecheck"], kind: "action" });
+  expect(next).toMatchObject({
+    ...raw,
+    actions: { check: { label: "Check", commands: ["bun run typecheck"], target: "workspace" } },
+  });
+  expect(raw).not.toHaveProperty("actions");
+});
 
 describe("buildScriptEditorState", () => {
   test("hydrates entries and hook links from shared config", () => {

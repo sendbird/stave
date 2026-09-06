@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/table";
 import { normalizeExternalUrl } from "@/lib/external-links";
 import { parseMarkdownFrontmatter } from "@/lib/markdown-frontmatter";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { editorMarkdownPreviewStyles as styles } from "@/components/layout/editor-markdown-preview.styles";
 
 interface EditorMarkdownPreviewProps extends HTMLAttributes<HTMLDivElement> {
   content: string;
@@ -61,7 +62,7 @@ function renderRelativeLink(href: string | undefined, children: ReactNode) {
   return (
     <a
       href={href}
-      className="text-primary underline underline-offset-2"
+      className={sx(styles.link)}
       onClick={(event) => {
         event.preventDefault();
       }}
@@ -86,13 +87,11 @@ export function EditorMarkdownPreview({
   );
 
   return (
-    <div className={cn("h-full overflow-auto bg-editor", className)} {...props}>
+    <div className={cx(sx(styles.root), className)} {...props}>
       <div
-        className={cn(
-          "flex min-h-full w-full flex-col text-editor-foreground",
-          isEmbedded
-            ? "max-w-none px-0 py-0 text-left"
-            : "mx-auto max-w-4xl px-6 py-5",
+        className={sx(
+          styles.page,
+          isEmbedded ? styles.pageEmbedded : styles.pageEditor,
         )}
         style={{ fontSize: `${fontSize}px`, lineHeight: 1.7 }}
       >
@@ -102,52 +101,52 @@ export function EditorMarkdownPreview({
         />
         {/* Wrapper keeps `first:` heading margins scoped to the body even when
             the frontmatter card renders above it. */}
-        <div className="min-w-0">
+        <div className={sx(styles.body)}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkHtmlBreaks]}
             components={{
               h1: ({ children }) => (
-                <h1 className="mt-2 mb-5 text-3xl font-semibold tracking-tight first:mt-0">
+                <h1 className={sx(styles.h1)}>
                   {children}
                 </h1>
               ),
               h2: ({ children }) => (
-                <h2 className="mt-8 mb-3 border-b border-border/70 pb-2 text-2xl font-semibold tracking-tight first:mt-0">
+                <h2 className={sx(styles.h2)}>
                   {children}
                 </h2>
               ),
               h3: ({ children }) => (
-                <h3 className="mt-6 mb-2 text-xl font-semibold tracking-tight">
+                <h3 className={sx(styles.h3)}>
                   {children}
                 </h3>
               ),
               h4: ({ children }) => (
-                <h4 className="mt-5 mb-2 text-base font-semibold tracking-tight">
+                <h4 className={sx(styles.h4)}>
                   {children}
                 </h4>
               ),
               p: ({ children }) => (
-                <p className="my-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere] first:mt-0 last:mb-0">
+                <p className={sx(styles.paragraph)}>
                   {children}
                 </p>
               ),
               ul: ({ children }) => (
-                <ul className="my-3 ml-5 list-disc space-y-1 marker:text-muted-foreground">
+                <ul className={sx(styles.list, styles.listUnordered)}>
                   {children}
                 </ul>
               ),
               ol: ({ children }) => (
-                <ol className="my-3 ml-5 list-decimal space-y-1 marker:text-muted-foreground">
+                <ol className={sx(styles.list, styles.listOrdered)}>
                   {children}
                 </ol>
               ),
-              li: ({ children }) => <li className="[&_p]:my-0">{children}</li>,
+              li: ({ children }) => <li className={sx(styles.listItem)}>{children}</li>,
               blockquote: ({ children }) => (
-                <blockquote className="my-4 border-l-2 border-border pl-4 text-muted-foreground">
+                <blockquote className={sx(styles.blockquote)}>
                   {children}
                 </blockquote>
               ),
-              hr: () => <hr className="my-6 h-px border-0 bg-border" />,
+              hr: () => <hr className={sx(styles.rule)} />,
               code: ({ className: codeClassName, children }) => {
                 const language = /language-([^\s]+)/.exec(
                   codeClassName ?? "",
@@ -158,12 +157,12 @@ export function EditorMarkdownPreview({
 
                 if (isBlock) {
                   return (
-                    <div className="my-4 overflow-hidden rounded-md border border-border/70">
-                      <div className="border-b border-border/70 bg-editor-muted px-3 py-1.5 text-[11px] font-medium tracking-[0.08em] text-muted-foreground uppercase">
+                    <div className={sx(styles.codeBlock)}>
+                      <div className={sx(styles.codeBlockLanguage)}>
                         {language ?? "text"}
                       </div>
                       <pre
-                        className="overflow-x-auto bg-editor px-4 py-3 font-mono text-editor-foreground"
+                        className={sx(styles.codeBlockPre)}
                         style={{ fontSize: `${codeFontSize}px`, lineHeight: 1.6 }}
                       >
                         <code>{code}</code>
@@ -174,7 +173,7 @@ export function EditorMarkdownPreview({
 
                 return (
                   <code
-                    className="mx-0.5 rounded-md border border-border/80 bg-muted/40 px-1.5 py-0.5 font-mono"
+                    className={sx(styles.inlineCode)}
                     style={{ fontSize: `${codeFontSize}px` }}
                   >
                     {children}
@@ -188,33 +187,30 @@ export function EditorMarkdownPreview({
                 }
 
                 return (
-                  <ExternalAnchor
-                    href={href}
-                    className="text-primary underline underline-offset-2"
-                  >
+                  <ExternalAnchor href={href} xstyle={styles.link}>
                     {children}
                   </ExternalAnchor>
                 );
               },
               table: ({ children }) => (
-                <Table className="my-4 w-full table-fixed border-separate border-spacing-0 rounded-md border border-border/70 bg-card text-left">
+                <Table className={sx(styles.table)}>
                   {children}
                 </Table>
               ),
               thead: ({ children }) => (
-                <TableHeader className="bg-muted/40">{children}</TableHeader>
+                <TableHeader className={sx(styles.tableHeader)}>{children}</TableHeader>
               ),
               tbody: ({ children }) => <TableBody>{children}</TableBody>,
               tr: ({ children }) => (
-                <TableRow className="hover:bg-muted/30">{children}</TableRow>
+                <TableRow className={sx(styles.tableRow)}>{children}</TableRow>
               ),
               th: ({ children }) => (
-                <TableHead className="h-auto border-r border-border/70 px-3 py-2 align-top whitespace-normal break-words [overflow-wrap:anywhere] last:border-r-0">
+                <TableHead className={sx(styles.tableCell)}>
                   {children}
                 </TableHead>
               ),
               td: ({ children }) => (
-                <TableCell className="border-r border-border/70 px-3 py-2 align-top whitespace-normal break-words [overflow-wrap:anywhere] last:border-r-0">
+                <TableCell className={sx(styles.tableCell)}>
                   {children}
                 </TableCell>
               ),

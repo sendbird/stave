@@ -17,6 +17,8 @@ import { ScriptsManager } from "@/components/scripts";
 import { useAppStore } from "@/store/app.store";
 import type { RecentProjectState } from "@/store/project.utils";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
+import { sx } from "@/components/ads/utils/stylex";
+import { scriptsSectionStyles } from "./settings-dialog-scripts-section.styles";
 
 export function ScriptsSection(props: {
   projects: RecentProjectState[];
@@ -120,12 +122,12 @@ export function ScriptsSection(props: {
   }, [activeWorkspaceId, isCurrent, workspaceBranchById, workspaces]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className={sx(scriptsSectionStyles.root)}>
       {props.projects.length === 0 ? (
-        <Empty className="border border-dashed border-border/70 bg-muted/15">
+        <Empty xstyle={scriptsSectionStyles.emptyState}>
           <EmptyHeader>
             <EmptyMedia>
-              <Sparkles className="size-4" />
+              <Sparkles className={sx(scriptsSectionStyles.emptyIcon)} />
             </EmptyMedia>
             <EmptyTitle>No projects yet</EmptyTitle>
             <EmptyDescription>
@@ -136,15 +138,15 @@ export function ScriptsSection(props: {
         </Empty>
       ) : (
         <>
-          <label className="flex max-w-md flex-col gap-1.5">
-            <span className="text-sm font-medium text-foreground">
+          <label className={sx(scriptsSectionStyles.projectLabel)}>
+            <span className={sx(scriptsSectionStyles.projectLabelText)}>
               Configuration project
             </span>
             <Select
               value={selectedProjectPath ?? undefined}
               onValueChange={(value) => setSelectedProjectPath(value)}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger className={sx(scriptsSectionStyles.triggerFull)}>
                 <SelectValue placeholder="Select a project">
                   {selectedProjectLabel}
                 </SelectValue>

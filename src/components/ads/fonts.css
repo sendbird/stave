@@ -1,0 +1,30 @@
+/*
+ * Webfont loading, split out of `styles.css` so the reasoning can live next to
+ * the imports instead of being compressed to fit that file's line ceiling.
+ *
+ * SANS — static Pretendard, four weights, each its own dynamic subset (92
+ * unicode-range faces per weight, of which a page pulls only the few it needs).
+ *
+ * Four and not nine: 400/500/600 are the weight roles and 700 is what a bare
+ * `<strong>` asks for. Nothing in this repo requests 100/200/300/800/900, and
+ * loading all nine would put 828 files in the build for five weights no one
+ * uses. The non-subset build is one 0.7 MB woff2 PER WEIGHT, downloaded whole
+ * whether or not a page has any Korean in it.
+ *
+ * Pretendard covers Latin and Korean in one face, which is why it replaced
+ * Geist: that stack listed Korean faces as *fallbacks*, so a Korean word inside
+ * an English sentence changed typeface mid-line on whatever face the reader's OS
+ * happened to have.
+ *
+ * MONO — JetBrains Mono, variable (wght 100-800). Pretendard ships no
+ * monospace. Its ligatures are switched off wherever literal code renders
+ * (`CodeBlock`, `fontVariantLigatures: "none"`).
+ *
+ * Neither face ships an italic, which is why `styles.css` sets
+ * `font-synthesis: style`. Full decisions: design-direction.md §5.
+ */
+@import "pretendard/dist/web/static/Pretendard-Regular.css";
+@import "pretendard/dist/web/static/Pretendard-Medium.css";
+@import "pretendard/dist/web/static/Pretendard-SemiBold.css";
+@import "pretendard/dist/web/static/Pretendard-Bold.css";
+@import "@fontsource-variable/jetbrains-mono";

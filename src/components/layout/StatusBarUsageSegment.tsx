@@ -10,7 +10,8 @@ import {
   buildUsageHeadlineWindows,
   headlineUsagePercent,
 } from "@/components/layout/status-bar-usage.utils";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import { useAppStore } from "@/store/app.store";
 import type {
   AccountUsageWindow,
@@ -26,10 +27,10 @@ function formatPercent(usedPercent: number): string {
   return `${Math.round(usedPercent)}%`;
 }
 
-function usageToneClass(usedPercent: number): string {
-  if (usedPercent < 60) return "bg-success";
-  if (usedPercent < 85) return "bg-warning";
-  return "bg-destructive";
+function usageToneStyle(usedPercent: number) {
+  if (usedPercent < 60) return statusBarUsageStyles.toneOk;
+  if (usedPercent < 85) return statusBarUsageStyles.toneWarn;
+  return statusBarUsageStyles.toneDanger;
 }
 
 function clampUsagePercent(usedPercent: number): number {
@@ -65,10 +66,10 @@ function UsageWindowRow({
   const resetLabel = formatResetsIn(resetsAt);
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex min-w-0 items-center justify-between gap-3 text-xs">
-        <span className="truncate text-muted-foreground">{label}</span>
-        <span className="shrink-0 font-mono text-foreground/80">
+    <div className={sx(statusBarUsageStyles.stackTight)}>
+      <div className={sx(statusBarUsageStyles.windowHead)}>
+        <span className={sx(statusBarUsageStyles.windowLabel)}>{label}</span>
+        <span className={sx(statusBarUsageStyles.windowValue)}>
           {formatPercent(usedPercent)} · resets {resetLabel}
         </span>
       </div>
@@ -79,13 +80,13 @@ function UsageWindowRow({
         aria-valuemax={100}
         aria-valuenow={Math.round(normalizedPercent)}
         aria-valuetext={`${formatPercent(usedPercent)} used, resets ${resetLabel}`}
-        className="h-1.5 overflow-hidden rounded-full bg-muted-foreground/15"
+        className={sx(statusBarUsageStyles.meterTrack)}
       >
         <div
           aria-hidden="true"
-          className={cn(
-            "h-full rounded-full",
-            usageToneClass(normalizedPercent),
+          className={sx(
+            statusBarUsageStyles.meterFill,
+            usageToneStyle(normalizedPercent),
           )}
           style={{ width: `${normalizedPercent}%` }}
         />
@@ -97,13 +98,13 @@ function UsageWindowRow({
 function ClaudeDetail({ snapshot }: { snapshot: ClaudeUsageSnapshot | null }) {
   if (!snapshot || snapshot.source === "unavailable") {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className={sx(statusBarUsageStyles.note)}>
         {snapshot?.error ?? "Claude usage unavailable."}
       </p>
     );
   }
   return (
-    <div className="space-y-2">
+    <div className={sx(statusBarUsageStyles.stackSnug)}>
       {snapshot.session ? (
         <UsageWindowRow
           label="Session (5h)"
@@ -125,7 +126,7 @@ function ClaudeDetail({ snapshot }: { snapshot: ClaudeUsageSnapshot | null }) {
           resetsAt={snapshot.fableWeekly.resetsAt}
         />
       ) : null}
-      <p className="text-[10px] text-muted-foreground/70">
+      <p className={sx(statusBarUsageStyles.noteFaint)}>
         source: {snapshot.source}
       </p>
     </div>
@@ -143,22 +144,22 @@ function CodexDetail({ snapshot }: { snapshot: CodexUsageSnapshot | null }) {
     snapshot.buckets.length === 0
   ) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className={sx(statusBarUsageStyles.note)}>
         {snapshot?.error ?? "No Codex rate-limit buckets reported."}
       </p>
     );
   }
   return (
-    <div className="space-y-3">
+    <div className={sx(statusBarUsageStyles.stack)}>
       {snapshot.buckets.map((bucket, index) => (
         <div
           key={`${bucket.limitId ?? "bucket"}:${index}`}
-          className="space-y-1.5"
+          className={sx(statusBarUsageStyles.stackTight)}
         >
-          <p className="text-xs font-medium text-foreground">
+          <p className={sx(statusBarUsageStyles.bucketTitle)}>
             {bucket.limitName ?? bucket.limitId ?? "Rate limit"}
             {bucket.planType ? (
-              <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+              <span className={sx(statusBarUsageStyles.bucketPlan)}>
                 ({bucket.planType})
               </span>
             ) : null}
@@ -186,9 +187,9 @@ function CodexDetail({ snapshot }: { snapshot: CodexUsageSnapshot | null }) {
               />
               {bucket.individualLimit.used !== null &&
               bucket.individualLimit.limit !== null ? (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Credits</span>
-                  <span className="font-mono text-foreground/80">
+                <div className={sx(statusBarUsageStyles.amountRow)}>
+                  <span className={sx(statusBarUsageStyles.amountLabel)}>Credits</span>
+                  <span className={sx(statusBarUsageStyles.amountValue)}>
                     {formatCredits(bucket.individualLimit.used)} /{" "}
                     {formatCredits(bucket.individualLimit.limit)}
                   </span>
@@ -197,7 +198,7 @@ function CodexDetail({ snapshot }: { snapshot: CodexUsageSnapshot | null }) {
             </>
           ) : null}
           {!bucket.primary && !bucket.secondary && !bucket.individualLimit ? (
-            <p className="text-xs text-muted-foreground">
+            <p className={sx(statusBarUsageStyles.note)}>
               No usage windows reported for this bucket.
             </p>
           ) : null}
@@ -224,9 +225,9 @@ function UsageAmount({
       ? `$${usage.used.toFixed(2)} / $${usage.limit.toFixed(2)}`
       : `${formatCredits(usage.used)} / ${formatCredits(usage.limit)}`;
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono text-foreground/80">{amount}</span>
+    <div className={sx(statusBarUsageStyles.amountRow)}>
+      <span className={sx(statusBarUsageStyles.amountLabel)}>{label}</span>
+      <span className={sx(statusBarUsageStyles.amountValue)}>{amount}</span>
     </div>
   );
 }
@@ -240,7 +241,7 @@ function AccountDetail({
 }) {
   if (!snapshot || snapshot.source === "unavailable" || !snapshot.monthly) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className={sx(statusBarUsageStyles.note)}>
         {snapshot?.error ??
           `${provider === "cursor" ? "Cursor" : "Kiro"} usage unavailable.`}
       </p>
@@ -251,12 +252,12 @@ function AccountDetail({
       ? (snapshot as CursorUsageSnapshot).planType
       : (snapshot as KiroUsageSnapshot).planName;
   return (
-    <div className="space-y-3">
+    <div className={sx(statusBarUsageStyles.stack)}>
       {plan ? (
-        <p className="text-xs font-medium text-foreground">{plan}</p>
+        <p className={sx(statusBarUsageStyles.bucketTitle)}>{plan}</p>
       ) : null}
       {provider === "cursor" ? (
-        <div className="space-y-1.5">
+        <div className={sx(statusBarUsageStyles.stackTight)}>
           <UsageWindowRow
             label="Included plan"
             usedPercent={snapshot.monthly.usedPercent}
@@ -271,7 +272,7 @@ function AccountDetail({
       ) : null}
       {snapshot.buckets.length > 0 ? (
         snapshot.buckets.map((bucket) => (
-          <div key={bucket.id} className="space-y-1.5">
+          <div key={bucket.id} className={sx(statusBarUsageStyles.stackTight)}>
             <UsageWindowRow
               label={bucket.label}
               usedPercent={bucket.usedPercent}
@@ -295,14 +296,14 @@ function AccountDetail({
       ) : null}
       {provider === "kiro" &&
       (snapshot as KiroUsageSnapshot).overagesEnabled !== null ? (
-        <p className="text-[10px] text-muted-foreground/70">
+        <p className={sx(statusBarUsageStyles.noteFaint)}>
           overages:{" "}
           {(snapshot as KiroUsageSnapshot).overagesEnabled
             ? "enabled"
             : "disabled"}
         </p>
       ) : null}
-      <p className="text-[10px] text-muted-foreground/70">
+      <p className={sx(statusBarUsageStyles.noteFaint)}>
         source: {snapshot.source}
       </p>
     </div>
@@ -354,25 +355,25 @@ export function StatusBarUsageSegment({
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 gap-1.5 rounded-none px-2 text-xs text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
+            xstyle={statusBarUsageStyles.trigger}
             aria-label={`${label[provider].toLowerCase()}-usage`}
           />
         }
       >
         <span
-          className={cn(
-            "inline-block size-1.5 rounded-full",
+          className={sx(
+            statusBarUsageStyles.triggerDot,
             headlinePercent === null
-              ? "bg-muted-foreground/40"
-              : usageToneClass(clampUsagePercent(headlinePercent)),
+              ? statusBarUsageStyles.toneUnknown
+              : usageToneStyle(clampUsagePercent(headlinePercent)),
           )}
         />
         <span>{label[provider]}</span>
         {headlineWindows.length === 0 ? (
-          <span className="font-mono">—</span>
+          <span className={sx(statusBarUsageStyles.triggerMono)}>—</span>
         ) : (
           headlineWindows.map((window) => (
-            <span key={window.short} className="font-mono">
+            <span key={window.short} className={sx(statusBarUsageStyles.triggerMono)}>
               {window.short ? `${window.short} ` : ""}
               {formatPercent(window.usedPercent)}
             </span>
@@ -383,22 +384,27 @@ export function StatusBarUsageSegment({
         side="top"
         align="start"
         sideOffset={8}
-        className="w-72 gap-0 overflow-hidden border border-border/80 bg-card p-0"
+        xstyle={statusBarUsageStyles.popover}
         initialFocus={false}
       >
-        <div className="flex items-center justify-between border-b border-border/70 px-3 py-2.5">
-          <span className="text-sm font-medium">{label[provider]} Usage</span>
+        <div className={sx(statusBarUsageStyles.popoverHeader)}>
+          <span className={sx(statusBarUsageStyles.popoverTitle)}>{label[provider]} Usage</span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+            xstyle={statusBarUsageStyles.refreshButton}
             aria-label="refresh-rate-limits"
             onClick={() => void refreshRateLimits()}
           >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            <RefreshCw
+              className={sx(
+                statusBarUsageStyles.refreshIcon,
+                loading && statusBarUsageStyles.refreshIconSpinning,
+              )}
+            />
           </Button>
         </div>
-        <div className="p-3">
+        <div className={sx(statusBarUsageStyles.popoverBody)}>
           {provider === "claude" ? (
             <ClaudeDetail snapshot={claudeSnapshot} />
           ) : provider === "codex" ? (

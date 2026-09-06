@@ -1,0 +1,157 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "../ads/tokens/tokens.stylex";
+
+export const commandPaletteStyles = stylex.create({
+  /** Wider than the default dialog: palette rows carry title + subtitle + keys. */
+  dialog: { maxWidth: "44rem" },
+  frame: {
+    blockSize: "min(74vh, 36rem)",
+    display: "flex",
+    flexDirection: "column",
+    minBlockSize: 0,
+  },
+  /** The frame owns the height, so the list scrolls instead of capping at 18rem. */
+  list: {
+    flexGrow: 1,
+    maxHeight: "none",
+    minBlockSize: 0,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space8,
+  },
+  empty: {
+    paddingBlock: vars.space40,
+    paddingInline: vars.space16,
+    textAlign: "left",
+  },
+  emptyTitle: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightMedium,
+    margin: 0,
+  },
+  emptyHint: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeBody,
+    marginBlockEnd: 0,
+    marginBlockStart: vars.space4,
+  },
+  group: { paddingBlock: vars.space4 },
+  item: {
+    alignItems: "flex-start",
+    gap: vars.space12,
+    paddingBlock: 10,
+    paddingInline: vars.space12,
+  },
+  itemIconBox: {
+    alignItems: "center",
+    blockSize: vars.space20,
+    display: "flex",
+    flexShrink: 0,
+    inlineSize: vars.space20,
+    justifyContent: "center",
+    marginBlockStart: 2,
+  },
+  itemIconBoxMuted: { color: vars.colorTextMuted },
+  itemIcon: {
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
+  },
+  itemBody: { flexGrow: 1, minInlineSize: 0 },
+  itemTitleRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space8,
+    minInlineSize: 0,
+  },
+  itemTitle: {
+    color: vars.colorText,
+    fontWeight: vars.fontWeightMedium,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  extBadge: {
+    letterSpacing: "0.12em",
+    fontSize: 9,
+    minBlockSize: 16,
+    paddingInline: vars.space4,
+    textTransform: "uppercase",
+  },
+  contextBadge: {
+    fontSize: 9,
+    fontWeight: vars.fontWeightMedium,
+    letterSpacing: "normal",
+    minBlockSize: 16,
+    paddingInline: 6,
+  },
+  itemSubtitle: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+    marginBlockEnd: 0,
+    marginBlockStart: 2,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  itemShortcut: {
+    fontFamily: vars.fontMono,
+    fontSize: 10,
+    letterSpacing: "normal",
+    marginBlockStart: 2,
+    whiteSpace: "nowrap",
+  },
+
+  footer: {
+    alignItems: "center",
+    blockSize: 44,
+    borderBlockStartColor: vars.colorBorderSubtle,
+    borderBlockStartStyle: "solid",
+    borderBlockStartWidth: vars.borderWidthHairline,
+    color: vars.colorTextMuted,
+    display: "flex",
+    flexShrink: 0,
+    fontSize: 11,
+    gap: vars.space12,
+    justifyContent: "space-between",
+    paddingInline: vars.space12,
+  },
+  footerGroup: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space12,
+    minInlineSize: 0,
+  },
+  footerGroupTight: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space8,
+    minInlineSize: 0,
+  },
+  footerHint: {
+    alignItems: "center",
+    display: "inline-flex",
+    gap: 6,
+  },
+  footerIcon: { blockSize: 12, inlineSize: 12 },
+  pinButton: {
+    blockSize: 28,
+    color: vars.colorTextMuted,
+    fontSize: 11,
+    gap: 6,
+    maxInlineSize: 224,
+    paddingInline: vars.space8,
+  },
+  pinLabel: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  pinKeyHint: {
+    color: vars.colorTextSubtle,
+    fontFamily: vars.fontMono,
+    fontSize: 9,
+    marginInlineStart: 2,
+  },
+  resultCount: { flexShrink: 0, fontVariantNumeric: "tabular-nums" },
+});

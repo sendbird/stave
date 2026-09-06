@@ -1,16 +1,162 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   buildExecutableLookupEnv,
+  __resetExecutablePathCachesForTests,
   normalizeExecutablePathValue,
   parseMarkedProbeOutput,
+  prepareExecutableLookup,
   resolveExecutablePath,
+  resolveLoginShellCommandPath,
+  resolveLoginShellEnvVarValuesAsync,
   toAsarUnpackedPath,
 } from "../electron/providers/executable-path";
+import {
+  __resetCliExecutableDiscoveryForTests,
+  prepareCliExecutableDiscovery,
+  resolveClaudeCliExecutablePath,
+  resolveCodexCliExecutablePath,
+} from "../electron/providers/cli-path-env";
 
 const tempDirs: string[] = [];
+
+test("async executable discovery batches shell startup and warms synchronous consumers", async () => {
+  if (process.platform === "win32") return;
+  const { executablePath, directory } = createExecutableFixture({
+    prefix: "stave-discovery-",
+  });
+  const countPath = path.join(directory, "launches");
+  writeFileSync(
+    executablePath,
+    `#!/bin/sh\necho launch >> '${countPath}'\nsleep 0.1\nprintf '__STAVE_LOGIN_SHELL_PATH__${directory}__STAVE_LOGIN_SHELL_PATH____STAVE_EXECUTABLE_0__${executablePath}__STAVE_EXECUTABLE_0____STAVE_EXECUTABLE_1__${executablePath}__STAVE_EXECUTABLE_1__'\n`,
+  );
+  const originalShell = process.env.SHELL;
+  __resetExecutablePathCachesForTests();
+  try {
+    process.env.SHELL = executablePath;
+    let timerRan = false;
+    const timer = setTimeout(() => {
+      timerRan = true;
+    }, 10);
+    await Promise.all([
+      prepareExecutableLookup(["demo", "demo-next", "INVALID;COMMAND"]),
+      prepareExecutableLookup(["demo"]),
+    ]);
+    clearTimeout(timer);
+    expect(timerRan).toBe(true);
+    expect(resolveLoginShellCommandPath({ command: "demo" })).toBe(
+      executablePath,
+    );
+    expect(resolveLoginShellCommandPath({ command: "demo-next" })).toBe(
+      executablePath,
+    );
+    expect(buildExecutableLookupEnv().PATH?.split(path.delimiter)).toContain(
+      directory,
+    );
+    expect((await Bun.file(countPath).text()).trim()).toBe("launch");
+  } finally {
+    if (originalShell === undefined) delete process.env.SHELL;
+    else process.env.SHELL = originalShell;
+    __resetExecutablePathCachesForTests();
+  }
+});
+
+test("async shell environment lookup keeps the service loop responsive and shares validated parsing", async () => {
+  if (process.platform === "win32") return;
+  const { executablePath } = createExecutableFixture({
+    prefix: "stave-async-shell-",
+  });
+  writeFileSync(
+    executablePath,
+    "#!/bin/sh\nsleep 0.1\nprintf '__STAVE_LOGIN_SHELL_ENV__STAVE_PROBE_TEST__example__STAVE_LOGIN_SHELL_ENV__STAVE_PROBE_TEST__'\n",
+  );
+  const originalShell = process.env.SHELL;
+  let timerRan = false;
+  try {
+    process.env.SHELL = executablePath;
+    const pending = resolveLoginShellEnvVarValuesAsync({
+      keys: ["STAVE_PROBE_TEST", "INVALID;COMMAND"],
+      cache: false,
+    });
+    const timer = setTimeout(() => {
+      timerRan = true;
+    }, 10);
+    const result = await pending;
+    clearTimeout(timer);
+    expect(timerRan).toBe(true);
+    expect(result).toEqual({ STAVE_PROBE_TEST: "example" });
+  } finally {
+    if (originalShell === undefined) delete process.env.SHELL;
+    else process.env.SHELL = originalShell;
+  }
+});
+
+test("async CLI discovery ranks slow version-manager candidates before a synchronous resolver reads them", async () => {
+  if (process.platform === "win32") return;
+  const nvmDirectory = mkdtempSync(path.join(tmpdir(), "stave-nvm-discovery-"));
+  tempDirs.push(nvmDirectory);
+  const binDirectory = path.join(
+    nvmDirectory,
+    "versions",
+    "node",
+    "v999.0.0",
+    "bin",
+  );
+  mkdirSync(binDirectory, { recursive: true });
+  const executablePath = path.join(binDirectory, "claude");
+  const codexExecutablePath = path.join(binDirectory, "codex");
+  const claudeCountPath = path.join(nvmDirectory, "claude-version-launches");
+  const codexCountPath = path.join(nvmDirectory, "codex-version-launches");
+  writeFileSync(
+    executablePath,
+    `#!/bin/sh\necho launch >> '${claudeCountPath}'\nsleep 0.1\nprintf '999.0.0\\n'\n`,
+  );
+  writeFileSync(
+    codexExecutablePath,
+    `#!/bin/sh\necho launch >> '${codexCountPath}'\nsleep 0.1\nprintf '999.0.0\\n'\n`,
+  );
+  chmodSync(executablePath, 0o755);
+  chmodSync(codexExecutablePath, 0o755);
+  const originalNvmDir = process.env.NVM_DIR;
+  const originalClaudePath = process.env.STAVE_CLAUDE_CLI_PATH;
+  const originalClaudeCommand = process.env.STAVE_CLAUDE_CMD;
+  __resetExecutablePathCachesForTests();
+  __resetCliExecutableDiscoveryForTests();
+  try {
+    process.env.NVM_DIR = nvmDirectory;
+    delete process.env.STAVE_CLAUDE_CLI_PATH;
+    delete process.env.STAVE_CLAUDE_CMD;
+    let timerRan = false;
+    const timer = setTimeout(() => {
+      timerRan = true;
+    }, 10);
+    await prepareCliExecutableDiscovery();
+    clearTimeout(timer);
+    expect(timerRan).toBe(true);
+    expect(resolveClaudeCliExecutablePath()).toBe(executablePath);
+    expect(resolveCodexCliExecutablePath()).toBe(codexExecutablePath);
+    expect((await Bun.file(claudeCountPath).text()).trim()).toBe("launch");
+    expect((await Bun.file(codexCountPath).text()).trim()).toBe("launch");
+  } finally {
+    if (originalNvmDir === undefined) delete process.env.NVM_DIR;
+    else process.env.NVM_DIR = originalNvmDir;
+    if (originalClaudePath === undefined)
+      delete process.env.STAVE_CLAUDE_CLI_PATH;
+    else process.env.STAVE_CLAUDE_CLI_PATH = originalClaudePath;
+    if (originalClaudeCommand === undefined) delete process.env.STAVE_CLAUDE_CMD;
+    else process.env.STAVE_CLAUDE_CMD = originalClaudeCommand;
+    __resetExecutablePathCachesForTests();
+    __resetCliExecutableDiscoveryForTests();
+  }
+});
 
 afterEach(() => {
   while (tempDirs.length > 0) {

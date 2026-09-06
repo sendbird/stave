@@ -6,6 +6,12 @@ import {
 } from "../electron/main/ipc/filesystem-search";
 
 describe("filesystem search helpers", () => {
+  test("malformed match events do not throw or invent results", () => {
+    for (const event of [null, [], { type: "match", data: { path: { text: 42 }, line_number: 1, lines: { text: "match" } } },
+      { type: "match", data: { path: { text: "file" }, line_number: -1, lines: { text: "match" } } }]) {
+      expect(parseFilesystemSearchMatchLine(JSON.stringify(event))).toBeNull();
+    }
+  });
   test("trims single-line queries", () => {
     expect(normalizeFilesystemSearchQuery("  hello world  ")).toBe(
       "hello world",

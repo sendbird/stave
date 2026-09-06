@@ -13,6 +13,8 @@ import {
   SettingsFieldGuide,
   StatusBadge,
 } from "./settings-dialog.shared";
+import { sx } from "@/components/ads/utils/stylex";
+import { claudePluginsStyles as styles } from "./settings-dialog-claude-plugins.styles";
 
 const CLAUDE_PLUGIN_MODE_HELP = [
   {
@@ -203,7 +205,7 @@ export function ClaudeInstalledPluginsField() {
           />
         }
       >
-        <div className="space-y-3">
+        <div className={sx(styles.stack)}>
           <ChoiceButtons
             columns={3}
             options={CLAUDE_PLUGIN_MODE_HELP}
@@ -212,7 +214,7 @@ export function ClaudeInstalledPluginsField() {
               updateSettings({ patch: { claudePluginMode: value } })
             }
           />
-          <div className="flex items-center gap-2">
+          <div className={sx(styles.actions)}>
             <Button
               type="button"
               size="sm"
@@ -238,31 +240,26 @@ export function ClaudeInstalledPluginsField() {
             ) : null}
           </div>
           {plugins.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className={sx(styles.empty)}>
               {hasLoaded
                 ? detail ||
                   "No Claude CLI plugins found. Install one with `claude plugin install <plugin>@<marketplace>`."
                 : "Checking installed Claude plugins..."}
             </p>
           ) : (
-            <ul className="divide-y divide-border/60 rounded-md border border-border/80">
+            <ul className={sx(styles.list)}>
               {plugins.map((plugin) => (
-                <li
-                  key={plugin.id}
-                  className="flex items-start justify-between gap-3 px-3 py-2"
-                >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="truncate text-sm font-medium">
-                        {plugin.name}
-                      </span>
+                <li key={plugin.id} className={sx(styles.listItem)}>
+                  <div className={sx(styles.itemBody)}>
+                    <div className={sx(styles.itemHead)}>
+                      <span className={sx(styles.itemName)}>{plugin.name}</span>
                       {plugin.marketplace ? (
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className={sx(styles.itemMeta)}>
                           {plugin.marketplace}
                         </span>
                       ) : null}
                       {plugin.version ? (
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className={sx(styles.itemMeta)}>
                           v{plugin.version}
                         </span>
                       ) : null}
@@ -270,14 +267,14 @@ export function ClaudeInstalledPluginsField() {
                         <StatusBadge state="warning" label="Stave override" />
                       ) : null}
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className={sx(styles.itemScope)}>
                       {describePluginScope(plugin)}
                       {plugin.enabledInClaudeConfig
                         ? ` · enabled in ${plugin.enabledSource ?? "claude"} settings`
                         : " · not enabled in Claude settings"}
                     </p>
                     {plugin.description ? (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                      <p className={sx(styles.itemDescription)}>
                         {plugin.description}
                       </p>
                     ) : null}
@@ -288,7 +285,7 @@ export function ClaudeInstalledPluginsField() {
                       setPluginEnabled({ plugin, enabled })
                     }
                     aria-label={`Enable ${plugin.id}`}
-                    className="mt-0.5 shrink-0"
+                    className={sx(styles.itemSwitch)}
                   />
                 </li>
               ))}

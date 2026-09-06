@@ -1,3 +1,5 @@
+import { trackerVisualStyles } from "./tracker-visual.styles";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
 import {
   useId,
@@ -16,7 +18,8 @@ import {
   TRACKER_TASKS_PEEK_MAX_PX,
   TRACKER_TASKS_PEEK_MIN_PX,
 } from "@/lib/tracker-tasks/peek-size";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 
 export type TasksPeekDock = "split" | "parent";
 
@@ -151,30 +154,19 @@ export function TasksPeekPanel(props: TasksPeekPanelProps) {
         }
       }}
       style={rootStyle}
-      className={cn(
-        "grid min-h-0 grid-rows-[auto_minmax(0,1fr)] bg-background text-foreground",
-        "transition-[transform,opacity,visibility,margin] duration-200 ease-out motion-reduce:duration-0",
-        split
-          ? cn(
-              "relative w-[var(--stave-peek-width)] shrink-0 border-l border-border",
-              props.open
-                ? "me-0 translate-x-0"
-                : "pointer-events-none invisible me-[calc(-1*var(--stave-peek-width))] translate-x-full opacity-0",
-            )
-          : cn(
-              "absolute inset-y-0 right-0 z-20 w-[min(var(--stave-peek-width),100%)] border-l border-border shadow-md",
-              props.open
-                ? "translate-x-0"
-                : "pointer-events-none invisible translate-x-[110%] opacity-0",
-            ),
-        "max-md:absolute max-md:inset-0 max-md:z-20 max-md:w-full max-md:border-l-0 max-md:shadow-none",
+      className={sx(
+        taskLayoutStyles.peek,
+        split ? taskLayoutStyles.peekSplit : taskLayoutStyles.peekParent,
         props.open
-          ? "max-md:translate-x-0"
-          : "max-md:invisible max-md:translate-x-full max-md:opacity-0",
+          ? taskLayoutStyles.peekOpen
+          : split
+            ? taskLayoutStyles.peekClosedSplit
+            : taskLayoutStyles.peekClosedParent,
       )}
     >
       {props.open ? (
-        <button
+        <AdsButton
+          layout="host"
           type="button"
           aria-label="Resize ticket peek"
           aria-orientation="vertical"
@@ -182,13 +174,7 @@ export function TasksPeekPanel(props: TasksPeekPanelProps) {
           aria-valuemax={TRACKER_TASKS_PEEK_MAX_PX}
           aria-valuenow={clampedWidth}
           role="separator"
-          className={cn(
-            "absolute inset-y-0 left-0 z-10 w-3 -translate-x-1/2 cursor-col-resize",
-            "max-md:hidden",
-            "before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-transparent",
-            "hover:before:bg-primary/50 focus-visible:before:bg-primary",
-            "focus-visible:outline-none",
-          )}
+          xstyle={taskLayoutStyles.peekResize}
           onKeyDown={onResizeKeyDown}
           onPointerCancel={onResizePointerUp}
           onPointerDown={onResizePointerDown}
@@ -197,9 +183,9 @@ export function TasksPeekPanel(props: TasksPeekPanelProps) {
         />
       ) : null}
 
-      <header className="flex shrink-0 items-center gap-1.5 border-b border-border/60 px-2 py-1.5">
+      <header className={sx(taskLayoutStyles.peekHeader)}>
         {props.onNavigate ? (
-          <div className="flex shrink-0 flex-col">
+          <div className={sx(taskLayoutStyles.peekNavigation)}>
             <Button
               type="button"
               size="icon-xs"
@@ -224,12 +210,12 @@ export function TasksPeekPanel(props: TasksPeekPanelProps) {
         ) : null}
         <h2
           id={titleId}
-          className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground"
+          className={sx(taskLayoutStyles.peekTitle)}
           title={typeof props.title === "string" ? props.title : undefined}
         >
           {props.title}
         </h2>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className={sx(taskLayoutStyles.peekActions)}>
           {props.headerActions}
           {props.onExpand ? (
             <Button
@@ -239,7 +225,7 @@ export function TasksPeekPanel(props: TasksPeekPanelProps) {
               aria-label="Open in browser"
               onClick={props.onExpand}
             >
-              <Maximize2 aria-hidden className="size-3.5" />
+              <Maximize2 aria-hidden className={sx(trackerVisualStyles.icon)} />
             </Button>
           ) : null}
           <Button
@@ -249,11 +235,11 @@ export function TasksPeekPanel(props: TasksPeekPanelProps) {
             aria-label={closeLabel}
             onClick={props.onClose}
           >
-            <X aria-hidden className="size-3.5" />
+            <X aria-hidden className={sx(trackerVisualStyles.icon)} />
           </Button>
         </div>
       </header>
-      <div className="min-h-0 overflow-hidden">{props.children}</div>
+      <div className={sx(taskLayoutStyles.peekBody)}>{props.children}</div>
     </aside>
   );
 }

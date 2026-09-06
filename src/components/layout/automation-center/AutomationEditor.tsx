@@ -1,3 +1,6 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import { CalendarClock, Check, ShieldCheck, SlidersHorizontal, Zap } from "lucide-react";
 import { useMemo } from "react";
 import { ProviderModelPicker } from "@/components/session/ProviderModelPicker";
@@ -51,7 +54,7 @@ import {
   type RoutineUpsertInput,
 } from "@/lib/routines";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
-import { cn } from "@/lib/utils";
+import { editorStyles } from "./automation-editor.styles";
 import {
   applyRoutineScheduleUnit,
   formatRelativeTime,
@@ -74,19 +77,15 @@ function SectionHeading(props: {
   detail?: string;
 }) {
   return (
-    <div className="grid gap-1">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          {props.title}
-        </h3>
+    <div className={sx(editorStyles.sectionHeading)}>
+      <div className={sx(editorStyles.sectionHeadingRow)}>
+        <h3 className={sx(editorStyles.sectionTitle)}>{props.title}</h3>
         {props.detail ? (
-          <span className="text-[10px] text-muted-foreground">
-            {props.detail}
-          </span>
+          <span className={sx(editorStyles.sectionDetail)}>{props.detail}</span>
         ) : null}
       </div>
       {props.description ? (
-        <p className="text-[11px] leading-4 text-muted-foreground">
+        <p className={sx(editorStyles.sectionDescription)}>
           {props.description}
         </p>
       ) : null}
@@ -100,10 +99,10 @@ function FormLabel(props: {
   children: React.ReactNode;
 }) {
   return (
-    <label className="grid gap-1.5">
-      <span className="text-xs font-medium text-foreground">{props.label}</span>
+    <label className={sx(editorStyles.formLabel)}>
+      <span className={sx(editorStyles.formLabelText)}>{props.label}</span>
       {props.description ? (
-        <span className="text-[11px] leading-4 text-muted-foreground">
+        <span className={sx(editorStyles.formLabelDescription)}>
           {props.description}
         </span>
       ) : null}
@@ -121,15 +120,17 @@ function RuntimeSwitch(props: {
 }) {
   return (
     <div
-      className={cn(
-        "flex items-center justify-between gap-3 rounded-md border border-border/70 px-2.5 py-2",
-        props.warning && props.checked && "border-warning/50 bg-warning/10",
+      className={sx(
+        editorStyles.runtimeSwitch,
+        props.warning && props.checked && editorStyles.runtimeSwitchWarning,
       )}
     >
-      <span className="min-w-0">
-        <span className="block text-xs text-foreground">{props.label}</span>
+      <span className={sx(editorStyles.runtimeSwitchText)}>
+        <span className={sx(editorStyles.runtimeSwitchLabel)}>
+          {props.label}
+        </span>
         {props.description ? (
-          <span className="mt-0.5 block text-[10px] leading-4 text-muted-foreground">
+          <span className={sx(editorStyles.runtimeSwitchDescription)}>
             {props.description}
           </span>
         ) : null}
@@ -211,12 +212,12 @@ function CadenceSection(props: {
   }
 
   return (
-    <section className="grid gap-3">
+    <section className={sx(editorStyles.section)}>
       <SectionHeading
         title="Cadence"
         description="Pick a common rhythm, or switch to Custom for an exact interval."
       />
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Cadence">
+      <div className={sx(editorStyles.chipRow)} role="group" aria-label="Cadence">
         {ROUTINE_CADENCE_PRESETS.map((candidate) => {
           const active = candidate === preset;
           return (
@@ -227,15 +228,17 @@ function CadenceSection(props: {
               variant={active ? "secondary" : "ghost"}
               aria-pressed={active}
               title={ROUTINE_CADENCE_PRESENTATION[candidate].detail}
-              className={cn(
-                "h-7 rounded-full border border-transparent px-2.5 text-[11px]",
+              xstyle={[
+                editorStyles.cadenceChip,
                 active
-                  ? "border-primary/45 bg-primary/10 text-foreground"
-                  : "border-border/60 text-muted-foreground hover:text-foreground",
-              )}
+                  ? editorStyles.cadenceChipActive
+                  : editorStyles.cadenceChipIdle,
+              ]}
               onClick={() => selectPreset(candidate)}
             >
-              {active ? <Check className="size-3" aria-hidden="true" /> : null}
+              {active ? (
+                <Check className={sx(editorStyles.checkIcon)} aria-hidden="true" />
+              ) : null}
               {ROUTINE_CADENCE_PRESENTATION[candidate].label}
             </Button>
           );
@@ -243,7 +246,7 @@ function CadenceSection(props: {
       </div>
 
       {showIntervalFields ? (
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] gap-2">
+        <div className={sx(editorStyles.intervalGrid)}>
           <FormLabel label="Every">
             <Input
               type="number"
@@ -262,7 +265,7 @@ function CadenceSection(props: {
                   },
                 })
               }
-              className="h-8 text-xs"
+              xstyle={editorStyles.compactControl}
             />
           </FormLabel>
           <FormLabel label="Unit">
@@ -278,7 +281,7 @@ function CadenceSection(props: {
                 })
               }
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className={sx(editorStyles.compactControl)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -294,10 +297,10 @@ function CadenceSection(props: {
       ) : null}
 
       {showWeekdayPicker ? (
-        <div className="grid gap-1.5">
-          <span className="text-xs font-medium text-foreground">Days</span>
+        <div className={sx(editorStyles.weekdayGroup)}>
+          <span className={sx(editorStyles.formLabelText)}>Days</span>
           <div
-            className="flex flex-wrap gap-1"
+            className={sx(editorStyles.weekdayRow)}
             role="group"
             aria-label="Run days"
           >
@@ -311,12 +314,12 @@ function CadenceSection(props: {
                   variant="ghost"
                   aria-pressed={active}
                   aria-label={label}
-                  className={cn(
-                    "h-7 w-10 border px-0 text-[11px]",
+                  xstyle={[
+                    editorStyles.weekdayChip,
                     active
-                      ? "border-primary/45 bg-primary/10 text-foreground"
-                      : "border-border/60 text-muted-foreground hover:text-foreground",
-                  )}
+                      ? editorStyles.cadenceChipActive
+                      : editorStyles.cadenceChipIdle,
+                  ]}
                   onClick={() => toggleWeekday(weekday)}
                 >
                   {label}
@@ -358,23 +361,26 @@ function CadenceSection(props: {
               } = draft.schedule;
               props.onDraftChange({ ...draft, schedule: rest });
             }}
-            className="h-8 w-40 text-xs"
+            xstyle={editorStyles.timeControl}
           />
         </FormLabel>
       ) : null}
 
-      <div className="flex items-start gap-2 rounded-md border border-border/60 bg-surface/40 px-2.5 py-2 text-[11px] text-muted-foreground">
-        <CalendarClock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+      <div className={sx(editorStyles.summaryRow)}>
+        <CalendarClock
+          className={sx(editorStyles.summaryIcon)}
+          aria-hidden="true"
+        />
         <span>
           {draft.enabled ? (
             <>
-              <span className="text-foreground">
+              <span className={sx(editorStyles.summaryStrong)}>
                 {formatRoutineSchedule(draft.schedule)}
               </span>
               {nextRunAt ? ` · next run ${formatRelativeTime(nextRunAt)}` : ""}
             </>
           ) : (
-            <span className="text-foreground">
+            <span className={sx(editorStyles.summaryStrong)}>
               Manual only — this automation runs when you press Run now.
             </span>
           )}
@@ -409,66 +415,65 @@ function PermissionSection(props: {
   }
 
   return (
-    <section className="grid gap-3">
+    <section className={sx(editorStyles.section)}>
       <SectionHeading
         title="Permissions"
         description="How much this automation may do on its own while it runs unattended."
       />
-      <div className="grid gap-1.5" role="radiogroup" aria-label="Permissions">
+      <div className={sx(editorStyles.modeList)} role="radiogroup" aria-label="Permissions">
         {AUTOMATION_PERMISSION_MODES.map((candidate) => {
           const presentation =
             AUTOMATION_PERMISSION_MODE_PRESENTATION[candidate];
           const Icon = PERMISSION_MODE_ICON[candidate];
           const active = candidate === mode;
           return (
-            <button
+            <AdsButton layout="host"
               key={candidate}
               type="button"
               role="radio"
               aria-checked={active}
               onClick={() => selectMode(candidate)}
-              className={cn(
-                "flex w-full items-start gap-2.5 rounded-md border p-2.5 text-left transition-colors",
-                active
-                  ? "border-primary/50 bg-primary/8"
-                  : "border-border/70 hover:bg-muted/60",
-              )}
+              xstyle={[
+                editorStyles.modeOption,
+                transition.colors,
+                active && editorStyles.modeOptionActive,
+              ]}
             >
               <Icon
-                className={cn(
-                  "mt-0.5 size-4 shrink-0",
-                  active ? "text-primary" : "text-muted-foreground",
+                className={sx(
+                  editorStyles.modeIcon,
+                  active ? editorStyles.modeIconActive : editorStyles.modeIconIdle,
                 )}
                 aria-hidden="true"
               />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-foreground">
+              <span className={sx(editorStyles.modeBody)}>
+                <span className={sx(editorStyles.modeTitleRow)}>
+                  <span className={sx(editorStyles.modeTitle)}>
                     {presentation.label}
                   </span>
                   <Badge
                     variant="outline"
-                    className="h-4 border-border/70 px-1 text-[9px] font-normal text-muted-foreground"
+                    className={sx(editorStyles.modeBadge)}
                   >
                     {presentation.summary}
                   </Badge>
                   {candidate === "guided" ? (
-                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                    <span className={sx(editorStyles.modeRecommended)}>
                       Recommended
                     </span>
                   ) : null}
                 </span>
-                <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
+                <span className={sx(editorStyles.modeDescription)}>
                   {presentation.description}
                 </span>
               </span>
-            </button>
+            </AdsButton>
           );
         })}
       </div>
 
       {mode === "manual" ? (
-        <div className="grid gap-2 rounded-md border border-border/70 bg-surface/30 p-2.5">
+        <div className={sx(editorStyles.manualPanel)}>
           {runtime.provider === "claude-code" ? (
             <>
               <FormLabel label="Permission mode">
@@ -482,7 +487,7 @@ function PermissionSection(props: {
                     })
                   }
                 >
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className={sx(editorStyles.compactControl)}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -523,7 +528,7 @@ function PermissionSection(props: {
             </>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-2">
+              <div className={sx(editorStyles.optionPair)}>
                 <FormLabel label="Approvals">
                   <Select
                     value={runtime.approvalPolicy}
@@ -535,7 +540,7 @@ function PermissionSection(props: {
                       })
                     }
                   >
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className={sx(editorStyles.compactControl)}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -557,7 +562,7 @@ function PermissionSection(props: {
                       })
                     }
                   >
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className={sx(editorStyles.compactControl)}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -580,7 +585,7 @@ function PermissionSection(props: {
                     })
                   }
                 >
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className={sx(editorStyles.compactControl)}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -604,7 +609,7 @@ function PermissionSection(props: {
         </div>
       ) : null}
 
-      <p className="rounded-md bg-muted/40 px-2.5 py-2 font-mono text-[10px] leading-4 text-muted-foreground">
+      <p className={sx(editorStyles.permissionSummary)}>
         {formatAutomationRuntimePermissions(runtime)}
       </p>
     </section>
@@ -702,21 +707,21 @@ export function AutomationEditor(props: {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 px-5 py-3">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-foreground">
+    <div className={sx(editorStyles.root)}>
+      <div className={sx(editorStyles.header)}>
+        <div className={sx(editorStyles.headerText)}>
+          <div className={sx(editorStyles.headerTitle)}>
             {props.routineId ? "Edit automation" : "New automation"}
           </div>
-          <div className="text-[11px] text-muted-foreground">
+          <div className={sx(editorStyles.headerSubtitle)}>
             Runs in a fresh task while the Stave desktop app is open.
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={sx(editorStyles.headerActions)}>
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 px-2 text-xs"
+            xstyle={editorStyles.headerButtonQuiet}
             onClick={props.onCancel}
             disabled={props.saving}
           >
@@ -724,7 +729,7 @@ export function AutomationEditor(props: {
           </Button>
           <Button
             size="sm"
-            className="h-8 px-3 text-xs"
+            xstyle={editorStyles.headerButton}
             onClick={props.onSave}
             disabled={props.saving}
           >
@@ -733,9 +738,9 @@ export function AutomationEditor(props: {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        <div className="mx-auto grid max-w-3xl gap-6">
-          <section className="grid gap-3">
+      <div className={sx(editorStyles.body)}>
+        <div className={sx(editorStyles.bodyColumn)}>
+          <section className={sx(editorStyles.section)}>
             <SectionHeading title="Task" />
             <FormLabel label="Name">
               <Input
@@ -747,7 +752,7 @@ export function AutomationEditor(props: {
                   })
                 }
                 placeholder="Daily repository review"
-                className="h-8 text-xs"
+                xstyle={editorStyles.compactControl}
               />
             </FormLabel>
             <FormLabel
@@ -763,7 +768,7 @@ export function AutomationEditor(props: {
                   })
                 }
                 placeholder="Review changes since the last run and summarize risks."
-                className="min-h-28 resize-y text-xs"
+                xstyle={editorStyles.promptControl}
               />
             </FormLabel>
           </section>
@@ -778,7 +783,7 @@ export function AutomationEditor(props: {
             onDraftChange={props.onDraftChange}
           />
 
-          <section className="grid gap-3">
+          <section className={sx(editorStyles.section)}>
             <SectionHeading title="Model" />
             <ProviderModelPicker
               selectedProvider={runtime.provider}
@@ -793,13 +798,11 @@ export function AutomationEditor(props: {
                 })
               }
               onModelChange={applyModel}
-              providerSelectClassName="w-[118px] shrink-0"
+              providerSelectClassName={sx(editorStyles.providerSelect)}
             />
-            <div className="grid gap-1.5">
-              <span className="text-xs font-medium text-foreground">
-                Effort
-              </span>
-              <span className="text-[11px] leading-4 text-muted-foreground">
+            <div className={sx(editorStyles.effortGroup)}>
+              <span className={sx(editorStyles.formLabelText)}>Effort</span>
+              <span className={sx(editorStyles.formLabelDescription)}>
                 Higher effort spends more model budget on reasoning and
                 increases each run&apos;s latency.
               </span>
@@ -839,12 +842,12 @@ export function AutomationEditor(props: {
                     ),
                   })
                 }
-                className="h-8 w-28 text-xs"
+                xstyle={editorStyles.concurrencyControl}
               />
             </FormLabel>
           </section>
 
-          <section className="grid gap-3">
+          <section className={sx(editorStyles.section)}>
             <SectionHeading
               title="Repository"
               description="The provider always runs from this repository root in its Default Workspace."
@@ -871,7 +874,7 @@ export function AutomationEditor(props: {
                 });
               }}
             >
-              <SelectTrigger className="h-9 text-xs">
+              <SelectTrigger className={sx(editorStyles.repositorySelect)}>
                 <SelectValue placeholder="Select a repository" />
               </SelectTrigger>
               <SelectContent>
@@ -883,20 +886,20 @@ export function AutomationEditor(props: {
               </SelectContent>
             </Select>
             {props.draft.environment.path ? (
-              <div className="truncate rounded-md bg-muted/60 px-2.5 py-2 font-mono text-[10px] text-muted-foreground">
+              <div className={sx(editorStyles.environmentPath)}>
                 {props.draft.environment.path}
               </div>
             ) : null}
           </section>
 
-          <section className="grid gap-3">
+          <section className={sx(editorStyles.section)}>
             <SectionHeading
               title="Information resources"
               detail={`${props.draft.informationReferences.length} attached`}
               description="Each resource is created in the repository's Default Workspace, attached immediately, and resolved again on every run."
             />
             {!props.draft.environment.workspaceId ? (
-              <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+              <div className={sx(editorStyles.emptyPanel)}>
                 Select a repository before attaching Information.
               </div>
             ) : (
@@ -911,24 +914,24 @@ export function AutomationEditor(props: {
                   }}
                 />
                 {props.informationLoading ? (
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className={sx(editorStyles.loadingNote)}>
                     Refreshing Information resources…
                   </div>
                 ) : null}
                 {props.draft.informationReferences.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                  <div className={sx(editorStyles.emptyPanel)}>
                     No Information attached yet. Add a resource above to create
                     its Default Workspace entry and attach it.
                   </div>
                 ) : (
-                  <div className="grid gap-2">
+                  <div className={sx(editorStyles.referenceList)}>
                     {props.draft.informationReferences.map((reference) => {
                       const key = getRoutineInformationReferenceKey(reference);
                       const option = informationOptionByKey.get(key);
                       return (
                         <div
                           key={key}
-                          className="rounded-md border border-border/70 bg-muted/20 p-2.5"
+                          className={sx(editorStyles.referenceCard)}
                         >
                           <WorkspaceInformationReferenceChip
                             reference={reference}
@@ -937,11 +940,11 @@ export function AutomationEditor(props: {
                               removeInformationReference(reference)
                             }
                           />
-                          <p className="mt-2 break-words text-[10px] leading-4 text-muted-foreground">
+                          <p className={sx(editorStyles.referenceDescription)}>
                             {option?.description ??
                               `Injects ${reference.label} into each run.`}
                           </p>
-                          <div className="mt-1 break-all font-mono text-[9px] text-muted-foreground/80">
+                          <div className={sx(editorStyles.referenceToken)}>
                             {reference.token}
                           </div>
                         </div>

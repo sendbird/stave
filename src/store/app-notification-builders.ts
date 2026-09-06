@@ -7,14 +7,14 @@
  * existing call site (which passes the full store state) still type-checks and
  * behaves the same.
  */
-import { createElement } from "react";
-import { toast, type ExternalToast } from "sonner";
+import { captureResultEvidence } from "@/lib/reviews/result-evidence";
+import { classifyProviderTurnStopReason } from "@/lib/providers/turn-status";
+import { toast } from "@/lib/notifications/toast";
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import type {
   AppNotification,
   AppNotificationCreateInput,
 } from "@/lib/notifications/notification.types";
-import { workspaceHasActiveTurns } from "@/lib/notifications/notification.types";
 import { buildNotificationToastOptions } from "@/lib/notifications/notification.utils";
 import type {
   NormalizedProviderEvent,
@@ -49,16 +49,6 @@ export interface NotificationProjectScopeState {
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
 }
 
-const OPEN_NOTIFICATION_ACTION_BUTTON_STYLE = {
-  position: "absolute",
-  inset: 0,
-  height: "auto",
-  margin: 0,
-  padding: 0,
-  borderRadius: "inherit",
-  background: "transparent",
-} satisfies NonNullable<ExternalToast["actionButtonStyle"]>;
-
 function resolveTaskTitleFromSession(args: {
   session: WorkspaceSessionState;
   taskId: string;
@@ -87,11 +77,9 @@ export function buildTaskTurnCompletedNotificationInput(args: {
   if (!doneEvent) {
     return null;
   }
-  if (
-    workspaceHasActiveTurns({
-      activeTurnIdsByTask: args.session.activeTurnIdsByTask,
-    })
-  ) {
+  if (classifyProviderTurnStopReason(doneEvent.stop_reason) !== "completed" ||
+      args.events.some((event) => event.type === "error" && !event.recoverable)) return null;
+  if (args.session.activeTurnIdsByTask[args.taskId]) {
     return null;
   }
 
@@ -147,6 +135,7 @@ export function buildTaskTurnCompletedNotificationInput(args: {
         ]),
       ),
       reviewArtifact,
+      resultEvidence: captureResultEvidence(args.session.messagesByTask[args.taskId] ?? [], args.turnId),
     },
     dedupeKey: `task.turn_completed:${args.turnId}`,
   };
@@ -167,14 +156,12 @@ export function buildTaskTurnFailedNotificationInput(args: {
       (event): event is Extract<NormalizedProviderEvent, { type: "error" }> =>
         event.type === "error" && event.recoverable === false,
     );
-  if (!errorEvent) {
+  const failedDone = args.events.find((event) => event.type === "done" &&
+    classifyProviderTurnStopReason(event.stop_reason) === "failed");
+  if (!errorEvent && !failedDone) {
     return null;
   }
-  if (
-    workspaceHasActiveTurns({
-      activeTurnIdsByTask: args.session.activeTurnIdsByTask,
-    })
-  ) {
+  if (args.session.activeTurnIdsByTask[args.taskId]) {
     return null;
   }
 
@@ -214,7 +201,8 @@ export function buildTaskTurnFailedNotificationInput(args: {
     providerId: args.provider,
     action: null,
     payload: {
-      message: errorEvent.message,
+      message: errorEvent?.message ?? "The provider stopped before completing.",
+      resultEvidence: captureResultEvidence(args.session.messagesByTask[args.taskId] ?? [], args.turnId),
     },
     dedupeKey: `task.turn_failed:${args.turnId}`,
   };
@@ -435,14 +423,9 @@ export function showNotificationToast(
     options.onOpen && notification.taskId?.trim()
       ? {
           action: {
-            label: createElement(
-              "span",
-              { className: "sr-only" },
-              `Open task: ${notification.taskTitle?.trim() || title}`,
-            ),
+            label: "Open task",
             onClick: options.onOpen,
           },
-          actionButtonStyle: OPEN_NOTIFICATION_ACTION_BUTTON_STYLE,
         }
       : {};
   const resolvedToastOptions = {
@@ -454,5 +437,7 @@ export function showNotificationToast(
     return toast.success(title, resolvedToastOptions);
   }
 
-  return toast.warning(title, resolvedToastOptions);
+  return tone === "error"
+    ? toast.error(title, resolvedToastOptions)
+    : toast.warning(title, resolvedToastOptions);
 }

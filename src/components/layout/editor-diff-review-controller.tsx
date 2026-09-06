@@ -2,6 +2,8 @@ import type { editor as MonacoEditorApi } from "monaco-editor";
 import { useLayoutEffect, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { EditorReviewPanel } from "@/components/layout/EditorReviewPanel";
+import * as stylex from "@stylexjs/stylex";
+import { layoutShellStyles } from "./layout-shell.styles";
 import { createDiffReviewLineHoverController } from "@/components/layout/editor-diff-review-hover-menu";
 import {
   buildDiffReviewThreads,
@@ -62,7 +64,7 @@ function DiffReviewZone(args: {
   }, [args.onHeightChange]);
 
   return (
-    <div ref={contentRef} className="w-full py-1">
+    <div ref={contentRef} {...stylex.props(layoutShellStyles.diffReview)}>
       <EditorReviewPanel
         line={args.thread.line}
         draft={args.thread.draft}

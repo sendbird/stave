@@ -23,15 +23,22 @@ once.
 
 ## Before You Start
 
-- The Stave Local MCP server must be running (Settings → Local MCP). Child tasks
-  are driven entirely by MCP tools.
+- Use **Collaboration & workflows → Team** in a task or Fleet control panel.
+  Agent-driven delegation additionally requires the Stave Local MCP server
+  (Settings → Local MCP).
 - The parent task's workspace must belong to a registered project. A delegation
   is refused when the parent task, its workspace, and the project path do not
   agree.
 
 ## Quick Start
 
-Ask the agent in the parent task to delegate, for example:
+Open **Collaboration & workflows → Team → Delegate a task to another model**.
+Specify the assignment, provider, optional model, permissions, and file isolation.
+The default uses guided permissions and a separate Git worktree, and keeps the
+child available for follow-up. Uncheck that option for a single-turn assignment.
+Release the child when the assignment is finished.
+
+Alternatively, ask the agent in the parent task to delegate, for example:
 
 > Delegate the docs review to a Codex child in a new worktree, guided
 > permissions, one turn, delegation key `docs-review`.
@@ -43,25 +50,25 @@ workspace, and the parent gets back the child's identity and phase.
 
 ### Entry Points
 
-Three Local MCP tools, all called by the agent in the parent task:
+The task and Fleet collaboration panels use the same coordinator as these
+Local MCP tools:
 
 - `stave_delegate_task` — create (or re-report) a child task.
 - `stave_list_child_tasks` — list what this task delegated.
 - `stave_stop_child_task` — stop one delegation.
+- `stave_follow_up_child_task` — request more work on a waiting, ongoing child,
+  using the exact identity returned by the latest listing.
+- `stave_get_task` — collect the latest assistant answer and pending requests.
 
-Because delegation is agent-driven, there is no arming control to discover —
-which makes the capability easy to never meet. **Settings → Providers →
-Delegation (child tasks)** is the reference surface for that: it states that
-delegation happens through an agent tool call, reports whether Local MCP can
-currently carry that call for each provider, and lists every parameter a
-delegation may specify with its default. It is read-only on purpose; see
-[Model And Effort](#model-and-effort) for why the parameters stay per call.
+The collaboration panel provides creation, conversation navigation, follow-up,
+stop, retry, and release controls. Turn Activity retains its compact child rows.
+Settings → Providers → Delegation documents provider availability and per-call
+parameters. The UI's delivery retry keeps the same delegation identity when a
+transport response is lost, so retrying does not create a second child.
 
-Delegating is agent-driven, but watching and steering is not: once a turn has
-delegated, the parent's conversation shows a **child task row** per delegation,
-directly in the turn activity. The child is also a task in its own right, so it
-opens as a normal task and carries a backlink to the parent it was delegated
-from.
+The Workflows & tools tab separates goals (workflows), reusable instructions
+(macros), runtime launch settings (presets), and workspace commands/services.
+Adding instructions preserves the current draft and never sends it automatically.
 
 A child does not appear as a peer in workspace task lists, counts, or Fleet
 roll-ups — it is shown under its parent instead, so one delegated unit of work is

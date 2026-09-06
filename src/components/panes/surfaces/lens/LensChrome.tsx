@@ -1,3 +1,5 @@
+import { chromeStyles } from "./lens-chrome.styles";
+import { sx } from "../../../ads/utils/stylex";
 import {
   ArrowLeft,
   ArrowRight,
@@ -33,14 +35,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import {
-  LENS_TOOL_ACTIVE_CLASS,
   LENS_TOOL_ICON_CLASS,
-  LENS_TOOL_INACTIVE_CLASS,
 } from "@/components/panes/surfaces/lens/LensLogDetail";
 import type { LensOverlayModesHandle } from "@/components/panes/surfaces/lens/useLensOverlayModes";
 import { LENS_LOG_LIMIT, type LensPanelTab } from "@/lib/lens/lens-log-format";
 import type { LensDownloadEntry } from "@/lib/lens/lens.types";
-import { cn } from "@/lib/utils";
 
 /**
  * Address-bar state and handlers. Structural on purpose: the panel satisfies
@@ -153,8 +152,8 @@ export function LensChrome(props: {
   } = capture;
 
   return (
-    <div className="flex shrink-0 flex-col gap-2 border-b border-border/60 px-3 py-2">
-      <div className="flex items-center gap-1.5">
+    <div className={sx(chromeStyles.toolbar)}>
+      <div className={sx(chromeStyles.row)}>
         <Tooltip>
           <TooltipTrigger
             render={
@@ -162,7 +161,7 @@ export function LensChrome(props: {
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                className={LENS_TOOL_INACTIVE_CLASS}
+                xstyle={chromeStyles.toolInactive}
                 disabled={!canGoBack || !hasLensApi}
                 onClick={goBack}
                 aria-label="Go back"
@@ -181,7 +180,7 @@ export function LensChrome(props: {
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                className={LENS_TOOL_INACTIVE_CLASS}
+                xstyle={chromeStyles.toolInactive}
                 disabled={!canGoForward || !hasLensApi}
                 onClick={goForward}
                 aria-label="Go forward"
@@ -200,7 +199,7 @@ export function LensChrome(props: {
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                className={LENS_TOOL_INACTIVE_CLASS}
+                xstyle={chromeStyles.toolInactive}
                 disabled={!hasLensApi}
                 onClick={reload}
                 aria-label={isLoading ? "Stop loading" : "Reload page"}
@@ -216,11 +215,11 @@ export function LensChrome(props: {
           <TooltipContent>{isLoading ? "Loading" : "Reload"}</TooltipContent>
         </Tooltip>
 
-        <form onSubmit={handleSubmit} className="min-w-0 flex-1">
-          <InputGroup className="h-9 overflow-hidden bg-background/80 transition-[background-color,border-color,box-shadow] duration-200 focus-within:bg-background">
+        <form onSubmit={handleSubmit} className={sx(chromeStyles.addressForm)}>
+          <InputGroup xstyle={chromeStyles.address}>
             <InputGroupAddon
               align="inline-start"
-              className="gap-1.5 pl-2.5 text-sm text-muted-foreground"
+              xstyle={chromeStyles.addressStart}
             >
               <Globe className={LENS_TOOL_ICON_CLASS} />
             </InputGroupAddon>
@@ -244,24 +243,24 @@ export function LensChrome(props: {
                   ? "http://localhost:3000 or https://example.com"
                   : "Lens is unavailable in browser-only mode"
               }
-              className="bg-transparent! text-sm focus-visible:bg-transparent!"
+              xstyle={chromeStyles.addressInput}
               disabled={!hasLensApi}
             />
             {inputUrl ? (
-              <InputGroupAddon align="inline-end" className="pr-1">
+              <InputGroupAddon align="inline-end" xstyle={chromeStyles.addressEnd}>
                 <InputGroupButton
                   size="icon-sm"
                   aria-label="Clear address"
                   onClick={() => setInputUrl("")}
                 >
-                  <X className="size-3.5" />
+                  <X className={sx(chromeStyles.compactIcon)} />
                 </InputGroupButton>
               </InputGroupAddon>
             ) : null}
           </InputGroup>
         </form>
 
-        <div className="flex shrink-0 items-center rounded-md border border-border/60 bg-background/70 p-0.5">
+        <div className={sx(chromeStyles.modes)}>
           {[
             {
               id: "preview" as const,
@@ -292,12 +291,12 @@ export function LensChrome(props: {
                       type="button"
                       size="icon-sm"
                       variant={active ? "secondary" : "ghost"}
-                      className={cn(
-                        "relative",
+                      xstyle={[
+                        chromeStyles.tab,
                         active
-                          ? LENS_TOOL_ACTIVE_CLASS
-                          : LENS_TOOL_INACTIVE_CLASS,
-                      )}
+                          ? chromeStyles.toolActive
+                          : chromeStyles.toolInactive,
+                      ]}
                       onClick={() => setLensPanelTab(tab.id)}
                       aria-label={`Show ${tab.label.toLowerCase()}`}
                       aria-pressed={active}
@@ -306,7 +305,7 @@ export function LensChrome(props: {
                 >
                   <Icon className={LENS_TOOL_ICON_CLASS} />
                   {tab.count ? (
-                    <span className="absolute -right-1 -top-1 min-w-3.5 rounded-full bg-primary px-1 text-[9px] leading-3.5 text-primary-foreground">
+                    <span className={sx(chromeStyles.count)}>
                       {tab.count > 99 ? "99+" : tab.count}
                     </span>
                   ) : null}
@@ -324,11 +323,11 @@ export function LensChrome(props: {
                 type="button"
                 size="icon-sm"
                 variant={isPickerActive ? "secondary" : "outline"}
-                className={cn(
+                xstyle={[
                   isPickerActive
-                    ? LENS_TOOL_ACTIVE_CLASS
-                    : LENS_TOOL_INACTIVE_CLASS,
-                )}
+                    ? chromeStyles.toolActive
+                    : chromeStyles.toolInactive,
+                ]}
                 disabled={pickerDisabled}
                 onClick={() => {
                   void startElementPicker();
@@ -340,7 +339,7 @@ export function LensChrome(props: {
           >
             <Crosshair className={LENS_TOOL_ICON_CLASS} />
           </TooltipTrigger>
-          <TooltipContent className="max-w-64 text-pretty">
+          <TooltipContent className={sx(chromeStyles.help)}>
             {pickerTooltip}
           </TooltipContent>
         </Tooltip>
@@ -352,11 +351,11 @@ export function LensChrome(props: {
                 type="button"
                 size="icon-sm"
                 variant={isAnnotationModeActive ? "secondary" : "outline"}
-                className={cn(
+                xstyle={[
                   isAnnotationModeActive
-                    ? LENS_TOOL_ACTIVE_CLASS
-                    : LENS_TOOL_INACTIVE_CLASS,
-                )}
+                    ? chromeStyles.toolActive
+                    : chromeStyles.toolInactive,
+                ]}
                 disabled={lensPageActionDisabled}
                 onClick={() => {
                   void toggleAnnotationMode();
@@ -382,11 +381,11 @@ export function LensChrome(props: {
                 type="button"
                 size="icon-sm"
                 variant={isBoxInspectActive ? "secondary" : "outline"}
-                className={cn(
+                xstyle={[
                   isBoxInspectActive
-                    ? LENS_TOOL_ACTIVE_CLASS
-                    : LENS_TOOL_INACTIVE_CLASS,
-                )}
+                    ? chromeStyles.toolActive
+                    : chromeStyles.toolInactive,
+                ]}
                 disabled={lensPageActionDisabled}
                 onClick={() => {
                   void toggleBoxInspect();
@@ -398,7 +397,7 @@ export function LensChrome(props: {
           >
             <Ruler className={LENS_TOOL_ICON_CLASS} />
           </TooltipTrigger>
-          <TooltipContent className="max-w-64 text-pretty">
+          <TooltipContent className={sx(chromeStyles.help)}>
             Inspect padding, border &amp; margin on hover. Click an element,
             then hover another to measure the gap between them.
           </TooltipContent>
@@ -416,18 +415,18 @@ export function LensChrome(props: {
                       variant="outline"
                       disabled={lensPageActionDisabled}
                       aria-label="Save screenshot"
-                      className={cn("h-8 gap-1 px-2", LENS_TOOL_INACTIVE_CLASS)}
+                      xstyle={[chromeStyles.captureButton, chromeStyles.toolInactive]}
                     />
                   }
                 />
               }
             >
               <Camera className={LENS_TOOL_ICON_CLASS} />
-              <ChevronDown className="size-3 opacity-70" />
+              <ChevronDown className={sx(chromeStyles.chevron)} />
             </TooltipTrigger>
             <TooltipContent>Screenshot</TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuContent align="end" className={sx(chromeStyles.captureMenu)}>
             <DropdownMenuItem
               onSelect={() => {
                 void saveScreenshot(false);
@@ -455,10 +454,10 @@ export function LensChrome(props: {
                       type="button"
                       size="icon-sm"
                       variant={downloads.length > 0 ? "secondary" : "outline"}
-                      className={
+                      xstyle={
                         downloads.length > 0
                           ? undefined
-                          : LENS_TOOL_INACTIVE_CLASS
+                          : chromeStyles.toolInactive
                       }
                       disabled={!hasLensApi}
                       aria-label="Downloads"
@@ -471,7 +470,7 @@ export function LensChrome(props: {
             </TooltipTrigger>
             <TooltipContent>Downloads</TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuContent align="end" className={sx(chromeStyles.downloadsMenu)}>
             <DropdownMenuLabel>Downloads</DropdownMenuLabel>
             <DropdownMenuItem
               disabled={lensPageActionDisabled}
@@ -489,13 +488,13 @@ export function LensChrome(props: {
                 .map((entry) => (
                   <DropdownMenuItem
                     key={entry.id}
-                    className="min-w-0"
+                    className={sx(chromeStyles.downloadRow)}
                     onSelect={() => openDownloadInFinder(entry.savePath)}
                   >
-                    <span className="min-w-0 flex-1 truncate">
+                    <span className={sx(chromeStyles.downloadName)}>
                       {entry.filename}
                     </span>
-                    <span className="ml-2 shrink-0 text-[10px] text-muted-foreground">
+                    <span className={sx(chromeStyles.downloadSize)}>
                       {entry.state}
                     </span>
                   </DropdownMenuItem>

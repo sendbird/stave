@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { IDockviewHeaderActionsProps } from "dockview-react";
 import { Ellipsis, Globe, Plus, SquareTerminal } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -88,7 +91,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
   };
 
   return (
-    <div className="flex h-full items-center gap-0.5 px-1">
+    <div className={sx(styles.root)}>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -96,24 +99,24 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 shrink-0 rounded-sm p-0 text-muted-foreground"
+              className={sx(styles.trigger)}
               aria-label="Create new pane tab"
             />
           }
         >
-          <Plus className="size-4" />
+          <Plus className={sx(styles.icon)} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-60">
+        <DropdownMenuContent align="end" className={sx(styles.menu)}>
           <DropdownMenuItem onSelect={createTaskInGroup}>
-            <Plus className="size-4" />
+            <Plus className={sx(styles.icon)} />
             New Task
           </DropdownMenuItem>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
-              <SquareTerminal className="size-4" />
+              <SquareTerminal className={sx(styles.icon)} />
               New CLI Session
             </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-64">
+            <DropdownMenuSubContent className={sx(styles.submenu)}>
               <DropdownMenuLabel>Start Here</DropdownMenuLabel>
               {CLI_SESSION_CHOICES.map((choice) => {
                 const providerAvailable = providerAvailability[choice.provider];
@@ -140,7 +143,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
                   <DropdownMenuItem
                     key={`${choice.provider}:${choice.contextMode}`}
                     disabled={disabled}
-                    className="items-start"
+                    className={sx(styles.item)}
                     onSelect={() => {
                       const cliSessionTabId = createCliSessionTab({
                         provider: choice.provider,
@@ -154,20 +157,20 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
                       }
                     }}
                   >
-                    <div className="flex min-w-0 items-start gap-2">
+                    <div className={sx(styles.choice)}>
                       <ModelIcon
                         providerId={choice.provider}
-                        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                        className={sx(styles.providerIcon)}
                       />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">
+                      <div className={sx(styles.content)}>
+                        <div className={sx(styles.label)}>
                           {providerLabel} · {contextLabel}
                         </div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">
+                        <div className={sx(styles.description)}>
                           {secondaryLabel}
                         </div>
                         {taskHint ? (
-                          <div className="mt-0.5 truncate text-xs text-muted-foreground/60">
+                          <div className={sx(styles.taskHint)}>
                             {taskHint}
                           </div>
                         ) : null}
@@ -179,11 +182,11 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
             </DropdownMenuSubContent>
           </DropdownMenuSub>
           <DropdownMenuItem onSelect={() => createTerminalTab()}>
-            <SquareTerminal className="size-4" />
+            <SquareTerminal className={sx(styles.icon)} />
             New Terminal
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={createLensInGroup}>
-            <Globe className="size-4" />
+            <Globe className={sx(styles.icon)} />
             New Lens
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -195,14 +198,14 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="h-7 w-7 shrink-0 rounded-sm p-0 text-muted-foreground"
+              className={sx(styles.trigger)}
               aria-label="Pane options"
             />
           }
         >
-          <Ellipsis className="size-4" />
+          <Ellipsis className={sx(styles.icon)} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuContent align="end" className={sx(styles.options)}>
           <DropdownMenuItem onSelect={() => dispatchOpenTaskHistory()}>
             Task History
           </DropdownMenuItem>
@@ -220,3 +223,19 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
     </div>
   );
 }
+
+const styles = stylex.create({
+root: {display:"flex",height:"100%",alignItems:"center",gap:2,paddingInline:4},
+trigger: {height:28,width:28,flexShrink:0,borderRadius:4,padding:0,color:vars.colorTextMuted},
+icon: {width:16,height:16},
+menu: {width:240},
+submenu: {width:256},
+options: {width:176},
+item: {alignItems:"flex-start"},
+choice: {display:"flex",minWidth:0,alignItems:"flex-start",gap:8},
+providerIcon: {marginTop:2,width:16,height:16,flexShrink:0,color:vars.colorTextMuted},
+content: {minWidth:0},
+label: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14,fontWeight:500},
+description: {marginTop:2,fontSize:12,color:vars.colorTextMuted},
+taskHint: {marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12,color:vars.colorTextSubtle}
+});

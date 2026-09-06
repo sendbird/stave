@@ -1,9 +1,9 @@
 import { describe, expect, mock, test } from "bun:test";
-import { isValidElement } from "react";
-import { toast } from "sonner";
+import { notificationToastManager } from "@/lib/notifications/toast";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 import {
   buildTaskTurnCompletedNotificationInput,
+  buildTaskTurnFailedNotificationInput,
   showNotificationToast,
 } from "@/store/app-notification-builders";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
@@ -83,12 +83,12 @@ describe("showNotificationToast", () => {
       lensTabs: [],
       paneTabMeta: {},
       dockLayout: null,
-      activeTurnIdsByTask: {},
+      activeTurnIdsByTask: { "another-task": "still-running" },
       providerSessionByTask: {},
       providerGoalByTask: {},
       nativeSessionReadyByTask: {},
     };
-    const notification = buildTaskTurnCompletedNotificationInput({
+    const input: Parameters<typeof buildTaskTurnCompletedNotificationInput>[0] = {
       state: {
         projectPath: "/tmp/stave",
         projectName: "stave",
@@ -107,9 +107,20 @@ describe("showNotificationToast", () => {
       turnId: "turn-summary",
       provider: "codex",
       events: [{ type: "done", stop_reason: "end_turn" }],
-    });
+    };
+    const notification = buildTaskTurnCompletedNotificationInput(input);
 
     expect(notification?.body).toContain("1 changed file");
+    for (const reason of ["user_abort", "cancelled", "runtime_failure", "output_overflow"]) {
+      const stopped = { ...input, events: [{ type: "done" as const, stop_reason: reason }] };
+      expect(buildTaskTurnCompletedNotificationInput(stopped)).toBeNull();
+      expect(Boolean(buildTaskTurnFailedNotificationInput(stopped))).toBe(
+        reason === "runtime_failure" || reason === "output_overflow",
+      );
+    }
+    expect(buildTaskTurnCompletedNotificationInput({
+      ...input, session: { ...session, activeTurnIdsByTask: { "task-summary": "newer-turn" } },
+    })).toBeNull();
     expect(notification?.payload.reviewArtifact).toMatchObject({
       facts: expect.arrayContaining([
         expect.stringContaining("1 changed file"),
@@ -127,29 +138,18 @@ describe("showNotificationToast", () => {
 
   test("makes the completed notification toast open its task", () => {
     const onOpen = mock(() => {});
-    const toastId = showNotificationToast(buildCompletedNotification(), {
-      onOpen,
-    });
-    const renderedToast = toast
-      .getToasts()
-      .find((candidate) => candidate.id === toastId);
-    const action =
-      renderedToast?.action && !isValidElement(renderedToast.action)
-        ? renderedToast.action
-        : null;
-
-    expect(action).toBeTruthy();
-    expect(renderedToast?.actionButtonStyle).toMatchObject({
-      position: "absolute",
-      inset: 0,
-      height: "auto",
-      margin: 0,
-      padding: 0,
-      background: "transparent",
-    });
-
-    action?.onClick({} as never);
-
+    const add = mock(notificationToastManager.add);
+    const originalAdd = notificationToastManager.add;
+    notificationToastManager.add = add;
+    try {
+      showNotificationToast(buildCompletedNotification(), { onOpen });
+      const notice = add.mock.calls[0]?.[0];
+      expect(notice?.type).toBe("success");
+      expect(notice?.actionProps?.children).toBe("Open task");
+      notice?.actionProps?.onClick?.({ defaultPrevented: false } as never);
+    } finally {
+      notificationToastManager.add = originalAdd;
+    }
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });

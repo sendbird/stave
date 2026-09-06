@@ -9,6 +9,7 @@ import {
 } from "react";
 import { AlertCircle, GitGraph, X } from "lucide-react";
 import { Button, Loader, toast } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   COMMIT_GRAPH_WORKING_TREE_REVISION,
   commitGraphDiffTabId,
@@ -16,7 +17,6 @@ import {
 import { findGraphCommitMatches } from "@/lib/git-graph/search";
 import { formatSourceControlDiffPath } from "@/lib/source-control-diff";
 import type { GraphFileChange, GraphRef } from "@/lib/git-graph/types";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import { CommitContextMenu } from "./CommitContextMenu";
 import { CommitDetailPanel } from "./CommitDetailPanel";
@@ -46,6 +46,7 @@ import {
   revertCommit,
 } from "./git-graph-actions";
 import { WORKING_TREE_SELECTION, useGitGraphData } from "./useGitGraphData";
+import { gitGraphViewStyles as styles } from "./git-graph-view.styles";
 
 const PREFERENCES_KEY = "stave:git-graph-preferences:v1";
 const DEFAULT_COLUMNS: GitGraphColumnVisibility = {
@@ -626,7 +627,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
   return (
     <div
       ref={rootRef}
-      className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-editor text-editor-foreground"
+      className={sx(styles.root)}
       onKeyDown={handleKeyDown}
       data-testid="git-graph-view"
     >
@@ -662,48 +663,46 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       />
 
       {error ? (
-        <div className="flex shrink-0 items-start gap-2 border-b border-destructive/25 bg-destructive/8 px-3 py-2 text-xs text-destructive">
-          <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
-          <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-            {error}
-          </p>
+        <div className={sx(styles.errorBar)}>
+          <AlertCircle className={sx(styles.errorIcon)} />
+          <p className={sx(styles.errorText)}>{error}</p>
           <Button
             type="button"
             size="icon-xs"
             variant="ghost"
-            className="size-5 text-destructive"
+            className={sx(styles.errorDismiss)}
             onClick={() => setError("")}
             aria-label="Dismiss commit graph error"
           >
-            <X className="size-3" />
+            <X className={sx(styles.errorDismissIcon)} />
           </Button>
         </div>
       ) : null}
 
       {loading && graph.commits.length === 0 ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+        <div className={sx(styles.loadingState)}>
+          <div className={sx(styles.loadingInner)}>
             <Loader aria-hidden size="sm" variant="scan" />
-            <p className="text-xs">Reading repository history…</p>
+            <p className={sx(styles.loadingText)}>
+              Reading repository history…
+            </p>
           </div>
         </div>
       ) : showEmpty ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-          <div className="flex max-w-sm flex-col items-center gap-2 text-center">
-            <GitGraph className="size-8 text-muted-foreground/45" />
-            <p className="text-sm font-medium text-foreground">
-              No commits found
-            </p>
-            <p className="text-xs leading-5 text-muted-foreground">
+        <div className={sx(styles.emptyState)}>
+          <div className={sx(styles.emptyInner)}>
+            <GitGraph className={sx(styles.emptyIcon)} />
+            <p className={sx(styles.emptyTitle)}>No commits found</p>
+            <p className={sx(styles.emptyBody)}>
               This repository has no commits in the selected branch scope.
             </p>
           </div>
         </div>
       ) : (
         <div
-          className={cn(
-            "flex min-h-0 min-w-0 flex-1 overflow-hidden",
-            detailLocation === "bottom" && "flex-col",
+          className={sx(
+            styles.splitArea,
+            detailLocation === "bottom" && styles.splitAreaColumn,
           )}
         >
           <GitGraphCanvas
@@ -743,16 +742,16 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
                   detailLocation === "right" ? "vertical" : "horizontal"
                 }
                 aria-label="Resize commit details"
-                className={cn(
-                  "z-10 shrink-0 touch-none bg-border/65 transition-colors hover:bg-primary/45",
+                className={sx(
+                  styles.resizer,
                   detailLocation === "right"
-                    ? "w-1 cursor-col-resize"
-                    : "h-1 cursor-row-resize",
+                    ? styles.resizerVertical
+                    : styles.resizerHorizontal,
                 )}
                 onPointerDown={startDetailResize}
               />
               <div
-                className="min-h-0 min-w-0 shrink-0 overflow-hidden"
+                className={sx(styles.detailPane)}
                 style={
                   detailLocation === "right"
                     ? { width: effectiveDetailWidth }
@@ -776,7 +775,7 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       )}
 
       {pendingAction ? (
-        <div className="pointer-events-none absolute bottom-3 right-3 z-20 flex items-center gap-1.5 rounded-md border border-border/70 bg-popover px-2.5 py-1.5 text-[10px] text-popover-foreground shadow-md">
+        <div className={sx(styles.pendingToast)}>
           <Loader aria-hidden size="xs" variant="scan" />
           {pendingAction}…
         </div>

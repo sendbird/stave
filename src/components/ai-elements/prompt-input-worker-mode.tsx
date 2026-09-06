@@ -29,7 +29,7 @@ import {
   type WorkerResolution,
   getWorkerPreset,
 } from "@/lib/providers/worker-mode";
-import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import { getProviderWaveTone } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   COMPOSER_OPTION_MENU_CONTENT,
@@ -47,7 +47,19 @@ import {
   ComposerControlLabel,
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "../ads/utils/stylex";
+import * as stylex from "@stylexjs/stylex";
+import { vars } from "../ads/tokens/tokens.stylex";
+import { workerModeStyles } from "./prompt-input-worker-mode.styles";
+
+// Provider wave tone → StyleX style. `getProviderWaveTone` returns a semantic
+// tone (this file consumes that contract); themed provider CSS variables and
+// the ADS accent token carry the color.
+const providerWaveToneStyles = stylex.create({
+  claude: { color: "var(--provider-claude)" },
+  codex: { color: "var(--provider-codex)" },
+  accent: { color: vars.colorAccent },
+});
 
 /**
  * Composer control for Worker mode, beside the Advisor.
@@ -104,189 +116,198 @@ export function PromptInputWorkerPill(args: {
   });
   const effortSelection = resolveWorkerEffortSelection(args.arm.config);
 
-  const iconToneClass =
-    presentation.tone === "warning"
-      ? "text-warning"
-      : presentation.tone === "armed"
-        ? getProviderWaveToneClass({ providerId: args.primaryProviderId })
-        : undefined;
+  const isWarningTone = presentation.tone === "warning";
+  const waveToneStyle =
+    presentation.tone === "armed"
+      ? providerWaveToneStyles[
+          getProviderWaveTone({ providerId: args.primaryProviderId })
+        ]
+      : undefined;
 
   return (
     <Popover open={open} onOpenChange={(nextOpen) => onOpenChange?.(nextOpen)}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <PopoverTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={args.disabled}
-                    aria-label={`Configure Worker mode · ${presentation.label}`}
-                    {...composerControlAttributes}
-                    data-worker-control="true"
-                    data-testid="worker-mode-pill"
-                    data-worker-tone={presentation.tone}
-                    className={cn(
-                      COMPOSER_CONTROL_BUTTON,
-                      args.className,
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={args.disabled}
+                  aria-label={`Configure Worker mode · ${presentation.label}`}
+                  {...composerControlAttributes}
+                  data-worker-control="true"
+                  data-testid="worker-mode-pill"
+                  data-worker-tone={presentation.tone}
+                  className={cx(
+                    COMPOSER_CONTROL_BUTTON,
+                    args.className,
+                    sx(
                       presentation.tone === "off"
-                        ? "text-muted-foreground hover:text-foreground"
-                        : "font-medium text-foreground",
-                    )}
-                  />
-                }
-              />
-            }
-          >
-            <Users className={cn("size-4 shrink-0", iconToneClass)} />
-            <ComposerControlLabel>
-              {presentation.label}
-              {presentation.effortLabel ? (
-                <span
-                  data-testid="worker-mode-effort"
-                  className="shrink-0 rounded bg-muted/70 px-1 text-[10px] leading-4 font-medium text-muted-foreground"
-                >
-                  {presentation.effortLabel}
-                </span>
-              ) : null}
-            </ComposerControlLabel>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-72">
-            {presentation.tooltip} Open to enable or configure Worker mode.
-          </TooltipContent>
-        </Tooltip>
-
-        <PopoverContent
-          align="start"
-          side="top"
-          sideOffset={8}
-          className={cn("w-[25rem]", COMPOSER_OPTION_MENU_CONTENT)}
-          data-testid="worker-mode-options"
+                        ? workerModeStyles.pillOff
+                        : workerModeStyles.pillActive,
+                    ),
+                  )}
+                />
+              }
+            />
+          }
         >
-          <ComposerOptionMenuToggle
-            id="worker-mode-switch"
-            title="Worker mode"
-            description="Primary plans and reviews; the worker implements."
-            checked={args.arm.enabled}
-            onCheckedChange={onToggle}
-            testId="worker-mode-switch"
+          <Users
+            className={sx(
+              workerModeStyles.icon,
+              isWarningTone && workerModeStyles.iconWarning,
+              waveToneStyle,
+            )}
           />
+          <ComposerControlLabel>
+            {presentation.label}
+            {presentation.effortLabel ? (
+              <span
+                data-testid="worker-mode-effort"
+                className={sx(workerModeStyles.effortBadge)}
+              >
+                {presentation.effortLabel}
+              </span>
+            ) : null}
+          </ComposerControlLabel>
+        </TooltipTrigger>
+        <TooltipContent side="top" className={sx(workerModeStyles.tooltip)}>
+          {presentation.tooltip} Open to enable or configure Worker mode.
+        </TooltipContent>
+      </Tooltip>
 
-          {/* Configuration stays editable while Worker mode is off: setting a
+      <PopoverContent
+        align="start"
+        side="top"
+        sideOffset={8}
+        className={sx(workerModeStyles.popover)}
+        xstyle={COMPOSER_OPTION_MENU_CONTENT}
+        data-testid="worker-mode-options"
+      >
+        <ComposerOptionMenuToggle
+          id="worker-mode-switch"
+          title="Worker mode"
+          description="Primary plans and reviews; the worker implements."
+          checked={args.arm.enabled}
+          onCheckedChange={onToggle}
+          testId="worker-mode-switch"
+        />
+
+        {/* Configuration stays editable while Worker mode is off: setting a
               task up before turning it on is the normal order, and gating the
               rows behind the switch made the menu look empty at exactly the
               moment the user came to fill it in. */}
-          <ComposerOptionMenuSection title="Preset" scroll>
-            {buildWorkerPresetOptions().map((option) => (
-              <ComposerOptionCard
-                key={option.id}
-                label={option.label}
-                summary={option.summary}
-                active={presetId === option.id}
-                onSelect={() => {
-                  args.onSelectPreset(option.id);
-                }}
-                testId={`worker-mode-preset-${option.id}`}
-              />
-            ))}
-          </ComposerOptionMenuSection>
+        <ComposerOptionMenuSection title="Preset" scroll>
+          {buildWorkerPresetOptions().map((option) => (
+            <ComposerOptionCard
+              key={option.id}
+              label={option.label}
+              summary={option.summary}
+              active={presetId === option.id}
+              onSelect={() => {
+                args.onSelectPreset(option.id);
+              }}
+              testId={`worker-mode-preset-${option.id}`}
+            />
+          ))}
+        </ComposerOptionMenuSection>
 
-          <ComposerOptionMenuSection title="Worker model" scroll>
-            {buildWorkerModelOptions({
-              providerId: args.primaryProviderId,
-              presetId,
-              runtimeModels: args.runtimeModels,
-              selectedModel: requestedModel,
-            }).map((option) => (
-              <ComposerOptionModelRow
-                key={option.value}
-                label={option.label}
-                description={option.description}
-                icon={
-                  option.value === WORKER_AUTO_VALUE ? (
-                    <span className="flex size-3.5 shrink-0 items-center justify-center text-[10px] font-semibold text-muted-foreground">
-                      A
-                    </span>
-                  ) : (
-                    <ModelIcon
-                      providerId={args.primaryProviderId}
-                      model={option.value}
-                      className="size-3.5"
-                    />
-                  )
-                }
-                active={requestedModel === option.value}
-                onSelect={() => {
-                  args.onSelectModel(option.value);
-                }}
-                testId={`worker-mode-model-${option.value}`}
-              />
-            ))}
-          </ComposerOptionMenuSection>
+        <ComposerOptionMenuSection title="Worker model" scroll>
+          {buildWorkerModelOptions({
+            providerId: args.primaryProviderId,
+            presetId,
+            runtimeModels: args.runtimeModels,
+            selectedModel: requestedModel,
+          }).map((option) => (
+            <ComposerOptionModelRow
+              key={option.value}
+              label={option.label}
+              description={option.description}
+              icon={
+                option.value === WORKER_AUTO_VALUE ? (
+                  <span className={sx(workerModeStyles.modelFallbackIcon)}>
+                    A
+                  </span>
+                ) : (
+                  <ModelIcon
+                    providerId={args.primaryProviderId}
+                    model={option.value}
+                    className={sx(workerModeStyles.modelIconSize)}
+                  />
+                )
+              }
+              active={requestedModel === option.value}
+              onSelect={() => {
+                args.onSelectModel(option.value);
+              }}
+              testId={`worker-mode-model-${option.value}`}
+            />
+          ))}
+        </ComposerOptionMenuSection>
 
-          {effortOptions.length > 0 ? (
-            <ComposerOptionMenuSection
-              title="Worker effort"
-              testId="worker-mode-effort-row"
-            >
-              <ComposerOptionEffortChips
-                options={effortOptions}
-                selected={effortSelection}
-                onSelect={(value) => {
-                  args.onSelectEffort(value);
-                }}
-                testId={(value) => `worker-mode-effort-${value}`}
-              />
-              <ComposerOptionMenuHint>
-                A cheap worker at high effort often beats a mid-tier worker at
-                its default.
-              </ComposerOptionMenuHint>
-            </ComposerOptionMenuSection>
-          ) : (
-            <ComposerOptionMenuHint testId="worker-mode-effort-unavailable">
-              This worker model has no selectable effort; it runs at its own
-              default.
-            </ComposerOptionMenuHint>
-          )}
-
-          {presentation.note ? (
-            <ComposerOptionMenuCallout tone="note" testId="worker-mode-note">
-              {presentation.note}
-            </ComposerOptionMenuCallout>
-          ) : null}
-
-          {args.executionBlock || presentation.warning ? (
-            <ComposerOptionMenuCallout
-              tone="warning"
-              testId="worker-mode-warning"
-            >
-              {args.executionBlock ?? presentation.warning}
-            </ComposerOptionMenuCallout>
-          ) : null}
-
-          <ComposerOptionMenuHint>
-            Applies to this task only, and is remembered per provider. One
-            foreground worker runs at a time and the primary reviews its work
-            before answering.{" "}
-            <span className="whitespace-nowrap">
-              {WORKER_TOGGLE_SHORTCUT_LABEL} toggles
-            </span>
-            ,{" "}
-            <span className="whitespace-nowrap">
-              {WORKER_PICKER_SHORTCUT_LABEL} opens this menu
-            </span>
-            .
-          </ComposerOptionMenuHint>
-          <ComposerOptionMenuSettingsLink
-            section="providers"
-            testId="worker-mode-open-settings"
+        {effortOptions.length > 0 ? (
+          <ComposerOptionMenuSection
+            title="Worker effort"
+            testId="worker-mode-effort-row"
           >
-            Default arming, instructions, and turn caps live in Settings →
-            Providers → Worker mode.
-          </ComposerOptionMenuSettingsLink>
-        </PopoverContent>
+            <ComposerOptionEffortChips
+              options={effortOptions}
+              selected={effortSelection}
+              onSelect={(value) => {
+                args.onSelectEffort(value);
+              }}
+              testId={(value) => `worker-mode-effort-${value}`}
+            />
+            <ComposerOptionMenuHint>
+              Higher effort allows more reasoning and can take longer.
+            </ComposerOptionMenuHint>
+          </ComposerOptionMenuSection>
+        ) : (
+          <ComposerOptionMenuHint testId="worker-mode-effort-unavailable">
+            This worker model has no selectable effort; it runs at its own
+            default.
+          </ComposerOptionMenuHint>
+        )}
+
+        {presentation.note ? (
+          <ComposerOptionMenuCallout tone="note" testId="worker-mode-note">
+            {presentation.note}
+          </ComposerOptionMenuCallout>
+        ) : null}
+
+        {args.executionBlock || presentation.warning ? (
+          <ComposerOptionMenuCallout
+            tone="warning"
+            testId="worker-mode-warning"
+          >
+            {args.executionBlock ?? presentation.warning}
+          </ComposerOptionMenuCallout>
+        ) : null}
+
+        <ComposerOptionMenuHint>
+          Applies to this task only, and is remembered per provider. One
+          foreground worker runs at a time and the primary reviews its work
+          before answering.{" "}
+          <span className={sx(workerModeStyles.nowrap)}>
+            {WORKER_TOGGLE_SHORTCUT_LABEL} toggles
+          </span>
+          ,{" "}
+          <span className={sx(workerModeStyles.nowrap)}>
+            {WORKER_PICKER_SHORTCUT_LABEL} opens this menu
+          </span>
+          .
+        </ComposerOptionMenuHint>
+        <ComposerOptionMenuSettingsLink
+          section="providers"
+          testId="worker-mode-open-settings"
+        >
+          Default arming, instructions, and turn caps live in Settings →
+          Providers → Worker mode.
+        </ComposerOptionMenuSettingsLink>
+      </PopoverContent>
     </Popover>
   );
 }

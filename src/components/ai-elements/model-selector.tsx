@@ -1,5 +1,6 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ChevronDown, Sparkles } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Command,
   CommandEmpty,
@@ -27,7 +28,9 @@ import {
   getProviderLabel,
   listProviderIds,
 } from "@/lib/providers/model-catalog";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { modelSelectorStyles as styles } from "./model-selector.styles";
+import { ChoiceChips } from "@/components/system/ChoiceChips";
 import { ModelIcon } from "./model-icon";
 import {
   shouldOpenModelSelector,
@@ -79,7 +82,6 @@ export function ModelSelector(args: ModelSelectorProps) {
     onSelect,
   } = args;
   const [open, setOpen] = useState(false);
-  const effortGroupId = useId();
   // Seed the handled token with the value present at mount time. `openToken` is
   // a one-shot "open now" trigger owned by the parent, but the parent keeps the
   // latched value across the selector's mount/unmount cycles (e.g. when an
@@ -157,27 +159,25 @@ export function ModelSelector(args: ModelSelectorProps) {
       disabled={!option.available}
       data-checked={option.key === value.key ? "true" : undefined}
       onSelect={() => selectOption(option)}
-      className="gap-3 rounded-lg px-3 py-2.5"
+      className={sx(styles.optionItem)}
     >
       {option.isAuto ? (
-        <Sparkles className="size-4 shrink-0 text-primary" />
+        <Sparkles className={sx(styles.optionAccentIcon)} />
       ) : (
         <ModelIcon
           providerId={option.providerId}
           model={option.model}
-          className="size-4"
+          className={sx(styles.optionIcon)}
         />
       )}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-center gap-1.5 truncate">
-          <span className="font-medium">{option.label}</span>
+      <div className={sx(styles.optionBody)}>
+        <span className={sx(styles.optionTitleRow)}>
+          <span className={sx(styles.optionLabel)}>{option.label}</span>
           {option.isDefault ? (
-            <span className="shrink-0 rounded bg-primary/10 px-1 py-px text-[10px] font-medium leading-tight text-primary">
-              default
-            </span>
+            <span className={sx(styles.optionDefaultBadge)}>default</span>
           ) : null}
         </span>
-        <span className="truncate text-xs text-muted-foreground">
+        <span className={sx(styles.optionDescription)}>
           {option.description || option.model}
         </span>
       </div>
@@ -200,16 +200,14 @@ export function ModelSelector(args: ModelSelectorProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <div className={cn("relative", className)}>
+      <div className={cx(sx(styles.root), className)}>
         <DialogTrigger
           render={
-            <button
+            <AdsButton
+              layout="host"
               type="button"
-              className={cn(
-                "inline-flex h-9 max-w-[240px] items-center justify-between gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
-                open
-                  ? "bg-muted/70 focus-visible:border-primary/50"
-                  : "focus-visible:border-border/60",
+              className={cx(
+                sx(styles.trigger, open && styles.triggerOpen),
                 triggerClassName,
               )}
               disabled={disabled}
@@ -218,45 +216,42 @@ export function ModelSelector(args: ModelSelectorProps) {
             />
           }
         >
-          <span className="flex min-w-0 items-center gap-1.5">
+          <span className={sx(styles.triggerLead)}>
             {value.isAuto ? (
-              <Sparkles className="size-3.5 shrink-0 text-primary" />
+              <Sparkles className={sx(styles.triggerAccentIcon)} />
             ) : value.model.trim() ? (
               <ModelIcon
                 providerId={value.providerId}
                 model={value.model}
-                className="size-3.5"
+                className={sx(styles.triggerIcon)}
               />
             ) : null}
-            <span className="truncate">
+            <span className={sx(styles.triggerLabel)}>
               {value.label}
               {effortLabel ? ` · ${effortLabel}` : ""}
             </span>
           </span>
-          <ChevronDown className="size-3.5 text-muted-foreground" />
+          <ChevronDown className={sx(styles.triggerChevron)} />
         </DialogTrigger>
       </div>
       <DialogContent
-        className={cn(
-          "overflow-hidden rounded-xl p-0 sm:max-w-lg",
-          menuClassName,
-        )}
+        className={cx(sx(styles.dialogContent), menuClassName)}
         showCloseButton={false}
       >
-        <DialogHeader className="sr-only">
+        <DialogHeader className={sx(styles.srOnly)}>
           <DialogTitle>Select model</DialogTitle>
           <DialogDescription>
             Search and select the model for this composer.
           </DialogDescription>
         </DialogHeader>
-        <Command className="rounded-none bg-transparent p-0">
+        <Command className={sx(styles.command)}>
           <CommandInput autoFocus placeholder="Search model" />
           {/*
             Each option row is 3.5rem tall (py-2.5 + a 20px label and a 16px
             description line), so the 17.5rem cap keeps roughly five rows in
             view and everything below reachable by scrolling.
           */}
-          <CommandList className="max-h-[17.5rem] px-1 pb-1">
+          <CommandList className={sx(styles.commandList)}>
             <CommandEmpty>No models found.</CommandEmpty>
             {autoOptions.length > 0 ? (
               <CommandGroup>{autoOptions.map(renderOption)}</CommandGroup>
@@ -268,8 +263,8 @@ export function ModelSelector(args: ModelSelectorProps) {
             {recommendedOptions.length > 0 ? (
               <CommandGroup
                 heading={
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="size-3.5" />
+                  <span className={sx(styles.groupHeading)}>
+                    <Sparkles className={sx(styles.groupHeadingIcon)} />
                     <span>Recommended</span>
                   </span>
                 }
@@ -291,42 +286,19 @@ export function ModelSelector(args: ModelSelectorProps) {
           </CommandList>
         </Command>
         {effortEnabled && effortOptions.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/70 bg-muted/20 px-3 py-2.5">
-            <span
-              id={effortGroupId}
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Effort
-            </span>
-            <div
-              role="radiogroup"
-              aria-labelledby={effortGroupId}
-              className="flex flex-wrap items-center gap-1"
-            >
-              {effortOptions.map((option) => {
-                const selected = option.value === effort;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    disabled={disabled}
-                    onClick={() =>
-                      onSelect({ selection: value, effort: option.value })
-                    }
-                    className={cn(
-                      "h-8 rounded-md px-2.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
-                      selected
-                        ? "bg-primary/10 text-primary ring-1 ring-primary/40"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
+          <div className={sx(styles.effortRow)}>
+            <p className={sx(styles.effortLabel)}>
+              Reasoning effort for {value.label}
+            </p>
+            <ChoiceChips
+              label={`Reasoning effort for ${value.label}`}
+              options={effortOptions}
+              value={effort}
+              disabled={disabled}
+              onValueChange={(nextEffort) =>
+                onSelect({ selection: value, effort: nextEffort })
+              }
+            />
           </div>
         ) : null}
       </DialogContent>

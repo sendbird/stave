@@ -1,0 +1,337 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "../../ads/tokens/tokens.stylex";
+
+const mutedSurface = (percent: number) =>
+  `color-mix(in oklch, ${vars.colorCanvasSubtle} ${percent}%, transparent)`;
+const panelSurface = (percent: number) =>
+  `color-mix(in oklch, ${vars.colorSurface} ${percent}%, transparent)`;
+const accent = (percent: number) =>
+  `color-mix(in oklch, ${vars.colorAccent} ${percent}%, transparent)`;
+
+export const editorStyles = stylex.create({
+  sectionHeading: { display: "grid", gap: vars.space4 },
+  sectionHeadingRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space12,
+    justifyContent: "space-between",
+  },
+  sectionTitle: {
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightSemibold,
+    letterSpacing: "0.12em",
+    margin: 0,
+    textTransform: "uppercase",
+  },
+  sectionDetail: { color: vars.colorTextMuted, fontSize: 10 },
+  sectionDescription: {
+    color: vars.colorTextMuted,
+    fontSize: 11,
+    lineHeight: "16px",
+    margin: 0,
+  },
+
+  formLabel: { display: "grid", gap: 6 },
+  formLabelText: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+  },
+  formLabelDescription: {
+    color: vars.colorTextMuted,
+    fontSize: 11,
+    lineHeight: "16px",
+  },
+
+  runtimeSwitch: {
+    alignItems: "center",
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusControl,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: vars.space12,
+    justifyContent: "space-between",
+    paddingBlock: vars.space8,
+    paddingInline: 10,
+  },
+  runtimeSwitchWarning: {
+    backgroundColor: vars.colorWarningSoft,
+    borderColor: vars.colorWarningBorder,
+  },
+  runtimeSwitchText: { minInlineSize: 0 },
+  runtimeSwitchLabel: {
+    color: vars.colorText,
+    display: "block",
+    fontSize: vars.fontSizeCaption,
+  },
+  runtimeSwitchDescription: {
+    color: vars.colorTextMuted,
+    display: "block",
+    fontSize: 10,
+    lineHeight: "16px",
+    marginBlockStart: 2,
+  },
+
+  section: { display: "grid", gap: vars.space12 },
+  chipRow: { display: "flex", flexWrap: "wrap", gap: 6 },
+  cadenceChip: {
+    blockSize: 28,
+    borderRadius: vars.radiusFull,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    fontSize: 11,
+    paddingInline: 10,
+  },
+  cadenceChipActive: {
+    backgroundColor: accent(8),
+    borderColor: accent(45),
+    color: vars.colorText,
+  },
+  cadenceChipIdle: {
+    borderColor: vars.colorBorderSubtle,
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+  },
+  checkIcon: { blockSize: 12, inlineSize: 12 },
+
+  intervalGrid: {
+    display: "grid",
+    gap: vars.space8,
+    gridTemplateColumns: "minmax(0,1fr) minmax(0,1.5fr)",
+  },
+  compactControl: { blockSize: 32, fontSize: vars.fontSizeCaption },
+  timeControl: {
+    blockSize: 32,
+    fontSize: vars.fontSizeCaption,
+    inlineSize: 160,
+  },
+  concurrencyControl: {
+    blockSize: 32,
+    fontSize: vars.fontSizeCaption,
+    inlineSize: 112,
+  },
+  promptControl: {
+    fontSize: vars.fontSizeCaption,
+    minBlockSize: 112,
+    resize: "vertical",
+  },
+  repositorySelect: { blockSize: 36, fontSize: vars.fontSizeCaption },
+
+  weekdayGroup: { display: "grid", gap: 6 },
+  weekdayRow: { display: "flex", flexWrap: "wrap", gap: vars.space4 },
+  weekdayChip: {
+    blockSize: 28,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    fontSize: 11,
+    inlineSize: 40,
+    paddingInline: 0,
+  },
+
+  summaryRow: {
+    alignItems: "flex-start",
+    backgroundColor: panelSurface(40),
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusControl,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    color: vars.colorTextMuted,
+    display: "flex",
+    fontSize: 11,
+    gap: vars.space8,
+    paddingBlock: vars.space8,
+    paddingInline: 10,
+  },
+  summaryIcon: {
+    blockSize: 14,
+    flexShrink: 0,
+    inlineSize: 14,
+    marginBlockStart: 2,
+  },
+  summaryStrong: { color: vars.colorText },
+
+  modeList: { display: "grid", gap: 6 },
+  modeOption: {
+    alignItems: "flex-start",
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusControl,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: 10,
+    inlineSize: "100%",
+    padding: 10,
+    textAlign: "left",
+  },
+  modeOptionActive: {
+    backgroundColor: accent(8),
+    borderColor: accent(50),
+  },
+  modeIcon: {
+    blockSize: vars.controlIconSizeSm,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeSm,
+    marginBlockStart: 2,
+  },
+  modeIconActive: { color: vars.colorAccent },
+  modeIconIdle: { color: vars.colorTextMuted },
+  modeBody: { flexGrow: 1, minInlineSize: 0 },
+  modeTitleRow: { alignItems: "center", display: "flex", gap: vars.space8 },
+  modeTitle: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightSemibold,
+  },
+  modeBadge: {
+    borderColor: vars.colorBorderSubtle,
+    color: vars.colorTextMuted,
+    fontSize: 9,
+    fontWeight: vars.fontWeightRegular,
+    minBlockSize: 16,
+    paddingInline: vars.space4,
+  },
+  modeRecommended: {
+    color: vars.colorTextMuted,
+    fontSize: 9,
+    letterSpacing: "0.025em",
+    textTransform: "uppercase",
+  },
+  modeDescription: {
+    color: vars.colorTextMuted,
+    display: "block",
+    fontSize: 11,
+    lineHeight: "16px",
+    marginBlockStart: vars.space4,
+  },
+
+  manualPanel: {
+    backgroundColor: panelSurface(30),
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusControl,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    display: "grid",
+    gap: vars.space8,
+    padding: 10,
+  },
+  optionPair: {
+    display: "grid",
+    gap: vars.space8,
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  },
+  permissionSummary: {
+    backgroundColor: mutedSurface(40),
+    borderRadius: vars.radiusControl,
+    color: vars.colorTextMuted,
+    fontFamily: vars.fontMono,
+    fontSize: 10,
+    lineHeight: "16px",
+    margin: 0,
+    paddingBlock: vars.space8,
+    paddingInline: 10,
+  },
+
+  root: {
+    blockSize: "100%",
+    display: "flex",
+    flexDirection: "column",
+    minBlockSize: 0,
+  },
+  header: {
+    alignItems: "center",
+    borderBlockEndColor: vars.colorBorderSubtle,
+    borderBlockEndStyle: "solid",
+    borderBlockEndWidth: vars.borderWidthHairline,
+    display: "flex",
+    flexShrink: 0,
+    gap: vars.space12,
+    justifyContent: "space-between",
+    paddingBlock: vars.space12,
+    paddingInline: vars.space20,
+  },
+  headerText: { minInlineSize: 0 },
+  headerTitle: {
+    color: vars.colorText,
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightSemibold,
+  },
+  headerSubtitle: { color: vars.colorTextMuted, fontSize: 11 },
+  headerActions: { alignItems: "center", display: "flex", gap: 6 },
+  headerButtonQuiet: {
+    blockSize: 32,
+    fontSize: vars.fontSizeCaption,
+    paddingInline: vars.space8,
+  },
+  headerButton: {
+    blockSize: 32,
+    fontSize: vars.fontSizeCaption,
+    paddingInline: vars.space12,
+  },
+
+  body: {
+    flexGrow: 1,
+    minBlockSize: 0,
+    overflowY: "auto",
+    paddingBlock: vars.space16,
+    paddingInline: vars.space20,
+  },
+  bodyColumn: {
+    display: "grid",
+    gap: vars.space24,
+    marginInline: "auto",
+    maxInlineSize: "48rem",
+  },
+
+  providerSelect: { flexShrink: 0, inlineSize: 118 },
+  effortGroup: { display: "grid", gap: 6 },
+
+  environmentPath: {
+    backgroundColor: mutedSurface(60),
+    borderRadius: vars.radiusControl,
+    color: vars.colorTextMuted,
+    fontFamily: vars.fontMono,
+    fontSize: 10,
+    overflow: "hidden",
+    paddingBlock: vars.space8,
+    paddingInline: 10,
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  emptyPanel: {
+    borderColor: vars.colorBorder,
+    borderRadius: vars.radiusControl,
+    borderStyle: "dashed",
+    borderWidth: vars.borderWidthHairline,
+    color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+    padding: vars.space12,
+  },
+  loadingNote: { color: vars.colorTextMuted, fontSize: 10 },
+  referenceList: { display: "grid", gap: vars.space8 },
+  referenceCard: {
+    backgroundColor: mutedSurface(20),
+    borderColor: vars.colorBorderSubtle,
+    borderRadius: vars.radiusControl,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    padding: 10,
+  },
+  referenceDescription: {
+    color: vars.colorTextMuted,
+    fontSize: 10,
+    lineHeight: "16px",
+    marginBlockEnd: 0,
+    marginBlockStart: vars.space8,
+    overflowWrap: "break-word",
+  },
+  referenceToken: {
+    color: vars.colorTextSubtle,
+    fontFamily: vars.fontMono,
+    fontSize: 9,
+    marginBlockStart: vars.space4,
+    wordBreak: "break-all",
+  },
+});

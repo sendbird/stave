@@ -1,6 +1,6 @@
 declare module "better-sqlite3" {
   interface RunResult {
-    changes: number | bigint;
+    changes: number;
     lastInsertRowid: number | bigint;
   }
 
@@ -21,10 +21,10 @@ declare module "better-sqlite3" {
         nativeBinding?: string;
       },
     );
-    pragma(source: string): unknown;
+    pragma(source: string, options?: { simple?: boolean }): unknown;
     exec(source: string): this;
     prepare<Result = unknown>(source: string): Statement<Result>;
-    transaction<Args extends unknown[]>(fn: (...args: Args) => void): (...args: Args) => void;
+    transaction<Args extends unknown[], Result>(fn: (...args: Args) => Result): (...args: Args) => Result;
     close(): void;
   }
 

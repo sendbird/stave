@@ -148,7 +148,7 @@ function toCodexSourceLabel(source: unknown) {
 export function toCodexConfigLayerDisplayValue(
   value: unknown,
   fallback = "unknown",
-) {
+): string {
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : fallback;

@@ -96,7 +96,7 @@ export function useChildTasks(args: {
   }, []);
 
   const load = useCallback(async () => {
-    if (!parentTaskId || !mountedRef.current) {
+    if (!enabled || !parentTaskId || !mountedRef.current) {
       return;
     }
     const listChildTasks = window.api?.runs?.listChildTasks;
@@ -126,30 +126,24 @@ export function useChildTasks(args: {
         setLoading(false);
       }
     }
-  }, [parentTaskId]);
+  }, [enabled, parentTaskId]);
 
   useEffect(() => {
-    if (!enabled || !parentTaskId) {
-      setChildren(EMPTY_CHILDREN);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-    void load();
-    const subscribe = window.api?.runs?.onChildTasksChanged;
-    if (!subscribe) {
-      return;
-    }
-    // `load` is rebuilt whenever the parent task changes, so the listener never
-    // closes over a task id the surface has already moved off.
-    const unsubscribe = subscribe((payload) => {
-      if (payload.parentTaskId !== parentTaskId) {
-        return;
-      }
-      void load();
-    });
+    // Changing scope or hiding a surface invalidates in-flight listings too.
+    ++loadSequenceRef.current;
+    setChildren(EMPTY_CHILDREN);
+    setError(null);
+    setLoading(false);
+    if (enabled && parentTaskId) void load();
+    const unsubscribe =
+      enabled && parentTaskId
+        ? window.api?.runs?.onChildTasksChanged?.((payload) => {
+            if (payload.parentTaskId === parentTaskId) void load();
+          })
+        : undefined;
     return () => {
-      unsubscribe();
+      ++loadSequenceRef.current;
+      unsubscribe?.();
     };
   }, [enabled, load, parentTaskId]);
 

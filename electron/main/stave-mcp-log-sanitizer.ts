@@ -7,7 +7,7 @@ function isSensitiveLogKey(key: string) {
   return /(authorization|token|secret|password|api[_-]?key)/i.test(key);
 }
 
-function truncateLogString(value: string) {
+export function truncateLogString(value: string) {
   if (value.length <= MAX_LOCAL_MCP_LOG_STRING_LENGTH) {
     return value;
   }

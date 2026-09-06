@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { FolderSymlink, GitBranch, X } from "lucide-react";
 import {
   useEffect,
@@ -8,9 +9,11 @@ import {
 } from "react";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
 import { resolveDefaultCreateWorkspaceBaseBranch } from "@/components/layout/CreateWorkspaceBranchPicker.utils";
-import { Badge, Button, Card, Input, Textarea, toast } from "@/components/ui";
+import { dialogStyles } from "@/components/ads/components/Dialog";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { Badge, Button, Input, Textarea, toast } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { createWorkspaceStyles } from "./create-workspace-dialog.styles";
 
 interface CreateWorkspaceDialogProps {
   open: boolean;
@@ -307,9 +310,10 @@ export function CreateWorkspaceDialog({
 
   return (
     <div
-      className={cn(
+      className={cx(
         UI_LAYER_CLASS.dialog,
-        "t-overlay fixed inset-0 flex items-center justify-center bg-overlay p-4",
+        "t-overlay",
+        sx(createWorkspaceStyles.backdrop),
       )}
       role="dialog"
       aria-modal="true"
@@ -321,13 +325,16 @@ export function CreateWorkspaceDialog({
         closeDialog();
       }}
     >
-      <Card
-        className="t-modal animate-dropdown-in max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-lg border-border/80 bg-card p-6"
+      <section
+        className={cx(
+          "t-modal",
+          sx(dialogStyles.surface, createWorkspaceStyles.panel),
+        )}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 id={titleId} className="text-3xl font-semibold">
+          <div className={sx(createWorkspaceStyles.headerRow)}>
+            <h3 id={titleId} className={sx(createWorkspaceStyles.title)}>
               New workspace
             </h3>
             <Button
@@ -337,68 +344,74 @@ export function CreateWorkspaceDialog({
               disabled={creatingWorkspace}
               onClick={closeDialog}
             >
-              <X className="size-4" />
+              <X className={sx(createWorkspaceStyles.closeIcon)} />
             </Button>
           </div>
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className={sx(createWorkspaceStyles.lead)}>
             Workspace is a dedicated git worktree bound to a branch.
           </p>
           {creationMode !== "link" ? (
-            <div className="mb-4">
-              <p className="mb-2 text-sm font-medium">Workspace Branch Name</p>
+            <div className={sx(createWorkspaceStyles.field)}>
+              <p className={sx(createWorkspaceStyles.fieldLabel)}>
+                Workspace Branch Name
+              </p>
               <Input
                 autoFocus
                 value={workspaceName}
                 placeholder="feature/your-workspace"
                 onChange={(event) => setWorkspaceName(event.target.value)}
-                className="h-10 rounded-sm border-border/80 bg-background"
+                xstyle={createWorkspaceStyles.textInput}
               />
             </div>
           ) : null}
-          <div className="mb-4">
-            <p className="mb-2 text-sm font-medium">Workspace Label</p>
+          <div className={sx(createWorkspaceStyles.field)}>
+            <p className={sx(createWorkspaceStyles.fieldLabel)}>
+              Workspace Label
+            </p>
             <Input
               value={workspaceLabel}
               placeholder="Optional display label"
               onChange={(event) => setWorkspaceLabel(event.target.value)}
-              className="h-10 rounded-sm border-border/80 bg-background"
+              xstyle={createWorkspaceStyles.textInput}
             />
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className={sx(createWorkspaceStyles.fieldHint)}>
               Optional. Leave blank to use the branch name in the project list.
             </p>
           </div>
-          <p className="mb-2 text-sm font-medium">Creation Methods</p>
+          <p className={sx(createWorkspaceStyles.fieldLabel)}>
+            Creation Methods
+          </p>
           <div
-            className="space-y-2"
+            className={sx(createWorkspaceStyles.modeList)}
             role="radiogroup"
             aria-label="Creation methods"
           >
             <div
               role="radio"
               aria-checked={creationMode === "branch"}
-              className={cn(
-                "w-full rounded-sm border p-3",
+              className={sx(
+                createWorkspaceStyles.modeCard,
                 creationMode === "branch"
-                  ? "border-primary bg-secondary/50"
-                  : "border-border/80 bg-card",
+                  ? createWorkspaceStyles.modeCardSelected
+                  : createWorkspaceStyles.modeCardIdle,
               )}
             >
-              <button
+              <AdsButton layout="host"
                 type="button"
-                className="w-full text-left"
+                xstyle={createWorkspaceStyles.modeTrigger}
                 onClick={() => setCreationMode("branch")}
               >
-                <p className="flex items-center gap-2 text-base font-semibold">
-                  <GitBranch className="size-4" />
+                <p className={sx(createWorkspaceStyles.modeTitle)}>
+                  <GitBranch className={sx(createWorkspaceStyles.modeIcon)} />
                   Create From Branch
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className={sx(createWorkspaceStyles.modeDescription)}>
                   Create worktree from a searchable base branch list with remote
                   bases prioritized.
                 </p>
-              </button>
-              <div className="mt-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              </AdsButton>
+              <div className={sx(createWorkspaceStyles.subBlock)}>
+                <p className={sx(createWorkspaceStyles.subLabel)}>
                   Base Branch
                 </p>
                 <CreateWorkspaceBranchPicker
@@ -422,69 +435,71 @@ export function CreateWorkspaceDialog({
             <div
               role="radio"
               aria-checked={creationMode === "clean"}
-              className={cn(
-                "w-full rounded-sm border p-3",
+              className={sx(
+                createWorkspaceStyles.modeCard,
                 creationMode === "clean"
-                  ? "border-primary bg-secondary/50"
-                  : "border-border/80 bg-card",
+                  ? createWorkspaceStyles.modeCardSelected
+                  : createWorkspaceStyles.modeCardIdle,
               )}
             >
-              <button
+              <AdsButton layout="host"
                 type="button"
-                className="w-full text-left"
+                xstyle={createWorkspaceStyles.modeTrigger}
                 onClick={() => setCreationMode("clean")}
               >
-                <p className="text-base font-semibold">
+                <p className={sx(createWorkspaceStyles.modeTitlePlain)}>
                   Create Clean Workspace
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className={sx(createWorkspaceStyles.modeDescription)}>
                   Create a new isolated worktree with a fresh branch.
                 </p>
-              </button>
+              </AdsButton>
             </div>
             <div
               role="radio"
               aria-checked={creationMode === "link"}
-              className={cn(
-                "w-full rounded-sm border p-3",
+              className={sx(
+                createWorkspaceStyles.modeCard,
                 creationMode === "link"
-                  ? "border-primary bg-secondary/50"
-                  : "border-border/80 bg-card",
+                  ? createWorkspaceStyles.modeCardSelected
+                  : createWorkspaceStyles.modeCardIdle,
               )}
             >
-              <button
+              <AdsButton layout="host"
                 type="button"
-                className="w-full text-left"
+                xstyle={createWorkspaceStyles.modeTrigger}
                 onClick={() => setCreationMode("link")}
               >
-                <p className="flex items-center gap-2 text-base font-semibold">
-                  <FolderSymlink className="size-4" />
+                <p className={sx(createWorkspaceStyles.modeTitle)}>
+                  <FolderSymlink
+                    className={sx(createWorkspaceStyles.modeIcon)}
+                  />
                   Link Existing Worktree
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className={sx(createWorkspaceStyles.modeDescription)}>
                   Continue work in a worktree that already exists elsewhere on
                   disk. Stave symlinks it into `.stave/workspaces/` and keeps
                   its current branch.
                 </p>
-              </button>
+              </AdsButton>
               {creationMode === "link" ? (
-                <div className="mt-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                <div className={sx(createWorkspaceStyles.subBlock)}>
+                  <p className={sx(createWorkspaceStyles.subLabel)}>
                     Worktree Path
                   </p>
-                  <div className="flex gap-2">
+                  <div className={sx(createWorkspaceStyles.pathRow)}>
                     <Input
                       autoFocus
                       value={worktreePath}
                       placeholder="~/worktrees/feature-branch"
                       onChange={(event) => setWorktreePath(event.target.value)}
-                      className="h-10 flex-1 rounded-sm border-border/80 bg-background font-mono text-sm"
+                      xstyle={createWorkspaceStyles.pathInput}
                     />
                     {window.api?.fs?.pickDirectory ? (
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-10"
+                        xstyle={createWorkspaceStyles.browseButton}
                         disabled={creatingWorkspace}
                         onClick={() => void handleBrowseWorktreePath()}
                       >
@@ -492,7 +507,7 @@ export function CreateWorkspaceDialog({
                       </Button>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className={sx(createWorkspaceStyles.fieldHint)}>
                     The linked worktree stays where it is; archiving the
                     workspace later removes only the symlink.
                   </p>
@@ -502,9 +517,11 @@ export function CreateWorkspaceDialog({
           </div>
           {creationMode !== "link" ? (
             <>
-              <div className="mt-4">
-                <p className="mb-2 text-sm font-medium">Post-Create Command</p>
-                <p className="mb-2 text-sm text-muted-foreground">
+              <div className={sx(createWorkspaceStyles.section)}>
+                <p className={sx(createWorkspaceStyles.fieldLabel)}>
+                  Post-Create Command
+                </p>
+                <p className={sx(createWorkspaceStyles.sectionCopy)}>
                   Optional shell command to run once inside the new workspace
                   root after creation. Useful for `bun install` or `npm
                   install`.
@@ -513,55 +530,57 @@ export function CreateWorkspaceDialog({
                   value={initCommand}
                   placeholder="bun install"
                   onChange={(event) => setInitCommand(event.target.value)}
-                  className="min-h-[110px] rounded-sm border-border/80 bg-background font-mono text-sm"
+                  xstyle={createWorkspaceStyles.initCommand}
                 />
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className={sx(createWorkspaceStyles.sectionHint)}>
                   Shortcut: use {submitModifierLabel} to create while editing
                   this field.
                 </p>
               </div>
-              <div className="mt-4">
-                <p className="mb-2 text-sm font-medium">Dependency Reuse</p>
-                <button
+              <div className={sx(createWorkspaceStyles.section)}>
+                <p className={sx(createWorkspaceStyles.fieldLabel)}>
+                  Dependency Reuse
+                </p>
+                <AdsButton layout="host"
                   type="button"
                   aria-pressed={useRootNodeModulesSymlink}
                   onClick={() =>
                     setUseRootNodeModulesSymlink((current) => !current)
                   }
-                  className={cn(
-                    "w-full rounded-sm border px-4 py-3 text-left transition-colors",
+                  xstyle={[
+                    createWorkspaceStyles.symlinkToggle,
                     useRootNodeModulesSymlink
-                      ? "border-primary bg-secondary/50"
-                      : "border-border/80 bg-background hover:border-border",
-                  )}
+                      ? createWorkspaceStyles.symlinkToggleOn
+                      : createWorkspaceStyles.symlinkToggleOff,
+                  ]}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+                  <div className={sx(createWorkspaceStyles.symlinkRow)}>
+                    <p className={sx(createWorkspaceStyles.symlinkTitle)}>
                       <span>Reuse root</span>
                       <Badge
                         variant="outline"
-                        className="h-5 rounded-md px-1.5 font-mono text-[11px] font-medium"
+                        className={sx(createWorkspaceStyles.monoChip)}
                       >
                         node_modules
                       </Badge>
                       <span>via symlink</span>
                     </p>
                     <span
-                      className={cn(
-                        "rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]",
+                      className={sx(
+                        createWorkspaceStyles.statePill,
                         useRootNodeModulesSymlink
-                          ? "border-primary/40 bg-primary/10 text-primary"
-                          : "border-border/80 text-muted-foreground",
+                          ? createWorkspaceStyles.statePillOn
+                          : createWorkspaceStyles.statePillOff,
                       )}
                     >
                       {useRootNodeModulesSymlink ? "On" : "Off"}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <p className={sx(createWorkspaceStyles.symlinkDescription)}>
                     Creates{" "}
                     <Badge
                       variant="outline"
-                      className="h-5 rounded-md px-1.5 align-middle font-mono text-[11px] font-medium"
+                      className={sx(createWorkspaceStyles.monoChipInline)}
                     >
                       node_modules
                     </Badge>{" "}
@@ -569,11 +588,11 @@ export function CreateWorkspaceDialog({
                     install. This is fast, but later installs in that workspace
                     will affect the shared dependency tree.
                   </p>
-                </button>
+                </AdsButton>
               </div>
             </>
           ) : null}
-          <div className="mt-5 flex justify-end gap-2">
+          <div className={sx(createWorkspaceStyles.actions)}>
             <Button
               type="button"
               variant="outline"
@@ -593,12 +612,12 @@ export function CreateWorkspaceDialog({
             </Button>
           </div>
           {createWorkspaceError ? (
-            <p className="mt-3 text-sm text-destructive">
+            <p className={sx(createWorkspaceStyles.error)}>
               {createWorkspaceError}
             </p>
           ) : null}
         </form>
-      </Card>
+      </section>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { sx } from "@/components/ads/utils/stylex";
 import {
   Input,
   Select,
@@ -6,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
+import { dispatchFieldStyles } from "./dispatch-runtime.styles";
 
 export type DispatchWorkspaceStrategy = "new" | "existing";
 
@@ -40,16 +42,16 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
   const { idPrefix } = props;
   return (
     <section
-      className="grid gap-4"
+      className={sx(dispatchFieldStyles.section)}
       aria-labelledby={`${idPrefix}-target-heading`}
     >
-      <h3 id={`${idPrefix}-target-heading`} className="text-sm font-semibold">
+      <h3 id={`${idPrefix}-target-heading`} className={sx(dispatchFieldStyles.sectionHeading)}>
         Where it runs
       </h3>
-      <div className="grid gap-2">
+      <div className={sx(dispatchFieldStyles.field)}>
         <label
           htmlFor={`${idPrefix}-project`}
-          className="text-xs font-medium text-muted-foreground"
+          className={sx(dispatchFieldStyles.fieldLabel)}
         >
           Stave project
         </label>
@@ -68,14 +70,14 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
             ))}
           </SelectContent>
         </Select>
-        <p className="truncate font-mono text-[11px] text-muted-foreground">
+        <p className={sx(dispatchFieldStyles.monoPath)}>
           {props.projectPath || "No registered project available"}
         </p>
       </div>
-      <div className="grid gap-2">
+      <div className={sx(dispatchFieldStyles.field)}>
         <label
           htmlFor={`${idPrefix}-workspace-strategy`}
-          className="text-xs font-medium text-muted-foreground"
+          className={sx(dispatchFieldStyles.fieldLabel)}
         >
           Workspace
         </label>
@@ -95,10 +97,10 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
         </Select>
       </div>
       {props.workspaceStrategy === "new" ? (
-        <div className="grid gap-2">
+        <div className={sx(dispatchFieldStyles.field)}>
           <label
             htmlFor={`${idPrefix}-branch`}
-            className="text-xs font-medium text-muted-foreground"
+            className={sx(dispatchFieldStyles.fieldLabel)}
           >
             Branch name
           </label>
@@ -108,15 +110,15 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
             onChange={(event) => props.onBranchNameChange(event.target.value)}
             autoComplete="off"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className={sx(dispatchFieldStyles.hint)}>
             Based on the selected project&apos;s remote default branch.
           </p>
         </div>
       ) : (
-        <div className="grid gap-2">
+        <div className={sx(dispatchFieldStyles.field)}>
           <label
             htmlFor={`${idPrefix}-existing-workspace`}
-            className="text-xs font-medium text-muted-foreground"
+            className={sx(dispatchFieldStyles.fieldLabel)}
           >
             Existing workspace
           </label>

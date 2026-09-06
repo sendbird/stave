@@ -1,4 +1,6 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync, type ChildProcessByStdio } from "node:child_process";
+import type { Readable } from "node:stream";
+import { StringDecoder } from "node:string_decoder";
 import path from "node:path";
 import { buildExecutableLookupEnv } from "./executable-path";
 
@@ -114,6 +116,10 @@ export function probeExecutableVersion(args: {
   const result = spawnSync(args.executablePath, args.versionArgs ?? ["--version"], {
     encoding: "utf8",
     env: args.env,
+    timeout: 2_000,
+    killSignal: "SIGKILL",
+    maxBuffer: 64 * 1024,
+    stdio: ["ignore", "pipe", "pipe"],
   });
   const stdout = (result.stdout ?? "").trim();
   const stderr = (result.stderr ?? "").trim();
@@ -161,6 +167,9 @@ export function runExecutableProbe(args: {
     let stderr = "";
     let outputBytes = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const stdoutDecoder = new StringDecoder("utf8");
+    const stderrDecoder = new StringDecoder("utf8");
 
     const finish = (result: {
       status: number | null;
@@ -174,6 +183,7 @@ export function runExecutableProbe(args: {
       if (timer) {
         clearTimeout(timer);
       }
+      if (killTimer) clearTimeout(killTimer);
       const normalizedStdout = stdout.trim();
       const normalizedStderr = stderr.trim();
       resolve({
@@ -187,7 +197,7 @@ export function runExecutableProbe(args: {
       });
     };
 
-    let child: ReturnType<typeof spawn>;
+    let child: ChildProcessByStdio<null, Readable, Readable>;
     try {
       child = spawn(args.executablePath, [...args.commandArgs], {
         cwd: args.cwd,
@@ -204,16 +214,16 @@ export function runExecutableProbe(args: {
     }
 
     const appendOutput = (target: "stdout" | "stderr", chunk: Buffer) => {
-      if (outputBytes >= maxBytes) {
+      if (settled || outputBytes >= maxBytes) {
         return;
       }
       const remaining = maxBytes - outputBytes;
       const bounded = chunk.subarray(0, remaining);
       outputBytes += bounded.byteLength;
       if (target === "stdout") {
-        stdout += bounded.toString("utf8");
+        stdout += stdoutDecoder.write(bounded);
       } else {
-        stderr += bounded.toString("utf8");
+        stderr += stderrDecoder.write(bounded);
       }
     };
     child.stdout.on("data", (chunk: Buffer) => appendOutput("stdout", chunk));
@@ -226,7 +236,14 @@ export function runExecutableProbe(args: {
     timer = setTimeout(() => {
       timedOut = true;
       child.kill("SIGTERM");
-      const killTimer = setTimeout(() => child.kill("SIGKILL"), 750);
+      killTimer = setTimeout(() => {
+        child.kill("SIGKILL");
+        // A descendant can inherit a pipe and prevent `close` indefinitely.
+        // The deadline must settle even when that descriptor stays open.
+        child.stdout.destroy();
+        child.stderr.destroy();
+        finish({ status: null, signal: "SIGKILL", error: "Executable probe timed out." });
+      }, 750);
       killTimer.unref?.();
     }, timeoutMs);
     timer.unref?.();

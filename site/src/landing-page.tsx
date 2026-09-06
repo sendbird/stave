@@ -10,10 +10,12 @@ import {
   Workflow,
 } from "lucide-react";
 
+import { sx } from "@/components/ads/utils/stylex";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 
+import { landingStyles as s } from "./landing-page.styles";
 import { SiteFooter, SiteHeader } from "./site-layout";
 import type { SiteData } from "./site-types";
 
@@ -98,41 +100,38 @@ const START_ITEMS = [
 
 export function LandingPage({ data: _data }: { data: SiteData }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className={sx(s.page)}>
       <SiteHeader brandHref="/" primaryLinks={HEADER_LINKS} />
 
       <main>
         {/* Hero */}
-        <section className="relative overflow-hidden border-b border-border/70">
-          <div className="site-grid-bg pointer-events-none absolute inset-0" />
-          <div className="relative mx-auto flex max-w-screen-2xl flex-col items-center gap-8 px-4 pt-20 pb-16 text-center sm:px-6 sm:pt-24 sm:pb-20 lg:px-8">
-            <Badge
-              className="rounded-full border-border/80 bg-card/80 px-3 py-1 text-xs font-medium text-muted-foreground shadow-xs"
-              variant="outline"
-            >
-              <Sparkles className="size-3" />
+        <section className={sx(s.heroSection)}>
+          <div className={sx(s.gridBackground)} />
+          <div className={sx(s.heroInner)}>
+            <Badge className={sx(s.heroBadge)} variant="outline">
+              <Sparkles className={sx(s.badgeIcon)} />
               Now available for macOS
             </Badge>
-            <h1 className="max-w-3xl font-heading text-4xl leading-[1.05] font-semibold tracking-tight text-balance text-foreground sm:text-5xl lg:text-6xl">
+            <h1 className={sx(s.heroTitle)}>
               A desktop coding workspace built around Claude and Codex.
             </h1>
-            <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
+            <p className={sx(s.heroLead)}>
               Stave keeps tasks, terminal work, and provider controls in one
               app. Every task gets its own worktree, and every turn starts with
               safety settings you can actually see.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className={sx(s.actionRow)}>
               <Button asChild size="lg">
                 <a href={INSTALL_HREF}>
                   Install Stave
-                  <ArrowRight className="size-4" />
+                  <ArrowRight className={sx(s.actionIcon)} />
                 </a>
               </Button>
               <Button asChild size="lg" variant="outline">
                 <a href={DOCS_HREF}>Read the docs</a>
               </Button>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className={sx(s.hint)}>
               <span>Works on macOS — </span>
               <Kbd>⌘⇧P</Kbd>
               <span>opens the command palette</span>
@@ -141,18 +140,18 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
         </section>
 
         {/* Product shot */}
-        <section className="border-b border-border/70 bg-muted/30">
-          <div className="mx-auto max-w-screen-2xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-            <div className="mx-auto max-w-5xl">
-              <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xl shadow-foreground/5 ring-1 ring-border/50">
-                <div className="flex items-center gap-1.5 border-b border-border/70 bg-muted/40 px-4 py-3">
-                  <span className="size-2.5 rounded-full bg-border" />
-                  <span className="size-2.5 rounded-full bg-border" />
-                  <span className="size-2.5 rounded-full bg-border" />
+        <section className={sx(s.shotSection)}>
+          <div className={sx(s.sectionInner)}>
+            <div className={sx(s.shotFrame)}>
+              <div className={sx(s.shotWindow)}>
+                <div className={sx(s.shotTitlebar)}>
+                  <span className={sx(s.shotDot)} />
+                  <span className={sx(s.shotDot)} />
+                  <span className={sx(s.shotDot)} />
                 </div>
                 <img
                   alt="Stave workspace with chat, editor, and terminal visible"
-                  className="w-full"
+                  className={sx(s.shotImage)}
                   loading="eager"
                   src="./docs/screenshots/stave-app.png"
                 />
@@ -162,19 +161,19 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
         </section>
 
         {/* Features */}
-        <section className="border-b border-border/70">
-          <div className="mx-auto max-w-screen-2xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="font-heading text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <section className={sx(s.featuresSection)}>
+          <div className={sx(s.featuresInner)}>
+            <div className={sx(s.sectionHeader)}>
+              <h2 className={sx(s.sectionTitle)}>
                 One workspace for the way you actually work.
               </h2>
-              <p className="mt-4 text-base leading-7 text-muted-foreground">
+              <p className={sx(s.sectionLead)}>
                 Stave brings the most useful pieces of a modern coding assistant
                 — model sessions, shells, tasks, and safety — into a single
                 desktop surface.
               </p>
             </div>
-            <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={sx(s.featuresGrid)}>
               {FEATURES.map((feature) => (
                 <FeatureCard
                   key={feature.title}
@@ -188,18 +187,16 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
         </section>
 
         {/* Start here */}
-        <section className="border-b border-border/70 bg-muted/30">
-          <div className="mx-auto max-w-screen-2xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="font-heading text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                Start here.
-              </h2>
-              <p className="mt-4 text-base leading-7 text-muted-foreground">
+        <section className={sx(s.startSection)}>
+          <div className={sx(s.startInner)}>
+            <div className={sx(s.sectionHeader)}>
+              <h2 className={sx(s.sectionTitle)}>Start here.</h2>
+              <p className={sx(s.sectionLead)}>
                 The docs are ordered like a product manual. Install first, learn
                 the daily surfaces, then extend.
               </p>
             </div>
-            <div className="mt-14 grid gap-4 sm:grid-cols-3">
+            <div className={sx(s.startGrid)}>
               {START_ITEMS.map((item) => (
                 <StartCard
                   key={item.title}
@@ -214,20 +211,18 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
 
         {/* CTA */}
         <section>
-          <div className="mx-auto max-w-screen-2xl px-4 py-20 sm:px-6 lg:px-8">
-            <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 text-center">
-              <h2 className="font-heading text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                Ready to try Stave?
-              </h2>
-              <p className="text-base leading-7 text-muted-foreground">
+          <div className={sx(s.ctaInner)}>
+            <div className={sx(s.ctaBlock)}>
+              <h2 className={sx(s.sectionTitle)}>Ready to try Stave?</h2>
+              <p className={sx(s.ctaLead)}>
                 Install the latest macOS build and open the workspace in a few
                 minutes.
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-3">
+              <div className={sx(s.actionRow)}>
                 <Button asChild size="lg">
                   <a href={INSTALL_HREF}>
                     Install Stave
-                    <ArrowRight className="size-4" />
+                    <ArrowRight className={sx(s.actionIcon)} />
                   </a>
                 </Button>
                 <Button asChild size="lg" variant="outline">
@@ -254,16 +249,12 @@ function FeatureCard({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="group rounded-xl border border-border/70 bg-card/60 p-6 transition-colors hover:border-border">
-      <div className="flex size-9 items-center justify-center rounded-md border border-border/80 bg-background text-muted-foreground">
-        <Icon className="size-4" />
+    <div className={sx(s.featureCard)}>
+      <div className={sx(s.featureIconWrap)}>
+        <Icon className={sx(s.featureIcon)} />
       </div>
-      <h3 className="mt-5 font-heading text-base font-semibold tracking-tight text-foreground">
-        {title}
-      </h3>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        {description}
-      </p>
+      <h3 className={sx(s.featureTitle)}>{title}</h3>
+      <p className={sx(s.featureDescription)}>{description}</p>
     </div>
   );
 }
@@ -278,19 +269,14 @@ function StartCard({
   href: string;
 }) {
   return (
-    <a
-      className="group flex flex-col justify-between gap-4 rounded-xl border border-border/70 bg-card p-6 transition-colors hover:border-foreground/20"
-      href={href}
-    >
-      <div className="space-y-2">
-        <h3 className="font-heading text-base font-semibold tracking-tight text-foreground">
-          {title}
-        </h3>
-        <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+    <a className={sx(s.startCard)} href={href}>
+      <div className={sx(s.startCardText)}>
+        <h3 className={sx(s.startCardTitle)}>{title}</h3>
+        <p className={sx(s.startCardDescription)}>{description}</p>
       </div>
-      <div className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+      <div className={sx(s.startCardCta)}>
         Read guide
-        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        <ArrowRight className={sx(s.startCardCtaIcon)} />
       </div>
     </a>
   );

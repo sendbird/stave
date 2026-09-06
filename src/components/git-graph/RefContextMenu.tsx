@@ -1,3 +1,4 @@
+import { Checkbox } from "@/components/ads/components/Checkbox";
 /**
  * RefContextMenu — right-click menu for a git ref badge (branch / remote / tag).
  *
@@ -40,6 +41,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
 import type { GraphRef } from "@/lib/git-graph/types";
+import { sx } from "@/components/ads/utils/stylex";
+import { refContextMenuStyles as styles } from "./ref-context-menu.styles";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,12 +98,14 @@ function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-w-sm">
+      <DialogContent showCloseButton={false} xstyle={styles.dialogNarrow}>
         <DialogHeader>
           {destructive ? (
-            <div className="mb-1 flex items-center gap-2 text-destructive">
-              <AlertTriangle className="size-4 shrink-0" />
-              <DialogTitle className="text-destructive">{title}</DialogTitle>
+            <div className={sx(styles.destructiveHeader)}>
+              <AlertTriangle className={sx(styles.destructiveIcon)} />
+              <DialogTitle className={sx(styles.destructiveTitle)}>
+                {title}
+              </DialogTitle>
             </div>
           ) : (
             <DialogTitle>{title}</DialogTitle>
@@ -169,7 +174,7 @@ function NameInputDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-w-sm">
+      <DialogContent showCloseButton={false} xstyle={styles.dialogNarrow}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -225,11 +230,11 @@ function DeleteBranchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-w-sm">
+      <DialogContent showCloseButton={false} xstyle={styles.dialogNarrow}>
         <DialogHeader>
-          <div className="mb-1 flex items-center gap-2 text-destructive">
-            <AlertTriangle className="size-4 shrink-0" />
-            <DialogTitle className="text-destructive">
+          <div className={sx(styles.destructiveHeader)}>
+            <AlertTriangle className={sx(styles.destructiveIcon)} />
+            <DialogTitle className={sx(styles.destructiveTitle)}>
               Delete branch
             </DialogTitle>
           </div>
@@ -240,15 +245,16 @@ function DeleteBranchDialog({
         </DialogHeader>
 
         {/* Force-delete toggle */}
-        <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm hover:bg-muted/30">
-          <input
-            type="checkbox"
-            className="accent-destructive"
+        <label className={sx(styles.forceToggle)}>
+          <Checkbox
+            controlOnly
             checked={force}
-            onChange={(e) => setForce(e.target.checked)}
+            onCheckedChange={(checked) => setForce(checked)}
           />
           <span
-            className={force ? "text-destructive" : "text-muted-foreground"}
+            className={sx(
+              force ? styles.forceLabelActive : styles.forceLabelMuted,
+            )}
           >
             Force delete (discard unmerged commits)
           </span>
@@ -368,14 +374,14 @@ export function RefContextMenu({
         ></DropdownMenuTrigger>
 
         <DropdownMenuContent
-          className="w-60"
+          className={sx(styles.menu)}
           align="start"
           alignOffset={0}
           collisionPadding={8}
           finalFocus={false}
         >
           {/* Header label */}
-          <DropdownMenuLabel className="font-mono text-xs text-muted-foreground truncate">
+          <DropdownMenuLabel className={sx(styles.menuLabel)}>
             {refType === "remoteBranch"
               ? "remote: "
               : refType === "tag"
@@ -385,11 +391,11 @@ export function RefContextMenu({
           </DropdownMenuLabel>
           {worktreeLocationsUnavailable ? (
             <DropdownMenuLabel
-              className="flex items-start gap-1.5 whitespace-normal text-[10px] font-normal leading-4 text-warning"
+              className={sx(styles.warningLabel)}
               role="status"
             >
               <AlertTriangle
-                className="mt-0.5 size-3 shrink-0"
+                className={sx(styles.warningIcon)}
                 aria-hidden="true"
               />
               Worktree locations could not be read. Checkout and delete are
@@ -397,11 +403,11 @@ export function RefContextMenu({
             </DropdownMenuLabel>
           ) : attachedElsewhere ? (
             <DropdownMenuLabel
-              className="flex items-start gap-1.5 whitespace-normal text-[10px] font-normal leading-4 text-warning"
+              className={sx(styles.warningLabel)}
               role="status"
             >
               <AlertTriangle
-                className="mt-0.5 size-3 shrink-0"
+                className={sx(styles.warningIcon)}
                 aria-hidden="true"
               />
               This branch is checked out in another worktree. Checkout and
@@ -431,7 +437,7 @@ export function RefContextMenu({
                   void onCheckout(ref!);
                 }}
               >
-                <GitBranch className="size-4" />
+                <GitBranch className={sx(styles.menuIcon)} />
                 Checkout
               </DropdownMenuItem>
 
@@ -441,7 +447,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "rename" });
                 }}
               >
-                <Pencil className="size-4" />
+                <Pencil className={sx(styles.menuIcon)} />
                 Rename
               </DropdownMenuItem>
 
@@ -459,7 +465,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "merge" });
                 }}
               >
-                <GitMerge className="size-4" />
+                <GitMerge className={sx(styles.menuIcon)} />
                 Merge into current
               </DropdownMenuItem>
 
@@ -475,7 +481,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "rebase" });
                 }}
               >
-                <ChevronsUp className="size-4" />
+                <ChevronsUp className={sx(styles.menuIcon)} />
                 Rebase current onto
               </DropdownMenuItem>
 
@@ -487,7 +493,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "push" });
                 }}
               >
-                <Upload className="size-4" />
+                <Upload className={sx(styles.menuIcon)} />
                 Push
               </DropdownMenuItem>
 
@@ -498,7 +504,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "forcePush" });
                 }}
               >
-                <Upload className="size-4" />
+                <Upload className={sx(styles.menuIcon)} />
                 Force push
               </DropdownMenuItem>
 
@@ -523,7 +529,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "delete" });
                 }}
               >
-                <Trash2 className="size-4" />
+                <Trash2 className={sx(styles.menuIcon)} />
                 Delete branch
               </DropdownMenuItem>
             </>
@@ -538,7 +544,7 @@ export function RefContextMenu({
                   void onCheckout(ref!);
                 }}
               >
-                <GitBranch className="size-4" />
+                <GitBranch className={sx(styles.menuIcon)} />
                 Checkout (track locally)
               </DropdownMenuItem>
 
@@ -550,7 +556,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "merge" });
                 }}
               >
-                <GitMerge className="size-4" />
+                <GitMerge className={sx(styles.menuIcon)} />
                 Merge into current
               </DropdownMenuItem>
 
@@ -560,7 +566,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "rebase" });
                 }}
               >
-                <ChevronsUp className="size-4" />
+                <ChevronsUp className={sx(styles.menuIcon)} />
                 Rebase current onto
               </DropdownMenuItem>
             </>
@@ -575,7 +581,7 @@ export function RefContextMenu({
                   void onCheckout(ref!);
                 }}
               >
-                <GitBranch className="size-4" />
+                <GitBranch className={sx(styles.menuIcon)} />
                 Checkout (detached)
               </DropdownMenuItem>
 
@@ -588,7 +594,7 @@ export function RefContextMenu({
                   setPendingDialog({ kind: "deleteTag" });
                 }}
               >
-                <Trash2 className="size-4" />
+                <Trash2 className={sx(styles.menuIcon)} />
                 Delete tag
               </DropdownMenuItem>
             </>
@@ -603,7 +609,7 @@ export function RefContextMenu({
               onClose();
             }}
           >
-            <Copy className="size-4" />
+            <Copy className={sx(styles.menuIcon)} />
             Copy name
           </DropdownMenuItem>
         </DropdownMenuContent>

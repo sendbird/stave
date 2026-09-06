@@ -299,7 +299,7 @@ async function attemptOAuthUsage(accessToken: string): Promise<OAuthAttempt> {
  * with the re-read token before settling for the panel-parsed numbers.
  */
 export async function fetchClaudeUsageSnapshot(): Promise<ClaudeUsageSnapshot> {
-  const credentials = readClaudeOAuthCredentials();
+  const credentials = await readClaudeOAuthCredentials();
 
   if (!credentials.accessToken) {
     const cliResult = await fetchClaudeUsageViaCli();
@@ -350,7 +350,7 @@ export async function fetchClaudeUsageSnapshot(): Promise<ClaudeUsageSnapshot> {
 async function retryOAuthAfterCliRepair(
   previousAccessToken?: string,
 ): Promise<ClaudeUsageSnapshot | null> {
-  const refreshed = readClaudeOAuthCredentials();
+  const refreshed = await readClaudeOAuthCredentials();
   if (!refreshed.accessToken || refreshed.accessToken === previousAccessToken) {
     return null;
   }

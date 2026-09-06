@@ -180,9 +180,11 @@ interface RequiredPersistenceApi {
   loadProjectRegistry: () => Promise<{
     ok: boolean;
     projects: unknown[];
+    activeProjectPath?: string | null;
   }>;
   saveProjectRegistry: (args: {
     projects: unknown[];
+    activeProjectPath?: string | null;
   }) => Promise<{ ok: boolean }>;
   closeWorkspace: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
 }
@@ -229,15 +231,12 @@ function saveFallbackRows(args: {
     snapshot: WorkspaceSnapshot;
   }>;
 }) {
-  memoryFallbackRows = args.rows;
-  if (!hasWindow()) {
-    return;
-  }
-  try {
+  if (hasWindow()) {
+    // A caller awaiting a save needs durable acknowledgement, including in
+    // browser mode. Do not replace the last saved cache after a quota failure.
     window.localStorage.setItem(fallbackStorageKey, JSON.stringify(args.rows));
-  } catch {
-    // ignore localStorage write errors and keep in-memory fallback
   }
+  memoryFallbackRows = args.rows;
 }
 
 function preserveUnloadedFallbackTaskMessages(args: {
@@ -774,19 +773,24 @@ export async function closeWorkspacePersistence(args: {
 }
 
 export async function loadProjectRegistrySnapshot(): Promise<unknown[]> {
+  return (await loadProjectRegistryState()).projects;
+}
+
+export async function loadProjectRegistryState(): Promise<{ projects: unknown[]; activeProjectPath?: string | null }> {
   const persistence = getPersistenceApi();
   if (!persistence?.loadProjectRegistry) {
-    return [];
+    return { projects: [] };
   }
   const response = await persistence.loadProjectRegistry();
   if (!response.ok) {
     throw new Error("Failed to load project registry from persistence bridge.");
   }
-  return Array.isArray(response.projects) ? response.projects : [];
+  return { projects: Array.isArray(response.projects) ? response.projects : [], activeProjectPath: response.activeProjectPath };
 }
 
 export async function saveProjectRegistrySnapshot(args: {
   projects: unknown[];
+  activeProjectPath?: string | null;
 }): Promise<void> {
   const persistence = getPersistenceApi();
   if (!persistence?.saveProjectRegistry) {
@@ -794,6 +798,7 @@ export async function saveProjectRegistrySnapshot(args: {
   }
   const response = await persistence.saveProjectRegistry({
     projects: args.projects,
+    activeProjectPath: args.activeProjectPath,
   });
   if (!response.ok) {
     throw new Error("Failed to save project registry via persistence bridge.");

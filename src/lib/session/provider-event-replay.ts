@@ -137,9 +137,7 @@ function createApprovalPart(args: {
     description: args.description,
     ...(args.input ? { input: args.input } : {}),
     ...(args.supportsAllowAlways ? { supportsAllowAlways: true } : {}),
-    ...(args.workerExecution
-      ? { workerExecution: args.workerExecution }
-      : {}),
+    ...(args.workerExecution ? { workerExecution: args.workerExecution } : {}),
     state: "approval-requested",
   });
 }
@@ -456,7 +454,7 @@ function providerBoundariesEqual(
 }
 
 /**
- * Copy the native turn identity of `from` onto `message`.
+ * Copy same-turn identity and execution evidence from `from` onto `message`.
  *
  * Splitting one provider turn across several rows must not strand a row without
  * that identity: `buildConversationTurnActionStateByMessageId` disables
@@ -466,10 +464,22 @@ function providerBoundariesEqual(
 function inheritNativeTurnIdentity(args: {
   message: ChatMessage;
   from: ChatMessage;
+  /** A different provider turn keeps its fresh provider/model defaults. */
+  inheritResolvedModel?: boolean;
 }): ChatMessage {
-  const { from } = args;
+  const { from, inheritResolvedModel = true } = args;
   return {
     ...args.message,
+    ...(inheritResolvedModel
+      ? {
+          providerId: from.providerId,
+          model: from.model,
+          ...(from.modelResolution
+            ? { modelResolution: from.modelResolution }
+            : {}),
+        }
+      : {}),
+    ...(from.turnId ? { turnId: from.turnId } : {}),
     ...(from.nativeProviderSessionId
       ? { nativeProviderSessionId: from.nativeProviderSessionId }
       : {}),
@@ -495,6 +505,7 @@ function openMessageAfterPlan(args: {
   messageIndexOffset: number;
   provider: ProviderId;
   model: string;
+  inheritResolvedModel?: boolean;
 }): { messages: ChatMessage[]; target: ChatMessage } {
   const target = inheritNativeTurnIdentity({
     message: createStreamingAssistantMessage({
@@ -505,6 +516,9 @@ function openMessageAfterPlan(args: {
       ...(args.plan.modelInfo ? { modelInfo: args.plan.modelInfo } : {}),
     }),
     from: args.plan,
+    ...(args.inheritResolvedModel === false
+      ? { inheritResolvedModel: false }
+      : {}),
   });
   return {
     messages: [
@@ -522,6 +536,7 @@ function createStreamingAssistantMessage(args: {
   provider: ProviderId;
   model: string;
   modelInfo?: TurnModelInfo;
+  turnId?: string;
 }): ChatMessage {
   const startedAt = buildRecentTimestamp();
   return {
@@ -529,6 +544,7 @@ function createStreamingAssistantMessage(args: {
     role: "assistant",
     model: args.model,
     providerId: args.provider,
+    ...(args.turnId ? { turnId: args.turnId } : {}),
     ...(args.modelInfo ? { modelInfo: args.modelInfo } : {}),
     content: "",
     startedAt,
@@ -884,6 +900,9 @@ export function appendProviderEventToAssistant(args: {
       ...message,
       providerId: args.event.resolvedProviderId,
       model: args.event.resolvedModel,
+      ...(args.event.modelResolution
+        ? { modelResolution: args.event.modelResolution }
+        : {}),
     };
   }
 
@@ -905,6 +924,7 @@ export function appendProviderEventToAssistant(args: {
 
   if (args.event.type === "done") {
     const completedAt = buildRecentTimestamp();
+    const terminalStopReason = args.event.stop_reason?.trim() || undefined;
     const partsWithTruncationNotice = appendProviderOutputTruncationNotice({
       parts: message.parts.filter((part) => !(
         part.type === "system_event" &&
@@ -925,6 +945,7 @@ export function appendProviderEventToAssistant(args: {
         content: "No response returned.",
         completedAt,
         isStreaming: false,
+        terminalStopReason,
         parts: interruptPendingToolInteractionParts({
           parts: [
             ...messageWithTruncationNotice.parts,
@@ -949,6 +970,7 @@ export function appendProviderEventToAssistant(args: {
     // PlanViewer's Approve/Revise controls and any dependent UI.
     return {
       ...finalizedMessage,
+      terminalStopReason,
       parts: interruptPendingToolInteractionParts({
         parts: finalizedMessage.parts,
       }),
@@ -1051,6 +1073,17 @@ export function appendProviderEventToAssistant(args: {
       nextParts.push(part);
     }
   } else {
+    // App Server can report an error while it is still retrying and repeat the
+    // same reason when the turn finally fails. Keep the terminal status in the
+    // activity reducer without duplicating an identical transcript row.
+    if (
+      part.type === "system_event" &&
+      part.content.trimStart().toLowerCase().startsWith("[error]") &&
+      lastPart?.type === "system_event" &&
+      lastPart.content === part.content
+    ) {
+      return message;
+    }
     // When the compact-boundary checkpoint arrives, remove the in-progress
     // "Compacting conversation context…" spinner — it is superseded by the
     // completed checkpoint and should no longer render a loading indicator.
@@ -1155,12 +1188,19 @@ export function replayProviderEventsToTaskState(args: {
           break;
         }
       }
-      if (targetIndex === -1 && event.targetRole === "assistant") {
+      if (
+        event.targetRole === "assistant" &&
+        (targetIndex === -1 ||
+          (args.turnId &&
+            current[targetIndex]?.turnId !== args.turnId &&
+            !current[targetIndex]?.isStreaming))
+      ) {
         const assistant = createStreamingAssistantMessage({
           taskId: args.taskId,
           count: current.length + messageIndexOffset,
           provider: args.provider,
           model: args.model,
+          turnId: args.turnId,
         });
         current = [...current, assistant];
         targetIndex = current.length - 1;
@@ -1191,6 +1231,7 @@ export function replayProviderEventsToTaskState(args: {
             messageIndexOffset,
             provider: args.provider,
             model: args.model,
+            inheritResolvedModel: false,
           });
           current = opened.messages;
           targetIndex = current.length - 1;
@@ -1215,14 +1256,29 @@ export function replayProviderEventsToTaskState(args: {
     }
 
     let target = current[current.length - 1];
-    if (!target || target.role !== "assistant") {
+    if (
+      !target ||
+      target.role !== "assistant" ||
+      (args.turnId &&
+        target.turnId !== args.turnId &&
+        (target.turnId || !target.isStreaming))
+    ) {
       target = createStreamingAssistantMessage({
         taskId: args.taskId,
         count: current.length + messageIndexOffset,
         provider: args.provider,
         model: args.model,
+        turnId: args.turnId,
       });
       current = [...current, target];
+      changed = true;
+    }
+
+    // Existing streaming placeholders predate the first provider event. Bind
+    // them here; a sealed answer from a previous execution is never rebound.
+    if (args.turnId && !target.turnId) {
+      target = { ...target, turnId: args.turnId };
+      current = [...current.slice(0, -1), target];
       changed = true;
     }
 
@@ -1287,10 +1343,19 @@ export function replayProviderEventsToTaskState(args: {
         messageIndexOffset,
         provider: args.provider,
         model: args.model,
+        inheritResolvedModel: event.type !== "provider_turn",
       });
       current = opened.messages;
       target = opened.target;
       changed = true;
+    }
+
+    // A row may be reused when a provider stream reconnects to the same Stave
+    // turn. Once new activity arrives, its previous terminal classification is
+    // stale until this stream emits its own `done` event.
+    if (event.type !== "done" && target.terminalStopReason) {
+      target = { ...target, terminalStopReason: undefined };
+      current = [...current.slice(0, -1), target];
     }
 
     const updated = appendProviderEventToAssistant({

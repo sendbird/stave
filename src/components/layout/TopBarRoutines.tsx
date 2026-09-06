@@ -1,5 +1,6 @@
 import { Workflow } from "lucide-react";
 import type { CSSProperties } from "react";
+import * as stylex from "@stylexjs/stylex";
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
@@ -7,7 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
 export function TopBarRoutines(props: { noDragStyle: CSSProperties }) {
@@ -29,10 +30,10 @@ export function TopBarRoutines(props: { noDragStyle: CSSProperties }) {
             type="button"
             variant="ghost"
             size="sm"
-            className={cn(
-              "h-8 w-8 shrink-0 rounded-md p-0 text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
-              isAutomationCenterActive && "bg-secondary/70 text-foreground",
-            )}
+            xstyle={[
+              layoutShellStyles.topBarButton,
+              isAutomationCenterActive && layoutShellStyles.topBarButtonActive,
+            ]}
             style={props.noDragStyle}
             aria-label={
               isAutomationCenterActive
@@ -44,12 +45,12 @@ export function TopBarRoutines(props: { noDragStyle: CSSProperties }) {
           />
         }
       >
-        <Workflow className="size-4" />
+        <Workflow {...stylex.props(layoutShellStyles.icon16)} />
       </TooltipTrigger>
       <TooltipContent side="bottom">
         {isAutomationCenterActive
-          ? "Close Automation Center"
-          : "Automation Center"}
+          ? "Close Library"
+          : "Library"}
       </TooltipContent>
     </Tooltip>
   );

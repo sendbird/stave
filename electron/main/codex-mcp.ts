@@ -24,7 +24,7 @@ function extractManagedSection(document: string) {
     return null;
   }
   for (let index = startLine + 1; index < lines.length; index += 1) {
-    if (/^\[[^\n]+\]$/.test(lines[index])) {
+    if (/^\[[^\n]+\]$/.test(lines[index] ?? "")) {
       endLine = index;
       break;
     }

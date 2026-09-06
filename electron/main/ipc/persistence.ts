@@ -1,5 +1,14 @@
 import { ipcMain } from "electron";
-import type { PersistenceWorkspaceSnapshot } from "../../persistence/types";
+import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
+import {
+  ClearAcceptedDelegationDraftSchema,
+  LoadDelegationDraftSchema,
+  SaveDelegationDraftSchema,
+} from "../../../src/lib/collaboration/delegation-draft";
+import {
+  ListResultReviewsArgsSchema,
+  SetResultReviewedArgsSchema,
+} from "../../../src/lib/reviews/result-review";
 import {
   ClearNotificationHistoryArgsSchema,
   CreateNotificationArgsSchema,
@@ -26,6 +35,69 @@ import {
 import { resolveRendererPersistenceFlush } from "../persistence-flush-gate";
 
 export function registerPersistenceHandlers() {
+  ipcMain.handle("persistence:load-direction-draft", async (_event, args: unknown) => {
+    const parsed = WorkspaceDirectionDraftScopeSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, draft: null };
+    const store = await ensurePersistenceReady();
+    return { ok: true, draft: store.directionDrafts.load(parsed.data.workspaceId) };
+  });
+  ipcMain.handle("persistence:save-direction-draft", async (_event, args: unknown) => {
+    const parsed = SaveWorkspaceDirectionDraftSchema.safeParse(args);
+    if (!parsed.success) return { ok: false };
+    const store = await ensurePersistenceReady();
+    store.directionDrafts.save(parsed.data.workspaceId, parsed.data.draft);
+    return { ok: true };
+  });
+  ipcMain.handle(
+    "persistence:load-delegation-draft",
+    async (_event, args: unknown) => {
+      const parsed = LoadDelegationDraftSchema.safeParse(args);
+      if (!parsed.success) return { ok: false, draft: null };
+      const store = await ensurePersistenceReady();
+      return {
+        ok: true,
+        draft: store.delegationDrafts.load(parsed.data.scope),
+      };
+    },
+  );
+  ipcMain.handle(
+    "persistence:save-delegation-draft",
+    async (_event, args: unknown) => {
+      const parsed = SaveDelegationDraftSchema.safeParse(args);
+      if (!parsed.success) return { ok: false };
+      const store = await ensurePersistenceReady();
+      store.delegationDrafts.save(parsed.data.scope, parsed.data.draft);
+      return { ok: true };
+    },
+  );
+  ipcMain.handle(
+    "persistence:clear-accepted-delegation-draft",
+    async (_event, args: unknown) => {
+      const parsed = ClearAcceptedDelegationDraftSchema.safeParse(args);
+      if (!parsed.success) return { ok: false, cleared: false };
+      const store = await ensurePersistenceReady();
+      return {
+        ok: true,
+        cleared: store.delegationDrafts.clearAccepted(
+          parsed.data.scope,
+          parsed.data.delegationKey,
+        ),
+      };
+    },
+  );
+  ipcMain.handle("persistence:list-result-reviews", async (_event, args: unknown) => {
+    const parsed = ListResultReviewsArgsSchema.safeParse(args ?? {});
+    if (!parsed.success) return { ok: false, results: [], total: 0, hasMore: false };
+    const store = await ensurePersistenceReady();
+    return { ok: true, ...store.resultReviews.list(parsed.data) };
+  });
+  ipcMain.handle("persistence:set-result-reviewed", async (_event, args: unknown) => {
+    const parsed = SetResultReviewedArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, result: null };
+    const store = await ensurePersistenceReady();
+    const result = store.resultReviews.setReviewed(parsed.data);
+    return { ok: result !== null, result };
+  });
   ipcMain.handle("persistence:get-bootstrap-status", async () => {
     return getPersistenceBootstrapStatus();
   });
@@ -152,7 +224,7 @@ export function registerPersistenceHandlers() {
   ipcMain.handle("persistence:load-project-registry", async () => {
     const store = await ensurePersistenceReady();
     const projects = store.loadProjectRegistry();
-    return { ok: true, projects };
+    return { ok: true, projects, activeProjectPath: store.loadActiveProjectPath() };
   });
 
   ipcMain.handle(
@@ -166,7 +238,7 @@ export function registerPersistenceHandlers() {
       store.upsertWorkspace({
         id: parsedArgs.data.id,
         name: parsedArgs.data.name,
-        snapshot: parsedArgs.data.snapshot as PersistenceWorkspaceSnapshot,
+        snapshot: parsedArgs.data.snapshot,
       });
       return { ok: true };
     },
@@ -182,6 +254,7 @@ export function registerPersistenceHandlers() {
       const store = await ensurePersistenceReady();
       store.saveProjectRegistry({
         projects: parsedArgs.data.projects as never[],
+        activeProjectPath: parsedArgs.data.activeProjectPath,
       });
       return { ok: true };
     },
@@ -193,9 +266,8 @@ export function registerPersistenceHandlers() {
   // thread never runs a full snapshot write inside a synchronous IPC reply.
   ipcMain.handle("persistence:flush-complete", (_event, args: unknown) => {
     const parsedArgs = PersistenceFlushCompleteArgsSchema.safeParse(args);
-    return resolveRendererPersistenceFlush(
-      parsedArgs.success ? parsedArgs.data : {},
-    );
+    if (!parsedArgs.success) return { ok: false };
+    return resolveRendererPersistenceFlush(parsedArgs.data);
   });
 
   ipcMain.handle(
@@ -233,7 +305,19 @@ export function registerPersistenceHandlers() {
       }
       const store = await ensurePersistenceReady();
       const result = store.createNotification({
-        notification: parsedArgs.data.notification,
+        notification: {
+          ...parsedArgs.data.notification,
+          action: parsedArgs.data.notification.action ?? null,
+          taskId: parsedArgs.data.notification.taskId ?? null,
+          taskTitle: parsedArgs.data.notification.taskTitle ?? null,
+          turnId: parsedArgs.data.notification.turnId ?? null,
+          workspaceId: parsedArgs.data.notification.workspaceId ?? null,
+          workspaceName: parsedArgs.data.notification.workspaceName ?? null,
+          projectPath: parsedArgs.data.notification.projectPath ?? null,
+          projectName: parsedArgs.data.notification.projectName ?? null,
+          providerId: parsedArgs.data.notification.providerId ?? null,
+          payload: parsedArgs.data.notification.payload ?? {},
+        },
       });
       return {
         ok: true,

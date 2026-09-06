@@ -1,3 +1,5 @@
+import { AutoRoutingModelResolutionSchema } from "./model-resolution";
+import { WORKER_PRESET_IDS } from "./worker-preset-ids";
 import { z } from "zod";
 import type { NormalizedProviderEvent } from "./provider.types";
 
@@ -38,10 +40,7 @@ const ProviderTurnEventSchema = z.object({
 
 const BrowserConnectionEventSchema = z.object({
   type: z.literal("browser_connection"),
-  providerId: z.union([
-    z.literal("claude-code"),
-    z.literal("codex"),
-  ]),
+  providerId: z.union([z.literal("claude-code"), z.literal("codex")]),
   status: z.union([
     z.literal("connecting"),
     z.literal("connected"),
@@ -163,7 +162,7 @@ const AdvisorActivityEventSchema = z.object({
   consultIndex: z.number().optional(),
   consultLimit: z.number().optional(),
   question: z.string().optional(),
-  primaryProviderId: ManagedExecutionProviderIdSchema,
+  primaryProviderId: ProviderIdSchema,
   primaryModel: z.string().optional(),
   advisorProviderId: ManagedExecutionProviderIdSchema.optional(),
   advisorModel: z.string().optional(),
@@ -234,14 +233,27 @@ const ToolStateSchema = z.union([
 const WorkerExecutionMetadataSchema = z.object({
   providerId: ProviderIdSchema,
   primaryModel: z.string(),
-  presetId: z.union([
-    z.literal("patch-hand"), z.literal("verified-patch"), z.literal("sweep"),
-    z.literal("scout"), z.literal("deep-packet"), z.literal("second-pair"),
-  ]),
+  presetId: z.enum(WORKER_PRESET_IDS),
   workerModel: z.string(),
+  requestedWorkerModel: z.string().optional(),
+  resolvedWorkerModel: z.string().optional(),
+  workerModelSource: z
+    .union([
+      z.literal("explicit"),
+      z.literal("preset"),
+      z.literal("provider-default"),
+    ])
+    .optional(),
+  workerModelRationale: z.string().optional(),
+  runtimeWorkerModel: z.string().optional(),
   workerEffort: z.union([
-    z.literal("low"), z.literal("medium"), z.literal("high"),
-    z.literal("xhigh"), z.literal("max"), z.literal("ultra"), z.null(),
+    z.literal("low"),
+    z.literal("medium"),
+    z.literal("high"),
+    z.literal("xhigh"),
+    z.literal("max"),
+    z.literal("ultra"),
+    z.null(),
   ]),
 });
 
@@ -384,6 +396,7 @@ const ModelResolvedEventSchema = z.object({
   type: z.literal("model_resolved"),
   resolvedProviderId: ProviderIdSchema,
   resolvedModel: z.string(),
+  modelResolution: AutoRoutingModelResolutionSchema.optional(),
 });
 
 const SubagentProgressEventSchema = z.object({

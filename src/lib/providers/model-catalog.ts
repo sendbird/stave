@@ -345,19 +345,27 @@ export function resolveProviderDisplayId(args: {
   return args.providerId;
 }
 
-export function getProviderWaveToneClass(args: {
+/**
+ * Semantic provider-wave tone. A presentation value, not a color: the consuming
+ * component maps it to a StyleX style using the themed provider CSS variables
+ * (`--provider-claude` / `--provider-codex`) or the ADS accent token. Providers
+ * without their own brand wave color fall back to `"accent"`.
+ */
+export type ProviderWaveTone = "claude" | "codex" | "accent";
+
+export function getProviderWaveTone(args: {
   providerId: ProviderId;
   model?: string;
-}) {
+}): ProviderWaveTone {
   const displayProviderId = resolveProviderDisplayId(args);
 
   if (displayProviderId === "claude-code") {
-    return "text-provider-claude";
+    return "claude";
   }
   if (displayProviderId === "codex") {
-    return "text-provider-codex";
+    return "codex";
   }
-  return "text-primary";
+  return "accent";
 }
 
 export function getProviderFallbackLabel(args: { providerId: ProviderId }) {

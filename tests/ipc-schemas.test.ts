@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { WORKER_PRESET_IDS } from "@/lib/providers/worker-preset-ids";
+import { WORKER_PRESETS } from "@/lib/providers/worker-mode";
 import {
   ClaudeFileRewindArgsSchema,
   ClaudeSessionForkArgsSchema,
@@ -37,6 +39,60 @@ import {
 import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
 describe("provider IPC schemas", () => {
+  test("rejects unsupported explicit utility and review providers without restricting the active task provider", () => {
+    for (const providerId of ["cursor", "kiro"]) {
+      expect(
+        ReviewDiffArgsSchema.safeParse({ providerId, runtimeOptions: {} })
+          .success,
+      ).toBe(false);
+      expect(
+        EnhancePromptArgsSchema.safeParse({
+          providerId,
+          prompt: "Explain the goal",
+        }).success,
+      ).toBe(false);
+      expect(
+        EnhancePromptArgsSchema.safeParse({
+          activeProviderId: providerId,
+          prompt: "Explain the goal",
+        }).success,
+      ).toBe(true);
+    }
+    for (const providerId of ["claude-code", "codex"]) {
+      expect(
+        ReviewDiffArgsSchema.safeParse({ providerId, runtimeOptions: {} })
+          .success,
+      ).toBe(true);
+    }
+  });
+
+  test("only cataloged worker presets cross the runtime boundary for either provider", () => {
+    expect(WORKER_PRESETS.map((preset) => preset.id).sort()).toEqual(
+      [...WORKER_PRESET_IDS].sort(),
+    );
+    for (const providerId of ["claude-code", "codex"]) {
+      const request = (presetId: string) => ({
+        providerId,
+        prompt: "Inspect the changes",
+        runtimeOptions: {
+          workerIntent: {
+            mode: "task-executor",
+            presetId,
+            workerModel: "auto",
+            workerEffort: "auto",
+          },
+        },
+      });
+      for (const presetId of WORKER_PRESET_IDS) {
+        expect(StreamTurnArgsSchema.safeParse(request(presetId)).success).toBe(
+          true,
+        );
+      }
+      expect(
+        StreamTurnArgsSchema.safeParse(request("unknown-preset")).success,
+      ).toBe(false);
+    }
+  });
   test("validates prompt-enhancement requests", () => {
     expect(
       EnhancePromptArgsSchema.safeParse({
@@ -420,6 +476,12 @@ describe("provider IPC schemas", () => {
                     primaryModel: "gpt-5.6-sol",
                     presetId: "verified-patch",
                     workerModel: "gpt-5.6-terra",
+                    requestedWorkerModel: "auto",
+                    resolvedWorkerModel: "gpt-5.6-terra",
+                    workerModelSource: "preset",
+                    workerModelRationale:
+                      "Recorded by the Worker selection producer.",
+                    runtimeWorkerModel: "gpt-5.6-terra-20260901",
                     workerEffort: "max",
                   },
                 },
@@ -453,6 +515,11 @@ describe("provider IPC schemas", () => {
         primaryModel: "gpt-5.6-sol",
         presetId: "verified-patch",
         workerModel: "gpt-5.6-terra",
+        requestedWorkerModel: "auto",
+        resolvedWorkerModel: "gpt-5.6-terra",
+        workerModelSource: "preset",
+        workerModelRationale: "Recorded by the Worker selection producer.",
+        runtimeWorkerModel: "gpt-5.6-terra-20260901",
         workerEffort: "max",
       },
     });

@@ -11,8 +11,8 @@ import {
   Send,
 } from "lucide-react";
 import {
-  PANEL_BAR_HEIGHT_CLASS,
   PANEL_HEADER_ICON_CLASS,
+  panelBarStyles,
 } from "@/components/layout/panel-bar.constants";
 import type { EditorBulkCloseKind } from "@/components/panes/editor-tab-actions";
 import {
@@ -27,7 +27,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
+import { editorSurfaceToolbarStyles as s } from "./editor-surface-toolbar.styles";
 import type { EditorTab } from "@/types/chat";
 
 /**
@@ -63,61 +65,45 @@ export function EditorSurfaceToolbar(args: {
   onCopyBreadcrumbsPath: () => void;
 }) {
   return (
-    <div
-      className={cn(
-        "flex shrink-0 items-center justify-between gap-2 border-b border-border/80 px-3 text-sm",
-        PANEL_BAR_HEIGHT_CLASS,
-      )}
-    >
+    <div className={sx(s.bar, panelBarStyles.bar)}>
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger
-            render={
-              <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground" />
-            }
-          >
+          <TooltipTrigger render={<p className={sx(s.pathTrigger)} />}>
             <FileCode2 className={PANEL_HEADER_ICON_CLASS} />
-            <span className="truncate">{args.tab.filePath}</span>
+            <span className={sx(s.pathText)}>{args.tab.filePath}</span>
             {args.tab.isDirty ? (
-              <span
-                className="size-1.5 shrink-0 rounded-full bg-success"
-                aria-hidden="true"
-              />
+              <span className={sx(s.dirtyDot)} aria-hidden="true" />
             ) : null}
           </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-sm break-all">
+          <TooltipContent side="bottom" className={sx(s.tooltipContent)}>
             {args.absolutePath}
           </TooltipContent>
         </Tooltip>
-        <div className="flex items-center gap-1.5">
+        <div className={sx(s.actions)}>
           <Tooltip>
-            <TooltipTrigger render={<span className="inline-flex" />}>
+            <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                xstyle={s.iconButton}
                 disabled={!args.tab.isDirty || args.tabIsImage}
                 onClick={args.onSave}
               >
-                <Save className="size-4" />
+                <Save size={16} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Save (Ctrl S)</TooltipContent>
           </Tooltip>
           <Tooltip>
-            <TooltipTrigger render={<span className="inline-flex" />}>
+            <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                xstyle={s.iconButton}
                 disabled={!args.tab.originalContent || args.tabIsImage}
                 onClick={args.onToggleDiffMode}
               >
-                {args.diffMode ? (
-                  <PenLine className="size-4" />
-                ) : (
-                  <Columns2 className="size-4" />
-                )}
+                {args.diffMode ? <PenLine size={16} /> : <Columns2 size={16} />}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
@@ -126,16 +112,15 @@ export function EditorSurfaceToolbar(args: {
           </Tooltip>
           {args.tabIsMarkdown ? (
             <Tooltip>
-              <TooltipTrigger render={<span className="inline-flex" />}>
+              <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className={cn(
-                    "h-7 w-7 rounded-sm p-0 transition-colors",
-                    args.markdownPreviewMode
-                      ? "border-primary/40 bg-primary/10 text-primary ring-1 ring-primary/25 hover:bg-primary/20 hover:text-primary"
-                      : "text-muted-foreground",
-                  )}
+                  xstyle={[
+                    s.iconButton,
+                    transition.colors,
+                    args.markdownPreviewMode && s.iconButtonActive,
+                  ]}
                   disabled={args.tabIsImage}
                   onClick={args.onToggleMarkdownPreviewMode}
                   aria-label={
@@ -147,7 +132,7 @@ export function EditorSurfaceToolbar(args: {
                   data-testid="editor-markdown-preview-toggle"
                 >
                   <Eye
-                    className="size-4"
+                    size={16}
                     strokeWidth={args.markdownPreviewMode ? 2.25 : 2}
                   />
                 </Button>
@@ -160,24 +145,24 @@ export function EditorSurfaceToolbar(args: {
             </Tooltip>
           ) : null}
           {args.showDiffDisplayControls ? (
-            <div className="flex items-center gap-0.5 rounded-md border border-border/80 bg-background/70 p-0.5">
+            <div className={sx(s.diffViewGroup)}>
               <Tooltip>
                 <TooltipTrigger
                   render={
                     <Button
                       size="sm"
                       variant="ghost"
-                      className={cn(
-                        "h-6 w-6 rounded-sm p-0 text-muted-foreground",
+                      xstyle={[
+                        s.diffViewButton,
                         args.diffViewMode === "unified" &&
-                          "bg-secondary text-foreground",
-                      )}
+                          s.diffViewButtonActive,
+                      ]}
                       onClick={() => args.onChangeDiffViewMode("unified")}
                       aria-label="Unified Diff"
                     />
                   }
                 >
-                  <AlignJustify className="size-3.5" />
+                  <AlignJustify size={14} />
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Unified Diff</TooltipContent>
               </Tooltip>
@@ -187,17 +172,16 @@ export function EditorSurfaceToolbar(args: {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className={cn(
-                        "h-6 w-6 rounded-sm p-0 text-muted-foreground",
-                        args.diffViewMode === "split" &&
-                          "bg-secondary text-foreground",
-                      )}
+                      xstyle={[
+                        s.diffViewButton,
+                        args.diffViewMode === "split" && s.diffViewButtonActive,
+                      ]}
                       onClick={() => args.onChangeDiffViewMode("split")}
                       aria-label="Split Diff"
                     />
                   }
                 >
-                  <Columns2 className="size-3.5" />
+                  <Columns2 size={14} />
                 </TooltipTrigger>
                 <TooltipContent side="bottom">Split Diff</TooltipContent>
               </Tooltip>
@@ -206,16 +190,16 @@ export function EditorSurfaceToolbar(args: {
           {args.showDiffDisplayControls ? (
             <>
               <Tooltip>
-                <TooltipTrigger render={<span className="inline-flex" />}>
+                <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    xstyle={s.iconButton}
                     disabled={!args.canAddReviewComment}
                     onClick={args.onAddReviewComment}
                     aria-label="Add review comment"
                   >
-                    <MessageSquarePlus className="size-4" />
+                    <MessageSquarePlus size={16} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
@@ -223,18 +207,18 @@ export function EditorSurfaceToolbar(args: {
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
-                <TooltipTrigger render={<span className="inline-flex" />}>
+                <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="relative h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    xstyle={s.reviewButton}
                     disabled={!args.canSubmitReviewFeedback}
                     onClick={args.onSubmitReviewFeedback}
                     aria-label="Send review to agent"
                   >
-                    <MessagesSquare className="size-4" />
+                    <MessagesSquare size={16} />
                     {args.reviewCommentCount > 0 ? (
-                      <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-background bg-primary px-1 text-[9px] font-semibold text-primary-foreground">
+                      <span className={sx(s.reviewCountBadge)}>
                         {args.reviewCommentCount > 9
                           ? "9+"
                           : args.reviewCommentCount}
@@ -249,15 +233,15 @@ export function EditorSurfaceToolbar(args: {
             </>
           ) : null}
           <Tooltip>
-            <TooltipTrigger render={<span className="inline-flex" />}>
+            <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                xstyle={s.iconButton}
                 disabled={args.sendToAgentDisabled}
                 onClick={args.onSendToAgent}
               >
-                <Send className="size-4" />
+                <Send size={16} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Send to Agent</TooltipContent>
@@ -268,12 +252,12 @@ export function EditorSurfaceToolbar(args: {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                  xstyle={s.iconButton}
                   aria-label="More editor tab actions"
                 />
               }
             >
-              <MoreHorizontal className="size-4" />
+              <MoreHorizontal size={16} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => args.onBulkClose("others")}>

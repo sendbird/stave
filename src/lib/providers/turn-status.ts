@@ -532,6 +532,14 @@ const PROVIDER_TURN_CANCEL_STOP_REASONS = new Set([
   "user_abort",
 ]);
 
+/** Shared interpretation for outcome records and visible completion state. */
+export function classifyProviderTurnStopReason(reason?: string) {
+  const normalized = reason?.trim().toLowerCase();
+  if (normalized && PROVIDER_TURN_CANCEL_STOP_REASONS.has(normalized)) return "cancelled";
+  if (normalized && PROVIDER_TURN_FAILURE_STOP_REASONS.has(normalized)) return "failed";
+  return "completed";
+}
+
 function isProviderTurnRecoveryEvent(event: NormalizedProviderEvent) {
   if (event.type === "tool") {
     return event.state !== "output-error";

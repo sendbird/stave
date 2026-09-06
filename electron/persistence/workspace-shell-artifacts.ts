@@ -45,7 +45,7 @@ function canExternalizeEditorTabBody(tab: PersistedEditorTab) {
   return tab.id.startsWith("file:") && !tab.isDirty && tab.contentState !== "too-large";
 }
 
-function restoreMetadataOnlyContentState(tab: PersistedEditorTab) {
+function restoreMetadataOnlyContentState(tab: PersistedEditorTab): NonNullable<PersistedEditorTab["contentState"]> {
   if (tab.contentState === "deferred" || tab.contentState === "too-large") {
     return tab.contentState;
   }

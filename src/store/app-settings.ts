@@ -161,6 +161,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   showInterimMessages: boolean;
   /** Show the conversation turn rail beside eligible task histories. */
   showConversationTurnRail: boolean;
+  /** Show optional examples and saved-context links when starting a task. */
+  showTaskStartExamples: boolean;
   /**
    * Open the turn activity shelf (above the prompt input) expanded by default
    * so every tracked activity is visible without a click. Users can still
@@ -630,6 +632,7 @@ export const defaultSettings: AppSettings = {
   reasoningExpansionMode: "manual",
   showInterimMessages: false,
   showConversationTurnRail: true,
+  showTaskStartExamples: true,
   turnActivityExpandedByDefault: true,
   turnActivityPlacement: "docked",
   composerLayout: "framed",

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cable, ExternalLink, ShieldCheck } from "lucide-react";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   Accordion,
   AccordionContent,
@@ -24,6 +25,7 @@ import {
   useDispatchRuntimeDraft,
   type DispatchWorkspaceStrategy,
 } from "@/components/layout/dispatch-runtime";
+import { craneApprovalStyles } from "./crane-dispatch-approval-dialog.styles";
 import {
   dismissCraneDispatchApproval,
   setCraneConnectorClientStatus,
@@ -268,19 +270,19 @@ export function CraneDispatchApprovalDialog() {
     >
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        xstyle={craneApprovalStyles.content}
         initialFocus={() => declineButtonRef.current}
       >
-        <DialogHeader className="shrink-0 border-b border-border/70 px-6 pt-6 pb-5 pr-12">
-          <div className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted">
-              <Cable className="size-4 text-muted-foreground" />
+        <DialogHeader className={sx(craneApprovalStyles.header)}>
+          <div className={sx(craneApprovalStyles.headerRow)}>
+            <span className={sx(craneApprovalStyles.headerBadge)}>
+              <Cable className={sx(craneApprovalStyles.headerIcon)} />
             </span>
-            <div className="min-w-0">
+            <div className={sx(craneApprovalStyles.headerText)}>
               <DialogTitle>
                 Run {approval?.job.issue.key ?? "Crane issue"} in Stave?
               </DialogTitle>
-              <DialogDescription className="mt-1 leading-5">
+              <DialogDescription className={sx(craneApprovalStyles.headerDescription)}>
                 This request came from your paired Crane account. Nothing starts
                 until you approve these local choices.
               </DialogDescription>
@@ -288,24 +290,24 @@ export function CraneDispatchApprovalDialog() {
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        <div className={sx(craneApprovalStyles.body)}>
           <section
-            className="space-y-2 rounded-lg border border-border bg-muted/30 p-4"
+            className={sx(craneApprovalStyles.panel)}
             aria-labelledby="crane-dispatch-issue-heading"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
+            <div className={sx(craneApprovalStyles.issueRow)}>
+              <div className={sx(craneApprovalStyles.issueText)}>
                 <h3
                   id="crane-dispatch-issue-heading"
-                  className="text-sm font-semibold text-foreground"
+                  className={sx(craneApprovalStyles.issueTitle)}
                 >
                   {approval?.job.issue.title}
                 </h3>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className={sx(craneApprovalStyles.issueMeta)}>
                   Expires {expiresAt}
                 </p>
                 {jiraReference ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className={sx(craneApprovalStyles.issueMeta)}>
                     Jira {jiraReference.key} takes precedence over the Crane key
                     in the branch name and task title.
                   </p>
@@ -326,26 +328,30 @@ export function CraneDispatchApprovalDialog() {
                   }
                 }}
               >
-                <ExternalLink className="size-3.5" />
+                <ExternalLink className={sx(craneApprovalStyles.buttonIcon)} />
                 Open source
               </Button>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">
+            <div className={sx(craneApprovalStyles.instructionGroup)}>
+              <p className={sx(craneApprovalStyles.instructionLabel)}>
                 Requested instruction
               </p>
-              <p className="whitespace-pre-wrap text-sm leading-5">
+              <p className={sx(craneApprovalStyles.instruction)}>
                 {approval?.job.instruction}
               </p>
             </div>
             {approval?.job.issue.description ? (
-              <Accordion className="border-t border-border/60">
-                <AccordionItem value="issue-description" className="border-b-0">
-                  <AccordionTrigger className="py-2 text-xs font-medium text-muted-foreground hover:no-underline">
+              <Accordion className={sx(craneApprovalStyles.descriptionAccordion)}>
+                <AccordionItem value="issue-description">
+                  <AccordionTrigger
+                    className={sx(craneApprovalStyles.descriptionTrigger)}
+                  >
                     Issue description
                   </AccordionTrigger>
-                  <AccordionContent className="pb-2">
-                    <p className="max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-5 text-foreground">
+                  <AccordionContent
+                    className={sx(craneApprovalStyles.descriptionPanel)}
+                  >
+                    <p className={sx(craneApprovalStyles.descriptionBody)}>
                       {approval.job.issue.description}
                     </p>
                   </AccordionContent>
@@ -386,13 +392,13 @@ export function CraneDispatchApprovalDialog() {
             }
           />
 
-          <section className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-4">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-            <div className="space-y-1 text-xs leading-5">
-              <p className="font-medium text-foreground">
+          <section className={sx(craneApprovalStyles.privacyPanel)}>
+            <ShieldCheck className={sx(craneApprovalStyles.privacyIcon)} />
+            <div className={sx(craneApprovalStyles.privacyText)}>
+              <p className={sx(craneApprovalStyles.privacyHeading)}>
                 Status-only reporting
               </p>
-              <p className="text-muted-foreground">
+              <p className={sx(craneApprovalStyles.privacyCopy)}>
                 Crane receives lifecycle state, sequence, timestamps, and safe
                 error codes only. Prompts, responses, reasoning, files, paths,
                 diffs, and credentials stay local.
@@ -401,8 +407,8 @@ export function CraneDispatchApprovalDialog() {
           </section>
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-border/70 bg-muted/20 px-6 py-4">
-          <span className="mr-auto text-xs text-muted-foreground">
+        <DialogFooter className={sx(craneApprovalStyles.footer)}>
+          <span className={sx(craneApprovalStyles.footerNote)}>
             {rememberTeamDefaults && craneTeamKey
               ? "Run approval is job-scoped; only these local team defaults are remembered."
               : "Approval applies to this job only."}

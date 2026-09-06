@@ -7,7 +7,7 @@
  * the tombstone identity and lifetime are unchanged, and `app.store` re-exports
  * `waitForPendingWorkspaceArchiveCleanups` for existing consumers.
  */
-import { toast } from "sonner";
+import { toast } from "@/lib/notifications/toast";
 import { closeWorkspacePersistence } from "@/lib/db/workspaces.db";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { worktreeStatusHasMeaningfulChanges } from "@/lib/workspace-archive-status";

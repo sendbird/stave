@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { memo, useId, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -16,6 +17,9 @@ import {
   type TurnActivityRowStatus,
 } from "@/components/session/turn-activity.utils";
 import { Button } from "@/components/ui";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { sx, cx } from "@/components/ads/utils/stylex";
+import { workGraphTreeStyles as styles } from "./work-graph-tree.styles";
 import type { ProviderWorkGraphCapabilities } from "@/lib/providers/provider.types";
 import { createEmptyProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
 import {
@@ -31,7 +35,6 @@ import {
   type WorkGraph,
   type WorkGraphStatus,
 } from "@/lib/work-graph/work-graph.types";
-import { cn } from "@/lib/utils";
 
 /**
  * The turn's agents drawn as the tree they actually form, next to the flat
@@ -76,8 +79,6 @@ const WORK_GRAPH_CONTROL_LABELS: Record<WorkGraphControl, string> = {
 };
 
 /** The shelf's badge shape, so a node badge reads as the same kind of tag. */
-const WORK_GRAPH_BADGE_CLASS =
-  "shrink-0 rounded border px-1 text-[10px] leading-4 font-medium tracking-wide";
 
 /**
  * Fail closed while a provider's capabilities are still unresolved: no runtime
@@ -171,14 +172,12 @@ export const WorkGraphTree = memo(function WorkGraphTree(
 
   return (
     <section
-      className={cn("min-w-0", props.className)}
+      className={cx(sx(styles.root), props.className)}
       aria-label="Agent tree"
       data-testid="work-graph-tree"
     >
-      <h3 className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-        Agent tree
-      </h3>
-      <div id={completedRowsId} className="mt-1 flex min-w-0 flex-col">
+      <h3 className={sx(styles.heading)}>Agent tree</h3>
+      <div id={completedRowsId} className={sx(styles.list)}>
         {visibleRows.map((row) => (
           <WorkGraphTreeNodeRow
             key={row.key}
@@ -197,7 +196,7 @@ export const WorkGraphTree = memo(function WorkGraphTree(
           type="button"
           size="xs"
           variant="ghost"
-          className="mt-1 text-muted-foreground"
+          className={sx(styles.completedToggle)}
           aria-expanded={showCompleted}
           aria-controls={completedRowsId}
           aria-label={`${showCompleted ? "Hide" : "Show"} ${collapsibleCompletedKeys.size} completed agents`}
@@ -205,9 +204,12 @@ export const WorkGraphTree = memo(function WorkGraphTree(
           onClick={() => setShowCompleted((current) => !current)}
         >
           {showCompleted ? (
-            <ChevronDown className="size-3" aria-hidden="true" />
+            <ChevronDown className={sx(styles.toggleIcon)} aria-hidden="true" />
           ) : (
-            <ChevronRight className="size-3" aria-hidden="true" />
+            <ChevronRight
+              className={sx(styles.toggleIcon)}
+              aria-hidden="true"
+            />
           )}
           {collapsibleCompletedKeys.size} done
         </Button>
@@ -258,69 +260,50 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   const revealToolUseId = onSelectTool ? node.spawnedByToolUseId : undefined;
   const body = (
     <>
-      <span className="flex h-5 shrink-0 items-center">
+      <span className={sx(styles.statusIconWrap)}>
         <TurnActivityStatusIcon
           status={status}
           iconKey="subagent"
           label={node.status === "cancelled" ? "Cancelled" : undefined}
         />
       </span>
-      <div className="min-w-0 flex-1">
+      <div className={sx(styles.body)}>
         <p
-          className={cn(
-            "flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-5",
-            isTerminalWorkGraphStatus(node.status) && "text-muted-foreground",
+          className={sx(
+            styles.labelLine,
+            isTerminalWorkGraphStatus(node.status) && styles.labelLineTerminal,
           )}
         >
-          <span className="truncate font-medium">{node.label}</span>
+          <span className={sx(styles.label)}>{node.label}</span>
           {node.badge ? (
-            <span
-              className={cn(
-                WORK_GRAPH_BADGE_CLASS,
-                "border-border/60 text-muted-foreground",
-              )}
-            >
+            <span className={sx(styles.badge, styles.badgeNeutral)}>
               {node.badge}
             </span>
           ) : null}
           {row.blocked ? (
-            <span
-              className={cn(
-                WORK_GRAPH_BADGE_CLASS,
-                "border-warning/40 text-warning",
-              )}
-            >
+            <span className={sx(styles.badge, styles.badgeWarning)}>
               Needs you
             </span>
           ) : null}
         </p>
-        {detail ? (
-          <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-            {detail}
-          </p>
-        ) : null}
+        {detail ? <p className={sx(styles.detail)}>{detail}</p> : null}
         {controlError ? (
           <p
             role="status"
             data-testid="work-graph-control-error"
-            className="line-clamp-2 text-[11px] leading-4 text-destructive"
+            className={sx(styles.controlError)}
           >
             {controlError}
           </p>
         ) : null}
       </div>
-      <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground">
-        <span className="sr-only">
+      <span className={sx(styles.elapsed)}>
+        <VisuallyHidden>
           {statusLabel}, {elapsedLabel} elapsed
-        </span>
+        </VisuallyHidden>
         <span aria-hidden="true">{elapsedLabel}</span>
       </span>
     </>
-  );
-  const contentClassName = cn(
-    "-my-1.5 flex min-w-0 flex-1 items-start gap-2.5 rounded-md py-1.5 text-left",
-    revealToolUseId &&
-      "cursor-pointer transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none",
   );
 
   return (
@@ -328,10 +311,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
       data-work-graph-node-key={node.key}
       data-work-graph-depth={row.depth}
       data-work-graph-blocked={row.blocked ? "true" : undefined}
-      className={cn(
-        "flex min-w-0 items-start gap-0.5 rounded-lg px-2 py-1.5",
-        "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
-      )}
+      className={sx(styles.row)}
       // Depth is unbounded, so the indent cannot come from a static class list.
       style={{
         paddingInlineStart:
@@ -339,22 +319,23 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
       }}
     >
       {revealToolUseId ? (
-        <button
+        <AdsButton
+          layout="host"
           type="button"
           data-work-graph-revealable="true"
-          className={contentClassName}
+          xstyle={[styles.content, styles.contentRevealable]}
           title={`${title} — show in conversation`}
           onClick={() => onSelectTool?.(revealToolUseId)}
         >
           {body}
-        </button>
+        </AdsButton>
       ) : (
-        <div className={contentClassName} title={title}>
+        <div className={sx(styles.content)} title={title}>
           {body}
         </div>
       )}
       {controls.available.length > 0 ? (
-        <span className="flex shrink-0 items-center gap-0.5">
+        <span className={sx(styles.controls)}>
           {controls.available.map((control) => {
             const Icon = WORK_GRAPH_CONTROL_ICONS[control];
             return (
@@ -367,7 +348,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
                 aria-label={`${WORK_GRAPH_CONTROL_LABELS[control]} ${node.label}`}
                 onClick={() => onControl?.({ control, node })}
               >
-                <Icon className="size-3" aria-hidden="true" />
+                <Icon className={sx(styles.controlIcon)} aria-hidden="true" />
               </Button>
             );
           })}
@@ -375,7 +356,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
       ) : controls.reason ? (
         // No button to disable, so the explanation carries the whole message:
         // the row's tooltip shows it, and this keeps it reachable without one.
-        <span className="sr-only">{controls.reason}</span>
+        <VisuallyHidden>{controls.reason}</VisuallyHidden>
       ) : null}
     </div>
   );

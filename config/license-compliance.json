@@ -27,6 +27,13 @@
       "licensePattern": "^Custom:",
       "reason": "The Claude Agent SDK is an intentional runtime dependency governed by Anthropic's legal agreements. This exact-version exception must be re-reviewed before SDK or authentication changes.",
       "reference": "https://code.claude.com/docs/en/legal-and-compliance"
+    },
+    {
+      "packagePattern": "^css-mediaquery$",
+      "version": "0.1.2",
+      "licensePattern": "^BSD\\*?$",
+      "reason": "The published LICENSE contains the BSD 3-Clause terms; the package metadata uses the ambiguous BSD label. Preserve the full license in NOTICE. Re-review on version changes.",
+      "reference": "https://github.com/ericf/css-mediaquery/blob/v0.1.2/LICENSE"
     }
   ]
 }

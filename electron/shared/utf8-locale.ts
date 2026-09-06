@@ -42,7 +42,7 @@ export function hasUtf8Codeset(value: string | undefined | null): boolean {
 // `C`/`POSIX`/empty cases, where no language can be preserved.
 function languageOf(value: string | undefined | null): string | null {
   if (typeof value !== "string") return null;
-  const base = value.trim().split(".")[0].split("@")[0];
+  const base = value.trim().split(/[.@]/, 1)[0];
   if (!base || base === "C" || base === "POSIX") return null;
   return base;
 }
@@ -76,7 +76,8 @@ export function pickUtf8Locale(
   }
 
   // (3) Any installed UTF-8 locale still fixes character classification.
-  if (available.length > 0) return available[0];
+  const firstAvailable = available[0];
+  if (firstAvailable) return firstAvailable;
 
   // (4) Nothing detected.
   return LAST_RESORT_UTF8_LOCALE;

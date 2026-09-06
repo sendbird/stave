@@ -40,7 +40,7 @@ import type {
 } from "@/lib/providers/provider.types";
 import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { useAppStore } from "@/store/app.store";
+import { cx, sx } from "@/components/ads/utils/stylex";import { useAppStore } from "@/store/app.store";
 import { resolvePromptDraftModelForProvider } from "@/store/prompt-draft-runtime";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -67,6 +67,7 @@ import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettin
 import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
 import { SettingsCursorSection } from "./settings-dialog-cursor-section";
 import { SettingsKiroSection } from "./settings-dialog-kiro-section";
+import { providersStyles } from "./settings-dialog-providers-section.styles";
 type ExplainedSelectOption<T extends string> = {
   value: T;
   label: string;
@@ -541,7 +542,7 @@ function DescribedSelect<T extends string>(args: {
   const triggerLabel = selected?.label ?? fallbackValue ?? args.value;
 
   return (
-    <div className="space-y-2">
+    <div className={sx(providersStyles.describedSelectRoot)}>
       <Select
         value={selectValue}
         onValueChange={(value) => args.onValueChange(value as T)}
@@ -549,7 +550,7 @@ function DescribedSelect<T extends string>(args: {
         <SelectTrigger
           className={
             args.triggerClassName ??
-            "w-64 rounded-md border-border/80 bg-background"
+            sx(providersStyles.describedSelectTrigger)
           }
         >
           <SelectValue placeholder={triggerLabel} />
@@ -558,7 +559,10 @@ function DescribedSelect<T extends string>(args: {
           alignItemWithTrigger={false}
           align="start"
           sideOffset={6}
-          className={`${UI_LAYER_CLASS.popover} min-w-[var(--anchor-width)] max-w-sm bg-popover`}
+          className={cx(
+            UI_LAYER_CLASS.popover,
+            sx(providersStyles.describedSelectContent),
+          )}
         >
           {args.options.map((option) => (
             <SelectItem
@@ -572,8 +576,10 @@ function DescribedSelect<T extends string>(args: {
         </SelectContent>
       </Select>
       {selected ? (
-        <p className="text-xs leading-5 text-muted-foreground">
-          <span className="font-medium text-foreground">{selected.label}:</span>{" "}
+        <p className={sx(providersStyles.describedSelectHint)}>
+          <span className={sx(providersStyles.describedSelectHintTerm)}>
+            {selected.label}:
+          </span>{" "}
           {selected.description}
           {selected.example ? ` Example: ${selected.example}` : ""}
         </p>
@@ -851,20 +857,20 @@ export function ProvidersSection() {
         }
       >
         {trustedTools.length > 0 ? (
-          <div className="space-y-2">
+          <div className={sx(providersStyles.trustedList)}>
             {trustedTools.map((entry) => (
               <div
                 key={entry}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-muted/20 px-3 py-2"
+                className={sx(providersStyles.trustedRow)}
               >
-                <span className="min-w-0 truncate text-sm">
+                <span className={sx(providersStyles.trustedRowLabel)}>
                   {formatTrustedToolEntry(entry)}
                 </span>
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-7 shrink-0 px-2 text-xs"
+                  xstyle={providersStyles.trustedRemove}
                   onClick={() =>
                     updateSettings({
                       patch: {
@@ -882,35 +888,35 @@ export function ProvidersSection() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className={sx(providersStyles.emptyCopy)}>
             No trusted approvals yet. Use approve and always allow from an
             approval prompt to add one.
           </p>
         )}
       </SettingsCard>
-      <Tabs defaultValue="claude" className="gap-4">
-        <TabsList className="h-auto w-full justify-start rounded-xl border border-border/70 bg-muted/30 p-1">
+      <Tabs defaultValue="claude" className={sx(providersStyles.tabs)}>
+        <TabsList className={sx(providersStyles.tabsList)}>
           <TabsTrigger
             value="claude"
-            className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
+            className={sx(providersStyles.tabsTrigger)}
           >
             Claude
           </TabsTrigger>
           <TabsTrigger
             value="codex"
-            className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
+            className={sx(providersStyles.tabsTrigger)}
           >
             Codex
           </TabsTrigger>
           <TabsTrigger
             value="cursor"
-            className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
+            className={sx(providersStyles.tabsTrigger)}
           >
             Cursor
           </TabsTrigger>
           <TabsTrigger
             value="kiro"
-            className="h-8 flex-none rounded-lg px-3 text-xs font-medium"
+            className={sx(providersStyles.tabsTrigger)}
           >
             Kiro
           </TabsTrigger>
@@ -942,7 +948,7 @@ export function ProvidersSection() {
                     })
                   }
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(providersStyles.presetHint)}>
                   {currentClaudeModePresetId
                     ? `${currentClaudeModeLabel} is active. Reapply a preset any time to restore its full permission and sandbox combination.`
                     : "Custom is active. The current Claude permission and sandbox combination does not match a built-in preset."}
@@ -1009,7 +1015,7 @@ export function ProvidersSection() {
                     description="Comma-separated file paths Claude's sandbox must deny as credentials. Enter paths only, never secret contents."
                   >
                     <DraftInput
-                      className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+                      xstyle={providersStyles.fieldMono}
                       value={claudeSandboxCredentialFiles}
                       placeholder="~/.config/example/credentials.json"
                       onCommit={(value) =>
@@ -1024,7 +1030,7 @@ export function ProvidersSection() {
                     description="Comma-separated environment variable names Claude's sandbox must deny. Enter names only; values never belong here."
                   >
                     <DraftInput
-                      className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+                      xstyle={providersStyles.fieldMono}
                       value={claudeSandboxCredentialEnvVars}
                       placeholder="EXAMPLE_TOKEN, SERVICE_PASSWORD"
                       onCommit={(value) =>
@@ -1056,7 +1062,7 @@ export function ProvidersSection() {
                   selected={claudeSettingSources}
                   onToggle={toggleClaudeSettingSource}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(providersStyles.presetHint)}>
                   Active:{" "}
                   {claudeSettingSources.length > 0
                     ? claudeSettingSources.join(" + ")
@@ -1068,7 +1074,7 @@ export function ProvidersSection() {
                 description="Advisory token budget sent to Claude so it can pace tool use and wrap up earlier. Use `0` to disable."
               >
                 <DraftInput
-                  className="h-10 rounded-md border-border/80 bg-background"
+                  xstyle={providersStyles.field}
                   value={String(claudeTaskBudgetTokens)}
                   onCommit={(value) =>
                     updateSettings({
@@ -1221,7 +1227,7 @@ export function ProvidersSection() {
                 description="Comma- or newline-separated Claude skill names. Use `all` to enable every discovered skill."
               >
                 <DraftInput
-                  className="h-10 rounded-md border-border/80 bg-background"
+                  xstyle={providersStyles.field}
                   value={claudeSkills}
                   placeholder="all"
                   onCommit={(value) =>
@@ -1234,7 +1240,7 @@ export function ProvidersSection() {
                 description="Comma- or newline-separated local Claude plugin directories. Stave owns MCP discovery for these plugins."
               >
                 <DraftInput
-                  className="h-10 rounded-md border-border/80 bg-background"
+                  xstyle={providersStyles.field}
                   value={claudePluginPaths}
                   placeholder="<workspace>/plugin"
                   onCommit={(value) =>
@@ -1248,7 +1254,7 @@ export function ProvidersSection() {
                 description="Optional Claude agent name from settings or loaded plugins for the main conversation."
               >
                 <DraftInput
-                  className="h-10 rounded-md border-border/80 bg-background"
+                  xstyle={providersStyles.field}
                   value={claudeAgentName}
                   placeholder="code-reviewer"
                   onCommit={(value) =>
@@ -1261,7 +1267,7 @@ export function ProvidersSection() {
                 description="Comma-separated Claude fallback models used when the primary model is overloaded or unavailable. Opus 5 automatically falls back to Opus 4.8 when left blank."
               >
                 <DraftInput
-                  className="h-10 rounded-md border-border/80 bg-background"
+                  xstyle={providersStyles.field}
                   value={claudeFallbackModel}
                   placeholder="claude-opus-4-8"
                   onCommit={(value) =>
@@ -1274,7 +1280,7 @@ export function ProvidersSection() {
                 description="Optional Claude assistant message UUID for partial resume from a previous session."
               >
                 <DraftInput
-                  className="h-10 rounded-md border-border/80 bg-background"
+                  xstyle={providersStyles.field}
                   value={claudeResumeSessionAt}
                   placeholder="message uuid"
                   onCommit={(value) =>
@@ -1316,7 +1322,7 @@ export function ProvidersSection() {
                     })
                   }
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(providersStyles.presetHint)}>
                   {currentCodexModePresetId
                     ? `${currentCodexModeLabel} is active. Reapply a preset any time to restore its full file access, approval, and network combination.`
                     : "Custom is active. The current Codex file-access and approval combination does not match a built-in preset."}
@@ -1516,7 +1522,7 @@ export function ProvidersSection() {
                 />
                 {codexWebSearch === "indexed" &&
                 effectiveCodexWebSearch !== "indexed" ? (
-                  <p className="text-xs leading-5 text-muted-foreground">
+                  <p className={sx(providersStyles.webSearchHint)}>
                     Indexed search is unavailable in the selected Codex version;
                     Stave will use cached search instead.
                   </p>

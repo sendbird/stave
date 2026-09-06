@@ -20,7 +20,6 @@ import {
   resolveAdvisorExchangeVisibility,
   resolveAdvisorLaneSegments,
   resolveAdvisorRemainingMs,
-  type AdvisorExchangeTone,
 } from "@/components/session/advisor-exchange.utils";
 import { AdvisorCheckIcon } from "@/components/session/AdvisorCheckIcon";
 import { SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME } from "@/components/session/plan-viewer.utils";
@@ -32,10 +31,17 @@ import {
   advisorConsultLogEntryKey,
   selectAdvisorConsultLog,
 } from "@/lib/providers/advisor-consult-log";
-import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import { getProviderWaveTone } from "@/lib/providers/model-catalog";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import {
+  advisorExchangeMonitorStyles as styles,
+  advisorExchangeProviderBar,
+  advisorExchangeTone,
+  advisorExchangeToneBadge,
+  advisorExchangeWaveTone,
+} from "./advisor-exchange-monitor.styles";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { UI_ELEVATION_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -61,30 +67,14 @@ function useAdvisorClock(active: boolean) {
   return nowMs;
 }
 
-const TONE_ACCENT_CLASS: Record<AdvisorExchangeTone, string> = {
-  neutral: "text-muted-foreground",
-  active: "text-info",
-  positive: "text-success",
-  caution: "text-warning",
-  danger: "text-destructive",
-};
-
-const TONE_BADGE_CLASS: Record<AdvisorExchangeTone, string> = {
-  neutral: "border-border/60 bg-muted/40 text-muted-foreground",
-  active: "border-info/40 bg-info/10 text-info",
-  positive: "border-success/40 bg-success/10 text-success",
-  caution: "border-warning/40 bg-warning/10 text-warning",
-  danger: "border-destructive/40 bg-destructive/10 text-destructive",
-};
-
-function providerBarClass(providerId: ProviderId | undefined) {
+function providerBarStyle(providerId: ProviderId | undefined) {
   if (providerId === "claude-code") {
-    return "bg-provider-claude";
+    return advisorExchangeProviderBar.claude;
   }
   if (providerId === "codex") {
-    return "bg-provider-codex";
+    return advisorExchangeProviderBar.codex;
   }
-  return "bg-muted-foreground";
+  return advisorExchangeProviderBar.fallback;
 }
 
 function ParticipantChip(props: {
@@ -94,17 +84,17 @@ function ParticipantChip(props: {
   active: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-      <span className="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-        {props.role}
-      </span>
+    <div className={sx(styles.chip)}>
+      <span className={sx(styles.chipRole)}>{props.role}</span>
       <span
-        className={cn(
-          "truncate text-[0.8125rem] font-medium",
+        className={sx(
+          styles.chipName,
           props.providerId
-            ? getProviderWaveToneClass({ providerId: props.providerId })
-            : "text-muted-foreground",
-          props.active && "motion-safe:animate-pulse",
+            ? advisorExchangeWaveTone[
+                getProviderWaveTone({ providerId: props.providerId })
+              ]
+            : styles.chipNameMuted,
+          props.active && styles.chipNameActive,
         )}
         title={describeAdvisorParticipant({
           providerId: props.providerId,
@@ -154,26 +144,22 @@ export function AdvisorExchangeCard(props: {
     <div
       data-testid="advisor-exchange-card"
       data-outcome={snapshot.outcome}
-      className={cn(
-        UI_ELEVATION_CLASS.floating,
-        "pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card",
-        "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2",
-      )}
+      className={cx(UI_ELEVATION_CLASS.floating, sx(styles.card))}
     >
-      <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2">
+      <div className={sx(styles.header)}>
         {running ? (
           <Loader
             aria-hidden
-            className={cn("shrink-0", TONE_ACCENT_CLASS[tone])}
+            className={sx(styles.headerLoader, advisorExchangeTone[tone])}
             size="xs"
             variant="handoff"
           />
         ) : (
           <ArrowLeftRight
-            className={cn("size-3.5 shrink-0", TONE_ACCENT_CLASS[tone])}
+            className={sx(styles.headerIcon, advisorExchangeTone[tone])}
           />
         )}
-        <span className="flex-1 truncate text-[0.8125rem] font-medium">
+        <span className={sx(styles.headerTitle)}>
           {snapshot.consultIndex !== undefined &&
           snapshot.consultLimit !== undefined
             ? `Advisor consult ${snapshot.consultIndex}/${snapshot.consultLimit}`
@@ -181,16 +167,13 @@ export function AdvisorExchangeCard(props: {
         </span>
         {failedChecks > 0 && !running ? (
           <TriangleAlert
-            className="size-3.5 shrink-0 text-destructive"
+            className={sx(styles.headerWarn)}
             aria-label={`${failedChecks} checks failed`}
           />
         ) : null}
         <span
           data-testid="advisor-exchange-outcome"
-          className={cn(
-            "shrink-0 rounded border px-1 text-[10px] leading-4 font-medium tracking-wide",
-            TONE_BADGE_CLASS[tone],
-          )}
+          className={sx(styles.outcomeBadge, advisorExchangeToneBadge[tone])}
         >
           {describeAdvisorExchangeBadge(snapshot)}
         </span>
@@ -205,33 +188,28 @@ export function AdvisorExchangeCard(props: {
           }
           onClick={props.onToggleExpanded}
         >
-          {props.expanded ? (
-            <ChevronUp className="size-3.5" />
-          ) : (
-            <ChevronDown className="size-3.5" />
-          )}
+          {props.expanded ? <ChevronUp /> : <ChevronDown />}
         </Button>
       </div>
 
-      <div className="flex shrink-0 items-end gap-2 px-3 pt-2.5">
+      <div className={sx(styles.participantRow)}>
         <ParticipantChip
           role="Primary"
           providerId={snapshot.primaryProviderId}
           model={snapshot.primaryModel}
           active={!batonAtAdvisor && running}
         />
-        <div className="relative mb-1 h-3 w-12 shrink-0">
-          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-border" />
+        <div className={sx(styles.batonTrack)}>
+          <div className={sx(styles.batonRail)} />
           <span
             data-testid="advisor-exchange-baton"
-            className={cn(
-              "absolute top-1/2 size-1.5 -translate-y-1/2 rounded-full",
-              providerBarClass(
+            className={sx(
+              styles.baton,
+              providerBarStyle(
                 batonAtAdvisor
                   ? snapshot.advisorProviderId
                   : snapshot.primaryProviderId,
               ),
-              "motion-safe:transition-[left] motion-safe:duration-700 motion-safe:ease-out",
             )}
             style={{ left: batonAtAdvisor ? "calc(100% - 0.375rem)" : "0" }}
           />
@@ -245,36 +223,35 @@ export function AdvisorExchangeCard(props: {
       </div>
 
       {/* Latency split. The blocked span is the advisor's real cost to the turn. */}
-      <div className="mt-2.5 flex h-1 w-full shrink-0 overflow-hidden bg-border/40">
+      <div className={sx(styles.laneTrack)}>
         <div
           data-testid="advisor-exchange-advisor-lane"
-          className={cn(
-            "h-full",
-            providerBarClass(snapshot.advisorProviderId),
-            "transition-[width] duration-200 ease-out motion-reduce:transition-none",
+          className={sx(
+            styles.lane,
+            providerBarStyle(snapshot.advisorProviderId),
           )}
           style={{ width: `${lanes.advisorFraction * 100}%` }}
         />
         <div
-          className="h-full bg-muted-foreground/30 transition-[width] duration-200 ease-out motion-reduce:transition-none"
+          className={sx(styles.laneBlocked)}
           style={{
             width: `${Math.max(0, lanes.blockedFraction - lanes.advisorFraction) * 100}%`,
           }}
         />
       </div>
 
-      <div className="flex shrink-0 items-center gap-2 px-3 py-2">
-        <p className="min-w-0 flex-1 text-[0.75rem] leading-[1.5] text-muted-foreground">
+      <div className={sx(styles.statusRow)}>
+        <p className={sx(styles.statusText)}>
           {describeAdvisorExchangeStatus(snapshot)}
         </p>
-        <span className="shrink-0 text-[0.75rem] tabular-nums text-muted-foreground">
+        <span className={sx(styles.statusElapsed)}>
           {formatAdvisorDuration(lanes.elapsedMs)}
         </span>
       </div>
 
       {props.canSkip ? (
-        <div className="flex shrink-0 items-center gap-2 border-t border-border/60 px-3 py-1.5">
-          <span className="min-w-0 flex-1 truncate text-[0.75rem] text-muted-foreground">
+        <div className={sx(styles.skipRow)}>
+          <span className={sx(styles.skipText)}>
             {remainingMs === null
               ? "The primary is waiting on this consult."
               : `Deadline in ${formatAdvisorDuration(remainingMs)}.`}
@@ -282,38 +259,34 @@ export function AdvisorExchangeCard(props: {
           <Button
             variant="ghost"
             size="xs"
-            className="shrink-0 gap-1"
+            xstyle={styles.skipButton}
             onClick={props.onSkip}
           >
-            <SkipForward className="size-3" />
+            <SkipForward />
             Cancel consult
           </Button>
         </div>
       ) : null}
 
       {props.expanded ? (
-        <div className="min-h-0 max-h-[min(24rem,45vh)] overflow-y-auto overscroll-contain border-t border-border/60 bg-muted/10 px-3 py-2.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+        <div className={sx(styles.expanded)}>
+          <p className={sx(styles.sectionLabel)}>
             Did the advisor system work?
           </p>
-          <ul className="mt-1.5 space-y-1.5">
+          <ul className={sx(styles.checkList)}>
             {checks.map((check) => (
-              <li key={check.id} className="flex items-start gap-2">
+              <li key={check.id} className={sx(styles.checkItem)}>
                 <AdvisorCheckIcon status={check.status} />
-                <div className="min-w-0 flex-1">
+                <div className={sx(styles.checkBody)}>
                   <p
-                    className={cn(
-                      "text-[0.75rem] leading-[1.45]",
-                      check.status === "fail"
-                        ? "font-medium text-destructive"
-                        : "text-foreground",
+                    className={sx(
+                      styles.checkLabel,
+                      check.status === "fail" && styles.checkLabelFail,
                     )}
                   >
                     {check.label}
                   </p>
-                  <p className="break-words text-[0.6875rem] leading-[1.45] text-muted-foreground">
-                    {check.detail}
-                  </p>
+                  <p className={sx(styles.checkDetail)}>{check.detail}</p>
                 </div>
               </li>
             ))}
@@ -321,39 +294,29 @@ export function AdvisorExchangeCard(props: {
 
           {snapshot.question ? (
             <>
-              <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                Question asked
-              </p>
-              <p className="mt-1 whitespace-pre-wrap break-words rounded-md border border-border/60 bg-background/55 px-2 py-1.5 text-[0.75rem] leading-[1.5] text-foreground">
-                {snapshot.question}
-              </p>
+              <p className={sx(styles.sectionLabelSpaced)}>Question asked</p>
+              <p className={sx(styles.prose)}>{snapshot.question}</p>
             </>
           ) : null}
 
           {snapshot.advice ? (
             <>
-              <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                Advice returned
-              </p>
-              <p className="mt-1 whitespace-pre-wrap break-words rounded-md border border-border/60 bg-background/55 px-2 py-1.5 text-[0.75rem] leading-[1.5] text-foreground">
-                {snapshot.advice}
-              </p>
+              <p className={sx(styles.sectionLabelSpaced)}>Advice returned</p>
+              <p className={sx(styles.prose)}>{snapshot.advice}</p>
             </>
           ) : null}
 
-          <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-            Lifecycle
-          </p>
-          <ol className="mt-1 space-y-0.5">
+          <p className={sx(styles.sectionLabelSpaced)}>Lifecycle</p>
+          <ol className={sx(styles.lifecycleList)}>
             {snapshot.stages.map((stage, index) => (
               <li
                 key={`${stage.phase}:${stage.at}:${index}`}
-                className="flex items-baseline gap-2 text-[0.6875rem] leading-[1.5]"
+                className={sx(styles.lifecycleItem)}
               >
-                <span className="shrink-0 tabular-nums text-muted-foreground/70">
+                <span className={sx(styles.lifecycleAt)}>
                   +{formatAdvisorDuration(stage.at - snapshot.startedAt)}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                <span className={sx(styles.lifecycleLabel)}>
                   {describeAdvisorPhase(stage.phase)}
                   {stage.detail ? ` — ${stage.detail}` : ""}
                 </span>
@@ -361,31 +324,25 @@ export function AdvisorExchangeCard(props: {
             ))}
           </ol>
 
-          <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
-            <div className="min-w-0">
-              <dt className="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                Isolation
-              </dt>
-              <dd className="truncate text-[0.6875rem] text-foreground">
+          <dl className={sx(styles.metaGrid)}>
+            <div className={sx(styles.metaCell)}>
+              <dt className={sx(styles.metaTerm)}>Isolation</dt>
+              <dd className={sx(styles.metaValue)}>
                 {describeAdvisorIsolation(snapshot.isolation)}
               </dd>
             </div>
-            <div className="min-w-0">
-              <dt className="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                Effort
-              </dt>
+            <div className={sx(styles.metaCell)}>
+              <dt className={sx(styles.metaTerm)}>Effort</dt>
               <dd
-                className="truncate text-[0.6875rem] text-foreground"
+                className={sx(styles.metaValue)}
                 data-testid="advisor-exchange-effort"
               >
                 {describeAdvisorEffort(snapshot.advisorEffort)}
               </dd>
             </div>
-            <div className="min-w-0">
-              <dt className="truncate text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                Deadline
-              </dt>
-              <dd className="truncate text-[0.6875rem] text-foreground">
+            <div className={sx(styles.metaCell)}>
+              <dt className={sx(styles.metaTerm)}>Deadline</dt>
+              <dd className={sx(styles.metaValue)}>
                 {snapshot.timeoutMs === undefined
                   ? "Not reported"
                   : formatAdvisorDuration(snapshot.timeoutMs)}
@@ -394,16 +351,16 @@ export function AdvisorExchangeCard(props: {
           </dl>
 
           {!props.canSkip && snapshot.outcome !== "pending" ? (
-            <div className="mt-3 flex items-center justify-end gap-1">
+            <div className={sx(styles.footerRow)}>
               {props.onOpenLog && (props.consultLogCount ?? 0) > 0 ? (
                 <Button
                   variant="ghost"
                   size="xs"
-                  className="mr-auto gap-1"
+                  xstyle={styles.logButton}
                   data-testid="advisor-open-consult-log"
                   onClick={props.onOpenLog}
                 >
-                  <History className="size-3" />
+                  <History />
                   View all consults ({props.consultLogCount})
                 </Button>
               ) : null}
@@ -473,10 +430,10 @@ export function AdvisorExchangeMonitor() {
 
   return (
     <div
-      className={cn(
+      className={cx(
         SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
         // Clear the conversation turn rail, which owns `right-2` at `w-12`.
-        "top-3 right-16 w-[min(23rem,calc(100%-6rem))]",
+        sx(styles.wrapper),
       )}
       onMouseEnter={() => {
         setHovered(true);

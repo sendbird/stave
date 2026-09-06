@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TurnActivitySurface } from "@/components/session/TurnActivity";
+import { turnActivityStyles } from "@/components/session/turn-activity.styles";
+import { sx } from "@/components/ads/utils/stylex";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 
 describe("TurnActivity", () => {
@@ -523,9 +525,13 @@ describe("TurnActivity", () => {
       }),
     );
     // Floating swaps the docked chrome for a bordered card with a drag handle.
+    // The grab-handle chrome is a StyleX class (hashed), so it is checked by
+    // style identity rather than the literal `cursor-grab` utility.
     expect(floating).toContain('data-variant="floating"');
     expect(floating).not.toContain("turn-activity-surface");
-    expect(floating).toContain("cursor-grab");
+    for (const token of sx(turnActivityStyles.headerGrab).split(/\s+/)) {
+      expect(floating).toContain(token);
+    }
     expect(floating).toContain("Dock turn activity above the input");
     expect(floating).not.toContain("Float turn activity over the chat");
 
@@ -926,9 +932,16 @@ describe("TurnActivity", () => {
     expect(html).toContain("Session start hooks");
     expect(html).toContain("2 handlers");
     // Provider-specific: monospaced and dimmed, so it cannot be mistaken for
-    // the normalized half of the row.
+    // the normalized half of the row. StyleX hashes the class name, so the
+    // provider detail slot is checked by style identity rather than a literal
+    // utility string, plus the exact provider text it carries.
+    expect(html).toContain("command · codex/hooks.json");
+    const providerDetailClass = sx(turnActivityStyles.rowProviderDetail);
+    for (const token of providerDetailClass.split(/\s+/)) {
+      expect(html).toContain(token);
+    }
     expect(html).toContain(
-      '<span class="truncate font-mono text-[10px] text-muted-foreground/70">command · codex/hooks.json</span>',
+      `<span class="${providerDetailClass}">command · codex/hooks.json</span>`,
     );
     // The old presentation's invented ordinals are gone, and the absolute path
     // never reaches the title.

@@ -3,20 +3,16 @@ import { loadAllTaskMessages } from "@/lib/db/workspaces.db";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { buildPanePanelId } from "@/lib/panes/types";
 import {
-  resolveDefaultClaudeEffortForModel,
-  resolveDefaultCodexEffortForModel,
   isManagedExecutionProviderId,
 } from "@/lib/providers/model-catalog";
-import { mergeModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
-import { cloneDefaultTaskPresets } from "@/lib/task-presets";
+import { cloneDefaultTaskPresets, resolveTaskPresetRuntimeOverrides } from "@/lib/task-presets";
 import {
   getArchiveFallbackTaskId,
   isTaskArchived,
   isTaskManaged,
 } from "@/lib/tasks";
 import type { ScriptTrigger } from "@/lib/workspace-scripts";
-import type { AppSettings } from "@/store/app-settings";
 import type { AppState } from "@/store/app-store.types";
 import {
   buildMessageId,
@@ -47,6 +43,19 @@ type TaskLifecycleActions = Pick<AppState, TaskLifecycleActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
 type StoreGet = StoreApi<AppState>["getState"];
 
+function cleanupRestoredTaskProviderRuntime(args: { taskId: string }) {
+  const cleanupTask = window.api?.provider?.cleanupTask;
+  if (!cleanupTask) {
+    return;
+  }
+  void cleanupTask({ taskId: args.taskId }).catch((error) => {
+    console.warn("[checkpoint-restore] provider cleanup failed", {
+      taskId: args.taskId,
+      error,
+    });
+  });
+}
+
 export function createTaskLifecycleActions(args: {
   set: StoreSet;
   get: StoreGet;
@@ -62,7 +71,6 @@ export function createTaskLifecycleActions(args: {
     state: AppState;
     taskId: string;
   }) => Partial<AppState>;
-  cleanupRestoredTaskProviderRuntime: (args: { taskId: string }) => void;
   archivedTaskTurnNotice: string;
   incrementWorkspaceSnapshotVersion: (
     state: Pick<AppState, "workspaceSnapshotVersion">,
@@ -75,7 +83,6 @@ export function createTaskLifecycleActions(args: {
     runScriptHookInBackground,
     attentionSync,
     clearRestoredTaskProviderSession,
-    cleanupRestoredTaskProviderRuntime,
     archivedTaskTurnNotice: ARCHIVED_TASK_TURN_NOTICE,
     incrementWorkspaceSnapshotVersion,
     findTaskById,
@@ -477,7 +484,7 @@ export function createTaskLifecycleActions(args: {
       void window.api?.provider?.cleanupTask?.({ taskId });
       // An archived task is settled by definition: it must not keep asking
       // for an answer or a review from Fleet.
-      attentionSync.markTaskReviewed(taskId);
+      attentionSync.markTaskNotificationsRead(taskId);
       attentionSync.syncTaskInteractions({
         taskId,
         messages: get().messagesByTask[taskId] ?? [],
@@ -555,52 +562,21 @@ export function createTaskLifecycleActions(args: {
         return;
       }
 
-      // `task` preset: align the per-provider model setting + draft
-      // provider so the fresh task picks up the preset's model at turn
-      // request time (models are resolved from settings, not persisted
-      // per-task today).
-      const settingsPatch: Partial<AppSettings> = {};
-      if (preset.model) {
-        if (preset.provider === "claude-code") {
-          settingsPatch.modelClaude = preset.model;
-          settingsPatch.claudeEffort =
-            (preset.effort as AppSettings["claudeEffort"] | undefined) ??
-            resolveDefaultClaudeEffortForModel({ model: preset.model });
-        } else if (preset.provider === "codex") {
-          settingsPatch.modelCodex = preset.model;
-          settingsPatch.codexReasoningEffort =
-            (preset.effort as
-              AppSettings["codexReasoningEffort"] | undefined) ??
-              resolveDefaultCodexEffortForModel({ model: preset.model });
-        } else if (preset.provider === "cursor") {
-          settingsPatch.modelCursor = preset.model;
-        } else {
-          settingsPatch.modelKiro = preset.model;
-        }
-        const effort =
-          preset.provider === "claude-code"
-            ? settingsPatch.claudeEffort
-            : preset.provider === "codex"
-              ? settingsPatch.codexReasoningEffort
-              : undefined;
-        if (effort) {
-          settingsPatch.modelRuntimePreferences = mergeModelRuntimePreference({
-            preferences: stateBefore.settings.modelRuntimePreferences,
-            providerId: preset.provider,
-            model: preset.model,
-            patch: { effort },
-          });
-        }
-      }
-      if (Object.keys(settingsPatch).length > 0) {
-        get().updateSettings({ patch: settingsPatch });
-      }
+      // A preset configures this task; existing tasks and provider defaults
+      // must keep their own model and effort choices.
       set((state) =>
         state.draftProvider === preset.provider
           ? state
           : { draftProvider: preset.provider },
       );
+      const previousTaskId = get().activeTaskId;
       get().createTask({ title: "" });
+      const taskId = get().activeTaskId;
+      if (!taskId || taskId === previousTaskId) return;
+      get().updatePromptDraft({
+        taskId,
+        patch: { runtimeOverrides: resolveTaskPresetRuntimeOverrides(preset) },
+      });
     },
     upsertTaskPreset: ({ preset }) => {
       set((state) => {

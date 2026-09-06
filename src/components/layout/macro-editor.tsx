@@ -40,6 +40,8 @@ import {
   SelectField,
   SwitchField,
 } from "./settings-dialog.shared";
+import { sx } from "@/components/ads/utils/stylex";
+import { macroEditorStyles as styles } from "./macro-editor.styles";
 
 const INSERT_MODE_OPTIONS: Array<{
   value: MacroInsertMode;
@@ -223,7 +225,7 @@ export function MacroEditor(props: MacroEditorProps) {
   }
 
   return (
-    <form className="space-y-5" onSubmit={handleSubmit}>
+    <form className={sx(styles.form)} onSubmit={handleSubmit}>
       <LabeledField
         title="Label"
         description="The name shown in Settings, the Macros control, and the left-wing quick picks."
@@ -274,7 +276,7 @@ export function MacroEditor(props: MacroEditorProps) {
           value={body}
           onChange={(event) => setBody(event.target.value)}
           placeholder="Write a conventional commit message for the staged changes."
-          className="min-h-28"
+          xstyle={styles.body}
         />
       </LabeledField>
       <LabeledField
@@ -319,19 +321,19 @@ export function MacroEditor(props: MacroEditorProps) {
             description="The model used when this macro is applied."
           >
             <Select value={model} onValueChange={handleModelChange}>
-              <SelectTrigger className="h-10 w-full rounded-md border-border/75 bg-background text-sm">
+              <SelectTrigger className={sx(styles.modelTrigger)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {modelOptions.map((option) => (
                   <SelectItem key={option} value={option}>
-                    <span className="flex min-w-0 items-center gap-2">
+                    <span className={sx(styles.option)}>
                       <ModelIcon
                         providerId={providerId}
                         model={option}
-                        className="size-3.5"
+                        className={sx(styles.optionIcon)}
                       />
-                      <span className="truncate">
+                      <span className={sx(styles.optionLabel)}>
                         {toHumanModelName({ model: option })}
                       </span>
                     </span>
@@ -358,9 +360,9 @@ export function MacroEditor(props: MacroEditorProps) {
         </>
       ) : null}
       {localError || error ? (
-        <p className="text-sm text-destructive">{localError ?? error}</p>
+        <p className={sx(styles.error)}>{localError ?? error}</p>
       ) : null}
-      <div className="flex items-center justify-end gap-2">
+      <div className={sx(styles.actions)}>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>

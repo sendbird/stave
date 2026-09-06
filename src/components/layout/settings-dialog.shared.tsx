@@ -14,7 +14,6 @@ import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { Check, CircleHelp } from "lucide-react";
 import {
   Badge,
-  Button,
   Input,
   Popover,
   PopoverContent,
@@ -27,6 +26,9 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
+import { Button } from "@/components/ads/components/Button";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   Select,
   SelectContent,
@@ -39,7 +41,7 @@ import type {
   ToolingStatusState,
   WorkspaceSyncStatus,
 } from "@/lib/tooling-status";
-import { cn } from "@/lib/utils";
+import { settingsSharedStyles as styles } from "./settings-dialog.shared.styles";
 
 const SettingsControlLabelContext = createContext<string | null>(null);
 const TOGGLE_ALL_VALUE = "__stave_toggle_all__";
@@ -58,20 +60,20 @@ export function StatusBadge(args: {
   state: ToolingStatusState | WorkspaceSyncStatus["state"];
   label: string;
 }) {
-  const className =
+  const toneStyle =
     args.state === "ready" || args.state === "synced"
-      ? "border-success/30 bg-success/10 text-success dark:bg-success/15"
+      ? styles.statusBadgeReady
       : args.state === "warning" ||
           args.state === "behind" ||
           args.state === "ahead" ||
           args.state === "dirty"
-        ? "border-warning/40 bg-warning/10 text-warning dark:bg-warning/15"
-        : "border-destructive/30 bg-destructive/10 text-destructive";
+        ? styles.statusBadgeWarning
+        : styles.statusBadgeError;
 
   return (
     <Badge
       variant="secondary"
-      className={cn("h-6 border px-2.5 font-medium tracking-normal", className)}
+      className={sx(styles.statusBadge, toneStyle)}
     >
       {args.label}
     </Badge>
@@ -84,12 +86,12 @@ export function InfoRow(args: {
   monospace?: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{args.label}</span>
+    <div className={sx(styles.infoRow)}>
+      <span className={sx(styles.infoRowLabel)}>{args.label}</span>
       <span
-        className={cn(
-          "max-w-[70%] text-right text-foreground break-all",
-          args.monospace && "font-mono text-xs",
+        className={sx(
+          styles.infoRowValue,
+          args.monospace && styles.infoRowValueMono,
         )}
       >
         {args.value ?? "-"}
@@ -99,7 +101,7 @@ export function InfoRow(args: {
 }
 
 export function SectionStack(args: { children: ReactNode }) {
-  return <section className="flex flex-col">{args.children}</section>;
+  return <section className={sx(styles.sectionStack)}>{args.children}</section>;
 }
 
 export function SettingsCard(args: {
@@ -118,29 +120,21 @@ export function SettingsCard(args: {
       id={args.id}
       tabIndex={args.tabIndex}
       aria-labelledby={titleId}
-      className={cn(
-        "scroll-mt-6 border-t border-border/65 py-7 outline-none first:border-t-0 first:pt-0 last:border-b focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring/35",
-        args.className,
-      )}
+      className={cx(sx(styles.card, focusRing.ring), args.className)}
     >
       <header>
-        <div className="flex items-start justify-between gap-3">
-          <h3
-            id={titleId}
-            className="text-base font-semibold tracking-[-0.015em] text-foreground"
-          >
+        <div className={sx(styles.cardHeaderRow)}>
+          <h3 id={titleId} className={sx(styles.cardTitle)}>
             {args.title}
           </h3>
           {args.titleAccessory}
         </div>
         {args.description ? (
-          <p className="mt-1.5 max-w-4xl text-sm leading-6 text-muted-foreground">
-            {args.description}
-          </p>
+          <p className={sx(styles.cardDescription)}>{args.description}</p>
         ) : null}
       </header>
       <SettingsControlLabelContext.Provider value={titleId}>
-        <div className="mt-5 space-y-5">{args.children}</div>
+        <div className={sx(styles.cardBody)}>{args.children}</div>
       </SettingsControlLabelContext.Provider>
     </section>
   );
@@ -156,11 +150,7 @@ export function SettingsCard(args: {
  * otherwise sit directly on a saturated blue.
  */
 function ChoiceMark(args: { children: ReactNode }) {
-  return (
-    <span className="flex size-5 shrink-0 items-center justify-center rounded-[5px] bg-background/90">
-      {args.children}
-    </span>
-  );
+  return <span className={sx(styles.choiceMark)}>{args.children}</span>;
 }
 
 export function ChoiceButtons<T extends string>(args: {
@@ -184,35 +174,36 @@ export function ChoiceButtons<T extends string>(args: {
       onValueChange={(value: T) => args.onChange(value)}
       aria-labelledby={labelledBy ?? undefined}
       aria-label={labelledBy ? undefined : (args["aria-label"] ?? "Setting")}
-      className={cn(
-        hasDescriptions
-          ? "grid gap-2"
-          : "inline-flex max-w-full flex-wrap rounded-md border border-border/80 bg-muted/30 p-0.5",
+      className={sx(
+        hasDescriptions ? styles.radioGroupGrid : styles.radioGroupInline,
         hasDescriptions &&
-          (args.columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"),
+          (args.columns === 3
+            ? styles.radioGroupGridCols3
+            : styles.radioGroupGridCols2),
       )}
     >
       {args.options.map((option) => (
         <Radio.Root
           key={option.value}
           value={option.value}
-          className={cn(
-            "inline-flex shrink-0 cursor-default items-center justify-center rounded-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/35 active:translate-y-px data-checked:bg-primary data-checked:text-primary-foreground data-checked:shadow-[inset_0_1px_0_color-mix(in_oklch,var(--primary-foreground)_18%,transparent),0_1px_2px_oklch(0_0_0/0.14)] data-disabled:pointer-events-none data-disabled:opacity-45",
-            hasDescriptions
-              ? "h-auto min-h-14 items-start justify-start border-border/85 bg-background/55 px-4 py-3 text-left whitespace-normal data-unchecked:hover:border-primary/35 data-unchecked:hover:bg-accent/45"
-              : "h-9 rounded-[5px] px-3.5 text-[13px] data-unchecked:text-muted-foreground data-unchecked:hover:bg-accent/55 data-unchecked:hover:text-accent-foreground",
+          className={sx(
+            styles.radio,
+            focusRing.ring,
+            hasDescriptions ? styles.radioCard : styles.radioSegment,
           )}
         >
           {option.description ? (
-            <div className="flex min-w-0 items-start gap-2.5">
+            <div className={sx(styles.radioContent)}>
               {option.icon ? <ChoiceMark>{option.icon}</ChoiceMark> : null}
-              <div className="min-w-0 space-y-1">
-                <p className="text-[15px] font-medium">{option.label}</p>
-                <p className="text-sm opacity-75">{option.description}</p>
+              <div className={sx(styles.radioTextWrap)}>
+                <p className={sx(styles.radioLabel)}>{option.label}</p>
+                <p className={sx(styles.radioDescription)}>
+                  {option.description}
+                </p>
               </div>
             </div>
           ) : option.icon ? (
-            <span className="flex items-center gap-1.5">
+            <span className={sx(styles.radioInline)}>
               <ChoiceMark>{option.icon}</ChoiceMark>
               {option.label}
             </span>
@@ -267,13 +258,10 @@ export function ToggleChipGroup<T extends string>(args: {
       onValueChange={handleValueChange}
       aria-labelledby={labelledBy ?? undefined}
       aria-label={labelledBy ? undefined : (args["aria-label"] ?? "Settings")}
-      className="flex flex-wrap gap-1.5"
+      className={sx(styles.toggleGroup)}
     >
       {args.allLabel && args.onSelectAll ? (
-        <Toggle
-          value={TOGGLE_ALL_VALUE}
-          className="h-8 rounded-full border border-border/85 bg-background/55 px-3.5 text-[13px] text-foreground aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-foreground"
-        >
+        <Toggle value={TOGGLE_ALL_VALUE} className={sx(styles.toggle)}>
           {args.allLabel}
         </Toggle>
       ) : null}
@@ -283,10 +271,10 @@ export function ToggleChipGroup<T extends string>(args: {
           <Toggle
             key={option.value}
             value={option.value}
-            className="h-8 gap-1 rounded-full border border-border/85 bg-background/55 px-3.5 text-[13px] text-foreground aria-pressed:border-transparent aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+            className={sx(styles.toggle, styles.toggleWithMark)}
           >
-            {active ? <Check className="size-3" /> : null}
-            <span className="max-w-40 truncate">{option.label}</span>
+            {active ? <Check className={sx(styles.toggleCheck)} /> : null}
+            <span className={sx(styles.toggleLabel)}>{option.label}</span>
           </Toggle>
         );
 
@@ -297,7 +285,7 @@ export function ToggleChipGroup<T extends string>(args: {
         return (
           <Tooltip key={option.value}>
             <TooltipTrigger render={chip}></TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-64 text-xs">
+            <TooltipContent side="bottom" className={sx(styles.tooltipContent)}>
               {option.description}
             </TooltipContent>
           </Tooltip>
@@ -318,28 +306,23 @@ export function LabeledField(args: {
 
   return (
     <div
-      className={cn(
-        "gap-5",
-        args.layout === "stacked"
-          ? "space-y-2"
-          : "grid items-start sm:grid-cols-[minmax(15rem,0.85fr)_minmax(20rem,1.15fr)]",
+      className={sx(
+        args.layout === "stacked" ? styles.fieldStacked : styles.fieldGrid,
       )}
     >
-      <div className="min-w-0 space-y-1">
-        <div className="flex items-center gap-1.5">
-          <p id={titleId} className="text-[15px] font-medium">
+      <div className={sx(styles.fieldLabelBlock)}>
+        <div className={sx(styles.fieldLabelRow)}>
+          <p id={titleId} className={sx(styles.fieldTitle)}>
             {args.title}
           </p>
           {args.guide}
         </div>
         {args.description ? (
-          <p className="text-sm leading-6 text-muted-foreground">
-            {args.description}
-          </p>
+          <p className={sx(styles.fieldDescription)}>{args.description}</p>
         ) : null}
       </div>
       <SettingsControlLabelContext.Provider value={titleId}>
-        <div className="min-w-0">{args.children}</div>
+        <div className={sx(styles.fieldControl)}>{args.children}</div>
       </SettingsControlLabelContext.Provider>
     </div>
   );
@@ -356,19 +339,16 @@ export function SwitchField(args: {
   const descriptionId = useId();
 
   return (
-    <div className="grid min-h-10 items-start gap-5 sm:grid-cols-[minmax(15rem,0.85fr)_minmax(20rem,1.15fr)]">
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex items-center gap-1.5">
-          <p id={titleId} className="text-[15px] font-medium">
+    <div className={sx(styles.switchRow)}>
+      <div className={sx(styles.switchLabelBlock)}>
+        <div className={sx(styles.fieldLabelRow)}>
+          <p id={titleId} className={sx(styles.fieldTitle)}>
             {args.title}
           </p>
           {args.guide}
         </div>
         {args.description ? (
-          <p
-            id={descriptionId}
-            className="text-sm leading-6 text-muted-foreground"
-          >
+          <p id={descriptionId} className={sx(styles.fieldDescription)}>
             {args.description}
           </p>
         ) : null}
@@ -379,7 +359,7 @@ export function SwitchField(args: {
         onCheckedChange={args.onCheckedChange}
         aria-labelledby={titleId}
         aria-describedby={args.description ? descriptionId : undefined}
-        className="mt-0.5 shrink-0 justify-self-start"
+        className={sx(styles.switchControl)}
       />
     </div>
   );
@@ -406,7 +386,7 @@ export function SelectField<T extends string>(args: {
         disabled={args.disabled}
         onValueChange={(value) => args.onChange(value as T)}
       >
-        <SelectTrigger className="h-10 w-full rounded-md border-border/75 bg-background text-sm">
+        <SelectTrigger className={sx(styles.selectTrigger)}>
           <SelectValue placeholder={args.placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -448,19 +428,22 @@ export function SettingsFieldGuide(args: {
   return (
     <Popover>
       <Tooltip>
-        <TooltipTrigger render={<span className="inline-flex" />}>
+        <TooltipTrigger
+          render={<span className={sx(styles.guideTriggerInline)} />}
+        >
           <PopoverTrigger
             render={
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="text-muted-foreground hover:text-foreground"
+                variant="quiet"
+                size="xs"
+                iconOnly
+                xstyle={styles.guideTriggerIcon}
                 aria-label={args.tooltip ?? `About ${args.title}`}
               />
             }
           >
-            <CircleHelp className="size-3.5" />
+            <CircleHelp className={sx(styles.guideIcon)} />
           </PopoverTrigger>
         </TooltipTrigger>
         <TooltipContent side={args.side ?? "top"}>
@@ -470,25 +453,22 @@ export function SettingsFieldGuide(args: {
       <PopoverContent
         align={args.align ?? "start"}
         side={args.side ?? "top"}
-        className="w-[24rem] max-w-[calc(100vw-2rem)] space-y-3"
+        xstyle={styles.guidePopover}
       >
-        <PopoverHeader className="space-y-1 px-0 py-0">
-          <PopoverTitle className="text-sm">{args.title}</PopoverTitle>
+        <PopoverHeader className={sx(styles.guideHeader)}>
+          <PopoverTitle className={sx(styles.guideTitle)}>
+            {args.title}
+          </PopoverTitle>
           {args.summary ? (
             <PopoverDescription>{args.summary}</PopoverDescription>
           ) : null}
         </PopoverHeader>
         {args.items?.length ? (
-          <div className="space-y-2">
+          <div className={sx(styles.guideList)}>
             {args.items.map((item) => (
-              <div
-                key={item.label}
-                className="space-y-1 rounded-md border border-border/70 bg-muted/20 px-3 py-2"
-              >
-                <p className="text-xs font-semibold tracking-wide text-foreground uppercase">
-                  {item.label}
-                </p>
-                <p className="text-xs leading-5 text-muted-foreground">
+              <div key={item.label} className={sx(styles.guideItem)}>
+                <p className={sx(styles.guideItemLabel)}>{item.label}</p>
+                <p className={sx(styles.guideItemDescription)}>
                   {item.description}
                 </p>
               </div>
@@ -496,16 +476,12 @@ export function SettingsFieldGuide(args: {
           </div>
         ) : null}
         {args.examples?.length ? (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold tracking-wide text-foreground uppercase">
-              Examples
-            </p>
+          <div className={sx(styles.guideList)}>
+            <p className={sx(styles.guideItemLabel)}>Examples</p>
             {args.examples.map((example) => (
-              <div key={example.label} className="space-y-1">
-                <p className="text-xs font-medium text-foreground">
-                  {example.label}
-                </p>
-                <p className="text-xs leading-5 text-muted-foreground">
+              <div key={example.label} className={sx(styles.fieldLabelBlock)}>
+                <p className={sx(styles.guideExampleLabel)}>{example.label}</p>
+                <p className={sx(styles.guideItemDescription)}>
                   {example.description}
                 </p>
               </div>
@@ -513,7 +489,7 @@ export function SettingsFieldGuide(args: {
           </div>
         ) : null}
         {args.note ? (
-          <p className="text-xs leading-5 text-muted-foreground">{args.note}</p>
+          <p className={sx(styles.guideNote)}>{args.note}</p>
         ) : null}
       </PopoverContent>
     </Popover>

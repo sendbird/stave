@@ -220,6 +220,14 @@ export function createAppStorePersistenceOptions() {
         typeof raw.showConversationTurnRail === "boolean"
           ? raw.showConversationTurnRail
           : defaultSettings.showConversationTurnRail;
+      // Retired shortcut settings must not return when an old snapshot is read.
+      const legacySettings = state.settings as unknown as Record<string, unknown>;
+      delete legacySettings.showCollaborationShortcut;
+      delete legacySettings.showCollaborationStatus;
+      state.settings.showTaskStartExamples =
+        typeof raw.showTaskStartExamples === "boolean"
+          ? raw.showTaskStartExamples
+          : defaultSettings.showTaskStartExamples;
       state.settings.turnActivityPlacement = normalizeTurnActivityPlacement(
         raw.turnActivityPlacement,
       );

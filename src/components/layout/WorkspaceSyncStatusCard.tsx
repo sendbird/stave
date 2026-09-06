@@ -12,8 +12,9 @@ import type {
   ToolingStatusSnapshot,
   WorkspaceSyncStatus,
 } from "@/lib/tooling-status";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
 import { InfoRow, SettingsCard, StatusBadge } from "./settings-dialog.shared";
+import { workspaceSyncStatusCardStyles as styles } from "./workspace-sync-status-card.styles";
 
 function WorkspaceStateLabel(state: WorkspaceSyncStatus["state"]): string {
   switch (state) {
@@ -192,9 +193,9 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
       title="Workspace Sync"
       description="Track how this workspace relates to the default remote branch (origin/main or origin/master), then fast-forward safely when no local commits or uncommitted edits block the update."
     >
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/80 bg-background/80 px-4 py-3">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className={sx(styles.header)}>
+        <div className={sx(styles.headerLead)}>
+          <div className={sx(styles.badgeRow)}>
             <StatusBadge
               state={workspace?.state ?? "unknown"}
               label={WorkspaceStateLabel(workspace?.state ?? "unknown")}
@@ -207,17 +208,17 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
               <Badge variant="secondary">clean</Badge>
             )}
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">
+          <div className={sx(styles.summaryBlock)}>
+            <p className={sx(styles.summary)}>
               {workspace?.summary ?? "Open a workspace to inspect sync status."}
             </p>
-            <p className="break-all text-sm text-muted-foreground">
+            <p className={sx(styles.path)}>
               {workspaceCwd ?? "No workspace path is selected."}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className={sx(styles.actionRow)}>
           <Button
             type="button"
             size="sm"
@@ -226,9 +227,9 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
             onClick={() => setRefreshNonce((value) => value + 1)}
           >
             <RefreshCcw
-              className={cn(
-                "size-4",
-                viewState.status === "loading" && "animate-spin",
+              className={sx(
+                styles.actionIcon,
+                viewState.status === "loading" && styles.actionIconSpinning,
               )}
             />
             Refresh
@@ -240,7 +241,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
             disabled={!workspaceCwd}
             onClick={() => void handleOpenTerminal()}
           >
-            <TerminalSquare className="size-4" />
+            <TerminalSquare className={sx(styles.actionIcon)} />
             Open Terminal
           </Button>
           <Button
@@ -252,7 +253,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
             {syncBusy ? (
               <Loader aria-hidden size="xs" variant="sync" />
             ) : (
-              <CheckCircle2 className="size-4" />
+              <CheckCircle2 className={sx(styles.actionIcon)} />
             )}
             Sync {workspace?.baseBranch ?? "origin/main"}
           </Button>
@@ -260,9 +261,9 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
       </div>
 
       {workspace ? (
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div className="rounded-xl border border-border/80 bg-background/80 p-4">
-            <div className="space-y-2">
+        <div className={sx(styles.detailGrid)}>
+          <div className={sx(styles.detailPanel)}>
+            <div className={sx(styles.infoRows)}>
               <InfoRow label="Branch" value={workspace.branch} />
               <InfoRow label="Tracking" value={workspace.trackingBranch} />
               <InfoRow label="origin" value={workspace.originUrl} monospace />
@@ -278,21 +279,21 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/80 bg-background/80 p-4">
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-foreground">Next step</p>
-              <p className="text-sm text-muted-foreground">
+          <div className={sx(styles.detailPanel)}>
+            <div className={sx(styles.nextStep)}>
+              <p className={sx(styles.nextStepTitle)}>Next step</p>
+              <p className={sx(styles.nextStepBody)}>
                 {workspace.detail}
               </p>
               {workspace.recommendedCommand ? (
-                <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                <div className={sx(styles.commandBlock)}>
+                  <p className={sx(styles.commandLabel)}>
                     Suggested Command
                   </p>
-                  <p className="font-mono text-xs leading-5 text-foreground break-all">
+                  <p className={sx(styles.commandText)}>
                     {workspace.recommendedCommand}
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className={sx(styles.actionRow)}>
                     <Button
                       type="button"
                       size="sm"
@@ -303,7 +304,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
                         )
                       }
                     >
-                      <Copy className="size-4" />
+                      <Copy className={sx(styles.actionIcon)} />
                       Copy Command
                     </Button>
                     <Button
@@ -318,7 +319,7 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
                         )
                       }
                     >
-                      <TerminalSquare className="size-4" />
+                      <TerminalSquare className={sx(styles.actionIcon)} />
                       Copy + Open Terminal
                     </Button>
                   </div>
@@ -330,19 +331,19 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
       ) : null}
 
       {actionDetail ? (
-        <div className="rounded-xl border border-border/80 bg-muted/20 px-4 py-3">
-          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <ShieldAlert className="size-4 text-muted-foreground" />
+        <div className={sx(styles.outputPanel)}>
+          <p className={sx(styles.outputTitle)}>
+            <ShieldAlert className={sx(styles.outputIcon)} />
             Last action output
           </p>
-          <p className="mt-2 font-mono text-xs leading-5 text-muted-foreground whitespace-pre-wrap">
+          <p className={sx(styles.outputBody)}>
             {actionDetail}
           </p>
         </div>
       ) : null}
 
       {viewState.status === "error" ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className={sx(styles.errorPanel)}>
           {viewState.detail}
         </div>
       ) : null}

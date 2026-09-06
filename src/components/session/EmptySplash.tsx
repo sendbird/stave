@@ -30,7 +30,8 @@ import {
   getCliSessionProviderLabel,
   type CliSessionContextMode,
 } from "@/lib/terminal/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { emptySplashStyles as styles } from "@/components/session/empty-splash.styles";
 import { useAppStore } from "@/store/app.store";
 
 const CLI_SESSION_CHOICES = [
@@ -82,28 +83,24 @@ export function EmptySplash({
   const createTaskButton = showCreateTaskAction ? (
     <Button
       onClick={onCreateTask}
-      className={cn(
-        isTopCard ? "h-11 w-full justify-between rounded-md px-3" : undefined,
-      )}
+      xstyle={isTopCard ? styles.topCardButton : undefined}
     >
-      <span className="flex min-w-0 items-center gap-2">
-        <MessageSquarePlus className="size-4" />
-        <span className="truncate">New Task</span>
+      <span className={sx(styles.buttonInner)}>
+        <MessageSquarePlus size={16} />
+        <span className={sx(styles.buttonLabel)}>New Task</span>
       </span>
       {isTopCard ? (
-        <ArrowRight className="size-4 text-primary-foreground/80" />
+        <ArrowRight size={16} className={sx(styles.arrowIcon)} />
       ) : (
         <KbdGroup
-          className="ml-1"
+          className={sx(styles.keyGroupSpaced)}
           aria-label={`Keyboard shortcut ${shortcutModifierLabel} N`}
         >
-          <Kbd className="bg-primary-foreground/15 text-primary-foreground/85">
-            {shortcutModifierLabel}
-          </Kbd>
-          <KbdSeparator className="text-primary-foreground/55">+</KbdSeparator>
-          <Kbd className="bg-primary-foreground/15 text-primary-foreground/85">
-            N
-          </Kbd>
+          <Kbd className={sx(styles.onAccentKey)}>{shortcutModifierLabel}</Kbd>
+          <KbdSeparator className={sx(styles.onAccentSeparator)}>
+            +
+          </KbdSeparator>
+          <Kbd className={sx(styles.onAccentKey)}>N</Kbd>
         </KbdGroup>
       )}
     </Button>
@@ -115,23 +112,23 @@ export function EmptySplash({
         render={
           <Button
             variant="outline"
-            className={cn(
+            xstyle={
               isTopCard
-                ? "h-11 w-full justify-between rounded-md border-border bg-background/80 px-3"
-                : undefined,
-            )}
+                ? [styles.topCardButton, styles.outlineButton]
+                : undefined
+            }
           />
         }
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <SquareTerminal className="size-4" />
-          <span className="truncate">New CLI Session</span>
+        <span className={sx(styles.buttonInner)}>
+          <SquareTerminal size={16} />
+          <span className={sx(styles.buttonLabel)}>New CLI Session</span>
         </span>
         {isTopCard ? (
-          <ChevronDown className="size-4 text-muted-foreground" />
+          <ChevronDown size={16} className={sx(styles.chevronIcon)} />
         ) : null}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuContent align="end" className={sx(styles.menuContent)}>
         <DropdownMenuLabel>Start Here</DropdownMenuLabel>
         {CLI_SESSION_CHOICES.map((choice) => {
           const providerAvailable = providerAvailability[choice.provider];
@@ -141,7 +138,7 @@ export function EmptySplash({
             <DropdownMenuItem
               key={`${choice.provider}:${choice.contextMode}`}
               disabled={!providerAvailable}
-              className="items-start"
+              className={sx(styles.menuItemStart)}
               onSelect={() => {
                 createCliSessionTab({
                   provider: choice.provider,
@@ -149,16 +146,16 @@ export function EmptySplash({
                 });
               }}
             >
-              <div className="flex min-w-0 items-start gap-2">
+              <div className={sx(styles.menuItemRow)}>
                 <ModelIcon
                   providerId={choice.provider}
-                  className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                  className={sx(styles.menuItemIcon)}
                 />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
+                <div className={sx(styles.menuItemCopy)}>
+                  <div className={sx(styles.menuItemTitle)}>
                     {providerLabel} · {contextLabel}
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
+                  <div className={sx(styles.menuItemDescription)}>
                     {!providerAvailable
                       ? `${providerLabel} is unavailable in this environment`
                       : "Use the current workspace context"}
@@ -173,7 +170,7 @@ export function EmptySplash({
   ) : null;
 
   const actionGroup = showActions ? (
-    <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+    <div className={sx(styles.actionGroup)}>
       {createTaskButton}
       {cliSessionDropdown}
     </div>
@@ -181,44 +178,38 @@ export function EmptySplash({
 
   if (isTopCard) {
     return (
-      <section className="flex min-h-0 w-full flex-1 items-start justify-start px-5 py-5 sm:px-6 sm:py-6">
+      <section className={sx(styles.topSection)}>
         <div
           data-testid="empty-splash"
-          className={cn(
-            "mx-auto grid w-full overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm",
-            showActions
-              ? "max-w-6xl md:grid-cols-[minmax(0,1fr)_320px]"
-              : "max-w-4xl",
+          className={sx(
+            styles.card,
+            showActions ? styles.cardWithActions : styles.cardPlain,
           )}
         >
-          <div className="flex min-h-[320px] min-w-0 flex-col justify-between gap-8 p-6 sm:p-8">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-background p-1.5">
+          <div className={sx(styles.leftColumn)}>
+            <div className={sx(styles.brandRow)}>
+              <div className={sx(styles.logoBox)}>
                 <img
                   src={STAVE_LOGO_URL}
                   alt="Stave"
-                  className="h-full w-full object-contain"
+                  className={sx(styles.logoImage)}
                   draggable={false}
                 />
               </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-foreground">Stave</div>
-                <div className="text-xs text-muted-foreground">
+              <div className={sx(styles.brandCopy)}>
+                <div className={sx(styles.brandName)}>Stave</div>
+                <div className={sx(styles.brandStatus)}>
                   {showActions ? "Ready" : "Task ready"}
                 </div>
               </div>
             </div>
 
-            <div className="max-w-2xl space-y-3">
-              <h1 className="font-heading text-3xl font-semibold leading-tight text-foreground">
-                {title}
-              </h1>
-              <p className="max-w-xl text-base/7 text-muted-foreground">
-                {description}
-              </p>
+            <div className={sx(styles.headingBlock)}>
+              <h1 className={sx(styles.heading)}>{title}</h1>
+              <p className={sx(styles.headingDescription)}>{description}</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <div className={sx(styles.metaRow)}>
               {showActions ? (
                 <>
                   {shortcutLabel}
@@ -226,7 +217,7 @@ export function EmptySplash({
                 </>
               ) : (
                 <>
-                  <SendHorizontal className="size-4" />
+                  <SendHorizontal size={16} />
                   <span>Awaiting first prompt</span>
                 </>
               )}
@@ -234,23 +225,23 @@ export function EmptySplash({
           </div>
 
           {showActions ? (
-            <aside className="border-t border-border bg-surface/70 p-5 md:border-t-0 md:border-l">
-              <div className="flex h-full min-h-[260px] flex-col justify-between gap-6">
-                <div className="space-y-1">
-                  <div className="text-sm font-medium text-foreground">
+            <aside className={sx(styles.aside)}>
+              <div className={sx(styles.asideInner)}>
+                <div className={sx(styles.asideHeading)}>
+                  <div className={sx(styles.asideTitle)}>
                     Choose a starting point
                   </div>
-                  <p className="text-sm/6 text-muted-foreground">
+                  <p className={sx(styles.asideDescription)}>
                     Choose the surface for this workspace.
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className={sx(styles.actionColumn)}>
                   {createTaskButton}
                   {cliSessionDropdown}
                 </div>
 
-                <div className="border-t border-border pt-3 text-xs leading-5 text-muted-foreground">
+                <div className={sx(styles.asideNote)}>
                   Current workspace context is used by default.
                 </div>
               </div>
@@ -259,9 +250,9 @@ export function EmptySplash({
 
           {supplementaryContent ? (
             <div
-              className={cn(
-                "border-t border-border p-5",
-                showActions && "md:col-span-2",
+              className={sx(
+                styles.supplementary,
+                showActions && styles.supplementarySpan,
               )}
             >
               {supplementaryContent}
@@ -273,27 +264,19 @@ export function EmptySplash({
   }
 
   return (
-    <section
-      className={cn(
-        "flex min-h-0 w-full flex-1 px-5 sm:px-6",
-        "items-center justify-center py-10",
-      )}
-    >
-      <Empty data-testid="empty-splash" className="border-none p-0">
-        <EmptyHeader className="max-w-xl gap-3">
-          <EmptyMedia
-            variant="icon"
-            className="size-14 rounded-lg bg-primary/10 p-2 text-primary"
-          >
+    <section className={sx(styles.centeredSection)}>
+      <Empty data-testid="empty-splash" xstyle={styles.empty}>
+        <EmptyHeader xstyle={styles.emptyHeader}>
+          <EmptyMedia variant="icon" xstyle={styles.emptyMedia}>
             <img
               src={STAVE_LOGO_URL}
               alt="Stave"
-              className="h-full w-full object-contain"
+              className={sx(styles.logoImage)}
               draggable={false}
             />
           </EmptyMedia>
-          <div className="space-y-2">
-            <EmptyTitle className="text-2xl font-semibold">{title}</EmptyTitle>
+          <div className={sx(styles.emptyCopy)}>
+            <EmptyTitle xstyle={styles.emptyTitle}>{title}</EmptyTitle>
             <EmptyDescription>{description}</EmptyDescription>
           </div>
         </EmptyHeader>

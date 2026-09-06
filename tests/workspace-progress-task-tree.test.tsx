@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { WorkspaceProgressTaskTreeView } from "@/components/layout/WorkspaceProgressTaskTree";
+import { workspaceProgressTaskTreeStyles } from "@/components/layout/workspace-progress-task-tree.styles";
+import { sx } from "@/components/ads/utils/stylex";
 
 describe("WorkspaceProgressTaskTreeView", () => {
   test("renders a one-depth tree of open tasks with provider marks and loaders", () => {
@@ -34,7 +36,9 @@ describe("WorkspaceProgressTaskTreeView", () => {
     expect(html).toContain('data-loader-variant="pulse"');
     expect(html).toContain("claude-color.svg");
     expect(html).toContain("codex-color.svg");
-    expect(html).toContain("border-l");
+    // The nested tree hangs off a left indent-guide border (formerly `border-l`),
+    // now the inline-start hairline on the list container.
+    expect(html).toContain(sx(workspaceProgressTaskTreeStyles.list));
   });
 
   test("shows a pulse loader while the open-task list is still resolving", () => {

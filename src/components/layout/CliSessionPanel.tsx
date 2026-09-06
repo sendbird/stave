@@ -47,8 +47,10 @@ import {
 import {
   TERMINAL_SURFACE_PANEL_CLASS_NAME,
   TERMINAL_SURFACE_VIEWPORT_CLASS_NAME,
+  terminalSurfaceStyles,
 } from "@/components/layout/terminal-surface-styles";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { cliSessionPanelStyles as styles } from "@/components/layout/cli-session-panel.styles";
 import { useAppStore } from "@/store/app.store";
 
 const CLI_SESSION_TRANSCRIPT_STORAGE_KEY = "stave:cli-session-transcript:v1";
@@ -289,17 +291,17 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
     <div className={TERMINAL_SURFACE_PANEL_CLASS_NAME}>
       <div className={TERMINAL_SURFACE_VIEWPORT_CLASS_NAME}>
         {surfaceError ? (
-          <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
+          <div className={sx(styles.errorBanner)}>
             {surfaceError}
           </div>
         ) : null}
         {terminalInstance.writeErrorCount > TERMINAL_WRITE_ERROR_THRESHOLD ? (
-          <div className="flex items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
+          <div className={sx(styles.degradedBanner)}>
             <span>Terminal rendering may be degraded.</span>
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-[11px] text-amber-700 hover:text-amber-800 dark:text-amber-300 dark:hover:text-amber-200"
+              xstyle={styles.degradedAction}
               onClick={() => setRendererRestartToken((value) => value + 1)}
               disabled={!activeTab}
             >
@@ -308,8 +310,8 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
           </div>
         ) : null}
         {!terminalInstance.ready ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-terminal">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className={sx(styles.bootOverlay)}>
+            <div className={sx(styles.bootLabel)}>
               <Loader aria-hidden size="xs" variant="spinner" />
               <span>Initializing terminal…</span>
             </div>
@@ -319,9 +321,9 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
           key={`${activeTabKey ?? "no-cli-session"}:${rendererRestartToken}`}
           ref={terminalContainerRef}
           data-terminal-surface
-          className={cn(
-            "h-full w-full outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-border/70",
-            !activeTab && "opacity-60",
+          className={sx(
+            terminalSurfaceStyles.surface,
+            !activeTab && terminalSurfaceStyles.dimmed,
           )}
         />
       </div>
@@ -332,7 +334,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
     return (
       <section
         data-testid="cli-session-panel"
-        className="hidden h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+        className={sx(styles.panel, styles.panelHidden)}
       />
     );
   }
@@ -340,86 +342,86 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
   return (
     <section
       data-testid="cli-session-panel"
-      className={cn(
-        "h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background",
-        isVisible ? "flex" : "hidden",
+      className={sx(
+        styles.panel,
+        isVisible ? styles.panelVisible : styles.panelHidden,
       )}
     >
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className={sx(styles.column)}>
         {/* Header container always at child position 0 so {terminalViewport}
             stays at position 1 and React never unmounts the terminal surface. */}
-        <div className="shrink-0 border-b border-border/70 bg-card px-4 py-3">
+        <div className={sx(styles.header)}>
           {isVisible ? (
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className={sx(styles.headerRow)}>
+              <div className={sx(styles.headerMain)}>
+                <div className={sx(styles.titleRow)}>
                   {activeTab ? (
                     <>
-                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+                      <span className={sx(styles.title)}>
                         <ModelIcon
                           providerId={activeTab.provider}
-                          className="size-4 text-muted-foreground"
+                          className={sx(styles.providerIcon)}
                         />
-                        <span className="truncate">{activeTab.title}</span>
+                        <span className={sx(styles.truncate)}>
+                          {activeTab.title}
+                        </span>
                       </span>
                       <Badge
                         variant="secondary"
-                        className="rounded-sm text-[10px] uppercase tracking-[0.14em]"
+                        className={sx(styles.badge)}
                       >
                         {getCliSessionProviderLabel(activeTab.provider)}
                       </Badge>
                       <Badge
                         variant="secondary"
-                        className="rounded-sm text-[10px] uppercase tracking-[0.14em]"
+                        className={sx(styles.badge)}
                       >
                         {getCliSessionContextLabel(activeTab.contextMode)}
                       </Badge>
                     </>
                   ) : (
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                      <SquareTerminal className="size-4 text-muted-foreground" />
+                    <span className={sx(styles.title)}>
+                      <SquareTerminal className={sx(styles.providerIcon)} />
                       CLI Session
                     </span>
                   )}
                 </div>
-                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span className="truncate">
+                <div className={sx(styles.metaRow)}>
+                  <span className={sx(styles.truncate)}>
                     {activeTab?.cwd ?? workspacePath ?? "Workspace"}
                   </span>
                   {handoffSummary ? <span>Task handoff ready</span> : null}
                   {sessionExited ? (
                     <span
-                      className={cn(
-                        "font-medium",
+                      className={sx(
+                        styles.exitStatus,
                         sessionExited.exitCode === 0
-                          ? "text-muted-foreground"
-                          : "text-destructive",
+                          ? styles.exitStatusClean
+                          : styles.exitStatusFailed,
                       )}
                     >
                       exited ({sessionExited.exitCode})
                     </span>
                   ) : activeSessionId ? (
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      live
-                    </span>
+                    <span className={sx(styles.liveStatus)}>live</span>
                   ) : null}
                 </div>
               </div>
               <TooltipProvider>
-                <div className="flex shrink-0 items-center gap-1">
+                <div className={sx(styles.actions)}>
                   <Tooltip>
                     <TooltipTrigger
                       render={
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 gap-2"
+                          xstyle={styles.handoffButton}
                           onClick={handleCopyHandoff}
                           disabled={!handoffSummary}
                         />
                       }
                     >
-                      <Copy className="size-3.5" />
+                      <Copy />
                       Copy Handoff
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
@@ -432,13 +434,13 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-8 gap-2"
+                          xstyle={styles.handoffButton}
                           onClick={handlePasteHandoff}
                           disabled={!handoffSummary || !activeSessionId}
                         />
                       }
                     >
-                      <ClipboardPaste className="size-3.5" />
+                      <ClipboardPaste />
                       Paste Handoff
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
@@ -451,7 +453,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 rounded-md p-0 text-muted-foreground"
+                          xstyle={styles.iconButton}
                           onClick={() => {
                             restartActiveSession();
                             toast.message("CLI session restarted");
@@ -461,7 +463,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                         />
                       }
                     >
-                      <RefreshCw className="size-3.5" />
+                      <RefreshCw />
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       Restart Session
@@ -473,7 +475,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 rounded-md p-0 text-muted-foreground"
+                          xstyle={styles.iconButton}
                           onClick={() => {
                             if (activeTab) {
                               window.dispatchEvent(
@@ -494,7 +496,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
                         />
                       }
                     >
-                      <X className="size-3.5" />
+                      <X />
                     </TooltipTrigger>
                     <TooltipContent side="bottom">Close Session</TooltipContent>
                   </Tooltip>

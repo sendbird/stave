@@ -134,6 +134,12 @@ export interface PersistenceWorkspaceShell {
   messageCountByTask?: Record<string, number>;
 }
 
+/** On-disk shell adds lazy editor artifact pointers; renderer shells omit them. */
+export interface PersistedWorkspaceShellPayload extends PersistenceWorkspaceShell {
+  editorTabsArtifactId?: string | null;
+  editorTabsArtifactRelativePath?: string | null;
+}
+
 export interface PersistenceWorkspaceShellLite {
   activeTaskId: string;
   tasks: PersistenceTaskRow[];

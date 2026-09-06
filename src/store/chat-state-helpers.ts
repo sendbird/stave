@@ -94,7 +94,7 @@ function sanitizeDisplayParts(parts: MessagePart[]): MessagePart[] {
       continue;
     }
     const text = stripLensVisualCommentsFromDisplayText(part.text);
-    if (text.trim()) {
+    if (text.trim() || part.lensFeedback) {
       sanitizedParts.push({ ...part, text });
     }
   }

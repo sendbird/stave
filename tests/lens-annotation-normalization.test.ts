@@ -6,6 +6,7 @@ import {
   normalizeLensAnnotationEventPayload,
   normalizeLensAnnotationPayload,
   normalizeLensElementPickerResult,
+  PersistedLensAnnotationSchema,
 } from "@/lib/lens/lens-annotation-schema";
 import {
   LensAnnotationRemoveArgsSchema,
@@ -108,6 +109,21 @@ function enrichedAnnotationPayload() {
 }
 
 describe("Lens annotation normalization", () => {
+  it("restores recorded page identity without substituting the current page", () => {
+    const saved = normalizeLensAnnotationPayload(enrichedAnnotationPayload(), context);
+    const restored = PersistedLensAnnotationSchema.parse(saved);
+    expect(restored).toEqual(saved);
+    expect(restored.review.page.documentId).toBe(context.documentId);
+  });
+
+  it("upgrades legacy saved pins and rejects corrupt geometry without throwing from safeParse", () => {
+    const restored = PersistedLensAnnotationSchema.parse(currentAnnotationPayload());
+    expect(restored.review.page.documentId).toBe("legacy-persisted-annotation");
+    expect(restored.comment).toBe("Button is cramped");
+    expect(PersistedLensAnnotationSchema.safeParse({
+      ...currentAnnotationPayload(), createdAt: "invalid",
+    }).success).toBe(false);
+  });
   it("upgrades the current payload shape with bounded defaults", () => {
     const annotation = normalizeLensAnnotationPayload(
       currentAnnotationPayload(),

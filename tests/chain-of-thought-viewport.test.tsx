@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AgentStyleProvider } from "@/components/ai-elements/agent-style-context";
+import { sx } from "@/components/ads/utils/stylex";
+import { chainOfThoughtStyles } from "@/components/ai-elements/chain-of-thought.styles";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -16,6 +18,7 @@ function renderTrace(args: {
   style?: "legacy" | "beui";
   durationSeconds?: number;
   defaultOpen?: boolean;
+  completionLabel?: string;
 }) {
   const trace = createElement(
     ChainOfThought,
@@ -26,7 +29,9 @@ function renderTrace(args: {
       seed: "message-1",
       summaryItems: [{ icon: null, label: "reads", count: 2 }],
     },
-    createElement(ChainOfThoughtTrigger, null),
+    createElement(ChainOfThoughtTrigger, {
+      completionLabel: args.completionLabel,
+    }),
     createElement(
       ChainOfThoughtContent,
       null,
@@ -58,18 +63,36 @@ describe("ChainOfThoughtContent", () => {
   });
 
   test("uses the reveal wipe for the new style and the legacy fade for legacy", () => {
-    expect(renderTrace({ isStreaming: true })).toContain("motion-safe:animate-trace-reveal");
+    // Assert against StyleX style identity rather than the former Tailwind
+    // `animate-*` class strings: the content container now composes
+    // `contentTraceMotion` (reveal wipe) or `contentLegacyMotion` (fade).
+    const traceMotion = sx(chainOfThoughtStyles.contentTraceMotion);
+    const legacyMotion = sx(chainOfThoughtStyles.contentLegacyMotion);
+
+    const modern = renderTrace({ isStreaming: true });
+    for (const cls of traceMotion.split(/\s+/)) expect(modern).toContain(cls);
 
     const legacy = renderTrace({ isStreaming: true, style: "legacy" });
-    expect(legacy).toContain("motion-safe:animate-cot-content-in");
-    expect(legacy).not.toContain("animate-trace-reveal");
+    for (const cls of legacyMotion.split(/\s+/)) expect(legacy).toContain(cls);
+    // The legacy fade and the reveal wipe are mutually exclusive on the
+    // container, so at least one modern-only class must be absent under legacy.
+    expect(
+      traceMotion.split(/\s+/).some((cls) => !legacy.includes(cls)),
+    ).toBe(true);
   });
 
   test("rows use the spring entrance for the new style and the fade for legacy", () => {
-    expect(renderTrace({ isStreaming: true })).toContain("motion-safe:animate-trace-row-in");
-    expect(renderTrace({ isStreaming: true, style: "legacy" })).not.toContain(
-      "animate-trace-row-in",
-    );
+    const rowTrace = sx(chainOfThoughtStyles.stepMotionRowTrace);
+    const rowLegacy = sx(chainOfThoughtStyles.stepMotionRowLegacy);
+
+    const modern = renderTrace({ isStreaming: true });
+    for (const cls of rowTrace.split(/\s+/)) expect(modern).toContain(cls);
+
+    const legacy = renderTrace({ isStreaming: true, style: "legacy" });
+    for (const cls of rowLegacy.split(/\s+/)) expect(legacy).toContain(cls);
+    expect(
+      rowTrace.split(/\s+/).some((cls) => !legacy.includes(cls)),
+    ).toBe(true);
   });
 });
 
@@ -108,5 +131,15 @@ describe("ChainOfThoughtTrigger", () => {
     const first = renderTrace({ isStreaming: false, defaultOpen: false });
     const second = renderTrace({ isStreaming: false, defaultOpen: false });
     expect(first).toBe(second);
+  });
+
+  test("uses an explicit terminal label instead of a success phrase", () => {
+    expect(
+      renderTrace({
+        isStreaming: false,
+        defaultOpen: true,
+        completionLabel: "Run failed",
+      }),
+    ).toContain("Run failed");
   });
 });

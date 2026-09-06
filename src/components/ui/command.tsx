@@ -1,8 +1,15 @@
+import { commandLayout, commandDialogMarker, commandItemMarker } from "./command-layout.stylex";
+import { VisuallyHidden } from "../ads/components/VisuallyHidden";
 import * as React from "react";
-import { Command as CommandPrimitive } from "cmdk";
+import { Command as AdsCommand } from "../ads/components/Command";
+import { AutocompleteInput } from "../ads/headless/autocomplete";
+import { Separator } from "./separator";
 import { CheckIcon, SearchIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { styles as commandStyles } from "../ads/components/Command.styles";
+import { sx } from "../ads/utils/stylex";
+import { cx } from "../ads/utils/stylex";
+import { mergeClassName } from "../ads/components/merge-class-name";
 import {
   Dialog,
   DialogContent,
@@ -11,19 +18,98 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+type CommandContextValue = {
+  query: string;
+  setQuery: (query: string) => void;
+  selected?: string;
+};
+const CommandContext = React.createContext<CommandContextValue>({
+  query: "",
+  setQuery: () => {},
+});
+
+type CommandProps = React.ComponentProps<"div"> & {
+  shouldFilter?: boolean;
+  loop?: boolean;
+  value?: string;
+  onValueChange?: (value: string) => void;
+};
+
+/** Adapt the host's compound children; ADS owns keyboard and option behavior. */
 function Command({
   className,
+  children,
+  shouldFilter = true,
+  loop = true,
+  value,
+  onValueChange,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive>) {
+}: CommandProps) {
+  const [query, setQuery] = React.useState("");
+  const [highlighted, setHighlighted] = React.useState<string>();
+  const items: string[] = [];
+  function filterChildren(nodes: React.ReactNode): React.ReactNode {
+    return React.Children.map(nodes, (node): React.ReactNode => {
+      if (
+        !React.isValidElement<{
+          children?: React.ReactNode;
+          value?: string;
+          keywords?: string[];
+        }>(node)
+      )
+        return node;
+      if (node.type === CommandItem) {
+        const itemValue = node.props.value ?? "";
+        const searchable = [itemValue, ...(node.props.keywords ?? [])]
+          .join(" ")
+          .toLocaleLowerCase();
+        if (
+          shouldFilter &&
+          !query
+            .toLocaleLowerCase()
+            .split(/\s+/)
+            .every((word) => searchable.includes(word))
+        )
+          return null;
+        items.push(itemValue);
+        return node;
+      }
+      if (node.props.children === undefined) return node;
+      const before = items.length;
+      const nested = filterChildren(node.props.children);
+      if (node.type === CommandGroup && items.length === before) return null;
+      return React.cloneElement(node, {}, nested);
+    });
+  }
+  const content = filterChildren(children);
   return (
-    <CommandPrimitive
-      data-slot="command"
-      className={cn(
-        "flex size-full flex-col overflow-hidden bg-transparent text-popover-foreground",
-        className,
-      )}
-      {...props}
-    />
+    <CommandContext.Provider
+      value={{ query, setQuery, selected: value ?? highlighted }}
+    >
+      <AdsCommand.Root
+        items={items}
+        mode="none"
+        keepHighlight
+        loopFocus={loop}
+        value={query}
+        onValueChange={setQuery}
+        onItemHighlighted={(item, details) => {
+          if (details.reason === "none" && value && items.includes(value))
+            return;
+          setHighlighted(item);
+          onValueChange?.(item ?? "");
+        }}
+      >
+        <AdsCommand.Frame
+          bare
+          data-slot="command"
+          className={cx(sx(commandLayout.frame), className)}
+          {...props}
+        >
+          {content}
+        </AdsCommand.Frame>
+      </AdsCommand.Root>
+    </CommandContext.Provider>
   );
 }
 
@@ -42,13 +128,14 @@ function CommandDialog({
 }) {
   return (
     <Dialog {...props}>
-      <DialogHeader className="sr-only">
+      <VisuallyHidden><DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
+      </DialogHeader></VisuallyHidden>
       <DialogContent
-        className={cn(
-          "top-[11vh] translate-y-0 overflow-hidden rounded-[0.9rem]! border border-border/80 bg-popover p-0 ring-1 ring-foreground/6 sm:max-h-[78vh]",
+        xstyle={commandLayout.palette}
+        className={cx(
+          sx(commandDialogMarker),
           className,
         )}
         showCloseButton={showCloseButton}
@@ -62,24 +149,35 @@ function CommandDialog({
 function CommandInput({
   className,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: Omit<React.ComponentProps<"input">, "onChange"> & {
+  onValueChange?: (value: string) => void;
+}) {
+  const context = React.useContext(CommandContext);
+  const { onValueChange, value, ...inputProps } = props;
   return (
     <div
       data-slot="command-input-wrapper"
-      className="flex h-13 shrink-0 items-center gap-3 border-b border-border/65 px-4"
+      className={cx(
+        sx(commandStyles.inputGroup, commandLayout.inputRow),
+      )}
     >
-      <SearchIcon className="size-4 shrink-0 text-primary/75" />
-      <CommandPrimitive.Input
+      <SearchIcon className={sx(commandLayout.searchIcon)} />
+      <AutocompleteInput
         data-slot="command-input"
-        className={cn(
-          "h-full min-w-0 flex-1 bg-transparent text-sm text-foreground outline-hidden placeholder:text-muted-foreground/75 disabled:cursor-not-allowed disabled:opacity-50",
+        className={cx(
+          sx(commandStyles.input, commandLayout.input),
           className,
         )}
-        {...props}
+        {...inputProps}
+        value={value ?? context.query}
+        onChange={(event) => {
+          context.setQuery(event.target.value);
+          onValueChange?.(event.target.value);
+        }}
       />
       <kbd
         aria-hidden="true"
-        className="hidden h-5 items-center rounded-[0.3rem] border border-border/70 bg-background px-1.5 font-mono text-[10px] text-muted-foreground in-data-[slot=dialog-content]:inline-flex"
+        className={sx(commandLayout.escape)}
       >
         ESC
       </kbd>
@@ -90,12 +188,12 @@ function CommandInput({
 function CommandList({
   className,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.List>) {
+}: React.ComponentProps<typeof AdsCommand.List>) {
   return (
-    <CommandPrimitive.List
+    <AdsCommand.List
       data-slot="command-list"
-      className={cn(
-        "no-scrollbar max-h-72 scroll-py-2 overflow-x-hidden overflow-y-auto outline-none",
+      className={mergeClassName(
+        () => sx(commandLayout.list),
         className,
       )}
       {...props}
@@ -106,11 +204,11 @@ function CommandList({
 function CommandEmpty({
   className,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Empty>) {
+}: React.ComponentProps<typeof AdsCommand.Empty>) {
   return (
-    <CommandPrimitive.Empty
+    <AdsCommand.Empty
       data-slot="command-empty"
-      className={cn("py-6 text-center text-sm", className)}
+      className={mergeClassName(() => sx(commandStyles.empty), className)}
       {...props}
     />
   );
@@ -118,28 +216,32 @@ function CommandEmpty({
 
 function CommandGroup({
   className,
+  heading,
+  children,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Group>) {
+}: React.ComponentProps<"div"> & { heading?: React.ReactNode }) {
   return (
-    <CommandPrimitive.Group
+    <AdsCommand.Group
       data-slot="command-group"
-      className={cn(
-        "overflow-hidden px-1 py-1 text-foreground **:[[cmdk-group-heading]]:sticky **:[[cmdk-group-heading]]:top-0 **:[[cmdk-group-heading]]:z-10 **:[[cmdk-group-heading]]:mx-1 **:[[cmdk-group-heading]]:mb-1 **:[[cmdk-group-heading]]:bg-popover **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-[10px] **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:tracking-[0.14em] **:[[cmdk-group-heading]]:text-muted-foreground/80 **:[[cmdk-group-heading]]:uppercase",
-        className,
-      )}
+      className={cx(sx(commandLayout.group), className)}
       {...props}
-    />
+    >
+      {heading ? (
+        <AdsCommand.GroupLabel>{heading}</AdsCommand.GroupLabel>
+      ) : null}
+      {children}
+    </AdsCommand.Group>
   );
 }
 
 function CommandSeparator({
   className,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Separator>) {
+}: React.ComponentProps<typeof Separator>) {
   return (
-    <CommandPrimitive.Separator
+    <Separator
       data-slot="command-separator"
-      className={cn("-mx-1 h-px w-auto bg-border", className)}
+      className={cx(sx(commandLayout.separator), className)}
       {...props}
     />
   );
@@ -148,20 +250,32 @@ function CommandSeparator({
 function CommandItem({
   className,
   children,
+  value,
+  onSelect,
+  keywords: _keywords,
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Item>) {
+}: Omit<React.ComponentProps<"div">, "onSelect"> & {
+  value?: string;
+  disabled?: boolean;
+  onSelect?: (value: string) => void;
+  keywords?: string[];
+}) {
+  const context = React.useContext(CommandContext);
   return (
-    <CommandPrimitive.Item
+    <AdsCommand.Item
       data-slot="command-item"
-      className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-md px-2.5 py-2 text-sm text-muted-foreground outline-hidden select-none transition-[background-color,color,box-shadow,transform] duration-100 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-45 data-selected:bg-accent/55 data-selected:text-foreground data-selected:shadow-[inset_2px_0_0_var(--primary)] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:**:[svg]:text-primary",
+      value={value}
+      data-selected={context.selected === value}
+      onClick={() => onSelect?.(value ?? "")}
+      className={cx(
+        sx(commandStyles.item, commandLayout.item, commandItemMarker),
         className,
       )}
       {...props}
     >
       {children}
-      <CheckIcon className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100" />
-    </CommandPrimitive.Item>
+      <CheckIcon className={sx(commandLayout.checkedIcon)} />
+    </AdsCommand.Item>
   );
 }
 
@@ -172,10 +286,7 @@ function CommandShortcut({
   return (
     <span
       data-slot="command-shortcut"
-      className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground",
-        className,
-      )}
+      className={cx(sx(commandStyles.shortcut, commandLayout.shortcut), className)}
       {...props}
     />
   );

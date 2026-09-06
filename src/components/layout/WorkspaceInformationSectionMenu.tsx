@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   WORKSPACE_INFORMATION_SECTION_IDS,
   WORKSPACE_INFORMATION_SECTION_LABELS,
@@ -19,6 +20,7 @@ import {
   workspaceInformationSectionHasContent,
 } from "@/lib/workspace-information-sections";
 import { useAppStore } from "@/store/app.store";
+import { workspaceInformationSectionMenuStyles as styles } from "./workspace-information-section-menu.styles";
 
 export function WorkspaceInformationSectionMenu() {
   const [information, visibility, craneConnectorEnabled, updateSettings] =
@@ -51,14 +53,14 @@ export function WorkspaceInformationSectionMenu() {
           <Button
             variant="ghost"
             size="icon"
-            className="size-8 rounded-md"
+            xstyle={styles.trigger}
             aria-label="Configure information panel sections"
           />
         }
       >
-        <Settings2 className="size-3.5" />
+        <Settings2 className={sx(styles.triggerIcon)} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className={sx(styles.content)}>
         <DropdownMenuLabel>Visible sections</DropdownMenuLabel>
         {WORKSPACE_INFORMATION_SECTION_IDS.filter(
           (id) =>
@@ -94,11 +96,11 @@ export function WorkspaceInformationSectionMenu() {
                 })
               }
             >
-              <span className="min-w-0 flex-1 truncate">
+              <span className={sx(styles.itemLabel)}>
                 {WORKSPACE_INFORMATION_SECTION_LABELS[id]}
               </span>
               {hasContent ? (
-                <span className="text-xs text-muted-foreground">Filled</span>
+                <span className={sx(styles.itemHint)}>Filled</span>
               ) : null}
             </DropdownMenuCheckboxItem>
           );
@@ -109,7 +111,7 @@ export function WorkspaceInformationSectionMenu() {
             updateSettings({ patch: { infoPanelSectionVisibility: {} } })
           }
         >
-          <RotateCcw className="size-4" />
+          <RotateCcw className={sx(styles.resetIcon)} />
           Reset to defaults
         </DropdownMenuItem>
       </DropdownMenuContent>

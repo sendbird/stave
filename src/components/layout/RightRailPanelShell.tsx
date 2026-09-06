@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { PANEL_BAR_HEIGHT_CLASS, PANEL_HEADER_ICON_CLASS, PANEL_HEADER_TITLE_CLASS } from "@/components/layout/panel-bar.constants";
+import { sx } from "@/components/ads/utils/stylex";
+import { panelBarStyles } from "@/components/layout/panel-bar.constants";
+import { rightRailPanelShellStyles } from "@/components/layout/right-rail-panel-shell.styles";
 import { RIGHT_RAIL_PANEL_ICONS, RIGHT_RAIL_PANEL_TITLES, type RightRailPanelId } from "@/lib/right-rail-panels";
 
 export function RightRailPanelShell(props: {
@@ -11,19 +13,19 @@ export function RightRailPanelShell(props: {
   const Icon = RIGHT_RAIL_PANEL_ICONS[props.panelId];
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
-      <header className={`flex shrink-0 items-center border-b border-border/80 px-3 ${PANEL_BAR_HEIGHT_CLASS}`}>
-        <h2 className={PANEL_HEADER_TITLE_CLASS}>
-          <Icon className={PANEL_HEADER_ICON_CLASS} />
+    <div className={sx(rightRailPanelShellStyles.root)}>
+      <header className={sx(rightRailPanelShellStyles.header, panelBarStyles.bar)}>
+        <h2 className={sx(panelBarStyles.headerTitle)}>
+          <Icon className={sx(panelBarStyles.headerIcon)} />
           <span>{props.title ?? RIGHT_RAIL_PANEL_TITLES[props.panelId]}</span>
         </h2>
         {props.actions ? (
-          <div className="ml-auto flex shrink-0 items-center">
+          <div className={sx(rightRailPanelShellStyles.actions)}>
             {props.actions}
           </div>
         ) : null}
       </header>
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className={sx(rightRailPanelShellStyles.body)}>
         {props.children}
       </div>
     </div>

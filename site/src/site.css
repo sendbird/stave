@@ -1,23 +1,12 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/inter";
 
 /*
- * The site subproject lives under /site/, but reuses the app's shadcn
- * primitives at /src/components/ui and helper hooks/libs at /src/hooks
- * and /src/lib via the @/ alias. Tailwind v4's auto-scan only sees files
- * under the Vite root (site/), so the shadcn classes (e.g. md:block on
- * the sidebar) were being dropped. Declare the extra roots here so
- * Tailwind scans them too.
+ * Theme custom properties consumed by the site's theme toggle and by the
+ * shared `src/components/ui` components. Keep every `--*` definition and the
+ * `.dark` block intact and unchanged in value — the toggle flips `.dark` on
+ * the root, and the `ui` primitives read these variables directly.
  */
-@source "../../src/components/ui";
-@source "../../src/hooks";
-@source "../../src/lib";
-
-@custom-variant dark (&:is(.dark *));
-
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.17 0.01 92);
@@ -47,6 +36,21 @@
   --sidebar-border: oklch(0.925 0.004 92);
   --sidebar-ring: var(--ring);
   --radius: 0.625rem;
+
+  /*
+   * The `ui` components read these radius/font tokens (previously produced by
+   * Tailwind's `@theme inline`). Define them as plain custom properties so the
+   * shared primitives keep the same values without a Tailwind theme layer.
+   */
+  --radius-sm: calc(var(--radius) * 0.75);
+  --radius-md: calc(var(--radius) * 0.875);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.25);
+  --radius-2xl: calc(var(--radius) * 1.5);
+
+  --font-sans: "Geist Variable", sans-serif;
+  --font-heading: "Inter Variable", sans-serif;
+  --font-mono: "Geist Variable", monospace;
 }
 
 .dark {
@@ -79,196 +83,259 @@
   --sidebar-ring: var(--ring);
 }
 
-@theme inline {
-  --font-sans: "Geist Variable", sans-serif;
-  --font-heading: "Inter Variable", sans-serif;
-  --font-mono: "Geist Variable", monospace;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) * 0.75);
-  --radius-md: calc(var(--radius) * 0.875);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.25);
-  --radius-2xl: calc(var(--radius) * 1.5);
+/* Global resets and base element styling (engine/global CSS, kept as-is). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-color: var(--border);
 }
 
-@layer base {
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-    border-color: var(--border);
-  }
-
-  html,
-  body,
-  #root {
-    min-height: 100%;
-    margin: 0;
-  }
-
-  html {
-    scroll-behavior: smooth;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  body {
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-sans);
-    font-feature-settings: "cv11", "ss01";
-  }
-
-  a {
-    color: inherit;
-    text-decoration: none;
-  }
-
-  button,
-  input,
-  textarea,
-  select {
-    font: inherit;
-  }
-
-  img {
-    display: block;
-    max-width: 100%;
-  }
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
 }
 
-@layer components {
-  .prose-docs {
-    @apply max-w-none text-[0.95rem] leading-7 text-foreground;
-  }
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
 
-  .prose-docs p {
-    @apply my-4 text-foreground/90;
-  }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
 
-  .prose-docs p:first-child {
-    @apply mt-0;
-  }
+a {
+  color: inherit;
+  text-decoration: none;
+}
 
-  .prose-docs h2 {
-    @apply mt-12 scroll-mt-24 font-heading text-2xl font-semibold tracking-tight text-foreground;
-  }
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
 
-  .prose-docs h3 {
-    @apply mt-10 scroll-mt-24 font-heading text-lg font-semibold tracking-tight text-foreground;
-  }
+img {
+  display: block;
+  max-width: 100%;
+}
 
-  .prose-docs h2 + p,
-  .prose-docs h3 + p {
-    @apply mt-3;
-  }
+/*
+ * Theme-toggle glyph visibility. The sun shows in light, the moon in dark.
+ * This is driven by the `.dark` class on the document root (an ancestor-state
+ * rule StyleX cannot express), so it stays global CSS. `theme.tsx` applies the
+ * `site-theme-sun` / `site-theme-moon` hooks.
+ */
+.site-theme-sun {
+  display: block;
+}
 
-  .prose-docs ul {
-    @apply my-4 ml-5 list-disc space-y-2 marker:text-muted-foreground;
-  }
+.site-theme-moon {
+  display: none;
+}
 
-  .prose-docs ol {
-    @apply my-4 ml-5 list-decimal space-y-2 marker:text-muted-foreground;
-  }
+.dark .site-theme-sun {
+  display: none;
+}
 
-  .prose-docs li {
-    @apply leading-7 text-foreground/90;
-  }
+.dark .site-theme-moon {
+  display: block;
+}
 
-  .prose-docs li > p {
-    @apply my-1;
-  }
+/*
+ * Markdown-rendered document body. This is descendant/global CSS applied to
+ * ReactMarkdown output (`.prose-docs`), so it stays plain global CSS rather
+ * than moving to StyleX. Each declaration references the theme variables
+ * above; the former utility declarations are expanded to their literal CSS.
+ */
+.prose-docs {
+  max-width: none;
+  font-size: 0.95rem;
+  line-height: 1.75rem;
+  color: var(--foreground);
+}
 
-  .prose-docs a {
-    @apply font-medium text-primary underline underline-offset-4 decoration-primary/40 transition-colors hover:decoration-primary;
-  }
+.prose-docs p {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  color: color-mix(in oklab, var(--foreground) 90%, transparent);
+}
 
-  .prose-docs strong {
-    @apply font-semibold text-foreground;
-  }
+.prose-docs p:first-child {
+  margin-top: 0;
+}
 
-  .prose-docs code {
-    @apply rounded-md border border-border/70 bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground;
-  }
+.prose-docs h2 {
+  margin-top: 3rem;
+  scroll-margin-top: 6rem;
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
 
-  .prose-docs pre {
-    @apply my-6 overflow-x-auto rounded-lg border border-border bg-muted/60 p-4 text-sm leading-6;
-  }
+.prose-docs h3 {
+  margin-top: 2.5rem;
+  scroll-margin-top: 6rem;
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
 
-  .prose-docs pre code {
-    @apply border-0 bg-transparent p-0 text-foreground;
-  }
+.prose-docs h2 + p,
+.prose-docs h3 + p {
+  margin-top: 0.75rem;
+}
 
-  .prose-docs blockquote {
-    @apply my-6 border-l-2 border-border bg-muted/40 px-4 py-3 text-muted-foreground;
-  }
+.prose-docs ul {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  margin-left: 1.25rem;
+  list-style-type: disc;
+}
 
-  .prose-docs hr {
-    @apply my-10 border-border;
-  }
+.prose-docs ol {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  margin-left: 1.25rem;
+  list-style-type: decimal;
+}
 
-  .prose-docs img {
-    @apply my-6 rounded-lg border border-border;
-  }
+.prose-docs ul > :not([hidden]) ~ :not([hidden]),
+.prose-docs ol > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.5rem;
+}
 
-  .prose-docs table {
-    @apply my-6 w-full border-collapse text-left text-sm;
-  }
+.prose-docs ul,
+.prose-docs ol {
+  --marker-color: var(--muted-foreground);
+}
 
-  .prose-docs thead {
-    @apply bg-muted/50;
-  }
+.prose-docs li::marker {
+  color: var(--muted-foreground);
+}
 
-  .prose-docs th {
-    @apply border-b border-border px-4 py-2.5 font-medium text-foreground;
-  }
+.prose-docs li {
+  line-height: 1.75rem;
+  color: color-mix(in oklab, var(--foreground) 90%, transparent);
+}
 
-  .prose-docs td {
-    @apply border-b border-border/70 px-4 py-2.5 align-top text-foreground/90;
-  }
+.prose-docs li > p {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
 
-  .docs-toc-link {
-    @apply block border-l border-transparent py-1 pl-3 text-sm leading-6 text-muted-foreground transition-colors hover:text-foreground;
-  }
+.prose-docs a {
+  font-weight: 500;
+  color: var(--primary);
+  text-decoration-line: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent);
+  transition-property: color, background-color, border-color,
+    text-decoration-color, fill, stroke;
+  transition-duration: 150ms;
+}
 
-  .docs-toc-link[data-active="true"] {
-    @apply border-primary font-medium text-foreground;
-  }
+.prose-docs a:hover {
+  text-decoration-color: var(--primary);
+}
 
-  .docs-toc-link--nested {
-    @apply pl-6;
-  }
+.prose-docs strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
 
-  .site-grid-bg {
-    background-image:
-      linear-gradient(to right, color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: radial-gradient(ellipse at top, rgba(0, 0, 0, 0.7) 0%, transparent 75%);
-  }
+.prose-docs code {
+  border-radius: 0.375rem;
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  background-color: var(--muted);
+  padding-inline: 0.375rem;
+  padding-block: 0.125rem;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--foreground);
+}
+
+.prose-docs pre {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background-color: color-mix(in oklab, var(--muted) 60%, transparent);
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+}
+
+.prose-docs pre code {
+  border: 0;
+  background-color: transparent;
+  padding: 0;
+  color: var(--foreground);
+}
+
+.prose-docs blockquote {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-left: 2px solid var(--border);
+  background-color: color-mix(in oklab, var(--muted) 40%, transparent);
+  padding-inline: 1rem;
+  padding-block: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.prose-docs hr {
+  margin-top: 2.5rem;
+  margin-bottom: 2.5rem;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.prose-docs img {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+}
+
+.prose-docs table {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.prose-docs thead {
+  background-color: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+
+.prose-docs th {
+  border-bottom: 1px solid var(--border);
+  padding-inline: 1rem;
+  padding-block: 0.625rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.prose-docs td {
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  padding-inline: 1rem;
+  padding-block: 0.625rem;
+  vertical-align: top;
+  color: color-mix(in oklab, var(--foreground) 90%, transparent);
 }

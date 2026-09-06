@@ -1,6 +1,7 @@
 import { Target } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { sx } from "../ads/utils/stylex";
+import { goalStatusStyles } from "./prompt-input-goal-status.styles";
 
 export interface PromptInputGoalStatus {
   statusLabel: string;
@@ -11,14 +12,14 @@ export interface PromptInputGoalStatus {
   tone: "default" | "warning" | "success";
 }
 
-function goalStatusToneClass(tone: PromptInputGoalStatus["tone"]) {
+function goalStatusToneStyle(tone: PromptInputGoalStatus["tone"]) {
   if (tone === "success") {
-    return "border-success/30 bg-success/5 text-success dark:bg-success/10";
+    return goalStatusStyles.toneSuccess;
   }
   if (tone === "warning") {
-    return "border-warning/40 bg-warning/10 text-warning dark:bg-warning/15";
+    return goalStatusStyles.toneWarning;
   }
-  return "border-primary/20 bg-primary/5 text-primary dark:bg-primary/10";
+  return goalStatusStyles.toneDefault;
 }
 
 function goalStatusBadgeVariant(tone: PromptInputGoalStatus["tone"]) {
@@ -29,6 +30,16 @@ function goalStatusBadgeVariant(tone: PromptInputGoalStatus["tone"]) {
     return "warning" as const;
   }
   return "default" as const;
+}
+
+function goalProgressFillStyle(tone: PromptInputGoalStatus["tone"]) {
+  if (tone === "success") {
+    return goalStatusStyles.progressFillSuccess;
+  }
+  if (tone === "warning") {
+    return goalStatusStyles.progressFillWarning;
+  }
+  return goalStatusStyles.progressFillDefault;
 }
 
 export function PromptInputGoalStatusStrip(args: {
@@ -42,45 +53,41 @@ export function PromptInputGoalStatusStrip(args: {
 
   return (
     <div
-      className={cn(
-        "space-y-2 rounded-lg border px-3 py-2.5",
-        goalStatusToneClass(args.status.tone),
-        args.compact && "rounded-md px-2.5 py-2",
+      className={sx(
+        goalStatusStyles.strip,
+        goalStatusToneStyle(args.status.tone),
+        args.compact && goalStatusStyles.stripCompact,
       )}
       role="status"
       aria-live="polite"
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+      <div className={sx(goalStatusStyles.header)}>
         <Badge
           variant={goalStatusBadgeVariant(args.status.tone)}
-          className="h-5 gap-1 px-1.5 text-[10px] uppercase tracking-wide"
+          className={sx(goalStatusStyles.badge)}
         >
-          <Target className="size-3" />
+          <Target className={sx(goalStatusStyles.badgeIcon)} />
           Goal {args.status.statusLabel}
         </Badge>
         <p
-          className="min-w-0 flex-1 truncate text-sm font-medium text-foreground"
+          className={sx(goalStatusStyles.objective)}
           title={args.status.objective}
         >
           {args.status.objective}
         </p>
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className={sx(goalStatusStyles.meta)}>
           {args.status.tokenLabel}
         </span>
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className={sx(goalStatusStyles.meta)}>
           {args.status.elapsedLabel}
         </span>
       </div>
       {progressWidth ? (
-        <div className="h-1.5 overflow-hidden rounded-full bg-background/70">
+        <div className={sx(goalStatusStyles.progressTrack)}>
           <div
-            className={cn(
-              "h-full rounded-full transition-[width]",
-              args.status.tone === "success"
-                ? "bg-success"
-                : args.status.tone === "warning"
-                  ? "bg-warning"
-                  : "bg-primary",
+            className={sx(
+              goalStatusStyles.progressFill,
+              goalProgressFillStyle(args.status.tone),
             )}
             style={{ width: progressWidth }}
           />

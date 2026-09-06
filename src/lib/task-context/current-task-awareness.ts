@@ -4,6 +4,7 @@ import {
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import type { Task } from "@/types/chat";
+import { formatResumeBriefContext } from "@/lib/workspace-resume-brief";
 
 const MAX_TEXT_CHARS = 320;
 const MAX_NOTES_CHARS = 600;
@@ -203,6 +204,7 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
     });
 
   return capWorkspaceInformationLines([
+    ...(info.resumeBrief ? formatResumeBriefContext(info.resumeBrief) : []),
     ...formatSection({
       label: "Connected browser tab",
       items: connectedBrowserItems,

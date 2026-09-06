@@ -19,6 +19,7 @@ import {
   TruncationWarningBanner,
 } from "@/components/ai-elements";
 import { LinkifiedText } from "@/components/ui/linkified-text";
+import { ProviderErrorRecovery } from "@/components/session/ProviderErrorRecovery";
 import {
   isSubagentToolPart,
   isTodoToolPart,
@@ -27,12 +28,16 @@ import {
   shouldRenderInlineSystemEvent,
 } from "@/components/session/chat-panel.utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import { getProviderWaveTone } from "@/lib/providers/model-catalog";
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
+import { chatPanelMessagePartsStyles } from "./chat-panel-message-parts.styles";
 import {
   ChangedFilesBlock,
   FileChangeToolBlock,
@@ -42,26 +47,34 @@ import {
 
 export { toToolDisplayName } from "@/lib/tool-display-name";
 
-export function toProviderStartCase(args: {
-  providerId: ProviderId;
-}) {
+export function toProviderStartCase(args: { providerId: ProviderId }) {
   return args.providerId
     .split("-")
     .map((chunk) => `${chunk.slice(0, 1).toUpperCase()}${chunk.slice(1)}`)
     .join(" ");
 }
 
+// Provider wave tone → StyleX style. `getProviderWaveTone` returns a semantic
+// tone (this file consumes that contract); themed provider CSS variables and
+// the ADS accent token carry the color.
+const providerToneStyles = stylex.create({
+  claude: { color: "var(--provider-claude)" },
+  codex: { color: "var(--provider-codex)" },
+  accent: { color: vars.colorAccent },
+});
+
 export function toProviderWaveToneClass(args: {
   providerId: ProviderId | "user";
   model?: string;
 }) {
   if (args.providerId === "user") {
-    return "text-primary";
+    return sx(providerToneStyles.accent);
   }
-  return getProviderWaveToneClass({
+  const tone = getProviderWaveTone({
     providerId: args.providerId,
     model: args.model,
   });
+  return sx(providerToneStyles[tone]);
 }
 
 export function CopyButton({ text }: { text: string }) {
@@ -80,9 +93,9 @@ export function CopyButton({ text }: { text: string }) {
       }}
     >
       {copied ? (
-        <Check className="size-3.5 text-primary" />
+        <Check className={sx(chatPanelMessagePartsStyles.copyIconActive)} />
       ) : (
-        <Copy className="size-3.5" />
+        <Copy className={sx(chatPanelMessagePartsStyles.copyIcon)} />
       )}
     </MessageAction>
   );
@@ -92,17 +105,21 @@ export function MessagePartRenderer(args: {
   part: MessagePart;
   taskId: string;
   messageId: string;
+  terminalStopReason?: string;
   isStreaming?: boolean;
   isLastTextPart?: boolean;
   userInputPresentation?: UserInputCardPresentation;
+  systemEventPresentation?: "full" | "detail";
 }) {
   const {
     part,
     taskId,
     messageId,
+    terminalStopReason,
     isStreaming,
     isLastTextPart,
     userInputPresentation,
+    systemEventPresentation = "full",
   } = args;
   const resolveApproval = useAppStore((state) => state.resolveApproval);
   const resolveUserInput = useAppStore((state) => state.resolveUserInput);
@@ -226,6 +243,17 @@ export function MessagePartRenderer(args: {
       if (!shouldRenderInlineSystemEvent({ content: part.content })) {
         return null;
       }
+      if (part.content.trimStart().toLowerCase().startsWith("[error]")) {
+        return (
+          <ProviderErrorRecovery
+            content={part.content}
+            taskId={taskId}
+            messageId={messageId}
+            terminalStopReason={terminalStopReason}
+            hideMessage={systemEventPresentation === "detail"}
+          />
+        );
+      }
       const normalized = part.content.trim().toLowerCase();
       // "Compacting conversation context…" — in-progress spinner
       if (normalized.startsWith("compacting conversation context")) {
@@ -290,7 +318,7 @@ export function MessagePartRenderer(args: {
         <LinkifiedText
           as="p"
           text={displayContent}
-          className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[0.875em] italic text-muted-foreground"
+          className={sx(chatPanelMessagePartsStyles.systemEventText)}
         />
       );
     }

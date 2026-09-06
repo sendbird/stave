@@ -60,6 +60,7 @@ describe("prompt draft message content", () => {
         dataUrl: "data:image/png;base64,session-a",
         label: "Fix spacing",
         mimeType: "image/png",
+        lensFeedback: { workspaceId, lensSessionId: "lens-a", annotation: draft.attachments[0].annotations[0] },
       },
     ]);
   });

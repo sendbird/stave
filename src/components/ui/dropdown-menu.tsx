@@ -1,20 +1,23 @@
+import { overlayLayout } from "./overlay-layout.styles";
+import { DropdownMenu as AdsMenu } from "../ads/components/DropdownMenu";
+import { menu } from "../ads/recipes/menu";
+import { sx, cx } from "../ads/utils/stylex";
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 
-import { UI_ELEVATION_CLASS, UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
-  return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
+  return <AdsMenu.Root data-slot="dropdown-menu" {...props} />;
 }
 
 function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
-  return <MenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />;
+  return <AdsMenu.Portal data-slot="dropdown-menu-portal" {...props} />;
 }
 
 function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
-  return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
+  return <AdsMenu.Trigger variant={props.render ? "unstyled" : "default"} data-slot="dropdown-menu-trigger" {...props} />;
 }
 
 function DropdownMenuContent({
@@ -43,10 +46,10 @@ function DropdownMenuContent({
     | "collisionAvoidance"
   >) {
   return (
-    <MenuPrimitive.Portal>
-      <MenuPrimitive.Positioner
+    <AdsMenu.Portal>
+      <AdsMenu.Positioner
         data-ui-popup-positioner=""
-        className={cn("isolate outline-none", UI_LAYER_CLASS.popover)}
+        className={UI_LAYER_CLASS.popover}
         align={align}
         alignOffset={alignOffset}
         side={side}
@@ -57,25 +60,21 @@ function DropdownMenuContent({
         positionMethod={positionMethod}
         collisionAvoidance={collisionAvoidance}
       >
-        <MenuPrimitive.Popup
+        <AdsMenu.Popup
           data-slot="dropdown-menu-content"
-          className={cn(
-            UI_ELEVATION_CLASS.floating,
-            "t-dropdown relative max-h-(--available-height) w-max min-w-[max(8rem,var(--anchor-width))] max-w-[min(var(--available-width),calc(100vw-1rem))] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md bg-popover p-1 text-popover-foreground ring-1 ring-foreground/10 outline-none **:data-[slot$=-item]:focus:bg-foreground/10 **:data-[slot$=-item]:data-highlighted:bg-foreground/10 **:data-[slot$=-separator]:bg-foreground/5 **:data-[slot$=-trigger]:focus:bg-foreground/10 **:data-[slot$=-trigger]:aria-expanded:bg-foreground/10! **:data-[variant=destructive]:focus:bg-foreground/10! **:data-[variant=destructive]:text-accent-foreground! **:data-[variant=destructive]:**:text-accent-foreground!",
-            className,
-          )}
+          className={className}
           {...props}
         />
-      </MenuPrimitive.Positioner>
-    </MenuPrimitive.Portal>
+      </AdsMenu.Positioner>
+    </AdsMenu.Portal>
   );
 }
 
 function DropdownMenuGroup({ className, ...props }: MenuPrimitive.Group.Props) {
   return (
-    <MenuPrimitive.Group
+    <AdsMenu.Group
       data-slot="dropdown-menu-group"
-      className={cn("w-full min-w-0", className)}
+      className={className}
       {...props}
     />
   );
@@ -92,10 +91,7 @@ function DropdownMenuLabel({
     <div
       data-slot="dropdown-menu-label"
       data-inset={inset}
-      className={cn(
-        "w-full min-w-0 truncate px-2 py-1.5 text-xs font-medium text-muted-foreground data-inset:pl-8",
-        className,
-      )}
+      className={cx(sx(menu.groupLabel), className)}
       {...props}
     />
   );
@@ -106,7 +102,7 @@ function renderDropdownMenuItemChildren(children: React.ReactNode) {
     typeof child === "string" || typeof child === "number" ? (
       <span
         data-slot="dropdown-menu-item-label"
-        className="min-w-0 flex-1 truncate"
+        className={sx(overlayLayout.menuLabel)}
       >
         {child}
       </span>
@@ -130,14 +126,12 @@ function DropdownMenuItem({
   onSelect?: MenuPrimitive.Item.Props["onClick"];
 }) {
   return (
-    <MenuPrimitive.Item
+    <AdsMenu.Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
-      className={cn(
-        "group/dropdown-menu-item relative flex w-full min-w-0 cursor-default items-center gap-2 overflow-hidden rounded-sm px-2 py-1.5 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-8 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 data-disabled:pointer-events-none data-disabled:opacity-50 [&>*:not(svg)]:min-w-0 [&>span:not([data-slot=dropdown-menu-shortcut])]:truncate [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[variant=destructive]:*:[svg]:text-destructive",
-        className,
-      )}
+      tone={variant === "destructive" ? "danger" : "default"}
+      className={className}
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) {
@@ -149,12 +143,12 @@ function DropdownMenuItem({
       nativeButton
     >
       {renderDropdownMenuItemChildren(children)}
-    </MenuPrimitive.Item>
+    </AdsMenu.Item>
   );
 }
 
 function DropdownMenuSub({ ...props }: MenuPrimitive.SubmenuRoot.Props) {
-  return <MenuPrimitive.SubmenuRoot data-slot="dropdown-menu-sub" {...props} />;
+  return <AdsMenu.SubmenuRoot data-slot="dropdown-menu-sub" {...props} />;
 }
 
 function DropdownMenuSubTrigger({
@@ -166,18 +160,15 @@ function DropdownMenuSubTrigger({
   inset?: boolean;
 }) {
   return (
-    <MenuPrimitive.SubmenuTrigger
+    <AdsMenu.SubmenuTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
-      className={cn(
-        "flex w-full min-w-0 cursor-default items-center gap-2 overflow-hidden rounded-sm px-2 py-1.5 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-8 data-popup-open:bg-accent data-popup-open:text-accent-foreground data-open:bg-accent data-open:text-accent-foreground [&>*:not(svg)]:min-w-0 [&>span]:truncate [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={className}
       {...props}
     >
       {renderDropdownMenuItemChildren(children)}
-      <ChevronRightIcon className="ml-auto" />
-    </MenuPrimitive.SubmenuTrigger>
+      <ChevronRightIcon className={sx(overlayLayout.submenuArrow)} />
+    </AdsMenu.SubmenuTrigger>
   );
 }
 
@@ -212,32 +203,24 @@ function DropdownMenuCheckboxItem({
   inset?: boolean;
 }) {
   return (
-    <MenuPrimitive.CheckboxItem
+    <AdsMenu.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       data-inset={inset}
-      className={cn(
-        "relative flex w-full min-w-0 cursor-default items-center gap-2 overflow-hidden rounded-sm py-1.5 pr-8 pl-2 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&>*:not(svg)]:min-w-0 [&>span:not([data-slot=dropdown-menu-checkbox-item-indicator])]:truncate [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={className}
       checked={checked}
       {...props}
     >
-      <span
-        className="pointer-events-none absolute right-2 flex items-center justify-center"
-        data-slot="dropdown-menu-checkbox-item-indicator"
-      >
-        <MenuPrimitive.CheckboxItemIndicator>
+      <AdsMenu.CheckboxItemIndicator>
           <CheckIcon />
-        </MenuPrimitive.CheckboxItemIndicator>
-      </span>
+        </AdsMenu.CheckboxItemIndicator>
       {renderDropdownMenuItemChildren(children)}
-    </MenuPrimitive.CheckboxItem>
+    </AdsMenu.CheckboxItem>
   );
 }
 
 function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
   return (
-    <MenuPrimitive.RadioGroup
+    <AdsMenu.RadioGroup
       data-slot="dropdown-menu-radio-group"
       {...props}
     />
@@ -253,25 +236,17 @@ function DropdownMenuRadioItem({
   inset?: boolean;
 }) {
   return (
-    <MenuPrimitive.RadioItem
+    <AdsMenu.RadioItem
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
-      className={cn(
-        "relative flex w-full min-w-0 cursor-default items-center gap-2 overflow-hidden rounded-sm py-1.5 pr-8 pl-2 text-left text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&>*:not(svg)]:min-w-0 [&>span:not([data-slot=dropdown-menu-radio-item-indicator])]:truncate [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={className}
       {...props}
     >
-      <span
-        className="pointer-events-none absolute right-2 flex items-center justify-center"
-        data-slot="dropdown-menu-radio-item-indicator"
-      >
-        <MenuPrimitive.RadioItemIndicator>
+      <AdsMenu.RadioItemIndicator>
           <CheckIcon />
-        </MenuPrimitive.RadioItemIndicator>
-      </span>
+        </AdsMenu.RadioItemIndicator>
       {renderDropdownMenuItemChildren(children)}
-    </MenuPrimitive.RadioItem>
+    </AdsMenu.RadioItem>
   );
 }
 
@@ -280,9 +255,9 @@ function DropdownMenuSeparator({
   ...props
 }: MenuPrimitive.Separator.Props) {
   return (
-    <MenuPrimitive.Separator
+    <AdsMenu.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("-mx-1 my-1 h-px bg-border", className)}
+      className={className}
       {...props}
     />
   );
@@ -293,12 +268,9 @@ function DropdownMenuShortcut({
   ...props
 }: React.ComponentProps<"span">) {
   return (
-    <span
+    <AdsMenu.Shortcut
       data-slot="dropdown-menu-shortcut"
-      className={cn(
-        "ml-auto shrink-0 text-xs tracking-widest text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground",
-        className,
-      )}
+      className={className}
       {...props}
     />
   );

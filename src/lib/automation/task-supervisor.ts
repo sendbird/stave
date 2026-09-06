@@ -18,6 +18,7 @@
  * through a relative path.
  */
 import { z } from "zod";
+import type { ProviderId } from "../providers/provider.types";
 import {
   computeNextRoutineRunAt,
   RoutineScheduleSchema,
@@ -209,11 +210,11 @@ export type TaskCompletionObservability = z.infer<
  * `unsupported`.
  */
 export function classifyTaskCompletionObservability(args: {
-  providerId: TaskHeartbeatFingerprint["providerId"] | null;
+  providerId: ProviderId | null;
   /** False when no run-ledger reader is wired into the supervisor at all. */
   ledgerReadable: boolean;
 }): TaskCompletionObservability {
-  if (!args.providerId) {
+  if (args.providerId !== "claude-code" && args.providerId !== "codex") {
     return "unsupported";
   }
   return args.ledgerReadable ? "stave_owned" : "unsupported";

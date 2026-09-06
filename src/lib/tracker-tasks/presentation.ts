@@ -23,27 +23,27 @@ import type {
  */
 export const TRACKER_STATUS_PRESENTATION: Record<
   TrackerStatusCategory,
-  { label: string; toneClassName: string }
+  { label: string; tone: "neutral" | "info" | "warning" }
 > = {
   todo: {
     label: "To do",
-    toneClassName: "border-border/75 bg-background/30 text-muted-foreground",
+    tone: "neutral",
   },
   in_progress: {
     label: "In progress",
-    toneClassName: "border-info/30 bg-info/10 text-info",
+    tone: "info",
   },
   in_review: {
     label: "In review",
-    toneClassName: "border-warning/40 bg-warning/10 text-warning",
+    tone: "warning",
   },
   done: {
     label: "Done",
-    toneClassName: "border-border/45 bg-muted/60 text-muted-foreground",
+    tone: "neutral",
   },
   closed: {
     label: "Closed",
-    toneClassName: "border-border/45 bg-muted/40 text-muted-foreground",
+    tone: "neutral",
   },
 };
 
@@ -62,33 +62,33 @@ export const TRACKER_PRIORITY_PRESENTATION: Record<
   {
     label: string;
     iconName: TrackerPriorityIconName;
-    toneClassName: string;
+    tone: "danger" | "warning" | "default" | "muted" | "subtle";
   }
 > = {
   urgent: {
     label: "Urgent",
     iconName: "ChevronsUp",
-    toneClassName: "text-destructive",
+    tone: "danger",
   },
   high: {
     label: "High",
     iconName: "ChevronUp",
-    toneClassName: "text-warning",
+    tone: "warning",
   },
   medium: {
     label: "Medium",
     iconName: "Equal",
-    toneClassName: "text-foreground",
+    tone: "default",
   },
   low: {
     label: "Low",
     iconName: "ChevronDown",
-    toneClassName: "text-muted-foreground",
+    tone: "muted",
   },
   none: {
     label: "No priority",
     iconName: "Minus",
-    toneClassName: "text-muted-foreground/70",
+    tone: "subtle",
   },
 };
 
@@ -347,15 +347,16 @@ const FUNCTIONAL_COLOR_PATTERN =
  * than a raw value: the dot repaints with a custom theme, and an external string
  * never reaches a style attribute at all.
  */
-const SEMANTIC_LABEL_COLOR_CLASSES: Record<string, string> = {
-  neutral: "bg-muted-foreground/60",
-  accent: "bg-accent-foreground/70",
-  info: "bg-info",
-  warning: "bg-warning",
-  warm: "bg-muse",
-  success: "bg-success",
-  danger: "bg-destructive",
-};
+const SEMANTIC_LABEL_COLORS = [
+  "neutral",
+  "accent",
+  "info",
+  "warning",
+  "warm",
+  "success",
+  "danger",
+] as const;
+export type TrackerLabelToken = (typeof SEMANTIC_LABEL_COLORS)[number];
 
 /**
  * How a label's colour should be painted, or `null` when it cannot be.
@@ -366,8 +367,7 @@ const SEMANTIC_LABEL_COLOR_CLASSES: Record<string, string> = {
  * still gets the themed treatment rather than the raw one.
  */
 export type TrackerLabelColor =
-  | { kind: "token"; className: string }
-  | { kind: "css"; value: string };
+  { kind: "token"; token: TrackerLabelToken } | { kind: "css"; value: string };
 
 export function resolveTrackerLabelColor(
   color: string | undefined | null,
@@ -375,9 +375,9 @@ export function resolveTrackerLabelColor(
   if (typeof color !== "string") {
     return null;
   }
-  const token = SEMANTIC_LABEL_COLOR_CLASSES[color.trim().toLowerCase()];
-  if (token) {
-    return { kind: "token", className: token };
+  const token = color.trim().toLowerCase() as TrackerLabelToken;
+  if (SEMANTIC_LABEL_COLORS.includes(token)) {
+    return { kind: "token", token };
   }
   return isSafeCssColor(color) ? { kind: "css", value: color.trim() } : null;
 }

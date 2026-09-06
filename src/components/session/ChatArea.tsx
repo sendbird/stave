@@ -6,10 +6,13 @@ import {
   SearchCode,
   type LucideIcon,
 } from "lucide-react";
+import { chatAreaStyles } from "./chat-area.styles";
+import { sx } from "../ads/utils/stylex";
 import { memo, useCallback, useEffect, useRef, type MouseEvent } from "react";
 import { AdvisorConsultLogHost } from "@/components/session/AdvisorConsultLogDialog";
 import { AdvisorExchangeMonitor } from "@/components/session/AdvisorExchangeMonitor";
 import { ChatInput } from "@/components/session/ChatInput";
+import { TaskStartGuide } from "@/components/session/TaskStartGuide";
 import { ChatPanel } from "@/components/session/ChatPanel";
 import {
   resolveChatAreaViewMode,
@@ -63,18 +66,14 @@ function TaskStartPanel(props: { onSelect: (prompt: string) => void }) {
   return (
     <section
       data-testid="empty-splash"
-      className="mx-auto w-full max-w-6xl px-3 pb-2 pt-10 sm:px-4"
+      className={sx(chatAreaStyles.startPanel)}
     >
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <h1 className="font-heading text-2xl font-semibold leading-tight tracking-[-0.02em] text-foreground">
-            What would you like to work on?
-          </h1>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Describe the outcome you want, or choose a starting point.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2" aria-label="Task starting points">
+      <div className={sx(chatAreaStyles.startStack)}>
+        <TaskStartGuide onSelect={props.onSelect} />
+        <div
+          className={sx(chatAreaStyles.startOptions)}
+          aria-label="Task starting points"
+        >
           {TASK_START_OPTIONS.map((option) => {
             const Icon = option.icon;
             return (
@@ -82,10 +81,10 @@ function TaskStartPanel(props: { onSelect: (prompt: string) => void }) {
                 key={option.label}
                 type="button"
                 variant="secondary"
-                className="h-11 rounded-full bg-muted/70 px-4 font-normal text-foreground shadow-none hover:bg-muted"
+                xstyle={chatAreaStyles.startOption}
                 onClick={() => props.onSelect(option.prompt)}
               >
-                <Icon className="size-4 text-muted-foreground" />
+                <Icon className={sx(chatAreaStyles.startOptionIcon)} />
                 {option.label}
               </Button>
             );
@@ -126,7 +125,7 @@ export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
  */
 function ChatAreaComposerDock() {
   return (
-    <div className="relative z-30 shrink-0">
+    <div className={sx(chatAreaStyles.dock)}>
       <RenderProfiler id="ChatInput" thresholdMs={8}>
         <ChatInput />
       </RenderProfiler>
@@ -139,6 +138,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
   const sessionAreaRef = useRef<HTMLDivElement>(null);
   const [
     projectPath,
+    workspaceId,
     hasHydratedWorkspaces,
     hasAnyWorkspace,
     hasSelectedWorkspace,
@@ -159,6 +159,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
       const scopedTaskId = explicitTaskId ?? state.activeTaskId;
       return [
         state.projectPath,
+        state.activeWorkspaceId,
         state.hasHydratedWorkspaces,
         state.workspaces.length > 0,
         state.workspaces.some(
@@ -242,7 +243,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
       // session focus handler from stealing focus before the click lands.
       if (
         target.closest(
-          "button, a, input, textarea, select, [role='button'], [role='link'], [role='textbox'], [role='option'], [contenteditable='true'], [data-ui-popup-positioner]",
+          "button, summary, a, input, textarea, select, [role='button'], [role='link'], [role='textbox'], [role='option'], [contenteditable='true'], [data-ui-popup-positioner]",
         )
       ) {
         return;
@@ -259,8 +260,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
     "data-testid": "session-area",
     "data-task-abort-scope": "",
     onMouseDownCapture: handleSessionAreaMouseDownCapture,
-    className:
-      "flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background outline-none",
+    className: sx(chatAreaStyles.sessionArea),
   } as const;
 
   if (viewMode === "no_project") {
@@ -278,7 +278,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
           </EmptyHeader>
           <EmptyContent>
             <Button onClick={() => void createProject({})}>
-              <FolderOpen className="size-4" />
+              <FolderOpen className={sx(chatAreaStyles.buttonIcon)} />
               Select Folder
             </Button>
           </EmptyContent>
@@ -320,8 +320,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
   if (viewMode === "no_task") {
     return (
       <div {...sessionAreaProps}>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col">
+        <div className={sx(chatAreaStyles.scrollColumn)}>
+          <div className={sx(chatAreaStyles.centeredColumn)}>
             <EmptySplash
               layout="top-card"
               onCreateTask={() => createTask({ title: "" })}
@@ -337,8 +337,13 @@ function ChatAreaImpl(props: ChatAreaProps) {
   if (viewMode === "empty_task") {
     return (
       <div {...sessionAreaProps}>
-        <div className="relative flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto">
+        <div className={sx(chatAreaStyles.surface)}>
+          <div
+            className={sx(
+              chatAreaStyles.scrollColumn,
+              chatAreaStyles.emptyBody,
+            )}
+          >
             <TaskStartPanel onSelect={handleTaskStartOption} />
           </div>
           <ChatAreaComposerDock />
@@ -349,15 +354,15 @@ function ChatAreaImpl(props: ChatAreaProps) {
 
   return (
     <div {...sessionAreaProps}>
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className={sx(chatAreaStyles.surface)}>
+        <div className={sx(chatAreaStyles.surface)}>
           {/* The message pane must be a flex column so `ChatPanel`'s
               `Conversation` root (`flex min-h-0 flex-1`) can claim the
               remaining height and keep its internal list scrollable. */}
           <RenderProfiler id="ChatPanel" thresholdMs={8}>
             <ChatPanel scrollActivationKey={props.scrollActivationKey} />
           </RenderProfiler>
-          <div className="pointer-events-none absolute inset-0">
+          <div className={sx(chatAreaStyles.overlay)}>
             {/* Keep the floating plan card inside the message pane so it is
                 structurally separated from the input dock without measuring
                 dock height changes frame-by-frame. */}

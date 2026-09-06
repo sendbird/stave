@@ -1,7 +1,9 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Minus } from "lucide-react";
 import { type CSSProperties, type KeyboardEvent, useMemo, useRef } from "react";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { modelEffortGridStyles as styles } from "./model-effort-grid.styles";
 import { ModelIcon } from "./model-icon";
 import {
   getCursorModelPresentation,
@@ -12,10 +14,10 @@ import {
 import type { ModelSelectorOption } from "./model-selector.utils";
 
 export const PROVIDER_ACCENT_COLORS: Record<ProviderId, string> = {
-  "claude-code": "#d97757",
-  codex: "#4169c1",
-  cursor: "light-dark(#26251e, #edecec)",
-  kiro: "#9046ff",
+  "claude-code": "var(--provider-claude)",
+  codex: "var(--provider-codex)",
+  cursor: "var(--foreground)",
+  kiro: "var(--primary)",
 };
 
 function getCellKey(option: ModelSelectorOption, effort: ModelEffortValue) {
@@ -50,7 +52,7 @@ export function ModelEffortGrid(args: {
   disabled?: boolean;
   onChoose: (option: ModelSelectorOption, effort: ModelEffortValue) => void;
 }) {
-  const cellRefs = useRef(new Map<string, HTMLButtonElement>());
+  const cellRefs = useRef(new Map<string, HTMLElement>());
   const scale = listProviderEffortScale(args.providerId);
   const effortsByOption = useMemo(
     () =>
@@ -66,11 +68,13 @@ export function ModelEffortGrid(args: {
     args.selectedModelKey && args.selectedEffort
       ? `${args.selectedModelKey}:${args.selectedEffort}`
       : undefined;
-  const availableCellKeys = effortfulOptions.flatMap((option) =>
-    (effortsByOption.get(option.key) ?? []).map((effort) =>
-      getCellKey(option, effort.value),
-    ),
-  );
+  const availableCellKeys = effortfulOptions
+    .filter((option) => option.available)
+    .flatMap((option) =>
+      (effortsByOption.get(option.key) ?? []).map((effort) =>
+        getCellKey(option, effort.value),
+      ),
+    );
   const firstCell = availableCellKeys[0];
   const tabStopKey =
     selectedCellKey && availableCellKeys.includes(selectedCellKey)
@@ -80,7 +84,7 @@ export function ModelEffortGrid(args: {
   const focusCell = (rowIndex: number, effortIndex: number) => {
     const option = effortfulOptions[rowIndex];
     const effort = scale[effortIndex];
-    if (!option || !effort) {
+    if (!option?.available || !effort || args.disabled) {
       return false;
     }
     if (
@@ -151,13 +155,13 @@ export function ModelEffortGrid(args: {
   }
 
   return (
-    <div className="min-w-0 overflow-x-auto overscroll-x-contain p-1 min-[480px]:p-2">
+    <div className={sx(styles.scroller)}>
       <div
         role="grid"
         aria-label="Model and reasoning effort"
         aria-colcount={scale.length + 1}
         aria-rowcount={effortfulOptions.length + 1}
-        className="grid w-full items-center gap-x-0 gap-y-1 [--model-effort-row-width:6rem] min-[480px]:gap-x-0.5 min-[480px]:[--model-effort-row-width:6.75rem]"
+        className={sx(styles.grid)}
         style={
           {
             gridTemplateColumns: `minmax(var(--model-effort-row-width), 1fr) repeat(${scale.length}, 2.75rem)`,
@@ -165,11 +169,8 @@ export function ModelEffortGrid(args: {
           } as CSSProperties
         }
       >
-        <div role="row" className="contents">
-          <span
-            role="columnheader"
-            className="px-2 text-xs font-medium text-muted-foreground"
-          >
+        <div role="row" className={sx(styles.contents)}>
+          <span role="columnheader" className={sx(styles.columnHeaderModel)}>
             Model
           </span>
           {scale.map((effort) => (
@@ -177,7 +178,7 @@ export function ModelEffortGrid(args: {
               key={effort.value}
               role="columnheader"
               title={effort.label}
-              className="text-center text-[11px] font-medium text-muted-foreground"
+              className={sx(styles.columnHeaderEffort)}
             >
               {getEffortShortLabel(effort.label)}
             </span>
@@ -192,23 +193,19 @@ export function ModelEffortGrid(args: {
             ),
           );
           return (
-            <div key={option.key} role="row" className="contents">
+            <div key={option.key} role="row" className={sx(styles.contents)}>
               <span
                 role="rowheader"
                 title={option.model}
-                className="flex min-w-0 items-center gap-2 px-2"
+                className={sx(styles.rowHeader)}
               >
                 <ModelIcon
                   providerId={option.providerId}
-                  className="size-3.5"
+                  className={sx(styles.rowHeaderIcon)}
                 />
-                <span className="max-w-32 truncate text-sm font-medium text-foreground/90">
-                  {modelLabel}
-                </span>
+                <span className={sx(styles.rowHeaderLabel)}>{modelLabel}</span>
                 {option.isDefault ? (
-                  <span className="hidden rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground min-[480px]:inline-flex">
-                    Default
-                  </span>
+                  <span className={sx(styles.defaultBadge)}>Default</span>
                 ) : null}
               </span>
 
@@ -220,10 +217,13 @@ export function ModelEffortGrid(args: {
                       role="gridcell"
                       aria-disabled="true"
                       aria-label={`${modelLabel} does not support ${effort.label} effort`}
-                      className="flex size-11 items-center justify-center text-muted-foreground/45"
+                      className={sx(styles.unsupportedCell)}
                     >
-                      <span className="flex size-8 items-center justify-center rounded-md border border-dashed border-border/65 bg-muted/25">
-                        <Minus className="size-3" aria-hidden="true" />
+                      <span className={sx(styles.unsupportedGlyph)}>
+                        <Minus
+                          className={sx(styles.unsupportedIcon)}
+                          aria-hidden="true"
+                        />
                       </span>
                     </span>
                   );
@@ -233,7 +233,8 @@ export function ModelEffortGrid(args: {
                   effort.value === args.selectedEffort;
                 const cellKey = getCellKey(option, effort.value);
                 return (
-                  <button
+                  <AdsButton
+                    layout="host"
                     key={cellKey}
                     ref={(element) => {
                       if (element) {
@@ -252,13 +253,16 @@ export function ModelEffortGrid(args: {
                       handleKeyDown(event, rowIndex, effortIndex)
                     }
                     onClick={() => args.onChoose(option, effort.value)}
-                    className="model-effort-cell flex size-11 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-popover disabled:cursor-not-allowed disabled:opacity-45"
+                    className={cx(sx(styles.cell), "model-effort-cell")}
                   >
                     <span
                       data-selected={selected || undefined}
-                      className={cn(
-                        "model-effort-cell-visual flex size-8 items-center justify-center rounded-md border border-foreground/5 text-foreground shadow-xs transition-transform",
-                        selected && "scale-105",
+                      className={cx(
+                        sx(
+                          styles.cellVisual,
+                          selected && styles.cellVisualSelected,
+                        ),
+                        "model-effort-cell-visual",
                       )}
                       style={
                         {
@@ -272,13 +276,13 @@ export function ModelEffortGrid(args: {
                     >
                       {selected ? (
                         <Check
-                          className="size-4"
+                          className={sx(styles.checkIcon)}
                           strokeWidth={2.5}
                           aria-hidden="true"
                         />
                       ) : null}
                     </span>
-                  </button>
+                  </AdsButton>
                 );
               })}
             </div>

@@ -156,7 +156,7 @@ export function parseAbsoluteResetToEpochSeconds(
     /^(?:[A-Za-z]{3,9},?\s+)?([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s+(\d{4}))?(?:,?\s+(.+))?$/.exec(
       trimmed,
     );
-  if (!dated) {
+  if (!dated?.[1]) {
     return null;
   }
   const month = MONTH_NAMES.indexOf(dated[1].slice(0, 3).toLowerCase());
@@ -181,21 +181,21 @@ export function parseAbsoluteResetToEpochSeconds(
 
 function parseResetsAt(line: string, now: number): number | null {
   const relativeMatch = line.match(RELATIVE_RESET_RE);
-  if (relativeMatch) {
+  if (relativeMatch?.[1]) {
     const deltaSeconds = parseRelativeDurationToSeconds(relativeMatch[1]);
     if (deltaSeconds !== null) {
       return Math.floor(now / 1000) + deltaSeconds;
     }
   }
   const absoluteMatch = line.match(ABSOLUTE_RESET_RE);
-  return absoluteMatch
+  return absoluteMatch?.[1]
     ? parseAbsoluteResetToEpochSeconds(absoluteMatch[1], now)
     : null;
 }
 
 function parseUsageWindow(line: string, now: number): ClaudeUsageWindow | null {
   const percentMatch = line.match(PERCENT_RE);
-  if (!percentMatch) {
+  if (!percentMatch?.[2]) {
     return null;
   }
   const rawPercent = Number(percentMatch[1]);

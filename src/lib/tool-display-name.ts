@@ -34,6 +34,7 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_get_task: "Open task",
   stave_delegate_task: "Delegate to child task",
   stave_list_child_tasks: "View child tasks",
+  stave_follow_up_child_task: "Send child task follow-up",
   stave_stop_child_task: "Stop child task",
   stave_list_routines: "View routines",
   stave_create_routine: "Create routine",

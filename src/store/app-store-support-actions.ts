@@ -12,16 +12,12 @@ import {
 } from "@/lib/pr-status";
 import { mergeRateLimitsSnapshots } from "@/lib/providers/account-usage-block";
 import { listProviderIds } from "@/lib/providers/model-catalog";
-import {
-  createDefaultProviderRuntimeCapabilities,
-  createEmptyProviderRuntimeCapabilities,
-} from "@/lib/providers/runtime-capabilities";
+import { createEmptyProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
 import {
   buildReviewFeedbackFileContexts,
   formatReviewFeedbackPrompt,
 } from "@/lib/review-feedback";
 import { buildVerificationFixPrompt } from "@/lib/workspace-scripts";
-import { createDefaultProviderAvailability } from "@/store/app-settings";
 import type {
   AppState,
   NotificationContextOpenResult,
@@ -488,59 +484,57 @@ export function createSupportActions(args: {
       if (providerAvailabilityRefreshInFlight) {
         return providerAvailabilityRefreshInFlight;
       }
-      const refresh = (async () => {
-        const state = get();
-        const claudeBinaryPath = state.settings.claudeBinaryPath || undefined;
-        const codexBinaryPath = state.settings.codexBinaryPath || undefined;
-        const cursorBinaryPath = state.settings.cursorBinaryPath || undefined;
-        const kiroBinaryPath = state.settings.kiroBinaryPath || undefined;
-        const availabilityEntries = await Promise.all(
-          listProviderIds().map(async (providerId) => {
-            try {
-              const result = await checkAvailability({
-                providerId,
-                runtimeOptions: {
-                  ...(claudeBinaryPath ? { claudeBinaryPath } : {}),
-                  ...(codexBinaryPath ? { codexBinaryPath } : {}),
-                  ...(cursorBinaryPath ? { cursorBinaryPath } : {}),
-                  ...(kiroBinaryPath ? { kiroBinaryPath } : {}),
-                },
-              });
-              return [
-                providerId,
-                result.ok && result.available,
-                result.capabilities,
-              ] as const;
-            } catch {
-              return [
-                providerId,
-                state.providerAvailability[providerId],
-                state.providerRuntimeCapabilities[providerId],
-              ] as const;
-            }
-          }),
+      const settings = get().settings;
+      const runtimeOptions = {
+        claudeBinaryPath: settings.claudeBinaryPath || undefined,
+        codexBinaryPath: settings.codexBinaryPath || undefined,
+        cursorBinaryPath: settings.cursorBinaryPath || undefined,
+        kiroBinaryPath: settings.kiroBinaryPath || undefined,
+      };
+      const settingsAreCurrent = () => {
+        const current = get().settings;
+        return Object.entries(runtimeOptions).every(
+          ([key, value]) =>
+            (current[key as keyof typeof runtimeOptions] || undefined) ===
+            value,
         );
-
-        const providerAvailability = createDefaultProviderAvailability();
-        const providerRuntimeCapabilities =
-          createDefaultProviderRuntimeCapabilities();
-        availabilityEntries.forEach(
-          ([providerId, available, capabilities]) => {
-            providerAvailability[providerId] = available;
-            providerRuntimeCapabilities[providerId] =
-              capabilities ?? createEmptyProviderRuntimeCapabilities();
-          },
-        );
-
-        set(() => ({
-          providerAvailability,
-          providerRuntimeCapabilities,
-        }));
-      })().finally(() => {
-        if (providerAvailabilityRefreshInFlight === refresh) {
-          providerAvailabilityRefreshInFlight = null;
-        }
-      });
+      };
+      const refresh = Promise.all(
+        listProviderIds().map(async (providerId) => {
+          try {
+            const result = await checkAvailability({
+              providerId,
+              runtimeOptions,
+            });
+            if (!result.ok || !settingsAreCurrent()) return;
+            // A slow or unavailable sibling must not hold back ready models.
+            // Keep the user's selected model and update only this provider.
+            set((state) => ({
+              providerAvailability: {
+                ...state.providerAvailability,
+                [providerId]: result.available,
+              },
+              providerRuntimeCapabilities: {
+                ...state.providerRuntimeCapabilities,
+                [providerId]:
+                  result.capabilities ??
+                  createEmptyProviderRuntimeCapabilities(),
+              },
+            }));
+          } catch {
+            // A failed read cannot establish that a provider was uninstalled.
+            // Preserve its last known state until discovery succeeds.
+          }
+        }),
+      )
+        .then(() => undefined)
+        .finally(() => {
+          if (providerAvailabilityRefreshInFlight === refresh) {
+            providerAvailabilityRefreshInFlight = null;
+            if (!settingsAreCurrent())
+              return get().refreshProviderAvailability();
+          }
+        });
       providerAvailabilityRefreshInFlight = refresh;
       return refresh;
     },

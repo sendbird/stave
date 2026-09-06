@@ -143,9 +143,9 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
     name: "project-attention-stave-lnb-attention",
   });
   await expect(alert).toBeVisible();
-  await expect(
-    sidebar.getByLabel("1 workspaces", { exact: true }),
-  ).toHaveCount(0);
+  await expect(sidebar.getByLabel("1 workspaces", { exact: true })).toHaveCount(
+    0,
+  );
 
   // An approval need must render the ShieldCheck glyph in the warning color,
   // matching the per-workspace icon vocabulary.
@@ -160,8 +160,11 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
   expect(rendered.width).toBeGreaterThan(0);
 
   const warningColor = await sidebar.evaluate((element) => {
+    // The glyph paints with the semantic warning token (`vars.colorWarning`
+    // maps to `--warning`). Resolve that token the same way the icon does so
+    // the assertion tracks the color contract rather than a utility class.
     const probe = document.createElement("span");
-    probe.className = "text-warning";
+    probe.style.color = "var(--warning)";
     element.append(probe);
     const color = window.getComputedStyle(probe).color;
     probe.remove();
@@ -193,7 +196,7 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
   expect(await readSlot()).toEqual({ slotOpacity: 1, pointerEvents: "auto" });
 
   const projectLabel = sidebar
-    .locator("span.font-medium", { hasText: "stave-lnb-attention" })
+    .getByText("stave-lnb-attention", { exact: true })
     .first();
   await projectLabel.hover();
   // Let the 200ms opacity transition settle before sampling.
@@ -207,11 +210,27 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
   // measured gap itself rather than sampling mid-transition.
   const readOverlap = () =>
     alert.evaluate((element) => {
-      const actions = element
-        .closest("[class*='relative']")
-        ?.querySelector<HTMLElement>(".absolute.right-0");
+      // The row actions are the cluster anchored at the inline end of the
+      // project row. Find them through the stable "Kick off workspace" action
+      // label rather than a utility class string that the design system owns.
+      // Walk up from the alert to the nearest ancestor that also contains the
+      // row's own kickoff action, so a sibling project row is never matched.
+      let kickoff: HTMLElement | null = null;
+      for (
+        let scope = element.parentElement;
+        scope && scope !== document.body;
+        scope = scope.parentElement
+      ) {
+        kickoff = scope.querySelector<HTMLElement>(
+          'button[aria-label^="Kick off workspace"]',
+        );
+        if (kickoff) break;
+      }
+      const actions = kickoff?.parentElement;
       if (!actions) {
-        throw new Error("Row actions were not found");
+        throw new Error(
+          "Row actions were not found in the alert's project row",
+        );
       }
       const alertRect = element.getBoundingClientRect();
       const actionsRect = actions.getBoundingClientRect();

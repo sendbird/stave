@@ -1,3 +1,5 @@
+import { Input as AdsInput } from "@/components/ui/input";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { IDockviewPanelHeaderProps } from "dockview-react";
 import {
   FileCode2,
@@ -20,7 +22,12 @@ import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Loader } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
-import { getProviderWaveToneClass } from "@/lib/providers/model-catalog";
+import { getProviderWaveTone } from "@/lib/providers/model-catalog";
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
 import { getRespondingProviderId, isTaskManaged } from "@/lib/tasks";
@@ -29,8 +36,8 @@ import {
   parsePanePanelId,
   type PaneSurfaceDescriptor,
 } from "@/lib/panes/types";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { paneTabChipStyles as c } from "@/components/panes/PaneTabChip.styles";
 import type { ChatMessage, EditorTab } from "@/types/chat";
 import {
   PANE_RENAME_REQUEST_EVENT,
@@ -47,6 +54,20 @@ import {
 } from "@/components/panes/pane-tab-icon-options";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
+
+// Provider wave tone → StyleX style. `getProviderWaveTone` returns a semantic
+// tone (this file is a consumer of that contract, not part of its own
+// migration surface); the themed provider CSS variables carry the color.
+const providerToneStyles = stylex.create({
+  claude: { color: "var(--provider-claude)" },
+  codex: { color: "var(--provider-codex)" },
+  accent: { color: vars.colorAccent },
+});
+
+function resolveProviderToneClass(providerId: ProviderId): string {
+  const tone = getProviderWaveTone({ providerId });
+  return sx(providerToneStyles[tone]);
+}
 
 interface TaskChipState {
   title: string;
@@ -77,7 +98,7 @@ function useTaskChipState(taskId: string): TaskChipState {
           turnState !== "idle",
           turnState === "stalled",
           isTaskManaged(task),
-          getProviderWaveToneClass({ providerId: respondingProviderId }),
+          resolveProviderToneClass(respondingProviderId),
           task?.provider ?? null,
         ] as const;
       }),
@@ -92,12 +113,12 @@ function PaneChipIcon(args: {
   const surface = args.surface;
   switch (surface.kind) {
     case "terminal":
-      return <SquareTerminal className="size-4 text-muted-foreground" />;
+      return <SquareTerminal className={sx(c.icon)} />;
     case "lens":
       return args.lensState.loading ? (
         <Loader
           aria-hidden
-          className="text-muted-foreground"
+          className={sx(c.mutedColor)}
           size="xs"
           variant="scan"
         />
@@ -105,15 +126,15 @@ function PaneChipIcon(args: {
         <img
           src={args.lensState.faviconUrl}
           alt=""
-          className="size-4 rounded-sm object-contain"
+          className={sx(c.faviconImage)}
         />
       ) : (
-        <Globe className="size-4 text-muted-foreground" />
+        <Globe className={sx(c.icon)} />
       );
     case "editor":
       return <EditorPaneChipIcon editorTabId={surface.editorTabId} />;
     case "compare-run":
-      return <SplitSquareHorizontal className="size-4 text-muted-foreground" />;
+      return <SplitSquareHorizontal className={sx(c.icon)} />;
     default:
       return null;
   }
@@ -121,15 +142,9 @@ function PaneChipIcon(args: {
 
 export function EditorPaneChipGlyph(args: { kind: EditorTab["kind"] }) {
   return isGitGraphEditorTab(args) ? (
-    <GitGraph
-      data-pane-tab-icon="git-graph"
-      className="size-4 text-muted-foreground"
-    />
+    <GitGraph data-pane-tab-icon="git-graph" className={sx(c.icon)} />
   ) : (
-    <FileCode2
-      data-pane-tab-icon="file"
-      className="size-4 text-muted-foreground"
-    />
+    <FileCode2 data-pane-tab-icon="file" className={sx(c.icon)} />
   );
 }
 
@@ -148,19 +163,13 @@ function CliSessionChipIcon(args: { cliSessionTabId: string }) {
         ?.provider ?? null,
   );
   return (
-    <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
+    <span className={sx(c.cliIconWrap)}>
       {provider ? (
-        <ModelIcon
-          providerId={provider}
-          className="size-4 text-muted-foreground"
-        />
+        <ModelIcon providerId={provider} className={sx(c.icon)} />
       ) : (
-        <SquareTerminal className="size-4 text-muted-foreground" />
+        <SquareTerminal className={sx(c.icon)} />
       )}
-      <SquareTerminal
-        className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-sm bg-background text-muted-foreground"
-        strokeWidth={2.5}
-      />
+      <SquareTerminal className={sx(c.cliIconBadge)} strokeWidth={2.5} />
     </span>
   );
 }
@@ -168,7 +177,7 @@ function CliSessionChipIcon(args: { cliSessionTabId: string }) {
 function TaskChipIcon(args: { taskChip: TaskChipState }) {
   const { taskChip } = args;
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+    <span className={sx(c.taskIconWrap)}>
       {taskChip.isResponding ? (
         <Loader
           aria-hidden
@@ -177,10 +186,7 @@ function TaskChipIcon(args: { taskChip: TaskChipState }) {
           variant="pulse"
         />
       ) : taskChip.provider ? (
-        <ModelIcon
-          providerId={taskChip.provider}
-          className="size-4 text-muted-foreground"
-        />
+        <ModelIcon providerId={taskChip.provider} className={sx(c.icon)} />
       ) : null}
     </span>
   );
@@ -240,10 +246,7 @@ function EditorDirtyIndicator(args: { editorTabId: string }) {
       false,
   );
   return isDirty ? (
-    <span
-      className="size-2 shrink-0 rounded-full bg-primary"
-      aria-label="Unsaved changes"
-    />
+    <span className={sx(c.dirtyDot)} aria-label="Unsaved changes" />
   ) : null;
 }
 
@@ -251,18 +254,12 @@ function TaskChipBadges(args: { taskChip: TaskChipState }) {
   return (
     <>
       {args.taskChip.isStalled ? (
-        <Badge
-          variant="warning"
-          className="rounded-sm text-[10px] uppercase tracking-[0.14em]"
-        >
+        <Badge variant="warning" className={sx(c.statusBadge)}>
           Stalled
         </Badge>
       ) : null}
       {args.taskChip.isManaged ? (
-        <Badge
-          variant="secondary"
-          className="rounded-sm text-[10px] uppercase tracking-[0.14em]"
-        >
+        <Badge variant="secondary" className={sx(c.statusBadge)}>
           Managed
         </Badge>
       ) : null}
@@ -359,13 +356,9 @@ export const PaneTabChip = memo(function PaneTabChip(
     }
   }
 
-  const closeVisibility = isActive
-    ? "opacity-100"
-    : "opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150";
-
   return (
     <div
-      className="group flex h-full min-w-0 items-center gap-1.5 px-2"
+      className={sx(c.root)}
       data-pane-tab-chip={panelId}
       onAuxClick={handleAuxClick}
       onDoubleClick={(event) => {
@@ -385,9 +378,9 @@ export const PaneTabChip = memo(function PaneTabChip(
         <PaneChipIcon surface={surface} lensState={lensState} />
       )}
       {isEditing ? (
-        <input
+        <AdsInput
           ref={inputRef}
-          className="h-5 w-32 min-w-0 rounded-sm border border-border/80 bg-background px-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          xstyle={c.renameInput}
           value={editValue}
           onChange={(event) => setEditValue(event.target.value)}
           onBlur={commitRename}
@@ -405,7 +398,7 @@ export const PaneTabChip = memo(function PaneTabChip(
           onMouseDown={(event) => event.stopPropagation()}
         />
       ) : (
-        <span className="max-w-48 truncate text-sm font-medium">{title}</span>
+        <span className={sx(c.title)}>{title}</span>
       )}
       {surface.kind === "task" && !isEditing ? (
         <TaskChipBadgesSlot taskId={surface.taskId} />
@@ -414,14 +407,17 @@ export const PaneTabChip = memo(function PaneTabChip(
         <EditorDirtyIndicator editorTabId={surface.editorTabId} />
       ) : null}
       {pinned ? (
-        <Pin className="size-3 shrink-0 text-muted-foreground" />
+        <Pin className={sx(c.pinIcon)} />
       ) : (
-        <button
+        <AdsButton
+          layout="host"
           type="button"
-          className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-            closeVisibility,
-          )}
+          xstyle={[
+            c.closeButton,
+            focusRing.ring,
+            transition.colors,
+            isActive ? c.closeVisible : c.closeHidden,
+          ]}
           aria-label={`close-pane-${panelId}`}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => {
@@ -430,8 +426,8 @@ export const PaneTabChip = memo(function PaneTabChip(
             closePaneSurface(surface);
           }}
         >
-          <X className="size-3.5" />
-        </button>
+          <X className={sx(c.closeIcon)} />
+        </AdsButton>
       )}
     </div>
   );

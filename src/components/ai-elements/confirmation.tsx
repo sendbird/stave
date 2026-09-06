@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { StaveIcon } from "@/components/brand-icons";
+import { sx } from "@/components/ads/utils/stylex";
 import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
+import { confirmationStyles as s } from "./confirmation.styles";
 
 interface ConfirmationCompactProps {
   toolName: string;
@@ -54,20 +56,21 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
   } = args;
   const decisionText = getApprovalDecisionText(state);
   const isStaveTool = isStaveToolName(toolName);
+  const actionXstyle = comfortableActions ? s.actionComfortable : s.actionCompact;
 
   return (
-    <div className="rounded-lg border border-border/70 bg-background/80 p-2.5 text-[0.8125rem]">
-      <div className="flex items-start gap-2">
-        {isStaveTool ? <StaveIcon className="mt-0.5 size-4 shrink-0" /> : null}
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground">
+    <div className={sx(s.root)}>
+      <div className={sx(s.headerRow)}>
+        {isStaveTool ? <StaveIcon className={sx(s.staveIcon)} /> : null}
+        <div className={sx(s.headerBody)}>
+          <p className={sx(s.toolName)}>
             {isStaveTool ? toStaveToolDisplayName(toolName) : toolName}
           </p>
           <p
             className={
               truncateDescription
-                ? "mt-0.5 line-clamp-2 text-xs text-muted-foreground"
-                : "mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground"
+                ? sx(s.descriptionClamp)
+                : sx(s.descriptionWrap)
             }
           >
             {description}
@@ -77,18 +80,12 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
       {state === "approval-requested" ? (
         <>
           {disabledReason ? (
-            <p className="mt-1.5 text-[0.6875rem] text-muted-foreground">
-              {disabledReason}
-            </p>
+            <p className={sx(s.disabledReason)}>{disabledReason}</p>
           ) : null}
-          <div className="mt-2 flex items-center gap-1.5">
+          <div className={sx(s.actionsRow)}>
             <Button
               size="sm"
-              className={
-                comfortableActions
-                  ? "min-h-9 px-3 text-xs"
-                  : "h-7 px-2.5 text-xs"
-              }
+              xstyle={actionXstyle}
               disabled={disabled}
               onClick={onApprove}
             >
@@ -98,11 +95,7 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
               <Button
                 size="sm"
                 variant="outline"
-                className={
-                  comfortableActions
-                    ? "min-h-9 px-3 text-xs"
-                    : "h-7 px-2.5 text-xs"
-                }
+                xstyle={actionXstyle}
                 disabled={disabled}
                 onClick={onApproveAlways}
                 title="Approve and let the provider remember this decision."
@@ -113,25 +106,21 @@ export function ConfirmationCompact(args: ConfirmationCompactProps) {
             <Button
               size="sm"
               variant="outline"
-              className={
-                comfortableActions
-                  ? "min-h-9 px-3 text-xs"
-                  : "h-7 px-2.5 text-xs"
-              }
+              xstyle={actionXstyle}
               disabled={disabled}
               onClick={onReject}
             >
               Reject
             </Button>
             {!disabled && onApprove && showShortcutHint ? (
-              <span className="ml-auto text-[0.6875rem] text-muted-foreground/60">
-                <Kbd className="mr-0.5 h-4 px-1 text-[0.625rem]">↵</Kbd> approve
+              <span className={sx(s.shortcutHint)}>
+                <Kbd className={sx(s.shortcutKbd)}>↵</Kbd> approve
               </span>
             ) : null}
           </div>
         </>
       ) : (
-        <p className="mt-1.5 text-xs text-muted-foreground">
+        <p className={sx(s.decisionText)}>
           {decisionText ?? "Decision recorded."}
         </p>
       )}

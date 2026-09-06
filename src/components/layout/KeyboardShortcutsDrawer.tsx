@@ -1,6 +1,9 @@
 import { Fragment, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Keyboard, Search, X } from "lucide-react";
+import { Kbd } from "@/components/ads/components/Kbd";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   Button,
   Drawer,
@@ -11,7 +14,6 @@ import {
   DrawerHeader,
   DrawerTitle,
   Input,
-  Kbd,
   KbdGroup,
   KbdSeparator,
 } from "@/components/ui";
@@ -40,6 +42,7 @@ import {
   TASK_PRESET_SHORTCUT_SLOT_LABELS,
 } from "@/lib/task-presets";
 import { useAppStore } from "@/store/app.store";
+import { shortcutsDrawerStyles } from "./keyboard-shortcuts-drawer.styles";
 
 interface KeyboardShortcutsDrawerProps {
   open: boolean;
@@ -64,11 +67,11 @@ function ShortcutKeys({
   sequenceJoiner = "or",
 }: Pick<ShortcutItem, "sequences" | "sequenceJoiner">) {
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+    <div className={sx(shortcutsDrawerStyles.keys)}>
       {sequences.map((sequence, sequenceIndex) => (
         <Fragment key={sequence.join("-")}>
           {sequenceIndex > 0 ? (
-            <span className="text-xs text-muted-foreground">
+            <span className={sx(shortcutsDrawerStyles.keysJoiner)}>
               {sequenceJoiner}
             </span>
           ) : null}
@@ -76,7 +79,7 @@ function ShortcutKeys({
             {sequence.map((part, partIndex) => (
               <Fragment key={`${part}-${partIndex}`}>
                 {partIndex > 0 ? <KbdSeparator>+</KbdSeparator> : null}
-                <Kbd>{part}</Kbd>
+                <Kbd size="sm">{part}</Kbd>
               </Fragment>
             ))}
           </KbdGroup>
@@ -533,25 +536,27 @@ export function KeyboardShortcutsDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="up">
-      <DrawerContent className="overflow-hidden border-border/80 bg-background data-[swipe-direction=up]:mb-0 data-[swipe-direction=up]:h-dvh data-[swipe-direction=up]:max-h-dvh data-[swipe-direction=up]:rounded-b-none data-[swipe-direction=up]:border-b-0">
-        <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
-          <DrawerHeader className="shrink-0 gap-0 border-b border-border/65 bg-[linear-gradient(110deg,color-mix(in_oklch,var(--surface)_90%,var(--background)),var(--background))] px-5 py-4 !text-left md:px-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <Keyboard className="size-5 shrink-0 text-primary" />
-                <div className="min-w-0 text-left">
-                  <DrawerTitle className="font-heading truncate text-lg font-semibold leading-tight">
+      <DrawerContent className={sx(shortcutsDrawerStyles.content)}>
+        <div className={sx(shortcutsDrawerStyles.frame)}>
+          <DrawerHeader className={sx(shortcutsDrawerStyles.header)}>
+            <div className={sx(shortcutsDrawerStyles.headerRow)}>
+              <div className={sx(shortcutsDrawerStyles.headerTitleGroup)}>
+                <Keyboard className={sx(shortcutsDrawerStyles.headerIcon)} />
+                <div className={sx(shortcutsDrawerStyles.headerText)}>
+                  <DrawerTitle className={sx(shortcutsDrawerStyles.title)}>
                     Keyboard reference
                   </DrawerTitle>
-                  <DrawerDescription className="mt-0.5 truncate">
+                  <DrawerDescription
+                    className={sx(shortcutsDrawerStyles.description)}
+                  >
                     Search every active Stave shortcut and custom binding.
                   </DrawerDescription>
                 </div>
               </div>
-              <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:min-w-64">
-                <div className="relative min-w-0 flex-1">
+              <div className={sx(shortcutsDrawerStyles.searchGroup)}>
+                <div className={sx(shortcutsDrawerStyles.searchField)}>
                   <Search
-                    className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    className={sx(shortcutsDrawerStyles.searchIcon)}
                     aria-hidden="true"
                   />
                   <Input
@@ -559,58 +564,65 @@ export function KeyboardShortcutsDrawer({
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Find an action or key…"
                     aria-label="Search keyboard shortcuts"
-                    className="h-9 bg-background/55 pl-8 pr-8"
+                    xstyle={shortcutsDrawerStyles.searchInput}
                   />
                   {searchQuery ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-xs"
-                      className="absolute right-1.5 top-1/2 -translate-y-1/2"
+                      xstyle={shortcutsDrawerStyles.clearButton}
                       aria-label="Clear shortcut search"
                       onClick={() => setSearchQuery("")}
                     >
-                      <X className="size-3.5" />
+                      <X className={sx(shortcutsDrawerStyles.clearIcon)} />
                     </Button>
                   ) : null}
                 </div>
-                <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+                <span className={sx(shortcutsDrawerStyles.shownCount)}>
                   {visibleShortcutCount} shown
                 </span>
               </div>
             </div>
           </DrawerHeader>
-          <div className="grid min-h-0 flex-1 auto-rows-max content-start items-start gap-x-8 gap-y-7 overflow-y-auto overscroll-contain px-5 py-6 md:grid-cols-2 md:px-6 xl:grid-cols-3">
+          <div className={sx(shortcutsDrawerStyles.grid)}>
             {filteredSections.length > 0 ? (
               filteredSections.map((section) => (
                 <section
                   key={section.title}
-                  className="self-start border-t-2 border-primary/25"
+                  className={sx(shortcutsDrawerStyles.section)}
                 >
-                  <header className="px-1 py-3">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <h2 className="text-xs font-semibold tracking-[0.12em] text-foreground uppercase">
+                  <header className={sx(shortcutsDrawerStyles.sectionHeader)}>
+                    <div className={sx(shortcutsDrawerStyles.sectionHeaderRow)}>
+                      <h2 className={sx(shortcutsDrawerStyles.sectionTitle)}>
                         {section.title}
                       </h2>
-                      <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                      <span className={sx(shortcutsDrawerStyles.sectionCount)}>
                         {section.shortcuts.length}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    <p className={sx(shortcutsDrawerStyles.sectionDescription)}>
                       {section.description}
                     </p>
                   </header>
-                  <div className="border-b border-border/55">
+                  <div className={sx(shortcutsDrawerStyles.sectionList)}>
                     {section.shortcuts.map((shortcut) => (
                       <div
                         key={shortcut.label}
-                        className="flex flex-col gap-2 border-t border-border/55 px-1 py-3 transition-colors hover:bg-accent/12"
+                        className={sx(
+                          shortcutsDrawerStyles.shortcutRow,
+                          transition.colors,
+                        )}
                       >
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">
+                        <div className={sx(shortcutsDrawerStyles.shortcutText)}>
+                          <p className={sx(shortcutsDrawerStyles.shortcutLabel)}>
                             {shortcut.label}
                           </p>
-                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          <p
+                            className={sx(
+                              shortcutsDrawerStyles.shortcutDescription,
+                            )}
+                          >
                             {shortcut.description}
                           </p>
                         </div>
@@ -624,18 +636,18 @@ export function KeyboardShortcutsDrawer({
                 </section>
               ))
             ) : (
-              <div className="col-span-full py-20 text-center">
-                <p className="text-sm font-medium text-foreground">
+              <div className={sx(shortcutsDrawerStyles.emptyState)}>
+                <p className={sx(shortcutsDrawerStyles.emptyTitle)}>
                   No shortcut matches “{searchQuery.trim()}”
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className={sx(shortcutsDrawerStyles.emptyHint)}>
                   Try an action name, panel, or key combination.
                 </p>
               </div>
             )}
           </div>
-          <DrawerFooter className="mt-0 shrink-0 border-t border-border/70 px-5 py-4 md:flex-row md:items-start md:justify-between md:px-6">
-            <p className="max-w-4xl text-xs leading-5 text-muted-foreground">
+          <DrawerFooter className={sx(shortcutsDrawerStyles.footer)}>
+            <p className={sx(shortcutsDrawerStyles.footerNote)}>
               Showing {modifierLabel} bindings for this device. Customize shell,
               model, and preset shortcuts from Settings → Command Palette.
             </p>

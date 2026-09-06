@@ -1,3 +1,5 @@
+import { controlStyles, toolbarMarker, wingMarker, shelfMarker, menuMarker } from "./composer-control.stylex";
+import { sx } from "../ads/utils/stylex";
 import { createContext, useContext, type ReactNode } from "react";
 
 /**
@@ -20,32 +22,25 @@ export const composerControlAttributes = {
  * The one pill every composer control wears. It carries appearance plus the
  * in-card toolbar's geometry, which doubles as the fallback for a control
  * rendered outside any lane. Every other lane restates the size it wants in
- * `COMPOSER_CONTROL_LANE` and wins by descendant specificity.
+ * `COMPOSER_CONTROL_LANE` through StyleX ancestor conditions.
  */
-export const COMPOSER_CONTROL_BUTTON =
-  "h-9 gap-1.5 px-2.5 text-xs text-muted-foreground shadow-none hover:text-foreground";
+export const COMPOSER_CONTROL_BUTTON = sx(controlStyles.button);
 
 /**
  * Control geometry, stated once per lane instead of once per control.
  *
  * The same six-or-so controls are rendered in four places at three different
  * sizes, so size cannot live with the control — it belongs to wherever the
- * control is standing. Each entry is applied to the *container* and reaches
- * the buttons through `[data-composer-control]`, so a lane can never
+ * control is standing. Each marker is applied to the container and activates
+ * the shared control recipe, so a lane can never
  * accidentally resize the unrelated buttons (model selector, send, attach)
  * that share the row with it.
  */
 export const COMPOSER_CONTROL_LANE = {
-  /** In-card toolbar: full-size pills beside the model selector. */
-  toolbar:
-    "[&_[data-composer-control]]:h-9 [&_[data-composer-control]]:min-h-9 [&_[data-composer-control]]:gap-1.5 [&_[data-composer-control]]:px-2.5",
-  /** Side wing: 2rem rows that fill the reserved column width. */
-  wing: "[&_[data-composer-control]]:h-8 [&_[data-composer-control]]:min-h-8 [&_[data-composer-control]]:w-full [&_[data-composer-control]]:shrink-0 [&_[data-composer-control]]:gap-2 [&_[data-composer-control]]:px-2",
-  /** Bottom status shelf: 1.5rem chips, the tightest lane. */
-  shelf:
-    "[&_[data-composer-control]]:h-6 [&_[data-composer-control]]:min-h-6 [&_[data-composer-control]]:gap-1.5 [&_[data-composer-control]]:px-1.5 [&_[data-composer-control]]:text-xs",
-  /** Overflow menu: a stacked list, so every row is full width and left-aligned. */
-  menu: "[&_[data-composer-control]]:h-8 [&_[data-composer-control]]:min-h-8 [&_[data-composer-control]]:w-full [&_[data-composer-control]]:justify-start [&_[data-composer-control]]:gap-2 [&_[data-composer-control]]:px-2",
+  toolbar: sx(toolbarMarker),
+  wing: sx(wingMarker),
+  shelf: sx(shelfMarker),
+  menu: sx(menuMarker),
 } as const;
 
 const ComposerControlDensityContext =
@@ -81,7 +76,7 @@ export function ComposerControlLabel(props: {
   return (
     <span
       data-composer-control-label=""
-      className="pointer-events-none inline-flex min-w-0 flex-1 items-center gap-1.5 whitespace-nowrap text-xs opacity-0 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] group-data-[side=left]/composer-wing:-translate-x-1 group-data-[side=left]/composer-wing:justify-end group-data-[side=right]/composer-wing:translate-x-1 group-data-[side=right]/composer-wing:justify-start group-hover/composer-wing:translate-x-0 group-hover/composer-wing:opacity-100 group-focus-within/composer-wing:translate-x-0 group-focus-within/composer-wing:opacity-100 group-has-[[aria-expanded=true]]/composer-wing:translate-x-0 group-has-[[aria-expanded=true]]/composer-wing:opacity-100 motion-reduce:translate-x-0 motion-reduce:transition-opacity"
+      className={sx(controlStyles.wingLabel)}
     >
       {props.children}
     </span>

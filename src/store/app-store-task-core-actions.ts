@@ -217,7 +217,7 @@ export function createTaskCoreActions(args: {
       });
       // Reviewing a task in the task window is the normal way to clear its
       // turn outcomes; Fleet only mirrors what has not been looked at yet.
-      attentionSync.markTaskReviewed(taskId);
+      attentionSync.markTaskNotificationsRead(taskId);
       attentionSync.syncTaskInteractions({
         taskId,
         messages: stateBefore.messagesByTask[taskId] ?? [],

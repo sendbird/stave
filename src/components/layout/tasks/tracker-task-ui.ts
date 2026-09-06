@@ -46,36 +46,40 @@ export const TRACKER_PRIORITY_ICONS: Record<
  */
 export const TRACKER_LINK_STATE_PRESENTATION: Record<
   TrackerTaskLinkState,
-  { label: string; toneClassName: string; live: boolean }
+  {
+    label: string;
+    tone: "neutral" | "info" | "warning" | "success" | "danger";
+    live: boolean;
+  }
 > = {
   staged: {
     label: "Staged",
-    toneClassName: "border-border/75 bg-background/40 text-muted-foreground",
+    tone: "neutral",
     live: false,
   },
   running: {
     label: "Running",
-    toneClassName: "border-info/30 bg-info/10 text-info",
+    tone: "info",
     live: true,
   },
   needs_input: {
     label: "Needs you",
-    toneClassName: "border-warning/40 bg-warning/10 text-warning",
+    tone: "warning",
     live: true,
   },
   completed: {
-    label: "Done in Stave",
-    toneClassName: "border-success/30 bg-success/10 text-success",
+    label: "Run finished",
+    tone: "success",
     live: false,
   },
   failed: {
     label: "Failed",
-    toneClassName: "border-destructive/35 bg-destructive/10 text-destructive",
+    tone: "danger",
     live: false,
   },
   cancelled: {
     label: "Cancelled",
-    toneClassName: "border-border/60 bg-muted/50 text-muted-foreground",
+    tone: "neutral",
     live: false,
   },
 };
@@ -109,7 +113,9 @@ export function resolvePrimaryTrackerTaskLink(
     if (
       resolved < bestRank ||
       // Same state: the most recently touched run is the interesting one.
-      (resolved === bestRank && best !== null && link.updatedAt > best.updatedAt)
+      (resolved === bestRank &&
+        best !== null &&
+        link.updatedAt > best.updatedAt)
     ) {
       best = link;
       bestRank = resolved;

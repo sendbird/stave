@@ -394,6 +394,18 @@ test("the agent-opened session is parked by the product's own code path", async 
   expect(state.top).toBe("0px");
 });
 
+test("a parked guest captures while the host window is hidden without revealing it", async () => {
+  await stave.app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.hide(); });
+  try {
+    const { image } = await captureParkedGuest();
+    expectColor(pixelAtFraction(image, 0.25, 0.5), LEFT_A, "hidden host left half");
+    expectColor(pixelAtFraction(image, 0.75, 0.5), RIGHT_A, "hidden host right half");
+    expect(await stave.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isVisible())).toBe(false);
+  } finally {
+    await stave.app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows()[0]!.show(); });
+  }
+});
+
 test("Claim A: a parked guest answers stave_lens_screenshot with the page's pixels", async () => {
   /*
    * The claim, asserted against the shipping parked style with nothing poked.

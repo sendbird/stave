@@ -19,7 +19,7 @@
 
 ## Quick Start
 
-1. Open the `Automation Center` from the workflow icon in the global navigation
+1. Open the `Library` from the workflow icon in the global navigation
    bar at the top right, or press `Cmd/Ctrl+K` then `A`.
 2. Select `New automation`.
 3. Enter the automation name and complete task instructions.
@@ -35,11 +35,11 @@
 
 ### Entry Points
 
-- The Automation Center is a full-window surface, like Fleet View. It replaces
+- The Library is a full-window surface, like Fleet View. It replaces
   the main content column while the sidebar, top bar, and right rail stay in
   place. `Escape` or the header `X` closes it.
 - Open it from the workflow icon in the global navigation bar, from the command
-  palette (`Open Automation Center`), or with `Cmd/Ctrl+K` then `A`.
+  palette (`Open Library`), or with `Cmd/Ctrl+K` then `A`.
 - It remains available without selecting a task or workspace because automations
   can target any registered repository.
 

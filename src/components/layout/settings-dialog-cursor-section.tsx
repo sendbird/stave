@@ -4,6 +4,7 @@ import {
   buildCursorProviderModeSettingsPatch,
 } from "@/lib/providers/provider-mode-presets";
 import { useAppStore } from "@/store/app.store";
+import { sx } from "@/components/ads/utils/stylex";
 import { useShallow } from "zustand/react/shallow";
 import {
   ChoiceButtons,
@@ -12,6 +13,7 @@ import {
   SectionStack,
   SettingsCard,
 } from "./settings-dialog.shared";
+import { cursorSectionStyles } from "./settings-dialog-cursor-section.styles";
 
 const CURSOR_MODE_OPTIONS = [
   {
@@ -81,7 +83,7 @@ export function SettingsCursorSection() {
               })
             }
           />
-          <p className="text-xs text-muted-foreground">
+          <p className={sx(cursorSectionStyles.note)}>
             Guided uses Cursor's own Auto-review classifier, so which calls it
             runs unattended is decided by Cursor, not Stave. Worker runs always
             stay on Manual.
@@ -92,7 +94,7 @@ export function SettingsCursorSection() {
           description="Use Auto unless the connected runtime advertises another model identifier. Unsupported values fall back to the runtime default."
         >
           <DraftInput
-            className="h-10 rounded-md border-border/80 bg-background"
+            xstyle={cursorSectionStyles.field}
             value={modelCursor}
             placeholder="auto"
             onCommit={(value) =>
@@ -112,7 +114,7 @@ export function SettingsCursorSection() {
           description="Leave blank to use automatic discovery. The configured executable must support ACP and be signed in."
         >
           <DraftInput
-            className="h-10 rounded-md border-border/80 bg-background"
+            xstyle={cursorSectionStyles.field}
             value={cursorBinaryPath}
             placeholder="agent"
             onCommit={(value) =>

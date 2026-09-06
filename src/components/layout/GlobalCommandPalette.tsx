@@ -6,6 +6,8 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { ArrowUpDown, CornerDownLeft, Pin, PinOff } from "lucide-react";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   Badge,
   Button,
@@ -19,7 +21,6 @@ import {
   CommandShortcut,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
-import { cn } from "@/lib/utils";
 import {
   buildCommandPaletteGroups,
   recordRecentCommandPaletteAction,
@@ -28,6 +29,7 @@ import {
   type CommandPaletteRuntimeContext,
 } from "@/components/layout/command-palette-registry";
 import { useAppStore } from "@/store/app.store";
+import { commandPaletteStyles } from "./global-command-palette.styles";
 
 interface GlobalCommandPaletteProps {
   open: boolean;
@@ -133,11 +135,11 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       onOpenChange={args.onOpenChange}
       title="Command Palette"
       description="Run workspace commands, switch context, and open settings."
-      className="max-w-[44rem]"
+      className={sx(commandPaletteStyles.dialog)}
     >
       <Command
         key={args.open ? "open" : "closed"}
-        className="flex h-[min(74vh,36rem)] min-h-0 flex-col"
+        className={sx(commandPaletteStyles.frame)}
         shouldFilter={false}
         loop
         value={selectedActionId}
@@ -150,14 +152,14 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
           onValueChange={setQuery}
           placeholder="Find a command, task, workspace, or setting…"
         />
-        <CommandList className="min-h-0 max-h-none flex-1 px-2 py-2">
-          <CommandEmpty className="px-4 py-10 text-left">
-            <p className="text-sm font-medium text-foreground">
+        <CommandList className={sx(commandPaletteStyles.list)}>
+          <CommandEmpty className={sx(commandPaletteStyles.empty)}>
+            <p className={sx(commandPaletteStyles.emptyTitle)}>
               {query.trim()
                 ? `No command matches “${query.trim()}”`
                 : "No commands available in this context"}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className={sx(commandPaletteStyles.emptyHint)}>
               {query.trim()
                 ? "Try an action, destination, task, workspace, or a shorter phrase."
                 : "Open a project or task to make its contextual commands available."}
@@ -167,7 +169,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
             <CommandGroup
               key={section.key}
               heading={section.title}
-              className="py-1"
+              className={sx(commandPaletteStyles.group)}
             >
               {section.items.map((action) => {
                 const Icon = action.icon;
@@ -189,29 +191,34 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                       });
                       void action.run();
                     }}
-                    className="items-start gap-3 px-3 py-2.5"
+                    className={sx(commandPaletteStyles.item)}
                   >
                     {action.providerIcon ? (
-                      <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
+                      <div className={sx(commandPaletteStyles.itemIconBox)}>
                         <ModelIcon
                           providerId={action.providerIcon}
-                          className="size-4"
+                          className={sx(commandPaletteStyles.itemIcon)}
                         />
                       </div>
                     ) : Icon ? (
-                      <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-muted-foreground">
-                        <Icon className="size-4" />
+                      <div
+                        className={sx(
+                          commandPaletteStyles.itemIconBox,
+                          commandPaletteStyles.itemIconBoxMuted,
+                        )}
+                      >
+                        <Icon className={sx(commandPaletteStyles.itemIcon)} />
                       </div>
                     ) : null}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate font-medium text-foreground">
+                    <div className={sx(commandPaletteStyles.itemBody)}>
+                      <div className={sx(commandPaletteStyles.itemTitleRow)}>
+                        <span className={sx(commandPaletteStyles.itemTitle)}>
                           {action.title}
                         </span>
                         {action.source === "contributed" ? (
                           <Badge
                             variant="outline"
-                            className="h-4 px-1 text-[9px] tracking-[0.12em] uppercase"
+                            className={sx(commandPaletteStyles.extBadge)}
                           >
                             Ext
                           </Badge>
@@ -219,23 +226,21 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                         {action.contextLabel ? (
                           <Badge
                             variant="secondary"
-                            className="h-4 px-1.5 text-[9px] font-medium tracking-normal"
+                            className={sx(commandPaletteStyles.contextBadge)}
                           >
                             {action.contextLabel}
                           </Badge>
                         ) : null}
                       </div>
                       {action.subtitle ? (
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        <p className={sx(commandPaletteStyles.itemSubtitle)}>
                           {action.subtitle}
                         </p>
                       ) : null}
                     </div>
                     {action.shortcut ? (
                       <CommandShortcut
-                        className={cn(
-                          "mt-0.5 whitespace-nowrap font-mono text-[10px] tracking-normal",
-                        )}
+                        className={sx(commandPaletteStyles.itemShortcut)}
                       >
                         {action.shortcut}
                       </CommandShortcut>
@@ -246,23 +251,29 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
             </CommandGroup>
           ))}
         </CommandList>
-        <div className="flex h-11 shrink-0 items-center justify-between gap-3 border-t border-border/60 px-3 text-[11px] text-muted-foreground">
-          <span className="flex min-w-0 items-center gap-3">
-            <span className="inline-flex items-center gap-1.5">
-              <ArrowUpDown className="size-3" aria-hidden="true" />
+        <div className={sx(commandPaletteStyles.footer)}>
+          <span className={sx(commandPaletteStyles.footerGroup)}>
+            <span className={sx(commandPaletteStyles.footerHint)}>
+              <ArrowUpDown
+                className={sx(commandPaletteStyles.footerIcon)}
+                aria-hidden="true"
+              />
               Navigate
             </span>
-            <span className="inline-flex items-center gap-1.5">
-              <CornerDownLeft className="size-3" aria-hidden="true" />
+            <span className={sx(commandPaletteStyles.footerHint)}>
+              <CornerDownLeft
+                className={sx(commandPaletteStyles.footerIcon)}
+                aria-hidden="true"
+              />
               Run
             </span>
           </span>
-          <span className="flex min-w-0 items-center gap-2">
+          <span className={sx(commandPaletteStyles.footerGroupTight)}>
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 max-w-56 gap-1.5 px-2 text-[11px] text-muted-foreground"
+              xstyle={commandPaletteStyles.pinButton}
               disabled={!selectedActionCanBePinned}
               onClick={toggleSelectedActionPin}
               aria-keyshortcuts="Alt+P"
@@ -280,30 +291,36 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               }
             >
               {selectedActionIsPinned ? (
-                <PinOff className="size-3" aria-hidden="true" />
+                <PinOff
+                  className={sx(commandPaletteStyles.footerIcon)}
+                  aria-hidden="true"
+                />
               ) : (
-                <Pin className="size-3" aria-hidden="true" />
+                <Pin
+                  className={sx(commandPaletteStyles.footerIcon)}
+                  aria-hidden="true"
+                />
               )}
-              <span className="truncate">
+              <span className={sx(commandPaletteStyles.pinLabel)}>
                 {selectedActionIsPinned ? "Unpin" : "Pin"}
               </span>
               <kbd
-                className="ml-0.5 font-mono text-[9px] text-muted-foreground/75"
+                className={sx(commandPaletteStyles.pinKeyHint)}
                 aria-hidden="true"
               >
                 Alt+P
               </kbd>
             </Button>
-            <span className="shrink-0 tabular-nums">
+            <span className={sx(commandPaletteStyles.resultCount)}>
               {query.trim()
                 ? `${resultCount} result${resultCount === 1 ? "" : "s"}`
                 : `${actionCount} available`}
             </span>
           </span>
         </div>
-        <span className="sr-only" role="status" aria-live="polite">
+        <VisuallyHidden role="status" aria-live="polite">
           {pinAnnouncement}
-        </span>
+        </VisuallyHidden>
       </Command>
     </CommandDialog>
   );

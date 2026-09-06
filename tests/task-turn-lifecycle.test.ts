@@ -55,6 +55,8 @@ describe("interruptWorkspaceTurnsBeforeTransition", () => {
           },
         },
         persistence: {
+          listWorkspaces: async () => ({ ok: true, workspaces: [] }),
+          loadWorkspace: async () => ({ ok: true, workspace: null }),
           upsertWorkspace: async () => ({ ok: true }),
         },
       },

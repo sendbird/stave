@@ -53,7 +53,9 @@ import {
   type PromptTokenParseOptions,
 } from "@/lib/prompt-token-chips";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
-import { cn } from "@/lib/utils";
+import { coreStyles } from "./ai-element-core.styles";
+import { lexicalEditorStyles } from "./prompt-lexical-editor.styles";
+import { cx, sx } from "../ads/utils/stylex";
 import { registerPromptLexicalPreventedEnterCommand } from "./prompt-lexical-editor.commands";
 import { PromptTokenChip } from "./prompt-token-chip";
 
@@ -138,7 +140,7 @@ class PromptTokenNode extends DecoratorNode<ReactNode> {
 
   createDOM(): HTMLElement {
     const element = document.createElement("span");
-    element.className = "inline-flex align-baseline";
+    element.className = sx(coreStyles.inlineToken);
     return element;
   }
 
@@ -158,7 +160,7 @@ class PromptTokenNode extends DecoratorNode<ReactNode> {
       <PromptTokenChip
         descriptor={this.__descriptor}
         compact
-        className="mx-0.5"
+        className={sx(coreStyles.tokenMargin)}
       />
     );
   }
@@ -773,17 +775,14 @@ export const PromptLexicalEditor = forwardRef<
 
   return (
     <LexicalComposer initialConfig={initialConfig}>
-      <div className="relative min-w-0">
+      <div className={sx(lexicalEditorStyles.wrapper)}>
         <PlainTextPlugin
           contentEditable={
             <ContentEditable
               aria-label="Prompt"
               aria-multiline="true"
               aria-disabled={props.disabled}
-              className={cn(
-                "whitespace-pre-wrap break-words [overflow-wrap:anywhere] outline-none",
-                props.className,
-              )}
+              className={cx(sx(lexicalEditorStyles.editable), props.className)}
               data-prompt-lexical-editor="true"
               onBlur={props.onBlur}
               onFocus={props.onFocus}
@@ -796,11 +795,11 @@ export const PromptLexicalEditor = forwardRef<
             placeholder ? (
               <div
                 data-prompt-lexical-placeholder="true"
-                className={cn(
-                  "pointer-events-none absolute left-0 top-0 select-none",
+                className={sx(
+                  lexicalEditorStyles.placeholder,
                   props.minimal
-                    ? "font-mono text-[15px] leading-7 text-muted-foreground"
-                    : "text-[15px] font-normal leading-6 tracking-normal text-muted-foreground/75",
+                    ? lexicalEditorStyles.placeholderMinimal
+                    : lexicalEditorStyles.placeholderDefault,
                 )}
               >
                 {placeholder}

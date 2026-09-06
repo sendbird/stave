@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ChevronDown,
   ChevronRight,
@@ -42,7 +43,9 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import type { WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
+import { sx } from "@/components/ads/utils/stylex";
 import { ExplorerEntryIcon } from "./explorer-entry-icon";
+import { explorerStyles } from "./workspace-explorer.styles";
 
 interface ExplorerDirectoryState {
   status: "idle" | "loading" | "ready" | "error";
@@ -79,7 +82,7 @@ function highlightMatch(text: string, query: string) {
   return (
     <>
       {text.slice(0, index)}
-      <span className="bg-yellow-300/40 text-foreground font-medium">
+      <span className={sx(explorerStyles.matchHit)}>
         {text.slice(index, index + query.length)}
       </span>
       {text.slice(index + query.length)}
@@ -259,10 +262,10 @@ function ExplorerSearchPanel(props: {
   const queryLineCount = Math.max(1, query.split(/\r\n?|\n/).length);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="px-2 pb-1">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-3 size-3.5 text-muted-foreground" />
+    <div className={sx(explorerStyles.searchRoot)}>
+      <div className={sx(explorerStyles.searchField)}>
+        <div className={sx(explorerStyles.searchAnchor)}>
+          <Search className={sx(explorerStyles.searchIcon)} />
           <Textarea
             ref={searchInputRef}
             data-explorer-search-input
@@ -288,7 +291,7 @@ function ExplorerSearchPanel(props: {
               6,
               Math.max(1, isMultilineQuery ? queryLineCount : 1),
             )}
-            className="min-h-0 resize-none rounded-sm border-border/80 bg-background pl-8 pr-9 py-2 text-sm leading-5"
+            xstyle={explorerStyles.searchInput}
             placeholder="Search in files or paste a code block..."
             autoFocus
           />
@@ -298,13 +301,13 @@ function ExplorerSearchPanel(props: {
               variant="ghost"
               size="sm"
               onClick={handleClear}
-              className="absolute right-1.5 top-1.5 h-6 w-6 rounded-sm p-0 text-muted-foreground hover:text-foreground"
+              xstyle={explorerStyles.searchClear}
             >
-              <X className="size-3.5" />
+              <X className={sx(explorerStyles.searchClearIcon)} />
             </Button>
           ) : null}
         </div>
-        <p className="px-0.5 pt-1 text-[11px] leading-4 text-muted-foreground">
+        <p className={sx(explorerStyles.searchHint)}>
           {isMultilineQuery
             ? "Exact multiline search enabled. Press Cmd/Ctrl+Enter to run immediately."
             : "Type to search. Paste multiple lines to search an exact code block."}
@@ -312,85 +315,87 @@ function ExplorerSearchPanel(props: {
       </div>
 
       {isSearching ? (
-        <p className="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground">
+        <p className={sx(explorerStyles.searchStatus)}>
           <Loader aria-hidden size="xs" variant="scan" />
           Searching...
         </p>
       ) : null}
 
       {!isSearching && hasSearched && results.length === 0 && !error ? (
-        <p className="px-2 py-2 text-sm text-muted-foreground">
-          No results found.
-        </p>
+        <p className={sx(explorerStyles.searchEmpty)}>No results found.</p>
       ) : null}
 
       {error ? (
-        <p className="px-2 py-2 text-sm text-destructive">{error}</p>
+        <p className={sx(explorerStyles.searchError)}>{error}</p>
       ) : null}
 
       {!isSearching && results.length > 0 ? (
         <>
-          <p className="px-2 pb-1 text-xs text-muted-foreground">
+          <p className={sx(explorerStyles.searchCount)}>
             {totalMatches.toLocaleString()} match
             {totalMatches !== 1 ? "es" : ""} in{" "}
             {results.length.toLocaleString()} file
             {results.length !== 1 ? "s" : ""}
             {limitHit ? " (result limit reached)" : ""}
           </p>
-          <div className="min-h-0 flex-1 bg-sidebar">
+          <div className={sx(explorerStyles.searchResults)}>
             <Virtuoso
               totalCount={flatRows.length}
               increaseViewportBy={1200}
-              className="[&>div]:bg-sidebar"
+              className={sx(explorerStyles.searchScroller)}
               itemContent={(index) => {
                 const row = flatRows[index];
                 if (!row) return null;
                 if (row.kind === "file") {
                   const isCollapsed = collapsedFiles.has(row.file);
                   return (
-                    <button
+                    <AdsButton
+                      layout="host"
                       type="button"
                       onClick={() => toggleFileCollapse(row.file)}
-                      className="flex h-7 w-full min-w-0 items-center gap-1.5 rounded-sm px-1.5 text-left text-sm hover:bg-secondary/60"
+                      xstyle={explorerStyles.resultFileRow}
                     >
                       {isCollapsed ? (
-                        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
+                        <ChevronRight
+                          className={sx(explorerStyles.resultIcon)}
+                        />
                       ) : (
-                        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+                        <ChevronDown className={sx(explorerStyles.resultIcon)} />
                       )}
-                      <File className="size-3.5 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate font-medium">
+                      <File className={sx(explorerStyles.resultIcon)} />
+                      <span className={sx(explorerStyles.resultFileName)}>
                         {row.fileName}
                       </span>
                       {row.dirPath ? (
-                        <span className="shrink-0 text-xs text-muted-foreground">
+                        <span className={sx(explorerStyles.resultDirPath)}>
                           {row.dirPath}
                         </span>
                       ) : null}
-                      <span className="ml-1 shrink-0 rounded-full bg-muted px-1.5 text-xs text-muted-foreground">
+                      <span className={sx(explorerStyles.resultCount)}>
                         {row.matchCount}
                       </span>
-                    </button>
+                    </AdsButton>
                   );
                 }
                 return (
-                  <button
+                  <AdsButton
+                    layout="host"
                     type="button"
                     onClick={() => props.onOpenFile(row.file, row.line)}
-                    className="flex w-full min-w-0 items-start gap-2 rounded-sm px-1.5 py-1.5 text-left hover:bg-secondary/60"
+                    xstyle={explorerStyles.resultMatchRow}
                     style={{ paddingLeft: "24px" }}
                   >
-                    <span className="mt-0.5 shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                    <span className={sx(explorerStyles.resultLineNumber)}>
                       {row.lineCount > 1
                         ? `${row.line}-${row.line + row.lineCount - 1}`
                         : row.line}
                     </span>
-                    <span className="min-w-0 flex-1 whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-muted-foreground">
+                    <span className={sx(explorerStyles.resultText)}>
                       {row.lineCount > 1 || isMultilineQuery
                         ? row.text
                         : highlightMatch(row.text, normalizedQuery)}
                     </span>
-                  </button>
+                  </AdsButton>
                 );
               }}
             />
@@ -436,102 +441,105 @@ function ExplorerTreeRow(args: {
       <ContextMenu>
         <ContextMenuTrigger
           render={
-            <button
+            <AdsButton
+              layout="host"
               type="button"
               onClick={() =>
                 isFolder
                   ? args.onToggle(args.entry.path)
                   : args.onOpenFile(args.entry.path)
               }
-              className="flex min-w-0 w-full items-center gap-1 rounded-sm px-1.5 py-1 text-left text-sm hover:bg-secondary/60"
+              xstyle={explorerStyles.treeRow}
               style={{ paddingLeft: `${6 + args.depth * 14}px` }}
             />
           }
         >
           {isFolder ? (
             isOpen ? (
-              <ChevronDown className="size-3.5 text-muted-foreground" />
+              <ChevronDown className={sx(explorerStyles.chevron)} />
             ) : (
-              <ChevronRight className="size-3.5 text-muted-foreground" />
+              <ChevronRight className={sx(explorerStyles.chevron)} />
             )
           ) : (
-            <span className="inline-block w-3.5" />
+            <span className={sx(explorerStyles.chevronSpacer)} />
           )}
           <ExplorerEntryIcon entry={args.entry} isOpen={isOpen} />
-          <span className="min-w-0 flex-1 truncate">{args.entry.name}</span>
+          <span className={sx(explorerStyles.entryName)}>
+            {args.entry.name}
+          </span>
           {isFolder && directoryState?.status === "loading" ? (
             <Loader
               aria-hidden
-              className="shrink-0 text-muted-foreground"
+              className={sx(explorerStyles.rowLoader)}
               size="xs"
               variant="scan"
             />
           ) : null}
         </ContextMenuTrigger>
-        <ContextMenuContent className="w-56">
+        <ContextMenuContent className={sx(explorerStyles.menu)}>
           {isFolder ? (
             <ContextMenuItem onSelect={() => args.onToggle(args.entry.path)}>
               {isOpen ? (
-                <ChevronDown className="size-4" />
+                <ChevronDown className={sx(explorerStyles.menuIcon)} />
               ) : (
-                <ChevronRight className="size-4" />
+                <ChevronRight className={sx(explorerStyles.menuIcon)} />
               )}
               {isOpen ? "Collapse folder" : "Expand folder"}
             </ContextMenuItem>
           ) : (
             <ContextMenuItem onSelect={() => args.onOpenFile(args.entry.path)}>
-              <File className="size-4" />
+              <File className={sx(explorerStyles.menuIcon)} />
               Open file
             </ContextMenuItem>
           )}
           <ContextMenuItem
             onSelect={() => args.onStartCreateFile(parentDirectoryPath)}
           >
-            <FilePlus className="size-4" />
+            <FilePlus className={sx(explorerStyles.menuIcon)} />
             New file here
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onStartCreateFolder(parentDirectoryPath)}
           >
-            <FolderPlus className="size-4" />
+            <FolderPlus className={sx(explorerStyles.menuIcon)} />
             New folder here
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => args.onCopyRelativePath(args.entry.path)}
           >
-            <Copy className="size-4" />
+            <Copy className={sx(explorerStyles.menuIcon)} />
             Copy relative path
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onCopyAbsolutePath(args.entry.path)}
           >
-            <Copy className="size-4" />
+            <Copy className={sx(explorerStyles.menuIcon)} />
             Copy absolute path
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => args.onOpenInFinder(args.entry.path)}
           >
-            <FolderOpen className="size-4" />
+            <FolderOpen className={sx(explorerStyles.menuIcon)} />
             Open in Finder
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onOpenInVSCode(args.entry.path)}
           >
-            <VSCodeIcon className="size-4" />
+            <VSCodeIcon className={sx(explorerStyles.menuIcon)} />
             Open in VS Code
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onOpenInGhostty(terminalTargetPath)}
           >
-            <GhosttyIcon className="size-4" />
+            <GhosttyIcon className={sx(explorerStyles.menuIcon)} />
             Open in Ghostty
           </ContextMenuItem>
           <ContextMenuItem
             onSelect={() => args.onOpenInTerminal(terminalTargetPath)}
           >
-            <SquareTerminal className="size-4" />
+            <SquareTerminal className={sx(explorerStyles.menuIcon)} />
             Open in Terminal
           </ContextMenuItem>
           {isFolder ? (
@@ -540,7 +548,7 @@ function ExplorerTreeRow(args: {
               <ContextMenuItem
                 onSelect={() => args.onRefreshDirectory(args.entry.path)}
               >
-                <RefreshCcw className="size-4" />
+                <RefreshCcw className={sx(explorerStyles.menuIcon)} />
                 Refresh folder
               </ContextMenuItem>
             </>
@@ -554,7 +562,7 @@ function ExplorerTreeRow(args: {
                 : args.onRequestDeleteFile(args.entry.path, args.entry.name)
             }
           >
-            <Trash2 className="size-4" />
+            <Trash2 className={sx(explorerStyles.menuIcon)} />
             {isFolder ? "Delete folder" : "Delete file"}
           </ContextMenuItem>
         </ContextMenuContent>
@@ -563,7 +571,7 @@ function ExplorerTreeRow(args: {
         <>
           {directoryState?.status === "error" ? (
             <p
-              className="py-1 text-sm text-destructive"
+              className={sx(explorerStyles.childError)}
               style={{ paddingLeft: `${24 + args.depth * 14}px` }}
             >
               {directoryState.error ?? "Failed to load folder."}
@@ -571,7 +579,7 @@ function ExplorerTreeRow(args: {
           ) : null}
           {directoryState?.status === "ready" && childEntries.length === 0 ? (
             <p
-              className="py-1 text-sm text-muted-foreground"
+              className={sx(explorerStyles.childEmpty)}
               style={{ paddingLeft: `${24 + args.depth * 14}px` }}
             >
               Empty
@@ -650,12 +658,10 @@ export function WorkspaceExplorerPanel(props: {
   }, [props.searchRequestNonce]);
 
   return (
-    <div className="flex min-h-0 h-full flex-col px-3 py-2">
-      <div className="mb-1 flex shrink-0 items-center justify-between gap-2">
-        <p className="truncate text-sm text-muted-foreground">
-          {props.projectName}
-        </p>
-        <div className="flex items-center gap-1">
+    <div className={sx(explorerStyles.root)}>
+      <div className={sx(explorerStyles.header)}>
+        <p className={sx(explorerStyles.projectName)}>{props.projectName}</p>
+        <div className={sx(explorerStyles.headerActions)}>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger
@@ -664,7 +670,10 @@ export function WorkspaceExplorerPanel(props: {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className={`h-7 w-7 rounded-sm p-0 ${showSearch ? "bg-secondary text-foreground" : "text-muted-foreground"}`}
+                    xstyle={[
+                      explorerStyles.toolButton,
+                      showSearch && explorerStyles.toolButtonActive,
+                    ]}
                     onClick={() => {
                       if (showSearch) {
                         setShowSearch(false);
@@ -676,7 +685,7 @@ export function WorkspaceExplorerPanel(props: {
                   />
                 }
               >
-                <Search className="size-4" />
+                <Search className={sx(explorerStyles.toolIcon)} />
               </TooltipTrigger>
               <TooltipContent side="bottom">Search in files</TooltipContent>
             </Tooltip>
@@ -687,12 +696,12 @@ export function WorkspaceExplorerPanel(props: {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    xstyle={explorerStyles.toolButton}
                     onClick={() => props.onStartExplorerCreate("file")}
                   />
                 }
               >
-                <FilePlus className="size-4" />
+                <FilePlus className={sx(explorerStyles.menuIcon)} />
               </TooltipTrigger>
               <TooltipContent side="bottom">Add file</TooltipContent>
             </Tooltip>
@@ -703,12 +712,12 @@ export function WorkspaceExplorerPanel(props: {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    xstyle={explorerStyles.toolButton}
                     onClick={() => props.onStartExplorerCreate("folder")}
                   />
                 }
               >
-                <FolderPlus className="size-4" />
+                <FolderPlus className={sx(explorerStyles.menuIcon)} />
               </TooltipTrigger>
               <TooltipContent side="bottom">Add folder</TooltipContent>
             </Tooltip>
@@ -719,12 +728,12 @@ export function WorkspaceExplorerPanel(props: {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    xstyle={explorerStyles.toolButton}
                     onClick={props.onCollapseAllFolders}
                   />
                 }
               >
-                <ChevronsUp className="size-4" />
+                <ChevronsUp className={sx(explorerStyles.toolIcon)} />
               </TooltipTrigger>
               <TooltipContent side="bottom">Collapse all</TooltipContent>
             </Tooltip>
@@ -735,12 +744,12 @@ export function WorkspaceExplorerPanel(props: {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 rounded-sm p-0 text-muted-foreground"
+                    xstyle={explorerStyles.toolButton}
                     onClick={() => void props.onExpandAllFolders()}
                   />
                 }
               >
-                <ChevronsDown className="size-4" />
+                <ChevronsDown className={sx(explorerStyles.toolIcon)} />
               </TooltipTrigger>
               <TooltipContent side="bottom">Expand all</TooltipContent>
             </Tooltip>
@@ -749,7 +758,7 @@ export function WorkspaceExplorerPanel(props: {
       </div>
 
       {showSearch ? (
-        <div className="mb-2 min-h-0 flex-1">
+        <div className={sx(explorerStyles.searchSlot)}>
           <ExplorerSearchPanel
             focusRequestNonce={searchFocusNonce}
             workspaceCwd={props.workspaceCwd}
@@ -759,25 +768,25 @@ export function WorkspaceExplorerPanel(props: {
       ) : null}
 
       {!showSearch && props.explorerError ? (
-        <p className="mb-1 shrink-0 text-sm text-destructive">
+        <p className={sx(explorerStyles.panelError)}>
           {props.explorerError}
         </p>
       ) : null}
       {!showSearch ? (
-        <div className="min-h-0 flex-1 space-y-1 overflow-auto">
+        <div className={sx(explorerStyles.tree)}>
           {props.pendingExplorerCreate ? (
             <form
-              className="rounded-sm border border-border/80 bg-muted/40 px-2 py-2"
+              className={sx(explorerStyles.createForm)}
               onSubmit={(event) => {
                 event.preventDefault();
                 void props.onSubmitExplorerCreate();
               }}
             >
-              <div className="flex items-center gap-2">
+              <div className={sx(explorerStyles.createRow)}>
                 {props.pendingExplorerCreate.type === "file" ? (
-                  <FilePlus className="size-4 shrink-0 text-muted-foreground" />
+                  <FilePlus className={sx(explorerStyles.createIcon)} />
                 ) : (
-                  <FolderPlus className="size-4 shrink-0 text-muted-foreground" />
+                  <FolderPlus className={sx(explorerStyles.createIcon)} />
                 )}
                 <Input
                   ref={props.pendingExplorerCreateInputRef}
@@ -791,7 +800,7 @@ export function WorkspaceExplorerPanel(props: {
                       props.onCancelExplorerCreate();
                     }
                   }}
-                  className="h-8 rounded-sm border-border/80 bg-background px-2 text-sm"
+                  xstyle={explorerStyles.createInput}
                   placeholder={props.pendingExplorerCreate.placeholder}
                   aria-label={
                     props.pendingExplorerCreate.type === "file"
@@ -803,7 +812,7 @@ export function WorkspaceExplorerPanel(props: {
                 <Button
                   type="submit"
                   size="sm"
-                  className="h-8 rounded-sm"
+                  xstyle={explorerStyles.createSubmit}
                   disabled={props.isCreatingExplorerEntry}
                 >
                   {props.isCreatingExplorerEntry ? "Creating..." : "Create"}
@@ -812,21 +821,21 @@ export function WorkspaceExplorerPanel(props: {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-8 rounded-sm px-2 text-muted-foreground"
+                  xstyle={explorerStyles.createCancel}
                   onClick={props.onCancelExplorerCreate}
                   disabled={props.isCreatingExplorerEntry}
                 >
                   Cancel
                 </Button>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className={sx(explorerStyles.createHint)}>
                 Enter a path relative to the project root. Press Enter to create
                 or Esc to cancel.
               </p>
             </form>
           ) : null}
           {props.isExplorerLoading && props.explorerTree.length === 0 ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <p className={sx(explorerStyles.statusLine)}>
               <Loader aria-hidden size="xs" variant="scan" />
               Loading files...
             </p>
@@ -834,7 +843,7 @@ export function WorkspaceExplorerPanel(props: {
           {!props.explorerError &&
           !props.isExplorerLoading &&
           props.explorerTree.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No files found.</p>
+            <p className={sx(explorerStyles.emptyLine)}>No files found.</p>
           ) : null}
           {props.explorerTree.map((entry) => (
             <ExplorerTreeRow

@@ -454,7 +454,8 @@ function toJsonMcpShareDraft(
 
 /** Creates a native JSON MCP adapter for providers with user/project files. */
 export function createJsonMcpConfigManagement(profile: JsonMcpConfigProfile) {
-  function assertMutationShape(args: McpServerConfigMutationRequest) {
+  function assertMutationShape(args: McpServerConfigMutationRequest): asserts args is McpServerConfigMutationRequest & { operation: "create" | "update" | "delete" } {
+    if (args.operation === "share") throw new Error("Sharing uses the dedicated MCP sharing flow.");
     if (args.operation === "create") {
       if (!args.draft || args.target) {
         throw new Error("Create requires a new MCP server configuration.");

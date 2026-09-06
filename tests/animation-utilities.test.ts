@@ -1,86 +1,151 @@
 import { describe, expect, it } from "bun:test";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Tailwind v4 only generates variant forms (`motion-safe:`, `hover:`, …) for
- * utilities it knows about. A hand-written `.animate-foo` rule inside
- * `@layer utilities` is *not* registered, so `motion-safe:animate-foo` compiles
- * to nothing at all and the animation silently never runs — which is exactly how
- * the agent trace motion shipped broken once. Custom animation utilities must be
- * declared with `@utility` instead.
+ * `src/globals.css` is now plain CSS: the Tailwind build plugin and dependency
+ * are gone, so any Tailwind-only authoring directive left in the sheet would
+ * ship raw into the bundle and be silently dropped by the browser.
+ *
+ * App motion itself no longer lives here — it is authored as local
+ * `stylex.keyframes` inside the owning `*.styles.ts` module — so this file no
+ * longer asserts a list of `.animate-*` classes. What it guards instead:
+ *
+ *  - No Tailwind-only authoring construct (`@utility`, `@apply`,
+ *    `@custom-variant`, `@theme`, `@source`, `@plugin`, the `theme()`
+ *    function, or the `tailwindcss` / `tw-animate-css` / `shadcn` imports)
+ *    survives in the app stylesheet.
+ *  - Every animation the sheet still references resolves to a `@keyframes`
+ *    that exists, so a global rule can never animate a missing name.
+ *  - Every `@keyframes` the sheet still defines has a real consumer, so the
+ *    dead-code pile the migration cleared cannot quietly grow back.
+ *  - The canonical cascade layer order is declared ahead of `@import`, byte
+ *    identical to the `#stave-style-layers` block in `index.html`.
  */
 
-const CSS_PATH = join(import.meta.dir, "..", "src", "globals.css");
+const ROOT = join(import.meta.dir, "..");
+const CSS_PATH = join(ROOT, "src", "globals.css");
 const css = readFileSync(CSS_PATH, "utf8");
+const html = readFileSync(join(ROOT, "index.html"), "utf8");
 
-function collectSourceFiles(dir: string, out: string[] = []): string[] {
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) {
-      collectSourceFiles(full, out);
-    } else if (/\.tsx?$/.test(entry)) {
-      out.push(full);
-    }
-  }
-  return out;
+/** Strip CSS block comments so historical mentions in prose never match. */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
-describe("custom animation utilities", () => {
-  it("declares every animate-* utility with @utility, not inside @layer", () => {
-    const layerBlocks = css.match(/@layer\s+utilities\s*\{[\s\S]*?\n\}/g) ?? [];
-    const offenders = layerBlocks.flatMap((block) =>
-      [...block.matchAll(/^\s*\.(animate-[a-z0-9-]+)\s*\{/gm)].map((match) => match[1]),
-    );
+const code = stripComments(css);
+
+/** `animation:` values that name a behaviour rather than a `@keyframes`. */
+const ANIMATION_KEYWORDS = new Set([
+  "none",
+  "inherit",
+  "initial",
+  "unset",
+  "revert",
+  "revert-layer",
+]);
+
+function definedKeyframes(source: string): Set<string> {
+  return new Set(
+    [...source.matchAll(/@keyframes\s+([a-zA-Z0-9_-]+)/g)].map(
+      (match) => match[1]!,
+    ),
+  );
+}
+
+/**
+ * Names referenced by `animation:` / `animation-name:` declarations. The
+ * shorthand puts the name first in every declaration this sheet authors, so
+ * the leading identifier is the reference unless it is a bare keyword.
+ */
+function referencedKeyframes(source: string): Set<string> {
+  const names = new Set<string>();
+  for (const match of source.matchAll(
+    /animation(?:-name)?:\s*([a-zA-Z0-9_-]+)/g,
+  )) {
+    const name = match[1]!;
+    if (!ANIMATION_KEYWORDS.has(name)) names.add(name);
+  }
+  return names;
+}
+
+/** Global `@keyframes` names StyleX modules reach by string literal. */
+function sourceAnimationNames(): Set<string> {
+  const names = new Set<string>();
+  for (const relative of readdirSync(join(ROOT, "src"), { recursive: true })) {
+    const path = String(relative);
+    if (!/\.(ts|tsx|css)$/.test(path) || path === "globals.css") continue;
+    const source = readFileSync(join(ROOT, "src", path), "utf8");
+    for (const match of source.matchAll(
+      /animationName:\s*["'`]([a-zA-Z0-9_-]+)["'`]/g,
+    )) {
+      names.add(match[1]!);
+    }
+    for (const match of source.matchAll(
+      /animation(?:-name)?:\s*([a-zA-Z0-9_-]+)/g,
+    )) {
+      const name = match[1]!;
+      if (!ANIMATION_KEYWORDS.has(name)) names.add(name);
+    }
+  }
+  return names;
+}
+
+describe("globals.css is plain CSS", () => {
+  it("contains no Tailwind-only authoring constructs", () => {
+    const forbidden = [
+      /@utility\b/,
+      /@apply\b/,
+      /@custom-variant\b/,
+      /@theme\b/,
+      /@variant\b/,
+      /@source\b/,
+      /@plugin\b/,
+      /@config\b/,
+      /\btheme\(/,
+      /@import\s+["']tailwindcss["']/,
+      /@import\s+["']tw-animate-css["']/,
+      /@import\s+["']shadcn\//,
+    ];
+    const offenders = forbidden
+      .filter((pattern) => pattern.test(code))
+      .map((pattern) => pattern.source);
     expect(offenders).toEqual([]);
   });
 
-  it("registers every variant-prefixed animate-* class used in src", () => {
-    const registered = new Set(
-      [...css.matchAll(/@utility\s+(animate-[a-z0-9-]+)\s*\{/g)].map((match) => match[1]!),
+  it("declares the canonical layer order ahead of every @import", () => {
+    const layerOrder = /@layer reset, theme, base, priority1[^;]+;/;
+    const fromHtml = html.match(layerOrder)?.[0];
+    expect(fromHtml).toBeTruthy();
+    expect(code.match(layerOrder)?.[0]).toBe(fromHtml!);
+
+    // A name-only `@layer` statement is the one at-rule the spec allows before
+    // `@import`; placing it after the imports would append these layers behind
+    // whatever the imported sheets declare and invert the intended order.
+    const statementIndex = code.indexOf(fromHtml!);
+    const firstImport = code.indexOf("@import");
+    expect(statementIndex).toBeGreaterThanOrEqual(0);
+    expect(firstImport).toBeGreaterThan(statementIndex);
+  });
+});
+
+describe("global keyframes", () => {
+  it("resolves every animation the stylesheet references", () => {
+    const defined = definedKeyframes(code);
+    const missing = [...referencedKeyframes(code)].filter(
+      (name) => !defined.has(name),
     );
-    /*
-     * Registered by Tailwind core or by `tw-animate-css` as `--animate-*` theme
-     * entries, so their variant forms are generated without a local `@utility`.
-     */
-    const builtin = new Set([
-      "animate-spin",
-      "animate-pulse",
-      "animate-bounce",
-      "animate-ping",
-      "animate-in",
-      "animate-out",
-    ]);
-
-    const missing = new Map<string, string[]>();
-    for (const file of collectSourceFiles(join(import.meta.dir, "..", "src"))) {
-      const source = readFileSync(file, "utf8");
-      for (const match of source.matchAll(/[a-z-]+:(animate-[a-z0-9-]+)/g)) {
-        const name = match[1]!;
-        if (registered.has(name) || builtin.has(name)) continue;
-        /* `animate-none` is a core utility, not a keyframe animation. */
-        if (name === "animate-none") continue;
-        const existing = missing.get(name) ?? [];
-        existing.push(file.replace(`${join(import.meta.dir, "..")}/`, ""));
-        missing.set(name, existing);
-      }
-    }
-
-    expect(Object.fromEntries(missing)).toEqual({});
+    expect(missing).toEqual([]);
   });
 
-  it("keeps a @keyframes definition for every declared animation utility", () => {
-    const keyframes = new Set(
-      [...css.matchAll(/@keyframes\s+([a-z0-9-]+)/g)].map((match) => match[1]!),
+  it("keeps a consumer for every keyframes it still defines", () => {
+    const consumed = new Set([
+      ...referencedKeyframes(code),
+      ...sourceAnimationNames(),
+    ]);
+    const orphaned = [...definedKeyframes(code)].filter(
+      (name) => !consumed.has(name),
     );
-    const missing: string[] = [];
-    for (const match of css.matchAll(/@utility\s+animate-[a-z0-9-]+\s*\{([^}]*)\}/g)) {
-      const body = match[1]!;
-      const name = body.match(/animation:\s*([a-z0-9-]+)/)?.[1];
-      if (name && !keyframes.has(name)) {
-        missing.push(name);
-      }
-    }
-    expect(missing).toEqual([]);
+    expect(orphaned).toEqual([]);
   });
 });

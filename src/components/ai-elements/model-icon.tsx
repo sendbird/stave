@@ -4,7 +4,8 @@ import {
   getProviderIconUrl,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { cn } from "@/lib/utils";
+import { coreStyles } from "./ai-element-core.styles";
+import { cx, sx } from "../ads/utils/stylex";
 
 interface ModelIconProps {
   providerId: ProviderId;
@@ -25,10 +26,7 @@ export function ModelIcon(args: ModelIconProps) {
   if (failed || !iconUrl) {
     return (
       <span
-        className={cn(
-          "inline-flex size-4 items-center justify-center rounded-sm bg-secondary text-[10px] font-semibold text-muted-foreground",
-          className
-        )}
+        className={cx(sx(coreStyles.modelFallback), className)}
         aria-hidden
       >
         {getProviderFallbackLabel({ providerId })}
@@ -41,7 +39,7 @@ export function ModelIcon(args: ModelIconProps) {
       src={iconUrl}
       alt=""
       aria-hidden
-      className={cn("size-4 shrink-0 object-contain", className)}
+      className={cx(sx(coreStyles.modelImage), className)}
       loading="lazy"
       onError={() => setFailed(true)}
     />

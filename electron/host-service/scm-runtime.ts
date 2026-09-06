@@ -659,6 +659,7 @@ export async function getScmGraph(
     code: 0,
     stdout: "",
     stderr: "",
+    stdoutTruncated: false,
   };
   const [
     logResult,
@@ -1751,13 +1752,13 @@ export async function fetchRepoMergeSettings(args: { cwd?: string }) {
   const cacheKey = resolveCommandCwd({ cwd: args.cwd });
   const cached = repoMergeSettingsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    return { ok: true, ...cached.settings, stderr: "" };
+    return { ok: true as const, ...cached.settings, stderr: "" };
   }
 
   const authResult = await ensureGhAuth({ cwd: args.cwd });
   if (!authResult.ok) {
     return {
-      ok: false,
+      ok: false as const,
       stderr: describeGhAuthFailure(authResult),
     };
   }
@@ -1773,7 +1774,7 @@ export async function fetchRepoMergeSettings(args: { cwd?: string }) {
       invalidateGhAuthCache({ cwd: args.cwd });
     }
     return {
-      ok: false,
+      ok: false as const,
       stderr: detail || "Failed to read repository merge settings.",
     };
   }
@@ -1790,10 +1791,10 @@ export async function fetchRepoMergeSettings(args: { cwd?: string }) {
       expiresAt: Date.now() + REPO_MERGE_SETTINGS_TTL_MS,
       settings,
     });
-    return { ok: true, ...settings, stderr: "" };
+    return { ok: true as const, ...settings, stderr: "" };
   } catch {
     return {
-      ok: false,
+      ok: false as const,
       stderr: "GitHub returned invalid repository merge settings.",
     };
   }

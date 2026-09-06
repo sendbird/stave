@@ -5,6 +5,7 @@ import {
   RunStatusSchema,
   RunStepRecordSchema,
   type RunPolicy,
+  type RunReceiptRecord,
   type RunRecord,
   type RunStepRecord,
 } from "./run-domain";
@@ -227,6 +228,9 @@ export const ChildTaskSummarySchema = z
     childWorkspaceId: RunIdSchema,
     childTurnId: RunIdSchema.nullable(),
     providerId: z.enum(["claude-code", "codex"]),
+    /** The model and effort the delegation asked for at admission time. */
+    requestedModel: z.string().trim().min(1).max(200).optional(),
+    requestedEffort: ChildTaskEffortSchema.optional(),
     lifecycle: ChildTaskLifecycleSchema,
     phase: RunStatusSchema,
     reason: z.string().max(1_000).nullable(),
@@ -373,6 +377,7 @@ export function resolveChildTaskConcurrencyLimit(
 export function toChildTaskSummary(args: {
   run: RunRecord;
   step: RunStepRecord;
+  acceptedReceipt?: Pick<RunReceiptRecord, "type" | "detail"> | null;
 }): ChildTaskSummary | null {
   const run = RunRecordSchema.parse(args.run);
   const step = RunStepRecordSchema.parse(args.step);
@@ -389,6 +394,26 @@ export function toChildTaskSummary(args: {
   if (!delegationKey) {
     return null;
   }
+  const acceptedDetail =
+    args.acceptedReceipt?.type === "accepted" &&
+    args.acceptedReceipt.detail?.attempt === step.attempt
+      ? args.acceptedReceipt.detail
+      : null;
+  const requestedModel = ChildTaskSummarySchema.shape.requestedModel.safeParse(
+    acceptedDetail?.model,
+  );
+  const requestedEffort =
+    ChildTaskSummarySchema.shape.requestedEffort.safeParse(
+      acceptedDetail?.effort,
+    );
+  const requested = {
+    ...(requestedModel.success && requestedModel.data !== undefined
+      ? { requestedModel: requestedModel.data }
+      : {}),
+    ...(requestedEffort.success && requestedEffort.data !== undefined
+      ? { requestedEffort: requestedEffort.data }
+      : {}),
+  };
   const parsed = ChildTaskSummarySchema.safeParse({
     runId: run.id,
     stepId: step.id,
@@ -398,6 +423,7 @@ export function toChildTaskSummary(args: {
     childWorkspaceId: step.target.workspaceId,
     childTurnId: step.target.turnId,
     providerId: step.target.providerId,
+    ...requested,
     lifecycle: resolveChildTaskLifecycle(run.policy),
     phase: step.status,
     reason: step.error ?? run.error,

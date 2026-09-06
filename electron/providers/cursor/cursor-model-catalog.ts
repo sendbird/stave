@@ -5,7 +5,7 @@ import type {
   ProviderRuntimeOptions,
 } from "../../../src/lib/providers/provider.types";
 import { AcpProtocolClient } from "../acp/acp-protocol";
-import type { AcpSessionConfigOption } from "../acp/acp-schemas";
+import { AcpConfigSelectGroupSchema, type AcpSessionConfigOption } from "../acp/acp-schemas";
 import {
   buildCursorAgentEnv,
   resolveCursorAgentExecutablePath,
@@ -82,9 +82,13 @@ function formatModelDisplayName(args: { name: string; value: string }) {
 }
 
 function flattenConfigOptions(option: AcpSessionConfigOption) {
-  return (option.options ?? []).flatMap((item) =>
-    "value" in item ? [item] : item.options,
-  );
+  return (option.options ?? []).flatMap((item) => {
+    if (typeof item.value === "string") {
+      return [{ value: item.value, name: item.name, description: typeof item.description === "string" ? item.description : "" }];
+    }
+    const group = AcpConfigSelectGroupSchema.safeParse(item);
+    return group.success ? group.data.options : [];
+  });
 }
 
 export function mapCursorAcpModelCatalog(args: {
@@ -144,7 +148,7 @@ export async function getCursorModelCatalog(args: {
       clientVersion: "1",
     });
     if (
-      !initialize.authMethods.some(
+      !initialize.authMethods?.some(
         (method) => method.id === CURSOR_AUTH_METHOD_ID,
       )
     ) {

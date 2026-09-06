@@ -59,7 +59,7 @@ async function invokeRoutine<TResult>(
   return invokeHostService("routine.invoke", {
     action,
     args,
-  }) as Promise<TResult>;
+  }, action === "list" ? { timeoutMs: 15_000 } : undefined) as Promise<TResult>;
 }
 
 export function listRoutines() {

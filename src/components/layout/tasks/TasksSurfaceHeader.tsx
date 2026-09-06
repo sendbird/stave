@@ -7,7 +7,8 @@ import {
 } from "@/lib/tracker-tasks/presentation";
 import type { TrackerSourceSummary } from "@/lib/tracker-tasks/source-status";
 import type { TrackerSourceSyncStatus } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 
 export interface TasksSurfaceHeaderProps {
   summaries: readonly TrackerSourceSummary[];
@@ -40,23 +41,21 @@ export function TasksSurfaceHeader(props: TasksSurfaceHeaderProps) {
   );
 
   return (
-    <header className="flex min-h-18 shrink-0 items-center justify-between gap-4 border-b border-border/65 bg-[linear-gradient(110deg,color-mix(in_oklch,var(--surface)_92%,var(--background)),var(--background))] px-5 py-3">
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-2">
-          <ListTodo className="size-4.5 shrink-0 text-primary" />
-          <h1 className="font-heading truncate text-base font-semibold tracking-[-0.01em] text-foreground">
-            Tasks
-          </h1>
+    <header className={sx(taskLayoutStyles.header)}>
+      <div className={sx(taskLayoutStyles.headerLead)}>
+        <div className={sx(taskLayoutStyles.headerTitleRow)}>
+          <ListTodo className={sx(taskLayoutStyles.headerIcon)} />
+          <h1 className={sx(taskLayoutStyles.headerTitle)}>Tasks</h1>
         </div>
-        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+        <p className={sx(taskLayoutStyles.headerStatus)}>
           {props.summaries.map((summary) => {
             const status = statusFor(props.statuses, summary.source);
             return (
               <span
                 key={summary.source}
-                className="inline-flex items-center gap-1"
+                className={sx(taskLayoutStyles.headerSource)}
               >
-                <span className="font-medium text-foreground">
+                <span className={sx(taskLayoutStyles.headerSourceName)}>
                   {summary.label}
                 </span>
                 <span>
@@ -76,13 +75,13 @@ export function TasksSurfaceHeader(props: TasksSurfaceHeaderProps) {
                   props.refreshIntervalSeconds,
                   props.now,
                 ) ? (
-                  <span className="rounded-full border border-warning/40 bg-warning/10 px-1.5 text-xs text-warning">
+                  <span className={sx(taskLayoutStyles.headerStale)}>
                     stale
                   </span>
                 ) : null}
                 {status?.truncated ? (
                   <span
-                    className="rounded-full border border-border px-1.5 text-xs"
+                    className={sx(taskLayoutStyles.headerPartial)}
                     title="The tracker had more tickets than one refresh can load."
                   >
                     partial
@@ -93,31 +92,31 @@ export function TasksSurfaceHeader(props: TasksSurfaceHeaderProps) {
           })}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className={sx(taskLayoutStyles.headerActions)}>
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0"
+          xstyle={taskLayoutStyles.headerAction}
           onClick={props.onRefresh}
           aria-label="Refresh tracker tickets"
           title="Refresh"
         >
           <RefreshCw
-            className={cn(
-              "size-4",
-              (props.refreshing || syncing) && "animate-spin",
+            className={sx(
+              taskLayoutStyles.icon16,
+              (props.refreshing || syncing) && taskLayoutStyles.spinner,
             )}
           />
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 w-8 p-0"
+          xstyle={taskLayoutStyles.headerAction}
           aria-label="close-tasks"
           title="Close Tasks"
           onClick={props.onClose}
         >
-          <X className="size-4" />
+          <X className={sx(taskLayoutStyles.icon16)} />
         </Button>
       </div>
     </header>

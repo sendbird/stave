@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui";
+import { Input } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   LabeledField,
@@ -51,6 +52,8 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
 import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
+import { sx } from "@/components/ads/utils/stylex";
+import { workerSectionStyles as styles } from "./settings-dialog-worker-section.styles";
 
 /**
  * Per-provider Worker mode defaults.
@@ -66,27 +69,26 @@ import { useShallow } from "zustand/react/shallow";
  */
 export function SettingsWorkerSection(args: {
   workerEnabled: boolean;
-  workerConfigByProvider: Partial<
-    Record<ProviderId, WorkerProviderConfig>
-  >;
+  workerConfigByProvider: Partial<Record<ProviderId, WorkerProviderConfig>>;
   onChange: (args: {
     workerEnabled?: boolean;
-    workerConfigByProvider?: Partial<
-      Record<ProviderId, WorkerProviderConfig>
-    >;
+    workerConfigByProvider?: Partial<Record<ProviderId, WorkerProviderConfig>>;
   }) => void;
 }) {
   const providerIds = listProviderIdsForCapability({ capability: "worker" });
   const [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, workspaceCwd] =
     useAppStore(
-      useShallow((state) => [
-        state.settings.codexBinaryPath,
-        state.settings.cursorBinaryPath,
-        state.settings.kiroBinaryPath,
-        state.workspacePathById[state.activeWorkspaceId] ??
-          state.projectPath ??
-          undefined,
-      ] as const),
+      useShallow(
+        (state) =>
+          [
+            state.settings.codexBinaryPath,
+            state.settings.cursorBinaryPath,
+            state.settings.kiroBinaryPath,
+            state.workspacePathById[state.activeWorkspaceId] ??
+              state.projectPath ??
+              undefined,
+          ] as const,
+      ),
     );
   const catalogRuntimeOptions = useMemo(
     () => ({
@@ -143,20 +145,27 @@ export function SettingsWorkerSection(args: {
         value={activeProviderId}
         onValueChange={(value) => setActiveProviderId(value as ProviderId)}
       >
-        <TabsList className="max-w-full justify-start overflow-x-auto">
+        <TabsList className={sx(styles.tabsList)}>
           {providerIds.map((providerId) => (
             <TabsTrigger
               key={providerId}
               value={providerId}
-              className="shrink-0"
+              className={sx(styles.tabsTrigger)}
             >
-              <ModelIcon providerId={providerId} className="size-3.5" />
+              <ModelIcon
+                providerId={providerId}
+                className={sx(styles.tabIcon)}
+              />
               {getProviderLabel({ providerId })}
             </TabsTrigger>
           ))}
         </TabsList>
         {providerIds.map((providerId) => (
-          <TabsContent key={providerId} value={providerId} className="space-y-5">
+          <TabsContent
+            key={providerId}
+            value={providerId}
+            className={sx(styles.tabsContent)}
+          >
             <WorkerProviderForm
               providerId={providerId}
               config={args.workerConfigByProvider[providerId] ?? {}}
@@ -303,7 +312,7 @@ function WorkerProviderForm(args: {
           </Select>
         </LabeledField>
       ) : (
-        <p className="text-xs leading-5 text-muted-foreground">
+        <p className={sx(styles.noEffortNote)}>
           {toHumanModelName({ model: effectiveWorkerModel })} has no selectable
           reasoning effort; it runs at its own default.
         </p>
@@ -317,7 +326,7 @@ function WorkerProviderForm(args: {
             : "Describes the worker's role in the primary's delegation briefing. Empty uses the preset's text."
         }
       >
-        <div className="space-y-1.5">
+        <div className={sx(styles.resetStack)}>
           <Textarea
             value={args.config.description ?? ""}
             placeholder={preset.description}
@@ -336,10 +345,10 @@ function WorkerProviderForm(args: {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 gap-1.5 px-2 text-xs"
+              xstyle={styles.resetButton}
               onClick={() => args.onPatch({ description: undefined })}
             >
-              <RotateCcw className="size-3.5" />
+              <RotateCcw className={sx(styles.resetIcon)} />
               Reset to preset
             </Button>
           ) : null}
@@ -350,13 +359,13 @@ function WorkerProviderForm(args: {
         title="Worker instructions"
         description="The worker's system prompt. It starts with no view of the conversation, so this has to stand alone. Empty uses the preset's text."
       >
-        <div className="space-y-1.5">
+        <div className={sx(styles.resetStack)}>
           <Textarea
             value={args.config.instructions ?? ""}
             placeholder={preset.instructions}
             maxLength={WORKER_INSTRUCTIONS_MAX_CHARS}
             rows={8}
-            className="font-mono text-xs"
+            xstyle={styles.instructionsTextarea}
             onChange={(event) =>
               args.onPatch({
                 instructions: event.target.value.trim()
@@ -370,10 +379,10 @@ function WorkerProviderForm(args: {
               type="button"
               variant="ghost"
               size="sm"
-              className="h-7 gap-1.5 px-2 text-xs"
+              xstyle={styles.resetButton}
               onClick={() => args.onPatch({ instructions: undefined })}
             >
-              <RotateCcw className="size-3.5" />
+              <RotateCcw className={sx(styles.resetIcon)} />
               Reset to preset
             </Button>
           ) : null}
@@ -384,7 +393,7 @@ function WorkerProviderForm(args: {
         title="Max worker turns"
         description={`${preview.status === "ready" && preview.profile.maxTurnsEnforced ? "Caps" : "Guides"} the worker's agentic round-trips. Empty uses the preset's value (${preset.maxTurns ?? "unset"}).`}
       >
-        <input
+        <Input
           aria-label="Max worker turns"
           type="number"
           inputMode="numeric"
@@ -392,7 +401,7 @@ function WorkerProviderForm(args: {
           max={WORKER_TURNS_MAX}
           value={args.config.maxTurns ?? ""}
           placeholder={String(preset.maxTurns ?? "")}
-          className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          xstyle={styles.turnsInput}
           onChange={(event) => {
             const parsed = Number.parseInt(event.target.value, 10);
             args.onPatch({
@@ -402,8 +411,8 @@ function WorkerProviderForm(args: {
         />
       </LabeledField>
 
-      <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
-        <p className="font-medium text-foreground">
+      <div className={sx(styles.previewCard)}>
+        <p className={sx(styles.previewTitle)}>
           {preview.status === "ready"
             ? `${toHumanModelName({ model: previewPrimary })} → ${toHumanModelName(
                 { model: preview.profile.resolvedWorkerModel },
@@ -415,19 +424,21 @@ function WorkerProviderForm(args: {
             : "Worker mode cannot run with this configuration"}
         </p>
         {preview.status === "unavailable" ? (
-          <p className="mt-1 text-warning">{preview.detail}</p>
+          <p className={sx(styles.previewWarning)}>{preview.detail}</p>
         ) : null}
         {preview.status === "ready" && preview.profile.costWarning ? (
-          <p className="mt-1 text-warning">{preview.profile.costWarning}</p>
+          <p className={sx(styles.previewWarning)}>
+            {preview.profile.costWarning}
+          </p>
         ) : null}
         {usesRuntimeCatalog ? (
-          <p className="mt-1">
+          <p className={sx(styles.previewLine)}>
             Runtime catalog: {primaryModels.length} selectable model
             {primaryModels.length === 1 ? "" : "s"}. The catalog is refreshed
             from the installed provider runtime.
           </p>
         ) : (
-          <p className="mt-1">
+          <p className={sx(styles.previewLine)}>
             Orchestrating primaries on this provider:{" "}
             {primaryModels
               .map((model) => toHumanModelName({ model }))
@@ -437,14 +448,14 @@ function WorkerProviderForm(args: {
           </p>
         )}
         {preview.status === "ready" && preview.profile.tools ? (
-          <p className="mt-1">
+          <p className={sx(styles.previewLine)}>
             Tools: {preview.profile.tools.join(", ")}
             {workerToolsEnforced(args.providerId)
               ? "."
               : " — passed as guidance because this adapter cannot hard-limit a worker's tools."}
           </p>
         ) : null}
-        <p className="mt-1">
+        <p className={sx(styles.previewLine)}>
           {preview.status === "ready" &&
           preview.profile.executionAdapter === "acp-tool"
             ? "One ACP worker runs at a time in the same workspace. Its role session is reused for the same task and profile, while bound secrets and nested Worker tools stay unavailable; permission requests return to this task."

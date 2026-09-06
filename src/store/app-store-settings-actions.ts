@@ -376,6 +376,14 @@ export function createSettingsActions(args: {
                 patch.reasoningExpansionMode,
               ),
             }),
+        ...(patch.showTaskStartExamples === undefined
+          ? {}
+          : {
+              showTaskStartExamples:
+                typeof patch.showTaskStartExamples === "boolean"
+                  ? patch.showTaskStartExamples
+                  : defaultSettings.showTaskStartExamples,
+            }),
         ...(patch.sidebarNavView === undefined
           ? {}
           : {

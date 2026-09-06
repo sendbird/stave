@@ -12,7 +12,8 @@ import {
   describeFailedSendAttachments,
   type FailedOutgoingSend,
 } from "@/store/failed-send-recovery";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { failedOutgoingMessagesStyles as styles } from "./failed-outgoing-messages.styles";
 
 const EMPTY_FAILED_SENDS: FailedOutgoingSend[] = [];
 
@@ -34,29 +35,23 @@ export function FailedOutgoingMessageBubble(props: {
 
   return (
     <Message from="user" data-failed-outgoing-message={send.id}>
-      <div className="flex min-w-0 max-w-[88%] w-fit flex-col items-stretch gap-1">
-        <MessageContent
-          className={cn(
-            "gap-2 whitespace-pre-wrap break-words",
-            "group-[.is-user]:bg-destructive/10",
-            "border border-destructive/40",
-          )}
-        >
+      <div className={sx(styles.bubble)}>
+        <MessageContent className={sx(styles.content)}>
           {send.text ? <span>{send.text}</span> : null}
           {attachmentSummary ? (
-            <span className="text-xs text-muted-foreground">
+            <span className={sx(styles.attachmentSummary)}>
               {attachmentSummary}
             </span>
           ) : null}
         </MessageContent>
-        <span className="flex items-center justify-end gap-1.5 px-1 text-[11px] text-destructive">
-          <TriangleAlert className="size-3 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 truncate" title={send.reason}>
+        <span className={sx(styles.statusRow)}>
+          <TriangleAlert className={sx(styles.statusIcon)} aria-hidden="true" />
+          <span className={sx(styles.statusText)} title={send.reason}>
             Not sent — {send.reason}
           </span>
         </span>
         <MessageActions
-          className="self-end !ml-0"
+          className={sx(styles.actions)}
           role="group"
           aria-label="Failed message actions"
         >
@@ -71,7 +66,7 @@ export function FailedOutgoingMessageBubble(props: {
             {retryPending ? (
               <Loader aria-hidden size="xs" variant="persist" />
             ) : (
-              <RotateCcw className="size-3.5" aria-hidden="true" />
+              <RotateCcw aria-hidden="true" />
             )}
             Retry
           </MessageAction>
@@ -82,7 +77,7 @@ export function FailedOutgoingMessageBubble(props: {
             disabled={retryPending}
             onClick={props.onDismiss}
           >
-            <X className="size-3.5" aria-hidden="true" />
+            <X aria-hidden="true" />
             Dismiss
           </MessageAction>
         </MessageActions>
@@ -134,7 +129,7 @@ export function FailedOutgoingMessages(props: { taskId: string }) {
   }
   return (
     <div
-      className="flex w-full flex-col gap-4 pt-4"
+      className={sx(styles.list)}
       data-testid="failed-outgoing-messages"
     >
       {sends.map((send) => (

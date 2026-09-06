@@ -1,8 +1,14 @@
+import { sheetLayout } from "./sheet-layout.styles";
+import { overlayLayout } from "./overlay-layout.styles";
+import { VisuallyHidden } from "../ads/components/VisuallyHidden";
 import * as React from "react";
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 
-import { UI_ELEVATION_CLASS, UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { drawerStyles } from "../ads/components/Drawer";
+import { sx, type StyleXValue } from "../ads/utils/stylex";
+import { cx } from "../ads/utils/stylex";
+import { mergeClassName } from "../ads/components/merge-class-name";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 
@@ -26,9 +32,13 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
   return (
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
-      className={cn(
-        UI_LAYER_CLASS.dialog,
-        "t-overlay fixed inset-0 bg-overlay",
+      className={mergeClassName(
+        () =>
+          cx(
+            UI_LAYER_CLASS.dialog,
+            "t-overlay",
+            sx(sheetLayout.overlay),
+          ) ?? "",
         className,
       )}
       {...props}
@@ -38,6 +48,7 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
 
 function SheetContent({
   className,
+  xstyle,
   children,
   side = "right",
   showCloseButton = true,
@@ -45,6 +56,7 @@ function SheetContent({
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left";
   showCloseButton?: boolean;
+  xstyle?: StyleXValue;
 }) {
   return (
     <SheetPortal>
@@ -52,10 +64,17 @@ function SheetContent({
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}
-        className={cn(
-          UI_LAYER_CLASS.dialog,
-          UI_ELEVATION_CLASS.modal,
-          "fixed flex flex-col gap-4 bg-popover bg-clip-padding text-sm text-popover-foreground transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-3/4 data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-3/4 data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm",
+        className={mergeClassName(
+          () =>
+            cx(
+              UI_LAYER_CLASS.dialog,
+              sx(
+                drawerStyles.surface,
+                sheetLayout.surface,
+                sheetLayout[side],
+                xstyle,
+              ),
+            ) ?? "",
           className,
         )}
         {...props}
@@ -67,13 +86,13 @@ function SheetContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-4 right-4"
+                xstyle={overlayLayout.close}
                 size="icon-sm"
               />
             }
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <VisuallyHidden>Close</VisuallyHidden>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>
@@ -81,21 +100,29 @@ function SheetContent({
   );
 }
 
-function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
+function SheetHeader({
+  className,
+  xstyle,
+  ...props
+}: React.ComponentProps<"div"> & { xstyle?: StyleXValue }) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn("flex flex-col gap-1.5 p-4", className)}
+      className={cx(sx(sheetLayout.header, xstyle), className)}
       {...props}
     />
   );
 }
 
-function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
+function SheetFooter({
+  className,
+  xstyle,
+  ...props
+}: React.ComponentProps<"div"> & { xstyle?: StyleXValue }) {
   return (
     <div
       data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 p-4", className)}
+      className={cx(sx(sheetLayout.footer, xstyle), className)}
       {...props}
     />
   );
@@ -105,7 +132,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
   return (
     <SheetPrimitive.Title
       data-slot="sheet-title"
-      className={cn("font-heading font-medium text-foreground", className)}
+      className={mergeClassName(() => sx(drawerStyles.title), className)}
       {...props}
     />
   );
@@ -118,7 +145,7 @@ function SheetDescription({
   return (
     <SheetPrimitive.Description
       data-slot="sheet-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={mergeClassName(() => sx(drawerStyles.description), className)}
       {...props}
     />
   );

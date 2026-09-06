@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import {
   Bookmark,
   Circle,
@@ -35,5 +38,9 @@ export function resolvePaneCustomIcon(
 
 export function PaneCustomIcon(props: { name: string }) {
   const Icon = resolvePaneCustomIcon(props.name);
-  return Icon ? <Icon className="size-4 text-muted-foreground" /> : null;
+  return Icon ? <Icon className={sx(styles.icon)} /> : null;
 }
+
+const styles = stylex.create({
+icon: {width:16,height:16,color:vars.colorTextMuted}
+});

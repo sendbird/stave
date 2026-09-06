@@ -4,6 +4,7 @@ import type { LensAnnotation } from "@/lib/lens/lens.types";
 import type {
   AdvisorTarget,
   AdvisorTargetByProvider,
+  AutoRoutingModelResolution,
   DelegatedExecutionUsage,
   ProviderId,
 } from "@/lib/providers/provider.types";
@@ -202,11 +203,19 @@ export interface PromptDraft {
   queuedNextTurn?: PromptDraftQueuedNextTurn;
 }
 
+export interface LensFeedbackReference {
+  workspaceId: string;
+  lensSessionId?: string;
+  annotation: LensAnnotation;
+}
+
 export interface MessagePartBase {
   type: MessagePartType;
 }
 
 export interface TextPart extends MessagePartBase {
+  /** UI-only captured evidence on user display parts; not provider history. */
+  lensFeedback?: LensFeedbackReference;
   type: "text";
   text: string;
   /** Preserves provider-side text item boundaries across streamed deltas. */
@@ -302,6 +311,7 @@ export interface UserInputPart extends MessagePartBase {
 }
 
 export interface ImageContextPart extends MessagePartBase {
+  lensFeedback?: LensFeedbackReference;
   type: "image_context";
   dataUrl: string;
   label: string;
@@ -339,6 +349,8 @@ export interface ChatMessage {
   role: MessageRole;
   model: string;
   providerId: ProviderId | "user";
+  /** Stave execution that produced this row, independent of native provider IDs. */
+  turnId?: string;
   /**
    * Native provider session/thread that produced this assistant response.
    * Kept on the message so point-in-time actions cannot accidentally target a
@@ -352,11 +364,15 @@ export interface ChatMessage {
    */
   nativeProviderTurnId?: string;
   modelInfo?: TurnModelInfo;
+  /** Explanation captured for an automatic primary-model routing decision. */
+  modelResolution?: AutoRoutingModelResolution;
   content: string;
   displayContent?: string;
   startedAt?: string;
   completedAt?: string;
   isStreaming?: boolean;
+  /** Terminal provider reason for this exact turn, persisted with the row. */
+  terminalStopReason?: string;
   isPlanResponse?: boolean;
   planText?: string;
   planReview?: {

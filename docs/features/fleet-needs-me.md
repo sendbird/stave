@@ -3,7 +3,7 @@
 ## Summary
 
 Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` rail
-combines pending questions and approvals, unread failed or completed turns, and
+combines pending questions and approvals, unreviewed failed or completed runs, and
 actionable pull request states in one urgency-ordered list.
 
 Fleet is an auxiliary surface. The task window stays the primary place to answer
@@ -43,7 +43,7 @@ optional shortcuts on top of that.
 - Top bar: the Fleet button shows the total number of known actionable items.
 - Workspace sidebar: switch to `Work queue` to group every workspace into
   `Action required`, `In progress`, `In review`, or `Idle`. Blocking attention
-  puts a workspace in `Action required`; an unread result without a blocker
+  puts a workspace in `Action required`; an unreviewed result without a blocker
   belongs in `In review`.
 - Fleet view: `Action required` is a layout-level rail. It stays visible while
   board filters change; on narrow screens it becomes a compact top rail. The
@@ -58,16 +58,16 @@ optional shortcuts on top of that.
 - `Open next item`: opens the next item in urgency order.
 - `Approve` and `Deny`: resolve a durable approval request without first opening
   the task.
-- `Mark reviewed` or `Mark read`: dismisses a completed or failed turn from the
-  current queue while keeping notification history.
+- `Mark reviewed`: records your review of that specific run in durable result
+  history. It does not mark the task or original ticket complete. Use `Results`
+  in the task to inspect history or select `Reopen review`.
 - `Open PR`: opens the pull request for review blockers or merge-ready work.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
 
 ### Items That Clear Themselves
 
-- Opening a task in the task window marks its completed and failed turns as
-  reviewed. A turn that finishes while you are already watching that task never
-  enters the queue.
+- Opening a task reads its notifications. Its results remain unreviewed until
+  you explicitly review them, including results arriving while you watch.
 - Answering a question or resolving an approval in the task window clears the
   item, including when an agent answers through the managed host.
 - Stopping a turn, archiving a task, or restarting Stave settles the requests
@@ -96,8 +96,11 @@ optional shortcuts on top of that.
 - Fleet does not create a separate task ledger or execution database.
 - Live task state is preferred when available. Historical waiting/error labels
   do not make a workspace look `Running` after its provider turn has ended.
-- Durable notifications keep pending interactions and unread turn outcomes
-  visible when a workspace runtime is not loaded. Notifications for archived or
+- Durable notifications keep pending interactions visible; a separate SQLite
+  result history preserves review state after notification reads, expiry, and
+  cleanup. Old retained outcomes migrate as unreviewed, even if their notifications
+  were read. Previously deleted notifications cannot be reconstructed by this
+  migration. Notifications for archived or
   legacy tasks are excluded, and a notification is settled as soon as the task
   window shows that the request is no longer waiting.
 - Fleet records the last deliberate workspace activity separately from
@@ -115,7 +118,10 @@ optional shortcuts on top of that.
   full answer form inline.
 - Pull request actions open GitHub. Fleet does not merge, retry checks, or edit a
   pull request.
-- An unloaded workspace without live state, a durable notification, or cached PR
+- Result lists are paged. Fleet shows up to 200 pending results and reports when
+  more exist; each task exposes its paged result history. A failed read is shown
+  with a retry action, and a failed review write does not acknowledge the result.
+- An unloaded workspace without live state, a durable result or notification, or cached PR
   status cannot be counted as inspected.
 
 ## Troubleshooting
@@ -125,15 +131,14 @@ optional shortcuts on top of that.
 - Symptom: a workspace has recent work but no Fleet item.
 - Cause: Fleet shows actionable states, not all recent activity.
 - Fix: check its task or PR directly. It appears when a question, approval,
-  failed turn, unread result, PR blocker, or merge-ready state exists.
+  failed turn, unreviewed result, PR blocker, or merge-ready state exists.
 
 ### A Completed Result Disappeared
 
-- Symptom: a result no longer appears after selecting `Mark reviewed`, or after
-  opening its task.
-- Cause: reviewing a turn in the task window counts as handling it, so its
-  completion notification leaves the current action queue.
-- Fix: open the notification center's history view to find the original item.
+- Symptom: a result no longer appears after selecting `Mark reviewed`.
+- Cause: that specific run is reviewed and leaves the pending queue.
+- Fix: open the task's `Results` panel to inspect the saved review or reopen it.
+  Opening the task or clearing notifications alone never acknowledges a review.
 
 ### A Question Or Approval Belongs To A Finished Task
 

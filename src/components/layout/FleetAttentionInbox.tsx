@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,7 +15,11 @@ import {
   type FleetTaskControlTarget,
 } from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
-import { Badge, Button } from "@/components/ui";
+import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
+import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { Button } from "@/components/ui";
+import { attentionStyles as styles } from "./fleet-attention-inbox.styles";
 import {
   getFleetAttentionTier,
   type FleetAttentionItem,
@@ -22,7 +27,6 @@ import {
 } from "@/lib/fleet/attention-projection";
 import { PR_STATUS_VISUAL } from "@/lib/pr-status";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
-import { cn } from "@/lib/utils";
 
 const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
   "user-input": "Question",
@@ -36,41 +40,39 @@ const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
   "pr-ready-to-merge": "Ready to merge",
 };
 
-const FLEET_NEED_BADGE_CLASS: Record<FleetAttentionKind, string> = {
-  "user-input": "border-warning/40 bg-warning/10 text-warning",
-  approval: "border-warning/40 bg-warning/10 text-warning",
-  "run-failed": "border-destructive/30 bg-destructive/10 text-destructive",
-  "result-ready": "border-info/30 bg-info/10 text-info",
-  "pr-changes-requested":
-    "border-destructive/30 bg-destructive/10 text-destructive",
-  "pr-checks-failed":
-    "border-destructive/30 bg-destructive/10 text-destructive",
-  "pr-merge-conflict":
-    "border-destructive/30 bg-destructive/10 text-destructive",
-  "pr-behind-base": "border-warning/40 bg-warning/10 text-warning",
-  "pr-ready-to-merge": "border-success/35 bg-success/10 text-success",
+/** Which semantic family the need belongs to; the Badge owns the colors. */
+const FLEET_NEED_TONE: Record<FleetAttentionKind, BadgeTone> = {
+  "user-input": "warning",
+  approval: "warning",
+  "run-failed": "danger",
+  "result-ready": "info",
+  "pr-changes-requested": "danger",
+  "pr-checks-failed": "danger",
+  "pr-merge-conflict": "danger",
+  "pr-behind-base": "warning",
+  "pr-ready-to-merge": "success",
 };
 
 function getFleetNeedIcon(item: FleetAttentionItem): ReactNode {
   switch (item.kind) {
     case "user-input":
-      return <MessageCircleQuestion className="size-3" aria-hidden="true" />;
+      return <MessageCircleQuestion className={sx(styles.needIcon)} aria-hidden="true" />;
     case "approval":
-      return <ShieldCheck className="size-3" aria-hidden="true" />;
+      return <ShieldCheck className={sx(styles.needIcon)} aria-hidden="true" />;
     case "run-failed":
-      return <AlertTriangle className="size-3" aria-hidden="true" />;
+      return <AlertTriangle className={sx(styles.needIcon)} aria-hidden="true" />;
     case "result-ready":
-      return <CheckCircle2 className="size-3" aria-hidden="true" />;
+      return <CheckCircle2 className={sx(styles.needIcon)} aria-hidden="true" />;
     case "pr-ready-to-merge":
-      return <GitMerge className="size-3" aria-hidden="true" />;
+      return <GitMerge className={sx(styles.needIcon)} aria-hidden="true" />;
     case "pr-changes-requested":
     case "pr-checks-failed":
     case "pr-merge-conflict":
     case "pr-behind-base":
       return item.prStatus ? (
-        <PrStatusIcon status={item.prStatus} className="size-3" />
+        <PrStatusIcon status={item.prStatus} className={sx(styles.needIcon)} />
       ) : (
-        <AlertTriangle className="size-3" aria-hidden="true" />
+        <AlertTriangle className={sx(styles.needIcon)} aria-hidden="true" />
       );
   }
 }
@@ -120,7 +122,7 @@ function FleetNeedRow(args: {
   const detail = getFleetNeedDetail(item);
   const title = getFleetNeedTitle(item);
   const canMarkRead =
-    Boolean(item.notificationId) &&
+    Boolean(item.notificationId || item.resultReview) &&
     (item.kind === "run-failed" || item.kind === "result-ready");
   // An interaction can outlive the turn that asked it. Without an explicit
   // dismiss there is no way to clear it from the attention count. Live-sourced
@@ -143,16 +145,12 @@ function FleetNeedRow(args: {
     : null;
 
   return (
-    <li
-      className={cn(
-        "border-b border-border/40 last:border-b-0",
-        selected && "bg-accent/18",
-      )}
-    >
-      <button
+    <li className={sx(styles.row, selected && styles.rowSelected)}>
+      <AdsButton
+        layout="host"
         id={triggerId}
         type="button"
-        className="flex w-full min-w-0 flex-col gap-1 px-3 py-2 text-left hover:bg-accent/18 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
+        xstyle={[styles.rowTrigger, focusRing.ringInset]}
         aria-label={`${getFleetNeedPrimaryAction(item)} for ${title} in ${item.workspaceName}`}
         aria-expanded={controlTarget ? selected : undefined}
         aria-controls={
@@ -163,47 +161,41 @@ function FleetNeedRow(args: {
         disabled={busy}
         onClick={() => args.onOpen(item)}
       >
-        <span className="flex min-w-0 items-center gap-1.5">
+        <span className={sx(styles.rowTop)}>
           <Badge
             variant="outline"
-            className={cn(
-              "shrink-0 rounded-sm px-1 text-[9px] leading-4",
-              FLEET_NEED_BADGE_CLASS[item.kind],
-            )}
+            tone={FLEET_NEED_TONE[item.kind]}
+            className={sx(styles.needBadge)}
           >
             {getFleetNeedIcon(item)}
             {FLEET_NEED_LABEL[item.kind]}
           </Badge>
-          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+          <span className={sx(styles.rowTime)}>
             {formatTaskUpdatedAt({ value: item.createdAt })}
           </span>
         </span>
-        <span className="block truncate text-xs font-medium text-foreground">
-          {title}
-        </span>
-        <span className="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
-          <span className="truncate">{item.workspaceName}</span>
+        <span className={sx(styles.rowTitle)}>{title}</span>
+        <span className={sx(styles.rowMeta)}>
+          <span className={sx(styles.rowMetaPart)}>{item.workspaceName}</span>
           <span aria-hidden="true">·</span>
-          <span className="truncate">{item.projectName}</span>
+          <span className={sx(styles.rowMetaPart)}>{item.projectName}</span>
         </span>
         {detail ? (
-          <span className="line-clamp-2 text-[10px] text-muted-foreground/85">
-            {detail}
-          </span>
+          <span className={sx(styles.rowDetail)}>{detail}</span>
         ) : null}
-      </button>
+      </AdsButton>
       {canMarkRead || canDismiss || item.prUrl ? (
-        <div className="flex flex-wrap items-center gap-1 px-2 pb-1.5">
+        <div className={sx(styles.rowActions)}>
           {canMarkRead ? (
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-1.5 text-[10px]"
+              xstyle={styles.rowAction}
               disabled={busy}
               onClick={() => args.onMarkRead(item)}
             >
-              {item.kind === "result-ready" ? "Mark reviewed" : "Mark read"}
+              {item.resultReview ? "Mark reviewed" : "Mark read"}
             </Button>
           ) : null}
           {canDismiss ? (
@@ -211,7 +203,7 @@ function FleetNeedRow(args: {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-1.5 text-[10px]"
+              xstyle={styles.rowAction}
               disabled={busy}
               aria-label={`Dismiss ${item.kind === "approval" ? "approval" : "question"} for ${title} in ${item.workspaceName}`}
               onClick={() => args.onDismiss(item)}
@@ -224,7 +216,7 @@ function FleetNeedRow(args: {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-6 px-1.5 text-[10px]"
+              xstyle={styles.rowAction}
               disabled={busy}
               onClick={() => args.onOpenPr(item)}
             >
@@ -236,7 +228,7 @@ function FleetNeedRow(args: {
       {selected && controlTarget ? (
         <div
           id={`fleet-attention-controls-${item.id}`}
-          className="border-t border-border/40 bg-background/60"
+          className={sx(styles.rowControls)}
         >
           <FleetTaskControlPanel
             target={controlTarget}
@@ -313,20 +305,17 @@ export function FleetAttentionInbox(args: {
 
   return (
     <section
-      className="flex h-full min-h-0 w-full flex-col border-border/65 bg-surface/25 sm:border-r"
+      className={sx(styles.root)}
       aria-labelledby="fleet-attention-heading"
     >
-      <div className="flex shrink-0 items-baseline justify-between gap-2 border-b border-border/55 px-3 py-2">
-        <h2
-          id="fleet-attention-heading"
-          className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
-        >
+      <div className={sx(styles.header)}>
+        <h2 id="fleet-attention-heading" className={sx(styles.groupHeading)}>
           Action required
         </h2>
         <span
-          className={cn(
-            "text-sm font-semibold tabular-nums",
-            blocking.length > 0 ? "text-warning" : "text-muted-foreground",
+          className={sx(
+            styles.count,
+            blocking.length > 0 ? styles.countBlocking : styles.countClear,
           )}
           aria-live="polite"
           aria-atomic="true"
@@ -335,52 +324,44 @@ export function FleetAttentionInbox(args: {
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={sx(styles.scroller)}>
         {blocking.length === 0 ? (
-          <div className="flex flex-col items-center gap-1.5 px-4 py-8 text-center">
-            <Inbox
-              className="size-5 text-muted-foreground/70"
-              aria-hidden="true"
-            />
-            <p className="text-xs font-medium text-foreground">
-              Nothing blocked
-            </p>
-            <p className="text-[10px] text-muted-foreground">
+          <div className={sx(styles.empty)}>
+            <Inbox className={sx(styles.emptyIcon)} aria-hidden="true" />
+            <p className={sx(styles.emptyTitle)}>Nothing blocked</p>
+            <p className={sx(styles.emptyHint)}>
               No agent is waiting on you right now.
             </p>
           </div>
         ) : (
-          <ul className="min-w-0">{blocking.map(renderRow)}</ul>
+          <ul className={sx(styles.list)}>{blocking.map(renderRow)}</ul>
         )}
 
         {review.length > 0 ? (
-          <div className="border-t border-border/55">
-            <button
+          <div className={sx(styles.reviewGroup)}>
+            <AdsButton
+              layout="host"
               type="button"
-              className="flex min-h-8 w-full items-center gap-1.5 px-3 py-1.5 text-left transition-colors hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/55"
+              xstyle={[styles.reviewToggle, focusRing.ringInset]}
               aria-expanded={showReviewGroup}
               onClick={toggleReviewGroup}
             >
               {showReviewGroup ? (
                 <ChevronDown
-                  className="size-3 text-muted-foreground"
+                  className={sx(styles.reviewIcon)}
                   aria-hidden="true"
                 />
               ) : (
                 <ChevronRight
-                  className="size-3 text-muted-foreground"
+                  className={sx(styles.reviewIcon)}
                   aria-hidden="true"
                 />
               )}
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                Worth a look
-              </span>
-              <span className="text-[10px] tabular-nums text-muted-foreground">
-                {review.length}
-              </span>
-            </button>
+              <span className={sx(styles.groupHeading)}>Worth a look</span>
+              <span className={sx(styles.reviewCount)}>{review.length}</span>
+            </AdsButton>
             {showReviewGroup ? (
-              <ul className="min-w-0">{review.map(renderRow)}</ul>
+              <ul className={sx(styles.list)}>{review.map(renderRow)}</ul>
             ) : null}
           </div>
         ) : null}

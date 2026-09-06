@@ -47,11 +47,27 @@ import {
   ReferencedFilesBlock,
 } from "@/components/session/chat-panel-file-blocks";
 import { MessagePartRenderer } from "@/components/session/chat-panel-message-parts";
-import { parseFileChangeToolInput, summarizeDiffLineChanges } from "@/components/session/chat-panel.utils";
-import { cn } from "@/lib/utils";
-import { isStaveToolName, toStaveToolDisplayName } from "@/lib/tool-display-name";
+import {
+  parseFileChangeToolInput,
+  summarizeDiffLineChanges,
+} from "@/components/session/chat-panel.utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { assistantTraceStyles as styles } from "./assistant-trace.styles";
+import {
+  isStaveToolName,
+  toStaveToolDisplayName,
+} from "@/lib/tool-display-name";
 import { formatWorkerExecutionMetadata } from "@/lib/providers/worker-mode";
-import type { ChatMessage, CodeDiffPart, MessagePart, ThinkingPart } from "@/types/chat";
+import {
+  isProviderFailureRecoveryEligible,
+  parseProviderErrorNotice,
+} from "@/lib/providers/provider-error-recovery";
+import type {
+  ChatMessage,
+  CodeDiffPart,
+  MessagePart,
+  ThinkingPart,
+} from "@/types/chat";
 import {
   deriveTodoTraceItems,
   deriveTodoTraceStatus,
@@ -60,32 +76,45 @@ import {
   normalizeTraceToolName,
   type TraceToolSummary,
 } from "./assistant-trace.utils";
-import { buildAssistantTrace, joinReasoningText, type AssistantTraceEntry } from "./assistant-trace-builder";
+import {
+  buildAssistantTrace,
+  joinReasoningText,
+  type AssistantTraceEntry,
+} from "./assistant-trace-builder";
 
 /* ─── Step status ────────────────────────────────────────────────── */
 
-function toStepStatus(args: { entry: AssistantTraceEntry; isStreaming: boolean }) {
+function toStepStatus(args: {
+  entry: AssistantTraceEntry;
+  isStreaming: boolean;
+}) {
   switch (args.entry.kind) {
     case "reasoning":
-      return args.entry.isStreaming ? "active" as const : "done" as const;
+      return args.entry.isStreaming ? ("active" as const) : ("done" as const);
     case "assistant_text":
       return "done" as const;
     case "tool":
     case "subagent":
-      return args.entry.part.state === "input-streaming" || args.entry.part.state === "input-available"
-        ? "active" as const
-        : args.entry.part.state === "output-available" || args.entry.part.state === "output-error"
-          ? "done" as const
-          : "pending" as const;
+      return args.entry.part.state === "input-streaming" ||
+        args.entry.part.state === "input-available"
+        ? ("active" as const)
+        : args.entry.part.state === "output-available" ||
+            args.entry.part.state === "output-error"
+          ? ("done" as const)
+          : ("pending" as const);
     case "todo":
       return deriveTodoTraceStatus({
         input: args.entry.part.input,
         state: args.entry.part.state,
       });
     case "approval":
-      return args.entry.part.state === "approval-requested" ? "active" as const : "done" as const;
+      return args.entry.part.state === "approval-requested"
+        ? ("active" as const)
+        : ("done" as const);
     case "user_input":
-      return args.entry.part.state === "input-requested" ? "active" as const : "done" as const;
+      return args.entry.part.state === "input-requested"
+        ? ("active" as const)
+        : ("done" as const);
     case "diff":
     case "system":
       return "done" as const;
@@ -96,39 +125,60 @@ function toStepStatus(args: { entry: AssistantTraceEntry; isStreaming: boolean }
 
 function getToolIcon(toolName: string): ReactNode {
   if (isStaveToolName(toolName)) {
-    return <StaveIcon className="size-[1.15em]" />;
+    return <StaveIcon className={sx(styles.glyphEm)} />;
   }
 
   switch (normalizeTraceToolName(toolName)) {
-    case "bash": return <Terminal />;
-    case "read": return <FileText />;
-    case "write": return <FileText />;
-    case "edit": return <Pencil />;
-    case "glob": return <Search />;
-    case "grep": return <Search />;
+    case "bash":
+      return <Terminal />;
+    case "read":
+      return <FileText />;
+    case "write":
+      return <FileText />;
+    case "edit":
+      return <Pencil />;
+    case "glob":
+      return <Search />;
+    case "grep":
+      return <Search />;
     /* ACP `search` kind — the canonical name ACP providers map onto. */
-    case "search": return <Search />;
-    case "websearch": return <Globe />;
-    case "webfetch": return <Globe />;
-    default: return <Wrench />;
+    case "search":
+      return <Search />;
+    case "websearch":
+      return <Globe />;
+    case "webfetch":
+      return <Globe />;
+    default:
+      return <Wrench />;
   }
 }
 
 function getToolTitle(toolName: string): string {
-  return isStaveToolName(toolName) ? toStaveToolDisplayName(toolName) : toolName;
+  return isStaveToolName(toolName)
+    ? toStaveToolDisplayName(toolName)
+    : toolName;
 }
 
 function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
   switch (entry.kind) {
-    case "reasoning": return <Brain />;
-    case "tool": return getToolIcon(entry.part.toolName);
-    case "subagent": return <Bot />;
-    case "todo": return <ListTodo />;
-    case "diff": return <FileCode2 />;
-    case "system": return <Info />;
-    case "approval": return <ShieldCheck />;
-    case "user_input": return <UserRound />;
-    case "assistant_text": return undefined;
+    case "reasoning":
+      return <Brain />;
+    case "tool":
+      return getToolIcon(entry.part.toolName);
+    case "subagent":
+      return <Bot />;
+    case "todo":
+      return <ListTodo />;
+    case "diff":
+      return <FileCode2 />;
+    case "system":
+      return <Info />;
+    case "approval":
+      return <ShieldCheck />;
+    case "user_input":
+      return <UserRound />;
+    case "assistant_text":
+      return undefined;
   }
 }
 
@@ -139,8 +189,7 @@ function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
  * One mono treatment for every kind so a trace column reads as a single list of
  * targets instead of four competing chip styles.
  */
-const TRACE_TARGET_CHIP_CLASS =
-  "ml-1 inline-flex max-w-2xl items-center gap-1 truncate rounded-lg bg-muted/80 px-2.5 py-1 font-mono text-[0.85em] leading-none text-muted-foreground";
+const TRACE_TARGET_CHIP_CLASS = sx(styles.targetChip);
 
 function renderTraceToolSummaryChip(summary: TraceToolSummary): ReactNode {
   switch (summary.kind) {
@@ -149,30 +198,26 @@ function renderTraceToolSummaryChip(summary: TraceToolSummary): ReactNode {
     case "file":
       return (
         <span className={TRACE_TARGET_CHIP_CLASS}>
-          <FileText className="size-[0.85em] shrink-0" />
+          <FileText className={sx(styles.chipIcon)} />
           {summary.text}
         </span>
       );
     case "search":
       return (
         <span className={TRACE_TARGET_CHIP_CLASS}>
-          <Search className="size-[0.85em] shrink-0" />
+          <Search className={sx(styles.chipIcon)} />
           {summary.text}
         </span>
       );
     case "web":
       return (
         <span className={TRACE_TARGET_CHIP_CLASS}>
-          <Globe className="size-[0.85em] shrink-0" />
+          <Globe className={sx(styles.chipIcon)} />
           {summary.text}
         </span>
       );
     case "text":
-      return (
-        <span className="ml-1 max-w-2xl truncate text-[0.75em] text-muted-foreground/70">
-          {summary.text}
-        </span>
-      );
+      return <span className={sx(styles.textSummary)}>{summary.text}</span>;
   }
 }
 
@@ -181,7 +226,7 @@ function getToolSummary(toolName: string, input: string): ReactNode {
     const rows = parseFileChangeToolInput(input);
     return rows.length > 0 ? (
       <span className={TRACE_TARGET_CHIP_CLASS}>
-        <FileCode2 className="size-[0.85em] shrink-0" />
+        <FileCode2 className={sx(styles.chipIcon)} />
         {rows.length} {rows.length === 1 ? "file" : "files"}
       </span>
     ) : null;
@@ -198,15 +243,13 @@ function getEntrySummary(entry: AssistantTraceEntry): ReactNode {
     case "subagent": {
       const parsed = parseSubagentToolInput({ input: entry.part.input });
       return parsed.subagentType ? (
-        <span className="ml-1 rounded-sm bg-primary/10 px-1.5 py-0.5 text-[0.85em] font-medium leading-none text-primary">
-          {parsed.subagentType}
-        </span>
+        <span className={sx(styles.subagentChip)}>{parsed.subagentType}</span>
       ) : null;
     }
     case "todo": {
       const progress = getTodoProgress({ input: entry.part.input });
       return progress.totalCount > 0 ? (
-        <span className="ml-1 text-[0.75em] text-muted-foreground/70">
+        <span className={sx(styles.todoProgress)}>
           {progress.completedCount}/{progress.totalCount}
         </span>
       ) : null;
@@ -227,19 +270,25 @@ function getEntrySummary(entry: AssistantTraceEntry): ReactNode {
         },
         { added: 0, removed: 0 },
       );
-      if (entry.parts.length <= 1 && totals.added === 0 && totals.removed === 0) {
+      if (
+        entry.parts.length <= 1 &&
+        totals.added === 0 &&
+        totals.removed === 0
+      ) {
         return null;
       }
       return (
-        <span className="ml-1 inline-flex items-center gap-1.5 text-[0.8em] leading-none">
+        <span className={sx(styles.diffSummary)}>
           {entry.parts.length > 1 ? (
-            <span className="text-muted-foreground/70">{entry.parts.length} files</span>
+            <span className={sx(styles.diffFiles)}>
+              {entry.parts.length} files
+            </span>
           ) : null}
           {totals.added > 0 ? (
-            <span className="font-medium tabular-nums text-success">+{totals.added}</span>
+            <span className={sx(styles.diffAdded)}>+{totals.added}</span>
           ) : null}
           {totals.removed > 0 ? (
-            <span className="font-medium tabular-nums text-destructive">-{totals.removed}</span>
+            <span className={sx(styles.diffRemoved)}>-{totals.removed}</span>
           ) : null}
         </span>
       );
@@ -279,12 +328,18 @@ function buildTraceSummary(entries: AssistantTraceEntry[]): TraceSummaryItem[] {
     switch (entry.kind) {
       case "tool": {
         const normalized = normalizeTraceToolName(entry.part.toolName);
-        const cat = TOOL_CATEGORIES[normalized] ?? { label: "tools", iconKey: "wrench" };
+        const cat = TOOL_CATEGORIES[normalized] ?? {
+          label: "tools",
+          iconKey: "wrench",
+        };
         const existing = buckets.get(cat.label);
         if (existing) {
           existing.count++;
         } else {
-          buckets.set(cat.label, { icon: CATEGORY_ICONS[cat.iconKey] ?? <Wrench />, count: 1 });
+          buckets.set(cat.label, {
+            icon: CATEGORY_ICONS[cat.iconKey] ?? <Wrench />,
+            count: 1,
+          });
         }
         break;
       }
@@ -302,7 +357,10 @@ function buildTraceSummary(entries: AssistantTraceEntry[]): TraceSummaryItem[] {
         if (existing) {
           existing.count += entry.parts.length;
         } else {
-          buckets.set("changes", { icon: <FileCode2 />, count: entry.parts.length });
+          buckets.set("changes", {
+            icon: <FileCode2 />,
+            count: entry.parts.length,
+          });
         }
         break;
       }
@@ -328,7 +386,9 @@ function buildTraceSummary(entries: AssistantTraceEntry[]): TraceSummaryItem[] {
  * carpet that adds no signal; a failure, by contrast, is currently invisible in
  * the collapsed row. The expanded body still carries the full status label.
  */
-function ToolStepMeta(args: { part: { state?: string; elapsedSeconds?: number } }) {
+function ToolStepMeta(args: {
+  part: { state?: string; elapsedSeconds?: number };
+}) {
   const { state, elapsedSeconds } = args.part;
   const showBadge = state === "output-error";
   const showElapsed = elapsedSeconds != null && elapsedSeconds >= 1;
@@ -336,9 +396,9 @@ function ToolStepMeta(args: { part: { state?: string; elapsedSeconds?: number } 
     return null;
   }
   return (
-    <span className="ml-1 inline-flex items-center gap-[0.35em]">
+    <span className={sx(styles.stepMeta)}>
       {showElapsed ? (
-        <span className="text-[0.75em] tabular-nums text-muted-foreground/70">
+        <span className={sx(styles.stepElapsed)}>
           {formatTraceElapsed(elapsedSeconds)}
         </span>
       ) : null}
@@ -361,7 +421,8 @@ function ToolStepDetail(args: {
   input: string;
   output?: string;
   summary: TraceToolSummary | null;
-  state?: "input-streaming" | "input-available" | "output-available" | "output-error";
+  state?:
+    "input-streaming" | "input-available" | "output-available" | "output-error";
 }) {
   /*
    * The header chip already renders the command / file / pattern / URL, so the
@@ -387,7 +448,11 @@ function ToolStepDetail(args: {
         <ToolResultOutput
           label={isStreamingInput ? "Live output" : undefined}
           text={args.output}
-          errorText={args.state === "output-error" ? (args.output ?? "Tool failed.") : undefined}
+          errorText={
+            args.state === "output-error"
+              ? (args.output ?? "Tool failed.")
+              : undefined
+          }
           linkify={!isStreamingInput}
         />
       ) : null}
@@ -399,9 +464,13 @@ function SubagentStepDetail(args: {
   input: string;
   output?: string;
   progressMessages?: string[];
-  state?: "input-streaming" | "input-available" | "output-available" | "output-error";
+  state?:
+    "input-streaming" | "input-available" | "output-available" | "output-error";
 }) {
-  const parsed = useMemo(() => parseSubagentToolInput({ input: args.input }), [args.input]);
+  const parsed = useMemo(
+    () => parseSubagentToolInput({ input: args.input }),
+    [args.input],
+  );
   return (
     <ToolResult
       headless
@@ -409,10 +478,10 @@ function SubagentStepDetail(args: {
       copyText={args.output?.trim() ? args.output : undefined}
     >
       {args.progressMessages?.length ? (
-        <ul className="space-y-1">
+        <ul className={sx(styles.progressList)}>
           {args.progressMessages.map((message, index) => (
-            <li key={`${message}-${index}`} className="flex items-start gap-2 text-[0.875em] text-muted-foreground">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-border" aria-hidden="true" />
+            <li key={`${message}-${index}`} className={sx(styles.progressItem)}>
+              <span className={sx(styles.progressDot)} aria-hidden="true" />
               <LinkifiedText text={message} />
             </li>
           ))}
@@ -424,7 +493,11 @@ function SubagentStepDetail(args: {
       {args.state !== "input-streaming" ? (
         <ToolResultOutput
           text={args.output}
-          errorText={args.state === "output-error" ? (args.output ?? "Subagent failed.") : undefined}
+          errorText={
+            args.state === "output-error"
+              ? (args.output ?? "Subagent failed.")
+              : undefined
+          }
         />
       ) : null}
     </ToolResult>
@@ -433,26 +506,34 @@ function SubagentStepDetail(args: {
 
 function TodoStepDetail(args: {
   input: string;
-  state?: "input-streaming" | "input-available" | "output-available" | "output-error";
+  state?:
+    "input-streaming" | "input-available" | "output-available" | "output-error";
 }) {
-  const todos = useMemo(() => deriveTodoTraceItems(args), [args.input, args.state]);
+  const todos = useMemo(
+    () => deriveTodoTraceItems(args),
+    [args.input, args.state],
+  );
 
   return (
-    <ol className="space-y-1.5">
+    <ol className={sx(styles.todoList)}>
       {todos.map((todo, index) => (
-        <li key={`${todo.content}-${index}`} className="flex items-start gap-2 text-[0.875em] text-foreground">
+        <li key={`${todo.content}-${index}`} className={sx(styles.todoItem)}>
           {todo.status === "completed" ? (
-            <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />
+            <CheckCircle2
+              className={sx(styles.todoIcon, styles.todoIconDone)}
+            />
           ) : todo.status === "in_progress" ? (
-            <LoaderCircle className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />
+            <LoaderCircle
+              className={sx(styles.todoIcon, styles.todoIconActive)}
+            />
           ) : (
-            <Circle className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/50" />
+            <Circle className={sx(styles.todoIcon, styles.todoIconPending)} />
           )}
           <span
-            className={cn(
-              todo.status === "completed" && "text-muted-foreground line-through",
-              todo.status === "in_progress" && "font-medium text-foreground",
-              todo.status === "pending" && "text-muted-foreground",
+            className={sx(
+              todo.status === "completed" && styles.todoTextDone,
+              todo.status === "in_progress" && styles.todoTextActive,
+              todo.status === "pending" && styles.todoTextPending,
             )}
           >
             {todo.content}
@@ -494,12 +575,14 @@ function getReasoningDurationSeconds(parts: ThinkingPart[]): number | null {
     }
     return toEpochMilliseconds(part.startedAt);
   }, null);
-  const completedAt = [...parts].reverse().reduce<number | null>((latestTimestamp, part) => {
-    if (latestTimestamp !== null) {
-      return latestTimestamp;
-    }
-    return toEpochMilliseconds(part.completedAt);
-  }, null);
+  const completedAt = [...parts]
+    .reverse()
+    .reduce<number | null>((latestTimestamp, part) => {
+      if (latestTimestamp !== null) {
+        return latestTimestamp;
+      }
+      return toEpochMilliseconds(part.completedAt);
+    }, null);
   if (startedAt === null || completedAt === null || completedAt < startedAt) {
     return null;
   }
@@ -524,7 +607,10 @@ export function splitSystemEventContent(content: string): {
 
   return {
     title: lines[titleIndex]?.trim() || "System",
-    detail: lines.slice(titleIndex + 1).join("\n").trim(),
+    detail: lines
+      .slice(titleIndex + 1)
+      .join("\n")
+      .trim(),
   };
 }
 
@@ -536,25 +622,26 @@ function ReasoningStepView(args: {
   const { entry, status, icon } = args;
   const durationSeconds = getReasoningDurationSeconds(entry.parts);
 
-  const durationSummary = !entry.isStreaming && durationSeconds !== null ? (
-    <span className="ml-1 text-[0.85em] text-muted-foreground/70">
-      Thought for {formatThinkingDuration(durationSeconds)}
-    </span>
-  ) : null;
+  const durationSummary =
+    !entry.isStreaming && durationSeconds !== null ? (
+      <span className={sx(styles.reasoningDuration)}>
+        Thought for {formatThinkingDuration(durationSeconds)}
+      </span>
+    ) : null;
 
   const reasoningText = joinReasoningText(entry.parts);
   return (
     <ChainOfThoughtStep
       title="Reasoning"
-      titleContent={(
+      titleContent={
         <ThinkingAnimatedText
           text={entry.isStreaming ? "Thinking" : "Reasoning"}
           active={entry.isStreaming}
           replayWhileActive={entry.isStreaming}
           settleOnStop
-          className="relative top-[0.08em] font-medium leading-none"
+          className={sx(styles.reasoningTitle)}
         />
-      )}
+      }
       status={status}
       kind="thinking"
       icon={icon}
@@ -569,7 +656,10 @@ function ReasoningStepView(args: {
          * glides under the top fade once it outgrows the cap.
          */
         <StreamingThoughtViewport>
-          <p className="whitespace-pre-wrap text-muted-foreground" style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}>
+          <p
+            className={sx(styles.reasoningText)}
+            style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
+          >
             {reasoningText || "Thinking..."}
           </p>
         </StreamingThoughtViewport>
@@ -577,7 +667,7 @@ function ReasoningStepView(args: {
         <LinkifiedText
           as="p"
           text={reasoningText || "Thinking..."}
-          className="whitespace-pre-wrap text-muted-foreground"
+          className={sx(styles.reasoningText)}
           style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
         />
       )}
@@ -592,16 +682,16 @@ function AssistantTraceEntryView(args: {
   isStreaming: boolean;
   taskId: string;
   messageId: string;
+  terminalStopReason?: string;
 }) {
-  const { entry, isStreaming, taskId, messageId } = args;
+  const { entry, isStreaming, taskId, messageId, terminalStopReason } = args;
   const agentStyle = useAgentStyle();
   const status = toStepStatus({ entry, isStreaming });
   const icon = getEntryIcon(entry);
   const summary = getEntrySummary(entry);
-  /* TODO(agent-style-legacy): collapse to `animate-trace-row-in` once signed off. */
-  const rowMotionClass = agentStyle === "legacy"
-    ? "motion-safe:animate-cot-step-in"
-    : "motion-safe:animate-trace-row-in";
+  /* TODO(agent-style-legacy): collapse to `rowMotion` once signed off. */
+  const rowMotionStyle =
+    agentStyle === "legacy" ? styles.rowMotionLegacy : styles.rowMotion;
 
   switch (entry.kind) {
     case "reasoning":
@@ -610,25 +700,33 @@ function AssistantTraceEntryView(args: {
     /* Assistant text — bullet point, content always visible (no accordion). */
     case "assistant_text":
       return (
-        <div className={cn("flex gap-[0.7em] text-[0.875em] text-muted-foreground", rowMotionClass)}>
-          <div className="relative mt-[0.265em] flex flex-col items-center">
-            <span className="flex size-[1.15em] items-center justify-center" aria-hidden="true">
-              <span className="size-[0.35em] rounded-full bg-muted-foreground/50" />
+        <div className={sx(styles.assistantTextRow, rowMotionStyle)}>
+          <div className={sx(styles.assistantTextRail)}>
+            <span className={sx(styles.assistantTextMarker)} aria-hidden="true">
+              <span className={sx(styles.assistantTextDot)} />
             </span>
-            <div className="cot-connector mt-[0.35em] w-px flex-1 bg-border" />
+            <div
+              className={cx("cot-connector", sx(styles.assistantTextConnector))}
+            />
           </div>
-          <div className="min-w-0 flex-1 pb-[1em]">
+          <div className={sx(styles.assistantTextBody)}>
             {entry.parts.map((part, index) => (
-              <MessageResponse key={`${entry.id}-${index}`}>{part.text}</MessageResponse>
+              <MessageResponse key={`${entry.id}-${index}`}>
+                {part.text}
+              </MessageResponse>
             ))}
           </div>
         </div>
       );
 
     case "tool": {
-      const toolSummary = normalizeTraceToolName(entry.part.toolName) === "file_change"
-        ? null
-        : deriveTraceToolSummary({ toolName: entry.part.toolName, input: entry.part.input });
+      const toolSummary =
+        normalizeTraceToolName(entry.part.toolName) === "file_change"
+          ? null
+          : deriveTraceToolSummary({
+              toolName: entry.part.toolName,
+              input: entry.part.input,
+            });
       return (
         <ChainOfThoughtStep
           title={getToolTitle(entry.part.toolName)}
@@ -657,15 +755,15 @@ function AssistantTraceEntryView(args: {
     case "subagent": {
       const parsed = parseSubagentToolInput({ input: entry.part.input });
       const baseTitle = parsed.description ?? parsed.subagentType ?? "Subagent";
-      const resolvedTitle = entry.part.workerExecution ? `Worker · ${baseTitle}` : baseTitle;
-      const titleContent = status === "active" ? (
-        <Shimmer
-          as="span"
-          className="[--shimmer-base-color:var(--color-foreground)]"
-        >
-          {resolvedTitle}
-        </Shimmer>
-      ) : undefined;
+      const resolvedTitle = entry.part.workerExecution
+        ? `Worker · ${baseTitle}`
+        : baseTitle;
+      const titleContent =
+        status === "active" ? (
+          <Shimmer as="span" className={sx(styles.shimmerBaseForeground)}>
+            {resolvedTitle}
+          </Shimmer>
+        ) : undefined;
       return (
         <ChainOfThoughtStep
           title={resolvedTitle}
@@ -674,16 +772,16 @@ function AssistantTraceEntryView(args: {
           kind="agent"
           icon={icon}
           summary={summary}
-          trailing={(
-            <span className="inline-flex items-center gap-2">
+          trailing={
+            <span className={sx(styles.trailingRow)}>
               {entry.part.workerExecution ? (
-                <span className="rounded-full border border-primary/25 bg-primary/5 px-2 py-0.5 text-[0.6875rem] text-muted-foreground">
+                <span className={sx(styles.workerBadge)}>
                   {formatWorkerExecutionMetadata(entry.part.workerExecution)}
                 </span>
               ) : null}
               <ToolStepMeta part={entry.part} />
             </span>
-          )}
+          }
           defaultOpen={entry.part.state === "input-streaming"}
           openWhen={entry.part.state === "input-streaming"}
           collapseWhen={entry.part.state === "output-available"}
@@ -718,13 +816,21 @@ function AssistantTraceEntryView(args: {
     case "diff":
       return (
         <ChainOfThoughtStep
-          title={entry.parts.length === 1 ? "Changed file" : `${entry.parts.length} changed files`}
+          title={
+            entry.parts.length === 1
+              ? "Changed file"
+              : `${entry.parts.length} changed files`
+          }
           status={status}
           icon={icon}
           summary={summary}
           defaultOpen={entry.parts.some((p) => p.status === "pending")}
         >
-          <ChangedFilesBlock parts={entry.parts} taskId={taskId} messageId={messageId} />
+          <ChangedFilesBlock
+            parts={entry.parts}
+            taskId={taskId}
+            messageId={messageId}
+          />
         </ChainOfThoughtStep>
       );
 
@@ -745,7 +851,11 @@ function AssistantTraceEntryView(args: {
           }
           tabIndex={entry.part.state === "approval-requested" ? -1 : undefined}
         >
-          <MessagePartRenderer part={entry.part} taskId={taskId} messageId={messageId} />
+          <MessagePartRenderer
+            part={entry.part}
+            taskId={taskId}
+            messageId={messageId}
+          />
         </ChainOfThoughtStep>
       );
 
@@ -766,36 +876,45 @@ function AssistantTraceEntryView(args: {
         </ChainOfThoughtStep>
       );
 
-    case "system":
-      {
-        const { title: systemTitle, detail: systemDetail } = splitSystemEventContent(
-          entry.part.content,
-        );
-        const systemContent = entry.part.content.trim();
-        const hasDistinctSystemContent =
-          entry.part.compactBoundary != null || systemDetail.length > 0;
-        const isCompactionCheckpoint = systemContent
-          .toLowerCase()
-          .startsWith("context compacted");
-        const systemBodyPart =
-          entry.part.compactBoundary != null || isCompactionCheckpoint
-            ? entry.part
-            : { ...entry.part, content: systemDetail };
+    case "system": {
+      const { title: systemTitle, detail: systemDetail } =
+        splitSystemEventContent(entry.part.content);
+      const systemContent = entry.part.content.trim();
+      const providerErrorNotice = parseProviderErrorNotice(systemContent);
+      const isCapacityError = providerErrorNotice?.capacityFailure === true;
+      const hasDistinctSystemContent =
+        entry.part.compactBoundary != null ||
+        systemDetail.length > 0 ||
+        isCapacityError;
+      const isCompactionCheckpoint = systemContent
+        .toLowerCase()
+        .startsWith("context compacted");
+      const systemBodyPart =
+        entry.part.compactBoundary != null ||
+        isCompactionCheckpoint ||
+        isCapacityError
+          ? entry.part
+          : { ...entry.part, content: systemDetail };
 
-        return (
-          <ChainOfThoughtStep
-            title={systemTitle}
-            status={status}
-            icon={icon}
-            defaultOpen={entry.part.compactBoundary != null}
-          >
-            {hasDistinctSystemContent ? (
-              <MessagePartRenderer part={systemBodyPart} taskId={taskId} messageId={messageId} />
-            ) : null}
-          </ChainOfThoughtStep>
-        );
-      }
-
+      return (
+        <ChainOfThoughtStep
+          title={providerErrorNotice?.message ?? systemTitle}
+          status={status}
+          icon={icon}
+          defaultOpen={entry.part.compactBoundary != null || isCapacityError}
+        >
+          {hasDistinctSystemContent ? (
+            <MessagePartRenderer
+              part={systemBodyPart}
+              taskId={taskId}
+              messageId={messageId}
+              terminalStopReason={terminalStopReason}
+              systemEventPresentation={isCapacityError ? "detail" : "full"}
+            />
+          ) : null}
+        </ChainOfThoughtStep>
+      );
+    }
   }
 }
 
@@ -804,10 +923,11 @@ function DisplayPartList(args: {
   taskId: string;
   messageId: string;
   isStreaming: boolean;
+  terminalStopReason?: string;
   tokenizePromptTokens?: boolean;
 }) {
   return (
-    <div className="space-y-3">
+    <div className={sx(styles.block)}>
       {args.parts.map((part, index) => {
         if (part.type === "text") {
           return (
@@ -834,6 +954,7 @@ function DisplayPartList(args: {
             part={part}
             taskId={args.taskId}
             messageId={args.messageId}
+            terminalStopReason={args.terminalStopReason}
           />
         );
       })}
@@ -851,6 +972,7 @@ export function AssistantMessageBody(args: {
     | "displayContent"
     | "displayParts"
     | "isStreaming"
+    | "terminalStopReason"
     | "role"
   >;
   taskId: string;
@@ -870,9 +992,28 @@ export function AssistantMessageBody(args: {
   const isActivelyStreaming = Boolean(message.isStreaming);
   const isStreaming = streamingEnabled && isActivelyStreaming;
   const shouldAutoExpandTrace = traceExpansionMode === "auto";
+  const hasActionableCapacityFailure = useMemo(() => {
+    const candidateParts =
+      message.displayParts && message.displayParts.length > 0
+        ? message.displayParts
+        : message.parts;
+    return candidateParts.some((part) => {
+      if (part.type !== "system_event") return false;
+      const notice = parseProviderErrorNotice(part.content);
+      return notice
+        ? isProviderFailureRecoveryEligible({
+            notice,
+            terminalStopReason: message.terminalStopReason,
+          })
+        : false;
+    });
+  }, [message.displayParts, message.parts, message.terminalStopReason]);
   const trace = useMemo(() => buildAssistantTrace({ message }), [message]);
 
-  const summaryItems = useMemo(() => buildTraceSummary(trace.entries), [trace.entries]);
+  const summaryItems = useMemo(
+    () => buildTraceSummary(trace.entries),
+    [trace.entries],
+  );
   /* Total reasoning time for the turn, shown next to the collapsed completion
      phrase ("Thought for 12s"). Only meaningful once the turn has finished. */
   const traceDurationSeconds = useMemo(() => {
@@ -880,34 +1021,40 @@ export function AssistantMessageBody(args: {
       return undefined;
     }
     const total = trace.entries.reduce(
-      (sum, entry) => (
-        entry.kind === "reasoning" ? sum + (getReasoningDurationSeconds(entry.parts) ?? 0) : sum
-      ),
+      (sum, entry) =>
+        entry.kind === "reasoning"
+          ? sum + (getReasoningDurationSeconds(entry.parts) ?? 0)
+          : sum,
       0,
     );
     return total > 0 ? total : undefined;
   }, [isStreaming, trace.entries]);
   const allDiffParts = useMemo<CodeDiffPart[]>(
-    () => trace.entries.flatMap((entry) => entry.kind === "diff" ? entry.parts : []),
+    () =>
+      trace.entries.flatMap((entry) =>
+        entry.kind === "diff" ? entry.parts : [],
+      ),
     [trace.entries],
   );
   const fileChangeSummaryRows = useMemo(
-    () => trace.entries.flatMap((entry) => (
-      entry.kind === "tool" && entry.part.toolName.trim().toLowerCase() === "file_change"
-        ? parseFileChangeToolInput(entry.part.input)
-        : []
-    )),
+    () =>
+      trace.entries.flatMap((entry) =>
+        entry.kind === "tool" &&
+        entry.part.toolName.trim().toLowerCase() === "file_change"
+          ? parseFileChangeToolInput(entry.part.input)
+          : [],
+      ),
     [trace.entries],
   );
-  const unresolvedFileChangeRows = useMemo(
-    () => {
-      const diffPaths = new Set(allDiffParts.map((part) => part.filePath));
-      return fileChangeSummaryRows.filter((row) => row.status !== "applied" || !diffPaths.has(row.filePath));
-    },
-    [allDiffParts, fileChangeSummaryRows],
-  );
+  const unresolvedFileChangeRows = useMemo(() => {
+    const diffPaths = new Set(allDiffParts.map((part) => part.filePath));
+    return fileChangeSummaryRows.filter(
+      (row) => row.status !== "applied" || !diffPaths.has(row.filePath),
+    );
+  }, [allDiffParts, fileChangeSummaryRows]);
   const showDiffResults = allDiffParts.length > 0 && !isStreaming;
-  const showFileChangeSummary = unresolvedFileChangeRows.length > 0 && !isStreaming;
+  const showFileChangeSummary =
+    unresolvedFileChangeRows.length > 0 && !isStreaming;
 
   if (message.displayParts && message.displayParts.length > 0) {
     return (
@@ -916,19 +1063,20 @@ export function AssistantMessageBody(args: {
         taskId={taskId}
         messageId={messageId}
         isStreaming={isStreaming}
+        terminalStopReason={message.terminalStopReason}
         tokenizePromptTokens={message.role === "user"}
       />
     );
   }
 
   if (
-    !trace.showStreamingPlaceholder
-    && trace.entries.length === 0
-    && trace.responseParts.length === 0
-    && trace.fileContextParts.length === 0
-    && trace.imageContextParts.length === 0
+    !trace.showStreamingPlaceholder &&
+    trace.entries.length === 0 &&
+    trace.responseParts.length === 0 &&
+    trace.fileContextParts.length === 0 &&
+    trace.imageContextParts.length === 0
   ) {
-    return <p className="text-[0.875em] italic text-muted-foreground">No response.</p>;
+    return <p className={sx(styles.noResponse)}>No response.</p>;
   }
 
   return (
@@ -936,14 +1084,28 @@ export function AssistantMessageBody(args: {
       {trace.showStreamingPlaceholder || trace.entries.length > 0 ? (
         <ChainOfThought
           isStreaming={isStreaming}
-          defaultOpen={shouldAutoExpandTrace && isStreaming}
-          openWhen={shouldAutoExpandTrace && isStreaming}
-          collapseWhen={shouldAutoExpandTrace && !isStreaming}
+          defaultOpen={
+            hasActionableCapacityFailure ||
+            (shouldAutoExpandTrace && isStreaming)
+          }
+          openWhen={
+            hasActionableCapacityFailure ||
+            (shouldAutoExpandTrace && isStreaming)
+          }
+          collapseWhen={
+            !hasActionableCapacityFailure &&
+            shouldAutoExpandTrace &&
+            !isStreaming
+          }
           summaryItems={summaryItems}
           seed={messageId}
           durationSeconds={traceDurationSeconds}
         >
-          <ChainOfThoughtTrigger />
+          <ChainOfThoughtTrigger
+            completionLabel={
+              hasActionableCapacityFailure ? "Run failed" : undefined
+            }
+          />
           {trace.entries.length > 0 ? (
             <ChainOfThoughtContent>
               {trace.entries.map((entry) => (
@@ -953,6 +1115,7 @@ export function AssistantMessageBody(args: {
                   isStreaming={isStreaming}
                   taskId={taskId}
                   messageId={messageId}
+                  terminalStopReason={message.terminalStopReason}
                 />
               ))}
             </ChainOfThoughtContent>
@@ -960,11 +1123,13 @@ export function AssistantMessageBody(args: {
         </ChainOfThought>
       ) : null}
 
-      {!isStreaming && showInterimMessages && trace.interimTextParts.length > 0 ? (
+      {!isStreaming &&
+      showInterimMessages &&
+      trace.interimTextParts.length > 0 ? (
         <div
-          className={cn(
-            trace.entries.length > 0 && "mt-4",
-            "space-y-1.5 opacity-50",
+          className={sx(
+            styles.interim,
+            trace.entries.length > 0 && styles.spacedTop,
           )}
         >
           {trace.interimTextParts.map((part, index) => (
@@ -980,15 +1145,19 @@ export function AssistantMessageBody(args: {
 
       {trace.responseParts.length > 0 ? (
         <div
-          className={cn(
-            (trace.entries.length > 0 || (showInterimMessages && trace.interimTextParts.length > 0)) && "mt-4",
-            "space-y-3",
+          className={sx(
+            styles.block,
+            (trace.entries.length > 0 ||
+              (showInterimMessages && trace.interimTextParts.length > 0)) &&
+              styles.spacedTop,
           )}
         >
           {trace.responseParts.map((part, index) => (
             <MessageResponse
               key={`${messageId}-response-${index}`}
-              isStreaming={isStreaming && index === trace.responseParts.length - 1}
+              isStreaming={
+                isStreaming && index === trace.responseParts.length - 1
+              }
               tokenizePromptTokens={message.role === "user"}
             >
               {part.text}
@@ -998,25 +1167,29 @@ export function AssistantMessageBody(args: {
       ) : null}
 
       {showDiffResults ? (
-        <div className="mt-4">
-          <ChangedFilesBlock parts={allDiffParts} taskId={taskId} messageId={messageId} />
+        <div className={sx(styles.spacedTop)}>
+          <ChangedFilesBlock
+            parts={allDiffParts}
+            taskId={taskId}
+            messageId={messageId}
+          />
         </div>
       ) : null}
 
       {showFileChangeSummary ? (
-        <div className="mt-4">
+        <div className={sx(styles.spacedTop)}>
           <FileChangeSummaryBlock rows={unresolvedFileChangeRows} />
         </div>
       ) : null}
 
       {trace.fileContextParts.length > 0 ? (
-        <div className="mt-4">
+        <div className={sx(styles.spacedTop)}>
           <ReferencedFilesBlock parts={trace.fileContextParts} />
         </div>
       ) : null}
 
       {trace.imageContextParts.length > 0 ? (
-        <div className="mt-4">
+        <div className={sx(styles.spacedTop)}>
           <ImageAttachmentBlock parts={trace.imageContextParts} />
         </div>
       ) : null}

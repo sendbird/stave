@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   memo,
   useCallback,
@@ -63,7 +64,13 @@ import {
   type TurnActivityItem,
   type TurnActivityTodo,
 } from "@/components/session/turn-activity.utils";
-import { Button, Loader } from "@/components/ui";
+import { Badge, Button, Loader } from "@/components/ui";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { cx, sx } from "../ads/utils/stylex";
+import { focusRing } from "../ads/recipes/focus-ring";
+import { surfaceChrome } from "../ads/recipes/surface-chrome";
+import { transition } from "../ads/recipes/transition";
+import { turnActivityStyles as styles } from "./turn-activity.styles";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import { useThrottledValue } from "@/hooks/use-throttled-value";
 import {
@@ -82,7 +89,6 @@ import {
 import { buildChildTaskExpectedIdentity } from "@/lib/runs/child-task-view";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
-import { cn } from "@/lib/utils";
 import type { TurnActivityPlacement } from "@/store/app-settings";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityFloatPosition } from "@/store/layout.utils";
@@ -170,6 +176,20 @@ export function TurnActivity(props: {
   frameInset?: boolean;
 }) {
   const host = props.host ?? "docked";
+  const placement = useAppStore(
+    (state) => state.settings.turnActivityPlacement,
+  );
+  if (placement !== host) return null;
+  return <ActiveTurnActivity key={host} {...props} host={host} />;
+}
+
+// Gate before the subscriptions, projections and effects. An inactive host
+// must not rebuild the transcript summary or synchronize an empty child list.
+function ActiveTurnActivity(props: {
+  host: TurnActivityPlacement;
+  frameInset?: boolean;
+}) {
+  const host = props.host;
   const taskId = useScopedTaskId();
   const [
     activeTask,
@@ -190,7 +210,6 @@ export function TurnActivity(props: {
     activeWorkspaceId,
     projectPath,
     runtimeCapabilities,
-    placement,
   ] = useAppStore(
     useShallow((state) => [
       state.tasks.find((task) => task.id === taskId) ?? null,
@@ -213,13 +232,11 @@ export function TurnActivity(props: {
       state.activeWorkspaceId,
       state.projectPath,
       state.providerRuntimeCapabilities,
-      state.settings.turnActivityPlacement,
     ]),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
   const setLayout = useAppStore((state) => state.setLayout);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
-  const placementMatchesHost = placement === host;
   // A row names a tool call the transcript already renders in full. Without
   // this the only way from "that grep looks wrong" to its output was scrolling
   // the conversation by hand.
@@ -347,7 +364,7 @@ export function TurnActivity(props: {
     parentTaskId: taskId,
     parentWorkspaceId: activeWorkspaceId,
     projectPath,
-    enabled: shouldShow && placementMatchesHost,
+    enabled: shouldShow,
   });
   const { children: childTaskRows } = childTasks;
   // Only the rows and the controls travel down, and they travel as their own
@@ -589,15 +606,12 @@ export function TurnActivity(props: {
   }, [surfaceProps]);
 
   const visibleProps = surfaceProps ?? leavingProps;
-  if (!placementMatchesHost) {
-    return null;
-  }
   if (!visibleProps) {
     if (host === "panel") {
       return (
         <div
           data-testid="turn-activity-panel-idle"
-          className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground"
+          className={sx(styles.panelIdle)}
         >
           Activity appears here while a turn is running.
         </div>
@@ -609,7 +623,7 @@ export function TurnActivity(props: {
   const sharedProps = {
     ...visibleProps,
     isLeaving: leavingProps != null,
-    placement,
+    placement: host,
     onPlacementChange: handlePlacementChange,
   };
   const surfaceKey = `${taskId}:${visibleProps.activeTurnId}`;
@@ -762,7 +776,7 @@ function TurnActivityFloatingShell(props: {
       className={SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME}
       style={wrapperStyle}
     >
-      <div className="pointer-events-auto w-[min(26rem,80vw)]">
+      <div className={sx(styles.floatInner)}>
         {props.children({
           onPointerDown,
           onPointerMove,
@@ -1046,17 +1060,16 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     <div
       data-testid="turn-activity-stack"
       data-variant={variant}
-      className={cn(
+      className={sx(
+        // Standalone docked pulls the composer up over its extra bottom
+        // padding; the composer frame owns that tuck when frame-inset.
         variant === "docked" &&
-          // Standalone docked: `-mb-3` pulls the composer up over extra `pb-3`.
-          // Frame-inset: the composer frame owns that tuck.
-          (props.frameInset ? "relative z-0" : "relative z-0 mx-3 -mb-3"),
-        variant === "floating" && "relative",
-        variant === "panel" && "flex h-full min-h-0 flex-col",
-        props.isLeaving
-          ? "pointer-events-none motion-safe:animate-out motion-safe:fade-out motion-safe:slide-out-to-bottom-2 motion-safe:fill-mode-forwards"
-          : "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2",
-        "motion-reduce:transition-none",
+          (props.frameInset
+            ? styles.stackDocked
+            : styles.stackDockedStandalone),
+        variant === "floating" && styles.stackFloating,
+        variant === "panel" && styles.stackPanel,
+        props.isLeaving ? styles.stackLeaving : styles.stackEnter,
       )}
     >
       <section
@@ -1065,41 +1078,41 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         }
         data-testid="turn-activity"
         data-replay={props.replayOutcome}
-        className={cn(
-          "relative flex min-h-0 flex-col overflow-hidden",
-          // A docked shelf takes its surface from `.turn-activity-surface`,
-          // which sits one step back from `--card`; a floating or panelled one
-          // is a card in its own right and says so.
-          variant !== "docked" && "bg-card",
-          variant === "docked" &&
-            "turn-activity-surface rounded-t-xl rounded-b-none pb-3",
-          variant === "floating" &&
-            "rounded-xl border border-border/80 pb-2 shadow-lg",
-          variant === "panel" && "flex-1 pb-2",
-          "transition-[box-shadow,border-color] duration-200 ease-out motion-reduce:transition-none",
+        // A docked shelf takes its surface from the global
+        // `.turn-activity-surface` class, which sits one step back from the
+        // card surface; a floating or panelled one is a card in its own right.
+        className={cx(
+          variant === "docked" && "turn-activity-surface",
+          sx(
+            styles.surface,
+            variant !== "docked" && styles.surfaceCard,
+            variant === "docked" && styles.surfaceDocked,
+            variant === "floating" && styles.surfaceFloating,
+            variant === "panel" && styles.surfacePanel,
+          ),
         )}
       >
         <div
           {...props.dragHandleProps}
-          className={cn(
-            "flex min-h-11 shrink-0 items-center gap-2.5 px-3",
+          className={sx(
+            styles.header,
             // Inside the frame this row is the shelf's visible box, and the
             // 0.75rem below it is spent on the tuck behind the card — so the
             // padding is symmetric at the tuck on both sides, matching the
-            // status bar's mirrored `pt-6`/`pb-3`.
-            props.frameInset ? "py-3" : "py-2",
-            expanded && canExpand && "border-b border-border/50 bg-muted/10",
-            props.dragHandleProps && "cursor-grab select-none touch-none",
+            // status bar's mirrored padding.
+            props.frameInset ? styles.headerInset : styles.headerStandard,
+            expanded && canExpand && styles.headerExpanded,
+            props.dragHandleProps && styles.headerGrab,
           )}
         >
           <span
             data-testid="turn-activity-loader"
-            className="flex size-6 shrink-0 items-center justify-center"
+            className={sx(styles.loaderSlot)}
           >
             <Loader
               aria-hidden
               cadence="reduced"
-              className="text-foreground"
+              className={sx(styles.loaderInk)}
               paused={
                 isStalled ||
                 props.activity?.pendingInteraction != null ||
@@ -1109,37 +1122,40 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               variant={loaderVariant}
             />
           </span>
-          <h2 className="sr-only">
+          <h2 className={sx(styles.srOnly)}>
             {props.replayOutcome ? "Last turn activity" : "Turn activity"}
           </h2>
           {props.replayOutcome ? (
             <span
               data-testid="turn-activity-replay-badge"
-              className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              className={sx(styles.replayBadge)}
             >
               Last turn
             </span>
           ) : null}
           <p
             aria-live="polite"
-            className="min-w-0 flex-1 truncate text-[0.8125rem] leading-5"
+            className={sx(styles.headline)}
             title={
               headlineDetail ? `${headline} · ${headlineDetail}` : headline
             }
           >
-            <span className="font-medium text-foreground">{headline}</span>
+            <span className={sx(styles.headlineTitle)}>{headline}</span>
             {headlineDetail ? (
-              <span className="text-muted-foreground"> · {headlineDetail}</span>
+              <span className={sx(styles.headlineDetail)}>
+                {" "}
+                · {headlineDetail}
+              </span>
             ) : null}
           </p>
           {showProgress ? (
             <span
-              className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
+              className={sx(styles.progress)}
               data-testid="turn-activity-progress"
             >
-              <span className="sr-only">
+              <VisuallyHidden>
                 {counts.completedCount} of {counts.totalCount} activities done
-              </span>
+              </VisuallyHidden>
               <span aria-hidden="true">
                 {counts.completedCount}/{counts.totalCount}
               </span>
@@ -1147,13 +1163,13 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           ) : null}
           {!expanded && !interactionCardOwnsFocus && hiddenItemCount > 0 ? (
             <span
-              className={cn(
-                "shrink-0 text-[11px] font-medium tabular-nums",
+              className={sx(
+                styles.overflowCount,
                 hiddenSeverity === "failed"
-                  ? "text-destructive"
+                  ? styles.overflowFailed
                   : hiddenSeverity === "waiting"
-                    ? "text-warning"
-                    : "text-muted-foreground",
+                    ? styles.overflowWaiting
+                    : styles.overflowDefault,
               )}
               aria-label={`${hiddenItemCount} more activities`}
             >
@@ -1162,10 +1178,10 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           ) : null}
           {elapsedLabel ? (
             <span
-              className="shrink-0 text-[11px] tabular-nums text-muted-foreground"
+              className={sx(styles.elapsed)}
               title={`Elapsed time: ${elapsedLabel}`}
             >
-              <span className="sr-only">Turn elapsed </span>
+              <VisuallyHidden>Turn elapsed </VisuallyHidden>
               {elapsedLabel}
             </span>
           ) : null}
@@ -1187,9 +1203,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               onClick={() => setExpandedOverride(!expanded)}
             >
               {expanded ? (
-                <ChevronDown className="size-3.5" />
+                <ChevronDown className={sx(styles.chevron)} />
               ) : (
-                <ChevronUp className="size-3.5" />
+                <ChevronUp className={sx(styles.chevron)} />
               )}
             </Button>
           ) : null}
@@ -1198,14 +1214,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         {isListOpen ? (
           <div
             data-testid="turn-activity-list"
-            className={cn(
-              "min-h-0 overflow-y-auto overscroll-contain bg-muted/10",
-              variant === "docked" && "max-h-[min(12rem,28vh)]",
-              variant === "floating" && "max-h-[min(24rem,55vh)]",
-              variant === "panel" && "flex-1",
+            className={sx(
+              styles.list,
+              variant === "docked" && styles.listDocked,
+              variant === "floating" && styles.listFloating,
+              variant === "panel" && styles.listPanel,
             )}
           >
-            <div className="px-1.5 py-1.5">
+            <div className={sx(styles.listInner)}>
               {visibleActivityItems.map((item) => (
                 <TurnActivityRow
                   key={item.id}
@@ -1224,27 +1240,27 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 onControl={props.onWorkGraphControl}
                 onSelectTool={props.onSelectTool}
                 controlErrorByNodeKey={props.workGraphControlErrorByNodeKey}
-                className="px-1.5 pt-2"
+                className={sx(styles.childBlock)}
               />
               {props.executionSummary ? (
                 <TaskExecutionSummarySurface
                   compact
                   summary={props.executionSummary}
                   showLatestActivity={false}
-                  className="px-1.5 pb-1 pt-2"
+                  className={sx(styles.childBlockPadded)}
                 />
               ) : null}
               <ChildTaskParentBacklink
                 taskId={props.taskId}
                 projectPath={props.projectPath}
-                className="px-1.5 pt-2"
+                className={sx(styles.childBlock)}
               />
               <ChildTaskRows
                 parentTaskId={props.taskId}
                 parentWorkspaceId={props.workspaceId}
                 projectPath={props.projectPath}
                 source={props.childTasks}
-                className="px-1.5 pb-1 pt-2"
+                className={sx(styles.childBlockPadded)}
               />
             </div>
           </div>
@@ -1281,7 +1297,7 @@ function TurnActivityPlacementControls(props: {
   onPlacementChange: (placement: TurnActivityPlacement) => void;
 }) {
   return (
-    <span className="flex shrink-0 items-center gap-0.5">
+    <span className={sx(styles.placementGroup)}>
       {PLACEMENT_CONTROLS.filter(
         (control) => control.placement !== props.placement,
       ).map(({ placement, label, Icon }) => (
@@ -1292,10 +1308,10 @@ function TurnActivityPlacementControls(props: {
           size="icon-xs"
           aria-label={label}
           title={label}
-          className="text-muted-foreground hover:text-foreground"
+          className={sx(styles.placementButton)}
           onClick={() => props.onPlacementChange(placement)}
         >
-          <Icon className="size-3.5" />
+          <Icon className={sx(styles.chevron)} />
         </Button>
       ))}
     </span>
@@ -1343,21 +1359,21 @@ const TurnActivityRow = memo(function TurnActivityRow({
       : null;
   const body = (
     <>
-      <span className="flex h-5 shrink-0 items-center">
+      <span className={sx(styles.rowStatusSlot)}>
         <TurnActivityStatusIcon status={item.status} iconKey={item.iconKey} />
       </span>
-      <div className="min-w-0 flex-1">
+      <div className={sx(styles.rowBody)}>
         <p
-          className={cn(
-            "flex min-w-0 items-center gap-1.5 text-[0.8125rem] leading-5",
-            isCompleted && "text-muted-foreground",
+          className={sx(
+            styles.rowTitleLine,
+            isCompleted && styles.rowTitleLineDone,
           )}
         >
-          <span className="truncate font-medium">{item.title}</span>
+          <span className={sx(styles.rowTitle)}>{item.title}</span>
           {item.badge ? (
-            <span className="shrink-0 rounded border border-border/60 px-1 text-[10px] leading-4 font-medium tracking-wide text-muted-foreground">
+            <Badge variant="outline" className={sx(styles.rowBadge)}>
               {item.badge}
-            </span>
+            </Badge>
           ) : null}
         </p>
         {detail || providerDetail ? (
@@ -1366,13 +1382,15 @@ const TurnActivityRow = memo(function TurnActivityRow({
           // provider half is monospaced, dimmer, and fenced off by a hairline
           // rule, so it reads as the provider talking rather than as Stave's
           // own description of the step.
-          <p className="flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
-            {detail ? <span className="truncate">{detail}</span> : null}
+          <p className={sx(styles.rowDetailLine)}>
+            {detail ? (
+              <span className={sx(styles.rowDetail)}>{detail}</span>
+            ) : null}
             {detail && providerDetail ? (
-              <span aria-hidden className="h-2.5 w-px shrink-0 bg-border" />
+              <span aria-hidden className={sx(styles.rowDetailRule)} />
             ) : null}
             {providerDetail ? (
-              <span className="truncate font-mono text-[10px] text-muted-foreground/70">
+              <span className={sx(styles.rowProviderDetail)}>
                 {providerDetail}
               </span>
             ) : null}
@@ -1380,19 +1398,19 @@ const TurnActivityRow = memo(function TurnActivityRow({
         ) : null}
       </div>
       {startOffsetLabel ? (
-        <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground/70">
-          <span className="sr-only">
+        <span className={sx(styles.rowStartOffset)}>
+          <VisuallyHidden>
             Started {startOffsetLabel} into the turn
-          </span>
+          </VisuallyHidden>
           <span aria-hidden="true">{startOffsetLabel}</span>
         </span>
       ) : null}
       {item.elapsedSeconds != null ? (
-        <span className="shrink-0 pt-0.5 text-[11px] leading-4 tabular-nums text-muted-foreground">
-          <span className="sr-only">
+        <span className={sx(styles.rowElapsed)}>
+          <VisuallyHidden>
             {getTurnActivityStatusLabel(item.status)},{" "}
             {formatTurnActivityElapsedSeconds(item.elapsedSeconds)} elapsed
-          </span>
+          </VisuallyHidden>
           <span aria-hidden="true">
             {formatTurnActivityElapsedSeconds(item.elapsedSeconds)}
           </span>
@@ -1400,18 +1418,11 @@ const TurnActivityRow = memo(function TurnActivityRow({
       ) : null}
     </>
   );
-  const layoutClassName = cn(
-    "flex w-full min-w-0 items-start gap-2.5 rounded-lg px-2 py-1.5 text-left",
-    // Rows mount once and keep their slot, so this plays exactly when a new
-    // activity appears instead of on every update.
-    "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200",
-  );
-
   if (!handler) {
     return (
       <div
         data-turn-activity-item-id={item.id}
-        className={layoutClassName}
+        className={sx(styles.row, styles.rowMotion)}
         title={baseTitle}
       >
         {body}
@@ -1420,16 +1431,20 @@ const TurnActivityRow = memo(function TurnActivityRow({
   }
 
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
       data-turn-activity-item-id={item.id}
       // `revealable` stays tool-only: it means "the transcript has this call".
       {...(handler.reveal
         ? { "data-turn-activity-revealable": "true" }
         : { "data-turn-activity-opens": "advisor-consult-log" })}
-      className={cn(
-        layoutClassName,
-        "cursor-pointer transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none",
+      className={sx(
+        surfaceChrome.quietIconButton,
+        focusRing.ring,
+        transition.control,
+        styles.row,
+        styles.rowMotion,
       )}
       title={
         handler.reveal
@@ -1439,7 +1454,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
       onClick={handler.onClick}
     >
       {body}
-    </button>
+    </AdsButton>
   );
 });
 

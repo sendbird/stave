@@ -1,3 +1,5 @@
+import { sx } from "@/components/ads/utils/stylex";
+import { frameStyles } from "@/components/ai-elements/composer-frame.styles";
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,18 +37,8 @@ describe("ComposerFrame", () => {
     expect(html).toContain('data-composer-frame-slot="left"');
     expect(html).toContain('data-composer-frame-wing="left"');
     expect(html).toContain('data-side="left"');
-    expect(html).toContain("self-stretch");
-    // The track reserves only a resting wing; a reveal overhangs the frame.
-    expect(html).toContain("w-[3.75rem]");
-    // Shelves hang off the card, inset by the tuck, so they stay slightly
-    // smaller than it rather than spanning the wing tracks too.
-    expect(html).toContain("mx-3");
-    expect(html).not.toContain("col-span-full");
-    expect(html).toContain("inset-y-3");
-    expect(html).toContain("row-start-2");
-    expect(html).toContain("justify-end");
-    expect(html).toContain("items-end");
-    expect(html).toContain("group/composer-wing");
+    // Geometry is checked in the rendered composer E2E; this checks slot wiring.
+    expect(html).toContain(sx(frameStyles.leftInset));
     expect(html).toContain("composer-frame-wing");
     expect(html).not.toContain('data-composer-frame-slot="right"');
     expect(html).toContain("prompt-input-shell");
@@ -78,7 +70,7 @@ describe("ComposerFrame", () => {
         html.indexOf("<button"),
       );
     expect(slotOf(wing(1))).toBe(slotOf(wing(6)));
-    expect(slotOf(wing(1))).toContain("absolute");
+    expect(slotOf(wing(1))).toContain(sx(frameStyles.leftInset));
   });
 
   test("collapses to the raised card when every bar is empty", () => {
@@ -167,12 +159,7 @@ describe("ComposerFrameStatusBar", () => {
 
     expect(html).toContain('data-composer-frame-status-bar="true"');
     expect(html).toContain("turn-activity-surface");
-    expect(html).toContain("rounded-b-xl");
-    // Visible padding is the same 0.75rem on every edge; the top asks for
-    // double because its first 0.75rem is spent on the tuck behind the card.
-    expect(html).toContain("pt-6");
-    expect(html).toContain("pb-3");
-    expect(html).toContain("px-3");
+    expect(html).toContain(sx(frameStyles.status));
     expect(html).toContain("fix/benchmark-new-ade");
     expect(html.indexOf("fix/benchmark-new-ade")).toBeLessThan(
       html.indexOf("Runtime"),
@@ -188,7 +175,7 @@ describe("ComposerFrameStatusBar", () => {
       ),
     );
     expect(html).toContain("main");
-    expect(html).not.toContain("shrink-0 items-center");
+    expect(html).not.toContain(sx(frameStyles.trailing));
   });
 
   test("caps a wing reveal to the room beside the frame", () => {

@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EditorMarkdownPreview } from "@/components/layout/editor-markdown-preview";
+import { editorMarkdownPreviewStyles } from "@/components/layout/editor-markdown-preview.styles";
+import { sx } from "@/components/ads/utils/stylex";
 
 describe("EditorMarkdownPreview", () => {
   test("renders headings, tables, and fenced code blocks for editor preview", () => {
@@ -106,11 +108,10 @@ describe("EditorMarkdownPreview", () => {
       }),
     );
 
-    expect(html).toContain("max-w-none");
-    expect(html).toContain("px-0");
-    expect(html).toContain("py-0");
-    expect(html).toContain("text-left");
-    expect(html).not.toContain("mx-auto");
-    expect(html).not.toContain("max-w-4xl");
+    // Embedded previews use the compact, full-width, left-aligned page style
+    // (formerly `max-w-none px-0 py-0 text-left`) — not the centered, width-
+    // capped editor page (`mx-auto max-w-4xl`).
+    expect(html).toContain(sx(editorMarkdownPreviewStyles.pageEmbedded));
+    expect(html).not.toContain(sx(editorMarkdownPreviewStyles.pageEditor));
   });
 });

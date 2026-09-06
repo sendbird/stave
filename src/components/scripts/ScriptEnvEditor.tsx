@@ -1,13 +1,19 @@
 import { Plus, X } from "lucide-react";
 import { Button, Input } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import type { ScriptEditorEnvRow } from "@/lib/workspace-scripts/editor";
+import { envEditorStyles } from "./script-env-editor.styles";
 
 export function ScriptEnvEditor(props: {
   rows: ScriptEditorEnvRow[];
   onChange: (rows: ScriptEditorEnvRow[]) => void;
 }) {
   const update = (index: number, patch: Partial<ScriptEditorEnvRow>) => {
-    props.onChange(props.rows.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)));
+    props.onChange(
+      props.rows.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...patch } : row,
+      ),
+    );
   };
   const remove = (index: number) => {
     props.onChange(props.rows.filter((_, rowIndex) => rowIndex !== index));
@@ -17,36 +23,38 @@ export function ScriptEnvEditor(props: {
   };
 
   return (
-    <div className="space-y-2">
-      <span className="text-xs font-medium text-foreground">Environment</span>
+    <div className={sx(envEditorStyles.root)}>
+      <span className={sx(envEditorStyles.label)}>Environment</span>
       {props.rows.length === 0 ? (
-        <p className="text-[11px] text-muted-foreground">No environment overrides.</p>
+        <p className={sx(envEditorStyles.empty)}>No environment overrides.</p>
       ) : (
-        <div className="space-y-1.5">
+        <div className={sx(envEditorStyles.rows)}>
           {props.rows.map((row, index) => (
-            <div key={index} className="flex items-center gap-1.5">
+            <div key={index} className={sx(envEditorStyles.row)}>
               <Input
                 value={row.key}
                 onChange={(event) => update(index, { key: event.target.value })}
                 placeholder="KEY"
-                className="h-8 font-mono text-xs"
+                xstyle={envEditorStyles.input}
               />
-              <span className="text-muted-foreground">=</span>
+              <span className={sx(envEditorStyles.equals)}>=</span>
               <Input
                 value={row.value}
-                onChange={(event) => update(index, { value: event.target.value })}
+                onChange={(event) =>
+                  update(index, { value: event.target.value })
+                }
                 placeholder="value"
-                className="h-8 font-mono text-xs"
+                xstyle={envEditorStyles.input}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-xs"
-                className="shrink-0 text-muted-foreground hover:text-destructive"
+                xstyle={envEditorStyles.removeButton}
                 onClick={() => remove(index)}
                 aria-label="Remove variable"
               >
-                <X className="size-3.5" />
+                <X className={sx(envEditorStyles.icon)} />
               </Button>
             </div>
           ))}
@@ -56,10 +64,10 @@ export function ScriptEnvEditor(props: {
         type="button"
         variant="outline"
         size="sm"
-        className="h-7 gap-1.5"
+        xstyle={envEditorStyles.addButton}
         onClick={add}
       >
-        <Plus className="size-3.5" />
+        <Plus className={sx(envEditorStyles.icon)} />
         Add variable
       </Button>
     </div>

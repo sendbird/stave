@@ -8,12 +8,9 @@ import {
   GitPullRequestDraft,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  type WorkspacePrStatus,
-  PR_STATUS_VISUAL,
-  PR_TONE_ICON_CLASS,
-} from "@/lib/pr-status";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { type WorkspacePrStatus, PR_STATUS_VISUAL } from "@/lib/pr-status";
+import { prStatusIconStyles, prToneIconStyles } from "./pr-status.styles";
 
 // ---------------------------------------------------------------------------
 // Icon lookup – maps icon name string to actual Lucide component
@@ -39,7 +36,13 @@ export function PrStatusIcon(props: {
 }) {
   const visual = PR_STATUS_VISUAL[props.status];
   const Icon = ICON_MAP[visual.icon] ?? GitPullRequest;
-  const colorClass = PR_TONE_ICON_CLASS[visual.tone];
 
-  return <Icon className={cn("size-3.5 shrink-0", colorClass, props.className)} />;
+  return (
+    <Icon
+      className={cx(
+        sx(prStatusIconStyles.glyph, prToneIconStyles[visual.tone]),
+        props.className,
+      )}
+    />
+  );
 }

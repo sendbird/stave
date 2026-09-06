@@ -28,7 +28,8 @@ import {
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import { isTaskManaged } from "@/lib/tasks";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import { controlPanelStyles as styles } from "./fleet-task-control-panel.styles";
 import { useAppStore } from "@/store/app.store";
 import {
   findLatestPendingToolInteraction,
@@ -436,62 +437,62 @@ export function FleetTaskControlPanel(args: {
     <section
       ref={panelRef}
       id={panelId}
-      className="border-t border-border/60 bg-surface/35 px-4 py-3 focus:outline-none"
+      className={sx(styles.panel)}
       aria-label={`Controls for ${task?.title || args.target.taskTitle || "task"}`}
       tabIndex={-1}
       onKeyDown={handlePanelKeyDown}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-foreground">
+      <div className={sx(styles.header)}>
+        <div className={sx(styles.headerText)}>
+          <h3 className={sx(styles.title)}>
             {task?.title || args.target.taskTitle || "Task controls"}
           </h3>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
+          <p className={sx(styles.subtitle)}>
             Review activity, answer requests, or direct the running agent.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className={sx(styles.headerActions)}>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="min-h-9"
+            xstyle={styles.action}
             onClick={() => args.onOpenTask(args.target)}
           >
             Open task
-            <ArrowRight className="size-3.5" aria-hidden="true" />
+            <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
           </Button>
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
-            className="min-h-9 min-w-9"
+            xstyle={styles.closeAction}
             aria-label="Close task controls"
             onClick={closePanel}
           >
-            <X className="size-4" aria-hidden="true" />
+            <X className={sx(styles.closeIcon)} aria-hidden="true" />
           </Button>
         </div>
       </div>
 
-      <TaskExecutionSummarySurface summary={summary} className="mt-3" />
+      <TaskExecutionSummarySurface summary={summary} xstyle={styles.section} />
 
       <ChildTaskParentBacklink
         taskId={args.target.taskId}
         projectPath={args.target.projectPath}
-        className="mt-3"
+        className={sx(styles.section)}
       />
       <ChildTaskRows
         parentTaskId={args.target.taskId}
         parentWorkspaceId={args.target.workspaceId}
         projectPath={args.target.projectPath}
         source={childTaskSource}
-        className="mt-3"
+        className={sx(styles.section)}
       />
 
       {hasStaleExpectedInteraction ? (
         <div
-          className="mt-3 rounded-md border border-warning/35 bg-warning/8 px-3 py-2 text-xs text-warning"
+          className={sx(styles.staleNotice)}
           role="status"
         >
           This request was already answered or expired. Open the task to review
@@ -500,7 +501,7 @@ export function FleetTaskControlPanel(args: {
       ) : null}
 
       {pendingPart?.type === "approval" ? (
-        <div className="mt-3">
+        <div className={sx(styles.section)}>
           <ConfirmationCompact
             toolName={pendingPart.toolName}
             description={pendingPart.description}
@@ -523,7 +524,7 @@ export function FleetTaskControlPanel(args: {
       ) : null}
 
       {pendingPart?.type === "user_input" ? (
-        <div className="mt-3">
+        <div className={sx(styles.section)}>
           <UserInputCard
             toolName={pendingPart.toolName}
             questions={pendingPart.questions}
@@ -544,29 +545,29 @@ export function FleetTaskControlPanel(args: {
       ) : null}
 
       {canQuickReply ? (
-        <div className="mt-3 rounded-md border border-border/60 bg-background/55 p-3">
+        <div className={sx(styles.replyCard)}>
           <label
             htmlFor={`${panelId}-quick-reply`}
-            className="text-xs font-medium text-foreground"
+            className={sx(styles.replyLabel)}
           >
             Quick reply
           </label>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
+          <p className={sx(styles.replyHint)}>
             Steer changes the active turn now; queue waits for the next turn.
           </p>
           <Textarea
             id={`${panelId}-quick-reply`}
             value={reply}
             disabled={busyAction != null}
-            className="mt-2 min-h-20 resize-y bg-background"
+            xstyle={styles.replyInput}
             placeholder="Add a correction, constraint, or next step…"
             onChange={(event) => setReply(event.target.value)}
           />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className={sx(styles.replyActions)}>
             <Button
               type="button"
               size="sm"
-              className="min-h-9"
+              xstyle={styles.action}
               disabled={!reply.trim() || busyAction != null || !canSteer}
               title={
                 canSteer
@@ -580,7 +581,10 @@ export function FleetTaskControlPanel(args: {
               {busyAction === "steer" ? (
                 <Loader aria-hidden="true" size="xs" variant="parallel" />
               ) : (
-                <CornerDownRight className="size-3.5" aria-hidden="true" />
+                <CornerDownRight
+                  className={sx(styles.actionIcon)}
+                  aria-hidden="true"
+                />
               )}
               Steer now
             </Button>
@@ -588,54 +592,55 @@ export function FleetTaskControlPanel(args: {
               type="button"
               size="sm"
               variant="outline"
-              className="min-h-9"
+              xstyle={styles.action}
               disabled={!reply.trim() || busyAction != null}
               onClick={() => void sendQuickReply("queue")}
             >
               {busyAction === "queue" ? (
                 <Loader aria-hidden="true" size="xs" variant="parallel" />
               ) : (
-                <ListPlus className="size-3.5" aria-hidden="true" />
+                <ListPlus className={sx(styles.actionIcon)} aria-hidden="true" />
               )}
               Queue next
             </Button>
           </div>
         </div>
       ) : managed && activeTurnId && !pendingPart ? (
-        <p className="mt-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        <p className={sx(styles.managedNotice)}>
           This task is externally managed. Open it to attach before sending a
           reply.
         </p>
       ) : null}
 
       {activeTurnId ? (
-        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/55 pt-3">
-          <p className="min-w-0 text-[11px] text-muted-foreground">
-            Turn <span className="font-mono">{activeTurnId.slice(0, 8)}</span>{" "}
+        <div className={sx(styles.turnFooter)}>
+          <p className={sx(styles.turnText)}>
+            Turn{" "}
+            <span className={sx(styles.turnId)}>{activeTurnId.slice(0, 8)}</span>{" "}
             is active.
           </p>
           <Button
             type="button"
             size="sm"
             variant="destructive"
-            className="min-h-9"
+            xstyle={styles.action}
             disabled={busyAction != null}
             onClick={stopTurn}
           >
-            <Square className="size-3.5 fill-current" aria-hidden="true" />
+            <Square className={sx(styles.stopIcon)} aria-hidden="true" />
             Stop
           </Button>
         </div>
       ) : null}
 
       <p
-        className={cn(
-          "mt-2 min-h-4 text-[11px]",
+        className={sx(
+          styles.status,
           status?.tone === "error"
-            ? "text-destructive"
+            ? styles.statusError
             : status?.tone === "success"
-              ? "text-success"
-              : "text-muted-foreground",
+              ? styles.statusSuccess
+              : styles.statusNeutral,
         )}
         role="status"
         aria-live="polite"

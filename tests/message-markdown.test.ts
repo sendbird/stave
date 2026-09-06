@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MarkdownMessage } from "@/components/ai-elements/message-markdown";
+import { markdownStyles } from "@/components/ai-elements/message-markdown.styles";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   formatFileLinkLocation,
   resolveWorkspaceFileLink,
@@ -333,7 +335,7 @@ describe("MarkdownMessage", () => {
     expect(html).toContain('style="font-size:14px"');
   });
 
-  test("adds aggressive wrapping classes to rendered markdown paragraphs", () => {
+  test("wraps rendered markdown paragraphs with the paragraph style", () => {
     const html = renderToStaticMarkup(
       createElement(MarkdownMessage, {
         content:
@@ -343,13 +345,20 @@ describe("MarkdownMessage", () => {
       }),
     );
 
-    expect(html).toContain("break-words");
-    expect(html).toContain("[overflow-wrap:anywhere]");
-    expect(html).toContain("min-w-0");
-    expect(html).toContain("max-w-full");
+    // StyleX hashes class names, so identity is checked against the compiled
+    // style objects that own the wrapping behavior rather than Tailwind strings.
+    const paragraphClass = sx(markdownStyles.paragraph);
+    const bodyClass = sx(markdownStyles.body);
+    expect(html).toContain("<p ");
+    for (const token of paragraphClass.split(/\s+/)) {
+      expect(html).toContain(token);
+    }
+    for (const token of bodyClass.split(/\s+/)) {
+      expect(html).toContain(token);
+    }
   });
 
-  test("adds aggressive wrapping classes to streaming text fallback", () => {
+  test("wraps the streaming text fallback with the streaming-body style", () => {
     const html = renderToStaticMarkup(
       createElement(MarkdownMessage, {
         content:
@@ -360,10 +369,10 @@ describe("MarkdownMessage", () => {
       }),
     );
 
-    expect(html).toContain("break-words");
-    expect(html).toContain("[overflow-wrap:anywhere]");
-    expect(html).toContain("min-w-0");
-    expect(html).toContain("max-w-full");
+    const streamingClass = sx(markdownStyles.streamingBody);
+    for (const token of streamingClass.split(/\s+/)) {
+      expect(html).toContain(token);
+    }
   });
 
   test("keeps streaming text fallback as plain text for hot-path performance", () => {

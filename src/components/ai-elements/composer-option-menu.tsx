@@ -1,9 +1,14 @@
+import { optionStyles } from "./composer-option.styles";
+import { sx } from "../ads/utils/stylex";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { ReactNode } from "react";
 import { Check, Info, TriangleAlert } from "lucide-react";
 
-import { Button, Switch } from "@/components/ui";
+import { Switch } from "@/components/ui";
+import { ChoiceChips } from "@/components/system/ChoiceChips";
+import { OptionButton } from "@/components/system/OptionButton";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
-import { cn } from "@/lib/utils";
+import { cx } from "../ads/utils/stylex";
 
 /**
  * The shared vocabulary of a composer control's configuration menu.
@@ -17,10 +22,10 @@ import { cn } from "@/lib/utils";
  */
 
 /** Popover body geometry. Width stays with the caller: the menus differ in content. */
-export const COMPOSER_OPTION_MENU_CONTENT = "gap-2 p-2";
+export const COMPOSER_OPTION_MENU_CONTENT = optionStyles.menu;
 
 /** Every option list scrolls at the same height. */
-const COMPOSER_OPTION_LIST = "max-h-52 space-y-0.5 overflow-y-auto";
+const COMPOSER_OPTION_LIST = sx(optionStyles.list);
 
 export function ComposerOptionMenuToggle(props: {
   id: string;
@@ -31,10 +36,13 @@ export function ComposerOptionMenuToggle(props: {
   testId?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-muted/40 px-3 py-2">
-      <label htmlFor={props.id} className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-sm font-medium leading-none">{props.title}</span>
-        <span className="text-[11px] leading-4 text-muted-foreground">
+    <div className={sx(optionStyles.toggle)}>
+      <label
+        htmlFor={props.id}
+        className={sx(optionStyles.label)}
+      >
+        <span className={sx(optionStyles.title)}>{props.title}</span>
+        <span className={sx(optionStyles.detail)}>
           {props.description}
         </span>
       </label>
@@ -58,10 +66,13 @@ export function ComposerOptionMenuSection(props: {
 }) {
   return (
     <div
-      className={cn("space-y-1 border-t border-border/60 pt-2", props.className)}
+      className={cx(
+        sx(optionStyles.section),
+        props.className,
+      )}
       data-testid={props.testId}
     >
-      <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+      <p className={sx(optionStyles.sectionTitle)}>
         {props.title}
       </p>
       {props.scroll ? (
@@ -92,43 +103,44 @@ export function ComposerOptionCard(props: {
   checkClassName?: string;
 }) {
   return (
-    <Button
+    <AdsButton
+      layout="host"
       type="button"
-      variant="ghost"
+      variant="quiet"
       aria-pressed={props.active}
       data-testid={props.testId}
-      className={cn(
-        "h-auto min-h-11 w-full justify-start gap-2 rounded-lg border px-2.5 py-2 text-left whitespace-normal",
-        props.active
-          ? (props.activeClassName ??
-            "border-primary/30 bg-primary/10 hover:bg-primary/14")
-          : "border-transparent hover:border-border/70 hover:bg-muted/60",
+      className={cx(
+        sx(optionStyles.choice, props.active && !props.activeClassName && optionStyles.selected),
+        props.active && props.activeClassName,
       )}
       onClick={props.onSelect}
     >
       {props.icon}
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="text-sm font-medium leading-none">{props.label}</span>
+      <span className={sx(optionStyles.label)}>
+        <span className={sx(optionStyles.title)}>{props.label}</span>
         {props.summary ? (
-          <span className="text-[11px] leading-4 text-muted-foreground">
+          <span className={sx(optionStyles.detail)}>
             {props.summary}
           </span>
         ) : null}
         {props.description ? (
-          <span className="text-xs leading-4 text-muted-foreground">
+          <span className={sx(optionStyles.description)}>
             {props.description}
           </span>
         ) : null}
       </span>
       {props.active ? (
         <Check
-          className={cn(
-            "size-3.5 shrink-0 self-start",
-            props.checkClassName ?? "text-primary",
+          className={cx(
+            sx(
+              optionStyles.check,
+              !props.checkClassName && optionStyles.selectedCheck,
+            ),
+            props.checkClassName,
           )}
         />
       ) : null}
-    </Button>
+    </AdsButton>
   );
 }
 
@@ -146,30 +158,26 @@ export function ComposerOptionModelRow(props: {
   testId?: string;
 }) {
   return (
-    <Button
+    <OptionButton
       type="button"
-      variant="ghost"
-      aria-pressed={props.active}
+      density="compact"
+      selected={props.active}
       data-testid={props.testId}
-      className={cn(
-        "h-auto min-h-8 w-full justify-start gap-2 rounded-md px-2.5 py-1.5 text-left text-sm whitespace-normal",
-        props.active && "bg-muted/70",
-      )}
       onClick={props.onSelect}
     >
       {props.icon}
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate">{props.label}</span>
+      <span className={sx(optionStyles.modelLabel)}>
+        <span className={sx(optionStyles.truncated)}>{props.label}</span>
         {props.description ? (
-          <span className="truncate text-[11px] leading-4 text-muted-foreground">
+          <span className={sx(optionStyles.truncated, optionStyles.detail)}>
             {props.description}
           </span>
         ) : null}
       </span>
       {props.active ? (
-        <Check className="size-3.5 shrink-0 text-primary" />
+        <Check className={sx(optionStyles.modelCheck)} />
       ) : null}
-    </Button>
+    </OptionButton>
   );
 }
 
@@ -187,30 +195,13 @@ export function ComposerOptionEffortChips<TValue>(props: {
   testId?: (value: TValue) => string;
 }) {
   return (
-    <div className="flex flex-wrap gap-1">
-      {props.options.map((option) => {
-        const isActive = props.selected === option.value;
-        return (
-          <Button
-            key={String(option.value ?? "auto")}
-            type="button"
-            variant="ghost"
-            title={option.title}
-            aria-pressed={isActive}
-            data-testid={props.testId?.(option.value)}
-            className={cn(
-              "h-7 min-w-11 flex-1 justify-center rounded-md border px-2 text-xs",
-              isActive
-                ? "border-primary/30 bg-primary/10 font-medium text-foreground hover:bg-primary/14"
-                : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/60",
-            )}
-            onClick={() => props.onSelect(option.value)}
-          >
-            {option.label}
-          </Button>
-        );
-      })}
-    </div>
+    <ChoiceChips
+      label="Reasoning effort"
+      options={props.options}
+      value={props.selected}
+      onValueChange={props.onSelect}
+      testId={props.testId}
+    />
   );
 }
 
@@ -221,7 +212,7 @@ export function ComposerOptionMenuHint(props: {
 }) {
   return (
     <p
-      className="px-1 text-[11px] leading-4 text-muted-foreground"
+      className={sx(optionStyles.hint)}
       data-testid={props.testId}
     >
       {props.children}
@@ -238,16 +229,13 @@ export function ComposerOptionMenuCallout(props: {
   const Icon = props.tone === "warning" ? TriangleAlert : Info;
   return (
     <p
-      className={cn(
-        "flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs leading-5",
-        props.tone === "warning"
-          ? "border-warning/40 bg-warning/10 text-warning"
-          : "border-border/70 bg-muted/40 text-muted-foreground",
+      className={cx(
+        sx(optionStyles.callout, props.tone === "warning" && optionStyles.warning),
       )}
       data-testid={props.testId}
     >
-      <Icon className="mt-0.5 size-3.5 shrink-0" />
-      <span className="min-w-0 flex-1">{props.children}</span>
+      <Icon className={sx(optionStyles.calloutIcon)} />
+      <span className={sx(optionStyles.calloutBody)}>{props.children}</span>
     </p>
   );
 }
@@ -262,10 +250,10 @@ export function ComposerOptionMenuSettingsLink(props: {
   testId?: string;
 }) {
   return (
-    <button
+    <AdsButton layout="host"
       type="button"
       data-testid={props.testId}
-      className="px-1 text-left text-[11px] leading-4 text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+      className={sx(optionStyles.settingsLink)}
       onClick={() => {
         window.dispatchEvent(
           new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
@@ -275,6 +263,6 @@ export function ComposerOptionMenuSettingsLink(props: {
       }}
     >
       {props.children}
-    </button>
+    </AdsButton>
   );
 }

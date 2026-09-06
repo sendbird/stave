@@ -235,6 +235,8 @@ export function createRoutineRuntime(
     { workspaceId: string; authorizationToken: string }
   >();
   let operationChain = Promise.resolve();
+  let queuedTick: Promise<void> | null = null;
+  let schedulerGeneration = 0;
   let providerTimeoutMs = normalizeProviderTimeoutMs(
     dependencies.persistence.loadRoutineProviderTimeoutMs(),
   );
@@ -495,9 +497,11 @@ export function createRoutineRuntime(
     return nextState;
   }
 
-  async function tick() {
+  async function tick(generation: number) {
+    if (generation !== schedulerGeneration) return;
     const loadedState = loadState();
     let state = await reconcileRuns(loadedState);
+    if (generation !== schedulerGeneration) return;
     if (state !== loadedState) {
       state = saveState(state);
     }
@@ -510,6 +514,7 @@ export function createRoutineRuntime(
     );
 
     for (const routine of dueRoutines) {
+      if (generation !== schedulerGeneration) return;
       const latestRoutine =
         state.routines.find((candidate) => candidate.id === routine.id) ??
         routine;
@@ -564,6 +569,7 @@ export function createRoutineRuntime(
     if (intervalHandle) {
       return;
     }
+    const generation = ++schedulerGeneration;
     const state = loadState();
     const interruptedRunIds = new Set<string>();
     for (const run of state.runs) {
@@ -596,15 +602,20 @@ export function createRoutineRuntime(
       publishUnattendedAutomations(state);
     }
     const enqueueTick = () => {
-      void enqueue(tick).catch((error) => {
+      if (queuedTick) return queuedTick;
+      queuedTick = enqueue(() => tick(generation)).catch((error) => {
         console.error("[routines] scheduler tick failed", error);
+      }).finally(() => {
+        queuedTick = null;
       });
+      return queuedTick;
     };
     intervalHandle = setIntervalImpl(enqueueTick, ROUTINE_TICK_INTERVAL_MS);
     enqueueTick();
   }
 
   function stop() {
+    schedulerGeneration += 1;
     if (intervalHandle) {
       clearIntervalImpl(intervalHandle);
       intervalHandle = null;
@@ -616,7 +627,9 @@ export function createRoutineRuntime(
   return {
     start,
     stop,
-    list: () => enqueue(() => toSnapshot(loadState())),
+    // Read the last committed state while execution is waiting on a provider.
+    // A snapshot is not a barrier for the mutation queue.
+    list: async () => toSnapshot(loadState()),
     create: (rawInput) =>
       enqueue(async () => {
         const input = RoutineUpsertInputSchema.parse(rawInput);

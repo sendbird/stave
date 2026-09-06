@@ -1,4 +1,11 @@
+import { WORKER_PRESET_IDS } from "../providers/worker-preset-ids";
+import {
+  PersistedLensAnnotationSchema,
+  LENS_CAPTURE_LIMITS,
+} from "../lens/lens-annotation-schema";
 import { z } from "zod";
+import { AutoRoutingModelResolutionSchema } from "@/lib/providers/model-resolution";
+import { WorkspaceResumeBriefSchema } from "@/lib/workspace-resume-brief";
 import type {
   WorkspaceShell,
   WorkspaceShellLite,
@@ -16,10 +23,17 @@ const ManagedExecutionProviderIdSchema = z.union([
   z.literal("codex"),
 ]);
 
+const LensFeedbackReferenceSchema = z.object({
+  workspaceId: z.string(),
+  lensSessionId: z.string().optional(),
+  annotation: PersistedLensAnnotationSchema,
+}).optional().catch(undefined);
+
 const TextPartSchema = z.object({
   type: z.literal("text"),
   text: z.string(),
   segmentId: z.string().optional(),
+  lensFeedback: LensFeedbackReferenceSchema,
 });
 
 const ThinkingPartSchema = z.object({
@@ -31,17 +45,21 @@ const ThinkingPartSchema = z.object({
 });
 
 const WorkerExecutionMetadataSchema = z.object({
-  providerId: ManagedExecutionProviderIdSchema,
+  providerId: ProviderIdSchema,
   primaryModel: z.string(),
-  presetId: z.union([
-    z.literal("patch-hand"),
-    z.literal("verified-patch"),
-    z.literal("sweep"),
-    z.literal("scout"),
-    z.literal("deep-packet"),
-    z.literal("second-pair"),
-  ]),
+  presetId: z.enum(WORKER_PRESET_IDS),
   workerModel: z.string(),
+  requestedWorkerModel: z.string().optional(),
+  resolvedWorkerModel: z.string().optional(),
+  workerModelSource: z
+    .union([
+      z.literal("explicit"),
+      z.literal("preset"),
+      z.literal("provider-default"),
+    ])
+    .optional(),
+  workerModelRationale: z.string().optional(),
+  runtimeWorkerModel: z.string().optional(),
   workerEffort: z.union([
     z.literal("low"),
     z.literal("medium"),
@@ -148,6 +166,7 @@ const UserInputPartSchema = z.object({
 });
 
 const ImageContextPartSchema = z.object({
+  lensFeedback: LensFeedbackReferenceSchema,
   type: z.literal("image_context"),
   dataUrl: z.string(),
   label: z.string(),
@@ -230,7 +249,13 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     summary: z.string(),
     content: z.string(),
     displayContent: z.string().optional(),
-    annotations: z.array(z.unknown()).optional(),
+    // A broken structured pin must not discard the user's textual feedback or
+    // the whole workspace. Keep content/summary while omitting unusable pins.
+    annotations: z
+      .array(PersistedLensAnnotationSchema)
+      .max(LENS_CAPTURE_LIMITS.annotations)
+      .optional()
+      .catch(undefined),
   }),
 ]);
 
@@ -368,8 +393,7 @@ const PromptDraftRuntimeOverridesSchema = z.object({
           presetId: z
             .string()
             .trim()
-            .min(1)
-            .max(64)
+            .pipe(z.enum(WORKER_PRESET_IDS))
             .optional()
             .catch(undefined),
           model: z.string().trim().min(1).max(200).optional().catch(undefined),
@@ -472,7 +496,7 @@ const DelegatedExecutionUsageSchema = z
   })
   .strict();
 
-const ChatMessageSchema = z.object({
+export const ChatMessageSchema = z.object({
   id: z.string(),
   role: z.union([z.literal("user"), z.literal("assistant")]),
   model: z.string(),
@@ -485,6 +509,8 @@ const ChatMessageSchema = z.object({
   ]),
   nativeProviderSessionId: z.string().optional(),
   nativeProviderTurnId: z.string().optional(),
+  turnId: z.string().optional(),
+  modelResolution: AutoRoutingModelResolutionSchema.optional().catch(undefined),
   modelInfo: z
     .object({
       effort: z.union([
@@ -505,6 +531,7 @@ const ChatMessageSchema = z.object({
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   isStreaming: z.boolean().optional(),
+  terminalStopReason: z.string().optional(),
   isPlanResponse: z.boolean().optional(),
   planText: z.string().optional(),
   planReview: z
@@ -896,6 +923,20 @@ const WorkspaceConnectedBrowserTabSchema = z.object({
 });
 
 const WorkspaceInformationSchema = z.object({
+  resumeBrief: WorkspaceResumeBriefSchema.nullable().optional(),
+  intentAnchorIds: z.array(z.string()).optional(),
+  martinProject: z
+    .object({
+      ref: z.string(),
+      slug: z.string(),
+      name: z.string(),
+      url: z.string(),
+      linkedAt: z.string(),
+      lastPulledAt: z.string().nullable(),
+      stale: z.boolean().optional(),
+    })
+    .nullable()
+    .optional(),
   jiraIssues: z.array(WorkspaceJiraIssueSchema).optional().default([]),
   craneIssues: z.array(WorkspaceCraneIssueSchema).optional().default([]),
   confluencePages: z

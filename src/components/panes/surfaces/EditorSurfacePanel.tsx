@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import MonacoEditor, { DiffEditor, type Monaco } from "@monaco-editor/react";
 import type {
   editor as MonacoEditorApi,
@@ -867,7 +870,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   return (
     <section
       data-testid="editor-surface"
-      className="flex h-full min-h-0 min-w-0 w-full flex-col bg-card"
+      className={sx(styles.root)}
     >
       {!isGitGraphEditorTab(tab) ? (
         <EditorSurfaceToolbar
@@ -910,28 +913,28 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
         />
       ) : null}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface text-editor-foreground">
-        <div className="min-h-0 flex-1 overflow-hidden">
+      <div className={sx(styles.body)}>
+        <div className={sx(styles.viewport)}>
           {tab.kind === "git-graph" ? (
             <GitGraphView
               key={workspaceRootPath || "git-graph:no-workspace"}
               workspaceCwd={workspaceRootPath || undefined}
             />
           ) : tabContentTooLarge ? (
-            <div className="flex h-full items-center justify-center bg-editor p-6">
-              <Empty className="border-none bg-transparent p-0">
-                <EmptyHeader className="gap-3">
+            <div className={sx(styles.emptyHost)}>
+              <Empty className={sx(styles.empty)}>
+                <EmptyHeader className={sx(styles.emptyHeader)}>
                   <EmptyMedia
                     variant="icon"
-                    className="size-14 rounded-2xl bg-primary/10 text-primary [&_svg:not([class*='size-'])]:size-7"
+                    xstyle={styles.emptyIcon}
                   >
                     <FileCode2 strokeWidth={1.5} />
                   </EmptyMedia>
-                  <div className="flex flex-col gap-1">
-                    <EmptyTitle className="text-xl font-semibold">
+                  <div className={sx(styles.emptyText)}>
+                    <EmptyTitle className={sx(styles.title)}>
                       File is too large to preview
                     </EmptyTitle>
-                    <EmptyDescription className="max-w-md text-sm">
+                    <EmptyDescription className={sx(styles.description)}>
                       {`This file is ${formatFileSize(tab.fileSizeBytes)}. The built-in editor previews files up to ${formatFileSize(tab.fileSizeLimitBytes)}.`}
                     </EmptyDescription>
                   </div>
@@ -939,20 +942,20 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
               </Empty>
             </div>
           ) : tabContentPending ? (
-            <div className="flex h-full items-center justify-center bg-editor p-6">
-              <Empty className="border-none bg-transparent p-0">
-                <EmptyHeader className="gap-3">
+            <div className={sx(styles.emptyHost)}>
+              <Empty className={sx(styles.empty)}>
+                <EmptyHeader className={sx(styles.emptyHeader)}>
                   <EmptyMedia
                     variant="icon"
-                    className="size-14 rounded-2xl bg-primary/10 text-primary [&_svg:not([class*='size-'])]:size-7"
+                    xstyle={styles.emptyIcon}
                   >
                     <Loader aria-hidden size="md" variant="scan" />
                   </EmptyMedia>
-                  <div className="flex flex-col gap-1">
-                    <EmptyTitle className="text-xl font-semibold">
+                  <div className={sx(styles.emptyText)}>
+                    <EmptyTitle className={sx(styles.title)}>
                       Loading tab…
                     </EmptyTitle>
-                    <EmptyDescription className="max-w-md text-sm">
+                    <EmptyDescription className={sx(styles.description)}>
                       Restoring this editor tab without blocking the rest of the
                       workspace.
                     </EmptyDescription>
@@ -961,7 +964,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
               </Empty>
             </div>
           ) : tabIsImage ? (
-            <div className="flex h-full items-center justify-center overflow-auto bg-editor p-4">
+            <div className={sx(styles.imageHost)}>
               {tab.content ? (
                 <img
                   src={tab.content}
@@ -969,12 +972,12 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                     path: tab.filePath,
                     fallback: tab.filePath,
                   })}
-                  className="max-h-full max-w-full cursor-zoom-in object-contain"
+                  className={sx(styles.image)}
                   title="Click to open full screen"
                   onClick={() => setImagePreviewOpen(true)}
                 />
               ) : (
-                <div className="text-sm text-muted-foreground">
+                <div className={sx(styles.note)}>
                   Unable to load image preview.
                 </div>
               )}
@@ -1135,3 +1138,19 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     </section>
   );
 }
+
+const styles = stylex.create({
+root: {display:"flex",height:"100%",minHeight:0,minWidth:0,width:"100%",flexDirection:"column",backgroundColor:vars.colorSurface},
+body: {display:"flex",minHeight:0,minWidth:0,flex:1,flexDirection:"column",overflow:"hidden",backgroundColor:vars.colorSurface,color:"var(--editor-foreground)"},
+viewport: {minHeight:0,flex:1,overflow:"hidden"},
+emptyHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",backgroundColor:"var(--editor)",padding:24},
+empty: {borderWidth:0,backgroundColor:"transparent",padding:0},
+emptyHeader: {gap:12},
+emptyIcon: {width:56,height:56,borderRadius:16,backgroundColor:vars.colorAccentSoft,color:vars.colorAccent},
+emptyText: {display:"flex",flexDirection:"column",gap:4},
+title: {fontSize:20,fontWeight:600},
+description: {maxWidth:448,fontSize:14},
+imageHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",overflow:"auto",backgroundColor:"var(--editor)",padding:16},
+image: {maxHeight:"100%",maxWidth:"100%",cursor:"zoom-in",objectFit:"contain"},
+note: {fontSize:14,color:vars.colorTextMuted}
+});

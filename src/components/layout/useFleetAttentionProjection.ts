@@ -10,6 +10,8 @@ import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
 import { isTaskArchived } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import type { Task } from "@/types/chat";
+import { hasDurableResultReviewStore } from "@/lib/reviews/result-review-client";
+import { useResultReviews } from "@/lib/reviews/useResultReviews";
 
 interface FleetWorkspaceIdentity {
   projectPath: string;
@@ -74,6 +76,22 @@ export function useFleetAttentionProjection() {
     ),
   );
 
+  const reviewWorkspaceIds = useMemo(() => Array.from(new Set([
+    ...workspaces.map((workspace) => workspace.id),
+    ...recentProjects.flatMap((project) => project.workspaces.map((workspace) => workspace.id)),
+  ])).sort(), [workspaces, recentProjects]);
+  const reviews = useResultReviews({ pendingOnly: true, limit: 200, workspaceIds: reviewWorkspaceIds, includeEvidence: false });
+  /**
+   * Handing `resultReviews` to the projection makes durable results own
+   * `result-ready` / `run-failed` attention outright, so a reviewed result stays
+   * cleared even while its notification is unread. That trade only holds where a
+   * durable store actually keeps those rows: in a browser session the reads fall
+   * back to a best-effort localStorage mirror, and suppressing the notification
+   * tier against it would drop every finished turn that was never mirrored.
+   * Notifications stay the record there, exactly as before durable results.
+   */
+  const durableResultStore = hasDurableResultReviewStore();
+
   const coldNotificationWorkspaceIds = useMemo(() => {
     const knownWorkspaceIds = new Set(
       recentProjects.flatMap((project) =>
@@ -86,7 +104,7 @@ export function useFleetAttentionProjection() {
 
     return Array.from(
       new Set(
-        notifications
+        [...notifications, ...reviews.page.results]
           .map((notification) => notification.workspaceId?.trim())
           .filter((workspaceId): workspaceId is string => Boolean(workspaceId)),
       ),
@@ -100,6 +118,7 @@ export function useFleetAttentionProjection() {
     activeWorkspaceId,
     currentProjectPath,
     notifications,
+    reviews.page.results,
     recentProjects,
     workspaceRuntimeCacheById,
     workspaces,
@@ -208,6 +227,7 @@ export function useFleetAttentionProjection() {
 
     const projection = buildFleetAttentionProjection({
       notifications,
+      resultReviews: durableResultStore ? reviews.page.results : undefined,
       liveWorkspaces,
       prWorkspaces,
       knownWorkspaceIds: new Set(identityByWorkspaceId.keys()),
@@ -222,6 +242,10 @@ export function useFleetAttentionProjection() {
       ...projection,
       coveredWorkspaceIds,
       workspaceCount: identityByWorkspaceId.size,
+      resultReviewError: reviews.error,
+      resultReviewTotal: reviews.page.total,
+      resultReviewHasMore: reviews.page.hasMore,
+      refreshResultReviews: reviews.refresh,
     };
   }, [
     activeMessagesByTask,
@@ -231,11 +255,15 @@ export function useFleetAttentionProjection() {
     closedTaskKeysFromShell,
     currentProjectName,
     currentProjectPath,
+    durableResultStore,
     notifications,
     providerTurnActivityByTask,
     recentProjects,
     workspacePrInfoById,
     workspaceRuntimeCacheById,
     workspaces,
+    reviews.page,
+    reviews.error,
+    reviews.refresh,
   ]);
 }

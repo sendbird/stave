@@ -4,6 +4,7 @@ import {
   getBrowserSession,
   normalizeLensSessionId,
   resolveBrowserSessionReservation,
+  waitForBrowserSessionClose,
   type BrowserSessionState,
 } from "./browser-manager";
 import { restoreLensSessionUrl } from "./browser-session-recovery";
@@ -299,6 +300,7 @@ export async function ensureBrowserSessionGuest(
     options,
   );
 
+  await waitForBrowserSessionClose(workspaceId, lensSessionId);
   const existing = getBrowserSession(workspaceId, lensSessionId);
   if (existing && !existing.webContents.isDestroyed()) {
     return { session: existing, created: false };

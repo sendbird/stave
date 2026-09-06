@@ -372,7 +372,7 @@ function parseJobRef(
   detailsUrl: string,
 ): { runId: string; jobId: string } | null {
   const match = /\/actions\/runs\/(\d{1,20})\/job\/(\d{1,20})/.exec(detailsUrl);
-  return match ? { runId: match[1], jobId: match[2] } : null;
+  return match?.[1] && match[2] ? { runId: match[1], jobId: match[2] } : null;
 }
 
 function formatAnnotations(raw: unknown[]): string {

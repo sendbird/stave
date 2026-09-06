@@ -14,6 +14,7 @@ import {
   Textarea,
   toast,
 } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   DEFAULT_JIRA_JQL,
   MAX_JIRA_MAX_RESULTS,
@@ -21,6 +22,7 @@ import {
   type JiraConnectorPublicStatus,
 } from "@/lib/jira-connector/types";
 import { useAppStore } from "@/store/app.store";
+import { jiraConnectorStyles as styles } from "./settings-dialog-jira-connector.styles";
 
 // Security posture: the email and token are write-only from the renderer. They
 // leave through `setCredential`, the main process verifies and vaults them, and
@@ -52,7 +54,6 @@ function errorCopy(code: string | null | undefined): string {
 const CONFIGURE_DEBOUNCE_MS = 400;
 const MAX_RESULTS_OPTIONS = [25, 50, MAX_JIRA_MAX_RESULTS] as const;
 const PROJECT_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
-const HINT = "text-xs leading-5 text-muted-foreground";
 
 type BusyKey = "credential" | "clear" | "test";
 type JiraReply = { ok: boolean; status: JiraConnectorPublicStatus };
@@ -217,24 +218,24 @@ export function JiraConnectorSettingsSection() {
     busy === key ? (
       <Loader aria-hidden size="xs" variant="signal" />
     ) : (
-      <Icon className="size-4" aria-hidden="true" />
+      <Icon className={sx(styles.actionIcon)} aria-hidden="true" />
     );
 
   return (
     <div
       id="settings-field-jira-connector"
       tabIndex={-1}
-      className="rounded-xl border border-border bg-card"
+      className={sx(styles.root)}
     >
-      <div className="flex items-start gap-3 border-b border-border/70 px-5 py-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold">Jira</h3>
+      <div className={sx(styles.header)}>
+        <div className={sx(styles.headerBody)}>
+          <div className={sx(styles.headerTitleLine)}>
+            <h3 className={sx(styles.headerTitle)}>Jira</h3>
             <Badge variant={configured ? "success" : "outline"}>
               {configured ? "Credential stored" : "Not connected"}
             </Badge>
           </div>
-          <p className={`mt-1 ${HINT}`}>
+          <p className={sx(styles.headerHint)}>
             Read your assigned issues over outbound HTTPS. The API token stays
             in this machine&apos;s credential vault and is never readable here.
           </p>
@@ -247,9 +248,9 @@ export function JiraConnectorSettingsSection() {
         />
       </div>
 
-      <div className="space-y-5 px-5 py-4">
-        <div className="grid gap-2">
-          <span className="text-xs font-medium">Site URL</span>
+      <div className={sx(styles.body)}>
+        <div className={sx(styles.field)}>
+          <span className={sx(styles.fieldLabel)}>Site URL</span>
           <Input
             aria-label="Jira site URL"
             aria-invalid={siteUrlError !== null}
@@ -259,30 +260,35 @@ export function JiraConnectorSettingsSection() {
             onBlur={commitSiteUrl}
             autoComplete="url"
           />
-          <p className={siteUrlError ? `${HINT} text-destructive` : HINT}>
+          <p
+            className={sx(
+              styles.hint,
+              siteUrlError != null && styles.hintError,
+            )}
+          >
             {siteUrlError ??
               "HTTPS only. A path prefix is kept, so a site proxied at /jira works."}
           </p>
         </div>
 
-        <div className="space-y-3 rounded-lg border border-border bg-muted/25 p-4">
-          <h4 className="text-sm font-medium">API token</h4>
-          <p className={HINT}>
+        <div className={sx(styles.tokenPanel)}>
+          <h4 className={sx(styles.panelTitle)}>API token</h4>
+          <p className={sx(styles.hint)}>
             Create a token in your Atlassian account settings. It is verified
             once, then stored encrypted and never read back into this window.
           </p>
 
           {configured ? (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">
+            <div className={sx(styles.accountRow)}>
+              <div className={sx(styles.accountMeta)}>
+                <p className={sx(styles.accountName)}>
                   {status?.displayName ?? "Connected account"}
                 </p>
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                <p className={sx(styles.accountId)}>
                   {status?.accountId ?? "Account id unavailable"}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className={sx(styles.accountActions)}>
                 <Button
                   type="button"
                   size="sm"
@@ -311,7 +317,7 @@ export function JiraConnectorSettingsSection() {
           ) : null}
 
           {configured && !replacing ? null : (
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+            <div className={sx(styles.credentialGrid)}>
               <Input
                 aria-label="Jira account email"
                 type="email"
@@ -344,26 +350,26 @@ export function JiraConnectorSettingsSection() {
           )}
 
           {canStore ? null : (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive">
+            <p className={sx(styles.warning)}>
               OS credential encryption is unavailable, so the token cannot be
               stored safely. Saving stays blocked until it returns.
             </p>
           )}
         </div>
 
-        <div className="grid gap-2">
-          <span className="text-xs font-medium">Issue query (JQL)</span>
+        <div className={sx(styles.field)}>
+          <span className={sx(styles.fieldLabel)}>Issue query (JQL)</span>
           <Textarea
             aria-label="Jira issue query"
             value={connector.jql}
             rows={3}
             maxLength={2_000}
             spellCheck={false}
-            className="font-mono text-xs"
+            className={sx(styles.jqlArea)}
             onChange={(event) => save({ jql: event.target.value })}
           />
-          <div className="flex items-center justify-between gap-3">
-            <p className={HINT}>
+          <div className={sx(styles.jqlFooter)}>
+            <p className={sx(styles.hint)}>
               Runs as the token holder. Keep it narrow: every refresh fetches
               this whole result page.
             </p>
@@ -371,23 +377,26 @@ export function JiraConnectorSettingsSection() {
               type="button"
               size="xs"
               variant="ghost"
-              className="h-auto shrink-0 py-1 text-xs"
+              className={sx(styles.resetButton)}
               disabled={connector.jql === DEFAULT_JIRA_JQL}
               onClick={() => save({ jql: DEFAULT_JIRA_JQL })}
             >
-              <RotateCcw className="size-3" aria-hidden="true" />
+              <RotateCcw className={sx(styles.resetIcon)} aria-hidden="true" />
               Reset to default
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className={sx(styles.refreshRow)}>
           <Select
             value={String(connector.maxResults)}
             disabled={busy !== null}
             onValueChange={(value) => save({ maxResults: Number(value) })}
           >
-            <SelectTrigger aria-label="Issues per refresh" className="w-44">
+            <SelectTrigger
+              aria-label="Issues per refresh"
+              className={sx(styles.maxResultsTrigger)}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -414,26 +423,23 @@ export function JiraConnectorSettingsSection() {
           )}
         </div>
 
-        <div className="space-y-3 border-t border-border/70 pt-4">
-          <h4 className="text-sm font-medium">Project mappings</h4>
-          <p className={HINT}>
+        <div className={sx(styles.mappings)}>
+          <h4 className={sx(styles.panelTitle)}>Project mappings</h4>
+          <p className={sx(styles.hint)}>
             A Jira project key preselects a registered Stave project when a
             ticket starts a run. Local paths never leave this device.
           </p>
 
           {connector.projectMappings.map((mapping, index) => (
-            <div
-              key={mapping.jiraProjectKey}
-              className="flex items-center gap-3 rounded-lg border border-border bg-muted/25 px-3 py-2"
-            >
+            <div key={mapping.jiraProjectKey} className={sx(styles.mappingRow)}>
               <Badge variant="secondary">{mapping.jiraProjectKey}</Badge>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">
+              <div className={sx(styles.mappingBody)}>
+                <p className={sx(styles.mappingName)}>
                   {projects.find(
                     (p) => p.projectPath === mapping.staveProjectPath,
                   )?.projectName ?? "Unregistered project"}
                 </p>
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                <p className={sx(styles.mappingPath)}>
                   {mapping.staveProjectPath}
                 </p>
               </div>
@@ -455,12 +461,12 @@ export function JiraConnectorSettingsSection() {
                   })
                 }
               >
-                <Trash2 className="size-4" aria-hidden="true" />
+                <Trash2 className={sx(styles.actionIcon)} aria-hidden="true" />
               </Button>
             </div>
           ))}
 
-          <div className="grid gap-2 sm:grid-cols-[8rem_1fr_auto]">
+          <div className={sx(styles.mappingForm)}>
             <Input
               aria-label="Jira project key"
               value={mappingKey}

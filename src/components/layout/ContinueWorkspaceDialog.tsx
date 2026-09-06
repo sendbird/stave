@@ -1,6 +1,7 @@
 import { GitBranch } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
+import { sx } from "@/components/ads/utils/stylex";
 import { Badge, Button, Input, Loader } from "@/components/ui";
 import {
   Dialog,
@@ -11,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { buildContinueWorkspaceBranchName } from "@/store/project.utils";
+import { continueWorkspaceStyles } from "./continue-workspace-dialog.styles";
 
 interface ContinueWorkspaceDialogProps {
   open: boolean;
@@ -134,8 +136,8 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
         }
       }}
     >
-      <DialogContent className="sm:max-w-xl">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <DialogContent xstyle={continueWorkspaceStyles.surface}>
+        <form onSubmit={handleSubmit} className={sx(continueWorkspaceStyles.form)}>
           <DialogHeader>
             <DialogTitle>Continue in New Workspace</DialogTitle>
             <DialogDescription>
@@ -145,35 +147,37 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid gap-3 rounded-xl border border-border/70 bg-muted/20 p-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <div className={sx(continueWorkspaceStyles.body)}>
+            <div className={sx(continueWorkspaceStyles.summaryGrid)}>
+              <div className={sx(continueWorkspaceStyles.summaryCell)}>
+                <p className={sx(continueWorkspaceStyles.eyebrow)}>
                   Source Workspace
                 </p>
-                <div className="space-y-2">
+                <div className={sx(continueWorkspaceStyles.stack)}>
                   <Badge
                     variant="outline"
-                    className="max-w-full justify-start gap-1 rounded-md border-border/70 bg-background/80 px-2 font-normal"
+                    className={sx(continueWorkspaceStyles.badge)}
                   >
-                    <GitBranch className="size-3.5 text-muted-foreground" />
-                    <span className="truncate">
+                    <GitBranch
+                      className={sx(continueWorkspaceStyles.branchIcon)}
+                    />
+                    <span className={sx(continueWorkspaceStyles.truncated)}>
                       {props.sourceBranch ??
                         props.sourceWorkspaceName ??
                         "Current workspace"}
                     </span>
                   </Badge>
                   {props.prTitle ? (
-                    <p className="text-xs text-muted-foreground">
+                    <p className={sx(continueWorkspaceStyles.caption)}>
                       {props.prTitle}
                     </p>
                   ) : null}
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <div className={sx(continueWorkspaceStyles.summaryCell)}>
+                <div className={sx(continueWorkspaceStyles.cellHeader)}>
+                  <p className={sx(continueWorkspaceStyles.eyebrow)}>
                     New Workspace Base
                   </p>
                   {canChangeBaseBranch ? (
@@ -181,7 +185,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-2 text-[11px] font-medium text-muted-foreground"
+                      xstyle={continueWorkspaceStyles.changeButton}
                       onClick={() =>
                         setShowBaseBranchPicker((current) => !current)
                       }
@@ -192,17 +196,19 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                 </div>
                 <Badge
                   variant="secondary"
-                  className="justify-start gap-1 rounded-md border border-border/60 bg-secondary/70 px-2 font-normal"
+                  className={sx(continueWorkspaceStyles.badge)}
                 >
-                  <GitBranch className="size-3.5 text-muted-foreground" />
+                  <GitBranch
+                    className={sx(continueWorkspaceStyles.branchIcon)}
+                  />
                   <span>{selectedBaseBranch}</span>
                 </Badge>
               </div>
             </div>
 
             {showBaseBranchPicker ? (
-              <div className="space-y-2 rounded-xl border border-border/70 bg-muted/15 p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <div className={sx(continueWorkspaceStyles.pickerPanel)}>
+                <p className={sx(continueWorkspaceStyles.eyebrow)}>
                   Remote Base Branch
                 </p>
                 <CreateWorkspaceBranchPicker
@@ -214,29 +220,33 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                   remoteBranches={availableRemoteBranches}
                   onChange={setSelectedBaseBranch}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(continueWorkspaceStyles.caption)}>
                   Override the default only when this follow-up should start
                   from another remote branch.
                 </p>
               </div>
             ) : null}
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Workspace Branch Name</p>
+            <div className={sx(continueWorkspaceStyles.fieldBlock)}>
+              <p className={sx(continueWorkspaceStyles.fieldLabel)}>
+                Workspace Branch Name
+              </p>
               <Input
                 autoFocus
                 value={workspaceName}
                 placeholder="feature/follow-up--continue--20260404-164512"
                 onChange={(event) => setWorkspaceName(event.target.value)}
-                className="h-10 rounded-sm border-border/80 bg-background"
+                xstyle={continueWorkspaceStyles.nameInput}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className={sx(continueWorkspaceStyles.caption)}>
                 Stave will create a markdown brief under `.stave/context/` and
                 attach it to the first task draft.
               </p>
             </div>
 
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {error ? (
+              <p className={sx(continueWorkspaceStyles.error)}>{error}</p>
+            ) : null}
           </div>
 
           <DialogFooter>
@@ -253,7 +263,7 @@ export function ContinueWorkspaceDialog(props: ContinueWorkspaceDialogProps) {
                 <>
                   <Loader
                     aria-hidden
-                    className="mr-2"
+                    className={sx(continueWorkspaceStyles.submitLoader)}
                     size="xs"
                     variant="sync"
                   />

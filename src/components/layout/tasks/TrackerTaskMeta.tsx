@@ -1,4 +1,10 @@
-import { Badge } from "@/components/ui";
+import {
+  trackerVisualStyles,
+  priorityToneStyles,
+  labelColorStyles,
+} from "./tracker-visual.styles";
+import { Badge } from "../../ads/components/Badge";
+import { sx } from "@/components/ads/utils/stylex";
 import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import {
   TRACKER_PRIORITY_PRESENTATION,
@@ -7,21 +13,17 @@ import {
   resolveTrackerLabelColor,
 } from "@/lib/tracker-tasks/presentation";
 import type { TrackerTask } from "@/lib/tracker-tasks/types";
-import { cn } from "@/lib/utils";
 import {
   TRACKER_SOURCE_LABELS,
   TRACKER_PRIORITY_ICONS,
 } from "./tracker-task-ui";
+import { taskLayoutStyles } from "./tasks-layout.stylex";
 
 function MetaField(props: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-        {props.label}
-      </dt>
-      <dd className="mt-0.5 truncate text-xs text-foreground">
-        {props.children}
-      </dd>
+    <div className={sx(taskLayoutStyles.metaField)}>
+      <dt className={sx(taskLayoutStyles.metaLabel)}>{props.label}</dt>
+      <dd className={sx(taskLayoutStyles.metaValue)}>{props.children}</dd>
     </div>
   );
 }
@@ -35,13 +37,10 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
   const due = formatTrackerDue(task.dueDate, props.now);
 
   return (
-    <div className="space-y-3">
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+    <div className={sx(taskLayoutStyles.meta)}>
+      <dl className={sx(taskLayoutStyles.metaGrid)}>
         <MetaField label="Status">
-          <Badge
-            variant="outline"
-            className={cn("text-xs", status.toneClassName)}
-          >
+          <Badge variant="outline" tone={status.tone}>
             {/* The raw status is what the tracker actually shows, so it wins
                 over the normalized label the list groups by. */}
             {task.status.raw || status.label}
@@ -49,12 +48,15 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
         </MetaField>
         <MetaField label="Priority">
           <span
-            className={cn(
-              "inline-flex items-center gap-1",
-              priority.toneClassName,
+            className={sx(
+              taskLayoutStyles.metaInline,
+              priorityToneStyles[priority.tone],
             )}
           >
-            <PriorityIcon className="size-3.5" aria-hidden="true" />
+            <PriorityIcon
+              className={sx(trackerVisualStyles.icon)}
+              aria-hidden="true"
+            />
             {task.priority.raw ?? priority.label}
           </span>
         </MetaField>
@@ -63,10 +65,10 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
         </MetaField>
         <MetaField label="Due">{due?.label ?? "No due date"}</MetaField>
         <MetaField label="Source">
-          <span className="inline-flex items-center gap-1">
+          <span className={sx(taskLayoutStyles.metaInline)}>
             <ServiceLinkIcon
               kind={task.source === "crane" ? "crane" : "jira"}
-              className="text-xs"
+              className={sx(trackerVisualStyles.icon)}
             />
             {TRACKER_SOURCE_LABELS[task.source]} {task.key}
           </span>
@@ -91,20 +93,20 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
       </dl>
 
       {task.labels.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
+        <div className={sx(taskLayoutStyles.metaLabels)}>
           {task.labels.map((label) => {
             const color = resolveTrackerLabelColor(label.color);
             return (
               <span
                 key={label.name}
-                className="inline-flex items-center gap-1 rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground"
+                className={sx(taskLayoutStyles.metaLabelChip)}
               >
                 {color === null ? null : (
                   <span
                     aria-hidden="true"
-                    className={cn(
-                      "size-1.5 rounded-full",
-                      color.kind === "token" && color.className,
+                    className={sx(
+                      taskLayoutStyles.labelDot,
+                      color.kind === "token" && labelColorStyles[color.token],
                     )}
                     style={
                       color.kind === "css"

@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import {
   attachClosestEdge,
   extractClosestEdge,
@@ -69,13 +72,13 @@ function isSortableRowData(
 /** Compact fixed-size chip rendered as the native drag preview. */
 function DragPreviewChip(props: { icon?: ReactNode; title: string }) {
   return (
-    <div className="flex max-w-60 items-center gap-1.5 rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs font-medium text-popover-foreground shadow-md">
+    <div className={sx(styles.preview)}>
       {props.icon ? (
-        <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+        <span className={sx(styles.icon)}>
           {props.icon}
         </span>
       ) : null}
-      <span className="truncate">{props.title}</span>
+      <span className={sx(styles.title)}>{props.title}</span>
     </div>
   );
 }
@@ -253,7 +256,7 @@ const DROP_INDICATOR_THEME_STYLE = {
  */
 export function SortableDropIndicator(props: { edge: Edge; gap?: string }) {
   return (
-    <span className="contents" style={DROP_INDICATOR_THEME_STYLE}>
+    <span className={sx(styles.indicator)} style={DROP_INDICATOR_THEME_STYLE}>
       <DropIndicator
         edge={props.edge}
         gap={props.gap ?? "0px"}
@@ -262,3 +265,10 @@ export function SortableDropIndicator(props: { edge: Edge; gap?: string }) {
     </span>
   );
 }
+
+const styles = stylex.create({
+preview: {display:"flex",maxWidth:240,alignItems:"center",gap:6,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,backgroundColor:vars.colorSurfaceRaised,paddingInline:10,paddingBlock:6,fontSize:12,fontWeight:500,color:vars.colorText,boxShadow:vars.elevationLift},
+icon: {display:"flex",width:16,height:16,flexShrink:0,alignItems:"center",justifyContent:"center",color:vars.colorTextMuted},
+title: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
+indicator: {display:"contents"}
+});

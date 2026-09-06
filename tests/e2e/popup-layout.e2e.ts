@@ -106,6 +106,40 @@ async function seedWorkspace(page: Page) {
   });
 }
 
+test("StyleX composer lanes preserve size, reveal and draft across themes", async ({ page }, testInfo) => {
+  await seedWorkspace(page);
+  await page.setViewportSize({ width: 1600, height: 960 });
+  await page.goto("/");
+  const prompt = page.getByRole("textbox", { name: "Prompt" });
+  await expect(prompt).toBeVisible();
+  await prompt.fill("Keep this draft while inspecting controls");
+  const wing = page.locator('[data-composer-frame-wing="right"]');
+  await expect(wing).toBeVisible();
+  const button = wing.locator('[data-composer-control="true"]').first();
+  const label = button.locator('[data-composer-control-label]');
+  for (const dark of [false, true]) {
+    await page.evaluate((enabled) => document.documentElement.classList.toggle("dark", enabled), dark);
+    await page.mouse.move(0, 0);
+    await prompt.focus();
+    await expect.poll(() => label.evaluate((node) => getComputedStyle(node).opacity)).toBe("0");
+    const before = await prompt.boundingBox();
+    await button.hover();
+    await expect.poll(() => label.evaluate((node) => getComputedStyle(node).opacity)).toBe("1");
+    await expect.poll(() => button.evaluate((node) => getComputedStyle(node).height)).toBe("32px");
+    const after = await prompt.boundingBox();
+    expect(after!.x).toBeCloseTo(before!.x, 1);
+    expect(after!.width).toBeCloseTo(before!.width, 1);
+    expect(after!.height).toBeCloseTo(before!.height, 1);
+    await button.focus();
+    await page.mouse.move(0, 0);
+    await expect.poll(() => label.evaluate((node) => getComputedStyle(node).opacity)).toBe("1");
+    await page.locator('[data-composer-frame="true"]').screenshot({ path: testInfo.outputPath(`stylex-composer-${dark ? "dark" : "light"}.png`) });
+    await expect(prompt).toHaveText("Keep this draft while inspecting controls");
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect.poll(() => label.evaluate((node) => getComputedStyle(node).translate)).toBe("0px");
+});
+
 test("icon-triggered menus keep a usable width and full-width rows", async ({
   page,
 }) => {
@@ -141,7 +175,12 @@ test("icon-triggered menus keep a usable width and full-width rows", async ({
   expect(itemBox).not.toBeNull();
   expect(popupBox!.width).toBeGreaterThanOrEqual(128);
   expect(popupBox!.width).toBeLessThanOrEqual(712);
-  expect(itemBox!.width).toBeGreaterThanOrEqual(popupBox!.width - 8);
+  const horizontalInset = await popup.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return [style.paddingLeft, style.paddingRight, style.borderLeftWidth, style.borderRightWidth]
+      .reduce((sum, value) => sum + parseFloat(value), 0);
+  });
+  expect(itemBox!.width).toBeGreaterThanOrEqual(popupBox!.width - horizontalInset - 1);
 
   await openInFinderItem.hover();
   await expect(openInFinderItem).toHaveAttribute("data-highlighted", "");
@@ -152,7 +191,7 @@ test("icon-triggered menus keep a usable width and full-width rows", async ({
       ),
     )
     .not.toBe("rgba(0, 0, 0, 0)");
-  await expect(openInFinderItem).toHaveCSS("text-align", "left");
+  await expect(openInFinderItem).toHaveCSS("text-align", "start");
 });
 
 test("local change review keeps actions visible while its body scrolls", async ({
@@ -165,7 +204,7 @@ test("local change review keeps actions visible while its body scrolls", async (
   await page.getByRole("button", { name: "Review local changes" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Review local changes" });
-  const scrollArea = dialog.locator(":scope > div.overflow-y-auto");
+  const scrollArea = dialog.locator(':scope > div[data-review-scroll="true"]');
   const footer = dialog.locator('[data-slot="dialog-footer"]');
   const submit = dialog.getByRole("button", { name: "Review changes" });
 
@@ -210,9 +249,12 @@ test("workspace tools no-result views share one empty-state pattern", async ({
     .getByRole("button", { name: "Workspace Tools", exact: true })
     .click();
 
-  const panel = page
-    .getByRole("tablist", { name: "Workspace Tools views" })
-    .locator("xpath=ancestor::*[@data-slot='tabs'][1]");
+  const panel = page.getByRole("region", { name: "Workspace tools", exact: true });
+  // Workspace hydration may restore the initial pane after the first click.
+  await expect(async () => {
+    if (!await panel.isVisible()) await page.getByRole("button", { name: "Workspace Tools", exact: true }).click();
+    await expect(panel).toBeVisible();
+  }).toPass();
 
   const assertEmptyState = async (title: string, description: string) => {
     const emptyState = panel
@@ -248,7 +290,7 @@ test("workspace tools no-result views share one empty-state pattern", async ({
   await panel.getByRole("tab", { name: "Commands", exact: true }).click();
   const commandStyle = await assertEmptyState(
     "No commands configured",
-    "Add a one-shot command in Workspace Tools settings. Run it from this tab when you need it.",
+    "Save a check, build, or other command. Run it when you need it and keep its output here.",
   );
 
   await panel.getByRole("tab", { name: "Runs", exact: true }).click();

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { attachClaudeWorkerExecutionMetadata, buildClaudeWorkerAgents } from "../electron/providers/claude-sdk-runtime";
+import {
+  attachClaudeWorkerExecutionMetadata,
+  buildClaudeWorkerAgents,
+} from "../electron/providers/claude-sdk-runtime";
 import {
   buildCodexWorkerConfigOverrides,
   buildCodexDeveloperInstructions,
@@ -112,17 +115,43 @@ describe("Claude worker agent registration", () => {
 
   test("attributes only the registered worker tool call", () => {
     const resolution = resolveWorkerProfile({
-      providerId: "claude-code", primaryModel: "claude-opus-5", intent: intent(),
+      providerId: "claude-code",
+      primaryModel: "claude-opus-5",
+      intent: intent(),
     });
-    if (resolution.status !== "ready") throw new Error("expected worker profile");
+    if (resolution.status !== "ready")
+      throw new Error("expected worker profile");
     const events = attachClaudeWorkerExecutionMetadata({
       profile: resolution.profile,
       events: [
-        { type: "tool", toolUseId: "worker", toolName: "Agent", input: JSON.stringify({ subagent_type: WORKER_AGENT_NAME }), state: "input-available" },
-        { type: "tool", toolUseId: "explore", toolName: "Agent", input: JSON.stringify({ subagent_type: "Explore" }), state: "input-available" },
+        {
+          type: "tool",
+          toolUseId: "worker",
+          toolName: "Agent",
+          input: JSON.stringify({ subagent_type: WORKER_AGENT_NAME }),
+          state: "input-available",
+        },
+        {
+          type: "tool",
+          toolUseId: "explore",
+          toolName: "Agent",
+          input: JSON.stringify({ subagent_type: "Explore" }),
+          state: "input-available",
+        },
       ],
     });
-    expect(events[0]).toHaveProperty("workerExecution.workerModel", "claude-sonnet-5");
+    expect(events[0]).toMatchObject({
+      workerExecution: {
+        workerModel: "claude-sonnet-5",
+        requestedWorkerModel: "auto",
+        resolvedWorkerModel: "claude-sonnet-5",
+        workerModelSource: "preset",
+      },
+    });
+    expect(events[0]).not.toHaveProperty(
+      "workerExecution.workerModelRationale",
+    );
+    expect(events[0]).not.toHaveProperty("workerExecution.runtimeWorkerModel");
     expect(events[1]).not.toHaveProperty("workerExecution");
   });
 });

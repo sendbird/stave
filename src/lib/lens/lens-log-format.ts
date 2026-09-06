@@ -104,42 +104,52 @@ export function formatNetworkHeaders(
     .join("\n");
 }
 
-export function getConsoleLevelClass(level: BrowserConsoleEntry["level"]) {
+/**
+ * Semantic tone for a log/status pill. Consumers map the tone to an ADS
+ * `Badge` tone or a StyleX style; this module deliberately holds no styling
+ * syntax. (`neutral` is the quiet default; `info`/`warning`/`danger`/`success`
+ * mirror the ADS tone families.)
+ */
+export type LensLogTone = "neutral" | "info" | "warning" | "danger" | "success";
+
+export function getConsoleLevelTone(
+  level: BrowserConsoleEntry["level"],
+): LensLogTone {
   switch (level) {
     case "error":
-      return "border-destructive/30 bg-destructive/10 text-destructive";
+      return "danger";
     case "warn":
-      return "border-warning/30 bg-warning/10 text-warning";
+      return "warning";
     case "info":
-      return "border-primary/30 bg-primary/10 text-primary";
+      return "info";
     case "debug":
-      return "border-muted-foreground/30 bg-muted/50 text-muted-foreground";
+      return "neutral";
     default:
-      return "border-border bg-muted/60 text-foreground";
+      return "neutral";
   }
 }
 
-export function getNetworkStatusClass(entry: BrowserNetworkEntry) {
+export function getNetworkStatusTone(entry: BrowserNetworkEntry): LensLogTone {
   if (entry.state === "pending") {
-    return "text-muted-foreground";
+    return "neutral";
   }
   if (entry.state === "failed") {
-    return "text-destructive";
+    return "danger";
   }
   const status = entry.status;
   if (!status) {
-    return "text-muted-foreground";
+    return "neutral";
   }
   if (status >= 500) {
-    return "text-destructive";
+    return "danger";
   }
   if (status >= 400) {
-    return "text-warning";
+    return "warning";
   }
   if (status >= 300) {
-    return "text-primary";
+    return "info";
   }
-  return "text-success";
+  return "success";
 }
 
 export function formatNetworkRowStatus(entry: BrowserNetworkEntry): string {

@@ -95,6 +95,7 @@ export function buildPromptDraftDisplayPartsForSend(
     if (attachment.kind !== "lens-annotations") continue;
     hasLensAnnotation = true;
     for (const annotation of attachment.annotations ?? []) {
+      const lensFeedback = attachment.workspaceId ? { workspaceId: attachment.workspaceId, lensSessionId: attachment.lensSessionId, annotation } : undefined;
       const screenshot = attachment.workspaceId
         ? imageAttachmentsById.get(
             getLensCommentImageId({
@@ -108,6 +109,7 @@ export function buildPromptDraftDisplayPartsForSend(
         parts.push({
           type: "image_context",
           dataUrl: screenshot.dataUrl,
+          lensFeedback,
           label:
             annotation.comment.trim() || `Visual comment ${annotation.pin}`,
           mimeType: getImageAttachmentMimeType(screenshot),
@@ -115,7 +117,7 @@ export function buildPromptDraftDisplayPartsForSend(
         continue;
       }
       const comment = annotation.comment.trim();
-      if (comment) parts.push({ type: "text", text: comment });
+      parts.push({ type: "text", text: comment, lensFeedback });
     }
   }
 

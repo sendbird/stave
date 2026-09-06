@@ -90,6 +90,11 @@ describe("turn-scoped ACP Worker runtime", () => {
             providerId: "cursor",
             nativeSessionId: "worker-session",
           },
+          {
+            type: "model_resolved",
+            resolvedProviderId: "cursor",
+            resolvedModel: "runtime-worker-model",
+          },
           approval,
           { type: "text", text: "Implemented and verified." },
           {
@@ -115,7 +120,7 @@ describe("turn-scoped ACP Worker runtime", () => {
       ok: true,
       result: "Implemented and verified.",
       providerId: "cursor",
-      model: "worker-model",
+      model: "runtime-worker-model",
     });
     expect(emitted).toContainEqual(
       expect.objectContaining({
@@ -128,6 +133,10 @@ describe("turn-scoped ACP Worker runtime", () => {
         workerExecution: expect.objectContaining({
           providerId: "cursor",
           workerModel: "worker-model",
+          requestedWorkerModel: "worker-model",
+          resolvedWorkerModel: "worker-model",
+          workerModelSource: "explicit",
+          runtimeWorkerModel: "runtime-worker-model",
         }),
       }),
     );
@@ -142,13 +151,16 @@ describe("turn-scoped ACP Worker runtime", () => {
         type: "delegated_usage",
         role: "worker",
         providerId: "cursor",
-        model: "worker-model",
+        model: "runtime-worker-model",
         inputTokens: 10,
         outputTokens: 5,
         cacheReadTokens: 7,
         cacheCreationTokens: 3,
         sessionReused: false,
       }),
+    );
+    expect(emitted.some((event) => event.type === "model_resolved")).toBe(
+      false,
     );
   });
 
@@ -173,9 +185,9 @@ describe("turn-scoped ACP Worker runtime", () => {
     await expect(
       runAcpWorker({ workerKey: "worker-key", task: "Try the worker." }),
     ).resolves.toMatchObject({ ok: false });
-    expect(
-      emitted.some((event) => event.type === "delegated_usage"),
-    ).toBe(false);
+    expect(emitted.some((event) => event.type === "delegated_usage")).toBe(
+      false,
+    );
   });
 
   test("resumes the same task and profile Worker lane", async () => {
@@ -379,9 +391,7 @@ describe("turn-scoped ACP Worker runtime", () => {
       ),
     ).toBe(false);
     expect(
-      emitted.some(
-        (event) => event.type === "tool" && event.input === "late",
-      ),
+      emitted.some((event) => event.type === "tool" && event.input === "late"),
     ).toBe(false);
   });
 

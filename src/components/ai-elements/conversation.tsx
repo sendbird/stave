@@ -17,7 +17,8 @@ import {
 } from "react";
 import { ArrowDown, Download } from "lucide-react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { conversationStyles as styles } from "./conversation.styles";
 import {
   Button,
   Tooltip,
@@ -214,7 +215,7 @@ export function Conversation({
   return (
     <ConversationContext.Provider value={contextValue}>
       <section
-        className={cn("relative flex min-h-0 flex-1", extraClassName)}
+        className={cx(sx(styles.root), extraClassName)}
         {...props}
       />
     </ConversationContext.Provider>
@@ -480,10 +481,7 @@ export function ConversationContent(props: ConversationContentProps) {
         containerRef.current = node;
         setContainerEl(node);
       }}
-      className={cn(
-        "min-h-0 flex-1 overflow-x-hidden overflow-y-auto",
-        className,
-      )}
+      className={cx(sx(styles.scroller), className)}
       {...rest}
       onWheelCapture={markUserScrollIntent}
       onTouchStartCapture={markUserScrollIntent}
@@ -562,7 +560,7 @@ export function ConversationContent(props: ConversationContentProps) {
       }}
     >
       {withInnerLayout ? (
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5">
+        <div className={sx(styles.innerLayout)}>
           {children}
         </div>
       ) : (
@@ -641,10 +639,7 @@ export function ConversationVirtualList<T>(
         return (
           <div
             ref={ref}
-            className={cn(
-              "mx-auto w-full max-w-6xl px-3 pt-4 sm:px-5 sm:pt-5",
-              className,
-            )}
+            className={cx(sx(styles.listContainer), className)}
             {...rest}
           />
         );
@@ -653,7 +648,7 @@ export function ConversationVirtualList<T>(
         itemProps: ComponentPropsWithoutRef<"div">,
       ) {
         const { className, ...rest } = itemProps;
-        return <div className={cn("pb-3 last:pb-6", className)} {...rest} />;
+        return <div className={cx(sx(styles.listItem), className)} {...rest} />;
       },
     };
   }, []);
@@ -1095,17 +1090,12 @@ export function ConversationEmptyState(args: {
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex min-h-[240px] flex-col items-center justify-center text-center",
-        args.className,
-      )}
-    >
+    <div className={cx(sx(styles.emptyState), args.className)}>
       {args.icon ? (
-        <div className="mb-3 text-muted-foreground">{args.icon}</div>
+        <div className={sx(styles.emptyIcon)}>{args.icon}</div>
       ) : null}
-      <p className="text-lg font-semibold text-foreground/90">{args.title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{args.description}</p>
+      <p className={sx(styles.emptyTitle)}>{args.title}</p>
+      <p className={sx(styles.emptyDescription)}>{args.description}</p>
     </div>
   );
 }
@@ -1126,10 +1116,7 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
     <Button
       size="sm"
       variant="outline"
-      className={cn(
-        "absolute bottom-3 left-3 h-8 rounded-full px-2",
-        className,
-      )}
+      className={cx(sx(styles.floatingButton), className)}
       onClick={() => {
         scrollToBottom({ behavior: "smooth" });
       }}
@@ -1137,7 +1124,7 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
       type="button"
       {...buttonProps}
     >
-      <ArrowDown className="size-4" />
+      <ArrowDown className={sx(styles.buttonIcon)} />
     </Button>
   );
 
@@ -1203,10 +1190,7 @@ export function ConversationDownload(args: ConversationDownloadProps) {
       type="button"
       size="sm"
       variant="outline"
-      className={cn(
-        "absolute bottom-3 left-3 h-8 rounded-full px-2",
-        className,
-      )}
+      className={cx(sx(styles.floatingButton), className)}
       disabled={disabled}
       aria-label="download-conversation"
       onClick={() => {
@@ -1223,7 +1207,7 @@ export function ConversationDownload(args: ConversationDownloadProps) {
       }}
       {...props}
     >
-      <Download className="size-4" />
+      <Download className={sx(styles.buttonIcon)} />
     </Button>
   );
 

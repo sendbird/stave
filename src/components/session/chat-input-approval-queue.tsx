@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,8 @@ import {
   buildTrustedToolEntryForApproval,
   formatTrustedToolEntry,
 } from "@/lib/providers/trusted-tools";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { chatInputApprovalQueueStyles as styles } from "@/components/session/chat-input-approval-queue.styles";
 import type { ApprovalPart } from "@/types/chat";
 
 export interface PendingApprovalQueueItem {
@@ -183,9 +185,9 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   return (
     <section
       aria-label="Approval queue"
-      className={cn(
-        "mb-3 rounded-xl border border-warning/30 bg-background shadow-sm",
-        compact ? "p-2" : "p-2.5",
+      className={sx(
+        styles.section,
+        compact ? styles.sectionCompact : styles.sectionRegular,
       )}
     >
       {/* Latest approval */}
@@ -228,7 +230,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
         <p
           role="status"
           aria-live="polite"
-          className="mt-1.5 flex items-center gap-1.5 px-1 text-[0.6875rem] text-muted-foreground"
+          className={sx(styles.status)}
         >
           <Loader aria-hidden size="xs" variant="signal" />
           Waiting for the provider to accept the decision…
@@ -246,9 +248,9 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
       !current.part.supportsAllowAlways &&
       onTrustAndApprove &&
       trustedEntry ? (
-        <button
+        <AdsButton layout="host"
           type="button"
-          className="mt-1.5 rounded px-1 py-0.5 text-left text-[0.6875rem] text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+          xstyle={styles.linkAction}
           onClick={() =>
             onTrustAndApprove({
               messageId: current.messageId,
@@ -258,26 +260,26 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
           }
         >
           approve and always allow {formatTrustedToolEntry(trustedEntry)}
-        </button>
+        </AdsButton>
       ) : null}
 
       {/* Guidance inline */}
       {!disabled && !decisionPending && onDraftGuidance ? (
         guidanceOpen ? (
-          <div className="mt-2 space-y-1.5 px-0.5">
+          <div className={sx(styles.guidancePanel)}>
             <Textarea
               ref={guidanceTextareaRef}
               value={guidanceText}
               rows={2}
-              className="min-h-0 resize-none bg-background/80 text-xs dark:bg-background/80"
+              xstyle={styles.guidanceField}
               onChange={(event) => setGuidanceText(event.target.value)}
               placeholder={`Instead of ${current.part.toolName}, do this…`}
             />
-            <div className="flex items-center gap-1.5">
+            <div className={sx(styles.guidanceActions)}>
               <Button
                 type="button"
                 size="sm"
-                className="h-7 px-2.5 text-xs"
+                xstyle={styles.compactButton}
                 disabled={!guidanceText.trim()}
                 onClick={() => {
                   const guidance = guidanceText.trim();
@@ -300,7 +302,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-7 px-2 text-xs text-muted-foreground"
+                xstyle={styles.compactButtonQuiet}
                 onClick={() => {
                   setGuidanceMessageId(null);
                   setGuidanceText("");
@@ -311,25 +313,25 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
             </div>
           </div>
         ) : (
-          <button
+          <AdsButton layout="host"
             type="button"
-            className="mt-1.5 flex items-center gap-1 rounded px-1 py-0.5 text-[0.6875rem] text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+            xstyle={styles.guideAction}
             onClick={() => openGuidanceDraft({ focusComposer: true })}
           >
-            <Kbd className="h-4 px-1 text-[0.625rem]">Tab</Kbd>
+            <Kbd className={sx(styles.guideKbd)}>Tab</Kbd>
             <span>guide instead</span>
-          </button>
+          </AdsButton>
         )
       ) : null}
 
       {/* Queued count */}
       {queuedCount > 0 ? (
-        <div className="mt-2 border-t border-border/40 pt-2">
+        <div className={sx(styles.queuedGroup)}>
           <details className="group">
-            <summary className="cursor-pointer select-none text-[0.6875rem] text-muted-foreground/70 hover:text-muted-foreground">
+            <summary className={sx(styles.queuedSummary)}>
               +{queuedCount} more queued
             </summary>
-            <div className="mt-1.5 space-y-1.5">
+            <div className={sx(styles.queuedList)}>
               {approvals.slice(1).map((approval) => (
                 <ConfirmationCompact
                   key={`${approval.messageId}:${approval.part.requestId}`}

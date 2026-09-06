@@ -1,0 +1,358 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+
+const MAX_WIDTH = "1536px";
+
+export const landingStyles = stylex.create({
+  page: {
+    minBlockSize: "100vh",
+    backgroundColor: "var(--background)",
+    color: "var(--foreground)",
+  },
+  heroSection: {
+    position: "relative",
+    overflow: "hidden",
+    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomStyle: "solid",
+    borderBottomColor: "color-mix(in oklab, var(--border) 70%, transparent)",
+  },
+  gridBackground: {
+    pointerEvents: "none",
+    position: "absolute",
+    inset: 0,
+    backgroundImage:
+      "linear-gradient(to right, color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 4%, transparent) 1px, transparent 1px)",
+    backgroundSize: "44px 44px",
+    maskImage:
+      "radial-gradient(ellipse at top, rgba(0, 0, 0, 0.7) 0%, transparent 75%)",
+  },
+  heroInner: {
+    position: "relative",
+    marginInline: "auto",
+    display: "flex",
+    maxInlineSize: MAX_WIDTH,
+    flexDirection: "column",
+    alignItems: "center",
+    gap: vars.space32,
+    paddingInline: {
+      default: vars.space16,
+      "@media (min-width: 640px)": vars.space24,
+      "@media (min-width: 1024px)": vars.space32,
+    },
+    paddingTop: {
+      default: "5rem",
+      "@media (min-width: 640px)": "6rem",
+    },
+    paddingBottom: {
+      default: vars.space64,
+      "@media (min-width: 640px)": "5rem",
+    },
+    textAlign: "center",
+  },
+  heroBadge: {
+    borderRadius: vars.radiusFull,
+    borderColor: "color-mix(in oklab, var(--border) 80%, transparent)",
+    backgroundColor: "color-mix(in oklab, var(--card) 80%, transparent)",
+    paddingInline: vars.space12,
+    paddingBlock: vars.space4,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+    color: "var(--muted-foreground)",
+    boxShadow: "0 1px 1px 0 color-mix(in oklab, var(--foreground) 4%, transparent)",
+  },
+  heroTitle: {
+    maxInlineSize: "48rem",
+    fontFamily: "var(--font-heading)",
+    fontSize: {
+      default: "2.25rem",
+      "@media (min-width: 640px)": "3rem",
+      "@media (min-width: 1024px)": "3.75rem",
+    },
+    lineHeight: 1.05,
+    fontWeight: vars.fontWeightSemibold,
+    letterSpacing: "-0.025em",
+    textWrap: "balance",
+    color: "var(--foreground)",
+  },
+  heroLead: {
+    maxInlineSize: "42rem",
+    fontSize: "1.125rem",
+    lineHeight: "2rem",
+    color: "var(--muted-foreground)",
+  },
+  actionRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: vars.space12,
+  },
+  hint: {
+    display: "flex",
+    alignItems: "center",
+    gap: vars.space8,
+    fontSize: vars.fontSizeCaption,
+    color: "var(--muted-foreground)",
+  },
+  badgeIcon: {
+    inlineSize: "0.75rem",
+    blockSize: "0.75rem",
+  },
+  actionIcon: {
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+  },
+  shotSection: {
+    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomStyle: "solid",
+    borderBottomColor: "color-mix(in oklab, var(--border) 70%, transparent)",
+    backgroundColor: "color-mix(in oklab, var(--muted) 30%, transparent)",
+  },
+  sectionInner: {
+    marginInline: "auto",
+    maxInlineSize: MAX_WIDTH,
+    paddingInline: {
+      default: vars.space16,
+      "@media (min-width: 640px)": vars.space24,
+      "@media (min-width: 1024px)": vars.space32,
+    },
+    paddingBlock: {
+      default: "3.5rem",
+      "@media (min-width: 640px)": "5rem",
+    },
+  },
+  shotFrame: {
+    marginInline: "auto",
+    maxInlineSize: "64rem",
+  },
+  shotWindow: {
+    overflow: "hidden",
+    borderRadius: vars.radiusFrame,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: "var(--border)",
+    backgroundColor: "var(--card)",
+    boxShadow: "0 20px 40px -12px color-mix(in oklab, var(--foreground) 5%, transparent), inset 0 0 0 1px color-mix(in oklab, var(--border) 50%, transparent)",
+  },
+  shotTitlebar: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.375rem",
+    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomStyle: "solid",
+    borderBottomColor: "color-mix(in oklab, var(--border) 70%, transparent)",
+    backgroundColor: "color-mix(in oklab, var(--muted) 40%, transparent)",
+    paddingInline: vars.space16,
+    paddingBlock: vars.space12,
+  },
+  shotDot: {
+    inlineSize: "0.625rem",
+    blockSize: "0.625rem",
+    borderRadius: vars.radiusFull,
+    backgroundColor: "var(--border)",
+  },
+  shotImage: {
+    inlineSize: "100%",
+  },
+  featuresSection: {
+    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomStyle: "solid",
+    borderBottomColor: "color-mix(in oklab, var(--border) 70%, transparent)",
+  },
+  featuresInner: {
+    marginInline: "auto",
+    maxInlineSize: MAX_WIDTH,
+    paddingInline: {
+      default: vars.space16,
+      "@media (min-width: 640px)": vars.space24,
+      "@media (min-width: 1024px)": vars.space32,
+    },
+    paddingBlock: {
+      default: vars.space64,
+      "@media (min-width: 640px)": "6rem",
+    },
+  },
+  sectionHeader: {
+    marginInline: "auto",
+    maxInlineSize: "42rem",
+    textAlign: "center",
+  },
+  sectionTitle: {
+    fontFamily: "var(--font-heading)",
+    fontSize: {
+      default: "1.875rem",
+      "@media (min-width: 640px)": "2.25rem",
+    },
+    fontWeight: vars.fontWeightSemibold,
+    letterSpacing: "-0.025em",
+    color: "var(--foreground)",
+  },
+  sectionLead: {
+    marginTop: vars.space16,
+    fontSize: vars.fontSizeLead,
+    lineHeight: "1.75rem",
+    color: "var(--muted-foreground)",
+  },
+  featuresGrid: {
+    marginTop: "3.5rem",
+    display: "grid",
+    gap: vars.space24,
+    gridTemplateColumns: {
+      default: "1fr",
+      "@media (min-width: 640px)": "repeat(2, minmax(0, 1fr))",
+      "@media (min-width: 1024px)": "repeat(3, minmax(0, 1fr))",
+    },
+  },
+  startInner: {
+    marginInline: "auto",
+    maxInlineSize: MAX_WIDTH,
+    paddingInline: {
+      default: vars.space16,
+      "@media (min-width: 640px)": vars.space24,
+      "@media (min-width: 1024px)": vars.space32,
+    },
+    paddingBlock: {
+      default: vars.space64,
+      "@media (min-width: 640px)": "6rem",
+    },
+  },
+  startSection: {
+    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomStyle: "solid",
+    borderBottomColor: "color-mix(in oklab, var(--border) 70%, transparent)",
+    backgroundColor: "color-mix(in oklab, var(--muted) 30%, transparent)",
+  },
+  startGrid: {
+    marginTop: "3.5rem",
+    display: "grid",
+    gap: vars.space16,
+    gridTemplateColumns: {
+      default: "1fr",
+      "@media (min-width: 640px)": "repeat(3, minmax(0, 1fr))",
+    },
+  },
+  ctaInner: {
+    marginInline: "auto",
+    maxInlineSize: MAX_WIDTH,
+    paddingInline: {
+      default: vars.space16,
+      "@media (min-width: 640px)": vars.space24,
+      "@media (min-width: 1024px)": vars.space32,
+    },
+    paddingBlock: "5rem",
+  },
+  ctaBlock: {
+    marginInline: "auto",
+    display: "flex",
+    maxInlineSize: "42rem",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: vars.space24,
+    textAlign: "center",
+  },
+  ctaLead: {
+    fontSize: vars.fontSizeLead,
+    lineHeight: "1.75rem",
+    color: "var(--muted-foreground)",
+  },
+  featureCard: {
+    borderRadius: vars.radiusFrame,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: {
+      default: "color-mix(in oklab, var(--border) 70%, transparent)",
+      ":hover": "var(--border)",
+    },
+    backgroundColor: "color-mix(in oklab, var(--card) 60%, transparent)",
+    padding: vars.space24,
+    transitionProperty: "color, background-color, border-color",
+    transitionDuration: "150ms",
+  },
+  featureIconWrap: {
+    display: "flex",
+    inlineSize: "2.25rem",
+    blockSize: "2.25rem",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "var(--radius-md)",
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: "color-mix(in oklab, var(--border) 80%, transparent)",
+    backgroundColor: "var(--background)",
+    color: "var(--muted-foreground)",
+  },
+  featureIcon: {
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+  },
+  featureTitle: {
+    marginTop: vars.space20,
+    fontFamily: "var(--font-heading)",
+    fontSize: vars.fontSizeLead,
+    fontWeight: vars.fontWeightSemibold,
+    letterSpacing: "-0.025em",
+    color: "var(--foreground)",
+  },
+  featureDescription: {
+    marginTop: vars.space8,
+    fontSize: vars.fontSizeBody,
+    lineHeight: "1.5rem",
+    color: "var(--muted-foreground)",
+  },
+  startCard: {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    gap: vars.space16,
+    borderRadius: vars.radiusFrame,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: {
+      default: "color-mix(in oklab, var(--border) 70%, transparent)",
+      ":hover": "color-mix(in oklab, var(--foreground) 20%, transparent)",
+    },
+    backgroundColor: "var(--card)",
+    padding: vars.space24,
+    transitionProperty: "color, background-color, border-color",
+    transitionDuration: "150ms",
+    // Publish a hover-driven offset the CTA arrow reads, standing in for the
+    // former `group-hover:translate-x-0.5` (StyleX has no group-hover).
+    "--start-card-cta-shift": {
+      default: "0px",
+      ":hover": "0.125rem",
+    },
+  },
+  startCardText: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space8,
+  },
+  startCardTitle: {
+    fontFamily: "var(--font-heading)",
+    fontSize: vars.fontSizeLead,
+    fontWeight: vars.fontWeightSemibold,
+    letterSpacing: "-0.025em",
+    color: "var(--foreground)",
+  },
+  startCardDescription: {
+    fontSize: vars.fontSizeBody,
+    lineHeight: "1.5rem",
+    color: "var(--muted-foreground)",
+  },
+  startCardCta: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.375rem",
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightMedium,
+    color: "var(--primary)",
+  },
+  startCardCtaIcon: {
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    transform: "translateX(var(--start-card-cta-shift, 0px))",
+    transitionProperty: "transform",
+    transitionDuration: "150ms",
+  },
+});

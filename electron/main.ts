@@ -10,6 +10,7 @@ import {
 import { createMainWindow, getMainWindow } from "./main/window";
 import { buildApplicationMenu } from "./main/application-menu";
 import { requestRendererPersistenceFlush } from "./main/persistence-flush-gate";
+import { confirmPersistenceBeforeQuit } from "./main/quit-persistence-policy";
 import {
   cancelQuitPrompt,
   confirmQuitPrompt,
@@ -39,7 +40,7 @@ if (!hasSingleInstanceLock) {
 }
 
 let quittingAfterCleanup = false;
-let beforeQuitCleanupPromise: Promise<void> | null = null;
+let beforeQuitCleanupPromise: Promise<boolean> | null = null;
 
 function runBeforeQuitCleanup() {
   if (beforeQuitCleanupPromise) {
@@ -51,7 +52,33 @@ function runBeforeQuitCleanup() {
     // through a debounced flush. Give it a bounded chance to land *before* the
     // store is compacted and closed below, instead of the old blocking
     // `upsert-workspace-sync` round-trip.
-    await requestRendererPersistenceFlush();
+    const mayQuit = await confirmPersistenceBeforeQuit({
+      flush: () => requestRendererPersistenceFlush(),
+      choose: async () => {
+        const { dialog } = await import("electron");
+        const options = {
+          type: "warning" as const,
+          buttons: ["Keep Stave open", "Retry saving", "Quit without saving"],
+          defaultId: 0,
+          cancelId: 0,
+          title: "Changes have not been saved",
+          message: "Stave could not save your latest workspace changes.",
+          detail:
+            "Keep Stave open to preserve your current work, or retry saving before quitting.",
+        };
+        const window = getMainWindow();
+        const result =
+          window && !window.isDestroyed()
+            ? await dialog.showMessageBox(window, options)
+            : await dialog.showMessageBox(options);
+        return result.response === 1
+          ? "retry"
+          : result.response === 2
+            ? "quit"
+            : "stay";
+      },
+    });
+    if (!mayQuit) return false;
 
     const results = await Promise.allSettled([
       Promise.resolve(stopCraneConnectorRuntime()),
@@ -68,6 +95,7 @@ function runBeforeQuitCleanup() {
     }
 
     await resetMainProcessState({ compactPersistence: true });
+    return true;
   })();
 
   return beforeQuitCleanupPromise;
@@ -112,10 +140,17 @@ app.on("before-quit", (event) => {
 
   // Programmatic quit paths (e.g. update-restart) bypass the user dialog.
   if (shouldSkipQuitConfirmation() || hasConfirmedQuit()) {
-    void runBeforeQuitCleanup().finally(() => {
-      quittingAfterCleanup = true;
-      app.quit();
-    });
+    void runBeforeQuitCleanup()
+      .then((mayQuit) => {
+        if (mayQuit) {
+          quittingAfterCleanup = true;
+          app.quit();
+        } else beforeQuitCleanupPromise = null;
+      })
+      .catch((error) => {
+        beforeQuitCleanupPromise = null;
+        console.error("[main] could not finish quit cleanup", error);
+      });
     return;
   }
 

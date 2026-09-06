@@ -26,6 +26,7 @@ import {
   detachCdpController,
   ensureCdpAttached,
   sendCdpCommand,
+  sendCdpCommandIfAttached,
 } from "./browser-cdp-controller";
 import {
   assertLensScreenshotRect,
@@ -95,6 +96,28 @@ async function sendCommand(
   params?: Record<string, unknown>,
 ): Promise<unknown> {
   return sendCdpCommand(webContentsId, method, params);
+}
+
+/**
+ * Release only the transient remote object a Lens action resolved.
+ *
+ * The snapshot registry keeps backend-node ids, not remote objects, and every
+ * action resolves a fresh wrapper. Releasing that wrapper is therefore local
+ * to this action. Cleanup must never revive a debugger while a guest is
+ * closing, so it deliberately uses the controller's already-attached path.
+ */
+async function releaseLensTargetObject(
+  webContentsId: number,
+  objectId: string | null | undefined,
+): Promise<void> {
+  if (!objectId) return;
+  try {
+    await sendCdpCommandIfAttached(webContentsId, "Runtime.releaseObject", {
+      objectId,
+    });
+  } catch {
+    // The guest may have closed between the action and its best-effort cleanup.
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +224,6 @@ export async function evaluateExpression(
   return result.result.value;
 }
 
-
 // ---------------------------------------------------------------------------
 // Target resolution: ref or selector
 // ---------------------------------------------------------------------------
@@ -234,17 +256,25 @@ export async function callOnLensTarget<T>(
       webContentsId,
       resolved.ref,
     );
-    const result = (await sendCommand(webContentsId, "Runtime.callFunctionOn", {
-      objectId,
-      functionDeclaration,
-      returnByValue: true,
-    })) as RuntimeEvaluateResult;
-    if (result.exceptionDetails) {
-      throw new Error(
-        `Action on ${resolved.ref} failed: ${JSON.stringify(result.exceptionDetails)}`,
-      );
+    try {
+      const result = (await sendCommand(
+        webContentsId,
+        "Runtime.callFunctionOn",
+        {
+          objectId,
+          functionDeclaration,
+          returnByValue: true,
+        },
+      )) as RuntimeEvaluateResult;
+      if (result.exceptionDetails) {
+        throw new Error(
+          `Action on ${resolved.ref} failed: ${JSON.stringify(result.exceptionDetails)}`,
+        );
+      }
+      return (result.result.value as T) ?? null;
+    } finally {
+      await releaseLensTargetObject(webContentsId, objectId);
     }
-    return (result.result.value as T) ?? null;
   }
 
   const result = (await sendCommand(webContentsId, "Runtime.evaluate", {
@@ -343,50 +373,57 @@ export async function measureElements(
 }> {
   await assertCdpAllowedForWebContentsId(webContentsId, "measure elements");
 
-  const [objectA, objectB] = await Promise.all([
-    resolveLensTargetObjectId(webContentsId, targetA),
-    resolveLensTargetObjectId(webContentsId, targetB),
-  ]);
+  let objectA: string | null = null;
+  let objectB: string | null = null;
+  try {
+    objectA = await resolveLensTargetObjectId(webContentsId, targetA);
+    objectB = await resolveLensTargetObjectId(webContentsId, targetB);
 
-  const missing = [
-    objectA ? null : describeLensTarget(webContentsId, targetA),
-    objectB ? null : describeLensTarget(webContentsId, targetB),
-  ].filter(Boolean);
-  if (missing.length > 0) {
-    throw new Error(`Element(s) not found: ${missing.join(", ")}`);
-  }
+    const missing = [
+      objectA ? null : describeLensTarget(webContentsId, targetA),
+      objectB ? null : describeLensTarget(webContentsId, targetB),
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      throw new Error(`Element(s) not found: ${missing.join(", ")}`);
+    }
 
-  // Both elements are held as handles across one call, so a page that
-  // re-renders cannot leave the measurement describing a pair that was never
-  // laid out together.
-  const result = (await sendCommand(webContentsId, "Runtime.callFunctionOn", {
-    objectId: objectA,
-    functionDeclaration: `function (other) {
+    // Both elements are held as handles across one call, so a page that
+    // re-renders cannot leave the measurement describing a pair that was never
+    // laid out together.
+    const result = (await sendCommand(webContentsId, "Runtime.callFunctionOn", {
+      objectId: objectA,
+      functionDeclaration: `function (other) {
       ${getLensBoxModelScript()}
       return {
         measurement: staveMeasureRects(this.getBoundingClientRect(), other.getBoundingClientRect()),
         from: staveBoxModelForElement(this),
         to: staveBoxModelForElement(other),
       };
-    }`,
-    arguments: [{ objectId: objectB }],
-    returnByValue: true,
-  })) as RuntimeEvaluateResult;
+      }`,
+      arguments: [{ objectId: objectB }],
+      returnByValue: true,
+    })) as RuntimeEvaluateResult;
 
-  if (result.exceptionDetails) {
-    throw new Error(
-      `Measure error: ${JSON.stringify(result.exceptionDetails)}`,
-    );
+    if (result.exceptionDetails) {
+      throw new Error(
+        `Measure error: ${JSON.stringify(result.exceptionDetails)}`,
+      );
+    }
+    const value = result.result.value as {
+      measurement: LensMeasurement;
+      from: LensBoxModel;
+      to: LensBoxModel;
+    } | null;
+    if (!value) {
+      throw new Error("Unable to measure elements.");
+    }
+    return value;
+  } finally {
+    await Promise.all([
+      releaseLensTargetObject(webContentsId, objectA),
+      releaseLensTargetObject(webContentsId, objectB),
+    ]);
   }
-  const value = result.result.value as {
-    measurement: LensMeasurement;
-    from: LensBoxModel;
-    to: LensBoxModel;
-  } | null;
-  if (!value) {
-    throw new Error("Unable to measure elements.");
-  }
-  return value;
 }
 
 // ---------------------------------------------------------------------------
@@ -478,46 +515,91 @@ export async function clickElement(
   await assertCdpAllowedForWebContentsId(webContentsId, "click page element");
   await withLensGuestFocus(webContentsId, "click page element", async () => {
     /*
-     * Scroll into view and measure in one call, against one resolution of the
-     * target.
+     * Resolve once, then scroll and measure that same object.
      *
      * Splitting them was a real hazard: the old code resolved the selector
      * twice, so a page that re-rendered between the two evaluations scrolled
-     * one element into view and clicked the coordinates of another. One
+     * one element into view and clicked the coordinates of another. One object
      * resolution also means a ref is checked for staleness once, at the moment
      * it is used.
      */
-    const pt = await callOnLensTarget<{ x: number; y: number } | null>(
-      webContentsId,
-      target,
-      `function () {
-        this.scrollIntoView({ block: "center", inline: "center" });
-        const r = this.getBoundingClientRect();
-        if (r.width === 0 && r.height === 0) return null;
-        return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-      }`,
-    );
-
-    if (!pt) {
+    const objectId = await resolveLensTargetObjectId(webContentsId, target);
+    if (!objectId) {
       throw new Error(
-        `Cannot click ${describeLensTarget(webContentsId, target)}: no element matched, or it has no layout box.`,
+        `Cannot click ${describeLensTarget(webContentsId, target)}: no element matched.`,
       );
     }
 
-    await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
-      type: "mousePressed",
-      x: pt.x,
-      y: pt.y,
-      button: "left",
-      clickCount: 1,
-    });
-    await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
-      type: "mouseReleased",
-      x: pt.x,
-      y: pt.y,
-      button: "left",
-      clickCount: 1,
-    });
+    try {
+      await sendCommand(webContentsId, "Runtime.callFunctionOn", {
+        objectId,
+        functionDeclaration:
+          "function () { this.scrollIntoView({ block: 'center', inline: 'center' }); }",
+      });
+
+      /*
+       * `getBoundingClientRect()` is relative to the element's own document. For
+       * a ref from `includeFrames`, that is the child frame, while CDP Input
+       * coordinates belong to the top-level guest. `DOM.getBoxModel` returns
+       * page-space quads, including every embedding frame's offset, so it keeps
+       * a frame ref aimed at the frame that minted it.
+       */
+      const box = (await sendCommand(webContentsId, "DOM.getBoxModel", {
+        objectId,
+      })) as { model?: { border?: number[] } };
+      const border = box.model?.border;
+      if (!border || border.length < 8) {
+        throw new Error(
+          `Cannot click ${describeLensTarget(webContentsId, target)}: it has no layout box.`,
+        );
+      }
+      const [x0, y0, x1, y1, x2, y2, x3, y3] = border;
+      if (
+        x0 === undefined ||
+        y0 === undefined ||
+        x1 === undefined ||
+        y1 === undefined ||
+        x2 === undefined ||
+        y2 === undefined ||
+        x3 === undefined ||
+        y3 === undefined
+      ) {
+        throw new Error(
+          `Cannot click ${describeLensTarget(webContentsId, target)}: it has no layout box.`,
+        );
+      }
+      const pt = {
+        x: (x0 + x1 + x2 + x3) / 4,
+        y: (y0 + y1 + y2 + y3) / 4,
+      };
+      if (
+        !Number.isFinite(pt.x) ||
+        !Number.isFinite(pt.y) ||
+        (Math.max(x0, x1, x2, x3) === Math.min(x0, x1, x2, x3) &&
+          Math.max(y0, y1, y2, y3) === Math.min(y0, y1, y2, y3))
+      ) {
+        throw new Error(
+          `Cannot click ${describeLensTarget(webContentsId, target)}: it has no usable layout box.`,
+        );
+      }
+
+      await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
+        type: "mousePressed",
+        x: pt.x,
+        y: pt.y,
+        button: "left",
+        clickCount: 1,
+      });
+      await sendCommand(webContentsId, "Input.dispatchMouseEvent", {
+        type: "mouseReleased",
+        x: pt.x,
+        y: pt.y,
+        button: "left",
+        clickCount: 1,
+      });
+    } finally {
+      await releaseLensTargetObject(webContentsId, objectId);
+    }
   });
 }
 

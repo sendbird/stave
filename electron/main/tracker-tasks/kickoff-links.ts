@@ -101,21 +101,60 @@ export class TrackerKickoffLinks {
       // channels write the same row would let them race.
       return;
     }
-    let state: TrackerTaskLinkState = kickoff.state;
-    let errorCode = kickoff.errorCode;
-    if (update.eventType === "error") {
-      state = "failed";
-      errorCode = "provider_failed";
-    } else if (update.done) {
-      state = "completed";
-      errorCode = null;
-    } else if (kickoff.state === "staged") {
-      state = "running";
-    }
-    if (state === kickoff.state && errorCode === kickoff.errorCode) {
+    if (kickoff.workspaceId !== update.workspaceId) return;
+    const cursor = kickoff.localTurn;
+    const isStart = update.eventType === "started";
+    if (cursor?.id === update.turnId) {
+      if (update.sequence <= cursor.sequence || cursor.ended) return;
+    } else if (cursor && !isStart) {
+      // A previous turn can finish after a follow-up has already started.
       return;
     }
-    this.commit({ ...kickoff, state, errorCode, updatedAt: this.nowIso() });
+    let state: TrackerTaskLinkState = kickoff.state;
+    let errorCode = kickoff.errorCode;
+    let ended = false;
+    const activity = update.activityEvents ?? [];
+    if (isStart) {
+      state = "running";
+      errorCode = null;
+    } else if (update.eventType === "error") {
+      if (activity.some((event) => event.type === "error" && event.recoverable))
+        return;
+      state = "failed";
+      errorCode = "provider_failed";
+      ended = true;
+    } else if (update.done) {
+      const done = activity.find((event) => event.type === "done");
+      const cancelled =
+        done?.type === "done" &&
+        ["user_abort", "aborted", "cancelled"].includes(done.stop_reason ?? "");
+      state = cancelled
+        ? "cancelled"
+        : kickoff.state === "failed"
+          ? "failed"
+          : "completed";
+      errorCode = state === "failed" ? errorCode : null;
+      ended = true;
+    } else if (
+      update.eventType === "approval" ||
+      update.eventType === "user_input"
+    ) {
+      state = "needs_input";
+    } else if (
+      (kickoff.state === "staged" || kickoff.state === "needs_input") &&
+      ["text", "thinking", "tool", "tool_result"].includes(update.eventType)
+    ) {
+      state = "running";
+    } else {
+      return;
+    }
+    this.commit({
+      ...kickoff,
+      state,
+      errorCode,
+      localTurn: { id: update.turnId, sequence: update.sequence, ended },
+      updatedAt: this.nowIso(),
+    });
   }
 
   attachStaveTask(args: {

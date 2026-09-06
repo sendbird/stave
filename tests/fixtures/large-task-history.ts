@@ -53,16 +53,16 @@ export function buildLargeTaskHistory(args: {
       parts: attachLargePart
         ? [
             {
-              type: "tool",
-              toolCallId: `tool-${index}`,
+              type: "tool_use",
+              toolUseId: `tool-${index}`,
               toolName: "Read",
               state: "output-available",
-              input: { file_path: `/tmp/fixture-${index}.txt` },
+              input: JSON.stringify({ file_path: `/tmp/fixture-${index}.txt` }),
               output: buildLargeText(largePartBytes, index),
-            } as ChatMessage["parts"][number],
+            },
           ]
         : [],
-    } as ChatMessage);
+    });
   }
   return messages;
 }

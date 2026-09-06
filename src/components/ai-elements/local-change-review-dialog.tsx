@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Check,
   FileDiff,
@@ -40,7 +41,8 @@ import {
   type ModelEffort,
 } from "@/lib/providers/model-effort";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { localChangeReviewStyles as styles } from "./local-change-review-dialog.styles";
 import { useAppStore } from "@/store/app.store";
 import { ModelIcon } from "./model-icon";
 import { ModelSelector, type ModelSelectorOption } from "./model-selector";
@@ -291,25 +293,25 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           />
         }
       >
-        <FileDiff className="size-4" />
+        <FileDiff className={sx(styles.triggerIcon)} />
         <ComposerControlLabel>
           <span>Review</span>
         </ComposerControlLabel>
       </DialogTrigger>
       <DialogContent
-        className="max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        xstyle={styles.content}
         showCloseButton={!isSubmitting}
       >
-        <DialogHeader className="border-b border-border/70 px-6 py-5 pr-14">
-          <div className="flex items-start gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/40 text-foreground">
-              <GitCompareArrows className="size-5" />
+        <DialogHeader className={sx(styles.header)}>
+          <div className={sx(styles.headerRow)}>
+            <div className={sx(styles.headerBadge)}>
+              <GitCompareArrows className={sx(styles.iconLg)} />
             </div>
-            <div className="min-w-0 space-y-1.5">
-              <DialogTitle className="text-lg leading-tight">
+            <div className={sx(styles.headerText)}>
+              <DialogTitle className={sx(styles.title)}>
                 Review local changes
               </DialogTitle>
-              <DialogDescription className="leading-6">
+              <DialogDescription className={sx(styles.description)}>
                 Get a read-only second opinion before you push. The reviewer
                 inspects local Git changes directly—no pull request required.
               </DialogDescription>
@@ -317,14 +319,14 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           </div>
         </DialogHeader>
 
-        <div className="min-h-0 space-y-6 overflow-y-auto px-6 py-5">
-          <section className="space-y-3" aria-labelledby={`${idPrefix}-scope`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 id={`${idPrefix}-scope`} className="text-sm font-medium">
+        <div className={sx(styles.body)} data-review-scroll="true">
+          <section className={sx(styles.section)} aria-labelledby={`${idPrefix}-scope`}>
+            <div className={sx(styles.sectionHeaderRow)}>
+              <h3 id={`${idPrefix}-scope`} className={sx(styles.sectionHeading)}>
                 Review scope
               </h3>
               <div
-                className="flex min-h-6 items-center gap-2 text-sm text-muted-foreground"
+                className={sx(styles.status)}
                 aria-live="polite"
               >
                 {changeStatus.state === "loading" ? (
@@ -335,8 +337,8 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 ) : null}
                 {changeStatus.state === "ready" ? (
                   <>
-                    <GitBranch className="size-3.5" />
-                    <span className="max-w-48 truncate">
+                    <GitBranch className={sx(styles.iconSm)} />
+                    <span className={sx(styles.branchName)}>
                       {changeStatus.branch || "Current branch"}
                     </span>
                     <span aria-hidden="true">·</span>
@@ -349,48 +351,49 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 {changeStatus.state === "error" ? changeStatus.detail : null}
               </div>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className={sx(styles.cardGrid)}>
               {REVIEW_SCOPE_OPTIONS.map((option) => {
                 const Icon = option.icon;
                 const selected = scope === option.value;
                 return (
-                  <button
+                  <AdsButton
+                    layout="host"
                     key={option.value}
                     type="button"
                     aria-pressed={selected}
                     onClick={() => setScope(option.value)}
-                    className={cn(
-                      "flex min-h-20 items-start gap-3 rounded-lg border px-4 py-3 text-left outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                      selected
-                        ? "border-primary/50 bg-primary/5"
-                        : "border-border/80 bg-background hover:bg-muted/40",
-                    )}
+                    xstyle={[
+                      styles.scopeCard,
+                      selected ? styles.cardSelected : styles.cardUnselected,
+                    ]}
                   >
                     <Icon
-                      className={cn(
-                        "mt-0.5 size-4 shrink-0",
-                        selected ? "text-primary" : "text-muted-foreground",
+                      className={sx(
+                        styles.scopeIcon,
+                        selected
+                          ? styles.scopeIconSelected
+                          : styles.scopeIconUnselected,
                       )}
                     />
-                    <span className="min-w-0 space-y-1">
-                      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <span className={sx(styles.scopeBody)}>
+                      <span className={sx(styles.scopeLabelRow)}>
                         {option.label}
                         {option.value === "working-tree" ? (
-                          <span className="rounded bg-muted px-1.5 py-0.5 text-sm font-normal text-muted-foreground">
+                          <span className={sx(styles.defaultTag)}>
                             Default
                           </span>
                         ) : null}
                       </span>
-                      <span className="block text-sm leading-5 text-muted-foreground">
+                      <span className={sx(styles.scopeDescription)}>
                         {option.description}
                       </span>
                     </span>
-                  </button>
+                  </AdsButton>
                 );
               })}
             </div>
             {changeSummary ? (
-              <p className="text-sm text-muted-foreground">
+              <p className={sx(styles.summaryLine)}>
                 {changeSummary.staged} staged · {changeSummary.unstaged}{" "}
                 unstaged · {changeSummary.untracked} untracked
                 {changeSummary.conflicts > 0
@@ -401,19 +404,19 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           </section>
 
           <section
-            className="space-y-3"
+            className={sx(styles.section)}
             aria-labelledby={`${idPrefix}-reviewer`}
           >
-            <div className="space-y-1">
-              <h3 id={`${idPrefix}-reviewer`} className="text-sm font-medium">
+            <div className={sx(styles.labelStack)}>
+              <h3 id={`${idPrefix}-reviewer`} className={sx(styles.sectionHeading)}>
                 Review by
               </h3>
-              <p className="text-sm leading-5 text-muted-foreground">
+              <p className={sx(styles.focusDescription)}>
                 Choose any available provider, model, and reasoning effort. This
                 does not change the task&apos;s active provider.
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className={sx(styles.cardGrid)}>
               {providerIds.map((providerId) => {
                 const selected = reviewer.providerId === providerId;
                 const label = getProviderLabel({
@@ -421,26 +424,27 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                   variant: "full",
                 });
                 return (
-                  <button
+                  <AdsButton
+                    layout="host"
                     key={providerId}
                     type="button"
                     aria-pressed={selected}
                     onClick={() => selectProvider(providerId)}
-                    className={cn(
-                      "flex min-h-14 items-center gap-3 rounded-lg border px-4 py-3 text-left outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                    xstyle={[
+                      styles.reviewerCard,
                       selected
-                        ? "border-primary/50 bg-primary/5 text-foreground"
-                        : "border-border/80 bg-background text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-                    )}
+                        ? [styles.cardSelected, styles.cardSelectedText]
+                        : styles.cardUnselectedMuted,
+                    ]}
                   >
-                    <ModelIcon providerId={providerId} className="size-5" />
-                    <span className="min-w-0 flex-1 text-sm font-medium">
+                    <ModelIcon providerId={providerId} className={sx(styles.reviewerIcon)} />
+                    <span className={sx(styles.reviewerLabel)}>
                       {label}
                     </span>
                     {selected ? (
-                      <Check className="size-4 text-primary" />
+                      <Check className={sx(styles.reviewerCheck)} />
                     ) : null}
-                  </button>
+                  </AdsButton>
                 );
               })}
             </div>
@@ -452,72 +456,71 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 setReviewerKey(selection.key);
                 setSelectedEffort(nextEffort);
               }}
-              className="w-full"
-              triggerClassName="h-11 w-full max-w-none border-border/80 bg-background px-3"
-              menuClassName="sm:max-w-lg"
+              className={sx(styles.modelSelector)}
+              triggerClassName={sx(styles.modelTrigger)}
+              menuClassName={sx(styles.modelMenu)}
             />
           </section>
 
-          <section className="space-y-3" aria-labelledby={`${idPrefix}-focus`}>
-            <div className="space-y-1">
-              <h3 id={`${idPrefix}-focus`} className="text-sm font-medium">
+          <section className={sx(styles.section)} aria-labelledby={`${idPrefix}-focus`}>
+            <div className={sx(styles.labelStack)}>
+              <h3 id={`${idPrefix}-focus`} className={sx(styles.sectionHeading)}>
                 Focus
               </h3>
-              <p className="text-sm leading-5 text-muted-foreground">
+              <p className={sx(styles.focusDescription)}>
                 Each selected focus adds an explicit instruction to the review
                 prompt. Unselected areas are still read for context.
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className={sx(styles.cardGrid)}>
               {LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS.map((option) => {
                 const selected = focuses.includes(option.value);
                 return (
-                  <button
+                  <AdsButton
+                    layout="host"
                     key={option.value}
                     type="button"
                     aria-pressed={selected}
                     onClick={() => toggleFocus(option.value)}
-                    className={cn(
-                      "flex min-h-16 items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-                      selected
-                        ? "border-primary/50 bg-primary/5"
-                        : "border-border/80 bg-background hover:bg-muted/40",
-                    )}
+                    xstyle={[
+                      styles.focusCard,
+                      selected ? styles.cardSelected : styles.cardUnselected,
+                    ]}
                   >
                     <span
                       aria-hidden="true"
-                      className={cn(
-                        "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                      className={sx(
+                        styles.focusCheckbox,
                         selected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border",
+                          ? styles.focusCheckboxSelected
+                          : styles.focusCheckboxUnselected,
                       )}
                     >
-                      {selected ? <Check className="size-3" /> : null}
+                      {selected ? <Check className={sx(styles.iconXs)} /> : null}
                     </span>
-                    <span className="min-w-0 space-y-0.5">
-                      <span className="block text-sm font-medium text-foreground">
+                    <span className={sx(styles.focusBody)}>
+                      <span className={sx(styles.focusLabel)}>
                         {option.label}
                       </span>
-                      <span className="block text-sm leading-5 text-muted-foreground">
+                      <span className={sx(styles.focusDescription)}>
                         {option.description}
                       </span>
                     </span>
-                  </button>
+                  </AdsButton>
                 );
               })}
             </div>
           </section>
 
-          <section className="space-y-3">
-            <div className="space-y-1">
+          <section className={sx(styles.section)}>
+            <div className={sx(styles.labelStack)}>
               <label
                 htmlFor={`${idPrefix}-instructions`}
-                className="text-sm font-medium"
+                className={sx(styles.instructionsLabel)}
               >
                 Additional instructions
               </label>
-              <p className="text-sm leading-5 text-muted-foreground">
+              <p className={sx(styles.focusDescription)}>
                 Add product intent, risk areas, or files that deserve special
                 attention.
               </p>
@@ -527,7 +530,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               value={instructions}
               onChange={(event) => setInstructions(event.target.value)}
               placeholder="For example: verify the task-switching regression and make sure draft state is preserved."
-              className="min-h-36 resize-y text-sm leading-6"
+              className={sx(styles.instructionsTextarea)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                   event.preventDefault();
@@ -538,18 +541,18 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
           </section>
         </div>
 
-        <DialogFooter className="items-center border-t border-border/70 bg-muted/20 px-6 py-4 sm:justify-between">
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <LockKeyhole className="size-3.5" />
+        <DialogFooter className={sx(styles.footer)}>
+          <p className={sx(styles.footerNote)}>
+            <LockKeyhole className={sx(styles.iconSm)} />
             Read-only review · no PR lookup
           </p>
-          <div className="flex items-center justify-end gap-2">
+          <div className={sx(styles.footerActions)}>
             <DialogClose
               render={
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-11"
+                  className={sx(styles.cancelButton)}
                   disabled={isSubmitting}
                 />
               }
@@ -558,14 +561,14 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
             </DialogClose>
             <Button
               type="button"
-              className="h-11 min-w-36"
+              className={sx(styles.submitButton)}
               disabled={isSubmitting}
               onClick={() => void handleSubmit()}
             >
               {isSubmitting ? (
                 <Loader aria-hidden size="xs" variant="verify" />
               ) : (
-                <FileDiff className="size-4" />
+                <FileDiff className={sx(styles.triggerIcon)} />
               )}
               {isSubmitting ? "Starting review…" : "Review changes"}
             </Button>

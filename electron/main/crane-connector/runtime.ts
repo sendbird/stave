@@ -573,8 +573,9 @@ export class CraneConnectorRuntime {
     let workspaceId: string;
     try {
       if (choice.workspace.strategy === "existing") {
+        const requestedWorkspaceId = choice.workspace.workspaceId;
         const workspace = project.workspaces.find(
-          (candidate) => candidate.id === choice.workspace.workspaceId,
+          (candidate) => candidate.id === requestedWorkspaceId,
         );
         if (!workspace) {
           throw new Error("The selected workspace no longer exists.");

@@ -1,6 +1,7 @@
 import { Pencil, Send, Trash2, Zap } from "lucide-react";
 import { Badge, Button, Textarea } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { sx } from "../ads/utils/stylex";
+import { queuedTurnsStyles } from "./prompt-input-queued-turns.styles";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
 import type { ModelSelectorOption } from "./model-selector.utils";
 import { describeQueuedTurnDispatch } from "./prompt-input-queued-turn";
@@ -26,15 +27,12 @@ export function PromptInputQueuedTurns(args: {
   onRemove?: (itemId: string) => void;
 }) {
   return (
-    <div className="space-y-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 shadow-[0_10px_28px_-18px_oklch(0_0_0/0.28),0_2px_7px_-4px_oklch(0_0_0/0.16)]">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge
-          variant="secondary"
-          className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
-        >
+    <div className={sx(queuedTurnsStyles.container)}>
+      <div className={sx(queuedTurnsStyles.header)}>
+        <Badge variant="secondary" className={sx(queuedTurnsStyles.badge)}>
           Queue
         </Badge>
-        <span className="text-xs text-muted-foreground">
+        <span className={sx(queuedTurnsStyles.caption)}>
           {args.queuedTurns.length} queued follow-up
           {args.queuedTurns.length === 1 ? "" : "s"}
           {args.isTurnActive
@@ -46,13 +44,13 @@ export function PromptInputQueuedTurns(args: {
               : ""}
         </span>
         {args.queuedFileCount > 0 ? (
-          <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+          <Badge variant="outline" className={sx(queuedTurnsStyles.badgeCount)}>
             {args.queuedFileCount}{" "}
             {args.queuedFileCount === 1 ? "file" : "files"}
           </Badge>
         ) : null}
         {args.queuedImageCount > 0 ? (
-          <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+          <Badge variant="outline" className={sx(queuedTurnsStyles.badgeCount)}>
             {args.queuedImageCount}{" "}
             {args.queuedImageCount === 1 ? "image" : "images"}
           </Badge>
@@ -63,13 +61,13 @@ export function PromptInputQueuedTurns(args: {
             variant="ghost"
             size="sm"
             onClick={() => args.onClearAll?.()}
-            className="ml-auto h-7 px-2 text-xs"
+            className={sx(queuedTurnsStyles.clearButton)}
           >
             Clear all
           </Button>
         ) : null}
       </div>
-      <div className="space-y-1.5">
+      <div className={sx(queuedTurnsStyles.rows)}>
         {args.queuedTurns.map((item, index) => {
           const isEditing = args.editingQueuedTurnId === item.id;
           const summary =
@@ -83,13 +81,13 @@ export function PromptInputQueuedTurns(args: {
           return (
             <div
               key={item.id}
-              className={cn(
-                "group relative rounded-lg border border-border/50 bg-background/80 px-2.5 py-2 shadow-sm transition-all hover:border-border hover:shadow-md",
-                index === 0 && !isEditing && "border-primary/30",
+              className={sx(
+                queuedTurnsStyles.row,
+                index === 0 && !isEditing && queuedTurnsStyles.rowFirst,
               )}
             >
               {isEditing ? (
-                <div className="space-y-2">
+                <div className={sx(queuedTurnsStyles.editArea)}>
                   <Textarea
                     value={args.editingQueuedTurnContent}
                     onChange={(event) =>
@@ -107,9 +105,9 @@ export function PromptInputQueuedTurns(args: {
                         args.onSaveEdit(item.id);
                       }
                     }}
-                    className="min-h-20 resize-y text-sm"
+                    className={sx(queuedTurnsStyles.editTextarea)}
                   />
-                  <div className="flex justify-end gap-2">
+                  <div className={sx(queuedTurnsStyles.editActions)}>
                     <Button
                       type="button"
                       variant="ghost"
@@ -128,29 +126,29 @@ export function PromptInputQueuedTurns(args: {
                   </div>
                 </div>
               ) : (
-                <div className="flex min-w-0 items-start gap-2">
-                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground">
+                <div className={sx(queuedTurnsStyles.rowBody)}>
+                  <span className={sx(queuedTurnsStyles.indexBadge)}>
                     {index + 1}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm font-medium text-foreground">
+                  <div className={sx(queuedTurnsStyles.rowContent)}>
+                    <p className={sx(queuedTurnsStyles.summary)}>
                       {summary}
                     </p>
                     <p
-                      className={cn(
-                        "mt-0.5 text-xs font-medium",
+                      className={sx(
+                        queuedTurnsStyles.dispatch,
                         dispatch.mismatchesComposer
-                          ? "text-warning"
+                          ? queuedTurnsStyles.dispatchWarning
                           : index === 0
-                            ? "text-primary/80"
-                            : "text-muted-foreground",
+                            ? queuedTurnsStyles.dispatchFirst
+                            : queuedTurnsStyles.dispatchMuted,
                       )}
                     >
                       {index === 0 ? "Next to send · " : ""}
                       {dispatch.caption}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                  <div className={sx(queuedTurnsStyles.actions)}>
                     {args.canSteerQueuedTurnNow &&
                     item.attachedFilePaths.length === 0 &&
                     item.attachments.length === 0 ? (
@@ -158,11 +156,11 @@ export function PromptInputQueuedTurns(args: {
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        className="text-muted-foreground hover:text-primary"
+                        className={sx(queuedTurnsStyles.actionAccent)}
                         aria-label={`Steer queued prompt ${index + 1} into the current response`}
                         onClick={() => args.onSteer?.(item.id)}
                       >
-                        <Zap className="size-3.5" />
+                        <Zap className={sx(queuedTurnsStyles.actionIcon)} />
                       </Button>
                     ) : null}
                     {args.canSendQueuedTurnNow ? (
@@ -170,11 +168,11 @@ export function PromptInputQueuedTurns(args: {
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        className="text-muted-foreground hover:text-primary"
+                        className={sx(queuedTurnsStyles.actionAccent)}
                         aria-label={`Send queued prompt ${index + 1} now`}
                         onClick={() => args.onSend?.(item.id)}
                       >
-                        <Send className="size-3.5" />
+                        <Send className={sx(queuedTurnsStyles.actionIcon)} />
                       </Button>
                     ) : null}
                     <Button
@@ -184,17 +182,17 @@ export function PromptInputQueuedTurns(args: {
                       aria-label={`Edit queued prompt ${index + 1}`}
                       onClick={() => args.onStartEdit(item)}
                     >
-                      <Pencil className="size-3.5" />
+                      <Pencil className={sx(queuedTurnsStyles.actionIcon)} />
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-xs"
-                      className="text-muted-foreground hover:text-destructive"
+                      className={sx(queuedTurnsStyles.actionDanger)}
                       aria-label={`Delete queued prompt ${index + 1}`}
                       onClick={() => args.onRemove?.(item.id)}
                     >
-                      <Trash2 className="size-3.5" />
+                      <Trash2 className={sx(queuedTurnsStyles.actionIcon)} />
                     </Button>
                   </div>
                 </div>

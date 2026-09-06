@@ -1,0 +1,49 @@
+.atelier-motion-sidebar-disclosure {
+  block-size: var(--collapsible-panel-height);
+  opacity: 1;
+  overflow: hidden;
+  transform: translateY(0);
+  transition:
+    block-size var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-expressive),
+    opacity var(--atelier-motion-duration-quick)
+      var(--atelier-motion-ease-standard),
+    transform var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-expressive);
+}
+
+.atelier-motion-sidebar-disclosure[data-starting-style],
+.atelier-motion-sidebar-disclosure[data-ending-style] {
+  block-size: 0;
+  opacity: 0;
+  transform: translateY(calc(var(--atelier-motion-distance-small) * -1));
+}
+
+.atelier-motion-sidebar-disclosure[data-ending-style] {
+  transition-duration: var(--atelier-motion-duration-quick);
+  transition-timing-function: var(--atelier-motion-ease-standard);
+}
+
+.atelier-motion-sidebar-disclosure[hidden] {
+  display: none;
+}
+
+/*
+ * Same specificity trap as styles.css: the exit arm above
+ * (`.atelier-motion-sidebar-disclosure[data-ending-style]`, specificity (0,2,0))
+ * re-declares `transition-duration`, so a bare `.atelier-motion-sidebar-disclosure`
+ * (0,1,0) override here would lose and the sub-menu collapse would still
+ * animate under Reduce Motion. A media query adds no specificity and neither
+ * rule set is layered. The `:is(...)` arm matches (0,2,0) so this block wins on
+ * source order. Do NOT collapse it back to the bare selector alone.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .atelier-motion-sidebar-disclosure,
+  .atelier-motion-sidebar-disclosure:is(
+    [data-starting-style],
+    [data-ending-style]
+  ) {
+    transition-duration: 0ms;
+    transition-delay: 0ms;
+  }
+}

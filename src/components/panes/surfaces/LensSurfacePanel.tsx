@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -12,6 +15,7 @@ import {
   mergeDownloadEntry,
   type LensPanelTab,
 } from "@/lib/lens/lens-log-format";
+import { LensFeedbackTray } from "./lens/LensFeedbackTray";
 import { LensChrome } from "@/components/panes/surfaces/lens/LensChrome";
 import { LensConsoleWorkbench } from "@/components/panes/surfaces/lens/LensConsoleWorkbench";
 import { LensNetworkWorkbench } from "@/components/panes/surfaces/lens/LensNetworkWorkbench";
@@ -305,7 +309,7 @@ function LensSessionSurface(args: {
   return (
     <TooltipProvider delay={120}>
       <div
-        className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar/20"
+        className={sx(styles.root)}
         data-testid="lens-surface-panel"
         data-lens-session-id={lensSessionId}
       >
@@ -332,13 +336,21 @@ function LensSessionSurface(args: {
           Carries the page background behind the guest, so the moment before a
           page paints reads as part of the page rather than as a hole.
         */}
-        <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
+        <div className={sx(styles.body)}>
           {lensPanelTab === "preview" ? (
             <LensPreviewSurface
               chromeLayer={surface.chromeLayer}
               hasLensApi={hasLensApi}
               isLoading={isLoading}
               lastLoadError={lastLoadError}
+              isBlank={!url || url === "about:blank"}
+              onEnterAddress={() => session.urlInputRef.current?.focus()}
+              onRetry={session.reload}
+              onOpenTools={() => {
+                const state = useAppStore.getState();
+                if (state.activeWorkspaceId !== workspaceId) return;
+                state.setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "scripts" } });
+              }}
               placeholderRef={surface.placeholderRef}
             />
           ) : lensPanelTab === "console" ? (
@@ -353,7 +365,13 @@ function LensSessionSurface(args: {
             />
           )}
         </div>
+        {lensPanelTab === "preview" && activeTaskId ? <LensFeedbackTray key={`${workspaceId}:${activeTaskId}`} workspaceId={workspaceId} lensSessionId={lensSessionId} taskId={activeTaskId} sourceMappingConfig={sourceMappingConfig} onReload={session.reload} onNavigate={session.navigate} /> : null}
       </div>
     </TooltipProvider>
   );
 }
+
+const styles = stylex.create({
+root: {display:"flex",height:"100%",minHeight:0,flexDirection:"column",overflow:"hidden",backgroundColor:vars.colorCanvasSubtle},
+body: {position:"relative",minHeight:0,flex:1,overflow:"hidden",backgroundColor:vars.colorCanvas}
+});

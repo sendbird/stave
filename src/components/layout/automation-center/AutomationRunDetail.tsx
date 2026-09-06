@@ -1,18 +1,25 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Copy, ExternalLink, RotateCw } from "lucide-react";
-import { Badge, Button } from "@/components/ui";
+import { Badge } from "@/components/ads/components/Badge";
+import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   formatAutomationTrustPolicy,
   type RoutineRun,
   type RoutineSpec,
 } from "@/lib/routines";
-import { cn } from "@/lib/utils";
+import {
+  automationStyles,
+  runToneDotStyles,
+} from "./automation-center.styles";
 import {
   formatDateTime,
   formatRelativeTime,
   formatRunDuration,
   getRunStatusPresentation,
 } from "./automation-center.utils";
+import { runDetailStyles } from "./automation-run-detail.styles";
 
 export function AutomationRunRow(props: {
   run: RoutineRun;
@@ -22,43 +29,39 @@ export function AutomationRunRow(props: {
 }) {
   const presentation = getRunStatusPresentation(props.run.status);
   return (
-    <button
+    <AdsButton layout="host"
       type="button"
       onClick={() => props.onSelect(props.run)}
       aria-current={props.active}
-      className={cn(
-        "w-full rounded-md border p-2.5 text-left transition-colors",
-        props.active
-          ? "border-primary/50 bg-primary/8"
-          : "border-border/70 hover:bg-muted/60",
-      )}
+      xstyle={[runDetailStyles.row, props.active && runDetailStyles.rowActive]}
     >
-      <div className="flex items-center gap-2">
+      <div className={sx(runDetailStyles.rowHead)}>
         <span
-          className={cn(
-            "size-2 shrink-0 rounded-full",
-            presentation.dotClassName,
+          className={sx(
+            automationStyles.statusDot,
+            runToneDotStyles[presentation.tone],
           )}
           aria-hidden="true"
         />
-        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
+        <span className={sx(runDetailStyles.rowName)}>
           {props.automationName ?? "Removed automation"}
         </span>
         <Badge
           variant="outline"
-          className={cn("h-5 shrink-0 px-1.5 text-[9px]", presentation.className)}
+          tone={presentation.tone}
+          className={sx(automationStyles.statusBadge)}
         >
           {presentation.label}
         </Badge>
       </div>
-      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+      <div className={sx(runDetailStyles.rowMeta)}>
         <span>{formatRelativeTime(props.run.startedAt)}</span>
-        <span className="truncate">
+        <span className={sx(automationStyles.truncate)}>
           {props.run.trigger === "scheduled" ? "Schedule" : "Manual"} ·{" "}
           {formatRunDuration(props.run)}
         </span>
       </div>
-    </button>
+    </AdsButton>
   );
 }
 
@@ -68,17 +71,15 @@ function DetailRow(props: {
   mono?: boolean;
 }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
-        {props.label}
-      </dt>
+    <div className={sx(runDetailStyles.detailCell)}>
+      <dt className={sx(runDetailStyles.detailTerm)}>{props.label}</dt>
       <dd
         // Values such as timestamps and paths truncate in the narrow detail
         // grid, so keep the full text reachable on hover.
         title={props.value}
-        className={cn(
-          "mt-0.5 truncate text-[11px] text-foreground",
-          props.mono && "font-mono",
+        className={sx(
+          runDetailStyles.detailValue,
+          props.mono && runDetailStyles.detailValueMono,
         )}
       >
         {props.value}
@@ -97,46 +98,47 @@ export function AutomationRunDetail(props: {
   const presentation = getRunStatusPresentation(props.run.status);
   const automation = props.automation;
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-border/65 px-5 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-2">
+    <div className={sx(runDetailStyles.root)}>
+      <div className={sx(runDetailStyles.header)}>
+        <div className={sx(runDetailStyles.headerRow)}>
+          <div className={sx(runDetailStyles.headerMain)}>
+            <div className={sx(runDetailStyles.headerTitleRow)}>
               <Badge
                 variant="outline"
-                className={cn("h-5 px-1.5 text-[9px]", presentation.className)}
+                tone={presentation.tone}
+                className={sx(automationStyles.statusBadge)}
               >
                 {presentation.label}
               </Badge>
-              <h2 className="truncate text-sm font-semibold text-foreground">
+              <h2 className={sx(runDetailStyles.headerTitle)}>
                 {automation?.name ?? "Removed automation"}
               </h2>
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">
+            <p className={sx(runDetailStyles.headerSub)}>
               Started {formatRelativeTime(props.run.startedAt)} ·{" "}
               {formatDateTime(props.run.startedAt)}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className={sx(runDetailStyles.headerActions)}>
             {automation ? (
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 text-xs"
+                xstyle={runDetailStyles.headerButton}
                 disabled={props.busy}
                 onClick={() => props.onRunAgain(automation)}
               >
-                <RotateCw className="size-3.5" />
+                <RotateCw className={sx(runDetailStyles.buttonIcon)} />
                 Run again
               </Button>
             ) : null}
             {props.run.taskId ? (
               <Button
                 size="sm"
-                className="h-8 gap-1.5 text-xs"
+                xstyle={runDetailStyles.headerButton}
                 onClick={() => props.onOpenTask(props.run)}
               >
-                <ExternalLink className="size-3.5" />
+                <ExternalLink className={sx(runDetailStyles.buttonIcon)} />
                 Open task
               </Button>
             ) : null}
@@ -144,9 +146,9 @@ export function AutomationRunDetail(props: {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        <div className="grid gap-4">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-md border border-border/70 bg-surface/30 p-3 sm:grid-cols-3">
+      <div className={sx(runDetailStyles.body)}>
+        <div className={sx(runDetailStyles.bodyGrid)}>
+          <dl className={sx(runDetailStyles.facts)}>
             <DetailRow
               label="Trigger"
               value={props.run.trigger === "scheduled" ? "Schedule" : "Manual"}
@@ -183,11 +185,9 @@ export function AutomationRunDetail(props: {
             />
           </dl>
 
-          <div className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-2">
-            <span className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
-              Execution ID
-            </span>
-            <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground">
+          <div className={sx(runDetailStyles.executionRow)}>
+            <span className={sx(runDetailStyles.detailTerm)}>Execution ID</span>
+            <span className={sx(runDetailStyles.executionId)}>
               {props.run.id}
             </span>
             <Button
@@ -197,21 +197,21 @@ export function AutomationRunDetail(props: {
               title="Copy execution ID"
               onClick={() => void copyTextToClipboard(props.run.id)}
             >
-              <Copy className="size-3.5" />
+              <Copy className={sx(runDetailStyles.buttonIcon)} />
             </Button>
           </div>
 
           {props.run.error ? (
-            <section className="grid gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <section className={sx(runDetailStyles.section)}>
+              <h3 className={sx(automationStyles.sectionHeading)}>
                 {props.run.status === "skipped" ? "Skip reason" : "Error"}
               </h3>
               <p
-                className={cn(
-                  "whitespace-pre-wrap rounded-md border p-3 text-[11px] leading-5",
+                className={sx(
+                  runDetailStyles.prose,
                   props.run.status === "skipped"
-                    ? "border-border/70 bg-muted/40 text-muted-foreground"
-                    : "border-destructive/30 bg-destructive/10 text-destructive",
+                    ? runDetailStyles.proseSkipped
+                    : runDetailStyles.proseError,
                 )}
               >
                 {props.run.error}
@@ -219,16 +219,14 @@ export function AutomationRunDetail(props: {
             </section>
           ) : null}
 
-          <section className="grid gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Result
-            </h3>
+          <section className={sx(runDetailStyles.section)}>
+            <h3 className={sx(automationStyles.sectionHeading)}>Result</h3>
             {props.run.resultPreview ? (
-              <p className="whitespace-pre-wrap rounded-md border border-border/70 bg-background p-3 text-[11px] leading-5 text-foreground">
+              <p className={sx(runDetailStyles.prose, runDetailStyles.proseResult)}>
                 {props.run.resultPreview}
               </p>
             ) : (
-              <p className="rounded-md border border-dashed border-border p-3 text-[11px] leading-5 text-muted-foreground">
+              <p className={sx(runDetailStyles.prose, runDetailStyles.proseEmpty)}>
                 {props.run.status === "completed"
                   ? "Completed without a text response. Open the task to inspect its tool output."
                   : props.run.status === "waiting"
@@ -241,11 +239,16 @@ export function AutomationRunDetail(props: {
           </section>
 
           {automation ? (
-            <section className="grid gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <section className={sx(runDetailStyles.section)}>
+              <h3 className={sx(automationStyles.sectionHeading)}>
                 Instructions
               </h3>
-              <p className="whitespace-pre-wrap rounded-md border border-border/70 bg-surface/30 p-3 text-[11px] leading-5 text-muted-foreground">
+              <p
+                className={sx(
+                  runDetailStyles.prose,
+                  runDetailStyles.proseInstructions,
+                )}
+              >
                 {automation.prompt}
               </p>
             </section>

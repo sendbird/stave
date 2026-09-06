@@ -5,6 +5,7 @@ import {
   WORKER_AGENT_NAME,
   WORKER_AUTO_VALUE,
   WORKER_PRESETS,
+  buildWorkerExecutionMetadata,
   buildWorkerPrimaryInstructions,
   buildAcpWorkerPrompt,
   buildWorkerRuntimeIntent,
@@ -78,16 +79,16 @@ describe("worker capability table", () => {
   test("Cursor and Kiro accept only their runtime-advertised Worker models", () => {
     for (const providerId of ["cursor", "kiro"] as const) {
       const resolution = resolveWorkerProfile({
-          providerId,
-          primaryModel: "runtime-primary",
-          runtimeModels: ["runtime-primary", "runtime-worker"],
-          intent: {
-            mode: "task-executor",
-            presetId: "verified-patch",
-            workerModel: "runtime-worker",
-            workerEffort: "auto",
-          },
-        });
+        providerId,
+        primaryModel: "runtime-primary",
+        runtimeModels: ["runtime-primary", "runtime-worker"],
+        intent: {
+          mode: "task-executor",
+          presetId: "verified-patch",
+          workerModel: "runtime-worker",
+          workerEffort: "auto",
+        },
+      });
       expect(resolution).toMatchObject({
         status: "ready",
         profile: {
@@ -125,7 +126,10 @@ describe("worker capability table", () => {
       "gpt-5.6-terra",
     ]);
     expect(
-      canPrimaryOrchestrateWorker({ providerId: "codex", model: "gpt-5.6-luna" }),
+      canPrimaryOrchestrateWorker({
+        providerId: "codex",
+        model: "gpt-5.6-luna",
+      }),
     ).toBe(false);
   });
 
@@ -155,7 +159,10 @@ describe("worker capability table", () => {
   });
 
   test("Codex Luna and Astra remain models but are not worker-capable", () => {
-    expect(listWorkerModelOptions("codex")).toEqual(["gpt-5.6-terra", "gpt-5.6-sol"]);
+    expect(listWorkerModelOptions("codex")).toEqual([
+      "gpt-5.6-terra",
+      "gpt-5.6-sol",
+    ]);
     expect(
       isWorkerCapableModel({ providerId: "codex", model: "gpt-5.6-luna" }),
     ).toBe(false);
@@ -190,6 +197,36 @@ describe("resolveWorkerProfile", () => {
     expect(resolution.profile.workerName).toBe(WORKER_AGENT_NAME);
     expect(resolution.profile.maxConcurrency).toBe(1);
     expect(resolution.profile.foreground).toBe(true);
+
+    const execution = buildWorkerExecutionMetadata(resolution.profile);
+    expect(execution).toMatchObject({
+      requestedWorkerModel: "auto",
+      resolvedWorkerModel: "gpt-5.6-terra",
+      workerModelSource: "preset",
+    });
+    expect(execution.workerModelRationale).toBeUndefined();
+  });
+
+  test("keeps a producer-supplied model rationale without synthesizing one", () => {
+    const resolution = resolveWorkerProfile({
+      providerId: "codex",
+      primaryModel: "gpt-5.6-sol",
+      intent: intent({ workerModel: "gpt-5.6-terra" }),
+    });
+    if (resolution.status !== "ready") {
+      throw new Error("Expected a ready Worker profile.");
+    }
+
+    expect(
+      buildWorkerExecutionMetadata(resolution.profile, {
+        workerModelRationale: "Recorded by the selection producer.",
+      }),
+    ).toMatchObject({
+      requestedWorkerModel: "gpt-5.6-terra",
+      resolvedWorkerModel: "gpt-5.6-terra",
+      workerModelSource: "explicit",
+      workerModelRationale: "Recorded by the selection producer.",
+    });
   });
 
   test("explicit Terra and Sol selections are honoured on Codex", () => {
@@ -208,11 +245,13 @@ describe("resolveWorkerProfile", () => {
 
   test("Luna is rejected before spawn_agent", () => {
     const resolution = resolveWorkerProfile({
-      providerId: "codex", primaryModel: "gpt-5.6-sol",
+      providerId: "codex",
+      primaryModel: "gpt-5.6-sol",
       intent: intent({ workerModel: "gpt-5.6-luna" }),
     });
     expect(resolution.status).toBe("unavailable");
-    if (resolution.status === "unavailable") expect(resolution.reason).toBe("worker_model_not_supported");
+    if (resolution.status === "unavailable")
+      expect(resolution.reason).toBe("worker_model_not_supported");
   });
 
   test("an ineligible primary is unavailable, not silently solo", () => {
@@ -405,7 +444,9 @@ describe("worker arm state and intent", () => {
       providerId: "codex",
       settingsEnabled: true,
       settingsConfig: { presetId: "scout", model: "gpt-5.6-luna" },
-      overrides: { workerConfigByProvider: { codex: { model: "gpt-5.6-terra" } } },
+      overrides: {
+        workerConfigByProvider: { codex: { model: "gpt-5.6-terra" } },
+      },
     });
     // Preset inherited from settings, model overridden by the task.
     expect(arm.config.presetId).toBe("scout");

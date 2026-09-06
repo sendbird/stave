@@ -56,7 +56,11 @@ import {
 import { type SectionId } from "@/components/layout/settings-dialog.schema";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useShallow } from "zustand/react/shallow";
-import { Badge, Button, Input, Slider, Textarea, toast } from "@/components/ui";
+import { Badge, Input, Slider, Textarea, toast } from "@/components/ui";
+import { Button } from "@/components/ads/components/Button";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { settingsSectionsStyles as styles } from "./settings-dialog-sections.styles";
 import type {
   LensAgentPresentationMode,
   LensSessionScope,
@@ -142,7 +146,6 @@ import {
   CLAUDE_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
-import { cn } from "@/lib/utils";
 import {
   BUILTIN_CUSTOM_THEMES,
   MAX_USER_THEMES,
@@ -245,6 +248,17 @@ interface NotificationSoundControlsCopy {
   volumeDescription: string;
   /** aria-label for the volume slider — must be unique per card. */
   volumeAriaLabel: string;
+  /**
+   * Titles for the sub-fields. Because this editor is rendered once per sound
+   * card, every field title becomes the accessible name of the control it
+   * labels; they must be unique per card so screen readers (and role-based
+   * queries) can tell the two "Source"/"Preset"/"Volume" groups apart.
+   */
+  sourceTitle: string;
+  presetTitle: string;
+  customAudioTitle: string;
+  volumeTitle: string;
+  previewTitle: string;
 }
 
 /**
@@ -329,7 +343,7 @@ function NotificationSoundControls({
       {value.enabled ? (
         <>
           <LabeledField
-            title="Source"
+            title={copy.sourceTitle}
             description="Use a built-in preset or upload your own audio file."
           >
             <ChoiceButtons
@@ -344,7 +358,7 @@ function NotificationSoundControls({
             />
           </LabeledField>
           {value.mode === "preset" ? (
-            <LabeledField title="Preset" description={copy.presetDescription}>
+            <LabeledField title={copy.presetTitle} description={copy.presetDescription}>
               <ChoiceButtons
                 value={value.preset}
                 onChange={(next) =>
@@ -355,15 +369,15 @@ function NotificationSoundControls({
             </LabeledField>
           ) : (
             <LabeledField
-              title="Custom Audio"
+              title={copy.customAudioTitle}
               description={`Upload an audio file (MP3, WAV, OGG, M4A, WebM). Max ${CUSTOM_AUDIO_MAX_SIZE_BYTES / 1024} KB.`}
             >
-              <div className="flex flex-col gap-2">
+              <div className={sx(styles.stackSm)}>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept={CUSTOM_AUDIO_ACCEPTED_TYPES.join(",")}
-                  className="hidden"
+                  className={sx(styles.hiddenInput)}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -374,17 +388,19 @@ function NotificationSoundControls({
                   }}
                 />
                 {value.customAudioName ? (
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 rounded-md border border-border/80 bg-muted/50 px-3 py-2 text-sm flex-1 min-w-0">
-                      <FileAudio className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{value.customAudioName}</span>
+                  <div className={sx(styles.audioNameRow)}>
+                    <div className={sx(styles.audioNameChip)}>
+                      <FileAudio className={sx(styles.audioIcon)} />
+                      <span className={sx(styles.truncate)}>
+                        {value.customAudioName}
+                      </span>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      <Upload className="h-3.5 w-3.5 mr-1" />
+                      <Upload className={sx(styles.buttonIconLeading)} />
                       Replace
                     </Button>
                     <Button
@@ -392,7 +408,7 @@ function NotificationSoundControls({
                       variant="outline"
                       onClick={handleRemoveCustomAudio}
                     >
-                      <X className="h-3.5 w-3.5 mr-1" />
+                      <X className={sx(styles.buttonIconLeading)} />
                       Remove
                     </Button>
                   </div>
@@ -402,21 +418,21 @@ function NotificationSoundControls({
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    <Upload className="h-3.5 w-3.5 mr-1" />
+                    <Upload className={sx(styles.buttonIconLeading)} />
                     Upload Audio File
                   </Button>
                 )}
                 {uploadError ? (
-                  <p className="text-sm text-destructive">{uploadError}</p>
+                  <p className={sx(styles.errorText)}>{uploadError}</p>
                 ) : null}
               </div>
             </LabeledField>
           )}
-          <LabeledField title="Volume" description={copy.volumeDescription}>
-            <div className="flex items-center gap-3">
+          <LabeledField title={copy.volumeTitle} description={copy.volumeDescription}>
+            <div className={sx(styles.sliderRow)}>
               <Slider
                 aria-label={copy.volumeAriaLabel}
-                className="flex-1"
+                className={sx(styles.sliderFlex)}
                 value={volumePercent}
                 min={0}
                 max={100}
@@ -425,13 +441,13 @@ function NotificationSoundControls({
                   onPatch({ volume: nextValue / 100 });
                 }}
               />
-              <Badge variant="outline" className="min-w-14 justify-center">
+              <Badge variant="outline" className={sx(styles.valueBadge)}>
                 {volumePercent}%
               </Badge>
             </div>
           </LabeledField>
           <LabeledField
-            title="Preview"
+            title={copy.previewTitle}
             description={
               value.mode === "custom"
                 ? "Play the uploaded audio once with the current volume."
@@ -694,10 +710,10 @@ function ProjectSettingsPanel(args: {
   }, [args.project.projectPath, repositoryRefreshNonce]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border/80 bg-card/95 px-4 py-3 shadow-xs">
-        <div className="min-w-0 flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
+    <div className={sx(styles.spaceY4)}>
+      <div className={sx(styles.projectHeader)}>
+        <div className={sx(styles.projectHeaderMain)}>
+          <div className={sx(styles.rowWrapGap2)}>
             <Badge variant="secondary">Project Settings</Badge>
             {args.isCurrent ? <Badge>Current</Badge> : null}
             <Badge variant="secondary">
@@ -708,20 +724,18 @@ function ProjectSettingsPanel(args: {
               default: {args.project.defaultBranch}
             </Badge>
           </div>
-          <div className="space-y-1">
-            <h4 className="text-lg font-semibold tracking-tight">
+          <div className={sx(styles.spaceY1)}>
+            <h4 className={sx(styles.projectTitle)}>
               {args.project.projectName}
             </h4>
-            <p className="text-sm text-muted-foreground">
+            <p className={sx(styles.mutedBody)}>
               Review repository-specific workspace defaults, git metadata,
               scripts config, and removal actions for this project.
             </p>
           </div>
-          <p className="font-mono text-xs text-muted-foreground break-all">
-            {args.project.projectPath}
-          </p>
+          <p className={sx(styles.monoPath)}>{args.project.projectPath}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className={sx(styles.rowCenter)}>
           <Button
             size="sm"
             variant="outline"
@@ -729,9 +743,10 @@ function ProjectSettingsPanel(args: {
             onClick={() => setRepositoryRefreshNonce((value) => value + 1)}
           >
             <RefreshCcw
-              className={cn(
-                "size-3.5",
-                repositoryState.status === "loading" && "animate-spin",
+              className={sx(
+                repositoryState.status === "loading"
+                  ? styles.spinIcon
+                  : styles.refreshIcon,
               )}
             />
             Refresh
@@ -743,18 +758,20 @@ function ProjectSettingsPanel(args: {
         title="Project Appearance"
         description="Give each project a stable visual identity across the sidebar and project switcher."
       >
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className={sx(styles.appearanceGrid)}>
           <LabeledField
             title="Icon"
             description="Choose a shape that makes this repository recognizable at a glance."
           >
-            <fieldset className="flex flex-wrap gap-2">
-              <legend className="sr-only">Project icon</legend>
+            <fieldset className={sx(styles.fieldset)}>
+              <legend className={sx(styles.radioVisuallyHidden)}>
+                Project icon
+              </legend>
               {PROJECT_ICON_OPTIONS.map((option) => (
                 <label
                   key={option.id}
                   title={option.label}
-                  className="cursor-pointer rounded-lg"
+                  className={sx(styles.swatchLabel)}
                 >
                   <input
                     type="radio"
@@ -762,7 +779,7 @@ function ProjectSettingsPanel(args: {
                     value={option.id}
                     checked={projectAppearanceIcon === option.id}
                     aria-label={option.label}
-                    className="peer sr-only"
+                    className={sx(styles.radioVisuallyHidden)}
                     onChange={() =>
                       setProjectAppearance({
                         projectPath: args.project.projectPath,
@@ -772,13 +789,13 @@ function ProjectSettingsPanel(args: {
                     }
                   />
                   <span
-                    className={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border/60 text-muted-foreground transition-[background-color,border-color,color] hover:bg-muted/60 hover:text-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background",
+                    className={sx(
+                      styles.iconTile,
                       projectAppearanceIcon === option.id &&
-                        "border-primary/50 bg-primary/8 text-primary",
+                        styles.iconTileActive,
                     )}
                   >
-                    <option.icon className="size-4" />
+                    <option.icon className={sx(styles.tileGlyph)} />
                   </span>
                 </label>
               ))}
@@ -789,13 +806,15 @@ function ProjectSettingsPanel(args: {
             title="Color"
             description="Color applies to the project icon while the surrounding surface follows the active theme."
           >
-            <fieldset className="flex flex-wrap gap-2">
-              <legend className="sr-only">Project color</legend>
+            <fieldset className={sx(styles.fieldset)}>
+              <legend className={sx(styles.radioVisuallyHidden)}>
+                Project color
+              </legend>
               {PROJECT_COLOR_OPTIONS.map((option) => (
                 <label
                   key={option.id}
                   title={option.label}
-                  className="cursor-pointer rounded-full"
+                  className={sx(styles.swatchLabelRound)}
                 >
                   <input
                     type="radio"
@@ -803,7 +822,7 @@ function ProjectSettingsPanel(args: {
                     value={option.id}
                     checked={projectAppearanceColor === option.id}
                     aria-label={option.label}
-                    className="peer sr-only"
+                    className={sx(styles.radioVisuallyHidden)}
                     onChange={() =>
                       setProjectAppearance({
                         projectPath: args.project.projectPath,
@@ -813,29 +832,32 @@ function ProjectSettingsPanel(args: {
                     }
                   />
                   <span
-                    className={cn(
-                      "inline-flex h-10 w-10 items-center justify-center rounded-full border border-transparent transition-[background-color,border-color] peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background",
+                    className={sx(
+                      styles.colorTile,
                       projectAppearanceColor === option.id &&
-                        "border-foreground/30 bg-muted/70",
+                        styles.colorTileActive,
                     )}
                   >
-                    <ProjectColorSwatch color={option.id} className="size-5" />
+                    <ProjectColorSwatch
+                      color={option.id}
+                      className={sx(styles.swatchGlyph)}
+                    />
                   </span>
                 </label>
               ))}
             </fieldset>
           </LabeledField>
         </div>
-        <div className="flex items-center gap-3 rounded-xl bg-muted/45 px-3 py-2.5">
+        <div className={sx(styles.identityPreview)}>
           <ProjectIdentityMark
             icon={projectAppearanceIcon}
             color={projectAppearanceColor}
           />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
+          <div className={sx(styles.minW0)}>
+            <p className={sx(styles.identityName)}>
               {args.project.projectName}
             </p>
-            <p className="text-xs text-muted-foreground">Sidebar preview</p>
+            <p className={sx(styles.identityCaption)}>Sidebar preview</p>
           </div>
         </div>
       </SettingsCard>
@@ -849,7 +871,7 @@ function ProjectSettingsPanel(args: {
           description="Prepended to every Claude and Codex turn for this project. Use it for repo-specific guardrails, tooling preferences, and workflow rules."
         >
           <DraftTextarea
-            className="min-h-[140px] rounded-md border-border/80 bg-background text-sm"
+            xstyle={styles.textarea140}
             value={projectBasePrompt}
             onCommit={(nextValue) =>
               setProjectBasePrompt({
@@ -866,7 +888,7 @@ function ProjectSettingsPanel(args: {
           description="Runs once in the new workspace root after creation. Useful for `bun install`, `npm install`, or multi-line bootstrap commands."
         >
           <DraftTextarea
-            className="min-h-[120px] rounded-md border-border/80 bg-background font-mono text-sm"
+            xstyle={styles.textarea120Mono}
             value={projectWorkspaceInitCommand}
             onCommit={(nextValue) =>
               setProjectWorkspaceInitCommand({
@@ -883,7 +905,7 @@ function ProjectSettingsPanel(args: {
           description="Included in workspace kickoff resolution for this project. Use it to encode repository-specific prefixes, ticket conventions, or casing rules."
         >
           <DraftTextarea
-            className="min-h-[110px] rounded-md border-border/80 bg-background text-sm"
+            xstyle={styles.textarea110}
             value={kickoffBranchNamingRule}
             onCommit={(nextValue) =>
               setProjectKickoffBranchNamingRule({
@@ -899,7 +921,8 @@ function ProjectSettingsPanel(args: {
           title="Reuse Root node_modules"
           description="Creates `node_modules` in each new worktree as a symlink to the repository root install. Faster startup, but later installs in that workspace will modify the shared dependency tree."
         >
-          <button
+          <Button
+            layout="host"
             type="button"
             aria-pressed={projectUseRootNodeModulesSymlink}
             onClick={() =>
@@ -908,37 +931,33 @@ function ProjectSettingsPanel(args: {
                 enabled: !projectUseRootNodeModulesSymlink,
               })
             }
-            className={cn(
-              "flex w-full items-center justify-between gap-3 rounded-md border px-3 py-3 text-left transition-colors",
-              projectUseRootNodeModulesSymlink
-                ? "border-primary/50 bg-primary/5"
-                : "border-border/80 bg-background hover:border-border",
-            )}
+            xstyle={[
+              styles.toggleButton,
+              projectUseRootNodeModulesSymlink && styles.toggleButtonActive,
+            ]}
           >
             <div>
-              <p className="text-sm font-medium text-foreground">
+              <p className={sx(styles.toggleButtonTitle)}>
                 Enable shared `node_modules` symlink
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className={sx(styles.toggleButtonHint)}>
                 The symlink exists only inside the created workspace, so
                 deleting the workspace leaves the repository root untouched.
               </p>
             </div>
             <span
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em]",
-                projectUseRootNodeModulesSymlink
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border/80 text-muted-foreground",
+              className={sx(
+                styles.toggleBadge,
+                projectUseRootNodeModulesSymlink && styles.toggleBadgeActive,
               )}
             >
               {projectUseRootNodeModulesSymlink ? "On" : "Off"}
             </span>
-          </button>
+          </Button>
         </LabeledField>
 
         <LabeledField title="Repository Root Path">
-          <div className="rounded-md border border-border/80 bg-background px-3 py-2.5 font-mono text-xs break-all">
+          <div className={sx(styles.infoBox)}>
             {repositoryState.rootPath ?? "Not detected"}
           </div>
         </LabeledField>
@@ -948,31 +967,23 @@ function ProjectSettingsPanel(args: {
           description={repositoryState.detail}
         >
           {repositoryState.status === "error" ? (
-            <p className="text-sm text-destructive">{repositoryState.detail}</p>
+            <p className={sx(styles.errorText)}>{repositoryState.detail}</p>
           ) : repositoryState.remotes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No remotes configured.
-            </p>
+            <p className={sx(styles.mutedBody)}>No remotes configured.</p>
           ) : (
-            <div className="space-y-2">
+            <div className={sx(styles.spaceY2)}>
               {repositoryState.remotes.map((remote) => (
-                <div
-                  key={remote.name}
-                  className="rounded-md border border-border/80 bg-background px-3 py-2.5"
-                >
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{remote.name}</p>
-                    <Badge
-                      variant="secondary"
-                      className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
-                    >
+                <div key={remote.name} className={sx(styles.remoteCard)}>
+                  <div className={sx(styles.rowCenter)}>
+                    <p className={sx(styles.remoteName)}>{remote.name}</p>
+                    <Badge variant="secondary" className={sx(styles.remoteBadge)}>
                       configured
                     </Badge>
                   </div>
-                  <p className="mt-1 font-mono text-xs text-muted-foreground break-all">
+                  <p className={sx(styles.remoteMono)}>
                     fetch: {remote.fetchUrl ?? "-"}
                   </p>
-                  <p className="mt-1 font-mono text-xs text-muted-foreground break-all">
+                  <p className={sx(styles.remoteMono)}>
                     push: {remote.pushUrl ?? remote.fetchUrl ?? "-"}
                   </p>
                 </div>
@@ -981,13 +992,11 @@ function ProjectSettingsPanel(args: {
           )}
         </LabeledField>
 
-        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-destructive">
-                Remove project
-              </p>
-              <p className="text-sm text-muted-foreground">
+        <div className={sx(styles.dangerZone)}>
+          <div className={sx(styles.dangerRow)}>
+            <div className={sx(styles.spaceY1)}>
+              <p className={sx(styles.dangerTitle)}>Remove project</p>
+              <p className={sx(styles.mutedBody)}>
                 Removes this project from Stave&apos;s registered project list
                 without deleting files on disk.
               </p>
@@ -995,7 +1004,8 @@ function ProjectSettingsPanel(args: {
             <Button
               type="button"
               size="sm"
-              variant="destructive"
+              variant="soft"
+              tone="danger"
               onClick={() =>
                 args.onRequestRemove({
                   projectPath: args.project.projectPath,
@@ -1003,7 +1013,7 @@ function ProjectSettingsPanel(args: {
                 })
               }
             >
-              <Trash2 className="size-4" />
+              <Trash2 className={sx(styles.iconMd)} />
               Remove project
             </Button>
           </div>
@@ -1018,16 +1028,16 @@ function ProjectSettingsPanel(args: {
             type="button"
             size="sm"
             variant="outline"
-            className="gap-1.5"
+            xstyle={styles.titleAccessoryButton}
             onClick={() => args.onNavigateSection?.("scripts")}
           >
-            <Sparkles className="size-3.5" />
+            <Sparkles className={sx(styles.iconSm)} />
             Manage workspace tools
-            <ChevronRight className="size-3.5" />
+            <ChevronRight className={sx(styles.iconSm)} />
           </Button>
         }
       >
-        <div className="flex flex-wrap gap-2">
+        <div className={sx(styles.rowWrapGap2)}>
           {(
             [
               ["Commands", resolvedScriptsConfig?.actions.length ?? 0],
@@ -1045,13 +1055,13 @@ function ProjectSettingsPanel(args: {
             <Badge
               key={label}
               variant="secondary"
-              className="rounded-md px-2 py-0.5 text-xs font-normal"
+              className={sx(styles.toolsBadge)}
             >
               {count} {label}
             </Badge>
           ))}
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className={sx(styles.mutedBody)}>
           Configure and run them from the dedicated {WORKSPACE_TOOLS_LABEL}{" "}
           section.
         </p>
@@ -1085,13 +1095,13 @@ function ProjectsSection(args: {
           title="No Projects Yet"
           description="Open a project from the sidebar to register it here."
         >
-          <p className="text-sm text-muted-foreground">
+          <p className={sx(styles.mutedBody)}>
             Registered projects will show their repository defaults and metadata
             in this section.
           </p>
         </SettingsCard>
       ) : (
-        <div className="min-w-0">
+        <div className={sx(styles.minW0)}>
           {selectedProject ? (
             <ProjectSettingsPanel
               project={selectedProject}
@@ -1106,7 +1116,7 @@ function ProjectsSection(args: {
               title="Project Details"
               description="Choose a project from the Settings sidebar to open its settings panel."
             >
-              <p className="text-sm text-muted-foreground">
+              <p className={sx(styles.mutedBody)}>
                 Pick a project from the sidebar to inspect its workspace
                 defaults and repository metadata.
               </p>
@@ -1215,6 +1225,11 @@ function GeneralSection() {
               volumeDescription:
                 "Adjust playback level for the task completion sound.",
               volumeAriaLabel: "Notification sound volume",
+              sourceTitle: "Source",
+              presetTitle: "Preset",
+              customAudioTitle: "Custom Audio",
+              volumeTitle: "Volume",
+              previewTitle: "Preview",
             }}
             previewPlayers={{
               playPreset: playNotificationSound,
@@ -1264,7 +1279,7 @@ function GeneralSection() {
               customAudioName: attentionNotificationSoundCustomAudioName,
             }}
             copy={{
-              enableTitle: "Sound",
+              enableTitle: "Attention chime",
               enableDescription:
                 "Play a sound when the AI needs your input or approval.",
               presetDescription:
@@ -1272,6 +1287,11 @@ function GeneralSection() {
               volumeDescription:
                 "Adjust playback level for the attention sound.",
               volumeAriaLabel: "Attention sound volume",
+              sourceTitle: "Attention chime origin",
+              presetTitle: "Attention chime tone",
+              customAudioTitle: "Attention chime upload",
+              volumeTitle: "Attention chime level",
+              previewTitle: "Attention chime test",
             }}
             previewPlayers={{
               playPreset: playAttentionNotificationSound,
@@ -1384,41 +1404,41 @@ function ThemeSection() {
           title="Appearance"
           description="Choose how the app resolves light and dark mode."
         >
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className={sx(styles.appearanceGridButtons)}>
             <Button
-              className="h-10 rounded-md"
-              variant={themeMode === "light" ? "default" : "outline"}
+              xstyle={styles.modeButton}
+              variant={themeMode === "light" ? "primary" : "outline"}
               onClick={() =>
                 updateSettings({
                   patch: { themeMode: "light", customThemeId: null },
                 })
               }
             >
-              <Sun className="size-4" />
+              <Sun className={sx(styles.iconMd)} />
               Light
             </Button>
             <Button
-              className="h-10 rounded-md"
-              variant={themeMode === "dark" ? "default" : "outline"}
+              xstyle={styles.modeButton}
+              variant={themeMode === "dark" ? "primary" : "outline"}
               onClick={() =>
                 updateSettings({
                   patch: { themeMode: "dark", customThemeId: null },
                 })
               }
             >
-              <Moon className="size-4" />
+              <Moon className={sx(styles.iconMd)} />
               Dark
             </Button>
             <Button
-              className="h-10 rounded-md"
-              variant={themeMode === "system" ? "default" : "outline"}
+              xstyle={styles.modeButton}
+              variant={themeMode === "system" ? "primary" : "outline"}
               onClick={() =>
                 updateSettings({
                   patch: { themeMode: "system", customThemeId: null },
                 })
               }
             >
-              <Monitor className="size-4" />
+              <Monitor className={sx(styles.iconMd)} />
               System
             </Button>
           </div>
@@ -1440,13 +1460,13 @@ function ThemeSection() {
             title="Sidebar View"
             description="Projects lists workspaces by where they live; Work queue groups every workspace by what it wants from you. The toggle in the sidebar header changes this too, so the sidebar reopens in whichever view you used last."
           >
-            <div className="flex flex-wrap gap-2">
+            <div className={sx(styles.rowWrapGap2)}>
               {SIDEBAR_NAV_VIEW_FIELDS.map((option) => (
                 <Button
                   key={option.value}
                   type="button"
                   variant={
-                    sidebarNavView === option.value ? "default" : "outline"
+                    sidebarNavView === option.value ? "primary" : "outline"
                   }
                   size="sm"
                   aria-pressed={sidebarNavView === option.value}
@@ -1454,7 +1474,7 @@ function ThemeSection() {
                     updateSettings({ patch: { sidebarNavView: option.value } })
                   }
                 >
-                  <option.Icon className="size-4" />
+                  <option.Icon className={sx(styles.iconMd)} />
                   {option.label}
                 </Button>
               ))}
@@ -1475,7 +1495,7 @@ function ThemeSection() {
             }
           />
           {borderBeamEnabled ? (
-            <div className="mt-3 grid gap-3 border-t border-border/50 pt-3">
+            <div className={sx(styles.motionExpanded)}>
               <LabeledField
                 title="Beam Size"
                 description="Library size preset. Choose between a full border glow, compact controls, or a bottom sweep."
@@ -1527,10 +1547,10 @@ function ThemeSection() {
                 title="Beam Strength"
                 description="Controls the library `strength` prop without changing the wrapped content."
               >
-                <div className="flex items-center gap-3">
+                <div className={sx(styles.sliderRow)}>
                   <Slider
                     aria-label="Border Beam strength"
-                    className="flex-1"
+                    className={sx(styles.flex1)}
                     value={borderBeamStrengthPercent}
                     min={0}
                     max={100}
@@ -1541,7 +1561,7 @@ function ThemeSection() {
                       });
                     }}
                   />
-                  <Badge variant="outline" className="min-w-14 justify-center">
+                  <Badge variant="outline" className={sx(styles.valueBadge)}>
                     {borderBeamStrengthPercent}%
                   </Badge>
                 </div>
@@ -1554,7 +1574,7 @@ function ThemeSection() {
           title="Theme Presets"
           description="Choose a Stave original or a curated palette inspired by popular editor themes. Presets override the base light / dark tokens; manual token tweaks below still take priority."
         >
-          <div className="grid gap-3">
+          <div className={sx(styles.stackMd)}>
             {allThemes.map((theme) => (
               <CustomThemeCard
                 key={theme.id}
@@ -1603,18 +1623,18 @@ function ThemeSection() {
           title="Design Tokens"
           description="These are Stave's base light and dark tokens. Custom presets layer on top, and manual overrides below still win."
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/30 p-3">
-            <div className="flex items-center gap-2">
+          <div className={sx(styles.tokenToolbar)}>
+            <div className={sx(styles.rowCenter)}>
               <Button
                 size="sm"
-                variant={themeEditorMode === "light" ? "default" : "outline"}
+                variant={themeEditorMode === "light" ? "primary" : "outline"}
                 onClick={() => setThemeEditorMode("light")}
               >
                 Light Tokens
               </Button>
               <Button
                 size="sm"
-                variant={themeEditorMode === "dark" ? "default" : "outline"}
+                variant={themeEditorMode === "dark" ? "primary" : "outline"}
                 onClick={() => setThemeEditorMode("dark")}
               >
                 Dark Tokens
@@ -1640,7 +1660,7 @@ function ThemeSection() {
             </Button>
           </div>
 
-          <div className="grid gap-3">
+          <div className={sx(styles.stackMd)}>
             {THEME_TOKEN_NAMES.map((token) => (
               <ThemeTokenRow
                 key={`${themeEditorMode}-${token}`}
@@ -1682,60 +1702,50 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
 
   return (
     <div
-      className={cn(
-        "group relative grid gap-3 rounded-xl border p-4 transition-colors sm:grid-cols-[1fr_auto] sm:items-center",
-        isActive
-          ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-          : "border-border/70 bg-background/60 hover:border-primary/40 hover:bg-muted/30",
-      )}
+      className={sx(styles.themeCard, isActive && styles.themeCardActive)}
     >
       {/* main clickable area */}
-      <button
+      <Button
+        layout="host"
         type="button"
-        className="grid gap-1.5 text-left"
+        xstyle={styles.themeCardButton}
         onClick={isActive ? args.onDeselect : args.onSelect}
       >
-        <div className="flex items-center gap-2">
-          <Contrast className="size-4 shrink-0 text-muted-foreground" />
-          <p className="text-sm font-semibold">{theme.name}</p>
-          <Badge
-            variant="outline"
-            className="text-[10px] uppercase tracking-wide"
-          >
+        <div className={sx(styles.rowCenter)}>
+          <Contrast className={sx(styles.audioIcon)} />
+          <p className={sx(styles.themeCardName)}>{theme.name}</p>
+          <Badge variant="outline" className={sx(styles.microBadge)}>
             {theme.baseMode}
           </Badge>
           {!isBuiltin && (
-            <Badge
-              variant="secondary"
-              className="text-[10px] uppercase tracking-wide"
-            >
+            <Badge variant="secondary" className={sx(styles.microBadge)}>
               User
             </Badge>
           )}
           {isActive && (
-            <span className="ml-auto flex items-center gap-1 text-xs font-medium text-primary sm:ml-0">
-              <Check className="size-3.5" />
+            <span className={sx(styles.activeMark)}>
+              <Check className={sx(styles.iconSm)} />
               Active
             </span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">{theme.description}</p>
+        <p className={sx(styles.themeDescription)}>{theme.description}</p>
         {theme.author && (
-          <p className="text-[11px] text-muted-foreground/70">
+          <p className={sx(styles.themeAuthor)}>
             by {theme.author}
             {theme.version ? ` \u00B7 v${theme.version}` : ""}
           </p>
         )}
-      </button>
+      </Button>
 
       {/* right column: swatches + action buttons */}
-      <div className="flex flex-col items-end gap-2">
+      <div className={sx(styles.themeRightCol)}>
         {/* colour swatch strip */}
-        <div className="flex items-center gap-1">
+        <div className={sx(styles.swatchStrip)}>
           {previewColors.map((color, i) => (
             <span
               key={i}
-              className="size-6 rounded-md border border-border/50"
+              className={sx(styles.swatchDot)}
               style={{ backgroundColor: color }}
               aria-hidden="true"
             />
@@ -1743,32 +1753,32 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
         </div>
 
         {/* action buttons */}
-        <div className="flex items-center gap-1">
+        <div className={sx(styles.cardActionRow)}>
           {args.onExport && (
             <Button
               size="sm"
-              variant="ghost"
-              className="h-7 px-2 text-xs"
+              variant="quiet"
+              xstyle={styles.smallGhostButton}
               onClick={(e) => {
                 e.stopPropagation();
                 args.onExport?.();
               }}
             >
-              <Upload className="size-3" />
+              <Upload className={sx(styles.iconXs)} />
               Export
             </Button>
           )}
           {args.onRemove && (
             <Button
               size="sm"
-              variant="ghost"
-              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+              variant="quiet"
+              xstyle={styles.smallGhostButtonDanger}
               onClick={(e) => {
                 e.stopPropagation();
                 args.onRemove?.();
               }}
             >
-              <Trash2 className="size-3" />
+              <Trash2 className={sx(styles.iconXs)} />
               Remove
             </Button>
           )}
@@ -1817,19 +1827,19 @@ function ThemeImportButton(args: {
   };
 
   return (
-    <div className="grid gap-2">
-      <div className="flex items-center gap-3">
+    <div className={sx(styles.importGrid)}>
+      <div className={sx(styles.importRow)}>
         <Button
           size="sm"
           variant="outline"
-          className="gap-1.5"
+          xstyle={styles.importButton}
           disabled={args.userThemeCount >= MAX_USER_THEMES}
           onClick={() => fileInputRef.current?.click()}
         >
-          <Upload className="size-3.5" />
+          <Upload className={sx(styles.iconSm)} />
           Import Theme JSON
         </Button>
-        <span className="text-xs text-muted-foreground">
+        <span className={sx(styles.captionMuted)}>
           {args.userThemeCount} / {MAX_USER_THEMES} user themes
         </span>
       </div>
@@ -1838,30 +1848,22 @@ function ThemeImportButton(args: {
         ref={fileInputRef}
         type="file"
         accept=".json,application/json"
-        className="hidden"
+        className={sx(styles.hiddenInput)}
         onChange={handleFileChange}
       />
 
       {importError && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          {importError}
-        </p>
+        <p className={sx(styles.importErrorBox)}>{importError}</p>
       )}
 
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
+      <p className={sx(styles.importHelp)}>
         Drop a{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
-          .theme.json
-        </code>{" "}
-        file to install a community theme. The JSON must include{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">id</code>,{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">name</code>,{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">
-          baseMode
-        </code>
-        , and a{" "}
-        <code className="rounded bg-muted px-1 py-0.5 text-[10px]">tokens</code>{" "}
-        map.
+        <code className={sx(styles.code)}>.theme.json</code> file to install a
+        community theme. The JSON must include{" "}
+        <code className={sx(styles.code)}>id</code>,{" "}
+        <code className={sx(styles.code)}>name</code>,{" "}
+        <code className={sx(styles.code)}>baseMode</code>, and a{" "}
+        <code className={sx(styles.code)}>tokens</code> map.
       </p>
     </div>
   );
@@ -1880,22 +1882,22 @@ const ThemeTokenRow = memo(function ThemeTokenRow(args: {
     overrideValue || PRESET_THEME_TOKENS[args.themeEditorMode][args.token];
 
   return (
-    <div className="grid gap-3 rounded-xl border border-border/70 bg-background/60 p-4 lg:grid-cols-[190px_52px_1fr_auto] lg:items-center">
+    <div className={sx(styles.tokenRow)}>
       <div>
-        <p className="text-sm font-medium">
+        <p className={sx(styles.tokenName)}>
           {formatThemeTokenLabel(args.token)}
         </p>
-        <p className="text-xs text-muted-foreground">
+        <p className={sx(styles.tokenPreset)}>
           Preset: {PRESET_THEME_TOKENS[args.themeEditorMode][args.token]}
         </p>
       </div>
       <span
-        className="size-11 rounded-lg border border-border"
+        className={sx(styles.tokenSwatch)}
         style={{ backgroundColor: effectiveValue }}
         aria-hidden="true"
       />
       <DraftInput
-        className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+        xstyle={styles.input40Mono}
         value={overrideValue}
         placeholder={PRESET_THEME_TOKENS[args.themeEditorMode][args.token]}
         onCommit={(nextValue) => {
@@ -1915,7 +1917,7 @@ const ThemeTokenRow = memo(function ThemeTokenRow(args: {
       />
       <Button
         size="sm"
-        variant="ghost"
+        variant="quiet"
         onClick={() => {
           const themeOverrides = useAppStore.getState().settings.themeOverrides;
           updateSettings({
@@ -1965,7 +1967,7 @@ function TerminalSection() {
         >
           <LabeledField title="Font Size">
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background"
+              xstyle={styles.input40}
               value={String(terminalFontSize)}
               onCommit={(nextValue) =>
                 updateSettings({
@@ -1978,7 +1980,7 @@ function TerminalSection() {
           </LabeledField>
           <LabeledField title="Font Family">
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background"
+              xstyle={styles.input40}
               value={terminalFontFamily}
               onCommit={(nextValue) =>
                 updateSettings({ patch: { terminalFontFamily: nextValue } })
@@ -1987,7 +1989,7 @@ function TerminalSection() {
           </LabeledField>
           <LabeledField title="Line Height">
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background"
+              xstyle={styles.input40}
               value={String(terminalLineHeight)}
               onCommit={(nextValue) =>
                 updateSettings({
@@ -2171,9 +2173,9 @@ function ModelsSection() {
               recommendedOptions={recommendedModelOptions.filter(
                 (option) => option.providerId === "claude-code",
               )}
-              className="w-full"
-              triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
-              menuClassName="sm:max-w-lg"
+              className={sx(styles.fullWidth)}
+              triggerClassName={sx(styles.modelTrigger)}
+              menuClassName={sx(styles.modelMenu)}
               onSelect={({ selection }) => {
                 const nextModel = normalizeModelSelection({
                   value: selection.model,
@@ -2208,7 +2210,7 @@ function ModelsSection() {
                 })
               }
             >
-              <SelectTrigger className="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40">
+              <SelectTrigger className={sx(styles.selectTrigger)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2242,9 +2244,9 @@ function ModelsSection() {
               recommendedOptions={recommendedModelOptions.filter(
                 (option) => option.providerId === "codex",
               )}
-              className="w-full"
-              triggerClassName="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
-              menuClassName="sm:max-w-lg"
+              className={sx(styles.fullWidth)}
+              triggerClassName={sx(styles.modelTrigger)}
+              menuClassName={sx(styles.modelMenu)}
               onSelect={({ selection }) =>
                 updateSettings({
                   patch: {
@@ -2273,7 +2275,7 @@ function ModelsSection() {
                 })
               }
             >
-              <SelectTrigger className="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40">
+              <SelectTrigger className={sx(styles.selectTrigger)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2301,7 +2303,7 @@ function ModelsSection() {
               }
             >
               <SelectTrigger
-                className="h-10 w-full max-w-none rounded-md border border-border/80 bg-background px-3 hover:bg-muted/40"
+                className={sx(styles.selectTrigger)}
                 aria-label="Utility AI provider"
               >
                 <SelectValue />
@@ -2313,15 +2315,15 @@ function ModelsSection() {
               </SelectContent>
             </Select>
           </LabeledField>
-          <div className="space-y-3 border-t border-border/70 pt-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="size-4 text-primary" />
-                  <p className="text-sm font-medium">Auto</p>
+          <div className={sx(styles.routingBlock)}>
+            <div className={sx(styles.routingHeader)}>
+              <div className={sx(styles.spaceY1, styles.minW0)}>
+                <div className={sx(styles.routingTitleRow)}>
+                  <Sparkles className={sx(styles.accentGlyph)} />
+                  <p className={sx(styles.smallTitle)}>Auto</p>
                   <Badge variant="secondary">v1</Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className={sx(styles.mutedBody)}>
                   Route Auto-selected drafts through deterministic heuristics,
                   optional classification, and provider stickiness.
                 </p>
@@ -2339,8 +2341,8 @@ function ModelsSection() {
               title="Objective"
               description="Bias routing toward lower cost or higher quality."
             >
-              <div className="flex items-center gap-3">
-                <span className="w-12 text-xs text-muted-foreground">Cost</span>
+              <div className={sx(styles.sliderRow)}>
+                <span className={sx(styles.objectiveEnd)}>Cost</span>
                 <Slider
                   aria-label="Auto routing objective"
                   min={0}
@@ -2353,12 +2355,10 @@ function ModelsSection() {
                     })
                   }
                 />
-                <span className="w-14 text-right text-xs text-muted-foreground">
-                  Quality
-                </span>
+                <span className={sx(styles.objectiveEndRight)}>Quality</span>
               </div>
             </LabeledField>
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className={sx(styles.routingGrid)}>
               <SwitchField
                 title="Classifier"
                 description="Use the selected Utility AI for low-confidence prompts."
@@ -2479,7 +2479,7 @@ function ChatSection() {
             title="Message Font Size"
             description="Prose font size for chat messages. Line height scales proportionally."
           >
-            <div className="flex items-center gap-3">
+            <div className={sx(styles.sliderRow)}>
               <Slider
                 aria-label="Message font size"
                 min={12}
@@ -2489,9 +2489,9 @@ function ChatSection() {
                 onValueChange={(value) =>
                   updateSettings({ patch: { messageFontSize: value } })
                 }
-                className="flex-1"
+                className={sx(styles.flex1)}
               />
-              <span className="w-12 text-right text-sm tabular-nums text-muted-foreground">
+              <span className={sx(styles.valueReadout)}>
                 {messageFontSize}px
               </span>
             </div>
@@ -2500,7 +2500,7 @@ function ChatSection() {
             title="Code Font Size"
             description="Font size for inline code and code blocks in chat messages."
           >
-            <div className="flex items-center gap-3">
+            <div className={sx(styles.sliderRow)}>
               <Slider
                 aria-label="Code font size"
                 min={10}
@@ -2510,9 +2510,9 @@ function ChatSection() {
                 onValueChange={(value) =>
                   updateSettings({ patch: { messageCodeFontSize: value } })
                 }
-                className="flex-1"
+                className={sx(styles.flex1)}
               />
-              <span className="w-12 text-right text-sm tabular-nums text-muted-foreground">
+              <span className={sx(styles.valueReadout)}>
                 {messageCodeFontSize}px
               </span>
             </div>
@@ -2521,7 +2521,7 @@ function ChatSection() {
             title="Font Family"
             description="Base sans-serif font for the app UI and chat messages. Pick a preset or type any installed family. Falls back to the Korean font, then sans-serif."
           >
-            <div className="space-y-2">
+            <div className={sx(styles.spaceY2)}>
               <ChoiceButtons
                 value={messageFontFamily}
                 onChange={(value) =>
@@ -2534,7 +2534,7 @@ function ChatSection() {
               />
               <DraftInput
                 value={messageFontFamily}
-                className="h-9 font-mono text-sm"
+                xstyle={styles.input9}
                 onCommit={(nextValue) =>
                   updateSettings({ patch: { messageFontFamily: nextValue } })
                 }
@@ -2547,7 +2547,7 @@ function ChatSection() {
           >
             <DraftInput
               value={messageMonoFontFamily}
-              className="h-9 font-mono text-sm"
+              xstyle={styles.input9}
               onCommit={(nextValue) =>
                 updateSettings({ patch: { messageMonoFontFamily: nextValue } })
               }
@@ -2559,7 +2559,7 @@ function ChatSection() {
           >
             <DraftInput
               value={messageKoreanFontFamily}
-              className="h-9 font-mono text-sm"
+              xstyle={styles.input9}
               onCommit={(nextValue) =>
                 updateSettings({
                   patch: { messageKoreanFontFamily: nextValue },
@@ -2571,7 +2571,7 @@ function ChatSection() {
             title="Information Panel Scale"
             description="Zoom level for the workspace information panel. Affects text, icons, buttons, and spacing uniformly."
           >
-            <div className="flex items-center gap-3">
+            <div className={sx(styles.sliderRow)}>
               <Slider
                 aria-label="Information panel scale"
                 min={80}
@@ -2583,9 +2583,9 @@ function ChatSection() {
                     patch: { infoPanelScale: value / 100 },
                   })
                 }
-                className="flex-1"
+                className={sx(styles.flex1)}
               />
-              <span className="w-12 text-right text-sm tabular-nums text-muted-foreground">
+              <span className={sx(styles.valueReadout)}>
                 {Math.round(infoPanelScale * 100)}%
               </span>
             </div>
@@ -2849,7 +2849,7 @@ function SkillsSection() {
             description="Optional shared global skill directory. Leave blank to follow STAVE_SHARED_SKILLS_HOME when present. Supports ~/..."
           >
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background"
+              xstyle={styles.input40}
               placeholder="~/shared-skills"
               value={sharedSkillsHome}
               onCommit={(nextValue) =>
@@ -2862,20 +2862,18 @@ function SkillsSection() {
           title="Detected Skills"
           description="Stave scans global, user, and workspace-local skill roots. The shared global root follows Settings first, then STAVE_SHARED_SKILLS_HOME."
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">
+          <div className={sx(styles.rowBetween)}>
+            <div className={sx(styles.spaceY1)}>
+              <p className={sx(styles.smallMedium)}>
                 {skillCatalog.status === "loading"
                   ? "Refreshing catalog..."
                   : skillCatalog.status === "error"
                     ? "Skill discovery failed"
                     : `${skillCatalog.skills.length} skills across ${skillCatalog.roots.length} roots`}
               </p>
-              <p className="text-sm text-muted-foreground">
-                {skillCatalog.detail}
-              </p>
+              <p className={sx(styles.mutedBody)}>{skillCatalog.detail}</p>
               {skillCatalog.fetchedAt ? (
-                <p className="text-xs text-muted-foreground">
+                <p className={sx(styles.captionMuted)}>
                   Last updated{" "}
                   {formatTaskUpdatedAt({ value: skillCatalog.fetchedAt })}
                 </p>
@@ -2889,58 +2887,41 @@ function SkillsSection() {
               Refresh
             </Button>
           </div>
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Roots
-            </p>
+          <div className={sx(styles.spaceY2)}>
+            <p className={sx(styles.metaLabel)}>Roots</p>
             {skillCatalog.roots.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className={sx(styles.mutedBody)}>
                 No skill roots were discovered for the current workspace.
               </p>
             ) : (
               skillCatalog.roots.map((root) => (
-                <div
-                  key={root.id}
-                  className="rounded-lg border border-border/70 bg-background/60 px-3 py-2"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">{root.path}</span>
-                    <Badge
-                      variant="secondary"
-                      className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
-                    >
+                <div key={root.id} className={sx(styles.listCard)}>
+                  <div className={sx(styles.rowWrapGap2)}>
+                    <span className={sx(styles.smallMedium)}>{root.path}</span>
+                    <Badge variant="secondary" className={sx(styles.smallBadge)}>
                       {root.scope}
                     </Badge>
-                    <Badge
-                      variant="outline"
-                      className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
-                    >
+                    <Badge variant="outline" className={sx(styles.smallBadge)}>
                       {root.provider}
                     </Badge>
-                    <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                    <Badge variant="outline" className={sx(styles.smallBadgePlain)}>
                       {skillCountByRootPath.get(root.path) ?? 0} skills
                     </Badge>
                   </div>
                   {root.detail ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {root.detail}
-                    </p>
+                    <p className={sx(styles.microMutedTop1)}>{root.detail}</p>
                   ) : null}
                 </div>
               ))
             )}
           </div>
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              Catalog
-            </p>
+          <div className={sx(styles.spaceY2)}>
+            <p className={sx(styles.metaLabel)}>Catalog</p>
             {skillCatalog.skills.length === 0 ? (
               skillCatalog.status === "loading" ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading skills...
-                </p>
+                <p className={sx(styles.mutedBody)}>Loading skills...</p>
               ) : (
-                <p className="text-sm text-muted-foreground">
+                <p className={sx(styles.mutedBody)}>
                   No SKILL.md entries were found.
                 </p>
               )
@@ -2948,13 +2929,11 @@ function SkillsSection() {
               Array.from(skillsByRoot.entries()).map(([rootPath, group]) => {
                 const isCollapsed = collapsedGroups.includes(rootPath);
                 return (
-                  <div
-                    key={rootPath}
-                    className="rounded-lg border border-border/70 bg-background/40"
-                  >
-                    <button
+                  <div key={rootPath} className={sx(styles.groupCard)}>
+                    <Button
+                      layout="host"
                       type="button"
-                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/30"
+                      xstyle={styles.groupToggle}
                       onClick={() => {
                         setCollapsedGroups((current) =>
                           current.includes(rootPath)
@@ -2963,61 +2942,56 @@ function SkillsSection() {
                         );
                       }}
                     >
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium">
+                      <div className={sx(styles.groupToggleLeft)}>
+                        <span className={sx(styles.smallMediumTruncate)}>
                           {rootPath}
                         </span>
                         <Badge
                           variant="secondary"
-                          className="h-5 px-1.5 text-[10px]"
+                          className={sx(styles.smallBadgePlain)}
                         >
                           {group.skills.length}
                         </Badge>
                         {group.root ? (
                           <Badge
                             variant="outline"
-                            className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                            className={sx(styles.smallBadge)}
                           >
                             {group.root.scope}
                           </Badge>
                         ) : null}
                       </div>
                       {isCollapsed ? (
-                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                        <ChevronRight className={sx(styles.chevron)} />
                       ) : (
-                        <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                        <ChevronDown className={sx(styles.chevron)} />
                       )}
-                    </button>
+                    </Button>
                     {!isCollapsed ? (
-                      <div className="space-y-2 border-t border-border/70 px-3 py-2">
+                      <div className={sx(styles.groupBody)}>
                         {group.skills.map((skill) => (
-                          <div
-                            key={skill.id}
-                            className="rounded-lg border border-border/70 bg-background/60 px-3 py-2"
-                          >
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-medium">
+                          <div key={skill.id} className={sx(styles.listCard)}>
+                            <div className={sx(styles.rowWrapGap2)}>
+                              <span className={sx(styles.smallMedium)}>
                                 {skill.name}
                               </span>
                               <Badge
                                 variant="secondary"
-                                className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                className={sx(styles.smallBadge)}
                               >
                                 {skill.scope}
                               </Badge>
                               <Badge
                                 variant="outline"
-                                className="h-5 px-1.5 text-[10px] uppercase tracking-wide"
+                                className={sx(styles.smallBadge)}
                               >
                                 {skill.provider}
                               </Badge>
                             </div>
-                            <p className="mt-1 text-sm text-muted-foreground">
+                            <p className={sx(styles.bodyMutedTop1)}>
                               {skill.description}
                             </p>
-                            <p className="mt-0.5 truncate text-xs text-muted-foreground/70">
-                              {skill.path}
-                            </p>
+                            <p className={sx(styles.skillMeta)}>{skill.path}</p>
                           </div>
                         ))}
                       </div>
@@ -3044,13 +3018,13 @@ function SkillsSection() {
 function ModelShortcutOptionLabel(args: { option: ModelSelectorOption }) {
   const { option } = args;
   return (
-    <span className="flex min-w-0 items-center gap-2">
+    <span className={sx(styles.modelOptionLabel)}>
       <ModelIcon
         providerId={option.providerId}
         model={option.model}
-        className="size-3.5"
+        className={sx(styles.modelOptionGlyph)}
       />
-      <span className="truncate">
+      <span className={sx(styles.truncate)}>
         {getProviderLabel({ providerId: option.providerId, variant: "full" })} ·{" "}
         {option.label}
       </span>
@@ -3216,7 +3190,7 @@ function CommandPaletteSection() {
               updateSettings({ patch: { commandPaletteShowRecent: checked } })
             }
           />
-          <div className="flex flex-wrap gap-2">
+          <div className={sx(styles.rowWrapGap2)}>
             <Button
               variant="outline"
               onClick={() =>
@@ -3257,7 +3231,7 @@ function CommandPaletteSection() {
           description="Keep panel and navigation shortcuts on a single Cmd/Ctrl+K prefix so they do not collide with editor and IDE bindings."
           titleAccessory={<Badge variant="secondary">Cmd/Ctrl+K</Badge>}
         >
-          <div className="flex flex-wrap gap-2">
+          <div className={sx(styles.rowWrapGap2)}>
             <Button
               variant="outline"
               onClick={() =>
@@ -3292,11 +3266,11 @@ function CommandPaletteSection() {
               Clear All Chords
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className={sx(styles.captionMuted)}>
             Assigning a key moves it off any conflicting shell command
             automatically.
           </p>
-          <div className="space-y-2.5">
+          <div className={sx(styles.spaceY25)}>
             {APP_SHORTCUT_DEFINITIONS.map((definition) => {
               const selectedKey =
                 normalizedAppShortcutKeys[definition.commandId] ?? "";
@@ -3316,18 +3290,18 @@ function CommandPaletteSection() {
               return (
                 <div
                   key={definition.commandId}
-                  className="rounded-lg border border-border/70 bg-card/60 p-3"
+                  className={sx(styles.shortcutCard)}
                 >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-                    <div className="min-w-0 space-y-1 lg:w-64 lg:shrink-0">
-                      <div className="flex flex-wrap items-center gap-2">
+                  <div className={sx(styles.shortcutRow)}>
+                    <div className={sx(styles.shortcutLead)}>
+                      <div className={sx(styles.rowWrapGap2)}>
                         {shortcutSequences.map((sequence, index) => (
                           <div
                             key={`${definition.commandId}-${sequence.join("-")}`}
-                            className="flex items-center gap-2"
+                            className={sx(styles.rowCenter)}
                           >
                             {index > 0 ? (
-                              <span className="text-[11px] text-muted-foreground">
+                              <span className={sx(styles.seqThen)}>
                                 then
                               </span>
                             ) : null}
@@ -3336,15 +3310,15 @@ function CommandPaletteSection() {
                             </Badge>
                           </div>
                         ))}
-                        <p className="text-sm font-medium text-foreground">
+                        <p className={sx(styles.commandTitle)}>
                           {definition.title}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className={sx(styles.captionMuted)}>
                         {definition.description}
                       </p>
                     </div>
-                    <div className="min-w-0 flex-1 space-y-2">
+                    <div className={sx(styles.shortcutMain)}>
                       <Select
                         value={currentValue}
                         onValueChange={(value) =>
@@ -3356,7 +3330,7 @@ function CommandPaletteSection() {
                           )
                         }
                       >
-                        <SelectTrigger className="h-10 w-full rounded-md border-border/80 bg-background">
+                        <SelectTrigger className={sx(styles.selectTriggerPlain)}>
                           <SelectValue placeholder="Disabled" />
                         </SelectTrigger>
                         <SelectContent>
@@ -3377,7 +3351,7 @@ function CommandPaletteSection() {
                           </SelectGroup>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">
+                      <p className={sx(styles.captionMuted)}>
                         Current chord: {currentShortcutLabel}.
                       </p>
                     </div>
@@ -3414,7 +3388,7 @@ function CommandPaletteSection() {
                 })
               }
             >
-              <SelectTrigger className="h-10 w-full rounded-md border-border/80 bg-background">
+              <SelectTrigger className={sx(styles.selectTriggerPlain)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -3457,7 +3431,7 @@ function CommandPaletteSection() {
                 })
               }
             >
-              <SelectTrigger className="h-10 w-full rounded-md border-border/80 bg-background">
+              <SelectTrigger className={sx(styles.selectTriggerPlain)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -3479,7 +3453,7 @@ function CommandPaletteSection() {
           description="Map Alt+1..0 to prompt models and optional effort overrides. These shortcuts switch the active task provider and draft model immediately."
           titleAccessory={<Badge variant="secondary">Alt+1..0</Badge>}
         >
-          <div className="flex flex-wrap gap-2">
+          <div className={sx(styles.rowWrapGap2)}>
             <Button
               variant="outline"
               onClick={() =>
@@ -3525,7 +3499,7 @@ function CommandPaletteSection() {
               Clear All Shortcuts
             </Button>
           </div>
-          <div className="space-y-2.5">
+          <div className={sx(styles.spaceY25)}>
             {MODEL_SHORTCUT_SLOT_LABELS.map((slotLabel, slotIndex) => {
               const selectedShortcutKey =
                 normalizedModelShortcutKeys[slotIndex] ?? "";
@@ -3560,25 +3534,25 @@ function CommandPaletteSection() {
               return (
                 <div
                   key={slotLabel}
-                  className="rounded-lg border border-border/70 bg-card/60 p-3"
+                  className={sx(styles.shortcutCard)}
                 >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-                    <div className="min-w-0 space-y-1 lg:w-52 lg:shrink-0">
-                      <div className="flex items-center gap-2">
+                  <div className={sx(styles.shortcutRow)}>
+                    <div className={sx(styles.shortcutLeadNarrow)}>
+                      <div className={sx(styles.rowCenter)}>
                         <WorkspaceShortcutChip
                           modifier="Alt"
                           label={slotLabel}
                         />
-                        <p className="text-sm font-medium text-foreground">
+                        <p className={sx(styles.commandTitle)}>
                           Model Slot {slotLabel}
                         </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className={sx(styles.captionMuted)}>
                         Default:{" "}
                         {defaultShortcutDetails?.modelLabel ?? "Unassigned"}
                       </p>
                     </div>
-                    <div className="min-w-0 flex-1 space-y-2">
+                    <div className={sx(styles.shortcutMain)}>
                       <Select
                         value={currentValue}
                         onValueChange={(value) =>
@@ -3590,10 +3564,10 @@ function CommandPaletteSection() {
                           )
                         }
                       >
-                        <SelectTrigger className="h-10 w-full rounded-md border-border/80 bg-background">
+                        <SelectTrigger className={sx(styles.selectTriggerPlain)}>
                           <SelectValue placeholder="Unassigned" />
                         </SelectTrigger>
-                        <SelectContent className="max-h-80">
+                        <SelectContent className={sx(styles.selectContentTall)}>
                           <SelectGroup>
                             <SelectLabel>Shortcut State</SelectLabel>
                             <SelectItem value={UNASSIGNED_MODEL_SHORTCUT_VALUE}>
@@ -3620,8 +3594,8 @@ function CommandPaletteSection() {
                           </SelectGroup>
                         </SelectContent>
                       </Select>
-                      <div className="flex items-center gap-2">
-                        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                      <div className={sx(styles.rowCenter)}>
+                        <span className={sx(styles.effortLabel)}>
                           Effort
                         </span>
                         <Select
@@ -3637,7 +3611,7 @@ function CommandPaletteSection() {
                           }
                         >
                           <SelectTrigger
-                            className="h-9 min-w-0 flex-1 rounded-md border-border/80 bg-background"
+                            className={sx(styles.selectTriggerEffort)}
                             aria-label={`Effort for Model Slot ${slotLabel}`}
                           >
                             <SelectValue placeholder="Use current effort" />
@@ -3659,7 +3633,7 @@ function CommandPaletteSection() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className={sx(styles.captionMuted)}>
                         {selectedShortcutDetails
                           ? `Currently selects ${selectedShortcutDetails.modelLabel} on ${selectedShortcutDetails.providerLabel} with ${selectedEffortDescription}.`
                           : "No model assigned. The shortcut stays inactive until you set one."}
@@ -3676,7 +3650,7 @@ function CommandPaletteSection() {
           title="Command Visibility"
           description="Pin the core actions you use most, or hide the ones you never want in the global palette."
         >
-          <div className="space-y-2">
+          <div className={sx(styles.spaceY2)}>
             {commands.map((command) => {
               const isPinned = commandPalettePinnedCommandIds.includes(
                 command.id,
@@ -3688,12 +3662,12 @@ function CommandPaletteSection() {
               return (
                 <div
                   key={command.id}
-                  className="rounded-lg border border-border/70 bg-card/60 p-3"
+                  className={sx(styles.shortcutCard)}
                 >
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium text-foreground">
+                  <div className={sx(styles.commandRow)}>
+                    <div className={sx(styles.commandInfo)}>
+                      <div className={sx(styles.rowWrapGap2)}>
+                        <p className={sx(styles.mediumText)}>
                           {command.title}
                         </p>
                         <Badge variant="outline">
@@ -3707,23 +3681,23 @@ function CommandPaletteSection() {
                           <Badge variant="destructive">Hidden</Badge>
                         ) : null}
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className={sx(styles.mutedBody)}>
                         {command.description}
                       </p>
-                      <p className="font-mono text-[11px] text-muted-foreground">
+                      <p className={sx(styles.monoMicroMuted)}>
                         {command.id}
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
+                    <div className={sx(styles.commandActions)}>
                       <Button
-                        variant={isPinned ? "default" : "outline"}
+                        variant={isPinned ? "primary" : "outline"}
                         size="sm"
                         onClick={() => togglePinnedCommand(command.id)}
                       >
                         {isPinned ? "Unpin" : "Pin"}
                       </Button>
                       <Button
-                        variant={isHidden ? "default" : "outline"}
+                        variant={isHidden ? "primary" : "outline"}
                         size="sm"
                         onClick={() => toggleHiddenCommand(command.id)}
                       >
@@ -3741,7 +3715,7 @@ function CommandPaletteSection() {
           title="Programmatic Contributors"
           description="The palette is backed by a registry so internal modules can add commands without coupling to the dialog component."
         >
-          <p className="text-sm leading-6 text-muted-foreground">
+          <p className={sx(styles.contributorCopy)}>
             Use <code>registerCommandPaletteContributor()</code> to inject
             additional commands. Core Stave commands are customizable here;
             dynamic workspace/task entries and future contributed commands
@@ -3797,7 +3771,7 @@ function EditorSection() {
         >
           <LabeledField title="Font Size">
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background"
+              xstyle={styles.input40}
               type="number"
               min={10}
               max={32}
@@ -3811,7 +3785,7 @@ function EditorSection() {
           </LabeledField>
           <LabeledField title="Font Family">
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background font-mono"
+              xstyle={styles.input40MonoPlain}
               value={editorFontFamily}
               onCommit={(nextValue) =>
                 updateSettings({ patch: { editorFontFamily: nextValue } })
@@ -3820,7 +3794,7 @@ function EditorSection() {
           </LabeledField>
           <LabeledField title="Tab Size">
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background"
+              xstyle={styles.input40}
               type="number"
               min={1}
               max={8}
@@ -3899,7 +3873,7 @@ function EditorSection() {
             description="Leave empty to auto-discover `typescript-language-server` from PATH. Install via `npm i -g typescript-language-server typescript`. Handles .ts, .tsx, .js, and .jsx files."
           >
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+              xstyle={styles.input40Mono}
               placeholder="typescript-language-server"
               value={typescriptLspCommand}
               onCommit={(nextValue) =>
@@ -3912,7 +3886,7 @@ function EditorSection() {
             description="Leave empty to auto-discover `pyright-langserver` or `basedpyright-langserver` from PATH. You can also point this at an absolute executable path."
           >
             <DraftInput
-              className="h-10 rounded-md border-border/80 bg-background font-mono text-sm"
+              xstyle={styles.input40Mono}
               placeholder="pyright-langserver"
               value={pythonLspCommand}
               onCommit={(nextValue) =>
@@ -3999,7 +3973,7 @@ export function SettingsDialogSectionContent(args: {
       return <McpSection />;
     case "integrations":
       return (
-        <div className="space-y-8">
+        <div className={sx(styles.spaceY8)}>
           <CraneConnectorSettingsSection />
           <JiraConnectorSettingsSection />
           <MartinSyncSettingsSection />
@@ -4068,17 +4042,16 @@ function PromptField({
   return (
     <LabeledField title={title} description={description}>
       <Textarea
-        className="min-h-[120px] resize-y font-mono text-xs leading-relaxed"
+        xstyle={styles.promptTextarea}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={handleBlur}
         placeholder="(empty = disabled)"
       />
-      <div className="flex items-center justify-between">
+      <div className={sx(styles.promptFooter)}>
         <p
-          className={cn(
-            "text-xs",
-            isDefault ? "text-muted-foreground" : "text-primary",
+          className={sx(
+            isDefault ? styles.promptState : styles.promptStateCustom,
           )}
         >
           {isDefault ? "Using default" : "Customised"}
@@ -4086,12 +4059,12 @@ function PromptField({
         {!isDefault && (
           <Button
             type="button"
-            variant="ghost"
+            variant="quiet"
             size="sm"
-            className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            xstyle={styles.resetButton}
             onClick={handleReset}
           >
-            <RefreshCcw className="size-3" />
+            <RefreshCcw className={sx(styles.iconXs)} />
             Reset to default
           </Button>
         )}
@@ -4159,14 +4132,14 @@ function PromptsSection() {
                   label: "Claude",
                   description: "Uses the configured Claude model.",
                   icon: (
-                    <ModelIcon providerId="claude-code" className="size-3.5" />
+                    <ModelIcon providerId="claude-code" className={sx(styles.iconSm)} />
                   ),
                 },
                 {
                   value: "codex",
                   label: "Codex",
                   description: "Uses the configured Codex model.",
-                  icon: <ModelIcon providerId="codex" className="size-3.5" />,
+                  icon: <ModelIcon providerId="codex" className={sx(styles.iconSm)} />,
                 },
               ]}
             />
@@ -4450,10 +4423,11 @@ function LensSection() {
               updateSettings({ patch: { lensSessionScope: value } })
             }
           />
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className={sx(styles.clearButtonsGrid)}>
             <Button
               type="button"
-              variant="destructive"
+              variant="soft"
+              tone="danger"
               size="sm"
               disabled={
                 !activeWorkspaceId || !projectPath || clearingScope !== null
@@ -4461,12 +4435,12 @@ function LensSection() {
               onClick={() => {
                 void clearLensSessionData("project");
               }}
-              className="justify-start gap-2"
+              xstyle={styles.clearButton}
             >
               {clearingScope === "project" ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader2 className={sx(styles.spinIcon)} />
               ) : (
-                <Trash2 className="size-3.5" />
+                <Trash2 className={sx(styles.iconSm)} />
               )}
               Clear project data
             </Button>
@@ -4478,12 +4452,12 @@ function LensSection() {
               onClick={() => {
                 void clearLensSessionData("workspace");
               }}
-              className="justify-start gap-2"
+              xstyle={styles.clearButton}
             >
               {clearingScope === "workspace" ? (
-                <Loader2 className="size-3.5 animate-spin" />
+                <Loader2 className={sx(styles.spinIcon)} />
               ) : (
-                <Trash2 className="size-3.5" />
+                <Trash2 className={sx(styles.iconSm)} />
               )}
               Clear workspace data
             </Button>
@@ -4580,16 +4554,14 @@ function LensSection() {
               })
             }
           />
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">
-              Approved CDP Hosts
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
+          <div className={sx(styles.spaceY2)}>
+            <div className={sx(styles.cdpLabel)}>Approved CDP Hosts</div>
+            <div className={sx(styles.cdpInputRow)}>
               <Input
                 value={cdpHostDraft}
                 placeholder="localhost or https://example.com"
                 aria-label="CDP approved host"
-                className="h-8 font-mono text-xs"
+                xstyle={styles.input8Mono}
                 onChange={(event) => setCdpHostDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -4602,33 +4574,32 @@ function LensSection() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="justify-center gap-1.5 sm:w-auto"
+                xstyle={styles.cdpAddButton}
                 onClick={addCdpApprovedHost}
               >
-                <Plus className="size-3.5" />
+                <Plus className={sx(styles.iconSm)} />
                 Add host
               </Button>
             </div>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <p className={sx(styles.cdpHelp)}>
               Enter a hostname or URL. Ports and paths are ignored, so{" "}
               <code>localhost</code> covers <code>localhost:3000</code>,{" "}
               <code>localhost:8899</code>, and other localhost ports.
             </p>
             {cdpApprovedHosts.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className={sx(styles.cdpHostList)}>
                 {cdpApprovedHosts.map((host) => (
                   <Badge
                     key={host}
                     variant="secondary"
-                    className="gap-1 rounded-md pr-1"
+                    className={sx(styles.cdpHostBadge)}
                   >
-                    <span className="max-w-48 truncate font-mono text-[11px]">
-                      {host}
-                    </span>
+                    <span className={sx(styles.cdpHostText)}>{host}</span>
                     <Button
                       type="button"
-                      size="icon-xs"
-                      variant="ghost"
+                      size="xs"
+                      iconOnly
+                      variant="quiet"
                       aria-label={`Remove ${host}`}
                       onClick={() =>
                         updateSettings({
@@ -4640,13 +4611,13 @@ function LensSection() {
                         })
                       }
                     >
-                      <Trash2 className="size-3" />
+                      <Trash2 className={sx(styles.iconXs)} />
                     </Button>
                   </Badge>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p className={sx(styles.captionMuted)}>
                 No hosts are pre-approved. The first CDP action will show an
                 approval dialog.
               </p>

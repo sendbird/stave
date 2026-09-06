@@ -34,10 +34,11 @@ function createInput(
 function createHarness(args?: {
   initialState?: RoutineState;
   initialNow?: string;
+  beforeRunTask?: () => Promise<void>;
 }) {
   let state = structuredClone(args?.initialState ?? createEmptyRoutineState());
   let currentNow = new Date(args?.initialNow ?? "2026-07-23T00:00:00.000Z");
-  let intervalCallback: (() => void) | null = null;
+  let intervalCallback: (() => Promise<void>) | null = null;
   const completedTurnIds: string[] = [];
   const runTaskCalls: unknown[] = [];
   const taskStatusCalls: unknown[] = [];
@@ -70,6 +71,7 @@ function createHarness(args?: {
     },
     runTask: async (runArgs) => {
       runTaskCalls.push(runArgs);
+      await args?.beforeRunTask?.();
       return {
         workspaceId: runArgs.workspaceId,
         taskId: "task-1",
@@ -94,7 +96,7 @@ function createHarness(args?: {
       unattendedAutomationUpdates.push(authorizations);
     },
     now: () => new Date(currentNow),
-    setInterval: ((callback: () => void) => {
+    setInterval: ((callback: () => Promise<void>) => {
       intervalCallback = callback;
       return 1;
     }) as unknown as typeof globalThis.setInterval,
@@ -117,11 +119,41 @@ function createHarness(args?: {
       taskStatus = { ...taskStatus, ...patch };
     },
     tick: async () => {
-      intervalCallback?.();
-      await runtime.list();
+      await intervalCallback?.();
     },
   };
 }
+
+test("a pending launch does not hide committed runs, and stopped queued ticks cannot launch more work", async () => {
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => { release = resolve; });
+  const harness = createHarness({ beforeRunTask: () => blocked });
+  harness.runtime.start();
+  await harness.tick();
+  const routine = await harness.runtime.create(createInput({ enabled: true }));
+  const running = harness.runtime.runNow({ id: routine.id });
+  await Promise.resolve();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const snapshot = await Promise.race([
+      harness.runtime.list(),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Snapshot blocked behind execution")), 200); }),
+    ]);
+    expect(snapshot.runs[0]).toMatchObject({ status: "running", taskId: null });
+    harness.setNow("2026-07-23T02:00:00.000Z");
+    const ticks = Array.from({ length: 20 }, () => harness.tick());
+    harness.runtime.stop();
+    release();
+    await running;
+    await Promise.all(ticks);
+    expect(harness.getRunTaskCalls()).toHaveLength(1);
+  } finally {
+    clearTimeout(timer);
+    harness.runtime.stop();
+    release();
+    await running;
+  }
+});
 
 describe("routine host runtime", () => {
   test("persists the selected repository default environment", async () => {

@@ -24,10 +24,12 @@ function asStringRecord(value: unknown): Record<string, string> | undefined {
   if (!record) {
     return undefined;
   }
-  const entries = Object.entries(record);
-  return entries.every(([, entry]) => typeof entry === "string")
-    ? Object.fromEntries(entries)
-    : undefined;
+  const strings: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    if (typeof entry !== "string") return undefined;
+    strings[key] = entry;
+  }
+  return strings;
 }
 
 function asStringArray(value: unknown): string[] | undefined {

@@ -50,6 +50,7 @@ export type LensSessionHandle = {
   goBack: () => void;
   goForward: () => void;
   reload: () => void;
+  navigate: (url: string) => Promise<void>;
   onSubmit: (event: FormEvent) => void;
   onUrlKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   urlInputRef: RefObject<HTMLInputElement | null>;
@@ -439,16 +440,18 @@ export function useLensSession(args: {
         return;
       }
 
-      const result = await window.api?.lens?.navigate?.({
-        workspaceId,
-        lensSessionId,
-        url: targetUrl.trim(),
-      });
-
-      if (result && !result.ok) {
-        toast.error("Navigation failed", {
-          description: result.message ?? "Lens could not load that address.",
+      setLastLoadError(null);
+      try {
+        const result = await window.api?.lens?.navigate?.({
+          workspaceId,
+          lensSessionId,
+          url: targetUrl.trim(),
         });
+        if (!result?.ok) {
+          setLastLoadError(result?.message ?? "Lens could not load that address. Check the address and retry.");
+        }
+      } catch {
+        setLastLoadError("The browser connection was interrupted. Retry loading the page.");
       }
     },
     [hasLensApi, lensSessionId, workspaceId],
@@ -473,23 +476,21 @@ export function useLensSession(args: {
     [url],
   );
 
-  const goBack = useCallback(() => {
-    if (workspaceId) {
-      void window.api?.lens?.goBack?.({ workspaceId, lensSessionId });
-    }
+  const navigateHistory = useCallback((action: "goBack" | "goForward" | "reload") => {
+    if (!workspaceId) return;
+    setLastLoadError(null);
+    void (async () => {
+      try {
+        const result = await window.api?.lens?.[action]?.({ workspaceId, lensSessionId });
+        if (!result?.ok) setLastLoadError("Lens could not update the page. Check the address and retry.");
+      } catch {
+        setLastLoadError("The browser connection was interrupted. Retry loading the page.");
+      }
+    })();
   }, [lensSessionId, workspaceId]);
-
-  const goForward = useCallback(() => {
-    if (workspaceId) {
-      void window.api?.lens?.goForward?.({ workspaceId, lensSessionId });
-    }
-  }, [lensSessionId, workspaceId]);
-
-  const reload = useCallback(() => {
-    if (workspaceId) {
-      void window.api?.lens?.reload?.({ workspaceId, lensSessionId });
-    }
-  }, [lensSessionId, workspaceId]);
+  const goBack = useCallback(() => navigateHistory("goBack"), [navigateHistory]);
+  const goForward = useCallback(() => navigateHistory("goForward"), [navigateHistory]);
+  const reload = useCallback(() => navigateHistory("reload"), [navigateHistory]);
 
   return {
     canGoBack,
@@ -501,6 +502,7 @@ export function useLensSession(args: {
     isUrlInputFocused,
     lastLoadError,
     onSubmit,
+    navigate,
     onUrlKeyDown,
     reload,
     setInputUrl,

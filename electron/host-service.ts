@@ -146,7 +146,12 @@ import {
   syncWorkspaceWithOriginMain,
 } from "./main/utils/tooling-status";
 import { isDoneEvent } from "./main/utils/provider-events";
-import { runCommand, runCommandArgs } from "./main/utils/command";
+import { prepareCliExecutableDiscovery } from "./providers/cli-path-env";
+import {
+  resolveCommandCwd,
+  runCommand,
+  runCommandArgs,
+} from "./main/utils/command";
 import type { BridgeEvent, StreamTurnArgs } from "./providers/types";
 import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
@@ -993,7 +998,7 @@ async function collectProviderPullRequestContext(args: {
   baseBranch?: string;
   headBranch?: string;
 }) {
-  const cwd = args.cwd;
+  const cwd = resolveCommandCwd({ cwd: args.cwd });
   const baseBranch = args.baseBranch?.trim() || "main";
   const expectedBranch = args.headBranch?.trim() || undefined;
 
@@ -1080,7 +1085,7 @@ async function collectProviderPullRequestContext(args: {
     gitDetectedBranch !== "HEAD" &&
     gitDetectedBranch !== expectedBranch
   ) {
-    return { ok: false, headBranch: gitDetectedBranch };
+    return { ok: false, headBranch: gitDetectedBranch } as const;
   }
 
   const diff = diffResult.ok ? diffResult.stdout.trim() : "";
@@ -1361,7 +1366,7 @@ async function loadMergedCodexMcpStatus(args: {
   const runtimeByName = new Map(
     runtime.servers.map((server) => [server.name, server]),
   );
-  const servers = configured.servers.map((server) => {
+  const servers: typeof runtime.servers = configured.servers.map((server) => {
     const live = runtimeByName.get(server.name);
     runtimeByName.delete(server.name);
     if (!live) {
@@ -1402,6 +1407,14 @@ async function loadMergedCodexMcpStatus(args: {
 }
 
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
+  if (
+    request.method === "provider.check-availability" ||
+    request.method === "provider.get-model-catalog"
+  ) {
+    // Discovery may initialize login shells. Only discovery reads wait for it;
+    // routine lists, PTY traffic and turn stop/input acknowledgements stay live.
+    await prepareCliExecutableDiscovery();
+  }
   switch (request.method) {
     case "service.get-resource-metrics":
       await respond(

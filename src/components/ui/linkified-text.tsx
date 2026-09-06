@@ -2,7 +2,6 @@ import type { ElementType, HTMLAttributes } from "react";
 import { useMemo } from "react";
 import { splitTextByExternalUrls } from "@/lib/external-links";
 import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
-import { cn } from "@/lib/utils";
 import { ExternalAnchor } from "./external-anchor";
 import { ServiceLinkBadge } from "./service-link-badge";
 
@@ -43,7 +42,7 @@ export function LinkifiedText({
             <ExternalAnchor
               key={`${segment.href}-${index}`}
               href={segment.href}
-              className={cn(linkClassName)}
+              className={linkClassName}
             >
               {segment.text}
             </ExternalAnchor>

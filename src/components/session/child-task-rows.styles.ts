@@ -1,0 +1,175 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+
+export const childTaskRowsStyles = stylex.create({
+  row: {
+    minWidth: 0,
+    borderRadius: vars.radiusControl,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    backgroundColor: vars.colorSurfaceTint,
+    paddingInline: "0.625rem",
+    paddingBlock: vars.space8,
+  },
+  rowBorderDefault: { borderColor: vars.colorBorder },
+  rowBorderBlocked: { borderColor: vars.colorWarningBorder },
+  headerRow: {
+    display: "flex",
+    minWidth: 0,
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: vars.space8,
+    rowGap: vars.space4,
+  },
+  phaseBadge: {
+    flexShrink: 0,
+    borderRadius: vars.radiusMark,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    paddingInline: "0.375rem",
+    paddingBlock: "0.125rem",
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightSemibold,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  },
+  delegationName: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+    color: vars.colorText,
+  },
+  metaText: {
+    flexShrink: 0,
+    fontSize: vars.fontSizeMicro,
+    color: vars.colorTextMuted,
+  },
+  metaTextNums: {
+    flexShrink: 0,
+    fontSize: vars.fontSizeMicro,
+    fontVariantNumeric: "tabular-nums",
+    color: vars.colorTextMuted,
+  },
+  blockedHint: {
+    marginTop: vars.space4,
+    fontSize: vars.fontSizeMicro,
+    color: vars.colorWarning,
+  },
+  reasonText: {
+    marginTop: vars.space4,
+    fontSize: vars.fontSizeMicro,
+    color: vars.colorTextMuted,
+  },
+  errorText: {
+    marginTop: vars.space4,
+    fontSize: vars.fontSizeMicro,
+    color: vars.colorDanger,
+  },
+  actionsRow: {
+    marginTop: "0.375rem",
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: vars.space4,
+  },
+  composer: {
+    marginTop: "0.375rem",
+    borderRadius: vars.radiusControl,
+    borderWidth: vars.borderWidthHairline,
+    borderStyle: "solid",
+    borderColor: vars.colorBorder,
+    backgroundColor: vars.colorSurfaceTint,
+    padding: vars.space8,
+  },
+  composerLabel: {
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightMedium,
+    color: vars.colorText,
+  },
+  composerTextarea: {
+    marginTop: vars.space4,
+    minHeight: "4rem",
+    resize: "vertical",
+    backgroundColor: vars.colorCanvas,
+    fontSize: vars.fontSizeCaption,
+  },
+  composerActions: {
+    marginTop: "0.375rem",
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: vars.space4,
+  },
+  composerHint: { fontSize: vars.fontSizeMicro, color: vars.colorTextMuted },
+  actionIcon: { width: 12, height: 12 },
+  backlink: {
+    display: "flex",
+    minWidth: 0,
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: vars.space8,
+    rowGap: vars.space4,
+  },
+  backlinkLabel: {
+    flexShrink: 0,
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightSemibold,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    color: vars.colorTextMuted,
+  },
+  backlinkTitle: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: vars.fontSizeMicro,
+    color: vars.colorText,
+  },
+  sectionHeading: {
+    fontSize: vars.fontSizeMicro,
+    fontWeight: vars.fontWeightSemibold,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    color: vars.colorTextMuted,
+  },
+  sectionRoot: { minWidth: 0 },
+  sectionList: {
+    marginTop: "0.375rem",
+    display: "flex",
+    minWidth: 0,
+    flexDirection: "column",
+    gap: "0.375rem",
+  },
+});
+
+/** The phase tones, one style object per tone, colors from `vars`. */
+export const childTaskPhaseToneStyles = stylex.create({
+  active: {
+    borderColor: vars.colorAccent,
+    backgroundColor: vars.colorAccentSoft,
+    color: vars.colorAccent,
+  },
+  waiting: {
+    borderColor: vars.colorWarningBorder,
+    backgroundColor: vars.colorWarningSoft,
+    color: vars.colorWarning,
+  },
+  done: {
+    borderColor: vars.colorSuccessBorder,
+    backgroundColor: vars.colorSuccessSoft,
+    color: vars.colorSuccess,
+  },
+  failed: {
+    borderColor: vars.colorDangerBorder,
+    backgroundColor: vars.colorDangerSoft,
+    color: vars.colorDanger,
+  },
+  released: {
+    borderColor: vars.colorBorder,
+    backgroundColor: vars.colorSurfaceTint,
+    color: vars.colorTextMuted,
+  },
+});

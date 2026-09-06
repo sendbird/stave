@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -30,8 +31,10 @@ import type {
   GitHubPrReviewDetail,
   GitHubPrReviewEvent,
 } from "@/lib/github-pr-review";
-import { cn } from "@/lib/utils";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import { SourceControlReviewDialog } from "./SourceControlReviewDialog";
+import { reviewsStyles } from "./source-control-reviews-panel.styles";
 
 type ReviewDetailTab = "files" | "conversation" | "checks";
 
@@ -106,31 +109,32 @@ function InboxRow(props: {
 }) {
   return (
     <li>
-      <button
+      <AdsButton layout="host"
         type="button"
-        className="group flex min-h-16 w-full min-w-0 items-start gap-3 rounded-lg px-3 py-2.5 text-start outline-none transition-colors hover:bg-muted/55 focus-visible:bg-muted/55 focus-visible:ring-2 focus-visible:ring-ring/35"
+        xstyle={[reviewsStyles.inboxRow, transition.colors]}
         onClick={props.onSelect}
       >
-        <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground group-hover:text-foreground">
-          <GitPullRequest className="size-3.5" />
+        <span className={sx(reviewsStyles.inboxRowMark)}>
+          <GitPullRequest className={sx(reviewsStyles.iconSm)} />
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="truncate">{props.item.repositoryWithOwner}</span>
-            <span className="shrink-0">#{props.item.number}</span>
+        <span className={sx(reviewsStyles.inboxRowBody)}>
+          <span className={sx(reviewsStyles.inboxRowRepo)}>
+            <span className={sx(reviewsStyles.truncate)}>
+              {props.item.repositoryWithOwner}
+            </span>
+            <span className={sx(reviewsStyles.shrink0)}>
+              #{props.item.number}
+            </span>
             {props.item.isDraft ? (
-              <Badge
-                variant="outline"
-                className="h-5 shrink-0 px-1.5 text-[10px]"
-              >
+              <Badge variant="outline" className={sx(reviewsStyles.shrink0)}>
                 Draft
               </Badge>
             ) : null}
           </span>
-          <span className="mt-1 line-clamp-2 text-sm font-medium leading-5 text-foreground">
+          <span className={sx(reviewsStyles.inboxRowTitle)}>
             {props.item.title || "Untitled pull request"}
           </span>
-          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-4 text-muted-foreground">
+          <span className={sx(reviewsStyles.inboxRowMeta)}>
             <span>
               {props.kind === "review-requested"
                 ? `Review requested by @${props.item.authorLogin || "unknown"}`
@@ -139,7 +143,7 @@ function InboxRow(props: {
             <span>{formatRelativeTime(props.item.updatedAt)}</span>
           </span>
         </span>
-      </button>
+      </AdsButton>
     </li>
   );
 }
@@ -154,7 +158,7 @@ function InboxState(props: {
   if (props.isLoading) {
     return (
       <div
-        className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground"
+        className={sx(reviewsStyles.centeredStatus)}
         role="status"
       >
         <Loader aria-hidden size="xs" variant="verify" />
@@ -165,16 +169,16 @@ function InboxState(props: {
   if (props.error) {
     return (
       <div
-        className="m-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-3"
+        className={sx(reviewsStyles.errorBox)}
         role="alert"
       >
-        <div className="flex items-start gap-2">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">
+        <div className={sx(reviewsStyles.errorRow)}>
+          <TriangleAlert className={sx(reviewsStyles.errorIcon)} />
+          <div className={sx(reviewsStyles.detailHeaderText)}>
+            <p className={sx(reviewsStyles.errorTitle)}>
               Reviews unavailable
             </p>
-            <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
+            <p className={sx(reviewsStyles.errorDetail)}>
               {props.error}
             </p>
           </div>
@@ -184,16 +188,16 @@ function InboxState(props: {
   }
   if (props.items.length === 0) {
     return (
-      <div className="flex min-h-48 flex-col items-center justify-center px-6 text-center">
-        <span className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-          <ShieldCheck className="size-5" />
+      <div className={sx(reviewsStyles.emptyState)}>
+        <span className={sx(reviewsStyles.emptyMark)}>
+          <ShieldCheck className={sx(reviewsStyles.emptyMarkIcon)} />
         </span>
-        <p className="mt-3 text-sm font-medium text-foreground">
+        <p className={sx(reviewsStyles.emptyTitle)}>
           {props.kind === "review-requested"
             ? "No reviews waiting"
             : "No open pull requests"}
         </p>
-        <p className="mt-1 max-w-64 text-xs leading-5 text-muted-foreground">
+        <p className={sx(reviewsStyles.emptyBody)}>
           {props.kind === "review-requested"
             ? "Pull requests requesting your review will appear here."
             : "Open pull requests authored by you will appear here."}
@@ -202,7 +206,7 @@ function InboxState(props: {
     );
   }
   return (
-    <ul className="space-y-0.5 p-1.5">
+    <ul className={sx(reviewsStyles.inboxList)}>
       {props.items.map((item) => (
         <InboxRow
           key={item.url}
@@ -220,17 +224,17 @@ function FilesView(props: {
   onOpenDiff: (file: GitHubPrFile) => Promise<void>;
 }) {
   return (
-    <div className="space-y-2 p-2">
+    <div className={sx(reviewsStyles.filesPane)}>
       {props.detail.filesError ? (
-        <p className="rounded-lg bg-warning/8 px-3 py-2 text-xs leading-5 text-warning">
+        <p className={sx(reviewsStyles.filesWarning)}>
           {props.detail.filesError}
         </p>
       ) : null}
       {props.detail.files.map((file) => (
-        <button
+        <AdsButton layout="host"
           key={file.path}
           type="button"
-          className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-start outline-none transition-colors hover:bg-muted/55 focus-visible:bg-muted/55 focus-visible:ring-2 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-55"
+          xstyle={[reviewsStyles.fileRow, transition.colors]}
           disabled={!file.patch}
           onClick={() => void props.onOpenDiff(file)}
           title={
@@ -239,18 +243,18 @@ function FilesView(props: {
               : "GitHub did not return a patch for this file"
           }
         >
-          <FileCode2 className="size-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+          <FileCode2 className={sx(reviewsStyles.fileIcon)} />
+          <span className={sx(reviewsStyles.fileName)}>
             {file.path}
           </span>
-          <span className="shrink-0 font-mono text-[10px]">
-            <span className="text-success">+{file.additions}</span>{" "}
-            <span className="text-destructive">-{file.deletions}</span>
+          <span className={sx(reviewsStyles.fileDiffStat)}>
+            <span className={sx(reviewsStyles.additions)}>+{file.additions}</span>{" "}
+            <span className={sx(reviewsStyles.deletions)}>-{file.deletions}</span>
           </span>
-        </button>
+        </AdsButton>
       ))}
       {props.detail.filesTruncated ? (
-        <p className="px-2 py-2 text-xs leading-5 text-muted-foreground">
+        <p className={sx(reviewsStyles.filesFootnote)}>
           Showing the first {props.detail.files.length} of{" "}
           {props.detail.changedFiles} files.
         </p>
@@ -261,32 +265,32 @@ function FilesView(props: {
 
 function ConversationView(props: { detail: GitHubPrReviewDetail }) {
   return (
-    <div className="space-y-4 px-3 py-3">
-      <section className="space-y-2">
-        <p className="text-xs font-medium text-foreground">Description</p>
-        <p className="whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">
+    <div className={sx(reviewsStyles.conversationPane)}>
+      <section className={sx(reviewsStyles.conversationSection)}>
+        <p className={sx(reviewsStyles.sectionLabel)}>Description</p>
+        <p className={sx(reviewsStyles.bodyText)}>
           {props.detail.body || "No description provided."}
         </p>
       </section>
-      <section className="space-y-2">
-        <p className="text-xs font-medium text-foreground">Activity</p>
+      <section className={sx(reviewsStyles.conversationSection)}>
+        <p className={sx(reviewsStyles.sectionLabel)}>Activity</p>
         {props.detail.timeline.length === 0 ? (
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className={sx(reviewsStyles.mutedText)}>
             No submitted reviews or comments yet.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className={sx(reviewsStyles.timeline)}>
             {props.detail.timeline.map((item) => (
-              <li key={item.id} className="rounded-lg bg-muted/35 px-3 py-2.5">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
-                  <span className="font-medium text-foreground">
+              <li key={item.id} className={sx(reviewsStyles.timelineItem)}>
+                <div className={sx(reviewsStyles.timelineMeta)}>
+                  <span className={sx(reviewsStyles.timelineAuthor)}>
                     @{item.authorLogin || "unknown"}
                   </span>
                   <span>{reviewDecisionLabel(item.state)}</span>
                   <span>{formatRelativeTime(item.createdAt)}</span>
                 </div>
                 {item.body ? (
-                  <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-foreground/90">
+                  <p className={sx(reviewsStyles.timelineBody)}>
                     {item.body}
                   </p>
                 ) : null}
@@ -302,13 +306,13 @@ function ConversationView(props: { detail: GitHubPrReviewDetail }) {
 function ChecksView(props: { checks: GitHubPrCheck[] }) {
   if (props.checks.length === 0) {
     return (
-      <p className="px-4 py-8 text-center text-xs leading-5 text-muted-foreground">
+      <p className={sx(reviewsStyles.checksEmpty)}>
         No checks were reported for this head commit.
       </p>
     );
   }
   return (
-    <ul className="space-y-1 p-2">
+    <ul className={sx(reviewsStyles.checksList)}>
       {props.checks.map((check, index) => {
         const tone = checkTone(check);
         const Icon =
@@ -320,20 +324,20 @@ function ChecksView(props: { checks: GitHubPrCheck[] }) {
         return (
           <li
             key={`${check.name}:${index}`}
-            className="flex min-h-11 items-center gap-2 rounded-lg px-2.5 py-2"
+            className={sx(reviewsStyles.checkRow)}
           >
             <Icon
-              className={cn(
-                "size-4 shrink-0",
-                tone === "success" && "text-success",
-                tone === "fail" && "text-destructive",
-                tone === "pending" && "text-warning",
+              className={sx(
+                reviewsStyles.checkIcon,
+                tone === "success" && reviewsStyles.checkIconSuccess,
+                tone === "fail" && reviewsStyles.checkIconFail,
+                tone === "pending" && reviewsStyles.checkIconPending,
               )}
             />
-            <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+            <span className={sx(reviewsStyles.checkName)}>
               {check.name}
             </span>
-            <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <span className={sx(reviewsStyles.checkStatus)}>
               {check.conclusion || check.status || "pending"}
             </span>
           </li>
@@ -523,8 +527,8 @@ export function SourceControlReviewsPanel(props: {
 
   if (detail || isLoadingDetail || detailError) {
     return (
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="flex min-h-12 items-center gap-2 border-b border-border/80 px-2 py-1.5">
+      <div className={sx(reviewsStyles.shell)}>
+        <div className={sx(reviewsStyles.detailHeader)}>
           <Button
             type="button"
             size="icon-sm"
@@ -533,17 +537,17 @@ export function SourceControlReviewsPanel(props: {
             title="Back to review inbox"
             onClick={returnToInbox}
           >
-            <ArrowLeft className="size-4" />
+            <ArrowLeft className={sx(reviewsStyles.iconMd)} />
           </Button>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[11px] text-muted-foreground">
+          <div className={sx(reviewsStyles.detailHeaderText)}>
+            <p className={sx(reviewsStyles.breadcrumb)}>
               Reviews
               {detail
                 ? ` / ${detail.repositoryWithOwner}#${detail.number}`
                 : ""}
             </p>
             {detail ? (
-              <p className="truncate text-xs font-medium text-foreground">
+              <p className={sx(reviewsStyles.detailTitle)}>
                 {detail.title}
               </p>
             ) : null}
@@ -559,14 +563,14 @@ export function SourceControlReviewsPanel(props: {
                 void window.api?.shell?.openExternal?.({ url: detail.url })
               }
             >
-              <ExternalLink className="size-3.5" />
+              <ExternalLink className={sx(reviewsStyles.iconSm)} />
             </Button>
           ) : null}
         </div>
 
         {isLoadingDetail ? (
           <div
-            className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground"
+            className={sx(reviewsStyles.fillStatus)}
             role="status"
           >
             <Loader aria-hidden size="xs" variant="verify" />
@@ -574,65 +578,67 @@ export function SourceControlReviewsPanel(props: {
           </div>
         ) : detailError || !detail ? (
           <div
-            className="m-3 rounded-lg border border-destructive/25 bg-destructive/5 px-3 py-3"
+            className={sx(reviewsStyles.errorBox)}
             role="alert"
           >
-            <p className="text-sm font-medium text-foreground">
+            <p className={sx(reviewsStyles.errorTitle)}>
               Pull request unavailable
             </p>
-            <p className="mt-1 break-words text-xs leading-5 text-muted-foreground">
+            <p className={sx(reviewsStyles.errorDetail)}>
               {detailError || "Could not load the pull request."}
             </p>
           </div>
         ) : (
           <>
-            <div className="space-y-2 border-b border-border/70 px-3 py-2.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+            <div className={sx(reviewsStyles.summaryStrip)}>
+              <div className={sx(reviewsStyles.badgeRow)}>
+                <Badge variant="outline">
                   {reviewDecisionLabel(detail.reviewDecision)}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="h-5 px-1.5 font-mono text-[10px]"
+                  className={sx(reviewsStyles.monoBadge)}
                 >
                   {detail.headRefOid.slice(0, 8)}
                 </Badge>
                 {detail.isDraft ? (
-                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                    Draft
-                  </Badge>
+                  <Badge variant="outline">Draft</Badge>
                 ) : null}
               </div>
-              <p className="text-[11px] leading-4 text-muted-foreground">
+              <p className={sx(reviewsStyles.summaryLine)}>
                 @{detail.authorLogin} · {detail.baseRefName} ←{" "}
                 {detail.headRefName} ·{" "}
-                <span className="text-success">+{detail.additions}</span>{" "}
-                <span className="text-destructive">-{detail.deletions}</span>
+                <span className={sx(reviewsStyles.additions)}>
+                  +{detail.additions}
+                </span>{" "}
+                <span className={sx(reviewsStyles.deletions)}>
+                  -{detail.deletions}
+                </span>
               </p>
             </div>
 
             <Tabs
               value={detailTab}
               onValueChange={(value) => setDetailTab(value as ReviewDetailTab)}
-              className="flex min-h-0 flex-1 flex-col gap-0"
+              className={sx(reviewsStyles.tabs)}
             >
-              <div className="border-b border-border/70 px-2 py-1.5">
-                <TabsList className="h-auto w-full justify-start rounded-lg bg-muted/35 p-1">
+              <div className={sx(reviewsStyles.tabStrip)}>
+                <TabsList className={sx(reviewsStyles.tabList)}>
                   <TabsTrigger
                     value="files"
-                    className="h-7 flex-1 rounded-md px-2 text-[11px]"
+                    className={sx(reviewsStyles.tabTrigger)}
                   >
                     Files {detail.changedFiles}
                   </TabsTrigger>
                   <TabsTrigger
                     value="conversation"
-                    className="h-7 flex-1 rounded-md px-2 text-[11px]"
+                    className={sx(reviewsStyles.tabTrigger)}
                   >
                     Conversation
                   </TabsTrigger>
                   <TabsTrigger
                     value="checks"
-                    className="h-7 flex-1 rounded-md px-2 text-[11px]"
+                    className={sx(reviewsStyles.tabTrigger)}
                   >
                     Checks {detail.checks.length}
                   </TabsTrigger>
@@ -640,7 +646,7 @@ export function SourceControlReviewsPanel(props: {
               </div>
               <TabsContent
                 value="files"
-                className="min-h-0 flex-1 overflow-auto"
+                className={sx(reviewsStyles.tabPanel)}
               >
                 <FilesView
                   detail={detail}
@@ -649,19 +655,19 @@ export function SourceControlReviewsPanel(props: {
               </TabsContent>
               <TabsContent
                 value="conversation"
-                className="min-h-0 flex-1 overflow-auto"
+                className={sx(reviewsStyles.tabPanel)}
               >
                 <ConversationView detail={detail} />
               </TabsContent>
               <TabsContent
                 value="checks"
-                className="min-h-0 flex-1 overflow-auto"
+                className={sx(reviewsStyles.tabPanel)}
               >
                 <ChecksView checks={detail.checks} />
               </TabsContent>
             </Tabs>
 
-            <div className="shrink-0 border-t border-border/80 bg-card px-3 py-2.5">
+            <div className={sx(reviewsStyles.detailFooter)}>
               <SourceControlReviewDialog
                 open={reviewDialogOpen}
                 onOpenChange={(open) => {
@@ -676,7 +682,7 @@ export function SourceControlReviewsPanel(props: {
                 onSubmit={submitReview}
               />
               {detail.isDraft ? (
-                <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
+                <p className={sx(reviewsStyles.footerNote)}>
                   Draft pull requests cannot be approved yet.
                 </p>
               ) : null}
@@ -691,19 +697,19 @@ export function SourceControlReviewsPanel(props: {
     <Tabs
       value={kind}
       onValueChange={(value) => setKind(value as GitHubPrInboxKind)}
-      className="flex h-full min-h-0 flex-col gap-0"
+      className={sx(reviewsStyles.tabs, reviewsStyles.shell)}
     >
-      <div className="flex items-center gap-2 border-b border-border/80 px-2 py-1.5">
-        <TabsList className="h-auto min-w-0 flex-1 justify-start rounded-lg bg-muted/35 p-1">
+      <div className={sx(reviewsStyles.inboxStrip)}>
+        <TabsList className={sx(reviewsStyles.tabList)}>
           <TabsTrigger
             value="review-requested"
-            className="h-8 flex-1 rounded-md px-2 text-xs"
+            className={sx(reviewsStyles.tabTrigger)}
           >
             To review
           </TabsTrigger>
           <TabsTrigger
             value="authored"
-            className="h-8 flex-1 rounded-md px-2 text-xs"
+            className={sx(reviewsStyles.tabTrigger)}
           >
             My PRs
           </TabsTrigger>
@@ -718,13 +724,16 @@ export function SourceControlReviewsPanel(props: {
           onClick={() => void loadInbox()}
         >
           <RefreshCw
-            className={cn("size-3.5", isLoadingInbox && "animate-spin")}
+            className={sx(
+              reviewsStyles.iconSm,
+              isLoadingInbox && reviewsStyles.spinning,
+            )}
           />
         </Button>
       </div>
       <TabsContent
         value="review-requested"
-        className="min-h-0 flex-1 overflow-auto"
+        className={sx(reviewsStyles.tabPanel)}
         aria-live="polite"
       >
         <InboxState
@@ -737,7 +746,7 @@ export function SourceControlReviewsPanel(props: {
       </TabsContent>
       <TabsContent
         value="authored"
-        className="min-h-0 flex-1 overflow-auto"
+        className={sx(reviewsStyles.tabPanel)}
         aria-live="polite"
       >
         <InboxState
@@ -748,9 +757,9 @@ export function SourceControlReviewsPanel(props: {
           onSelect={(item) => void selectPullRequest(item)}
         />
       </TabsContent>
-      <div className="shrink-0 border-t border-border/70 px-3 py-2">
-        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <MessageSquare className="size-3" />
+      <div className={sx(reviewsStyles.inboxFooter)}>
+        <p className={sx(reviewsStyles.inboxFooterText)}>
+          <MessageSquare className={sx(reviewsStyles.iconXs)} />
           Reviews are submitted as your signed-in GitHub account.
         </p>
       </div>

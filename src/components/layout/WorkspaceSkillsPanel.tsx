@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -49,7 +50,9 @@ import {
 } from "@/components/ui/dialog";
 import { EditorMarkdownPreview } from "@/components/layout/editor-markdown-preview";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { cn } from "@/lib/utils";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { skillStyles } from "./workspace-skills.styles";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import type {
   SkillCatalogEntry,
@@ -150,16 +153,13 @@ function useInsertSkillToPrompt() {
 export function SkillInstructionsContent(props: {
   instructions: string;
   presentation?: "rendered" | "source";
-  className?: string;
+  xstyle?: StyleXValue;
 }) {
   if (props.presentation === "source") {
     return (
       <pre
         data-skill-instructions-source=""
-        className={cn(
-          "min-h-0 rounded-lg bg-muted/25 px-4 py-3 font-mono text-[13px] leading-6 text-foreground whitespace-pre-wrap break-words ring-1 ring-border/60",
-          props.className,
-        )}
+        className={sx(skillStyles.instructionsSource, props.xstyle)}
       >
         <code>{props.instructions}</code>
       </pre>
@@ -169,16 +169,13 @@ export function SkillInstructionsContent(props: {
   return (
     <div
       data-skill-instructions-rendered=""
-      className={cn(
-        "flex min-h-0 flex-col rounded-lg bg-surface px-4 py-3 text-foreground ring-1 ring-border/60",
-        props.className,
-      )}
+      className={sx(skillStyles.instructionsRendered, props.xstyle)}
     >
       <EditorMarkdownPreview
         content={props.instructions}
         fontSize={14}
         variant="embedded"
-        className="min-h-0 flex-1 overflow-visible bg-transparent [&>div]:min-h-full [&>div]:text-foreground [&_h1]:text-xl [&_h2]:text-lg [&_h3]:text-base [&_h4]:text-sm"
+        className={sx(skillStyles.instructionsPreview)}
       />
     </div>
   );
@@ -194,30 +191,34 @@ function SkillInstructionsDialog(props: {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="flex h-[min(88vh,56rem)] max-h-[88vh] max-w-5xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b border-border/60 px-7 py-5 pr-14">
+      <DialogContent xstyle={skillStyles.dialog}>
+        <DialogHeader className={sx(skillStyles.dialogHeader)}>
           <DialogTitle>{skill.name}</DialogTitle>
           <DialogDescription>
             {skill.description || "No description"}
           </DialogDescription>
         </DialogHeader>
         {skill.instructions ? (
-          <Tabs defaultValue="rendered" className="h-full min-h-0 flex-1 gap-0">
-            <div className="shrink-0 border-b border-border/60 px-7">
+          <Tabs
+            variant="line"
+            defaultValue="rendered"
+            className={sx(skillStyles.dialogTabs)}
+          >
+            <div className={sx(skillStyles.dialogTabBar)}>
               <TabsList
                 variant="line"
                 aria-label="Instruction view"
-                className="h-11 gap-5 rounded-none p-0"
+                className={sx(skillStyles.dialogTabList)}
               >
                 <TabsTrigger
                   value="rendered"
-                  className="h-11 flex-none px-0 text-[13px]"
+                  className={sx(skillStyles.dialogTab)}
                 >
                   Rendered
                 </TabsTrigger>
                 <TabsTrigger
                   value="source"
-                  className="h-11 flex-none px-0 text-[13px]"
+                  className={sx(skillStyles.dialogTab)}
                 >
                   Source
                 </TabsTrigger>
@@ -225,26 +226,23 @@ function SkillInstructionsDialog(props: {
             </div>
             <TabsContent
               value="rendered"
-              className="flex h-full min-h-0 flex-1 flex-col overflow-auto px-5 py-5 sm:px-7"
+              className={sx(skillStyles.dialogPanel)}
             >
               <SkillInstructionsContent
                 instructions={skill.instructions}
-                className="h-full min-h-full flex-1"
+                xstyle={skillStyles.instructionsFill}
               />
             </TabsContent>
-            <TabsContent
-              value="source"
-              className="flex h-full min-h-0 flex-1 flex-col overflow-auto px-5 py-5 sm:px-7"
-            >
+            <TabsContent value="source" className={sx(skillStyles.dialogPanel)}>
               <SkillInstructionsContent
                 instructions={skill.instructions}
                 presentation="source"
-                className="h-full min-h-full flex-1"
+                xstyle={skillStyles.instructionsFill}
               />
             </TabsContent>
           </Tabs>
         ) : (
-          <p className="flex min-h-0 flex-1 items-center justify-center px-7 py-8 text-sm text-muted-foreground">
+          <p className={sx(skillStyles.dialogEmpty)}>
             No instructions available.
           </p>
         )}
@@ -257,13 +255,9 @@ function SkillInstructionsDialog(props: {
 
 function SectionHeader(props: { title: string; count: number }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border/55 px-1 pt-4 pb-2">
-      <h3 className="text-[10px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-        {props.title}
-      </h3>
-      <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-        {props.count}
-      </span>
+    <div className={sx(skillStyles.sectionHeader)}>
+      <h3 className={sx(skillStyles.sectionTitle)}>{props.title}</h3>
+      <span className={sx(skillStyles.sectionCount)}>{props.count}</span>
     </div>
   );
 }
@@ -279,46 +273,44 @@ function SkillRow(props: {
   const sourceType = resolveSourceType(props.skill);
 
   return (
-    <div className="group flex w-full items-center gap-3 border-b border-border/45 px-1 py-3 text-left transition-colors hover:bg-accent/15 focus-within:bg-accent/15">
-      <button
+    <div className={sx(skillStyles.row)}>
+      <AdsButton
+        layout="host"
         type="button"
-        className="flex min-w-0 flex-1 items-center gap-3"
+        xstyle={skillStyles.rowOpen}
         onClick={props.onClick}
       >
-        <div className="flex shrink-0 items-center pt-0.5">
+        <div className={sx(skillStyles.rowScope)}>
           <ScopeIcon
             scope={props.skill.scope}
-            className="size-3.5 text-muted-foreground"
+            className={sx(skillStyles.rowScopeIcon)}
           />
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-medium text-foreground">
+        <div className={sx(skillStyles.rowBody)}>
+          <div className={sx(skillStyles.rowTitleLine)}>
+            <span className={sx(skillStyles.rowTitle)}>
               {props.skill.name}
             </span>
             <Badge
               variant={sourceTypeBadgeVariant(sourceType)}
-              className="h-[18px] rounded-sm px-1.5 py-0 text-[10px] uppercase tracking-wide"
+              className={sx(skillStyles.rowBadge)}
             >
               {sourceTypeLabel(sourceType)}
             </Badge>
             {props.skill.provider !== "shared" ? (
-              <Badge
-                variant="outline"
-                className="h-[18px] rounded-sm px-1.5 py-0 text-[10px]"
-              >
+              <Badge variant="outline" className={sx(skillStyles.rowBadge)}>
                 {providerLabel(props.skill.provider)}
               </Badge>
             ) : null}
           </div>
           {props.skill.description ? (
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            <p className={sx(skillStyles.rowDescription)}>
               {props.skill.description}
             </p>
           ) : null}
         </div>
-      </button>
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      </AdsButton>
+      <div className={sx(skillStyles.rowActions)}>
         {props.skill.instructions ? (
           <TooltipProvider>
             <Tooltip>
@@ -328,7 +320,7 @@ function SkillRow(props: {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="size-6 rounded-md"
+                    xstyle={skillStyles.iconButtonSm}
                     aria-label="View instructions"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -337,7 +329,7 @@ function SkillRow(props: {
                   />
                 }
               >
-                <Expand className="size-3" />
+                <Expand className={sx(skillStyles.glyphXs)} />
               </TooltipTrigger>
               <TooltipContent>View instructions</TooltipContent>
             </Tooltip>
@@ -351,7 +343,7 @@ function SkillRow(props: {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="size-6 rounded-md"
+                  xstyle={skillStyles.iconButtonSm}
                   aria-label="Insert into prompt"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -360,13 +352,13 @@ function SkillRow(props: {
                 />
               }
             >
-              <MessageSquarePlus className="size-3" />
+              <MessageSquarePlus className={sx(skillStyles.glyphXs)} />
             </TooltipTrigger>
             <TooltipContent>Insert into prompt</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
-      <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
+      <ChevronRight className={sx(skillStyles.rowChevron)} />
     </div>
   );
 }
@@ -375,32 +367,44 @@ function SkillRow(props: {
 
 export function SkillMetadataDetails(props: { skill: SkillCatalogEntry }) {
   const { skill } = props;
+  // StyleX has no parent selector, so the chevron reads React state rather
+  // than the `<details open>` attribute it used to inherit through `group-open`.
+  const [open, setOpen] = useState(false);
 
   return (
     <details
       data-skill-metadata-details=""
-      className="group rounded-lg bg-muted/20 text-xs text-muted-foreground"
+      className={sx(skillStyles.details)}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-2.5 py-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:bg-muted/35 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 [&::-webkit-details-marker]:hidden">
-        <ChevronRight className="size-3 shrink-0 transition-transform duration-150 group-open:rotate-90" />
+      <summary className={sx(skillStyles.summary, focusRing.ring)}>
+        <ChevronRight
+          className={sx(
+            skillStyles.summaryChevron,
+            open && skillStyles.summaryChevronOpen,
+          )}
+        />
         Details
       </summary>
-      <dl className="space-y-1.5 px-2.5 pb-2.5 pt-1">
-        <div className="flex gap-2">
-          <dt className="shrink-0 font-medium text-foreground/70">Slug</dt>
-          <dd className="min-w-0 truncate" title={skill.slug}>
+      <dl className={sx(skillStyles.detailsList)}>
+        <div className={sx(skillStyles.detailsRow)}>
+          <dt className={sx(skillStyles.detailsTerm)}>Slug</dt>
+          <dd className={sx(skillStyles.detailsValue)} title={skill.slug}>
             {skill.slug}
           </dd>
         </div>
-        <div className="flex gap-2">
-          <dt className="shrink-0 font-medium text-foreground/70">Path</dt>
-          <dd className="min-w-0 truncate" title={skill.path}>
+        <div className={sx(skillStyles.detailsRow)}>
+          <dt className={sx(skillStyles.detailsTerm)}>Path</dt>
+          <dd className={sx(skillStyles.detailsValue)} title={skill.path}>
             {skill.path}
           </dd>
         </div>
-        <div className="flex gap-2">
-          <dt className="shrink-0 font-medium text-foreground/70">Root</dt>
-          <dd className="min-w-0 truncate" title={skill.sourceRootPath}>
+        <div className={sx(skillStyles.detailsRow)}>
+          <dt className={sx(skillStyles.detailsTerm)}>Root</dt>
+          <dd
+            className={sx(skillStyles.detailsValue)}
+            title={skill.sourceRootPath}
+          >
             {skill.sourceRootPath}
           </dd>
         </div>
@@ -434,53 +438,51 @@ export function SkillDetail(props: {
   }, [skill.path]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className={sx(skillStyles.detail)}>
       {/* Detail header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-2 py-2">
+      <div className={sx(skillStyles.detailHeader)}>
         <Button
           size="icon"
           variant="ghost"
-          className="size-7 rounded-md"
+          xstyle={skillStyles.iconButtonMd}
           aria-label="Back to skills"
           onClick={props.onBack}
         >
-          <ArrowLeft className="size-3.5" />
+          <ArrowLeft className={sx(skillStyles.glyphSm)} />
         </Button>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-          {skill.name}
-        </span>
+        <span className={sx(skillStyles.detailTitle)}>{skill.name}</span>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
               <Button
                 size="icon"
                 variant="ghost"
-                className="size-7 rounded-md"
+                xstyle={skillStyles.iconButtonMd}
                 aria-label="More skill actions"
               />
             }
           >
-            <MoreHorizontal className="size-3.5" />
+            <MoreHorizontal className={sx(skillStyles.glyphSm)} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent align="end" className={sx(skillStyles.detailMenu)}>
             <DropdownMenuItem onSelect={handleCopyInvocationToken}>
-              <Copy className="size-4" />
+              <Copy className={sx(skillStyles.glyphMd)} />
               Copy invocation token
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={handleCopyPath}>
-              <Copy className="size-4" />
+              <Copy className={sx(skillStyles.glyphMd)} />
               Copy path
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={handleOpenInFinder}>
-              <ExternalLink className="size-4" />
+              <ExternalLink className={sx(skillStyles.glyphMd)} />
               Reveal in Finder
             </DropdownMenuItem>
             {props.onOpenSettings ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={props.onOpenSettings}>
-                  <Settings2 className="size-4" />
+                  <Settings2 className={sx(skillStyles.glyphMd)} />
                   Open Skills settings
                 </DropdownMenuItem>
               </>
@@ -492,35 +494,35 @@ export function SkillDetail(props: {
       {/* Detail body */}
       <div
         data-skill-detail-body=""
-        className="min-h-0 flex-1 overflow-hidden px-3 py-3"
+        className={sx(skillStyles.detailBody)}
       >
-        <div className="flex h-full min-h-0 flex-col gap-4">
+        <div className={sx(skillStyles.detailColumn)}>
           <div
             data-skill-detail-overview=""
-            className={cn(
-              "min-h-0 space-y-4 pr-1",
+            className={sx(
+              skillStyles.overview,
               skill.instructions
-                ? "max-h-[42%] shrink-0 overflow-y-auto overscroll-contain pb-1"
-                : "flex-1 overflow-y-auto",
+                ? skillStyles.overviewScrolled
+                : skillStyles.overviewFull,
             )}
           >
             {/* Badges row */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className={sx(skillStyles.badgeRow)}>
               <Badge
                 variant={sourceTypeBadgeVariant(sourceType)}
-                className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
+                className={sx(skillStyles.detailBadge)}
               >
                 {sourceTypeLabel(sourceType)}
               </Badge>
               <Badge
                 variant="outline"
-                className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
+                className={sx(skillStyles.detailBadge)}
               >
                 {providerLabel(skill.provider)}
               </Badge>
               <Badge
                 variant="secondary"
-                className="rounded-sm px-2 py-0.5 text-[10px] uppercase tracking-wide"
+                className={sx(skillStyles.detailBadge)}
               >
                 {scopeLabel(skill.scope)}
               </Badge>
@@ -528,23 +530,17 @@ export function SkillDetail(props: {
 
             {/* Description */}
             {skill.description ? (
-              <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  Description
-                </p>
-                <p className="text-sm leading-relaxed text-foreground">
-                  {skill.description}
-                </p>
+              <div className={sx(skillStyles.field)}>
+                <p className={sx(skillStyles.fieldLabel)}>Description</p>
+                <p className={sx(skillStyles.fieldText)}>{skill.description}</p>
               </div>
             ) : null}
 
             {/* Token */}
-            <div className="space-y-1">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Invocation
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="rounded-md border border-border/70 bg-background/60 px-2 py-1 font-mono text-sm">
+            <div className={sx(skillStyles.field)}>
+              <p className={sx(skillStyles.fieldLabel)}>Invocation</p>
+              <div className={sx(skillStyles.tokenRow)}>
+                <code className={sx(skillStyles.tokenCode)}>
                   {skill.invocationToken}
                 </code>
                 <TooltipProvider>
@@ -554,13 +550,13 @@ export function SkillDetail(props: {
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="size-6 rounded-md"
+                          xstyle={skillStyles.iconButtonSm}
                           aria-label="Copy invocation token"
                           onClick={handleCopyInvocationToken}
                         />
                       }
                     >
-                      <Copy className="size-3" />
+                      <Copy className={sx(skillStyles.glyphXs)} />
                     </TooltipTrigger>
                     <TooltipContent>Copy token</TooltipContent>
                   </Tooltip>
@@ -569,11 +565,11 @@ export function SkillDetail(props: {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  className="h-7 gap-1.5 rounded-md px-2"
+                  xstyle={skillStyles.insertButton}
                   onClick={props.onUse}
                   aria-label="Insert into prompt"
                 >
-                  <MessageSquarePlus className="size-3.5" />
+                  <MessageSquarePlus className={sx(skillStyles.glyphSm)} />
                   Insert
                 </Button>
               </div>
@@ -586,12 +582,10 @@ export function SkillDetail(props: {
           {skill.instructions ? (
             <div
               data-skill-detail-instructions=""
-              className="flex min-h-0 flex-1 flex-col gap-1"
+              className={sx(skillStyles.instructionsBlock)}
             >
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  Instructions
-                </p>
+              <div className={sx(skillStyles.instructionsHead)}>
+                <p className={sx(skillStyles.fieldLabel)}>Instructions</p>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger
@@ -599,13 +593,13 @@ export function SkillDetail(props: {
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="size-6 rounded-md"
+                          xstyle={skillStyles.iconButtonSm}
                           aria-label="View full instructions"
                           onClick={props.onViewInstructions}
                         />
                       }
                     >
-                      <Expand className="size-3" />
+                      <Expand className={sx(skillStyles.glyphXs)} />
                     </TooltipTrigger>
                     <TooltipContent>View full instructions</TooltipContent>
                   </Tooltip>
@@ -613,7 +607,7 @@ export function SkillDetail(props: {
               </div>
               <SkillInstructionsContent
                 instructions={skill.instructions}
-                className="min-h-0 flex-1 overflow-auto px-3 py-2.5"
+                xstyle={skillStyles.instructionsPreviewPane}
               />
             </div>
           ) : null}
@@ -770,11 +764,11 @@ export function WorkspaceSkillsPanel(props: {
   /* ── Disabled state ── */
   if (!skillsEnabled) {
     return (
-      <div className="flex h-full flex-col items-center justify-center px-4">
-        <Empty className="border border-dashed border-border/70 bg-muted/15">
+      <div className={sx(skillStyles.disabled)}>
+        <Empty xstyle={skillStyles.disabledEmpty}>
           <EmptyHeader>
             <EmptyMedia>
-              <Search className="size-4" />
+              <Search className={sx(skillStyles.glyphMd)} />
             </EmptyMedia>
             <EmptyTitle>Skills disabled</EmptyTitle>
             <EmptyDescription>
@@ -786,10 +780,10 @@ export function WorkspaceSkillsPanel(props: {
               type="button"
               size="sm"
               variant="outline"
-              className="mt-1 h-8 rounded-md"
+              xstyle={skillStyles.disabledAction}
               onClick={openSkillSettings}
             >
-              <Settings2 className="mr-1 size-4" />
+              <Settings2 className={sx(skillStyles.disabledActionIcon)} />
               Open Settings
             </Button>
           ) : null}
@@ -801,47 +795,47 @@ export function WorkspaceSkillsPanel(props: {
   /* ── List view ── */
   return (
     <>
-      <div className="flex h-full flex-col">
+      <div className={sx(skillStyles.panel)}>
         {/* Header bar */}
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/45 px-3 py-2.5">
-          <div className="min-w-0">
-            <span className="block text-sm font-semibold text-foreground">
+        <div className={sx(skillStyles.panelHeader)}>
+          <div className={sx(skillStyles.panelHeaderText)}>
+            <span className={sx(skillStyles.panelCount)}>
               {skillCatalog.status === "loading"
                 ? "Loading..."
                 : `${filteredSkills.length} skill${filteredSkills.length !== 1 ? "s" : ""}`}
             </span>
-            <span className="block truncate text-[11px] text-muted-foreground">
+            <span className={sx(skillStyles.panelHint)}>
               Inspect instructions or insert a skill directly into the prompt.
             </span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className={sx(skillStyles.panelActions)}>
             {props.onOpenSettings ? (
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="size-7 rounded-md"
+                xstyle={skillStyles.iconButtonMd}
                 onClick={openSkillSettings}
                 title="Skills Settings"
                 aria-label="Open skills settings"
               >
-                <Settings2 className="size-3.5" />
+                <Settings2 className={sx(skillStyles.glyphSm)} />
               </Button>
             ) : null}
             <Button
               type="button"
               size="icon"
               variant="ghost"
-              className="size-7 rounded-md"
+              xstyle={skillStyles.iconButtonMd}
               onClick={() => void refreshSkillCatalog({ workspacePath })}
               disabled={skillCatalog.status === "loading"}
               title="Refresh"
               aria-label="Refresh skills"
             >
               <RefreshCcw
-                className={cn(
-                  "size-3.5",
-                  skillCatalog.status === "loading" && "animate-spin",
+                className={sx(
+                  skillStyles.glyphSm,
+                  skillCatalog.status === "loading" && skillStyles.spinning,
                 )}
               />
             </Button>
@@ -849,39 +843,40 @@ export function WorkspaceSkillsPanel(props: {
         </div>
 
         {/* Search */}
-        <div className="shrink-0 px-3 py-2">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <div className={sx(skillStyles.searchSlot)}>
+          <div className={sx(skillStyles.searchAnchor)}>
+            <Search className={sx(skillStyles.searchIcon)} />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 border-transparent bg-muted/35 pl-7 pr-7 text-sm hover:border-border/70"
+              xstyle={skillStyles.searchInput}
               placeholder="Find a skill by name, provider, or purpose…"
               aria-label="Search skills"
             />
             {searchQuery ? (
-              <button
+              <AdsButton
+                layout="host"
                 type="button"
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                xstyle={skillStyles.searchClear}
                 onClick={() => setSearchQuery("")}
                 aria-label="Clear skill search"
               >
-                <X className="size-3.5" />
-              </button>
+                <X className={sx(skillStyles.glyphSm)} />
+              </AdsButton>
             ) : null}
           </div>
         </div>
 
         {/* Skill list */}
-        <div className="min-h-0 flex-1 overflow-auto px-3 pb-2">
+        <div className={sx(skillStyles.list)}>
           {skillCatalog.status === "loading" &&
           skillCatalog.skills.length === 0 ? (
-            <div className="px-1 py-4 text-xs text-muted-foreground">
+            <div className={sx(skillStyles.listStatus)}>
               Discovering skills...
             </div>
           ) : filteredSkills.length === 0 ? (
-            <div className="px-1 py-4 text-center">
-              <p className="text-sm text-muted-foreground">
+            <div className={sx(skillStyles.listEmpty)}>
+              <p className={sx(skillStyles.listEmptyText)}>
                 {searchQuery ? "No matching skills." : "No skills found."}
               </p>
             </div>

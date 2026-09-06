@@ -1,14 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { createElement, createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   GIT_GRAPH_LANE_PALETTE,
   GitGraphCanvas,
 } from "@/components/git-graph/GitGraphCanvas";
+import { gitGraphCanvasStyles } from "@/components/git-graph/git-graph-canvas.styles";
 import {
   GitGraphToolbar,
   shouldSeparateRemoteBranches,
 } from "@/components/git-graph/GitGraphToolbar";
+import { gitGraphToolbarStyles } from "@/components/git-graph/git-graph-toolbar.styles";
 import {
   GitGraphWorkingTreeRow,
   ROW_HEIGHT,
@@ -68,10 +71,13 @@ describe("Commit graph toolbar", () => {
     );
 
     expect(html).toContain('data-testid="git-graph-toolbar"');
-    expect(html).toContain("grid-cols-[minmax(0,1fr)_auto]");
-    expect(html).toContain("row-start-2");
-    expect(html).toContain("@min-[30rem]/git-graph-toolbar:row-start-1");
-    expect(html).toContain("pr-36");
+    // The compact layout is carried by the toolbar root grid and the search
+    // lane; assert the StyleX classes they compile to are actually applied
+    // rather than the removed Tailwind utility strings.
+    expect(html).toContain(sx(gitGraphToolbarStyles.root));
+    expect(html).toContain(sx(gitGraphToolbarStyles.searchWrap));
+    // A query with no matches reserves room for the match-count controls.
+    expect(html).toContain(sx(gitGraphToolbarStyles.searchInputWithMatches));
     expect(html).toContain('aria-label="Working tree status unavailable"');
   });
 
@@ -176,7 +182,7 @@ describe("Commit graph toolbar", () => {
       "#596ED9",
       "#1D8572",
     ]);
-    expect(html).toContain("z-[2]");
+    expect(html).toContain(sx(gitGraphCanvasStyles.svg));
     expect(html).not.toContain("stroke-dasharray");
     expect(html.match(/<circle/g)).toHaveLength(3);
     expect(html).toContain('stroke="#808080"');

@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Bird,
@@ -8,6 +9,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { Badge, Button, Input, Loader, toast } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import type { MartinProjectSummary } from "@/lib/martin-sync/contract";
 import {
   isMartinConnectorPaired,
@@ -15,6 +17,7 @@ import {
 } from "@/lib/martin-sync/visibility";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
+import { workspaceInformationMartinCardStyles as styles } from "./workspace-information-martin-card.styles";
 
 export function useMartinInformationCardAvailable() {
   const martinProject = useAppStore(
@@ -186,28 +189,25 @@ export function WorkspaceInformationMartinCard() {
   return (
     <section
       aria-label="Martin project"
-      className="rounded-lg border border-border/70 bg-card/60 p-3"
+      className={sx(styles.root)}
     >
-      <div className="flex items-start gap-2.5">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/70 bg-muted/50">
-          <Bird className="size-4 text-muted-foreground" />
+      <div className={sx(styles.head)}>
+        <span className={sx(styles.iconBox)}>
+          <Bird className={sx(styles.icon)} />
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-medium text-foreground">
+        <div className={sx(styles.headBody)}>
+          <div className={sx(styles.titleRow)}>
+            <h3 className={sx(styles.title)}>
               Martin project
             </h3>
             {project?.stale ? (
-              <Badge
-                variant="outline"
-                className="border-warning/35 bg-warning/10 text-warning"
-              >
-                <TriangleAlert className="size-3" />
+              <Badge variant="warning">
+                <TriangleAlert className={sx(styles.staleIcon)} />
                 Stale
               </Badge>
             ) : null}
           </div>
-          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+          <p className={sx(styles.headNote)}>
             {project
               ? "Project context is available to tasks in this workspace."
               : "Link this workspace to share events and pull project context."}
@@ -216,27 +216,28 @@ export function WorkspaceInformationMartinCard() {
       </div>
 
       {project ? (
-        <div className="mt-3 space-y-3">
-          <button
+        <div className={sx(styles.linkedBody)}>
+          <AdsButton
+            layout="host"
             type="button"
-            className="group flex max-w-full items-center gap-1.5 text-left text-sm font-medium text-foreground hover:text-primary"
+            xstyle={styles.openProject}
             onClick={openProject}
           >
-            <span className="truncate">{project.name}</span>
-            <ExternalLink className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
-          </button>
-          <p className="text-xs text-muted-foreground">
+            <span className={sx(styles.openProjectName)}>{project.name}</span>
+            <ExternalLink className={sx(styles.openProjectIcon)} />
+          </AdsButton>
+          <p className={sx(styles.meta)}>
             {project.lastPulledAt
               ? `Last pulled ${formatTaskUpdatedAt({ value: project.lastPulledAt })}`
               : "Context has not been pulled yet."}
           </p>
           {project.stale ? (
-            <p className="rounded-md border border-warning/35 bg-warning/10 px-2.5 py-2 text-xs leading-5 text-warning">
+            <p className={sx(styles.staleNotice)}>
               The linked project is missing or archived. Refresh to check it
               again, or unlink this workspace.
             </p>
           ) : null}
-          <div className="flex flex-wrap gap-2">
+          <div className={sx(styles.actionRow)}>
             <Button
               type="button"
               size="xs"
@@ -247,7 +248,7 @@ export function WorkspaceInformationMartinCard() {
               {busy === "refresh" ? (
                 <Loader aria-hidden size="xs" variant="sync" />
               ) : (
-                <RefreshCw className="size-3.5" />
+                <RefreshCw className={sx(styles.actionIcon)} />
               )}
               Refresh
             </Button>
@@ -261,22 +262,22 @@ export function WorkspaceInformationMartinCard() {
               {busy === "unlink" ? (
                 <Loader aria-hidden size="xs" variant="sync" />
               ) : (
-                <Unlink className="size-3.5" />
+                <Unlink className={sx(styles.actionIcon)} />
               )}
               Unlink
             </Button>
           </div>
         </div>
       ) : (
-        <div className="mt-3 space-y-2.5">
-          <form className="flex gap-2" onSubmit={searchProjects}>
+        <div className={sx(styles.searchBody)}>
+          <form className={sx(styles.searchForm)} onSubmit={searchProjects}>
             <Input
               value={query}
               disabled={busy !== null || !activeWorkspaceId}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search projects"
               aria-label="Search Martin projects"
-              className="h-8"
+              xstyle={styles.searchInput}
             />
             <Button
               type="submit"
@@ -287,40 +288,40 @@ export function WorkspaceInformationMartinCard() {
               {busy === "search" ? (
                 <Loader aria-hidden size="xs" variant="sync" />
               ) : (
-                <Search className="size-3.5" />
+                <Search className={sx(styles.actionIcon)} />
               )}
               Search
             </Button>
           </form>
 
           {error ? (
-            <p className="text-xs leading-5 text-destructive">{error}</p>
+            <p className={sx(styles.error)}>{error}</p>
           ) : null}
           {searched && results.length === 0 && !error ? (
-            <p className="text-xs text-muted-foreground">
+            <p className={sx(styles.emptyResults)}>
               No matching projects.
             </p>
           ) : null}
           {results.length > 0 ? (
-            <div className="max-h-52 space-y-1 overflow-y-auto">
+            <div className={sx(styles.results)}>
               {results.map((result) => (
                 <div
                   key={result.ref}
-                  className="flex items-start gap-2 rounded-md border border-border/60 bg-background/45 px-2.5 py-2"
+                  className={sx(styles.resultRow)}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="truncate text-xs font-medium text-foreground">
+                  <div className={sx(styles.resultBody)}>
+                    <div className={sx(styles.resultTitleRow)}>
+                      <p className={sx(styles.resultName)}>
                         {result.name}
                       </p>
                       {result.status === "archived" ? (
-                        <Badge variant="outline" className="h-5 text-[10px]">
+                        <Badge variant="outline" className={sx(styles.resultBadge)}>
                           Archived
                         </Badge>
                       ) : null}
                     </div>
                     {result.summary ? (
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                      <p className={sx(styles.resultSummary)}>
                         {result.summary}
                       </p>
                     ) : null}

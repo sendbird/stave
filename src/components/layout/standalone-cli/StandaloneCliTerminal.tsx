@@ -1,3 +1,6 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
+import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import {
   useCallback,
   useEffect,
@@ -272,50 +275,50 @@ export function StandaloneCliTerminal(props: {
   const status = bridgeError || terminalInstance.error || null;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div className={sx(styles.terminalColumn)}>
       {/* Header stays at child index 0 and the terminal frame at index 1, so
           React never remounts the viewport when header content changes. The
           restart control lives here rather than floating over the terminal,
           where it would occlude a full-screen TUI's top-right corner and
           swallow every click in that region. */}
-      <div className="flex shrink-0 items-center justify-end gap-2 border-b border-border/70 bg-card px-3 py-1.5">
-        <button
+      <div className={sx(styles.terminalHeader)}>
+        <AdsButton layout="host"
           type="button"
           aria-label="Restart CLI session"
-          className="rounded border border-border/70 bg-card px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+          xstyle={styles.restartButton}
           onClick={restartActiveSession}
         >
           Restart
-        </button>
+        </AdsButton>
       </div>
       <div className={TERMINAL_SURFACE_PANEL_CLASS_NAME}>
         <div className={TERMINAL_SURFACE_VIEWPORT_CLASS_NAME}>
           {status ? (
             <div
               role="alert"
-              className="absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 border-b border-border/70 bg-card px-3 py-2 text-xs text-destructive"
+              className={sx(styles.statusBanner)}
             >
-              <span className="truncate">{status}</span>
-              <button
+              <span className={sx(styles.statusText)}>{status}</span>
+              <AdsButton layout="host"
                 type="button"
-                className="shrink-0 rounded px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                xstyle={styles.statusAction}
                 onClick={() => setRendererRestartToken((value) => value + 1)}
               >
                 Restart renderer
-              </button>
+              </AdsButton>
             </div>
           ) : null}
           {sessionExited ? (
             <div
               role="status"
-              className="absolute inset-x-0 bottom-0 z-20 border-t border-border/70 bg-card px-3 py-2 text-xs text-muted-foreground"
+              className={sx(styles.exitedBanner)}
             >
               Session exited. Use Restart to start a new one.
             </div>
           ) : null}
           {!terminalInstance.ready ? (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-terminal">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className={sx(styles.bootOverlay)}>
+              <div className={sx(styles.bootLabel)}>
                 <Loader aria-hidden size="xs" variant="spinner" />
                 <span>Initializing terminal…</span>
               </div>

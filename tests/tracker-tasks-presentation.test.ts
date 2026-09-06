@@ -23,20 +23,12 @@ describe("presentation tables", () => {
     for (const category of TRACKER_STATUS_CATEGORIES) {
       const entry = TRACKER_STATUS_PRESENTATION[category];
       expect(entry.label.length).toBeGreaterThan(0);
-      expect(entry.toneClassName.length).toBeGreaterThan(0);
+      expect(entry.tone.length).toBeGreaterThan(0);
     }
-    expect(TRACKER_STATUS_PRESENTATION.in_progress.toneClassName).toContain(
-      "text-info",
-    );
-    expect(TRACKER_STATUS_PRESENTATION.in_review.toneClassName).toContain(
-      "text-warning",
-    );
-    expect(TRACKER_STATUS_PRESENTATION.done.toneClassName).toContain(
-      "text-muted-foreground",
-    );
-    expect(TRACKER_STATUS_PRESENTATION.closed.toneClassName).toContain(
-      "text-muted-foreground",
-    );
+    expect(TRACKER_STATUS_PRESENTATION.in_progress.tone).toContain("info");
+    expect(TRACKER_STATUS_PRESENTATION.in_review.tone).toContain("warning");
+    expect(TRACKER_STATUS_PRESENTATION.done.tone).toContain("neutral");
+    expect(TRACKER_STATUS_PRESENTATION.closed.tone).toContain("neutral");
   });
 
   it("covers every priority level with an icon name, not a component", () => {
@@ -46,12 +38,8 @@ describe("presentation tables", () => {
       expect(entry.label.length).toBeGreaterThan(0);
     }
     expect(TRACKER_PRIORITY_PRESENTATION.urgent.iconName).toBe("ChevronsUp");
-    expect(TRACKER_PRIORITY_PRESENTATION.urgent.toneClassName).toBe(
-      "text-destructive",
-    );
-    expect(TRACKER_PRIORITY_PRESENTATION.high.toneClassName).toBe(
-      "text-warning",
-    );
+    expect(TRACKER_PRIORITY_PRESENTATION.urgent.tone).toBe("danger");
+    expect(TRACKER_PRIORITY_PRESENTATION.high.tone).toBe("warning");
     expect(TRACKER_PRIORITY_PRESENTATION.none.iconName).toBe("Minus");
   });
 });
@@ -308,7 +296,7 @@ describe("isSafeCssColor", () => {
 });
 
 describe("resolveTrackerLabelColor", () => {
-  it("maps every Crane semantic token onto a theme class", () => {
+  it("preserves every Crane semantic token for themed rendering", () => {
     // Crane stores one of these seven, not a CSS value. Treating the field as
     // CSS dropped all of them, so every Crane label rendered without its dot.
     for (const token of [
@@ -322,9 +310,7 @@ describe("resolveTrackerLabelColor", () => {
     ]) {
       const resolved = resolveTrackerLabelColor(token);
       expect(resolved?.kind).toBe("token");
-      expect(
-        resolved?.kind === "token" ? resolved.className : "",
-      ).toMatch(/^bg-/);
+      expect(resolved?.kind === "token" ? resolved.token : "").toBe(token);
     }
   });
 

@@ -165,7 +165,7 @@ function removeSuffixOverlap(completionText: string, suffix: string): string {
   for (let n = maxCheck; n >= 1; n--) {
     const completionTail = completionLines.slice(-n);
     const suffixHead = suffixLines.slice(0, n);
-    if (completionTail.every((line, i) => line.trimEnd() === suffixHead[i].trimEnd())) {
+    if (completionTail.every((line, i) => line.trimEnd() === suffixHead[i]?.trimEnd())) {
       return completionLines.slice(0, -n).join("\n");
     }
   }

@@ -1,3 +1,4 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   useCallback,
   useEffect,
@@ -34,6 +35,8 @@ import {
   resolvePlanViewerState,
   type PlanViewerViewState,
 } from "@/components/session/plan-viewer.utils";
+import { planViewerElementStyles as styles } from "@/components/session/plan-viewer.styles";
+import { sx } from "@/components/ads/utils/stylex";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 import { useShallow } from "zustand/react/shallow";
@@ -435,52 +438,56 @@ export function PlanViewer() {
     <div ref={outerRef} className={wrapperClassName} style={wrapperStyle}>
       <div className={cardClassName}>
         {/* Header */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-border/80 px-4 py-2.5">
+        <div className={sx(styles.header)}>
           {/* Drag handle: title area only — buttons remain independently clickable */}
           <div
-            className={[
-              "flex min-w-0 flex-1 select-none items-center gap-2 overflow-hidden",
-              isMinimized ? "cursor-grab" : "",
-            ].join(" ")}
+            className={sx(
+              styles.dragHandle,
+              isMinimized && styles.dragHandleGrab,
+            )}
             onPointerDown={isMinimized ? onHeaderPointerDown : undefined}
             onPointerMove={isMinimized ? onHeaderPointerMove : undefined}
             onPointerUp={isMinimized ? onHeaderPointerUp : undefined}
             onPointerCancel={isMinimized ? onHeaderPointerUp : undefined}
           >
-            <ClipboardCheck className="size-4 shrink-0 text-primary" />
-            <p className="flex-1 truncate text-sm font-medium">
+            <ClipboardCheck
+              aria-hidden
+              size={16}
+              className={sx(styles.headerIcon)}
+            />
+            <p className={sx(styles.headerTitle)}>
               {`Review ${providerLabel}'s Plan`}
             </p>
           </div>
-          <button
+          <AdsButton layout="host" type="submit"
             onClick={() => setViewState(isMinimized ? "normal" : "minimized")}
-            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            xstyle={styles.headerButton}
             title={isMinimized ? "Restore" : "Minimize"}
           >
-            <Minus className="size-4" />
-          </button>
-          <button
+            <Minus aria-hidden size={16} />
+          </AdsButton>
+          <AdsButton layout="host" type="submit"
             onClick={() => setViewState(isExpanded ? "normal" : "expanded")}
-            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            xstyle={styles.headerButton}
             title={isExpanded ? "Restore" : "Expand"}
           >
-            <Maximize2 className="size-3.5" />
-          </button>
+            <Maximize2 aria-hidden size={14} />
+          </AdsButton>
         </div>
 
         {/* Body — hidden when minimized */}
         {!isMinimized && (
           <>
             <div
-              className={[
-                "min-h-0 overflow-y-auto px-4 py-3",
-                isExpanded ? "flex-1" : "max-h-72",
-              ].join(" ")}
+              className={sx(
+                styles.body,
+                isExpanded ? styles.bodyExpanded : styles.bodyNormal,
+              )}
             >
               <MessageResponse>{planText || "Plan ready."}</MessageResponse>
             </div>
             {revising ? (
-              <div className="shrink-0 p-3">
+              <div className={sx(styles.reviseRegion)}>
                 <Textarea
                   autoFocus
                   value={revisionText}
@@ -503,9 +510,9 @@ export function PlanViewer() {
                     }
                   }}
                   placeholder={`Tell ${providerLabel} what to change\u2026`}
-                  className="min-h-[72px] rounded-lg border-border/70 bg-background text-base leading-7"
+                  xstyle={styles.revisionField}
                 />
-                <div className="mt-2 flex items-center gap-2">
+                <div className={sx(styles.reviseActions)}>
                   <Button
                     size="sm"
                     onClick={() => void handleRevise()}
@@ -531,14 +538,14 @@ export function PlanViewer() {
                 </div>
               </div>
             ) : (
-              <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-3">
+              <div className={sx(styles.actionRow)}>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleCopy}
                   disabled={!planText}
                 >
-                  <Copy className="size-3.5" />
+                  <Copy />
                   {copied ? "Copied!" : "Copy"}
                 </Button>
                 <Button
@@ -547,7 +554,7 @@ export function PlanViewer() {
                   onClick={handleHandoff}
                   disabled={isManagedTask || !planText}
                 >
-                  <ArrowRightCircle className="size-3.5" />
+                  <ArrowRightCircle />
                   Handoff
                 </Button>
                 <Button
@@ -563,7 +570,7 @@ export function PlanViewer() {
                   {planResponsePending ? (
                     <Loader aria-hidden size="xs" variant="persist" />
                   ) : (
-                    <ClipboardCheck className="size-3.5" />
+                    <ClipboardCheck />
                   )}
                   Approve
                 </Button>
@@ -592,12 +599,12 @@ export function PlanViewer() {
                     }
                     onClick={handleCancelPlan}
                   >
-                    <XCircle className="size-3.5" />
+                    <XCircle />
                     Cancel plan
                   </Button>
                 ) : null}
                 {replyNotice ? (
-                  <p className="text-xs text-muted-foreground">{replyNotice}</p>
+                  <p className={sx(styles.notice)}>{replyNotice}</p>
                 ) : null}
               </div>
             )}

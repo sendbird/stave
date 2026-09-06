@@ -5,7 +5,9 @@ import {
   displayUserInputOptionLabel,
   shouldShowUserInputRecommendedBadge,
 } from "@/lib/user-input-options";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { userInputCardStyles as styles } from "./user-input-card.styles";
 import type { UserInputQuestion } from "@/types/chat";
 
 export type UserInputCardPresentation = "composer" | "inline" | "summary";
@@ -95,28 +97,28 @@ function UserInputSummary(args: {
 
   return (
     <div
-      className="rounded-lg border border-border/70 bg-background/70 p-3 text-[0.8125rem]"
+      className={sx(styles.summary)}
       role={args.state === "input-requested" ? undefined : "status"}
       aria-live={args.state === "input-requested" ? undefined : "polite"}
     >
-      <div className="flex items-start gap-2.5">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <div className={sx(styles.summaryRow)}>
+        <span className={sx(styles.summaryBadge)}>
           {args.state === "input-responded" ? (
-            <Check className="size-3.5" aria-hidden />
+            <Check className={sx(styles.iconSm)} aria-hidden />
           ) : (
-            <CircleHelp className="size-3.5" aria-hidden />
+            <CircleHelp className={sx(styles.iconSm)} aria-hidden />
           )}
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground">{copy.title}</p>
-          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+        <div className={sx(styles.summaryBody)}>
+          <p className={sx(styles.summaryTitle)}>{copy.title}</p>
+          <p className={sx(styles.summaryDetail)}>
             {copy.detail}
           </p>
           {args.state === "input-requested" && firstQuestion ? (
-            <p className="mt-2 line-clamp-2 text-foreground">
+            <p className={sx(styles.summaryFirstQuestion)}>
               {firstQuestion}
               {args.questions.length > 1 ? (
-                <span className="text-muted-foreground">
+                <span className={sx(styles.summaryMoreCount)}>
                   {" "}
                   · +{args.questions.length - 1} more
                 </span>
@@ -124,7 +126,7 @@ function UserInputSummary(args: {
             </p>
           ) : null}
           {args.state === "input-responded" ? (
-            <dl className="mt-2 space-y-1.5">
+            <dl className={sx(styles.answerList)}>
               {args.questions.map((question) => {
                 const answer =
                   args.answers?.[getQuestionKey(question)] ??
@@ -147,12 +149,12 @@ function UserInputSummary(args: {
                 return (
                   <div
                     key={getQuestionKey(question)}
-                    className="grid grid-cols-[minmax(0,0.45fr)_minmax(0,1fr)] gap-3"
+                    className={sx(styles.answerRow)}
                   >
-                    <dt className="truncate text-muted-foreground">
+                    <dt className={sx(styles.answerTerm)}>
                       {question.header}
                     </dt>
-                    <dd className="min-w-0 text-foreground break-words">
+                    <dd className={sx(styles.answerValue)}>
                       {displayAnswer}
                     </dd>
                   </div>
@@ -268,16 +270,19 @@ export function UserInputCard(args: UserInputCardProps) {
         ? `${questions.length} questions · Answer to continue`
         : "Confirmation needed to continue";
 
+  const formPresentationStyle =
+    presentation === "inline"
+      ? styles.formInline
+      : presentation === "composer"
+        ? styles.formComposer
+        : null;
+  const questionsWrapComposerStyle =
+    presentation === "composer" ? styles.questionsWrapComposer : null;
+
   return (
     <form
       aria-labelledby={`${formId}-title`}
-      className={cn(
-        "text-sm",
-        presentation === "inline" &&
-          "rounded-lg border border-border/70 bg-background/80 p-3",
-        presentation === "composer" &&
-          "flex max-h-[min(60vh,34rem)] flex-col p-4 sm:p-5",
-      )}
+      className={sx(styles.formBase, formPresentationStyle)}
       onSubmit={(event) => {
         event.preventDefault();
         if (!disabled && isReady) {
@@ -285,18 +290,18 @@ export function UserInputCard(args: UserInputCardProps) {
         }
       }}
     >
-      <header className="flex shrink-0 items-start gap-3">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <CircleHelp className="size-4" aria-hidden />
+      <header className={sx(styles.header)}>
+        <span className={sx(styles.headerBadge)}>
+          <CircleHelp className={sx(styles.iconMd)} aria-hidden />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className={sx(styles.headerBody)}>
           <h3
             id={`${formId}-title`}
-            className="text-sm font-semibold leading-5 text-foreground"
+            className={sx(styles.headerTitle)}
           >
             Agent needs your input
           </h3>
-          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+          <p className={sx(styles.headerDetail)}>
             {questionCountLabel}
           </p>
         </div>
@@ -304,12 +309,11 @@ export function UserInputCard(args: UserInputCardProps) {
 
       {questions.length > 0 ? (
         <div
-          className={cn(
-            "mt-4",
+          className={sx(
+            styles.questionsWrap,
             // The composer is height-capped, so long question sets have to scroll
             // here instead of pushing the footer actions out of the viewport.
-            presentation === "composer" &&
-              "-mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1",
+            questionsWrapComposerStyle,
           )}
         >
           {questions.map((question, questionIndex) => {
@@ -337,25 +341,25 @@ export function UserInputCard(args: UserInputCardProps) {
             return (
               <div
                 key={questionKey}
-                className={cn(
-                  questionIndex > 0 && "mt-4 border-t border-border/60 pt-4",
+                className={sx(
+                  questionIndex > 0 && styles.questionBlockDivided,
                 )}
               >
-                <fieldset className="min-w-0">
-                  <legend className="w-full">
-                    <span className="flex items-center justify-between gap-3 text-xs leading-4 text-muted-foreground">
-                      <span className="truncate font-medium">
+                <fieldset className={sx(styles.fieldset)}>
+                  <legend className={sx(styles.legend)}>
+                    <span className={sx(styles.legendHeaderRow)}>
+                      <span className={sx(styles.legendHeader)}>
                         {question.header}
                       </span>
-                      <span className="shrink-0">{selectionHint}</span>
+                      <span className={sx(styles.legendHint)}>{selectionHint}</span>
                     </span>
-                    <span className="mt-1.5 block max-w-3xl text-sm font-medium leading-6 text-foreground">
+                    <span className={sx(styles.legendQuestion)}>
                       {question.question}
                     </span>
                   </legend>
 
                   {question.options.length > 0 ? (
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className={sx(styles.optionsGrid)}>
                       {question.options.map((option) => {
                         const optionValue = option.value ?? option.label;
                         const isSelected =
@@ -368,20 +372,15 @@ export function UserInputCard(args: UserInputCardProps) {
                         return (
                           <label
                             key={optionValue}
-                            className={cn(
-                              "relative flex min-h-11 min-w-0 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5",
-                              "bg-background/45 transition-[background-color,border-color,box-shadow] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                              "hover:border-foreground/20 hover:bg-background/75",
-                              "has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring/30",
-                              isSelected
-                                ? "border-primary/45 bg-primary/6 shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--primary)_12%,transparent)]"
-                                : "border-border/80",
-                              disabled &&
-                                "pointer-events-none cursor-not-allowed opacity-45",
+                            className={sx(
+                              styles.option,
+                              focusRing.ringWithin,
+                              isSelected && styles.optionSelected,
+                              disabled && styles.optionDisabled,
                             )}
                           >
                             <input
-                              className="sr-only"
+                              className={sx(styles.srOnly)}
                               type={question.multiSelect ? "checkbox" : "radio"}
                               name={`${formId}-question-${questionIndex}`}
                               value={optionValue}
@@ -419,41 +418,41 @@ export function UserInputCard(args: UserInputCardProps) {
                               }}
                             />
                             <span
-                              className={cn(
-                                "mt-0.5 flex size-4 shrink-0 items-center justify-center border",
+                              className={sx(
+                                styles.optionMark,
                                 question.multiSelect
-                                  ? "rounded-[4px]"
-                                  : "rounded-full",
+                                  ? styles.optionMarkCheckbox
+                                  : styles.optionMarkRadio,
                                 isSelected
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-border bg-background",
+                                  ? styles.optionMarkSelected
+                                  : styles.optionMarkUnselected,
                               )}
                               aria-hidden
                             >
                               {isSelected ? (
                                 question.multiSelect ? (
-                                  <Check className="size-3" />
+                                  <Check className={sx(styles.iconXs)} />
                                 ) : (
-                                  <span className="size-1.5 rounded-full bg-primary-foreground" />
+                                  <span className={sx(styles.radioDot)} />
                                 )
                               ) : null}
                             </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-                                <span className="font-medium leading-5 text-foreground">
+                            <span className={sx(styles.optionBody)}>
+                              <span className={sx(styles.optionLabelRow)}>
+                                <span className={sx(styles.optionLabel)}>
                                   {displayUserInputOptionLabel(option.label)}
                                 </span>
                                 {isRecommended ? (
                                   <Badge
                                     variant="secondary"
-                                    className="h-4 px-1 text-[10px]"
+                                    className={sx(styles.recommendedBadge)}
                                   >
                                     Recommended
                                   </Badge>
                                 ) : null}
                               </span>
                               {option.description ? (
-                                <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                                <span className={sx(styles.optionDescription)}>
                                   {option.description}
                                 </span>
                               ) : null}
@@ -465,15 +464,15 @@ export function UserInputCard(args: UserInputCardProps) {
                   ) : null}
 
                   {inputType === "url_notice" && question.linkUrl ? (
-                    <div className="mt-3 flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/20 p-3 sm:flex-row sm:items-center">
-                      <p className="min-w-0 flex-1 text-xs leading-5 text-muted-foreground break-all">
+                    <div className={sx(styles.urlNotice)}>
+                      <p className={sx(styles.urlNoticeText)}>
                         {question.linkUrl}
                       </p>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="self-start sm:self-auto"
+                        className={sx(styles.urlNoticeButton)}
                         disabled={disabled}
                         onClick={() =>
                           void window.api?.shell?.openExternal?.({
@@ -481,7 +480,7 @@ export function UserInputCard(args: UserInputCardProps) {
                           })
                         }
                       >
-                        <ExternalLink className="size-3.5" />
+                        <ExternalLink className={sx(styles.iconSm)} />
                         Open link
                       </Button>
                     </div>
@@ -492,7 +491,7 @@ export function UserInputCard(args: UserInputCardProps) {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="mt-2.5 -ml-2 text-xs"
+                      className={sx(styles.customToggle)}
                       disabled={disabled}
                       aria-expanded={customOpen}
                       onClick={() => {
@@ -514,7 +513,7 @@ export function UserInputCard(args: UserInputCardProps) {
                         }
                       }}
                     >
-                      <PencilLine className="size-3.5" />
+                      <PencilLine className={sx(styles.iconSm)} />
                       {question.multiSelect
                         ? "Add another answer"
                         : "Write a different answer"}
@@ -522,7 +521,7 @@ export function UserInputCard(args: UserInputCardProps) {
                   ) : null}
 
                   {supportsCustom && customOpen ? (
-                    <div className="mt-2">
+                    <div className={sx(styles.customInputWrap)}>
                       {inputType === "number" || inputType === "integer" ? (
                         <Input
                           type="number"
@@ -548,7 +547,7 @@ export function UserInputCard(args: UserInputCardProps) {
                           value={selection.custom}
                           disabled={disabled}
                           aria-label={`Answer: ${question.question}`}
-                          className="min-h-20 max-h-40 resize-y text-sm"
+                          className={sx(styles.customTextarea)}
                           onChange={(event) => {
                             const value = event.target.value;
                             setSelectionByQuestion((current) => ({
@@ -578,7 +577,7 @@ export function UserInputCard(args: UserInputCardProps) {
         </div>
       ) : null}
 
-      <div className="mt-4 flex shrink-0 flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+      <div className={sx(styles.footer)}>
         <Button type="submit" size="sm" disabled={disabled || !isReady}>
           Continue
         </Button>
@@ -593,7 +592,7 @@ export function UserInputCard(args: UserInputCardProps) {
         </Button>
         {disabledReason ? (
           <p
-            className="basis-full text-xs leading-5 text-muted-foreground"
+            className={sx(styles.disabledReason)}
             role="status"
           >
             {disabledReason}

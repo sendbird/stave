@@ -13,7 +13,8 @@ import {
   resolveTodoFloaterVisibility,
 } from "@/components/session/todo-floater.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { todoFloaterStyles as styles } from "@/components/session/todo-floater.styles";
 import { useAppStore } from "@/store/app.store";
 import { resolvePromptDraftRuntimeState } from "@/store/prompt-draft-runtime";
 import { useShallow } from "zustand/react/shallow";
@@ -173,13 +174,13 @@ export function TodoFloater() {
 
   return (
     <div
-      className={cn(
+      className={cx(
         SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
         // Anchor todo progress in the same session-edge slot the plan viewer uses.
-        "transition-opacity duration-300",
-        lingering
-          ? "opacity-50"
-          : "opacity-100 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2",
+        sx(
+          styles.wrapper,
+          lingering ? styles.wrapperLingering : styles.wrapperVisible,
+        ),
       )}
       style={{
         right: rightOffset,
@@ -188,47 +189,46 @@ export function TodoFloater() {
         maxWidth: 400,
       }}
     >
-      <div className="pointer-events-auto flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-lg">
+      <div className={sx(styles.card)}>
         {/* Header */}
-        <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3.5 py-2.5">
-          <ListTodo className="size-4 shrink-0 text-primary" />
-          <span className="flex-1 truncate text-[0.875rem] font-medium">
-            Todo
-          </span>
-          <span className="text-[0.8125rem] tabular-nums text-muted-foreground">
+        <div className={sx(styles.header)}>
+          <ListTodo aria-hidden size={16} className={sx(styles.headerIcon)} />
+          <span className={sx(styles.headerTitle)}>Todo</span>
+          <span className={sx(styles.headerCount)}>
             {progress.completedCount}/{progress.totalCount}
           </span>
         </div>
 
         {/* Progress bar */}
-        <div className="h-0.5 w-full bg-border/40">
+        <div className={sx(styles.progressTrack)}>
           <div
-            className={cn(
-              "h-full transition-all duration-300 ease-out",
-              allCompleted ? "bg-success" : "bg-primary",
+            className={sx(
+              styles.progressBar,
+              allCompleted
+                ? styles.progressBarComplete
+                : styles.progressBarActive,
             )}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
 
         {/* Todo items */}
-        <div className="max-h-60 overflow-y-auto px-3.5 py-3">
-          <ol className="space-y-1.5">
+        <div className={sx(styles.items)}>
+          <ol className={sx(styles.list)}>
             {displayTodos.map((todo, idx) => (
               <li
                 // biome-ignore lint/suspicious/noArrayIndexKey: stable todo list ordering
                 key={idx}
-                className="flex items-start gap-2.5"
+                className={sx(styles.item)}
               >
                 <TodoFloaterItemIcon status={todo.status} />
                 <span
-                  className={cn(
-                    "text-[0.875rem] leading-[1.55]",
-                    todo.status === "completed" &&
-                      "text-muted-foreground line-through",
+                  className={sx(
+                    styles.itemLabel,
+                    todo.status === "completed" && styles.itemLabelCompleted,
                     todo.status === "in_progress" &&
-                      "font-medium text-foreground",
-                    todo.status === "pending" && "text-muted-foreground",
+                      styles.itemLabelInProgress,
+                    todo.status === "pending" && styles.itemLabelPending,
                   )}
                 >
                   {todo.content}
@@ -245,20 +245,28 @@ export function TodoFloater() {
 function TodoFloaterItemIcon({ status }: { status: TodoItem["status"] }) {
   if (status === "completed") {
     return (
-      <CheckCircle2 className="mt-[0.1875rem] size-4 shrink-0 text-success" />
+      <CheckCircle2
+        aria-hidden
+        size={16}
+        className={sx(styles.statusIcon, styles.statusIconCompleted)}
+      />
     );
   }
   if (status === "in_progress") {
     return (
       <Loader
         aria-hidden
-        className="mt-[0.1875rem] text-primary"
+        className={sx(styles.statusLoader)}
         size="xs"
         variant="steps"
       />
     );
   }
   return (
-    <Circle className="mt-[0.1875rem] size-4 shrink-0 text-muted-foreground/50" />
+    <Circle
+      aria-hidden
+      size={16}
+      className={sx(styles.statusIcon, styles.statusIconPending)}
+    />
   );
 }

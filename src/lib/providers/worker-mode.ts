@@ -1,3 +1,4 @@
+import type { WorkerPresetId } from "./worker-preset-ids";
 import {
   CLAUDE_FABLE_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
@@ -61,9 +62,14 @@ export type WorkerModelPreference = "auto" | string;
  * per model rather than rejecting, and drops it entirely for models that
  * reject effort.
  */
-export type WorkerEffort = "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
+export type WorkerEffort =
+  "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
 export type WorkerEffortPreference = "auto" | WorkerEffort;
+
+/** How Stave turned the persisted Worker preference into a concrete model. */
+export type WorkerModelResolutionSource =
+  "explicit" | "preset" | "provider-default";
 
 export const WORKER_AUTO_VALUE = "auto";
 
@@ -76,13 +82,7 @@ export const WORKER_EFFORT_ORDER = [
   "ultra",
 ] as const satisfies readonly WorkerEffort[];
 
-export type WorkerPresetId =
-  | "patch-hand"
-  | "verified-patch"
-  | "sweep"
-  | "scout"
-  | "deep-packet"
-  | "second-pair";
+export type { WorkerPresetId } from "./worker-preset-ids";
 
 export const DEFAULT_WORKER_PRESET_ID: WorkerPresetId = "verified-patch";
 
@@ -111,7 +111,9 @@ export interface WorkerProviderConfig {
  */
 export type WorkerArmOverrides = {
   workerEnabled?: boolean;
-  workerConfigByProvider?: Partial<Record<WorkerProviderId, WorkerProviderConfig>>;
+  workerConfigByProvider?: Partial<
+    Record<WorkerProviderId, WorkerProviderConfig>
+  >;
 };
 
 /** What one turn actually sends. Only the active provider's intent crosses IPC. */
@@ -158,18 +160,50 @@ export interface WorkerExecutionMetadata {
   providerId: WorkerProviderId;
   primaryModel: string;
   presetId: WorkerPresetId;
+  /** Legacy display alias for `resolvedWorkerModel`. */
   workerModel: string;
+  /** The persisted choice; `auto` means Stave selected the concrete target. */
+  requestedWorkerModel?: WorkerModelPreference;
+  /** Concrete target selected before the Worker runtime starts. */
+  resolvedWorkerModel?: string;
+  workerModelSource?: WorkerModelResolutionSource;
+  /** Present only when the selection producer supplied an explanation. */
+  workerModelRationale?: string;
+  /** Executing model reported by the child runtime, when it exposes one. */
+  runtimeWorkerModel?: string;
   workerEffort: WorkerEffort | null;
 }
 
 export function buildWorkerExecutionMetadata(
   profile: ResolvedWorkerProfile,
+  reported?: {
+    runtimeWorkerModel?: string;
+    workerModelRationale?: string;
+  },
 ): WorkerExecutionMetadata {
+  const runtimeWorkerModel = trimToLength(
+    reported?.runtimeWorkerModel,
+    WORKER_MODEL_MAX_CHARS,
+  );
+  const workerModelRationale = trimToLength(
+    reported?.workerModelRationale,
+    4_000,
+  );
   return {
     providerId: profile.provider,
     primaryModel: profile.primaryModel,
     presetId: profile.presetId,
     workerModel: profile.resolvedWorkerModel,
+    requestedWorkerModel: profile.requestedWorkerModel,
+    resolvedWorkerModel: profile.resolvedWorkerModel,
+    workerModelSource:
+      profile.requestedWorkerModel !== WORKER_AUTO_VALUE
+        ? "explicit"
+        : getWorkerPreset(profile.presetId).autoModel[profile.provider]
+          ? "preset"
+          : "provider-default",
+    ...(workerModelRationale ? { workerModelRationale } : {}),
+    ...(runtimeWorkerModel ? { runtimeWorkerModel } : {}),
     workerEffort: profile.resolvedWorkerEffort,
   };
 }
@@ -179,7 +213,12 @@ export function formatWorkerExecutionMetadata(
 ): string {
   return [
     getWorkerPreset(execution.presetId).label,
-    toHumanModelName({ model: execution.workerModel }),
+    toHumanModelName({
+      model:
+        execution.runtimeWorkerModel ??
+        execution.resolvedWorkerModel ??
+        execution.workerModel,
+    }),
     execution.workerEffort,
   ]
     .filter((value): value is string => Boolean(value))
@@ -288,9 +327,7 @@ const WORKER_CAPABILITIES: Readonly<
 };
 
 /** Deterministic `auto` worker per provider, used when a preset has no opinion. */
-const DEFAULT_WORKER_MODEL: Readonly<
-  Record<WorkerProviderId, string>
-> = {
+const DEFAULT_WORKER_MODEL: Readonly<Record<WorkerProviderId, string>> = {
   "claude-code": DEFAULT_CLAUDE_SONNET_MODEL,
   codex: "gpt-5.6-terra",
   cursor: "auto",
@@ -434,9 +471,7 @@ export interface WorkerPreset {
   /** Model each provider uses when the user leaves the model on `auto`. */
   autoModel: Readonly<Record<WorkerProviderId, string>>;
   /** Effort each provider uses when the user leaves effort on `auto`. */
-  autoEffort: Readonly<
-    Record<WorkerProviderId, WorkerEffort | null>
-  >;
+  autoEffort: Readonly<Record<WorkerProviderId, WorkerEffort | null>>;
 }
 
 const READ_ONLY_TOOLS = ["Read", "Grep", "Glob"] as const;
@@ -640,7 +675,10 @@ export function getWorkerPreset(presetId: WorkerPresetId): WorkerPreset {
 }
 
 export function isWorkerPresetId(value: unknown): value is WorkerPresetId {
-  return typeof value === "string" && WORKER_PRESET_BY_ID.has(value as WorkerPresetId);
+  return (
+    typeof value === "string" &&
+    WORKER_PRESET_BY_ID.has(value as WorkerPresetId)
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -751,7 +789,12 @@ export function normalizeWorkerConfigByProvider(
   }
   const source = value as Record<string, unknown>;
   const result: Partial<Record<WorkerProviderId, WorkerProviderConfig>> = {};
-  for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
+  for (const providerId of [
+    "claude-code",
+    "codex",
+    "cursor",
+    "kiro",
+  ] as const) {
     if (source[providerId] !== undefined) {
       result[providerId] = normalizeWorkerProviderConfig(source[providerId]);
     }
@@ -867,8 +910,7 @@ function resolveWorkerEffort(args: {
   }
   const desired =
     args.requested === WORKER_AUTO_VALUE
-      ? (args.presetEffort ??
-        (args.providerId === "kiro" ? "medium" : null))
+      ? (args.presetEffort ?? (args.providerId === "kiro" ? "medium" : null))
       : args.requested;
   if (!desired) {
     return null;
@@ -1157,9 +1199,7 @@ export function buildAcpWorkerPrompt(args: {
     }Do not launch another Worker or a durable child task. Never ask the user a question; report a blocker in the result instead.${maxTurnsGuidance}`,
     `# Delegated task\n\n${args.task.trim().slice(0, WORKER_TASK_MAX_CHARS)}`,
     ...(context
-      ? [
-          `# Supplied context\n\n${context.slice(0, WORKER_CONTEXT_MAX_CHARS)}`,
-        ]
+      ? [`# Supplied context\n\n${context.slice(0, WORKER_CONTEXT_MAX_CHARS)}`]
       : []),
   ].join("\n\n");
 }

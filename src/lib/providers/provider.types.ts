@@ -19,6 +19,27 @@ export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro";
 export type ManagedExecutionProviderId = Exclude<ProviderId, "cursor" | "kiro">;
 export type ClaudeSettingSource = "user" | "project" | "local";
 
+/**
+ * Evidence emitted only when Stave selected a primary model through automatic
+ * routing. Explicit user selections deliberately carry no inferred rationale.
+ */
+export interface AutoRoutingModelResolution {
+  /** Target selected by automatic routing before the runtime confirms execution. */
+  selectedProviderId: ProviderId;
+  selectedModel: string;
+  source: "heuristic" | "classifier" | "classifier_fallback";
+  rationale: string;
+  confidence: number;
+  taskType:
+    | "quick_edit"
+    | "plan"
+    | "implementation"
+    | "debug"
+    | "review"
+    | "general"
+    | "safety";
+}
+
 export type ProviderHistoryForkBoundary = "thread" | "turn" | "message";
 export type ProviderAppToolApprovalMode =
   "auto" | "prompt" | "writes" | "approve";
@@ -965,7 +986,7 @@ export type NormalizedProviderEvent =
       /** Question the primary asked, bounded by the runtime. Only on `started`. */
       question?: string;
       /** Provider running the primary turn that asked for advice. */
-      primaryProviderId: ManagedExecutionProviderId;
+      primaryProviderId: ProviderId;
       /** Primary model id, so "a different model answered" is verifiable. */
       primaryModel?: string;
       /** Advisor provider. Absent when the configured target was unusable. */
@@ -1139,6 +1160,8 @@ export type NormalizedProviderEvent =
       type: "model_resolved";
       resolvedProviderId: ProviderId;
       resolvedModel: string;
+      /** Present only for Stave's automatic primary-model routing decision. */
+      modelResolution?: AutoRoutingModelResolution;
     }
   | { type: "error"; message: string; recoverable: boolean }
   | {

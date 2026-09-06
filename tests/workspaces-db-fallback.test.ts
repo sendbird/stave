@@ -59,6 +59,40 @@ afterEach(() => {
   (globalThis as { window: typeof globalThis.window }).window = originalWindow;
 });
 
+test("browser quota failure rejects the save and retains the last durable messages", async () => {
+  const localStorage = createMemoryStorage();
+  (globalThis as { window: unknown }).window = { localStorage };
+  const task = buildTask("quota-task");
+  await upsertWorkspace({
+    id: "quota-workspace",
+    name: "Quota",
+    snapshot: buildSnapshot({
+      tasks: [task],
+      messagesByTask: { [task.id]: [buildMessage("saved")] },
+    }),
+  });
+  localStorage.setItem = () => {
+    throw new Error("Quota exceeded");
+  };
+  await expect(
+    upsertWorkspace({
+      id: "quota-workspace",
+      name: "Quota",
+      snapshot: buildSnapshot({
+        tasks: [task],
+        messagesByTask: { [task.id]: [buildMessage("unsaved")] },
+      }),
+    }),
+  ).rejects.toThrow("Quota exceeded");
+  const page = await loadTaskMessagesPage({
+    workspaceId: "quota-workspace",
+    taskId: task.id,
+    limit: 10,
+    offset: 0,
+  });
+  expect(page.messages.map((message) => message.id)).toEqual(["saved"]);
+});
+
 test("browser fallback preserves omitted message pages for retained tasks", async () => {
   const localStorage = createMemoryStorage();
   const taskA = buildTask("task-a");

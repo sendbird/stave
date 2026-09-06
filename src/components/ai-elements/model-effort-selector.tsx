@@ -1,6 +1,6 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { AlertCircle, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
 import {
-  type CSSProperties,
   type KeyboardEvent,
   useEffect,
   useMemo,
@@ -16,8 +16,6 @@ import {
   PopoverTrigger,
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "@/components/ui";
 import {
   getProviderLabel,
@@ -25,9 +23,11 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { ModelVisibility } from "@/lib/providers/model-visibility";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { cn } from "@/lib/utils";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
+import { SelectionRail } from "@/components/system/SelectionRail";
 import { CursorModelConfigList } from "./cursor-model-config-list";
-import { ModelEffortGrid, PROVIDER_ACCENT_COLORS } from "./model-effort-grid";
+import { ModelEffortGrid } from "./model-effort-grid";
 import { ModelIcon } from "./model-icon";
 import {
   collapseClaudeContextOptions,
@@ -47,14 +47,6 @@ import {
   shouldOpenModelSelector,
   type ModelSelectorOption,
 } from "./model-selector.utils";
-
-/**
- * Fast and 1M: same shell, different tint. They are standalone toggles sitting
- * beside the model button, so they carry a full radius and their own border
- * rather than reading as the tail end of a segmented control.
- */
-const MODEL_CAPABILITY_TOGGLE =
-  "inline-flex h-full shrink-0 items-center gap-1 rounded-md border border-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50";
 
 export interface ModelSelectorCatalogState {
   status: "idle" | "loading" | "ready" | "error";
@@ -93,11 +85,16 @@ function ModelOnlyList(args: {
   disabled?: boolean;
   onChoose: (option: ModelSelectorOption) => void;
 }) {
-  const optionRefs = useRef(new Map<string, HTMLButtonElement>());
+  const optionRefs = useRef(new Map<string, HTMLElement>());
   const selectedIndex = args.options.findIndex(
     (option) => option.key === args.selectedModelKey,
   );
-  const tabStopIndex = Math.max(selectedIndex, 0);
+  const enabledIndices = args.options.flatMap((option, index) =>
+    option.available ? [index] : [],
+  );
+  const tabStopIndex = enabledIndices.includes(selectedIndex)
+    ? selectedIndex
+    : enabledIndices[0];
 
   const moveFocus = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -105,20 +102,22 @@ function ModelOnlyList(args: {
   ) => {
     if (
       !["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key) ||
-      args.options.length === 0
+      enabledIndices.length === 0
     ) {
       return;
     }
     event.preventDefault();
-    const nextIndex =
+    const nextEnabledIndex =
       event.key === "Home"
         ? 0
         : event.key === "End"
-          ? args.options.length - 1
-          : (optionIndex +
+          ? enabledIndices.length - 1
+          : (enabledIndices.indexOf(optionIndex) +
               (event.key === "ArrowDown" ? 1 : -1) +
-              args.options.length) %
-            args.options.length;
+              enabledIndices.length) %
+            enabledIndices.length;
+    const nextIndex = enabledIndices[nextEnabledIndex];
+    if (nextIndex === undefined) return;
     optionRefs.current.get(args.options[nextIndex]?.key ?? "")?.focus();
   };
 
@@ -130,13 +129,14 @@ function ModelOnlyList(args: {
     <div
       role="listbox"
       aria-label={`${getProviderLabel({ providerId: args.providerId })} models`}
-      className="space-y-1 p-2"
+      className={sx(styles.modelList)}
     >
       {args.options.map((option, optionIndex) => {
         const selected = option.key === args.selectedModelKey;
         const presentation = getCursorModelPresentation(option);
         return (
-          <button
+          <AdsButton
+            layout="host"
             key={option.key}
             ref={(element) => {
               if (element) {
@@ -152,47 +152,45 @@ function ModelOnlyList(args: {
             tabIndex={optionIndex === tabStopIndex ? 0 : -1}
             onKeyDown={(event) => moveFocus(event, optionIndex)}
             onClick={() => args.onChoose(option)}
-            className={cn(
-              "flex min-h-11 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45",
-              selected
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+            className={sx(
+              styles.modelRow,
+              selected ? styles.modelRowSelected : styles.modelRowIdle,
             )}
           >
             <ModelIcon
               providerId={option.providerId}
               model={option.model}
-              className="size-4"
+              className={sx(styles.modelRowIcon)}
             />
-            <span className="min-w-0 flex-1">
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="truncate font-medium text-foreground">
+            <span className={sx(styles.modelRowBody)}>
+              <span className={sx(styles.modelRowTitleLine)}>
+                <span className={sx(styles.modelRowTitle)}>
                   {presentation.label}
                 </span>
                 {option.isDefault ? (
-                  <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className={sx(styles.modelRowDefaultBadge)}>
                     Default
                   </span>
                 ) : null}
               </span>
               {presentation.capabilities.length > 0 ? (
-                <span className="mt-1 flex flex-wrap gap-1">
+                <span className={sx(styles.modelRowCapabilities)}>
                   {presentation.capabilities.map((capability) => (
                     <span
                       key={capability}
-                      className="rounded-md border border-border/60 bg-muted/35 px-1.5 py-0.5 text-[10px] leading-4 font-medium text-muted-foreground"
+                      className={sx(styles.capabilityChip)}
                     >
                       {capability}
                     </span>
                   ))}
                 </span>
               ) : (
-                <span className="mt-0.5 block truncate text-xs text-muted-foreground/80">
+                <span className={sx(styles.modelRowDescription)}>
                   {option.description || option.model}
                 </span>
               )}
             </span>
-          </button>
+          </AdsButton>
         );
       })}
     </div>
@@ -207,10 +205,7 @@ function CatalogNotice(args: {
   return (
     <>
       {args.catalog?.status === "loading" ? (
-        <div
-          role="status"
-          className="flex shrink-0 items-center gap-2 border-b border-border/65 px-3 py-2 text-xs text-muted-foreground"
-        >
+        <div role="status" className={sx(styles.notice)}>
           <Loader aria-hidden="true" size="xs" variant="decode" />
           Loading the runtime model catalog…
         </div>
@@ -218,13 +213,10 @@ function CatalogNotice(args: {
       {args.catalog?.status === "error" ? (
         <div
           role="alert"
-          className="flex shrink-0 items-start gap-2 border-b border-border/65 px-3 py-2 text-xs text-muted-foreground"
+          className={sx(styles.notice, styles.noticeAlignStart)}
         >
-          <AlertCircle
-            className="mt-0.5 size-3.5 shrink-0 text-destructive"
-            aria-hidden="true"
-          />
-          <span className="min-w-0 flex-1">
+          <AlertCircle className={sx(styles.noticeIcon)} aria-hidden="true" />
+          <span className={sx(styles.noticeBody)}>
             {args.catalog.detail || "The runtime model catalog is unavailable."}
           </span>
           {args.onRefresh ? (
@@ -233,19 +225,16 @@ function CatalogNotice(args: {
               variant="ghost"
               size="sm"
               onClick={args.onRefresh}
-              className="h-7 shrink-0 px-2 text-xs"
+              className={sx(styles.retryButton)}
             >
-              <RefreshCcw className="size-3" />
+              <RefreshCcw className={sx(styles.retryIcon)} />
               Retry
             </Button>
           ) : null}
         </div>
       ) : null}
       {args.selectedMissing ? (
-        <div
-          role="alert"
-          className="shrink-0 border-b border-border/65 px-3 py-2 text-xs text-destructive"
-        >
+        <div role="alert" className={sx(styles.noticeError)}>
           The selected model is no longer in this runtime catalog. Choose
           another model before sending.
         </div>
@@ -467,12 +456,13 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       role="group"
       data-model-effort-control="true"
       aria-label="Model controls"
-      className="inline-flex h-9 max-w-full items-center gap-1.5"
+      className={sx(styles.group)}
     >
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
-            <button
+            <AdsButton
+              layout="host"
               ref={triggerRef}
               type="button"
               disabled={args.disabled}
@@ -486,29 +476,26 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     }`
               }
               title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
-              className={cn(
-                "inline-flex h-full min-w-0 max-w-[320px] items-center gap-1.5 rounded-md border border-transparent bg-transparent px-2.5 text-sm text-foreground transition-[background-color,color,box-shadow] duration-150 hover:bg-accent/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45 disabled:pointer-events-none disabled:opacity-50",
-                open && "bg-accent/65",
-              )}
+              className={sx(styles.trigger, open && styles.triggerOpen)}
             />
           }
         >
           {args.value.isAuto ? (
-            <Sparkles className="size-3.5 shrink-0 text-primary" />
+            <Sparkles className={sx(styles.triggerAccentIcon)} />
           ) : (
             <ModelIcon
               providerId={args.value.providerId}
               model={args.value.model}
-              className="size-3.5"
+              className={sx(styles.triggerIcon)}
             />
           )}
-          <span className="min-w-0 truncate">{displayLabel}</span>
+          <span className={sx(styles.triggerLabel)}>{displayLabel}</span>
           {selectedEffortLabel ? (
             <>
-              <span aria-hidden="true" className="text-muted-foreground/35">
+              <span aria-hidden="true" className={sx(styles.triggerDot)}>
                 ·
               </span>
-              <span className="shrink-0 text-xs font-medium text-muted-foreground">
+              <span className={sx(styles.triggerEffort)}>
                 {selectedEffortLabel}
               </span>
             </>
@@ -530,65 +517,45 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           // Search + footer chrome is ~7.5rem. Each model row is ~3.5rem
           // (min-h-11 plus row padding/gap), so 25rem keeps five rows in
           // view and everything below reachable by scrolling.
-          className="model-effort-popover flex h-[min(25rem,calc(100dvh-1rem))] w-[min(40rem,calc(100vw-1rem))] flex-col gap-0 overflow-hidden rounded-xl border border-border/70 bg-popover p-0"
+          xstyle={styles.popover}
+          className="model-effort-popover"
         >
           <Tabs
             value={providerId}
             onValueChange={(value) => showProvider(value as ProviderId)}
             orientation="vertical"
-            className="min-h-0 flex-1 gap-0"
+            className={sx(styles.tabs)}
           >
-            <TabsList
-              variant="soft"
-              aria-label="Model provider"
-              className="w-12 shrink-0 justify-start gap-1 rounded-none border-r border-border/65 bg-muted/20 p-1 group-data-vertical/tabs:h-auto min-[480px]:w-32 min-[480px]:p-1.5"
-            >
-              {providerIds.map((candidate) => {
-                const selected = candidate === providerId;
+            <SelectionRail
+              label="Model provider"
+              value={providerId}
+              onPreview={(value) => showProvider(value as ProviderId)}
+              items={providerIds.map((candidate) => {
                 const providerModels = args.options.filter(
                   (option) => !option.isAuto && option.providerId === candidate,
                 );
-                const count =
-                  candidate === "cursor"
-                    ? groupCursorModelOptions(providerModels).length
-                    : providerModels.length;
-                return (
-                  <TabsTrigger
-                    key={candidate}
-                    value={candidate}
-                    aria-label={`${getProviderLabel({ providerId: candidate })}, ${count} models`}
-                    onPointerEnter={(event) => {
-                      if (event.pointerType === "mouse") {
-                        showProvider(candidate);
-                      }
-                    }}
-                    className="h-11 min-h-11 w-full flex-none justify-center gap-2 px-2 min-[480px]:justify-start"
-                    style={
-                      selected
-                        ? ({
-                            color: `color-mix(in oklch, ${PROVIDER_ACCENT_COLORS[candidate]} 78%, var(--foreground))`,
-                            backgroundColor: `color-mix(in oklch, ${PROVIDER_ACCENT_COLORS[candidate]} 12%, var(--popover))`,
-                          } as CSSProperties)
-                        : undefined
-                    }
-                  >
-                    <ModelIcon providerId={candidate} className="size-4" />
-                    <span className="hidden min-w-0 flex-1 truncate min-[480px]:inline">
-                      {getProviderLabel({ providerId: candidate })}
-                    </span>
-                    <span className="hidden text-[10px] tabular-nums text-muted-foreground/75 min-[480px]:inline">
-                      {count}
-                    </span>
-                  </TabsTrigger>
-                );
+                return {
+                  value: candidate,
+                  label: getProviderLabel({ providerId: candidate }),
+                  icon: (
+                    <ModelIcon
+                      providerId={candidate}
+                      className={sx(styles.railIcon)}
+                    />
+                  ),
+                  count:
+                    candidate === "cursor"
+                      ? groupCursorModelOptions(providerModels).length
+                      : providerModels.length,
+                };
               })}
-            </TabsList>
+            />
 
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <div className="flex shrink-0 items-center gap-2 border-b border-border/65 p-2">
-                <div className="relative min-w-0 flex-1">
+            <div className={sx(styles.panel)}>
+              <div className={sx(styles.searchBar)}>
+                <div className={sx(styles.searchField)}>
                   <Search
-                    className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+                    className={sx(styles.searchIcon)}
                     aria-hidden="true"
                   />
                   <Input
@@ -597,7 +564,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     onChange={(event) => setQuery(event.target.value)}
                     aria-label="Search models"
                     placeholder="Search models"
-                    className="h-9 pl-8"
+                    className={sx(styles.searchInput)}
                   />
                 </div>
                 {args.onRefreshCatalogs && catalog && isRuntimeCatalog ? (
@@ -609,16 +576,17 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     title="Refresh model catalog"
                     disabled={args.disabled || catalog.status === "loading"}
                     onClick={() => args.onRefreshCatalogs?.()}
-                    className="h-9 shrink-0 gap-1.5 px-2 text-xs text-muted-foreground"
+                    className={sx(styles.actionButton)}
                   >
                     <RefreshCcw
-                      className={cn(
-                        "size-3.5",
-                        catalog.status === "loading" && "animate-spin",
+                      className={sx(
+                        styles.refreshIcon,
+                        catalog.status === "loading" &&
+                          styles.refreshIconSpinning,
                       )}
                       aria-hidden="true"
                     />
-                    <span className="hidden min-[480px]:inline">Refresh</span>
+                    <span className={sx(styles.refreshLabel)}>Refresh</span>
                   </Button>
                 ) : null}
                 {autoOption ? (
@@ -630,14 +598,15 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     aria-pressed={Boolean(args.value.isAuto)}
                     disabled={args.disabled || !autoOption.available}
                     onClick={() => chooseModel(autoOption)}
-                    className={cn(
-                      "h-9 shrink-0 gap-1.5 px-2 text-xs",
-                      args.value.isAuto
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground",
+                    className={sx(
+                      styles.actionButtonAuto,
+                      args.value.isAuto && styles.actionButtonAutoActive,
                     )}
                   >
-                    <Sparkles className="size-3.5" aria-hidden="true" />
+                    <Sparkles
+                      className={sx(styles.autoIcon)}
+                      aria-hidden="true"
+                    />
                     Auto
                   </Button>
                 ) : null}
@@ -653,11 +622,11 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 <TabsContent
                   key={candidate}
                   value={candidate}
-                  className="min-h-0 overflow-y-auto overscroll-contain"
+                  className={sx(styles.tabContent)}
                 >
                   {candidate === providerId ? (
                     visibleOptions.length === 0 ? (
-                      <div className="flex min-h-28 items-center justify-center px-4 text-center text-sm text-muted-foreground">
+                      <div className={sx(styles.empty)}>
                         {query.trim().length > 0
                           ? "No models match this search."
                           : "Every model for this provider is turned off. Show all models below, or re-enable them in Settings › Models."}
@@ -713,23 +682,24 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
               ))}
 
               {canToggleAllModels ? (
-                <div className="shrink-0 border-t border-border/65 p-1.5">
-                  <button
+                <div className={sx(styles.showAllFooter)}>
+                  <AdsButton
+                    layout="host"
                     type="button"
                     onClick={() => setShowAllModels((value) => !value)}
-                    className="flex min-h-11 w-full items-center justify-between rounded-md px-2.5 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                    className={sx(styles.showAllButton)}
                   >
                     <span>
                       {showAllModels
                         ? "Show current models"
                         : "Show all models"}
                     </span>
-                    <span className="tabular-nums text-muted-foreground/75">
+                    <span className={sx(styles.showAllCount)}>
                       {showAllModels
                         ? defaultProviderOptions.length
                         : providerOptions.length}
                     </span>
-                  </button>
+                  </AdsButton>
                 </div>
               ) : null}
             </div>
@@ -740,42 +710,46 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       {!args.value.isAuto &&
       args.value.providerId === "codex" &&
       args.showFastMode !== false ? (
-        <button
+        <AdsButton
+          layout="host"
           type="button"
           aria-label={`Fast mode: ${args.fastMode ? "On" : "Off"}`}
           aria-pressed={args.fastMode ?? false}
           disabled={args.disabled}
           onClick={() => args.onFastModeChange?.(!(args.fastMode ?? false))}
-          className={cn(
-            MODEL_CAPABILITY_TOGGLE,
-            args.fastMode &&
-              "border-prompt-role-fast/30 bg-prompt-role-fast/10 text-prompt-role-fast",
+          className={sx(
+            styles.capabilityToggle,
+            args.fastMode && styles.capabilityToggleFastActive,
           )}
         >
           <Zap
-            className={cn("size-3.5", args.fastMode && "fill-current")}
+            className={sx(
+              styles.toggleIcon,
+              args.fastMode && styles.toggleIconFilled,
+            )}
             aria-hidden="true"
           />
           Fast
-        </button>
+        </AdsButton>
       ) : null}
 
       {supportsContext1M ? (
-        <button
+        <AdsButton
+          layout="host"
           type="button"
           aria-label={`1M context: ${isClaudeContext1MModel(args.value.model) ? "On" : "Off"}`}
           aria-pressed={isClaudeContext1MModel(args.value.model)}
           disabled={args.disabled}
           onClick={toggleContext1M}
-          className={cn(
-            MODEL_CAPABILITY_TOGGLE,
-            "font-semibold",
+          className={sx(
+            styles.capabilityToggle,
+            styles.capabilityToggleSemibold,
             isClaudeContext1MModel(args.value.model) &&
-              "border-primary/30 bg-primary/10 text-primary",
+              styles.capabilityToggleContextActive,
           )}
         >
           1M
-        </button>
+        </AdsButton>
       ) : null}
     </div>
   );

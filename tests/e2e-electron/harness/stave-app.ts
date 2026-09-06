@@ -41,14 +41,17 @@ export type StaveApp = {
  *   the app gets a chance to tear down its own state, then the process is
  *   killed rather than waited on.
  */
-export async function launchStave(): Promise<StaveApp> {
+export async function launchStave(
+  options: { userDataDir?: string } = {},
+): Promise<StaveApp> {
   if (!existsSync(MAIN_ENTRY)) {
     throw new Error(
       `${MAIN_ENTRY} is missing. Run \`bun run build:desktop\` before the Electron e2e suite.`,
     );
   }
 
-  const userDataDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-"));
+  const userDataDir =
+    options.userDataDir ?? (await mkdtemp(path.join(tmpdir(), "stave-e2e-")));
   const app = await electron.launch({
     args: [MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
     cwd: REPO_ROOT,
@@ -69,6 +72,8 @@ export async function launchStave(): Promise<StaveApp> {
       } finally {
         child.kill("SIGKILL");
       }
+      // A recovery spec owns a profile across launches and cleans it up itself.
+      if (options.userDataDir) return;
       // A killed Electron leaves helper processes flushing into the profile for
       // a moment, so an immediate remove races them and throws ENOTEMPTY. Retry
       // briefly, then give up: this is a directory under the OS temp root, and

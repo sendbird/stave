@@ -42,7 +42,7 @@ describe("Workspace Tools presentation", () => {
   });
 
   test("names views after executable concepts rather than a catalog", () => {
-    expect(WORKSPACE_TOOLS_VIEWS).toEqual([
+    expect(WORKSPACE_TOOLS_VIEWS.map(({ id, label }) => ({ id, label }))).toEqual([
       { id: "processes", label: "Processes" },
       { id: "commands", label: "Commands" },
       { id: "triggers", label: "Triggers" },

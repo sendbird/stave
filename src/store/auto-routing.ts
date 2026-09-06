@@ -513,7 +513,7 @@ export async function resolveAutoRoutingDecision(
     const providerId =
       args.runtimeOverrides?.modelProviderId ??
       inferProviderIdFromModel({ model: manualModel });
-    return buildDecision({
+    const decision = buildDecision({
       providerId,
       model: manualModel,
       taskType: "general",
@@ -524,6 +524,15 @@ export async function resolveAutoRoutingDecision(
       currentProviderId: args.currentProviderId,
       stick: true,
     });
+    return {
+      ...decision,
+      ...(providerId === "claude-code" && args.runtimeOverrides?.claudeEffort
+        ? { claudeEffort: args.runtimeOverrides.claudeEffort }
+        : {}),
+      ...(providerId === "codex" && args.runtimeOverrides?.codexReasoningEffort
+        ? { codexReasoningEffort: args.runtimeOverrides.codexReasoningEffort }
+        : {}),
+    };
   }
 
   if (

@@ -22,6 +22,8 @@ import {
   type TaskPresetEffort,
   type TaskPresetKind,
 } from "@/lib/task-presets";
+import { sx } from "@/components/ads/utils/stylex";
+import { taskPresetEditorStyles as styles } from "./task-preset-editor.styles";
 
 const DEFAULT_EFFORT_VALUE = "__default__";
 
@@ -156,12 +158,9 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
   }
 
   return (
-    <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="task-preset-editor-label"
-          className="text-xs font-medium text-muted-foreground"
-        >
+    <form className={sx(styles.form)} onSubmit={handleSubmit}>
+      <div className={sx(styles.field)}>
+        <label htmlFor="task-preset-editor-label" className={sx(styles.label)}>
           Label
         </label>
         <Input
@@ -172,8 +171,8 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
           autoFocus
         />
       </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted-foreground">Type</span>
+      <div className={sx(styles.field)}>
+        <span className={sx(styles.label)}>Type</span>
         <Select value={kind} onValueChange={handleKindChange}>
           <SelectTrigger>
             <SelectValue />
@@ -184,10 +183,8 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
           </SelectContent>
         </Select>
       </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium text-muted-foreground">
-          Provider
-        </span>
+      <div className={sx(styles.field)}>
+        <span className={sx(styles.label)}>Provider</span>
         <Select value={provider} onValueChange={handleProviderChange}>
           <SelectTrigger>
             <SelectValue />
@@ -195,9 +192,12 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
           <SelectContent>
             {providerOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                <span className="flex min-w-0 items-center gap-2">
-                  <ModelIcon providerId={option.value} className="size-3.5" />
-                  <span className="truncate">{option.label}</span>
+                <span className={sx(styles.option)}>
+                  <ModelIcon
+                    providerId={option.value}
+                    className={sx(styles.optionIcon)}
+                  />
+                  <span className={sx(styles.optionLabel)}>{option.label}</span>
                 </span>
               </SelectItem>
             ))}
@@ -205,10 +205,8 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
         </Select>
       </div>
       {kind === "task" && effortOptions.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">
-            Model
-          </span>
+        <div className={sx(styles.field)}>
+          <span className={sx(styles.label)}>Model</span>
           <Select value={model} onValueChange={handleModelChange}>
             <SelectTrigger>
               <SelectValue />
@@ -216,13 +214,13 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
             <SelectContent>
               {modelOptions.map((option) => (
                 <SelectItem key={option} value={option}>
-                  <span className="flex min-w-0 items-center gap-2">
+                  <span className={sx(styles.option)}>
                     <ModelIcon
                       providerId={provider}
                       model={option}
-                      className="size-3.5"
+                      className={sx(styles.optionIcon)}
                     />
-                    <span className="truncate">
+                    <span className={sx(styles.optionLabel)}>
                       {toHumanModelName({ model: option })}
                     </span>
                   </span>
@@ -233,10 +231,8 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
         </div>
       ) : null}
       {kind === "task" ? (
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">
-            Effort
-          </span>
+        <div className={sx(styles.field)}>
+          <span className={sx(styles.label)}>Effort</span>
           <Select
             value={effort}
             onValueChange={(value) =>
@@ -259,7 +255,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
           </Select>
         </div>
       ) : null}
-      <div className="flex items-center justify-end gap-2 pt-1">
+      <div className={sx(styles.actions)}>
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>

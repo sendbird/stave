@@ -63,10 +63,22 @@ describe("renderer persistence flush gate", () => {
     const requestId = (sentChannels[0]?.payload as { requestId: number })
       .requestId;
 
-    expect(resolveRendererPersistenceFlush({ requestId })).toEqual({
+    expect(
+      resolveRendererPersistenceFlush({ requestId, success: true }),
+    ).toEqual({
       ok: true,
     });
     await expect(pending).resolves.toBe("flushed");
+  });
+
+  test("failed writes complete the request without claiming durability", async () => {
+    const pending = requestRendererPersistenceFlush({ timeoutMs: 1000 });
+    const requestId = (sentChannels[0]!.payload as { requestId: number })
+      .requestId;
+    expect(
+      resolveRendererPersistenceFlush({ requestId, success: false }),
+    ).toEqual({ ok: true });
+    expect(await pending).toBe("failed");
   });
 
   test("resolves without waiting when there is no renderer to ask", async () => {
@@ -98,13 +110,19 @@ describe("renderer persistence flush gate", () => {
     // A late ack for the timed-out request must not settle the next one.
     const second = requestRendererPersistenceFlush({ timeoutMs: 1_000 });
     expect(
-      resolveRendererPersistenceFlush({ requestId: staleRequestId }),
+      resolveRendererPersistenceFlush({
+        requestId: staleRequestId,
+        success: true,
+      }),
     ).toEqual({ ok: false });
 
     const currentRequestId = (sentChannels[1]?.payload as { requestId: number })
       .requestId;
     expect(currentRequestId).not.toBe(staleRequestId);
-    resolveRendererPersistenceFlush({ requestId: currentRequestId });
+    resolveRendererPersistenceFlush({
+      requestId: currentRequestId,
+      success: true,
+    });
     await expect(second).resolves.toBe("flushed");
   });
 
@@ -117,7 +135,7 @@ describe("renderer persistence flush gate", () => {
 
     const requestId = (sentChannels[0]?.payload as { requestId: number })
       .requestId;
-    resolveRendererPersistenceFlush({ requestId });
+    resolveRendererPersistenceFlush({ requestId, success: true });
 
     expect(await first).toBe("flushed");
     expect(await second).toBe("flushed");
@@ -176,10 +194,9 @@ describe("blocking sync persistence bridge is gone", () => {
   });
 
   test("main gates quit cleanup on the renderer flush", async () => {
-    const mainSource = stripComments(
-      await Bun.file("electron/main.ts").text(),
-    );
-    expect(mainSource).toContain("await requestRendererPersistenceFlush()");
+    const mainSource = stripComments(await Bun.file("electron/main.ts").text());
+    expect(mainSource).toContain("await confirmPersistenceBeforeQuit(");
+    expect(mainSource).toContain("if (!mayQuit) return false;");
     // The flush has to precede the compaction/close that ends the store's life.
     expect(mainSource.indexOf("requestRendererPersistenceFlush")).toBeLessThan(
       mainSource.indexOf("resetMainProcessState({ compactPersistence: true })"),

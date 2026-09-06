@@ -47,6 +47,7 @@ const coordinatorInstanceSource = read(
  * see — so the channel names are compared as sets rather than trusted.
  */
 const CHILD_TASK_CHANNELS = [
+  "runs:delegate-child-task",
   "runs:detach-child-task",
   "runs:follow-up-child-task",
   "runs:get-child-task-link",
@@ -72,6 +73,7 @@ describe("child task IPC chain", () => {
 
   test("every bridged control is declared on the renderer contract", () => {
     for (const method of [
+      "delegateChildTask",
       "listChildTasks",
       "followUpChildTask",
       "retryChildTask",

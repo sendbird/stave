@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { sx } from "@/components/ads/utils/stylex";
 import { buildSourceControlSummary } from "@/components/layout/editor-panel.utils";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import {
@@ -33,7 +34,6 @@ import {
   DEFAULT_COMPARE_REVIEW_CRITERIA,
   type CompareRunVariant,
 } from "@/lib/compare-runs";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
 import {
   launchReadyCompareJudges,
@@ -41,6 +41,7 @@ import {
   type CompareJudgeStoreAccess,
 } from "@/store/compare-run-judge";
 import type { SourceControlStatusItem } from "@/lib/source-control-status";
+import { compareRunPanelStyles as styles } from "./compare-run-panel.styles";
 
 interface VariantSourceControlState {
   status: "idle" | "loading" | "ready" | "error";
@@ -80,39 +81,39 @@ function getVariantStatusLabel(status: CompareRunVariant["status"]) {
   }
 }
 
-function getVariantStatusClassName(status: CompareRunVariant["status"]) {
+function getVariantStatusStyle(status: CompareRunVariant["status"]) {
   if (status === "failed") {
-    return "border-destructive/40 bg-destructive/10 text-destructive";
+    return styles.statusFailed;
   }
   if (status === "cancelled") {
-    return "border-muted-foreground/30 bg-muted text-muted-foreground";
+    return styles.statusMuted;
   }
   if (status === "kept") {
-    return "border-success/40 bg-success/10 text-success";
+    return styles.statusKept;
   }
   if (status === "completed") {
-    return "border-primary/35 bg-primary/8 text-primary";
+    return styles.statusCompleted;
   }
   if (status === "discarded") {
-    return "border-muted-foreground/30 bg-muted text-muted-foreground";
+    return styles.statusMuted;
   }
   if (status === "running" || status === "creating") {
-    return "border-warning/40 bg-warning/10 text-warning";
+    return styles.statusRunning;
   }
-  return "border-border/70 bg-muted text-muted-foreground";
+  return styles.statusPending;
 }
 
 function VariantStatusIcon(props: { status: CompareRunVariant["status"] }) {
   if (props.status === "failed" || props.status === "cancelled") {
-    return <XCircle className="size-3.5" />;
+    return <XCircle className={sx(styles.icon14)} />;
   }
   if (props.status === "kept" || props.status === "completed") {
-    return <CheckCircle2 className="size-3.5" />;
+    return <CheckCircle2 className={sx(styles.icon14)} />;
   }
   if (props.status === "running" || props.status === "creating") {
     return <Loader aria-hidden size="xs" variant="parallel" />;
   }
-  return <GitBranch className="size-3.5" />;
+  return <GitBranch className={sx(styles.icon14)} />;
 }
 
 function formatVariantTitle(variant: CompareRunVariant, index: number) {
@@ -317,20 +318,17 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
 
   if (!compareRun) {
     return (
-      <div className="flex h-full items-center justify-center bg-background p-6">
-        <Empty className="border-none bg-transparent p-0">
-          <EmptyHeader className="gap-3">
-            <EmptyMedia
-              variant="icon"
-              className="size-14 rounded-2xl bg-primary/10 text-primary [&_svg:not([class*='size-'])]:size-7"
-            >
-              <SplitSquareHorizontal className="size-7" strokeWidth={1.6} />
+      <div className={sx(styles.emptyViewport)}>
+        <Empty xstyle={styles.emptyRoot}>
+          <EmptyHeader className={sx(styles.emptyHeader)}>
+            <EmptyMedia variant="icon" xstyle={styles.emptyMedia}>
+              <SplitSquareHorizontal className={sx(styles.icon28)} strokeWidth={1.6} />
             </EmptyMedia>
-            <div className="flex flex-col gap-1">
-              <EmptyTitle className="text-xl font-semibold">
+            <div className={sx(styles.emptyTextGroup)}>
+              <EmptyTitle xstyle={styles.emptyTitle}>
                 No compare run selected
               </EmptyTitle>
-              <EmptyDescription className="max-w-md text-sm">
+              <EmptyDescription xstyle={styles.emptyDescription}>
                 Write a prompt in the composer, then choose Compare beside the
                 send controls. Choose each candidate model and an independent
                 judge before starting.
@@ -401,7 +399,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className={sx(styles.root)}>
       <ConfirmDialog
         open={Boolean(keepTarget)}
         title="Keep this candidate?"
@@ -423,43 +421,39 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
         onConfirm={() => void confirmCancelRun()}
       />
 
-      <div className="shrink-0 border-b border-border/65 bg-surface px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <SplitSquareHorizontal className="size-4 text-primary" />
-              <h2 className="font-heading truncate text-base font-semibold tracking-[-0.01em] text-foreground">
-                Compare candidates
-              </h2>
+      <div className={sx(styles.header)}>
+        <div className={sx(styles.headerRow)}>
+          <div className={sx(styles.headerMain)}>
+            <div className={sx(styles.headerTitleRow)}>
+              <SplitSquareHorizontal className={sx(styles.headerIcon)} />
+              <h2 className={sx(styles.headerTitle)}>Compare candidates</h2>
               <Badge variant="outline">
                 {judge?.status === "running"
                   ? "Judging"
                   : formatRunStatus(compareRun.status)}
               </Badge>
             </div>
-            <div className="mt-2 flex max-w-3xl items-start gap-2 text-xs">
-              <span className="shrink-0 font-semibold tracking-[0.1em] text-muted-foreground uppercase">
-                Prompt
-              </span>
-              <p className="line-clamp-2 text-foreground/85">{seedPreview}</p>
+            <div className={sx(styles.promptRow)}>
+              <span className={sx(styles.promptLabel)}>Prompt</span>
+              <p className={sx(styles.promptText)}>{seedPreview}</p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className={sx(styles.headerActions)}>
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              className="h-8"
+              className={sx(styles.actionButton)}
               onClick={() => setRefreshNonce((value) => value + 1)}
             >
-              <RefreshCw className="size-3.5" />
+              <RefreshCw className={sx(styles.icon14)} />
               Refresh
             </Button>
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              className="h-8"
+              className={sx(styles.actionButton)}
               disabled={
                 Boolean(compareRun.keptVariantId) ||
                 compareRun.status === "cancelled" ||
@@ -473,10 +467,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
         </div>
       </div>
 
-      <ol
-        aria-label="Compare workflow"
-        className="grid shrink-0 grid-cols-5 border-b border-border/60 bg-background"
-      >
+      <ol aria-label="Compare workflow" className={sx(styles.stepper)}>
         {[
           ["1", "Prepare", "Shared brief and review contract."],
           ["2", "Run", "Candidates work in isolation."],
@@ -490,43 +481,33 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
           return (
             <li
               key={number}
-              className={cn(
-                "relative min-w-0 px-4 py-3",
-                index < 4 && "border-r border-border/55",
-                active && "bg-primary/6",
+              className={sx(
+                styles.step,
+                index < 4 && styles.stepDivider,
+                active && styles.stepActive,
               )}
             >
-              <div className="flex items-center gap-2">
+              <div className={sx(styles.stepHeadRow)}>
                 <span
-                  className={cn(
-                    "inline-flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums",
-                    active &&
-                      "border-primary bg-primary text-primary-foreground",
-                    complete && "border-success/40 bg-success/12 text-success",
-                    !active &&
-                      !complete &&
-                      "border-border/80 text-muted-foreground",
+                  className={sx(
+                    styles.stepBadge,
+                    active && styles.stepBadgeActive,
+                    complete && styles.stepBadgeComplete,
                   )}
                 >
                   {complete ? "✓" : number}
                 </span>
                 <span
-                  className={cn(
-                    "text-xs font-semibold",
-                    active || complete
-                      ? "text-foreground"
-                      : "text-muted-foreground",
+                  className={sx(
+                    styles.stepLabel,
+                    (active || complete) && styles.stepLabelActive,
                   )}
                 >
                   {label}
                 </span>
               </div>
-              <p className="mt-1 truncate pl-7 text-[11px] text-muted-foreground">
-                {description}
-              </p>
-              {active ? (
-                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
-              ) : null}
+              <p className={sx(styles.stepDescription)}>{description}</p>
+              {active ? <span className={sx(styles.stepUnderline)} /> : null}
             </li>
           );
         })}
@@ -536,26 +517,24 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
         <section
           role="status"
           aria-label="Compare terminal status"
-          className={cn(
-            "flex shrink-0 items-start gap-3 border-b px-5 py-3",
+          className={sx(
+            styles.notice,
             terminalNotice.destructive
-              ? "border-destructive/25 bg-destructive/8"
-              : "border-border/60 bg-surface",
+              ? styles.noticeDestructive
+              : styles.noticeNeutral,
           )}
         >
           <XCircle
-            className={cn(
-              "mt-0.5 size-4 shrink-0",
+            className={sx(
+              styles.noticeIcon,
               terminalNotice.destructive
-                ? "text-destructive"
-                : "text-muted-foreground",
+                ? styles.noticeIconDestructive
+                : styles.noticeIconNeutral,
             )}
           />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">
-              {terminalNotice.title}
-            </p>
-            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+          <div className={sx(styles.noticeBody)}>
+            <p className={sx(styles.noticeTitle)}>{terminalNotice.title}</p>
+            <p className={sx(styles.noticeDescription)}>
               {terminalNotice.description}
             </p>
           </div>
@@ -566,34 +545,34 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
         <section
           aria-label="Fresh-context judge"
           aria-live="polite"
-          className={cn(
-            "flex shrink-0 items-start gap-3 border-b px-5 py-3.5",
+          className={sx(
+            styles.judge,
             judge.status === "failed"
-              ? "border-warning/25 bg-warning/6"
+              ? styles.judgeFailed
               : judge.status === "completed"
-                ? "border-primary/20 bg-primary/5"
-                : "border-border/60 bg-surface",
+                ? styles.judgeCompleted
+                : styles.judgeNeutral,
           )}
         >
           <span
-            className={cn(
-              "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg",
+            className={sx(
+              styles.judgeMark,
               judge.status === "failed"
-                ? "bg-warning/12 text-warning"
-                : "bg-primary/10 text-primary",
+                ? styles.judgeMarkFailed
+                : styles.judgeMarkNeutral,
             )}
           >
             {judge.status === "running" || judge.status === "pending" ? (
               <Loader aria-hidden size="xs" variant="parallel" />
             ) : judge.status === "failed" ? (
-              <XCircle className="size-4" />
+              <XCircle className={sx(styles.icon16)} />
             ) : (
-              <BrainCircuit className="size-4" />
+              <BrainCircuit className={sx(styles.icon16)} />
             )}
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <p className="text-sm font-semibold text-foreground">
+          <div className={sx(styles.judgeBody)}>
+            <div className={sx(styles.judgeHeadRow)}>
+              <p className={sx(styles.judgeTitle)}>
                 {judge.status === "completed" && recommendedTitle
                   ? `Recommended: ${recommendedTitle}`
                   : judge.status === "failed"
@@ -602,11 +581,11 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
               </p>
               {judge.status === "completed" &&
               typeof recommendedScore === "number" ? (
-                <span className="font-mono text-xs font-semibold text-primary">
+                <span className={sx(styles.judgeScore)}>
                   {recommendedScore.toFixed(1)} / 10
                 </span>
               ) : null}
-              <span className="text-xs text-muted-foreground">
+              <span className={sx(styles.judgeMeta)}>
                 {getProviderLabel({
                   providerId: displayedJudgeProvider ?? judge.provider,
                 })}
@@ -620,7 +599,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                   : ""}
               </span>
             </div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <p className={sx(styles.judgeRationale)}>
               {judge.status === "completed"
                 ? judgment?.rationale
                 : judge.status === "failed"
@@ -633,11 +612,11 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
               type="button"
               size="sm"
               variant="ghost"
-              className="h-8 shrink-0"
+              className={sx(styles.actionButtonShrink)}
               disabled={pendingAction === `judge:${compareRun.id}`}
               onClick={() => void handleRetryJudge()}
             >
-              <RotateCcw className="size-3.5" />
+              <RotateCcw className={sx(styles.icon14)} />
               Retry
             </Button>
           ) : null}
@@ -647,21 +626,18 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
       {!terminalNotice && comparePhase >= 4 ? (
         <section
           aria-label="Compare review contract"
-          className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-2 border-b border-border/60 bg-surface px-5 py-3"
+          className={sx(styles.review)}
         >
-          <div className="flex items-center gap-2">
-            <ListChecks className="size-4 text-primary" />
-            <span className="text-sm font-semibold text-foreground">
+          <div className={sx(styles.reviewHead)}>
+            <ListChecks className={sx(styles.reviewIcon)} />
+            <span className={sx(styles.reviewHeadLabel)}>
               {comparePhase === 5 ? "Candidate kept" : "Ready for review"}
             </span>
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+          <div className={sx(styles.reviewCriteria)}>
             {reviewCriteria.map((criterion) => (
-              <span
-                key={criterion}
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-              >
-                <span className="size-1 rounded-full bg-primary" aria-hidden />
+              <span key={criterion} className={sx(styles.reviewCriterion)}>
+                <span className={sx(styles.reviewDot)} aria-hidden />
                 {criterion}
               </span>
             ))}
@@ -669,9 +645,9 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
         </section>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+      <div className={sx(styles.scroller)}>
         <div
-          className="grid min-w-[760px] overflow-hidden rounded-lg border border-border/70 bg-surface shadow-[0_1px_2px_color-mix(in_oklch,var(--foreground)_5%,transparent)]"
+          className={sx(styles.grid)}
           style={{
             gridTemplateColumns: `repeat(${Math.max(variants.length, 1)}, minmax(0, 1fr))`,
           }}
@@ -690,40 +666,38 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
             return (
               <section
                 key={variant.id}
-                className={cn(
-                  "flex min-h-[23rem] min-w-0 flex-col",
-                  index > 0 && "border-l border-border/65",
-                  recommended && "bg-primary/[0.025]",
+                className={sx(
+                  styles.variant,
+                  index > 0 && styles.variantDivider,
+                  recommended && styles.variantRecommended,
                 )}
               >
-                <div className="border-b border-border/60 bg-surface px-4 py-3.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[10px] text-muted-foreground">
+                <div className={sx(styles.variantHeader)}>
+                  <div className={sx(styles.variantHeaderRow)}>
+                    <div className={sx(styles.headerMain)}>
+                      <div className={sx(styles.variantTitleRow)}>
+                        <span className={sx(styles.variantIndex)}>
                           {String(index + 1).padStart(2, "0")}
                         </span>
-                        <h3 className="truncate text-sm font-semibold text-foreground">
-                          {title}
-                        </h3>
+                        <h3 className={sx(styles.variantTitle)}>{title}</h3>
                         <span
-                          className={cn(
-                            "inline-flex shrink-0 items-center gap-1 rounded-[0.3rem] border px-1.5 py-0.5 text-[10px] font-medium",
-                            getVariantStatusClassName(variant.status),
+                          className={sx(
+                            styles.statusChip,
+                            getVariantStatusStyle(variant.status),
                           )}
                         >
                           <VariantStatusIcon status={variant.status} />
                           {getVariantStatusLabel(variant.status)}
                         </span>
                         {recommended ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-primary">
-                            <Trophy className="size-3" />
+                          <span className={sx(styles.recommendedTag)}>
+                            <Trophy className={sx(styles.icon12)} />
                             Recommended
                           </span>
                         ) : null}
                       </div>
-                      <div className="mt-1 flex min-w-0 items-center gap-2">
-                        <p className="truncate text-xs text-muted-foreground">
+                      <div className={sx(styles.variantModelRow)}>
+                        <p className={sx(styles.variantModelText)}>
                           {getProviderLabel({ providerId: variant.provider })}
                           {variant.model
                             ? ` / ${toHumanModelName({ model: variant.model })}`
@@ -731,17 +705,17 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                           {variant.effort ? ` · ${variant.effort}` : ""}
                         </p>
                         {candidateScore ? (
-                          <span className="shrink-0 font-mono text-xs font-semibold text-foreground">
+                          <span className={sx(styles.variantScoreInline)}>
                             {candidateScore.score.toFixed(1)}
                           </span>
                         ) : null}
                       </div>
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                  <div className={sx(styles.variantMetaRow)}>
                     {variant.branchName || sourceState?.branch ? (
-                      <span className="inline-flex items-center gap-1">
-                        <GitBranch className="size-3" aria-hidden="true" />
+                      <span className={sx(styles.variantMetaItem)}>
+                        <GitBranch className={sx(styles.icon12)} aria-hidden="true" />
                         {sourceState?.branch ?? variant.branchName}
                       </span>
                     ) : null}
@@ -749,42 +723,44 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                       {summary.workingTreeCount + summary.stagedCount} changed
                     </span>
                     {summary.conflictCount > 0 ? (
-                      <span className="font-medium text-destructive">
+                      <span className={sx(styles.variantConflicts)}>
                         {summary.conflictCount} conflicts
                       </span>
                     ) : null}
                   </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+                <div className={sx(styles.variantBody)}>
                   {variant.error ? (
-                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-2 text-xs text-destructive">
-                      {variant.error}
-                    </p>
+                    <p className={sx(styles.variantError)}>{variant.error}</p>
                   ) : sourceState?.status === "loading" ? (
-                    <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground">
+                    <div className={sx(styles.variantLoading)}>
                       <Loader aria-hidden size="xs" variant="parallel" />
                       Loading changes
                     </div>
                   ) : sourceState?.status === "error" ? (
-                    <p className="rounded-md border border-warning/30 bg-warning/10 px-2 py-2 text-xs text-warning">
+                    <p className={sx(styles.variantWarning)}>
                       {sourceState.error}
                     </p>
                   ) : items.length === 0 ? (
-                    <p className="py-6 text-xs text-muted-foreground">
+                    <p className={sx(styles.variantEmptyFiles)}>
                       No changed files yet.
                     </p>
                   ) : (
-                    <div className="flex flex-col">
-                      {items.map((item) => (
+                    <div className={sx(styles.fileList)}>
+                      {items.map((item, itemIndex) => (
                         <div
                           key={`${item.code}:${item.path}`}
-                          className="flex min-w-0 items-center gap-2 border-b border-border/45 px-1 py-2 last:border-b-0"
+                          className={sx(
+                            styles.fileRow,
+                            itemIndex === items.length - 1 &&
+                              styles.fileRowLast,
+                          )}
                         >
-                          <span className="w-8 shrink-0 font-mono text-[10px] font-medium text-muted-foreground">
+                          <span className={sx(styles.fileCode)}>
                             {item.code.trim() || "??"}
                           </span>
-                          <span className="min-w-0 truncate text-xs text-foreground">
+                          <span className={sx(styles.filePath)}>
                             {truncatePath(item.path)}
                           </span>
                         </div>
@@ -792,40 +768,43 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                     </div>
                   )}
                   {candidateScore ? (
-                    <div className="mt-4 border-t border-border/55 pt-3">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <span className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+                    <div className={sx(styles.assessment)}>
+                      <div className={sx(styles.assessmentHead)}>
+                        <span className={sx(styles.assessmentHeadLabel)}>
                           Judge assessment
                         </span>
-                        <span className="font-mono text-xs font-semibold text-foreground">
+                        <span className={sx(styles.assessmentScore)}>
                           {candidateScore.score.toFixed(1)} / 10
                         </span>
                       </div>
-                      <p className="text-xs leading-5 text-foreground/85">
+                      <p className={sx(styles.assessmentSummary)}>
                         {candidateScore.summary}
                       </p>
-                      <dl className="mt-3 divide-y divide-border/45 border-y border-border/50">
-                        {candidateScore.criteria.map((criterion) => (
+                      <dl className={sx(styles.criteriaList)}>
+                        {candidateScore.criteria.map((criterion, criterionIndex) => (
                           <div
                             key={criterion.criterion}
-                            className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-2"
+                            className={sx(
+                              styles.criteriaRow,
+                              criterionIndex === 0 && styles.criteriaRowFirst,
+                            )}
                           >
-                            <div className="min-w-0">
-                              <dt className="text-xs font-medium text-foreground">
+                            <div className={sx(styles.criteriaMain)}>
+                              <dt className={sx(styles.criteriaTerm)}>
                                 {criterion.criterion}
                               </dt>
-                              <dd className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                              <dd className={sx(styles.criteriaRationale)}>
                                 {criterion.rationale}
                               </dd>
                             </div>
-                            <dd className="font-mono text-xs font-semibold text-foreground">
+                            <dd className={sx(styles.criteriaScore)}>
                               {criterion.score.toFixed(1)}
                             </dd>
                           </div>
                         ))}
                       </dl>
                       {candidateScore.risks[0] ? (
-                        <p className="mt-2 text-[11px] leading-4 text-warning">
+                        <p className={sx(styles.risk)}>
                           Risk · {candidateScore.risks[0]}
                         </p>
                       ) : null}
@@ -833,12 +812,12 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                   ) : null}
                 </div>
 
-                <div className="flex items-center justify-end gap-2 border-t border-border/60 bg-background px-4 py-2.5">
+                <div className={sx(styles.variantFooter)}>
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-8"
+                    className={sx(styles.actionButton)}
                     disabled={!variant.workspaceId || !variant.taskId}
                     onClick={() =>
                       void openCompareVariant({
@@ -847,13 +826,13 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                       })
                     }
                   >
-                    <Eye className="size-3.5" />
+                    <Eye className={sx(styles.icon14)} />
                     Open candidate
                   </Button>
                   <Button
                     type="button"
                     size="sm"
-                    className="h-8"
+                    className={sx(styles.actionButton)}
                     disabled={
                       !variant.workspaceId ||
                       !variant.taskId ||
@@ -864,9 +843,9 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                     }
                     onClick={() => setKeepTarget(variant)}
                   >
-                    <Trophy className="size-3.5" />
+                    <Trophy className={sx(styles.icon14)} />
                     Keep
-                    <ArrowRight className="size-3.5" />
+                    <ArrowRight className={sx(styles.icon14)} />
                   </Button>
                 </div>
               </section>

@@ -7,7 +7,9 @@ import {
   SettingsCard,
 } from "@/components/layout/settings-dialog.shared";
 import { isAbsolutePosixOrWindowsPath } from "@/lib/path-utils";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
+import { standaloneCliCardStyles as styles } from "./settings-dialog-standalone-cli-card.styles";
 
 export const STANDALONE_CLI_SETTING_FIELD_ID = "settings-standalone-cli-folder";
 export const STANDALONE_CLI_FOLDER_ERROR_ID = `${STANDALONE_CLI_SETTING_FIELD_ID}-error`;
@@ -80,9 +82,9 @@ export function StandaloneCliSettingsCard() {
         title="Standalone CLI Folder"
         description="Absolute path. Changing it restarts both CLI tabs in the new folder and discards their conversations."
       >
-        <div className="flex items-center gap-2">
+        <div className={sx(styles.row)}>
           <DraftInput
-            className="h-10 rounded-md border-border/80 bg-background"
+            xstyle={styles.input}
             placeholder="/Users/me/notes"
             value={standaloneCliFolderPath}
             onCommit={commit}
@@ -92,10 +94,10 @@ export function StandaloneCliSettingsCard() {
             type="button"
             variant="outline"
             size="sm"
-            className="h-10 shrink-0 gap-2"
+            xstyle={styles.browse}
             onClick={browse}
           >
-            <FolderOpen className="size-4" />
+            <FolderOpen className={sx(styles.browseIcon)} />
             Browse
           </Button>
         </div>
@@ -103,7 +105,7 @@ export function StandaloneCliSettingsCard() {
           <p
             id={STANDALONE_CLI_FOLDER_ERROR_ID}
             role="alert"
-            className="mt-2 text-xs text-destructive"
+            className={sx(styles.error)}
           >
             {error}
           </p>

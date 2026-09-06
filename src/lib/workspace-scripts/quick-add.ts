@@ -1,15 +1,25 @@
 import { SCRIPTS_CONFIG_FILENAME, STAVE_CONFIG_DIR } from "./constants";
 import {
-  appendServiceEntryToRawConfig,
+  appendScriptEntryToRawConfig,
   collectScriptIdsFromRaw,
   formatScriptConfigFile,
   slugifyScriptId,
 } from "./editor";
+import type { ScriptKind } from "./types";
 
 export async function persistWorkspaceServiceQuickAdd(args: {
   workspacePath: string;
   label: string;
   command: string;
+}): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  return persistWorkspaceScriptQuickAdd({ ...args, kind: "service" });
+}
+
+export async function persistWorkspaceScriptQuickAdd(args: {
+  workspacePath: string;
+  label: string;
+  command: string;
+  kind: ScriptKind;
 }): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
   const readFile = window.api?.fs?.readFile;
   const writeFile = window.api?.fs?.writeFile;
@@ -73,11 +83,18 @@ export async function persistWorkspaceServiceQuickAdd(args: {
     args.label.trim() || commands[0] || "process",
     collectScriptIdsFromRaw(raw),
   );
-  const next = appendServiceEntryToRawConfig({
+  const block = args.kind === "service" ? "services" : "actions";
+  if (raw?.[block] !== undefined && (
+    !raw[block] || typeof raw[block] !== "object" || Array.isArray(raw[block])
+  )) {
+    return { ok: false, message: `Fix the ${block} section in Workspace tools settings before adding an entry.` };
+  }
+  const next = appendScriptEntryToRawConfig({
     rawConfig: raw,
     id,
     label: args.label.trim() || id,
     commands,
+    kind: args.kind,
   });
   const write = await writeFile({
     rootPath: args.workspacePath,

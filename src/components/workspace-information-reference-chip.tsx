@@ -1,3 +1,6 @@
+import * as stylex from "@stylexjs/stylex";
+import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { Info, X } from "lucide-react";
 import {
   Button,
@@ -9,7 +12,6 @@ import {
   getWorkspaceInformationReferenceLabel,
   type WorkspaceInformationReference,
 } from "@/lib/workspace-information-references";
-import { cn } from "@/lib/utils";
 
 export function WorkspaceInformationReferenceChip(args: {
   reference: WorkspaceInformationReference;
@@ -21,15 +23,12 @@ export function WorkspaceInformationReferenceChip(args: {
   const scopeLabel = args.reference.scope === "section" ? "Section" : "Item";
   return (
     <span
-      className={cn(
-        "inline-flex max-w-full items-center gap-1.5 rounded-sm border border-primary/25 bg-primary/10 px-2 py-1 text-sm text-primary",
-        args.compact && "px-1.5 py-0.5 text-xs",
-      )}
+      className={sx(styles.root, args.compact && styles.compact)}
     >
-      <Info className="size-3.5 shrink-0" />
-      <span className="min-w-0 truncate">
-        <span className="font-medium">Information</span>
-        <span className="text-primary/70"> / {scopeLabel} / </span>
+      <Info className={sx(styles.icon)} />
+      <span className={sx(styles.label)}>
+        <span className={sx(styles.prefix)}>Information</span>
+        <span className={sx(styles.scope)}> / {scopeLabel} / </span>
         <span>{label}</span>
       </span>
       {args.onRemove ? (
@@ -43,11 +42,11 @@ export function WorkspaceInformationReferenceChip(args: {
                 disabled={args.disabled}
                 aria-label={`Remove ${label}`}
                 onClick={args.onRemove}
-                className="-mr-1 size-5 text-primary/70 hover:text-primary"
+                className={sx(styles.remove)}
               />
             }
           >
-            <X className="size-3" />
+            <X className={sx(styles.removeIcon)} />
           </TooltipTrigger>
           <TooltipContent>Remove Information reference</TooltipContent>
         </Tooltip>
@@ -55,3 +54,14 @@ export function WorkspaceInformationReferenceChip(args: {
     </span>
   );
 }
+
+const styles = stylex.create({
+root:{display:"inline-flex",maxWidth:"100%",alignItems:"center",gap:6,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,backgroundColor:vars.colorAccentSoft,paddingInline:8,paddingBlock:4,fontSize:14,color:vars.colorText},
+compact:{paddingInline:6,paddingBlock:2,fontSize:12},
+icon: {width:14,height:14,flexShrink:0},
+label: {minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
+prefix: {fontWeight:500},
+scope: {color:vars.colorTextMuted},
+remove: {marginRight:-4,width:20,height:20,color:{default:vars.colorTextMuted,":hover":vars.colorText}},
+removeIcon: {width:12,height:12}
+});

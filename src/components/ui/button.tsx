@@ -1,61 +1,30 @@
-import { Button as ButtonPrimitive } from "@base-ui/react/button";
-import { cva, type VariantProps } from "class-variance-authority";
+import type { StyleXValue } from "../ads/utils/stylex";
+import type { ComponentType } from "react";
+import type { Button as BaseButton } from "@base-ui/react/button";
+import { Button as AdsButton, type ButtonBaseProps } from "../ads/components/Button";
+import { buttonVariantStyles, buttonDangerToneStyles, buttonSizeGapStyles, buttonSizePadStyles } from "../ads/components/Button.config";
+import { styles } from "../ads/components/Button.styles";
+import { controlHeights, controlSquares } from "../ads/recipes/control-metrics";
+import { focusRing } from "../ads/recipes/focus-ring";
+import { transition } from "../ads/recipes/transition";
+import { sx, cx } from "../ads/utils/stylex";
 
-import { cn } from "@/lib/utils";
+const ForwardButton = AdsButton as ComponentType<ButtonBaseProps>;
+const variants = { default: "primary", outline: "outline", secondary: "secondary", ghost: "quiet", destructive: "soft", link: "link" } as const;
+const sizes = { default: "md", xs: "xs", sm: "sm", lg: "lg", icon: "md", "icon-xs": "xs", "icon-sm": "sm", "icon-lg": "lg" } as const;
+type Options = { xstyle?: StyleXValue; variant?: keyof typeof variants | null; size?: keyof typeof sizes | null; className?: string };
 
-const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/35 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-45 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-  {
-    variants: {
-      variant: {
-        default:
-          "bg-primary text-primary-foreground shadow-[inset_0_1px_0_color-mix(in_oklch,var(--primary-foreground)_18%,transparent),0_1px_2px_oklch(0_0_0/0.14)] hover:bg-primary/90 hover:shadow-[inset_0_1px_0_color-mix(in_oklch,var(--primary-foreground)_22%,transparent),0_2px_5px_oklch(0_0_0/0.16)]",
-        outline:
-          "border-border/85 bg-background/55 text-foreground hover:border-primary/35 hover:bg-accent/45 aria-expanded:border-primary/30 aria-expanded:bg-accent/55",
-        secondary:
-          "border-border/45 bg-secondary/80 text-secondary-foreground hover:border-border/75 hover:bg-secondary aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
-        ghost:
-          "text-muted-foreground hover:bg-accent/55 hover:text-accent-foreground aria-expanded:bg-accent/65 aria-expanded:text-accent-foreground",
-        destructive:
-          "border-destructive/20 bg-destructive/10 text-destructive hover:border-destructive/35 hover:bg-destructive/16 focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
-        link: "text-primary underline-offset-4 hover:underline",
-      },
-      size: {
-        default:
-          "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),8px)] px-2 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1 rounded-[min(var(--radius-md),10px)] px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5",
-        lg: "h-10 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        icon: "size-9",
-        "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),8px)] [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-8 rounded-[min(var(--radius-md),10px)]",
-        "icon-lg": "size-10",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  },
-);
-
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  return (
-    <ButtonPrimitive
-      data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  );
+/** Class-only consumers share the same ADS recipes as real buttons. */
+export function buttonVariants({ variant = "default", size = "default", className }: Options = {}) {
+  const weight = variants[variant ?? "default"];
+  const scale = sizes[size ?? "default"];
+  const square = size?.startsWith("icon");
+  return cx(sx(styles.root, transition.control, focusRing.ring, buttonVariantStyles[weight], variant === "destructive" && buttonDangerToneStyles[weight], square ? controlSquares[scale] : controlHeights[scale], square ? styles.iconPad : buttonSizePadStyles[scale], square ? styles.gapIcon : buttonSizeGapStyles[scale]), className);
 }
 
-export { Button, buttonVariants };
+/** Preserve the public call contract while ADS owns behavior and styling. */
+export function Button({ variant = "default", size = "default", className, ...props }: BaseButton.Props & Options) {
+  const scale = sizes[size ?? "default"];
+  const square = size?.startsWith("icon");
+  return <ForwardButton {...props} className={typeof className === "string" ? className : undefined} variant={variants[variant ?? "default"]} tone={variant === "destructive" ? "danger" : "default"} size={scale} iconOnly={Boolean(square)} data-slot="button" data-variant={variant} data-size={size} />;
+}

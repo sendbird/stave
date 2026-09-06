@@ -1,6 +1,7 @@
 import type { CSSProperties, ElementType, HTMLAttributes, ReactNode } from "react";
 import { memo, useMemo } from "react";
-import { cn } from "@/lib/utils";
+import { coreStyles } from "./ai-element-core.styles";
+import { cx, sx } from "../ads/utils/stylex";
 
 export interface ShimmerProps extends Omit<HTMLAttributes<HTMLElement>, "children"> {
   /**
@@ -49,12 +50,7 @@ function ShimmerComponent({
 
   return (
     <Component
-      className={cn(
-        "inline-block bg-[length:250%_100%] bg-clip-text bg-no-repeat text-transparent",
-        "[background-position:100%_center] [--shimmer-base-color:var(--color-muted-foreground)]",
-        "animate-text-shimmer motion-reduce:animate-none",
-        className,
-      )}
+      className={cx(sx(coreStyles.shimmer), className)}
       style={shimmerStyle}
       {...props}
     >

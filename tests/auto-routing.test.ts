@@ -179,6 +179,19 @@ describe("resolveAutoRoutingDecision", () => {
     });
   });
 
+  test("a manual model retains task-local effort instead of resetting to the model default", async () => {
+    const codex = await resolveDecision({
+      prompt: "Inspect the changes",
+      runtimeOverrides: { model: "gpt-5.5", modelProviderId: "codex", codexReasoningEffort: "low" },
+    });
+    expect(codex.codexReasoningEffort).toBe("low");
+    const claude = await resolveDecision({
+      prompt: "Inspect the changes",
+      runtimeOverrides: { model: "claude-sonnet-5", modelProviderId: "claude-code", claudeEffort: "high" },
+    });
+    expect(claude.claudeEffort).toBe("high");
+  });
+
   test("disabled auto routing preserves the current provider and model", async () => {
     const decision = await resolveDecision({
       prompt: "Plan the implementation",

@@ -1,17 +1,15 @@
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 import { useCallback } from "react";
 import { Button } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { coreStyles } from "./ai-element-core.styles";
+import { cx, sx } from "../ads/utils/stylex";
 
 type SuggestionsProps = HTMLAttributes<HTMLDivElement>;
 
 export function Suggestions({ className, ...props }: SuggestionsProps) {
   return (
     <div
-      className={cn(
-        "mb-3 flex flex-wrap items-center gap-2 overflow-x-auto pb-1",
-        className,
-      )}
+      className={cx(sx(coreStyles.suggestionList), className)}
       {...props}
     />
   );
@@ -44,10 +42,7 @@ export function Suggestion({
       type={type}
       variant={variant}
       size={size}
-      className={cn(
-        "max-w-full cursor-pointer rounded-full px-4 text-left",
-        className,
-      )}
+      className={cx(sx(coreStyles.suggestionButton), className)}
       onClick={handleClick}
       {...props}
     >

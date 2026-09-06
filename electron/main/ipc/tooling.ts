@@ -28,7 +28,7 @@ export function registerToolingHandlers() {
         ok: false,
         summary: "Invalid sync request.",
         detail: "The request did not match the expected workspace sync shape.",
-        workspace: await inspectWorkspaceSyncStatus(),
+        workspace: await inspectWorkspaceSyncStatus({}),
       };
     }
     return invokeHostService("tooling.sync-origin-main", parsed.data);

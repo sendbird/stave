@@ -1,6 +1,8 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
+import { statusTrayStyles } from "./composer-status-tray.styles";
+import { sx } from "../ads/utils/stylex";
 import {
   Button,
   Popover,
@@ -212,7 +214,7 @@ export function ComposerStatusTray(props: {
     <div
       ref={ref}
       data-composer-status-tray={collapsed ? "collapsed" : "row"}
-      className="flex shrink-0 items-center gap-1"
+      className={sx(statusTrayStyles.row)}
     >
       {collapsed ? (
         <Popover open={open} onOpenChange={setOpen}>
@@ -223,13 +225,13 @@ export function ComposerStatusTray(props: {
                 variant="ghost"
                 size="icon"
                 disabled={props.disabled}
-                className="size-6 min-h-6 rounded-md border border-transparent bg-transparent p-0 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                className={sx(statusTrayStyles.trigger, statusTrayStyles.triggerHover)}
                 aria-label={`More composer controls (${props.items.length + overflowItems.length})`}
                 title="More composer controls"
               />
             }
           >
-            <Ellipsis className="size-4" />
+            <Ellipsis className={sx(statusTrayStyles.icon)} />
           </PopoverTrigger>
           <PopoverContent
             align="end"
@@ -238,7 +240,7 @@ export function ComposerStatusTray(props: {
             // Same band as the toolbar tray: these controls portal dialogs of
             // their own, and composer-anchored chrome must not paint over them.
             layer="floatingChrome"
-            className={COMPOSER_CONTROL_MENU_CONTENT}
+            xstyle={COMPOSER_CONTROL_MENU_CONTENT}
           >
             <ComposerControlMenuList
               items={[...props.items, ...overflowItems]}
@@ -252,7 +254,7 @@ export function ComposerStatusTray(props: {
         <ComposerControlDensityProvider value="default">
           <div
             data-composer-status-row="true"
-            className="flex shrink-0 items-center gap-1"
+            className={sx(statusTrayStyles.row)}
           >
             {props.items.slice(0, trayIndex).map((item) => (
               <Fragment key={item.id}>{item.node}</Fragment>

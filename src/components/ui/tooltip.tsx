@@ -1,7 +1,11 @@
+import { overlayLayout } from "./overlay-layout.styles";
+import { sx } from "../ads/utils/stylex";
+import { tooltipStyles } from "../ads/components/Tooltip";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cn } from "@/lib/utils";
+import { cx } from "../ads/utils/stylex";
+import { mergeClassName } from "../ads/components/merge-class-name";
 
 function TooltipProvider({
   delay = 0,
@@ -45,18 +49,18 @@ function TooltipContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
-        className={cn("isolate", UI_LAYER_CLASS.popover)}
+        className={cx(sx(overlayLayout.positioner), UI_LAYER_CLASS.popover)}
       >
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
-          className={cn(
-            "t-tooltip inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 break-words rounded-md bg-foreground px-3 py-1.5 text-xs text-background has-data-[slot=kbd]:pr-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm",
+          className={mergeClassName(
+            () => sx(tooltipStyles.popup),
             className,
           )}
           {...props}
         >
           {children}
-          <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground data-[side=bottom]:top-1 data-[side=inline-end]:top-1/2! data-[side=inline-end]:-left-1 data-[side=inline-end]:-translate-y-1/2 data-[side=inline-start]:top-1/2! data-[side=inline-start]:-right-1 data-[side=inline-start]:-translate-y-1/2 data-[side=left]:top-1/2! data-[side=left]:-right-1 data-[side=left]:-translate-y-1/2 data-[side=right]:top-1/2! data-[side=right]:-left-1 data-[side=right]:-translate-y-1/2 data-[side=top]:-bottom-2.5" />
+          <TooltipPrimitive.Arrow className={sx(tooltipStyles.arrow)} />
         </TooltipPrimitive.Popup>
       </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>

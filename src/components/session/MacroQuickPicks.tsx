@@ -4,6 +4,8 @@ import {
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
 import { Button } from "@/components/ui";
+import { sessionCoreStyles } from "./session-core.styles";
+import { sx } from "../ads/utils/stylex";
 import { isMacroInstantRun, type Macro } from "@/lib/macros/types";
 
 /**
@@ -64,7 +66,7 @@ export function MacroQuickPicks(props: {
         >
           <span
             aria-hidden="true"
-            className="flex size-4 shrink-0 items-center justify-center rounded-[0.25rem] bg-muted/70 text-[0.625rem] font-semibold uppercase leading-none"
+            className={sx(sessionCoreStyles.macroInitial)}
           >
             {macro.label.slice(0, 1)}
           </span>

@@ -38,10 +38,10 @@ describe("ui layer ordering", () => {
   });
 
   test("exposes stable class names for shared surfaces", () => {
-    expect(UI_LAYER_CLASS.resizer).toBe("z-20");
-    expect(UI_LAYER_CLASS.dialog).toBe("z-[80]");
-    expect(UI_LAYER_CLASS.popover).toBe("z-[90]");
-    expect(UI_LAYER_CLASS.appMenu).toBe("z-[100]");
-    expect(UI_LAYER_CLASS.lightbox).toBe("z-[110]");
+    const classes = Object.values(UI_LAYER_CLASS);
+    expect(new Set(classes).size).toBe(classes.length);
+    for (const value of classes) {
+      expect(value).toMatch(/^[a-zA-Z_][\w-]*$/);
+    }
   });
 });

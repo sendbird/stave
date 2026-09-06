@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   Accordion,
   AccordionContent,
@@ -42,6 +43,7 @@ import {
   CODEX_WEB_SEARCH_OPTIONS,
   formatProviderTimeoutLabel,
 } from "@/lib/providers/runtime-option-contract";
+import { dispatchFieldStyles } from "./dispatch-runtime.styles";
 import type { DispatchRuntimeDraft } from "./useDispatchRuntimeDraft";
 
 export interface DispatchRuntimeFieldsProps {
@@ -63,10 +65,10 @@ function AccessSelectField(props: {
   onValueChange: (value: string) => void;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className={sx(dispatchFieldStyles.field)}>
       <label
         htmlFor={props.id}
-        className="text-xs font-medium text-muted-foreground"
+        className={sx(dispatchFieldStyles.fieldLabel)}
       >
         {props.label}
       </label>
@@ -93,12 +95,13 @@ function AccessSwitchField(props: {
   onCheckedChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <label htmlFor={props.id} className="text-sm">
+    <div className={sx(dispatchFieldStyles.switchRow)}>
+      <label htmlFor={props.id} className={sx(dispatchFieldStyles.switchLabel)}>
         {props.label}
       </label>
       <Switch
         id={props.id}
+        aria-label={props.label}
         checked={props.checked}
         onCheckedChange={props.onCheckedChange}
       />
@@ -121,18 +124,18 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
 
   return (
     <section
-      className="grid gap-4"
+      className={sx(dispatchFieldStyles.section)}
       aria-labelledby={`${idPrefix}-runtime-heading`}
     >
-      <h3 id={`${idPrefix}-runtime-heading`} className="text-sm font-semibold">
+      <h3 id={`${idPrefix}-runtime-heading`} className={sx(dispatchFieldStyles.sectionHeading)}>
         How it runs
       </h3>
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted-foreground">
+      <div className={sx(dispatchFieldStyles.panelRow)}>
+        <div className={sx(dispatchFieldStyles.rowText)}>
+          <p className={sx(dispatchFieldStyles.fieldLabel)}>
             Model and effort
           </p>
-          <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+          <p className={sx(dispatchFieldStyles.rowDescription)}>
             Same picker as the composer, including reasoning effort.
           </p>
         </div>
@@ -150,13 +153,13 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
         />
       </div>
       {!draft.providerAvailable ? (
-        <p className="text-xs leading-5 text-destructive" role="alert">
+        <p className={sx(dispatchFieldStyles.hintDanger)} role="alert">
           This provider is unavailable. Choose another model before approving.
         </p>
       ) : null}
 
-      <div className="grid gap-2">
-        <p className="text-xs font-medium text-muted-foreground">Autonomy</p>
+      <div className={sx(dispatchFieldStyles.field)}>
+        <p className={sx(dispatchFieldStyles.fieldLabel)}>Autonomy</p>
         <ChoiceButtons
           aria-label="Autonomy"
           value={draft.autonomyPreset ?? "custom"}
@@ -168,20 +171,20 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
             draft.applyAutonomyPreset(value as ProviderModePresetId);
           }}
         />
-        <p className="text-xs leading-5 text-muted-foreground">
+        <p className={sx(dispatchFieldStyles.hintRelaxed)}>
           {draft.autonomyDescription}
         </p>
-        <p className="font-mono text-[11px] text-muted-foreground">
+        <p className={sx(dispatchFieldStyles.mono)}>
           {draft.accessSummary}
         </p>
       </div>
 
-      <Accordion className="rounded-lg border border-border px-3">
-        <AccordionItem value="advanced" className="border-b-0">
-          <AccordionTrigger className="py-3 text-sm hover:no-underline">
+      <Accordion className={sx(dispatchFieldStyles.accordion)}>
+        <AccordionItem value="advanced">
+          <AccordionTrigger className={sx(dispatchFieldStyles.accordionTrigger)}>
             Advanced
           </AccordionTrigger>
-          <AccordionContent className="grid gap-3 pb-3">
+          <AccordionContent className={sx(dispatchFieldStyles.accordionPanel)}>
             {model.providerId === "claude-code" ? (
               <>
                 <AccessSelectField
@@ -208,7 +211,7 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
               </>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className={sx(dispatchFieldStyles.accessPair)}>
                   <AccessSelectField
                     id={`${idPrefix}-codex-files`}
                     label="File access"
@@ -240,21 +243,22 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
               </>
             )}
 
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
+            <div className={sx(dispatchFieldStyles.switchRowStart)}>
+              <div className={sx(dispatchFieldStyles.rowText)}>
                 <label
                   htmlFor={`${idPrefix}-advisor`}
-                  className="text-xs font-medium text-muted-foreground"
+                  className={sx(dispatchFieldStyles.fieldLabel)}
                 >
                   Advisor
                 </label>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                <p className={sx(dispatchFieldStyles.advisorDescription)}>
                   Lets the primary consult an isolated read-only Advisor on
                   demand, adding a model call per consult.
                 </p>
               </div>
               <Switch
                 id={`${idPrefix}-advisor`}
+                aria-label="Advisor"
                 checked={advisor.enabled}
                 onCheckedChange={(checked) =>
                   setAdvisor((current) => ({ ...current, enabled: checked }))
@@ -262,8 +266,8 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
               />
             </div>
 
-            <div className="grid gap-2">
-              <p className="text-xs font-medium text-muted-foreground">
+            <div className={sx(dispatchFieldStyles.field)}>
+              <p className={sx(dispatchFieldStyles.fieldLabel)}>
                 Advisor provider
               </p>
               <ChoiceButtons
@@ -273,7 +277,10 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                   value: option.id,
                   label: option.label,
                   icon: (
-                    <ModelIcon providerId={option.id} className="size-3.5" />
+                    <ModelIcon
+                      providerId={option.id}
+                      className={sx(dispatchFieldStyles.optionIcon)}
+                    />
                   ),
                 }))}
                 onChange={(providerId) =>
@@ -285,10 +292,10 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className={sx(dispatchFieldStyles.field)}>
               <label
                 htmlFor={`${idPrefix}-advisor-model`}
-                className="text-xs font-medium text-muted-foreground"
+                className={sx(dispatchFieldStyles.fieldLabel)}
               >
                 {getProviderLabel({ providerId: advisor.providerId })} Advisor
                 model
@@ -319,13 +326,13 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                 <SelectContent>
                   {draft.advisorModels.map((value) => (
                     <SelectItem key={value} value={value}>
-                      <span className="flex min-w-0 items-center gap-2">
+                      <span className={sx(dispatchFieldStyles.optionRow)}>
                         <ModelIcon
                           providerId={advisor.providerId}
                           model={value}
-                          className="size-3.5"
+                          className={sx(dispatchFieldStyles.optionIcon)}
                         />
-                        <span className="truncate">
+                        <span className={sx(dispatchFieldStyles.optionLabel)}>
                           {toHumanModelName({ model: value })}
                         </span>
                       </span>
@@ -335,8 +342,8 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
               </Select>
             </div>
 
-            <div className="grid gap-2">
-              <p className="text-xs font-medium text-muted-foreground">
+            <div className={sx(dispatchFieldStyles.field)}>
+              <p className={sx(dispatchFieldStyles.fieldLabel)}>
                 Advisor effort
               </p>
               <ChoiceButtons
@@ -366,7 +373,7 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                   )
                 }
               />
-              <p className="text-xs leading-5 text-muted-foreground">
+              <p className={sx(dispatchFieldStyles.hintRelaxed)}>
                 {advisorTarget.effort && isAdvisorEffortClamped(advisorTarget)
                   ? `${toHumanModelName({
                       model: advisorTarget.model,
@@ -381,7 +388,7 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
               </p>
             </div>
 
-            <p className="text-xs leading-5 text-muted-foreground">
+            <p className={sx(dispatchFieldStyles.hintRelaxed)}>
               Provider timeout{" "}
               {formatProviderTimeoutLabel(props.providerTimeoutMs)}, from your
               Stave provider settings.

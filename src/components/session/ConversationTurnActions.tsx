@@ -10,9 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import type { ConversationTurnActionState } from "@/lib/providers/thread-actions";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/app.store";
+import { conversationTurnActionsStyles as styles } from "./conversation-turn-actions.styles";
 
 export function ConversationTurnActions(props: {
   taskId: string;
@@ -87,30 +88,28 @@ export function ConversationTurnActions(props: {
     }
   }
 
+  const forkDisabled = !props.state.fork.enabled || busy;
+  const rollbackDisabled = !props.state.rollback.enabled || busy;
+
   return (
     <>
       <div
         role="group"
         aria-label="Conversation history actions"
-        className={cn(
-          preview
-            ? "grid w-full grid-cols-2 gap-1.5"
-            : "ml-auto flex items-center gap-0.5",
+        className={cx(
+          sx(preview ? styles.groupPreview : styles.groupInline),
           props.className,
         )}
       >
         <MessageAction
           label="Fork here"
           tooltip={props.state.fork.reason}
-          aria-disabled={!props.state.fork.enabled || busy}
+          aria-disabled={forkDisabled}
           aria-busy={pendingAction === "fork"}
           data-conversation-turn-action="fork"
-          className={cn(
-            preview
-              ? "h-8 justify-start gap-1.5 rounded-md border border-border/70 bg-background/55 px-2 text-xs"
-              : "h-7 gap-1 px-1.5 text-xs",
-            (!props.state.fork.enabled || busy) &&
-              "cursor-not-allowed opacity-70 hover:bg-transparent hover:text-muted-foreground hover:opacity-100 focus-visible:opacity-100",
+          className={sx(
+            preview ? styles.actionPreview : styles.actionInline,
+            forkDisabled && styles.actionDisabled,
           )}
           onClick={() => {
             void forkHere();
@@ -119,25 +118,20 @@ export function ConversationTurnActions(props: {
           {pendingAction === "fork" ? (
             <Loader aria-hidden size="xs" variant="persist" />
           ) : (
-            <GitFork className="size-3.5" />
+            <GitFork className={sx(styles.iconSm)} />
           )}
           Fork here
         </MessageAction>
         <MessageAction
           label="Rollback to here"
           tooltip={props.state.rollback.reason}
-          aria-disabled={!props.state.rollback.enabled || busy}
+          aria-disabled={rollbackDisabled}
           aria-busy={pendingAction === "rollback"}
           data-conversation-turn-action="rollback"
-          className={cn(
-            preview
-              ? "h-8 justify-start gap-1.5 rounded-md border border-border/70 bg-background/55 px-2 text-xs"
-              : "h-7 gap-1 px-1.5 text-xs",
-            preview &&
-              props.state.rollback.enabled &&
-              "text-destructive hover:bg-destructive/10 hover:text-destructive",
-            (!props.state.rollback.enabled || busy) &&
-              "cursor-not-allowed opacity-70 hover:bg-transparent hover:text-muted-foreground hover:opacity-100 focus-visible:opacity-100",
+          className={sx(
+            preview ? styles.actionPreview : styles.actionInline,
+            preview && props.state.rollback.enabled && styles.rollbackPreview,
+            rollbackDisabled && styles.actionDisabled,
           )}
           onClick={() => {
             if (props.state.rollback.enabled && !busy) {
@@ -145,13 +139,13 @@ export function ConversationTurnActions(props: {
             }
           }}
         >
-          <Undo2 className="size-3.5" />
+          <Undo2 className={sx(styles.iconSm)} />
           Rollback here
         </MessageAction>
       </div>
 
       <Dialog open={rollbackOpen} onOpenChange={setRollbackDialogOpen}>
-        <DialogContent showCloseButton={!busy} className="max-w-sm">
+        <DialogContent showCloseButton={!busy} xstyle={styles.dialogContent}>
           <DialogHeader>
             <DialogTitle>Roll back to this response?</DialogTitle>
             <DialogDescription>
@@ -182,7 +176,7 @@ export function ConversationTurnActions(props: {
               {pendingAction === "rollback" ? (
                 <Loader aria-hidden size="xs" variant="persist" />
               ) : (
-                <Undo2 className="size-4" />
+                <Undo2 className={sx(styles.iconMd)} />
               )}
               Roll back conversation
             </Button>

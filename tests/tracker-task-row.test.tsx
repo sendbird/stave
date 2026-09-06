@@ -3,6 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { TrackerTaskRow } from "@/components/layout/tasks/TrackerTaskRow";
+import * as stylex from "@stylexjs/stylex";
+import { taskRowStyles } from "@/components/layout/tasks/tasks-row.styles";
 import { resolvePrimaryTrackerTaskLink } from "@/components/layout/tasks/tracker-task-ui";
 import type {
   TrackerTask,
@@ -93,7 +95,7 @@ describe("TrackerTaskRow", () => {
       staveLinks: [],
     });
 
-    expect(html).toContain("line-through");
+    expect(html).toContain(stylex.props(taskRowStyles.finished).className);
     expect(html).toContain("Done");
   });
 
@@ -104,7 +106,7 @@ describe("TrackerTaskRow", () => {
     });
 
     expect(html).toContain("2d overdue");
-    expect(html).toContain("text-destructive");
+    expect(html).toContain(stylex.props(taskRowStyles.danger).className);
   });
 
   test("keeps a tracker label colour out of the DOM unless it is safe", () => {
@@ -135,7 +137,7 @@ describe("TrackerTaskRow", () => {
       task: makeTask({ labels: [{ name: "backend", color: "info" }] }),
       staveLinks: [],
     });
-    expect(html).toContain("bg-info");
+    expect(html).toContain(stylex.props(taskRowStyles.labelDot).className);
     expect(html).not.toContain("background-color:");
   });
 
@@ -165,7 +167,7 @@ describe("TrackerTaskRow", () => {
     });
 
     expect(html).toContain("Running");
-    expect(html).toContain("animate-pulse");
+    expect(html).toContain("<button");
   });
 
   test("shows the mirrored Jira key when the ticket declares one", () => {

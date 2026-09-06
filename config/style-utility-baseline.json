@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 2,
+  "description": "Remaining migration work, not approved exceptions. New files have a zero allowance. Lower counts as surfaces migrate; never increase to bypass a failure. `files` is now empty: every product surface authors its styles with StyleX and ADS tokens.",
+  "files": {},
+  "dataLiterals": {
+    "src/lib/lens/lens-element-message.ts": {
+      "tokens": 2,
+      "reason": "Denylist of class names commonly found on an inspected external page, used to decide whether a picked element's class list is distinctive enough to be a search hint. These literals describe someone else's markup and are never authored onto Stave DOM."
+    }
+  }
+}

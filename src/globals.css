@@ -1,13 +1,17 @@
+/*
+ * Canonical cascade layer order. A name-only `@layer` statement is the one
+ * at-rule the spec allows ahead of `@import`, so declaring it here establishes
+ * the order before any imported or injected stylesheet can create a layer of
+ * its own. It must stay byte-identical to the `#stave-style-layers` block in
+ * `index.html` (`scripts/check-design-system-migration.mjs` compares them).
+ */
+@layer reset, theme, base, priority1, priority2, priority3, priority4, priority5, priority6, priority7, priority8, priority9, priority10, components, utilities;
+
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Nunito:wght@400;500;600;700&display=swap");
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css");
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@xterm/xterm/css/xterm.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/inter";
-
-@custom-variant dark (&:is(.dark *));
 
 .prompt-input-shell {
   box-shadow:
@@ -281,10 +285,9 @@
   --pulse-dur: 1000ms;
   --pulse-min: 0.5;
   /*
-   * Agent trace motion easings. Deliberately plain CSS variables rather than
-   * `@theme inline` entries: they are motion tokens, so they must stay out of
-   * the color-token surface that `src/lib/themes/presets.ts` and the built-in
-   * themes have to mirror.
+   * Agent trace motion easings. Deliberately kept out of the `--color-*` alias
+   * surface below: they are motion tokens, and that surface is the one
+   * `src/lib/themes/presets.ts` and the built-in themes have to mirror.
    */
   --ease-agent-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-agent-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -357,7 +360,20 @@
   --sidebar-ring: oklch(0.71 0.15 252);
 }
 
-@theme inline {
+/*
+ * Font, semantic colour alias, and radius custom properties.
+ *
+ * These used to live in a Tailwind `@theme inline` block, which both declared
+ * the variables and generated utilities from them. With the Tailwind build gone
+ * that block never compiled, so every consumer below resolved to nothing. They
+ * are plain `:root` custom properties now.
+ *
+ * The `--color-*` entries indirect through the role tokens above so a `.dark`
+ * (or user-theme) override of `--background` flows through: `.dark` is toggled
+ * on `document.documentElement` (`src/lib/themes/apply.ts`), the same element
+ * `:root` matches, so the indirection resolves against the active palette.
+ */
+:root {
   --font-sans: "Geist Variable", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   --color-background: var(--background);
@@ -690,7 +706,7 @@
   *::after {
     border-color: var(--border);
     box-sizing: border-box;
-    @apply border-border outline-ring/50;
+    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
   }
 
   html,
@@ -703,7 +719,7 @@
   }
 
   html {
-    @apply font-sans;
+    font-family: var(--font-sans);
   }
 
   body {
@@ -714,14 +730,14 @@
     /*
      * Grayscale AA (below) renders glyphs thinner on macOS, so nudge the base
      * UI weight from 400 to 450 to keep text from looking washed out while
-     * staying below Medium (500). Explicit Tailwind weight utilities still win.
+     * staying below Medium (500). An explicit `fontWeight` on a StyleX rule
+     * still wins, since this is a base-layer declaration.
      */
     font-weight: 450;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-synthesis-weight: none;
-    @apply bg-background text-foreground;
   }
 
   /* Keep monospace text at its native weight (variable base bump above must not
@@ -766,115 +782,19 @@
       scroll-behavior: auto !important;
     }
   }
-  * {
-    @apply border-border outline-ring/50;
-  }
 }
 
 /*
- * Custom animation utilities MUST be declared with `@utility`, not as plain
- * `.animate-*` rules inside `@layer utilities`. Tailwind v4 only generates
- * variant forms (`motion-safe:`, `hover:`, …) for utilities it knows about, so a
- * hand-written class in `@layer utilities` silently produces *nothing* when
- * prefixed — `motion-safe:animate-cascade-char` would never be emitted and the
- * animation would appear to be missing entirely.
+ * App motion is authored as local `stylex.keyframes` inside the owning
+ * `*.styles.ts` module (see
+ * `src/components/ai-elements/chain-of-thought.styles.ts` and
+ * `src/components/session/message/assistant-trace.styles.ts`). The global
+ * `@keyframes` that survive below are only the ones a plain CSS rule in this
+ * file still references, plus the two named by an `animationName` string in
+ * `src/components/ai-elements/ai-element-core.styles.ts`.
  */
-
-@utility animate-dropdown-in {
-  animation: dropdown-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform-origin: top center;
-}
-
-@utility animate-cot-step-in {
-  animation: cot-step-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform-origin: top;
-}
-
-@utility animate-cot-content-in {
-  animation: cot-content-in 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform-origin: top;
-}
-
-/* ── Agent trace motion ────────────────────────────────────────────── */
-
-@utility animate-trace-reveal {
-  animation: trace-reveal 220ms var(--ease-agent-out);
-  transform-origin: top;
-}
-
-@utility animate-trace-row-in {
-  animation: trace-row-in 260ms var(--ease-agent-spring);
-  transform-origin: top;
-}
-
-@utility animate-cascade-char {
-  animation: cascade-char 320ms var(--ease-agent-out) backwards;
-  animation-delay: calc(var(--cascade-i, 0) * 25ms);
-}
-
-/*
- * Prompt enhancement reveal. Only the words the rewrite actually changed are
- * animated: they materialise out of a blur and carry a brief accent afterglow
- * so the edit is legible as an edit. No transform - the spans sit inline inside
- * a mirror of the composer text, and any layout-affecting property would make
- * the mirror wrap differently from the editor underneath it.
- */
-@utility animate-prompt-diff-word {
-  animation:
-    prompt-diff-word 320ms var(--ease-agent-out) backwards,
-    prompt-diff-afterglow 900ms var(--ease-agent-out) backwards;
-  animation-delay: calc(
-    var(--prompt-diff-i, 0) * var(--prompt-diff-step, 26ms)
-  );
-}
-
-@utility animate-text-shimmer {
-  animation: text-shimmer 2s linear infinite;
-}
-
-@utility animate-thinking-shimmer {
-  animation: thinking-shimmer 2s ease-in-out infinite;
-}
-
-@utility animate-thinking-phrase-soft {
-  animation: thinking-phrase-soft 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@utility animate-thinking-label-settle {
-  animation: thinking-label-settle 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform-origin: left center;
-}
-
-@utility animate-terminal-caret {
-  animation: terminal-caret 1.05s steps(1, end) infinite;
-}
 
 @layer utilities {
-  .t-dropdown {
-    transform-origin: var(--transform-origin, top left);
-    opacity: 1;
-    transform: scale(1);
-    transition-property: opacity, transform;
-    transition-duration: var(--dropdown-close-dur);
-    transition-timing-function: var(--dropdown-ease);
-    will-change: transform, opacity;
-  }
-
-  .t-dropdown[data-open] {
-    transition-duration: var(--dropdown-open-dur);
-  }
-
-  .t-dropdown[data-starting-style] {
-    opacity: 0;
-    transform: scale(var(--dropdown-pre-scale));
-  }
-
-  .t-dropdown[data-ending-style] {
-    pointer-events: none;
-    opacity: 0;
-    transform: scale(var(--dropdown-closing-scale));
-  }
-
   .t-modal {
     transform-origin: center;
     opacity: 1;
@@ -982,7 +902,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .t-dropdown,
     .t-modal,
     .t-overlay,
     .t-tooltip,
@@ -1010,18 +929,6 @@
   }
 }
 
-@keyframes dropdown-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 @keyframes t-skeleton-pulse {
   0%,
   100% {
@@ -1030,99 +937,6 @@
 
   50% {
     opacity: var(--pulse-min);
-  }
-}
-
-@keyframes cot-step-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes cot-content-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/*
- * Agent trace keyframes. `trace-reveal` wipes content in from the top with a
- * clip-path rather than a height transition so it never needs a measured
- * height; `trace-row-in` overshoots slightly for the springy row entrance.
- */
-@keyframes trace-reveal {
-  from {
-    opacity: 0;
-    clip-path: inset(0 0 100% 0);
-    transform: translateY(-4px);
-  }
-
-  to {
-    opacity: 1;
-    clip-path: inset(0 0 0 0);
-    transform: translateY(0);
-  }
-}
-
-@keyframes trace-row-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes cascade-char {
-  from {
-    opacity: 0;
-    transform: translateY(100%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes prompt-diff-word {
-  from {
-    opacity: 0;
-    filter: blur(4px);
-  }
-
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-
-@keyframes prompt-diff-afterglow {
-  0% {
-    background-color: color-mix(in oklch, var(--primary) 24%, transparent);
-  }
-
-  45% {
-    background-color: color-mix(in oklch, var(--primary) 20%, transparent);
-  }
-
-  100% {
-    background-color: transparent;
   }
 }
 
@@ -1136,31 +950,6 @@
   }
 }
 
-@keyframes thinking-shimmer {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes thinking-phrase-soft {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-    filter: blur(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
-}
-
 @keyframes thinking-label-settle {
   0% {
     opacity: 0.82;
@@ -1170,18 +959,6 @@
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes terminal-caret {
-  0%,
-  48% {
-    opacity: 1;
-  }
-
-  49%,
-  100% {
-    opacity: 0;
   }
 }
 

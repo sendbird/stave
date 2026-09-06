@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { sx } from "@/components/ads/utils/stylex";
 import { Button, Loader, toast } from "@/components/ui";
 import {
   Dialog,
@@ -12,6 +14,7 @@ import {
 import { normalizeLensHostEntry } from "@/lib/lens/lens-security";
 import type { LensCdpApprovalRequestPayload } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
+import { lensApprovalStyles } from "./lens-cdp-approval-dialog.styles";
 
 function enqueueRequest(
   requests: LensCdpApprovalRequestPayload[],
@@ -139,51 +142,49 @@ export function LensCdpApprovalDialog() {
     >
       <DialogContent
         showCloseButton={false}
-        className="sm:max-w-lg"
+        xstyle={lensApprovalStyles.content}
         initialFocus={() => denyButtonRef.current}
       >
-        <DialogHeader className="gap-3">
-          <div className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted">
-              <ShieldAlert className="size-4 text-muted-foreground" />
+        <DialogHeader className={sx(lensApprovalStyles.header)}>
+          <div className={sx(lensApprovalStyles.headerRow)}>
+            <span className={sx(lensApprovalStyles.headerBadge)}>
+              <ShieldAlert className={sx(lensApprovalStyles.headerIcon)} />
             </span>
-            <div className="min-w-0">
+            <div className={sx(lensApprovalStyles.headerText)}>
               <DialogTitle>Allow Lens CDP access?</DialogTitle>
-              <DialogDescription className="mt-1">
+              <DialogDescription className={sx(lensApprovalStyles.description)}>
                 An agent wants to inspect and control this site through Lens.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
-        <div className="grid gap-2 text-sm">
-          <div className="grid gap-1 rounded-md border border-border bg-muted/40 px-3 py-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Host
-            </span>
-            <span className="truncate font-mono text-xs">
+        <div className={sx(lensApprovalStyles.body)}>
+          <div className={sx(lensApprovalStyles.fact)}>
+            <span className={sx(lensApprovalStyles.factLabel)}>Host</span>
+            <span className={sx(lensApprovalStyles.factValueMono)}>
               {current?.host ?? ""}
             </span>
           </div>
-          <div className="grid gap-1 rounded-md border border-border bg-muted/40 px-3 py-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Workspace
+          <div className={sx(lensApprovalStyles.fact)}>
+            <span className={sx(lensApprovalStyles.factLabel)}>Workspace</span>
+            <span className={sx(lensApprovalStyles.factValueTruncated)}>
+              {workspaceName}
             </span>
-            <span className="truncate text-xs">{workspaceName}</span>
           </div>
-          <div className="grid gap-1 rounded-md border border-border bg-muted/40 px-3 py-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Action
+          <div className={sx(lensApprovalStyles.fact)}>
+            <span className={sx(lensApprovalStyles.factLabel)}>Action</span>
+            <span className={sx(lensApprovalStyles.factValue)}>
+              {current?.reason ?? ""}
             </span>
-            <span className="text-xs">{current?.reason ?? ""}</span>
           </div>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className={sx(lensApprovalStyles.hint)}>
             Allow once grants temporary access. Always allow saves only the
             hostname under Settings &gt; Lens &gt; Developer Mode; ports and
             paths are ignored.
           </p>
-          <span className="sr-only" aria-live="polite">
+          <VisuallyHidden aria-live="polite">
             {responding ? "Submitting approval response." : ""}
-          </span>
+          </VisuallyHidden>
         </div>
         <DialogFooter>
           <Button

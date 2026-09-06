@@ -1,3 +1,7 @@
+import { Badge } from "@/components/ads/components/Badge";
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   AlertCircle,
   Clock3,
@@ -14,10 +18,12 @@ import {
   X,
 } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActionButton } from "@/components/system/ActionButton";
+import { WorkflowLibrary } from "@/components/collaboration/WorkflowLibrary";
+import { OpenPathDialog } from "../OpenPathDialog";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Badge,
   Button,
   Empty,
   EmptyContent,
@@ -46,7 +52,7 @@ import {
 } from "@/lib/routines";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { useAppStore } from "@/store/app.store";
-import { cn } from "@/lib/utils";
+import { createCoalescedLoader } from "@/lib/coalesced-loader";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { AutomationEditor } from "./AutomationEditor";
 import { AutomationLatestRun } from "./AutomationLatestRun";
@@ -64,22 +70,22 @@ import {
   routineToDraft,
   type AutomationRunFilter,
 } from "./automation-center.utils";
+import { automationStyles } from "./automation-center.styles";
+import { centerStyles } from "./automation-center-view.styles";
 
 const ALL_AUTOMATIONS = "all";
 
-type AutomationCenterTab = "automations" | "runs";
+type AutomationCenterTab = "library" | "automations" | "runs";
 
 function Detail(props: { label: string; value: string }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
-        {props.label}
-      </dt>
+    <div className={sx(centerStyles.detail)}>
+      <dt className={sx(centerStyles.detailTerm)}>{props.label}</dt>
       {/* Cadence and repository labels truncate here, so keep the full text
           reachable on hover. */}
       <dd
         title={props.value}
-        className="mt-0.5 truncate text-[11px] text-foreground"
+        className={sx(centerStyles.detailValue)}
       >
         {props.value}
       </dd>
@@ -88,6 +94,7 @@ function Detail(props: { label: string; value: string }) {
 }
 
 export function AutomationCenterView() {
+  const [openProjectDialog, setOpenProjectDialog] = useState(false);
   const [
     recentProjects,
     projectPath,
@@ -96,6 +103,7 @@ export function AutomationCenterView() {
     workspacePathById,
     workspaceDefaultById,
     activeWorkspaceId,
+    activeTaskId,
     flushActiveWorkspaceSnapshot,
     focusTaskAttention,
     setLayout,
@@ -111,6 +119,7 @@ export function AutomationCenterView() {
           state.workspacePathById,
           state.workspaceDefaultById,
           state.activeWorkspaceId,
+          state.activeTaskId,
           state.flushActiveWorkspaceSnapshot,
           state.focusTaskAttention,
           state.setLayout,
@@ -122,8 +131,7 @@ export function AutomationCenterView() {
     routines: [],
     runs: [],
   });
-  const [activeTab, setActiveTab] =
-    useState<AutomationCenterTab>("automations");
+  const [activeTab, setActiveTab] = useState<AutomationCenterTab>("library");
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(
     null,
   );
@@ -185,50 +193,72 @@ export function AutomationCenterView() {
       : null;
   }, [environmentOptions, projectPath]);
 
-  const loadSnapshot = useCallback(async (options?: { quiet?: boolean }) => {
-    const list = window.api?.routines?.list;
-    if (!list) {
-      setLoading(false);
-      setError("Automations are available in the Stave desktop app.");
-      return;
-    }
-    if (!options?.quiet) {
-      setLoading(true);
-    }
-    try {
-      const result = await list();
-      if (!result.ok) {
-        setError(result.message ?? "Failed to load automations.");
-        return;
-      }
-      setSnapshot(result.snapshot);
-      setError("");
-      setSelectedRoutineId((current) => {
-        if (
-          current &&
-          result.snapshot.routines.some((routine) => routine.id === current)
-        ) {
-          return current;
-        }
-        return result.snapshot.routines[0]?.id ?? null;
-      });
-    } catch (loadError) {
-      setError(
-        getRoutineErrorMessage(loadError, "Failed to load automations."),
-      );
-    } finally {
+  const activeLoadScope = useRef(false);
+  const loadSequence = useRef(0);
+  const readSnapshot = useMemo(
+    () =>
+      createCoalescedLoader(async () => {
+        const list = window.api?.routines?.list;
+        if (!list)
+          throw new Error(
+            "Automations are available in the Stave desktop app.",
+          );
+        return list();
+      }),
+    [],
+  );
+  const loadSnapshot = useCallback(
+    async (options?: { quiet?: boolean; poll?: boolean }) => {
+      if (!activeLoadScope.current) return;
+      const sequence = ++loadSequence.current;
+      const isCurrent = () =>
+        activeLoadScope.current && sequence === loadSequence.current;
       if (!options?.quiet) {
-        setLoading(false);
+        setLoading(true);
       }
-    }
-  }, []);
+      try {
+        const result = await readSnapshot({ fresh: !options?.poll });
+        if (!isCurrent()) return;
+        if (!result.ok) {
+          setError(result.message ?? "Failed to load automations.");
+          return;
+        }
+        setSnapshot(result.snapshot);
+        setError("");
+        setSelectedRoutineId((current) => {
+          if (
+            current &&
+            result.snapshot.routines.some((routine) => routine.id === current)
+          ) {
+            return current;
+          }
+          return result.snapshot.routines[0]?.id ?? null;
+        });
+      } catch (loadError) {
+        if (!isCurrent()) return;
+        setError(
+          getRoutineErrorMessage(loadError, "Failed to load automations."),
+        );
+      } finally {
+        if (isCurrent()) {
+          setLoading(false);
+        }
+      }
+    },
+    [readSnapshot],
+  );
 
   useEffect(() => {
+    activeLoadScope.current = true;
     void loadSnapshot();
     const interval = window.setInterval(() => {
-      void loadSnapshot({ quiet: true });
+      void loadSnapshot({ quiet: true, poll: true });
     }, 5_000);
-    return () => window.clearInterval(interval);
+    return () => {
+      activeLoadScope.current = false;
+      loadSequence.current += 1;
+      window.clearInterval(interval);
+    };
   }, [loadSnapshot]);
 
   const informationWorkspaceId = draft?.environment.workspaceId ?? null;
@@ -548,7 +578,7 @@ export function AutomationCenterView() {
 
   if (draft) {
     return (
-      <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <div className={sx(centerStyles.root)}>
         <AutomationEditor
           routineId={editingRoutineId ?? null}
           draft={draft}
@@ -579,110 +609,96 @@ export function AutomationCenterView() {
     loading && snapshot.routines.length === 0 && snapshot.runs.length === 0;
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background">
-      <header className="flex min-h-18 shrink-0 items-center justify-between gap-4 border-b border-border/65 bg-[linear-gradient(110deg,color-mix(in_oklch,var(--surface)_92%,var(--background)),var(--background))] px-5 py-3">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <Workflow className="size-4.5 shrink-0 text-primary" />
-            <h1 className="font-heading truncate text-base font-semibold tracking-[-0.01em] text-foreground">
-              Automation Center
-            </h1>
+    <div className={sx(centerStyles.root)}>
+      <header className={sx(centerStyles.header)}>
+        <div className={sx(centerStyles.headerText)}>
+          <div className={sx(centerStyles.headerTitleRow)}>
+            <Workflow className={sx(centerStyles.headerIcon)} />
+            <h1 className={sx(centerStyles.headerTitle)}>Library</h1>
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            Scheduled agent workflows and their auditable run history.
+          <p className={sx(centerStyles.headerSubtitle)}>
+            Reusable instructions, task setups, workspace tools, and scheduled
+            work.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className={sx(centerStyles.headerActions)}>
           <Button
             size="sm"
-            className="h-8 gap-1.5 text-xs"
+            xstyle={centerStyles.headerButton}
             onClick={startCreate}
           >
-            <Plus className="size-3.5" />
+            <Plus className={sx(centerStyles.buttonIcon)} />
             New automation
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            xstyle={centerStyles.iconButton}
             onClick={openCommandsAndProcesses}
             aria-label={`Open ${WORKSPACE_TOOLS_LABEL}`}
             title={WORKSPACE_TOOLS_LABEL}
           >
-            <SquareTerminal className="size-4" />
+            <SquareTerminal className={sx(centerStyles.actionIcon)} />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            xstyle={centerStyles.iconButton}
             onClick={() => void loadSnapshot()}
             aria-label="Refresh automations"
             title="Refresh"
           >
-            <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+            <RefreshCw
+              className={sx(
+                centerStyles.actionIcon,
+                loading && centerStyles.actionIconSpinning,
+              )}
+            />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            xstyle={centerStyles.iconButton}
             aria-label="close-automation-center"
-            title="Close Automation Center"
+            title="Close Library"
             onClick={closeAutomationCenter}
           >
-            <X className="size-4" />
+            <X className={sx(centerStyles.actionIcon)} />
           </Button>
         </div>
       </header>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/60 bg-background/85 px-4 py-2">
-        <div
-          className="flex items-center gap-0.5 rounded-md bg-muted/45 p-0.5"
-          role="tablist"
-          aria-label="Automation Center views"
-        >
-          <Button
-            type="button"
-            size="sm"
-            variant={activeTab === "automations" ? "secondary" : "ghost"}
-            role="tab"
-            aria-selected={activeTab === "automations"}
-            className={cn(
-              "h-6.5 gap-1.5 px-2 text-[11px]",
-              activeTab === "automations" &&
-                "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
-            )}
-            onClick={() => setActiveTab("automations")}
-          >
-            <Workflow className="size-3.5" />
-            Automations
-            <span className="tabular-nums text-muted-foreground">
-              {snapshot.routines.length}
-            </span>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={activeTab === "runs" ? "secondary" : "ghost"}
-            role="tab"
-            aria-selected={activeTab === "runs"}
-            className={cn(
-              "h-6.5 gap-1.5 px-2 text-[11px]",
-              activeTab === "runs" &&
-                "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
-            )}
-            onClick={() => setActiveTab("runs")}
-          >
-            <ListChecks className="size-3.5" />
-            Run history
-            <span className="tabular-nums text-muted-foreground">
-              {snapshot.runs.length}
-            </span>
-          </Button>
-        </div>
+      <div className={sx(centerStyles.toolbar)}>
+        <nav aria-label="Library views" className={sx(centerStyles.tabNav)}>
+          {(
+            [
+              ["library", "Library"],
+              ["automations", `Schedules · ${snapshot.routines.length}`],
+              ["runs", `Run history · ${snapshot.runs.length}`],
+            ] as const
+          ).map(([id, label]) => (
+            <ActionButton
+              key={id}
+              size="sm"
+              weight={activeTab === id ? "secondary" : "quiet"}
+              aria-current={activeTab === id ? "page" : undefined}
+              onClick={() => setActiveTab(id)}
+            >
+              {label}
+            </ActionButton>
+          ))}
+        </nav>
+
+        {activeTab === "automations" ? (
+          <p className={sx(centerStyles.toolbarNote)}>
+            Runs while Stave is open. After reopening, one missed occurrence is
+            caught up.
+          </p>
+        ) : null}
 
         {activeTab === "runs" ? (
           <>
-            <div className="flex items-center gap-0.5 rounded-md bg-muted/45 p-0.5">
+            <div className={sx(centerStyles.filterGroup)}>
               {AUTOMATION_RUN_FILTERS.map((option) => (
                 <Button
                   key={option.value}
@@ -690,11 +706,10 @@ export function AutomationCenterView() {
                   size="sm"
                   variant={runFilter === option.value ? "secondary" : "ghost"}
                   aria-pressed={runFilter === option.value}
-                  className={cn(
-                    "h-6.5 px-2 text-[11px]",
-                    runFilter === option.value &&
-                      "border-border/55 bg-background/85 shadow-[0_1px_2px_oklch(0_0_0/0.08)]",
-                  )}
+                  xstyle={[
+                    centerStyles.filterChip,
+                    runFilter === option.value && centerStyles.filterChipActive,
+                  ]}
                   onClick={() => setRunFilter(option.value)}
                 >
                   {option.label}
@@ -709,7 +724,7 @@ export function AutomationCenterView() {
               }}
             >
               <SelectTrigger
-                className="h-7 w-56 text-[11px]"
+                className={sx(centerStyles.runSelect)}
                 aria-label="Filter runs by automation"
               >
                 <SelectValue />
@@ -723,7 +738,7 @@ export function AutomationCenterView() {
                 ))}
               </SelectContent>
             </Select>
-            <span className="ml-auto text-[11px] text-muted-foreground">
+            <span className={sx(centerStyles.shownCount)}>
               {visibleRuns.length} shown
             </span>
           </>
@@ -731,19 +746,31 @@ export function AutomationCenterView() {
       </div>
 
       {error ? (
-        <div className="mx-4 mt-3 flex shrink-0 items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-          <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+        <div className={sx(centerStyles.errorBanner)}>
+          <AlertCircle className={sx(centerStyles.errorIcon)} />
           {error}
         </div>
       ) : null}
 
-      {showLoadingState ? (
+      {activeTab === "library" ? (
+        <div className={sx(centerStyles.libraryPane)}>
+          <div className={sx(centerStyles.libraryColumn)}>
+            <WorkflowLibrary
+              taskId={activeTaskId}
+              workspaceId={activeWorkspaceId}
+              projectPath={projectPath}
+              onDraftReady={closeAutomationCenter}
+              onOpenProject={() => setOpenProjectDialog(true)}
+            />
+          </div>
+        </div>
+      ) : showLoadingState ? (
         <div
-          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 py-10 text-center"
+          className={sx(centerStyles.loadingPane)}
           role="status"
           aria-live="polite"
         >
-          <div className="grid size-20 place-items-center rounded-full bg-muted/45 ring-1 ring-border/70">
+          <div className={sx(centerStyles.loadingOrb)}>
             <ThinkingOrb
               state="searching"
               size={64}
@@ -752,105 +779,102 @@ export function AutomationCenterView() {
             />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">
-              Loading Automation Center
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className={sx(centerStyles.loadingTitle)}>Loading Library</p>
+            <p className={sx(centerStyles.loadingHint)}>
               Restoring workflows, execution policy, and run history.
             </p>
           </div>
         </div>
       ) : activeTab === "automations" ? (
         snapshot.routines.length === 0 ? (
-          <Empty className="min-h-0 flex-1 border-0">
+          <Empty xstyle={centerStyles.emptyPane}>
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Clock3 />
               </EmptyMedia>
               <EmptyTitle>No automations yet</EmptyTitle>
               <EmptyDescription>
-                Schedule fresh-context agent work with its own cadence,
-                permissions, model, repository, and Information resources.
+                Run recurring reviews and checks on a schedule. Each automation
+                keeps its own instructions, workspace, model, permissions, and
+                run history.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button size="sm" onClick={startCreate}>
-                <Plus className="size-4" />
+                <Plus className={sx(centerStyles.actionIcon)} />
                 Create automation
               </Button>
             </EmptyContent>
           </Empty>
         ) : (
-          <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]">
-            <div className="hidden min-h-0 flex-col overflow-y-auto border-r border-border/65 p-3 md:flex">
-              <div className="grid gap-2">
+          <div className={sx(centerStyles.masterDetail)}>
+            <div className={sx(centerStyles.masterColumn)}>
+              <div className={sx(centerStyles.cardList)}>
                 {snapshot.routines.map((routine) => {
                   const active = routine.id === selectedRoutineId;
                   const latestRun = latestRunByRoutineId.get(routine.id);
                   return (
-                    <button
+                    <AdsButton layout="host"
                       key={routine.id}
                       type="button"
                       onClick={() => setSelectedRoutineId(routine.id)}
                       aria-current={active}
-                      className={cn(
-                        "w-full rounded-md border p-2.5 text-left transition-colors",
-                        active
-                          ? "border-primary/50 bg-primary/8"
-                          : "border-border/70 hover:bg-muted/60",
-                      )}
+                      xstyle={[
+                        centerStyles.routineCard,
+                        transition.colors,
+                        active && centerStyles.routineCardActive,
+                      ]}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className={sx(centerStyles.routineCardHead)}>
                         <span
-                          className={cn(
-                            "size-2 shrink-0 rounded-full",
+                          className={sx(
+                            centerStyles.routineDot,
                             routine.enabled
-                              ? "bg-success"
-                              : "bg-muted-foreground",
+                              ? centerStyles.routineDotOn
+                              : centerStyles.routineDotOff,
                           )}
                           aria-hidden="true"
                         />
-                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
+                        <span className={sx(centerStyles.routineName)}>
                           {routine.name}
                         </span>
                         {latestRun && isActiveRunStatus(latestRun.status) ? (
                           <Badge
                             variant="outline"
-                            className={cn(
-                              "h-5 shrink-0 px-1.5 text-[9px]",
-                              getRunStatusPresentation(latestRun.status)
-                                .className,
-                            )}
+                            tone={
+                              getRunStatusPresentation(latestRun.status).tone
+                            }
+                            className={sx(automationStyles.statusBadge)}
                           >
                             {getRunStatusPresentation(latestRun.status).label}
                           </Badge>
                         ) : null}
                       </div>
-                      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                        <span className="truncate">
+                      <div className={sx(centerStyles.routineMeta)}>
+                        <span className={sx(centerStyles.routineMetaText)}>
                           {routine.enabled
                             ? formatRoutineSchedule(routine.schedule)
                             : "Manual only"}
                         </span>
-                        <span className="shrink-0 truncate">
+                        <span className={sx(centerStyles.routineMetaModel)}>
                           {routine.runtime.model}
                         </span>
                       </div>
-                    </button>
+                    </AdsButton>
                   );
                 })}
               </div>
             </div>
 
-            <div className="min-h-0 overflow-y-auto">
+            <div className={sx(centerStyles.detailColumn)}>
               {/* Narrow layouts hide the master column, so offer a picker. */}
-              <div className="border-b border-border/65 p-3 md:hidden">
+              <div className={sx(centerStyles.compactPicker)}>
                 <Select
                   value={selectedRoutineId ?? ""}
                   onValueChange={setSelectedRoutineId}
                 >
                   <SelectTrigger
-                    className="h-8 text-xs"
+                    className={sx(centerStyles.compactSelect)}
                     aria-label="Select automation"
                   >
                     <SelectValue placeholder="Select an automation" />
@@ -866,21 +890,21 @@ export function AutomationCenterView() {
               </div>
 
               {selectedRoutine ? (
-                <div className="grid gap-4 px-5 py-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-sm font-semibold text-foreground">
+                <div className={sx(centerStyles.detailBody)}>
+                  <div className={sx(centerStyles.detailHeadRow)}>
+                    <div className={sx(centerStyles.detailHeadText)}>
+                      <h2 className={sx(centerStyles.detailTitle)}>
                         {selectedRoutine.name}
                       </h2>
-                      <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">
+                      <p className={sx(centerStyles.detailPrompt)}>
                         {selectedRoutine.prompt}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className={sx(centerStyles.detailActions)}>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1.5 text-xs"
+                        xstyle={centerStyles.headerButton}
                         onClick={() => void runNow(selectedRoutine)}
                         disabled={
                           busyRoutineId === selectedRoutine.id ||
@@ -892,23 +916,23 @@ export function AutomationCenterView() {
                             : "Run now"
                         }
                       >
-                        <Play className="size-3.5" />
+                        <Play className={sx(centerStyles.buttonIcon)} />
                         Run now
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0"
+                        xstyle={centerStyles.iconButton}
                         onClick={() => startEdit(selectedRoutine)}
                         aria-label="Edit automation"
                         title="Edit"
                       >
-                        <Pencil className="size-3.5" />
+                        <Pencil className={sx(centerStyles.buttonIcon)} />
                       </Button>
                     </div>
                   </div>
 
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-md border border-border/70 bg-surface/30 p-3 sm:grid-cols-4">
+                  <dl className={sx(centerStyles.facts)}>
                     <Detail
                       label="Status"
                       value={
@@ -959,34 +983,34 @@ export function AutomationCenterView() {
                     />
                   </dl>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className={sx(centerStyles.footerActions)}>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 gap-1.5 text-xs"
+                      xstyle={centerStyles.headerButton}
                       onClick={() => showRunHistory(selectedRoutine)}
                     >
-                      <History className="size-3.5" />
+                      <History className={sx(centerStyles.buttonIcon)} />
                       View run history
-                      <span className="tabular-nums text-muted-foreground">
+                      <span className={sx(centerStyles.runCount)}>
                         {runCountByRoutineId.get(selectedRoutine.id) ?? 0}
                       </span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 gap-1.5 text-xs"
+                      xstyle={centerStyles.headerButton}
                       onClick={() => void toggleEnabled(selectedRoutine)}
                       disabled={busyRoutineId === selectedRoutine.id}
                     >
                       {selectedRoutine.enabled ? (
                         <>
-                          <Pause className="size-3.5" />
+                          <Pause className={sx(centerStyles.buttonIcon)} />
                           Pause schedule
                         </>
                       ) : (
                         <>
-                          <Play className="size-3.5" />
+                          <Play className={sx(centerStyles.buttonIcon)} />
                           Enable schedule
                         </>
                       )}
@@ -994,7 +1018,7 @@ export function AutomationCenterView() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="ml-auto h-8 gap-1.5 text-xs text-destructive hover:text-destructive"
+                      xstyle={centerStyles.deleteButton}
                       onClick={() => setDeleteRoutine(selectedRoutine)}
                       disabled={selectedRoutineActiveRunCount > 0}
                       title={
@@ -1003,7 +1027,7 @@ export function AutomationCenterView() {
                           : "Delete automation"
                       }
                     >
-                      <Trash2 className="size-3.5" />
+                      <Trash2 className={sx(centerStyles.buttonIcon)} />
                       Delete
                     </Button>
                   </div>
@@ -1020,7 +1044,7 @@ export function AutomationCenterView() {
                   />
                 </div>
               ) : (
-                <div className="p-6 text-xs text-muted-foreground">
+                <div className={sx(centerStyles.placeholder)}>
                   Select an automation to see its configuration.
                 </div>
               )}
@@ -1028,10 +1052,10 @@ export function AutomationCenterView() {
           </div>
         )
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
-          <div className="min-h-0 overflow-y-auto border-b border-border/65 p-3 md:border-b-0 md:border-r">
+        <div className={sx(centerStyles.runsMasterDetail)}>
+          <div className={sx(centerStyles.runsMasterColumn)}>
             {visibleRuns.length === 0 ? (
-              <Empty className="h-full border-0">
+              <Empty xstyle={centerStyles.emptyPaneFull}>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <ListChecks />
@@ -1044,7 +1068,7 @@ export function AutomationCenterView() {
                 </EmptyHeader>
               </Empty>
             ) : (
-              <div className="grid gap-2">
+              <div className={sx(centerStyles.cardList)}>
                 {visibleRuns.map((run) => (
                   <AutomationRunRow
                     key={run.id}
@@ -1057,7 +1081,7 @@ export function AutomationCenterView() {
               </div>
             )}
           </div>
-          <div className="min-h-0 overflow-hidden">
+          <div className={sx(centerStyles.runsDetailColumn)}>
             {selectedRun ? (
               <AutomationRunDetail
                 run={selectedRun}
@@ -1067,7 +1091,7 @@ export function AutomationCenterView() {
                 onRunAgain={(automation) => void runNow(automation)}
               />
             ) : (
-              <div className="p-6 text-xs text-muted-foreground">
+              <div className={sx(centerStyles.placeholder)}>
                 Select a run to see its full result.
               </div>
             )}
@@ -1075,6 +1099,16 @@ export function AutomationCenterView() {
         </div>
       )}
 
+      <OpenPathDialog
+        open={openProjectDialog}
+        onOpenChange={setOpenProjectDialog}
+        onSubmitPath={(inputPath) =>
+          useAppStore.getState().openProjectFromPath({ inputPath })
+        }
+        onBrowse={async () => {
+          await useAppStore.getState().createProject({});
+        }}
+      />
       <ConfirmDialog
         open={Boolean(deleteRoutine)}
         title="Delete automation"

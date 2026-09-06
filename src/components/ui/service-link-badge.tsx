@@ -1,3 +1,7 @@
+import { contentLayout } from "./content-layout.styles";
+import { cx, sx } from "../ads/utils/stylex";
+import { focusRing } from "../ads/recipes/focus-ring";
+import { transition } from "../ads/recipes/transition";
 import type { MouseEvent } from "react";
 import { Cable, ExternalLink } from "lucide-react";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
@@ -12,7 +16,6 @@ import {
   type ServiceLinkBadgeInfo,
   type ServiceLinkKind,
 } from "@/lib/service-link-badges";
-import { cn } from "@/lib/utils";
 
 export interface ServiceLinkBadgeProps {
   href: string;
@@ -27,7 +30,7 @@ function FigmaBadgeIcon({ className }: { className?: string }) {
     <svg
       viewBox="0 0 38 57"
       aria-hidden="true"
-      className={cn("h-[1em] w-auto shrink-0", className)}
+      className={cx(sx(contentLayout.serviceLogo), className)}
     >
       <path
         fill="#1abcfe"
@@ -55,7 +58,7 @@ function JiraBadgeIcon({ className }: { className?: string }) {
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
-      className={cn("h-[1em] w-[1em] shrink-0", className)}
+      className={cx(sx(contentLayout.serviceIcon), className)}
     >
       <path
         fill="#2684ff"
@@ -70,7 +73,7 @@ function ConfluenceBadgeIcon({ className }: { className?: string }) {
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
-      className={cn("h-[1em] w-[1em] shrink-0", className)}
+      className={cx(sx(contentLayout.serviceIcon), className)}
     >
       <path
         fill="#2684ff"
@@ -86,7 +89,7 @@ function CraneBadgeIcon({ className }: { className?: string }) {
   return (
     <Cable
       aria-hidden="true"
-      className={cn("h-[1em] w-[1em] shrink-0", className)}
+      className={cx(sx(contentLayout.serviceIcon), className)}
     />
   );
 }
@@ -131,19 +134,20 @@ export function ServiceLinkBadge({
               href={href}
               data-service-link-badge={badge.kind}
               aria-label={tooltipLabel}
-              className="inline-flex max-w-full items-center gap-[0.35em] rounded-md border border-border/80 bg-muted/40 px-[0.45em] py-[0.1em] align-middle text-[0.8125em] font-medium leading-none text-foreground no-underline transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              xstyle={contentLayout.serviceBadge}
+              className={sx(focusRing.ring, transition.colors)}
               onClick={onClick}
             />
           }
         >
           <Icon />
-          <span className="min-w-0 max-w-64 truncate">{displayLabel}</span>
+          <span className={sx(contentLayout.serviceLabel)}>{displayLabel}</span>
           <ExternalLink
             aria-hidden="true"
-            className="size-[0.9em] shrink-0 text-muted-foreground"
+            className={sx(contentLayout.externalIcon)}
           />
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-96 break-all">
+        <TooltipContent side="top" className={sx(contentLayout.serviceTooltip)}>
           {tooltipLabel}
         </TooltipContent>
       </Tooltip>

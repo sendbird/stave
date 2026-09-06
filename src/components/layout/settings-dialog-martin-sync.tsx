@@ -7,6 +7,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Badge, Button, Input, Loader, toast } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   type AtelierConnectorPublicStatus,
   type AtelierConnectorScope,
@@ -23,6 +24,7 @@ import {
   SwitchField,
   ToggleChipGroup,
 } from "./settings-dialog.shared";
+import { martinSyncStyles as styles } from "./settings-dialog-martin-sync.styles";
 
 const CONNECTOR_SCOPE_OPTIONS: ReadonlyArray<{
   value: AtelierConnectorScope;
@@ -62,16 +64,16 @@ function runtimeLabel(
   }
 }
 
-function runtimeBadgeClass(
+function runtimeBadgeStyle(
   state: MartinSyncPublicStatus["runtimeState"] | undefined,
 ) {
   if (state === "idle" || state === "syncing") {
-    return "border-success/30 bg-success/10 text-success";
+    return styles.badgeReady;
   }
   if (state === "offline" || state === "unpaired" || state === "disabled") {
-    return "border-warning/35 bg-warning/10 text-warning";
+    return styles.badgeIdle;
   }
-  return "border-destructive/30 bg-destructive/10 text-destructive";
+  return styles.badgeAttention;
 }
 
 export function MartinSyncSettingsSection() {
@@ -234,30 +236,34 @@ export function MartinSyncSettingsSection() {
       titleAccessory={
         <Badge
           variant="outline"
-          className={runtimeBadgeClass(status?.runtimeState)}
+          className={sx(runtimeBadgeStyle(status?.runtimeState))}
         >
           {runtimeLabel(status?.runtimeState)}
         </Badge>
       }
     >
-      <div className="rounded-xl border border-border bg-card">
-        <div className="flex items-start gap-3 border-b border-border/70 px-5 py-4">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted">
-            <Bird className="size-4 text-muted-foreground" />
+      <div className={sx(styles.panel)}>
+        <div className={sx(styles.panelHeader)}>
+          <span className={sx(styles.headerMark)}>
+            <Bird className={sx(styles.headerMarkIcon)} />
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h4 className="text-sm font-semibold">Atelier connector</h4>
+          <div className={sx(styles.headerBody)}>
+            <div className={sx(styles.headerTitleLine)}>
+              <h4 className={sx(styles.headerTitle)}>Atelier connector</h4>
               <Badge variant={paired ? "secondary" : "outline"}>
                 {paired ? "Paired" : "Not paired"}
               </Badge>
               {connector?.scopes.map((scope) => (
-                <Badge key={scope} variant="outline" className="capitalize">
+                <Badge
+                  key={scope}
+                  variant="outline"
+                  className={sx(styles.scopeBadge)}
+                >
                   {scope}
                 </Badge>
               ))}
             </div>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <p className={sx(styles.headerDescription)}>
               {paired
                 ? `${connector.connector?.name ?? "This installation"} is paired${
                     connector.connector?.lastSeenAt
@@ -276,27 +282,30 @@ export function MartinSyncSettingsSection() {
             onClick={() => void refreshStatus()}
           >
             <RefreshCw
-              className={busy === "refresh" ? "size-4 animate-spin" : "size-4"}
+              className={sx(
+                styles.refreshIcon,
+                busy === "refresh" && styles.refreshIconSpinning,
+              )}
             />
           </Button>
         </div>
 
-        <div className="space-y-4 px-5 py-4">
+        <div className={sx(styles.panelBody)}>
           <div>
-            <h5 className="text-sm font-medium">
+            <h5 className={sx(styles.sectionTitle)}>
               {paired ? "Update connector access" : "Pair this installation"}
             </h5>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <p className={sx(styles.sectionDescription)}>
               A new pairing replaces the stored connector credential. Keep every
               integration you still use selected below.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-2">
+          <div className={sx(styles.fieldGrid)}>
+            <div className={sx(styles.field)}>
               <label
                 htmlFor="settings-martin-base-url"
-                className="text-xs font-medium text-muted-foreground"
+                className={sx(styles.fieldLabel)}
               >
                 Atelier URL
               </label>
@@ -309,10 +318,10 @@ export function MartinSyncSettingsSection() {
                 autoComplete="url"
               />
             </div>
-            <div className="grid gap-2">
+            <div className={sx(styles.field)}>
               <label
                 htmlFor="settings-martin-connector-name"
-                className="text-xs font-medium text-muted-foreground"
+                className={sx(styles.fieldLabel)}
               >
                 Connector name
               </label>
@@ -327,10 +336,8 @@ export function MartinSyncSettingsSection() {
             </div>
           </div>
 
-          <div className="grid gap-2">
-            <span className="text-xs font-medium text-muted-foreground">
-              Connector access
-            </span>
+          <div className={sx(styles.field)}>
+            <span className={sx(styles.scopeLabel)}>Connector access</span>
             <ToggleChipGroup
               options={CONNECTOR_SCOPE_OPTIONS}
               selected={requestedScopes}
@@ -339,7 +346,7 @@ export function MartinSyncSettingsSection() {
             />
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className={sx(styles.pairRow)}>
             <Input
               aria-label="One-time Atelier pairing code"
               type="password"
@@ -350,7 +357,7 @@ export function MartinSyncSettingsSection() {
               maxLength={128}
               autoComplete="off"
               spellCheck={false}
-              className="sm:max-w-sm"
+              className={sx(styles.pairInput)}
             />
             <Button
               type="button"
@@ -364,21 +371,21 @@ export function MartinSyncSettingsSection() {
               {busy === "pair" ? (
                 <Loader aria-hidden size="xs" variant="sync" />
               ) : (
-                <LockKeyhole className="size-4" />
+                <LockKeyhole className={sx(styles.pairIcon)} />
               )}
               {paired ? "Pair again" : "Pair securely"}
             </Button>
           </div>
 
           {connector && !connector.secureStorageAvailable ? (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs leading-5 text-destructive">
+            <p className={sx(styles.warning)}>
               OS credential encryption is unavailable. Pairing remains blocked
               until a secure credential store is available.
             </p>
           ) : null}
 
           {paired && !hasMartinScope ? (
-            <p className="rounded-lg border border-warning/35 bg-warning/10 px-3 py-2 text-xs leading-5 text-warning">
+            <p className={sx(styles.scopeWarning)}>
               This connector does not have Martin access. Pair again with the
               Martin scope selected before enabling sync.
             </p>
@@ -386,7 +393,7 @@ export function MartinSyncSettingsSection() {
         </div>
       </div>
 
-      <div className="space-y-5 border-t border-border/65 pt-5">
+      <div className={sx(styles.toggles)}>
         <SwitchField
           title="Enable Martin sync"
           description="Off keeps queued events on this device and stops outbound delivery."
@@ -419,10 +426,10 @@ export function MartinSyncSettingsSection() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/25 px-4 py-3">
-        <ShieldCheck className="size-4 text-muted-foreground" />
-        <div className="min-w-0 flex-1 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Outbox</span>
+      <div className={sx(styles.outbox)}>
+        <ShieldCheck className={sx(styles.outboxIcon)} />
+        <div className={sx(styles.outboxText)}>
+          <span className={sx(styles.outboxStrong)}>Outbox</span>
           {` · ${status?.pendingCount ?? 0} pending · ${status?.failedCount ?? 0} failed`}
           {status?.lastDeliveredAt
             ? ` · last delivered ${formatTaskUpdatedAt({ value: status.lastDeliveredAt })}`
@@ -439,7 +446,7 @@ export function MartinSyncSettingsSection() {
             {busy === "retry" ? (
               <Loader aria-hidden size="xs" variant="sync" />
             ) : (
-              <RotateCcw className="size-4" />
+              <RotateCcw className={sx(styles.retryIcon)} />
             )}
             Retry failed
           </Button>

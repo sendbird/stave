@@ -124,7 +124,7 @@ export function buildLensAnnotationsAttachment(args: {
   };
 }
 
-function isTargetLensAnnotationsAttachment(
+export function isTargetLensAnnotationsAttachment(
   attachment: Attachment,
   args: {
     workspaceId: string;

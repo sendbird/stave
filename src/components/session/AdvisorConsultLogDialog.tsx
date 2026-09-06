@@ -1,3 +1,5 @@
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -40,7 +42,12 @@ import {
   type AdvisorVerdictTallyByModel,
 } from "@/lib/providers/advisor-consult-log";
 import type { ProviderTurnWorkItem } from "@/lib/providers/turn-status";
-import { cn } from "@/lib/utils";
+import { sx } from "@/components/ads/utils/stylex";
+import {
+  advisorConsultLogChipTone,
+  advisorConsultLogDialogStyles as styles,
+  advisorConsultLogVerdictDot,
+} from "./advisor-consult-log-dialog.styles";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -61,39 +68,40 @@ const ADVISOR_UNRESOLVED_DETAIL =
 const ADVISOR_LOG_TITLE = "Advisor consults";
 const ADVISOR_LOG_DESCRIPTION =
   "Every consult this session, with what was asked, what came back, and what it cost.";
-const HEADER_CLASS = "border-b border-border/60 px-4 py-3";
 
-const STATUS_CHIP_CLASS: Record<AdvisorConsultLogStatus, string> = {
-  armed: "border-border/60 bg-muted/40 text-muted-foreground",
-  pending: "border-info/40 bg-info/10 text-info",
-  completed: "border-success/40 bg-success/10 text-success",
-  failed: "border-warning/40 bg-warning/10 text-warning",
-  timeout: "border-warning/40 bg-warning/10 text-warning",
-  aborted: "border-warning/40 bg-warning/10 text-warning",
-  skipped: "border-warning/40 bg-warning/10 text-warning",
-  unresolved: "border-border/60 bg-muted/40 text-muted-foreground",
+const STATUS_CHIP_STYLE: Record<
+  AdvisorConsultLogStatus,
+  (typeof advisorConsultLogChipTone)[keyof typeof advisorConsultLogChipTone]
+> = {
+  armed: advisorConsultLogChipTone.armed,
+  pending: advisorConsultLogChipTone.pending,
+  completed: advisorConsultLogChipTone.completed,
+  failed: advisorConsultLogChipTone.warning,
+  timeout: advisorConsultLogChipTone.warning,
+  aborted: advisorConsultLogChipTone.warning,
+  skipped: advisorConsultLogChipTone.warning,
+  unresolved: advisorConsultLogChipTone.unresolved,
 };
 
-const VERDICT_DOT_CLASS: Record<AdvisorConsultVerdict, string> = {
-  helpful: "bg-success",
-  not_helpful: "bg-warning",
-  ignored: "bg-muted-foreground/60",
+const VERDICT_DOT_STYLE: Record<
+  AdvisorConsultVerdict,
+  (typeof advisorConsultLogVerdictDot)[keyof typeof advisorConsultLogVerdictDot]
+> = {
+  helpful: advisorConsultLogVerdictDot.helpful,
+  not_helpful: advisorConsultLogVerdictDot.not_helpful,
+  ignored: advisorConsultLogVerdictDot.ignored,
 };
 
 function SectionLabel(props: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-      {props.children}
-    </p>
-  );
+  return <p className={sx(styles.sectionLabel)}>{props.children}</p>;
 }
 
 function ProseBlock(props: { children: React.ReactNode; muted?: boolean }) {
   return (
     <p
-      className={cn(
-        "mt-1 whitespace-pre-wrap break-words rounded-md border border-border/60 bg-background/55 px-2 py-1.5 text-[0.75rem] leading-[1.5]",
-        props.muted ? "text-muted-foreground" : "text-foreground",
+      className={sx(
+        styles.prose,
+        props.muted ? styles.proseMuted : styles.proseInk,
       )}
     >
       {props.children}
@@ -119,68 +127,54 @@ function ConsultRow(props: {
 }) {
   const { snapshot } = props.entry;
   return (
-    <button
+    <AdsButton
+      layout="host"
       type="button"
       data-testid="advisor-consult-log-row"
       data-consult-key={props.entry.key}
       aria-current={props.selected ? "true" : undefined}
-      className={cn(
-        "flex w-full min-w-0 flex-col gap-1 rounded-lg px-2 py-1.5 text-left transition-colors motion-reduce:transition-none",
-        props.selected
-          ? "bg-muted/70"
-          : "hover:bg-muted/40 focus-visible:bg-muted/40",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
-      )}
+      className={sx(styles.row, props.selected && styles.rowSelected)}
       onClick={props.onSelect}
     >
-      <span className="flex min-w-0 items-center gap-1.5">
+      <span className={sx(styles.rowHeader)}>
         {props.entry.verdict ? (
           <>
             {/* Colour alone cannot carry the verdict. */}
-            <span className="sr-only">
+            <VisuallyHidden>
               {describeAdvisorVerdict(props.entry.verdict)}
-            </span>
+            </VisuallyHidden>
             <span
               aria-hidden="true"
               title={describeAdvisorVerdict(props.entry.verdict)}
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                VERDICT_DOT_CLASS[props.entry.verdict],
+              className={sx(
+                styles.verdictDot,
+                VERDICT_DOT_STYLE[props.entry.verdict],
               )}
             />
           </>
         ) : null}
-        <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-medium">
-          {consultLabel(snapshot)}
-        </span>
-        <span
-          className={cn(
-            "shrink-0 rounded border px-1 text-[10px] leading-4 font-medium tracking-wide",
-            STATUS_CHIP_CLASS[props.status],
-          )}
-        >
+        <span className={sx(styles.rowTitle)}>{consultLabel(snapshot)}</span>
+        <span className={sx(styles.chip, STATUS_CHIP_STYLE[props.status])}>
           {describeAdvisorConsultLogStatus(props.status)}
         </span>
       </span>
-      <span className="flex min-w-0 items-center gap-1.5 text-[11px] leading-4 text-muted-foreground">
-        <span className="min-w-0 flex-1 truncate">
+      <span className={sx(styles.rowMeta)}>
+        <span className={sx(styles.rowMetaLabel)}>
           {describeAdvisorParticipant({
             providerId: snapshot.advisorProviderId,
             model: snapshot.advisorModel,
           })}
         </span>
         {props.isCurrentTurn ? (
-          <span className="shrink-0 rounded border border-border/60 px-1 text-[10px] leading-4">
-            Current turn
-          </span>
+          <span className={sx(styles.rowCurrentTurn)}>Current turn</span>
         ) : null}
         {snapshot.durationMs === undefined ? null : (
-          <span className="shrink-0 tabular-nums">
+          <span className={sx(styles.rowDuration)}>
             {formatAdvisorDuration(snapshot.durationMs)}
           </span>
         )}
       </span>
-    </button>
+    </AdsButton>
   );
 }
 
@@ -218,49 +212,40 @@ function ConsultDetail(props: {
   const tally = tallyKey ? props.tallyByModel[tallyKey] : undefined;
 
   return (
-    <div
-      data-testid="advisor-consult-log-detail"
-      className="min-h-0 overflow-y-auto overscroll-contain px-4 py-3"
-    >
-      <p className="text-[0.8125rem] font-medium text-foreground">
+    <div data-testid="advisor-consult-log-detail" className={sx(styles.detail)}>
+      <p className={sx(styles.detailStatus)}>
         {describeAdvisorConsultLogStatus(props.status)}
       </p>
       {props.status === "unresolved" ? (
         // The checks below read off `outcome`, which is still `pending`, so
         // without this they would say the advisor is being waited on — for a
         // turn that ended long ago.
-        <p className="mt-0.5 text-[0.6875rem] leading-[1.45] text-muted-foreground">
-          {ADVISOR_UNRESOLVED_DETAIL}
-        </p>
+        <p className={sx(styles.detailUnresolved)}>{ADVISOR_UNRESOLVED_DETAIL}</p>
       ) : null}
 
-      <div className="mt-3">
+      <div className={sx(styles.section)}>
         <SectionLabel>Did the advisor system work?</SectionLabel>
-        <ul className="mt-1.5 space-y-1.5">
+        <ul className={sx(styles.checkList)}>
           {checks.map((check) => (
-            <li key={check.id} className="flex items-start gap-2">
+            <li key={check.id} className={sx(styles.checkItem)}>
               <AdvisorCheckIcon status={check.status} />
-              <div className="min-w-0 flex-1">
+              <div className={sx(styles.checkBody)}>
                 <p
-                  className={cn(
-                    "text-[0.75rem] leading-[1.45]",
-                    check.status === "fail"
-                      ? "font-medium text-destructive"
-                      : "text-foreground",
+                  className={sx(
+                    styles.checkLabel,
+                    check.status === "fail" && styles.checkLabelFail,
                   )}
                 >
                   {check.label}
                 </p>
-                <p className="break-words text-[0.6875rem] leading-[1.45] text-muted-foreground">
-                  {check.detail}
-                </p>
+                <p className={sx(styles.checkDetail)}>{check.detail}</p>
               </div>
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="mt-3">
+      <div className={sx(styles.section)}>
         <SectionLabel>Question asked</SectionLabel>
         {snapshot.question ? (
           <ProseBlock>{snapshot.question}</ProseBlock>
@@ -270,24 +255,24 @@ function ConsultDetail(props: {
       </div>
 
       {snapshot.advice ? (
-        <div className="mt-3">
+        <div className={sx(styles.section)}>
           <SectionLabel>Advice returned</SectionLabel>
           <ProseBlock>{snapshot.advice}</ProseBlock>
         </div>
       ) : null}
 
-      <div className="mt-3">
+      <div className={sx(styles.section)}>
         <SectionLabel>Lifecycle</SectionLabel>
-        <ol className="mt-1 space-y-0.5">
+        <ol className={sx(styles.lifecycleList)}>
           {snapshot.stages.map((stage, index) => (
             <li
               key={`${stage.phase}:${stage.at}:${index}`}
-              className="flex items-baseline gap-2 text-[0.6875rem] leading-[1.5]"
+              className={sx(styles.lifecycleItem)}
             >
-              <span className="shrink-0 tabular-nums text-muted-foreground/70">
+              <span className={sx(styles.lifecycleAt)}>
                 +{formatAdvisorDuration(stage.at - snapshot.startedAt)}
               </span>
-              <span className="min-w-0 flex-1 text-muted-foreground">
+              <span className={sx(styles.lifecycleLabel)}>
                 {describeAdvisorPhase(stage.phase)}
                 {stage.detail ? ` — ${stage.detail}` : ""}
               </span>
@@ -296,40 +281,32 @@ function ConsultDetail(props: {
         </ol>
       </div>
 
-      <div className="mt-3">
+      <div className={sx(styles.section)}>
         <SectionLabel>Setup</SectionLabel>
-        <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1.5">
-          <div className="min-w-0">
-            <dt className="truncate text-[0.6875rem] text-muted-foreground">
-              Isolation
-            </dt>
-            <dd className="truncate text-[0.6875rem] text-foreground">
+        <dl className={sx(styles.setupGrid)}>
+          <div className={sx(styles.setupCell)}>
+            <dt className={sx(styles.setupTerm)}>Isolation</dt>
+            <dd className={sx(styles.setupValue)}>
               {describeAdvisorIsolation(snapshot.isolation)}
             </dd>
           </div>
-          <div className="min-w-0">
-            <dt className="truncate text-[0.6875rem] text-muted-foreground">
-              Effort
-            </dt>
-            <dd className="truncate text-[0.6875rem] text-foreground">
+          <div className={sx(styles.setupCell)}>
+            <dt className={sx(styles.setupTerm)}>Effort</dt>
+            <dd className={sx(styles.setupValue)}>
               {describeAdvisorEffort(snapshot.advisorEffort)}
             </dd>
           </div>
-          <div className="min-w-0">
-            <dt className="truncate text-[0.6875rem] text-muted-foreground">
-              Deadline
-            </dt>
-            <dd className="truncate text-[0.6875rem] text-foreground">
+          <div className={sx(styles.setupCell)}>
+            <dt className={sx(styles.setupTerm)}>Deadline</dt>
+            <dd className={sx(styles.setupValue)}>
               {snapshot.timeoutMs === undefined
                 ? "Not reported"
                 : formatAdvisorDuration(snapshot.timeoutMs)}
             </dd>
           </div>
-          <div className="min-w-0">
-            <dt className="truncate text-[0.6875rem] text-muted-foreground">
-              Duration
-            </dt>
-            <dd className="truncate text-[0.6875rem] text-foreground">
+          <div className={sx(styles.setupCell)}>
+            <dt className={sx(styles.setupTerm)}>Duration</dt>
+            <dd className={sx(styles.setupValue)}>
               {snapshot.durationMs === undefined
                 ? "Not reported"
                 : formatAdvisorDuration(snapshot.durationMs)}
@@ -338,14 +315,12 @@ function ConsultDetail(props: {
         </dl>
       </div>
 
-      <div className="mt-3">
+      <div className={sx(styles.section)}>
         <SectionLabel>Advisor spend</SectionLabel>
-        <dl className="mt-1 space-y-1">
-          <div className="flex items-baseline justify-between gap-3">
-            <dt className="shrink-0 text-[0.6875rem] text-muted-foreground">
-              This consult
-            </dt>
-            <dd className="min-w-0 truncate text-[0.6875rem] tabular-nums text-foreground">
+        <dl className={sx(styles.spendList)}>
+          <div className={sx(styles.spendRow)}>
+            <dt className={sx(styles.spendTerm)}>This consult</dt>
+            <dd className={sx(styles.spendValue)}>
               {formatAdvisorSpend({
                 inputTokens: snapshot.inputTokens ?? 0,
                 outputTokens: snapshot.outputTokens ?? 0,
@@ -355,43 +330,34 @@ function ConsultDetail(props: {
               })}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-3">
-            <dt className="shrink-0 text-[0.6875rem] text-muted-foreground">
-              This turn&apos;s consults
-            </dt>
-            <dd className="min-w-0 truncate text-[0.6875rem] tabular-nums text-foreground">
+          <div className={sx(styles.spendRow)}>
+            <dt className={sx(styles.spendTerm)}>This turn&apos;s consults</dt>
+            <dd className={sx(styles.spendValue)}>
               {formatAdvisorSpend(turnSpend)}
             </dd>
           </div>
         </dl>
-        <p className="mt-1 text-[0.6875rem] leading-[1.45] text-muted-foreground">
-          {ADVISOR_SPEND_FOOTNOTE}
-        </p>
+        <p className={sx(styles.footnote)}>{ADVISOR_SPEND_FOOTNOTE}</p>
       </div>
 
       {settled ? (
-        <div className="mt-3" data-testid="advisor-consult-log-after">
+        <div className={sx(styles.section)} data-testid="advisor-consult-log-after">
           <SectionLabel>What ran after this consult</SectionLabel>
-          <p className="mt-1 text-[0.6875rem] leading-[1.45] text-muted-foreground">
-            {ADVISOR_POST_CONSULT_SUBLINE}
-          </p>
+          <p className={sx(styles.footnote)}>{ADVISOR_POST_CONSULT_SUBLINE}</p>
           {postConsult.length === 0 ? (
             <ProseBlock muted>{ADVISOR_POST_CONSULT_EMPTY}</ProseBlock>
           ) : (
-            <ol className="mt-1 space-y-0.5">
+            <ol className={sx(styles.postConsultList)}>
               {postConsult.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-baseline gap-2 text-[0.6875rem] leading-[1.5]"
-                >
-                  <span className="shrink-0 tabular-nums text-muted-foreground/70">
+                <li key={item.id} className={sx(styles.postConsultItem)}>
+                  <span className={sx(styles.postConsultAt)}>
                     +
                     {formatAdvisorDuration(
                       item.startedAt -
                         (snapshot.outcomeAt ?? snapshot.startedAt),
                     )}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-foreground">
+                  <span className={sx(styles.postConsultTitle)}>
                     {item.title}
                   </span>
                 </li>
@@ -402,12 +368,10 @@ function ConsultDetail(props: {
       ) : null}
 
       {settled ? (
-        <div className="mt-3">
+        <div className={sx(styles.section)}>
           <SectionLabel>Your call</SectionLabel>
-          <p className="mt-1 text-[0.6875rem] leading-[1.45] text-muted-foreground">
-            {ADVISOR_VERDICT_SUBLINE}
-          </p>
-          <div className="mt-1.5">
+          <p className={sx(styles.footnote)}>{ADVISOR_VERDICT_SUBLINE}</p>
+          <div className={sx(styles.verdictControl)}>
             {/* The unrated state is a value outside the option set rather than
                 a fourth "Not rated" button: the control is set-only, so an
                 option the user can never legitimately choose would be dead. */}
@@ -424,7 +388,7 @@ function ConsultDetail(props: {
           </div>
           <p
             data-testid="advisor-consult-log-tally"
-            className="mt-1.5 text-[0.6875rem] leading-[1.45] text-muted-foreground"
+            className={sx(styles.tally)}
           >
             {describeAdvisorVerdictTally(tally)}
           </p>
@@ -461,12 +425,12 @@ export function AdvisorConsultLogDialog(props: {
   const body = (
     <>
       {props.entries.length === 0 ? (
-        <p className="px-4 py-6 text-[0.8125rem] text-muted-foreground">
+        <p className={sx(styles.emptyBody)}>
           No consults have been recorded for this task yet.
         </p>
       ) : (
-        <div className="grid max-h-[min(34rem,70vh)] min-h-0 md:grid-cols-[15rem_1fr]">
-          <div className="min-h-0 overflow-y-auto overscroll-contain border-border/60 p-1.5 md:border-r">
+        <div className={sx(styles.grid)}>
+          <div className={sx(styles.listColumn)}>
             {props.entries.map((entry) => (
               <ConsultRow
                 key={entry.key}
@@ -507,10 +471,10 @@ export function AdvisorConsultLogDialog(props: {
   // untestable without a browser.
   if (props.open && (typeof document === "undefined" || !document.body)) {
     return (
-      <div data-slot="dialog-content" className="max-w-3xl">
-        <div className={HEADER_CLASS}>
-          <h2 className="text-sm font-medium">{ADVISOR_LOG_TITLE}</h2>
-          <p className="text-[0.75rem] text-muted-foreground">
+      <div data-slot="dialog-content" className={sx(styles.staticContent)}>
+        <div className={sx(styles.header)}>
+          <h2 className={sx(styles.staticTitle)}>{ADVISOR_LOG_TITLE}</h2>
+          <p className={sx(styles.staticDescription)}>
             {ADVISOR_LOG_DESCRIPTION}
           </p>
         </div>
@@ -521,8 +485,8 @@ export function AdvisorConsultLogDialog(props: {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-3xl gap-0 p-0">
-        <DialogHeader className={HEADER_CLASS}>
+      <DialogContent xstyle={styles.dialogContent}>
+        <DialogHeader className={sx(styles.header)}>
           <DialogTitle>{ADVISOR_LOG_TITLE}</DialogTitle>
           <DialogDescription>{ADVISOR_LOG_DESCRIPTION}</DialogDescription>
         </DialogHeader>
