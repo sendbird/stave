@@ -101,7 +101,7 @@ export const centerStyles = stylex.create({
   actionIconSpinning: {
     animationDuration: "1s",
     animationIterationCount: "infinite",
-    animationName: spin,
+    animationName: { default: spin, "@media (prefers-reduced-motion: reduce)": "none" },
     animationTimingFunction: "linear",
   },
 

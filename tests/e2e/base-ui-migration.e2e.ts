@@ -282,9 +282,7 @@ test("settings sliders respond to keyboard input and persist scalar values", asy
     name: "Settings",
     exact: true,
   });
-  const waitStart = Date.now();
   await settingsDialog.waitFor();
-  console.log(`settings dialog mounted in ${Date.now() - waitStart}ms`);
 
   const objectiveSlider = page.getByRole("slider", {
     name: "Auto routing objective",

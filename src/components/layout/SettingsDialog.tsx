@@ -306,14 +306,14 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                 setPendingFieldId(field.fieldId);
                               }}
                               className={sx(styles.menuButton)}
+                              icon={<Search />}
+                              badge={
+                                <span className={sx(styles.menuSectionLabel)}>
+                                  {sectionsById[field.sectionId].label}
+                                </span>
+                              }
                             >
-                              <Search />
-                              <span className={sx(styles.menuLabel)}>
-                                {field.title}
-                              </span>
-                              <span className={sx(styles.menuSectionLabel)}>
-                                {sectionsById[field.sectionId].label}
-                              </span>
+                              {field.title}
                             </SidebarMenuButton>
                           </SidebarMenuItem>
                         ))}
@@ -337,9 +337,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                     size="sm"
                                     current={activeSection === "projects"}
                                     onClick={() => setActiveSection("projects")}
+                                    icon={<Folder />}
                                   >
-                                    <Folder />
-                                    <span>No projects yet</span>
+                                    No projects yet
                                   </SidebarMenuButton>
                                 </SidebarMenuItem>
                               ) : (
@@ -364,22 +364,22 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                           setActiveSection("projects");
                                         }}
                                         className={sx(styles.menuButtonGap)}
+                                        icon={<Folder />}
+                                        badge={
+                                          current ? (
+                                            <span
+                                              className={sx(
+                                                styles.currentPill,
+                                                active &&
+                                                  styles.currentPillActive,
+                                              )}
+                                            >
+                                              current
+                                            </span>
+                                          ) : undefined
+                                        }
                                       >
-                                        <Folder />
-                                        <span className={sx(styles.menuLabel)}>
-                                          {project.projectName}
-                                        </span>
-                                        {current ? (
-                                          <span
-                                            className={sx(
-                                              styles.currentPill,
-                                              active &&
-                                                styles.currentPillActive,
-                                            )}
-                                          >
-                                            current
-                                          </span>
-                                        ) : null}
+                                        {project.projectName}
                                       </SidebarMenuButton>
                                     </SidebarMenuItem>
                                   );
@@ -397,9 +397,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                   current={active}
                                   onClick={() => setActiveSection(section.id)}
                                   className={sx(styles.menuButton)}
+                                  icon={<Icon />}
                                 >
-                                  <Icon />
-                                  <span>{section.label}</span>
+                                  {section.label}
                                 </SidebarMenuButton>
                               </SidebarMenuItem>
                             );
@@ -423,7 +423,10 @@ export function SettingsDialog(args: SettingsDialogProps) {
                 <div className={sx(styles.headerDesktop)}>
                   <div className={sx(styles.breadcrumbRow)}>
                     <span className={sx(styles.eyebrow)}>Settings</span>
-                    <span className={sx(styles.breadcrumbSep)} aria-hidden="true">
+                    <span
+                      className={sx(styles.breadcrumbSep)}
+                      aria-hidden="true"
+                    >
                       /
                     </span>
                     <h1 className={sx(styles.headerTitle)}>

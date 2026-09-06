@@ -12,7 +12,7 @@ export const diffReviewHoverMenuStyles = stylex.create({
   trigger: {
     alignItems: "center",
     animationDuration: "100ms",
-    animationName: enter,
+    animationName: { default: enter, "@media (prefers-reduced-motion: reduce)": "none" },
     animationTimingFunction: vars.motionEaseStandard,
     backgroundColor: {
       default: vars.colorAccent,

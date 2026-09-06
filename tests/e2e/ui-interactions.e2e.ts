@@ -502,10 +502,17 @@ test("settings modal and workspace modal open", async ({ page }) => {
     .toBeGreaterThan(0.9);
   await backToApp.click();
 
-  await page.getByText("stave-project", { exact: true }).last().hover();
+  // Hover the sidebar project row itself; the composer workspace bar also
+  // renders the project name, so a bare text match would miss the row.
+  const newWorkspace = page.getByRole("button", {
+    name: "new-workspace-/tmp/stave-project",
+  });
   await page
-    .getByRole("button", { name: "new-workspace-/tmp/stave-project" })
-    .click();
+    .getByRole("complementary")
+    .getByText("stave-project", { exact: true })
+    .first()
+    .hover();
+  await newWorkspace.click();
   await expect(
     page.getByRole("heading", { name: "New workspace" }),
   ).toBeVisible();

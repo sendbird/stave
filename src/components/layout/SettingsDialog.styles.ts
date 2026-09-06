@@ -97,13 +97,6 @@ export const settingsDialogStyles = stylex.create({
     gap: vars.space8,
     height: vars.controlHeightSm,
   },
-  menuLabel: {
-    flex: 1,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
   menuSectionLabel: {
     color: vars.colorTextMuted,
     fontSize: 10,

@@ -123,7 +123,7 @@ export const resourceStyles = stylex.create({
     height: 14,
   },
   refreshIconSpinning: {
-    animationName: spin,
+    animationName: { default: spin, "@media (prefers-reduced-motion: reduce)": "none" },
     animationDuration: "1s",
     animationIterationCount: "infinite",
     animationTimingFunction: "linear",

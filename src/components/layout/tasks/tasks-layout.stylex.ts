@@ -121,10 +121,13 @@ export const taskLayoutStyles = stylex.create({
   headerAction: { height: 32, padding: 0, width: 32 },
   icon16: { height: 16, width: 16 },
   spinner: {
-    animationName: stylex.keyframes({
-      from: { transform: "rotate(0deg)" },
-      to: { transform: "rotate(360deg)" },
-    }),
+    animationName: {
+      default: stylex.keyframes({
+        from: { transform: "rotate(0deg)" },
+        to: { transform: "rotate(360deg)" },
+      }),
+      "@media (prefers-reduced-motion: reduce)": "none",
+    },
     animationDuration: "1s",
     animationIterationCount: "infinite",
     animationTimingFunction: "linear",

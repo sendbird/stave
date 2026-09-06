@@ -360,7 +360,7 @@ export const reviewsStyles = stylex.create({
   iconMd: { height: 16, width: 16 },
   iconSm: { height: 14, width: 14 },
   iconXs: { height: 12, width: 12 },
-  spinning: { animationDuration: "1s", animationIterationCount: "infinite", animationName: spin, animationTimingFunction: "linear" },
+  spinning: { animationDuration: "1s", animationIterationCount: "infinite", animationName: { default: spin, "@media (prefers-reduced-motion: reduce)": "none" }, animationTimingFunction: "linear" },
   summaryStrip: {
     borderBlockEndColor: vars.colorBorder,
     borderBlockEndStyle: "solid",
