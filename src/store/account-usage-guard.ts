@@ -1,5 +1,5 @@
-import { toast } from "sonner";
 import { resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
+import { toast } from "@/lib/notifications/toast";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 
