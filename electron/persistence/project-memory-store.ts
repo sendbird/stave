@@ -11,6 +11,7 @@
  * rule is identical on both index paths and unit-testable without SQLite.
  */
 import { randomUUID } from "node:crypto";
+import { ProjectMemorySettingsStore } from "./project-memory-settings-store";
 import {
   PROJECT_MEMORY_CONTENT_MAX_CHARS,
   PROJECT_MEMORY_INJECTION_MAX_ITEMS,
@@ -116,12 +117,14 @@ function escapeFtsTerm(term: string) {
 }
 
 export class ProjectMemoryStore {
+  readonly settings: ProjectMemorySettingsStore;
   private readonly db: ProjectMemoryDatabase;
   private indexMode: ProjectMemoryIndexMode = "like";
 
   constructor(database: unknown) {
     this.db = database as ProjectMemoryDatabase;
     this.bootstrap();
+    this.settings = new ProjectMemorySettingsStore(database);
   }
 
   get index() {
@@ -285,11 +288,20 @@ export class ProjectMemoryStore {
     recallMode?: ProjectMemoryRecallMode;
     sourceTaskId?: string | null;
     sourceTurnId?: string | null;
+    collectionRevision?: number;
+    sourceCreatedAt?: number | null;
     now?: number;
   }): ProjectMemoryRememberResult | null {
     const content = assertContent(args.content);
     const kind = ProjectMemoryKindSchema.parse(args.kind);
     const confidence = clampConfidence(args.confidence);
+    const policy = this.settings.get(args.projectPath);
+    const automatic = confidence < 0.7;
+    if (automatic && (
+      !policy.collectAutomatically || !policy.kinds.includes(kind) ||
+      (args.collectionRevision ?? 0) !== policy.revision ||
+      (policy.resetBefore > 0 && (!args.sourceCreatedAt || args.sourceCreatedAt <= policy.resetBefore))
+    )) return null;
     const now = args.now ?? Date.now();
     const recallMode = ProjectMemoryRecallModeSchema.parse(
       confidence < 0.7 ? "candidate" : (args.recallMode ?? "contextual"),
@@ -320,9 +332,10 @@ export class ProjectMemoryStore {
         .prepare(
           `UPDATE project_memories
            SET confidence = ?, last_confirmed_at = ?, updated_at = ?, recall_mode = ?
-           WHERE id = ? AND deleted_at IS NULL`,
+           WHERE id = ? AND deleted_at IS NULL
+             AND (? = 0 OR COALESCE((SELECT revision FROM project_memory_settings WHERE project_path = ?), 0) = ?)`,
         )
-        .run(nextConfidence, now, now, nextMode, duplicate.id);
+        .run(nextConfidence, now, now, nextMode, duplicate.id, Number(automatic), args.projectPath, policy.revision);
       if (Number(confirmed.changes ?? 0) === 0) return null;
       return {
         memory: {
@@ -363,7 +376,8 @@ export class ProjectMemoryStore {
          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
          WHERE (? != 'candidate' OR (SELECT count(*) FROM project_memories
            WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate') < ${PROJECT_MEMORY_CANDIDATE_MAX_ITEMS})
-         AND NOT EXISTS (SELECT 1 FROM project_memories WHERE project_path = ? AND kind = ? AND content = ?)`,
+         AND NOT EXISTS (SELECT 1 FROM project_memories WHERE project_path = ? AND kind = ? AND content = ?)
+         AND (? = 0 OR COALESCE((SELECT revision FROM project_memory_settings WHERE project_path = ?), 0) = ?)`,
       )
       .run(
         memory.id,
@@ -382,6 +396,9 @@ export class ProjectMemoryStore {
         memory.projectPath,
         memory.kind,
         memory.content,
+        Number(automatic),
+        args.projectPath,
+        policy.revision,
       );
     if (Number(inserted.changes ?? 0) === 0) return null;
     return { memory, outcome: "inserted" };
@@ -461,6 +478,7 @@ export class ProjectMemoryStore {
     limit?: number;
     now?: number;
   }): ProjectMemory[] {
+    if (!this.settings.get(args.projectPath).useMemory) return [];
     const now = args.now ?? Date.now();
     const limit = Math.max(0, Math.min(PROJECT_MEMORY_INJECTION_MAX_ITEMS, Math.floor(args.limit ?? PROJECT_MEMORY_INJECTION_MAX_ITEMS)));
     const staleBefore = now - PROJECT_MEMORY_STALE_AFTER_MS;

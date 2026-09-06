@@ -1,3 +1,4 @@
+import { ProjectMemorySettingsSection } from "./ProjectMemoryControls";
 import {
   memo,
   useCallback,
@@ -4012,6 +4013,8 @@ export function SettingsDialogSectionContent(args: {
       return <SettingsAuxiliaryInferenceSection />;
     case "prompts":
       return <PromptsSection />;
+    case "memory":
+      return <ProjectMemorySettingsSection projects={args.projects} initialProjectPath={args.selectedProjectPath ?? args.currentProjectPath} />;
     case "developer":
       return <DeveloperSection />;
     case "lens":

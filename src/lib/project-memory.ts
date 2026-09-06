@@ -114,6 +114,7 @@ export const ProjectMemoryRememberArgsSchema = z
     projectPath: ProjectPathSchema,
     facts: z.array(ProjectMemoryFactInputSchema).min(1).max(8),
     source: z.enum(["explicit", "auto"]),
+    collectionRevision: z.number().int().nonnegative().optional(),
     sourceTaskId: z.string().min(1).optional(),
     sourceTurnId: z.string().min(1).optional(),
   })

@@ -23,6 +23,39 @@ There are three usage modes in Information > Memory:
 
 Users can edit an entry, change its usage or forget it. Editing candidate text
 alone keeps it a candidate; changing its usage makes it available for recall.
+Entries display their complete text. **Edit memory** opens a multiline editor;
+**Save memory** applies changes, and **Cancel** or Escape discards the draft.
+
+## Settings and cleanup
+
+Open **Settings > Memory** and select a project, or expand **Memory settings and
+actions** in Information > Memory. Settings apply across that project's workspaces.
+
+- **Use project memory** controls automatic inclusion in new turns. Switching it
+  off preserves stored entries; explicit agent lookup and editing remain available.
+- **Collect memory candidates** controls extraction from completed-turn summaries.
+  It requires the Turn summary lane in Background AI. It does not start an extra
+  model call or disable explicit saves by agents.
+- **What to collect** limits automatic candidates to selected kinds: decisions,
+  conventions, pitfalls or stable facts. Selecting none stops candidate collection.
+- **Collection template** customizes what to prioritize and exclude. The default
+  prioritizes reusable corrections, lasting decisions and verified pitfalls.
+  **Restore collection defaults** restores this template and all kinds in the
+  draft; choose **Save settings** to apply it. Candidate and recall limits remain
+  enforced regardless of the template.
+
+**Clear candidates** removes only unreviewed entries. **Reset project memory**
+removes all entries in the selected project while preserving collection settings.
+Both actions ask for confirmation and invalidate pending extraction. Automatic
+collection from turns started at or before the clear is rejected, even if the
+summary runs later or uses different wording. Turns started afterward can collect
+new candidates. The database retains deletion markers to prevent exact duplicates
+from returning. Other projects are unaffected.
+
+These actions cannot remove text already sent to an ongoing provider conversation.
+Start a new conversation when you need context without that earlier memory text.
+Concurrent settings saves detect a stale revision and ask for a reload instead of
+silently overwriting another window's changes.
 
 ## Agent curation
 

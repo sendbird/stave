@@ -1,4 +1,5 @@
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
+import type { ProjectMemoryControlsApi } from "@/lib/project-memory-settings";
 import type {
   ProjectMemory,
   ProjectMemoryDeleteArgs,
@@ -929,7 +930,7 @@ interface WindowCraneConnectorApi {
   ) => () => void;
 }
 
-interface WindowProjectMemoryApi {
+interface WindowProjectMemoryApi extends Partial<ProjectMemoryControlsApi> {
   list?: (args: ProjectMemoryListArgs) => Promise<{
     ok: boolean;
     items: ProjectMemory[];

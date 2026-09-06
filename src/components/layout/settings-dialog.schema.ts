@@ -1,5 +1,6 @@
 import {
   Bot,
+  Brain,
   Cable,
   Code2,
   Cog,
@@ -261,6 +262,13 @@ export const settingsSections = [
     keywords: ["instructions", "templates", "system prompt"],
   },
   {
+    id: "memory",
+    label: "Memory",
+    icon: Brain,
+    description: "Project memory collection, recall, templates, and reset controls.",
+    keywords: ["memory", "remember", "forget", "candidate", "collection", "template", "reset"],
+  },
+  {
     id: "skills",
     label: "Skills",
     icon: SearchCheck,
@@ -354,6 +362,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
         "kickoff",
         "auxiliaryInference",
         "prompts",
+        "memory",
         "skills",
       ],
     },

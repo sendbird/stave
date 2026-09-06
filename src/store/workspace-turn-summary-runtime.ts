@@ -5,6 +5,7 @@ import {
 } from "@/lib/workspace-turn-summary";
 import type { WorkspaceTurnSummary } from "@/lib/workspace-information";
 import type { ProjectMemoryFactInput } from "@/lib/project-memory";
+import { buildMemoryCollectionInstruction } from "@/lib/project-memory-settings";
 import { inferProviderIdFromModel } from "@/lib/providers/model-catalog";
 import {
   resolveAuxLaneRuntime,
@@ -39,6 +40,7 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
     taskId: string;
     turnId: string;
     facts: ProjectMemoryFactInput[];
+    collectionRevision?: number;
   }) => void;
   collectProviderEvents: (
     value: unknown,
@@ -125,7 +127,7 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
       return;
     }
 
-    const prompt = buildWorkspaceTurnSummaryPrompt({
+    const summaryContext = {
       instructionPrompt: summaryPrompt,
       taskTitle: task?.title ?? null,
       userRequest:
@@ -135,7 +137,7 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
       assistantResponse:
         latestAssistantMessage?.content.trim() ||
         "The assistant completed the turn without a plain-text reply.",
-    });
+    };
     const requestId = `${args.turnId}:${Date.now()}`;
     requestIdByWorkspaceId.set(
       args.workspaceId,
@@ -143,6 +145,14 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
     );
 
     void (async () => {
+      const memorySettings = state.projectPath && window.api?.projectMemory?.getSettings
+        ? await window.api.projectMemory.getSettings({ projectPath: state.projectPath }).catch(() => null)
+        : null;
+      const policy = memorySettings?.ok ? memorySettings.settings ?? null : null;
+      const prompt = buildWorkspaceTurnSummaryPrompt({
+        ...summaryContext,
+        instructionPrompt: `${summaryPrompt}\n\n${buildMemoryCollectionInstruction(policy)}`,
+      });
       for (const [index, model] of candidateModels.entries()) {
         if (
           requestIdByWorkspaceId.get(args.workspaceId) !==
@@ -256,12 +266,13 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
               draft: parsedSummary,
             }),
           });
-          if (parsedSummary.durableFacts.length > 0) {
+          if (policy?.collectAutomatically && parsedSummary.durableFacts.length > 0) {
             rememberDurableFacts?.({
               projectPath: state.projectPath,
               taskId: args.taskId,
               turnId: args.turnId,
               facts: parsedSummary.durableFacts,
+              collectionRevision: policy.revision,
             });
           }
           return;

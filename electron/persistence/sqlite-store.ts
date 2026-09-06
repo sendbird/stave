@@ -3327,8 +3327,27 @@ export class SqliteStore {
     recallMode?: import("../../src/lib/project-memory").ProjectMemoryRecallMode;
     sourceTaskId?: string | null;
     sourceTurnId?: string | null;
+    collectionRevision?: number;
   }) {
-    return this.projectMemories.remember(args);
+    const turn = args.sourceTurnId
+      ? this.db.prepare("SELECT created_at FROM turns WHERE id = ?").get(args.sourceTurnId) as { created_at: string } | undefined
+      : undefined;
+    return this.projectMemories.remember({
+      ...args,
+      sourceCreatedAt: turn ? Date.parse(turn.created_at) : null,
+    });
+  }
+
+  getProjectMemorySettings(projectPath: string) {
+    return this.projectMemories.settings.get(projectPath);
+  }
+
+  saveProjectMemorySettings(args: Parameters<typeof this.projectMemories.settings.save>[0]) {
+    return this.projectMemories.settings.save(args);
+  }
+
+  clearProjectMemories(args: Parameters<typeof this.projectMemories.settings.clear>[0]) {
+    return this.projectMemories.settings.clear(args);
   }
 
   updateProjectMemory(args: {

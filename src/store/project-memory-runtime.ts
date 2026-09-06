@@ -79,6 +79,7 @@ export function rememberTurnDurableFacts(args: {
   taskId: string;
   turnId: string;
   facts: ProjectMemoryFactInput[];
+  collectionRevision?: number;
 }) {
   const projectPath = args.projectPath?.trim();
   const remember = window.api?.projectMemory?.remember;
@@ -91,5 +92,6 @@ export function rememberTurnDurableFacts(args: {
     source: "auto",
     sourceTaskId: args.taskId,
     sourceTurnId: args.turnId,
+    ...(args.collectionRevision !== undefined ? { collectionRevision: args.collectionRevision } : {}),
   }).catch(() => undefined);
 }

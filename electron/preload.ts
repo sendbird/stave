@@ -1,4 +1,5 @@
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
+import type { ProjectMemoryControlsApi } from "../src/lib/project-memory-settings";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   CodexAppServerSnapshotResponse,
@@ -1924,6 +1925,12 @@ contextBridge.exposeInMainWorld("api", {
     },
   },
   projectMemory: {
+    getSettings: (args: Parameters<ProjectMemoryControlsApi["getSettings"]>[0]) =>
+      ipcRenderer.invoke("project-memory:get-settings", args) as ReturnType<ProjectMemoryControlsApi["getSettings"]>,
+    saveSettings: (args: Parameters<ProjectMemoryControlsApi["saveSettings"]>[0]) =>
+      ipcRenderer.invoke("project-memory:save-settings", args) as ReturnType<ProjectMemoryControlsApi["saveSettings"]>,
+    clear: (args: Parameters<ProjectMemoryControlsApi["clear"]>[0]) =>
+      ipcRenderer.invoke("project-memory:clear", args) as ReturnType<ProjectMemoryControlsApi["clear"]>,
     list: (args: ProjectMemoryListArgs) =>
       ipcRenderer.invoke("project-memory:list", args) as Promise<{
         ok: boolean;
