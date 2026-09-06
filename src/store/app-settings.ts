@@ -334,6 +334,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeSandboxCredentialEnvVars: string;
   claudeTaskBudgetTokens: number;
   /**
+   * When a provider reports included account usage at 100%, block new turns
+   * and background AI for that provider so extra credits are not spent.
+   * In-progress turns can still finish. On by default.
+   */
+  blockTurnsWhenAccountLimitReached: boolean;
+  /**
    * Whether new tasks arm the isolated read-only Advisor the primary consults
    * on demand. Split from the target so turning the default off keeps the
    * configured pick instead of erasing it.
@@ -718,6 +724,7 @@ export const defaultSettings: AppSettings = {
   claudeSandboxCredentialFiles: "",
   claudeSandboxCredentialEnvVars: "",
   claudeTaskBudgetTokens: 0,
+  blockTurnsWhenAccountLimitReached: true,
   advisorEnabled: false,
   advisorTarget: null,
   advisorTargetByProvider: {},

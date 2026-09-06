@@ -87,7 +87,7 @@ export interface SkillCatalogState {
 }
 
 export type SendUserMessageResult =
-  | { status: "blocked" }
+  | { status: "blocked"; reason?: "account-limit"; message?: string }
   | { status: "queued"; taskId: string; workspaceId: string }
   | { status: "steered"; taskId: string; workspaceId: string; turnId: string }
   | {
@@ -535,7 +535,7 @@ export interface AppState
   toggleEditorMarkdownPreviewMode: () => void;
   openWorkspacePicker: () => Promise<void>;
   refreshProjectFiles: () => Promise<void>;
-  refreshRateLimits: () => Promise<void>;
+  refreshRateLimits: (args?: { providers?: ProviderId[] }) => Promise<void>;
   refreshProviderAvailability: () => Promise<void>;
   refreshSkillCatalog: (args?: {
     workspacePath?: string | null;

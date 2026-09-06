@@ -1214,6 +1214,7 @@ contextBridge.exposeInMainWorld("api", {
     getRateLimitsSnapshot: (args: {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+      providers?: StreamTurnArgs["providerId"][];
     }) =>
       ipcRenderer.invoke(
         "provider:get-rate-limits-snapshot",

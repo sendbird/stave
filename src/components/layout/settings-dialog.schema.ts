@@ -143,6 +143,11 @@ export const settingsSections = [
       "delegate",
       "child task",
       "worker",
+      "usage",
+      "limit",
+      "credits",
+      "overage",
+      "100%",
     ],
   },
   {

@@ -1,6 +1,7 @@
 import type { Monaco } from "@monaco-editor/react";
 import type { editor as MonacoEditorApi, IDisposable, IPosition } from "monaco-editor";
 import { useAppStore } from "@/store/app.store";
+import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 
 export interface InlineCompletionSettings {
@@ -573,6 +574,14 @@ export function configureInlineCompletions(args: {
               lane: "inlineCompletion",
               policy: inlineCompletionSettings.auxiliaryInferencePolicy,
             });
+            if (
+              isAccountUsageBlockingFromState({
+                providerId: inlineCompletionLane.providerId,
+                state: useAppStore.getState(),
+              })
+            ) {
+              return { items: [] };
+            }
             const promise = requestFn({
               prefix,
               suffix,

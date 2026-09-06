@@ -78,6 +78,7 @@ import {
 } from "@/components/layout/top-bar-pr-events";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { useAppStore } from "@/store/app.store";
+import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import {
   type WorkspacePrStatus,
   PR_STATUS_VISUAL,
@@ -760,7 +761,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     // Off keeps the deterministic fallback draft, which is why the lane can be
     // disabled without breaking PR creation.
     const shouldSuggestPrDescription = Boolean(
-      suggestPRDescription && promptPrDescription && prDescriptionLane.enabled,
+      suggestPRDescription &&
+        promptPrDescription &&
+        prDescriptionLane.enabled &&
+        !isAccountUsageBlockingFromState({
+          providerId: prDescriptionLane.providerId,
+          state: useAppStore.getState(),
+        }),
     );
     const workspaceContextPromise = shouldSuggestPrDescription
       ? buildWorkspaceContextForPrDraft()
@@ -1078,7 +1085,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       prePrReviewEnabled &&
       prePrReviewLane.enabled &&
       reviewDiff &&
-      !options.skipReview
+      !options.skipReview &&
+      !isAccountUsageBlockingFromState({
+        providerId: prePrReviewLane.providerId,
+        state: useAppStore.getState(),
+      })
     ) {
       const reviewProviderLabel = getProviderLabel({
         providerId: prePrReviewLane.providerId,

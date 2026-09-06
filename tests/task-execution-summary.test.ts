@@ -270,9 +270,6 @@ describe("task execution summary", () => {
   });
 
   it("does not attribute Codex account limits to Cursor or Kiro turns", () => {
-    // Rate-limit snapshots only exist for Claude and Codex. The Headroom tile
-    // used to fall through every other provider to Codex, so a Cursor turn
-    // showed GPT plan percentages that belonged to a different runtime.
     const cursor = buildTaskExecutionSummary({
       providerId: "cursor",
       messages: [],
@@ -287,12 +284,47 @@ describe("task execution summary", () => {
     expect(cursor.accountLimit.value).toBeNull();
     expect(cursor.accountLimit.provenance).toBe("unavailable");
     expect(cursor.accountLimit.detail).toBe(
-      "Cursor does not report an account limit.",
+      "Cursor did not report an account limit.",
     );
     expect(kiro.accountLimit.value).toBeNull();
     expect(kiro.accountLimit.detail).toBe(
-      "Kiro does not report an account limit.",
+      "Kiro did not report an account limit.",
     );
+  });
+
+  it("reads Cursor and Kiro account limits from their own snapshots", () => {
+    const limits: RateLimitsSnapshotResponse = {
+      ...rateLimits,
+      cursor: {
+        source: "dashboard",
+        planType: "pro",
+        monthly: { usedPercent: 88, resetsAt: 50, used: 18, limit: 20 },
+        buckets: [],
+        error: null,
+      },
+      kiro: {
+        source: "acp",
+        planName: "Pro",
+        monthly: { usedPercent: 91, resetsAt: 60, used: 910, limit: 1000 },
+        buckets: [],
+        overagesEnabled: true,
+        error: null,
+      },
+    };
+    expect(
+      buildTaskExecutionSummary({
+        providerId: "cursor",
+        messages: [],
+        rateLimits: limits,
+      }).accountLimit.value,
+    ).toMatchObject({ label: "Monthly", usedPercent: 88 });
+    expect(
+      buildTaskExecutionSummary({
+        providerId: "kiro",
+        messages: [],
+        rateLimits: limits,
+      }).accountLimit.value,
+    ).toMatchObject({ label: "Monthly", usedPercent: 91 });
   });
 
   it("reads context headroom from the latest reported window instead of leaving the tile empty", () => {

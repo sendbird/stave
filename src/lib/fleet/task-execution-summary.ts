@@ -4,6 +4,10 @@ import type {
 } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { computePromptCacheStats } from "@/lib/providers/usage-cache";
+import {
+  providerAccountUsageLabel,
+  resolveTightestAccountUsageWindow,
+} from "@/lib/providers/account-usage-block";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { TurnVerificationResult } from "@/lib/workspace-scripts";
 import type { ChatMessage, CodeDiffPart } from "@/types/chat";
@@ -545,85 +549,6 @@ function resolveContextHeadroomFromMessages(
   return { value, sourceRef: `message:${usage.messageId}` };
 }
 
-function resolveClaudeAccountLimit(
-  snapshot: RateLimitsSnapshotResponse,
-): TaskExecutionAccountLimit | null {
-  if (snapshot.claude.source === "unavailable") {
-    return null;
-  }
-  const candidates = [
-    ["Session", snapshot.claude.session],
-    ["Weekly", snapshot.claude.weekly],
-    ["Model weekly", snapshot.claude.fableWeekly],
-  ] as const;
-  const mostUsed = candidates
-    .flatMap(([label, window]) => (window ? [{ label, window }] : []))
-    .sort(
-      (left, right) => right.window.usedPercent - left.window.usedPercent,
-    )[0];
-  return mostUsed
-    ? {
-        providerId: "claude-code",
-        label: mostUsed.label,
-        usedPercent: mostUsed.window.usedPercent,
-        resetsAt: mostUsed.window.resetsAt,
-      }
-    : null;
-}
-
-function resolveCodexAccountLimit(
-  snapshot: RateLimitsSnapshotResponse,
-): TaskExecutionAccountLimit | null {
-  if (snapshot.codex.source === "unavailable") {
-    return null;
-  }
-  const candidates: Array<TaskExecutionAccountLimit> = [];
-  for (const bucket of snapshot.codex.buckets) {
-    const label = bucket.limitName?.trim() || bucket.limitId?.trim() || "Codex";
-    if (bucket.primary) {
-      candidates.push({
-        providerId: "codex",
-        label: `${label} primary`,
-        usedPercent: bucket.primary.usedPercent,
-        resetsAt: bucket.primary.resetsAt,
-      });
-    }
-    if (bucket.secondary) {
-      candidates.push({
-        providerId: "codex",
-        label: `${label} secondary`,
-        usedPercent: bucket.secondary.usedPercent,
-        resetsAt: bucket.secondary.resetsAt,
-      });
-    }
-    if (bucket.individualLimit) {
-      candidates.push({
-        providerId: "codex",
-        label,
-        usedPercent: bucket.individualLimit.usedPercent,
-        resetsAt: bucket.individualLimit.resetsAt,
-      });
-    }
-  }
-  return (
-    candidates.sort((left, right) => right.usedPercent - left.usedPercent)[0] ??
-    null
-  );
-}
-
-function accountLimitProviderLabel(providerId: ProviderId): string {
-  switch (providerId) {
-    case "claude-code":
-      return "Claude";
-    case "codex":
-      return "Codex";
-    case "cursor":
-      return "Cursor";
-    case "kiro":
-      return "Kiro";
-  }
-}
-
 function buildAccountLimitMetric(args: {
   providerId: ProviderId;
   rateLimits?: RateLimitsSnapshotResponse | null;
@@ -631,22 +556,23 @@ function buildAccountLimitMetric(args: {
   if (!args.rateLimits) {
     return unavailableMetric("Account limit data has not been loaded.");
   }
-  const value =
-    args.providerId === "claude-code"
-      ? resolveClaudeAccountLimit(args.rateLimits)
-      : args.providerId === "codex"
-        ? resolveCodexAccountLimit(args.rateLimits)
-        : null;
-  return value
+  const window = resolveTightestAccountUsageWindow({
+    providerId: args.providerId,
+    snapshot: args.rateLimits,
+  });
+  return window
     ? {
-        value,
+        value: {
+          providerId: args.providerId,
+          label: window.label,
+          usedPercent: window.usedPercent,
+          resetsAt: window.resetsAt,
+        },
         provenance: "reported",
         sourceRefs: [`account-limit:${args.providerId}`],
       }
     : unavailableMetric(
-        args.providerId === "claude-code" || args.providerId === "codex"
-          ? `${accountLimitProviderLabel(args.providerId)} did not report an account limit.`
-          : `${accountLimitProviderLabel(args.providerId)} does not report an account limit.`,
+        `${providerAccountUsageLabel(args.providerId)} did not report an account limit.`,
       );
 }
 

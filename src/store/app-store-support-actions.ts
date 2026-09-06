@@ -10,6 +10,7 @@ import {
   type GitHubPrPayload,
   type WorkspacePrInfo,
 } from "@/lib/pr-status";
+import { mergeRateLimitsSnapshots } from "@/lib/providers/account-usage-block";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import {
   createDefaultProviderRuntimeCapabilities,
@@ -453,15 +454,24 @@ export function createSupportActions(args: {
         };
       });
     },
-    refreshRateLimits: async () => {
+    refreshRateLimits: async (args) => {
       const getSnapshot = window.api?.provider?.getRateLimitsSnapshot;
       if (!getSnapshot) {
         return;
       }
       set({ rateLimitsLoading: true, rateLimitsError: null });
       try {
-        const snapshot = await getSnapshot({});
-        set({ rateLimitsSnapshot: snapshot, rateLimitsLoading: false });
+        const snapshot = await getSnapshot({
+          providers: args?.providers,
+        });
+        set((state) => ({
+          rateLimitsSnapshot: mergeRateLimitsSnapshots({
+            current: state.rateLimitsSnapshot,
+            incoming: snapshot,
+            providers: args?.providers,
+          }),
+          rateLimitsLoading: false,
+        }));
       } catch (error) {
         set({
           rateLimitsLoading: false,
