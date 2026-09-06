@@ -55,9 +55,11 @@ contracts share the same TypeScript type.
 
 - A `provider_session` event remembers the native id.
 - If the native id changes, any cursor belonging to the old id is discarded.
-- A `done` event advances the active provider's cursor to the completed
-  assistant message id.
+- A successful normal turn's `done` event advances the active provider's cursor
+  to the completed assistant message id.
 - Interrupted or incomplete turns do not advance the cursor.
+- Native slash commands bypass history injection, so their completion does not
+  advance the cursor. This includes manual compaction and thread-goal commands.
 - Clearing a provider session removes its cursor with the session entry.
 
 Cursor updates happen in shared provider-event replay, so Claude and Codex use
@@ -69,7 +71,8 @@ The provider runtime, not the renderer, is authoritative about whether a native
 session was actually resumed. Prompt history is selected after that decision:
 
 1. No active resume: include all available history.
-2. Active resume but no cursor: omit history (legacy behavior).
+2. Active resume but no cursor: omit history unless it contains another
+   provider's assistant messages; then include available history conservatively.
 3. Active resume and matching cursor: include messages after the cursor.
 4. Cursor missing from loaded history: include all available history.
 5. Runtime-local resume id differs from the renderer snapshot: omit history and
@@ -114,7 +117,8 @@ The cursor crosses these boundaries:
 - first provider switch: bounded resident tail (see below)
 - MCP/config-forced fresh session: bounded resident tail
 - missing cursor anchor: bounded resident tail
-- legacy string session: resumes with legacy behavior
+- legacy string session: replay conservatively when other providers contributed
+- compact after provider switch-back: retain the previous cursor and pending delta
 - native id replacement: stale cursor cleared
 - failed/interrupted turn: cursor unchanged
 
@@ -126,8 +130,11 @@ has always sent its resident `messagesByTask` window, and the Local MCP
 message. Older history stays durable in SQLite and is paged in by the UI on
 demand.
 
-This is not a loss of provider context in practice. Transport compaction in
-`src/lib/providers/transport-bounds.ts` collapses any request over
-`HOST_SERVICE_PROVIDER_REQUEST_SOFT_MAX_BYTES` (900 KiB) to roughly 24
-summarized messages; a multi-thousand-message transcript always tripped that,
-so the provider saw far *less* history than the bounded tail delivers now.
+This can omit context when starting fresh or changing providers. Transport
+bounds in `src/lib/providers/transport-bounds.ts` can further reduce oversized
+requests, and `src/lib/providers/bounded-history.ts` limits rendered history to
+12,000 characters. Over-budget prompts retain the earliest available user
+request and recent excerpts with an explicit omission notice; neither is a
+lossless summary. Durable storage of older messages does not mean a provider
+has seen them. See [Conversation Context](../features/conversation-context.md)
+for native compaction scope and long-task limitations.

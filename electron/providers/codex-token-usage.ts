@@ -10,6 +10,27 @@
  * - `reasoningOutputTokens` is billed output the user never sees, reported
  *   separately from `outputTokens`.
  */
+import type { BridgeEvent } from "./types";
+
+/** Last context snapshot, never the cumulative billing total or cached tokens twice. */
+export function normalizeCodexContextUsage(value: unknown): BridgeEvent | null {
+  const usage = value as {
+    last?: { totalTokens?: number };
+    modelContextWindow?: number;
+  } | null;
+  const usedTokens = usage?.last?.totalTokens;
+  const sizeTokens = usage?.modelContextWindow;
+  if (
+    typeof usedTokens !== "number" ||
+    !Number.isFinite(usedTokens) ||
+    usedTokens < 0 ||
+    typeof sizeTokens !== "number" ||
+    !Number.isFinite(sizeTokens) ||
+    sizeTokens <= 0
+  )
+    return null;
+  return { type: "context_usage", usedTokens, sizeTokens };
+}
 
 /** Fields Stave reads from a Codex `TokenUsageBreakdown`. */
 export interface CodexTokenUsageBreakdown {
@@ -39,10 +60,7 @@ function positive(value: unknown) {
  * Returns `null` when the payload carries no breakdown to read.
  */
 export function normalizeCodexTokenUsage(
-  tokenUsage:
-    | { last?: CodexTokenUsageBreakdown | null }
-    | null
-    | undefined,
+  tokenUsage: { last?: CodexTokenUsageBreakdown | null } | null | undefined,
 ): CodexNormalizedTokenUsage | null {
   const last = tokenUsage?.last;
   if (!last) {

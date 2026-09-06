@@ -1016,9 +1016,18 @@ Codex checkpoint and compaction support:
   each normal Codex turn, including the current Git `HEAD` when the working
   directory is a repository.
 - Typing `/compact` in a Codex chat is intercepted before `turn/start` and
-  forwarded to the App Server's `thread/compact/start` RPC. Stave then emits a
-  manual compact-boundary event and keeps the same thread available for the
-  next turn with its server-side summarized history.
+  forwarded to the App Server's `thread/compact/start` RPC. Its empty response
+  acknowledges acceptance only. Stave subscribes before dispatch and waits for
+  `contextCompaction` item completion plus a successful `turn/completed` before
+  emitting a manual compact boundary. Failure, process exit, timeout, and
+  cancellation do not report success. The Runtime settings action uses the same
+  completion contract. Duplicate compaction requests for a session are rejected
+  while the operation is pending.
+- Native automatic `contextCompaction` items also produce progress and compact
+  boundaries. Automatic compaction does not end the surrounding normal turn.
+- Compaction requires an existing resumable session; it cannot bootstrap task
+  history into a fresh thread. Native command turns preserve the session's sync
+  cursor, so pending cross-provider history reaches the next normal turn.
 - These boundaries are conversation provenance markers, not restore
   operations; Stave does not claim that Codex can restore the App Server
   thread to a checkpoint.

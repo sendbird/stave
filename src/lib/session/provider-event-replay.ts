@@ -1,6 +1,7 @@
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { sanitizeMessagePartPayload } from "@/lib/file-context-sanitization";
 import { hasMeaningfulPlanText, normalizePlanText } from "@/lib/plan-text";
+import { isProviderNativeSlashCommandInput } from "@/lib/providers/provider-request-translators";
 import {
   advanceProviderSessionCursor,
   getProviderSessionId,
@@ -905,7 +906,10 @@ export function appendProviderEventToAssistant(args: {
   if (args.event.type === "done") {
     const completedAt = buildRecentTimestamp();
     const partsWithTruncationNotice = appendProviderOutputTruncationNotice({
-      parts: message.parts,
+      parts: message.parts.filter((part) => !(
+        part.type === "system_event" &&
+        part.content.trim().toLowerCase().startsWith("compacting conversation context")
+      )),
       stopReason: args.event.stop_reason,
     });
     const messageWithTruncationNotice =
@@ -1311,10 +1315,28 @@ export function replayProviderEventsToTaskState(args: {
         message: updated,
       });
       if (!pendingToolInteraction) {
-        const advancedSession = advanceProviderSessionCursor({
-          current: nextProviderSession?.[args.provider],
-          syncedThroughMessageId: updated.id,
-        });
+        // Native commands bypass history injection. They must not acknowledge
+        // intervening turns from another provider as synchronized. Inspect the
+        // persisted user message so split event batches and reloads agree.
+        let input: ChatMessage | undefined;
+        for (let index = current.length - 1; index >= 0; index -= 1) {
+          if (current[index]?.role === "user") {
+            input = current[index];
+            break;
+          }
+        }
+        const canAdvanceCursor =
+          !isProviderNativeSlashCommandInput(input?.content ?? "") &&
+          (!event.stop_reason || event.stop_reason === "end_turn" || event.stop_reason === "stop_sequence") &&
+          !updated.parts.some((part) =>
+            part.type === "system_event" && part.content.startsWith("[error] "),
+          );
+        const advancedSession = canAdvanceCursor
+          ? advanceProviderSessionCursor({
+              current: nextProviderSession?.[args.provider],
+              syncedThroughMessageId: updated.id,
+            })
+          : undefined;
         if (
           advancedSession &&
           advancedSession !== nextProviderSession?.[args.provider]

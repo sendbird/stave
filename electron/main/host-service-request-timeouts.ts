@@ -36,6 +36,9 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   // above that ceiling, otherwise it would pre-empt the runtime's own
   // `advisor-timeout` outcome with a transport error the primary cannot read.
   "provider.consult-advisor": HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS,
+  // The native compact waiter owns a ten-minute deadline. Let its structured
+  // failure reach the Runtime settings caller before the transport expires.
+  "provider.compact-codex-thread": 11 * 60_000,
   "provider.stream-turn": null,
   "provider.start-stream-turn": null,
   "provider.start-push-turn": null,

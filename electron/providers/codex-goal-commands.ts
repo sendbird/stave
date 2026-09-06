@@ -1,9 +1,6 @@
 /**
- * Codex thread-goal state plus the `/goal` and `/compact` chat slash commands.
- *
- * Extracted verbatim from `codex-app-server-runtime.ts` to keep that file within
- * the max-lines ratchet; no behavior changed. `codex-app-server-runtime` still
- * re-exports the public names for existing consumers.
+ * Codex thread-goal state and `/goal` commands. Native compaction has its own
+ * lifecycle module, re-exported here for existing consumers.
  */
 import type {
   ProviderGoalSnapshot,
@@ -14,7 +11,6 @@ import {
   toCodexUserFacingErrorMessage,
   toErrorMessage,
 } from "./codex-app-server-errors";
-import { resolveGitHeadRef } from "./git-head-ref";
 
 /** Minimal request-capable slice of the Codex App Server client. */
 export type CodexElicitationPauseClient = {
@@ -300,56 +296,4 @@ export async function runCodexGoalSlashCommand(args: {
   }
 }
 
-const CODEX_COMPACT_SLASH_COMMAND_PATTERN = /^\/compact(?:\s|$)/i;
-
-export function isCodexCompactSlashCommand(input: string): boolean {
-  return CODEX_COMPACT_SLASH_COMMAND_PATTERN.test(input.trimStart());
-}
-
-// The Codex App Server does not parse chat slash commands the way the Codex
-// TUI does; "/compact" sent as a plain user turn just reaches the model as
-// text. Intercept it here and call the dedicated compaction RPC instead, so
-// chat "/compact" behaves like the Claude provider's native /compact.
-export async function runCodexCompactSlashCommand(args: {
-  client: CodexElicitationPauseClient;
-  threadId: string;
-  input: string;
-  cwd?: string;
-}): Promise<BridgeEvent[] | null> {
-  if (!isCodexCompactSlashCommand(args.input)) {
-    return null;
-  }
-
-  try {
-    await args.client.request("thread/compact/start", {
-      threadId: args.threadId,
-    });
-    const gitRef = args.cwd ? resolveGitHeadRef({ cwd: args.cwd }) : undefined;
-    return [
-      {
-        type: "system",
-        content: "Context compacted (manual).",
-        compactBoundary: {
-          trigger: "manual",
-          ...(gitRef ? { gitRef } : {}),
-        },
-      },
-      {
-        type: "text",
-        text: "Compacted the Codex conversation context. You can continue this thread with the summarized history.",
-      },
-      { type: "done" },
-    ];
-  } catch (error) {
-    return [
-      {
-        type: "error",
-        message: toCodexUserFacingErrorMessage({
-          message: toErrorMessage(error),
-        }),
-        recoverable: true,
-      },
-      { type: "done" },
-    ];
-  }
-}
+export { isCodexCompactSlashCommand, runCodexCompactSlashCommand } from "./codex-compaction";
