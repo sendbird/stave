@@ -446,12 +446,12 @@
       "sourcePath": "packages/design-system/src/tokens/motion-presets.ts"
     },
     {
-      "integrity": "sha256-a55bb9e2c30739d3da14fdf2ea4edd1caa5f1d76fdb1161cd599f5c1d4eb27dd",
+      "integrity": "sha256-28fb65500ecc6cf82d736f2df5cf13ae89489c15ce6b032c8b36224d9d688b1b",
       "path": "src/components/ads/tokens/themes.stylex.ts",
       "sourcePath": "packages/design-system/src/tokens/themes.stylex.ts"
     },
     {
-      "integrity": "sha256-2cdc1087683cf431cecbd41900d6b467416bf969c44a65fcbc8fc467759aad74",
+      "integrity": "sha256-254cbe849b9b91c25eadd206b4bf1e626b241f49eb3f820d2bc02adbb6c7e9ff",
       "path": "src/components/ads/tokens/tokens.stylex.ts",
       "sourcePath": "packages/design-system/src/tokens/tokens.stylex.ts"
     },

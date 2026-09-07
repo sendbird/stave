@@ -9,8 +9,8 @@ export const chatPanelFileBlocksStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
     fontVariantNumeric: "tabular-nums",
   },
-  changeCountAdded: { color: vars.colorSuccess },
-  changeCountRemoved: { color: vars.colorDanger },
+  changeCountAdded: { color: vars.colorDiffAddedText },
+  changeCountRemoved: { color: vars.colorDiffRemovedText },
   card: { gap: 0, overflow: "hidden", padding: 0 },
   cardHeader: {
     display: "flex",

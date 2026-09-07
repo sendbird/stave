@@ -128,6 +128,14 @@ export const vars = stylex.defineVars({
   colorDangerSoft: "oklch(0.936 0.029 30)",
   colorDangerText: "oklch(0.444 0.175 30)",
   colorDangerBorder: "oklch(0.577 0.229 30)",
+  // Diff / VCS identity. Orthogonal to success/danger: a theme may paint
+  // "passed" teal and still keep git added green. Defaults match the success
+  // and danger soft/text steps so an unthemed host keeps today's diffs; a host
+  // that authors a dedicated ramp remaps only this family.
+  colorDiffAdded: "oklch(0.962 0.045 152)",
+  colorDiffAddedText: "oklch(0.47 0.121 152)",
+  colorDiffRemoved: "oklch(0.936 0.029 30)",
+  colorDiffRemovedText: "oklch(0.444 0.175 30)",
   // Workflow data ink draws from Sparkler's chromatic ramps. Most roles take
   // the -600 step; in-review takes -700 because Sparkler's yellow is light by
   // design (Yellow600 measures 2.25:1 on `colorCanvasSubtle`, below the 3:1

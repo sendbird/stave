@@ -75,11 +75,27 @@ describe("ADS DiffViewer (installed copy)", () => {
     expect(html).toContain("unchanged");
   });
 
+  test("ads-theme maps diff identity to the host git ramp, not success/danger", () => {
+    const source = read("src/components/system/ads-theme.ts");
+    expect(source).toContain('colorDiffAdded: "var(--diff-added)"');
+    expect(source).toContain(
+      'colorDiffAddedText: "var(--diff-added-foreground)"',
+    );
+    expect(source).toContain('colorDiffRemoved: "var(--diff-removed)"');
+    expect(source).toContain(
+      'colorDiffRemovedText: "var(--diff-removed-foreground)"',
+    );
+    expect(source).toContain('colorSuccess: "var(--success)"');
+    expect(source).toContain('colorDanger: "var(--destructive)"');
+  });
+
   test("the port authors styles with StyleX tokens, not utility strings", () => {
     const source = read("src/components/ads/components/DiffViewer.tsx");
     expect(source).toContain('from "@stylexjs/stylex"');
-    expect(source).toContain("vars.colorSuccessSoft");
-    expect(source).toContain("vars.colorDangerSoft");
+    expect(source).toContain("vars.colorDiffAdded");
+    expect(source).toContain("vars.colorDiffRemoved");
+    expect(source).not.toContain("vars.colorSuccessSoft");
+    expect(source).not.toContain("vars.colorDangerSoft");
     // Ported to the installed layout: recipes in ../recipes, tokens in
     // ../tokens, utils in ../utils.
     expect(source).toContain('from "../recipes/focus-ring"');

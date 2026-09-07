@@ -19,17 +19,18 @@ import {
  * Line-level text diff (unified or split) with an internal LCS diff — no
  * external diff dependency.
  *
- * Color contract: semantic color rides the **edge stripe** plus a *soft* row
- * wash (`successSoft` / `dangerSoft`). Per `docs/design-direction.md` §1.2 the
- * rule is "semantic color on a small element, never a full card wash" — the
- * diff row wash is the sanctioned nuance of that rule: the wash *is* the
- * information here (which lines changed), it uses only the soft tints, and the
- * saturated tone stays confined to the edge stripe and sign column.
+ * Color contract: `colorDiff*` rides the **edge stripe** plus a *soft* row
+ * wash. Per `docs/design-direction.md` §1.2 the rule is "semantic color on a
+ * small element, never a full card wash" — the diff row wash is the sanctioned
+ * nuance of that rule: the wash *is* the information here (which lines
+ * changed), it uses only the soft tints, and the saturated tone stays confined
+ * to the edge stripe and sign column. Success/danger are status, not VCS
+ * identity; a host that authors a git/diff ramp remaps only this family.
  *
  * `granularity="word"` (see below) keeps that same contract for its added
  * inline emphasis: no new saturated fill is introduced, only the existing
- * `successSoft` / `dangerSoft` tokens, now scoped to the changed run instead
- * of the whole row.
+ * `colorDiffAdded` / `colorDiffRemoved` washes, now scoped to the changed run
+ * instead of the whole row.
  *
  * `context` (optional) collapses long unchanged runs to N lines of context
  * around each change, with an inline expand affordance. Omit it to render
@@ -318,26 +319,26 @@ const styles = stylex.create({
   // "word") can keep the edge stripe without the row-level wash competing
   // with its own inline emphasis (see the render-time `wordPaired` checks).
   rowEdgeAdd: {
-    borderInlineStartColor: vars.colorSuccess,
+    borderInlineStartColor: vars.colorDiffAddedText,
   },
   rowEdgeRemove: {
-    borderInlineStartColor: vars.colorDanger,
+    borderInlineStartColor: vars.colorDiffRemovedText,
   },
   rowWashAdd: {
-    backgroundColor: vars.colorSuccessSoft,
+    backgroundColor: vars.colorDiffAdded,
   },
   rowWashRemove: {
-    backgroundColor: vars.colorDangerSoft,
+    backgroundColor: vars.colorDiffRemoved,
   },
-  // Word-boundary emphasis (granularity="word"): the same soft tokens as the
+  // Word-boundary emphasis (granularity="word"): the same wash tokens as the
   // row wash above, now scoped to just the changed run instead of the whole
   // line — no new saturated fill, per the file header's color contract.
   wordAdd: {
-    backgroundColor: vars.colorSuccessSoft,
+    backgroundColor: vars.colorDiffAdded,
     borderRadius: vars.radiusMark,
   },
   wordRemove: {
-    backgroundColor: vars.colorDangerSoft,
+    backgroundColor: vars.colorDiffRemoved,
     borderRadius: vars.radiusMark,
   },
   lineNo: {
@@ -351,10 +352,10 @@ const styles = stylex.create({
     userSelect: "none",
   },
   signAdd: {
-    color: vars.colorSuccessText,
+    color: vars.colorDiffAddedText,
   },
   signRemove: {
-    color: vars.colorDangerText,
+    color: vars.colorDiffRemovedText,
   },
   code: {
     overflowWrap: "anywhere",

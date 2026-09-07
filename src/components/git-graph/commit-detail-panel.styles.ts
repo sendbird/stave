@@ -197,10 +197,10 @@ export const commitDetailPanelStyles = stylex.create({
     fontVariantNumeric: "tabular-nums",
   },
   additions: {
-    color: vars.colorSuccessText,
+    color: vars.colorDiffAddedText,
   },
   deletions: {
-    color: vars.colorDangerText,
+    color: vars.colorDiffRemovedText,
   },
   loaderMuted: {
     color: vars.colorTextMuted,
@@ -284,14 +284,14 @@ export const commitDetailPanelStyles = stylex.create({
   },
   // File-status chips — border/bg/text triplets keyed by git status.
   statusAdded: {
-    borderColor: `color-mix(in oklch, ${vars.colorSuccessBorder} 35%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars.colorSuccess} 10%, transparent)`,
-    color: vars.colorSuccessText,
+    borderColor: vars.colorDiffAddedText,
+    backgroundColor: vars.colorDiffAdded,
+    color: vars.colorDiffAddedText,
   },
   statusRemoved: {
-    borderColor: `color-mix(in oklch, ${vars.colorDangerBorder} 35%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars.colorDanger} 10%, transparent)`,
-    color: vars.colorDangerText,
+    borderColor: vars.colorDiffRemovedText,
+    backgroundColor: vars.colorDiffRemoved,
+    color: vars.colorDiffRemovedText,
   },
   statusModified: {
     borderColor: `color-mix(in oklch, ${vars.colorWarningBorder} 40%, transparent)`,

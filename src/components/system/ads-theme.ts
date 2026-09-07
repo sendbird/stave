@@ -145,6 +145,14 @@ const roles = {
   colorSuccessText: "color-mix(in oklab, var(--foreground) 45%, var(--success))",
   colorSuccessSoft: "color-mix(in oklab, var(--success) 12%, var(--card))",
   colorSuccessBorder: "var(--success)",
+  // VCS / diff identity. Stave already authors `--diff-*` per theme (GitHub
+  // green/red on github, Solarized yellow-green on solarized). Mapping these
+  // through `--success` / `--destructive` was what painted a Dracula added
+  // line in the remixed status teal instead of `#50FA7B`.
+  colorDiffAdded: "var(--diff-added)",
+  colorDiffAddedText: "var(--diff-added-foreground)",
+  colorDiffRemoved: "var(--diff-removed)",
+  colorDiffRemovedText: "var(--diff-removed-foreground)",
   colorWarning: "var(--warning)",
   colorWarningText: "color-mix(in oklab, var(--foreground) 45%, var(--warning))",
   colorWarningSoft: "color-mix(in oklab, var(--warning) 12%, var(--card))",
@@ -165,6 +173,8 @@ const roles = {
   //   remap would break both the ordering guarantee and `check:colors`.
   // - `fontSize*`, `fontWeight*`, `lineHeight*` and the space/radius ramps have
   //   no Stave counterpart; Stave only ever owned colors and `--radius`.
+  // `colorDiff*` IS remapped: Stave authors `--diff-*` per theme, and those
+  // values must not follow the success/danger remix.
 } satisfies Partial<
   Record<Extract<keyof typeof vars, `color${string}` | `font${string}` | `zIndex${string}`>, string>
 >;

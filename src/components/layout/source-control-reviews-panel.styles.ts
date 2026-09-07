@@ -217,8 +217,8 @@ export const reviewsStyles = stylex.create({
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeMicro,
   },
-  additions: { color: vars.colorSuccessText },
-  deletions: { color: vars.colorDangerText },
+  additions: { color: vars.colorDiffAddedText },
+  deletions: { color: vars.colorDiffRemovedText },
   filesFootnote: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,

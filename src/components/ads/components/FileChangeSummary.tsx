@@ -68,8 +68,10 @@ const kindIcon: Record<FileChangeKind, LucideIcon> = {
  *
  * **`+N` / `−M` are rung 0.** §1.2 allows semantic color on a small element,
  * and the counts are the smallest element on the row; they take
- * `colorSuccess` / `colorDanger` ink in the machine register and no fill,
- * because a tinted pill per count is three perimeters for two integers.
+ * `colorDiffAddedText` / `colorDiffRemovedText` ink in the machine register
+ * and no fill, because a tinted pill per count is three perimeters for two
+ * integers. Success/danger stay on status words; these counts are VCS
+ * identity.
  *
  * It is a `span` and draws no surface of its own: a caller puts it in a
  * disclosure trigger, a `ToolRun` body, or a list row, and that owner already
@@ -166,10 +168,10 @@ const styles = stylex.create({
     gap: vars.space4,
   },
   added: {
-    color: vars.colorSuccess,
+    color: vars.colorDiffAddedText,
   },
   removed: {
-    color: vars.colorDanger,
+    color: vars.colorDiffRemovedText,
   },
   state: {
     flexShrink: 0,

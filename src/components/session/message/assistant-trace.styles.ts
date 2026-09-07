@@ -81,12 +81,12 @@ export const assistantTraceStyles = stylex.create({
     color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
   },
   diffAdded: {
-    color: vars.colorSuccess,
+    color: vars.colorDiffAddedText,
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars.fontWeightMedium,
   },
   diffRemoved: {
-    color: vars.colorDanger,
+    color: vars.colorDiffRemovedText,
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars.fontWeightMedium,
   },
