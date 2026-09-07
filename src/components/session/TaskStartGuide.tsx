@@ -3,6 +3,7 @@ import { vars } from "../ads/tokens/tokens.stylex";
 import { sx } from "../ads/utils/stylex";
 import { MessageSquareIcon } from "lucide-react";
 import {
+  Button,
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -48,104 +49,116 @@ export function TaskStartGuide({
       patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "information" },
     });
   return (
-    <Empty xstyle={styles.root} data-testid="task-start-guide">
-      <EmptyHeader xstyle={styles.introduction}>
-        <EmptyMedia variant="icon">
-          <MessageSquareIcon />
-        </EmptyMedia>
-        <EmptyTitle role="heading" aria-level={2}>
-          What would you like to work on?
-        </EmptyTitle>
-        <EmptyDescription>
-          Describe the outcome you want, or choose a starting point.
-        </EmptyDescription>
-      </EmptyHeader>
-      {showExamples ? (
-        <div className={sx(styles.content)}>
-          {brief?.goal || brief?.nextAction ? (
-            <section
-              aria-label="Saved workspace direction"
-              className={sx(styles.direction)}
-            >
-              <div className={sx(styles.directionHeader)}>
-                <h3 className={sx(styles.directionTitle)}>
-                  Pick up where you left off
-                </h3>
-                <time dateTime={brief.updatedAt} className={sx(styles.savedAt)}>
-                  Saved {new Date(brief.updatedAt).toLocaleDateString()}
-                </time>
-              </div>
-              {brief.goal ? (
-                <p className={sx(styles.goal)}>{brief.goal}</p>
-              ) : null}
-              {brief.nextAction ? (
-                <p className={sx(styles.nextAction)}>
-                  <strong>Next action:</strong> {brief.nextAction}
-                </p>
-              ) : null}
-              <div className={sx(styles.actions)}>
-                {onSelect && brief.nextAction ? (
-                  <ActionButton
-                    weight="primary"
-                    onClick={() =>
-                      onSelect(
-                        `Continue the saved workspace direction.\nNext action: ${brief.nextAction}\nCheck the goal, completion conditions and evidence in Information before proceeding. Report changes to the next action when you finish.`,
-                      )
-                    }
-                  >
-                    Prepare the next step
-                  </ActionButton>
-                ) : null}
-                <ActionButton weight="quiet" onClick={openInformation}>
-                  Review direction &amp; evidence
-                </ActionButton>
-              </div>
-            </section>
-          ) : null}
-          <div className={sx(styles.startingPoints)}>
-            {STARTING_POINTS.map((item) => (
-              <div key={item.title} className={sx(styles.startingPoint)}>
-                <div className={sx(styles.promptText)}>
-                  <h3 className={sx(styles.promptTitle)}>{item.title}</h3>
-                  <p className={sx(styles.promptDescription)}>
-                    {item.description}
-                  </p>
+    <div className={sx(styles.shell)} data-testid="task-start-guide">
+      <Empty xstyle={styles.root}>
+        <EmptyHeader xstyle={styles.introduction}>
+          <EmptyMedia variant="icon">
+            <MessageSquareIcon />
+          </EmptyMedia>
+          <EmptyTitle role="heading" aria-level={2}>
+            What would you like to work on?
+          </EmptyTitle>
+          <EmptyDescription>
+            Describe the outcome you want, or choose a starting point.
+          </EmptyDescription>
+        </EmptyHeader>
+        {showExamples ? (
+          <div className={sx(styles.content)}>
+            {brief?.goal || brief?.nextAction ? (
+              <section
+                aria-label="Saved workspace direction"
+                className={sx(styles.direction)}
+              >
+                <div className={sx(styles.directionHeader)}>
+                  <h3 className={sx(styles.directionTitle)}>
+                    Pick up where you left off
+                  </h3>
+                  <time dateTime={brief.updatedAt} className={sx(styles.savedAt)}>
+                    Saved {new Date(brief.updatedAt).toLocaleDateString()}
+                  </time>
                 </div>
-                {onSelect ? (
-                  <ActionButton
-                    weight="quiet"
-                    size="sm"
-                    xstyle={styles.promptAction}
-                    onClick={() => onSelect(item.example)}
-                    aria-label={`Use prompt: ${item.title}`}
-                  >
-                    Use prompt
-                  </ActionButton>
+                {brief.goal ? (
+                  <p className={sx(styles.goal)}>{brief.goal}</p>
                 ) : null}
-              </div>
-            ))}
-          </div>
-          <div className={sx(styles.actions)}>
-            <ActionButton
-              weight="quiet"
-              onClick={() => useAppStore.getState().openAutomationCenter()}
-            >
-              Browse workflows, macros &amp; presets
-            </ActionButton>
-            {!brief?.goal && !brief?.nextAction ? (
-              <ActionButton weight="quiet" onClick={openInformation}>
-                Keep a goal &amp; next action
-              </ActionButton>
+                {brief.nextAction ? (
+                  <p className={sx(styles.nextAction)}>
+                    <strong>Next action:</strong> {brief.nextAction}
+                  </p>
+                ) : null}
+                <div className={sx(styles.actions)}>
+                  {onSelect && brief.nextAction ? (
+                    <ActionButton
+                      weight="primary"
+                      onClick={() =>
+                        onSelect(
+                          `Continue the saved workspace direction.\nNext action: ${brief.nextAction}\nCheck the goal, completion conditions and evidence in Information before proceeding. Report changes to the next action when you finish.`,
+                        )
+                      }
+                    >
+                      Prepare the next step
+                    </ActionButton>
+                  ) : null}
+                  <Button variant="outline" onClick={openInformation}>
+                    Review direction &amp; evidence
+                  </Button>
+                </div>
+              </section>
             ) : null}
+            <div className={sx(styles.startingPoints)}>
+              {STARTING_POINTS.map((item) => (
+                <div key={item.title} className={sx(styles.startingPoint)}>
+                  <div className={sx(styles.promptText)}>
+                    <h3 className={sx(styles.promptTitle)}>{item.title}</h3>
+                    <p className={sx(styles.promptDescription)}>
+                      {item.description}
+                    </p>
+                  </div>
+                  {onSelect ? (
+                    <ActionButton
+                      weight="quiet"
+                      size="sm"
+                      xstyle={styles.promptAction}
+                      onClick={() => onSelect(item.example)}
+                      aria-label={`Use prompt: ${item.title}`}
+                    >
+                      Use prompt
+                    </ActionButton>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
+        ) : null}
+      </Empty>
+      {showExamples ? (
+        <div className={sx(styles.actions, styles.footerActions)}>
+          <Button
+            variant="outline"
+            onClick={() => useAppStore.getState().openAutomationCenter()}
+          >
+            Browse workflows, macros &amp; presets
+          </Button>
+          {!brief?.goal && !brief?.nextAction ? (
+            <Button variant="outline" onClick={openInformation}>
+              Keep a goal &amp; next action
+            </Button>
+          ) : null}
         </div>
       ) : null}
-    </Empty>
+    </div>
   );
 }
 
 const styles = stylex.create({
-  root: { gap: vars.space20, padding: vars.space20 },
+  shell: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: vars.space8,
+    inlineSize: "100%",
+    minInlineSize: 0,
+  },
+  root: { gap: vars.space16, padding: vars.space20 },
   introduction: {
     // Cross-axis centering now lives in the `EmptyHeader` shim, so every empty
     // state gets it rather than the surfaces that noticed the medallion drift.
@@ -162,7 +175,7 @@ const styles = stylex.create({
     minInlineSize: 0,
     display: "flex",
     flexDirection: "column",
-    gap: vars.space20,
+    gap: vars.space16,
     textAlign: "left",
   },
   direction: {
@@ -213,6 +226,11 @@ const styles = stylex.create({
     color: vars.colorTextMuted,
   },
   actions: { display: "flex", flexWrap: "wrap", gap: vars.space8 },
+  footerActions: {
+    inlineSize: "100%",
+    maxInlineSize: "32rem",
+    justifyContent: "center",
+  },
   startingPoints: { minInlineSize: 0 },
   /**
    * The row wraps instead of squeezing the action: below roughly a 24rem

@@ -8,13 +8,13 @@ export const chatAreaStyles = stylex.create({
     marginInline: "auto",
     paddingInline: vars.space12,
     paddingTop: vars.space16,
-    paddingBottom: vars.space8,
+    paddingBottom: 0,
     "@media (min-width: 40rem)": { paddingInline: vars.space16 },
   },
   startStack: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space16,
+    gap: vars.space8,
   },
   startOptions: {
     display: "flex",
@@ -62,7 +62,11 @@ export const chatAreaStyles = stylex.create({
     flex: 1,
     flexDirection: "column",
   },
-  emptyBody: { justifyContent: "flex-end" },
+  emptyBody: {
+    justifyContent: "flex-end",
+    // Keep the first-prompt cluster near the composer, but not flush against it.
+    paddingBottom: vars.space24,
+  },
   overlay: { pointerEvents: "none", position: "absolute", inset: 0 },
   buttonIcon: { width: 16, height: 16 },
   sessionArea: {
