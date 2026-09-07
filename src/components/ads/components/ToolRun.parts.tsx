@@ -190,7 +190,7 @@ export type ToolRunSummaryProps = {
  * absolute path or a URL, and letting it take a second line meant one row in a
  * transcript was two rows tall for a value the reader was scanning past. It now
  * ellipsizes in place, on one line, with the full value on the element's
- * `title` when it is plain text. Below the 14rem container arm the group still
+ * `title` when it is plain text. Below the 22rem container arm the group still
  * stacks, because at that width there is no line left to share.
  *
  * A settled run does not paint its status word at all — `isQuietState`, and the
