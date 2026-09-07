@@ -1,7 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { SERVICE_GIT } from "@/lib/themes/service-git";
 
 /**
  * The details aside sits on the Monaco editor surface (`--editor`); every other
@@ -295,9 +294,9 @@ export const commitDetailPanelStyles = stylex.create({
     color: vars.colorDiffRemovedText,
   },
   statusModified: {
-    borderColor: `color-mix(in oklab, ${SERVICE_GIT.modified} 40%, transparent)`,
-    backgroundColor: `color-mix(in oklab, ${SERVICE_GIT.modified} 10%, transparent)`,
-    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.modified})`,
+    borderColor: `color-mix(in oklab, var(--service-git-modified) 40%, transparent)`,
+    backgroundColor: `color-mix(in oklab, var(--service-git-modified) 10%, transparent)`,
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-modified))`,
   },
   statusRenamed: {
     borderColor: `color-mix(in oklch, ${vars.colorInfoBorder} 35%, transparent)`,

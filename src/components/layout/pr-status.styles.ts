@@ -3,22 +3,25 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import type { PrStatusTone } from "@/lib/pr-status";
-import { SERVICE_GIT } from "@/lib/themes/service-git";
 
 /**
  * `src/lib/pr-status.ts` publishes a semantic tone and nothing else. This module
  * is the single place that turns that tone into Git service-token visuals.
+ *
+ * The `var(--service-git-*)` strings must stay literals here. StyleX treats an
+ * imported theme helper as a `.stylex.ts` module and fails the isolated test
+ * transform otherwise.
  */
 
-const gitOpenInk = `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`;
-const gitMergedInk = `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.merged})`;
-const gitClosedInk = `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.closed})`;
-const gitModifiedInk = `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.modified})`;
-const gitOpenSoft = `color-mix(in oklab, ${SERVICE_GIT.open} 12%, ${vars.colorSurface})`;
-const gitMergedSoft = `color-mix(in oklab, ${SERVICE_GIT.merged} 12%, ${vars.colorSurface})`;
-const gitClosedSoft = `color-mix(in oklab, ${SERVICE_GIT.closed} 12%, ${vars.colorSurface})`;
-const gitModifiedSoft = `color-mix(in oklab, ${SERVICE_GIT.modified} 12%, ${vars.colorSurface})`;
-const gitOpenHover = `color-mix(in oklab, ${SERVICE_GIT.open} 18%, ${vars.colorSurface})`;
+const gitOpenInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`;
+const gitMergedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-merged))`;
+const gitClosedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-closed))`;
+const gitModifiedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-modified))`;
+const gitOpenSoft = `color-mix(in oklab, var(--service-git-open) 12%, ${vars.colorSurface})`;
+const gitMergedSoft = `color-mix(in oklab, var(--service-git-merged) 12%, ${vars.colorSurface})`;
+const gitClosedSoft = `color-mix(in oklab, var(--service-git-closed) 12%, ${vars.colorSurface})`;
+const gitModifiedSoft = `color-mix(in oklab, var(--service-git-modified) 12%, ${vars.colorSurface})`;
+const gitOpenHover = `color-mix(in oklab, var(--service-git-open) 18%, ${vars.colorSurface})`;
 
 /** Foreground tint for a status glyph. */
 export const prToneIconStyles = stylex.create({

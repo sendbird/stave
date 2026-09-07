@@ -1,7 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../ads/tokens/tokens.stylex";
-import { SERVICE_GIT } from "@/lib/themes/service-git";
 
 const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
 
@@ -18,7 +17,7 @@ const ROW_ACTION_EVENTS = "--stave-scm-row-events";
 const dangerWash = `color-mix(in oklch, ${vars.colorDanger} 15%, transparent)`;
 const warningWash = `color-mix(in oklch, ${vars.colorWarning} 15%, transparent)`;
 const dangerHoverWash = `color-mix(in oklch, ${vars.colorDanger} 10%, transparent)`;
-const gitOpenHoverWash = `color-mix(in oklab, ${SERVICE_GIT.open} 10%, transparent)`;
+const gitOpenHoverWash = `color-mix(in oklab, var(--service-git-open) 10%, transparent)`;
 const warningPanel = `color-mix(in oklch, ${vars.colorWarning} 10%, transparent)`;
 const warningEdge = `color-mix(in oklch, ${vars.colorWarning} 40%, transparent)`;
 const dangerPanel = `color-mix(in oklch, ${vars.colorDanger} 10%, transparent)`;
@@ -35,13 +34,13 @@ export const checkToneStyles = stylex.create({
 /** Per-file status-code ink in the changes list. */
 export const scmStatusToneStyles = stylex.create({
   conflict: {
-    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.closed})`,
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-closed))`,
   },
   unstaged: {
-    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.modified})`,
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-modified))`,
   },
   staged: {
-    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`,
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`,
   },
   none: { color: vars.colorTextMuted },
 });
@@ -59,8 +58,8 @@ export const scmActionToneStyles = stylex.create({
   success: {
     backgroundColor: { default: "transparent", ":hover": gitOpenHoverWash },
     color: {
-      default: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`,
-      ":hover": `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`,
+      default: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`,
+      ":hover": `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`,
     },
   },
 });
@@ -68,11 +67,11 @@ export const scmActionToneStyles = stylex.create({
 /** Summary-line ink for the staged / working-tree / conflict counters. */
 export const scmSummaryToneStyles = stylex.create({
   staged: {
-    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`,
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`,
   },
   workingTree: { color: vars.colorTextMuted },
   conflicts: {
-    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.closed})`,
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-closed))`,
   },
 });
 
