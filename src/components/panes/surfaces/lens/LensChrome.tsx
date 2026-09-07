@@ -426,7 +426,7 @@ export function LensChrome(props: {
             </TooltipTrigger>
             <TooltipContent>Screenshot</TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="end" className={sx(chromeStyles.captureMenu)}>
+          <DropdownMenuContent align="end" xstyle={chromeStyles.captureMenu}>
             <DropdownMenuItem
               onSelect={() => {
                 void saveScreenshot(false);
@@ -470,7 +470,7 @@ export function LensChrome(props: {
             </TooltipTrigger>
             <TooltipContent>Downloads</TooltipContent>
           </Tooltip>
-          <DropdownMenuContent align="end" className={sx(chromeStyles.downloadsMenu)}>
+          <DropdownMenuContent align="end" xstyle={chromeStyles.downloadsMenu}>
             <DropdownMenuLabel>Downloads</DropdownMenuLabel>
             <DropdownMenuItem
               disabled={lensPageActionDisabled}

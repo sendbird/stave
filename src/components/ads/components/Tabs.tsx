@@ -21,7 +21,7 @@ import { controlChrome } from "../recipes/control-chrome";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
 import { springSmooth } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { usePanelMount, type PanelMount } from "./Collapsible.panel-mount";
 import { styles, tabHeightBySize } from "./Tabs.styles";
 
@@ -105,13 +105,14 @@ export type TabsRootCompoundProps = React.ComponentProps<typeof TabsRoot> & {
    * the conventional underlined tab-strip variant.
    */
   variant?: TabsVariant;
-};
+} & XstyleProp;
 
 function Root({
   className,
   orientation = "horizontal",
   size = "sm",
   variant = "pill",
+  xstyle,
   ...props
 }: TabsRootCompoundProps) {
   const vertical = orientation === "vertical";
@@ -143,7 +144,7 @@ function Root({
         // the docs Properties panel.
         key={`${variant}:${orientation}:${size}`}
         className={mergeClassName(
-          () => sx(styles.root, vertical && styles.rootVertical),
+          () => sx(styles.root, vertical && styles.rootVertical, xstyle),
           className,
         )}
       />
@@ -151,7 +152,7 @@ function Root({
   );
 }
 
-export type TabsListProps = React.ComponentProps<typeof TabsList>;
+export type TabsListProps = React.ComponentProps<typeof TabsList> & XstyleProp;
 
 function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
   if (typeof ref === "function") {
@@ -161,7 +162,7 @@ function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
   }
 }
 
-function List({ className, ref, ...props }: TabsListProps) {
+function List({ className, ref, xstyle, ...props }: TabsListProps) {
   const { orientation, variant } = useContext(TabsConfigContext);
   const vertical = orientation === "vertical";
   const listRef = useRef<HTMLDivElement>(null);
@@ -224,6 +225,7 @@ function List({ className, ref, ...props }: TabsListProps) {
             // After `listLine`, which paints the horizontal baseline rule this
             // one has to replace rather than join.
             variant === "line" && vertical && styles.listLineVertical,
+            xstyle,
           ),
         className,
       )}
@@ -231,9 +233,9 @@ function List({ className, ref, ...props }: TabsListProps) {
   );
 }
 
-export type TabsTabProps = React.ComponentProps<typeof TabsTab>;
+export type TabsTabProps = React.ComponentProps<typeof TabsTab> & XstyleProp;
 
-function Tab({ className, ...props }: TabsTabProps) {
+function Tab({ className, xstyle, ...props }: TabsTabProps) {
   const { orientation, size, variant } = useContext(TabsConfigContext);
   return (
     <TabsTab
@@ -263,6 +265,7 @@ function Tab({ className, ...props }: TabsTabProps) {
             state.active && styles.tabActive,
             state.disabled && styles.tabDisabled,
             state.disabled && controlChrome.disabled,
+            xstyle,
           ),
         className,
       )}
@@ -270,7 +273,8 @@ function Tab({ className, ...props }: TabsTabProps) {
   );
 }
 
-export type TabsIndicatorProps = React.ComponentProps<typeof TabsIndicator>;
+export type TabsIndicatorProps = React.ComponentProps<typeof TabsIndicator> &
+  XstyleProp;
 
 /**
  * The active-tab indicator. Base UI keeps measuring the active tab via its
@@ -286,7 +290,7 @@ export type TabsIndicatorProps = React.ComponentProps<typeof TabsIndicator>;
  * indicator simply snaps (the reduced-motion fallback). `MotionConfig` disables
  * the spring automatically when the user enabled OS "Reduce Motion".
  */
-function Indicator({ className, ...props }: TabsIndicatorProps) {
+function Indicator({ className, xstyle, ...props }: TabsIndicatorProps) {
   const { orientation, variant } = useContext(TabsConfigContext);
   return (
     <TabsIndicator
@@ -304,6 +308,7 @@ function Indicator({ className, ...props }: TabsIndicatorProps) {
             variant === "line" &&
               orientation === "vertical" &&
               styles.indicatorLineVertical,
+            xstyle,
           ),
         className,
       )}
@@ -312,7 +317,8 @@ function Indicator({ className, ...props }: TabsIndicatorProps) {
   );
 }
 
-export type TabsPanelProps = React.ComponentProps<typeof TabsPanel> & {
+export type TabsPanelProps = React.ComponentProps<typeof TabsPanel> &
+  XstyleProp & {
   /**
    * When the panel's children enter the DOM.
    *
@@ -334,6 +340,7 @@ function Panel({
   className,
   keepMounted,
   mount,
+  xstyle,
   ...props
 }: TabsPanelProps) {
   const panelMount = usePanelMount(mount);
@@ -341,7 +348,7 @@ function Panel({
   return (
     <TabsPanel
       {...props}
-      className={mergeClassName(() => sx(styles.panel), className)}
+      className={mergeClassName(() => sx(styles.panel, xstyle), className)}
       keepMounted={keepMounted ?? panelMount.keepMounted}
     >
       {panelMount.probe}

@@ -20,6 +20,7 @@ import {
   type WorkspacePlanListEntry,
 } from "@/lib/plans";
 import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import { planStyles } from "./workspace-plans.styles";
 
 interface WorkspacePlansSectionProps {
@@ -292,7 +293,12 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
         ) : (
           <div className={sx(planStyles.list)}>
             {entries.map((entry) => (
-              <div key={entry.filePath} className={sx(planStyles.row)}>
+              <div
+                key={entry.filePath}
+                // Hover wash on a plain `div`: the row action inside it is an
+                // ADS Button and faded, the row around it cut.
+                className={sx(planStyles.row, transition.colors)}
+              >
                 <AdsButton
                   layout="host"
                   type="button"

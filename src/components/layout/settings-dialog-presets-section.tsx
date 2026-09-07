@@ -161,7 +161,7 @@ export function PresetsSection() {
                 <Plus className={sx(styles.addIcon)} />
                 Add preset
               </PopoverTrigger>
-              <PopoverContent align="end" className={sx(styles.editorPopover)}>
+              <PopoverContent align="end" xstyle={styles.editorPopover}>
                 <TaskPresetEditor
                   initialPreset={newPresetDraft}
                   submitLabel="Add preset"
@@ -300,7 +300,7 @@ export function PresetsSection() {
                     </div>
                     <PopoverContent
                       align="end"
-                      className={sx(styles.editorPopover)}
+                      xstyle={styles.editorPopover}
                     >
                       <TaskPresetEditor
                         initialPreset={preset}

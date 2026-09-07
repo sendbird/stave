@@ -443,6 +443,8 @@ export const openPrStyles = stylex.create({
     textAlign: "left",
     width: "100%",
   },
+  /* Rotation only; `transition.transform` at the call site owns the timing. */
+  changesChevronOpen: { transform: "rotate(90deg)" },
   changesCountLabel: { flexShrink: 0 },
   changesHint: {
     color: vars.colorTextMuted,

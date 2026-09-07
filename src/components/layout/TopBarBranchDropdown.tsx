@@ -761,7 +761,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         <DropdownMenuContent
           align="start"
           sideOffset={8}
-          className={sx(branchDropdownStyles.menu)}
+          xstyle={branchDropdownStyles.menu}
         >
           <div className={sx(branchDropdownStyles.header)}>
             <div className={sx(branchDropdownStyles.headerRow)}>

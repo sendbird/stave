@@ -111,6 +111,21 @@ export const changesStyles = stylex.create({
   //
   // `flexGrow: 1` + `minWidth: 0` let it take the leftover row and still
   // shrink; it never forces the row wider than the rail.
+  /**
+   * The row's bottom rule belongs to `viewBar` (it has to span the actions as
+   * well as the strip, so the strip cannot own it), which is why the ADS
+   * `line` list's own inset hairline is suppressed here.
+   *
+   * What was missing is the other half of that deal: the strip has to REACH
+   * the rule it is supposed to underline. ADS now stretches a `line` list to
+   * its row's cross size and its tabs with it, and `viewBar` gives up its
+   * bottom padding, so the tab box ends exactly on the row's rule. The
+   * hairline of negative end margin then lets the 2px active bar paint OVER
+   * that rule instead of stacking on top of it as a second mark — the
+   * `indicatorLine` geometry ADS documents, restated for a rule the host owns.
+   * Measured before: a 24px strip centred in a 49px row put the bar 14px above
+   * the rule.
+   */
   tabListInline: {
     backgroundColor: "transparent",
     borderRadius: 0,
@@ -119,6 +134,7 @@ export const changesStyles = stylex.create({
     flexGrow: 1,
     flexShrink: 1,
     justifyContent: "flex-start",
+    marginBlockEnd: `calc(-1 * ${vars.borderWidthHairline})`,
     minWidth: 0,
     padding: 0,
   },
@@ -129,25 +145,33 @@ export const changesStyles = stylex.create({
    * AND defeated the touch-target bump, since `height` and the recipe's
    * `minBlockSize` are separate properties.
    */
+  /*
+   * The mode strip is the ADS pill idiom, so the tab keeps the ADS control
+   * radius: at `radiusPanel` the tab was rounder than the gliding indicator
+   * that shares its box, so the pill and its label disagreed by a step on
+   * every corner. Type and height are the `xs` rung's; only the roomier
+   * `space12` gutter and the `space8` icon/label pair (Button's) are stated,
+   * because this strip is a two-item segmented control rather than a dense
+   * counted strip.
+   */
   tabWide: {
-    borderRadius: vars.radiusPanel,
     flex: "none",
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    gap: 6,
+    gap: vars.space8,
     paddingInline: vars.space12,
   },
   // Tightened for the `line` strip: a bare underlined tab has no track to sit
   // inside, so `space12` of side padding was buying separation the list's own
   // `space2` gap already provides — and it was ~72px of the overflow.
   // Height, like `tabWide` above, is the `sm` recipe's rather than a literal.
+  // Type, gutter and height are the ADS `xs` rung's (Caption in a 24px box
+  // with a `space8` gutter) — restating them here only risked drifting off it.
+  // No radius: a pill radius on a `line` tab rounded a box that has no fill,
+  // and clipped the corners of the underline the variant is named after.
+  // `space4` between the label and its count is the ADS step for a subscript
+  // pair, which is what the count is.
   tab: {
-    borderRadius: vars.radiusPanel,
     flex: "none",
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
     gap: vars.space4,
-    paddingInline: vars.space8,
   },
   // Micro (on the ramp) rather than Caption: the count is a subscript on the
   // label, and this strip is the one that had to fight overflow in a 300px
@@ -174,7 +198,14 @@ export const changesStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     minWidth: 0,
-    paddingBlock: vars.space8,
+    // No bottom padding: this row hosts a `line` tab strip, and a line strip
+    // is a baseline — its rule and its active bar have to meet the row's own
+    // bottom rule. `space8` under the strip is what put 8px of air plus the
+    // strip's centring between the two, so the row showed an underline
+    // floating above an unrelated hairline. The top padding stays, and the
+    // 32px actions beside the strip still set the row's height.
+    paddingBlockEnd: 0,
+    paddingBlockStart: vars.space8,
     paddingInline: vars.space12,
     rowGap: vars.space4,
   },
@@ -247,7 +278,9 @@ export const changesStyles = stylex.create({
   },
 
   // ---- Verification popovers ---------------------------------------------
-  popover: { padding: 0, width: "20rem" },
+  // Width only: `density="flush"` on the popover owns the padding reset, and
+  // the header/rows own the one `space12` inner gutter.
+  popover: { width: "20rem" },
   popoverHeader: {
     borderBottomColor: vars.colorBorderSubtle,
     borderBottomStyle: "solid",

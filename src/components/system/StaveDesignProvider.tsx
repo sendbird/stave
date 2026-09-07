@@ -1,6 +1,6 @@
-import { LazyMotion, domAnimation } from "motion/react";
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { ThemeProvider } from "../ads/components/ThemeProvider";
+import { AtelierMotionProvider } from "../ads/motion";
 import { adsThemeVariables } from "./ads-theme";
 
 function subscribeTheme(notify: () => void) {
@@ -39,8 +39,22 @@ export function StaveDesignProvider({ children }: { children: ReactNode }) {
       }
     };
   }, [dark]);
+  /*
+   * The JS motion layer's root, per `decisions/motion-architecture.md` §3.
+   *
+   * This used to be a hand-rolled `<LazyMotion features={domAnimation}>`, which
+   * silently disabled the two motions the ADR names as the reason the JS layer
+   * exists at all: `domAnimation` ships no layout-projection feature, so
+   * `Switch`'s thumb (`m.span layout`) and `Tabs`' indicator (`m.span layout`)
+   * both fell back to their static render and SNAPPED between states. It also
+   * omitted `MotionConfig reducedMotion="user"`, so every JS-layer animation —
+   * `Button`/`Toggle`/`Slider` press springs included — ignored the OS Reduce
+   * Motion setting entirely, while the CSS layer honoured it. `domMax` plus
+   * `strict` (both inside `AtelierMotionProvider`) restores the glide and the
+   * reduced-motion policy in one place instead of two half-answers.
+   */
   return (
-    <LazyMotion features={domAnimation}>
+    <AtelierMotionProvider>
       <ThemeProvider
         theme={dark ? "dark" : "light"}
         syncDocument
@@ -48,6 +62,6 @@ export function StaveDesignProvider({ children }: { children: ReactNode }) {
       >
         {children}
       </ThemeProvider>
-    </LazyMotion>
+    </AtelierMotionProvider>
   );
 }

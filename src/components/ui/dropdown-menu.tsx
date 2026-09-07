@@ -1,7 +1,7 @@
 import { overlayLayout } from "./overlay-layout.styles";
 import { DropdownMenu as AdsMenu } from "../ads/components/DropdownMenu";
 import { menu } from "../ads/recipes/menu";
-import { sx, cx } from "../ads/utils/stylex";
+import { sx, cx, type XstyleProp } from "../ads/utils/stylex";
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 
@@ -31,8 +31,10 @@ function DropdownMenuContent({
   positionMethod,
   collisionAvoidance,
   className,
+  xstyle,
   ...props
 }: MenuPrimitive.Popup.Props &
+  XstyleProp &
   Pick<
     MenuPrimitive.Positioner.Props,
     | "align"
@@ -74,7 +76,14 @@ function DropdownMenuContent({
       >
         <AdsMenu.Popup
           data-slot="dropdown-menu-content"
+          // Menu geometry rides on `xstyle`, which merges into the popup's own
+          // `stylex.props` call. Handing the same declarations in through
+          // `className` left the winner to bundler emission order, so a host
+          // width, `padding`, or `maxBlockSize` clamp could silently lose to
+          // the ADS menu surface's own. `className` stays a hook channel (the
+          // layer class, test ids).
           className={className}
+          xstyle={xstyle}
           {...props}
         />
       </AdsMenu.Positioner>

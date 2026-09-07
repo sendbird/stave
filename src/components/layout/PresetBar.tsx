@@ -215,7 +215,7 @@ function PresetChip(props: PresetChipProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className={sx(styles.chipMenu)}
+            xstyle={styles.chipMenu}
             // Keep focus where it is when the menu closes after "Edit…".
             // The default focus return lands outside the freshly opened
             // preset editor Popover and immediately dismisses it.

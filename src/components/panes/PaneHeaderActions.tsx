@@ -106,7 +106,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
         >
           <Plus className={sx(styles.icon)} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className={sx(styles.menu)}>
+        <DropdownMenuContent align="end" xstyle={styles.menu}>
           <DropdownMenuItem onSelect={createTaskInGroup}>
             <Plus className={sx(styles.icon)} />
             New Task
@@ -205,7 +205,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
         >
           <Ellipsis className={sx(styles.icon)} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className={sx(styles.options)}>
+        <DropdownMenuContent align="end" xstyle={styles.options}>
           <DropdownMenuItem onSelect={() => dispatchOpenTaskHistory()}>
             Task History
           </DropdownMenuItem>

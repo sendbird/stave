@@ -1,4 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { transition } from "@/components/ads/recipes/transition";
 import { useEffect, useRef, useState } from "react";
 import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { Button } from "@/components/ui/button";
@@ -328,7 +329,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
       {queuedCount > 0 ? (
         <div className={sx(styles.queuedGroup)}>
           <details className="group">
-            <summary className={sx(styles.queuedSummary)}>
+            <summary className={sx(styles.queuedSummary, transition.colors)}>
               +{queuedCount} more queued
             </summary>
             <div className={sx(styles.queuedList)}>

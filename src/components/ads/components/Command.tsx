@@ -468,9 +468,26 @@ export function CommandDialog({
         </DialogTrigger>
       )}
       <DialogPortal>
-        <DialogBackdrop className={sx(styles.backdrop)} />
+        {/*
+         * The palette is the most-opened overlay in the product and was the
+         * only one with no enter/exit motion at all: it composed `DialogPopup`
+         * from `headless/dialog` (the raw Base UI part) rather than the styled
+         * `Dialog` parts, so it never picked up the two motion classes every
+         * other Base UI surface in this system carries. It appeared and
+         * disappeared as a hard cut while a `Dialog` two keystrokes away scaled
+         * and faded. `-top` supplies the X-only translate the palette's
+         * top-anchored position needs; everything else — duration, curve, scale
+         * tokens, Reduce Motion — comes from the shared modal contract.
+         */}
+        <DialogBackdrop
+          className={cx(sx(styles.backdrop), "atelier-motion-backdrop")}
+        />
         <DialogPopup
-          className={sx(styles.popup, size === "lg" && styles.popupLg)}
+          className={cx(
+            sx(styles.popup, size === "lg" && styles.popupLg),
+            "atelier-motion-modal",
+            "atelier-motion-modal-top",
+          )}
         >
           <DialogTitle className={sx(styles.srOnly)}>{title}</DialogTitle>
           {children ?? <Command {...commandProps} bare items={closingItems} />}

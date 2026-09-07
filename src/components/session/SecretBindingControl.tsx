@@ -135,7 +135,7 @@ export function SecretBindingControl({
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className={sx(styles.content)}
+        xstyle={styles.content}
       >
         <DropdownMenuLabel className={sx(styles.label)}>
           <KeyRound className={sx(styles.labelIcon)} />

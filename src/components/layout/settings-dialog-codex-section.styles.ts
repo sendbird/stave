@@ -184,8 +184,11 @@ export const codexStyles = stylex.create({
     padding: vars.space4,
     inlineSize: "100%",
   },
+  // No radius override: a `pill` tab shares its box with the gliding
+  // indicator, which is `radiusControl`. At `radiusPanel` the tab was a step
+  // rounder than the pill that fills it, so the selected tab showed the
+  // indicator's corners cutting inside its own.
   tabsTrigger: {
-    borderRadius: vars.radiusPanel,
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
     blockSize: vars.controlHeightSm,

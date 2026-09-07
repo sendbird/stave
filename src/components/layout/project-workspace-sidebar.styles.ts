@@ -14,6 +14,29 @@ const accent30 = `color-mix(in srgb, ${vars.colorAccent} 30%, transparent)`;
 const accent40 = `color-mix(in srgb, ${vars.colorAccent} 40%, transparent)`;
 const accent45 = `color-mix(in srgb, ${vars.colorAccent} 45%, transparent)`;
 
+/**
+ * The sidebar's hover-reveal beat: the project mark trading places with its
+ * chevron, the row actions sliding in, the count yielding to them, and the
+ * lead's padding opening to make room. All five were authored as a bare
+ * `transitionDuration` literal with NO timing function, which means they ran on
+ * the UA's `ease` rather than the house curve — the sidebar was the one surface
+ * in the app whose hovers accelerated differently from every button beside it —
+ * and with no `prefers-reduced-motion` arm at all, so the transform halves kept
+ * playing for a reader who had asked them not to. One tokenized object, spread
+ * into each of the five, so they cannot drift again.
+ *
+ * `motionDurationNormal` (180ms) is the token nearest the hand-picked value;
+ * the spatial arm collapses to `0ms` under Reduce Motion exactly as
+ * `recipes/transition`'s own `transform` key does.
+ */
+const revealMotion = {
+  transitionDuration: {
+    default: vars.motionDurationNormal,
+    "@media (prefers-reduced-motion: reduce)": "0ms",
+  },
+  transitionTimingFunction: vars.motionEaseStandard,
+} as const;
+
 /** Tooltip surfaces paint on `colorText`, so their "background" tints mix toward it. */
 const invertedText70 = `color-mix(in oklab, ${vars.colorTextInverted} 70%, ${vars.colorText})`;
 const invertedFill10 = `color-mix(in oklab, ${vars.colorTextInverted} 10%, ${vars.colorText})`;
@@ -186,7 +209,23 @@ export const projectSidebarStyles = stylex.create({
     textTransform: "uppercase",
     width: "100%",
   },
-  laneChevron: { flexShrink: 0, height: 12, width: 12 },
+  /*
+   * ONE chevron that rotates, not two chevrons that swap.
+   *
+   * This slot rendered `<ChevronRight>` or `<ChevronDown>` on a ternary, which
+   * replaces the DOM node on every toggle — so there was no transform to
+   * interpolate and the arrow popped between the two directions while the row
+   * it belongs to fades its fill on the house curve. `transition.transform`
+   * (composed at the call site) supplies the duration, curve and the
+   * reduced-motion arm; these two keys supply only the geometry.
+   */
+  laneChevron: {
+    flexShrink: 0,
+    height: 12,
+    transform: "rotate(0deg)",
+    width: 12,
+  },
+  laneChevronOpen: { transform: "rotate(90deg)" },
   laneLabel: {
     flex: 1,
     minWidth: 0,
@@ -379,6 +418,23 @@ export const projectSidebarStyles = stylex.create({
     position: "relative",
     color: vars.colorText,
     zIndex: 0,
+  },
+  /*
+   * The collapse/expand glide. `width`/`min-width` stay in the inline `style`
+   * because they are a live pixel value the user drags; only the transition
+   * moves here, and it moves for two reasons the inline attribute cannot serve:
+   * the hard-coded `200ms ease` was the last un-tokenized curve in the sidebar,
+   * and an inline declaration cannot carry a `prefers-reduced-motion` arm — so
+   * the whole rail kept sliding for a reader who had opted out of exactly that.
+   * `motionDurationNormal` is the token nearest the hand-picked value.
+   */
+  asideAnimated: {
+    transitionDuration: {
+      default: vars.motionDurationNormal,
+      "@media (prefers-reduced-motion: reduce)": "0ms",
+    },
+    transitionProperty: "width, min-width",
+    transitionTimingFunction: vars.motionEaseStandard,
   },
   chrome: {
     borderBottomStyle: "solid",
@@ -704,7 +760,7 @@ export const projectSidebarStyles = stylex.create({
     height: 28,
     opacity: `var(${PROJECT_MARK_OPACITY}, 1)`,
     transform: `scale(var(${PROJECT_MARK_SCALE}, 1))`,
-    transitionDuration: "200ms",
+    ...revealMotion,
     transitionProperty: "opacity, transform",
     width: 28,
   },
@@ -720,10 +776,16 @@ export const projectSidebarStyles = stylex.create({
   projectChevron: {
     height: 16,
     opacity: `var(${PROJECT_CHEVRON_OPACITY}, 0)`,
-    transform: `scale(var(${PROJECT_CHEVRON_SCALE}, 0.75))`,
-    transitionDuration: "200ms",
+    // Same swap-vs-rotate story as `laneChevron`, except here the popped node
+    // ALSO threw away the hover-reveal scale mid-flight: the replacement
+    // mounted at its resting `0.75` and re-ran the reveal from scratch.
+    transform: `rotate(0deg) scale(var(${PROJECT_CHEVRON_SCALE}, 0.75))`,
+    ...revealMotion,
     transitionProperty: "opacity, transform",
     width: 16,
+  },
+  projectChevronOpen: {
+    transform: `rotate(90deg) scale(var(${PROJECT_CHEVRON_SCALE}, 0.75))`,
   },
   projectLead: {
     alignItems: "center",
@@ -732,7 +794,7 @@ export const projectSidebarStyles = stylex.create({
     gap: vars.space8,
     minWidth: 0,
     position: "relative",
-    transitionDuration: "200ms",
+    ...revealMotion,
     transitionProperty: "padding",
   },
   /* Hover reserves room for the absolutely positioned row actions; a pinned
@@ -756,7 +818,7 @@ export const projectSidebarStyles = stylex.create({
     display: "flex",
     flexShrink: 0,
     marginInlineStart: "auto",
-    transitionDuration: "200ms",
+    ...revealMotion,
     transitionProperty: "opacity, transform",
   },
   projectCountSlotYields: {
@@ -792,7 +854,7 @@ export const projectSidebarStyles = stylex.create({
     pointerEvents: `var(${PROJECT_ACTIONS_EVENTS}, none)`,
     position: "absolute",
     transform: `translateY(-50%) translateX(var(${PROJECT_ACTIONS_SHIFT}, 0.25rem))`,
-    transitionDuration: "200ms",
+    ...revealMotion,
     transitionProperty: "opacity, transform",
   },
   projectActionButton: {
@@ -839,6 +901,9 @@ export const projectSidebarStyles = stylex.create({
     position: "relative",
     transitionDuration: vars.motionDurationFast,
     transitionProperty: "background-color, border-color, box-shadow, color",
+    // Was absent, so the row's fill/border/shadow ran on the UA `ease` while
+    // every control inside it runs on the house curve.
+    transitionTimingFunction: vars.motionEaseStandard,
   },
   workspaceRowExpanded: { alignItems: "stretch", gap: vars.space4 },
   workspaceRowCompact: { alignItems: "center", gap: vars.space4 },

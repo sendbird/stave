@@ -69,8 +69,26 @@ function PopoverAnchor({ render, ...props }: useRender.ComponentProps<"div">) {
   });
 }
 
+/**
+ * Anchored-surface density, same vocabulary as the ADS `Popover` `density`
+ * prop. `flush` is the legitimate way to ask for an edge-to-edge popover: it
+ * removes the surface's own padding and gap so the content can draw rules and
+ * rows that reach the border, and it hands the inner gutter to that content
+ * (one scale, `space16`).
+ *
+ * Zeroing the padding from the outside instead — `className={sx(myPopover)}`
+ * with `padding: 0` — cannot work: `className` styles are a separate
+ * `stylex.props` call, so which declaration wins is decided by bundler
+ * emission order. In practice the surface's own `padding: 16px` survived and
+ * every section added its own `space20` on top, for a 36px content inset with
+ * dividers stopping 16px short of the edge. Host geometry belongs on `xstyle`,
+ * which merges into this component's own call, in last position.
+ */
+type PopoverDensity = "flush" | "regular";
+
 function PopoverContent({
   className,
+  density = "regular",
   align = "center",
   alignOffset = 0,
   side = "bottom",
@@ -94,6 +112,8 @@ function PopoverContent({
      * portal node) paints underneath it.
      */
     layer?: UiLayerName;
+    /** @default "regular" */
+    density?: PopoverDensity;
     xstyle?: StyleXValue;
   } & Pick<
     PopoverPrimitive.Positioner.Props,
@@ -134,7 +154,12 @@ function PopoverContent({
             () =>
               cx(
                 "atelier-motion-dropdown",
-                sx(popoverStyles.surface, overlayLayout.popover, xstyle),
+                sx(
+                  popoverStyles.surface,
+                  overlayLayout.popover,
+                  density === "flush" && overlayLayout.popoverFlush,
+                  xstyle,
+                ),
               ) ?? "",
             className,
           )}

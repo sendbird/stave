@@ -623,7 +623,7 @@ export function SourceControlReviewsPanel(props: {
               onValueChange={(value) => setDetailTab(value as ReviewDetailTab)}
               className={sx(reviewsStyles.tabs)}
             >
-              <TabsList className={sx(reviewsStyles.detailTabList)}>
+              <TabsList xstyle={reviewsStyles.detailTabList}>
                 <TabsTrigger value="files">
                   Files {detail.changedFiles}
                 </TabsTrigger>
@@ -634,7 +634,7 @@ export function SourceControlReviewsPanel(props: {
               </TabsList>
               <TabsContent
                 value="files"
-                className={sx(reviewsStyles.tabPanel)}
+                xstyle={reviewsStyles.tabPanel}
               >
                 <FilesView
                   detail={detail}
@@ -643,13 +643,13 @@ export function SourceControlReviewsPanel(props: {
               </TabsContent>
               <TabsContent
                 value="conversation"
-                className={sx(reviewsStyles.tabPanel)}
+                xstyle={reviewsStyles.tabPanel}
               >
                 <ConversationView detail={detail} />
               </TabsContent>
               <TabsContent
                 value="checks"
-                className={sx(reviewsStyles.tabPanel)}
+                xstyle={reviewsStyles.tabPanel}
               >
                 <ChecksView checks={detail.checks} />
               </TabsContent>
@@ -688,7 +688,7 @@ export function SourceControlReviewsPanel(props: {
       className={sx(reviewsStyles.inboxTabs)}
     >
       <div className={sx(reviewsStyles.inboxStrip)}>
-        <TabsList className={sx(reviewsStyles.inboxTabList)}>
+        <TabsList xstyle={reviewsStyles.inboxTabList}>
           <TabsTrigger value="review-requested">To review</TabsTrigger>
           <TabsTrigger value="authored">My PRs</TabsTrigger>
         </TabsList>
@@ -711,7 +711,7 @@ export function SourceControlReviewsPanel(props: {
       </div>
       <TabsContent
         value="review-requested"
-        className={sx(reviewsStyles.tabPanel)}
+        xstyle={reviewsStyles.tabPanel}
         aria-live="polite"
       >
         <InboxState
@@ -724,7 +724,7 @@ export function SourceControlReviewsPanel(props: {
       </TabsContent>
       <TabsContent
         value="authored"
-        className={sx(reviewsStyles.tabPanel)}
+        xstyle={reviewsStyles.tabPanel}
         aria-live="polite"
       >
         <InboxState

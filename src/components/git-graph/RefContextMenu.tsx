@@ -42,6 +42,7 @@ import { Input } from "@/components/ui/input";
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
 import type { GraphRef } from "@/lib/git-graph/types";
 import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import { refContextMenuStyles as styles } from "./ref-context-menu.styles";
 
 // ---------------------------------------------------------------------------
@@ -245,7 +246,7 @@ function DeleteBranchDialog({
         </DialogHeader>
 
         {/* Force-delete toggle */}
-        <label className={sx(styles.forceToggle)}>
+        <label className={sx(styles.forceToggle, transition.colors)}>
           <Checkbox
             controlOnly
             checked={force}
@@ -374,7 +375,7 @@ export function RefContextMenu({
         ></DropdownMenuTrigger>
 
         <DropdownMenuContent
-          className={sx(styles.menu)}
+          xstyle={styles.menu}
           align="start"
           alignOffset={0}
           collisionPadding={8}

@@ -14,6 +14,7 @@ import {
 import { Loader } from "@/components/ui/loader";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
 import { buildGraphBranchPaths, graphLaneX } from "@/lib/git-graph/edge-path";
 import { buildGraphLayout } from "@/lib/git-graph/graph-layout";
 import type {
@@ -318,7 +319,7 @@ function ResizeHandle({
       role="separator"
       aria-orientation="vertical"
       aria-label={`Resize ${column} column`}
-      className={sx(styles.resizeHandle)}
+      className={sx(styles.resizeHandle, transition.colors)}
       onPointerDown={onPointerDown}
     />
   );

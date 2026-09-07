@@ -60,7 +60,7 @@ export function WorkspaceInformationSectionMenu() {
       >
         <Settings2 className={sx(styles.triggerIcon)} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className={sx(styles.content)}>
+      <DropdownMenuContent align="end" xstyle={styles.content}>
         <DropdownMenuLabel>Visible sections</DropdownMenuLabel>
         {WORKSPACE_INFORMATION_SECTION_IDS.filter(
           (id) =>

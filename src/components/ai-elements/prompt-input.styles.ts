@@ -229,17 +229,26 @@ export const promptInputStyles = stylex.create({
   titleBase: { fontSize: vars.fontSizeLead, fontWeight: vars.fontWeightSemibold },
   toneLabel: { fontSize: vars.fontSizeCaption, fontWeight: vars.fontWeightSemibold },
   drawerScroll: { minHeight: 0, flex: 1, overflowY: "auto" },
+  /*
+   * Width only. Radius, fill, border and elevation belong to the ADS popover
+   * surface, and the padding/gap reset is what `density="flush"` is for — the
+   * copy that used to live here re-declared all of it from `className`, where
+   * StyleX cannot reconcile the duplicates: the surface kept its own 16px
+   * padding, every section added `space20` on top of it, and the extra
+   * `0 0 0 1px` ring painted a second hairline just inside the real border.
+   */
   runtimePopover: {
     width: "min(25rem, calc(100vw - 2rem))",
-    gap: 0,
-    borderRadius: vars.radiusPanel,
-    backgroundColor: vars.colorSurfaceRaised,
-    padding: 0,
-    boxShadow: `${vars.elevationOverlay}, 0 0 0 1px color-mix(in oklch, ${vars.colorText} 10%, transparent)`,
   },
+  /*
+   * The flush panel's single inner gutter, on the ADS popover scale
+   * (`space16` inline, `space16` above, `space12` under the title group) —
+   * matching `Popover`'s own `headerFlush`. The sections below share that
+   * inline gutter, so the header's baseline and every section rule align.
+   */
   runtimePopoverHeader: {
-    paddingInline: vars.space20,
-    paddingBottom: "0.875rem",
+    paddingInline: vars.space16,
+    paddingBottom: vars.space12,
     paddingTop: vars.space16,
   },
   mt1: { marginTop: vars.space4 },
@@ -416,16 +425,18 @@ export const promptInputStyles = stylex.create({
     animationIterationCount: "infinite",
     "@media (prefers-reduced-motion: reduce)": { animationName: "none" },
   },
+  /*
+   * Geometry only. Radius, fill, border and elevation are the ADS popover
+   * surface's; restating them here (from `className`, where the duplicate
+   * could not be reconciled) drew a second hairline just inside the real
+   * border. `space4` padding is deliberate and stays: this popup hosts rows,
+   * which own their own inner padding, exactly like the ADS menu surface.
+   */
   commandPopover: {
     maxHeight: "min(40rem, var(--available-height))",
     width: "min(44rem, calc(100vw - 2rem))",
     gap: 0,
     overflow: "hidden",
-    borderRadius: vars.radiusPanel,
-    borderWidth: vars.borderWidthHairline,
-    borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars.colorBorder} 80%, transparent)`,
-    backgroundColor: vars.colorSurfaceRaised,
     padding: vars.space4,
     boxShadow: vars.elevationOverlay,
   },
@@ -640,17 +651,14 @@ export const promptInputStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   maxW80: { maxWidth: "20rem" },
+  // Geometry only — see `commandPopover`. The ADS surface owns radius, fill,
+  // border and elevation, so a popover keeps the one anchored-surface radius
+  // instead of stepping down to the control radius on this one call site.
   lensPopoverContent: {
     maxHeight: "24rem",
     width: "min(42rem, calc(100vw - 2rem))",
     overflow: "auto",
-    borderRadius: vars.radiusControl,
-    borderWidth: vars.borderWidthHairline,
-    borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars.colorBorder} 80%, transparent)`,
-    backgroundColor: vars.colorSurfaceRaised,
     padding: vars.space12,
-    boxShadow: vars.elevationOverlay,
   },
   lensPre: {
     whiteSpace: "pre-wrap",
@@ -852,13 +860,11 @@ export const promptInputStyles = stylex.create({
     width: 0,
     height: 0,
   },
+  // Geometry only — see `commandPopover`.
   customizePopover: {
     width: "min(30rem, calc(100vw - 2rem))",
     gap: 0,
-    borderRadius: vars.radiusPanel,
-    backgroundColor: vars.colorSurfaceRaised,
     padding: vars.space8,
-    boxShadow: `${vars.elevationOverlay}, 0 0 0 1px color-mix(in oklch, ${vars.colorText} 10%, transparent)`,
   },
   customizeTitle: {
     paddingInline: vars.space8,

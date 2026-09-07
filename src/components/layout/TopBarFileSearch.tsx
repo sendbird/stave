@@ -20,6 +20,7 @@ import {
   Loader,
 } from "@/components/ui";
 import { AutocompleteInput } from "@/components/ads/headless/autocomplete";
+import { transition } from "@/components/ads/recipes/transition";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
@@ -285,6 +286,11 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
               // instead of restating four of them with different numbers.
               topBarControlStyles.control,
               topBarControlStyles.surface,
+              // Same reason as the path chip in `TopBar.tsx`: `surface` carries
+              // hover fill and ink, and on a plain `div` nothing else supplies
+              // the transition, so the field's hover was the only hard cut in a
+              // bar of fading controls.
+              transition.colors,
               fileSearchStyles.inputRow,
               isOpen && fileSearchStyles.inputRowOpen,
             )}

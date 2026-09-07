@@ -696,7 +696,7 @@ function LensAnnotationStylePopover(args: {
       >
         <SlidersHorizontal className={sx(promptInputStyles.icon3)} />
       </PopoverTrigger>
-      <PopoverContent align="end" className={sx(promptInputStyles.lensPopover72)}>
+      <PopoverContent align="end" xstyle={promptInputStyles.lensPopover72}>
         <div>
           <PopoverTitle>Style</PopoverTitle>
           <PopoverDescription>
@@ -776,7 +776,7 @@ function LensAnnotationFeedbackPopover(args: {
       >
         <Pencil className={sx(promptInputStyles.icon3)} />
       </PopoverTrigger>
-      <PopoverContent align="end" className={sx(promptInputStyles.lensPopover64)}>
+      <PopoverContent align="end" xstyle={promptInputStyles.lensPopover64}>
         <div>
           <PopoverTitle>Review details</PopoverTitle>
           <PopoverDescription>
@@ -2496,7 +2496,13 @@ export function PromptInput(args: PromptInputProps) {
             align="start"
             side="top"
             sideOffset={10}
-            className={sx(promptInputStyles.runtimePopover)}
+            // The panel is edge to edge by request, not by fighting the
+            // surface's padding from the outside: the header and every runtime
+            // section draw their own `space16` gutter and their rules run to
+            // the border. `xstyle`, not `className`, because only `xstyle`
+            // merges into the popover's own `stylex.props` call.
+            density="flush"
+            xstyle={promptInputStyles.runtimePopover}
           >
             <div className={sx(promptInputStyles.runtimePopoverHeader)}>
               <div className={sx(promptInputStyles.rowBaseline)}>
@@ -3421,7 +3427,7 @@ export function PromptInput(args: PromptInputProps) {
               side="top"
               sideOffset={8}
               initialFocus={false}
-              className={sx(promptInputStyles.commandPopover)}
+              xstyle={promptInputStyles.commandPopover}
             >
               <Command
                 shouldFilter={false}
@@ -3937,7 +3943,7 @@ export function PromptInput(args: PromptInputProps) {
                           <PopoverContent
                             side="top"
                             align="start"
-                            className={sx(promptInputStyles.lensPopoverContent)}
+                            xstyle={promptInputStyles.lensPopoverContent}
                           >
                             <pre className={sx(promptInputStyles.lensPre)}>
                               {attachment.displayContent ?? attachment.content}
@@ -4039,7 +4045,7 @@ export function PromptInput(args: PromptInputProps) {
                           <PopoverContent
                             side="top"
                             align="start"
-                            className={sx(promptInputStyles.lensPopoverContent)}
+                            xstyle={promptInputStyles.lensPopoverContent}
                           >
                             <pre className={sx(promptInputStyles.lensPre)}>
                               {attachment.displayContent ?? attachment.content}
@@ -4260,7 +4266,7 @@ export function PromptInput(args: PromptInputProps) {
                       align="start"
                       side="top"
                       sideOffset={10}
-                      className={sx(promptInputStyles.customizePopover)}
+                      xstyle={promptInputStyles.customizePopover}
                     >
                       <PopoverTitle className={sx(promptInputStyles.customizeTitle)}>
                         Composer controls

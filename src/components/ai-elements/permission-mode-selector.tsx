@@ -100,7 +100,7 @@ export function PermissionModeSelector(args: PermissionModeSelectorProps) {
         align="start"
         side="top"
         sideOffset={6}
-        className={sx(styles.menu)}
+        xstyle={styles.menu}
       >
         <DropdownMenuRadioGroup
           value={value}

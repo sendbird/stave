@@ -27,6 +27,7 @@ import {
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
 import { cx, sx } from "../ads/utils/stylex";
+import { transition } from "../ads/recipes/transition";
 import { providerModeStyles } from "./prompt-input-provider-mode.styles";
 
 export type PromptInputProviderModeStatus = ProviderModePresentation & {
@@ -46,19 +47,25 @@ function modeIconToneStyle(status: Pick<PromptInputProviderModeStatus, "id">) {
   return providerModeStyles.iconCustom;
 }
 
+/*
+ * Each arm states a per-mode `:hover` tone, and the class is handed to
+ * `ComposerOptionChoice` as `activeClassName` — so the transition is composed
+ * here, beside the paint it animates, rather than at the four JSX call sites
+ * that only pass this function's result along.
+ */
 function modeOptionActiveClass(
   status: Pick<PromptInputProviderModeStatus, "id">,
 ) {
   if (status.id === "manual") {
-    return sx(providerModeStyles.optionManual);
+    return sx(providerModeStyles.optionManual, transition.colors);
   }
   if (status.id === "guided") {
-    return sx(providerModeStyles.optionGuided);
+    return sx(providerModeStyles.optionGuided, transition.colors);
   }
   if (status.id === "auto") {
-    return sx(providerModeStyles.optionAuto);
+    return sx(providerModeStyles.optionAuto, transition.colors);
   }
-  return sx(providerModeStyles.optionCustom);
+  return sx(providerModeStyles.optionCustom, transition.colors);
 }
 
 function modeVisual(status: PromptInputProviderModeStatus): {
@@ -143,8 +150,7 @@ export function PromptInputProviderModePill(args: {
           side="top"
           sideOffset={8}
           aria-label={`${args.status.providerLabel} mode presets`}
-          className={sx(providerModeStyles.popover)}
-        xstyle={COMPOSER_OPTION_MENU_CONTENT}
+          xstyle={[COMPOSER_OPTION_MENU_CONTENT, providerModeStyles.popover]}
         >
           <div className={sx(providerModeStyles.optionList)}>
             {args.presets.map((preset) => {

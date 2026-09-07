@@ -22,7 +22,7 @@ import {
   type PopupPlacement,
   resolveAlign,
 } from "../utils/placement";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { MenuShortcut } from "./Menu.shortcut";
 import { MenuTriggerPart } from "./Menu.trigger";
 
@@ -129,14 +129,15 @@ function Positioner({
   );
 }
 
-export type MenuPopupProps = React.ComponentProps<typeof MenuPopup>;
+export type MenuPopupProps = React.ComponentProps<typeof MenuPopup> &
+  XstyleProp;
 
-function Popup({ className, ...props }: MenuPopupProps) {
+function Popup({ className, xstyle, ...props }: MenuPopupProps) {
   return (
     <MenuPopup
       {...props}
       className={mergeClassName(
-        () => cx(sx(menu.popup), "atelier-motion-dropdown"),
+        () => cx(sx(menu.popup, xstyle), "atelier-motion-dropdown"),
         className,
       )}
     />

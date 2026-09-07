@@ -42,7 +42,7 @@ export function SectionTabs({
       size={size}
       className={sx(fillHeight && styles.fillRoot)}
     >
-      <Tabs.List aria-label={label} {...stylex.props(styles.list, wrap && styles.wrapList)}>
+      <Tabs.List aria-label={label} xstyle={[styles.list, wrap && styles.wrapList]}>
         {items.map((item) => (
           <Tabs.Tab
             key={item.id}
@@ -58,7 +58,7 @@ export function SectionTabs({
           mount={item.keepMounted ? "eager" : undefined}
           key={item.id}
           value={item.id}
-          className={sx(styles.panel, fillHeight && styles.fillPanel)}
+          xstyle={[styles.panel, fillHeight && styles.fillPanel]}
         >
           {item.content}
         </Tabs.Panel>

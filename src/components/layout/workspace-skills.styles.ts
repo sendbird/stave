@@ -87,13 +87,25 @@ export const skillStyles = stylex.create({
     flexShrink: 0,
     paddingInline: 28,
   },
+  /*
+   * `dialogTabBar` owns the rule, because it is the one box that spans the
+   * dialog; a `line` list is shrink-wrapped in a block container, so its own
+   * inset hairline would stop after the last label. Suppressing that inset
+   * rule removes the pair of stacked hairlines the strip used to draw, and the
+   * hairline of negative end margin lets the 2px active bar paint over the
+   * bar's rule instead of stacking a third mark on top of it.
+   */
   dialogTabList: {
     borderRadius: 0,
+    boxShadow: "none",
     gap: vars.space20,
     height: 44,
+    marginBlockEnd: `calc(-1 * ${vars.borderWidthHairline})`,
     padding: 0,
   },
-  dialogTab: { flex: "none", fontSize: vars.fontSizeBody, height: 44, paddingInline: 0 },
+  // No `height`: ADS stretches a `line` tab to its list, so the 44px strip
+  // height is stated once, on the list, instead of on both boxes.
+  dialogTab: { flex: "none", paddingInline: 0 },
   dialogPanel: {
     display: "flex",
     flex: 1,

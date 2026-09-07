@@ -1993,7 +1993,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                   <DropdownMenuContent
                     align="start"
                     sideOffset={6}
-                    className={sx(chatInputStyles.menuContentWide)}
+                    xstyle={chatInputStyles.menuContentWide}
                   >
                     <DropdownMenuLabel className={sx(chatInputStyles.menuLabelRow)}>
                       <SplitSquareHorizontal size={14} />

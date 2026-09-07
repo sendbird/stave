@@ -147,16 +147,16 @@ export function WorkspaceSettingsContent(props: {
       <Tabs
         defaultValue="sync"
         orientation="vertical"
-        className={sx(styles.tabs)}
+        xstyle={styles.tabs}
       >
-        <TabsList className={sx(styles.tabsList)}>
+        <TabsList xstyle={styles.tabsList}>
           <TabsTrigger value="sync">Sync</TabsTrigger>
           <TabsTrigger value="scripts">{WORKSPACE_TOOLS_LABEL}</TabsTrigger>
         </TabsList>
-        <TabsContent value="sync" className={sx(styles.tabPanel)}>
+        <TabsContent value="sync" xstyle={styles.tabPanel}>
           <WorkspaceSyncStatusCard cwd={props.workspacePath} />
         </TabsContent>
-        <TabsContent value="scripts" className={sx(styles.tabPanel)}>
+        <TabsContent value="scripts" xstyle={styles.tabPanel}>
           <ScriptsManager
             projectPath={props.projectPath}
             workspacePath={props.workspacePath}

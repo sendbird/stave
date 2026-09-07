@@ -703,29 +703,29 @@ export function WorkspaceChangesPanel(props: {
       className={sx(changesStyles.shell)}
     >
       <div className={sx(changesStyles.modeBar)}>
-        <TabsList className={sx(changesStyles.tabList)}>
+        <TabsList xstyle={changesStyles.tabList}>
           <TabsTrigger
             value="workspace"
-            className={sx(changesStyles.tabWide)}
+            xstyle={changesStyles.tabWide}
           >
             <GitBranch className={sx(changesStyles.glyphSm)} />
             Workspace
           </TabsTrigger>
-          <TabsTrigger value="reviews" className={sx(changesStyles.tabWide)}>
+          <TabsTrigger value="reviews" xstyle={changesStyles.tabWide}>
             <GitPullRequest className={sx(changesStyles.glyphSm)} />
             Reviews
           </TabsTrigger>
         </TabsList>
       </div>
 
-      <TabsContent value="reviews" className={sx(changesStyles.pane)}>
+      <TabsContent value="reviews" xstyle={changesStyles.pane}>
         <SourceControlReviewsPanel
           cwd={props.reviewCwd}
           onOpenDiff={props.onOpenPrDiff}
         />
       </TabsContent>
 
-      <TabsContent value="workspace" className={sx(changesStyles.pane)}>
+      <TabsContent value="workspace" xstyle={changesStyles.pane}>
         <Tabs
           value={view}
           onValueChange={(nextValue) =>
@@ -740,21 +740,21 @@ export function WorkspaceChangesPanel(props: {
           className={sx(changesStyles.shell)}
         >
           <div className={sx(changesStyles.viewBar)}>
-            <TabsList className={sx(changesStyles.tabListInline)}>
-              <TabsTrigger value="changes" className={sx(changesStyles.tab)}>
+            <TabsList xstyle={changesStyles.tabListInline}>
+              <TabsTrigger value="changes" xstyle={changesStyles.tab}>
                 <span>Changes</span>
                 <span className={sx(changesStyles.tabCount)}>
                   {props.filteredScmItems.length}
                 </span>
               </TabsTrigger>
-              <TabsTrigger value="history" className={sx(changesStyles.tab)}>
+              <TabsTrigger value="history" xstyle={changesStyles.tab}>
                 <span>History</span>
                 <span className={sx(changesStyles.tabCount)}>
                   {props.sourceHistory.length}
                 </span>
               </TabsTrigger>
               {showChecksTab ? (
-                <TabsTrigger value="checks" className={sx(changesStyles.tab)}>
+                <TabsTrigger value="checks" xstyle={changesStyles.tab}>
                   <span>Checks</span>
                   {checksAttentionCount > 0 ? (
                     <span className={sx(changesStyles.tabAlert)}>
@@ -793,7 +793,13 @@ export function WorkspaceChangesPanel(props: {
                   </PopoverTrigger>
                   <PopoverContent
                     align="end"
-                    className={sx(changesStyles.popover)}
+                    // The header rule and the row hovers are full bleed, so
+                    // the surface is asked for edge to edge instead of having
+                    // its padding zeroed from `className` (where the reset
+                    // lost to the surface's own padding). One gutter,
+                    // `space12`, paid by the header and the rows.
+                    density="flush"
+                    xstyle={changesStyles.popover}
                   >
                     <PopoverHeader className={sx(changesStyles.popoverHeader)}>
                       <div className={sx(changesStyles.popoverHeaderRow)}>
@@ -908,7 +914,13 @@ export function WorkspaceChangesPanel(props: {
                   </PopoverTrigger>
                   <PopoverContent
                     align="end"
-                    className={sx(changesStyles.popover)}
+                    // The header rule and the row hovers are full bleed, so
+                    // the surface is asked for edge to edge instead of having
+                    // its padding zeroed from `className` (where the reset
+                    // lost to the surface's own padding). One gutter,
+                    // `space12`, paid by the header and the rows.
+                    density="flush"
+                    xstyle={changesStyles.popover}
                   >
                     <PopoverHeader className={sx(changesStyles.popoverHeader)}>
                       <PopoverTitle className={sx(changesStyles.popoverTitle)}>
@@ -1013,7 +1025,7 @@ export function WorkspaceChangesPanel(props: {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className={sx(changesStyles.autoRefreshMenu)}
+                  xstyle={changesStyles.autoRefreshMenu}
                 >
                   <DropdownMenuLabel
                     className={sx(changesStyles.autoRefreshMenuLabel)}
@@ -1046,7 +1058,7 @@ export function WorkspaceChangesPanel(props: {
 
           <TabsContent
             value="changes"
-            className={sx(changesStyles.paneScroll)}
+            xstyle={changesStyles.paneScroll}
           >
             <div className={sx(changesStyles.changesBody)}>
               <section className={sx(changesStyles.summarySection)}>
@@ -1227,7 +1239,7 @@ export function WorkspaceChangesPanel(props: {
 
           <TabsContent
             value="history"
-            className={sx(changesStyles.paneScroll)}
+            xstyle={changesStyles.paneScroll}
           >
             <div className={sx(changesStyles.historyBody)}>
               <div className={sx(changesStyles.historyHead)}>
@@ -1280,7 +1292,7 @@ export function WorkspaceChangesPanel(props: {
           {props.checks ? (
             <TabsContent
               value="checks"
-              className={sx(changesStyles.paneScroll)}
+              xstyle={changesStyles.paneScroll}
             >
               <ChecksTabContent
                 checks={props.checks}

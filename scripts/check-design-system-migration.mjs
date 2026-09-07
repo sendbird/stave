@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { sep } from "node:path";
 import ts from "typescript";
 import { inventory } from "./style-utility-inventory.mjs";
+import { motionlessInteractive } from "./motionless-interactive.mjs";
 
 const manifest = JSON.parse(
   readFileSync(
@@ -104,6 +105,26 @@ for (const relative of readdirSync(srcRoot, { recursive: true })) {
     );
   }
 }
+
+/*
+ * The hard-cut ratchet. The analysis lives in `motionless-interactive.mjs`,
+ * which documents why an ADS-control call site is not a finding;
+ * `motionlessInteractive` in the manifest is the list of groups that were still
+ * genuinely silent when the rule landed. It may shrink, never grow, and a stale
+ * entry fails too so a fixed surface cannot keep its exemption.
+ */
+const motionlessBaseline = new Set(manifest.motionlessInteractive ?? []);
+const motionless = motionlessInteractive(srcRoot);
+for (const path of motionless)
+  if (!motionlessBaseline.has(path))
+    failures.push(
+      `${path}: states a \`:hover\`/\`:active\` paint change and nothing on that element transitions it; compose \`transition.colors\` (or \`transition.control\`) from \`ads/recipes/transition\` at the call site`,
+    );
+for (const path of motionlessBaseline)
+  if (!motionless.includes(path))
+    failures.push(
+      `${path}: stale \`motionlessInteractive\` entry — the surface has a transition now, so drop the exemption`,
+    );
 
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),

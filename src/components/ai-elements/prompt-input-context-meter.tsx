@@ -66,7 +66,7 @@ export function PromptInputContextMeter(args: {
           {percentLabel}
         </span>
       </PopoverTrigger>
-      <PopoverContent align="end" side="top" className={sx(contextMeterStyles.popover)}>
+      <PopoverContent align="end" side="top" xstyle={contextMeterStyles.popover}>
         <PopoverTitle className={sx(contextMeterStyles.popoverTitle)}>
           <Gauge className={sx(contextMeterStyles.titleIcon)} />
           Conversation context

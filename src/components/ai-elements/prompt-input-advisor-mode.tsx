@@ -197,8 +197,7 @@ export function PromptInputAdvisorPill(args: {
         align="start"
         side="top"
         sideOffset={8}
-        className={sx(advisorModeStyles.popover)}
-        xstyle={COMPOSER_OPTION_MENU_CONTENT}
+        xstyle={[COMPOSER_OPTION_MENU_CONTENT, advisorModeStyles.popover]}
         data-testid="advisor-mode-options"
       >
         <ComposerOptionMenuToggle

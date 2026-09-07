@@ -220,6 +220,29 @@ export const styles = stylex.create({
   // is painted inside the same box the indicator lives in, and the bar covers
   // it exactly the way an underlined tab strip is supposed to read.
   listLine: {
+    /*
+     * A `line` strip is a baseline, and a baseline has to meet the bottom of
+     * the row it is in — not float inside it. Two declarations make that hold
+     * in any embedding rather than only in the one the host remembered to
+     * align:
+     *
+     * `alignSelf: stretch` fills the row's cross size when the strip shares a
+     * flex row with taller controls (a 24px strip beside 32px actions, under
+     * the row's own `alignItems: center`, put the rule 14px above the row's
+     * bottom edge — measured). Grid items already stretch by default, and in a
+     * block container the property is simply ignored, so content-sized call
+     * sites are unaffected.
+     *
+     * `alignItems: stretch` then passes that height down to the tabs, because
+     * the active bar is positioned off Base UI's measured `--active-tab-*`
+     * box. Without it, stretching the list alone would leave the tabs centred
+     * inside it and move the bar AWAY from the rule.
+     *
+     * A host that really wants a centred short strip overrides both through
+     * `xstyle`, which merges last.
+     */
+    alignItems: "stretch",
+    alignSelf: "stretch",
     backgroundColor: "transparent",
     borderRadius: 0,
     boxShadow: `inset 0 calc(-1 * ${vars.borderWidthHairline}) 0 0 ${vars.colorBorder}`,
@@ -231,6 +254,11 @@ export const styles = stylex.create({
   // shadow outright (one `box-shadow` property, last write wins) rather than
   // adding a second, which is what would draw an L.
   listLineVertical: {
+    // `listLine`'s `alignSelf: stretch` is a horizontal-strip rule and has to
+    // be given back here: a vertical rail that stretches down the full height
+    // of the tallest panel reads as a sidebar, which is exactly what
+    // `rootVertical`'s `alignItems: start` exists to prevent.
+    alignSelf: "start",
     boxShadow: `inset ${vars.borderWidthHairline} 0 0 0 ${vars.colorBorder}`,
   },
   panelViewport: {

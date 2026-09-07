@@ -100,7 +100,8 @@ export function StaveAppMenuButton(args?: {
         <DropdownMenuContent
           align="start"
           sideOffset={8}
-          className={cx(UI_LAYER_CLASS.appMenu, sx(staveAppMenuStyles.menu))}
+          className={UI_LAYER_CLASS.appMenu}
+            xstyle={staveAppMenuStyles.menu}
         >
           <DropdownMenuLabel>Stave</DropdownMenuLabel>
           <DropdownMenuItem onSelect={clearTaskSelection}>

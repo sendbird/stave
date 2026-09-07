@@ -3,7 +3,6 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
 import {
   AlertTriangle,
-  ChevronDown,
   ChevronRight,
   FolderOpen,
   FolderTree,
@@ -1746,14 +1745,16 @@ export function ProjectWorkspaceSidebar(args: {
     <>
       <aside
         data-testid="project-workspace-sidebar"
-        className={cx("stave-project-sidebar", sx(projectSidebarStyles.aside))}
+        className={cx(
+          "stave-project-sidebar",
+          sx(
+            projectSidebarStyles.aside,
+            args.animate !== false && projectSidebarStyles.asideAnimated,
+          ),
+        )}
         style={{
           width: `${args.collapsed ? COLLAPSED_PROJECT_SIDEBAR_WIDTH : args.width}px`,
           minWidth: `${args.collapsed ? COLLAPSED_PROJECT_SIDEBAR_WIDTH : args.width}px`,
-          transition:
-            args.animate !== false
-              ? "width 200ms ease, min-width 200ms ease"
-              : undefined,
         }}
       >
         <VisuallyHidden aria-live="polite" aria-atomic="true">
@@ -2045,7 +2046,7 @@ export function ProjectWorkspaceSidebar(args: {
                       </Tooltip>
                       <DropdownMenuContent
                         align="end"
-                        className={sx(projectSidebarStyles.displayModeMenu)}
+                        xstyle={projectSidebarStyles.displayModeMenu}
                       >
                         <DropdownMenuLabel>Workspace rows</DropdownMenuLabel>
                         <DropdownMenuSeparator />
@@ -2134,15 +2135,14 @@ export function ProjectWorkspaceSidebar(args: {
                               transition.colors,
                             ]}
                           >
-                            {laneCollapsed ? (
-                              <ChevronRight
-                                className={sx(projectSidebarStyles.laneChevron)}
-                              />
-                            ) : (
-                              <ChevronDown
-                                className={sx(projectSidebarStyles.laneChevron)}
-                              />
-                            )}
+                            <ChevronRight
+                              className={sx(
+                                projectSidebarStyles.laneChevron,
+                                !laneCollapsed &&
+                                  projectSidebarStyles.laneChevronOpen,
+                                transition.transform,
+                              )}
+                            />
                             <span
                               className={sx(projectSidebarStyles.laneLabel)}
                             >
@@ -2347,19 +2347,13 @@ export function ProjectWorkspaceSidebar(args: {
                                               projectSidebarStyles.projectChevronSlot,
                                             )}
                                           >
-                                            {collapsed ? (
-                                              <ChevronRight
-                                                className={sx(
-                                                  projectSidebarStyles.projectChevron,
-                                                )}
-                                              />
-                                            ) : (
-                                              <ChevronDown
-                                                className={sx(
-                                                  projectSidebarStyles.projectChevron,
-                                                )}
-                                              />
-                                            )}
+                                            <ChevronRight
+                                              className={sx(
+                                                projectSidebarStyles.projectChevron,
+                                                !collapsed &&
+                                                  projectSidebarStyles.projectChevronOpen,
+                                              )}
+                                            />
                                           </span>
                                         </>
                                       )}

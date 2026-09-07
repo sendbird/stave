@@ -44,6 +44,7 @@ import { TopBarStandaloneCli } from "@/components/layout/TopBarStandaloneCli";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
 import { formatWorkspacePathLabel } from "@/store/project.utils";
+import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { topBarControlStyles, topBarStyles } from "./top-bar.styles";
@@ -143,6 +144,15 @@ export function TopBar() {
                         // button.
                         topBarControlStyles.control,
                         topBarControlStyles.surface,
+                        // `surface` states a `:hover` fill AND a `:hover` ink,
+                        // and this is the one place it lands on a plain `div`
+                        // instead of an ADS `Button` (which composes
+                        // `transition.control` itself). So the leading half of
+                        // this segmented pair cut instantly to its hover colour
+                        // while the chevron half beside it faded — the two
+                        // halves of one control disagreeing about how a hover
+                        // arrives.
+                        transition.colors,
                         topBarStyles.pathChip,
                       )}
                     />
@@ -190,7 +200,7 @@ export function TopBar() {
                 </Tooltip>
                 <DropdownMenuContent
                   align="start"
-                  className={sx(topBarStyles.pathMenu)}
+                  xstyle={topBarStyles.pathMenu}
                 >
                   <DropdownMenuItem
                     onSelect={() => {

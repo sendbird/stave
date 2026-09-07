@@ -239,5 +239,6 @@
     "src/components/session/chat-input-approval-queue.tsx": 0,
     "src/components/session/chat-panel-file-blocks.tsx": 0,
     "src/components/session/message-usage-summary.tsx": 0
-  }
+  },
+  "motionlessInteractive": []
 }
