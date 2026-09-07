@@ -89,6 +89,7 @@ export const chatPanelFileBlocksStyles = stylex.create({
     backgroundColor: vars.colorSurface,
   },
   diffScroll: { overflowX: "auto" },
+  inlineDiff: { borderRadius: 0, borderWidth: 0 },
   diffLoading: {
     paddingInline: vars.space12,
     paddingBlock: vars.space8,

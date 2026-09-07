@@ -22,6 +22,9 @@ import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-ch
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import {
   COMPOSER_CONTROL_BUTTON,
+  COMPOSER_CONTROL_GROUP,
+  COMPOSER_CONTROL_GROUP_MENU,
+  COMPOSER_CONTROL_GROUP_PRIMARY,
   ComposerControlLabel,
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
@@ -1938,7 +1941,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           compareControl={
             args.isTurnActive ? null : (
               <div
-                className={sx(chatInputStyles.compareControlGroup)}
+                className={COMPOSER_CONTROL_GROUP}
                 data-compare-control="true"
               >
                 <Tooltip>
@@ -1948,7 +1951,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className={COMPOSER_CONTROL_BUTTON}
+                        className={cx(
+                          COMPOSER_CONTROL_BUTTON,
+                          COMPOSER_CONTROL_GROUP_PRIMARY,
+                        )}
                         aria-label="Prepare a comparison in isolated candidate workspaces"
                         {...composerControlAttributes}
                         disabled={
@@ -1976,6 +1982,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
                         size="sm"
                         className={cx(
                           COMPOSER_CONTROL_BUTTON,
+                          COMPOSER_CONTROL_GROUP_MENU,
                           sx(chatInputStyles.compareControlMenuTrigger),
                         )}
                         aria-label="Compare options and recent runs"

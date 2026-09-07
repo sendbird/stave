@@ -103,7 +103,7 @@
     {
       "path": "src/components/ads/components/Kbd.tsx",
       "sourcePath": "packages/design-system/src/components/Kbd.tsx",
-      "integrity": "sha256-dfb0a346aaf22e0ea4e4fda1403fc0467d1d0d4a0496fa9ba39d309fd5067f42"
+      "integrity": "sha256-3452ac06efad8f23f31e58e04bdb2bba93e033fefc5840a78f29b7e4bec440e6"
     },
     {
       "path": "src/components/ads/components/Label.tsx",
@@ -376,7 +376,7 @@
       "sourcePath": "packages/design-system/src/overlay-motion.css"
     },
     {
-      "integrity": "sha256-c306b327c5cbe293353a96eb242c2f4955a24f6e37cba280cdafa9c36f8207c1",
+      "integrity": "sha256-81a0a103998d76e554d199880669a88c3f7907360c1d807ee90a835df796f57e",
       "path": "src/components/ads/recipes/control-chrome.ts",
       "sourcePath": "packages/design-system/src/recipes/control-chrome.ts"
     },
@@ -486,7 +486,7 @@
       "sourcePath": "packages/design-system/src/components/Command.parts.tsx"
     },
     {
-      "integrity": "sha256-96986e66e228ea17e9385565c36105f81bf63b389831d40b137521f7cf25e35f",
+      "integrity": "sha256-09fb365fa5ad839bc1c22f2b01b1b2d7e92b635a7390fa175a30b171781becd7",
       "path": "src/components/ads/components/Command.styles.ts",
       "sourcePath": "packages/design-system/src/components/Command.styles.ts"
     },
@@ -529,6 +529,71 @@
       "integrity": "sha256-e3bb8b6a015039f5dc238dee9425884c1f20d80846885c2fedad0fe747050f98",
       "path": "src/components/ads/headless/toast.tsx",
       "sourcePath": "packages/design-system/src/headless/toast.tsx"
+    },
+    {
+      "path": "src/components/ads/components/Board.tsx",
+      "sourcePath": "packages/design-system/src/components/Board.tsx",
+      "integrity": "sha256-5d8d00029f816533a352751ccc20d4153a9668ecaeb69de1ba56c9bdd916bd89"
+    },
+    {
+      "path": "src/components/ads/components/Board.card.tsx",
+      "sourcePath": "packages/design-system/src/components/Board.card.tsx",
+      "integrity": "sha256-820a64403afc404e597afc5a436a8aa020413c1cee38cc0e4c5579b101133ac9"
+    },
+    {
+      "path": "src/components/ads/components/Board.column.tsx",
+      "sourcePath": "packages/design-system/src/components/Board.column.tsx",
+      "integrity": "sha256-8009fb2810801ce969ab5f717327002b351c26ac8901a8cafa8024b21d2b6f09"
+    },
+    {
+      "path": "src/components/ads/components/Board.context.ts",
+      "sourcePath": "packages/design-system/src/components/Board.context.ts",
+      "integrity": "sha256-3e0147de09cdfc3809bf60c821c7188ad7d348eb78bdf012db2a4ebdbfad8803"
+    },
+    {
+      "path": "src/components/ads/components/Board.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Board.styles.ts",
+      "integrity": "sha256-517ab4533adb80d8a62671c13e280ddc873d6d293807fb3a586aa96eaee7c99f"
+    },
+    {
+      "path": "src/components/ads/components/WorkflowIcon.tsx",
+      "sourcePath": "packages/design-system/src/components/WorkflowIcon.tsx",
+      "integrity": "sha256-b51adae2eef94dc55806193cac4ec9593f6f3f9c0c3bf0f8f2d63f3e0fd18428"
+    },
+    {
+      "path": "src/components/ads/utils/pointer-gesture.ts",
+      "sourcePath": "packages/design-system/src/utils/pointer-gesture.ts",
+      "integrity": "sha256-2a9d9e43e9d1b0822f62dad2c9f97d4eae80b81a2ab2d1b1e8a2820abf0b2d7d"
+    },
+    {
+      "path": "src/components/ads/components/FileChangeSummary.tsx",
+      "sourcePath": "packages/design-system/src/components/FileChangeSummary.tsx",
+      "integrity": "sha256-57562dbd2c2a4440e57d8957b3da18509a85f3e8ed0e3a2e9d55d1452f154f66"
+    },
+    {
+      "path": "src/components/ads/components/StepRail.tsx",
+      "sourcePath": "packages/design-system/src/components/StepRail.tsx",
+      "integrity": "sha256-0fa43e22235017860346a38790437262380a353a1992989f5905acd8f8ae7804"
+    },
+    {
+      "path": "src/components/ads/components/ToolRun.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/ToolRun.parts.tsx",
+      "integrity": "sha256-cd3ff6812701ac515df815af4a2f40611f796a159572c9848b356a47ae5c570f"
+    },
+    {
+      "path": "src/components/ads/components/ToolRun.styles.ts",
+      "sourcePath": "packages/design-system/src/components/ToolRun.styles.ts",
+      "integrity": "sha256-6d0c9efc99d5cec52ce0ebe6125024779cfe377e52031f18dc4ac2a9bf2f0cc2"
+    },
+    {
+      "path": "src/components/ads/components/agent-state.ts",
+      "sourcePath": "packages/design-system/src/components/agent-state.ts",
+      "integrity": "sha256-b06f7fbb3097c83780f0e63b720a9cd7f88a546b697613a4d48e01108cd45d87"
+    },
+    {
+      "path": "src/components/ads/components/DiffViewer.tsx",
+      "sourcePath": "packages/design-system/src/components/DiffViewer.tsx",
+      "integrity": "sha256-b3c07a1d282799333d47caff1e86d156c776f7eee52cc4cd38f72e719a6aad64"
     }
   ],
   "items": [

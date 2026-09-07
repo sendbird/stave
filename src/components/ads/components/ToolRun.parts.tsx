@@ -5,12 +5,14 @@ import { sx, type XstyleProp } from "../utils/stylex";
 import {
   agentStateLabel,
   agentStateTone,
+  isQuietState,
   type AgentRunState,
   type AgentStatusTone,
 } from "./agent-state";
 import { Loader, type LoaderVariant } from "./Loader";
-import type { ElapsedSource } from "./Thinking.parts";
+import { nodeText, type ElapsedSource } from "./Thinking.parts";
 import { toolRunStyles } from "./ToolRun.styles";
+import { VisuallyHidden } from "./VisuallyHidden";
 
 export { toolRunStyles };
 
@@ -113,10 +115,9 @@ export function aggregateRunStatus(
 ): AgentRunState | null {
   if (states.length === 0) return null;
   const present = new Set(states);
-  // The early return above proves `states[0]` exists; this host compiles with
-  // `noUncheckedIndexedAccess`, which types the read as possibly undefined
-  // anyway, and the function's own contract already says `null` means "no runs".
-  return ROLLUP_PRIORITY.find((state) => present.has(state)) ?? states[0] ?? null;
+  return (
+    ROLLUP_PRIORITY.find((state) => present.has(state)) ?? states[0] ?? null
+  );
 }
 
 /** "4 tool calls" — the roll-up's own title. */
@@ -183,8 +184,17 @@ export type ToolRunSummaryProps = {
  * word, ten of them per transcript.
  *
  * Truncation order is deliberate (§10, realistic data): the title keeps a
- * visible share beside status; tool/count/duration move together to a second
- * line. A clipped digit is a wrong number rather than a shortened one.
+ * visible share beside status, and the count and the duration are never cut —
+ * a clipped digit is a wrong number rather than a shortened one. The **tool
+ * target** is the one value that gives: it holds a whole shell command, an
+ * absolute path or a URL, and letting it take a second line meant one row in a
+ * transcript was two rows tall for a value the reader was scanning past. It now
+ * ellipsizes in place, on one line, with the full value on the element's
+ * `title` when it is plain text. Below the 14rem container arm the group still
+ * stacks, because at that width there is no line left to share.
+ *
+ * A settled run does not paint its status word at all — `isQuietState`, and the
+ * word stays in the accessibility tree. See that predicate for the argument.
  */
 export function ToolRunSummary({
   count,
@@ -196,32 +206,56 @@ export function ToolRunSummary({
   xstyle,
 }: ToolRunSummaryProps) {
   const loaderVariant = toolLoaderVariant(status);
+  const word = statusLabel ?? agentStateLabel[status];
+  /*
+   * `isQuietState` decides whether the word is painted; an explicit
+   * `statusLabel` overrides that, because a caller who supplied their own word
+   * for a settled run asked for a word rather than for the default report of
+   * the expected outcome. There is no `loaderVariant` on a quiet state, so
+   * nothing else in this span needs painting either — the whole span goes.
+   */
+  const quiet = statusLabel == null && isQuietState(status);
+  /*
+   * The full value, for a target the row had to cut. `tool` holds the command,
+   * the path, the pattern or the URL the call acted on, and those are exactly
+   * the values that outrun a transcript column. `nodeText` returns null for a
+   * rendered node, which is the honest answer: a title cannot describe an
+   * element tree, and a wrong one is worse than none.
+   */
+  const toolTitle = nodeText(tool) ?? undefined;
 
   return (
     <span className={sx(toolRunStyles.summary, xstyle)}>
       <span className={sx(toolRunStyles.primary)}>
         <span className={sx(toolRunStyles.title)}>{title}</span>
-        <span
-          className={sx(
-            toolRunStyles.statusWord,
-            agentStatusWord[statusWordTone(status)],
-          )}
-        >
-          {loaderVariant ? (
-            <Loader
-              aria-hidden
-              size="xs"
-              tone="inherit"
-              variant={loaderVariant}
-            />
-          ) : null}
-          {statusLabel ?? agentStateLabel[status]}
-        </span>
+        {quiet ? (
+          <VisuallyHidden>{word}</VisuallyHidden>
+        ) : (
+          <span
+            className={sx(
+              toolRunStyles.statusWord,
+              agentStatusWord[statusWordTone(status)],
+            )}
+          >
+            {loaderVariant ? (
+              <Loader
+                aria-hidden
+                size="xs"
+                tone="inherit"
+                variant={loaderVariant}
+              />
+            ) : null}
+            {word}
+          </span>
+        )}
       </span>
       {tool != null || count != null || elapsedText ? (
         <span className={sx(toolRunStyles.secondary)}>
           {tool ? (
-            <span className={sx(agentSurface.meta, toolRunStyles.tool)}>
+            <span
+              className={sx(agentSurface.meta, toolRunStyles.tool)}
+              title={toolTitle}
+            >
               {tool}
             </span>
           ) : null}

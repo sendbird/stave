@@ -28,11 +28,15 @@ export const workGraphTreeStyles = stylex.create({
   row: {
     display: "flex",
     minWidth: 0,
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: vars.space2,
     borderRadius: vars.radiusPanel,
     paddingInline: vars.space8,
     paddingBlock: "0.375rem",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars.colorOverlayHover,
+    },
     animationName: {
       default: rowFadeIn,
       "@media (prefers-reduced-motion: reduce)": "none",
@@ -107,11 +111,7 @@ export const workGraphTreeStyles = stylex.create({
   },
   contentRevealable: {
     cursor: "pointer",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars.colorOverlayHover,
-      ":focus-visible": vars.colorOverlayHover,
-    },
+    backgroundColor: "transparent",
   },
   controls: {
     display: "flex",

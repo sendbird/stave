@@ -145,6 +145,7 @@ import {
 import { WorkspaceInformationConnectedBrowserCard } from "./WorkspaceInformationConnectedBrowserCard";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 import { WorkspaceResumeBrief } from "./WorkspaceResumeBrief";
+import { hostSurface } from "@/components/ui/host-surface.styles";
 import { workspaceInformationPanelStyles as styles } from "./workspace-information-panel.styles";
 
 // ---------------------------------------------------------------------------
@@ -618,7 +619,9 @@ function InlineLinkRow(props: {
           <AdsButton
             layout="host"
             type="button"
-            xstyle={styles.linkRowTitle}
+            // `linkRow` owns the wash; `inertChrome` keeps ADS's host-layout
+            // trigger recipe from painting a second square one behind the title.
+            xstyle={[styles.linkRowTitle, hostSurface.inertChrome]}
             onClick={() => openExternalUrl(props.url)}
             title={props.label}
           >
@@ -824,7 +827,7 @@ function GitHubPrRow(props: {
           <AdsButton
             layout="host"
             type="button"
-            xstyle={styles.prRowTitle}
+            xstyle={[styles.prRowTitle, hostSurface.inertChrome]}
             onClick={() => openExternalUrl(props.url)}
           >
             {props.title}

@@ -546,7 +546,7 @@ function AssistantTraceEntryView(args: {
              */
             durationMs={toMeasuredDurationMs(entry.part.elapsedSeconds)}
             error={
-              isError && output ? (
+              isError && !isCommand && output ? (
                 <TraceOutput linkify={false} text={output} />
               ) : undefined
             }

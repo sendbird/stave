@@ -1,3 +1,4 @@
+import { transition } from "@/components/ads/recipes/transition";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { memo, useId, useMemo, useState } from "react";
 import {
@@ -19,6 +20,7 @@ import {
 import { Button } from "@/components/ui";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx, cx } from "@/components/ads/utils/stylex";
+import { hostSurface } from "@/components/ui/host-surface.styles";
 import { workGraphTreeStyles as styles } from "./work-graph-tree.styles";
 import type { ProviderWorkGraphCapabilities } from "@/lib/providers/provider.types";
 import { createEmptyProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
@@ -49,8 +51,8 @@ import {
 
 /** Per depth level, so a child reads as owned by the row above it. */
 const WORK_GRAPH_INDENT_PX = 14;
-/** Matches the row's own `px-2`, which the indent replaces on the leading edge. */
-const WORK_GRAPH_ROW_INSET_PX = 8;
+/** Root rows align their status mark with the section heading; depth owns the inset. */
+const WORK_GRAPH_ROW_INSET_PX = 0;
 
 /**
  * The graph's statuses onto the shelf's. `cancelled` has no shelf equivalent:
@@ -311,7 +313,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
       data-work-graph-node-key={node.key}
       data-work-graph-depth={row.depth}
       data-work-graph-blocked={row.blocked ? "true" : undefined}
-      className={sx(styles.row)}
+      className={sx(styles.row, transition.colors)}
       // Depth is unbounded, so the indent cannot come from a static class list.
       style={{
         paddingInlineStart:
@@ -323,7 +325,11 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
           layout="host"
           type="button"
           data-work-graph-revealable="true"
-          xstyle={[styles.content, styles.contentRevealable]}
+          xstyle={[
+            styles.content,
+            styles.contentRevealable,
+            hostSurface.inertChrome,
+          ]}
           title={`${title} — show in conversation`}
           onClick={() => onSelectTool?.(revealToolUseId)}
         >

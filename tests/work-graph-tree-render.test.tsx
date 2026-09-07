@@ -119,9 +119,9 @@ describe("WorkGraphTree", () => {
     expect(nestedHtml).toContain('data-testid="work-graph-tree"');
     expect(nestedHtml).toContain('data-work-graph-depth="0"');
     expect(nestedHtml).toContain('data-work-graph-depth="1"');
-    // The child is indented by exactly one level past the row inset.
-    expect(nestedHtml).toContain("padding-inline-start:8px");
-    expect(nestedHtml).toContain("padding-inline-start:22px");
+    // Root content aligns with the section heading; only nested agents indent.
+    expect(nestedHtml).toContain("padding-inline-start:0");
+    expect(nestedHtml).toContain("padding-inline-start:14px");
     // The parent's spawn qualifier rides the same badge the shelf uses.
     expect(nestedHtml).toContain("Explore");
     expect(nestedHtml).toContain("Reading TurnActivity.tsx");

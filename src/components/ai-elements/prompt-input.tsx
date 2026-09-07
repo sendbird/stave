@@ -4156,7 +4156,8 @@ export function PromptInput(args: PromptInputProps) {
                   </Button>
                   <Button
                     type="button"
-                    size="icon-xs"
+                    size="xs"
+                    iconOnly
                     variant="ghost"
                     disabled={interactionsDisabled}
                     aria-label={`Remove attached file ${filePath}`}
@@ -4168,9 +4169,9 @@ export function PromptInput(args: PromptInputProps) {
                         ),
                       })
                     }
-                    className={sx(promptInputStyles.fileRemoveButton)}
+                    xstyle={promptInputStyles.fileRemoveButton}
                   >
-                    <X className={sx(promptInputStyles.icon3)} />
+                    <X />
                   </Button>
                 </div>
               ))}
@@ -4205,8 +4206,9 @@ export function PromptInput(args: PromptInputProps) {
                   </AdsButton>
                   <Button
                     type="button"
-                    size="icon-xs"
-                    variant="ghost"
+                    size="xs"
+                    iconOnly
+                    variant="floating"
                     disabled={interactionsDisabled}
                     aria-label={`Remove attached image ${img.label}`}
                     title="Remove attachment"
@@ -4217,9 +4219,9 @@ export function PromptInput(args: PromptInputProps) {
                         ),
                       })
                     }
-                    className={sx(promptInputStyles.imageRemoveButton)}
+                    xstyle={promptInputStyles.imageRemoveButton}
                   >
-                    <X className={sx(promptInputStyles.icon3)} />
+                    <X />
                   </Button>
                 </div>
               ))}

@@ -327,5 +327,10 @@ export const styles = stylex.create({
     overflowWrap: "anywhere",
     paddingBlock: vars.space12,
     paddingInline: vars.space12,
+    // Base UI keeps the empty live-status node mounted while results exist.
+    // A node with no message must reserve neither line box nor padding.
+    ":empty": {
+      display: "none",
+    },
   },
 });

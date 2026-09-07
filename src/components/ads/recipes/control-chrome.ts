@@ -22,8 +22,9 @@ const raisedWashPressed = `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars
  *
  * Compose as
  * `sx(controlChrome.trigger, controlHeights[size], focusRing.ring, transition.colors, ...layout)`.
- * The host still owns height (`recipes/control-metrics`), padding, radius, the
- * focus ring, and the transition — this recipe owns only color state.
+ * The host owns height (`recipes/control-metrics`), radius, the focus ring,
+ * transition, and any intentional inset. Quiet host controls start at zero
+ * padding so browser button defaults never become accidental geometry.
  */
 // `trigger` rests on an opaque fill, so its two steps mix the operand into that
 // fill; `triggerQuiet` rests transparent and takes the translucent wash directly.
@@ -76,6 +77,26 @@ export const controlChrome = stylex.create({
     // anything downstream sets a border colour.
     borderStyle: "solid",
     borderWidth: 0,
+    // `Button layout="host"` may compose no geometry recipe at all. Native
+    // buttons otherwise retain the UA's 1px 6px padding, so its layout starts
+    // from a browser-dependent inset rather than the host's xstyle contract.
+    // An xstyle padding value still composes last and wins.
+    padding: 0,
+    // The wash is the only box this recipe paints, so this recipe owns its
+    // SHAPE. The header below hands "radius" to the host along with height and
+    // padding, and for the bordered `trigger` that is right — a geometry recipe
+    // (`menu.trigger`, `buttonStyles.base`) always follows it and states one.
+    // Nothing follows `triggerQuiet` on the borderless paths: `Button
+    // layout="host"` composes it with only `focusRing.ring` and
+    // `transition.colors`, so every host-layout caller that did not re-derive a
+    // radius was painting a hard-cornered rectangle on hover inside a system
+    // whose every other surface is rounded — a chain-of-thought row, a trace
+    // disclosure, a file row. `radiusControl` is the same value
+    // `buttonStyles.base` falls back to, so the control and host paths now agree
+    // rather than differing by whether the caller remembered. A caller that
+    // wants another shape still wins: `xstyle` merges last on both paths, and a
+    // geometry recipe composed after this one overrides it as before.
+    borderRadius: vars.radiusControl,
     color: {
       default: vars.colorTextMuted,
       ":hover": vars.colorText,

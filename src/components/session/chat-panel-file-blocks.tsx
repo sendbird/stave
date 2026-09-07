@@ -178,7 +178,7 @@ export function ChangedFilesBlock(args: {
   }
 
   return (
-    <Card className={sx(styles.card)}>
+    <Card xstyle={styles.card}>
       <div className={sx(styles.cardHeader)}>
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleSmall)}>
@@ -223,13 +223,13 @@ export function ChangedFilesBlock(args: {
                 onClick={() => toggleRow(index)}
               >
                 {/*
-                  * ADS `FileChangeSummary` is the header `DiffViewer` does not
-                  * draw: path in the machine register truncating at the
-                  * directory, `+N` / `−M` in semantic ink, and the shared
-                  * one-word state. It replaces the local path span, the two
-                  * count chips and the pending dot — four host constructions
-                  * that each restated part of the same row.
-                  */}
+                 * ADS `FileChangeSummary` is the header `DiffViewer` does not
+                 * draw: path in the machine register truncating at the
+                 * directory, `+N` / `−M` in semantic ink, and the shared
+                 * one-word state. It replaces the local path span, the two
+                 * count chips and the pending dot — four host constructions
+                 * that each restated part of the same row.
+                 */}
                 <FileChangeSummary
                   added={row.summary.added}
                   path={row.displayFilePath}
@@ -248,6 +248,7 @@ export function ChangedFilesBlock(args: {
                     <DiffViewer
                       before={row.part.oldContent}
                       after={row.part.newContent}
+                      xstyle={styles.inlineDiff}
                       mode="unified"
                       granularity="word"
                       aria-label={`Diff for ${row.displayFilePath}`}
@@ -360,7 +361,7 @@ export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
   );
 
   return (
-    <Card className={sx(styles.card)}>
+    <Card xstyle={styles.card}>
       <div className={sx(styles.cardHeader)}>
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleBody)}>
@@ -449,7 +450,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
   }
 
   return (
-    <Card className={sx(styles.card)}>
+    <Card xstyle={styles.card}>
       <div className={sx(styles.cardHeader)}>
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleSmall)}>

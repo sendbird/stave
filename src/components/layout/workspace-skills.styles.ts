@@ -180,6 +180,7 @@ export const skillStyles = stylex.create({
     textAlign: "start",
     width: "100%",
   },
+  // The surrounding row owns hover; its open target only arranges content.
   rowOpen: {
     alignItems: "center",
     display: "flex",

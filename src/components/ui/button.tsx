@@ -10,7 +10,12 @@ import { transition } from "../ads/recipes/transition";
 import { sx, cx } from "../ads/utils/stylex";
 
 const ForwardButton = AdsButton as ComponentType<ButtonBaseProps>;
-const variants = { default: "primary", outline: "outline", secondary: "secondary", ghost: "quiet", destructive: "soft", link: "link" } as const;
+// `floating` is the ADS weight for a raised, detached, viewport-level action —
+// it owns the round corners (`--ads-button-radius-*: radiusFull`) and the
+// elevation that every such control in this repository was otherwise
+// hand-rolling on top of `ghost`/`outline`. Exposed here so a host caller can
+// name the weight instead of re-deriving its paint.
+const variants = { default: "primary", outline: "outline", secondary: "secondary", ghost: "quiet", destructive: "soft", link: "link", floating: "floating" } as const;
 const sizes = { default: "md", xs: "xs", sm: "sm", lg: "lg", icon: "md", "icon-xs": "xs", "icon-sm": "sm", "icon-lg": "lg" } as const;
 type Options = {
   xstyle?: StyleXValue;
@@ -25,6 +30,18 @@ type Options = {
   indicator?: ReactNode;
   variant?: keyof typeof variants | null;
   size?: keyof typeof sizes | null;
+  /**
+   * ADS's shape axis, forwarded explicitly.
+   *
+   * The `icon`/`icon-sm`/`icon-xs`/`icon-lg` values of `size` are this repo's
+   * legacy spelling of "square at that rung": they conflate SHAPE with SCALE,
+   * which is the conflation ADS split apart. Passing `iconOnly` with a plain
+   * scale step (`size="sm" iconOnly`) is the current grammar, and it is the
+   * only way to say "square" for a size step that has no `icon-*` alias.
+   * When omitted, the legacy `icon-*` prefix still decides, so existing call
+   * sites keep rendering exactly as before.
+   */
+  iconOnly?: boolean;
   className?: string;
   /**
    * ADS box ownership. `control` (the default) lets ADS size the box and its
@@ -38,16 +55,16 @@ type Options = {
 };
 
 /** Class-only consumers share the same ADS recipes as real buttons. */
-export function buttonVariants({ variant = "default", size = "default", className }: Options = {}) {
+export function buttonVariants({ variant = "default", size = "default", iconOnly, className }: Options = {}) {
   const weight = variants[variant ?? "default"];
   const scale = sizes[size ?? "default"];
-  const square = size?.startsWith("icon");
+  const square = iconOnly ?? size?.startsWith("icon");
   return cx(sx(styles.root, transition.control, focusRing.ring, buttonVariantStyles[weight], variant === "destructive" && buttonDangerToneStyles[weight], square ? controlSquares[scale] : controlHeights[scale], square ? styles.iconPad : buttonSizePadStyles[scale], square ? styles.gapIcon : buttonSizeGapStyles[scale]), className);
 }
 
 /** Preserve the public call contract while ADS owns behavior and styling. */
-export function Button({ variant = "default", size = "default", className, ...props }: BaseButton.Props & Options) {
+export function Button({ variant = "default", size = "default", iconOnly, className, ...props }: BaseButton.Props & Options) {
   const scale = sizes[size ?? "default"];
-  const square = size?.startsWith("icon");
+  const square = iconOnly ?? size?.startsWith("icon");
   return <ForwardButton {...props} className={typeof className === "string" ? className : undefined} variant={variants[variant ?? "default"]} tone={variant === "destructive" ? "danger" : "default"} size={scale} iconOnly={Boolean(square)} data-slot="button" data-variant={variant} data-size={size} />;
 }

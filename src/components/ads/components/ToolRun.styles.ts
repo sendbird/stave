@@ -22,7 +22,13 @@ export const toolRunStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flex: "1 1 auto",
-    flexWrap: "wrap",
+    // A command belongs to the run's register, not a second transcript row.
+    // Above the intentional narrow arm, keep the summary on one line and let
+    // the command's own ellipsis spend the remaining width.
+    flexWrap: {
+      default: "nowrap",
+      "@container (max-width: 14rem)": "wrap",
+    },
     gap: {
       default: `${vars.space4} ${vars.space8}`,
       "@container (max-width: 14rem)": vars.space4,
@@ -35,8 +41,11 @@ export const toolRunStyles = stylex.create({
       default: "flex",
       "@container (max-width: 14rem)": "contents",
     },
-    flex: "1 1 10rem",
+    // The title/status pair keeps its natural compact width but may not take
+    // more than half the row: the command needs a real shrinking lane.
+    flex: "0 1 auto",
     gap: vars.space8,
+    maxInlineSize: "50%",
     minInlineSize: 0,
   },
   trigger: {
@@ -65,7 +74,12 @@ export const toolRunStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   tool: {
-    flexShrink: 1,
+    // `1 1 0`, and the `minInlineSize: 0` below is what makes the shrink
+    // reachable: a flex item's min-content contribution is its floor, and for a
+    // long unbroken command string that floor is the whole string, so the item
+    // could not shrink and the wrapping row put it on a line of its own instead.
+    // Zeroing the floor lets it take the ellipsis it already declares.
+    flex: "1 1 0",
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -87,7 +101,9 @@ export const toolRunStyles = stylex.create({
       default: "flex",
       "@container (max-width: 14rem)": "contents",
     },
-    flex: "0 0 auto",
+    // This owns the remaining lane. Its tool child shrinks before count or time,
+    // which remain whole; only the narrow container arm below stacks.
+    flex: "1 1 0",
     gap: {
       default: vars.space8,
       "@container (max-width: 14rem)": vars.space4,

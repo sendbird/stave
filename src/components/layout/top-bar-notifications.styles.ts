@@ -57,6 +57,15 @@ export const notificationsStyles = stylex.create({
     fontSize: vars.fontSizeCaption,
     marginTop: vars.space4,
   },
+  /*
+   * A segmented switch is one row by definition — the track, its radius and
+   * its inset frame all describe a single line of choices, and a wrapped
+   * second row leaves the active tab's raised pill floating inside a
+   * two-line box. `flexWrap: "wrap"` let exactly that happen as soon as the
+   * two nowrap tabs (each widened by its own count badge) outgrew the
+   * shrinking title column. The row now holds, and the tabs absorb the
+   * pressure instead (see `viewTab`).
+   */
   viewSwitch: {
     backgroundColor: vars.colorCanvasSubtle,
     borderColor: vars.colorBorder,
@@ -64,28 +73,46 @@ export const notificationsStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
     display: "inline-flex",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     marginTop: vars.space12,
     maxInlineSize: "100%",
     padding: vars.space4,
   },
+  /*
+   * `minInlineSize: 0` is what makes the strip's `nowrap` safe: a flex item
+   * keeps `min-width: auto` by default, so a tab could not shrink below the
+   * min-content width of its label plus its badge and would have overflowed
+   * the track instead of wrapping. With the floor removed the label is the
+   * part that gives (`viewTabLabel`), and the badge — which is a count and
+   * cannot be abbreviated — keeps its size.
+   */
   viewTab: {
     alignItems: "center",
     borderRadius: vars.radiusControl,
     color: vars.colorTextMuted,
     display: "inline-flex",
+    flexShrink: 1,
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
     gap: vars.space8,
+    minInlineSize: 0,
     paddingBlock: vars.space4,
     paddingInline: 10,
+  },
+  viewTabLabel: {
+    minInlineSize: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   viewTabActive: {
     backgroundColor: vars.colorCanvas,
     boxShadow: vars.elevationRaised,
     color: vars.colorText,
   },
-  viewTabIdle: { color: { default: vars.colorTextMuted, ":hover": vars.colorText } },
+  viewTabIdle: {
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+  },
   viewTabCount: {
     borderRadius: vars.radiusFull,
     fontSize: vars.fontSizeMicro,
@@ -103,7 +130,9 @@ export const notificationsStyles = stylex.create({
   destructiveAction: {
     color: { default: vars.colorTextMuted, ":hover": vars.colorDangerText },
   },
-  quietAction: { color: { default: vars.colorTextMuted, ":hover": vars.colorText } },
+  quietAction: {
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+  },
   scroller: { maxHeight: "min(70vh, 40rem)", overflowY: "auto" },
   emptyState: {
     paddingBlock: vars.space32,
@@ -129,7 +158,10 @@ export const notificationsStyles = stylex.create({
     },
     borderBlockEndColor: vars.colorBorder,
     borderBlockEndStyle: "solid",
-    borderBlockEndWidth: { default: vars.borderWidthHairline, ":last-child": 0 },
+    borderBlockEndWidth: {
+      default: vars.borderWidthHairline,
+      ":last-child": 0,
+    },
   },
   rowUnread: {
     backgroundColor: {
@@ -139,12 +171,14 @@ export const notificationsStyles = stylex.create({
     },
   },
   rowBody: { paddingBlock: vars.space12, paddingInline: vars.space16 },
-  rowLead: { alignItems: "flex-start", display: "flex", gap: vars.space12 },
+  rowLead: { alignItems: "flex-start", display: "flex", position: "relative" },
   unreadDot: {
     borderRadius: vars.radiusFull,
     flexShrink: 0,
     height: 6,
-    marginTop: vars.space8,
+    position: "absolute",
+    insetInlineStart: -10,
+    top: vars.space8,
     width: 6,
   },
   unreadDotOn: { backgroundColor: vars.colorAccent },
@@ -157,13 +191,14 @@ export const notificationsStyles = stylex.create({
     justifyContent: "space-between",
   },
   openAction: {
+    display: "block",
     borderRadius: vars.radiusControl,
     flex: 1,
     minWidth: 0,
     pointerEvents: { default: null, ":disabled": "none" },
     textAlign: "start",
   },
-  openActionHead: { alignItems: "center", display: "flex", gap: vars.space4 },
+  openActionHead: { alignItems: "center", display: "flex", gap: 6 },
   kindIcon: { flexShrink: 0, height: 14, width: 14 },
   kindIconWarning: { color: vars.colorWarningText },
   kindIconDanger: { color: vars.colorDangerText },
@@ -188,7 +223,7 @@ export const notificationsStyles = stylex.create({
     fontSize: vars.fontSizeCaption,
     marginTop: vars.space4,
     overflow: "hidden",
-    paddingLeft: vars.space20,
+    paddingInlineStart: vars.space20,
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
@@ -200,7 +235,7 @@ export const notificationsStyles = stylex.create({
     fontSize: vars.fontSizeMicro,
     gap: vars.space4,
     marginTop: 6,
-    paddingLeft: vars.space20,
+    paddingInlineStart: vars.space20,
   },
   locationChip: {
     backgroundColor: vars.colorCanvas,

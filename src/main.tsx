@@ -33,7 +33,17 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "collaboration") {
+if (preview === "ads-regressions") {
+  void import("@/dev/ads-regression-preview").then(({ AdsRegressionPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <AdsRegressionPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
+} else if (preview === "collaboration") {
   void import("@/dev/collaboration-preview").then(
     ({ CollaborationPreview }) => {
       root.render(

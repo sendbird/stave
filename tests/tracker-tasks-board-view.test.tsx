@@ -37,10 +37,23 @@ function makeItem(overrides: Partial<TrackerTask> = {}): TrackerTaskListItem {
   };
 }
 
+const NOW = new Date("2026-03-05T09:00:00.000Z");
+
+const BASE_PROPS = {
+  now: NOW,
+  selectedKey: null as string | null,
+  onSelect: () => {},
+  onKickoff: () => {},
+  onAttach: () => {},
+  onOpenStaveTask: () => {},
+  attachTargetLabel: null,
+};
+
 describe("TasksBoard", () => {
   test("renders a status column for every category and the card body", () => {
     const html = renderToStaticMarkup(
       createElement(TasksBoard, {
+        ...BASE_PROPS,
         items: [
           makeItem({
             key: "ATL-201",
@@ -49,7 +62,6 @@ describe("TasksBoard", () => {
           }),
         ],
         selectedKey: "jira:ATL-201",
-        onSelect: () => {},
       }),
     );
     expect(html).toContain("data-stave-tasks-board");
@@ -59,5 +71,69 @@ describe("TasksBoard", () => {
     expect(html).toContain("Offline edits drop");
     expect(html).toContain("MI");
     expect(html).toContain("sync");
+  });
+
+  test("gives an empty column a placeholder instead of a bare header", () => {
+    const html = renderToStaticMarkup(
+      createElement(TasksBoard, {
+        ...BASE_PROPS,
+        items: [
+          makeItem({
+            key: "ATL-201",
+            status: { raw: "In Progress", category: "in_progress" },
+          }),
+        ],
+      }),
+    );
+    // Five categories, one of them populated: the other four say "nothing
+    // here" rather than collapsing to a bare header.
+    expect(html.split("No tickets").length - 1).toBe(4);
+    expect(html).toContain("ATL-201");
+    // No drag contract exists here, so no column may invite a drop.
+    expect(html).not.toContain("Drop cards here");
+  });
+
+  test("loading draws the column shape with placeholder cards and no rows", () => {
+    const html = renderToStaticMarkup(
+      createElement(TasksBoard, {
+        ...BASE_PROPS,
+        items: [],
+        loading: true,
+      }),
+    );
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('data-board-column="todo"');
+    expect(html).toContain("To do, loading");
+    // The placeholder must not be mistaken for the "nothing here" verdict.
+    expect(html).not.toContain("No tickets");
+  });
+
+  test("carries the ownership signals the list row carries", () => {
+    const html = renderToStaticMarkup(
+      createElement(TasksBoard, {
+        ...BASE_PROPS,
+        items: [
+          makeItem({
+            key: "ATL-207",
+            title: "Reconnect races a merge",
+            // Two days before `NOW`, so the card must surface the overdue date.
+            dueDate: "2026-03-03",
+          }),
+        ],
+      }),
+    );
+    expect(html).toContain("2d overdue");
+  });
+
+  test("clamps a long title instead of widening the column", () => {
+    const title = "supercalifragilistic".repeat(12);
+    const html = renderToStaticMarkup(
+      createElement(TasksBoard, {
+        ...BASE_PROPS,
+        items: [makeItem({ key: "ATL-208", title })],
+      }),
+    );
+    // The full text stays reachable on hover even though the box clamps it.
+    expect(html).toContain(`title="${title}"`);
   });
 });

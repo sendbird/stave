@@ -129,7 +129,7 @@ export const assistantTraceStyles = stylex.create({
   assistantTextBody: {
     flex: 1,
     minWidth: 0,
-    paddingBottom: "1em",
+    paddingBottom: vars.space8,
   },
   // Empty-state and stacking spacers.
   noResponse: {
@@ -148,12 +148,13 @@ export const assistantTraceStyles = stylex.create({
     gap: 6,
   },
   interim: {
+    color: vars.colorTextMuted,
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: vars.space8,
     opacity: 0.5,
   },
   spacedTop: {
-    marginTop: vars.space16,
+    marginTop: vars.space12,
   },
 });

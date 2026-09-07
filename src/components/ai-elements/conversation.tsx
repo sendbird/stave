@@ -1115,16 +1115,21 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
   const button = (
     <Button
       size="sm"
-      variant="outline"
-      className={cx(sx(styles.floatingButton), className)}
+      iconOnly
+      variant="floating"
+      // `xstyle`, not `className`: placement composes into ADS's own
+      // `stylex.props` call, so the square/radius/elevation the `floating`
+      // weight resolves cannot be beaten by emission order.
+      xstyle={styles.floatingButton}
+      className={className}
       onClick={() => {
         scrollToBottom({ behavior: "smooth" });
       }}
-      aria-label="scroll-to-bottom"
+      aria-label="Scroll to bottom"
       type="button"
       {...buttonProps}
     >
-      <ArrowDown className={sx(styles.buttonIcon)} />
+      <ArrowDown />
     </Button>
   );
 
@@ -1207,7 +1212,7 @@ export function ConversationDownload(args: ConversationDownloadProps) {
       }}
       {...props}
     >
-      <Download className={sx(styles.buttonIcon)} />
+      <Download />
     </Button>
   );
 

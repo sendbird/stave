@@ -54,26 +54,44 @@ export const modelSelectorStyles = stylex.create({
     height: vars.controlIconSizeSm,
     color: vars.colorTextMuted,
   },
+  /**
+   * Flush surface. Passed as `xstyle` (never `className`) so `padding: 0`
+   * lands in the SAME `stylex.props` call as `overlayLayout.dialog`'s
+   * `padding: space24` and wins it by last-write dedupe. Delivered through
+   * `className` it was a separate class list, the 24px survived on emission
+   * order, and the command frame's own gutters stacked on top of it — the
+   * thick inset ring around the search field and the option rows.
+   *
+   * `maxInlineSize` restates the narrow-viewport default explicitly rather
+   * than nulling it: a `null` default would dedupe the shim's `28rem` away
+   * and let the dialog span the viewport below 640px.
+   */
   dialogContent: {
     overflow: "hidden",
     borderRadius: vars.radiusPanel,
+    // `gap` goes with `padding`: the shim's `space24` track gap sat between the
+    // screen-reader-only header row and the command frame, so a flush surface
+    // that only zeroed `padding` still opened with a 24px band above the search
+    // field.
+    gap: 0,
     padding: 0,
-    maxWidth: { default: null, "@media (min-width: 640px)": "32rem" },
+    maxInlineSize: { default: "28rem", "@media (min-width: 640px)": "32rem" },
   },
   command: {
     borderRadius: 0,
     backgroundColor: "transparent",
-    padding: 0,
   },
+  // Height cap only. The list gutter is `Command.styles.list`'s `space4`;
+  // restating it here made it the second of two owners.
   commandList: {
     maxHeight: "17.5rem",
-    paddingInline: vars.space4,
-    paddingBottom: vars.space4,
   },
+  // Row height and the icon/copy gap are this surface's (its rows carry a
+  // description line). The inline gutter is the ADS item's `space8`, so the
+  // row edge lines up with the group heading and the list padding.
   optionItem: {
     gap: "0.75rem",
     borderRadius: vars.radiusControl,
-    paddingInline: vars.space12,
     paddingBlock: "0.625rem",
   },
   optionAccentIcon: {

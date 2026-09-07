@@ -1,15 +1,5 @@
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUp,
-  Equal,
-  Minus,
-  type LucideIcon,
-} from "lucide-react";
-
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { TRACKER_SOURCE_LABELS } from "@/lib/tracker-tasks/context";
-import type { TrackerPriorityIconName } from "@/lib/tracker-tasks/presentation";
 import type {
   TrackerTaskLinkState,
   TrackerTaskStaveLink,
@@ -17,25 +7,6 @@ import type {
 import { toast } from "@/components/ui";
 
 export { TRACKER_SOURCE_LABELS };
-
-/**
- * Icon-name to component resolution for the priority glyph.
- *
- * `presentation.ts` deliberately returns names rather than components so it
- * stays importable without React; this map is the single place those names are
- * bound, so a row and a detail pane cannot disagree about what "high" looks
- * like.
- */
-export const TRACKER_PRIORITY_ICONS: Record<
-  TrackerPriorityIconName,
-  LucideIcon
-> = {
-  ChevronsUp,
-  ChevronUp,
-  Equal,
-  ChevronDown,
-  Minus,
-};
 
 /**
  * How a Stave run reads on a tracker row.

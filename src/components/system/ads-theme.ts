@@ -74,14 +74,10 @@ const roles = {
    */
   colorAccentHover:
     "color-mix(in oklab, var(--primary-foreground) 8%, var(--primary))",
-  // `colorAccentSoft` is the hover wash; `colorSelectionFill` is the persistent
-  // selected fill. Both aliased `--accent`, so hovering a row looked exactly
-  // like selecting it. ADS keeps soft one step LIGHTER than selection in light
-  // (0.97 vs 0.93); mixing the accent back towards the surface reproduces that
-  // (light 0.958 vs 0.910) and in dark lands soft between the surface and the
-  // selection fill (0.241, between card 0.205 and accent 0.285) rather than
-  // collapsing onto it.
-  colorAccentSoft: "color-mix(in oklab, var(--accent) 45%, var(--card))",
+  // ADS's soft emphasis is a neutral wash. Using the host's selected accent
+  // here spread blue across ordinary rows, chips and payload chrome. Derive
+  // the wash from the theme's ink and surface; selection keeps its own role.
+  colorAccentSoft: "color-mix(in oklab, var(--foreground) 4%, var(--card))",
   colorAccentText: "var(--primary-foreground)",
   colorSelectionFill: "var(--accent)",
   colorDanger: "var(--destructive)",

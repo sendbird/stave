@@ -52,6 +52,7 @@ import { EditorMarkdownPreview } from "@/components/layout/editor-markdown-previ
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { hostSurface } from "@/components/ui/host-surface.styles";
 import { skillStyles } from "./workspace-skills.styles";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import type {
@@ -276,7 +277,7 @@ function SkillRow(props: {
       <AdsButton
         layout="host"
         type="button"
-        xstyle={skillStyles.rowOpen}
+        xstyle={[skillStyles.rowOpen, hostSurface.inertChrome]}
         onClick={props.onClick}
       >
         <div className={sx(skillStyles.rowScope)}>

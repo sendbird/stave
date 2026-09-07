@@ -21,6 +21,7 @@ import {
 } from "@/lib/plans";
 import { sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
+import { hostSurface } from "@/components/ui/host-surface.styles";
 import { planStyles } from "./workspace-plans.styles";
 
 interface WorkspacePlansSectionProps {
@@ -303,7 +304,10 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                   layout="host"
                   type="button"
                   onClick={() => void onOpenFile({ filePath: entry.filePath })}
-                  xstyle={planStyles.rowOpen}
+                  // The row above owns the wash; `inertChrome` stops ADS's
+                  // host-layout trigger recipe painting a second, square one
+                  // inside it.
+                  xstyle={[planStyles.rowOpen, hostSurface.inertChrome]}
                   title={entry.filePath}
                 >
                   <ClipboardCheck

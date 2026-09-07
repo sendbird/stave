@@ -106,3 +106,31 @@ export function isAttentionState(state: AgentRunState): boolean {
     state === "canceled"
   );
 }
+
+/**
+ * Whether the status WORD is chrome rather than information.
+ *
+ * `isAttentionState` above answers "is this loud", and `statusWordTone` in
+ * `ToolRun.parts` already spends that answer once: a finished run takes neutral
+ * ink instead of success green, so a column of settled rows does not out-shout
+ * the one that failed. This is the same argument carried to its conclusion. A
+ * run that ended the way it was supposed to end says nothing by saying
+ * "Completed" — the row is there, its clock stopped, its output is under it —
+ * and eight of them in a transcript is eight repetitions of the only outcome
+ * that needed no reporting. Neutral ink made the word quiet; it did not make it
+ * stop being read.
+ *
+ * So the word is removed from the page for exactly these two states and kept in
+ * the accessibility tree, where a screen-reader user is stepping through rows
+ * one at a time and "Completed" is genuinely the answer to "what happened to
+ * this one". Every other state — including the live ones, which carry a
+ * `Loader`, and `checkpointed`/`resumed`, which report a thing the reader did
+ * not ask for — keeps its visible word.
+ *
+ * This is deliberately NOT the complement of `isAttentionState`: `pending`,
+ * `queued` and `running` are neither loud nor quiet, and a running row that
+ * said nothing at all would be indistinguishable from a settled one.
+ */
+export function isQuietState(state: AgentRunState): boolean {
+  return state === "completed" || state === "done";
+}

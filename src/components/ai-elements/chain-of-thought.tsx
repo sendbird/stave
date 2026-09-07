@@ -397,6 +397,8 @@ export function ChainOfThoughtContent({
   return (
     <StepRail
       className={className}
+      rail={false}
+      density="compact"
       xstyle={[
         s.content,
         agentStyle === "legacy"

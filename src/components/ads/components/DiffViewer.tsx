@@ -5,7 +5,7 @@ import type * as React from "react";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   annotateWordDiff,
   diffLines,
@@ -36,10 +36,6 @@ import {
  * around each change, with an inline expand affordance. Omit it to render
  * every line.
  *
- * Ported from the ADS upstream `DiffViewer` into the host-owned installed copy.
- * The upstream `XstyleProp` layer is not part of the installed `utils/stylex`,
- * so the `xstyle` escape hatch is dropped; callers style the wrapper via
- * `className`.
  */
 
 export type DiffViewerMode = "unified" | "split";
@@ -74,7 +70,7 @@ export type DiffViewerProps = Omit<React.ComponentProps<"div">, "children"> & {
    * runs collapse behind an "Expand" affordance. Omit to show all lines.
    */
   context?: number;
-};
+} & XstyleProp;
 
 const signFor = { add: "+", equal: " ", remove: "-" } as const;
 
@@ -115,6 +111,7 @@ export function DiffViewer({
   context,
   granularity = "line",
   mode = "unified",
+  xstyle,
   ...props
 }: DiffViewerProps) {
   const ops = useMemo(() => {
@@ -159,7 +156,7 @@ export function DiffViewer({
     <div
       {...props}
       aria-label={props["aria-label"] ?? "Text diff"}
-      className={cx(sx(styles.root), className)}
+      className={cx(sx(styles.root, xstyle), className)}
       role="group"
     >
       {mode === "unified"

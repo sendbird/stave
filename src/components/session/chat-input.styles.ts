@@ -125,11 +125,10 @@ export const chatInputStyles = stylex.create({
     marginTop: vars.space4,
     width: 6,
   },
-  compareControlGroup: {
-    alignItems: "stretch",
-    display: "inline-flex",
-    gap: vars.space2,
-  },
+  // Geometry lives on the composer lane's group recipe
+  // (`COMPOSER_CONTROL_GROUP`): it is the lane that knows whether this row is
+  // full-width, and it is the marker that tells the two halves to stop each
+  // claiming the whole row. Nothing product-specific is left here.
   compareControlMenuTrigger: {
     paddingInline: vars.space4,
   },
