@@ -14,12 +14,6 @@ const traceRowIn = stylex.keyframes({
   to: { opacity: 1, transform: "translateY(0)" },
 });
 
-// In-progress todo spinner. Reduced motion holds the glyph still.
-const spin = stylex.keyframes({
-  from: { transform: "rotate(0deg)" },
-  to: { transform: "rotate(360deg)" },
-});
-
 export const assistantTraceStyles = stylex.create({
   // Icon that tracks the surrounding font size (glyphs inside a text run).
   glyphEm: {
@@ -75,11 +69,6 @@ export const assistantTraceStyles = stylex.create({
     paddingBlock: "0.125rem",
     paddingInline: 6,
   },
-  todoProgress: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
-    fontSize: "0.75em",
-    marginLeft: vars.space4,
-  },
   diffSummary: {
     alignItems: "center",
     display: "inline-flex",
@@ -100,52 +89,6 @@ export const assistantTraceStyles = stylex.create({
     color: vars.colorDanger,
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars.fontWeightMedium,
-  },
-  // Todo detail list.
-  todoList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-  todoItem: {
-    alignItems: "flex-start",
-    color: vars.colorText,
-    display: "flex",
-    fontSize: "0.875em",
-    gap: vars.space8,
-  },
-  todoIcon: {
-    flexShrink: 0,
-    height: 14,
-    marginTop: "0.125rem",
-    width: 14,
-  },
-  todoIconDone: {
-    color: vars.colorSuccess,
-  },
-  todoIconActive: {
-    animationName: {
-      default: spin,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationTimingFunction: "linear",
-    color: vars.colorAccent,
-  },
-  todoIconPending: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 50%, transparent)`,
-  },
-  todoTextDone: {
-    color: vars.colorTextMuted,
-    textDecorationLine: "line-through",
-  },
-  todoTextActive: {
-    color: vars.colorText,
-    fontWeight: vars.fontWeightMedium,
-  },
-  todoTextPending: {
-    color: vars.colorTextMuted,
   },
   // Assistant-text bullet row.
   rowMotionLegacy: {

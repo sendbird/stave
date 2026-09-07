@@ -16,6 +16,11 @@
       "integrity": "sha256-2be2ce2830e752d508f56d607572c8a766a8ad4f06adade2f9f97dd8d179c2e4"
     },
     {
+      "path": "src/components/ads/components/Approval.tsx",
+      "sourcePath": "packages/design-system/src/components/Approval.tsx",
+      "integrity": "sha256-9b67d6516621c653f2d96e3f71ead9833424560e7fd35cee46aaaf92733f8610"
+    },
+    {
       "path": "src/components/ads/components/Badge.tsx",
       "sourcePath": "packages/design-system/src/components/Badge.tsx",
       "integrity": "sha256-16900faf6c97b278641517726bffaa8ced9fc0a1f7d31b1eb7fc4244f3743e81"
@@ -44,6 +49,16 @@
       "path": "src/components/ads/components/Card.tsx",
       "sourcePath": "packages/design-system/src/components/Card.tsx",
       "integrity": "sha256-b082ee77dc18c691369e15fcefec0a74d8f5c93298b0234afdf4ad3acb9fee94"
+    },
+    {
+      "path": "src/components/ads/components/Checkpoint.tsx",
+      "sourcePath": "packages/design-system/src/components/Checkpoint.tsx",
+      "integrity": "sha256-7eda2ef33bf6a618f2f0ebd60d6512a1c2b3054f7afdcd86ee6a9047e4b39933"
+    },
+    {
+      "path": "src/components/ads/components/Clarification.tsx",
+      "sourcePath": "packages/design-system/src/components/Clarification.tsx",
+      "integrity": "sha256-0e6e848acb6ee4229e954179a62879529161349b468bb9f85180d6d11acc0a9d"
     },
     {
       "path": "src/components/ads/components/Collapsible.panel-mount.tsx",
@@ -139,6 +154,16 @@
       "path": "src/components/ads/components/Menu.tsx",
       "sourcePath": "packages/design-system/src/components/Menu.tsx",
       "integrity": "sha256-f74832563c42e85c1e81cb9bb5589efa0ee35c683930ea729daf7907959e6cd2"
+    },
+    {
+      "path": "src/components/ads/components/Plan.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Plan.parts.tsx",
+      "integrity": "sha256-a1cf274934274d7d13cbc94eeab6181c49016f5aa25b5bddbaf110463f31fbad"
+    },
+    {
+      "path": "src/components/ads/components/Plan.tsx",
+      "sourcePath": "packages/design-system/src/components/Plan.tsx",
+      "integrity": "sha256-31a0f90baa1b41d69e46b5b00d80915f360aa2c9ba3386eb4d30938e80dd8fed"
     },
     {
       "path": "src/components/ads/components/Popover.tsx",
@@ -541,6 +566,22 @@
     },
     {
       "id": "emptystate",
+      "kind": "component"
+    },
+    {
+      "id": "approval",
+      "kind": "component"
+    },
+    {
+      "id": "checkpoint",
+      "kind": "component"
+    },
+    {
+      "id": "clarification",
+      "kind": "component"
+    },
+    {
+      "id": "plan",
       "kind": "component"
     }
   ],

@@ -3,14 +3,11 @@ import { useMemo } from "react";
 import {
   Bot,
   Brain,
-  CheckCircle2,
-  Circle,
   FileCode2,
   FileText,
   Globe,
   Info,
   ListTodo,
-  LoaderCircle,
   Pencil,
   Search,
   ShieldCheck,
@@ -27,7 +24,6 @@ import {
   ChainOfThoughtContent,
   ChainOfThoughtStep,
   ChainOfThoughtTrigger,
-  getTodoProgress,
   MessageResponse,
   parseSubagentToolInput,
 } from "@/components/ai-elements";
@@ -46,10 +42,7 @@ import {
 } from "@/components/session/chat-panel.utils";
 import { sx } from "@/components/ads/utils/stylex";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
-import {
-  isStaveToolName,
-  toStaveToolDisplayName,
-} from "@/lib/tool-display-name";
+import { isStaveToolName } from "@/lib/tool-display-name";
 import { formatWorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import {
   isProviderFailureRecoveryEligible,
@@ -62,10 +55,10 @@ import type {
   ThinkingPart,
 } from "@/types/chat";
 import {
-  deriveTodoTraceItems,
   deriveTodoTraceStatus,
   deriveTraceToolSummary,
   getResidualToolInput,
+  getToolTitle,
   normalizeTraceToolName,
   type TraceToolSummary,
 } from "./assistant-trace.utils";
@@ -75,6 +68,13 @@ import {
   type AssistantTraceEntry,
 } from "./assistant-trace-builder";
 import { CommandResult } from "./command-result";
+import {
+  planProgressCount,
+  TraceApproval,
+  TraceClarification,
+  TracePlan,
+} from "./turn-event-decisions";
+import { TraceSystemNotice } from "./turn-event-notice";
 import {
   ReasoningRow,
   SubagentProgress,
@@ -166,12 +166,6 @@ function getToolIcon(toolName: string): ReactNode {
   }
 }
 
-function getToolTitle(toolName: string): string {
-  return isStaveToolName(toolName)
-    ? toStaveToolDisplayName(toolName)
-    : toolName;
-}
-
 function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
   switch (entry.kind) {
     case "reasoning":
@@ -259,14 +253,9 @@ function getEntrySummary(entry: AssistantTraceEntry): ReactNode {
         <span className={sx(styles.subagentChip)}>{parsed.subagentType}</span>
       ) : null;
     }
-    case "todo": {
-      const progress = getTodoProgress({ input: entry.part.input });
-      return progress.totalCount > 0 ? (
-        <span className={sx(styles.todoProgress)}>
-          {progress.completedCount}/{progress.totalCount}
-        </span>
-      ) : null;
-    }
+    case "todo":
+      /* The plan's progress is a `ToolRun` count, not a host chip. */
+      return null;
     case "diff": {
       /* `+N / -N` uses the semantic success / destructive tokens so the counts
          stay legible in every built-in theme (no new colour tokens). */
@@ -387,48 +376,6 @@ function buildTraceSummary(entries: AssistantTraceEntry[]): TraceSummaryItem[] {
     label,
     count,
   }));
-}
-
-/* ─── Step detail components (expanded content) ───────────────────── */
-
-function TodoStepDetail(args: {
-  input: string;
-  state?:
-    "input-streaming" | "input-available" | "output-available" | "output-error";
-}) {
-  const todos = useMemo(
-    () => deriveTodoTraceItems(args),
-    [args.input, args.state],
-  );
-
-  return (
-    <ol className={sx(styles.todoList)}>
-      {todos.map((todo, index) => (
-        <li key={`${todo.content}-${index}`} className={sx(styles.todoItem)}>
-          {todo.status === "completed" ? (
-            <CheckCircle2
-              className={sx(styles.todoIcon, styles.todoIconDone)}
-            />
-          ) : todo.status === "in_progress" ? (
-            <LoaderCircle
-              className={sx(styles.todoIcon, styles.todoIconActive)}
-            />
-          ) : (
-            <Circle className={sx(styles.todoIcon, styles.todoIconPending)} />
-          )}
-          <span
-            className={sx(
-              todo.status === "completed" && styles.todoTextDone,
-              todo.status === "in_progress" && styles.todoTextActive,
-              todo.status === "pending" && styles.todoTextPending,
-            )}
-          >
-            {todo.content}
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
 }
 
 /* ─── Reasoning step (message-duration summary) ──────────────────── */
@@ -685,19 +632,28 @@ function AssistantTraceEntryView(args: {
       );
     }
 
+    /*
+     * The plan revision is a tool call — TodoWrite genuinely is one — so the
+     * row is `ToolRun` and the payload is ADS `Plan`. That is what keeps §4's
+     * matrix true for this kind: the row opens while the call streams, settles
+     * and collapses when it lands, and the collapsed line still carries
+     * `done / total`, so the collapse hides no progress.
+     */
     case "todo":
       return (
-        <ChainOfThoughtStep
-          last={isLast}
-          title="Todo"
-          status={status}
-          icon={icon}
-          summary={summary}
-          defaultOpen={entry.part.state === "input-streaming"}
-          openWhen={entry.part.state === "input-streaming"}
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <TodoStepDetail input={entry.part.input} state={entry.part.state} />
-        </ChainOfThoughtStep>
+          <ToolRun
+            count={planProgressCount(entry.part.input)}
+            icon={icon}
+            status={toAgentRunState(entry.part.state)}
+            title="Plan"
+          >
+            <TracePlan input={entry.part.input} state={entry.part.state} />
+          </ToolRun>
+        </StepRail.Step>
       );
 
     case "diff":
@@ -722,48 +678,38 @@ function AssistantTraceEntryView(args: {
         </ChainOfThoughtStep>
       );
 
+    /*
+     * A human decision, not a tool call: ADS `Approval` owns the status word,
+     * the focus hand-off when the pressed button unmounts, and the rule that
+     * the decision is preserved in the transcript rather than replaced by it.
+     * There is no disclosure — the gate is the payload.
+     */
     case "approval":
       return (
-        <ChainOfThoughtStep
-          last={isLast}
-          title={`Approval: ${getToolTitle(entry.part.toolName)}`}
-          status={status}
-          icon={icon}
-          defaultOpen
-          data-pending-interaction={
-            entry.part.state === "approval-requested" ? "true" : undefined
-          }
-          data-pending-interaction-request-id={
-            entry.part.state === "approval-requested"
-              ? entry.part.requestId
-              : undefined
-          }
-          tabIndex={entry.part.state === "approval-requested" ? -1 : undefined}
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <MessagePartRenderer
+          <TraceApproval
+            messageId={messageId}
             part={entry.part}
             taskId={taskId}
-            messageId={messageId}
           />
-        </ChainOfThoughtStep>
+        </StepRail.Step>
       );
 
     case "user_input":
       return (
-        <ChainOfThoughtStep
-          last={isLast}
-          title={`Input: ${getToolTitle(entry.part.toolName)}`}
-          status={status}
-          icon={icon}
-          defaultOpen
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <MessagePartRenderer
+          <TraceClarification
+            messageId={messageId}
             part={entry.part}
             taskId={taskId}
-            messageId={messageId}
-            userInputPresentation="summary"
           />
-        </ChainOfThoughtStep>
+        </StepRail.Step>
       );
 
     case "system": {
@@ -787,23 +733,30 @@ function AssistantTraceEntryView(args: {
           : { ...entry.part, content: systemDetail };
 
       return (
-        <ChainOfThoughtStep
-          last={isLast}
-          title={providerErrorNotice?.message ?? systemTitle}
-          status={status}
-          icon={icon}
-          defaultOpen={entry.part.compactBoundary != null || isCapacityError}
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          {hasDistinctSystemContent ? (
-            <MessagePartRenderer
-              part={systemBodyPart}
-              taskId={taskId}
-              messageId={messageId}
-              terminalStopReason={terminalStopReason}
-              systemEventPresentation={isCapacityError ? "detail" : "full"}
-            />
-          ) : null}
-        </ChainOfThoughtStep>
+          <TraceSystemNotice
+            attention={
+              entry.part.compactBoundary != null ||
+              isCapacityError ||
+              providerErrorNotice != null
+            }
+            status={providerErrorNotice != null ? "failed" : undefined}
+            title={providerErrorNotice?.message ?? systemTitle}
+          >
+            {hasDistinctSystemContent ? (
+              <MessagePartRenderer
+                part={systemBodyPart}
+                taskId={taskId}
+                messageId={messageId}
+                terminalStopReason={terminalStopReason}
+                systemEventPresentation={isCapacityError ? "detail" : "full"}
+              />
+            ) : null}
+          </TraceSystemNotice>
+        </StepRail.Step>
       );
     }
   }

@@ -25,10 +25,10 @@ which produces one entry per kind. Every entry is one step on the rail.
 | file change / diff       | `FileChangeSummary` + `DiffViewer` | the summary is the header the diff does not draw                       |
 | search / web + citations | `ToolRun` + `Citation.List`  | sources come from URLs in the provider's own output                          |
 | subagent                 | `ToolRun`                    | `Bot` glyph, prompt in `input`, report in `output` as prose                   |
-| todo / plan              | host `ChainOfThoughtStep`    | ADS `Plan` is not installed in this copy — see §7                            |
-| approval                 | host `ChainOfThoughtStep`    | ADS `Approval` is not installed — see §7                                     |
-| user input               | host `ChainOfThoughtStep`    | ADS `Clarification` is not installed — see §7                                |
-| system                   | host `ChainOfThoughtStep`    | first non-empty line is the title; the rest is the body                       |
+| todo / plan              | `ToolRun` + `Plan`           | TodoWrite is a real tool call; the plan is its payload                        |
+| approval                 | `Approval`                   | ADS is presentation only — the decision still calls `resolveApproval`         |
+| user input               | `Clarification`              | fields are ADS `RadioGroup` / `Checkbox` / `TextField`                        |
+| system                   | `agentSurface` + `inlineDisclosure` | a recipe composition: ADS has no notice surface — see §8               |
 | assistant text (interim) | none                         | prose on the rail, no disclosure — it is language, not an event               |
 
 Two rules that decide what does **not** become a kind:
@@ -101,6 +101,51 @@ maps into it exactly once, in
 | `output-error`              | `failed`        | Failed, danger     | **stays open**                  |
 | approval requested          | `approval`      | Awaiting approval  | **stays open**                  |
 | interrupted / canceled turn | `interrupted` / `canceled` | warning / neutral | closed             |
+
+The four kinds adopted last are the same matrix read against the signal each
+one actually has. Two of them have no disclosure at all, and that is the
+correct answer rather than a gap:
+
+| Kind        | Live means                          | Open                            | Settled                                            |
+| ----------- | ----------------------------------- | ------------------------------- | -------------------------------------------------- |
+| todo / plan | the TodoWrite call is running       | `ToolRun` opens; `Plan` inside  | collapses, and the row keeps `done / total`         |
+| approval    | — (no run)                          | always, until answered          | the audit record replaces the buttons in place      |
+| user input  | — (no run)                          | always, until answered          | the recorded answer replaces the fields in place    |
+| system      | the notice is a failure or boundary | attention notices stay open     | an ordinary notice collapses to its one titled line |
+
+- **A plan is not a disclosure of its own.** `Plan` has no collapsed form by
+  design — it is the durable half of the reasoning story and stays readable
+  after the thought that produced it closed. Collapsibility comes from the
+  `ToolRun` row it is the payload of, so the plan settles with the call that
+  wrote it, and the collapsed row still carries the progress count. Nothing is
+  hidden by the collapse.
+- **A decision surface has no collapsed form either.** Open, the payload *is*
+  the question; resolved, it is the audit record. Neither state has a one-line
+  summary to collapse to, and §4.2's rule already exempts an approval gate from
+  auto-collapse. The resolution is *preserved in place*, not replaced: the
+  title, the description and the arguments the action would have run with all
+  survive the decision, because a decision you cannot see afterwards is a
+  decision you cannot audit.
+- **A notice has no clock**, so `live` is read as "attention": a provider
+  failure, a capacity error or a compaction boundary stays open, and everything
+  else collapses. That is `isAttentionState`'s rule evaluated against the only
+  signal the kind has.
+
+### Records that are not decisions
+
+Two states in this family are neither answered nor pending, and §5 forbids
+rendering them as the nearest one:
+
+| Stave state            | ADS value                        | Why not the nearest decision                                                 |
+| ---------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| `approval-responded`   | `outcome.decision: "allowed"`    | Stave keeps *whether* it was answered, not the scope. `allow-once` claims a single-use grant and `allow-always` a standing one; both state a fact nobody recorded. |
+| `approval-interrupted` | `outcome.decision: "lapsed"`     | `deny` credits the reader with a refusal they never gave; a `null` outcome leaves three live buttons on a gate the host can no longer answer.                      |
+| `input-interrupted`    | `outcome.result: "lapsed"`       | `skipped` is a reader's choice. Same argument, same word on screen — "Withdrawn" — so the two surfaces cannot name one event twice.                                |
+
+Both `lapsed` values take neutral ink and never `danger`: a lapse is not a
+refusal. They were added to ADS in this pass —
+`consumer-changes/2026-09-07-approval-resolution-beyond-the-decision.json` and
+`2026-09-07-clarification-lapsed-result.json`.
 
 Rules, all owned by ADS `useSettleDisclosure` and `isAttentionState` — do not
 re-derive them per call site:
@@ -187,22 +232,61 @@ that arrive as a unit — a step, a chip — which may rise a few pixels. Under
 blur and overshoot go; every `transition.*` key already carries that override,
 which is why components compose it instead of hand-rolling a transition.
 
-## 8. Kinds still rendered by the host
+## 8. Notices, and the one surface ADS does not have
 
-`todo`, `approval`, `user input` and `system` render through the host
-[`ChainOfThoughtStep`](../../src/components/ai-elements/chain-of-thought.tsx),
-which is itself a `StepRail.Step`, so they share the rail, the gutter and the
-row rhythm with the ADS rows beside them.
+`todo`, `approval` and `user input` now render through `Plan`, `Approval` and
+`Clarification`. `system` does not, because ADS has no notice surface and the
+two candidates are both the wrong shape:
 
-They are **not** forced onto `ToolRun`. ADS has purpose-built surfaces for
-three of them — `Plan`, `Approval`, `Clarification` — and calling a human
-decision a "tool call" would be exactly the two-names-for-one-state bug the
-shared `AgentRunState` exists to prevent. Adopting them is a follow-up: install
-those components into
-[`src/components/ads`](../../src/components/ads/PROVENANCE.md) and move the
-kinds over one at a time.
+- `ToolRun` would name a runtime event a "tool call", which is exactly the
+  two-names-for-one-state bug the shared `AgentRunState` exists to prevent.
+- `Callout` is authored prose in a reading column. It draws a tint and has no
+  disclosure, and a transcript notice is neither authored nor short — its
+  payload is a stack trace or a recovery action.
+
+So the notice row is *composed* from the primitives ADS publishes for the job:
+`agentSurface.row` for the row, the `inlineDisclosure` recipe for the
+trigger / panel / body rungs, `InlineDisclosureIcon` for the single leading
+slot that swaps the glyph for the chevron, and `useSettleDisclosure` for the
+lifecycle. Every token, rung and curve therefore still comes from ADS and
+nothing is re-derived, which is the difference between composing the system and
+forking it. If ADS grows an agent-notice component, this composition is what it
+should replace.
+
+`Checkpoint` is installed but not yet wired. It is the right surface for a
+compaction boundary — two hairlines flanking a glyph, a label, a machine value
+and a Restore control, and explicitly not a card in the stack — but Stave's
+restore runs a destructive `git restore --worktree` behind a
+**confirm-then-restore** second click, and `Checkpoint` models a single
+`onRestore`. Swapping now would silently drop the confirmation step, so the
+boundary keeps the host surface until ADS can express a destructive restore.
 
 `ToolRun.Group` is likewise not used yet. The trace's grouping axis is
 adjacency *within* a step — reasoning parts, diff parts — not runs of sibling
 tool calls, and the rail already provides the rung-2 grouping that a
 non-rolled-up group would.
+
+## 9. Prose is not markup
+
+The transcript's markdown renderer had no `h1`–`h6` overrides, so a heading in
+assistant prose fell through to the user-agent sheet at `2em` bold — and once
+ADS's reset zeroed the UA `margin-block` on headings, that landed as an
+outsized bold line with no separation from the paragraphs around it. It is
+fixed in the host prose layer, where it belongs: `markdownStyles.heading*` in
+[`message-markdown.styles.ts`](../../src/components/ai-elements/message-markdown.styles.ts).
+
+The sizes are `em`, not `fontSize*` tokens. The message body's size is a host
+value the reader sets, so an absolute rem step would hold still while the prose
+around it grew and would invert the hierarchy at the small end.
+
+The louder half was the parser. A sentence followed immediately by `---` is a
+CommonMark **setext heading**, so ordinary prose that a model followed with a
+divider became an `<h2>` — the "text sometimes renders like a heading" report,
+exactly. [`message-markdown.setext.ts`](../../src/components/ai-elements/message-markdown.setext.ts)
+inserts the blank line that turns it back into the rule the author meant. It is
+a source-text normalization rather than a remark plugin on purpose: by the time
+a plugin sees the tree the heading is already built, and no `position` data
+distinguishes `Title\n---` from `## Title` after the fact. Only three-or-more
+dashes are rescued — a shorter underline would become an empty list item — and
+fenced code, list items, blockquotes, table rows and already-separated rules
+are left exactly as written.
