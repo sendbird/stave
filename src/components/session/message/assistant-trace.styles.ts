@@ -77,10 +77,29 @@ export const assistantTraceStyles = stylex.create({
     fontSize: "0.875em",
   },
 
+  /**
+   * Interim prose on the rail. It carries no object glyph — nothing produced
+   * it but the model writing a sentence — and inventing a mark just to fill
+   * the column would name a kind this row does not have.
+   *
+   * What it may not do is start *in* that column. Every other row on this
+   * rail (`ToolRun`, `Thinking`, a notice) is `agentSurface.row` plus an
+   * `InlineDisclosureIcon`, so its text begins one glyph column in; prose
+   * flush to the rail's own edge was the single ragged left edge in the
+   * transcript, and it read as though the sentence had escaped the run it
+   * belongs to. So the column is reserved and left empty.
+   *
+   * The inset is that column's own construction rather than a measured
+   * constant: `agentSurface.row`'s inline padding, the glyph slot's
+   * `controlIconSizeMd` box, and `inlineDisclosure.trigger`'s gap. The
+   * trailing pad closes the row on the same edge the triggers do.
+   */
   assistantTextBody: {
     flex: 1,
     minWidth: 0,
     paddingBottom: vars.space8,
+    paddingInlineEnd: vars.space8,
+    paddingInlineStart: `calc(${vars.space8} + ${vars.controlIconSizeMd} + ${vars.space8})`,
   },
   // Empty-state and stacking spacers.
   noResponse: {

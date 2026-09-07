@@ -19,6 +19,7 @@ export type ExtendedLoaderVariant =
   | "explore"
   | "handoff"
   | "persist"
+  | "reason"
   | "route"
   | "sync"
   | "verify"

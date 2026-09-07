@@ -159,3 +159,16 @@ Further host extensions:
   `consumer-changes/2026-09-07-selection-follows-theme-tokens.json`; the
   installed copy is guarded by `tests/ads-selection-tokens.test.ts`, because the
   upstream `selection-sync` script does not run in this repository.
+
+- `Loader` gained the `reason` cadence upstream first — the inference figure
+  (two premises, the rule that joins them, then the conclusion, lighting in that
+  order once per loop) — and `Thinking` now defaults to it instead of `matrix`.
+  It is the mark the reasoning row on this transcript owns: a chain of thought
+  is a step derived from the step before it, and `matrix` names an
+  undifferentiated field of inference, which is the wrong claim for a trace
+  whose whole content is one step following another. The four Loader geometry
+  files stay byte-identical to the upstream bundle; `Loader.tsx` and
+  `Thinking.tsx` are host-modified, so the change is applied there as a hunk.
+  `ChainOfThought` keeps `cascade` for the turn header, so the container and its
+  first step still run different cadences. ADS record:
+  `consumer-changes/2026-09-08-loader-reason-cadence.json`.
