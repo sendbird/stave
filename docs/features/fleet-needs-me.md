@@ -62,12 +62,27 @@ optional shortcuts on top of that.
   history. It does not mark the task or original ticket complete. Use `Results`
   in the task to inspect history or select `Reopen review`.
 - `Open PR`: opens the pull request for review blockers or merge-ready work.
+- `Snooze`: hides one item for 1 hour, 4 hours, 1 day, or 1 week. Available on
+  every item, including blocking ones. A snooze is time-bounded and never
+  answers the request behind the item, so the item returns on its own when the
+  deadline passes.
+- `Clear all` on `Worth a look`: acknowledges the whole review group in one
+  action. It is deliberately absent from `Action required`, where an agent is
+  still waiting for a real answer.
+- `Restore`: brings every snoozed item back immediately. The rail always reports
+  how many items a snooze is hiding, so nothing disappears without a count.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
 
 ### Items That Clear Themselves
 
-- Opening a task reads its notifications. Its results remain unreviewed until
-  you explicitly review them, including results arriving while you watch.
+- Reading a finished turn in the task window acknowledges its `Result ready` or
+  `Run failed` item. Stave requires the task window to be focused and showing
+  that exact task for a couple of seconds before it counts as read, so stepping
+  through tasks or passing through one does not acknowledge anything. A result
+  that arrives while you are already watching serves the same short wait before
+  it clears, and a turn that is still running is never acknowledged.
+- Opening a task also reads its notifications. `Results` in the task still shows
+  the saved review and offers `Reopen review`.
 - Answering a question or resolving an approval in the task window clears the
   item, including when an agent answers through the managed host.
 - Stopping a turn, archiving a task, or restarting Stave settles the requests
@@ -96,6 +111,13 @@ optional shortcuts on top of that.
 - Fleet does not create a separate task ledger or execution database.
 - Live task state is preferred when available. Historical waiting/error labels
   do not make a workspace look `Running` after its provider turn has ended.
+- Snoozes are stored per item, keyed by the item's identity rather than by its
+  source, and expired rows are retired on read. A snooze hides an item; it never
+  edits the request, result, or pull request behind it.
+- `Clear all` routes each item to whichever mechanism owns it: a durable result
+  is marked reviewed, a notification-backed item is read and resolved, and a
+  pull-request item — whose state lives on GitHub and would be rebuilt on the
+  next projection — is snoozed for a day instead.
 - Durable notifications keep pending interactions visible; a separate SQLite
   result history preserves review state after notification reads, expiry, and
   cleanup. Old retained outcomes migrate as unreviewed, even if their notifications
@@ -135,10 +157,20 @@ optional shortcuts on top of that.
 
 ### A Completed Result Disappeared
 
-- Symptom: a result no longer appears after selecting `Mark reviewed`.
-- Cause: that specific run is reviewed and leaves the pending queue.
+- Symptom: a result no longer appears in Fleet.
+- Cause: it is reviewed and has left the pending queue, either from
+  `Mark reviewed`, from `Clear all`, or because the task window showed that turn
+  while focused for long enough to count as read.
 - Fix: open the task's `Results` panel to inspect the saved review or reopen it.
-  Opening the task or clearing notifications alone never acknowledges a review.
+  Clearing notifications alone never acknowledges a review.
+
+### A Snoozed Item Has Not Come Back
+
+- Symptom: an item is missing and the rail footer reports snoozed items.
+- Cause: its snooze deadline has not passed yet.
+- Fix: select `Restore` in the rail footer to bring every snoozed item back now.
+  Snoozes survive a restart on the desktop app; in a browser session they are
+  best-effort only.
 
 ### A Question Or Approval Belongs To A Finished Task
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { captureBrowserResult, listResultReviews, setResultReviewed, invalidateResultReviews } from "../src/lib/reviews/result-review-client";
+import { captureBrowserResult, listResultReviews, setResultReviewed, setResultsReviewed, invalidateResultReviews } from "../src/lib/reviews/result-review-client";
 import { pruneNotifications } from "../src/lib/db/notifications.db";
 import type { AppNotification } from "../src/lib/notifications/notification.types";
 
@@ -47,4 +47,21 @@ test("quota errors do not claim a saved review", async () => {
   window.localStorage.setItem = () => { throw new Error("quota exceeded"); };
   await expect(setResultReviewed(scope)).rejects.toThrow("quota exceeded");
   expect((await listResultReviews({ pendingOnly: true })).total).toBe(1);
+});
+
+test("bulk review clears the browser mirror and refuses a failed desktop write", async () => {
+  captureBrowserResult(notification);
+  const bulk = {
+    scopes: [{ projectPath: "/tmp/project", workspaceId: "workspace", taskId: "task", turnId: "turn" }],
+    reviewed: true,
+  };
+  expect(await setResultsReviewed(bulk)).toBe(1);
+  expect((await listResultReviews({ pendingOnly: true })).total).toBe(0);
+  // Already reviewed rows are not re-counted as cleared.
+  expect(await setResultsReviewed(bulk)).toBe(0);
+
+  const saved = window.localStorage.getItem("stave:result-reviews:v1");
+  Object.assign(window, { api: { persistence: { setResultsReviewed: async () => ({ ok: false, updated: 0 }) } } });
+  await expect(setResultsReviewed({ ...bulk, reviewed: false })).rejects.toThrow("Reviews were not saved");
+  expect(window.localStorage.getItem("stave:result-reviews:v1")).toBe(saved);
 });

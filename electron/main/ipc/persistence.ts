@@ -8,7 +8,13 @@ import {
 import {
   ListResultReviewsArgsSchema,
   SetResultReviewedArgsSchema,
+  SetResultsReviewedArgsSchema,
 } from "../../../src/lib/reviews/result-review";
+import {
+  ClearFleetAttentionSnoozesArgsSchema,
+  ListFleetAttentionSnoozesArgsSchema,
+  SnoozeFleetAttentionArgsSchema,
+} from "../../../src/lib/fleet/attention-snooze";
 import {
   ClearNotificationHistoryArgsSchema,
   CreateNotificationArgsSchema,
@@ -97,6 +103,30 @@ export function registerPersistenceHandlers() {
     const store = await ensurePersistenceReady();
     const result = store.resultReviews.setReviewed(parsed.data);
     return { ok: result !== null, result };
+  });
+  ipcMain.handle("persistence:set-results-reviewed", async (_event, args: unknown) => {
+    const parsed = SetResultsReviewedArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, updated: 0 };
+    const store = await ensurePersistenceReady();
+    return { ok: true, updated: store.resultReviews.setManyReviewed(parsed.data) };
+  });
+  ipcMain.handle("persistence:list-fleet-attention-snoozes", async (_event, args: unknown) => {
+    const parsed = ListFleetAttentionSnoozesArgsSchema.safeParse(args ?? {});
+    if (!parsed.success) return { ok: false, snoozes: [] };
+    const store = await ensurePersistenceReady();
+    return { ok: true, snoozes: store.fleetAttentionSnoozes.list(parsed.data) };
+  });
+  ipcMain.handle("persistence:snooze-fleet-attention", async (_event, args: unknown) => {
+    const parsed = SnoozeFleetAttentionArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, snooze: null };
+    const store = await ensurePersistenceReady();
+    return { ok: true, snooze: store.fleetAttentionSnoozes.snooze(parsed.data) };
+  });
+  ipcMain.handle("persistence:clear-fleet-attention-snoozes", async (_event, args: unknown) => {
+    const parsed = ClearFleetAttentionSnoozesArgsSchema.safeParse(args ?? {});
+    if (!parsed.success) return { ok: false, cleared: 0 };
+    const store = await ensurePersistenceReady();
+    return { ok: true, cleared: store.fleetAttentionSnoozes.clear(parsed.data) };
   });
   ipcMain.handle("persistence:get-bootstrap-status", async () => {
     return getPersistenceBootstrapStatus();

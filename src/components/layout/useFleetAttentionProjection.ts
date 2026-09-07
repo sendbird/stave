@@ -12,6 +12,7 @@ import { useAppStore } from "@/store/app.store";
 import type { Task } from "@/types/chat";
 import { hasDurableResultReviewStore } from "@/lib/reviews/result-review-client";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
+import { useFleetAttentionSnoozes } from "@/lib/fleet/useFleetAttentionSnoozes";
 
 interface FleetWorkspaceIdentity {
   projectPath: string;
@@ -91,6 +92,7 @@ export function useFleetAttentionProjection() {
    * Notifications stay the record there, exactly as before durable results.
    */
   const durableResultStore = hasDurableResultReviewStore();
+  const snoozes = useFleetAttentionSnoozes();
 
   const coldNotificationWorkspaceIds = useMemo(() => {
     const knownWorkspaceIds = new Set(
@@ -232,6 +234,7 @@ export function useFleetAttentionProjection() {
       prWorkspaces,
       knownWorkspaceIds: new Set(identityByWorkspaceId.keys()),
       closedTaskKeys: closedTaskKeysFromShell,
+      snoozedAttentionIds: snoozes.activeIds,
     });
 
     for (const item of projection.items) {
@@ -246,6 +249,8 @@ export function useFleetAttentionProjection() {
       resultReviewTotal: reviews.page.total,
       resultReviewHasMore: reviews.page.hasMore,
       refreshResultReviews: reviews.refresh,
+      snoozeError: snoozes.error,
+      refreshSnoozes: snoozes.refresh,
     };
   }, [
     activeMessagesByTask,
@@ -265,5 +270,8 @@ export function useFleetAttentionProjection() {
     reviews.page,
     reviews.error,
     reviews.refresh,
+    snoozes.activeIds,
+    snoozes.error,
+    snoozes.refresh,
   ]);
 }

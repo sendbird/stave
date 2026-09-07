@@ -149,4 +149,29 @@ describe("durable result review", () => {
     expect(store.list({ offset: 200 }).results).toHaveLength(5);
     expect(store.list({ workspaceId: "elsewhere" }).total).toBe(0);
   });
+
+  test("bulk review clears a queue, reports only real changes, and reopens", () => {
+    const store = new ResultReviewStore(db);
+    for (let i = 0; i < 3; i++) insert(`result-${i}`, `turn-${i}`);
+    const scopes = [0, 1, 2].map((i) => ({ ...scope, turnId: `turn-${i}` }));
+
+    expect(store.setManyReviewed({ scopes, reviewed: true })).toBe(3);
+    expect(store.list({ pendingOnly: true }).total).toBe(0);
+
+    // A repeat clear is not three more clears; the timestamp is already owned.
+    const reviewedAt = store.list().results[0]?.reviewedAt;
+    expect(store.setManyReviewed({ scopes, reviewed: true })).toBe(3);
+    expect(store.list().results[0]?.reviewedAt).toBe(reviewedAt!);
+
+    // An unknown scope must not be counted as cleared.
+    expect(
+      store.setManyReviewed({
+        scopes: [{ ...scope, turnId: "missing" }],
+        reviewed: true,
+      }),
+    ).toBe(0);
+
+    expect(store.setManyReviewed({ scopes, reviewed: false })).toBe(3);
+    expect(store.list({ pendingOnly: true }).total).toBe(3);
+  });
 });

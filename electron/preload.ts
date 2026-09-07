@@ -1571,6 +1571,17 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:list-result-reviews", args ?? {}),
     setResultReviewed: (args: import("../src/lib/reviews/result-review").SetResultReviewedArgs) =>
       ipcRenderer.invoke("persistence:set-result-reviewed", args),
+    setResultsReviewed: (args: import("../src/lib/reviews/result-review").SetResultsReviewedArgs) =>
+      ipcRenderer.invoke("persistence:set-results-reviewed", args),
+    listFleetAttentionSnoozes: (
+      args?: import("../src/lib/fleet/attention-snooze").ListFleetAttentionSnoozesArgs,
+    ) => ipcRenderer.invoke("persistence:list-fleet-attention-snoozes", args ?? {}),
+    snoozeFleetAttention: (
+      args: import("../src/lib/fleet/attention-snooze").SnoozeFleetAttentionArgs,
+    ) => ipcRenderer.invoke("persistence:snooze-fleet-attention", args),
+    clearFleetAttentionSnoozes: (
+      args?: import("../src/lib/fleet/attention-snooze").ClearFleetAttentionSnoozesArgs,
+    ) => ipcRenderer.invoke("persistence:clear-fleet-attention-snoozes", args ?? {}),
     listNotifications: (args?: { limit?: number; unreadOnly?: boolean }) =>
       ipcRenderer.invoke("persistence:list-notifications", args ?? {}),
     createNotification: (args: { notification: AppNotificationCreateInput }) =>

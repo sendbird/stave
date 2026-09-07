@@ -186,6 +186,10 @@ export const attentionStyles = stylex.create({
     height: 24,
     paddingInline: 6,
   },
+  rowActionIcon: {
+    height: vars.controlIconSizeSm,
+    width: vars.controlIconSizeSm,
+  },
   rowControls: {
     backgroundColor: vars.colorCanvas,
     borderTopColor: vars.colorBorder,
@@ -196,6 +200,16 @@ export const attentionStyles = stylex.create({
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
     borderTopWidth: vars.borderWidthHairline,
+  },
+  /**
+   * The toggle and the bulk clear are siblings rather than nested: a button
+   * inside a button is invalid, and the disclosure must stay the wide target.
+   */
+  reviewHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space4,
+    paddingInlineEnd: 6,
   },
   reviewToggle: {
     alignItems: "center",
@@ -218,6 +232,25 @@ export const attentionStyles = stylex.create({
   },
   reviewCount: {
     color: vars.colorTextMuted,
+    fontSize: vars.fontSizeCaption,
+    fontVariantNumeric: "tabular-nums",
+  },
+  /** Keeps hidden rows accountable: a snooze must never be a silent delete. */
+  snoozedFooter: {
+    alignItems: "center",
+    borderTopColor: vars.colorBorder,
+    borderTopStyle: "solid",
+    borderTopWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: 6,
+    minHeight: 32,
+    paddingBlock: 6,
+    paddingInlineEnd: 6,
+    paddingInlineStart: vars.space12,
+  },
+  snoozedLabel: {
+    color: vars.colorTextMuted,
+    flexGrow: 1,
     fontSize: vars.fontSizeCaption,
     fontVariantNumeric: "tabular-nums",
   },

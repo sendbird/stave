@@ -106,6 +106,12 @@ export interface FleetAttentionProjection {
   count: number;
   blockingItems: FleetAttentionItem[];
   reviewItems: FleetAttentionItem[];
+  /**
+   * Items the user snoozed and their deadline has not passed yet. They are kept
+   * out of `items` and every count derived from it, but still returned so the
+   * rail can say how many rows it is hiding and offer to bring them back.
+   */
+  snoozedItems: FleetAttentionItem[];
   highestAttentionByWorkspaceId: Record<string, FleetAttentionItem | undefined>;
   attentionItemsByWorkspaceId: Record<string, FleetAttentionItem[] | undefined>;
 }
@@ -535,6 +541,11 @@ export function buildFleetAttentionProjection(args: {
   knownWorkspaceIds?: ReadonlySet<string>;
   /** Closed tasks resolved from cold workspace shells outside live state. */
   closedTaskKeys?: ReadonlySet<string>;
+  /**
+   * Attention ids with an unexpired snooze. Filtering happens after the merge so
+   * one snooze covers an item no matter which source wins for it on this pass.
+   */
+  snoozedAttentionIds?: ReadonlySet<string>;
 }): FleetAttentionProjection {
   const byId = new Map<string, FleetAttentionItem>();
   const externalTaskKeys = new Set(
@@ -620,7 +631,14 @@ export function buildFleetAttentionProjection(args: {
     );
   }
 
-  const items = Array.from(byId.values()).sort(compareFleetAttentionItems);
+  const merged = Array.from(byId.values()).sort(compareFleetAttentionItems);
+  const snoozedAttentionIds = args.snoozedAttentionIds;
+  const items = snoozedAttentionIds
+    ? merged.filter((item) => !snoozedAttentionIds.has(item.id))
+    : merged;
+  const snoozedItems = snoozedAttentionIds
+    ? merged.filter((item) => snoozedAttentionIds.has(item.id))
+    : [];
   const highestAttentionByWorkspaceId: Record<
     string,
     FleetAttentionItem | undefined
@@ -649,6 +667,7 @@ export function buildFleetAttentionProjection(args: {
     reviewItems: items.filter(
       (item) => FLEET_ATTENTION_TIER[item.kind] === "review",
     ),
+    snoozedItems,
     highestAttentionByWorkspaceId,
     attentionItemsByWorkspaceId,
   };

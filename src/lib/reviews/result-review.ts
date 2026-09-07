@@ -27,8 +27,23 @@ export const SetResultReviewedArgsSchema = ResultReviewScopeSchema.extend({
   reviewed: z.boolean(),
 }).strict();
 
+/**
+ * Bulk form of `SetResultReviewedArgs`, used by Fleet's `Clear` action. Clearing
+ * a full review queue can touch every pending row the surface paged in, so the
+ * write is one transaction and one IPC round trip instead of up to 200.
+ */
+export const SetResultsReviewedArgsSchema = z
+  .object({
+    scopes: z.array(ResultReviewScopeSchema).min(1).max(200),
+    reviewed: z.boolean(),
+  })
+  .strict();
+
 export type ListResultReviewsArgs = z.infer<typeof ListResultReviewsArgsSchema>;
 export type SetResultReviewedArgs = z.infer<typeof SetResultReviewedArgsSchema>;
+export type SetResultsReviewedArgs = z.infer<
+  typeof SetResultsReviewedArgsSchema
+>;
 export type ResultReviewScope = z.infer<typeof ResultReviewScopeSchema>;
 
 export const ResultReviewSchema = ResultReviewScopeSchema.extend({
