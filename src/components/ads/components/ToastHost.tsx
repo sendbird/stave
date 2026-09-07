@@ -269,10 +269,10 @@ function ToastHostList({
       tone === "neutral" || tone === "loading" ? null : toneIcons[tone];
     // Toast-stack action placement: a single-line toast keeps the action
     // inline at the end of the row (vertically centered); once a description
-    // makes the toast multi-line, the action drops to a bottom-end row so it
-    // never floats mid-card. The close affordance stays in its own trailing
-    // column (top-aligned when multi-line), so it never collides with the
-    // action.
+    // makes the toast multi-line, the action drops to a bottom-end row below
+    // the whole row — including the trailing close column — so it never floats
+    // mid-card and its trailing edge lines up with the close button's, flush
+    // to the card's inline padding rather than inset by a close-button width.
     const hasAction = Boolean(toast.actionProps);
     const hasDescription = Boolean(toast.description);
     const inlineAction = hasAction && !hasDescription;
@@ -294,70 +294,68 @@ function ToastHostList({
         swipeDirection={swipe}
         toast={toast}
       >
-        <ToastContent
-          className={sx(
-            styles.content,
-            hasDescription && styles.contentMultiline,
-          )}
-        >
-          {tone === "loading" ? (
-            <span
-              className={sx(
-                styles.icon,
-                hasDescription && styles.iconMultiline,
-                styles.iconLoading,
-              )}
-            >
-              <Loader aria-hidden size="xs" />
-            </span>
-          ) : Icon ? (
-            // The glyph gets its own slot rather than being styled directly:
-            // when a description makes the toast multi-line the row top-aligns,
-            // and the slot is what carries the title's line box so the glyph
-            // can be centred on it by flex alignment (see `iconMultiline`).
-            <span
-              className={sx(
-                styles.icon,
-                hasDescription && styles.iconMultiline,
-                toneIconStyles[tone as keyof typeof toneIconStyles],
-              )}
-            >
-              <Icon aria-hidden size={18} />
-            </span>
-          ) : null}
-          <div className={sx(styles.copy)}>
-            <ToastTitle className={sx(styles.title)} />
-            <ToastDescription className={sx(styles.description)} />
-            {hasAction && hasDescription ? (
-              <div className={sx(styles.actionRow)}>
-                <ToastAction
-                  render={<Button size="sm" variant="secondary" />}
-                />
-              </div>
-            ) : null}
-          </div>
-          {inlineAction ? (
-            <ToastAction render={<Button size="sm" variant="secondary" />} />
-          ) : null}
-          <ToastClose
-            className={sx(
-              surfaceChrome.quietIconButton,
-              controlSquares.sm,
-              focusRing.ring,
-            )}
-            aria-label="Dismiss toast"
-            // Same close contract as Popover/Dialog: a 16px glyph in the 32px
-            // quiet square. It shipped at 14px, so the identical-looking button
-            // read weaker here than on every other overlay surface.
-            data-ads-control-icon-button="true"
-            style={
-              {
-                "--ads-control-icon-size": controlIconSizes.md,
-              } as React.CSSProperties
-            }
+        <ToastContent className={sx(styles.content)}>
+          <div
+            className={sx(styles.row, hasDescription && styles.rowMultiline)}
           >
-            <X aria-hidden />
-          </ToastClose>
+            {tone === "loading" ? (
+              <span
+                className={sx(
+                  styles.icon,
+                  hasDescription && styles.iconMultiline,
+                  styles.iconLoading,
+                )}
+              >
+                <Loader aria-hidden size="xs" />
+              </span>
+            ) : Icon ? (
+              // The glyph gets its own slot rather than being styled directly:
+              // when a description makes the toast multi-line the row
+              // top-aligns, and the slot is what carries the title's line box
+              // so the glyph can be centred on it by flex alignment (see
+              // `iconMultiline`).
+              <span
+                className={sx(
+                  styles.icon,
+                  hasDescription && styles.iconMultiline,
+                  toneIconStyles[tone as keyof typeof toneIconStyles],
+                )}
+              >
+                <Icon aria-hidden size={18} />
+              </span>
+            ) : null}
+            <div className={sx(styles.copy)}>
+              <ToastTitle className={sx(styles.title)} />
+              <ToastDescription className={sx(styles.description)} />
+            </div>
+            {inlineAction ? (
+              <ToastAction render={<Button size="sm" variant="secondary" />} />
+            ) : null}
+            <ToastClose
+              className={sx(
+                surfaceChrome.quietIconButton,
+                controlSquares.sm,
+                focusRing.ring,
+              )}
+              aria-label="Dismiss toast"
+              // Same close contract as Popover/Dialog: a 16px glyph in the 32px
+              // quiet square. It shipped at 14px, so the identical-looking
+              // button read weaker here than on every other overlay surface.
+              data-ads-control-icon-button="true"
+              style={
+                {
+                  "--ads-control-icon-size": controlIconSizes.md,
+                } as React.CSSProperties
+              }
+            >
+              <X aria-hidden />
+            </ToastClose>
+          </div>
+          {hasAction && hasDescription ? (
+            <div className={sx(styles.actionRow)}>
+              <ToastAction render={<Button size="sm" variant="secondary" />} />
+            </div>
+          ) : null}
         </ToastContent>
       </ToastRoot>
     );
@@ -420,17 +418,24 @@ const styles = stylex.create({
   toastLimited: {
     opacity: 0,
   },
-  // Flex row: [icon?] [copy 1fr] [inline action?] [close]. Single-line
-  // toasts center everything; multi-line toasts top-align the trailing
-  // chrome and push the action into a bottom-end row inside the copy.
+  // Column: the main row, then the multi-line action row underneath it. The
+  // action row is a sibling of the row rather than a child of `copy` so it
+  // spans the close column too; nesting it in `copy` inset its trailing edge
+  // by the close button's width plus the row gap.
   content: {
-    alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    flexDirection: "column",
     paddingBlock: vars.space12,
     paddingInline: vars.space16,
   },
-  contentMultiline: {
+  // Flex row: [icon?] [copy 1fr] [inline action?] [close]. Single-line
+  // toasts center everything; multi-line toasts top-align the trailing chrome.
+  row: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars.space8,
+  },
+  rowMultiline: {
     alignItems: "flex-start",
   },
   // Tone reads from the icon (neutral card), matching Alert/Banner. The slot is
@@ -475,11 +480,13 @@ const styles = stylex.create({
     lineHeight: vars.lineHeightNormal,
     margin: 0,
   },
-  // Bottom-end action row for multi-line toasts (toast-stack anatomy).
+  // Bottom-end action row for multi-line toasts (toast-stack anatomy). It sits
+  // outside the row so the button's trailing edge is flush with the card's
+  // inline padding, aligned with the close button above it.
   actionRow: {
     display: "flex",
     justifyContent: "flex-end",
-    marginBlockStart: vars.space8,
+    marginBlockStart: vars.space12,
   },
 });
 
