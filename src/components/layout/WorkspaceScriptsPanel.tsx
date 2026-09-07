@@ -902,6 +902,9 @@ export function WorkspaceScriptsPanel(props: {
       <SectionTabs
         fillHeight
         wrap
+        // A ~300px rail: four counted labels on the default rung measured 330px
+        // and wrapped onto a second row.
+        size="xs"
         label="Workspace tools views"
         value={activeView}
         onValueChange={(value) => {

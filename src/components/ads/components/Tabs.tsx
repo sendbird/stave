@@ -66,8 +66,15 @@ export type TabsVariant = "pill" | "line";
  * forced `sm` onto a 24px trigger that does not exist. So today's strip is
  * `sm` — unchanged, still the default — and `md` is the new roomier rung
  * (32px trigger, 40px strip) for a page-level tab bar.
+ *
+ * `xs` is below the floor that argument describes, and it exists for the one
+ * embedding that argument does not cover: a strip inside a ~300px rail panel,
+ * where nothing is standing beside it to measure against and the constraint is
+ * horizontal, not vertical. It takes the 24px tree-row height and steps the
+ * label to Caption so three or four counted labels stay on one line instead of
+ * wrapping the strip onto a second row.
  */
-export type TabsSize = "md" | "sm";
+export type TabsSize = "md" | "sm" | "xs";
 
 /** Base UI's own axis vocabulary, re-stated so callers can name it. */
 export type TabsOrientation = "horizontal" | "vertical";

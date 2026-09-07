@@ -12,7 +12,21 @@ import { sx, cx } from "../ads/utils/stylex";
 const ForwardButton = AdsButton as ComponentType<ButtonBaseProps>;
 const variants = { default: "primary", outline: "outline", secondary: "secondary", ghost: "quiet", destructive: "soft", link: "link" } as const;
 const sizes = { default: "md", xs: "xs", sm: "sm", lg: "lg", icon: "md", "icon-xs": "xs", "icon-sm": "sm", "icon-lg": "lg" } as const;
-type Options = { xstyle?: StyleXValue; variant?: keyof typeof variants | null; size?: keyof typeof sizes | null; className?: string };
+type Options = {
+  xstyle?: StyleXValue;
+  variant?: keyof typeof variants | null;
+  size?: keyof typeof sizes | null;
+  className?: string;
+  /**
+   * ADS box ownership. `control` (the default) lets ADS size the box and its
+   * glyph, and it does so through an unlayered `> svg` rule that no author
+   * style can outrank. `host` keeps every ADS behaviour and token but hands the
+   * geometry — height, gutters, glyph box — to the caller's own styles, which
+   * is what a lane that pins its controls to one height and one glyph size
+   * needs (the composer control lanes, the top bar row).
+   */
+  layout?: "control" | "host";
+};
 
 /** Class-only consumers share the same ADS recipes as real buttons. */
 export function buttonVariants({ variant = "default", size = "default", className }: Options = {}) {

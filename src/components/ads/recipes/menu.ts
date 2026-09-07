@@ -155,9 +155,47 @@ export const menu = stylex.create({
     paddingInline: vars.space8,
   },
   item: {
+    /*
+     * `Menu.Item` documents a `render` passthrough, and the element a caller
+     * renders into is routinely a real `<button>` (Base UI's `nativeButton`) —
+     * that is the accessible choice for a row that performs an action. A native
+     * button arrives with UA control chrome, and this recipe stated none of the
+     * four properties that chrome occupies: a menu row painted `ButtonFace`
+     * (`rgb(239,239,239)` light / mid-gray dark) inside a `colorSurfaceRaised`
+     * popup, framed by a `2px outset` border, with the label centred by the UA's
+     * own `text-align`. Every visual decision below it — the hover wash, the
+     * hairline-free surface, the flush-left label — was being painted over by a
+     * stylesheet the recipe never answered. So the reset belongs here, in the
+     * one place that styles the row, rather than at each call site that happens
+     * to know it rendered a button.
+     *
+     * `transparent` (not `null`, not omitted) is also what lets
+     * `menu.itemHighlighted` read as the only fill in the popup: it is composed
+     * after this key at every call site, so the hover value wins the property
+     * and the resting row has nothing of its own to unset.
+     */
+    appearance: "none",
+    backgroundColor: "transparent",
+    borderStyle: "none",
+    borderWidth: 0,
+    // Buttons do not inherit the document face; `styles.css` states this for
+    // every control, and the recipe restates it so a row is correct even where
+    // that base layer is not loaded (a portalled popup in a host that imports
+    // recipes without the stylesheet).
+    fontFamily: "inherit",
+    margin: 0,
+    // The UA centres a button's label. A menu row's label is flush to the
+    // reading edge.
     textAlign: "start",
     alignItems: "center",
     borderRadius: vars.radiusControl,
+    // A native button is `inline-block` at content width and shrink-wraps its
+    // label; every other row recipe that survives a button render states the
+    // full-width contract explicitly (`select-styles.item`,
+    // `agent-surface.row`). Grid parents already stretch it, so this only
+    // matters for the popup shapes a caller composes by hand.
+    boxSizing: "border-box",
+    inlineSize: "100%",
     color: vars.colorText,
     // Flex row (icon? · label · trailing) instead of a grid with a hardcoded
     // first track: icon-less items must not carry a phantom left gutter.

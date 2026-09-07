@@ -135,6 +135,12 @@ export function PromptInputWorkerPill(args: {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  // The composer lane owns this control's box (height, gutters, and one
+                  // glyph size for every control in the row), so the glyph rule has to be a
+                  // default rather than a mandate: `layout="control"` applies ADS's own
+                  // unlayered `> svg` size and pinned this trigger to the `sm` ramp's 14px
+                  // while its `layout="host"` neighbours in the same wing rendered 16.
+                  layout="host"
                   disabled={args.disabled}
                   aria-label={`Configure Worker mode · ${presentation.label}`}
                   {...composerControlAttributes}

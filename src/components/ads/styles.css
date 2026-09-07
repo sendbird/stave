@@ -5,6 +5,31 @@
 @import "./inline-disclosure-motion.css";
 @layer reset, base;
 
+/*
+ * Corner geometry is published to a button as custom properties, and custom
+ * properties inherit by default — a ButtonGroup segment zeroing its seam
+ * corners would otherwise square every Button rendered anywhere inside that
+ * segment's subtree. Registering them as non-inheriting keeps each declaration
+ * on the element that made it; unset elsewhere they stay guaranteed-invalid, so
+ * `var(--ads-button-radius-*, radiusControl)` resolves to the normal token.
+ */
+@property --ads-button-radius-start-start {
+  syntax: "*";
+  inherits: false;
+}
+@property --ads-button-radius-start-end {
+  syntax: "*";
+  inherits: false;
+}
+@property --ads-button-radius-end-start {
+  syntax: "*";
+  inherits: false;
+}
+@property --ads-button-radius-end-end {
+  syntax: "*";
+  inherits: false;
+}
+
 :root {
   --atelier-motion-duration-micro: 80ms;
   --atelier-motion-duration-fast: 120ms;
@@ -62,6 +87,38 @@
     font-family: inherit;
     /* Or the control takes the UA's own size — 13.33px for a Chrome button. */
     font-size: inherit;
+  }
+
+  /*
+   * The UA gives every block text element a `margin-block` in `em`, so its size
+   * changes with the font size of the element it lands on: a `p` at Caption
+   * contributes 12px above and below, an `h1` 16.08px. Spacing in this system is
+   * owned by the container (`gap`, `padding`), which means that margin is always
+   * unwanted and never token-sized — and it is why nearly every component here
+   * had to state `margin: 0` on its own title and description. One row of a
+   * settings list rendered 49px between a name and its meta line because two of
+   * those margins survived next to a `space4` gap.
+   *
+   * `@layer reset` is the lowest-priority layer in the published order, below
+   * every StyleX `priority*` layer, so any margin a component or a host actually
+   * authors — long-form prose, a markdown renderer restating paragraph rhythm —
+   * still wins without needing `!important` or a higher-specificity selector.
+   */
+  blockquote,
+  dd,
+  dl,
+  figure,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  ol,
+  p,
+  pre,
+  ul {
+    margin: 0;
   }
 }
 

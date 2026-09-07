@@ -131,7 +131,21 @@ export function TopBar() {
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <div className={sx(topBarStyles.pathChip)} />
+                    <div
+                      className={sx(
+                        // The leading half of a segmented pair, so it needs the
+                        // same 32px geometry and bordered fill its own trailing
+                        // trigger already composes. Rendering `pathChip` alone
+                        // left the chip with no height, no border and no type
+                        // step: the path inherited the 16px document size while
+                        // every sibling control in the row ran at 12px, and the
+                        // pair read as a floating mono string welded to a
+                        // button.
+                        topBarControlStyles.control,
+                        topBarControlStyles.surface,
+                        topBarStyles.pathChip,
+                      )}
+                    />
                   }
                 >
                   <FolderTree {...stylex.props(topBarControlStyles.icon)} />

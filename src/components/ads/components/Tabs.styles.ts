@@ -22,6 +22,26 @@ import { vars } from "../tokens/tokens.stylex";
  */
 const PANEL_VIEWPORT_MIN_BLOCK_SIZE = 96;
 
+/*
+ * The dense rail/tree rung. It is the one size where the type comes down with
+ * the box: Body (14/20) inside a 24px control leaves 2px of vertical air, and a
+ * strip of Body labels is what makes a 300px rail wrap its tabs onto a second
+ * row — measured 330px of tabs in a 300px panel. Caption plus the `sm` gutter
+ * keeps three or four counted labels on one line, which is the whole reason
+ * this rung exists. `sm` and `md` stay on Body deliberately: they align against
+ * Button, which also holds Body for both of those rungs.
+ */
+const tabExtraSmallHeight = stylex.create({
+  xs: {
+    fontSize: vars.fontSizeCaption,
+    minBlockSize: {
+      default: vars.treeRowHeightCompact,
+      "@media (pointer: coarse)": vars.controlHeightXl,
+    },
+    paddingInline: vars.space8,
+  },
+});
+
 /**
  * `size` → shared control-ramp height for the tab trigger. See `TabsSize` for
  * why the names are offset one rung from the ramp step they resolve to.
@@ -29,10 +49,33 @@ const PANEL_VIEWPORT_MIN_BLOCK_SIZE = 96;
 export const tabHeightBySize = {
   md: controlHeightBySize.sm,
   sm: controlHeightBySize.xs,
+  xs: tabExtraSmallHeight.xs,
 } as const;
 
 export const styles = stylex.create({
+  // `alignContent: start` is the horizontal counterpart to `rootVertical`'s
+  // `alignItems: start`. The root declares no explicit rows, so when a host
+  // stretches it (a flex child with `flex: 1` / `blockSize: 100%` inside a
+  // fixed-height panel) the default `align-content: normal` behaves as
+  // `stretch` and the leftover block space is split EQUALLY across the
+  // implicit auto rows — measured `grid-template-rows: 437.95px 661.05px` in a
+  // host app, which centred the tab strip inside a 438px row and left it
+  // floating mid-panel. Packing the rows at the start pins the strip to the
+  // top in every embedding and changes nothing for a content-sized root, where
+  // the rows already summed to the container height.
+  //
+  // Tradeoff, deliberately not taken: a `gridTemplateRows: "auto minmax(0,
+  // 1fr)"` default would additionally let the panel row absorb the slack and
+  // own scrolling. It is unsafe here because the compound API puts each
+  // `Tabs.Panel` directly under the root (only the array API wraps them in
+  // `panelViewport`), so a three-tab compound root has four children: the `1fr`
+  // would land on whichever panel happens to be second and the rest would fall
+  // into implicit auto rows — and with `mount="eager"`/`keepMounted` several
+  // hidden panels are in that flow at once, so which row stretched would depend
+  // on child order rather than on which tab is active. A host that needs a
+  // filling, scrolling panel row can set `gridTemplateRows` on its own root.
   root: {
+    alignContent: "start",
     display: "grid",
     gap: vars.space12,
     minInlineSize: 0,

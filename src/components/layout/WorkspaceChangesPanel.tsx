@@ -695,6 +695,11 @@ export function WorkspaceChangesPanel(props: {
       onValueChange={(nextValue) =>
         setMode(nextValue as SourceControlPanelMode)
       }
+      // The rail is ~300px. On the default `sm` rung these two labels plus
+      // their glyphs measure 220px of a 234px track, and the strip beneath
+      // overflows outright; `xs` is the rung meant for this embedding (24px
+      // trigger, Caption label).
+      size="xs"
       className={sx(changesStyles.shell)}
     >
       <div className={sx(changesStyles.modeBar)}>
@@ -729,6 +734,9 @@ export function WorkspaceChangesPanel(props: {
           // `line`, matching the Reviews detail tabs: three counted labels plus
           // two actions cannot fit a 300px rail as an enclosed pill track.
           variant="line"
+          // Same rail, same rung as the mode strip above it. Three counted
+          // labels measured 251px on `sm` inside a 234px track.
+          size="xs"
           className={sx(changesStyles.shell)}
         >
           <div className={sx(changesStyles.viewBar)}>

@@ -132,13 +132,13 @@ export const branchDropdownStyles = stylex.create({
   },
   driftText: {
     color: vars.colorTextMuted,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     lineHeight: "1rem",
     marginTop: vars.space2,
   },
   driftAction: {
     flexShrink: 0,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     height: 28,
     paddingInline: vars.space8,
   },
@@ -172,7 +172,7 @@ export const branchDropdownStyles = stylex.create({
   statusPill: {
     borderRadius: vars.radiusMark,
     flexShrink: 0,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     paddingBlock: vars.space2,
     paddingInline: 6,
   },
@@ -190,7 +190,7 @@ export const branchDropdownStyles = stylex.create({
   },
   statusHint: {
     color: vars.colorTextMuted,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     lineHeight: "1rem",
     marginTop: vars.space4,
   },
@@ -232,7 +232,7 @@ export const branchDropdownStyles = stylex.create({
   },
   createError: {
     color: vars.colorDangerText,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     marginTop: 6,
     paddingInline: vars.space2,
   },
@@ -258,7 +258,7 @@ export const branchDropdownStyles = stylex.create({
     alignItems: "center",
     color: vars.colorTextMuted,
     display: "flex",
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
     justifyContent: "space-between",
     letterSpacing: "normal",

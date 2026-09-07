@@ -269,7 +269,7 @@ export const openPrStyles = stylex.create({
   tagLocation: {
     color: vars.colorTextMuted,
     fontFamily: vars.fontMono,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -342,7 +342,7 @@ export const openPrStyles = stylex.create({
   fieldLabel: {
     color: vars.colorTextMuted,
     display: "block",
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightSemibold,
     letterSpacing: "0.12em",
     textTransform: "uppercase",

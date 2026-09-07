@@ -199,9 +199,9 @@ export function ThemeProvider({
 
   // Mirror onto <html> so portaled surfaces (menus, dialogs, toasts, which
   // mount at document.body and never see the wrapper div) resolve the same
-  // tokens as the in-tree content. Classes and inline vars are tracked so the
-  // cleanup removes exactly what this effect added, leaving anything a host
-  // page set on <html> itself untouched.
+  // tokens as the in-tree content. Classes and inline vars are tracked and any
+  // pre-existing inline value is snapshotted, so the cleanup restores <html>
+  // to exactly what the host page had set, never deleting host-owned styles.
   const themeClassName = themeProps.className;
   const densityClassName = densityProps?.className;
   // `stylex.props` returns a fresh style object every render, so it is
@@ -230,16 +230,29 @@ export function ThemeProvider({
       string,
       string | undefined
     >;
+    // Snapshot every inline value this effect is about to overwrite so the
+    // cleanup restores the host's own `<html>` styles instead of deleting
+    // them — the same capture/restore used below for `colorScheme`. Without it
+    // a theme switch (which re-runs this effect) tore down host-authored
+    // custom properties on `<html>` and left the shell resolving fallbacks.
+    const previousVars = new Map<string, string>();
     for (const [name, value] of Object.entries(appliedVars)) {
       if (name.startsWith("--") && value != null) {
+        previousVars.set(name, root.style.getPropertyValue(name));
         root.style.setProperty(name, value);
       }
     }
 
     // Hand-off from a pre-hydration boot script: a host may inline a background
     // on <html> to avoid a light flash before React mounts. Now that the real
-    // theme class is on, that inline value would outrank it — so drop it.
-    root.style.removeProperty("background-color");
+    // theme class is on, that inline value would outrank it — so drop it. Only
+    // the boot script's own value is dropped (it flags itself with
+    // `data-ads-boot-background`); a background a host set deliberately is left
+    // alone, and the flag is cleared so this happens exactly once.
+    if (root.dataset.adsBootBackground != null) {
+      root.style.removeProperty("background-color");
+      delete root.dataset.adsBootBackground;
+    }
 
     const previousColorScheme = root.style.colorScheme;
     root.style.colorScheme = resolved === "dark" ? "dark" : "light";
@@ -248,8 +261,10 @@ export function ThemeProvider({
 
     return () => {
       root.classList.remove(...added);
-      for (const name of Object.keys(appliedVars)) {
-        if (name.startsWith("--")) {
+      for (const [name, previous] of previousVars) {
+        if (previous) {
+          root.style.setProperty(name, previous);
+        } else {
           root.style.removeProperty(name);
         }
       }

@@ -28,6 +28,7 @@ import {
   splitFileSearchPath,
 } from "./file-search-utils";
 import { fileSearchStyles } from "./top-bar-file-search.styles";
+import { topBarControlStyles } from "./top-bar.styles";
 
 interface TopBarFileSearchProps {
   noDragStyle?: CSSProperties;
@@ -279,6 +280,11 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
           <div
             data-slot="command-input-wrapper"
             className={sx(
+              // The same two keys every other control in the 48px bar composes,
+              // so the field shares their height, gutter, radius and fill
+              // instead of restating four of them with different numbers.
+              topBarControlStyles.control,
+              topBarControlStyles.surface,
               fileSearchStyles.inputRow,
               isOpen && fileSearchStyles.inputRowOpen,
             )}

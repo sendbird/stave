@@ -9,6 +9,15 @@ export const menuMarker = stylex.defineMarker();
 /** Lane owners determine geometry; providers and actions determine behavior. */
 export const controlStyles = stylex.create({
   button: {
+    /*
+     * `layout="host"` hands the caller the whole box, ADS's own
+     * `display: inline-flex` included — so the lane has to state it. Without
+     * these two the shelf's Advisor and Worker triggers fell back to the UA
+     * `inline-block` and stacked their glyph above their label while their
+     * `layout="control"` neighbours in the same row stayed inline.
+     */
+    alignItems: "center",
+    display: "inline-flex",
     // Heights come off the ADS control ramp (`recipes/control-metrics`):
     // sm 32 everywhere. The in-card toolbar used to ask for md 36, but the
     // attach/send buttons that share that row live in `actionsRow`, outside
@@ -42,6 +51,21 @@ export const controlStyles = stylex.create({
     flexDirection: { default: null, [stylex.when.ancestor(':is([data-side="left"])', wingMarker)]: "row-reverse" },
     textAlign: { default: null, [stylex.when.ancestor(':is([data-side="left"])', wingMarker)]: "right", [stylex.when.ancestor(':is([data-side="right"])', wingMarker)]: "left" },
     fontSize: vars.fontSizeCaption,
+    /*
+     * One glyph size for the whole lane, published as the ADS control variable
+     * so it reaches the `[data-ads-control="button"] > svg` contract as well as
+     * anything sized by hand.
+     *
+     * The lane pins every control to `controlHeightSm` (32px) above, and an ADS
+     * `sm` control publishes `controlIconSizeSm` (14px). But the composer's own
+     * controls each declared a 16px glyph locally — advisor mode, worker mode,
+     * provider mode, the runtime trigger — so the wings rendered 16px next to
+     * ADS's 14px depending on which control had bothered to state it, and the
+     * plain ones read as having shrunk. 16px (`controlIconSizeMd`) is the value
+     * this surface already chose in four places and the one that suits a 32px
+     * box; stating it once on the lane makes the odd control out impossible.
+     */
+    "--ads-control-icon-size": vars.controlIconSizeMd,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     boxShadow: "none",
     // Radius is deliberately absent: ADS `Button` resolves each corner from

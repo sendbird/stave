@@ -24,9 +24,13 @@ export const tabsShimStyles = stylex.create({
    * Vertical roots are excluded: their axis is `gridTemplateColumns`
    * (`styles.rootVertical`), and forcing two rows onto a rail would push a
    * third grid item (a second mounted panel) onto a new row beside it.
+   *
+   * `alignContent: start` used to be stated here as well. ADS now declares it
+   * on the root itself, for both orientations, so restating it would emit the
+   * same class the ADS root already carries — which is exactly what a vertical
+   * root must not inherit from this key.
    */
   fillRows: {
-    alignContent: "start",
     gridTemplateRows: "auto minmax(0, 1fr)",
   },
 });

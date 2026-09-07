@@ -64,7 +64,7 @@ export const attentionStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: vars.space4,
     paddingBlock: vars.space32,
     paddingInline: vars.space16,
     textAlign: "center",
@@ -74,15 +74,24 @@ export const attentionStyles = stylex.create({
     height: 20,
     width: 20,
   },
+  /*
+   * Body, not Lead. This is a panel-level empty state inside a 320px column
+   * whose eyebrow runs Caption and whose rows run Body — a Lead title made
+   * "Nothing blocked" the largest type anywhere in the Fleet surface, two steps
+   * above the copy directly beneath it, and it read as a page heading that had
+   * wandered into a sidebar. Body + semibold keeps it the strongest thing in
+   * the column without leaving the column's scale.
+   */
   emptyTitle: {
     color: vars.colorText,
-    fontSize: vars.fontSizeLead,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightLead,
+    lineHeight: vars.lineHeightNormal,
   },
   emptyHint: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
+    lineHeight: vars.lineHeightNormal,
   },
   row: {
     borderBottomColor: vars.colorBorder,

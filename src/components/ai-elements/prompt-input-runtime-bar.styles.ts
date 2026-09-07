@@ -40,7 +40,7 @@ export const runtimeBarStyles = stylex.create({
     alignItems: "center",
     gap: vars.space20,
     paddingBlock: vars.space8,
-    fontSize: 13,
+    fontSize: vars.fontSizeCaption,
     borderTopWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorderSubtle,

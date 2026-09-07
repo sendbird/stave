@@ -10,6 +10,7 @@ export function SectionTabs({
   value,
   onValueChange,
   fillHeight = false,
+  size,
   wrap = false,
 }: {
   items: readonly {
@@ -22,6 +23,12 @@ export function SectionTabs({
   value: string;
   onValueChange: (id: string) => void;
   fillHeight?: boolean;
+  /**
+   * ADS control rung for the strip. Left unset it takes the ADS default
+   * (`sm`); a rail panel around 300px wide should pass `xs`, which is the rung
+   * that steps the label to Caption so counted labels stay on one line.
+   */
+  size?: "xs" | "sm" | "md";
   wrap?: boolean;
 }) {
   return (
@@ -32,6 +39,7 @@ export function SectionTabs({
     <Tabs.Root
       value={value}
       onValueChange={(v) => onValueChange(String(v))}
+      size={size}
       className={sx(fillHeight && styles.fillRoot)}
     >
       <Tabs.List aria-label={label} {...stylex.props(styles.list, wrap && styles.wrapList)}>
@@ -39,7 +47,6 @@ export function SectionTabs({
           <Tabs.Tab
             key={item.id}
             value={item.id}
-            {...stylex.props(wrap && styles.wrapTab)}
           >
             {item.label}
           </Tabs.Tab>
@@ -67,8 +74,14 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   list: { flexShrink: 0, overflowX: "auto" },
+  /*
+   * A wrapped strip keeps every tab at its natural width. `flexGrow: 1` on the
+   * tabs used to stretch each row to fill the track, so a four-tab strip in a
+   * 300px rail rendered three tabs on row one and the fourth as a full-width
+   * bar centred on row two — it read as a section header, not as the last tab
+   * in a set.
+   */
   wrapList: { flexWrap: "wrap", overflowX: "visible", flexShrink: 0 },
-  wrapTab: { flexGrow: 1 },
   panel: { paddingBlockStart: vars.space16, minInlineSize: 0, outline: "none" },
   fillPanel: { minBlockSize: 0, overflowY: "auto", paddingBlockStart: 0 },
 });

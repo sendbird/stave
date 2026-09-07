@@ -40,7 +40,13 @@ export const fleetStyles = stylex.create({
     minWidth: 0,
   },
   headerIcon: {
-    color: vars.colorAccent,
+    /*
+     * Muted, not accent. The accent is the app's one "this is current, or this
+     * is the thing to act on" signal; a decorative glyph beside a panel title is
+     * neither, and painting it accent put the loudest colour in the surface on
+     * the one element in it that does nothing.
+     */
+    color: vars.colorTextMuted,
     flexShrink: 0,
     height: 16,
     width: 16,
@@ -204,14 +210,19 @@ export const fleetStyles = stylex.create({
     transform: "translateY(-50%)",
     width: 14,
   },
+  /*
+   * Chrome comes from the ADS field: raised fill, hairline at rest, border
+   * strengthening on hover and taking the focus colour on `:focus-within`. This
+   * key used to replace all of that with a flat `colorCanvasSubtle` box whose
+   * border was transparent until hovered — a field that only looked like a
+   * field once the pointer was already on it, and the one input in the app with
+   * its own fill. What is left is the toolbar's geometry: the `sm` height its
+   * neighbouring filter buttons carry, and the gutters the leading search glyph
+   * and the trailing clear button need.
+   */
   searchInput: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: {
-      default: "transparent",
-      ":hover": vars.colorBorder,
-    },
     fontSize: vars.fontSizeCaption,
-    height: 28,
+    height: vars.controlHeightSm,
     paddingInlineEnd: vars.space32,
     paddingInlineStart: vars.space32,
   },
