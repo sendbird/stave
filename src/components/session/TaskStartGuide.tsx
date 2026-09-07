@@ -130,19 +130,11 @@ export function TaskStartGuide({
           </div>
         ) : null}
       </Empty>
-      {showExamples ? (
+      {showExamples && !brief?.goal && !brief?.nextAction ? (
         <div className={sx(styles.actions, styles.footerActions)}>
-          <Button
-            variant="outline"
-            onClick={() => useAppStore.getState().openAutomationCenter()}
-          >
-            Browse workflows, macros &amp; presets
+          <Button variant="outline" onClick={openInformation}>
+            Keep a goal &amp; next action
           </Button>
-          {!brief?.goal && !brief?.nextAction ? (
-            <Button variant="outline" onClick={openInformation}>
-              Keep a goal &amp; next action
-            </Button>
-          ) : null}
         </div>
       ) : null}
     </div>

@@ -49,8 +49,8 @@ export function TopBarRoutines(props: { noDragStyle: CSSProperties }) {
       </TooltipTrigger>
       <TooltipContent side="bottom">
         {isAutomationCenterActive
-          ? "Close Library"
-          : "Library"}
+          ? "Close Automations"
+          : "Automations"}
       </TooltipContent>
     </Tooltip>
   );

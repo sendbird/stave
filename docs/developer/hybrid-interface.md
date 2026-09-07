@@ -84,14 +84,12 @@ A finished run remains distinct from reviewed or verified work.
 Existing project/task lists remain the primary navigation. Fleet and Tasks keep
 their existing placement and visibility preferences. Workspace Information holds
 the maintained goal, completion conditions, decisions, evidence, and next action.
-Automation opens a library of workflows, macros, task presets and workspace tools,
-with schedules and run history alongside it. These are optional destinations, not mandatory steps before working.
+Automations is the destination for scheduling repeatable agent work and reviewing
+run history. It is an optional destination, not a mandatory step before working.
 
-The library is usable before project selection. Actions explain when a project
-is required. Workflow and macro actions append to an editable draft, creating a
-task when needed; they never send the prompt. Presets store model, provider and
-effort in the new task's draft overrides, leaving other tasks and global defaults
-unchanged. Each action rechecks its workspace identity at invocation time.
+Automations remains usable before project selection. Each automation explains
+when a project or workspace is required and rechecks its workspace identity at
+invocation time.
 
 ## Workspace tools and resumption
 
@@ -125,7 +123,7 @@ reversible action stored independently of notification cleanup.
 
 Use the collaboration preview and browser contract tests for narrow/light/dark
 layout, keyboard navigation, computed metrics, and uncertain delivery. Native
-Electron tests cover product navigation, the library-to-task path, rejected
+Electron tests cover product navigation, the automation-to-task path, rejected
 workspace writes and retry, direction recovery, and result-review persistence.
 Theme, provider and child lifecycle contracts remain required alongside them.
 

@@ -19,8 +19,6 @@ import {
 } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import { ActionButton } from "@/components/system/ActionButton";
-import { WorkflowLibrary } from "@/components/collaboration/WorkflowLibrary";
-import { OpenPathDialog } from "../OpenPathDialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -75,7 +73,7 @@ import { centerStyles } from "./automation-center-view.styles";
 
 const ALL_AUTOMATIONS = "all";
 
-type AutomationCenterTab = "library" | "automations" | "runs";
+type AutomationCenterTab = "automations" | "runs";
 
 function Detail(props: { label: string; value: string }) {
   return (
@@ -94,7 +92,6 @@ function Detail(props: { label: string; value: string }) {
 }
 
 export function AutomationCenterView() {
-  const [openProjectDialog, setOpenProjectDialog] = useState(false);
   const [
     recentProjects,
     projectPath,
@@ -103,7 +100,6 @@ export function AutomationCenterView() {
     workspacePathById,
     workspaceDefaultById,
     activeWorkspaceId,
-    activeTaskId,
     flushActiveWorkspaceSnapshot,
     focusTaskAttention,
     setLayout,
@@ -119,7 +115,6 @@ export function AutomationCenterView() {
           state.workspacePathById,
           state.workspaceDefaultById,
           state.activeWorkspaceId,
-          state.activeTaskId,
           state.flushActiveWorkspaceSnapshot,
           state.focusTaskAttention,
           state.setLayout,
@@ -131,7 +126,7 @@ export function AutomationCenterView() {
     routines: [],
     runs: [],
   });
-  const [activeTab, setActiveTab] = useState<AutomationCenterTab>("library");
+  const [activeTab, setActiveTab] = useState<AutomationCenterTab>("automations");
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(
     null,
   );
@@ -614,11 +609,10 @@ export function AutomationCenterView() {
         <div className={sx(centerStyles.headerText)}>
           <div className={sx(centerStyles.headerTitleRow)}>
             <Workflow className={sx(centerStyles.headerIcon)} />
-            <h1 className={sx(centerStyles.headerTitle)}>Library</h1>
+            <h1 className={sx(centerStyles.headerTitle)}>Automations</h1>
           </div>
           <p className={sx(centerStyles.headerSubtitle)}>
-            Reusable instructions, task setups, workspace tools, and scheduled
-            work.
+            Schedule repeatable agent work and inspect run history.
           </p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
@@ -660,7 +654,7 @@ export function AutomationCenterView() {
             size="sm"
             xstyle={centerStyles.iconButton}
             aria-label="close-automation-center"
-            title="Close Library"
+            title="Close Automations"
             onClick={closeAutomationCenter}
           >
             <X className={sx(centerStyles.actionIcon)} />
@@ -669,11 +663,10 @@ export function AutomationCenterView() {
       </header>
 
       <div className={sx(centerStyles.toolbar)}>
-        <nav aria-label="Library views" className={sx(centerStyles.tabNav)}>
+        <nav aria-label="Automation views" className={sx(centerStyles.tabNav)}>
           {(
             [
-              ["library", "Library"],
-              ["automations", `Schedules · ${snapshot.routines.length}`],
+              ["automations", `Automations · ${snapshot.routines.length}`],
               ["runs", `Run history · ${snapshot.runs.length}`],
             ] as const
           ).map(([id, label]) => (
@@ -752,19 +745,7 @@ export function AutomationCenterView() {
         </div>
       ) : null}
 
-      {activeTab === "library" ? (
-        <div className={sx(centerStyles.libraryPane)}>
-          <div className={sx(centerStyles.libraryColumn)}>
-            <WorkflowLibrary
-              taskId={activeTaskId}
-              workspaceId={activeWorkspaceId}
-              projectPath={projectPath}
-              onDraftReady={closeAutomationCenter}
-              onOpenProject={() => setOpenProjectDialog(true)}
-            />
-          </div>
-        </div>
-      ) : showLoadingState ? (
+      {showLoadingState ? (
         <div
           className={sx(centerStyles.loadingPane)}
           role="status"
@@ -779,9 +760,9 @@ export function AutomationCenterView() {
             />
           </div>
           <div>
-            <p className={sx(centerStyles.loadingTitle)}>Loading Library</p>
+            <p className={sx(centerStyles.loadingTitle)}>Loading automations</p>
             <p className={sx(centerStyles.loadingHint)}>
-              Restoring workflows, execution policy, and run history.
+              Restoring automations, execution policy, and run history.
             </p>
           </div>
         </div>
@@ -1099,16 +1080,6 @@ export function AutomationCenterView() {
         </div>
       )}
 
-      <OpenPathDialog
-        open={openProjectDialog}
-        onOpenChange={setOpenProjectDialog}
-        onSubmitPath={(inputPath) =>
-          useAppStore.getState().openProjectFromPath({ inputPath })
-        }
-        onBrowse={async () => {
-          await useAppStore.getState().createProject({});
-        }}
-      />
       <ConfirmDialog
         open={Boolean(deleteRoutine)}
         title="Delete automation"

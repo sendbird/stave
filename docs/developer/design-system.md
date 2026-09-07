@@ -76,8 +76,8 @@ small panels, keyboard focus, and custom theme changes in the built renderer.
 
 Fleet presents work across workspaces. Tasks select and organize work. Information
 holds workspace goals, decisions, and evidence; project memory has its own
-collection controls. Library contains reusable instructions, task setups, and
-scheduled work. There is no separate Knowledge or Today destination.
+collection controls. Automations schedule repeatable agent work and keep run
+history. There is no separate Knowledge or Today destination.
 
 Workspace tools support finding an action, running it, and reading its selected
 output. Search crosses process and command categories without discarding the
